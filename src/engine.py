@@ -31,7 +31,8 @@ class AnalysisEngine:
             if self.active_strategies and name not in self.active_strategies:
                 continue
             try:
-                strategy_result = strategy_func(data)
+                # 戦略関数にデータのコピーを渡すことで、SettingWithCopyWarningを回避
+                strategy_result = strategy_func(data.copy())
                 results[name] = strategy_result
             except Exception as e:
                 print(f"Error running strategy {name}: {e}")
@@ -112,8 +113,9 @@ def moving_average_cross_strategy(data: pd.DataFrame, short_window=5, long_windo
     if 'Close' not in data.columns:
         return {"error": "'Close' column not found in data"}
 
-    data['SMA_Short'] = data['Close'].rolling(window=short_window).mean()
-    data['SMA_Long'] = data['Close'].rolling(window=long_window).mean()
+    # .loc を使用して明示的に新しいカラムを作成
+    data.loc[:, 'SMA_Short'] = data['Close'].rolling(window=short_window).mean()
+    data.loc[:, 'SMA_Long'] = data['Close'].rolling(window=long_window).mean()
 
     # ゴールデンクロスとデッドクロスの判定
     # ゴールデンクロス: 短期SMAが長期SMAを上抜ける
@@ -184,7 +186,7 @@ def volume_analysis_strategy(data: pd.DataFrame, window=20, volume_multiplier=1.
     if 'Volume' not in data.columns:
         return {"error": "'Volume' column not found in data"}
 
-    data['Volume_MA'] = data['Volume'].rolling(window=window).mean()
+    data.loc[:, 'Volume_MA'] = data['Volume'].rolling(window=window).mean()
 
     latest_volume = data['Volume'].iloc[-1]
     latest_volume_ma = data['Volume_MA'].iloc[-1]
@@ -210,17 +212,10 @@ def vwap_strategy(data: pd.DataFrame):
     if not all(col in data.columns for col in ['Close', 'High', 'Low', 'Volume']):
         return {"error": "Required columns (Close, High, Low, Volume) not found in data"}
 
-    # Typical Price (TP) = (High + Low + Close) / 3
-    data['TP'] = (data['High'] + data['Low'] + data['Close']) / 3
-
-    # Cumulative TP * Volume
-    data['TP_Volume'] = data['TP'] * data['Volume']
-
-    # Cumulative Volume
-    data['Cumulative_Volume'] = data['Volume'].cumsum()
-
-    # VWAP = Cumulative TP * Volume / Cumulative Volume
-    data['VWAP'] = data['TP_Volume'].cumsum() / data['Cumulative_Volume']
+    data.loc[:, 'TP'] = (data['High'] + data['Low'] + data['Close']) / 3
+    data.loc[:, 'TP_Volume'] = data['TP'] * data['Volume']
+    data.loc[:, 'Cumulative_Volume'] = data['Volume'].cumsum()
+    data.loc[:, 'VWAP'] = data['TP_Volume'].cumsum() / data['Cumulative_Volume']
 
     latest_vwap = data['VWAP'].iloc[-1]
     latest_close = data['Close'].iloc[-1]
@@ -248,11 +243,11 @@ def bollinger_bands_strategy(data: pd.DataFrame, window=20, num_std_dev=2):
     if 'Close' not in data.columns:
         return {"error": "'Close' column not found in data"}
 
-    data['SMA'] = data['Close'].rolling(window=window).mean()
-    data['STD'] = data['Close'].rolling(window=window).std()
+    data.loc[:, 'SMA'] = data['Close'].rolling(window=window).mean()
+    data.loc[:, 'STD'] = data['Close'].rolling(window=window).std()
 
-    data['Upper_Band'] = data['SMA'] + (data['STD'] * num_std_dev)
-    data['Lower_Band'] = data['SMA'] - (data['STD'] * num_std_dev)
+    data.loc[:, 'Upper_Band'] = data['SMA'] + (data['STD'] * num_std_dev)
+    data.loc[:, 'Lower_Band'] = data['SMA'] - (data['STD'] * num_std_dev)
 
     latest_close = data['Close'].iloc[-1]
     latest_sma = data['SMA'].iloc[-1]
@@ -282,19 +277,15 @@ def atr_strategy(data: pd.DataFrame, window=14):
     if not all(col in data.columns for col in ['High', 'Low', 'Close']):
         return {"error": "Required columns (High, Low, Close) not found in data"}
 
-    # True Range (TR)
-    data['TR1'] = abs(data['High'] - data['Low'])
-    data['TR2'] = abs(data['High'] - data['Close'].shift())
-    data['TR3'] = abs(data['Low'] - data['Close'].shift())
-    data['TR'] = data[['TR1', 'TR2', 'TR3']].max(axis=1)
+    data.loc[:, 'TR1'] = abs(data['High'] - data['Low'])
+    data.loc[:, 'TR2'] = abs(data['High'] - data['Close'].shift())
+    data.loc[:, 'TR3'] = abs(data['Low'] - data['Close'].shift())
+    data.loc[:, 'TR'] = data[['TR1', 'TR2', 'TR3']].max(axis=1)
 
-    # Average True Range (ATR)
-    data['ATR'] = data['TR'].rolling(window=window).mean()
+    data.loc[:, 'ATR'] = data['TR'].rolling(window=window).mean()
 
     latest_atr = data['ATR'].iloc[-1]
 
-    # ATRに基づくシグナル (例: ATRが急増したらボラティリティ上昇)
-    # ここでは単純に最新のATR値を返す
     signal = "NEUTRAL"
     if latest_atr > data['ATR'].iloc[-window:-1].mean() * 1.2: # 例: 過去の平均より20%高ければ高ボラティリティ
         signal = "HIGH_VOLATILITY"
