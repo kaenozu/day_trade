@@ -1,2 +1,11 @@
+# Python cache
+src/__pycache__/
 
-venv/
+# Test data
+dummy_data.csv
+strategies.json
+aapl_data.csv
+issue_body.txt
+issue_body_backtest.txt
+issue_body_config.txt
+stock_data.csv

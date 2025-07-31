@@ -15,8 +15,11 @@ def main():
 
     # run_analysis command
     run_analysis_parser = subparsers.add_parser("run_analysis", help="Run market analysis")
-    run_analysis_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="Path to the stock data CSV file")
+    run_analysis_parser.add_argument("--data_path", type=str, default=None, help="Path to the stock data CSV file")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to run")
+    run_analysis_parser.add_argument("--ticker", type=str, default=None, help="Stock ticker symbol (e.g., AAPL) to fetch data directly")
+    run_analysis_parser.add_argument("--start_date", type=str, default=None, help="Start date (YYYY-MM-DD) for fetched data")
+    run_analysis_parser.add_argument("--end_date", type=str, default=None, help="End date (YYYY-MM-DD) for fetched data")
 
     # fetch_data command
     fetch_data_parser = subparsers.add_parser("fetch_data", help="Fetch stock data from Yahoo Finance")
@@ -27,18 +30,36 @@ def main():
 
     # run_backtest command
     run_backtest_parser = subparsers.add_parser("run_backtest", help="Run backtest for strategies")
-    run_backtest_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="Path to the stock data CSV file for backtesting")
+    run_backtest_parser.add_argument("--data_path", type=str, default=None, help="Path to the stock data CSV file for backtesting")
     run_backtest_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to backtest")
     run_backtest_parser.add_argument("--initial_capital", type=float, default=config.get('backtest', {}).get('initial_capital', 10000.0), help="Initial capital for backtesting")
+    run_backtest_parser.add_argument("--ticker", type=str, default=None, help="Stock ticker symbol (e.g., AAPL) to fetch data directly")
+    run_backtest_parser.add_argument("--start_date", type=str, default=None, help="Start date (YYYY-MM-DD) for fetched data")
+    run_backtest_parser.add_argument("--end_date", type=str, default=None, help="End date (YYYY-MM-DD) for fetched data")
 
     args = parser.parse_args()
 
     if args.command == "run_analysis":
-        print(f"Running analysis with data from {args.data_path}")
-        try:
-            dummy_data = pd.read_csv(args.data_path)
-        except FileNotFoundError:
-            print(f"Error: Data file not found at {args.data_path}")
+        data = None
+        if args.ticker:
+            print(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            data = fetch_stock_data(
+                args.ticker,
+                args.start_date or config.get('fetch_data', {}).get('default_start_date'),
+                args.end_date or config.get('fetch_data', {}).get('default_end_date')
+            )
+            if data.empty:
+                print(f"Error: Failed to fetch data for {args.ticker}")
+                return
+        elif args.data_path:
+            print(f"Running analysis with data from {args.data_path}")
+            try:
+                data = pd.read_csv(args.data_path)
+            except FileNotFoundError:
+                print(f"Error: Data file not found at {args.data_path}")
+                return
+        else:
+            print("Error: Either --data_path or --ticker must be specified for run_analysis.")
             return
 
         engine = AnalysisEngine()
@@ -64,12 +85,11 @@ def main():
                 print(f"Error parsing strategies JSON from file: {e}")
                 return
         else:
-            # config.yamlからデフォルト戦略を読み込む
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
             if default_strategies:
                 engine.set_active_strategies(default_strategies)
 
-        analysis_results = engine.run_analysis(dummy_data)
+        analysis_results = engine.run_analysis(data)
         print("Analysis Results:", analysis_results)
 
         final_decision = engine.make_ensemble_decision(analysis_results)
@@ -85,11 +105,29 @@ def main():
             print(f"Failed to fetch data for {args.ticker}")
 
     elif args.command == "run_backtest":
-        print(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
-        try:
-            data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
-        except FileNotFoundError:
-            print(f"Error: Data file not found at {args.data_path}")
+        data = None
+        if args.ticker:
+            print(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            data = fetch_stock_data(
+                args.ticker,
+                args.start_date or config.get('fetch_data', {}).get('default_start_date'),
+                args.end_date or config.get('fetch_data', {}).get('default_end_date')
+            )
+            if data.empty:
+                print(f"Error: Failed to fetch data for {args.ticker}")
+                return
+            # バックテストのためにインデックスを日付に設定
+            data.index.name = 'Date'
+            data.index = pd.to_datetime(data.index)
+        elif args.data_path:
+            print(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
+            try:
+                data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
+            except FileNotFoundError:
+                print(f"Error: Data file not found at {args.data_path}")
+                return
+        else:
+            print("Error: Either --data_path or --ticker must be specified for run_backtest.")
             return
 
         all_strategies = {
@@ -120,7 +158,6 @@ def main():
                 print(f"Error parsing strategies JSON from file: {e}")
                 return
         else:
-            # config.yamlからデフォルト戦略を読み込む
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
             if default_strategies:
                 for s_name in default_strategies:
