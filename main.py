@@ -1,11 +1,10 @@
-# main.py
-
 import argparse
 import pandas as pd
 import json
 import os
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
+from src.backtester import run_backtest
 
 def main():
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
@@ -22,6 +21,12 @@ def main():
     fetch_data_parser.add_argument("--start_date", type=str, required=True, help="Start date (YYYY-MM-DD)")
     fetch_data_parser.add_argument("--end_date", type=str, required=True, help="End date (YYYY-MM-DD)")
     fetch_data_parser.add_argument("--output_path", type=str, default="stock_data.csv", help="Output CSV file path")
+
+    # run_backtest command
+    run_backtest_parser = subparsers.add_parser("run_backtest", help="Run backtest for strategies")
+    run_backtest_parser.add_argument("--data_path", type=str, required=True, help="Path to the stock data CSV file for backtesting")
+    run_backtest_parser.add_argument("--strategies_file", type=str, required=True, help="Path to a JSON file containing a list of strategies to backtest")
+    run_backtest_parser.add_argument("--initial_capital", type=float, default=10000.0, help="Initial capital for backtesting")
 
     args = parser.parse_args()
 
@@ -70,6 +75,49 @@ def main():
             print(f"Data saved to {args.output_path}")
         else:
             print(f"Failed to fetch data for {args.ticker}")
+
+    elif args.command == "run_backtest":
+        print(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
+        try:
+            data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
+        except FileNotFoundError:
+            print(f"Error: Data file not found at {args.data_path}")
+            return
+
+        all_strategies = {
+            "MA Cross": moving_average_cross_strategy,
+            "RSI": rsi_strategy,
+            "Volume Analysis": volume_analysis_strategy,
+            "VWAP": vwap_strategy,
+            "Bollinger Bands": bollinger_bands_strategy,
+            "ATR": atr_strategy,
+            "Sentiment Analysis": sentiment_analysis_strategy
+        }
+
+        strategies_to_backtest = {}
+        if args.strategies_file:
+            try:
+                with open(args.strategies_file, 'r') as f:
+                    strategies_json = f.read()
+                parsed_strategies = json.loads(strategies_json)
+                for s_name in parsed_strategies:
+                    if s_name in all_strategies:
+                        strategies_to_backtest[s_name] = all_strategies[s_name]
+                    else:
+                        print(f"Warning: Strategy '{s_name}' not found and will be skipped.")
+            except FileNotFoundError:
+                print(f"Error: Strategies file not found at {args.strategies_file}")
+                return
+            except json.JSONDecodeError as e:
+                print(f"Error parsing strategies JSON from file: {e}")
+                return
+        
+        if not strategies_to_backtest:
+            print("Error: No valid strategies specified for backtesting.")
+            return
+
+        backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
+        print("Backtest Results:", backtest_results)
 
     else:
         parser.print_help()
