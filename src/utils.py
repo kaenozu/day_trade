@@ -1,4 +1,5 @@
 import os
+import yfinance as yf
 
 def load_tickers(file_path="tickers.txt"):
     """
@@ -16,8 +17,6 @@ def load_tickers(file_path="tickers.txt"):
             if ticker:  # 空行を無視
                 tickers.append(ticker)
     return tickers
-
-import yfinance as yf
 
 def get_stock_data(ticker, period="1d", interval="1m"):
     """
@@ -60,4 +59,3 @@ if __name__ == "__main__":
             print(f"Failed to fetch data for {sample_ticker}")
     else:
         print("\nNo tickers loaded to test get_stock_data.")
-
