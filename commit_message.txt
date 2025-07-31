@@ -1,0 +1,4 @@
+feat: Implement ensemble decision logic in AnalysisEngine
+
+- Add `make_ensemble_decision` method to `AnalysisEngine` to integrate results from multiple strategies.
+- Update test cases to include ensemble decision testing.
