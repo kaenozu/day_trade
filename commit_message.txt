@@ -1,3 +1,5 @@
-feat: Remove unnecessary files
+feat: Implement Bollinger Bands strategy
 
-- Deleted `commit_message.txt` and `pr_body.txt` as they are temporary files not directly related to the program.
+- Add `bollinger_bands_strategy` function to `src/engine.py`.
+- This strategy calculates Bollinger Bands and generates buy/sell signals based on price relative to the bands.
+- Update test cases to include `bollinger_bands_strategy`.
