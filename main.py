@@ -5,6 +5,7 @@ import pandas as pd
 import json
 import os
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
+from src.data_fetcher import fetch_stock_data
 
 def main():
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
@@ -15,11 +16,17 @@ def main():
     run_analysis_parser.add_argument("--data_path", type=str, required=True, help="Path to the stock data CSV file")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to run")
 
+    # fetch_data command
+    fetch_data_parser = subparsers.add_parser("fetch_data", help="Fetch stock data from Yahoo Finance")
+    fetch_data_parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol (e.g., AAPL)")
+    fetch_data_parser.add_argument("--start_date", type=str, required=True, help="Start date (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--end_date", type=str, required=True, help="End date (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--output_path", type=str, default="stock_data.csv", help="Output CSV file path")
+
     args = parser.parse_args()
 
     if args.command == "run_analysis":
         print(f"Running analysis with data from {args.data_path}")
-        # Dummy data for now, replace with actual data loading
         try:
             dummy_data = pd.read_csv(args.data_path)
         except FileNotFoundError:
@@ -28,7 +35,6 @@ def main():
 
         engine = AnalysisEngine()
 
-        # Register all available strategies
         engine.register_strategy("MA Cross", moving_average_cross_strategy)
         engine.register_strategy("RSI", rsi_strategy)
         engine.register_strategy("Volume Analysis", volume_analysis_strategy)
@@ -55,6 +61,15 @@ def main():
 
         final_decision = engine.make_ensemble_decision(analysis_results)
         print("Final Decision:", final_decision)
+
+    elif args.command == "fetch_data":
+        print(f"Fetching data for {args.ticker} from {args.start_date} to {args.end_date}")
+        df = fetch_stock_data(args.ticker, args.start_date, args.end_date)
+        if not df.empty:
+            df.to_csv(args.output_path, index=True)
+            print(f"Data saved to {args.output_path}")
+        else:
+            print(f"Failed to fetch data for {args.ticker}")
 
     else:
         parser.print_help()
