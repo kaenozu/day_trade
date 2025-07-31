@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 class AnalysisEngine:
     def __init__(self):
@@ -117,9 +118,15 @@ def moving_average_cross_strategy(data: pd.DataFrame, short_window=5, long_windo
     data.loc[:, 'SMA_Short'] = data['Close'].rolling(window=short_window).mean()
     data.loc[:, 'SMA_Long'] = data['Close'].rolling(window=long_window).mean()
 
+    # データが不足している場合、シグナルを生成しない
+    if pd.isna(data['SMA_Short'].iloc[-1]) or pd.isna(data['SMA_Long'].iloc[-1]):
+        return {
+            "signal": "NEUTRAL",
+            "SMA_Short": data['SMA_Short'].iloc[-1] if not pd.isna(data['SMA_Short'].iloc[-1]) else None,
+            "SMA_Long": data['SMA_Long'].iloc[-1] if not pd.isna(data['SMA_Long'].iloc[-1]) else None
+        }
+
     # ゴールデンクロスとデッドクロスの判定
-    # ゴールデンクロス: 短期SMAが長期SMAを上抜ける
-    # デッドクロス: 短期SMAが長期SMAを下抜ける
     signals = []
     for i in range(1, len(data)):
         if data['SMA_Short'].iloc[i] > data['SMA_Long'].iloc[i] and \
@@ -152,15 +159,24 @@ def rsi_strategy(data: pd.DataFrame, window=14, overbought_threshold=70, oversol
     if 'Close' not in data.columns:
         return {"error": "'Close' column not found in data"}
 
-    delta = data['Close'].diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+    close_delta = data['Close'].diff()
 
-    avg_gain = gain.rolling(window=window).mean()
-    avg_loss = loss.rolling(window=window).mean()
+    # Make the positive gains (up) and negative gains (down) Series
+    up = close_delta.clip(lower=0)
+    down = -1 * close_delta.clip(upper=0)
+    
+    # Use exponential moving average
+    ma_up = up.ewm(com=window - 1, adjust=True, min_periods=window).mean()
+    ma_down = down.ewm(com=window - 1, adjust=True, min_periods=window).mean()
 
-    rs = avg_gain / avg_loss
+    rs = ma_up / ma_down
     rsi = 100 - (100 / (1 + rs))
+
+    if rsi.empty or pd.isna(rsi.iloc[-1]):
+        return {
+            "signal": "NEUTRAL",
+            "RSI": np.nan
+        }
 
     latest_rsi = rsi.iloc[-1]
 
@@ -191,6 +207,13 @@ def volume_analysis_strategy(data: pd.DataFrame, window=20, volume_multiplier=1.
     latest_volume = data['Volume'].iloc[-1]
     latest_volume_ma = data['Volume_MA'].iloc[-1]
 
+    if pd.isna(latest_volume) or pd.isna(latest_volume_ma):
+        return {
+            "signal": "NEUTRAL",
+            "Latest_Volume": latest_volume,
+            "Volume_MA": latest_volume_ma
+        }
+
     signal = "NORMAL_VOLUME"
     if latest_volume > latest_volume_ma * volume_multiplier:
         signal = "HIGH_VOLUME"
@@ -219,6 +242,13 @@ def vwap_strategy(data: pd.DataFrame):
 
     latest_vwap = data['VWAP'].iloc[-1]
     latest_close = data['Close'].iloc[-1]
+
+    if pd.isna(latest_vwap) or pd.isna(latest_close):
+        return {
+            "signal": "NEUTRAL",
+            "VWAP": latest_vwap,
+            "Latest_Close": latest_close
+        }
 
     signal = "NEUTRAL"
     if latest_close > latest_vwap:
@@ -254,6 +284,14 @@ def bollinger_bands_strategy(data: pd.DataFrame, window=20, num_std_dev=2):
     latest_upper_band = data['Upper_Band'].iloc[-1]
     latest_lower_band = data['Lower_Band'].iloc[-1]
 
+    if pd.isna(latest_close) or pd.isna(latest_sma) or pd.isna(latest_upper_band) or pd.isna(latest_lower_band):
+        return {
+            "signal": "NEUTRAL",
+            "SMA": latest_sma,
+            "Upper_Band": latest_upper_band,
+            "Lower_Band": latest_lower_band
+        }
+
     signal = "NEUTRAL"
     if latest_close < latest_lower_band:
         signal = "BUY"
@@ -286,6 +324,12 @@ def atr_strategy(data: pd.DataFrame, window=14):
 
     latest_atr = data['ATR'].iloc[-1]
 
+    if pd.isna(latest_atr):
+        return {
+            "signal": "NEUTRAL",
+            "ATR": latest_atr
+        }
+
     signal = "NEUTRAL"
     if latest_atr > data['ATR'].iloc[-window:-1].mean() * 1.2: # 例: 過去の平均より20%高ければ高ボラティリティ
         signal = "HIGH_VOLATILITY"
@@ -308,6 +352,12 @@ def sentiment_analysis_strategy(data: pd.DataFrame):
         return {"error": "'Sentiment' column not found in data"}
 
     latest_sentiment = data['Sentiment'].iloc[-1]
+
+    if pd.isna(latest_sentiment):
+        return {
+            "signal": "NEUTRAL_SENTIMENT",
+            "Sentiment": latest_sentiment
+        }
 
     signal = "NEUTRAL_SENTIMENT"
     if latest_sentiment > 0:
@@ -336,16 +386,11 @@ if __name__ == "__main__":
         # 例: 終値の平均を計算
         return {"average_close": data['Close'].mean()}
 
-    def sample_strategy_2(data):
-        # 例: ボリュームの合計を計算
-        return {"total_volume": data['Volume'].sum()}
-
     # エンジンを初期化
     engine = AnalysisEngine()
 
     # 戦略を登録
     engine.register_strategy("Strategy A", sample_strategy_1)
-    engine.register_strategy("Strategy B", sample_strategy_2)
     engine.register_strategy("MA Cross", moving_average_cross_strategy)
     engine.register_strategy("RSI", rsi_strategy)
     engine.register_strategy("Volume Analysis", volume_analysis_strategy)
@@ -369,7 +414,7 @@ if __name__ == "__main__":
     def error_strategy(data):
         raise ValueError("This strategy always fails!")
 
-    engine.register_strategy("Error Strategy", error_strategy)
+    engine.register_strategy("Error Error Strategy", error_strategy)
     error_results = engine.run_analysis(dummy_data)
     print("Error Test Results:", error_results)
 
