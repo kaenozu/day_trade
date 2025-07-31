@@ -1,5 +1,5 @@
-feat: Implement Bollinger Bands strategy
+feat: Implement market sentiment analysis strategy
 
-- Add `bollinger_bands_strategy` function to `src/engine.py`.
-- This strategy calculates Bollinger Bands and generates buy/sell signals based on price relative to the bands.
-- Update test cases to include `bollinger_bands_strategy`.
+- Add `market_sentiment_strategy` function to `src/engine.py`.
+- This strategy provides a dummy sentiment score for demonstration purposes.
+- Update test cases to include `market_sentiment_strategy`.
