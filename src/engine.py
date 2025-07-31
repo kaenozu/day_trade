@@ -38,34 +38,65 @@ class AnalysisEngine:
                 results[name] = {"error": str(e)}
         return results
 
-def make_ensemble_decision(analysis_results):
+    def make_ensemble_decision(self, analysis_results):
         """
         複数の分析戦略の結果を統合し、最終的な推奨を決定する。
+        各戦略のシグナルに重み付けを行い、総合的な判断を下す。
         :param analysis_results: 各戦略の結果をまとめた辞書
         :return: 最終的な推奨 (例: "BUY", "SELL", "HOLD")
         """
-        buy_signals = 0
-        sell_signals = 0
+        buy_score = 0
+        sell_score = 0
 
-        # 例: 各戦略の結果を評価し、シグナルをカウント
+        # 各戦略の結果を評価し、スコアを計算
         for strategy_name, result in analysis_results.items():
-            if "average_close" in result and result["average_close"] > 103: # 例示的な条件
-                buy_signals += 1
-            if "total_volume" in result and result["total_volume"] < 6000: # 例示的な条件
-                sell_signals += 1
+            if "signal" in result:
+                signal = result["signal"]
 
-        # センチメント分析の結果を評価
-        if "Sentiment Analysis" in analysis_results:
-            sentiment_result = analysis_results["Sentiment Analysis"]
-            if "signal" in sentiment_result:
-                if sentiment_result["signal"] == "POSITIVE_SENTIMENT":
-                    buy_signals += 1
-                elif sentiment_result["signal"] == "NEGATIVE_SENTIMENT":
-                    sell_signals += 1
+                if strategy_name == "MA Cross":
+                    if signal == "BUY":
+                        buy_score += 1.0
+                    elif signal == "SELL":
+                        sell_score += 1.0
+                
+                elif strategy_name == "RSI":
+                    if signal == "OVERSOLD":
+                        buy_score += 1.0
+                    elif signal == "OVERBOUGHT":
+                        sell_score += 1.0
 
-        if buy_signals > sell_signals:
+                elif strategy_name == "Volume Analysis":
+                    if signal == "HIGH_VOLUME":
+                        buy_score += 0.5 # 出来高急増は買いにやや有利
+                    elif signal == "LOW_VOLUME":
+                        sell_score += 0.5 # 出来高減少は売りにやや有利
+
+                elif strategy_name == "VWAP":
+                    if signal == "BUY":
+                        buy_score += 1.0
+                    elif signal == "SELL":
+                        sell_score += 1.0
+
+                elif strategy_name == "Bollinger Bands":
+                    if signal == "BUY":
+                        buy_score += 1.0
+                    elif signal == "SELL":
+                        sell_score += 1.0
+
+                elif strategy_name == "ATR":
+                    # ATRはボラティリティを示すため、直接的な売買シグナルではない
+                    # ただし、高ボラティリティはリスクと機会の両方を示す
+                    pass
+
+                elif strategy_name == "Sentiment Analysis":
+                    if signal == "POSITIVE_SENTIMENT":
+                        buy_score += 0.7 # センチメントは補助的な要素としてやや低めの重み
+                    elif signal == "NEGATIVE_SENTIMENT":
+                        sell_score += 0.7 # センチメントは補助的な要素としてやや低めの重み
+
+        if buy_score > sell_score:
             return "BUY"
-        elif sell_signals > buy_signals:
+        elif sell_score > buy_score:
             return "SELL"
         else:
             return "HOLD"
@@ -340,7 +371,7 @@ if __name__ == "__main__":
     print("Analysis Results:", analysis_results)
 
     # アンサンブル判定を実行
-    final_decision = make_ensemble_decision(analysis_results)
+    final_decision = engine.make_ensemble_decision(analysis_results)
     print("Final Decision:", final_decision)
 
     # エラーを発生させる戦略のテスト
@@ -352,5 +383,5 @@ if __name__ == "__main__":
     print("Error Test Results:", error_results)
 
     # エラーを含む結果でのアンサンブル判定
-    error_decision = make_ensemble_decision(error_results)
+    error_decision = engine.make_ensemble_decision(error_results)
     print("Decision with Errors:", error_decision)
