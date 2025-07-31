@@ -910,6 +910,254 @@ def atr_strategy(data: pd.DataFrame, window=14):
         "ATR": latest_atr
     }
 
+def make_ensemble_decision(self, analysis_results):
+        """
+        複数の分析戦略の結果を統合し、最終的な推奨を決定する。
+        :param analysis_results: 各戦略の結果をまとめた辞書
+        :return: 最終的な推奨 (例: "BUY", "SELL", "HOLD")
+        """
+        buy_signals = 0
+        sell_signals = 0
+
+        # 例: 各戦略の結果を評価し、シグナルをカウント
+        for strategy_name, result in analysis_results.items():
+            if "average_close" in result and result["average_close"] > 103: # 例示的な条件
+                buy_signals += 1
+            if "total_volume" in result and result["total_volume"] < 6000: # 例示的な条件
+                sell_signals += 1
+
+        if buy_signals > sell_signals:
+            return "BUY"
+        elif sell_signals > buy_signals:
+            return "SELL"
+        else:
+            return "HOLD"
+
+def moving_average_cross_strategy(data: pd.DataFrame, short_window=5, long_window=25):
+    """
+    移動平均線クロス戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'Close'カラムが必要)
+    :param short_window: 短期移動平均線の期間
+    :param long_window: 長期移動平均線の期間
+    :return: 戦略の結果 (辞書)
+    """
+    if 'Close' not in data.columns:
+        return {"error": "'Close' column not found in data"}
+
+    data['SMA_Short'] = data['Close'].rolling(window=short_window).mean()
+    data['SMA_Long'] = data['Close'].rolling(window=long_window).mean()
+
+    # ゴールデンクロスとデッドクロスの判定
+    # ゴールデンクロス: 短期SMAが長期SMAを上抜ける
+    # デッドクロス: 短期SMAが長期SMAを下抜ける
+    signals = []
+    for i in range(1, len(data)):
+        if data['SMA_Short'].iloc[i] > data['SMA_Long'].iloc[i] and \
+           data['SMA_Short'].iloc[i-1] <= data['SMA_Long'].iloc[i-1]:
+            signals.append("BUY")
+        elif data['SMA_Short'].iloc[i] < data['SMA_Long'].iloc[i] and \
+             data['SMA_Short'].iloc[i-1] >= data['SMA_Long'].iloc[i-1]:
+            signals.append("SELL")
+        else:
+            signals.append("HOLD")
+    
+    # 最新のシグナルを返す
+    latest_signal = signals[-1] if signals else "HOLD"
+
+    return {
+        "signal": latest_signal,
+        "SMA_Short": data['SMA_Short'].iloc[-1],
+        "SMA_Long": data['SMA_Long'].iloc[-1]
+    }
+
+def rsi_strategy(data: pd.DataFrame, window=14, overbought_threshold=70, oversold_threshold=30):
+    """
+    RSI (Relative Strength Index) 戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'Close'カラムが必要)
+    :param window: RSIの計算期間
+    :param overbought_threshold: 買われすぎの閾値
+    :param oversold_threshold: 売られすぎの閾値
+    :return: 戦略の結果 (辞書)
+    """
+    if 'Close' not in data.columns:
+        return {"error": "'Close' column not found in data"}
+
+    delta = data['Close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=window).mean()
+    avg_loss = loss.rolling(window=window).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    latest_rsi = rsi.iloc[-1]
+
+    signal = "NEUTRAL"
+    if latest_rsi > overbought_threshold:
+        signal = "OVERBOUGHT"
+    elif latest_rsi < oversold_threshold:
+        signal = "OVERSOLD"
+
+    return {
+        "signal": signal,
+        "RSI": latest_rsi
+    }
+
+def volume_analysis_strategy(data: pd.DataFrame, window=20, volume_multiplier=1.5):
+    """
+    出来高分析戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'Volume'カラムが必要)
+    :param window: 平均出来高の計算期間
+    :param volume_multiplier: 平均出来高に対する倍率
+    :return: 戦略の結果 (辞書)
+    """
+    if 'Volume' not in data.columns:
+        return {"error": "'Volume' column not found in data"}
+
+    data['Volume_MA'] = data['Volume'].rolling(window=window).mean()
+
+    latest_volume = data['Volume'].iloc[-1]
+    latest_volume_ma = data['Volume_MA'].iloc[-1]
+
+    signal = "NORMAL_VOLUME"
+    if latest_volume > latest_volume_ma * volume_multiplier:
+        signal = "HIGH_VOLUME"
+    elif latest_volume < latest_volume_ma / volume_multiplier:
+        signal = "LOW_VOLUME"
+
+    return {
+        "signal": signal,
+        "Latest_Volume": latest_volume,
+        "Volume_MA": latest_volume_ma
+    }
+
+def vwap_strategy(data: pd.DataFrame):
+    """
+    VWAP (Volume Weighted Average Price) 戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'Close', 'High', 'Low', 'Volume'カラムが必要)
+    :return: 戦略の結果 (辞書)
+    """
+    if not all(col in data.columns for col in ['Close', 'High', 'Low', 'Volume']):
+        return {"error": "Required columns (Close, High, Low, Volume) not found in data"}
+
+    # Typical Price (TP) = (High + Low + Close) / 3
+    data['TP'] = (data['High'] + data['Low'] + data['Close']) / 3
+
+    # Cumulative TP * Volume
+    data['TP_Volume'] = data['TP'] * data['Volume']
+
+    # Cumulative Volume
+    data['Cumulative_Volume'] = data['Volume'].cumsum()
+
+    # VWAP = Cumulative TP * Volume / Cumulative Volume
+    data['VWAP'] = data['TP_Volume'].cumsum() / data['Cumulative_Volume']
+
+    latest_vwap = data['VWAP'].iloc[-1]
+    latest_close = data['Close'].iloc[-1]
+
+    signal = "NEUTRAL"
+    if latest_close > latest_vwap:
+        signal = "BUY"
+    elif latest_close < latest_vwap:
+        signal = "SELL"
+
+    return {
+        "signal": signal,
+        "VWAP": latest_vwap,
+        "Latest_Close": latest_close
+    }
+
+def bollinger_bands_strategy(data: pd.DataFrame, window=20, num_std_dev=2):
+    """
+    ボリンジャーバンド戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'Close'カラムが必要)
+    :param window: 移動平均線の期間
+    :param num_std_dev: 標準偏差の倍率
+    :return: 戦略の結果 (辞書)
+    """
+    if 'Close' not in data.columns:
+        return {"error": "'Close' column not found in data"}
+
+    data['SMA'] = data['Close'].rolling(window=window).mean()
+    data['STD'] = data['Close'].rolling(window=window).std()
+
+    data['Upper_Band'] = data['SMA'] + (data['STD'] * num_std_dev)
+    data['Lower_Band'] = data['SMA'] - (data['STD'] * num_std_dev)
+
+    latest_close = data['Close'].iloc[-1]
+    latest_sma = data['SMA'].iloc[-1]
+    latest_upper_band = data['Upper_Band'].iloc[-1]
+    latest_lower_band = data['Lower_Band'].iloc[-1]
+
+    signal = "NEUTRAL"
+    if latest_close < latest_lower_band:
+        signal = "BUY"
+    elif latest_close > latest_upper_band:
+        signal = "SELL"
+
+    return {
+        "signal": signal,
+        "SMA": latest_sma,
+        "Upper_Band": latest_upper_band,
+        "Lower_Band": latest_lower_band
+    }
+
+def atr_strategy(data: pd.DataFrame, window=14):
+    """
+    ATR (Average True Range) 戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, 'High', 'Low', 'Close'カラムが必要)
+    :param window: ATRの計算期間
+    :return: 戦略の結果 (辞書)
+    """
+    if not all(col in data.columns for col in ['High', 'Low', 'Close']):
+        return {"error": "Required columns (High, Low, Close) not found in data"}
+
+    # True Range (TR)
+    data['TR1'] = abs(data['High'] - data['Low'])
+    data['TR2'] = abs(data['High'] - data['Close'].shift())
+    data['TR3'] = abs(data['Low'] - data['Close'].shift())
+    data['TR'] = data[['TR1', 'TR2', 'TR3']].max(axis=1)
+
+    # Average True Range (ATR)
+    data['ATR'] = data['TR'].rolling(window=window).mean()
+
+    latest_atr = data['ATR'].iloc[-1]
+
+    # ATRに基づくシグナル (例: ATRが急増したらボラティリティ上昇)
+    # ここでは単純に最新のATR値を返す
+    signal = "NEUTRAL"
+    if latest_atr > data['ATR'].iloc[-window:-1].mean() * 1.2: # 例: 過去の平均より20%高ければ高ボラティリティ
+        signal = "HIGH_VOLATILITY"
+    elif latest_atr < data['ATR'].iloc[-window:-1].mean() * 0.8: # 例: 過去の平均より20%低ければ低ボラティリティ
+        signal = "LOW_VOLATILITY"
+
+    return {
+        "signal": signal,
+        "ATR": latest_atr
+    }
+
+def market_sentiment_strategy(data: pd.DataFrame, sentiment_score=0.5):
+    """
+    市場センチメント分析戦略を実装する。
+    :param data: 株価データ (pandas DataFrame, ダミーとして使用)
+    :param sentiment_score: 市場センチメントスコア (例: -1.0から1.0)
+    :return: 戦略の結果 (辞書)
+    """
+    # 実際には外部APIやニュース分析からセンチメントスコアを取得
+    # ここではダミーのスコアを使用
+    signal = "NEUTRAL"
+    if sentiment_score > 0.7:
+        signal = "POSITIVE_SENTIMENT"
+    elif sentiment_score < -0.7:
+        signal = "NEGATIVE_SENTIMENT"
+
+    return {
+        "signal": signal,
+        "Sentiment_Score": sentiment_score
+    }
+
 if __name__ == "__main__":
     # テスト用のダミーデータ
     dummy_data = pd.DataFrame({
@@ -941,6 +1189,7 @@ if __name__ == "__main__":
     engine.register_strategy("VWAP", vwap_strategy)
     engine.register_strategy("Bollinger Bands", bollinger_bands_strategy)
     engine.register_strategy("ATR", atr_strategy)
+    engine.register_strategy("Market Sentiment", market_sentiment_strategy)
 
     # 分析を実行
     analysis_results = engine.run_analysis(dummy_data)
