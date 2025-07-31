@@ -5,28 +5,31 @@ import os
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
 from src.backtester import run_backtest
+from src.config_manager import load_config
 
 def main():
+    config = load_config()
+
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # run_analysis command
     run_analysis_parser = subparsers.add_parser("run_analysis", help="Run market analysis")
-    run_analysis_parser.add_argument("--data_path", type=str, required=True, help="Path to the stock data CSV file")
+    run_analysis_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="Path to the stock data CSV file")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to run")
 
     # fetch_data command
     fetch_data_parser = subparsers.add_parser("fetch_data", help="Fetch stock data from Yahoo Finance")
-    fetch_data_parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol (e.g., AAPL)")
-    fetch_data_parser.add_argument("--start_date", type=str, required=True, help="Start date (YYYY-MM-DD)")
-    fetch_data_parser.add_argument("--end_date", type=str, required=True, help="End date (YYYY-MM-DD)")
-    fetch_data_parser.add_argument("--output_path", type=str, default="stock_data.csv", help="Output CSV file path")
+    fetch_data_parser.add_argument("--ticker", type=str, default=config.get('fetch_data', {}).get('default_ticker', 'AAPL'), help="Stock ticker symbol (e.g., AAPL)")
+    fetch_data_parser.add_argument("--start_date", type=str, default=config.get('fetch_data', {}).get('default_start_date', '2023-01-01'), help="Start date (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--end_date", type=str, default=config.get('fetch_data', {}).get('default_end_date', '2023-01-31'), help="End date (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--output_path", type=str, default=config.get('fetch_data', {}).get('default_output_path', 'stock_data.csv'), help="Output CSV file path")
 
     # run_backtest command
     run_backtest_parser = subparsers.add_parser("run_backtest", help="Run backtest for strategies")
-    run_backtest_parser.add_argument("--data_path", type=str, required=True, help="Path to the stock data CSV file for backtesting")
-    run_backtest_parser.add_argument("--strategies_file", type=str, required=True, help="Path to a JSON file containing a list of strategies to backtest")
-    run_backtest_parser.add_argument("--initial_capital", type=float, default=10000.0, help="Initial capital for backtesting")
+    run_backtest_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="Path to the stock data CSV file for backtesting")
+    run_backtest_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to backtest")
+    run_backtest_parser.add_argument("--initial_capital", type=float, default=config.get('backtest', {}).get('initial_capital', 10000.0), help="Initial capital for backtesting")
 
     args = parser.parse_args()
 
@@ -60,6 +63,11 @@ def main():
             except json.JSONDecodeError as e:
                 print(f"Error parsing strategies JSON from file: {e}")
                 return
+        else:
+            # config.yamlからデフォルト戦略を読み込む
+            default_strategies = config.get('strategies', {}).get('default_strategies', [])
+            if default_strategies:
+                engine.set_active_strategies(default_strategies)
 
         analysis_results = engine.run_analysis(dummy_data)
         print("Analysis Results:", analysis_results)
@@ -111,7 +119,16 @@ def main():
             except json.JSONDecodeError as e:
                 print(f"Error parsing strategies JSON from file: {e}")
                 return
-        
+        else:
+            # config.yamlからデフォルト戦略を読み込む
+            default_strategies = config.get('strategies', {}).get('default_strategies', [])
+            if default_strategies:
+                for s_name in default_strategies:
+                    if s_name in all_strategies:
+                        strategies_to_backtest[s_name] = all_strategies[s_name]
+                    else:
+                        print(f"Warning: Strategy '{s_name}' from config not found and will be skipped.")
+
         if not strategies_to_backtest:
             print("Error: No valid strategies specified for backtesting.")
             return
