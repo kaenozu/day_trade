@@ -32,6 +32,24 @@ def get_stock_data(ticker, period="1d", interval="1m"):
         print(f"Error fetching data for {ticker}: {e}")
         return None
 
+def display_analysis_results(results, final_decision=None):
+    """
+    分析結果と最終推奨をコンソールに表形式で出力する。
+    :param results: 各戦略の結果をまとめた辞書
+    :param final_decision: 最終的な推奨 (例: "BUY", "SELL", "HOLD")
+    """
+    print("\n--- Analysis Results ---")
+    for strategy_name, result in results.items():
+        print(f"Strategy: {strategy_name}")
+        if isinstance(result, dict):
+            for key, value in result.items():
+                print(f"  {key}: {value}")
+        else:
+            print(f"  {result}")
+    
+    if final_decision:
+        print(f"\n--- Final Decision: {final_decision} ---")
+
 if __name__ == "__main__":
     # テスト用のtickers.txtを作成 (もし存在しない場合)
     if not os.path.exists("tickers.txt"):
@@ -59,3 +77,11 @@ if __name__ == "__main__":
             print(f"Failed to fetch data for {sample_ticker}")
     else:
         print("\nNo tickers loaded to test get_stock_data.")
+
+    # display_analysis_results 関数をテスト
+    sample_results = {
+        "Strategy A": {"average_close": 103.5},
+        "Strategy B": {"total_volume": 6000},
+        "Strategy C": "Some other result"
+    }
+    display_analysis_results(sample_results, "BUY")
