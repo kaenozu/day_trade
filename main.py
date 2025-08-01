@@ -32,7 +32,7 @@ def get_usd_jpy_exchange_rate():
 def main():
     # ロギング設定を引数で制御できるように変更
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
-    parser.add_argument("--log_level", type=str, default="WARNING",
+    parser.add_argument("--log_level", type=str, default="INFO", # デフォルトをINFOに変更
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="ログレベルを設定 (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
 
@@ -90,7 +90,7 @@ def main():
 
         for ticker_symbol in tickers:
             logging.info(f"--- 銘柄: {ticker_symbol} の分析を開始します ---")
-            logging.debug(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
             data = fetch_stock_data(ticker_symbol, start_date, end_date)
 
             if data.empty:
@@ -164,7 +164,7 @@ def main():
 
         for ticker_symbol in tickers:
             logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを開始します ---")
-            logging.debug(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
             data = fetch_stock_data(ticker_symbol, start_date, end_date)
 
             if data.empty:
