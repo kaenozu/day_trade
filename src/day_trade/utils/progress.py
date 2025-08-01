@@ -56,6 +56,10 @@ class ProgressUpdater:
         """完了状態に設定"""
         self.progress.update(self.task_id, completed=True)
 
+    def set_description(self, description: str):
+        """説明を設定"""
+        self.progress.update(self.task_id, description=description)
+
 
 @contextmanager
 def progress_context(
