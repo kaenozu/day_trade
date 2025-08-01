@@ -9,6 +9,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from alembic.config import Config
+from alembic import command
 
 # ベースクラスの作成
 Base = declarative_base()
@@ -101,6 +103,41 @@ class DatabaseManager:
             raise
         finally:
             session.close()
+    
+    def get_alembic_config(self) -> Config:
+        """Alembic設定を取得"""
+        alembic_cfg = Config("alembic.ini")
+        alembic_cfg.set_main_option("sqlalchemy.url", self.database_url)
+        return alembic_cfg
+    
+    def init_alembic(self):
+        """Alembicの初期化（初回マイグレーション作成）"""
+        alembic_cfg = self.get_alembic_config()
+        command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
+    
+    def migrate(self, message: str = "Auto migration"):
+        """新しいマイグレーションを作成"""
+        alembic_cfg = self.get_alembic_config()
+        command.revision(alembic_cfg, autogenerate=True, message=message)
+    
+    def upgrade(self, revision: str = "head"):
+        """マイグレーションを適用"""
+        alembic_cfg = self.get_alembic_config()
+        command.upgrade(alembic_cfg, revision)
+    
+    def downgrade(self, revision: str = "-1"):
+        """マイグレーションをロールバック"""
+        alembic_cfg = self.get_alembic_config()
+        command.downgrade(alembic_cfg, revision)
+    
+    def current_revision(self) -> str:
+        """現在のリビジョンを取得"""
+        alembic_cfg = self.get_alembic_config()
+        from alembic.runtime.migration import MigrationContext
+        
+        with self.engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            return context.get_current_revision() or "None"
 
 
 # デフォルトのデータベースマネージャー
@@ -130,3 +167,28 @@ def reset_db():
     """データベースのリセット（開発用）"""
     db_manager.drop_tables()
     db_manager.create_tables()
+
+
+def init_migration():
+    """マイグレーションの初期化"""
+    db_manager.init_alembic()
+
+
+def create_migration(message: str = "Auto migration"):
+    """新しいマイグレーションファイルを作成"""
+    db_manager.migrate(message)
+
+
+def upgrade_db(revision: str = "head"):
+    """データベースをアップグレード"""
+    db_manager.upgrade(revision)
+
+
+def downgrade_db(revision: str = "-1"):
+    """データベースをダウングレード"""
+    db_manager.downgrade(revision)
+
+
+def get_current_revision() -> str:
+    """現在のリビジョンを取得"""
+    return db_manager.current_revision()
