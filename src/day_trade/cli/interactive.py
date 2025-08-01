@@ -1,761 +1,573 @@
 """
-インタラクティブモード - RichベースのTUIダッシュボード
+対話型CLIのメインスクリプト
 """
-import asyncio
+
+import click
 import logging
-from datetime import datetime
-from typing import Dict, List, Optional, Any
-from threading import Thread, Event
-import time
-
+from datetime import datetime, time, timedelta
 from rich.console import Console
-from rich.layout import Layout
-from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
+from rich.panel import Panel
+from rich.layout import Layout
+from rich.prompt import Prompt
 from rich.live import Live
-from rich.align import Align
-from rich.columns import Columns
 from rich.rule import Rule
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich import box
-from rich.tree import Tree
+from typing import Optional, Dict, List, Any
 
-from ..core.watchlist import WatchlistManager, AlertType
-from ..core.trade_manager import TradeManager
-from ..core.portfolio import PortfolioAnalyzer
-from ..data.stock_fetcher import StockFetcher
-from ..analysis.indicators import TechnicalIndicators
-from ..analysis.signals import TradingSignalGenerator
+from ..core.watchlist import WatchlistManager
+from ..core.config import config_manager
+from ..data.stock_fetcher import StockFetcher, DataNotFoundError, InvalidSymbolError
+from ..analysis.backtest import BacktestEngine, BacktestConfig
+from ..utils.formatters import (
+    format_currency,
+    format_percentage,
+    create_historical_data_table,
+    create_stock_info_table,
+    create_company_info_table,
+    create_watchlist_table,
+    create_error_panel,
+    create_success_panel,
+    create_warning_panel,
+    create_info_panel,
+    create_ascii_chart,
+)
+from ..utils.validators import (
+    validate_stock_code,
+    normalize_stock_codes,
+    suggest_stock_code_correction,
+)
+from ..models.database import db_manager, init_db
+from ..core.portfolio import PortfolioManager
 
+console = Console()
 logger = logging.getLogger(__name__)
 
 
-class InteractiveMode:
-    """インタラクティブTUIダッシュボード"""
-    
-    def __init__(self):
-        """初期化"""
-        self.console = Console()
-        self.layout = Layout()
-        self.running = Event()
-        self.update_thread = None
-        
-        # データ管理オブジェクト
-        self.watchlist_manager = WatchlistManager()
-        self.trade_manager = TradeManager()
-        self.stock_fetcher = StockFetcher()
-        self.signal_generator = TradingSignalGenerator()
-        
-        # 状態管理
-        self.current_data = {}
-        self.selected_stock = None
-        self.update_interval = 30  # 30秒間隔
-        self.last_update = None
-        
-        # キーバインディング
-        self.keybindings = {
-            'q': self._quit,
-            'r': self._refresh,
-            'h': self._show_help,
-            '1': lambda: self._switch_view('dashboard'),
-            '2': lambda: self._switch_view('watchlist'),
-            '3': lambda: self._switch_view('portfolio'),
-            '4': lambda: self._switch_view('alerts'),
-        }
-        
-        self.current_view = 'dashboard'
-        
-        # レイアウト初期化
-        self._setup_layout()
-    
-    def _setup_layout(self):
-        """レイアウトセットアップ"""
-        self.layout.split_column(
-            Layout(name="header", size=3),
-            Layout(name="main", ratio=1),
-            Layout(name="footer", size=3),
-        )
-        
-        self.layout["main"].split_row(
-            Layout(name="left", ratio=2),
-            Layout(name="right", ratio=1),
-        )
-        
-        self.layout["left"].split_column(
-            Layout(name="primary", ratio=2),
-            Layout(name="secondary", ratio=1),
-        )
-    
-    def run(self):
-        """インタラクティブモードを開始"""
-        try:
-            self.console.print("[bold green]Day Trade Interactive Mode[/bold green]")
-            self.console.print("Loading data...")
-            
-            # 初期データ読み込み
-            self._load_initial_data()
-            
-            # バックグラウンド更新スレッド開始
-            self.running.set()
-            self.update_thread = Thread(target=self._background_update, daemon=True)
-            self.update_thread.start()
-            
-            # リアルタイム表示開始
-            with Live(self.layout, console=self.console, refresh_per_second=2) as live:
-                self._update_display()
-                
-                while self.running.is_set():
-                    try:
-                        # キーボード入力をシミュレート（実際の実装では適切な入力処理が必要）
-                        time.sleep(1)
-                        self._update_display()
-                        
-                        # デモ用の自動終了（実際の実装では削除）
-                        if hasattr(self, '_demo_counter'):
-                            self._demo_counter -= 1
-                            if self._demo_counter <= 0:
-                                break
-                        else:
-                            self._demo_counter = 30  # 30秒でデモ終了
-                            
-                    except KeyboardInterrupt:
-                        break
-            
-        except Exception as e:
-            logger.error(f"インタラクティブモード実行エラー: {e}")
-            self.console.print(f"[red]エラー: {e}[/red]")
-        finally:
-            self._cleanup()
-    
-    def _load_initial_data(self):
-        """初期データ読み込み"""
-        try:
-            # ウォッチリストデータ取得
-            watchlist = self.watchlist_manager.get_watchlist()
-            
-            # サンプルデータがない場合は作成
-            if not watchlist:
-                self._create_sample_data()
-                watchlist = self.watchlist_manager.get_watchlist()
-            
-            # 価格データ取得（制限あり）
-            self.current_data = {
-                'watchlist': watchlist,
-                'alerts': self.watchlist_manager.get_alerts(),
-                'portfolio_summary': self.trade_manager.get_portfolio_summary(),
-                'last_update': datetime.now()
-            }
-            
-        except Exception as e:
-            logger.error(f"初期データ読み込みエラー: {e}")
-            self.current_data = {
-                'watchlist': [],
-                'alerts': [],
-                'portfolio_summary': {},
-                'last_update': datetime.now()
-            }
-    
-    def _create_sample_data(self):
-        """サンプルデータ作成（デモ用）"""
-        try:
-            # サンプル銘柄を追加
-            sample_stocks = [
-                ("7203", "主力株", "トヨタ自動車"),
-                ("8306", "銀行株", "三菱UFJ銀行"),
-                ("9984", "テック株", "ソフトバンクグループ")
-            ]
-            
-            for code, group, memo in sample_stocks:
-                self.watchlist_manager.add_stock(code, group, memo)
-            
-        except Exception as e:
-            logger.error(f"サンプルデータ作成エラー: {e}")
-    
-    def _background_update(self):
-        """バックグラウンドデータ更新"""
-        while self.running.is_set():
-            try:
-                # データ更新
-                self._update_data()
-                
-                # 指定間隔で待機
-                for _ in range(self.update_interval):
-                    if not self.running.is_set():
-                        break
-                    time.sleep(1)
-                    
-            except Exception as e:
-                logger.error(f"バックグラウンド更新エラー: {e}")
-                time.sleep(5)
-    
-    def _update_data(self):
-        """データ更新"""
-        try:
-            # ウォッチリストを更新
-            watchlist = self.watchlist_manager.get_watchlist()
-            alerts = self.watchlist_manager.get_alerts()
-            
-            # ポートフォリオ情報を更新
-            portfolio_summary = self.trade_manager.get_portfolio_summary()
-            
-            self.current_data.update({
-                'watchlist': watchlist,
-                'alerts': alerts,
-                'portfolio_summary': portfolio_summary,
-                'last_update': datetime.now()
-            })
-            
-        except Exception as e:
-            logger.error(f"データ更新エラー: {e}")
-    
-    def _update_display(self):
-        """表示更新"""
-        try:
-            # ヘッダー更新
-            self.layout["header"].update(self._create_header())
-            
-            # メイン表示更新
-            if self.current_view == 'dashboard':
-                self._update_dashboard_view()
-            elif self.current_view == 'watchlist':
-                self._update_watchlist_view()
-            elif self.current_view == 'portfolio':
-                self._update_portfolio_view()
-            elif self.current_view == 'alerts':
-                self._update_alerts_view()
-            
-            # フッター更新
-            self.layout["footer"].update(self._create_footer())
-            
-        except Exception as e:
-            logger.error(f"表示更新エラー: {e}")
-    
-    def _create_header(self) -> Panel:
-        """ヘッダー作成"""
-        last_update = self.current_data.get('last_update', datetime.now())
-        update_text = last_update.strftime("%Y-%m-%d %H:%M:%S")
-        
-        header_text = Text()
-        header_text.append("Day Trade Dashboard", style="bold blue")
-        header_text.append(f" | 最終更新: {update_text}", style="dim")
-        header_text.append(f" | 表示: {self.current_view}", style="yellow")
-        
-        return Panel(
-            Align.center(header_text),
-            box=box.ROUNDED,
-            style="blue"
-        )
-    
-    def _create_footer(self) -> Panel:
-        """フッター作成"""
-        help_text = Text()
-        help_text.append("操作: ", style="bold")
-        help_text.append("[1]Dashboard [2]Watchlist [3]Portfolio [4]Alerts ", style="cyan")
-        help_text.append("[R]更新 [H]ヘルプ [Q]終了", style="yellow")
-        
-        return Panel(
-            Align.center(help_text),
-            box=box.ROUNDED,
-            style="green"
-        )
-    
-    def _update_dashboard_view(self):
-        """ダッシュボード表示更新"""
-        # 左上: 市場サマリー
-        self.layout["primary"].update(self._create_market_summary())
-        
-        # 左下: ウォッチリスト（簡易）
-        self.layout["secondary"].update(self._create_watchlist_summary())
-        
-        # 右: ポートフォリオ情報
-        self.layout["right"].update(self._create_portfolio_panel())
-    
-    def _update_watchlist_view(self):
-        """ウォッチリスト表示更新"""
-        # 左上: 詳細ウォッチリスト
-        self.layout["primary"].update(self._create_detailed_watchlist())
-        
-        # 左下: グループ情報
-        self.layout["secondary"].update(self._create_group_info())
-        
-        # 右: 選択銘柄詳細
-        self.layout["right"].update(self._create_stock_detail())
-    
-    def _update_portfolio_view(self):
-        """ポートフォリオ表示更新"""
-        # 左上: ポートフォリオメトリクス
-        self.layout["primary"].update(self._create_portfolio_metrics())
-        
-        # 左下: 保有銘柄一覧
-        self.layout["secondary"].update(self._create_holdings_list())
-        
-        # 右: パフォーマンス情報
-        self.layout["right"].update(self._create_performance_info())
-    
-    def _update_alerts_view(self):
-        """アラート表示更新"""
-        # 左上: アクティブアラート
-        self.layout["primary"].update(self._create_active_alerts())
-        
-        # 左下: アラート履歴
-        self.layout["secondary"].update(self._create_alert_history())
-        
-        # 右: アラート統計
-        self.layout["right"].update(self._create_alert_stats())
-    
-    def _create_market_summary(self) -> Panel:
-        """市場サマリーパネル作成"""
-        table = Table(title="📈 市場サマリー", box=box.ROUNDED)
-        table.add_column("項目", style="cyan")
-        table.add_column("値", justify="right")
-        table.add_column("変化", justify="right")
-        
-        # サンプルデータ（実際の実装では市場データを取得）
-        market_data = [
-            ("日経平均", "33,500", "+250 (+0.75%)"),
-            ("TOPIX", "2,350", "+15 (+0.64%)"),
-            ("JPY/USD", "150.25", "-0.35 (-0.23%)"),
-            ("VIX", "18.5", "+1.2 (+6.95%)"),
-        ]
-        
-        for item, value, change in market_data:
-            change_color = "green" if change.startswith("+") else "red" if change.startswith("-") else "white"
-            table.add_row(item, value, f"[{change_color}]{change}[/{change_color}]")
-        
-        return Panel(table, border_style="blue")
-    
-    def _create_watchlist_summary(self) -> Panel:
-        """ウォッチリストサマリー作成"""
-        watchlist = self.current_data.get('watchlist', [])
-        
-        if not watchlist:
-            return Panel(
-                Align.center("[yellow]ウォッチリストが空です[/yellow]"),
-                title="📋 ウォッチリスト",
-                border_style="yellow"
-            )
-        
-        table = Table(title="📋 ウォッチリスト (上位5銘柄)", box=box.SIMPLE)
-        table.add_column("コード", width=8)
-        table.add_column("銘柄名", width=20)
-        table.add_column("グループ", width=10)
-        
-        for item in watchlist[:5]:  # 上位5銘柄のみ表示
-            table.add_row(
-                item['stock_code'],
-                item.get('stock_name', 'N/A')[:18],  # 名前を18文字に制限
-                item['group_name']
-            )
-        
-        if len(watchlist) > 5:
-            table.add_row("...", f"他{len(watchlist)-5}銘柄", "...")
-        
-        return Panel(table, border_style="cyan")
-    
-    def _create_portfolio_panel(self) -> Panel:
-        """ポートフォリオパネル作成"""
-        summary = self.current_data.get('portfolio_summary', {})
-        
-        if not summary:
-            return Panel(
-                Align.center("[yellow]ポートフォリオデータなし[/yellow]"),
-                title="💼 ポートフォリオ",
-                border_style="yellow"
-            )
-        
-        # ポートフォリオ情報をテーブル形式で表示
-        table = Table(title="💼 ポートフォリオ", box=box.ROUNDED)
-        table.add_column("項目", style="cyan")
-        table.add_column("値", justify="right")
-        
-        total_cost = summary.get('total_cost', '0')
-        total_value = summary.get('total_market_value', '0')
-        total_pnl = summary.get('total_unrealized_pnl', '0')
-        
-        table.add_row("保有銘柄数", str(summary.get('total_positions', 0)))
-        table.add_row("総取引数", str(summary.get('total_trades', 0)))
-        table.add_row("総コスト", f"{total_cost}円")
-        table.add_row("時価総額", f"{total_value}円")
-        
-        # 損益の色分け
-        pnl_color = "green" if total_pnl.replace('-', '').isdigit() and int(total_pnl) >= 0 else "red"
-        table.add_row("評価損益", f"[{pnl_color}]{total_pnl}円[/{pnl_color}]")
-        
-        return Panel(table, border_style="magenta")
-    
-    def _create_detailed_watchlist(self) -> Panel:
-        """詳細ウォッチリスト作成"""
-        watchlist = self.current_data.get('watchlist', [])
-        
-        table = Table(title="📋 詳細ウォッチリスト", box=box.ROUNDED)
-        table.add_column("コード", width=8)
-        table.add_column("銘柄名", width=25)
-        table.add_column("グループ", width=12)
-        table.add_column("メモ", width=20)
-        table.add_column("追加日", width=12)
-        
-        for item in watchlist:
-            added_date = ""
-            if item.get('added_date'):
-                try:
-                    if hasattr(item['added_date'], 'strftime'):
-                        added_date = item['added_date'].strftime('%m-%d')
-                    else:
-                        added_date = str(item['added_date'])[:10]
-                except:
-                    added_date = ""
-            
-            table.add_row(
-                item['stock_code'],
-                item.get('stock_name', 'N/A')[:23],
-                item['group_name'][:10],
-                item.get('memo', '')[:18],
-                added_date
-            )
-        
-        if not watchlist:
-            return Panel(
-                Align.center("[yellow]ウォッチリストが空です[/yellow]"),
-                title="📋 詳細ウォッチリスト",
-                border_style="yellow"
-            )
-        
-        return Panel(table, border_style="cyan")
-    
-    def _create_group_info(self) -> Panel:
-        """グループ情報作成"""
-        try:
-            groups = self.watchlist_manager.get_groups()
-            watchlist = self.current_data.get('watchlist', [])
-            
-            # グループ別銘柄数を計算
-            group_counts = {}
-            for item in watchlist:
-                group = item['group_name']
-                group_counts[group] = group_counts.get(group, 0) + 1
-            
-            table = Table(title="📁 グループ情報", box=box.SIMPLE)
-            table.add_column("グループ名", width=15)
-            table.add_column("銘柄数", justify="right", width=8)
-            
-            for group in groups:
-                count = group_counts.get(group, 0)
-                table.add_row(group, str(count))
-            
-            if not groups:
-                return Panel(
-                    Align.center("[yellow]グループなし[/yellow]"),
-                    title="📁 グループ情報",
-                    border_style="yellow"
-                )
-            
-            return Panel(table, border_style="blue")
-            
-        except Exception as e:
-            return Panel(
-                Align.center(f"[red]エラー: {e}[/red]"),
-                title="📁 グループ情報",
-                border_style="red"
-            )
-    
-    def _create_stock_detail(self) -> Panel:
-        """選択銘柄詳細作成"""
-        if not self.selected_stock:
-            return Panel(
-                Align.center("[dim]銘柄を選択してください[/dim]"),
-                title="🔍 銘柄詳細",
-                border_style="dim"
-            )
-        
-        # 実際の実装では選択された銘柄の詳細情報を表示
-        detail_text = Text()
-        detail_text.append(f"銘柄コード: {self.selected_stock}\n", style="bold")
-        detail_text.append("現在価格: 取得中...\n", style="cyan")
-        detail_text.append("前日比: 取得中...\n", style="green")
-        detail_text.append("出来高: 取得中...\n", style="yellow")
-        
-        return Panel(
-            detail_text,
-            title="🔍 銘柄詳細",
-            border_style="green"
-        )
-    
-    def _create_portfolio_metrics(self) -> Panel:
-        """ポートフォリオメトリクス作成"""
-        try:
-            analyzer = PortfolioAnalyzer(self.trade_manager)
-            metrics = analyzer.get_portfolio_metrics()
-            
-            table = Table(title="📊 ポートフォリオメトリクス", box=box.ROUNDED)
-            table.add_column("指標", style="cyan")
-            table.add_column("値", justify="right")
-            
-            table.add_row("総資産額", f"{metrics.total_value:,}円")
-            table.add_row("総投資額", f"{metrics.total_cost:,}円")
-            
-            # 損益の色分け
-            pnl_color = "green" if metrics.total_pnl >= 0 else "red"
-            table.add_row("評価損益", f"[{pnl_color}]{metrics.total_pnl:+,}円[/{pnl_color}]")
-            table.add_row("損益率", f"[{pnl_color}]{metrics.total_pnl_percent:+.2f}%[/{pnl_color}]")
-            
-            if metrics.volatility:
-                table.add_row("ボラティリティ", f"{metrics.volatility:.1%}")
-            if metrics.sharpe_ratio:
-                table.add_row("シャープレシオ", f"{metrics.sharpe_ratio:.2f}")
-            
-            return Panel(table, border_style="magenta")
-            
-        except Exception as e:
-            return Panel(
-                Align.center(f"[red]メトリクス取得エラー: {e}[/red]"),
-                title="📊 ポートフォリオメトリクス",
-                border_style="red"
-            )
-    
-    def _create_holdings_list(self) -> Panel:
-        """保有銘柄一覧作成"""
-        try:
-            positions = self.trade_manager.get_all_positions()
-            
-            if not positions:
-                return Panel(
-                    Align.center("[yellow]保有銘柄なし[/yellow]"),
-                    title="🏢 保有銘柄",
-                    border_style="yellow"
-                )
-            
-            table = Table(title="🏢 保有銘柄", box=box.SIMPLE)
-            table.add_column("コード", width=8)
-            table.add_column("数量", justify="right", width=8)
-            table.add_column("平均単価", justify="right", width=10)
-            table.add_column("評価損益", justify="right", width=12)
-            
-            for symbol, position in positions.items():
-                pnl_color = "green" if position.unrealized_pnl >= 0 else "red"
-                table.add_row(
-                    symbol,
-                    str(position.quantity),
-                    f"{position.average_price:,.0f}円",
-                    f"[{pnl_color}]{position.unrealized_pnl:+,.0f}円[/{pnl_color}]"
-                )
-            
-            return Panel(table, border_style="blue")
-            
-        except Exception as e:
-            return Panel(
-                Align.center(f"[red]保有銘柄取得エラー: {e}[/red]"),
-                title="🏢 保有銘柄",
-                border_style="red"
-            )
-    
-    def _create_performance_info(self) -> Panel:
-        """パフォーマンス情報作成"""
-        try:
-            analyzer = PortfolioAnalyzer(self.trade_manager)
-            top_performers, worst_performers = analyzer.get_performance_rankings(3)
-            
-            content = []
-            
-            if top_performers:
-                content.append(Text("🏆 上位銘柄:", style="bold green"))
-                for symbol, pnl_pct in top_performers:
-                    content.append(Text(f"  {symbol}: +{pnl_pct:.2f}%", style="green"))
-            
-            content.append(Text())  # 空行
-            
-            if worst_performers:
-                content.append(Text("📉 下位銘柄:", style="bold red"))
-                for symbol, pnl_pct in worst_performers:
-                    content.append(Text(f"  {symbol}: {pnl_pct:.2f}%", style="red"))
-            
-            if not content:
-                content = [Text("データなし", style="dim")]
-            
-            return Panel(
-                Text.assemble(*content),
-                title="📈 パフォーマンス",
-                border_style="yellow"
-            )
-            
-        except Exception as e:
-            return Panel(
-                Align.center(f"[red]パフォーマンス取得エラー: {e}[/red]"),
-                title="📈 パフォーマンス",
-                border_style="red"
-            )
-    
-    def _create_active_alerts(self) -> Panel:
-        """アクティブアラート作成"""
-        alerts = self.current_data.get('alerts', [])
-        
-        if not alerts:
-            return Panel(
-                Align.center("[yellow]アラートなし[/yellow]"),
-                title="🚨 アクティブアラート",
-                border_style="yellow"
-            )
-        
-        table = Table(title="🚨 アクティブアラート", box=box.ROUNDED)
-        table.add_column("銘柄", width=8)
-        table.add_column("タイプ", width=15)
-        table.add_column("閾値", justify="right", width=10)
-        table.add_column("状態", width=8)
-        
-        for alert in alerts:
-            status_color = "green" if alert['is_active'] else "dim"
-            status_text = "ON" if alert['is_active'] else "OFF"
-            
-            table.add_row(
-                alert['stock_code'],
-                alert['alert_type'].replace('_', ' '),
-                str(alert['threshold']),
-                f"[{status_color}]{status_text}[/{status_color}]"
-            )
-        
-        return Panel(table, border_style="red")
-    
-    def _create_alert_history(self) -> Panel:
-        """アラート履歴作成"""
-        alerts = self.current_data.get('alerts', [])
-        
-        # 最近トリガーされたアラートを表示
-        triggered_alerts = [
-            alert for alert in alerts 
-            if alert.get('last_triggered')
-        ]
-        
-        if not triggered_alerts:
-            return Panel(
-                Align.center("[dim]履歴なし[/dim]"),
-                title="📋 アラート履歴",
-                border_style="dim"
-            )
-        
-        table = Table(title="📋 アラート履歴", box=box.SIMPLE)
-        table.add_column("銘柄", width=8)
-        table.add_column("タイプ", width=15)
-        table.add_column("発動時刻", width=15)
-        
-        for alert in triggered_alerts[-5:]:  # 最新5件
-            triggered_time = ""
-            if alert.get('last_triggered'):
-                try:
-                    if hasattr(alert['last_triggered'], 'strftime'):
-                        triggered_time = alert['last_triggered'].strftime('%m-%d %H:%M')
-                    else:
-                        triggered_time = str(alert['last_triggered'])[:16]
-                except:
-                    triggered_time = "不明"
-            
-            table.add_row(
-                alert['stock_code'],
-                alert['alert_type'].replace('_', ' '),
-                triggered_time
-            )
-        
-        return Panel(table, border_style="cyan")
-    
-    def _create_alert_stats(self) -> Panel:
-        """アラート統計作成"""
-        alerts = self.current_data.get('alerts', [])
-        
-        if not alerts:
-            return Panel(
-                Align.center("[yellow]統計なし[/yellow]"),
-                title="📊 アラート統計",
-                border_style="yellow"
-            )
-        
-        # 統計計算
-        total_alerts = len(alerts)
-        active_alerts = len([a for a in alerts if a['is_active']])
-        triggered_alerts = len([a for a in alerts if a.get('last_triggered')])
-        
-        # タイプ別集計
-        type_counts = {}
-        for alert in alerts:
-            alert_type = alert['alert_type']
-            type_counts[alert_type] = type_counts.get(alert_type, 0) + 1
-        
-        table = Table(title="📊 アラート統計", box=box.ROUNDED)
-        table.add_column("項目", style="cyan")
-        table.add_column("数", justify="right")
-        
-        table.add_row("総アラート数", str(total_alerts))
-        table.add_row("アクティブ", str(active_alerts))
-        table.add_row("発動済み", str(triggered_alerts))
-        
-        if type_counts:
-            table.add_row("", "")  # 区切り線
-            for alert_type, count in type_counts.items():
-                display_type = alert_type.replace('_', ' ').title()
-                table.add_row(display_type, str(count))
-        
-        return Panel(table, border_style="blue")
-    
-    def _switch_view(self, view: str):
-        """表示切り替え"""
-        self.current_view = view
-        self._update_display()
-    
-    def _refresh(self):
-        """手動更新"""
-        self._update_data()
-        self._update_display()
-    
-    def _show_help(self):
-        """ヘルプ表示"""
-        help_text = """
-[bold]Day Trade Interactive Mode - ヘルプ[/bold]
-
-[cyan]キーバインディング:[/cyan]
-  1 - ダッシュボード表示
-  2 - ウォッチリスト表示
-  3 - ポートフォリオ表示
-  4 - アラート表示
-  R - データ手動更新
-  H - このヘルプを表示
-  Q - 終了
-
-[cyan]機能:[/cyan]
-  • リアルタイムデータ更新（30秒間隔）
-  • ウォッチリスト管理
-  • ポートフォリオ分析
-  • アラート監視
-  • 複数表示モード
-
-[yellow]注意:[/yellow]
-価格データの取得には制限があります。
-デモモードでは一部の機能が制限されます。
-        """
-        
-        self.console.print(Panel(help_text, title="ヘルプ", border_style="blue"))
-        input("\nEnterキーで戻る...")
-    
-    def _quit(self):
-        """終了処理"""
-        self.running.clear()
-    
-    def _cleanup(self):
-        """クリーンアップ"""
-        self.running.clear()
-        if self.update_thread and self.update_thread.is_alive():
-            self.update_thread.join(timeout=1)
-        
-        self.console.print("[green]インタラクティブモードを終了しました[/green]")
+@click.group()
+@click.version_option(version="0.1.0")
+@click.option("--config", "-c", type=click.Path(), help="設定ファイルのパス")
+@click.pass_context
+def cli(ctx, config):
+    """対話型デイトレード支援ツール"""
+    ctx.ensure_object(dict)
+    if config:
+        ctx.obj["config_path"] = Path(config)
+    else:
+        ctx.obj["config_path"] = None
 
 
-def main():
-    """メイン関数"""
+# ==============================================================
+#                           ヘルパー関数
+# ==============================================================
+
+
+def _get_watchlist_manager(config_path: Optional[Path] = None) -> WatchlistManager:
+    """ウォッチリストマネージャーのインスタンスを取得"""
+    # CLIコンテキストからconfig_pathを取得（もしあれば）
+    # if click.get_current_context():
+    #     config_path = click.get_current_context().obj.get("config_path")
+
+    # config_managerはシングルトンなので、init時にconfig_pathを渡す
+    _config_manager = config_manager.__class__(config_path)
+
+    # データベースマネージャーはConfigManager内で管理されるべき
+    # しかし、現在の実装ではグローバルなdb_managerを使用しているため、ここでの処理は不要
+    # db_manager.initialize(config_manager.get_database_url())
+    # db_manager.create_tables()
+
+    return WatchlistManager(
+        _config_manager,
+        db_manager,
+        stock_fetcher=StockFetcher(),
+        portfolio_manager=PortfolioManager(),
+    )
+
+
+def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: bool):
+    """銘柄詳細を表示"""
+    if not stock_data:
+        console.print(
+            create_error_panel(f"銘柄コード {code} の情報を取得できませんでした。")
+        )
+        return
+
+    table = create_stock_info_table(stock_data)
+    console.print(table)
+
+    if show_details:
+        fetcher = StockFetcher()
+        with console.status("企業情報を取得中..."):
+            info = fetcher.get_company_info(code)
+        if info:
+            detail_table = create_company_info_table(info)
+            console.print("\n")
+            console.print(detail_table)
+        else:
+            console.print("\n")
+            console.print(create_error_panel("企業情報を取得できませんでした。"))
+
+
+def _display_historical_data(
+    code: str, df: pd.DataFrame, period: str, interval: str, rows: int
+):
+    """ヒストリカルデータを表示"""
+    if df is None or df.empty:
+        console.print(create_error_panel("データを取得できませんでした。"))
+        return
+
+    table = create_historical_data_table(df, code, period, interval, max_rows=rows)
+    console.print(table)
+    console.print("\n[bold]サマリー:[/bold]")
+    console.print(f"期間高値: ¥{df['High'].max():,.0f}")
+    console.print(f"期間安値: ¥{df['Low'].min():,.0f}")
+    console.print(f"平均出来高: {int(df['Volume'].mean()):,}")
+
+
+def run_interactive_backtest():
+    """インタラクティブバックテストを実行"""
+    console.print(
+        Rule("[bold green]インタラクティブバックテスト[/bold green]", style="green")
+    )
+    console.print(
+        "[yellow]リアルタイムでバックテストの進行状況を表示します...[/yellow]"
+    )
+    console.print("[dim]Ctrl+C で終了[/dim]\n")
+
+    # モックデータフェッチャーを使用
+    mock_fetcher = StockFetcher()
+    engine = BacktestEngine(stock_fetcher=mock_fetcher)
+
+    config = BacktestConfig(
+        start_date=datetime(2023, 1, 1),
+        end_date=datetime(2023, 3, 31),  # 短期間
+        initial_capital=Decimal("1000000"),
+    )
+
+    symbols = ["7203", "9984", "8306"]
+
+    def create_progress_layout(current_date, portfolio_value, trades_count):
+        layout = Layout()
+        progress_info = Panel(
+            f"[cyan]現在日付:[/cyan] {current_date.strftime('%Y-%m-%d')}\n"
+            f"[green]ポートフォリオ価値:[/green] {format_currency(int(portfolio_value))}\n"
+            f"[yellow]取引回数:[/yellow] {trades_count}",
+            title="📊 バックテスト進捗",
+            border_style="blue",
+        )
+        chart_data = [float(portfolio_value)] * 20  # プレースホルダー
+        mini_chart = create_ascii_chart(
+            chart_data, width=40, height=6, title="ポートフォリオ推移"
+        )
+        layout.split_column(
+            Layout(progress_info, size=6),
+            Layout(Panel(mini_chart, border_style="green"), size=10),
+        )
+        return layout
+
     try:
-        interactive = InteractiveMode()
-        interactive.run()
+        with Live(
+            create_progress_layout(config.start_date, config.initial_capital, 0),
+            refresh_per_second=4,
+            screen=False,
+        ) as live:  # noqa: F841
+            # 短いデモバックテスト
+            for day in range(30):
+                current_date = config.start_date + timedelta(days=day)
+                current_value = int(
+                    config.initial_capital * (1 + random.gauss(0.1, 0.2))
+                )
+                trades_count = random.randint(0, day + 1)
+
+                live.update(
+                    create_progress_layout(current_date, current_value, trades_count)
+                )
+                time.sleep(0.3)
+
+        console.print("\n[green]インタラクティブデモが完了しました！[/green]")
     except KeyboardInterrupt:
-        print("\n終了しました")
-    except Exception as e:
-        print(f"エラー: {e}")
+        console.print("\n[yellow]デモを中断しました。[/yellow]")
+
+
+# ==============================================================
+#                           CLI コマンド
+# ==============================================================
+
+
+@cli.command()
+def init():
+    """データベースを初期化"""
+    try:
+        init_db()
+        console.print(create_success_panel("データベースを初期化しました。"))
+    except Exception as e:  # noqa: E722
+        console.print(create_error_panel(f"データベース初期化エラー: {e}"))
+
+
+@cli.command()
+@click.argument("code")
+@click.option("--details", "-d", is_flag=True, help="詳細情報を表示")
+def stock(code: str, details: bool):
+    """個別銘柄の情報を表示"""
+    # 入力検証
+    if not validate_stock_code(code):
+        suggestion = suggest_stock_code_correction(code)
+        if suggestion:
+            console.print(
+                create_error_panel(f"無効な銘柄コード: {code}\n修正候補: {suggestion}")
+            )
+        else:
+            console.print(create_error_panel(f"無効な銘柄コード: {code}"))
+        return
+
+    fetcher = StockFetcher()
+    normalized_codes = normalize_stock_codes([code])
+    if not normalized_codes:
+        console.print(
+            create_error_panel(f"銘柄コード {code} を正規化できませんでした。")
+        )
+        return
+
+    code = normalized_codes[0]
+
+    # 現在価格を取得
+    with console.status(f"[bold green]{code}の情報を取得中..."):
+        current = fetcher.get_current_price(code)
+
+    _display_stock_details(code, current, details)
+
+
+@cli.command()
+@click.argument("code")
+@click.option("--period", "-p", default="5d", help="期間 (1d,5d,1mo,3mo,6mo,1y)")
+@click.option("--interval", "-i", default="1d", help="間隔 (1m,5m,15m,30m,60m,1d)")
+@click.option("--rows", "-r", default=10, help="表示行数")
+def history(code: str, period: str, interval: str, rows: int):
+    """ヒストリカルデータを表示"""
+    # 入力検証
+    if not validate_stock_code(code):
+        console.print(create_error_panel(f"無効な銘柄コード: {code}"))
+        return
+
+    fetcher = StockFetcher()
+    normalized_codes = normalize_stock_codes([code])
+    if not normalized_codes:
+        console.print(
+            create_error_panel(f"銘柄コード {code} を正規化できませんでした。")
+        )
+        return
+
+    code = normalized_codes[0]
+
+    with console.status(f"[bold green]{code}のヒストリカルデータを取得中..."):
+        try:
+            df = fetcher.get_historical_data(code, period=period, interval=interval)
+            _display_historical_data(code, df, period, interval, rows)
+        except (DataNotFoundError, InvalidSymbolError) as e:
+            console.print(create_error_panel(f"データ取得エラー: {e}"))
+        except Exception as e:  # noqa: E722
+            console.print(create_error_panel(f"予期しないエラー: {e}"))
+
+
+@cli.command()
+@click.argument("codes", nargs=-1, required=True)
+def watch(codes):
+    """複数銘柄の現在価格を一覧表示"""
+    # 入力検証と正規化
+    normalized_codes = normalize_stock_codes(list(codes))
+    if not normalized_codes:
+        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        return
+
+    fetcher = StockFetcher()
+    with console.status("[bold green]価格情報を取得中..."):
+        results = fetcher.get_realtime_data(normalized_codes)
+
+    if not results:
+        console.print(create_error_panel("価格情報を取得できませんでした。"))
+        return
+
+    table = create_watchlist_table(results)
+    console.print(table)
+
+
+@cli.group()
+def watchlist():
+    """ウォッチリスト管理"""
+    pass
+
+
+@watchlist.command()
+@click.argument("codes", nargs=-1, required=True)
+@click.option("--group", "-g", default="default", help="グループ名")
+@click.option("--priority", "-p", default="medium", help="優先度 (low, medium, high)")
+def add(codes: List[str], group: str, priority: str):
+    """ウォッチリストに銘柄を追加"""
+    manager = _get_watchlist_manager()
+    normalized_codes = normalize_stock_codes(codes)
+    if not normalized_codes:
+        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        return
+
+    added_count = 0
+    for code in normalized_codes:
+        try:
+            success = manager.add_stock(code, group, priority)
+            if success:
+                console.print(
+                    create_success_panel(f"{code} をウォッチリストに追加しました。")
+                )
+                added_count += 1
+            else:
+                console.print(create_warning_panel(f"{code} は既に追加されています。"))
+        except InvalidSymbolError as e:
+            console.print(create_error_panel(f"{code} は無効な銘柄コードです: {e}"))
+        except Exception as e:  # noqa: E722
+            console.print(
+                create_error_panel(f"{code} の追加中にエラーが発生しました: {e}")
+            )
+
+    if added_count > 0:
+        console.print(create_success_panel(f"{added_count} 件の銘柄を追加しました。"))
+
+
+@watchlist.command()
+@click.argument("codes", nargs=-1, required=True)
+def remove(codes: List[str]):
+    """ウォッチリストから銘柄を削除"""
+    manager = _get_watchlist_manager()
+    normalized_codes = normalize_stock_codes(codes)
+    if not normalized_codes:
+        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        return
+
+    removed_count = 0
+    for code in normalized_codes:
+        try:
+            success = manager.remove_stock(code)
+            if success:
+                console.print(
+                    create_success_panel(f"{code} をウォッチリストから削除しました。")
+                )
+                removed_count += 1
+            else:
+                console.print(
+                    create_warning_panel(f"{code} はウォッチリストにありません。")
+                )
+        except Exception as e:  # noqa: E722
+            console.print(
+                create_error_panel(f"{code} の削除中にエラーが発生しました: {e}")
+            )
+
+    if removed_count > 0:
+        console.print(create_success_panel(f"{removed_count} 件の銘柄を削除しました。"))
+
+
+@watchlist.command()
+def list():
+    """ウォッチリストの内容を表示"""
+    manager = _get_watchlist_manager()
+    with console.status("[bold green]ウォッチリストを取得中..."):
+        items = manager.get_watchlist()
+
+    if not items:
+        console.print(
+            create_info_panel(
+                "ウォッチリストは空です。`add` コマンドで銘柄を追加してください。"
+            )
+        )
+        return
+
+    table = Table(title="ウォッチリスト")
+    table.add_column("銘柄コード", style="cyan", justify="left")
+    table.add_column("銘柄名", style="white", justify="left")
+    table.add_column("グループ", style="magenta", justify="left")
+    table.add_column("優先度", style="yellow", justify="left")
+    table.add_column("価格", style="green", justify="right")
+    table.add_column("変化率", style="white", justify="right")
+    table.add_column("メモ", style="dim", justify="left")
+
+    for item in items:
+        change_color = "red" if item.get("change_percent", 0) < 0 else "green"
+        table.add_row(
+            item.get("stock_code", "N/A"),
+            item.get("stock_name", "N/A"),
+            item.get("group", "N/A"),
+            item.get("priority", "N/A"),
+            format_currency(item.get("current_price")),
+            f"[{change_color}]{format_percentage(item.get("change_percent", 0))}[/{change_color}]",
+            item.get("memo", "")[:20] + "..."
+            if len(item.get("memo", "")) > 20
+            else item.get("memo", ""),
+        )
+    console.print(table)
+
+
+@watchlist.command()
+@click.argument("code")
+@click.option("--memo", "-m", help="メモの内容")
+def memo(code: str, memo: Optional[str]):
+    """ウォッチリスト銘柄にメモを追加・更新"""
+    manager = _get_watchlist_manager()
+    normalized_codes = normalize_stock_codes([code])
+    if not normalized_codes:
+        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        return
+    code = normalized_codes[0]
+
+    if memo is None:
+        # メモが指定されなければ対話的に入力
+        current_memo = (
+            manager.get_watchlist(codes=[code])[0].get("memo", "")
+            if manager.get_watchlist(codes=[code])
+            else ""
+        )
+        memo = Prompt.ask(
+            f"[cyan]メモを入力してください (現在のメモ: '{current_memo}')[/cyan]"
+        )
+
+    try:
+        success = manager.update_memo(code, memo)
+        if success:
+            console.print(create_success_panel(f"{code} のメモを更新しました。"))
+        else:
+            console.print(create_error_panel(f"{code} はウォッチリストにありません。"))
+    except Exception as e:  # noqa: E722
+        console.print(
+            create_error_panel(f"{code} のメモ更新中にエラーが発生しました: {e}")
+        )
+
+
+@watchlist.command()
+@click.argument("code")
+@click.argument("group")
+def move(code: str, group: str):
+    """ウォッチリスト銘柄を別のグループに移動"""
+    manager = _get_watchlist_manager()
+    normalized_codes = normalize_stock_codes([code])
+    if not normalized_codes:
+        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        return
+    code = normalized_codes[0]
+
+    try:
+        success = manager.move_to_group(code, group)
+        if success:
+            console.print(
+                create_success_panel(f"{code} を {group} グループに移動しました。")
+            )
+        else:
+            console.print(create_error_panel(f"{code} はウォッチリストにありません。"))
+    except Exception as e:  # noqa: E722
+        console.print(
+            create_error_panel(f"{code} のグループ移動中にエラーが発生しました: {e}")
+        )
+
+
+@watchlist.command()
+@click.confirmation_option(prompt="本当にウォッチリストをクリアしますか？")
+def clear():
+    """ウォッチリストの内容を全てクリア"""
+    manager = _get_watchlist_manager()
+    try:
+        manager.clear_watchlist()
+        console.print(create_success_panel("ウォッチリストを全てクリアしました。"))
+    except Exception as e:  # noqa: E722
+        console.print(
+            create_error_panel(f"ウォッチリストのクリア中にエラーが発生しました: {e}")
+        )
+
+
+@cli.group()
+def config():
+    """設定管理"""
+    pass
+
+
+@config.command("show")
+def config_show():
+    """現在の設定を表示"""
+    config_dict = config_manager.config.model_dump()
+
+    table = Table(title="設定情報")
+    table.add_column("設定項目", style="cyan")
+    table.add_column("値", style="white")
+
+    def add_config_rows(data, prefix=""):
+        for key, value in data.items():
+            full_key = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, dict):
+                add_config_rows(value, full_key)
+            else:
+                table.add_row(full_key, str(value))
+
+    add_config_rows(config_dict)
+    console.print(table)
+
+
+@config.command("set")
+@click.argument("key")
+@click.argument("value")
+def config_set(key: str, value: str):
+    """設定値を変更"""
+    try:
+        # 型推定（簡易版）
+        if value.lower() in ("true", "false"):
+            typed_value = value.lower() == "true"
+        elif value.isdigit():
+            typed_value = int(value)
+        elif value.replace(".", "").isdigit():
+            typed_value = float(value)
+        else:
+            typed_value = value
+
+        config_manager.set(key, typed_value)
+        console.print(
+            create_success_panel(f"設定を更新しました: {key} = {typed_value}")
+        )
+    except Exception as e:  # noqa: E722
+        console.print(create_error_panel(f"設定更新エラー: {e}"))
+
+
+@config.command("reset")
+@click.confirmation_option(prompt="設定をリセットしますか？")
+def config_reset():
+    """設定をデフォルトに戻す"""
+    try:
+        config_manager.reset()
+        console.print(create_success_panel("設定をデフォルトにリセットしました。"))
+    except Exception as e:  # noqa: E722
+        console.print(create_error_panel(f"設定リセットエラー: {e}"))
+
+
+@cli.command("validate")
+@click.argument("codes", nargs=-1, required=True)
+def validate_codes(codes):
+    """銘柄コードの妥当性を検証"""
+    table = Table(title="銘柄コード検証結果")
+    table.add_column("コード", style="cyan")
+    table.add_column("有効性", style="white")
+    table.add_column("正規化後", style="yellow")
+    table.add_column("提案", style="green")
+
+    for code in codes:
+        is_valid = validate_stock_code(code)
+        normalized = normalize_stock_codes([code])
+        suggestion = suggest_stock_code_correction(code)
+
+        validity = "[green]有効[/green]" if is_valid else "[red]無効[/red]"
+        normalized_str = normalized[0] if normalized else "N/A"
+        suggestion_str = suggestion or "なし"
+
+        table.add_row(code, validity, normalized_str, suggestion_str)
+
+    console.print(table)
+
+
+@cli.command("backtest")
+def backtest_command():
+    """インタラクティブバックテストの実行"""
+    run_interactive_backtest()
 
 
 if __name__ == "__main__":
-    main()
+    cli()

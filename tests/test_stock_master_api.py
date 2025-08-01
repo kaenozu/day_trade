@@ -1,10 +1,9 @@
 """
 銘柄マスタ管理のAPIテスト
 """
+
 import pytest
-from src.day_trade.models import db_manager, reset_db
 from src.day_trade.data.stock_master import stock_master
-from src.day_trade.models.stock import Stock
 
 
 @pytest.fixture(scope="function")
@@ -12,17 +11,17 @@ def setup_test_db():
     """テスト用データベースのセットアップ"""
     # テスト用インメモリDBを使用
     from src.day_trade.models import database
-    
+
     # 元のdb_managerを保存
     original_db_manager = database.db_manager
-    
+
     # テスト用のマネージャーに差し替え
     test_db_manager = database.DatabaseManager("sqlite:///:memory:", echo=False)
     test_db_manager.create_tables()
     database.db_manager = test_db_manager
-    
+
     yield test_db_manager
-    
+
     # 元に戻す
     database.db_manager = original_db_manager
 
@@ -31,16 +30,40 @@ def setup_test_db():
 def sample_stocks():
     """サンプル株式データ"""
     return [
-        {"code": "7203", "name": "トヨタ自動車", "market": "東証プライム", "sector": "輸送用機器", "industry": "自動車"},
-        {"code": "6758", "name": "ソニーグループ", "market": "東証プライム", "sector": "電気機器", "industry": "電気機器"},
-        {"code": "9984", "name": "ソフトバンクグループ", "market": "東証プライム", "sector": "情報・通信業", "industry": "通信業"},
-        {"code": "8306", "name": "三菱UFJフィナンシャル・グループ", "market": "東証プライム", "sector": "銀行業", "industry": "銀行業"},
+        {
+            "code": "7203",
+            "name": "トヨタ自動車",
+            "market": "東証プライム",
+            "sector": "輸送用機器",
+            "industry": "自動車",
+        },
+        {
+            "code": "6758",
+            "name": "ソニーグループ",
+            "market": "東証プライム",
+            "sector": "電気機器",
+            "industry": "電気機器",
+        },
+        {
+            "code": "9984",
+            "name": "ソフトバンクグループ",
+            "market": "東証プライム",
+            "sector": "情報・通信業",
+            "industry": "通信業",
+        },
+        {
+            "code": "8306",
+            "name": "三菱UFJフィナンシャル・グループ",
+            "market": "東証プライム",
+            "sector": "銀行業",
+            "industry": "銀行業",
+        },
     ]
 
 
 class TestStockMasterAPI:
     """StockMasterManagerのAPIテストクラス"""
-    
+
     def test_add_stock(self, setup_test_db):
         """銘柄追加のテスト"""
         # 銘柄を追加
@@ -49,191 +72,173 @@ class TestStockMasterAPI:
             name="トヨタ自動車",
             market="東証プライム",
             sector="輸送用機器",
-            industry="自動車"
+            industry="自動車",
         )
-        
+
         assert stock is not None
         assert stock.code == "7203"
         assert stock.name == "トヨタ自動車"
         assert stock.market == "東証プライム"
         assert stock.sector == "輸送用機器"
         assert stock.industry == "自動車"
-    
+
     def test_add_duplicate_stock(self, setup_test_db):
         """重複銘柄追加のテスト"""
         # 同じ銘柄を2回追加
-        stock1 = stock_master.add_stock(
-            code="7203",
-            name="トヨタ自動車"
-        )
-        stock2 = stock_master.add_stock(
-            code="7203",
-            name="トヨタ自動車 (重複)"
-        )
-        
+        stock1 = stock_master.add_stock(code="7203", name="トヨタ自動車")
+        stock2 = stock_master.add_stock(code="7203", name="トヨタ自動車 (重複)")
+
         assert stock1 is not None
         assert stock2 is not None
         assert stock1.id == stock2.id  # 同じオブジェクトが返される
         assert stock2.name == "トヨタ自動車"  # 元の名前が保持される
-    
+
     def test_get_stock_by_code(self, setup_test_db, sample_stocks):
         """証券コードによる銘柄取得のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # 存在する銘柄を取得
         stock = stock_master.get_stock_by_code("7203")
         assert stock is not None
         assert stock.code == "7203"
         assert stock.name == "トヨタ自動車"
-        
+
         # 存在しない銘柄を取得
         stock = stock_master.get_stock_by_code("9999")
         assert stock is None
-    
+
     def test_search_stocks_by_name(self, setup_test_db, sample_stocks):
         """銘柄名検索のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # 部分一致検索
         results = stock_master.search_stocks_by_name("ソ")
-        
+
         assert len(results) == 2  # ソニーグループ、ソフトバンクグループ
         names = [stock.name for stock in results]
         assert "ソニーグループ" in names
         assert "ソフトバンクグループ" in names
-    
+
     def test_search_stocks_by_sector(self, setup_test_db, sample_stocks):
         """セクター検索のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # セクター検索
         results = stock_master.search_stocks_by_sector("電気機器")
-        
+
         assert len(results) == 1
         assert results[0].name == "ソニーグループ"
-    
+
     def test_search_stocks_by_industry(self, setup_test_db, sample_stocks):
         """業種検索のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # 業種検索
         results = stock_master.search_stocks_by_industry("自動車")
-        
+
         assert len(results) == 1
         assert results[0].name == "トヨタ自動車"
-    
+
     def test_search_stocks_complex(self, setup_test_db, sample_stocks):
         """複合条件検索のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # 複合条件検索（市場区分 + 名前の一部）
-        results = stock_master.search_stocks(
-            market="東証プライム",
-            name="グループ"
-        )
-        
+        results = stock_master.search_stocks(market="東証プライム", name="グループ")
+
         assert len(results) == 2
         names = [stock.name for stock in results]
         assert "ソニーグループ" in names
         assert "ソフトバンクグループ" in names
-    
+
     def test_update_stock(self, setup_test_db):
         """銘柄更新のテスト"""
         # 銘柄を追加
-        stock_master.add_stock(
-            code="7203",
-            name="トヨタ自動車",
-            market="東証プライム"
-        )
-        
+        stock_master.add_stock(code="7203", name="トヨタ自動車", market="東証プライム")
+
         # 更新
         updated_stock = stock_master.update_stock(
-            code="7203",
-            name="トヨタ自動車株式会社",
-            sector="輸送用機器"
+            code="7203", name="トヨタ自動車株式会社", sector="輸送用機器"
         )
-        
+
         assert updated_stock is not None
         assert updated_stock.name == "トヨタ自動車株式会社"
         assert updated_stock.sector == "輸送用機器"
         assert updated_stock.market == "東証プライム"  # 元の値が保持される
-    
+
     def test_delete_stock(self, setup_test_db):
         """銘柄削除のテスト"""
         # 銘柄を追加
-        stock_master.add_stock(
-            code="7203",
-            name="トヨタ自動車"
-        )
-        
+        stock_master.add_stock(code="7203", name="トヨタ自動車")
+
         # 削除前の確認
         stock = stock_master.get_stock_by_code("7203")
         assert stock is not None
-        
+
         # 削除
         result = stock_master.delete_stock("7203")
         assert result is True
-        
+
         # 削除後の確認
         stock = stock_master.get_stock_by_code("7203")
         assert stock is None
-    
+
     def test_get_stock_count(self, setup_test_db, sample_stocks):
         """銘柄数取得のテスト"""
         # 初期状態では0件
         count = stock_master.get_stock_count()
         assert count == 0
-        
+
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         # 追加後の確認
         count = stock_master.get_stock_count()
         assert count == len(sample_stocks)
-    
+
     def test_get_all_sectors(self, setup_test_db, sample_stocks):
         """全セクター取得のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         sectors = stock_master.get_all_sectors()
         assert len(sectors) == 4
         assert "輸送用機器" in sectors
         assert "電気機器" in sectors
         assert "情報・通信業" in sectors
         assert "銀行業" in sectors
-    
+
     def test_get_all_industries(self, setup_test_db, sample_stocks):
         """全業種取得のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         industries = stock_master.get_all_industries()
         assert len(industries) == 4
         assert "自動車" in industries
         assert "電気機器" in industries
         assert "通信業" in industries
         assert "銀行業" in industries
-    
+
     def test_get_all_markets(self, setup_test_db, sample_stocks):
         """全市場区分取得のテスト"""
         # サンプルデータを追加
         for stock_data in sample_stocks:
             stock_master.add_stock(**stock_data)
-        
+
         markets = stock_master.get_all_markets()
         assert len(markets) == 1
         assert "東証プライム" in markets

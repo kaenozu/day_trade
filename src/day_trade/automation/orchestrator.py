@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import traceback
+import pandas as pd
 
 from ..config.config_manager import ConfigManager
 from ..data.stock_fetcher import StockFetcher
@@ -199,7 +200,7 @@ class DayTradeOrchestrator:
         pattern_results = self._run_pattern_recognition_batch(stock_data)
 
         logger.info("Step 4: シグナル生成実行")
-        signals = self._generate_signals_batch(analysis_results, pattern_results)
+        signals = self._generate_signals_batch(analysis_results, pattern_results, stock_data)
 
         logger.info("Step 5: アラートチェック実行")
         alerts = self._check_alerts_batch(stock_data)
@@ -226,9 +227,9 @@ class DayTradeOrchestrator:
                 # 現在価格取得
                 current_data = self.stock_fetcher.get_current_price(symbol)
 
-                # 履歴データ取得
+                # 履歴データ取得（アンサンブル戦略のため3ヶ月分取得）
                 historical_data = self.stock_fetcher.get_historical_data(
-                    symbol, period="1mo", interval="1d"
+                    symbol, period="3mo", interval="1d"
                 )
 
                 execution_time = time.time() - start_time
@@ -240,8 +241,9 @@ class DayTradeOrchestrator:
                     execution_time=execution_time,
                 )
 
-                self.current_report.execution_results.append(result)
-                self.current_report.successful_symbols += 1
+                if self.current_report:
+                    self.current_report.execution_results.append(result)
+                    self.current_report.successful_symbols += 1
 
                 return symbol, {"current": current_data, "historical": historical_data}
 
@@ -253,9 +255,10 @@ class DayTradeOrchestrator:
                     success=False, symbol=symbol, error=error_msg, execution_time=0.0
                 )
 
-                self.current_report.execution_results.append(result)
-                self.current_report.failed_symbols += 1
-                self.current_report.errors.append(error_msg)
+                if self.current_report:
+                    self.current_report.execution_results.append(result)
+                    self.current_report.failed_symbols += 1
+                    self.current_report.errors.append(error_msg)
 
                 return symbol, None
 
@@ -374,7 +377,10 @@ class DayTradeOrchestrator:
         return pattern_results
 
     def _generate_signals_batch(
-        self, analysis_results: Dict[str, Dict], pattern_results: Dict[str, Dict]
+        self,
+        analysis_results: Dict[str, Dict],
+        pattern_results: Dict[str, Dict],
+        stock_data: Dict[str, Any] = None,
     ) -> List[Dict[str, Any]]:
         """シグナル生成を並列実行"""
         if not self.config_manager.get_signal_generation_settings().enabled:
@@ -392,8 +398,11 @@ class DayTradeOrchestrator:
                 if analysis:
                     # アンサンブル戦略が有効な場合は優先使用
                     if self.ensemble_strategy:
+                        symbol_stock_data = (
+                            stock_data.get(symbol) if stock_data else None
+                        )
                         ensemble_signals = self._generate_ensemble_signals(
-                            symbol, analysis, patterns
+                            symbol, analysis, patterns, symbol_stock_data
                         )
                         all_signals.extend(ensemble_signals)
                     else:
@@ -412,47 +421,74 @@ class DayTradeOrchestrator:
         return all_signals
 
     def _generate_ensemble_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict
+        self, symbol: str, analysis: Dict, patterns: Dict, stock_data: Dict = None
     ) -> List[Dict[str, Any]]:
         """アンサンブル戦略によるシグナル生成"""
         signals = []
 
         try:
-            # 必要なデータを取得（簡略化のため仮データを使用）
-            import pandas as pd
             from datetime import datetime
 
-            # 実際の実装では正しいDataFrameを構築する必要がある
-            # ここでは基本構造のみ提供
-            dummy_df = pd.DataFrame(
-                {
-                    "Close": [100.0, 101.0, 102.0, 100.5, 99.0],
-                    "Open": [99.5, 100.5, 101.5, 101.0, 100.0],
-                    "High": [101.0, 102.0, 103.0, 102.0, 100.0],
-                    "Low": [99.0, 100.0, 101.0, 99.5, 98.5],
-                    "Volume": [1000000, 1200000, 1100000, 900000, 1300000],
-                },
-                index=pd.date_range(end=datetime.now(), periods=5, freq="D"),
-            )
+            # 実際の株価データを取得
+            if stock_data and "historical" in stock_data:
+                price_df = stock_data["historical"]
+            else:
+                # フォールバック：最小限のデータでも動作するようにする
+                logger.warning(f"実際の価格データがありません ({symbol})")
+                return []
+
+            # データ量チェック
+            if len(price_df) < 20:
+                logger.warning(
+                    f"データが不足しています ({symbol}): {len(price_df)}日分"
+                )
+                return []
 
             # 指標データの変換
-            indicators_df = pd.DataFrame()
+            indicators_df = pd.DataFrame(index=price_df.index)
+
             if "rsi" in analysis:
                 rsi_data = analysis["rsi"]
                 if hasattr(rsi_data, "iloc") and len(rsi_data) > 0:
-                    indicators_df["RSI"] = rsi_data
+                    # インデックスが一致するように調整
+                    if len(rsi_data) == len(price_df):
+                        indicators_df["RSI"] = rsi_data.values
+                    else:
+                        indicators_df["RSI"] = rsi_data
 
             if "macd" in analysis:
                 macd_data = analysis["macd"]
-                if isinstance(macd_data, pd.DataFrame):
-                    if "MACD" in macd_data.columns:
-                        indicators_df["MACD"] = macd_data["MACD"]
-                    if "Signal" in macd_data.columns:
-                        indicators_df["MACD_Signal"] = macd_data["Signal"]
+                if isinstance(macd_data, dict):
+                    if "MACD" in macd_data and "Signal" in macd_data:
+                        macd_values = macd_data["MACD"]
+                        signal_values = macd_data["Signal"]
+                        if hasattr(macd_values, "iloc") and hasattr(
+                            signal_values, "iloc"
+                        ):
+                            if len(macd_values) == len(price_df) and len(
+                                signal_values
+                            ) == len(price_df):
+                                indicators_df["MACD"] = macd_values.values
+                                indicators_df["MACD_Signal"] = signal_values.values
+
+            if "bollinger" in analysis:
+                bb_data = analysis["bollinger"]
+                if isinstance(bb_data, dict):
+                    if "Upper" in bb_data and "Lower" in bb_data:
+                        upper_values = bb_data["Upper"]
+                        lower_values = bb_data["Lower"]
+                        if hasattr(upper_values, "iloc") and hasattr(
+                            lower_values, "iloc"
+                        ):
+                            if len(upper_values) == len(price_df) and len(
+                                lower_values
+                            ) == len(price_df):
+                                indicators_df["BB_Upper"] = upper_values.values
+                                indicators_df["BB_Lower"] = lower_values.values
 
             # アンサンブルシグナル生成
             ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
-                dummy_df, indicators_df, patterns
+                price_df, indicators_df, patterns
             )
 
             if (

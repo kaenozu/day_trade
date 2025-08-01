@@ -2,6 +2,7 @@
 データベース基盤モジュール
 SQLAlchemyを使用したデータベース接続とセッション管理
 """
+
 import os
 from contextlib import contextmanager
 from typing import Generator
@@ -16,10 +17,7 @@ from alembic import command
 Base = declarative_base()
 
 # データベースURLの設定
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "sqlite:///./day_trade.db"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./day_trade.db")
 
 # テスト用のインメモリデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -27,7 +25,7 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 
 class DatabaseManager:
     """データベース管理クラス"""
-    
+
     def __init__(self, database_url: str = DATABASE_URL, echo: bool = False):
         """
         Args:
@@ -36,7 +34,7 @@ class DatabaseManager:
         """
         self.database_url = database_url
         self.echo = echo
-        
+
         # エンジンの作成
         if database_url == TEST_DATABASE_URL:
             # テスト用インメモリDBの場合
@@ -44,51 +42,47 @@ class DatabaseManager:
                 database_url,
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
-                echo=echo
+                echo=echo,
             )
         else:
             # 通常のSQLiteファイルの場合
             self.engine = create_engine(
-                database_url,
-                connect_args={"check_same_thread": False},
-                echo=echo
+                database_url, connect_args={"check_same_thread": False}, echo=echo
             )
-        
+
         # SQLiteの外部キー制約を有効化
         if "sqlite" in database_url:
             event.listen(self.engine, "connect", self._set_sqlite_pragma)
-        
+
         # セッションファクトリの作成
         self.SessionLocal = sessionmaker(
-            autocommit=False,
-            autoflush=False,
-            bind=self.engine
+            autocommit=False, autoflush=False, bind=self.engine
         )
-    
+
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
         """SQLiteの設定"""
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
-    
+
     def create_tables(self):
         """全テーブルを作成"""
         Base.metadata.create_all(bind=self.engine)
-    
+
     def drop_tables(self):
         """全テーブルを削除"""
         Base.metadata.drop_all(bind=self.engine)
-    
+
     def get_session(self) -> Session:
         """新しいセッションを取得"""
         return self.SessionLocal()
-    
+
     @contextmanager
     def session_scope(self) -> Generator[Session, None, None]:
         """
         セッションのコンテキストマネージャー
-        
+
         Usage:
             with db_manager.session_scope() as session:
                 # セッションを使用した処理
@@ -103,38 +97,38 @@ class DatabaseManager:
             raise
         finally:
             session.close()
-    
+
     def get_alembic_config(self) -> Config:
         """Alembic設定を取得"""
         alembic_cfg = Config("alembic.ini")
         alembic_cfg.set_main_option("sqlalchemy.url", self.database_url)
         return alembic_cfg
-    
+
     def init_alembic(self):
         """Alembicの初期化（初回マイグレーション作成）"""
-        alembic_cfg = self.get_alembic_config()
+        alembic_cfg = self.get_alembic_config()  # noqa: F841
         command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
-    
+
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
-        alembic_cfg = self.get_alembic_config()
+        alembic_cfg = self.get_alembic_config()  # noqa: F841
         command.revision(alembic_cfg, autogenerate=True, message=message)
-    
+
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
-        alembic_cfg = self.get_alembic_config()
+        alembic_cfg = self.get_alembic_config()  # noqa: F841
         command.upgrade(alembic_cfg, revision)
-    
+
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
-        alembic_cfg = self.get_alembic_config()
+        alembic_cfg = self.get_alembic_config()  # noqa: F841
         command.downgrade(alembic_cfg, revision)
-    
+
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
         alembic_cfg = self.get_alembic_config()
         from alembic.runtime.migration import MigrationContext
-        
+
         with self.engine.connect() as connection:
             context = MigrationContext.configure(connection)
             return context.get_current_revision() or "None"
@@ -148,7 +142,7 @@ db_manager = DatabaseManager()
 def get_db() -> Generator[Session, None, None]:
     """
     依存性注入用のデータベースセッション取得関数
-    
+
     Usage:
         def some_function(db: Session = Depends(get_db)):
             # データベース操作
