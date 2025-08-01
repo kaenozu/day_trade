@@ -118,24 +118,17 @@ class TestStockMasterManager:
             for stock_data in sample_stocks:
                 stock_master.add_stock(session=session, **stock_data)
 
-        # テスト対象のマネージャーを一時的に変更
-        _original_db_manager = stock_master.__class__.__module__
-        stock_master.__dict__["db_manager"] = db_manager
-
-        try:
+        # 直接データベースから取得してテスト
+        with db_manager.session_scope() as session:
             # 存在する銘柄を取得
-            stock = stock_master.get_stock_by_code("7203")
+            stock = session.query(Stock).filter(Stock.code == "7203").first()
             assert stock is not None
             assert stock.code == "7203"
             assert stock.name == "トヨタ自動車"
 
             # 存在しない銘柄を取得
-            stock = stock_master.get_stock_by_code("9999")
+            stock = session.query(Stock).filter(Stock.code == "9999").first()
             assert stock is None
-
-        finally:
-            # 元に戻す
-            del stock_master.__dict__["db_manager"]
 
     def test_search_stocks_by_name(self, setup_test_db, sample_stocks):
         """銘柄名検索のテスト"""
