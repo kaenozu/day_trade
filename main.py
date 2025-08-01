@@ -127,13 +127,13 @@ def main():
                     logging.debug(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
 
             analysis_results = engine.run_analysis(data)
-            logging.info(f"分析結果: {analysis_results}")
+            logging.debug(f"分析結果: {analysis_results}")
 
             final_decision = engine.make_ensemble_decision(analysis_results)
             logging.info(f"最終決定: {final_decision}")
 
             # 現在の株価を日本円で表示
-            logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
+            logging.debug(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
             stock_info = yf.Ticker(ticker_symbol)
             current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
 
@@ -149,7 +149,7 @@ def main():
             logging.info(f"--- 銘柄: {ticker_symbol} の分析を終了します ---")
 
     elif args.command == "fetch_data":
-        logging.info(f"銘柄: {args.ticker} のデータを {args.start_date} から {args.end_date} まで取得中...")
+        logging.debug(f"銘柄: {args.ticker} のデータを {args.start_date} から {args.end_date} まで取得中...")
         df = fetch_stock_data(args.ticker, args.start_date, args.end_date)
         if not df.empty:
             df.to_csv(args.output_path, index=True)
@@ -216,12 +216,12 @@ def main():
                 continue # 次の銘柄へ
 
             backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
-            logging.info(f"バックテスト結果: {backtest_results}")
+            logging.debug(f"バックテスト結果: {backtest_results}")
             logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを終了します ---")
 
     elif args.command == "get_current_price_jpy":
         ticker_symbol = args.ticker
-        logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
+        logging.debug(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
         
         stock_info = yf.Ticker(ticker_symbol)
         current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
