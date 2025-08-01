@@ -60,7 +60,7 @@ def main():
                 data = pd.read_csv(args.data_path)
                 logging.info(f"銘柄: {ticker_symbol} のデータファイル {args.data_path} から分析を実行中...")
             except FileNotFoundError:
-                logging.info(f"データファイル {args.data_path} が見つかりませんでした。自動的にデータを取得します...")
+                logging.info(f"銘柄: {ticker_symbol} のデータファイル {args.data_path} が見つかりませんでした。自動的にデータを取得します...")
                 
                 start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
                 end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
