@@ -484,13 +484,15 @@ class StockFetcher:
 
         results = {}
         failed_codes = []
-        
+
         # Max workers to avoid overwhelming the API or local resources
         # A common recommendation is (number of cores * 2) + 1, or just a small fixed number for I/O bound tasks
-        max_workers = min(len(codes), 10) 
+        max_workers = min(len(codes), 10)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_code = {executor.submit(self.get_current_price, code): code for code in codes}
+            future_to_code = {
+                executor.submit(self.get_current_price, code): code for code in codes
+            }
             for future in as_completed(future_to_code):
                 code = future_to_code[future]
                 try:
@@ -502,8 +504,7 @@ class StockFetcher:
                 except Exception as e:
                     logger.warning(f"銘柄 {code} の取得に失敗: {e}")
                     failed_codes.append(code)
-        
->>>>>>> origin/main
+
         if failed_codes:
             logger.info(f"取得に失敗した銘柄: {failed_codes}")
 
