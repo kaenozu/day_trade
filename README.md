@@ -1,3 +1,4 @@
+
 # Day Trade Analysis System
 
 ## 概要
