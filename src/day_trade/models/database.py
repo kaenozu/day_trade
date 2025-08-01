@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 # ベースクラスの作成
 Base = declarative_base()
 
+# テスト用のデータベースURL
+TEST_DATABASE_URL = "sqlite:///:memory:"
+
 
 class DatabaseConfig:
     """データベース設定クラス"""
@@ -330,7 +333,7 @@ class DatabaseManager:
         """
         データベースの最適化を実行
         """
-        if "sqlite" in self.database_url:
+        if "sqlite" in self.config.database_url:
             with self.engine.connect() as connection:
                 # VACUUM操作でデータベースファイルを最適化
                 connection.execute("VACUUM")

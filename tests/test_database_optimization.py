@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from src.day_trade.core.watchlist import WatchlistManager
-from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager
+from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager, DatabaseConfig
 from src.day_trade.models.stock import PriceData, Stock, Trade
 
 
@@ -18,7 +18,8 @@ class TestDatabaseOptimization:
     @pytest.fixture
     def test_db(self):
         """テスト用データベース"""
-        db = DatabaseManager(TEST_DATABASE_URL, echo=False)
+        config = DatabaseConfig.for_testing()
+        db = DatabaseManager(config)
         db.create_tables()
         yield db
         db.drop_tables()
@@ -304,7 +305,8 @@ if __name__ == "__main__":
     test_case = TestDatabaseOptimization()
 
     # テスト用DB作成
-    db = DatabaseManager(TEST_DATABASE_URL, echo=False)
+    config = DatabaseConfig.for_testing()
+    db = DatabaseManager(config)
     db.create_tables()
 
     try:
