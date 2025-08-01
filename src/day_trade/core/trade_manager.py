@@ -491,7 +491,9 @@ class TradeManager:
             logger.info(f"JSON保存完了: {filepath}")
 
         except Exception as e:
-            logger.error(f"JSON保存エラー: {e}")
+            logger.error(
+                f"データの保存中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def load_from_json(self, filepath: str):
@@ -546,7 +548,7 @@ class TradeManager:
             logger.info(f"JSON読み込み完了: {filepath}")
 
         except Exception as e:
-            logger.error(f"JSON読み込みエラー: {e}")
+            logger.error(f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}")
             raise
 
     def calculate_tax_implications(self, year: int) -> Dict:

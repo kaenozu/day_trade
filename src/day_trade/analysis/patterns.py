@@ -140,7 +140,9 @@ class ChartPatternRecognizer:
             return {"resistance": resistance_levels, "support": sorted(support_levels)}
 
         except Exception as e:
-            logger.error(f"サポート・レジスタンス検出エラー: {e}")
+            logger.error(
+                f"サポート・レジスタンスレベルの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return {"resistance": [], "support": []}
 
     @staticmethod
@@ -226,7 +228,9 @@ class ChartPatternRecognizer:
             )
 
         except Exception as e:
-            logger.error(f"ブレイクアウト検出エラー: {e}")
+            logger.error(
+                f"ブレイクアウトパターンの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.DataFrame()
 
     @staticmethod
@@ -305,7 +309,9 @@ class ChartPatternRecognizer:
             return result
 
         except Exception as e:
-            logger.error(f"トレンドライン検出エラー: {e}")
+            logger.error(
+                f"トレンドラインの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return {}
 
     @staticmethod
@@ -395,7 +401,9 @@ class ChartPatternRecognizer:
             return results
 
         except Exception as e:
-            logger.error(f"全パターン検出エラー: {e}")
+            logger.error(
+                f"全てのチャートパターンの検出中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return {}
 
 
