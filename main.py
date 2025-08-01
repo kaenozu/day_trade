@@ -2,12 +2,16 @@ import argparse
 import pandas as pd
 import json
 import os
+import logging # 追加
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
 from src.backtester import run_backtest
 from src.config_manager import load_config
 
 def main():
+    # ロギング設定の追加
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     config = load_config()
 
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
@@ -42,36 +46,36 @@ def main():
     if args.command == "run_analysis":
         data = None
         if args.ticker:
-            print(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            logging.info(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
             data = fetch_stock_data(
                 args.ticker,
                 args.start_date or config.get('fetch_data', {}).get('default_start_date'),
                 args.end_date or config.get('fetch_data', {}).get('default_end_date')
             )
             if data.empty:
-                print(f"Error: Failed to fetch data for {args.ticker}")
+                logging.error(f"Failed to fetch data for {args.ticker}")
                 return
         elif args.data_path:
             try:
                 data = pd.read_csv(args.data_path)
             except FileNotFoundError:
-                print(f"Data file not found at {args.data_path}. Fetching data automatically...")
+                logging.info(f"Data file not found at {args.data_path}. Fetching data automatically...")
                 ticker = config.get('fetch_data', {}).get('default_ticker', 'AAPL')
                 start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
                 end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
                 
-                print(f"Fetching data for {ticker} from {start_date} to {end_date}")
+                logging.info(f"Fetching data for {ticker} from {start_date} to {end_date}")
                 df = fetch_stock_data(ticker, start_date, end_date)
                 
                 if not df.empty:
                     df.to_csv(args.data_path, index=True)
-                    print(f"Data saved to {args.data_path}")
+                    logging.info(f"Data saved to {args.data_path}")
                     data = pd.read_csv(args.data_path)
                 else:
-                    print(f"Failed to fetch data for {ticker}. Aborting analysis.")
+                    logging.error(f"Failed to fetch data for {ticker}. Aborting analysis.")
                     return
         else:
-            print("Error: Either --data_path or --ticker must be specified for run_analysis.")
+            logging.error("Either --data_path or --ticker must be specified for run_analysis.")
             return
 
         engine = AnalysisEngine()
@@ -91,10 +95,10 @@ def main():
                 parsed_strategies = json.loads(strategies_json)
                 engine.set_active_strategies(parsed_strategies)
             except FileNotFoundError:
-                print(f"Error: Strategies file not found at {args.strategies_file}")
+                logging.error(f"Strategies file not found at {args.strategies_file}")
                 return
             except json.JSONDecodeError as e:
-                print(f"Error parsing strategies JSON from file: {e}")
+                logging.error(f"Error parsing strategies JSON from file: {e}")
                 return
         else:
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
@@ -102,44 +106,44 @@ def main():
                 engine.set_active_strategies(default_strategies)
 
         analysis_results = engine.run_analysis(data)
-        print("Analysis Results:", analysis_results)
+        logging.info(f"Analysis Results: {analysis_results}")
 
         final_decision = engine.make_ensemble_decision(analysis_results)
-        print("Final Decision:", final_decision)
+        logging.info(f"Final Decision: {final_decision}")
 
     elif args.command == "fetch_data":
-        print(f"Fetching data for {args.ticker} from {args.start_date} to {args.end_date}")
+        logging.info(f"Fetching data for {args.ticker} from {args.start_date} to {args.end_date}")
         df = fetch_stock_data(args.ticker, args.start_date, args.end_date)
         if not df.empty:
             df.to_csv(args.output_path, index=True)
-            print(f"Data saved to {args.output_path}")
+            logging.info(f"Data saved to {args.output_path}")
         else:
-            print(f"Failed to fetch data for {args.ticker}")
+            logging.error(f"Failed to fetch data for {args.ticker}")
 
     elif args.command == "run_backtest":
         data = None
         if args.ticker:
-            print(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            logging.info(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
             data = fetch_stock_data(
                 args.ticker,
                 args.start_date or config.get('fetch_data', {}).get('default_start_date'),
                 args.end_date or config.get('fetch_data', {}).get('default_end_date')
             )
             if data.empty:
-                print(f"Error: Failed to fetch data for {args.ticker}")
+                logging.error(f"Failed to fetch data for {args.ticker}")
                 return
             # バックテストのためにインデックスを日付に設定
             data.index.name = 'Date'
             data.index = pd.to_datetime(data.index)
         elif args.data_path:
-            print(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
+            logging.info(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
             try:
                 data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
             except FileNotFoundError:
-                print(f"Error: Data file not found at {args.data_path}")
+                logging.error(f"Data file not found at {args.data_path}")
                 return
         else:
-            print("Error: Either --data_path or --ticker must be specified for run_backtest.")
+            logging.error("Either --data_path or --ticker must be specified for run_backtest.")
             return
 
         all_strategies = {
@@ -162,12 +166,12 @@ def main():
                     if s_name in all_strategies:
                         strategies_to_backtest[s_name] = all_strategies[s_name]
                     else:
-                        print(f"Warning: Strategy '{s_name}' not found and will be skipped.")
+                        logging.warning(f"Strategy '{s_name}' not found and will be skipped.")
             except FileNotFoundError:
-                print(f"Error: Strategies file not found at {args.strategies_file}")
+                logging.error(f"Strategies file not found at {args.strategies_file}")
                 return
             except json.JSONDecodeError as e:
-                print(f"Error parsing strategies JSON from file: {e}")
+                logging.error(f"Error parsing strategies JSON from file: {e}")
                 return
         else:
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
@@ -176,14 +180,14 @@ def main():
                     if s_name in all_strategies:
                         strategies_to_backtest[s_name] = all_strategies[s_name]
                     else:
-                        print(f"Warning: Strategy '{s_name}' from config not found and will be skipped.")
+                        logging.warning(f"Strategy '{s_name}' from config not found and will be skipped.")
 
         if not strategies_to_backtest:
-            print("Error: No valid strategies specified for backtesting.")
+            logging.error("No valid strategies specified for backtesting.")
             return
 
         backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
-        print("Backtest Results:", backtest_results)
+        logging.info(f"Backtest Results: {backtest_results}")
 
     else:
         parser.print_help()
