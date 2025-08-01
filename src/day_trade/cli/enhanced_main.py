@@ -1,5 +1,5 @@
 """
-メインCLIエントリーポイント
+拡張されたメインCLIエントリーポイント
 """
 import click
 from rich.console import Console
@@ -224,9 +224,31 @@ def config_reset():
         console.print(create_error_panel(f"設定リセットエラー: {e}"))
 
 
+@config.command("export")
+@click.argument("file_path", type=click.Path())
+def config_export(file_path: str):
+    """設定をファイルにエクスポート"""
+    try:
+        config_manager.export_config(Path(file_path))
+        console.print(create_success_panel(f"設定をエクスポートしました: {file_path}"))
+    except Exception as e:
+        console.print(create_error_panel(f"設定エクスポートエラー: {e}"))
+
+
+@config.command("import")
+@click.argument("file_path", type=click.Path(exists=True))
+def config_import(file_path: str):
+    """設定をファイルからインポート"""
+    try:
+        config_manager.import_config(Path(file_path))
+        console.print(create_success_panel(f"設定をインポートしました: {file_path}"))
+    except Exception as e:
+        console.print(create_error_panel(f"設定インポートエラー: {e}"))
+
+
 @cli.command("validate")
 @click.argument("codes", nargs=-1, required=True)
-def validate_codes(codes):
+def validate(codes):
     """銘柄コードの妥当性を検証"""
     table = Table(title="銘柄コード検証結果")
     table.add_column("コード", style="cyan")
@@ -246,11 +268,6 @@ def validate_codes(codes):
         table.add_row(code, validity, normalized_str, suggestion_str)
     
     console.print(table)
-
-
-# ウォッチリストコマンドをインポートして追加
-from .watchlist_commands import watchlist
-cli.add_command(watchlist)
 
 
 def main():

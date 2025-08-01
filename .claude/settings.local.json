@@ -15,7 +15,9 @@
       "Bash(do gh label create \"phase: $i\" --color \"0052cc\" --description \"Development phase $i\")",
       "Bash(done)",
       "Bash(gh issue list:*)",
-      "Bash(gh issue edit:*)"
+      "Bash(gh issue edit:*)",
+      "Bash(gh issue close:*)",
+      "Bash(git branch:*)"
     ],
     "deny": []
   }
