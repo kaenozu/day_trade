@@ -81,8 +81,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
-          pip install -e .
-          pip install pytest pytest-cov pytest-mock pytest-xdist pre-commit ruff
+          pip install -e .[dev]
           pre-commit install-hooks
 
   # ⚡ 超高速コード品質チェック（並列実行）
@@ -111,6 +110,11 @@ jobs:
             ~/.cache/pre-commit
             .venv
           key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
+
+      - name: 🔧 Install dependencies (if needed)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
 
       - name: ⚡ Fast linting (changed files only)
         run: |
@@ -166,6 +170,11 @@ jobs:
             ~/.cache/pre-commit
             .venv
           key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
+
+      - name: 🔧 Install dependencies (if needed)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
 
       - name: ⚡ Run tests (${{ matrix.test-type }})
         run: |
