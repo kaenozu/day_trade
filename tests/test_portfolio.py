@@ -2,17 +2,18 @@
 ポートフォリオ分析機能のテスト
 """
 
-import pytest
-import pandas as pd
-from decimal import Decimal
 from datetime import datetime
-from unittest.mock import Mock, MagicMock, patch
+from decimal import Decimal
+from unittest.mock import MagicMock, Mock, patch
+
+import pandas as pd
+import pytest
 
 from src.day_trade.core.portfolio import (
+    PerformanceReport,
     PortfolioAnalyzer,
     PortfolioMetrics,
     SectorAllocation,
-    PerformanceReport,
 )
 from src.day_trade.core.trade_manager import TradeManager, TradeType
 

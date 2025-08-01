@@ -1,0 +1,11 @@
+現在、`src/day_trade/models/stock.py`の`Trade`モデルの`trade_type`カラムおよび`Alert`モデルの`alert_type`カラムは、文字列型で定義されています。これにより、不正な値が設定されるリスクや、文字列比較によるミスの可能性が存在します。
+
+**提案:**
+- `TradeType` (buy/sell) および `AlertType` (price_above/price_belowなど) のそれぞれに対応するPythonの`enum.Enum`クラスを定義します。
+- データベースのカラム定義を`Column(Enum(EnumType), nullable=False)`のように変更し、データベースには`Enum`の値を文字列として保存するようにします。
+- `Trade`モデルの`total_amount`プロパティなど、`trade_type`を使用している既存のロジックを、Enumと比較するように修正します。
+
+**期待される効果:**
+- コードの可読性と安全性の向上。
+- 不正な値の入力を防止し、データの整合性を強化。
+- 定数として扱われるべき値を明確にし、タイポによるバグを減少。

@@ -1,0 +1,151 @@
+name: 📊 Performance Monitor
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # 毎日 06:00 UTC に実行
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ci-performance:
+    runs-on: ubuntu-latest
+    name: Monitor CI Performance
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Analyze workflow performance
+        id: performance
+        run: |
+          echo "📊 Analyzing CI performance..."
+
+          # GitHub CLI を使用してワークフロー実行時間を取得
+          echo "Recent workflow runs:"
+          gh run list --limit 10 --json databaseId,status,conclusion,createdAt,updatedAt,workflowName \
+            --jq '.[] | select(.workflowName == "CI/CD Pipeline" or .workflowName == "Optimized CI/CD Pipeline") | {id: .databaseId, status: .status, conclusion: .conclusion, duration: ((.updatedAt | fromdateiso8601) - (.createdAt | fromdateiso8601)), workflow: .workflowName}' \
+            > performance-data.json
+
+          # 平均実行時間を計算
+          avg_duration=$(jq '.duration' performance-data.json | jq -s 'add/length' 2>/dev/null || echo "0")
+          echo "average_duration=$avg_duration" >> $GITHUB_OUTPUT
+
+          # 最新の実行時間
+          latest_duration=$(jq '.duration' performance-data.json | head -1)
+          echo "latest_duration=$latest_duration" >> $GITHUB_OUTPUT
+
+          echo "📈 Average CI duration: ${avg_duration}s"
+          echo "⏱️ Latest CI duration: ${latest_duration}s"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Performance regression check
+        if: github.event_name == 'pull_request'
+        run: |
+          avg_duration=${{ steps.performance.outputs.average_duration }}
+          latest_duration=${{ steps.performance.outputs.latest_duration }}
+
+          # 20% 以上の性能低下をチェック
+          threshold=$(echo "$avg_duration * 1.2" | bc -l)
+
+          if (( $(echo "$latest_duration > $threshold" | bc -l) )); then
+            echo "⚠️ Performance regression detected!"
+            echo "Average: ${avg_duration}s, Latest: ${latest_duration}s"
+            echo "regression=true" >> $GITHUB_ENV
+          else
+            echo "✅ No performance regression detected"
+            echo "regression=false" >> $GITHUB_ENV
+          fi
+
+      - name: Comment performance regression
+        if: env.regression == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## ⚠️ CI Performance Regression Detected
+
+            This PR may have introduced a performance regression in the CI pipeline.
+
+            **Performance Metrics:**
+            - Average CI duration: ${{ steps.performance.outputs.average_duration }}s
+            - This PR's CI duration: ${{ steps.performance.outputs.latest_duration }}s
+            - Regression threshold: 20%
+
+            **Possible causes:**
+            - New dependencies added
+            - Increased test complexity
+            - Additional CI steps
+            - Resource contention
+
+            **Recommended actions:**
+            - Review new dependencies and their impact
+            - Consider optimizing test execution
+            - Check for unnecessary CI steps
+            - Use caching more effectively
+
+            📊 This analysis is automated and may have false positives.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  resource-usage:
+    runs-on: ubuntu-latest
+    name: Monitor Resource Usage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Analyze repository size
+        run: |
+          echo "📁 Repository size analysis:"
+          du -sh . | tail -1
+          echo "Largest directories:"
+          du -sh */ 2>/dev/null | sort -hr | head -10 || true
+
+          echo "📊 File count by type:"
+          find . -type f -name "*.py" | wc -l | xargs echo "Python files:"
+          find . -type f -name "*.yml" -o -name "*.yaml" | wc -l | xargs echo "YAML files:"
+          find . -type f -name "*.json" | wc -l | xargs echo "JSON files:"
+          find . -type f -name "*.md" | wc -l | xargs echo "Markdown files:"
+
+      - name: Check for large files
+        run: |
+          echo "🔍 Checking for large files (>1MB):"
+          find . -type f -size +1M -exec ls -lh {} \; | head -10 || echo "No large files found"
+
+      - name: Generate performance report
+        if: github.event_name == 'schedule'
+        run: |
+          echo "📊 Daily Performance Report" > performance-report.md
+          echo "Date: $(date)" >> performance-report.md
+          echo "" >> performance-report.md
+          echo "## Repository Statistics" >> performance-report.md
+          echo "- Repository size: $(du -sh . | cut -f1)" >> performance-report.md
+          echo "- Python files: $(find . -name '*.py' | wc -l)" >> performance-report.md
+          echo "- Total files: $(find . -type f | wc -l)" >> performance-report.md
+          echo "" >> performance-report.md
+          echo "## CI Performance" >> performance-report.md
+          echo "- Average workflow duration: ${{ steps.performance.outputs.average_duration }}s" >> performance-report.md
+
+      - name: Upload performance report
+        if: github.event_name == 'schedule'
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-${{ github.run_number }}
+          path: performance-report.md
+          retention-days: 30

@@ -4,11 +4,12 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
@@ -469,7 +470,9 @@ class TradingSignalGenerator:
             )
 
         except Exception as e:
-            logger.error(f"シグナル生成エラー: {e}")
+            logger.error(
+                f"売買シグナルの生成中に予期せぬエラーが発生しました。入力データまたはルール設定を確認してください。詳細: {e}"
+            )
             return None
 
     def generate_signals_series(
@@ -585,7 +588,9 @@ class TradingSignalGenerator:
                 return pd.DataFrame()
 
         except Exception as e:
-            logger.error(f"時系列シグナル生成エラー: {e}")
+            logger.error(
+                f"時系列売買シグナルの生成中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}"
+            )
             return pd.DataFrame()
 
     def validate_signal(
@@ -635,7 +640,9 @@ class TradingSignalGenerator:
             return min(base_score, 100)
 
         except Exception as e:
-            logger.error(f"シグナル検証エラー: {e}")
+            logger.error(
+                f"シグナルの有効性検証中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return 0.0
 
 
@@ -682,8 +689,9 @@ class VolumeSpikeBuyRule(SignalRule):
 
 # 使用例
 if __name__ == "__main__":
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # サンプルデータ作成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

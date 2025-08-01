@@ -4,19 +4,19 @@
 
 import click
 from rich.console import Console
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from rich.prompt import Prompt, Confirm
 
 from ..core.watchlist import WatchlistManager
-from ..utils.validators import normalize_stock_codes
 from ..utils.formatters import (
     create_error_panel,
     create_success_panel,
-    get_change_color,
     format_currency,
     format_percentage,
     format_volume,
+    get_change_color,
 )
+from ..utils.validators import normalize_stock_codes
 
 console = Console()
 
@@ -38,7 +38,12 @@ def watchlist_add(codes, group: str, memo: str):
     # 銘柄コードを正規化
     normalized_codes = normalize_stock_codes(list(codes))
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "ウォッチリストに追加するための有効な銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     success_count = 0
@@ -60,7 +65,10 @@ def watchlist_add(codes, group: str, memo: str):
 
     if failed_codes:
         console.print(
-            create_error_panel(f"追加に失敗した銘柄: {', '.join(failed_codes)}")
+            create_error_panel(
+                f"以下の銘柄のウォッチリストへの追加に失敗しました。銘柄コードが正しいか確認し、再度お試しください: {', '.join(failed_codes)}",
+                title="追加エラー",
+            )
         )
 
 
@@ -74,7 +82,12 @@ def watchlist_remove(codes, group: str):
     # 銘柄コードを正規化
     normalized_codes = normalize_stock_codes(list(codes))
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "ウォッチリストから削除するための有効な銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     success_count = 0
@@ -96,7 +109,10 @@ def watchlist_remove(codes, group: str):
 
     if failed_codes:
         console.print(
-            create_error_panel(f"削除に失敗した銘柄: {', '.join(failed_codes)}")
+            create_error_panel(
+                f"以下の銘柄のウォッチリストからの削除に失敗しました。銘柄コードが正しいか確認し、再度お試しください: {', '.join(failed_codes)}",
+                title="削除エラー",
+            )
         )
 
 
@@ -113,7 +129,12 @@ def watchlist_list(group: str, prices: bool):
             data = manager.get_watchlist_with_prices(group)
 
         if not data:
-            console.print(create_error_panel("ウォッチリストが空です。"))
+            console.print(
+                create_error_panel(
+                    "ウォッチリストは空です。`watchlist add` コマンドで銘柄を追加してください。",
+                    title="ウォッチリスト情報",
+                )
+            )
             return
 
         # 価格情報付きテーブル
@@ -153,7 +174,12 @@ def watchlist_list(group: str, prices: bool):
         data = manager.get_watchlist(group)
 
         if not data:
-            console.print(create_error_panel("ウォッチリストが空です。"))
+            console.print(
+                create_error_panel(
+                    "ウォッチリストは空です。`watchlist add` コマンドで銘柄を追加してください。",
+                    title="ウォッチリスト情報",
+                )
+            )
             return
 
         title = (
@@ -189,7 +215,12 @@ def watchlist_groups():
     groups = manager.get_groups()
 
     if not groups:
-        console.print(create_error_panel("グループが存在しません。"))
+        console.print(
+            create_error_panel(
+                "ウォッチリストグループがまだ作成されていません。`watchlist add --group <グループ名>` コマンドで新しいグループに銘柄を追加してください。",
+                title="グループ情報",
+            )
+        )
         return
 
     table = Table(title="ウォッチリストグループ")
@@ -212,7 +243,12 @@ def watchlist_memo(code: str, group: str, text: str):
     # 銘柄コードを正規化
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
-        console.print(create_error_panel("無効な銘柄コードです。"))
+        console.print(
+            create_error_panel(
+                "メモを更新するための銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     code = normalized_codes[0]
@@ -227,7 +263,10 @@ def watchlist_memo(code: str, group: str, text: str):
         console.print(create_success_panel(f"銘柄 {code} のメモを更新しました。"))
     else:
         console.print(
-            create_error_panel(f"銘柄 {code} が見つからないか、更新に失敗しました。")
+            create_error_panel(
+                f"銘柄コード '{code}' のメモを更新できませんでした。銘柄がウォッチリストに存在しないか、予期せぬエラーが発生しました。",
+                title="メモ更新エラー",
+            )
         )
 
 
@@ -240,7 +279,12 @@ def watchlist_move(code: str, to_group: str, from_group: str):
     # 銘柄コードを正規化
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
-        console.print(create_error_panel("無効な銘柄コードです。"))
+        console.print(
+            create_error_panel(
+                "銘柄を移動するための銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     code = normalized_codes[0]
@@ -256,7 +300,8 @@ def watchlist_move(code: str, to_group: str, from_group: str):
     else:
         console.print(
             create_error_panel(
-                "移動に失敗しました。銘柄が見つからないか、移動先に既に存在する可能性があります。"
+                f"銘柄コード '{code}' のグループ移動に失敗しました。指定された銘柄がウォッチリストに見つからないか、移動元グループに存在しない可能性があります。",
+                title="移動エラー",
             )
         )
 

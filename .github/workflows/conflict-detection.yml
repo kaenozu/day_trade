@@ -1,0 +1,156 @@
+name: Pull Request Conflict Detection
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  conflict-detection:
+    runs-on: ubuntu-latest
+    name: Check for merge conflicts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for merge conflicts
+        id: conflict-check
+        run: |
+          echo "🔍 Checking for merge conflicts..."
+
+          # Fetch the latest main branch
+          git fetch origin main:main
+
+          # Get current branch name
+          CURRENT_BRANCH=$(git branch --show-current)
+          echo "Current branch: $CURRENT_BRANCH"
+          echo "Target branch: main"
+
+          # Try to merge main into current branch (dry run)
+          echo "::group::Testing merge with main branch"
+
+          # Create a temporary branch for testing merge
+          git checkout -b temp-merge-test
+
+          # Attempt to merge main
+          if git merge main --no-commit --no-ff > merge_output.log 2>&1; then
+            echo "✅ No conflicts detected"
+            echo "conflict_detected=false" >> $GITHUB_OUTPUT
+            echo "CONFLICT_STATUS=no_conflicts" >> $GITHUB_ENV
+            git merge --abort 2>/dev/null || true
+          else
+            echo "⚠️ Merge conflicts detected!"
+            echo "conflict_detected=true" >> $GITHUB_OUTPUT
+            echo "CONFLICT_STATUS=conflicts_found" >> $GITHUB_ENV
+
+            # Get list of conflicted files
+            CONFLICTED_FILES=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
+            echo "conflicted_files=$CONFLICTED_FILES" >> $GITHUB_OUTPUT
+            echo "CONFLICTED_FILES=$CONFLICTED_FILES" >> $GITHUB_ENV
+
+            echo "Conflicted files: $CONFLICTED_FILES"
+
+            # Show conflict details
+            echo "::group::Conflict Details"
+            cat merge_output.log || echo "No merge output available"
+            echo "::endgroup::"
+
+            git merge --abort 2>/dev/null || true
+          fi
+
+          # Cleanup
+          git checkout $CURRENT_BRANCH
+          git branch -D temp-merge-test 2>/dev/null || true
+
+          echo "::endgroup::"
+
+      - name: Create conflict summary comment
+        if: steps.conflict-check.outputs.conflict_detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflictedFiles = '${{ steps.conflict-check.outputs.conflicted_files }}';
+            const body = `## ⚠️ Merge Conflicts Detected
+
+            このプルリクエストは現在mainブランチとの間でコンフリクトが発生しています。
+
+            ### 📁 コンフリクトが発生しているファイル:
+            ${conflictedFiles.split(' ').filter(f => f.trim()).map(file => `- \`${file}\``).join('\n')}
+
+            ### 🔧 解決方法:
+            1. ローカルでmainブランチを最新にプル:
+               \`\`\`bash
+               git checkout main
+               git pull origin main
+               \`\`\`
+
+            2. フィーチャーブランチにmainをマージ:
+               \`\`\`bash
+               git checkout ${context.payload.pull_request.head.ref}
+               git merge main
+               \`\`\`
+
+            3. コンフリクトを手動で解決してコミット:
+               \`\`\`bash
+               # コンフリクトファイルを編集して解決
+               git add .
+               git commit -m "Resolve merge conflicts with main"
+               git push origin ${context.payload.pull_request.head.ref}
+               \`\`\`
+
+            ### 📊 次のステップ:
+            - [ ] コンフリクトを解決
+            - [ ] テストが通ることを確認
+            - [ ] プルリクエストを更新
+
+            コンフリクトが解決されると、このチェックは自動的に再実行されます。
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Success notification
+        if: steps.conflict-check.outputs.conflict_detected == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('✅ No merge conflicts detected. Ready for review!');
+
+      - name: Set status check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflictDetected = '${{ steps.conflict-check.outputs.conflict_detected }}' === 'true';
+            const state = conflictDetected ? 'failure' : 'success';
+            const description = conflictDetected
+              ? 'Merge conflicts detected with main branch'
+              : 'No merge conflicts detected';
+
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: state,
+              target_url: `${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+              description: description,
+              context: 'ci/conflict-detection'
+            });
+
+      - name: Fail job if conflicts detected
+        if: steps.conflict-check.outputs.conflict_detected == 'true'
+        run: |
+          echo "❌ Job failed due to merge conflicts"
+          echo "Please resolve the conflicts and push the changes"
+          exit 1

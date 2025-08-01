@@ -2,22 +2,23 @@
 全自動化機能のテスト
 """
 
-import pytest
 import json
 from datetime import datetime, time
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, mock_open, patch
 
-from src.day_trade.config.config_manager import (
-    ConfigManager,
-    WatchlistSymbol,
-    MarketHours,
-    TechnicalIndicatorSettings,
-    AlertSettings,
-)
+import pytest
+
 from src.day_trade.automation.orchestrator import (
+    AutomationReport,
     DayTradeOrchestrator,
     ExecutionResult,
-    AutomationReport,
+)
+from src.day_trade.config.config_manager import (
+    AlertSettings,
+    ConfigManager,
+    MarketHours,
+    TechnicalIndicatorSettings,
+    WatchlistSymbol,
 )
 
 
@@ -267,7 +268,7 @@ class TestConfigManager:
 
         with patch("builtins.open", mock_open(read_data=config_json)):
             with patch("pathlib.Path.exists", return_value=True):
-                with pytest.raises(ValueError, match="監視銘柄が設定されていません"):
+                with pytest.raises(ValueError, match="ウォッチリストに監視銘柄が一つも設定されていません"):
                     ConfigManager("test_config.json")
 
 
@@ -354,6 +355,12 @@ class TestDayTradeOrchestrator:
         # ConfigManagerのモック設定
         mock_instance = Mock()
         mock_instance.get_execution_settings.return_value = Mock(log_level="INFO")
+        mock_instance.get_ensemble_settings.return_value = Mock(
+            enabled=True,
+            strategy_type="balanced",
+            voting_type="soft",
+            performance_file_path="ensemble_performance.json"
+        )
         mock_config_manager.return_value = mock_instance
 
         orchestrator = DayTradeOrchestrator()
@@ -387,6 +394,12 @@ class TestDayTradeOrchestrator:
         mock_config_instance.get_alert_settings.return_value = Mock(enabled=False)
         mock_config_instance.get_backtest_settings.return_value = Mock(enabled=False)
         mock_config_instance.get_report_settings.return_value = Mock(enabled=False)
+        mock_config_instance.get_ensemble_settings.return_value = Mock(
+            enabled=True,
+            strategy_type="balanced",
+            voting_type="soft",
+            performance_file_path="ensemble_performance.json"
+        )
         mock_config_manager.return_value = mock_config_instance
 
         # StockFetcherのモック設定
@@ -400,8 +413,8 @@ class TestDayTradeOrchestrator:
 
         orchestrator = DayTradeOrchestrator()
 
-        # テスト実行
-        report = orchestrator.run_full_automation(symbols=["7203"])
+        # テスト実行（進捗表示を無効化）
+        report = orchestrator.run_full_automation(symbols=["7203"], show_progress=False)
 
         assert isinstance(report, AutomationReport)
         assert report.total_symbols == 1

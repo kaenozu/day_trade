@@ -1,0 +1,11 @@
+現在、`src/day_trade/data/stock_fetcher.py`の`DataCache`クラスや`StockFetcher`内の`get_company_info`メソッドでは、`typing.Any`やそれに近い汎用的な型ヒントが使用されています。これにより、コードの可読性や静的解析の恩恵が十分に得られていません。
+
+**提案:**
+- `DataCache`の`get`および`set`メソッドの`value`引数と戻り値の型ヒントを、実際にキャッシュされるデータの種類（`Dict[str, float]`や`pd.DataFrame`など）に応じて具体化します。
+- `StockFetcher.get_company_info`の戻り値の型ヒントを、`Optional[Dict[str, Union[str, int, float]]]`のように、より具体的な型に修正します。
+- 必要に応じて、`Union`や`TypedDict`を活用し、それぞれのフィールドの型を明確にします。
+
+**期待される効果:**
+- コードの可読性と保守性の向上。
+- 静的解析ツールによる型チェックの精度向上。
+- 開発時における型関連のバグの早期発見。

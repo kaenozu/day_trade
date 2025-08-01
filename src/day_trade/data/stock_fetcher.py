@@ -6,10 +6,25 @@ yfinanceを使用してリアルタイムおよびヒストリカルな株価デ
 import logging
 import time
 from datetime import datetime
+from functools import lru_cache, wraps
 from typing import Dict, List, Optional, Union
+
 import pandas as pd
 import yfinance as yf
-from functools import lru_cache, wraps
+
+from ..utils.cache_utils import (
+    CacheStats,
+    generate_safe_cache_key,
+    sanitize_cache_value,
+    validate_cache_key,
+)
+from ..utils.exceptions import (
+    APIError,
+    DataError,
+    NetworkError,
+    ValidationError,
+    handle_network_exception,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,58 +65,77 @@ class DataCache:
 
 
 def cache_with_ttl(ttl_seconds: int):
-    """TTL付きキャッシュデコレータ"""
+    """TTL付きキャッシュデコレータ（改善版）"""
     cache = DataCache(ttl_seconds)
+    stats = CacheStats()
 
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # キャッシュキーを生成
-            cache_key = f"{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
+            try:
+                # 安全なキャッシュキーを生成
+                cache_key = generate_safe_cache_key(func.__name__, *args, **kwargs)
 
-            # キャッシュから取得を試行
-            cached_result = cache.get(cache_key)
-            if cached_result is not None:
-                logger.debug(f"キャッシュヒット: {cache_key}")
-                return cached_result
+                # キーの妥当性を検証
+                if not validate_cache_key(cache_key):
+                    logger.warning(
+                        f"Invalid cache key generated for {func.__name__}, skipping cache"
+                    )
+                    stats.record_error()
+                    return func(*args, **kwargs)
 
-            # キャッシュにない場合は実行
-            result = func(*args, **kwargs)
-            if result is not None:
-                cache.set(cache_key, result)
-                logger.debug(f"キャッシュに保存: {cache_key}")
+                # キャッシュから取得を試行
+                cached_result = cache.get(cache_key)
+                if cached_result is not None:
+                    logger.debug(f"キャッシュヒット: {func.__name__}")
+                    stats.record_hit()
+                    return cached_result
 
-            return result
+                # キャッシュにない場合は実行
+                stats.record_miss()
+                result = func(*args, **kwargs)
+
+                # 結果をサニタイズしてキャッシュに保存
+                if result is not None:
+                    sanitized_result = sanitize_cache_value(result)
+                    cache.set(cache_key, sanitized_result)
+                    stats.record_set()
+                    logger.debug(f"キャッシュに保存: {func.__name__}")
+
+                return result
+
+            except Exception as e:
+                logger.error(f"キャッシュ処理でエラーが発生: {e}")
+                stats.record_error()
+                # キャッシュエラーでも関数実行は継続
+                return func(*args, **kwargs)
 
         # キャッシュ管理メソッドを追加
         wrapper.clear_cache = cache.clear
         wrapper.cache_size = cache.size
+        wrapper.get_stats = lambda: stats.to_dict()
+        wrapper.reset_stats = stats.reset
 
         return wrapper
 
     return decorator
 
 
-class StockFetcherError(Exception):
-    """株価データ取得エラー"""
+# 従来の例外クラス（下位互換性のため残す）
+class StockFetcherError(APIError):
+    """株価データ取得エラー（下位互換性のため）"""
 
     pass
 
 
-class NetworkError(StockFetcherError):
-    """ネットワークエラー"""
+class InvalidSymbolError(ValidationError):
+    """無効なシンボルエラー（下位互換性のため）"""
 
     pass
 
 
-class InvalidSymbolError(StockFetcherError):
-    """無効なシンボルエラー"""
-
-    pass
-
-
-class DataNotFoundError(StockFetcherError):
-    """データが見つからないエラー"""
+class DataNotFoundError(DataError):
+    """データが見つからないエラー（下位互換性のため）"""
 
     pass
 
@@ -167,27 +201,62 @@ class StockFetcher:
         self._handle_error(last_exception)
 
     def _is_retryable_error(self, error: Exception) -> bool:
-        """リトライ可能なエラーかどうかを判定"""
-        error_message = str(error).lower()
+        """リトライ可能なエラーかどうかを判定（改善版）"""
+        import requests.exceptions as req_exc
 
-        # ネットワーク関連のエラー
+        # 例外の型による判定を優先（より信頼性が高い）
+        if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout)):
+            return True
+
+        if isinstance(error, req_exc.HTTPError):
+            if hasattr(error, "response") and error.response is not None:
+                status_code = error.response.status_code
+                # リトライ可能なHTTPステータスコード
+                retryable_codes = [500, 502, 503, 504, 408, 429]
+                return status_code in retryable_codes
+
+        # 最後の手段として文字列解析（後方互換性のため）
+        error_message = str(error).lower()
         retryable_patterns = [
             "connection",
             "timeout",
             "network",
             "temporary",
+            "read timeout",
+            "connection timeout",
             "500",
             "502",
             "503",
-            "504",  # HTTPサーバーエラー
-            "read timeout",
-            "connection timeout",
+            "504",
         ]
 
         return any(pattern in error_message for pattern in retryable_patterns)
 
     def _handle_error(self, error: Exception) -> None:
-        """エラーを適切な例外クラスに変換して再発生"""
+        """エラーを適切な例外クラスに変換して再発生（改善版）"""
+        import requests.exceptions as req_exc
+
+        # 既存のカスタム例外はそのまま再発生
+        if isinstance(
+            error, (StockFetcherError, InvalidSymbolError, DataNotFoundError)
+        ):
+            raise error
+
+        # ネットワーク関連の例外を統一的に処理
+        if isinstance(
+            error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)
+        ):
+            try:
+                converted_error = handle_network_exception(error)
+                raise converted_error
+            except NetworkError:
+                # handle_network_exception で処理できた場合
+                raise
+            except Exception:
+                # handle_network_exception で処理できなかった場合は従来の処理
+                pass
+
+        # 従来の文字列ベースの判定（後方互換性のため）
         error_message = str(error).lower()
 
         if (
@@ -195,13 +264,29 @@ class StockFetcher:
             or "network" in error_message
             or "timeout" in error_message
         ):
-            raise NetworkError(f"ネットワークエラー: {error}") from error
+            raise NetworkError(
+                message=f"ネットワークエラー: {error}",
+                error_code="NETWORK_ERROR",
+                details={"original_error": str(error)},
+            ) from error
         elif "not found" in error_message or "invalid" in error_message:
-            raise InvalidSymbolError(f"無効なシンボル: {error}") from error
+            raise InvalidSymbolError(
+                message=f"無効なシンボル: {error}",
+                error_code="INVALID_SYMBOL",
+                details={"original_error": str(error)},
+            ) from error
         elif "no data" in error_message or "empty" in error_message:
-            raise DataNotFoundError(f"データが見つかりません: {error}") from error
+            raise DataNotFoundError(
+                message=f"データが見つかりません: {error}",
+                error_code="DATA_NOT_FOUND",
+                details={"original_error": str(error)},
+            ) from error
         else:
-            raise StockFetcherError(f"株価データ取得エラー: {error}") from error
+            raise StockFetcherError(
+                message=f"株価データ取得エラー: {error}",
+                error_code="STOCK_FETCH_ERROR",
+                details={"original_error": str(error)},
+            ) from error
 
     def _validate_symbol(self, symbol: str) -> None:
         """シンボルの妥当性をチェック"""

@@ -3,20 +3,20 @@
 価格・指標・パターンベースの通知システム
 """
 
+import json
 import logging
 import threading
 import time
-import json
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Callable, Any, Union
-from decimal import Decimal
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Union
 
 try:
     import smtplib
-    from email.mime.text import MimeText
     from email.mime.multipart import MimeMultipart
+    from email.mime.text import MimeText
 
     EMAIL_AVAILABLE = True
 except ImportError:
@@ -25,10 +25,10 @@ except ImportError:
     MimeMultipart = None
     smtplib = None
 
-from ..data.stock_fetcher import StockFetcher
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import StockFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,9 @@ class NotificationHandler:
                 try:
                     self.handlers[method](trigger)
                 except Exception as e:
-                    logger.error(f"通知送信エラー ({method.value}): {e}")
+                    logger.error(
+                        f"通知方法 '{method.value}' での通知送信中にエラーが発生しました。設定を確認してください。詳細: {e}"
+                    )
 
     def _send_console_notification(self, trigger: AlertTrigger):
         """コンソール通知"""
@@ -235,7 +237,7 @@ class NotificationHandler:
 銘柄: {trigger.symbol}
 アラートタイプ: {trigger.alert_type.value}
 優先度: {trigger.priority.value}
-発生時刻: {trigger.trigger_time.strftime('%Y-%m-%d %H:%M:%S')}
+発生時刻: {trigger.trigger_time.strftime("%Y-%m-%d %H:%M:%S")}
 
 メッセージ: {trigger.message}
 
@@ -270,7 +272,9 @@ class NotificationHandler:
             logger.info(f"アラートメールを送信: {trigger.symbol}")
 
         except Exception as e:
-            logger.error(f"メール送信エラー: {e}")
+            logger.error(
+                f"アラートメールの送信中にエラーが発生しました。SMTP設定または受信者のメールアドレスを確認してください。詳細: {e}"
+            )
 
 
 class AlertManager:
@@ -310,7 +314,9 @@ class AlertManager:
         try:
             # 条件の検証
             if not self._validate_condition(condition):
-                logger.error(f"無効なアラート条件: {condition.alert_id}")
+                logger.error(
+                    f"アラート条件の検証に失敗しました。ID: '{condition.alert_id}'。条件が正しく設定されているか確認してください。"
+                )
                 return False
 
             self.alert_conditions[condition.alert_id] = condition
@@ -320,7 +326,7 @@ class AlertManager:
             return True
 
         except Exception as e:
-            logger.error(f"アラート追加エラー: {e}")
+            logger.error(f"アラートの追加中に予期せぬエラーが発生しました。詳細: {e}")
             return False
 
     def remove_alert(self, alert_id: str) -> bool:
@@ -369,7 +375,9 @@ class AlertManager:
                 self.check_all_alerts()
                 time.sleep(self.monitoring_interval)
             except Exception as e:
-                logger.error(f"監視ループエラー: {e}")
+                logger.error(
+                    f"アラート監視ループの実行中にエラーが発生しました。詳細: {e}\n監視は継続されます。"
+                )
                 time.sleep(self.monitoring_interval)
 
     def check_all_alerts(self):
@@ -391,7 +399,9 @@ class AlertManager:
                 symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
                 self._check_symbol_alerts(symbol, symbol_conditions)
             except Exception as e:
-                logger.error(f"銘柄 {symbol} のアラートチェックエラー: {e}")
+                logger.error(
+                    f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
+                )
 
     def _check_symbol_alerts(self, symbol: str, conditions: List[AlertCondition]):
         """特定銘柄のアラートチェック"""
@@ -425,7 +435,9 @@ class AlertManager:
                         self._handle_alert_trigger(trigger)
 
         except Exception as e:
-            logger.error(f"銘柄 {symbol} のデータ処理エラー: {e}")
+            logger.error(
+                f"銘柄 '{symbol}' のデータ処理中にエラーが発生しました。アラート条件の評価ができませんでした。詳細: {e}"
+            )
 
     def _evaluate_condition(
         self,
@@ -537,7 +549,9 @@ class AlertManager:
                 )
 
         except Exception as e:
-            logger.error(f"条件評価エラー ({condition.alert_id}): {e}")
+            logger.error(
+                f"アラート条件 '{condition.alert_id}' の評価中にエラーが発生しました。条件設定を確認してください。詳細: {e}"
+            )
 
         return None
 
@@ -675,7 +689,9 @@ class AlertManager:
             logger.info(f"アラート設定をエクスポート: {filename}")
 
         except Exception as e:
-            logger.error(f"設定エクスポートエラー: {e}")
+            logger.error(
+                f"アラート設定のエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
 
 
 # ヘルパー関数

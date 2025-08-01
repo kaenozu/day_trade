@@ -4,32 +4,32 @@
 """
 
 import pytest
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
 from rich.columns import Columns
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from src.day_trade.utils.formatters import (
+    create_ascii_chart,
+    create_company_info_table,
+    create_comparison_table,
+    create_distribution_chart,
+    create_error_panel,
+    create_heatmap,
+    create_metric_cards,
+    create_progress_bar_panel,
+    create_sparkline,
+    create_status_indicator,
+    create_stock_info_table,
+    create_success_panel,
+    create_trend_indicator,
+    create_watchlist_table,
     format_currency,
+    # 高度なフォーマッタ機能
+    format_large_number,
     format_percentage,
     format_volume,
     get_change_color,
-    create_stock_info_table,
-    create_company_info_table,
-    create_watchlist_table,
-    create_error_panel,
-    create_success_panel,
-    # 高度なフォーマッタ機能
-    format_large_number,
-    create_ascii_chart,
-    create_sparkline,
-    create_progress_bar_panel,
-    create_comparison_table,
-    create_heatmap,
-    create_metric_cards,
-    create_trend_indicator,
-    create_distribution_chart,
-    create_status_indicator,
 )
 
 
@@ -43,6 +43,11 @@ class TestBasicFormatters:
         assert format_currency(0) == "¥0"
         assert format_currency(None) == "N/A"
         assert format_currency(1000, currency="$") == "$1,000"
+        assert format_currency(123, decimal_places=0) == "¥123"
+        assert format_currency(123.456, decimal_places=1) == "¥123.5"
+        assert format_currency(123.456, decimal_places=3) == "¥123.456"
+        assert format_currency(-1234.56, decimal_places=2) == "¥-1,234.56"
+        assert format_currency(0.0, decimal_places=2) == "¥0.00"
 
     def test_format_percentage(self):
         """パーセンテージフォーマットテスト"""
@@ -52,20 +57,29 @@ class TestBasicFormatters:
         assert format_percentage(None) == "N/A"
         assert format_percentage(3.14159, decimal_places=3) == "+3.142%"
         assert format_percentage(10.5, show_sign=False) == "10.50%"
+        assert format_percentage(0.0, show_sign=False) == "0.00%"
+        assert format_percentage(-1.234, decimal_places=1) == "-1.2%"
+        assert format_percentage(99.999, decimal_places=2) == "+100.00%" # Rounding up
 
     def test_format_volume(self):
         """出来高フォーマットテスト"""
-        assert format_volume(1234567890) == "1234.6M"
+        assert format_volume(1234567890) == "1.2B" # 10億以上の場合
+        assert format_volume(123456789) == "123.5M"
         assert format_volume(1234567) == "1.2M"
         assert format_volume(1234) == "1.2K"
         assert format_volume(123) == "123"
         assert format_volume(None) == "N/A"
+        assert format_volume(0) == "0"
+        assert format_volume(999) == "999"
+        assert format_volume(999999) == "1000.0K"
+        assert format_volume(999999999) == "1000.0M"
 
     def test_get_change_color(self):
         """変化色取得テスト"""
         assert get_change_color(10) == "green"
         assert get_change_color(-5) == "red"
         assert get_change_color(0) == "white"
+        assert get_change_color(0.0) == "white"
 
 
 class TestAdvancedFormatters:
@@ -80,6 +94,9 @@ class TestAdvancedFormatters:
         assert format_large_number(250) == "250.0"
         assert format_large_number(-1500000) == "-1.5M"
         assert format_large_number(None) == "N/A"
+        assert format_large_number(0) == "0.0"
+        assert format_large_number(-1234567890000, precision=2) == "-1.23T"
+        assert format_large_number(54321, precision=0) == "54K"
 
     def test_create_ascii_chart(self):
         """ASCIIチャート作成テスト"""

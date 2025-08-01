@@ -3,14 +3,14 @@
 売買履歴を記録し、損益計算を行う
 """
 
-import logging
-from typing import Dict, List, Optional
-from enum import Enum
-from decimal import Decimal
-from datetime import datetime
 import csv
-from dataclasses import dataclass, asdict
 import json
+import logging
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +233,9 @@ class TradeManager:
             return trade_id
 
         except Exception as e:
-            logger.error(f"取引追加エラー: {e}")
+            logger.error(
+                f"取引の追加中に予期せぬエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             raise
 
     def _update_position(self, trade: Trade):
@@ -330,10 +332,12 @@ class TradeManager:
 
                 else:
                     logger.warning(
-                        f"売却数量が保有数量を超過: {symbol} 保有:{position.quantity} 売却:{trade.quantity}"
+                        f"銘柄 '{symbol}' の売却数量が保有数量 ({position.quantity}) を超過しています。売却数量: {trade.quantity}。取引は処理されません。"
                     )
             else:
-                logger.warning(f"ポジションが存在しない銘柄の売却: {symbol}")
+                logger.warning(
+                    f"ポジションを保有していない銘柄 '{symbol}' の売却を試みました。取引は無視されます。"
+                )
 
     def _get_earliest_buy_date(self, symbol: str) -> datetime:
         """最も古い買い取引の日付を取得"""
@@ -460,7 +464,9 @@ class TradeManager:
             logger.info(f"CSV出力完了: {filepath} ({len(data)}件)")
 
         except Exception as e:
-            logger.error(f"CSV出力エラー: {e}")
+            logger.error(
+                f"データのエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def save_to_json(self, filepath: str):
@@ -485,13 +491,15 @@ class TradeManager:
             logger.info(f"JSON保存完了: {filepath}")
 
         except Exception as e:
-            logger.error(f"JSON保存エラー: {e}")
+            logger.error(
+                f"データの保存中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def load_from_json(self, filepath: str):
         """JSON形式から読み込み"""
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # 取引履歴復元
@@ -540,7 +548,9 @@ class TradeManager:
             logger.info(f"JSON読み込み完了: {filepath}")
 
         except Exception as e:
-            logger.error(f"JSON読み込みエラー: {e}")
+            logger.error(
+                f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}"
+            )
             raise
 
     def calculate_tax_implications(self, year: int) -> Dict:
@@ -585,14 +595,16 @@ class TradeManager:
             }
 
         except Exception as e:
-            logger.error(f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}")
+            logger.error(
+                f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}"
+            )
             raise
 
 
 # 使用例
 if __name__ == "__main__":
-    from decimal import Decimal
     from datetime import datetime, timedelta
+    from decimal import Decimal
 
     # 取引管理システムを初期化
     tm = TradeManager(commission_rate=Decimal("0.001"), tax_rate=Decimal("0.2"))

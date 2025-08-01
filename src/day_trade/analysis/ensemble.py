@@ -3,17 +3,18 @@
 複数の戦略を組み合わせて最適化されたシグナルを生成する
 """
 
-import logging
-from typing import Dict, List, Optional, Tuple, Any
-from enum import Enum
-from dataclasses import dataclass
-import pandas as pd
-import numpy as np
-from datetime import datetime
 import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from .signals import TradingSignalGenerator, TradingSignal, SignalType, SignalStrength
+import numpy as np
+import pandas as pd
+
+from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -132,10 +133,10 @@ class EnsembleTradingStrategy:
         conservative_strategy = TradingSignalGenerator()
         conservative_strategy.clear_rules()
         from .signals import (
-            RSIOversoldRule,
-            RSIOverboughtRule,
             MACDCrossoverRule,
             MACDDeathCrossRule,
+            RSIOverboughtRule,
+            RSIOversoldRule,
         )
 
         conservative_strategy.add_buy_rule(RSIOversoldRule(threshold=20, weight=2.0))
@@ -163,7 +164,7 @@ class EnsembleTradingStrategy:
         # 3. トレンドフォロー戦略
         trend_strategy = TradingSignalGenerator()
         trend_strategy.clear_rules()
-        from .signals import GoldenCrossRule, DeadCrossRule
+        from .signals import DeadCrossRule, GoldenCrossRule
 
         trend_strategy.add_buy_rule(GoldenCrossRule(weight=3.0))
         trend_strategy.add_buy_rule(MACDCrossoverRule(weight=2.0))
@@ -220,7 +221,7 @@ class EnsembleTradingStrategy:
             }
         else:  # ADAPTIVE
             # 初期は均等、パフォーマンスに基づいて動的調整
-            return {name: 0.2 for name in self.strategies.keys()}
+            return {name: 0.2 for name in self.strategies}
 
     def _load_performance_history(self):
         """パフォーマンス履歴をロード"""
@@ -230,7 +231,7 @@ class EnsembleTradingStrategy:
         try:
             performance_path = Path(self.performance_file)
             if performance_path.exists():
-                with open(performance_path, "r", encoding="utf-8") as f:
+                with open(performance_path, encoding="utf-8") as f:
                     data = json.load(f)
 
                 for strategy_name, perf_data in data.items():
@@ -613,7 +614,7 @@ class EnsembleTradingStrategy:
         total_score = 0.0
         strategy_scores = {}
 
-        for strategy_name in self.strategies.keys():
+        for strategy_name in self.strategies:
             if strategy_name in self.strategy_performance:
                 perf = self.strategy_performance[strategy_name]
 
@@ -685,8 +686,9 @@ class EnsembleTradingStrategy:
 
 # 使用例
 if __name__ == "__main__":
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # サンプルデータ作成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

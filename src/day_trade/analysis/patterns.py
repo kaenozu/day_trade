@@ -5,8 +5,9 @@
 
 import logging
 from typing import Dict, List
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from scipy.signal import argrelextrema
 from sklearn.linear_model import LinearRegression
 
@@ -140,7 +141,9 @@ class ChartPatternRecognizer:
             return {"resistance": resistance_levels, "support": sorted(support_levels)}
 
         except Exception as e:
-            logger.error(f"サポート・レジスタンス検出エラー: {e}")
+            logger.error(
+                f"サポート・レジスタンスレベルの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return {"resistance": [], "support": []}
 
     @staticmethod
@@ -226,7 +229,9 @@ class ChartPatternRecognizer:
             )
 
         except Exception as e:
-            logger.error(f"ブレイクアウト検出エラー: {e}")
+            logger.error(
+                f"ブレイクアウトパターンの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.DataFrame()
 
     @staticmethod
@@ -305,7 +310,9 @@ class ChartPatternRecognizer:
             return result
 
         except Exception as e:
-            logger.error(f"トレンドライン検出エラー: {e}")
+            logger.error(
+                f"トレンドラインの検出中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return {}
 
     @staticmethod
@@ -383,7 +390,7 @@ class ChartPatternRecognizer:
                     confidence_scores.append(latest_down)
 
             # トレンドの信頼度（R²値を使用）
-            for trend_type, trend_info in trends.items():
+            for _trend_type, trend_info in trends.items():
                 if "r2" in trend_info:
                     confidence_scores.append(trend_info["r2"] * 100)
 
@@ -395,14 +402,17 @@ class ChartPatternRecognizer:
             return results
 
         except Exception as e:
-            logger.error(f"全パターン検出エラー: {e}")
+            logger.error(
+                f"全てのチャートパターンの検出中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return {}
 
 
 # 使用例
 if __name__ == "__main__":
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # サンプルデータ作成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

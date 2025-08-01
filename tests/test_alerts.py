@@ -2,23 +2,24 @@
 アラート機能のテスト
 """
 
-import pytest
 import time
-from decimal import Decimal
 from datetime import datetime, timedelta
+from decimal import Decimal
 from unittest.mock import Mock
+
 import pandas as pd
+import pytest
 
 from src.day_trade.core.alerts import (
-    AlertManager,
     AlertCondition,
-    AlertTrigger,
-    NotificationHandler,
-    AlertType,
+    AlertManager,
     AlertPriority,
+    AlertTrigger,
+    AlertType,
+    NotificationHandler,
     NotificationMethod,
-    create_price_alert,
     create_change_alert,
+    create_price_alert,
 )
 
 
@@ -42,7 +43,7 @@ class TestAlertCondition:
         assert condition.condition_value == Decimal("3000")
         assert condition.comparison_operator == ">"
         assert condition.priority == AlertPriority.HIGH
-        assert condition.is_active == True
+        assert condition.is_active is True
         assert condition.cooldown_minutes == 60
 
     def test_alert_condition_custom_parameters(self):
@@ -137,8 +138,8 @@ class TestNotificationHandler:
 
     def test_file_log_notification(self, tmp_path):
         """ファイルログ通知テスト"""
-        import os
         import json
+        import os
 
         # 一時ディレクトリに移動
         original_cwd = os.getcwd()
@@ -156,7 +157,7 @@ class TestNotificationHandler:
             assert len(log_files) == 1
 
             # ログ内容を確認
-            with open(log_files[0], "r", encoding="utf-8") as f:
+            with open(log_files[0], encoding="utf-8") as f:
                 log_content = f.read().strip()
                 log_data = json.loads(log_content)
 
@@ -226,7 +227,7 @@ class TestAlertManager:
         """アラート追加テスト"""
         result = self.alert_manager.add_alert(self.sample_condition)
 
-        assert result == True
+        assert result is True
         assert "test_condition" in self.alert_manager.alert_conditions
         assert (
             self.alert_manager.alert_conditions["test_condition"]
@@ -241,12 +242,12 @@ class TestAlertManager:
 
         # 削除
         result = self.alert_manager.remove_alert("test_condition")
-        assert result == True
+        assert result is True
         assert "test_condition" not in self.alert_manager.alert_conditions
 
         # 存在しないアラートの削除
         result = self.alert_manager.remove_alert("non_existent")
-        assert result == False
+        assert result is False
 
     def test_get_alerts(self):
         """アラート取得テスト"""
@@ -286,26 +287,26 @@ class TestAlertManager:
     def test_compare_values(self):
         """値比較テスト"""
         # 大なり
-        assert self.alert_manager._compare_values(100, 90, ">") == True
-        assert self.alert_manager._compare_values(80, 90, ">") == False
+        assert self.alert_manager._compare_values(100, 90, ">") is True
+        assert self.alert_manager._compare_values(80, 90, ">") is False
 
         # 小なり
-        assert self.alert_manager._compare_values(80, 90, "<") == True
-        assert self.alert_manager._compare_values(100, 90, "<") == False
+        assert self.alert_manager._compare_values(80, 90, "<") is True
+        assert self.alert_manager._compare_values(100, 90, "<") is False
 
         # 以上
-        assert self.alert_manager._compare_values(90, 90, ">=") == True
-        assert self.alert_manager._compare_values(100, 90, ">=") == True
-        assert self.alert_manager._compare_values(80, 90, ">=") == False
+        assert self.alert_manager._compare_values(90, 90, ">=") is True
+        assert self.alert_manager._compare_values(100, 90, ">=") is True
+        assert self.alert_manager._compare_values(80, 90, ">=") is False
 
         # 以下
-        assert self.alert_manager._compare_values(90, 90, "<=") == True
-        assert self.alert_manager._compare_values(80, 90, "<=") == True
-        assert self.alert_manager._compare_values(100, 90, "<=") == False
+        assert self.alert_manager._compare_values(90, 90, "<=") is True
+        assert self.alert_manager._compare_values(80, 90, "<=") is True
+        assert self.alert_manager._compare_values(100, 90, "<=") is False
 
         # 等しい（誤差考慮）
-        assert self.alert_manager._compare_values(90.0001, 90, "==") == True
-        assert self.alert_manager._compare_values(90.1, 90, "==") == False
+        assert self.alert_manager._compare_values(90.0001, 90, "==") is True
+        assert self.alert_manager._compare_values(90.1, 90, "==") is False
 
     def test_is_expired(self):
         """有効期限チェックテスト"""
@@ -316,7 +317,7 @@ class TestAlertManager:
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=3000,
         )
-        assert self.alert_manager._is_expired(condition_no_expiry) == False
+        assert self.alert_manager._is_expired(condition_no_expiry) is False
 
         # 未来の期限
         future_expiry = AlertCondition(
@@ -326,7 +327,7 @@ class TestAlertManager:
             condition_value=3000,
             expiry_date=datetime.now() + timedelta(hours=1),
         )
-        assert self.alert_manager._is_expired(future_expiry) == False
+        assert self.alert_manager._is_expired(future_expiry) is False
 
         # 過去の期限
         past_expiry = AlertCondition(
@@ -336,7 +337,7 @@ class TestAlertManager:
             condition_value=3000,
             expiry_date=datetime.now() - timedelta(hours=1),
         )
-        assert self.alert_manager._is_expired(past_expiry) == True
+        assert self.alert_manager._is_expired(past_expiry) is True
 
     def test_validate_condition(self):
         """条件検証テスト"""
@@ -347,7 +348,7 @@ class TestAlertManager:
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=3000,
         )
-        assert self.alert_manager._validate_condition(valid_condition) == True
+        assert self.alert_manager._validate_condition(valid_condition) is True
 
         # IDなし
         no_id = AlertCondition(
@@ -356,7 +357,7 @@ class TestAlertManager:
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=3000,
         )
-        assert self.alert_manager._validate_condition(no_id) == False
+        assert self.alert_manager._validate_condition(no_id) is False
 
         # 銘柄なし
         no_symbol = AlertCondition(
@@ -365,7 +366,7 @@ class TestAlertManager:
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=3000,
         )
-        assert self.alert_manager._validate_condition(no_symbol) == False
+        assert self.alert_manager._validate_condition(no_symbol) is False
 
         # カスタム条件で関数なし
         custom_no_func = AlertCondition(
@@ -374,7 +375,7 @@ class TestAlertManager:
             alert_type=AlertType.CUSTOM_CONDITION,
             condition_value="test",
         )
-        assert self.alert_manager._validate_condition(custom_no_func) == False
+        assert self.alert_manager._validate_condition(custom_no_func) is False
 
     def test_should_check_condition(self):
         """条件チェック判定テスト"""
@@ -386,7 +387,7 @@ class TestAlertManager:
             condition_value=3000,
             is_active=True,
         )
-        assert self.alert_manager._should_check_condition(active_condition) == True
+        assert self.alert_manager._should_check_condition(active_condition) is True
 
         # 非アクティブな条件
         inactive_condition = AlertCondition(
@@ -396,7 +397,7 @@ class TestAlertManager:
             condition_value=3000,
             is_active=False,
         )
-        assert self.alert_manager._should_check_condition(inactive_condition) == False
+        assert self.alert_manager._should_check_condition(inactive_condition) is False
 
         # クールダウン中
         cooldown_condition = AlertCondition(
@@ -408,19 +409,19 @@ class TestAlertManager:
         )
 
         # 最初はチェック可能
-        assert self.alert_manager._should_check_condition(cooldown_condition) == True
+        assert self.alert_manager._should_check_condition(cooldown_condition) is True
 
         # トリガー時間を記録
         self.alert_manager.last_trigger_times["cooldown"] = datetime.now()
 
         # クールダウン中はチェック不可
-        assert self.alert_manager._should_check_condition(cooldown_condition) == False
+        assert self.alert_manager._should_check_condition(cooldown_condition) is False
 
         # クールダウン時間経過後はチェック可能
         self.alert_manager.last_trigger_times["cooldown"] = datetime.now() - timedelta(
             hours=2
         )
-        assert self.alert_manager._should_check_condition(cooldown_condition) == True
+        assert self.alert_manager._should_check_condition(cooldown_condition) is True
 
     def test_evaluate_price_condition(self):
         """価格条件評価テスト"""
@@ -553,12 +554,12 @@ class TestAlertManager:
 
     def test_monitoring_start_stop(self):
         """監視開始・停止テスト"""
-        assert self.alert_manager.monitoring_active == False
+        assert self.alert_manager.monitoring_active is False
         assert self.alert_manager.monitoring_thread is None
 
         # 監視開始
         self.alert_manager.start_monitoring(interval_seconds=1)
-        assert self.alert_manager.monitoring_active == True
+        assert self.alert_manager.monitoring_active is True
         assert self.alert_manager.monitoring_thread is not None
         assert self.alert_manager.monitoring_thread.is_alive()
 
@@ -567,7 +568,7 @@ class TestAlertManager:
 
         # 監視停止
         self.alert_manager.stop_monitoring()
-        assert self.alert_manager.monitoring_active == False
+        assert self.alert_manager.monitoring_active is False
 
         # スレッドが終了するまで待つ
         time.sleep(1.2)

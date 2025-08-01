@@ -2,17 +2,22 @@
 銘柄関連のデータベースモデル
 """
 
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
+    Boolean,
     Column,
-    String,
-    Float,
-    Integer,
     DateTime,
+    Float,
     ForeignKey,
     Index,
-    Boolean,
+    Integer,
+    String,
+    desc,
+    func,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Session, relationship
 
 from .base import BaseModel
 
@@ -42,7 +47,25 @@ class Stock(BaseModel):
     __table_args__ = (
         Index("idx_stock_sector", "sector"),
         Index("idx_stock_market", "market"),
+        Index("idx_stock_code_name", "code", "name"),  # コード・名前検索用
     )
+
+    @classmethod
+    def get_by_sector(cls, session: Session, sector: str) -> List["Stock"]:
+        """セクター別銘柄取得（最適化済み）"""
+        return session.query(cls).filter(cls.sector == sector).all()
+
+    @classmethod
+    def search_by_name_or_code(
+        cls, session: Session, query: str, limit: int = 50
+    ) -> List["Stock"]:
+        """銘柄名またはコードで検索（最適化済み）"""
+        return (
+            session.query(cls)
+            .filter((cls.name.like(f"%{query}%")) | (cls.code.like(f"%{query}%")))
+            .limit(limit)
+            .all()
+        )
 
 
 class PriceData(BaseModel):
@@ -61,11 +84,90 @@ class PriceData(BaseModel):
     # リレーション
     stock = relationship("Stock", back_populates="price_data")
 
-    # インデックス
+    # インデックス（パフォーマンス最適化）
     __table_args__ = (
         Index("idx_price_stock_datetime", "stock_code", "datetime", unique=True),
         Index("idx_price_datetime", "datetime"),
+        Index("idx_price_stock_close", "stock_code", "close"),  # 価格検索用
+        Index("idx_price_volume", "volume"),  # 出来高検索用
+        Index(
+            "idx_price_datetime_desc", "datetime", postgresql_using="btree"
+        ),  # 時系列ソート用
     )
+
+    @classmethod
+    def get_latest_prices(
+        cls, session: Session, stock_codes: List[str]
+    ) -> Dict[str, "PriceData"]:
+        """複数銘柄の最新価格を効率的に取得"""
+        # サブクエリで各銘柄の最新日時を取得
+        latest_dates = (
+            session.query(cls.stock_code, func.max(cls.datetime).label("max_datetime"))
+            .filter(cls.stock_code.in_(stock_codes))
+            .group_by(cls.stock_code)
+            .subquery()
+        )
+
+        # 最新価格データを取得
+        result = (
+            session.query(cls)
+            .join(
+                latest_dates,
+                (cls.stock_code == latest_dates.c.stock_code)
+                & (cls.datetime == latest_dates.c.max_datetime),
+            )
+            .all()
+        )
+
+        return {price.stock_code: price for price in result}
+
+    @classmethod
+    def get_price_range(
+        cls, session: Session, stock_code: str, start_date: datetime, end_date: datetime
+    ) -> List["PriceData"]:
+        """指定期間の価格データを効率的に取得（時系列順）"""
+        return (
+            session.query(cls)
+            .filter(
+                cls.stock_code == stock_code,
+                cls.datetime >= start_date,
+                cls.datetime <= end_date,
+            )
+            .order_by(cls.datetime)
+            .all()
+        )
+
+    @classmethod
+    def get_volume_spike_candidates(
+        cls,
+        session: Session,
+        volume_threshold: float = 2.0,
+        days_back: int = 20,
+        limit: int = 100,
+    ) -> List["PriceData"]:
+        """出来高急増銘柄を効率的に検出"""
+        cutoff_date = datetime.now() - timedelta(days=days_back)
+
+        # 平均出来高を計算するサブクエリ
+        avg_volume_sq = (
+            session.query(cls.stock_code, func.avg(cls.volume).label("avg_volume"))
+            .filter(cls.datetime >= cutoff_date)
+            .group_by(cls.stock_code)
+            .subquery()
+        )
+
+        # 最新の出来高データと比較
+        return (
+            session.query(cls)
+            .join(avg_volume_sq, cls.stock_code == avg_volume_sq.c.stock_code)
+            .filter(
+                cls.volume > avg_volume_sq.c.avg_volume * volume_threshold,
+                cls.datetime >= datetime.now() - timedelta(days=1),
+            )
+            .order_by(desc(cls.volume))
+            .limit(limit)
+            .all()
+        )
 
 
 class Trade(BaseModel):
@@ -84,10 +186,15 @@ class Trade(BaseModel):
     # リレーション
     stock = relationship("Stock", back_populates="trades")
 
-    # インデックス
+    # インデックス（パフォーマンス最適化）
     __table_args__ = (
         Index("idx_trade_stock_datetime", "stock_code", "trade_datetime"),
         Index("idx_trade_type", "trade_type"),
+        Index(
+            "idx_trade_datetime_desc", "trade_datetime", postgresql_using="btree"
+        ),  # 時系列ソート用
+        Index("idx_trade_stock_type", "stock_code", "trade_type"),  # 複合検索用
+        Index("idx_trade_price", "price"),  # 価格範囲検索用
     )
 
     @property
@@ -97,6 +204,67 @@ class Trade(BaseModel):
             return self.price * self.quantity + self.commission
         else:  # sell
             return self.price * self.quantity - self.commission
+
+    @classmethod
+    def get_portfolio_summary(
+        cls, session: Session, start_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """ポートフォリオサマリーを効率的に計算"""
+        query = session.query(cls)
+        if start_date:
+            query = query.filter(cls.trade_datetime >= start_date)
+
+        trades = query.all()
+
+        portfolio = {}
+        total_cost = 0
+        total_proceeds = 0
+
+        for trade in trades:
+            code = trade.stock_code
+            if code not in portfolio:
+                portfolio[code] = {
+                    "quantity": 0,
+                    "total_cost": 0,
+                    "avg_price": 0,
+                    "trades": [],
+                }
+
+            if trade.trade_type == "buy":
+                portfolio[code]["quantity"] += trade.quantity
+                portfolio[code]["total_cost"] += trade.total_amount
+                total_cost += trade.total_amount
+            else:  # sell
+                portfolio[code]["quantity"] -= trade.quantity
+                total_proceeds += trade.total_amount
+
+            portfolio[code]["trades"].append(trade)
+
+        # 平均価格を計算
+        for code, data in portfolio.items():
+            if data["quantity"] > 0:
+                data["avg_price"] = data["total_cost"] / data["quantity"]
+
+        return {
+            "portfolio": portfolio,
+            "total_cost": total_cost,
+            "total_proceeds": total_proceeds,
+            "net_position": total_proceeds - total_cost,
+        }
+
+    @classmethod
+    def get_recent_trades(
+        cls, session: Session, days: int = 30, limit: int = 100
+    ) -> List["Trade"]:
+        """最近の取引履歴を効率的に取得"""
+        cutoff_date = datetime.now() - timedelta(days=days)
+        return (
+            session.query(cls)
+            .filter(cls.trade_datetime >= cutoff_date)
+            .order_by(desc(cls.trade_datetime))
+            .limit(limit)
+            .all()
+        )
 
 
 class WatchlistItem(BaseModel):

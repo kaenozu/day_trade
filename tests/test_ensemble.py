@@ -2,20 +2,21 @@
 アンサンブル戦略のテストケース
 """
 
-import pytest
-import pandas as pd
-import numpy as np
 from datetime import datetime
 from unittest.mock import patch
 
+import numpy as np
+import pandas as pd
+import pytest
+
 from src.day_trade.analysis.ensemble import (
-    EnsembleTradingStrategy,
-    EnsembleStrategy,
-    EnsembleVotingType,
     EnsembleSignal,
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
     StrategyPerformance,
 )
-from src.day_trade.analysis.signals import TradingSignal, SignalType, SignalStrength
+from src.day_trade.analysis.signals import SignalStrength, SignalType, TradingSignal
 
 
 class TestEnsembleTradingStrategy:
@@ -270,7 +271,7 @@ class TestEnsembleTradingStrategy:
         assert perf.total_signals == 1
         assert perf.successful_signals == 1
         assert perf.success_rate == 1.0
-        assert perf.average_confidence == 75.0
+        assert perf.average_confidence == 7.5  # 移動平均 (0.1 * 75.0)
 
         # 失敗ケースを追加
         ensemble.update_strategy_performance("test_strategy", False, 40.0, -0.02)

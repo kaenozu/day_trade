@@ -4,8 +4,11 @@
 """
 
 import logging
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
+from ..utils.progress import ProgressType, progress_context
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,9 @@ class TechnicalIndicators:
         try:
             return df[column].rolling(window=period).mean()
         except Exception as e:
-            logger.error(f"SMA (単純移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
+            logger.error(
+                f"SMA (単純移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.Series(dtype=float)
 
     @staticmethod
@@ -48,7 +53,9 @@ class TechnicalIndicators:
         try:
             return df[column].ewm(span=period, adjust=False).mean()
         except Exception as e:
-            logger.error(f"EMA (指数移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
+            logger.error(
+                f"EMA (指数移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.Series(dtype=float)
 
     @staticmethod
@@ -81,7 +88,9 @@ class TechnicalIndicators:
                 }
             )
         except Exception as e:
-            logger.error(f"ボリンジャーバンドの計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
+            logger.error(
+                f"ボリンジャーバンドの計算中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.DataFrame()
 
     @staticmethod
@@ -120,7 +129,9 @@ class TechnicalIndicators:
                 }
             )
         except Exception as e:
-            logger.error(f"MACD (移動平均収束拡散) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
+            logger.error(
+                f"MACD (移動平均収束拡散) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             return pd.DataFrame()
 
     @staticmethod
@@ -140,10 +151,10 @@ class TechnicalIndicators:
             delta = df[column].diff()
             gain = delta.where(delta > 0, 0)
             loss = -delta.where(delta < 0, 0)
-            
-            avg_gain = gain.ewm(com=period-1, adjust=False).mean()
-            avg_loss = loss.ewm(com=period-1, adjust=False).mean()
-            
+
+            avg_gain = gain.ewm(com=period - 1, adjust=False).mean()
+            avg_loss = loss.ewm(com=period - 1, adjust=False).mean()
+
             rs = avg_gain / avg_loss
             rsi = 100 - (100 / (1 + rs))
 
@@ -221,13 +232,15 @@ class TechnicalIndicators:
             ATRのSeries
         """
         try:
-            high_low = df['High'] - df['Low']
-            high_close = np.abs(df['High'] - df['Close'].shift())
-            low_close = np.abs(df['Low'] - df['Close'].shift())
-            
-            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            atr = true_range.ewm(com=period-1, adjust=False).mean()
-            
+            high_low = df["High"] - df["Low"]
+            high_close = np.abs(df["High"] - df["Close"].shift())
+            low_close = np.abs(df["Low"] - df["Close"].shift())
+
+            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(
+                axis=1
+            )
+            atr = true_range.ewm(com=period - 1, adjust=False).mean()
+
             return atr
         except Exception as e:
             logger.error(f"ATR計算エラー: {e}")
@@ -236,8 +249,8 @@ class TechnicalIndicators:
     @staticmethod
     def calculate_all(
         df: pd.DataFrame,
-        sma_periods: list = [5, 20, 60],
-        ema_periods: list = [12, 26],
+        sma_periods: list = None,
+        ema_periods: list = None,
         bb_period: int = 20,
         bb_std: float = 2,
         macd_fast: int = 12,
@@ -249,6 +262,7 @@ class TechnicalIndicators:
         stoch_smooth: int = 3,
         volume_period: int = 20,
         atr_period: int = 14,
+        show_progress: bool = False,
     ) -> pd.DataFrame:
         """
         全てのテクニカル指標を計算
@@ -256,42 +270,119 @@ class TechnicalIndicators:
         Args:
             df: 価格データのDataFrame
             各種パラメータ
+            show_progress: 進捗表示フラグ
 
         Returns:
             全指標を含むDataFrame
         """
+        if sma_periods is None:
+            sma_periods = [5, 20, 60]
+        if ema_periods is None:
+            ema_periods = [12, 26]
+
         try:
             result = df.copy()
 
-            # SMA
-            for period in sma_periods:
-                result[f"SMA_{period}"] = TechnicalIndicators.sma(df, period)
+            # 計算対象指標の総数を計算
+            total_indicators = (
+                len(sma_periods)
+                + len(ema_periods)
+                + 1  # ボリンジャーバンド
+                + 1  # MACD
+                + 1  # RSI
+                + 1  # ストキャスティクス
+                + 1  # 出来高分析
+                + 1  # ATR
+            )
 
-            # EMA
-            for period in ema_periods:
-                result[f"EMA_{period}"] = TechnicalIndicators.ema(df, period)
+            if show_progress and len(df) > 100:  # 100行以上のデータで進捗表示
+                with progress_context(
+                    f"テクニカル指標計算 ({total_indicators}指標)",
+                    total=total_indicators,
+                    progress_type=ProgressType.DETERMINATE,
+                ) as progress:
+                    # SMA
+                    for period in sma_periods:
+                        progress.set_description(f"SMA_{period} 計算中")
+                        result[f"SMA_{period}"] = TechnicalIndicators.sma(df, period)
+                        progress.update(1)
 
-            # ボリンジャーバンド
-            bb = TechnicalIndicators.bollinger_bands(df, bb_period, bb_std)
-            result = pd.concat([result, bb], axis=1)
+                    # EMA
+                    for period in ema_periods:
+                        progress.set_description(f"EMA_{period} 計算中")
+                        result[f"EMA_{period}"] = TechnicalIndicators.ema(df, period)
+                        progress.update(1)
 
-            # MACD
-            macd = TechnicalIndicators.macd(df, macd_fast, macd_slow, macd_signal)
-            result = pd.concat([result, macd], axis=1)
+                    # ボリンジャーバンド
+                    progress.set_description("ボリンジャーバンド計算中")
+                    bb = TechnicalIndicators.bollinger_bands(df, bb_period, bb_std)
+                    result = pd.concat([result, bb], axis=1)
+                    progress.update(1)
 
-            # RSI
-            result["RSI"] = TechnicalIndicators.rsi(df, rsi_period)
+                    # MACD
+                    progress.set_description("MACD計算中")
+                    macd = TechnicalIndicators.macd(
+                        df, macd_fast, macd_slow, macd_signal
+                    )
+                    result = pd.concat([result, macd], axis=1)
+                    progress.update(1)
 
-            # ストキャスティクス
-            stoch = TechnicalIndicators.stochastic(df, stoch_k, stoch_d, stoch_smooth)
-            result = pd.concat([result, stoch], axis=1)
+                    # RSI
+                    progress.set_description("RSI計算中")
+                    result["RSI"] = TechnicalIndicators.rsi(df, rsi_period)
+                    progress.update(1)
 
-            # 出来高分析
-            volume = TechnicalIndicators.volume_analysis(df, volume_period)
-            result = pd.concat([result, volume], axis=1)
+                    # ストキャスティクス
+                    progress.set_description("ストキャスティクス計算中")
+                    stoch = TechnicalIndicators.stochastic(
+                        df, stoch_k, stoch_d, stoch_smooth
+                    )
+                    result = pd.concat([result, stoch], axis=1)
+                    progress.update(1)
 
-            # ATR
-            result["ATR"] = TechnicalIndicators.atr(df, atr_period)
+                    # 出来高分析
+                    progress.set_description("出来高分析計算中")
+                    volume = TechnicalIndicators.volume_analysis(df, volume_period)
+                    result = pd.concat([result, volume], axis=1)
+                    progress.update(1)
+
+                    # ATR
+                    progress.set_description("ATR計算中")
+                    result["ATR"] = TechnicalIndicators.atr(df, atr_period)
+                    progress.update(1)
+            else:
+                # 進捗表示なしで実行（従来通り）
+                # SMA
+                for period in sma_periods:
+                    result[f"SMA_{period}"] = TechnicalIndicators.sma(df, period)
+
+                # EMA
+                for period in ema_periods:
+                    result[f"EMA_{period}"] = TechnicalIndicators.ema(df, period)
+
+                # ボリンジャーバンド
+                bb = TechnicalIndicators.bollinger_bands(df, bb_period, bb_std)
+                result = pd.concat([result, bb], axis=1)
+
+                # MACD
+                macd = TechnicalIndicators.macd(df, macd_fast, macd_slow, macd_signal)
+                result = pd.concat([result, macd], axis=1)
+
+                # RSI
+                result["RSI"] = TechnicalIndicators.rsi(df, rsi_period)
+
+                # ストキャスティクス
+                stoch = TechnicalIndicators.stochastic(
+                    df, stoch_k, stoch_d, stoch_smooth
+                )
+                result = pd.concat([result, stoch], axis=1)
+
+                # 出来高分析
+                volume = TechnicalIndicators.volume_analysis(df, volume_period)
+                result = pd.concat([result, volume], axis=1)
+
+                # ATR
+                result["ATR"] = TechnicalIndicators.atr(df, atr_period)
 
             return result
 
@@ -303,8 +394,9 @@ class TechnicalIndicators:
 # 使用例
 if __name__ == "__main__":
     # サンプルデータ作成
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # ダミーデータ生成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

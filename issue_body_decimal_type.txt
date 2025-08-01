@@ -1,0 +1,9 @@
+現在の`src/day_trade/models/stock.py`の`Trade`モデルでは、`price`と`commission`カラムに`Float`型が使用されています。浮動小数点数は金融計算において丸め誤差の問題を引き起こす可能性があり、正確な計算が求められる場面では不適切です。
+
+**提案:**
+- `Trade`モデルの`price`と`commission`カラムを`sqlalchemy.Numeric`型に変更し、Pythonコード側でも`Decimal`型を使用するように修正します。
+- 関連する`src/day_trade/core/trade_manager.py`や`src/day_trade/core/portfolio.py`など、`Trade`モデルの金額データを扱う全ての箇所で`Decimal`型を使用するように修正します。
+
+**期待される効果:**
+- 金融計算における精度と信頼性の向上。
+- 丸め誤差による予期せぬ挙動の防止。

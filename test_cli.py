@@ -3,6 +3,7 @@ CLIの動作確認スクリプト
 """
 
 import sys
+
 from src.day_trade.cli.main import main
 
 if __name__ == "__main__":

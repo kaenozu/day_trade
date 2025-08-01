@@ -3,14 +3,15 @@
 高度なCLI表示機能とASCIIチャート描画
 """
 
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
+
+import pandas as pd
+from rich import box
+from rich.align import Align
+from rich.columns import Columns
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.panel import Panel
-from rich.columns import Columns
-from rich.align import Align
-from rich import box
-import pandas as pd
 
 
 def format_currency(
@@ -71,7 +72,9 @@ def format_volume(volume: Union[int, float]) -> str:
         return "N/A"
 
     volume = int(volume)
-    if volume >= 1_000_000:
+    if volume >= 1_000_000_000:
+        return f"{volume / 1_000_000_000:.1f}B"
+    elif volume >= 1_000_000:
         return f"{volume / 1_000_000:.1f}M"
     elif volume >= 1_000:
         return f"{volume / 1_000:.1f}K"
@@ -260,18 +263,43 @@ def create_watchlist_table(watchlist_data: dict) -> Table:
     return table
 
 
-def create_error_panel(message: str, title: str = "エラー") -> Panel:
+def create_error_panel(
+    message: str, title: str = "エラー", solutions: list = None, show_emoji: bool = True
+) -> Panel:
     """
-    エラーパネルを作成
+    ユーザーフレンドリーなエラーパネルを作成
 
     Args:
         message: エラーメッセージ
         title: パネルタイトル
+        solutions: 解決策のリスト
+        show_emoji: 絵文字を表示するか
 
     Returns:
         Richパネル
     """
-    return Panel(Text(message, style="red"), title=title, border_style="red")
+    # 基本的なエラーメッセージを作成
+    content_lines = []
+
+    # 絵文字付きメッセージ
+    emoji = "❌ " if show_emoji else ""
+    content_lines.append(f"[bold red]{emoji}{message}[/bold red]")
+
+    # 解決策がある場合は追加
+    if solutions:
+        content_lines.extend(["", "[bold yellow]💡 解決方法:[/bold yellow]"])
+
+        for i, solution in enumerate(solutions, 1):
+            content_lines.append(f"  {i}. {solution}")
+
+    content = "\n".join(content_lines)
+
+    return Panel(
+        content,
+        title=f"[bold red]{title}[/bold red]",
+        border_style="red",
+        padding=(1, 2),
+    )
 
 
 def create_success_panel(message: str, title: str = "成功") -> Panel:
@@ -532,7 +560,7 @@ def create_comparison_table(
 
     # カラムを追加
     table.add_column("項目", style="cyan", no_wrap=True)
-    for key in data.keys():
+    for key in data:
         table.add_column(key, justify="right")
 
     # 共通キーを取得
@@ -809,3 +837,31 @@ def create_status_indicator(status: str, label: str = "Status") -> Text:
     text.append(status.title(), style=color)
 
     return text
+
+
+def create_info_panel(message: str, title: str = "情報") -> Panel:
+    """
+    情報パネルを作成
+
+    Args:
+        message: 情報メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="blue"), title=title, border_style="blue")
+
+
+def create_warning_panel(message: str, title: str = "警告") -> Panel:
+    """
+    警告パネルを作成
+
+    Args:
+        message: 警告メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="yellow"), title=title, border_style="yellow")
