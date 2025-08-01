@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 import yfinance as yf
 
-from ..models import Stock, db_manager
+from ..models.stock import Stock
+from ..models.database import db_manager
 
 logger = logging.getLogger(__name__)
 
