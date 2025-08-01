@@ -19,7 +19,7 @@ def get_usd_jpy_exchange_rate():
     try:
         data = yf.download(ticker_symbol, start=yesterday, end=today, interval="1d", progress=False)
         if not data.empty:
-            latest_rate = data['Close'].iloc[-1]
+            latest_rate = data['Close'].iloc[-1].item()
             logging.info(f"現在のUSD/JPY為替レート: {latest_rate:.2f}")
             return latest_rate
         else:
