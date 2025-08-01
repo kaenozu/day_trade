@@ -72,7 +72,9 @@ def format_volume(volume: Union[int, float]) -> str:
         return "N/A"
 
     volume = int(volume)
-    if volume >= 1_000_000:
+    if volume >= 1_000_000_000:
+        return f"{volume / 1_000_000_000:.1f}B"
+    elif volume >= 1_000_000:
         return f"{volume / 1_000_000:.1f}M"
     elif volume >= 1_000:
         return f"{volume / 1_000:.1f}K"
