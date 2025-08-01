@@ -1,3 +1,4 @@
+
 # Python cache
 src/__pycache__/
 
@@ -9,3 +10,6 @@ issue_body.txt
 issue_body_backtest.txt
 issue_body_config.txt
 stock_data.csv
+issue_body_rsi.txt
+issue_body_backtest_enhancement.txt
+issue_body_refactor.txt
