@@ -6,31 +6,32 @@ Issue #68の実装内容を示すための実行可能なデモ
 
 import random
 import time
+
 from rich.console import Console
 from rich.layout import Layout
+from rich.live import Live
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
-from rich.live import Live
 
 from src.day_trade.utils.formatters import (
-    # 基本フォーマッタ
-    format_currency,
-    format_percentage,
-    format_volume,
-    format_large_number,
-    create_stock_info_table,
-    create_watchlist_table,
     # 高度なASCII表示機能
     create_ascii_chart,
-    create_sparkline,
-    create_heatmap,
-    create_progress_bar_panel,
     create_comparison_table,
-    create_metric_cards,
-    create_trend_indicator,
     create_distribution_chart,
+    create_heatmap,
+    create_metric_cards,
+    create_progress_bar_panel,
+    create_sparkline,
     create_status_indicator,
+    create_stock_info_table,
+    create_trend_indicator,
+    create_watchlist_table,
+    # 基本フォーマッタ
+    format_currency,
+    format_large_number,
+    format_percentage,
+    format_volume,
 )
 
 console = Console()

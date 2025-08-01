@@ -3,14 +3,14 @@
 """
 
 from sqlalchemy import (
+    Boolean,
     Column,
-    String,
-    Float,
-    Integer,
     DateTime,
+    Float,
     ForeignKey,
     Index,
-    Boolean,
+    Integer,
+    String,
 )
 from sqlalchemy.orm import relationship
 

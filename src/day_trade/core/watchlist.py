@@ -4,14 +4,15 @@
 """
 
 import logging
-from typing import List, Optional, Dict, Any
-from sqlalchemy import and_
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from ..models import db_manager, WatchlistItem, Stock, Alert
+from sqlalchemy import and_
+
 from ..data.stock_fetcher import StockFetcher
+from ..models import Alert, Stock, WatchlistItem, db_manager
 
 logger = logging.getLogger(__name__)
 

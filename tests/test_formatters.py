@@ -4,32 +4,32 @@
 """
 
 import pytest
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
 from rich.columns import Columns
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from src.day_trade.utils.formatters import (
+    create_ascii_chart,
+    create_company_info_table,
+    create_comparison_table,
+    create_distribution_chart,
+    create_error_panel,
+    create_heatmap,
+    create_metric_cards,
+    create_progress_bar_panel,
+    create_sparkline,
+    create_status_indicator,
+    create_stock_info_table,
+    create_success_panel,
+    create_trend_indicator,
+    create_watchlist_table,
     format_currency,
+    # 高度なフォーマッタ機能
+    format_large_number,
     format_percentage,
     format_volume,
     get_change_color,
-    create_stock_info_table,
-    create_company_info_table,
-    create_watchlist_table,
-    create_error_panel,
-    create_success_panel,
-    # 高度なフォーマッタ機能
-    format_large_number,
-    create_ascii_chart,
-    create_sparkline,
-    create_progress_bar_panel,
-    create_comparison_table,
-    create_heatmap,
-    create_metric_cards,
-    create_trend_indicator,
-    create_distribution_chart,
-    create_status_indicator,
 )
 
 

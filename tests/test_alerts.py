@@ -2,23 +2,24 @@
 アラート機能のテスト
 """
 
-import pytest
 import time
-from decimal import Decimal
 from datetime import datetime, timedelta
+from decimal import Decimal
 from unittest.mock import Mock
+
 import pandas as pd
+import pytest
 
 from src.day_trade.core.alerts import (
-    AlertManager,
     AlertCondition,
-    AlertTrigger,
-    NotificationHandler,
-    AlertType,
+    AlertManager,
     AlertPriority,
+    AlertTrigger,
+    AlertType,
+    NotificationHandler,
     NotificationMethod,
-    create_price_alert,
     create_change_alert,
+    create_price_alert,
 )
 
 
@@ -137,8 +138,8 @@ class TestNotificationHandler:
 
     def test_file_log_notification(self, tmp_path):
         """ファイルログ通知テスト"""
-        import os
         import json
+        import os
 
         # 一時ディレクトリに移動
         original_cwd = os.getcwd()
@@ -156,7 +157,7 @@ class TestNotificationHandler:
             assert len(log_files) == 1
 
             # ログ内容を確認
-            with open(log_files[0], "r", encoding="utf-8") as f:
+            with open(log_files[0], encoding="utf-8") as f:
                 log_content = f.read().strip()
                 log_data = json.loads(log_content)
 

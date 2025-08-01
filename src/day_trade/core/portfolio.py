@@ -4,17 +4,18 @@
 """
 
 import logging
+import math
+from collections import defaultdict
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from decimal import Decimal
-from datetime import datetime
-from dataclasses import dataclass, asdict
-from collections import defaultdict
-import math
 
-from .trade_manager import TradeManager, Position
 from ..data.stock_fetcher import StockFetcher
+from .trade_manager import Position, TradeManager
 
 logger = logging.getLogger(__name__)
 
@@ -469,8 +470,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # TradeManagerとの連携例
-    from .trade_manager import TradeManager, TradeType
     from decimal import Decimal
+
+    from .trade_manager import TradeManager, TradeType
 
     # サンプルデータでテスト
     tm = TradeManager()
