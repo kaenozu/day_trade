@@ -193,7 +193,7 @@ class BacktestEngine:
         # 履歴データの取得
         historical_data = self._fetch_historical_data(symbols, config)
         if not historical_data:
-            raise ValueError("履歴データの取得に失敗しました")
+            raise ValueError("バックテストに必要な履歴データの取得に失敗しました。指定された銘柄コードが正しいか、データプロバイダーからのデータが利用可能か確認してください。")
 
         # 日次でバックテストを実行
         trading_dates = self._get_trading_dates(config)
@@ -224,7 +224,7 @@ class BacktestEngine:
                 self.portfolio_values.append((date, total_value))
 
             except Exception as e:
-                logger.warning(f"日付 {date} の処理でエラー: {e}")
+                logger.warning(f"日付 '{date.strftime('%Y-%m-%d')}' のバックテスト処理中にエラーが発生しました。この日付の処理はスキップされます。詳細: {e}")
                 continue
 
         # 結果の計算
@@ -248,6 +248,7 @@ class BacktestEngine:
 
         # バッファを追加（テクニカル指標計算のため）
         buffer_start = config.start_date - timedelta(days=100)
+<<<<<<< HEAD
 
         for symbol in symbols:
             try:
@@ -264,11 +265,41 @@ class BacktestEngine:
                         f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
                     )
                 else:
-                    logger.warning(f"履歴データの取得に失敗: {symbol}")
+                    logger.warning(f"銘柄 '{symbol}' の履歴データを取得できませんでした。この銘柄はバックテストから除外されます。")
 
             except Exception as e:
-                logger.error(f"履歴データ取得エラー ({symbol}): {e}")
+                logger.error(f"銘柄 '{symbol}' の履歴データ取得中にエラーが発生しました。詳細: {e}")
 
+=======
+        
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        # Use ThreadPoolExecutor for parallel fetching
+        with ThreadPoolExecutor(max_workers=min(len(symbols), 5)) as executor: # Limit workers to avoid overwhelming
+            future_to_symbol = {
+                executor.submit(
+                    self.stock_fetcher.get_historical_data,
+                    symbol,
+                    start_date=buffer_start,
+                    end_date=config.end_date,
+                    interval="1d"
+                ): symbol for symbol in symbols
+            }
+            
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    data = future.result()
+                    if data is not None and not data.empty:
+                        historical_data[symbol] = data
+                        logger.info(f"履歴データ取得完了: {symbol} ({len(data)} データポイント)")
+                    else:
+                        logger.warning(f"履歴データの取得に失敗: {symbol}")
+                        
+                except Exception as e:
+                    logger.error(f"履歴データ取得エラー ({symbol}): {e}")
+        
+>>>>>>> origin/main
         return historical_data
 
     def _get_trading_dates(self, config: BacktestConfig) -> List[datetime]:
@@ -298,7 +329,7 @@ class BacktestEngine:
                     price_data = data.loc[closest_date[-1]]
                     daily_prices[symbol] = Decimal(str(price_data["Close"]))
             except (KeyError, IndexError) as e:
-                logger.debug(f"価格データ取得エラー ({symbol}, {date}): {e}")
+                logger.debug(f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' の価格データを取得できませんでした。詳細: {e}")
                 continue
 
         return daily_prices
@@ -328,12 +359,26 @@ class BacktestEngine:
                 continue
 
             data = historical_data[symbol]
+<<<<<<< HEAD
             current_data = data[data.index <= date]
 
             if len(current_data) < 20:  # 最低20日のデータが必要
+=======
+            current_data_all = data[data.index <= date] # その日までの全データ
+            
+            # 必要な最低データ数を設定 (MACDなどの計算に必要な期間を考慮)
+            # 例えば、MACDのデフォルト期間は26日EMA + 9日シグナルで合計34日必要
+            # RSIは14日
+            # Bollinger Bands 20日
+            # Golden/Dead Cross 20日
+            # 総合的に60日あれば十分なはず
+            min_required_data = 60
+            if len(current_data_all) < min_required_data:
+>>>>>>> origin/main
                 continue
 
             try:
+<<<<<<< HEAD
                 # シンプルなテクニカル戦略
                 symbol_signals = self.signal_generator.generate_signals(
                     symbol, current_data
@@ -345,8 +390,58 @@ class BacktestEngine:
                     if latest_signal.timestamp.date() == date.date():
                         signals.append(latest_signal)
 
+=======
+                # その時点までの全データから一度だけ指標とパターンを計算
+                # signals.py で import しているためここでの import は不要
+                # from .indicators import TechnicalIndicators
+                # from .patterns import ChartPatternRecognizer
+                
+                all_indicators_for_current_data = TechnicalIndicators.calculate_all(current_data_all)
+                all_patterns_for_current_data = ChartPatternRecognizer.detect_all_patterns(current_data_all)
+
+                # generate_signal に渡すのは最新のデータポイントのみ
+                # df, indicators はDataFrameなのでiloc[[-1]]で最新の行を抽出
+                latest_df_row = current_data_all.iloc[[-1]].copy()
+                latest_indicators_row = all_indicators_for_current_data.iloc[[-1]].copy()
+                
+                # patternsは辞書であり、その中にDataFrameが含まれている可能性があるため、
+                # patterns.py の detect_all_patterns が返す構造を考慮してスライス
+                latest_patterns = {}
+                for key, value in all_patterns_for_current_data.items():
+                    if isinstance(value, pd.DataFrame):
+                        # patterns内のDataFrameも最新の行を抽出
+                        if not value.empty:
+                            latest_patterns[key] = value.iloc[[-1]].copy()
+                        else:
+                            latest_patterns[key] = pd.DataFrame()
+                    elif isinstance(value, dict):
+                        # ネストされた辞書の場合、個別に処理
+                        nested_dict = {}
+                        for nested_key, nested_value in value.items():
+                            if isinstance(nested_value, pd.Series):
+                                nested_dict[nested_key] = nested_value.iloc[[-1]].copy()
+                            else:
+                                nested_dict[nested_key] = nested_value
+                        latest_patterns[key] = nested_dict
+                    else:
+                        latest_patterns[key] = value
+
+
+                signal = self.signal_generator.generate_signal(
+                    latest_df_row,
+                    latest_indicators_row,
+                    latest_patterns
+                )
+                
+                # 最新のシグナルのみを使用
+                if signal:
+                    # シグナルのタイムスタンプが現在のバックテスト日付と一致することを確認
+                    if signal.timestamp.date() == date.date():
+                        signals.append(signal)
+                        
+>>>>>>> origin/main
             except Exception as e:
-                logger.debug(f"シグナル生成エラー ({symbol}): {e}")
+                logger.debug(f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' のシグナル生成中にエラーが発生しました。詳細: {e}")
                 continue
 
         return signals
@@ -374,7 +469,7 @@ class BacktestEngine:
                     self._execute_sell_order(symbol, current_price, date, config)
 
             except Exception as e:
-                logger.warning(f"取引実行エラー ({symbol}): {e}")
+                logger.warning(f"銘柄 '{symbol}' の取引実行中にエラーが発生しました。この取引はスキップされます。詳細: {e}")
 
     def _execute_buy_order(
         self, symbol: str, price: Decimal, date: datetime, config: BacktestConfig
@@ -495,7 +590,7 @@ class BacktestEngine:
     def _calculate_results(self, config: BacktestConfig) -> BacktestResult:
         """バックテスト結果の計算"""
         if not self.portfolio_values:
-            raise ValueError("ポートフォリオ価値のデータがありません")
+            raise ValueError("バックテスト結果の計算に必要なポートフォリオ価値のデータが不足しています。バックテストが正常に実行されたか確認してください。")
 
         # データフレーム作成
         df = pd.DataFrame(self.portfolio_values, columns=["Date", "Value"])
@@ -605,7 +700,7 @@ class BacktestEngine:
                     f"戦略 {strategy_name} 完了: リターン {result.total_return:.2%}"
                 )
             except Exception as e:
-                logger.error(f"戦略 {strategy_name} でエラー: {e}")
+                logger.error(f"戦略 '{strategy_name}' のバックテスト実行中にエラーが発生しました。この戦略はスキップされます。詳細: {e}")
                 continue
 
         return results
@@ -652,7 +747,7 @@ class BacktestEngine:
             logger.info(f"バックテスト結果をエクスポート: {filename}")
 
         except Exception as e:
-            logger.error(f"結果エクスポートエラー: {e}")
+            logger.error(f"バックテスト結果のエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}")
             raise
 
 
@@ -750,4 +845,4 @@ if __name__ == "__main__":
         engine.export_results(result, "backtest_result.json")
 
     except Exception as e:
-        logger.error(f"バックテストエラー: {e}")
+        logger.error(f"バックテストの実行中に予期せぬエラーが発生しました。詳細: {e}")

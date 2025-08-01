@@ -317,9 +317,11 @@ class TestBacktestEngine:
 
         # シグナルが生成されることを確認
         assert isinstance(signals, list)
-
-    @patch("src.day_trade.analysis.backtest.BacktestEngine._fetch_historical_data")
-    def test_run_backtest_basic(self, mock_fetch):
+    
+    @patch('src.day_trade.analysis.backtest.BacktestEngine._fetch_historical_data')
+    @patch('src.day_trade.analysis.signals.TechnicalIndicators.calculate_all')
+    @patch('src.day_trade.analysis.signals.ChartPatternRecognizer.detect_all_patterns')
+    def test_run_backtest_basic(self, mock_detect, mock_calculate, mock_fetch):
         """基本的なバックテスト実行テスト"""
         config = BacktestConfig(
             start_date=datetime(2023, 1, 1),
@@ -328,8 +330,20 @@ class TestBacktestEngine:
         )
 
         # モックデータの設定
-        mock_fetch.return_value = {"7203": self.sample_data}
+        mock_fetch.return_value = {'7203': self.sample_data}
 
+        # calculate_all と detect_all_patterns のモック
+        # generate_signal が最新の1行を期待するため、ここでもそれに対応するモックデータを返す
+        mock_calculate.return_value = self.sample_data.copy()
+        mock_detect.return_value = {
+            'crosses': pd.DataFrame(index=self.sample_data.index),
+            'breakouts': pd.DataFrame(index=self.sample_data.index),
+            'levels': {},
+            'trends': {},
+            'overall_confidence': 0,
+            'latest_signal': None
+        }
+    
         symbols = ["7203"]
 
         try:
@@ -348,6 +362,22 @@ class TestBacktestEngine:
             # エラー自体をテストの対象とする
             assert "履歴データの取得に失敗" in str(e) or "No data" in str(e)
 
+=======
+        mock_fetch.return_value = {'7203': self.sample_data}
+
+        # calculate_all と detect_all_patterns のモック
+        # generate_signal が最新の1行を期待するため、ここでもそれに対応するモックデータを返す
+        mock_calculate.return_value = self.sample_data.copy()
+        mock_detect.return_value = {
+            'crosses': pd.DataFrame(index=self.sample_data.index),
+            'breakouts': pd.DataFrame(index=self.sample_data.index),
+            'levels': {},
+            'trends': {},
+            'overall_confidence': 0,
+            'latest_signal': None
+        }
+    
+>>>>>>> origin/main
     def test_export_results(self):
         """結果エクスポートテスト"""
         import tempfile

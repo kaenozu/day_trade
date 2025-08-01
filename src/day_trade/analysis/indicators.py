@@ -29,7 +29,7 @@ class TechnicalIndicators:
         try:
             return df[column].rolling(window=period).mean()
         except Exception as e:
-            logger.error(f"SMA計算エラー: {e}")
+            logger.error(f"SMA (単純移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
             return pd.Series(dtype=float)
 
     @staticmethod
@@ -48,7 +48,7 @@ class TechnicalIndicators:
         try:
             return df[column].ewm(span=period, adjust=False).mean()
         except Exception as e:
-            logger.error(f"EMA計算エラー: {e}")
+            logger.error(f"EMA (指数移動平均線) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
             return pd.Series(dtype=float)
 
     @staticmethod
@@ -81,7 +81,7 @@ class TechnicalIndicators:
                 }
             )
         except Exception as e:
-            logger.error(f"ボリンジャーバンド計算エラー: {e}")
+            logger.error(f"ボリンジャーバンドの計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
             return pd.DataFrame()
 
     @staticmethod
@@ -120,7 +120,7 @@ class TechnicalIndicators:
                 }
             )
         except Exception as e:
-            logger.error(f"MACD計算エラー: {e}")
+            logger.error(f"MACD (移動平均収束拡散) の計算中にエラーが発生しました。入力データを確認してください。詳細: {e}")
             return pd.DataFrame()
 
     @staticmethod
@@ -140,19 +140,10 @@ class TechnicalIndicators:
             delta = df[column].diff()
             gain = delta.where(delta > 0, 0)
             loss = -delta.where(delta < 0, 0)
-
-            avg_gain = gain.rolling(window=period).mean()
-            avg_loss = loss.rolling(window=period).mean()
-
-            # 最初の値以降はEWMを使用
-            for i in range(period, len(df)):
-                avg_gain.iloc[i] = (
-                    avg_gain.iloc[i - 1] * (period - 1) + gain.iloc[i]
-                ) / period
-                avg_loss.iloc[i] = (
-                    avg_loss.iloc[i - 1] * (period - 1) + loss.iloc[i]
-                ) / period
-
+            
+            avg_gain = gain.ewm(com=period-1, adjust=False).mean()
+            avg_loss = loss.ewm(com=period-1, adjust=False).mean()
+            
             rs = avg_gain / avg_loss
             rsi = 100 - (100 / (1 + rs))
 
@@ -230,21 +221,13 @@ class TechnicalIndicators:
             ATRのSeries
         """
         try:
-            high_low = df["High"] - df["Low"]
-            high_close = np.abs(df["High"] - df["Close"].shift())
-            low_close = np.abs(df["Low"] - df["Close"].shift())
-
-            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(
-                axis=1
-            )
-            atr = true_range.rolling(window=period).mean()
-
-            # EWMスタイルの計算
-            for i in range(period, len(df)):
-                atr.iloc[i] = (
-                    (atr.iloc[i - 1] * (period - 1)) + true_range.iloc[i]
-                ) / period
-
+            high_low = df['High'] - df['Low']
+            high_close = np.abs(df['High'] - df['Close'].shift())
+            low_close = np.abs(df['Low'] - df['Close'].shift())
+            
+            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            atr = true_range.ewm(com=period-1, adjust=False).mean()
+            
             return atr
         except Exception as e:
             logger.error(f"ATR計算エラー: {e}")
