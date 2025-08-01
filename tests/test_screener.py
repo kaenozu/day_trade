@@ -2,16 +2,17 @@
 銘柄スクリーニング機能のテスト
 """
 
-import pytest
-import pandas as pd
-import numpy as np
 from unittest.mock import Mock, patch
 
+import numpy as np
+import pandas as pd
+import pytest
+
 from src.day_trade.analysis.screener import (
-    StockScreener,
-    ScreenerCriteria,
     ScreenerCondition,
+    ScreenerCriteria,
     ScreenerResult,
+    StockScreener,
     create_screening_report,
 )
 
@@ -167,7 +168,7 @@ class TestStockScreener:
         assert "momentum" in screeners
 
         # 各スクリーナーが呼び出し可能であることを確認
-        for name, screener_func in screeners.items():
+        for _name, screener_func in screeners.items():
             assert callable(screener_func)
             assert hasattr(screener_func, "__name__")
 

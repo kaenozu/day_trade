@@ -2,13 +2,14 @@
 データベース最適化のテスト
 """
 
-import pytest
 import time
 from datetime import datetime, timedelta
 
-from src.day_trade.models.database import DatabaseManager, TEST_DATABASE_URL
-from src.day_trade.models.stock import Stock, PriceData, Trade
+import pytest
+
 from src.day_trade.core.watchlist import WatchlistManager
+from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager
+from src.day_trade.models.stock import PriceData, Stock, Trade
 
 
 class TestDatabaseOptimization:
@@ -124,8 +125,8 @@ class TestDatabaseOptimization:
         # 注意: この比較は環境に依存するため、実際のテストでは調整が必要
         print(f"Bulk insert time (1000 records): {bulk_time:.3f}s")
         print(f"Individual insert time (100 records): {individual_time:.3f}s")
-        print(f"Bulk insert rate: {1000/bulk_time:.1f} records/sec")
-        print(f"Individual insert rate: {100/individual_time:.1f} records/sec")
+        print(f"Bulk insert rate: {1000 / bulk_time:.1f} records/sec")
+        print(f"Individual insert rate: {100 / individual_time:.1f} records/sec")
 
         # データが正常に挿入されていることを確認
         with test_db.session_scope() as session:

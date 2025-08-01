@@ -4,12 +4,13 @@
 """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
+
 from rich.console import Console
 from rich.panel import Panel
 
 from .exceptions import DayTradeError
-from .i18n_messages import Language, I18nMessageHandler
+from .i18n_messages import I18nMessageHandler, Language
 
 console = Console()
 logger = logging.getLogger(__name__)

@@ -3,8 +3,8 @@
 ユーザーフレンドリーなメッセージの国際化対応
 """
 
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class Language(Enum):
@@ -388,7 +388,7 @@ class I18nMessageHandler:
             header = "💡 Solutions:"
 
         formatted_solutions = [
-            f"  {i+1}. {solution}" for i, solution in enumerate(solutions)
+            f"  {i + 1}. {solution}" for i, solution in enumerate(solutions)
         ]
 
         return f"{header}\n" + "\n".join(formatted_solutions)

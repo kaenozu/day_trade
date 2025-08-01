@@ -80,7 +80,7 @@ def create_mock_historical_data(
     elif trend == "volatile":
         # 高ボラティリティ
         prices = [base_price]
-        for i in range(1, days):
+        for _i in range(1, days):
             change = random.gauss(0, 0.04)  # 4%の標準偏差
             prices.append(
                 max(prices[-1] * (1 + change), base_price * 0.5)
@@ -88,13 +88,13 @@ def create_mock_historical_data(
     else:
         # ランダムウォーク
         prices = [base_price]
-        for i in range(1, days):
+        for _i in range(1, days):
             change = random.gauss(0.0002, 0.02)  # 小さな上昇バイアス
             prices.append(max(prices[-1] * (1 + change), base_price * 0.3))
 
     # OHLCV データを生成
     data = []
-    for i, close in enumerate(prices):
+    for _i, close in enumerate(prices):
         daily_volatility = 0.02
         high = close * (1 + random.uniform(0, daily_volatility))
         low = close * (1 - random.uniform(0, daily_volatility))
@@ -189,7 +189,7 @@ def demo_basic_backtest():
         task = progress.add_task("バックテスト実行中...", total=100)
 
         # バックテスト実行（実際は瞬時だが、デモのため段階的に表示）
-        for i in range(100):
+        for _i in range(100):
             time.sleep(0.02)
             progress.update(task, advance=1)
 

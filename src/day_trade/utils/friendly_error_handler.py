@@ -4,19 +4,20 @@
 """
 
 import logging
-from typing import Dict, Optional, Tuple, Any
+from typing import Any, Dict, Optional, Tuple
+
 from rich.console import Console
 from rich.panel import Panel
 
 from .exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    DatabaseError,
     DayTradeError,
     NetworkError,
-    DatabaseError,
-    ValidationError,
-    ConfigurationError,
     RateLimitError,
-    AuthenticationError,
     TimeoutError,
+    ValidationError,
 )
 
 console = Console()

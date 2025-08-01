@@ -4,29 +4,29 @@ prompt_toolkitを使用したオートコンプリート、履歴、色分けな
 """
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
 
 from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter, FuzzyCompleter, NestedCompleter
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.shortcuts import confirm
+from prompt_toolkit.completion import FuzzyCompleter, NestedCompleter, WordCompleter
 from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.styles import Style
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.shortcuts import confirm
+from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.panel import Panel
 
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
-from ..utils.validators import validate_stock_code, normalize_stock_codes
 from ..utils.formatters import (
-    create_success_panel,
     create_error_panel,
     create_info_panel,
+    create_success_panel,
     create_warning_panel,
 )
+from ..utils.validators import normalize_stock_codes, validate_stock_code
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -221,7 +221,7 @@ class EnhancedInteractiveCLI:
             "Press <b>F1</b> for help | "
             "<b>Tab</b> for completion | "
             "<b>Ctrl+C</b> to exit | "
-            f'Mode: <b>{self.session_data.get("mode", "main")}</b>'
+            f"Mode: <b>{self.session_data.get('mode', 'main')}</b>"
         )
 
     def _process_command(self, command: str) -> bool:

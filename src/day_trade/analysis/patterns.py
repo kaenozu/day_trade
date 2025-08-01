@@ -390,7 +390,7 @@ class ChartPatternRecognizer:
                     confidence_scores.append(latest_down)
 
             # トレンドの信頼度（R²値を使用）
-            for trend_type, trend_info in trends.items():
+            for _trend_type, trend_info in trends.items():
                 if "r2" in trend_info:
                     confidence_scores.append(trend_info["r2"] * 100)
 
