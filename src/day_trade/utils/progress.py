@@ -56,6 +56,10 @@ class ProgressUpdater:
         """完了状態に設定"""
         self.progress.update(self.task_id, completed=True)
 
+    def set_description(self, description: str):
+        """説明を設定"""
+        self.progress.update(self.task_id, description=description)
+
 
 @contextmanager
 def progress_context(
@@ -268,6 +272,10 @@ class MultiStepProgressTracker:
             self.task_id, description=f"{self.overall_description}: 完了"
         )
 
+    def complete_step(self):
+        """現在のステップを完了して次に進む"""
+        self.next_step()
+
 
 def show_progress_summary(
     results: List[Dict[str, Any]], title: str = "処理結果サマリー"
@@ -316,3 +324,30 @@ def simple_progress(func: Callable, *args, description: str = "処理中", **kwa
     """
     with progress_context(description, progress_type=ProgressType.INDETERMINATE):
         return func(*args, **kwargs)
+
+
+@contextmanager
+def multi_step_progress(description: str, steps: List[str]):
+    """
+    マルチステップ進捗表示のコンテキストマネージャー
+
+    Args:
+        description: 全体の説明
+        steps: ステップ名のリスト
+
+    Yields:
+        MultiStepProgressTracker: マルチステップ進捗トラッカー
+
+    Example:
+        steps = ["データロード", "分析実行", "結果保存"]
+        with multi_step_progress("バックテスト実行", steps) as progress:
+            # ステップ1
+            progress.next_step()
+            # ステップ2
+            progress.next_step()
+            # 完了
+            progress.complete()
+    """
+    tracker = MultiStepProgressTracker(steps, description)
+    with tracker:
+        yield tracker

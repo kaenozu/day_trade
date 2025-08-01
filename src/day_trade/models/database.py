@@ -8,7 +8,7 @@ import os
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 # ベースクラスの作成
 Base = declarative_base()
+
+# テスト用のデータベースURL
+TEST_DATABASE_URL = "sqlite:///:memory:"
 
 
 class DatabaseConfig:
@@ -330,12 +333,12 @@ class DatabaseManager:
         """
         データベースの最適化を実行
         """
-        if "sqlite" in self.database_url:
+        if "sqlite" in self.config.database_url:
             with self.engine.connect() as connection:
                 # VACUUM操作でデータベースファイルを最適化
-                connection.execute("VACUUM")
+                connection.execute(text("VACUUM"))
                 # ANALYZE操作で統計情報を更新
-                connection.execute("ANALYZE")
+                connection.execute(text("ANALYZE"))
 
 
 # デフォルトのデータベースマネージャー

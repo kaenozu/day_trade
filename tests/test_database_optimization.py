@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from src.day_trade.core.watchlist import WatchlistManager
-from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager
+from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager, DatabaseConfig
 from src.day_trade.models.stock import PriceData, Stock, Trade
 
 
@@ -18,7 +18,10 @@ class TestDatabaseOptimization:
     @pytest.fixture
     def test_db(self):
         """テスト用データベース"""
-        db = DatabaseManager(TEST_DATABASE_URL, echo=False)
+        config = DatabaseConfig.for_testing()
+        db = DatabaseManager(config)
+        # 全モデルを明示的にインポートしてテーブル作成
+        from src.day_trade.models.stock import Stock, PriceData, Trade, WatchlistItem, Alert
         db.create_tables()
         yield db
         db.drop_tables()
@@ -187,9 +190,13 @@ class TestDatabaseOptimization:
 
         # データベース設定を一時的に変更
         from src.day_trade.models import database
+        from src.day_trade.core import watchlist
 
         original_db = database.db_manager
         database.db_manager = test_db
+        # watchlistモジュールのdb_managerも変更
+        original_watchlist_db = watchlist.db_manager
+        watchlist.db_manager = test_db
 
         try:
             watchlist_manager = WatchlistManager()
@@ -225,6 +232,7 @@ class TestDatabaseOptimization:
         finally:
             # 元の設定を復元
             database.db_manager = original_db
+            watchlist.db_manager = original_watchlist_db
 
     def test_trade_portfolio_summary(self, test_db, sample_data):
         """取引ポートフォリオサマリーの最適化テスト"""
@@ -304,7 +312,8 @@ if __name__ == "__main__":
     test_case = TestDatabaseOptimization()
 
     # テスト用DB作成
-    db = DatabaseManager(TEST_DATABASE_URL, echo=False)
+    config = DatabaseConfig.for_testing()
+    db = DatabaseManager(config)
     db.create_tables()
 
     try:

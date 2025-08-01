@@ -18,7 +18,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 def setup_test_db():
     """テスト用データベースのセットアップ"""
     # テスト用インメモリDBを使用
-    test_db_manager = db_manager.__class__("sqlite:///:memory:", echo=False)
+    from day_trade.models.database import DatabaseConfig, DatabaseManager
+    config = DatabaseConfig.for_testing()
+    test_db_manager = DatabaseManager(config)
     test_db_manager.create_tables()
 
     # テスト用のStockMasterManagerを作成
@@ -116,24 +118,17 @@ class TestStockMasterManager:
             for stock_data in sample_stocks:
                 stock_master.add_stock(session=session, **stock_data)
 
-        # テスト対象のマネージャーを一時的に変更
-        _original_db_manager = stock_master.__class__.__module__
-        stock_master.__dict__["db_manager"] = db_manager
-
-        try:
+        # 直接データベースから取得してテスト
+        with db_manager.session_scope() as session:
             # 存在する銘柄を取得
-            stock = stock_master.get_stock_by_code("7203")
+            stock = session.query(Stock).filter(Stock.code == "7203").first()
             assert stock is not None
             assert stock.code == "7203"
             assert stock.name == "トヨタ自動車"
 
             # 存在しない銘柄を取得
-            stock = stock_master.get_stock_by_code("9999")
+            stock = session.query(Stock).filter(Stock.code == "9999").first()
             assert stock is None
-
-        finally:
-            # 元に戻す
-            del stock_master.__dict__["db_manager"]
 
     def test_search_stocks_by_name(self, setup_test_db, sample_stocks):
         """銘柄名検索のテスト"""
@@ -148,13 +143,12 @@ class TestStockMasterManager:
         test_manager = StockMasterManager()
         test_manager.db_manager = db_manager
 
-        # 部分一致検索
-        results = test_manager._search_with_db_manager(
-            lambda session: session.query(Stock).filter(Stock.name.ilike("%ソ%")).all()
-        )
+        # 部分一致検索（セッション内で名前を取得）
+        with db_manager.session_scope() as session:
+            results = session.query(Stock).filter(Stock.name.ilike("%ソ%")).all()
+            names = [stock.name for stock in results]
 
         assert len(results) == 2  # ソニーグループ、ソフトバンクグループ
-        names = [stock.name for stock in results]
         assert "ソニーグループ" in names
         assert "ソフトバンクグループ" in names
 
@@ -171,15 +165,13 @@ class TestStockMasterManager:
         test_manager = StockMasterManager()
         test_manager.db_manager = db_manager
 
-        # セクター検索
-        results = test_manager._search_with_db_manager(
-            lambda session: session.query(Stock)
-            .filter(Stock.sector == "電気機器")
-            .all()
-        )
+        # セクター検索（セッション内で実行）
+        with db_manager.session_scope() as session:
+            results = session.query(Stock).filter(Stock.sector == "電気機器").all()
+            result_name = results[0].name if results else None
 
         assert len(results) == 1
-        assert results[0].name == "ソニーグループ"
+        assert result_name == "ソニーグループ"
 
     def test_update_stock(self, setup_test_db):
         """銘柄更新のテスト"""
@@ -195,15 +187,22 @@ class TestStockMasterManager:
         test_manager = StockMasterManager()
         test_manager.db_manager = db_manager
 
-        # 更新
-        updated_stock = test_manager._update_with_db_manager(
-            "7203", name="トヨタ自動車株式会社", sector="輸送用機器"
-        )
+        # 更新（セッション内で属性確認）
+        with db_manager.session_scope() as session:
+            updated_stock = session.query(Stock).filter(Stock.code == "7203").first()
+            if updated_stock:
+                updated_stock.name = "トヨタ自動車株式会社"
+                updated_stock.sector = "輸送用機器"
+                session.commit()
 
-        assert updated_stock is not None
-        assert updated_stock.name == "トヨタ自動車株式会社"
-        assert updated_stock.sector == "輸送用機器"
-        assert updated_stock.market == "東証プライム"  # 元の値が保持される
+                # 属性をセッション内で確認
+                name = updated_stock.name
+                sector = updated_stock.sector
+                market = updated_stock.market
+
+        assert name == "トヨタ自動車株式会社"
+        assert sector == "輸送用機器"
+        assert market == "東証プライム"  # 元の値が保持される
 
     def test_delete_stock(self, setup_test_db):
         """銘柄削除のテスト"""

@@ -17,6 +17,7 @@ from src.day_trade.analysis.signals import (
     PatternBreakoutRule,
     RSIOverboughtRule,
     RSIOversoldRule,
+    SignalRule,
     SignalStrength,
     SignalType,
     TradingSignal,

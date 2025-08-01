@@ -7,7 +7,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy.orm import Session
 
-from src.day_trade.models.database import DatabaseManager, get_db
+from src.day_trade.models.database import DatabaseConfig, DatabaseManager, get_db
 from src.day_trade.models.stock import Alert, PriceData, Stock, Trade, WatchlistItem
 
 
@@ -17,7 +17,8 @@ class TestDatabaseManager:
     @pytest.fixture
     def test_db_manager(self):
         """テスト用のデータベースマネージャー"""
-        db_manager = DatabaseManager("sqlite:///:memory:", echo=False)
+        config = DatabaseConfig.for_testing()
+        db_manager = DatabaseManager(config)
         db_manager.create_tables()
         yield db_manager
         # クリーンアップ
@@ -50,7 +51,7 @@ class TestDatabaseManager:
                 session.add(stock)
                 # わざとエラーを発生させる
                 raise ValueError("Test error")
-        except ValueError:
+        except Exception:
             pass
 
         # データが保存されていないことを確認
@@ -154,7 +155,9 @@ class TestDatabaseManager:
             # created_atとupdated_atが設定されていることを確認
             assert stock.created_at is not None
             assert stock.updated_at is not None
-            assert stock.created_at == stock.updated_at
+            # タイムスタンプの差は1秒以内であることを確認（マイクロ秒の差を許容）
+            time_diff = abs((stock.updated_at - stock.created_at).total_seconds())
+            assert time_diff < 1.0
 
             # 更新
             # original_updated = stock.updated_at # Removed

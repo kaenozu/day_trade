@@ -34,7 +34,7 @@ from rich.table import Table
 
 from ..analysis.backtest import BacktestConfig, BacktestEngine
 from ..core.config import config_manager
-from ..core.portfolio import PortfolioManager
+from ..core.portfolio import PortfolioAnalyzer
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import DataNotFoundError, InvalidSymbolError, StockFetcher
 from ..models.database import db_manager, init_db
@@ -93,12 +93,7 @@ def _get_watchlist_manager(config_path: Optional[Path] = None) -> WatchlistManag
     # db_manager.initialize(config_manager.get_database_url())
     # db_manager.create_tables()
 
-    return WatchlistManager(
-        _config_manager,
-        db_manager,
-        stock_fetcher=StockFetcher(),
-        portfolio_manager=PortfolioManager(),
-    )
+    return WatchlistManager()
 
 
 def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: bool):
@@ -869,6 +864,42 @@ def screen_stocks(
     except Exception as e:
         console.print(create_error_panel(f"スクリーニング実行エラー: {e}"))
         logger.error(f"Screening command error: {e}")
+
+
+class InteractiveMode:
+    """対話型モードクラス"""
+
+    def __init__(self):
+        """初期化"""
+        self.console = Console()
+        self.watchlist_manager = _get_watchlist_manager()
+        self.stock_fetcher = StockFetcher()
+
+    def start(self):
+        """対話型モードを開始"""
+        self.console.print("対話型モードを開始します。")
+        # 実装は必要に応じて追加
+
+    def handle_command(self, command: str) -> bool:
+        """
+        コマンドを処理
+
+        Args:
+            command: 実行するコマンド
+
+        Returns:
+            bool: 続行する場合True、終了する場合False
+        """
+        if command.lower() in ["exit", "quit", "q"]:
+            return False
+
+        # その他のコマンド処理
+        self.console.print(f"コマンド '{command}' を実行しました。")
+        return True
+
+    def stop(self):
+        """対話型モードを停止"""
+        self.console.print("対話型モードを終了します。")
 
 
 if __name__ == "__main__":

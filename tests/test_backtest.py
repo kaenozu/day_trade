@@ -145,7 +145,7 @@ class TestBacktestEngine:
         )
 
         # モックの設定
-        self.mock_stock_fetcher.get_historical_data.return_value = self.sample_data
+        self.mock_stock_fetcher.get_historical_data_range.return_value = self.sample_data
 
         symbols = ["7203", "9984"]
         historical_data = self.engine._fetch_historical_data(symbols, config)
