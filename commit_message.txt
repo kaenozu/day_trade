@@ -1,5 +1,0 @@
-feat: Implement market sentiment analysis strategy
-
-- Add `market_sentiment_strategy` function to `src/engine.py`.
-- This strategy provides a dummy sentiment score for demonstration purposes.
-- Update test cases to include `market_sentiment_strategy`.
