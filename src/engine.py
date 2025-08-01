@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pandas_ta as ta
 
 class AnalysisEngine:
     def __init__(self):
@@ -159,18 +160,8 @@ def rsi_strategy(data: pd.DataFrame, window=14, overbought_threshold=70, oversol
     if 'Close' not in data.columns:
         return {"error": "'Close' column not found in data"}
 
-    close_delta = data['Close'].diff()
-
-    # Make the positive gains (up) and negative gains (down) Series
-    up = close_delta.clip(lower=0)
-    down = -1 * close_delta.clip(upper=0)
-    
-    # Use exponential moving average
-    ma_up = up.ewm(com=window - 1, adjust=True, min_periods=window).mean()
-    ma_down = down.ewm(com=window - 1, adjust=True, min_periods=window).mean()
-
-    rs = ma_up / ma_down
-    rsi = 100 - (100 / (1 + rs))
+    # pandas-taを使用してRSIを計算
+    rsi = data.ta.rsi(length=window)
 
     if rsi.empty or pd.isna(rsi.iloc[-1]):
         return {
