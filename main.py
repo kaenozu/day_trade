@@ -64,6 +64,7 @@ def main():
     get_current_price_jpy_parser = subparsers.add_parser("get_current_price_jpy", help="現在の株価を日本円で取得")
     get_current_price_jpy_parser.add_argument("--ticker", type=str, required=True, help="株価シンボル (例: AAPL)")
 
+    parser.set_defaults(command='run_analysis') # デフォルトコマンドを設定
     args = parser.parse_args()
 
     if args.command == "run_analysis":
