@@ -2,80 +2,81 @@ import argparse
 import pandas as pd
 import json
 import os
-import logging # 追加
+import logging
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
 from src.backtester import run_backtest
 from src.config_manager import load_config
 
 def main():
-    # ロギング設定の追加
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     config = load_config()
 
     parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # run_analysis command
-    run_analysis_parser = subparsers.add_parser("run_analysis", help="Run market analysis")
-    run_analysis_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="Path to the stock data CSV file")
-    run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to run")
-    run_analysis_parser.add_argument("--ticker", type=str, default=None, help="Stock ticker symbol (e.g., AAPL) to fetch data directly")
-    run_analysis_parser.add_argument("--start_date", type=str, default=None, help="Start date (YYYY-MM-DD) for fetched data")
-    run_analysis_parser.add_argument("--end_date", type=str, default=None, help="End date (YYYY-MM-DD) for fetched data")
+    run_analysis_parser = subparsers.add_parser("run_analysis", help="市場分析を実行")
+    run_analysis_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="株価データCSVファイルのパス")
+    run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="実行する戦略のリストを含むJSONファイルのパス")
+    run_analysis_parser.add_argument("--ticker", type=str, default=None, help="直接データを取得する株価シンボル (例: AAPL)")
+    run_analysis_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
+    run_analysis_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
     # fetch_data command
-    fetch_data_parser = subparsers.add_parser("fetch_data", help="Fetch stock data from Yahoo Finance")
-    fetch_data_parser.add_argument("--ticker", type=str, default=config.get('fetch_data', {}).get('default_ticker', 'AAPL'), help="Stock ticker symbol (e.g., AAPL)")
-    fetch_data_parser.add_argument("--start_date", type=str, default=config.get('fetch_data', {}).get('default_start_date', '2023-01-01'), help="Start date (YYYY-MM-DD)")
-    fetch_data_parser.add_argument("--end_date", type=str, default=config.get('fetch_data', {}).get('default_end_date', '2023-01-31'), help="End date (YYYY-MM-DD)")
-    fetch_data_parser.add_argument("--output_path", type=str, default=config.get('fetch_data', {}).get('default_output_path', 'stock_data.csv'), help="Output CSV file path")
+    fetch_data_parser = subparsers.add_parser("fetch_data", help="Yahoo Financeから株価データを取得")
+    fetch_data_parser.add_argument("--ticker", type=str, default=config.get('fetch_data', {}).get('default_ticker', 'AAPL'), help="株価シンボル (例: AAPL)")
+    fetch_data_parser.add_argument("--start_date", type=str, default=config.get('fetch_data', {}).get('default_start_date', '2023-01-01'), help="開始日 (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--end_date", type=str, default=config.get('fetch_data', {}).get('default_end_date', '2023-01-31'), help="終了日 (YYYY-MM-DD)")
+    fetch_data_parser.add_argument("--output_path", type=str, default=config.get('fetch_data', {}).get('default_output_path', 'stock_data.csv'), help="出力CSVファイルのパス")
 
     # run_backtest command
-    run_backtest_parser = subparsers.add_parser("run_backtest", help="Run backtest for strategies")
-    run_backtest_parser.add_argument("--data_path", type=str, default=None, help="Path to the stock data CSV file for backtesting")
-    run_backtest_parser.add_argument("--strategies_file", type=str, default=None, help="Path to a JSON file containing a list of strategies to backtest")
-    run_backtest_parser.add_argument("--initial_capital", type=float, default=config.get('backtest', {}).get('initial_capital', 10000.0), help="Initial capital for backtesting")
-    run_backtest_parser.add_argument("--ticker", type=str, default=None, help="Stock ticker symbol (e.g., AAPL) to fetch data directly")
-    run_backtest_parser.add_argument("--start_date", type=str, default=None, help="Start date (YYYY-MM-DD) for fetched data")
-    run_backtest_parser.add_argument("--end_date", type=str, default=None, help="End date (YYYY-MM-DD) for fetched data")
+    run_backtest_parser = subparsers.add_parser("run_backtest", help="戦略のバックテストを実行")
+    run_backtest_parser.add_argument("--data_path", type=str, default=None, help="バックテスト用株価データCSVファイルのパス")
+    run_backtest_parser.add_argument("--strategies_file", type=str, default=None, help="バックテストする戦略のリストを含むJSONファイルのパス")
+    run_backtest_parser.add_argument("--initial_capital", type=float, default=config.get('backtest', {}).get('initial_capital', 10000.0), help="バックテストの初期資本")
+    run_backtest_parser.add_argument("--ticker", type=str, default=None, help="直接データを取得する株価シンボル (例: AAPL)")
+    run_backtest_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
+    run_backtest_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
     args = parser.parse_args()
 
     if args.command == "run_analysis":
         data = None
+        ticker_symbol = args.ticker if args.ticker else config.get('fetch_data', {}).get('default_ticker', 'AAPL')
         if args.ticker:
-            logging.info(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {args.start_date or config.get('fetch_data', {}).get('default_start_date')} から {args.end_date or config.get('fetch_data', {}).get('default_end_date')} まで取得中...")
             data = fetch_stock_data(
                 args.ticker,
                 args.start_date or config.get('fetch_data', {}).get('default_start_date'),
                 args.end_date or config.get('fetch_data', {}).get('default_end_date')
             )
             if data.empty:
-                logging.error(f"Failed to fetch data for {args.ticker}")
+                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。")
                 return
         elif args.data_path:
             try:
                 data = pd.read_csv(args.data_path)
+                logging.info(f"データファイル {args.data_path} から分析を実行中...")
             except FileNotFoundError:
-                logging.info(f"Data file not found at {args.data_path}. Fetching data automatically...")
-                ticker = config.get('fetch_data', {}).get('default_ticker', 'AAPL')
+                logging.info(f"データファイル {args.data_path} が見つかりませんでした。自動的にデータを取得します...")
+                
                 start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
                 end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
                 
-                logging.info(f"Fetching data for {ticker} from {start_date} to {end_date}")
-                df = fetch_stock_data(ticker, start_date, end_date)
+                logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+                df = fetch_stock_data(ticker_symbol, start_date, end_date)
                 
                 if not df.empty:
                     df.to_csv(args.data_path, index=True)
-                    logging.info(f"Data saved to {args.data_path}")
+                    logging.info(f"データは {args.data_path} に保存されました。")
                     data = pd.read_csv(args.data_path)
                 else:
-                    logging.error(f"Failed to fetch data for {ticker}. Aborting analysis.")
+                    logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。分析を中止します。")
                     return
         else:
-            logging.error("Either --data_path or --ticker must be specified for run_analysis.")
+            logging.error("run_analysis コマンドには --data_path または --ticker のいずれかを指定する必要があります。")
             return
 
         engine = AnalysisEngine()
@@ -94,56 +95,59 @@ def main():
                     strategies_json = f.read()
                 parsed_strategies = json.loads(strategies_json)
                 engine.set_active_strategies(parsed_strategies)
+                logging.info(f"戦略ファイル {args.strategies_file} から戦略を読み込みました。")
             except FileNotFoundError:
-                logging.error(f"Strategies file not found at {args.strategies_file}")
+                logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
                 return
             except json.JSONDecodeError as e:
-                logging.error(f"Error parsing strategies JSON from file: {e}")
+                logging.error(f"戦略JSONファイルの解析エラー: {e}")
                 return
         else:
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
             if default_strategies:
                 engine.set_active_strategies(default_strategies)
+                logging.info(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
 
         analysis_results = engine.run_analysis(data)
-        logging.info(f"Analysis Results: {analysis_results}")
+        logging.info(f"分析結果: {analysis_results}")
 
         final_decision = engine.make_ensemble_decision(analysis_results)
-        logging.info(f"Final Decision: {final_decision}")
+        logging.info(f"最終決定: {final_decision}")
 
     elif args.command == "fetch_data":
-        logging.info(f"Fetching data for {args.ticker} from {args.start_date} to {args.end_date}")
+        logging.info(f"銘柄: {args.ticker} のデータを {args.start_date} から {args.end_date} まで取得中...")
         df = fetch_stock_data(args.ticker, args.start_date, args.end_date)
         if not df.empty:
             df.to_csv(args.output_path, index=True)
-            logging.info(f"Data saved to {args.output_path}")
+            logging.info(f"データは {args.output_path} に保存されました。")
         else:
-            logging.error(f"Failed to fetch data for {args.ticker}")
+            logging.error(f"銘柄: {args.ticker} のデータ取得に失敗しました。")
 
     elif args.command == "run_backtest":
         data = None
+        ticker_symbol = args.ticker if args.ticker else config.get('fetch_data', {}).get('default_ticker', 'AAPL')
         if args.ticker:
-            logging.info(f"Fetching data for {args.ticker} from {args.start_date or config.get('fetch_data', {}).get('default_start_date')} to {args.end_date or config.get('fetch_data', {}).get('default_end_date')}")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {args.start_date or config.get('fetch_data', {}).get('default_start_date')} から {args.end_date or config.get('fetch_data', {}).get('default_end_date')} まで取得中...")
             data = fetch_stock_data(
                 args.ticker,
                 args.start_date or config.get('fetch_data', {}).get('default_start_date'),
                 args.end_date or config.get('fetch_data', {}).get('default_end_date')
             )
             if data.empty:
-                logging.error(f"Failed to fetch data for {args.ticker}")
+                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。")
                 return
             # バックテストのためにインデックスを日付に設定
             data.index.name = 'Date'
             data.index = pd.to_datetime(data.index)
         elif args.data_path:
-            logging.info(f"Running backtest with data from {args.data_path} and initial capital {args.initial_capital}")
+            logging.info(f"データファイル {args.data_path} と初期資本 {args.initial_capital} でバックテストを実行中...")
             try:
                 data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
             except FileNotFoundError:
-                logging.error(f"Data file not found at {args.data_path}")
+                logging.error(f"データファイル {args.data_path} が見つかりませんでした。")
                 return
         else:
-            logging.error("Either --data_path or --ticker must be specified for run_backtest.")
+            logging.error("run_backtest コマンドには --data_path または --ticker のいずれかを指定する必要があります。")
             return
 
         all_strategies = {
@@ -166,12 +170,12 @@ def main():
                     if s_name in all_strategies:
                         strategies_to_backtest[s_name] = all_strategies[s_name]
                     else:
-                        logging.warning(f"Strategy '{s_name}' not found and will be skipped.")
+                        logging.warning(f"戦略 '{s_name}' が見つかりませんでした。スキップします。")
             except FileNotFoundError:
-                logging.error(f"Strategies file not found at {args.strategies_file}")
+                logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
                 return
             except json.JSONDecodeError as e:
-                logging.error(f"Error parsing strategies JSON from file: {e}")
+                logging.error(f"戦略JSONファイルの解析エラー: {e}")
                 return
         else:
             default_strategies = config.get('strategies', {}).get('default_strategies', [])
@@ -180,14 +184,14 @@ def main():
                     if s_name in all_strategies:
                         strategies_to_backtest[s_name] = all_strategies[s_name]
                     else:
-                        logging.warning(f"Strategy '{s_name}' from config not found and will be skipped.")
+                        logging.warning(f"config からの戦略 '{s_name}' が見つかりませんでした。スキップします。")
 
         if not strategies_to_backtest:
-            logging.error("No valid strategies specified for backtesting.")
+            logging.error("バックテストに有効な戦略が指定されていません。")
             return
 
         backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
-        logging.info(f"Backtest Results: {backtest_results}")
+        logging.info(f"バックテスト結果: {backtest_results}")
 
     else:
         parser.print_help()
