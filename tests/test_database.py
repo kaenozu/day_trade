@@ -7,7 +7,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy.orm import Session
 
-from src.day_trade.models.database import DatabaseManager, get_db
+from src.day_trade.models.database import DatabaseConfig, DatabaseManager, get_db
 from src.day_trade.models.stock import Alert, PriceData, Stock, Trade, WatchlistItem
 
 
@@ -17,7 +17,8 @@ class TestDatabaseManager:
     @pytest.fixture
     def test_db_manager(self):
         """テスト用のデータベースマネージャー"""
-        db_manager = DatabaseManager("sqlite:///:memory:", echo=False)
+        config = DatabaseConfig.for_testing()
+        db_manager = DatabaseManager(config)
         db_manager.create_tables()
         yield db_manager
         # クリーンアップ
