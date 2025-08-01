@@ -18,6 +18,10 @@ def setup_test_db():
     original_db_manager = database.db_manager
     original_sm_db_manager = getattr(sm, 'db_manager', None)
 
+    # stock_masterモジュール内のdb_managerも保存
+    import src.day_trade.data.stock_master as stock_master_module
+    original_stock_master_module_db = getattr(stock_master_module, 'db_manager', None)
+
     # テスト用のマネージャーに差し替え
     from src.day_trade.models.database import DatabaseConfig
     config = DatabaseConfig.for_testing()
@@ -25,6 +29,9 @@ def setup_test_db():
     test_db_manager.create_tables()
     database.db_manager = test_db_manager
     sm.db_manager = test_db_manager
+
+    # stock_masterモジュール内のdb_managerも変更（重要）
+    stock_master_module.db_manager = test_db_manager
 
     # stock_masterグローバルインスタンスのdb_managerも変更
     stock_master.db_manager = test_db_manager
@@ -35,7 +42,9 @@ def setup_test_db():
     database.db_manager = original_db_manager
     if original_sm_db_manager:
         sm.db_manager = original_sm_db_manager
-        stock_master.db_manager = original_sm_db_manager
+    if original_stock_master_module_db:
+        stock_master_module.db_manager = original_stock_master_module_db
+        stock_master.db_manager = original_stock_master_module_db
 
 
 @pytest.fixture
