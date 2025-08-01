@@ -114,16 +114,18 @@ def validate_config_file(config_path: str) -> Path:
     try:
         with open(path, encoding="utf-8") as f:
             f.read(1)  # 1文字だけ読み取りテスト
-    except PermissionError:
+    except PermissionError as e:
         raise CLIValidationError(
             f"設定ファイルに読み取り権限がありません: {config_path}"
-        )
-    except UnicodeDecodeError:
+        ) from e
+    except UnicodeDecodeError as e:
         raise CLIValidationError(
             f"設定ファイルのエンコーディングが無効です（UTF-8である必要があります）: {config_path}"
-        )
+        ) from e
     except Exception as e:
-        raise CLIValidationError(f"設定ファイルの読み取りでエラーが発生しました: {e}")
+        raise CLIValidationError(
+            f"設定ファイルの読み取りでエラーが発生しました: {e}"
+        ) from e
 
     return path
 

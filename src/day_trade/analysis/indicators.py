@@ -249,8 +249,8 @@ class TechnicalIndicators:
     @staticmethod
     def calculate_all(
         df: pd.DataFrame,
-        sma_periods: list = [5, 20, 60],
-        ema_periods: list = [12, 26],
+        sma_periods: list = None,
+        ema_periods: list = None,
         bb_period: int = 20,
         bb_std: float = 2,
         macd_fast: int = 12,
@@ -275,6 +275,11 @@ class TechnicalIndicators:
         Returns:
             全指標を含むDataFrame
         """
+        if sma_periods is None:
+            sma_periods = [5, 20, 60]
+        if ema_periods is None:
+            ema_periods = [12, 26]
+
         try:
             result = df.copy()
 

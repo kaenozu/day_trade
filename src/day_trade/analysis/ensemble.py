@@ -217,7 +217,7 @@ class EnsembleTradingStrategy:
             }
         else:  # ADAPTIVE
             # 初期は均等、パフォーマンスに基づいて動的調整
-            return {name: 0.2 for name in self.strategies.keys()}
+            return {name: 0.2 for name in self.strategies}
 
     def _load_performance_history(self):
         """パフォーマンス履歴をロード"""
@@ -610,7 +610,7 @@ class EnsembleTradingStrategy:
         total_score = 0.0
         strategy_scores = {}
 
-        for strategy_name in self.strategies.keys():
+        for strategy_name in self.strategies:
             if strategy_name in self.strategy_performance:
                 perf = self.strategy_performance[strategy_name]
 

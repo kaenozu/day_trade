@@ -4,11 +4,12 @@
 """
 
 import logging
-import pandas as pd
-from typing import Dict, List, Optional, Any, Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, List, Optional
+
+import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
 from .indicators import TechnicalIndicators

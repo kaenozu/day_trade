@@ -118,7 +118,7 @@ def _generate_fallback_cache_key(func_name: str, args: Tuple, kwargs: Dict) -> s
         kwargs_hash = hash(tuple(sorted(kwargs.items()))) if kwargs else 0
 
         combined_hash = hashlib.md5(
-            f"{func_name}:{args_hash}:{kwargs_hash}".encode()
+            f"{func_name}:{args_hash}:{kwargs_hash}".encode(), usedforsecurity=False
         ).hexdigest()
 
         return f"{func_name}:fallback:{combined_hash}"
