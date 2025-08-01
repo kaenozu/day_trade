@@ -1,7 +1,10 @@
 """
-Çü¿Ùü¹âÇëÑÃ±ü¸
+ãƒ‡ãƒ¼ã‚¿ãƒ™ãƒ¼ã‚¹ãƒ¢ãƒ‡ãƒ«ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸
 """
-from .database import Base, DatabaseManager, db_manager, get_db, init_db, reset_db
+from .database import (
+    Base, DatabaseManager, db_manager, get_db, init_db, reset_db,
+    init_migration, create_migration, upgrade_db, downgrade_db, get_current_revision
+)
 from .base import BaseModel, TimestampMixin
 from .stock import Stock, PriceData, Trade, WatchlistItem, Alert
 
@@ -13,6 +16,12 @@ __all__ = [
     "get_db",
     "init_db",
     "reset_db",
+    # Migration functions
+    "init_migration",
+    "create_migration",
+    "upgrade_db",
+    "downgrade_db",
+    "get_current_revision",
     # Base models
     "BaseModel",
     "TimestampMixin",
