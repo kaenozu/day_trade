@@ -413,8 +413,8 @@ class TestDayTradeOrchestrator:
 
         orchestrator = DayTradeOrchestrator()
 
-        # テスト実行
-        report = orchestrator.run_full_automation(symbols=["7203"])
+        # テスト実行（進捗表示を無効化）
+        report = orchestrator.run_full_automation(symbols=["7203"], show_progress=False)
 
         assert isinstance(report, AutomationReport)
         assert report.total_symbols == 1

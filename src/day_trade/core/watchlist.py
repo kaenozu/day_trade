@@ -432,25 +432,30 @@ class WatchlistManager:
         """
         try:
             with db_manager.session_scope() as session:
-                query = session.query(Alert).join(Stock)
+                query = session.query(Alert)
 
                 if stock_code:
                     query = query.filter(Alert.stock_code == stock_code)
 
                 if active_only:
-                    query = query.filter(Alert.is_active is True)
+                    query = query.filter(Alert.is_active == True)
 
                 alerts = query.all()
 
                 result = []
                 for alert in alerts:
+                    # 銘柄名を別途取得
+                    try:
+                        stock = session.query(Stock).filter(Stock.code == alert.stock_code).first()
+                        stock_name = stock.name if stock else alert.stock_code
+                    except Exception:
+                        stock_name = alert.stock_code
+
                     result.append(
                         {
                             "id": alert.id,
                             "stock_code": alert.stock_code,
-                            "stock_name": (
-                                alert.stock.name if alert.stock else alert.stock_code
-                            ),
+                            "stock_name": stock_name,
                             "alert_type": alert.alert_type,
                             "threshold": alert.threshold,
                             "is_active": alert.is_active,
