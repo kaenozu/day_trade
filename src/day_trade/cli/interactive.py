@@ -162,7 +162,7 @@ def run_interactive_backtest():
     mock_fetcher = StockFetcher()
     _engine = BacktestEngine(stock_fetcher=mock_fetcher)
 
-    config = BacktestConfig(
+    _ = BacktestConfig(
         start_date=datetime(2023, 1, 1),
         end_date=datetime(2023, 3, 31),  # 短期間
         initial_capital=Decimal("1000000"),

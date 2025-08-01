@@ -358,7 +358,7 @@ class BacktestEngine:
                 ) as executor:  # Limit workers to avoid overwhelming
                     future_to_symbol = {
                         executor.submit(
-                            self.stock_fetcher.get_historical_data_range,
+                            self.stock_fetcher.get_historical_data,
                             symbol,
                             start_date=buffer_start,
                             end_date=config.end_date,
@@ -397,7 +397,7 @@ class BacktestEngine:
             ) as executor:  # Limit workers to avoid overwhelming
                 future_to_symbol = {
                     executor.submit(
-                        self.stock_fetcher.get_historical_data_range,
+                        self.stock_fetcher.get_historical_data,
                         symbol,
                         start_date=buffer_start,
                         end_date=config.end_date,

@@ -316,6 +316,34 @@ def create_success_panel(message: str, title: str = "成功") -> Panel:
     return Panel(Text(message, style="green"), title=title, border_style="green")
 
 
+def create_warning_panel(message: str, title: str = "警告") -> Panel:
+    """
+    警告パネルを作成
+
+    Args:
+        message: 警告メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="yellow"), title=title, border_style="yellow")
+
+
+def create_info_panel(message: str, title: str = "情報") -> Panel:
+    """
+    情報パネルを作成
+
+    Args:
+        message: 情報メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="blue"), title=title, border_style="blue")
+
+
 # ========== 高度なフォーマッタ機能 ==========
 
 

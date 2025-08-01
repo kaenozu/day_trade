@@ -68,9 +68,13 @@ class StrategyPerformance:
 
         # 移動平均で信頼度と収益率を更新
         alpha = 0.1  # 学習率
-        self.average_confidence = (
-            1 - alpha
-        ) * self.average_confidence + alpha * confidence
+        if self.total_signals == 1:
+            # 初回は直接設定
+            self.average_confidence = confidence
+        else:
+            self.average_confidence = (
+                1 - alpha
+            ) * self.average_confidence + alpha * confidence
         self.average_return = (1 - alpha) * self.average_return + alpha * return_rate
 
         self.last_updated = datetime.now()
