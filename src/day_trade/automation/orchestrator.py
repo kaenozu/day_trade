@@ -974,7 +974,7 @@ class DayTradeOrchestrator:
         <body>
             <div class="header">
                 <h1>🚀 DayTrade自動化レポート</h1>
-                <p>実行日時: {self.current_report.start_time.strftime('%Y年%m月%d日 %H:%M:%S')}</p>
+                <p>実行日時: {self.current_report.start_time.strftime("%Y年%m月%d日 %H:%M:%S")}</p>
             </div>
 
             <div class="section">
@@ -995,10 +995,10 @@ class DayTradeOrchestrator:
         for signal in self.current_report.generated_signals:
             html_content += f"""
                     <tr>
-                        <td>{signal.get('symbol', 'N/A')}</td>
-                        <td>{signal.get('type', 'N/A')}</td>
-                        <td>{signal.get('reason', 'N/A')}</td>
-                        <td>{signal.get('confidence', 'N/A')}</td>
+                        <td>{signal.get("symbol", "N/A")}</td>
+                        <td>{signal.get("type", "N/A")}</td>
+                        <td>{signal.get("reason", "N/A")}</td>
+                        <td>{signal.get("confidence", "N/A")}</td>
                     </tr>
             """
 

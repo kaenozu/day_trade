@@ -458,7 +458,9 @@ def demo_real_time_monitoring():
             change_color = (
                 "green"
                 if data["change_percent"] > 0
-                else "red" if data["change_percent"] < 0 else "white"
+                else "red"
+                if data["change_percent"] < 0
+                else "white"
             )
             prices_table.add_row(
                 symbol,
@@ -562,7 +564,7 @@ def demo_alert_analysis():
                 alert_type=random.choice(alert_types),
                 current_value=random.uniform(800, 3000),
                 condition_value=random.uniform(800, 3000),
-                message=f"サンプルアラート {i+1}",
+                message=f"サンプルアラート {i + 1}",
                 priority=random.choice(priorities),
                 current_price=Decimal(str(random.uniform(800, 3000))),
                 volume=random.randint(500000, 3000000),
@@ -652,7 +654,9 @@ def demo_alert_analysis():
         change_color = (
             "green"
             if trigger.change_percent > 0
-            else "red" if trigger.change_percent < 0 else "white"
+            else "red"
+            if trigger.change_percent < 0
+            else "white"
         )
 
         timeline_table.add_row(

@@ -294,7 +294,7 @@ def show_progress_summary(
     table.add_row("成功率", f"{avg_success_rate:.1f}%")
     table.add_row("総処理時間", f"{total_elapsed:.2f}秒")
     if total_elapsed > 0:
-        table.add_row("処理速度", f"{total_processed/total_elapsed:.1f}件/秒")
+        table.add_row("処理速度", f"{total_processed / total_elapsed:.1f}件/秒")
 
     console.print(table)
 
