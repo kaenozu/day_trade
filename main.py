@@ -67,6 +67,10 @@ def main():
     parser.set_defaults(command='run_analysis') # デフォルトコマンドを設定
     args = parser.parse_args()
 
+    # デフォルトコマンドがrun_analysisの場合、run_analysis_parserのデフォルト引数を設定
+    if args.command == 'run_analysis' and not hasattr(args, 'ticker'):
+        run_analysis_parser.parse_args([], namespace=args) # run_analysis_parserのデフォルト引数をargsに設定
+
     if args.command == "run_analysis":
         ticker_symbol = args.ticker
         start_date = args.start_date or config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
