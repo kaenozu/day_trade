@@ -267,9 +267,48 @@ def main():
         "--version", action="version", version="DayTrade Auto Engine v1.0.0"
     )
 
+    parser.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="拡張インタラクティブモードで開始（オートコンプリート、履歴機能付き）",
+    )
+
     args = parser.parse_args()
 
     try:
+        # インタラクティブモードの処理
+        if args.interactive:
+            # ログ設定（バリデート済みレベルを使用）
+            setup_logging(args.log_level)
+
+            # バナー表示
+            if not args.no_banner:
+                print_banner()
+
+            try:
+                from src.day_trade.cli.enhanced_interactive import (
+                    run_enhanced_interactive,
+                )
+
+                config_path = args.config
+                print("[インタラクティブ] 拡張インタラクティブモードを開始します...")
+                print("• オートコンプリート機能")
+                print("• コマンド履歴")
+                print("• 色分け表示")
+                print("• カスタムキーバインディング")
+                print()
+                run_enhanced_interactive(config_path)
+                return 0
+            except ImportError:
+                print("❌ エラー: 拡張インタラクティブモードは利用できません。")
+                print("prompt_toolkit>=3.0.0 をインストールしてください。")
+                print("コマンド: pip install prompt_toolkit>=3.0.0")
+                return 1
+            except Exception as e:
+                print(f"❌ インタラクティブモードエラー: {e}")
+                return 1
+
         # 引数バリデーション
         validated_symbols = None
         validated_config_path = None

@@ -50,7 +50,12 @@ def init():
         init_db()
         console.print(create_success_panel("データベースを初期化しました。"))
     except Exception as e:
-        console.print(create_error_panel(f"データベース初期化エラー: {e}"))
+        console.print(
+            create_error_panel(
+                f"データベースの初期化中にエラーが発生しました。詳細: {e}\nシステム管理者にお問い合わせいただくか、再度お試しください。",
+                title="データベースエラー",
+            )
+        )
 
 
 @cli.command()
