@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # メインアプリケーション
+  day-trade:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - pip-cache:/home/appuser/.cache/pip
+      - pre-commit-cache:/home/appuser/.cache/pre-commit
+    environment:
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app/src
+    ports:
+      - "8000:8000"
+    networks:
+      - day-trade-network
+
+  # データベース（開発用）
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: day_trade_dev
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d day_trade_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis（キャッシュ用）
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - day-trade-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # テスト実行用
+  test:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - pip-cache:/home/appuser/.cache/pip
+    environment:
+      - ENVIRONMENT=test
+      - PYTHONPATH=/app/src
+    command: ["pytest", "tests/", "-v", "--cov=src/day_trade"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - day-trade-network
+
+  # コード品質チェック用
+  quality:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - pre-commit-cache:/home/appuser/.cache/pre-commit
+    command: ["pre-commit", "run", "--all-files"]
+    networks:
+      - day-trade-network
+
+volumes:
+  postgres-data:
+  pip-cache:
+  pre-commit-cache:
+
+networks:
+  day-trade-network:
+    driver: bridge
