@@ -26,12 +26,16 @@ def setup_test_db():
     database.db_manager = test_db_manager
     sm.db_manager = test_db_manager
 
+    # stock_masterグローバルインスタンスのdb_managerも変更
+    stock_master.db_manager = test_db_manager
+
     yield test_db_manager
 
     # 元に戻す
     database.db_manager = original_db_manager
     if original_sm_db_manager:
         sm.db_manager = original_sm_db_manager
+        stock_master.db_manager = original_sm_db_manager
 
 
 @pytest.fixture
