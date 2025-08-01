@@ -3,10 +3,31 @@ import pandas as pd
 import json
 import os
 import logging
+import yfinance as yf # yfinanceをインポート
+import datetime # datetimeをインポート
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
 from src.backtester import run_backtest
 from src.config_manager import load_config
+
+# USDからJPYへの為替レートを取得する関数
+def get_usd_jpy_exchange_rate():
+    ticker_symbol = "USDJPY=X"
+    today = datetime.date.today()
+    yesterday = today - datetime.timedelta(days=1)
+
+    try:
+        data = yf.download(ticker_symbol, start=yesterday, end=today, interval="1d", progress=False)
+        if not data.empty:
+            latest_rate = data['Close'].iloc[-1]
+            logging.info(f"現在のUSD/JPY為替レート: {latest_rate:.2f}")
+            return latest_rate
+        else:
+            logging.error(f"USD/JPY為替レートのデータ取得に失敗しました。データが空です。")
+            return None
+    except Exception as e:
+        logging.error(f"USD/JPY為替レートの取得中にエラーが発生しました: {e}")
+        return None
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,6 +60,10 @@ def main():
     run_backtest_parser.add_argument("--ticker", type=str, default=None, help="直接データを取得する株価シンボル (例: AAPL)")
     run_backtest_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
     run_backtest_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
+
+    # get_current_price_jpy command
+    get_current_price_jpy_parser = subparsers.add_parser("get_current_price_jpy", help="現在の株価を日本円で取得")
+    get_current_price_jpy_parser.add_argument("--ticker", type=str, required=True, help="株価シンボル (例: AAPL)")
 
     args = parser.parse_args()
 
@@ -192,6 +217,29 @@ def main():
 
         backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
         logging.info(f"バックテスト結果: {backtest_results}")
+
+    elif args.command == "get_current_price_jpy": # 新しいコマンドの処理
+        ticker_symbol = args.ticker
+        logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
+        
+        # 現在の株価（USD）を取得
+        stock_info = yf.Ticker(ticker_symbol)
+        current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1] if not stock_info.history(period="1d").empty else None
+
+        if current_price_usd is None:
+            logging.error(f"銘柄: {ticker_symbol} の現在の株価（USD）を取得できませんでした。")
+            return
+
+        # USD/JPY為替レートを取得
+        exchange_rate_usd_jpy = get_usd_jpy_exchange_rate()
+
+        if exchange_rate_usd_jpy is None:
+            logging.error("USD/JPY為替レートを取得できませんでした。")
+            return
+
+        # 日本円に換算
+        current_price_jpy = current_price_usd * exchange_rate_usd_jpy
+        logging.info(f"銘柄: {ticker_symbol} の現在の株価: {current_price_usd:.2f} USD ({current_price_jpy:.2f} JPY)")
 
     else:
         parser.print_help()
