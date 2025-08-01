@@ -2,11 +2,63 @@
 株価データ取得モジュールのテスト
 """
 import pytest
+import sys
+import os
 from datetime import datetime, timedelta
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 
-from src.day_trade.data.stock_fetcher import StockFetcher
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from day_trade.data.stock_fetcher import (
+    StockFetcher, DataCache, cache_with_ttl,
+    StockFetcherError, NetworkError, InvalidSymbolError, DataNotFoundError
+)
+
+
+class TestDataCache:
+    """DataCacheのテストクラス"""
+    
+    def test_cache_set_and_get(self):
+        """キャッシュの設定と取得のテスト"""
+        cache = DataCache(ttl_seconds=60)
+        
+        # データを設定
+        cache.set("test_key", "test_value")
+        
+        # データを取得
+        result = cache.get("test_key")
+        assert result == "test_value"
+    
+    def test_cache_expiry(self):
+        """キャッシュの有効期限のテスト"""
+        cache = DataCache(ttl_seconds=1)
+        
+        # データを設定
+        cache.set("test_key", "test_value")
+        
+        # すぐに取得（有効）
+        result = cache.get("test_key")
+        assert result == "test_value"
+        
+        # 時間を進めてから取得（無効）
+        import time
+        time.sleep(1.1)
+        result = cache.get("test_key")
+        assert result is None
+    
+    def test_cache_clear(self):
+        """キャッシュクリアのテスト"""
+        cache = DataCache(ttl_seconds=60)
+        
+        cache.set("key1", "value1")
+        cache.set("key2", "value2")
+        
+        assert cache.size() == 2
+        
+        cache.clear()
+        assert cache.size() == 0
+        assert cache.get("key1") is None
 
 
 class TestStockFetcher:
@@ -15,7 +67,13 @@ class TestStockFetcher:
     @pytest.fixture
     def fetcher(self):
         """StockFetcherインスタンスを作成"""
-        return StockFetcher(cache_size=2)
+        return StockFetcher(
+            cache_size=2,
+            price_cache_ttl=5,
+            historical_cache_ttl=10,
+            retry_count=2,
+            retry_delay=0.1
+        )
     
     @pytest.fixture
     def mock_ticker_info(self):
@@ -223,3 +281,92 @@ class TestStockFetcher:
         
         # 7203.Tは再度作成される
         assert mock_ticker_class.call_count == 4  # 7203.T, 6758.T, 9984.T, 7203.T(再)
+    
+    def test_validate_symbol(self, fetcher):
+        """シンボル妥当性チェックのテスト"""
+        # 正常なシンボル
+        fetcher._validate_symbol("7203")
+        fetcher._validate_symbol("AAPL")
+        
+        # 無効なシンボル
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_symbol("")
+        
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_symbol(None)
+        
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_symbol("1")
+    
+    def test_validate_period_interval(self, fetcher):
+        """期間・間隔妥当性チェックのテスト"""
+        # 正常な組み合わせ
+        fetcher._validate_period_interval("1mo", "1d")
+        fetcher._validate_period_interval("1d", "5m")
+        
+        # 無効な期間
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_period_interval("invalid", "1d")
+        
+        # 無効な間隔
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_period_interval("1mo", "invalid")
+        
+        # 分足データの期間制限
+        with pytest.raises(InvalidSymbolError):
+            fetcher._validate_period_interval("1mo", "5m")
+    
+    def test_is_retryable_error(self, fetcher):
+        """リトライ可能エラー判定のテスト"""
+        # リトライ可能なエラー
+        assert fetcher._is_retryable_error(Exception("Connection timeout"))
+        assert fetcher._is_retryable_error(Exception("Network error"))
+        assert fetcher._is_retryable_error(Exception("500 Internal Server Error"))
+        
+        # リトライ不可能なエラー
+        assert not fetcher._is_retryable_error(Exception("Invalid symbol"))
+        assert not fetcher._is_retryable_error(Exception("Permission denied"))
+    
+    @patch('day_trade.data.stock_fetcher.yf.Ticker')
+    def test_get_current_price_with_errors(self, mock_ticker_class, fetcher):
+        """株価取得でエラーハンドリングのテスト"""
+        # 空のinfoでDataNotFoundError
+        mock_ticker = Mock()
+        mock_ticker.info = {}
+        mock_ticker_class.return_value = mock_ticker
+        
+        with pytest.raises(DataNotFoundError):
+            fetcher.get_current_price("INVALID")
+    
+    def test_clear_all_caches(self, fetcher):
+        """キャッシュクリアのテスト"""
+        # キャッシュクリアを実行（エラーが出ないことを確認）
+        fetcher.clear_all_caches()
+    
+    def test_cache_with_ttl_decorator(self):
+        """TTLキャッシュデコレータのテスト"""
+        call_count = 0
+        
+        @cache_with_ttl(1)
+        def test_function(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+        
+        # 最初の呼び出し
+        result1 = test_function(5)
+        assert result1 == 10
+        assert call_count == 1
+        
+        # 2回目の呼び出し（キャッシュヒット）
+        result2 = test_function(5)
+        assert result2 == 10
+        assert call_count == 1  # 呼び出し回数は変わらない
+        
+        # キャッシュクリア
+        test_function.clear_cache()
+        
+        # 3回目の呼び出し（キャッシュクリア後）
+        result3 = test_function(5)
+        assert result3 == 10
+        assert call_count == 2  # 呼び出し回数が増える
