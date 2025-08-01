@@ -39,9 +39,8 @@ def main():
 
     # run_analysis command
     run_analysis_parser = subparsers.add_parser("run_analysis", help="市場分析を実行")
-    run_analysis_parser.add_argument("--data_path", type=str, default=config.get('data', {}).get('default_data_path', 'dummy_data.csv'), help="株価データCSVファイルのパス")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="実行する戦略のリストを含むJSONファイルのパス")
-    run_analysis_parser.add_argument("--ticker", type=str, default=None, help="直接データを取得する株価シンボル (例: AAPL)")
+    run_analysis_parser.add_argument("--ticker", type=str, required=True, help="直接データを取得する株価シンボル (例: AAPL)")
     run_analysis_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
     run_analysis_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
@@ -68,40 +67,15 @@ def main():
     args = parser.parse_args()
 
     if args.command == "run_analysis":
-        data = None
-        ticker_symbol = args.ticker if args.ticker else config.get('fetch_data', {}).get('default_ticker', 'AAPL')
-        if args.ticker:
-            logging.info(f"銘柄: {ticker_symbol} のデータを {args.start_date or config.get('fetch_data', {}).get('default_start_date')} から {args.end_date or config.get('fetch_data', {}).get('default_end_date')} まで取得中...")
-            data = fetch_stock_data(
-                args.ticker,
-                args.start_date or config.get('fetch_data', {}).get('default_start_date'),
-                args.end_date or config.get('fetch_data', {}).get('default_end_date')
-            )
-            if data.empty:
-                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。")
-                return
-        elif args.data_path:
-            try:
-                data = pd.read_csv(args.data_path)
-                logging.info(f"銘柄: {ticker_symbol} のデータファイル {args.data_path} から分析を実行中...")
-            except FileNotFoundError:
-                logging.info(f"銘柄: {ticker_symbol} のデータファイル {args.data_path} が見つかりませんでした。自動的にデータを取得します...")
-                
-                start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
-                end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
-                
-                logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
-                df = fetch_stock_data(ticker_symbol, start_date, end_date)
-                
-                if not df.empty:
-                    df.to_csv(args.data_path, index=True)
-                    logging.info(f"データは {args.data_path} に保存されました。")
-                    data = pd.read_csv(args.data_path)
-                else:
-                    logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。分析を中止します。")
-                    return
-        else:
-            logging.error("run_analysis コマンドには --data_path または --ticker のいずれかを指定する必要があります。")
+        ticker_symbol = args.ticker
+        start_date = args.start_date or config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
+        end_date = args.end_date or config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
+
+        logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+        data = fetch_stock_data(ticker_symbol, start_date, end_date)
+
+        if data.empty:
+            logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。分析を中止します。")
             return
 
         engine = AnalysisEngine()
@@ -138,6 +112,21 @@ def main():
 
         final_decision = engine.make_ensemble_decision(analysis_results)
         logging.info(f"最終決定: {final_decision}")
+
+        # 現在の株価を日本円で表示
+        logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
+        stock_info = yf.Ticker(ticker_symbol)
+        current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
+
+        if current_price_usd is None:
+            logging.error(f"銘柄: {ticker_symbol} の現在の株価（USD）を取得できませんでした。")
+        else:
+            exchange_rate_usd_jpy = get_usd_jpy_exchange_rate()
+            if exchange_rate_usd_jpy is None:
+                logging.error("USD/JPY為替レートを取得できませんでした。")
+            else:
+                current_price_jpy = current_price_usd * exchange_rate_usd_jpy
+                logging.info(f"銘柄: {ticker_symbol} の現在の株価: {current_price_usd:.2f} USD ({current_price_jpy:.2f} JPY)")
 
     elif args.command == "fetch_data":
         logging.info(f"銘柄: {args.ticker} のデータを {args.start_date} から {args.end_date} まで取得中...")
