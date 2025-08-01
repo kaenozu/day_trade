@@ -64,3 +64,9 @@ exclude: |
 # Default settings
 default_install_hook_types: [pre-commit]
 default_stages: [pre-commit]
+
+# CI specific configuration
+ci:
+  autofix_commit_msg: 'style: auto-fix pre-commit hooks'
+  autoupdate_commit_msg: 'ci: pre-commit autoupdate'
+  autoupdate_schedule: monthly
