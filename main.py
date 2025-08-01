@@ -20,7 +20,7 @@ def get_usd_jpy_exchange_rate():
         data = yf.download(ticker_symbol, start=yesterday, end=today, interval="1d", progress=False)
         if not data.empty:
             latest_rate = data['Close'].iloc[-1].item()
-            logging.info(f"現在のUSD/JPY為替レート: {latest_rate:.2f}")
+            logging.debug(f"現在のUSD/JPY為替レート: {latest_rate:.2f}")
             return latest_rate
         else:
             logging.error(f"USD/JPY為替レートのデータ取得に失敗しました。データが空です。")
@@ -90,7 +90,7 @@ def main():
 
         for ticker_symbol in tickers:
             logging.info(f"--- 銘柄: {ticker_symbol} の分析を開始します ---")
-            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            logging.debug(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
             data = fetch_stock_data(ticker_symbol, start_date, end_date)
 
             if data.empty:
@@ -113,7 +113,7 @@ def main():
                         strategies_json = f.read()
                     parsed_strategies = json.loads(strategies_json)
                     engine.set_active_strategies(parsed_strategies)
-                    logging.info(f"戦略ファイル {args.strategies_file} から戦略を読み込みました。")
+                    logging.debug(f"戦略ファイル {args.strategies_file} から戦略を読み込みました。")
                 except FileNotFoundError:
                     logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
                     continue # 次の銘柄へ
@@ -124,7 +124,7 @@ def main():
                 default_strategies = config.get('strategies', {}).get('default_strategies', [])
                 if default_strategies:
                     engine.set_active_strategies(default_strategies)
-                    logging.info(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
+                    logging.debug(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
 
             analysis_results = engine.run_analysis(data)
             logging.info(f"分析結果: {analysis_results}")
@@ -153,7 +153,7 @@ def main():
         df = fetch_stock_data(args.ticker, args.start_date, args.end_date)
         if not df.empty:
             df.to_csv(args.output_path, index=True)
-            logging.info(f"データは {args.output_path} に保存されました。")
+            logging.debug(f"データは {args.output_path} に保存されました。")
         else:
             logging.error(f"銘柄: {args.ticker} のデータ取得に失敗しました。")
 
@@ -164,7 +164,7 @@ def main():
 
         for ticker_symbol in tickers:
             logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを開始します ---")
-            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            logging.debug(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
             data = fetch_stock_data(ticker_symbol, start_date, end_date)
 
             if data.empty:
@@ -195,7 +195,7 @@ def main():
                         if s_name in all_strategies:
                             strategies_to_backtest[s_name] = all_strategies[s_name]
                         else:
-                            logging.warning(f"戦略 '{s_name}' が見つかりませんでした。スキップします。")
+                            logging.debug(f"戦略 '{s_name}' が見つかりませんでした。スキップします。")
                 except FileNotFoundError:
                     logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
                     continue # 次の銘柄へ
@@ -209,7 +209,7 @@ def main():
                         if s_name in all_strategies:
                             strategies_to_backtest[s_name] = all_strategies[s_name]
                         else:
-                            logging.warning(f"config からの戦略 '{s_name}' が見つかりませんでした。スキップします。")
+                            logging.debug(f"config からの戦略 '{s_name}' が見つかりませんでした。スキップします。")
 
             if not strategies_to_backtest:
                 logging.error("バックテストに有効な戦略が指定されていません。")
