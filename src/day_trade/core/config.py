@@ -4,7 +4,8 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -64,7 +65,7 @@ class ConfigManager:
         """設定ファイルを読み込む"""
         if self.config_path.exists():
             try:
-                with open(self.config_path, "r", encoding="utf-8") as f:
+                with open(self.config_path, encoding="utf-8") as f:
                     data = json.load(f)
                 return AppConfig(**data)
             except Exception as e:
@@ -138,7 +139,7 @@ class ConfigManager:
 
     def import_config(self, path: Path):
         """設定をインポート"""
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         self.config = AppConfig(**data)
         self.save_config()

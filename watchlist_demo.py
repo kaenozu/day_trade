@@ -3,7 +3,7 @@
 使用方法とサンプル出力を表示する
 """
 
-from src.day_trade.core.watchlist import WatchlistManager, AlertType, AlertCondition
+from src.day_trade.core.watchlist import AlertCondition, AlertType, WatchlistManager
 
 
 def main():

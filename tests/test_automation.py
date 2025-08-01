@@ -2,22 +2,23 @@
 全自動化機能のテスト
 """
 
-import pytest
 import json
 from datetime import datetime, time
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, mock_open, patch
 
-from src.day_trade.config.config_manager import (
-    ConfigManager,
-    WatchlistSymbol,
-    MarketHours,
-    TechnicalIndicatorSettings,
-    AlertSettings,
-)
+import pytest
+
 from src.day_trade.automation.orchestrator import (
+    AutomationReport,
     DayTradeOrchestrator,
     ExecutionResult,
-    AutomationReport,
+)
+from src.day_trade.config.config_manager import (
+    AlertSettings,
+    ConfigManager,
+    MarketHours,
+    TechnicalIndicatorSettings,
+    WatchlistSymbol,
 )
 
 

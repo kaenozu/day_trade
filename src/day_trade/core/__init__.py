@@ -1,19 +1,19 @@
 # Core trading functionality
-from .trade_manager import (
-    TradeManager,
-    Trade,
-    Position,
-    RealizedPnL,
-    TradeType,
-    TradeStatus,
-)
-from .watchlist import WatchlistManager, AlertType, AlertCondition, AlertNotification
 from .portfolio import (
+    PerformanceReport,
     PortfolioAnalyzer,
     PortfolioMetrics,
     SectorAllocation,
-    PerformanceReport,
 )
+from .trade_manager import (
+    Position,
+    RealizedPnL,
+    Trade,
+    TradeManager,
+    TradeStatus,
+    TradeType,
+)
+from .watchlist import AlertCondition, AlertNotification, AlertType, WatchlistManager
 
 __all__ = [
     "TradeManager",

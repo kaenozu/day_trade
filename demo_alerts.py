@@ -6,33 +6,34 @@ Issue #70の実装内容を示すための実行可能なデモ
 
 import random
 import time
-from decimal import Decimal
 from datetime import datetime, timedelta
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.rule import Rule
-from rich.live import Live
-from rich.layout import Layout
+from decimal import Decimal
+
 import pandas as pd
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.table import Table
 
 from src.day_trade.core.alerts import (
-    AlertManager,
     AlertCondition,
-    AlertTrigger,
-    NotificationHandler,
-    AlertType,
+    AlertManager,
     AlertPriority,
+    AlertTrigger,
+    AlertType,
+    NotificationHandler,
     NotificationMethod,
-    create_price_alert,
     create_change_alert,
+    create_price_alert,
 )
 from src.day_trade.utils.formatters import (
+    create_comparison_table,
+    create_metric_cards,
+    create_status_indicator,
     format_currency,
     format_percentage,
-    create_status_indicator,
-    create_metric_cards,
-    create_comparison_table,
 )
 
 console = Console()

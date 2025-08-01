@@ -2,10 +2,11 @@
 アンサンブル設定のテストケース
 """
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
+
+import pytest
 
 from src.day_trade.config.config_manager import ConfigManager, EnsembleSettings
 

@@ -3,6 +3,7 @@
 """
 
 import pytest
+
 from src.day_trade.data.stock_master import stock_master
 
 
