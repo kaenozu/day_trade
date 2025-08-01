@@ -40,7 +40,7 @@ def main():
     # run_analysis command
     run_analysis_parser = subparsers.add_parser("run_analysis", help="市場分析を実行")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="実行する戦略のリストを含むJSONファイルのパス")
-    run_analysis_parser.add_argument("--ticker", type=str, required=True, help="直接データを取得する株価シンボル (例: AAPL)")
+    run_analysis_parser.add_argument("--ticker", type=str, default=config.get('fetch_data', {}).get('default_ticker', 'AAPL'), help="直接データを取得する株価シンボル (例: AAPL)")
     run_analysis_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
     run_analysis_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
