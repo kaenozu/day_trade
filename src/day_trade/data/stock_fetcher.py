@@ -231,8 +231,8 @@ if __name__ == "__main__":
     current = fetcher.get_current_price("7203")
     if current:
         print(f"銘柄: {current['symbol']}")
-        print(f"現在値: ¥{current['current_price']:,.0f}")
-        print(f"前日比: ¥{current['change']:+,.0f} ({current['change_percent']:+.2f}%)")
+        print(f"現在値: {current['current_price']:,.0f}円")
+        print(f"前日比: {current['change']:+,.0f}円 ({current['change_percent']:+.2f}%)")
     
     # ヒストリカルデータを取得
     print("\n=== ヒストリカルデータ（過去5日） ===")
