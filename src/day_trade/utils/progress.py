@@ -316,3 +316,30 @@ def simple_progress(func: Callable, *args, description: str = "処理中", **kwa
     """
     with progress_context(description, progress_type=ProgressType.INDETERMINATE):
         return func(*args, **kwargs)
+
+
+@contextmanager
+def multi_step_progress(description: str, steps: List[str]):
+    """
+    マルチステップ進捗表示のコンテキストマネージャー
+
+    Args:
+        description: 全体の説明
+        steps: ステップ名のリスト
+
+    Yields:
+        MultiStepProgressTracker: マルチステップ進捗トラッカー
+
+    Example:
+        steps = ["データロード", "分析実行", "結果保存"]
+        with multi_step_progress("バックテスト実行", steps) as progress:
+            # ステップ1
+            progress.next_step()
+            # ステップ2
+            progress.next_step()
+            # 完了
+            progress.complete()
+    """
+    tracker = MultiStepProgressTracker(steps, description)
+    with tracker:
+        yield tracker
