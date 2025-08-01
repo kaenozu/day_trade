@@ -4,19 +4,19 @@
 
 import click
 from rich.console import Console
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from rich.prompt import Prompt, Confirm
 
 from ..core.watchlist import WatchlistManager
-from ..utils.validators import normalize_stock_codes
 from ..utils.formatters import (
     create_error_panel,
     create_success_panel,
-    get_change_color,
     format_currency,
     format_percentage,
     format_volume,
+    get_change_color,
 )
+from ..utils.validators import normalize_stock_codes
 
 console = Console()
 

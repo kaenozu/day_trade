@@ -2,28 +2,29 @@
 メインCLIエントリーポイント
 """
 
+from pathlib import Path
+
 import click
 from rich.console import Console
 from rich.table import Table
-from pathlib import Path
 
+from ..core.config import config_manager
 from ..data.stock_fetcher import StockFetcher
 from ..models import init_db
-from ..core.config import config_manager
+from ..utils.formatters import (
+    create_company_info_table,
+    create_error_panel,
+    create_historical_data_table,
+    create_stock_info_table,
+    create_success_panel,
+    create_watchlist_table,
+)
 from ..utils.validators import (
-    validate_stock_code,
-    validate_period,
-    validate_interval,
     normalize_stock_codes,
     suggest_stock_code_correction,
-)
-from ..utils.formatters import (
-    create_stock_info_table,
-    create_company_info_table,
-    create_historical_data_table,
-    create_watchlist_table,
-    create_error_panel,
-    create_success_panel,
+    validate_interval,
+    validate_period,
+    validate_stock_code,
 )
 from .watchlist_commands import watchlist  # Moved to top
 

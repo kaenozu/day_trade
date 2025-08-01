@@ -4,14 +4,15 @@ Rich TUIダッシュボードの機能紹介
 """
 
 import time
+
+from rich import box
+from rich.align import Align
 from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-from rich.layout import Layout
 from rich.text import Text
-from rich.live import Live
-from rich.align import Align
-from rich import box
 
 
 def demo_rich_interface():

@@ -4,9 +4,11 @@
 """
 
 import logging
-import pandas as pd
+
 import numpy as np
-from ..utils.progress import progress_context, ProgressType
+import pandas as pd
+
+from ..utils.progress import ProgressType, progress_context
 
 logger = logging.getLogger(__name__)
 
@@ -387,8 +389,9 @@ class TechnicalIndicators:
 # 使用例
 if __name__ == "__main__":
     # サンプルデータ作成
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # ダミーデータ生成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

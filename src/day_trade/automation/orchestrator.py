@@ -5,30 +5,31 @@
 
 import logging
 import time
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-import traceback
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import pandas as pd
 
-from ..config.config_manager import ConfigManager
-from ..data.stock_fetcher import StockFetcher
+from ..analysis.backtest import BacktestEngine
+from ..analysis.ensemble import (
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..analysis.signals import TradingSignalGenerator
-from ..analysis.ensemble import (
-    EnsembleTradingStrategy,
-    EnsembleStrategy,
-    EnsembleVotingType,
-)
-from ..analysis.backtest import BacktestEngine
-from ..core.trade_manager import TradeManager
-from ..core.portfolio import PortfolioAnalyzer
-from ..core.watchlist import WatchlistManager
+from ..config.config_manager import ConfigManager
 from ..core.alerts import AlertManager
-from ..utils.progress import multi_step_progress, progress_context, ProgressType
+from ..core.portfolio import PortfolioAnalyzer
+from ..core.trade_manager import TradeManager
+from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import StockFetcher
+from ..utils.progress import ProgressType, multi_step_progress, progress_context
 
 # from ..analysis.screening import StockScreener  # Optional import
 
@@ -533,7 +534,7 @@ class DayTradeOrchestrator:
         all_signals = []
         settings = self.config_manager.get_signal_generation_settings()
 
-        for symbol in analysis_results.keys():
+        for symbol in analysis_results:
             try:
                 analysis = analysis_results.get(symbol, {})
                 patterns = pattern_results.get(symbol, {})
@@ -818,8 +819,9 @@ class DayTradeOrchestrator:
             settings = self.config_manager.get_backtest_settings()
 
             # バックテスト設定を作成
-            from ..analysis.backtest import BacktestConfig, BacktestMode
             from decimal import Decimal
+
+            from ..analysis.backtest import BacktestConfig, BacktestMode
 
             config = BacktestConfig(
                 start_date=datetime.now() - timedelta(days=settings.period_days),

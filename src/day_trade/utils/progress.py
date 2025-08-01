@@ -3,20 +3,21 @@
 Rich ライブラリを使用した美しい進捗表示機能を提供
 """
 
-import time
 import logging
+import time
 from contextlib import contextmanager
 from enum import Enum
-from typing import Optional, Callable, Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
+
 from rich.console import Console
 from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
-    TimeElapsedColumn,
-    BarColumn,
-    TextColumn,
     TaskProgressColumn,
-    MofNCompleteColumn,
+    TextColumn,
+    TimeElapsedColumn,
     TimeRemainingColumn,
 )
 
@@ -272,8 +273,8 @@ def show_progress_summary(
     results: List[Dict[str, Any]], title: str = "処理結果サマリー"
 ):
     """処理結果のサマリーを表示"""
-    from rich.table import Table
     from rich.panel import Panel
+    from rich.table import Table
 
     if not results:
         console.print(Panel("処理結果がありません", title=title))

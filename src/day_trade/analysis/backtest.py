@@ -3,27 +3,28 @@
 売買戦略の過去データでの検証とパフォーマンス分析
 """
 
-import logging
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Callable
-from decimal import Decimal
-from datetime import datetime, timedelta
-from dataclasses import dataclass
-from enum import Enum
 import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..data.stock_fetcher import StockFetcher
+import numpy as np
+import pandas as pd
+
 from ..analysis.signals import (
-    TradingSignalGenerator,
-    TradingSignal,
-    SignalType,
     SignalStrength,
+    SignalType,
+    TradingSignal,
+    TradingSignalGenerator,
 )
 from ..core.trade_manager import TradeType
+from ..data.stock_fetcher import StockFetcher
+from ..utils.progress import ProgressType, multi_step_progress, progress_context
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
-from ..utils.progress import multi_step_progress, progress_context, ProgressType
 
 logger = logging.getLogger(__name__)
 

@@ -5,30 +5,31 @@ Issue #69の実装内容を示すための実行可能なデモ
 """
 
 import random
+import time
+from datetime import datetime, timedelta
+from decimal import Decimal
+
 import numpy as np
 import pandas as pd
-from decimal import Decimal
-from datetime import datetime, timedelta
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn
-from rich.rule import Rule
 from rich.live import Live
-import time
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
+from rich.rule import Rule
+from rich.table import Table
 
 from src.day_trade.analysis.backtest import (
-    BacktestEngine,
     BacktestConfig,
+    BacktestEngine,
     simple_sma_strategy,
 )
 from src.day_trade.analysis.signals import Signal, SignalType
 from src.day_trade.utils.formatters import (
-    format_currency,
-    format_percentage,
     create_ascii_chart,
     create_comparison_table,
     create_metric_cards,
+    format_currency,
+    format_percentage,
 )
 
 console = Console()

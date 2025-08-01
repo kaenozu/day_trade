@@ -3,20 +3,20 @@
 価格・指標・パターンベースの通知システム
 """
 
+import json
 import logging
 import threading
 import time
-import json
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Callable, Any, Union
-from decimal import Decimal
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Union
 
 try:
     import smtplib
-    from email.mime.text import MimeText
     from email.mime.multipart import MimeMultipart
+    from email.mime.text import MimeText
 
     EMAIL_AVAILABLE = True
 except ImportError:
@@ -25,10 +25,10 @@ except ImportError:
     MimeMultipart = None
     smtplib = None
 
-from ..data.stock_fetcher import StockFetcher
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import StockFetcher
 
 logger = logging.getLogger(__name__)
 

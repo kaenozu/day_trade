@@ -2,46 +2,47 @@
 対話型CLIのメインスクリプト
 """
 
-import click
 import logging
+import random
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import click
 import pandas as pd
 from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich.layout import Layout
-from rich.prompt import Prompt
-import random
 from rich.live import Live
+from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.rule import Rule
-from typing import Optional, Dict, List, Any
-from decimal import Decimal
+from rich.table import Table
 
-from ..core.watchlist import WatchlistManager
+from ..analysis.backtest import BacktestConfig, BacktestEngine
 from ..core.config import config_manager
-from ..data.stock_fetcher import StockFetcher, DataNotFoundError, InvalidSymbolError
-from ..analysis.backtest import BacktestEngine, BacktestConfig
+from ..core.portfolio import PortfolioManager
+from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import DataNotFoundError, InvalidSymbolError, StockFetcher
+from ..models.database import db_manager, init_db
 from ..utils.formatters import (
-    format_currency,
-    format_percentage,
-    create_historical_data_table,
-    create_stock_info_table,
+    create_ascii_chart,
     create_company_info_table,
-    create_watchlist_table,
     create_error_panel,
+    create_historical_data_table,
+    create_info_panel,
+    create_stock_info_table,
     create_success_panel,
     create_warning_panel,
-    create_info_panel,
-    create_ascii_chart,
+    create_watchlist_table,
+    format_currency,
+    format_percentage,
 )
 from ..utils.validators import (
-    validate_stock_code,
     normalize_stock_codes,
     suggest_stock_code_correction,
+    validate_stock_code,
 )
-from ..models.database import db_manager, init_db
-from ..core.portfolio import PortfolioManager
 
 console = Console()
 logger = logging.getLogger(__name__)
