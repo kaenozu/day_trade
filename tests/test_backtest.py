@@ -12,7 +12,7 @@ from src.day_trade.analysis.backtest import (
     BacktestEngine, BacktestConfig, BacktestResult, Trade, Position,
     BacktestMode, simple_sma_strategy
 )
-from src.day_trade.analysis.signals import Signal, SignalType
+from src.day_trade.analysis.signals import TradingSignal, SignalType, SignalStrength
 from src.day_trade.core.trade_manager import TradeType
 
 
@@ -486,13 +486,14 @@ class TestIntegration:
                         data = historical_data[symbol]
                         current_data = data[data.index <= date]
                         if len(current_data) > 0:
-                            signals.append(Signal(
-                                timestamp=date,
-                                symbol=symbol,
+                            signals.append(TradingSignal(
                                 signal_type=SignalType.BUY,
-                                confidence=0.8,
-                                price=Decimal(str(current_data['Close'].iloc[-1])),
-                                indicators={}
+                                strength=SignalStrength.MEDIUM,
+                                confidence=80.0,
+                                reasons=["Test signal"],
+                                conditions_met={"test": True},
+                                timestamp=pd.Timestamp(date),
+                                price=float(current_data['Close'].iloc[-1])
                             ))
                 return signals
             
