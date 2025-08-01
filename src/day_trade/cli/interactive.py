@@ -398,7 +398,8 @@ def list():
             item.get("group", "N/A"),
             item.get("priority", "N/A"),
             format_currency(item.get("current_price")),
-            f"[{change_color}]{format_percentage(item.get('change_percent', 0))}[/{change_color}]",
+            f"[{change_color}]{format_percentage(item.get('change_percent', 0))}"
+            + f"[/{change_color}]",
             (
                 item.get("memo", "")[:20] + "..."
                 if len(item.get("memo", "")) > 20

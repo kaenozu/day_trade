@@ -116,7 +116,7 @@ class TestStockMasterManager:
                 stock_master.add_stock(session=session, **stock_data)
 
         # テスト対象のマネージャーを一時的に変更
-        original_db_manager = stock_master.__class__.__module__
+        _original_db_manager = stock_master.__class__.__module__
         stock_master.__dict__["db_manager"] = db_manager
 
         try:

@@ -223,23 +223,37 @@ class StockFetcher:
             "temporary",
             "read timeout",
             "connection timeout",
+            "500",
+            "502",
+            "503",
+            "504",
         ]
 
         return any(pattern in error_message for pattern in retryable_patterns)
 
     def _handle_error(self, error: Exception) -> None:
         """エラーを適切な例外クラスに変換して再発生（改善版）"""
+        import requests.exceptions as req_exc
+
+        # 既存のカスタム例外はそのまま再発生
+        if isinstance(
+            error, (StockFetcherError, InvalidSymbolError, DataNotFoundError)
+        ):
+            raise error
 
         # ネットワーク関連の例外を統一的に処理
-        try:
-            converted_error = handle_network_exception(error)
-            raise converted_error
-        except NetworkError:
-            # handle_network_exception で処理できた場合
-            raise
-        except Exception:
-            # handle_network_exception で処理できなかった場合は従来の処理
-            pass
+        if isinstance(
+            error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)
+        ):
+            try:
+                converted_error = handle_network_exception(error)
+                raise converted_error
+            except NetworkError:
+                # handle_network_exception で処理できた場合
+                raise
+            except Exception:
+                # handle_network_exception で処理できなかった場合は従来の処理
+                pass
 
         # 従来の文字列ベースの判定（後方互換性のため）
         error_message = str(error).lower()
