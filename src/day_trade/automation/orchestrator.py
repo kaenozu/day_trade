@@ -199,7 +199,7 @@ class DayTradeOrchestrator:
         pattern_results = self._run_pattern_recognition_batch(stock_data)
 
         logger.info("Step 4: シグナル生成実行")
-        signals = self._generate_signals_batch(analysis_results, pattern_results)
+        signals = self._generate_signals_batch(analysis_results, pattern_results, stock_data)
 
         logger.info("Step 5: アラートチェック実行")
         alerts = self._check_alerts_batch(stock_data)
@@ -374,7 +374,10 @@ class DayTradeOrchestrator:
         return pattern_results
 
     def _generate_signals_batch(
-        self, analysis_results: Dict[str, Dict], pattern_results: Dict[str, Dict]
+        self,
+        analysis_results: Dict[str, Dict],
+        pattern_results: Dict[str, Dict],
+        stock_data: Dict[str, Any] = None,
     ) -> List[Dict[str, Any]]:
         """シグナル生成を並列実行"""
         if not self.config_manager.get_signal_generation_settings().enabled:
@@ -392,8 +395,11 @@ class DayTradeOrchestrator:
                 if analysis:
                     # アンサンブル戦略が有効な場合は優先使用
                     if self.ensemble_strategy:
+                        symbol_stock_data = (
+                            stock_data.get(symbol) if stock_data else None
+                        )
                         ensemble_signals = self._generate_ensemble_signals(
-                            symbol, analysis, patterns
+                            symbol, analysis, patterns, symbol_stock_data
                         )
                         all_signals.extend(ensemble_signals)
                     else:
