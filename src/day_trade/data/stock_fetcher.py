@@ -422,22 +422,31 @@ class StockFetcher:
         Returns:
             銘柄コードをキーとした価格情報の辞書
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         if not codes or not isinstance(codes, list):
             raise InvalidSymbolError(f"無効な銘柄コードリスト: {codes}")
         
         results = {}
         failed_codes = []
         
-        for code in codes:
-            try:
-                data = self.get_current_price(code)
-                if data:
-                    results[code] = data
-                else:
+        # Max workers to avoid overwhelming the API or local resources
+        # A common recommendation is (number of cores * 2) + 1, or just a small fixed number for I/O bound tasks
+        max_workers = min(len(codes), 10) 
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_code = {executor.submit(self.get_current_price, code): code for code in codes}
+            for future in as_completed(future_to_code):
+                code = future_to_code[future]
+                try:
+                    data = future.result()
+                    if data:
+                        results[code] = data
+                    else:
+                        failed_codes.append(code)
+                except Exception as e:
+                    logger.warning(f"銘柄 {code} の取得に失敗: {e}")
                     failed_codes.append(code)
-            except Exception as e:
-                logger.warning(f"銘柄 {code} の取得に失敗: {e}")
-                failed_codes.append(code)
         
         if failed_codes:
             logger.info(f"取得に失敗した銘柄: {failed_codes}")

@@ -232,23 +232,32 @@ class BacktestEngine:
         # バッファを追加（テクニカル指標計算のため）
         buffer_start = config.start_date - timedelta(days=100)
         
-        for symbol in symbols:
-            try:
-                data = self.stock_fetcher.get_historical_data(
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        # Use ThreadPoolExecutor for parallel fetching
+        with ThreadPoolExecutor(max_workers=min(len(symbols), 5)) as executor: # Limit workers to avoid overwhelming
+            future_to_symbol = {
+                executor.submit(
+                    self.stock_fetcher.get_historical_data,
                     symbol,
                     start_date=buffer_start,
                     end_date=config.end_date,
                     interval="1d"
-                )
-                
-                if data is not None and not data.empty:
-                    historical_data[symbol] = data
-                    logger.info(f"履歴データ取得完了: {symbol} ({len(data)} データポイント)")
-                else:
-                    logger.warning(f"履歴データの取得に失敗: {symbol}")
-                    
-            except Exception as e:
-                logger.error(f"履歴データ取得エラー ({symbol}): {e}")
+                ): symbol for symbol in symbols
+            }
+            
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    data = future.result()
+                    if data is not None and not data.empty:
+                        historical_data[symbol] = data
+                        logger.info(f"履歴データ取得完了: {symbol} ({len(data)} データポイント)")
+                    else:
+                        logger.warning(f"履歴データの取得に失敗: {symbol}")
+                        
+                except Exception as e:
+                    logger.error(f"履歴データ取得エラー ({symbol}): {e}")
         
         return historical_data
     
@@ -309,23 +318,69 @@ class BacktestEngine:
                 continue
             
             data = historical_data[symbol]
-            current_data = data[data.index <= date]
+            current_data_all = data[data.index <= date] # その日までの全データ
             
-            if len(current_data) < 20:  # 最低20日のデータが必要
+            # 必要な最低データ数を設定 (MACDなどの計算に必要な期間を考慮)
+            # 例えば、MACDのデフォルト期間は26日EMA + 9日シグナルで合計34日必要
+            # RSIは14日
+            # Bollinger Bands 20日
+            # Golden/Dead Cross 20日
+            # 総合的に60日あれば十分なはず
+            min_required_data = 60
+            if len(current_data_all) < min_required_data:
                 continue
             
             try:
-                # シンプルなテクニカル戦略
-                symbol_signals = self.signal_generator.generate_signals(symbol, current_data)
+                # その時点までの全データから一度だけ指標とパターンを計算
+                # signals.py で import しているためここでの import は不要
+                # from .indicators import TechnicalIndicators
+                # from .patterns import ChartPatternRecognizer
+                
+                all_indicators_for_current_data = TechnicalIndicators.calculate_all(current_data_all)
+                all_patterns_for_current_data = ChartPatternRecognizer.detect_all_patterns(current_data_all)
+
+                # generate_signal に渡すのは最新のデータポイントのみ
+                # df, indicators はDataFrameなのでiloc[[-1]]で最新の行を抽出
+                latest_df_row = current_data_all.iloc[[-1]].copy()
+                latest_indicators_row = all_indicators_for_current_data.iloc[[-1]].copy()
+                
+                # patternsは辞書であり、その中にDataFrameが含まれている可能性があるため、
+                # patterns.py の detect_all_patterns が返す構造を考慮してスライス
+                latest_patterns = {}
+                for key, value in all_patterns_for_current_data.items():
+                    if isinstance(value, pd.DataFrame):
+                        # patterns内のDataFrameも最新の行を抽出
+                        if not value.empty:
+                            latest_patterns[key] = value.iloc[[-1]].copy()
+                        else:
+                            latest_patterns[key] = pd.DataFrame()
+                    elif isinstance(value, dict):
+                        # ネストされた辞書の場合、個別に処理
+                        nested_dict = {}
+                        for nested_key, nested_value in value.items():
+                            if isinstance(nested_value, pd.Series):
+                                nested_dict[nested_key] = nested_value.iloc[[-1]].copy()
+                            else:
+                                nested_dict[nested_key] = nested_value
+                        latest_patterns[key] = nested_dict
+                    else:
+                        latest_patterns[key] = value
+
+
+                signal = self.signal_generator.generate_signal(
+                    latest_df_row,
+                    latest_indicators_row,
+                    latest_patterns
+                )
                 
                 # 最新のシグナルのみを使用
-                if symbol_signals:
-                    latest_signal = symbol_signals[-1]
-                    if latest_signal.timestamp.date() == date.date():
-                        signals.append(latest_signal)
+                if signal:
+                    # シグナルのタイムスタンプが現在のバックテスト日付と一致することを確認
+                    if signal.timestamp.date() == date.date():
+                        signals.append(signal)
                         
             except Exception as e:
-                logger.debug(f"シグナル生成エラー ({symbol}): {e}")
+                logger.debug(f"シグナル生成エラー ({symbol}, {date}): {e}")
                 continue
         
         return signals
