@@ -3,26 +3,28 @@
 売買戦略の過去データでの検証とパフォーマンス分析
 """
 
-import logging
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Callable
-from decimal import Decimal
-from datetime import datetime, timedelta
-from dataclasses import dataclass
-from enum import Enum
 import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..data.stock_fetcher import StockFetcher
+import numpy as np
+import pandas as pd
+
 from ..analysis.signals import (
-    TradingSignalGenerator,
-    TradingSignal,
-    SignalType,
     SignalStrength,
+    SignalType,
+    TradingSignal,
+    TradingSignalGenerator,
 )
+from ..core.trade_manager import TradeType
+from ..data.stock_fetcher import StockFetcher
+from ..utils.progress import ProgressType, multi_step_progress, progress_context
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
-from ..core.trade_manager import TradeType
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +175,7 @@ class BacktestEngine:
         symbols: List[str],
         config: BacktestConfig,
         strategy_func: Optional[Callable] = None,
+        show_progress: bool = True,
     ) -> BacktestResult:
         """
         バックテストを実行
@@ -181,6 +184,7 @@ class BacktestEngine:
             symbols: 対象銘柄リスト
             config: バックテスト設定
             strategy_func: カスタム戦略関数
+            show_progress: 進捗表示フラグ
 
         Returns:
             バックテスト結果
@@ -189,48 +193,136 @@ class BacktestEngine:
             f"バックテスト開始: {symbols}, 期間: {config.start_date} - {config.end_date}"
         )
 
-        # 初期化
-        self._initialize_backtest(config)
+        if show_progress:
+            # 進捗表示付きでバックテストを実行
+            steps = [
+                ("initialize", "バックテスト初期化", 1.0),
+                ("fetch_data", "履歴データ取得", 3.0),
+                ("execute_simulation", "バックテストシミュレーション", 10.0),
+                ("calculate_results", "結果計算", 1.0),
+            ]
 
-        # 履歴データの取得
-        historical_data = self._fetch_historical_data(symbols, config)
-        if not historical_data:
-            raise ValueError("履歴データの取得に失敗しました")
+            with multi_step_progress("バックテスト実行", steps) as progress:
+                # 初期化
+                self._initialize_backtest(config)
+                progress.complete_step()
 
-        # 日次でバックテストを実行
-        trading_dates = self._get_trading_dates(config)
+                # 履歴データの取得
+                historical_data = self._fetch_historical_data(
+                    symbols, config, show_progress=True
+                )
+                if not historical_data:
+                    progress.fail_step("履歴データの取得に失敗")
+                    raise ValueError(
+                        "バックテストに必要な履歴データの取得に失敗しました。指定された銘柄コードが正しいか、データプロバイダーからのデータが利用可能か確認してください。"
+                    )
+                progress.complete_step()
 
-        for date in trading_dates:
-            try:
-                # その日の価格データを取得
-                daily_prices = self._get_daily_prices(historical_data, date)
-                if not daily_prices:
+                # 日次でバックテストを実行
+                trading_dates = self._get_trading_dates(config)
+
+                with progress_context(
+                    f"日次シミュレーション実行 ({len(trading_dates)}日間)",
+                    total=len(trading_dates),
+                    progress_type=ProgressType.DETERMINATE,
+                ) as sim_progress:
+                    for i, date in enumerate(trading_dates):
+                        try:
+                            # その日の価格データを取得
+                            daily_prices = self._get_daily_prices(historical_data, date)
+                            if not daily_prices:
+                                sim_progress.update(1)
+                                continue
+
+                            # ポジション評価の更新
+                            self._update_positions_value(daily_prices)
+
+                            # シグナル生成
+                            if strategy_func:
+                                signals = strategy_func(symbols, date, historical_data)
+                            else:
+                                signals = self._generate_default_signals(
+                                    symbols, date, historical_data
+                                )
+
+                            # シグナルに基づく取引実行
+                            self._execute_trades(signals, daily_prices, date, config)
+
+                            # ポートフォリオ価値の記録
+                            total_value = self._calculate_total_portfolio_value()
+                            self.portfolio_values.append((date, total_value))
+
+                            # 進捗表示更新（10日ごと）
+                            if i % 10 == 0:
+                                sim_progress.set_description(
+                                    f"日次シミュレーション ({date.strftime('%Y-%m-%d')}) - ポートフォリオ価値: ¥{total_value:,.0f}"
+                                )
+
+                            sim_progress.update(1)
+
+                        except Exception as e:
+                            logger.warning(
+                                f"日付 '{date.strftime('%Y-%m-%d')}' のバックテスト処理中にエラーが発生しました。この日付の処理はスキップされます。詳細: {e}"
+                            )
+                            sim_progress.update(1)
+                            continue
+
+                progress.complete_step()
+
+                # 結果の計算
+                result = self._calculate_results(config)
+                progress.complete_step()
+
+        else:
+            # 進捗表示なしで実行（従来通り）
+            # 初期化
+            self._initialize_backtest(config)
+
+            # 履歴データの取得
+            historical_data = self._fetch_historical_data(
+                symbols, config, show_progress=False
+            )
+            if not historical_data:
+                raise ValueError(
+                    "バックテストに必要な履歴データの取得に失敗しました。指定された銘柄コードが正しいか、データプロバイダーからのデータが利用可能か確認してください。"
+                )
+
+            # 日次でバックテストを実行
+            trading_dates = self._get_trading_dates(config)
+
+            for date in trading_dates:
+                try:
+                    # その日の価格データを取得
+                    daily_prices = self._get_daily_prices(historical_data, date)
+                    if not daily_prices:
+                        continue
+
+                    # ポジション評価の更新
+                    self._update_positions_value(daily_prices)
+
+                    # シグナル生成
+                    if strategy_func:
+                        signals = strategy_func(symbols, date, historical_data)
+                    else:
+                        signals = self._generate_default_signals(
+                            symbols, date, historical_data
+                        )
+
+                    # シグナルに基づく取引実行
+                    self._execute_trades(signals, daily_prices, date, config)
+
+                    # ポートフォリオ価値の記録
+                    total_value = self._calculate_total_portfolio_value()
+                    self.portfolio_values.append((date, total_value))
+
+                except Exception as e:
+                    logger.warning(
+                        f"日付 '{date.strftime('%Y-%m-%d')}' のバックテスト処理中にエラーが発生しました。この日付の処理はスキップされます。詳細: {e}"
+                    )
                     continue
 
-                # ポジション評価の更新
-                self._update_positions_value(daily_prices)
-
-                # シグナル生成
-                if strategy_func:
-                    signals = strategy_func(symbols, date, historical_data)
-                else:
-                    signals = self._generate_default_signals(
-                        symbols, date, historical_data
-                    )
-
-                # シグナルに基づく取引実行
-                self._execute_trades(signals, daily_prices, date, config)
-
-                # ポートフォリオ価値の記録
-                total_value = self._calculate_total_portfolio_value()
-                self.portfolio_values.append((date, total_value))
-
-            except Exception as e:
-                logger.warning(f"日付 {date} の処理でエラー: {e}")
-                continue
-
-        # 結果の計算
-        result = self._calculate_results(config)
+            # 結果の計算
+            result = self._calculate_results(config)
 
         logger.info(f"バックテスト完了: 総リターン {result.total_return:.2%}")
         return result
@@ -243,7 +335,7 @@ class BacktestEngine:
         self.portfolio_values = []
 
     def _fetch_historical_data(
-        self, symbols: List[str], config: BacktestConfig
+        self, symbols: List[str], config: BacktestConfig, show_progress: bool = True
     ) -> Dict[str, pd.DataFrame]:
         """履歴データの取得"""
         historical_data = {}
@@ -253,36 +345,85 @@ class BacktestEngine:
 
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        # Use ThreadPoolExecutor for parallel fetching
-        with ThreadPoolExecutor(
-            max_workers=min(len(symbols), 5)
-        ) as executor:  # Limit workers to avoid overwhelming
-            future_to_symbol = {
-                executor.submit(
-                    self.stock_fetcher.get_historical_data,
-                    symbol,
-                    start_date=buffer_start,
-                    end_date=config.end_date,
-                    interval="1d",
-                ): symbol
-                for symbol in symbols
-            }
+        if show_progress:
+            # 進捗表示付きでデータ取得
+            with progress_context(
+                f"履歴データ取得 ({len(symbols)}銘柄)",
+                total=len(symbols),
+                progress_type=ProgressType.DETERMINATE,
+            ) as progress:
+                # Use ThreadPoolExecutor for parallel fetching
+                with ThreadPoolExecutor(
+                    max_workers=min(len(symbols), 5)
+                ) as executor:  # Limit workers to avoid overwhelming
+                    future_to_symbol = {
+                        executor.submit(
+                            self.stock_fetcher.get_historical_data_range,
+                            symbol,
+                            start_date=buffer_start,
+                            end_date=config.end_date,
+                            interval="1d",
+                        ): symbol
+                        for symbol in symbols
+                    }
 
-            for future in as_completed(future_to_symbol):
-                symbol = future_to_symbol[future]
-                try:
-                    data = future.result()
-                    if data is not None and not data.empty:
-                        historical_data[symbol] = data
-                        logger.info(
-                            f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
+                    for future in as_completed(future_to_symbol):
+                        symbol = future_to_symbol[future]
+                        try:
+                            data = future.result()
+                            if data is not None and not data.empty:
+                                historical_data[symbol] = data
+                                logger.info(
+                                    f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
+                                )
+                                progress.set_description(
+                                    f"履歴データ取得完了: {symbol}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"銘柄 '{symbol}' の履歴データを取得できませんでした。この銘柄はバックテストから除外されます。"
+                                )
+
+                        except Exception as e:
+                            logger.error(
+                                f"銘柄 '{symbol}' の履歴データ取得中にエラーが発生しました。詳細: {e}"
+                            )
+                        finally:
+                            progress.update(1)
+        else:
+            # Use ThreadPoolExecutor for parallel fetching
+            with ThreadPoolExecutor(
+                max_workers=min(len(symbols), 5)
+            ) as executor:  # Limit workers to avoid overwhelming
+                future_to_symbol = {
+                    executor.submit(
+                        self.stock_fetcher.get_historical_data_range,
+                        symbol,
+                        start_date=buffer_start,
+                        end_date=config.end_date,
+                        interval="1d",
+                    ): symbol
+                    for symbol in symbols
+                }
+
+                for future in as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        data = future.result()
+                        if data is not None and not data.empty:
+                            historical_data[symbol] = data
+                            logger.info(
+                                f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
+                            )
+                        else:
+                            logger.warning(
+                                f"銘柄 '{symbol}' の履歴データを取得できませんでした。この銘柄はバックテストから除外されます。"
+                            )
+
+                    except Exception as e:
+                        logger.error(
+                            f"銘柄 '{symbol}' の履歴データ取得中にエラーが発生しました。詳細: {e}"
                         )
-                    else:
-                        logger.warning(f"履歴データの取得に失敗: {symbol}")
-
-                except Exception as e:
-                    logger.error(f"履歴データ取得エラー ({symbol}): {e}")
-
         return historical_data
 
     def _get_trading_dates(self, config: BacktestConfig) -> List[datetime]:
@@ -312,7 +453,9 @@ class BacktestEngine:
                     price_data = data.loc[closest_date[-1]]
                     daily_prices[symbol] = Decimal(str(price_data["Close"]))
             except (KeyError, IndexError) as e:
-                logger.debug(f"価格データ取得エラー ({symbol}, {date}): {e}")
+                logger.debug(
+                    f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' の価格データを取得できませんでした。詳細: {e}"
+                )
                 continue
 
         return daily_prices
@@ -343,7 +486,6 @@ class BacktestEngine:
 
             data = historical_data[symbol]
             current_data_all = data[data.index <= date]  # その日までの全データ
-
             # 必要な最低データ数を設定 (MACDなどの計算に必要な期間を考慮)
             # 例えば、MACDのデフォルト期間は26日EMA + 9日シグナルで合計34日必要
             # RSIは14日
@@ -405,9 +547,10 @@ class BacktestEngine:
                     # シグナルのタイムスタンプが現在のバックテスト日付と一致することを確認
                     if signal.timestamp.date() == date.date():
                         signals.append(signal)
-
             except Exception as e:
-                logger.debug(f"シグナル生成エラー ({symbol}, {date}): {e}")
+                logger.debug(
+                    f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' のシグナル生成中にエラーが発生しました。詳細: {e}"
+                )
                 continue
 
         return signals
@@ -435,7 +578,9 @@ class BacktestEngine:
                     self._execute_sell_order(symbol, current_price, date, config)
 
             except Exception as e:
-                logger.warning(f"取引実行エラー ({symbol}): {e}")
+                logger.warning(
+                    f"銘柄 '{symbol}' の取引実行中にエラーが発生しました。この取引はスキップされます。詳細: {e}"
+                )
 
     def _execute_buy_order(
         self, symbol: str, price: Decimal, date: datetime, config: BacktestConfig
@@ -556,7 +701,9 @@ class BacktestEngine:
     def _calculate_results(self, config: BacktestConfig) -> BacktestResult:
         """バックテスト結果の計算"""
         if not self.portfolio_values:
-            raise ValueError("ポートフォリオ価値のデータがありません")
+            raise ValueError(
+                "バックテスト結果の計算に必要なポートフォリオ価値のデータが不足しています。バックテストが正常に実行されたか確認してください。"
+            )
 
         # データフレーム作成
         df = pd.DataFrame(self.portfolio_values, columns=["Date", "Value"])
@@ -651,23 +798,53 @@ class BacktestEngine:
         symbols: List[str],
         strategies: Dict[str, Callable],
         config: BacktestConfig,
+        show_progress: bool = True,
     ) -> Dict[str, BacktestResult]:
         """複数戦略の比較バックテスト"""
         logger.info(f"戦略比較バックテスト開始: {list(strategies.keys())}")
 
         results = {}
 
-        for strategy_name, strategy_func in strategies.items():
-            logger.info(f"戦略実行中: {strategy_name}")
-            try:
-                result = self.run_backtest(symbols, config, strategy_func)
-                results[strategy_name] = result
-                logger.info(
-                    f"戦略 {strategy_name} 完了: リターン {result.total_return:.2%}"
-                )
-            except Exception as e:
-                logger.error(f"戦略 {strategy_name} でエラー: {e}")
-                continue
+        if show_progress:
+            with progress_context(
+                f"戦略比較バックテスト ({len(strategies)}戦略)",
+                total=len(strategies),
+                progress_type=ProgressType.DETERMINATE,
+            ) as progress:
+                for strategy_name, strategy_func in strategies.items():
+                    logger.info(f"戦略実行中: {strategy_name}")
+                    progress.set_description(f"戦略実行中: {strategy_name}")
+
+                    try:
+                        result = self.run_backtest(
+                            symbols, config, strategy_func, show_progress=False
+                        )
+                        results[strategy_name] = result
+                        logger.info(
+                            f"戦略 {strategy_name} 完了: リターン {result.total_return:.2%}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"戦略 '{strategy_name}' のバックテスト実行中にエラーが発生しました。この戦略はスキップされます。詳細: {e}"
+                        )
+                    finally:
+                        progress.update(1)
+        else:
+            for strategy_name, strategy_func in strategies.items():
+                logger.info(f"戦略実行中: {strategy_name}")
+                try:
+                    result = self.run_backtest(
+                        symbols, config, strategy_func, show_progress=False
+                    )
+                    results[strategy_name] = result
+                    logger.info(
+                        f"戦略 {strategy_name} 完了: リターン {result.total_return:.2%}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"戦略 '{strategy_name}' のバックテスト実行中にエラーが発生しました。この戦略はスキップされます。詳細: {e}"
+                    )
+                    continue
 
         return results
 
@@ -713,7 +890,9 @@ class BacktestEngine:
             logger.info(f"バックテスト結果をエクスポート: {filename}")
 
         except Exception as e:
-            logger.error(f"結果エクスポートエラー: {e}")
+            logger.error(
+                f"バックテスト結果のエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
 
@@ -811,4 +990,4 @@ if __name__ == "__main__":
         engine.export_results(result, "backtest_result.json")
 
     except Exception as e:
-        logger.error(f"バックテストエラー: {e}")
+        logger.error(f"バックテストの実行中に予期せぬエラーが発生しました。詳細: {e}")

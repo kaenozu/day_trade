@@ -3,21 +3,12 @@
 拡張されたインタラクティブ機能とオートコンプリート対応
 """
 
-import click
 import logging
-from datetime import datetime, time, timedelta
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.layout import Layout
-from rich.prompt import Prompt
-from rich.live import Live
-from rich.rule import Rule
-from typing import Optional, Dict, List, Any
-from pathlib import Path
-import pandas as pd
 import random
+from datetime import datetime, time, timedelta
 from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # 拡張インタラクティブ機能のインポート
 try:
@@ -31,30 +22,40 @@ except ImportError as e:
         f"拡張インタラクティブモードは利用できません（prompt_toolkitが必要）: {e}"
     )
 
-from ..core.watchlist import WatchlistManager
+import click
+import pandas as pd
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.rule import Rule
+from rich.table import Table
+
+from ..analysis.backtest import BacktestConfig, BacktestEngine
 from ..core.config import config_manager
-from ..data.stock_fetcher import StockFetcher, DataNotFoundError, InvalidSymbolError
-from ..analysis.backtest import BacktestEngine, BacktestConfig
+from ..core.portfolio import PortfolioManager
+from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import DataNotFoundError, InvalidSymbolError, StockFetcher
+from ..models.database import db_manager, init_db
 from ..utils.formatters import (
-    format_currency,
-    format_percentage,
-    create_historical_data_table,
-    create_stock_info_table,
+    create_ascii_chart,
     create_company_info_table,
-    create_watchlist_table,
     create_error_panel,
+    create_historical_data_table,
+    create_info_panel,
+    create_stock_info_table,
     create_success_panel,
     create_warning_panel,
-    create_info_panel,
-    create_ascii_chart,
+    create_watchlist_table,
+    format_currency,
+    format_percentage,
 )
 from ..utils.validators import (
-    validate_stock_code,
     normalize_stock_codes,
     suggest_stock_code_correction,
+    validate_stock_code,
 )
-from ..models.database import db_manager, init_db
-from ..core.portfolio import PortfolioManager
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -164,8 +165,7 @@ def run_interactive_backtest():
 
     # モックデータフェッチャーを使用
     mock_fetcher = StockFetcher()
-    # engineとsymbolsは使用されていないが、デモのプレースホルダとして保持
-    BacktestEngine(stock_fetcher=mock_fetcher)  # noqa: F841
+    _engine = BacktestEngine(stock_fetcher=mock_fetcher)
 
     config = BacktestConfig(
         start_date=datetime(2023, 1, 1),
@@ -173,7 +173,7 @@ def run_interactive_backtest():
         initial_capital=Decimal("1000000"),
     )
 
-    ["7203", "9984", "8306"]  # noqa: F841
+    _symbols = ["7203", "9984", "8306"]
 
     def create_progress_layout(current_date, portfolio_value, trades_count):
         layout = Layout()
@@ -821,7 +821,7 @@ def screen_stocks(
             conditions = result.get("matched_conditions", [])
             conditions_text = ", ".join(conditions[:3])
             if len(conditions) > 3:
-                conditions_text += f" (+{len(conditions)-3})"
+                conditions_text += f" (+{len(conditions) - 3})"
 
             table.add_row(
                 str(i),

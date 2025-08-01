@@ -3,14 +3,15 @@
 高度なCLI表示機能とASCIIチャート描画
 """
 
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
+
+import pandas as pd
+from rich import box
+from rich.align import Align
+from rich.columns import Columns
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.panel import Panel
-from rich.columns import Columns
-from rich.align import Align
-from rich import box
-import pandas as pd
 
 
 def format_currency(
@@ -529,7 +530,7 @@ def create_comparison_table(
 
     # カラムを追加
     table.add_column("項目", style="cyan", no_wrap=True)
-    for key in data.keys():
+    for key in data:
         table.add_column(key, justify="right")
 
     # 共通キーを取得

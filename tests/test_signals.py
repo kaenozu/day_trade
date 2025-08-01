@@ -2,27 +2,27 @@
 売買シグナル生成エンジンのテスト
 """
 
-import pytest
-import pandas as pd
-import numpy as np
 from datetime import datetime
 
-from src.day_trade.analysis.signals import (
-    TradingSignalGenerator,
-    SignalType,
-    SignalStrength,
-    TradingSignal,
-    SignalRule,
-    RSIOversoldRule,
-    RSIOverboughtRule,
-    MACDCrossoverRule,
-    BollingerBandRule,
-    PatternBreakoutRule,
-    GoldenCrossRule,
-    VolumeSpikeBuyRule,
-)
+import numpy as np
+import pandas as pd
+import pytest
+
 from src.day_trade.analysis.indicators import TechnicalIndicators
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
+from src.day_trade.analysis.signals import (
+    BollingerBandRule,
+    GoldenCrossRule,
+    MACDCrossoverRule,
+    PatternBreakoutRule,
+    RSIOverboughtRule,
+    RSIOversoldRule,
+    SignalStrength,
+    SignalType,
+    TradingSignal,
+    TradingSignalGenerator,
+    VolumeSpikeBuyRule,
+)
 
 
 class TestSignalRules:
@@ -223,7 +223,9 @@ class TestTradingSignalGenerator:
             sample_data
         )  # patternsを追加
 
-        signal = generator.generate_signal(sample_data, indicators, patterns)
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
 
         assert signal is not None
         # RSIが低いので買いシグナルが出やすい
@@ -240,7 +242,9 @@ class TestTradingSignalGenerator:
             sample_data
         )  # patternsを追加
 
-        signal = generator.generate_signal(sample_data, indicators, patterns)
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
 
         assert signal is not None
         # RSIが高いので売りシグナルが出やすい
@@ -262,7 +266,9 @@ class TestTradingSignalGenerator:
             sample_data
         )  # patternsを追加
 
-        signal = generator.generate_signal(sample_data, indicators, patterns)
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
 
         assert signal is not None
         # 複数条件が満たされているか確認
@@ -400,7 +406,9 @@ class TestTradingSignalGenerator:
         )
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
 
-        signal = generator.generate_signal(sample_data, indicators, patterns)
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
 
         assert signal is not None
         # 複数の強い条件が満たされているので、強いシグナルになるはず

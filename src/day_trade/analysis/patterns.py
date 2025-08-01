@@ -5,8 +5,9 @@
 
 import logging
 from typing import Dict, List
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from scipy.signal import argrelextrema
 from sklearn.linear_model import LinearRegression
 
@@ -409,8 +410,9 @@ class ChartPatternRecognizer:
 
 # 使用例
 if __name__ == "__main__":
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # サンプルデータ作成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

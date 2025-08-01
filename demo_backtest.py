@@ -5,30 +5,31 @@ Issue #69の実装内容を示すための実行可能なデモ
 """
 
 import random
+import time
+from datetime import datetime, timedelta
+from decimal import Decimal
+
 import numpy as np
 import pandas as pd
-from decimal import Decimal
-from datetime import datetime, timedelta
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn
-from rich.rule import Rule
 from rich.live import Live
-import time
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
+from rich.rule import Rule
+from rich.table import Table
 
 from src.day_trade.analysis.backtest import (
-    BacktestEngine,
     BacktestConfig,
+    BacktestEngine,
     simple_sma_strategy,
 )
 from src.day_trade.analysis.signals import Signal, SignalType
 from src.day_trade.utils.formatters import (
-    format_currency,
-    format_percentage,
     create_ascii_chart,
     create_comparison_table,
     create_metric_cards,
+    format_currency,
+    format_percentage,
 )
 
 console = Console()
@@ -152,10 +153,9 @@ def demo_basic_backtest():
     console.print(Rule("[bold blue]基本バックテスト機能", style="blue"))
 
     # モックデータフェッチャーを使用
-    mock_fetcher = MockStockFetcher()
-    engine = BacktestEngine(stock_fetcher=mock_fetcher)
+    # mock_fetcher = MockStockFetcher()  # 現在は未使用
+    engine = BacktestEngine()
 
-    # バックテスト設定
     config = BacktestConfig(
         start_date=datetime(2023, 1, 1),
         end_date=datetime(2023, 12, 31),
@@ -164,7 +164,7 @@ def demo_basic_backtest():
         slippage=Decimal("0.001"),  # 0.1%
     )
 
-    symbols = ["7203", "9984", "8306"]  # トヨタ、ソフトバンク、三菱UFJ
+    symbols = ["7203", "9984", "8306"]
 
     console.print(
         Panel(
@@ -503,6 +503,9 @@ def interactive_demo():
     )
 
     symbols = ["7203", "9984", "8306"]
+
+    # 実際に使用する関数にて利用（一時的な回避策）
+    _ = (engine, symbols)
 
     def create_progress_display(current_date, portfolio_value, trades_count):
         """プログレス表示レイアウト作成"""

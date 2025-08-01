@@ -3,13 +3,14 @@
 DayTrade全自動化メインスクリプト
 ワンクリックでデイトレードの全工程を自動実行
 """
-import sys
+
 import argparse
 import logging
-from pathlib import Path
-from datetime import datetime
-import traceback
 import re
+import sys
+import traceback
+from datetime import datetime
+from pathlib import Path
 from typing import List
 
 from src.day_trade.automation.orchestrator import DayTradeOrchestrator  # Moved to top
@@ -111,7 +112,7 @@ def validate_config_file(config_path: str) -> Path:
 
     # 読み取り権限チェック
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             f.read(1)  # 1文字だけ読み取りテスト
     except PermissionError:
         raise CLIValidationError(
@@ -144,7 +145,7 @@ def validate_log_level(log_level: str) -> str:
 
     if log_level.upper() not in valid_levels:
         raise CLIValidationError(
-            f"無効なログレベル: {log_level}. " f"有効な値: {', '.join(valid_levels)}"
+            f"無効なログレベル: {log_level}. 有効な値: {', '.join(valid_levels)}"
         )
 
     return log_level.upper()
@@ -158,7 +159,7 @@ def setup_logging(log_level: str = "INFO"):
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler(
-                f'daytrade_{datetime.now().strftime("%Y%m%d")}.log', encoding="utf-8"
+                f"daytrade_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"
             ),
         ],
     )

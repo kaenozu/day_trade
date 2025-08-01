@@ -3,14 +3,14 @@
 売買履歴を記録し、損益計算を行う
 """
 
-import logging
-from typing import Dict, List, Optional
-from enum import Enum
-from decimal import Decimal
-from datetime import datetime
 import csv
-from dataclasses import dataclass, asdict
 import json
+import logging
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -499,7 +499,7 @@ class TradeManager:
     def load_from_json(self, filepath: str):
         """JSON形式から読み込み"""
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # 取引履歴復元
@@ -548,7 +548,9 @@ class TradeManager:
             logger.info(f"JSON読み込み完了: {filepath}")
 
         except Exception as e:
-            logger.error(f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}")
+            logger.error(
+                f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}"
+            )
             raise
 
     def calculate_tax_implications(self, year: int) -> Dict:
@@ -593,14 +595,16 @@ class TradeManager:
             }
 
         except Exception as e:
-            logger.error(f"税務計算エラー: {e}")
+            logger.error(
+                f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}"
+            )
             raise
 
 
 # 使用例
 if __name__ == "__main__":
-    from decimal import Decimal
     from datetime import datetime, timedelta
+    from decimal import Decimal
 
     # 取引管理システムを初期化
     tm = TradeManager(commission_rate=Decimal("0.001"), tax_rate=Decimal("0.2"))

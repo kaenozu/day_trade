@@ -4,14 +4,15 @@
 """
 
 import logging
-from typing import List, Optional, Dict, Any
-from sqlalchemy import and_
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from ..models import db_manager, WatchlistItem, Stock, Alert, PriceData
+from sqlalchemy import and_
+
 from ..data.stock_fetcher import StockFetcher
+from ..models import Alert, PriceData, Stock, WatchlistItem, db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,9 @@ class WatchlistManager:
                 return True
 
         except Exception as e:
-            logger.error(f"ウォッチリスト追加エラー: {e}")
+            logger.error(
+                f"銘柄 '{stock_code}' のウォッチリストへの追加中にエラーが発生しました。詳細: {e}"
+            )
             return False
 
     def remove_stock(self, stock_code: str, group_name: str = "default") -> bool:
@@ -144,7 +147,9 @@ class WatchlistManager:
                     return False
 
         except Exception as e:
-            logger.error(f"ウォッチリスト削除エラー: {e}")
+            logger.error(
+                f"銘柄 '{stock_code}' のウォッチリストからの削除中にエラーが発生しました。詳細: {e}"
+            )
             return False
 
     def get_watchlist(self, group_name: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -183,7 +188,9 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            logger.error(f"ウォッチリスト取得エラー: {e}")
+            logger.error(
+                f"ウォッチリストの取得中に予期せぬエラーが発生しました。データベース接続を確認してください。詳細: {e}"
+            )
             return []
 
     def get_groups(self) -> List[str]:

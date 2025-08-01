@@ -2,21 +2,22 @@
 銘柄関連のデータベースモデル
 """
 
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
+    Boolean,
     Column,
-    String,
-    Float,
-    Integer,
     DateTime,
+    Float,
     ForeignKey,
     Index,
-    Boolean,
+    Integer,
+    String,
     desc,
     func,
 )
-from sqlalchemy.orm import relationship, Session
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from sqlalchemy.orm import Session, relationship
 
 from .base import BaseModel
 

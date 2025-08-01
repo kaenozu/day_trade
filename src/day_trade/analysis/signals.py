@@ -4,11 +4,12 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
@@ -688,8 +689,9 @@ class VolumeSpikeBuyRule(SignalRule):
 
 # 使用例
 if __name__ == "__main__":
-    import numpy as np
     from datetime import datetime
+
+    import numpy as np
 
     # サンプルデータ作成
     dates = pd.date_range(end=datetime.now(), periods=100, freq="D")

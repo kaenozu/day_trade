@@ -2,12 +2,13 @@
 銘柄マスタ管理のユニットテスト
 """
 
-import pytest
-import sys
 import os
+import sys
 
-from day_trade.models import db_manager  # Moved to top
+import pytest
+
 from day_trade.data.stock_master import StockMasterManager  # Moved to top
+from day_trade.models import db_manager  # Moved to top
 from day_trade.models.stock import Stock  # Moved to top
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -116,7 +117,7 @@ class TestStockMasterManager:
                 stock_master.add_stock(session=session, **stock_data)
 
         # テスト対象のマネージャーを一時的に変更
-        original_db_manager = stock_master.__class__.__module__
+        _original_db_manager = stock_master.__class__.__module__
         stock_master.__dict__["db_manager"] = db_manager
 
         try:

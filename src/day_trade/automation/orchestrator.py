@@ -5,29 +5,31 @@
 
 import logging
 import time
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-import traceback
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import pandas as pd
 
-from ..config.config_manager import ConfigManager
-from ..data.stock_fetcher import StockFetcher
+from ..analysis.backtest import BacktestEngine
+from ..analysis.ensemble import (
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..analysis.signals import TradingSignalGenerator
-from ..analysis.ensemble import (
-    EnsembleTradingStrategy,
-    EnsembleStrategy,
-    EnsembleVotingType,
-)
-from ..analysis.backtest import BacktestEngine
-from ..core.trade_manager import TradeManager
-from ..core.portfolio import PortfolioAnalyzer
-from ..core.watchlist import WatchlistManager
+from ..config.config_manager import ConfigManager
 from ..core.alerts import AlertManager
+from ..core.portfolio import PortfolioAnalyzer
+from ..core.trade_manager import TradeManager
+from ..core.watchlist import WatchlistManager
+from ..data.stock_fetcher import StockFetcher
+from ..utils.progress import ProgressType, multi_step_progress, progress_context
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +136,10 @@ class DayTradeOrchestrator:
         self.is_running = False
 
     def run_full_automation(
-        self, symbols: Optional[List[str]] = None, report_only: bool = False
+        self,
+        symbols: Optional[List[str]] = None,
+        report_only: bool = False,
+        show_progress: bool = True,
     ) -> AutomationReport:
         """
         全自動化処理を実行
@@ -142,6 +147,7 @@ class DayTradeOrchestrator:
         Args:
             symbols: 対象銘柄（未指定時は設定ファイルから取得）
             report_only: レポート生成のみ実行
+            show_progress: 進捗表示フラグ
 
         Returns:
             実行レポート
@@ -172,12 +178,39 @@ class DayTradeOrchestrator:
                 errors=[],
             )
 
-            if not report_only:
-                # メイン処理実行
-                self._execute_main_pipeline(symbols)
+            if show_progress:
+                # 進捗表示付きで実行
+                steps = [
+                    ("data_fetch", "株価データ取得", 3.0),
+                    ("technical_analysis", "テクニカル分析", 4.0),
+                    ("pattern_recognition", "パターン認識", 2.0),
+                    ("signal_generation", "シグナル生成", 3.0),
+                    ("ensemble_strategy", "アンサンブル戦略", 2.0),
+                    ("portfolio_update", "ポートフォリオ更新", 1.0),
+                    ("alerts_check", "アラート確認", 1.0),
+                    ("report_generation", "レポート生成", 1.0),
+                ]
 
-            # レポート生成
-            self._generate_reports()
+                with multi_step_progress("デイトレード自動化実行", steps) as progress:
+                    if not report_only:
+                        # メイン処理実行
+                        self._execute_main_pipeline_with_progress(symbols, progress)
+                    else:
+                        # レポートのみの場合は全ステップをスキップしてレポート生成
+                        for i in range(len(steps) - 1):
+                            progress.complete_step()
+
+                    # レポート生成
+                    self._generate_reports()
+                    progress.complete_step()
+            else:
+                # 進捗表示なしで実行（従来通り）
+                if not report_only:
+                    # メイン処理実行
+                    self._execute_main_pipeline(symbols)
+
+                # レポート生成
+                self._generate_reports()
 
             # 最終化
             self.current_report.end_time = datetime.now()
@@ -201,6 +234,74 @@ class DayTradeOrchestrator:
             raise
         finally:
             self.is_running = False
+
+    def _execute_main_pipeline_with_progress(self, symbols: List[str], progress):
+        """進捗表示付きメイン処理パイプラインを実行"""
+        logger.info("Step 1: 株価データ取得開始")
+        stock_data = self._fetch_stock_data_batch(symbols, show_progress=True)
+        progress.complete_step()
+
+        logger.info("Step 2: テクニカル分析実行")
+        analysis_results = self._run_technical_analysis_batch(
+            stock_data, show_progress=True
+        )
+        progress.complete_step()
+
+        logger.info("Step 3: パターン認識実行")
+        pattern_results = self._run_pattern_recognition_batch(
+            stock_data, show_progress=True
+        )
+        progress.complete_step()
+
+        logger.info("Step 4: シグナル生成実行")
+        signals = self._generate_signals_batch(
+            analysis_results, pattern_results, stock_data, show_progress=True
+        )
+        progress.complete_step()
+
+        logger.info("Step 5: アンサンブル戦略実行")
+        self._run_ensemble_strategy(signals, stock_data)
+        progress.complete_step()
+
+        logger.info("Step 6: ポートフォリオ更新")
+        self._update_portfolio_data()
+        progress.complete_step()
+
+        logger.info("Step 7: アラートチェック実行")
+        alerts = self._check_alerts_batch(stock_data, show_progress=True)
+        progress.complete_step()
+
+        # 結果を保存
+        self.current_report.generated_signals = signals
+        self.current_report.triggered_alerts = alerts
+
+    def _run_ensemble_strategy(
+        self, signals: List[Dict[str, Any]], stock_data: Dict[str, Any]
+    ):
+        """アンサンブル戦略を実行"""
+        if not self.ensemble_strategy:
+            logger.info("アンサンブル戦略は設定されていません")
+            return
+
+        try:
+            # シグナルをアンサンブル戦略で統合
+            for symbol, data in stock_data.items():
+                if data and data.get("historical") is not None:
+                    # アンサンブル戦略でシグナル生成
+                    ensemble_signals = self.ensemble_strategy.generate_ensemble_signals(
+                        symbol, data["historical"]
+                    )
+
+                    if ensemble_signals:
+                        signals.extend(ensemble_signals)
+                        logger.debug(
+                            f"アンサンブル戦略シグナル生成: {symbol} ({len(ensemble_signals)}個)"
+                        )
+
+        except Exception as e:
+            error_msg = f"アンサンブル戦略エラー: {e}"
+            logger.error(error_msg)
+            self.current_report.errors.append(error_msg)
 
     def _execute_main_pipeline(self, symbols: List[str]):
         """メイン処理パイプラインを実行"""
@@ -232,7 +333,9 @@ class DayTradeOrchestrator:
         self.current_report.generated_signals = signals
         self.current_report.triggered_alerts = alerts
 
-    def _fetch_stock_data_batch(self, symbols: List[str]) -> Dict[str, Any]:
+    def _fetch_stock_data_batch(
+        self, symbols: List[str], show_progress: bool = False
+    ) -> Dict[str, Any]:
         """株価データを並列取得"""
         stock_data = {}
 
@@ -281,22 +384,41 @@ class DayTradeOrchestrator:
         # 並列実行
         max_workers = min(self.execution_settings.max_concurrent_requests, len(symbols))
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_symbol = {
-                executor.submit(fetch_single_stock, symbol): symbol
-                for symbol in symbols
-            }
+        if show_progress:
+            with progress_context(
+                f"株価データ取得 ({len(symbols)}銘柄)",
+                total=len(symbols),
+                progress_type=ProgressType.DETERMINATE,
+            ) as progress:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    future_to_symbol = {
+                        executor.submit(fetch_single_stock, symbol): symbol
+                        for symbol in symbols
+                    }
 
-            for future in as_completed(future_to_symbol):
-                symbol, data = future.result()
-                if data:
-                    stock_data[symbol] = data
+                    for future in as_completed(future_to_symbol):
+                        symbol, data = future.result()
+                        if data:
+                            stock_data[symbol] = data
+                            progress.set_description(f"データ取得完了: {symbol}")
+                        progress.update(1)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_symbol = {
+                    executor.submit(fetch_single_stock, symbol): symbol
+                    for symbol in symbols
+                }
+
+                for future in as_completed(future_to_symbol):
+                    symbol, data = future.result()
+                    if data:
+                        stock_data[symbol] = data
 
         logger.info(f"株価データ取得完了: {len(stock_data)}/{len(symbols)} 銘柄")
         return stock_data
 
     def _run_technical_analysis_batch(
-        self, stock_data: Dict[str, Any]
+        self, stock_data: Dict[str, Any], show_progress: bool = False
     ) -> Dict[str, Dict]:
         """テクニカル分析を並列実行"""
         if not self.config_manager.get_technical_indicator_settings().enabled:
@@ -305,55 +427,74 @@ class DayTradeOrchestrator:
 
         analysis_results = {}
 
-        for symbol, data in stock_data.items():
-            try:
-                if data and data.get("historical") is not None:
-                    historical = data["historical"]
-
-                    # 各種指標を計算
-                    indicators = {}
-
-                    # 移動平均
-                    settings = self.config_manager.get_technical_indicator_settings()
-                    for period in settings.sma_periods:
-                        indicators[f"sma_{period}"] = self.technical_indicators.sma(
-                            historical, period
-                        )
-
-                    # RSI
-                    indicators["rsi"] = self.technical_indicators.rsi(
-                        historical, settings.rsi_period
-                    )
-
-                    # MACD
-                    macd_data = self.technical_indicators.macd(
-                        historical,
-                        settings.macd_params["fast"],
-                        settings.macd_params["slow"],
-                        settings.macd_params["signal"],
-                    )
-                    indicators["macd"] = macd_data
-
-                    # ボリンジャーバンド
-                    bb_data = self.technical_indicators.bollinger_bands(
-                        historical,
-                        settings.bollinger_params["period"],
-                        settings.bollinger_params["std_dev"],
-                    )
-                    indicators["bollinger"] = bb_data
-
-                    analysis_results[symbol] = indicators
-
-            except Exception as e:
-                error_msg = f"テクニカル分析エラー ({symbol}): {e}"
-                logger.error(error_msg)
-                self.current_report.errors.append(error_msg)
+        if show_progress:
+            with progress_context(
+                f"テクニカル分析 ({len(stock_data)}銘柄)",
+                total=len(stock_data),
+                progress_type=ProgressType.DETERMINATE,
+            ) as progress:
+                for symbol, data in stock_data.items():
+                    progress.set_description(f"テクニカル分析: {symbol}")
+                    analysis_results[symbol] = self._analyze_single_symbol(symbol, data)
+                    progress.update(1)
+        else:
+            for symbol, data in stock_data.items():
+                analysis_results[symbol] = self._analyze_single_symbol(symbol, data)
 
         logger.info(f"テクニカル分析完了: {len(analysis_results)} 銘柄")
         return analysis_results
 
+    def _analyze_single_symbol(
+        self, symbol: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """単一銘柄のテクニカル分析"""
+        try:
+            if data and data.get("historical") is not None:
+                historical = data["historical"]
+
+                # 各種指標を計算
+                indicators = {}
+
+                # 移動平均
+                settings = self.config_manager.get_technical_indicator_settings()
+                for period in settings.sma_periods:
+                    indicators[f"sma_{period}"] = self.technical_indicators.sma(
+                        historical, period
+                    )
+
+                # RSI
+                indicators["rsi"] = self.technical_indicators.rsi(
+                    historical, settings.rsi_period
+                )
+
+                # MACD
+                macd_data = self.technical_indicators.macd(
+                    historical,
+                    settings.macd_params["fast"],
+                    settings.macd_params["slow"],
+                    settings.macd_params["signal"],
+                )
+                indicators["macd"] = macd_data
+
+                # ボリンジャーバンド
+                bb_data = self.technical_indicators.bollinger_bands(
+                    historical,
+                    settings.bollinger_params["period"],
+                    settings.bollinger_params["std_dev"],
+                )
+                indicators["bollinger"] = bb_data
+
+                return indicators
+
+        except Exception as e:
+            error_msg = f"テクニカル分析エラー ({symbol}): {e}"
+            logger.error(error_msg)
+            self.current_report.errors.append(error_msg)
+
+        return {}
+
     def _run_pattern_recognition_batch(
-        self, stock_data: Dict[str, Any]
+        self, stock_data: Dict[str, Any], show_progress: bool = False
     ) -> Dict[str, Dict]:
         """パターン認識を並列実行"""
         if not self.config_manager.get_pattern_recognition_settings().enabled:
@@ -397,6 +538,7 @@ class DayTradeOrchestrator:
         analysis_results: Dict[str, Dict],
         pattern_results: Dict[str, Dict],
         stock_data: Dict[str, Any] = None,
+        show_progress: bool = False,
     ) -> List[Dict[str, Any]]:
         """シグナル生成を並列実行"""
         if not self.config_manager.get_signal_generation_settings().enabled:
@@ -406,7 +548,7 @@ class DayTradeOrchestrator:
         all_signals = []
         settings = self.config_manager.get_signal_generation_settings()
 
-        for symbol in analysis_results.keys():
+        for symbol in analysis_results:
             try:
                 analysis = analysis_results.get(symbol, {})
                 patterns = pattern_results.get(symbol, {})
@@ -619,7 +761,9 @@ class DayTradeOrchestrator:
             logger.error(f"シグナル評価エラー ({symbol}): {e}")
             return []
 
-    def _check_alerts_batch(self, stock_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _check_alerts_batch(
+        self, stock_data: Dict[str, Any], show_progress: bool = False
+    ) -> List[Dict[str, Any]]:
         """アラートチェックを実行"""
         if not self.config_manager.get_alert_settings().enabled:
             logger.info("アラート機能は無効化されています")
@@ -689,8 +833,9 @@ class DayTradeOrchestrator:
             settings = self.config_manager.get_backtest_settings()
 
             # バックテスト設定を作成
-            from ..analysis.backtest import BacktestConfig, BacktestMode
             from decimal import Decimal
+
+            from ..analysis.backtest import BacktestConfig, BacktestMode
 
             config = BacktestConfig(
                 start_date=datetime.now() - timedelta(days=settings.period_days),
@@ -965,7 +1110,7 @@ class DayTradeOrchestrator:
         <body>
             <div class="header">
                 <h1>🚀 DayTrade自動化レポート</h1>
-                <p>実行日時: {self.current_report.start_time.strftime('%Y年%m月%d日 %H:%M:%S')}</p>
+                <p>実行日時: {self.current_report.start_time.strftime("%Y年%m月%d日 %H:%M:%S")}</p>
             </div>
 
             <div class="section">
@@ -986,10 +1131,10 @@ class DayTradeOrchestrator:
         for signal in self.current_report.generated_signals:
             html_content += f"""
                     <tr>
-                        <td>{signal.get('symbol', 'N/A')}</td>
-                        <td>{signal.get('type', 'N/A')}</td>
-                        <td>{signal.get('reason', 'N/A')}</td>
-                        <td>{signal.get('confidence', 'N/A')}</td>
+                        <td>{signal.get("symbol", "N/A")}</td>
+                        <td>{signal.get("type", "N/A")}</td>
+                        <td>{signal.get("reason", "N/A")}</td>
+                        <td>{signal.get("confidence", "N/A")}</td>
                     </tr>
             """
 

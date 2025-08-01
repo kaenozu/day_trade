@@ -6,33 +6,34 @@ Issue #70の実装内容を示すための実行可能なデモ
 
 import random
 import time
-from decimal import Decimal
 from datetime import datetime, timedelta
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.rule import Rule
-from rich.live import Live
-from rich.layout import Layout
+from decimal import Decimal
+
 import pandas as pd
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.table import Table
 
 from src.day_trade.core.alerts import (
-    AlertManager,
     AlertCondition,
-    AlertTrigger,
-    NotificationHandler,
-    AlertType,
+    AlertManager,
     AlertPriority,
+    AlertTrigger,
+    AlertType,
+    NotificationHandler,
     NotificationMethod,
-    create_price_alert,
     create_change_alert,
+    create_price_alert,
 )
 from src.day_trade.utils.formatters import (
+    create_comparison_table,
+    create_metric_cards,
+    create_status_indicator,
     format_currency,
     format_percentage,
-    create_status_indicator,
-    create_metric_cards,
-    create_comparison_table,
 )
 
 console = Console()
@@ -458,7 +459,9 @@ def demo_real_time_monitoring():
             change_color = (
                 "green"
                 if data["change_percent"] > 0
-                else "red" if data["change_percent"] < 0 else "white"
+                else "red"
+                if data["change_percent"] < 0
+                else "white"
             )
             prices_table.add_row(
                 symbol,
@@ -562,7 +565,7 @@ def demo_alert_analysis():
                 alert_type=random.choice(alert_types),
                 current_value=random.uniform(800, 3000),
                 condition_value=random.uniform(800, 3000),
-                message=f"サンプルアラート {i+1}",
+                message=f"サンプルアラート {i + 1}",
                 priority=random.choice(priorities),
                 current_price=Decimal(str(random.uniform(800, 3000))),
                 volume=random.randint(500000, 3000000),
@@ -652,7 +655,9 @@ def demo_alert_analysis():
         change_color = (
             "green"
             if trigger.change_percent > 0
-            else "red" if trigger.change_percent < 0 else "white"
+            else "red"
+            if trigger.change_percent < 0
+            else "white"
         )
 
         timeline_table.add_row(

@@ -5,10 +5,10 @@
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ class ConfigManager:
                 )
                 raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 self.config = json.load(f)
 
             logger.info(f"設定ファイルを読み込みました: {self.config_path}")

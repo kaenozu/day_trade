@@ -3,71 +3,154 @@
 SQLAlchemyを使用したデータベース接続とセッション管理
 """
 
+import logging
 import os
 from contextlib import contextmanager
-from typing import Generator
+from typing import Any, Dict, Generator, Optional
+
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
-from alembic.config import Config
+
 from alembic import command
+from alembic.config import Config
+
+from ..utils.exceptions import DatabaseError, handle_database_exception
+
+logger = logging.getLogger(__name__)
 
 # ベースクラスの作成
 Base = declarative_base()
 
-# データベースURLの設定
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./day_trade.db")
 
-# テスト用のインメモリデータベースURL
-TEST_DATABASE_URL = "sqlite:///:memory:"
+class DatabaseConfig:
+    """データベース設定クラス"""
 
-
-class DatabaseManager:
-    """データベース管理クラス"""
-
-    def __init__(self, database_url: str = DATABASE_URL, echo: bool = False):
+    def __init__(
+        self,
+        database_url: Optional[str] = None,
+        echo: bool = False,
+        pool_size: int = 5,
+        max_overflow: int = 10,
+        pool_timeout: int = 30,
+        pool_recycle: int = 3600,
+        connect_args: Optional[Dict[str, Any]] = None,
+    ):
         """
         Args:
             database_url: データベースURL
             echo: SQLログ出力フラグ
+            pool_size: 接続プールサイズ
+            max_overflow: 最大オーバーフロー接続数
+            pool_timeout: 接続タイムアウト（秒）
+            pool_recycle: 接続リサイクル時間（秒）
+            connect_args: 接続引数
         """
-        self.database_url = database_url
-        self.echo = echo
-
-        # エンジンの作成（コネクションプーリング最適化）
-        if database_url == TEST_DATABASE_URL:
-            # テスト用インメモリDBの場合
-            self.engine = create_engine(
-                database_url,
-                connect_args={"check_same_thread": False},
-                poolclass=StaticPool,
-                echo=echo,
-                pool_pre_ping=True,  # 接続の健全性チェック
-            )
-        else:
-            # 通常のSQLiteファイルの場合（プーリング最適化）
-            self.engine = create_engine(
-                database_url,
-                connect_args={
-                    "check_same_thread": False,
-                    "timeout": 20,  # タイムアウト設定
-                },
-                echo=echo,
-                pool_size=10,  # コネクションプール サイズ
-                max_overflow=20,  # 最大オーバーフロー接続数
-                pool_pre_ping=True,  # 接続の健全性チェック
-                pool_recycle=3600,  # 1時間でコネクションをリサイクル
-            )
-
-        # SQLiteの外部キー制約を有効化
-        if "sqlite" in database_url:
-            event.listen(self.engine, "connect", self._set_sqlite_pragma)
-
-        # セッションファクトリの作成
-        self.SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=self.engine
+        self.database_url = database_url or os.environ.get(
+            "DATABASE_URL", "sqlite:///./day_trade.db"
         )
+        self.echo = echo
+        self.pool_size = pool_size
+        self.max_overflow = max_overflow
+        self.pool_timeout = pool_timeout
+        self.pool_recycle = pool_recycle
+        self.connect_args = connect_args or {"check_same_thread": False}
+
+    @classmethod
+    def for_testing(cls) -> "DatabaseConfig":
+        """テスト用の設定を作成"""
+        return cls(
+            database_url="sqlite:///:memory:",
+            echo=False,
+            connect_args={"check_same_thread": False},
+        )
+
+    @classmethod
+    def for_production(cls) -> "DatabaseConfig":
+        """本番用の設定を作成"""
+        return cls(
+            database_url=os.environ.get("DATABASE_URL", "sqlite:///./day_trade.db"),
+            echo=False,
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=60,
+            pool_recycle=1800,
+        )
+
+    def is_sqlite(self) -> bool:
+        """SQLiteデータベースかどうかを判定"""
+        return self.database_url.startswith("sqlite")
+
+    def is_in_memory(self) -> bool:
+        """インメモリデータベースかどうかを判定"""
+        return ":memory:" in self.database_url
+
+
+class DatabaseManager:
+    """データベース管理クラス（改善版）"""
+
+    def __init__(self, config: Optional[DatabaseConfig] = None):
+        """
+        Args:
+            config: データベース設定
+        """
+        self.config = config or DatabaseConfig()
+        self.engine = None
+        self.session_factory = None
+        self._initialize_engine()
+
+    def _initialize_engine(self):
+        """エンジンの初期化"""
+        try:
+            # エンジン作成時の引数を設定に基づいて構築
+            engine_kwargs = {
+                "echo": self.config.echo,
+                "connect_args": self.config.connect_args,
+            }
+
+            if self.config.is_in_memory():
+                # インメモリDBの場合はStaticPoolを使用
+                engine_kwargs.update(
+                    {
+                        "poolclass": StaticPool,
+                        "pool_pre_ping": True,
+                    }
+                )
+            elif self.config.is_sqlite():
+                # SQLiteファイルの場合
+                engine_kwargs.update(
+                    {
+                        "pool_pre_ping": True,
+                        "pool_recycle": self.config.pool_recycle,
+                    }
+                )
+            else:
+                # その他のDB（PostgreSQL、MySQLなど）
+                engine_kwargs.update(
+                    {
+                        "pool_size": self.config.pool_size,
+                        "max_overflow": self.config.max_overflow,
+                        "pool_timeout": self.config.pool_timeout,
+                        "pool_recycle": self.config.pool_recycle,
+                        "pool_pre_ping": True,
+                    }
+                )
+
+            self.engine = create_engine(self.config.database_url, **engine_kwargs)
+
+            # SQLiteの場合は外部キー制約を有効化
+            if self.config.is_sqlite():
+                event.listen(self.engine, "connect", self._set_sqlite_pragma)
+
+            # セッションファクトリーの作成
+            self.session_factory = sessionmaker(bind=self.engine)
+
+            logger.info(f"Database engine initialized: {self.config.database_url}")
+
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Database initialization failed: {converted_error}")
+            raise converted_error
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -91,7 +174,12 @@ class DatabaseManager:
 
     def get_session(self) -> Session:
         """新しいセッションを取得"""
-        return self.SessionLocal()
+        if self.session_factory is None:
+            raise DatabaseError(
+                "DatabaseManager not properly initialized",
+                error_code="DB_NOT_INITIALIZED",
+            )
+        return self.session_factory()
 
     @contextmanager
     def session_scope(self) -> Generator[Session, None, None]:
@@ -103,49 +191,89 @@ class DatabaseManager:
                 # セッションを使用した処理
                 pass
         """
-        session = self.SessionLocal()
+        if self.session_factory is None:
+            raise DatabaseError(
+                "DatabaseManager not properly initialized",
+                error_code="DB_NOT_INITIALIZED",
+            )
+
+        session = self.session_factory()
         try:
             yield session
             session.commit()
-        except Exception:
+        except Exception as e:
             session.rollback()
-            raise
+            # エラーを適切な例外に変換
+            converted_error = handle_database_exception(e)
+            logger.error(f"Database session error: {converted_error}")
+            raise converted_error
         finally:
             session.close()
 
     def get_alembic_config(self) -> Config:
         """Alembic設定を取得"""
         alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", self.database_url)
+        alembic_cfg.set_main_option("sqlalchemy.url", self.config.database_url)
         return alembic_cfg
 
     def init_alembic(self):
         """Alembicの初期化（初回マイグレーション作成）"""
-        alembic_cfg = self.get_alembic_config()
-        command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
+        try:
+            alembic_cfg = self.get_alembic_config()
+            command.revision(
+                alembic_cfg, autogenerate=True, message="Initial migration"
+            )
+            logger.info("Alembic initialized successfully")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Alembic initialization failed: {converted_error}")
+            raise converted_error
 
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
-        alembic_cfg = self.get_alembic_config()
-        command.revision(alembic_cfg, autogenerate=True, message=message)
+        try:
+            alembic_cfg = self.get_alembic_config()
+            command.revision(alembic_cfg, autogenerate=True, message=message)
+            logger.info(f"Migration created: {message}")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Migration creation failed: {converted_error}")
+            raise converted_error
 
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
-        alembic_cfg = self.get_alembic_config()
-        command.upgrade(alembic_cfg, revision)
+        try:
+            alembic_cfg = self.get_alembic_config()
+            command.upgrade(alembic_cfg, revision)
+            logger.info(f"Database upgraded to: {revision}")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Database upgrade failed: {converted_error}")
+            raise converted_error
 
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
-        alembic_cfg = self.get_alembic_config()
-        command.downgrade(alembic_cfg, revision)
+        try:
+            alembic_cfg = self.get_alembic_config()
+            command.downgrade(alembic_cfg, revision)
+            logger.info(f"Database downgraded to: {revision}")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Database downgrade failed: {converted_error}")
+            raise converted_error
 
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
-        from alembic.runtime.migration import MigrationContext
+        try:
+            from alembic.runtime.migration import MigrationContext
 
-        with self.engine.connect() as connection:
-            context = MigrationContext.configure(connection)
-            return context.get_current_revision() or "None"
+            with self.engine.connect() as connection:
+                context = MigrationContext.configure(connection)
+                return context.get_current_revision() or "None"
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            logger.error(f"Current revision retrieval failed: {converted_error}")
+            raise converted_error
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
         """

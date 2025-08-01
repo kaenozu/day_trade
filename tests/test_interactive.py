@@ -2,11 +2,12 @@
 インタラクティブモードのテスト
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime
 import threading
 import time
+from datetime import datetime
+from unittest.mock import Mock, patch
+
+import pytest
 
 from src.day_trade.cli.interactive import InteractiveMode
 

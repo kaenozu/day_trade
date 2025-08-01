@@ -5,11 +5,12 @@
 
 import logging
 from typing import List, Optional
-from sqlalchemy.orm import Session
-import yfinance as yf
 
-from ..models.stock import Stock
+import yfinance as yf
+from sqlalchemy.orm import Session
+
 from ..models.database import db_manager
+from ..models.stock import Stock
 
 logger = logging.getLogger(__name__)
 
