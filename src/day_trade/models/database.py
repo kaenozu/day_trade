@@ -35,7 +35,7 @@ class DatabaseManager:
         self.database_url = database_url
         self.echo = echo
 
-        # エンジンの作成
+        # エンジンの作成（コネクションプーリング最適化）
         if database_url == TEST_DATABASE_URL:
             # テスト用インメモリDBの場合
             self.engine = create_engine(
@@ -43,11 +43,21 @@ class DatabaseManager:
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
                 echo=echo,
+                pool_pre_ping=True,  # 接続の健全性チェック
             )
         else:
-            # 通常のSQLiteファイルの場合
+            # 通常のSQLiteファイルの場合（プーリング最適化）
             self.engine = create_engine(
-                database_url, connect_args={"check_same_thread": False}, echo=echo
+                database_url,
+                connect_args={
+                    "check_same_thread": False,
+                    "timeout": 20,  # タイムアウト設定
+                },
+                echo=echo,
+                pool_size=10,  # コネクションプール サイズ
+                max_overflow=20,  # 最大オーバーフロー接続数
+                pool_pre_ping=True,  # 接続の健全性チェック
+                pool_recycle=3600,  # 1時間でコネクションをリサイクル
             )
 
         # SQLiteの外部キー制約を有効化
@@ -61,9 +71,14 @@ class DatabaseManager:
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
-        """SQLiteの設定"""
+        """SQLiteの設定（パフォーマンス最適化）"""
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")  # WALモードでパフォーマンス向上
+        cursor.execute("PRAGMA synchronous=NORMAL")  # 同期レベルを調整
+        cursor.execute("PRAGMA cache_size=10000")  # キャッシュサイズを増加
+        cursor.execute("PRAGMA temp_store=memory")  # 一時テーブルをメモリに保存
+        cursor.execute("PRAGMA mmap_size=268435456")  # メモリマップサイズ (256MB)
         cursor.close()
 
     def create_tables(self):
@@ -106,32 +121,93 @@ class DatabaseManager:
 
     def init_alembic(self):
         """Alembicの初期化（初回マイグレーション作成）"""
-        alembic_cfg = self.get_alembic_config()  # noqa: F841
+        alembic_cfg = self.get_alembic_config()
         command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
 
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
-        alembic_cfg = self.get_alembic_config()  # noqa: F841
+        alembic_cfg = self.get_alembic_config()
         command.revision(alembic_cfg, autogenerate=True, message=message)
 
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
-        alembic_cfg = self.get_alembic_config()  # noqa: F841
+        alembic_cfg = self.get_alembic_config()
         command.upgrade(alembic_cfg, revision)
 
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
-        alembic_cfg = self.get_alembic_config()  # noqa: F841
+        alembic_cfg = self.get_alembic_config()
         command.downgrade(alembic_cfg, revision)
 
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
-        alembic_cfg = self.get_alembic_config()
         from alembic.runtime.migration import MigrationContext
 
         with self.engine.connect() as connection:
             context = MigrationContext.configure(connection)
             return context.get_current_revision() or "None"
+
+    def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
+        """
+        大量データの一括挿入
+
+        Args:
+            model_class: 挿入するモデルクラス
+            data_list: 挿入するデータのリスト（辞書形式）
+            batch_size: バッチサイズ
+        """
+        if not data_list:
+            return
+
+        with self.session_scope() as session:
+            for i in range(0, len(data_list), batch_size):
+                batch = data_list[i : i + batch_size]
+                session.bulk_insert_mappings(model_class, batch)
+                session.flush()
+
+    def bulk_update(self, model_class, data_list: list, batch_size: int = 1000):
+        """
+        大量データの一括更新
+
+        Args:
+            model_class: 更新するモデルクラス
+            data_list: 更新するデータのリスト（辞書形式、idが必要）
+            batch_size: バッチサイズ
+        """
+        if not data_list:
+            return
+
+        with self.session_scope() as session:
+            for i in range(0, len(data_list), batch_size):
+                batch = data_list[i : i + batch_size]
+                session.bulk_update_mappings(model_class, batch)
+                session.flush()
+
+    def execute_query(self, query: str, params: dict = None):
+        """
+        生のSQLクエリを実行（最適化されたクエリ用）
+
+        Args:
+            query: 実行するSQLクエリ
+            params: クエリパラメータ
+
+        Returns:
+            クエリ結果
+        """
+        with self.engine.connect() as connection:
+            result = connection.execute(query, params or {})
+            return result.fetchall()
+
+    def optimize_database(self):
+        """
+        データベースの最適化を実行
+        """
+        if "sqlite" in self.database_url:
+            with self.engine.connect() as connection:
+                # VACUUM操作でデータベースファイルを最適化
+                connection.execute("VACUUM")
+                # ANALYZE操作で統計情報を更新
+                connection.execute("ANALYZE")
 
 
 # デフォルトのデータベースマネージャー
