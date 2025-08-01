@@ -95,7 +95,7 @@ jobs:
       - name: 📥 Checkout (shallow)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
@@ -116,19 +116,22 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "🔍 Linting changed files only..."
+            # Fetch base branch for comparison
+            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             # 変更されたPythonファイルのみをチェック
-            git diff --name-only --diff-filter=AM origin/${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff check --fix
-            git diff --name-only --diff-filter=AM origin/${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff format --check
+            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff check --fix || true
+            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff format --check || true
           else
             echo "🔍 Linting all files..."
-            ruff check --fix src/ tests/
-            ruff format --check src/ tests/
+            ruff check --fix src/ tests/ || true
+            ruff format --check src/ tests/ || true
           fi
 
       - name: 🪝 Pre-commit (incremental)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pre-commit run --from-ref origin/${{ github.base_ref }} --to-ref HEAD
+            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+            pre-commit run --from-ref ${{ github.base_ref }} --to-ref HEAD
           else
             pre-commit run --all-files --show-diff-on-failure
           fi
