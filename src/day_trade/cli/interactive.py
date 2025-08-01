@@ -34,7 +34,7 @@ from rich.table import Table
 
 from ..analysis.backtest import BacktestConfig, BacktestEngine
 from ..core.config import config_manager
-from ..core.portfolio import PortfolioManager
+from ..core.portfolio import PortfolioAnalyzer
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import DataNotFoundError, InvalidSymbolError, StockFetcher
 from ..models.database import db_manager, init_db
@@ -93,12 +93,7 @@ def _get_watchlist_manager(config_path: Optional[Path] = None) -> WatchlistManag
     # db_manager.initialize(config_manager.get_database_url())
     # db_manager.create_tables()
 
-    return WatchlistManager(
-        _config_manager,
-        db_manager,
-        stock_fetcher=StockFetcher(),
-        portfolio_manager=PortfolioManager(),
-    )
+    return WatchlistManager()
 
 
 def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: bool):
