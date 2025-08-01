@@ -4,7 +4,11 @@
 
 import click
 import logging
+import random
 from datetime import datetime, time, timedelta
+from decimal import Decimal
+from pathlib import Path
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -36,8 +40,7 @@ from ..utils.validators import (
     normalize_stock_codes,
     suggest_stock_code_correction,
 )
-from ..models.database import db_manager, init_db
-from ..core.portfolio import PortfolioManager
+from ..models.database import init_db
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -75,12 +78,7 @@ def _get_watchlist_manager(config_path: Optional[Path] = None) -> WatchlistManag
     # db_manager.initialize(config_manager.get_database_url())
     # db_manager.create_tables()
 
-    return WatchlistManager(
-        _config_manager,
-        db_manager,
-        stock_fetcher=StockFetcher(),
-        portfolio_manager=PortfolioManager(),
-    )
+    return WatchlistManager()
 
 
 def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: bool):
@@ -135,15 +133,15 @@ def run_interactive_backtest():
 
     # モックデータフェッチャーを使用
     mock_fetcher = StockFetcher()
-    engine = BacktestEngine(stock_fetcher=mock_fetcher)
+    _ = BacktestEngine(stock_fetcher=mock_fetcher)  # デモ用エンジン
 
-    config = BacktestConfig(
+    _ = BacktestConfig(
         start_date=datetime(2023, 1, 1),
         end_date=datetime(2023, 3, 31),  # 短期間
         initial_capital=Decimal("1000000"),
     )
 
-    symbols = ["7203", "9984", "8306"]
+    _ = ["7203", "9984", "8306"]  # デモ用銘柄
 
     def create_progress_layout(current_date, portfolio_value, trades_count):
         layout = Layout()
@@ -394,10 +392,12 @@ def list():
             item.get("group", "N/A"),
             item.get("priority", "N/A"),
             format_currency(item.get("current_price")),
-            f"[{change_color}]{format_percentage(item.get("change_percent", 0))}[/{change_color}]",
-            item.get("memo", "")[:20] + "..."
-            if len(item.get("memo", "")) > 20
-            else item.get("memo", ""),
+            f"[{change_color}]{format_percentage(item.get('change_percent', 0))}[/{change_color}]",
+            (
+                item.get("memo", "")[:20] + "..."
+                if len(item.get("memo", "")) > 20
+                else item.get("memo", "")
+            ),
         )
     console.print(table)
 
