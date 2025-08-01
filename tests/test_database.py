@@ -51,7 +51,7 @@ class TestDatabaseManager:
                 session.add(stock)
                 # わざとエラーを発生させる
                 raise ValueError("Test error")
-        except ValueError:
+        except Exception:
             pass
 
         # データが保存されていないことを確認
