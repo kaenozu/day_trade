@@ -18,33 +18,48 @@ def setup_test_db():
     original_db_manager = database.db_manager
     original_sm_db_manager = getattr(sm, 'db_manager', None)
 
-    # stock_masterモジュール内のdb_managerも保存
+    # 横展開：全てのモジュール参照パターンを網羅
     import src.day_trade.data.stock_master as stock_master_module
     original_stock_master_module_db = getattr(stock_master_module, 'db_manager', None)
+
+    # CIとローカルの違いを吸収するためsysモジュールから直接参照
+    import sys
+    if 'day_trade.data.stock_master' in sys.modules:
+        day_trade_module = sys.modules['day_trade.data.stock_master']
+        original_day_trade_db = getattr(day_trade_module, 'db_manager', None)
+    else:
+        day_trade_module = None
+        original_day_trade_db = None
 
     # テスト用のマネージャーに差し替え
     from src.day_trade.models.database import DatabaseConfig
     config = DatabaseConfig.for_testing()
     test_db_manager = database.DatabaseManager(config)
     test_db_manager.create_tables()
+
+    # 全ての参照を横展開で変更
     database.db_manager = test_db_manager
     sm.db_manager = test_db_manager
-
-    # stock_masterモジュール内のdb_managerも変更（重要）
     stock_master_module.db_manager = test_db_manager
+
+    # CIとローカルの参照違いを吸収
+    if day_trade_module:
+        day_trade_module.db_manager = test_db_manager
 
     # stock_masterグローバルインスタンスのdb_managerも変更
     stock_master.db_manager = test_db_manager
 
     yield test_db_manager
 
-    # 元に戻す
+    # 元に戻す（横展開で全て復元）
     database.db_manager = original_db_manager
     if original_sm_db_manager:
         sm.db_manager = original_sm_db_manager
     if original_stock_master_module_db:
         stock_master_module.db_manager = original_stock_master_module_db
         stock_master.db_manager = original_stock_master_module_db
+    if day_trade_module and original_day_trade_db:
+        day_trade_module.db_manager = original_day_trade_db
 
 
 @pytest.fixture
