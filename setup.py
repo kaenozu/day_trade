@@ -38,7 +38,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "daytrade=day_trade.cli:main",
+            "daytrade=day_trade.cli.main:main",
         ],
     },
 )
