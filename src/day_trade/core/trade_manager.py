@@ -233,7 +233,9 @@ class TradeManager:
             return trade_id
 
         except Exception as e:
-            logger.error(f"取引追加エラー: {e}")
+            logger.error(
+                f"取引の追加中に予期せぬエラーが発生しました。入力データを確認してください。詳細: {e}"
+            )
             raise
 
     def _update_position(self, trade: Trade):
@@ -330,10 +332,12 @@ class TradeManager:
 
                 else:
                     logger.warning(
-                        f"売却数量が保有数量を超過: {symbol} 保有:{position.quantity} 売却:{trade.quantity}"
+                        f"銘柄 '{symbol}' の売却数量が保有数量 ({position.quantity}) を超過しています。売却数量: {trade.quantity}。取引は処理されません。"
                     )
             else:
-                logger.warning(f"ポジションが存在しない銘柄の売却: {symbol}")
+                logger.warning(
+                    f"ポジションを保有していない銘柄 '{symbol}' の売却を試みました。取引は無視されます。"
+                )
 
     def _get_earliest_buy_date(self, symbol: str) -> datetime:
         """最も古い買い取引の日付を取得"""
@@ -460,7 +464,9 @@ class TradeManager:
             logger.info(f"CSV出力完了: {filepath} ({len(data)}件)")
 
         except Exception as e:
-            logger.error(f"CSV出力エラー: {e}")
+            logger.error(
+                f"データのエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def save_to_json(self, filepath: str):

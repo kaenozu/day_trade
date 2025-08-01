@@ -349,10 +349,7 @@ class TradingSignalGenerator:
         self.sell_rules.clear()
 
     def generate_signal(
-        self,
-        df: pd.DataFrame,
-        indicators: Optional[pd.DataFrame] = None,
-        patterns: Optional[Dict] = None,
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
     ) -> Optional[TradingSignal]:
         """
         売買シグナルを生成
@@ -371,13 +368,8 @@ class TradingSignalGenerator:
                 logger.warning("データが不足しています")
                 return None
 
-            # 指標を計算（提供されていない場合）
-            if indicators is None:
-                indicators = TechnicalIndicators.calculate_all(df)
-
-            # パターンを認識（提供されていない場合）
-            if patterns is None:
-                patterns = ChartPatternRecognizer.detect_all_patterns(df)
+            # indicatorsとpatternsはgenerate_signals_seriesから提供される前提
+            # そのため、ここではNoneチェックや再計算は行わない
 
             # 買いシグナルの評価
             buy_conditions = {}
@@ -497,14 +489,81 @@ class TradingSignalGenerator:
             signals = []
 
             # 最低限必要なデータ数
-            min_required = max(lookback_window, 50)
+            min_required = max(lookback_window, 60)  # MACDなどの計算に必要な期間を考慮
 
-            for i in range(min_required, len(df)):
-                # ウィンドウ内のデータを取得
-                window_df = df.iloc[i - lookback_window : i + 1].copy()
+            if len(df) < min_required:
+                logger.warning(
+                    f"データが不足しています。最低 {min_required} 日分のデータが必要です。"
+                )
+                return pd.DataFrame()
+
+            # 全期間の指標とパターンを事前に計算
+            # これにより、ループ内での再計算を避ける
+            all_indicators = TechnicalIndicators.calculate_all(df)
+            all_patterns = ChartPatternRecognizer.detect_all_patterns(df)
+
+            for i in range(min_required - 1, len(df)):
+                # 現在のウィンドウのデータと、対応する指標・パターンをスライス
+                window_df = df.iloc[i - lookback_window + 1 : i + 1].copy()
+                current_indicators = all_indicators.iloc[
+                    i - lookback_window + 1 : i + 1
+                ].copy()
+
+                # patternsは辞書なので、直接スライスするのではなく、必要な情報だけ抽出して渡す
+                # 現在の設計ではpatternsの各要素も時系列データを持つ可能性があるので注意
+                # ここではpatternsが各時点のシグナル情報ではなく、全体に対するパターン結果を持つと仮定
+                # もしpatternsの要素が時系列データなら、同様にスライスする必要がある
+
+                # たとえば、crossesはDataFrameなので、ilocでスライス
+                current_crosses = (
+                    all_patterns["crosses"].iloc[i - lookback_window + 1 : i + 1].copy()
+                    if "crosses" in all_patterns
+                    and isinstance(all_patterns["crosses"], pd.DataFrame)
+                    else pd.DataFrame()
+                )
+
+                # breakoutesもDataFrame
+                current_breakouts = (
+                    all_patterns["breakouts"]
+                    .iloc[i - lookback_window + 1 : i + 1]
+                    .copy()
+                    if "breakouts" in all_patterns
+                    and isinstance(all_patterns["breakouts"], pd.DataFrame)
+                    else pd.DataFrame()
+                )
+
+                # levels, trends, overall_confidence は単一の結果と仮定
+                current_levels = (
+                    all_patterns["levels"] if "levels" in all_patterns else {}
+                )
+                current_trends = (
+                    all_patterns["trends"] if "trends" in all_patterns else {}
+                )
+                current_overall_confidence = (
+                    all_patterns["overall_confidence"]
+                    if "overall_confidence" in all_patterns
+                    else 0
+                )
+                current_latest_signal = (
+                    all_patterns["latest_signal"]
+                    if "latest_signal" in all_patterns
+                    else None
+                )
+
+                current_patterns = {
+                    "crosses": current_crosses,
+                    "breakouts": current_breakouts,
+                    "levels": current_levels,
+                    "trends": current_trends,
+                    "overall_confidence": current_overall_confidence,
+                    "latest_signal": current_latest_signal,
+                }
 
                 # シグナルを生成
-                signal = self.generate_signal(window_df)
+                # indicatorsとpatternsを必須引数に変更
+                signal = self.generate_signal(
+                    window_df, current_indicators, current_patterns
+                )
 
                 if signal:
                     signals.append(

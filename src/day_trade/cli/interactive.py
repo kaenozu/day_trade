@@ -13,6 +13,10 @@ from rich.prompt import Prompt
 from rich.live import Live
 from rich.rule import Rule
 from typing import Optional, Dict, List, Any
+from pathlib import Path
+import pandas as pd
+import random
+from decimal import Decimal
 
 from ..core.watchlist import WatchlistManager
 from ..core.config import config_manager
@@ -87,7 +91,10 @@ def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: 
     """銘柄詳細を表示"""
     if not stock_data:
         console.print(
-            create_error_panel(f"銘柄コード {code} の情報を取得できませんでした。")
+            create_error_panel(
+                f"銘柄コード '{code}' の現在価格または詳細情報を取得できませんでした。コードが正しいか、または市場が開いているかご確認ください。",
+                title="情報取得エラー",
+            )
         )
         return
 
@@ -104,7 +111,12 @@ def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: 
             console.print(detail_table)
         else:
             console.print("\n")
-            console.print(create_error_panel("企業情報を取得できませんでした。"))
+            console.print(
+                create_error_panel(
+                    f"銘柄コード '{code}' の企業詳細情報を取得できませんでした。データプロバイダーの問題か、情報が利用できない可能性があります。",
+                    title="企業情報エラー",
+                )
+            )
 
 
 def _display_historical_data(
@@ -112,7 +124,11 @@ def _display_historical_data(
 ):
     """ヒストリカルデータを表示"""
     if df is None or df.empty:
-        console.print(create_error_panel("データを取得できませんでした。"))
+        console.print(
+            create_error_panel(
+                "ヒストリカルデータを取得できませんでした。指定された銘柄コード、期間、または間隔が正しいかご確認ください。"
+            )
+        )
         return
 
     table = create_historical_data_table(df, code, period, interval, max_rows=rows)
@@ -135,7 +151,8 @@ def run_interactive_backtest():
 
     # モックデータフェッチャーを使用
     mock_fetcher = StockFetcher()
-    engine = BacktestEngine(stock_fetcher=mock_fetcher)
+    # engineとsymbolsは使用されていないが、デモのプレースホルダとして保持
+    BacktestEngine(stock_fetcher=mock_fetcher)  # noqa: F841
 
     config = BacktestConfig(
         start_date=datetime(2023, 1, 1),
@@ -143,7 +160,7 @@ def run_interactive_backtest():
         initial_capital=Decimal("1000000"),
     )
 
-    symbols = ["7203", "9984", "8306"]
+    ["7203", "9984", "8306"]  # noqa: F841
 
     def create_progress_layout(current_date, portfolio_value, trades_count):
         layout = Layout()
@@ -200,7 +217,12 @@ def init():
         init_db()
         console.print(create_success_panel("データベースを初期化しました。"))
     except Exception as e:  # noqa: E722
-        console.print(create_error_panel(f"データベース初期化エラー: {e}"))
+        console.print(
+            create_error_panel(
+                f"データベースの初期化中にエラーが発生しました。詳細: {e}\nシステム管理者にお問い合わせいただくか、再度お試しください。",
+                title="データベースエラー",
+            )
+        )
 
 
 @cli.command()
@@ -213,17 +235,28 @@ def stock(code: str, details: bool):
         suggestion = suggest_stock_code_correction(code)
         if suggestion:
             console.print(
-                create_error_panel(f"無効な銘柄コード: {code}\n修正候補: {suggestion}")
+                create_error_panel(
+                    f"無効な銘柄コードが入力されました: '{code}'。修正候補: {suggestion}",
+                    title="入力エラー",
+                )
             )
         else:
-            console.print(create_error_panel(f"無効な銘柄コード: {code}"))
+            console.print(
+                create_error_panel(
+                    f"無効な銘柄コードが入力されました: '{code}'。正しい銘柄コードを入力してください。",
+                    title="入力エラー",
+                )
+            )
         return
 
     fetcher = StockFetcher()
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
         console.print(
-            create_error_panel(f"銘柄コード {code} を正規化できませんでした。")
+            create_error_panel(
+                f"銘柄コード '{code}' をシステム内部で処理できる形式に変換できませんでした。入力を見直すか、サポートされている銘柄コード形式をご確認ください。",
+                title="正規化エラー",
+            )
         )
         return
 
@@ -252,7 +285,10 @@ def history(code: str, period: str, interval: str, rows: int):
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
         console.print(
-            create_error_panel(f"銘柄コード {code} を正規化できませんでした。")
+            create_error_panel(
+                f"銘柄コード '{code}' をシステム内部で処理できる形式に変換できませんでした。入力を見直すか、サポートされている銘柄コード形式をご確認ください。",
+                title="正規化エラー",
+            )
         )
         return
 
@@ -263,9 +299,16 @@ def history(code: str, period: str, interval: str, rows: int):
             df = fetcher.get_historical_data(code, period=period, interval=interval)
             _display_historical_data(code, df, period, interval, rows)
         except (DataNotFoundError, InvalidSymbolError) as e:
-            console.print(create_error_panel(f"データ取得エラー: {e}"))
+            console.print(
+                create_error_panel(
+                    f"銘柄コード '{code}' のヒストリカルデータの取得中にエラーが発生しました。インターネット接続を確認するか、銘柄コードが正しいことを再確認してください。詳細: {e}",
+                    title="データ取得エラー",
+                )
+            )
         except Exception as e:  # noqa: E722
-            console.print(create_error_panel(f"予期しないエラー: {e}"))
+            console.print(
+                create_error_panel(f"予期しないエラー: {e}", title="予期せぬエラー")
+            )
 
 
 @cli.command()
@@ -275,7 +318,12 @@ def watch(codes):
     # 入力検証と正規化
     normalized_codes = normalize_stock_codes(list(codes))
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "有効な銘柄コードが一つも指定されていません。少なくとも一つ正しい銘柄コードを入力してください。",
+                title="入力エラー",
+            )
+        )
         return
 
     fetcher = StockFetcher()
@@ -283,7 +331,12 @@ def watch(codes):
         results = fetcher.get_realtime_data(normalized_codes)
 
     if not results:
-        console.print(create_error_panel("価格情報を取得できませんでした。"))
+        console.print(
+            create_error_panel(
+                "指定された銘柄コードの現在価格情報を取得できませんでした。市場が開いているか、インターネット接続をご確認ください。",
+                title="情報取得エラー",
+            )
+        )
         return
 
     table = create_watchlist_table(results)
@@ -305,7 +358,12 @@ def add(codes: List[str], group: str, priority: str):
     manager = _get_watchlist_manager()
     normalized_codes = normalize_stock_codes(codes)
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "ウォッチリストに追加するための有効な銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     added_count = 0
@@ -320,10 +378,18 @@ def add(codes: List[str], group: str, priority: str):
             else:
                 console.print(create_warning_panel(f"{code} は既に追加されています。"))
         except InvalidSymbolError as e:
-            console.print(create_error_panel(f"{code} は無効な銘柄コードです: {e}"))
+            console.print(
+                create_error_panel(
+                    f"銘柄コード '{code}' は無効です。詳細: {e}\n正しい銘柄コードを入力してください。",
+                    title="無効な銘柄コード",
+                )
+            )
         except Exception as e:  # noqa: E722
             console.print(
-                create_error_panel(f"{code} の追加中にエラーが発生しました: {e}")
+                create_error_panel(
+                    f"銘柄コード '{code}' をウォッチリストに追加中に予期せぬエラーが発生しました。詳細: {e}",
+                    title="追加エラー",
+                )
             )
 
     if added_count > 0:
@@ -337,7 +403,12 @@ def remove(codes: List[str]):
     manager = _get_watchlist_manager()
     normalized_codes = normalize_stock_codes(codes)
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "ウォッチリストから削除するための有効な銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
 
     removed_count = 0
@@ -355,7 +426,10 @@ def remove(codes: List[str]):
                 )
         except Exception as e:  # noqa: E722
             console.print(
-                create_error_panel(f"{code} の削除中にエラーが発生しました: {e}")
+                create_error_panel(
+                    f"銘柄コード '{code}' をウォッチリストから削除中に予期せぬエラーが発生しました。詳細: {e}",
+                    title="削除エラー",
+                )
             )
 
     if removed_count > 0:
@@ -394,10 +468,12 @@ def list():
             item.get("group", "N/A"),
             item.get("priority", "N/A"),
             format_currency(item.get("current_price")),
-            f"[{change_color}]{format_percentage(item.get("change_percent", 0))}[/{change_color}]",
-            item.get("memo", "")[:20] + "..."
-            if len(item.get("memo", "")) > 20
-            else item.get("memo", ""),
+            f"[{change_color}]{format_percentage(item.get('change_percent', 0))}[/{change_color}]",
+            (
+                item.get("memo", "")[:20] + "..."
+                if len(item.get("memo", "")) > 20
+                else item.get("memo", "")
+            ),
         )
     console.print(table)
 
@@ -410,7 +486,12 @@ def memo(code: str, memo: Optional[str]):
     manager = _get_watchlist_manager()
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "メモを追加・更新するための銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
     code = normalized_codes[0]
 
@@ -433,7 +514,10 @@ def memo(code: str, memo: Optional[str]):
             console.print(create_error_panel(f"{code} はウォッチリストにありません。"))
     except Exception as e:  # noqa: E722
         console.print(
-            create_error_panel(f"{code} のメモ更新中にエラーが発生しました: {e}")
+            create_error_panel(
+                f"銘柄コード '{code}' のメモ更新中に予期せぬエラーが発生しました。詳細: {e}",
+                title="メモ更新エラー",
+            )
         )
 
 
@@ -445,7 +529,12 @@ def move(code: str, group: str):
     manager = _get_watchlist_manager()
     normalized_codes = normalize_stock_codes([code])
     if not normalized_codes:
-        console.print(create_error_panel("有効な銘柄コードがありません。"))
+        console.print(
+            create_error_panel(
+                "銘柄を移動するための銘柄コードが指定されていません。",
+                title="入力エラー",
+            )
+        )
         return
     code = normalized_codes[0]
 
@@ -459,7 +548,10 @@ def move(code: str, group: str):
             console.print(create_error_panel(f"{code} はウォッチリストにありません。"))
     except Exception as e:  # noqa: E722
         console.print(
-            create_error_panel(f"{code} のグループ移動中にエラーが発生しました: {e}")
+            create_error_panel(
+                f"銘柄コード '{code}' のグループ移動中に予期せぬエラーが発生しました。詳細: {e}",
+                title="グループ移動エラー",
+            )
         )
 
 
@@ -473,7 +565,10 @@ def clear():
         console.print(create_success_panel("ウォッチリストを全てクリアしました。"))
     except Exception as e:  # noqa: E722
         console.print(
-            create_error_panel(f"ウォッチリストのクリア中にエラーが発生しました: {e}")
+            create_error_panel(
+                f"ウォッチリストのクリア中に予期せぬエラーが発生しました。詳細: {e}",
+                title="クリアエラー",
+            )
         )
 
 
@@ -525,7 +620,12 @@ def config_set(key: str, value: str):
             create_success_panel(f"設定を更新しました: {key} = {typed_value}")
         )
     except Exception as e:  # noqa: E722
-        console.print(create_error_panel(f"設定更新エラー: {e}"))
+        console.print(
+            create_error_panel(
+                f"設定項目 '{key}' の更新中にエラーが発生しました。入力値が正しいかご確認ください。詳細: {e}",
+                title="設定更新エラー",
+            )
+        )
 
 
 @config.command("reset")
@@ -536,7 +636,12 @@ def config_reset():
         config_manager.reset()
         console.print(create_success_panel("設定をデフォルトにリセットしました。"))
     except Exception as e:  # noqa: E722
-        console.print(create_error_panel(f"設定リセットエラー: {e}"))
+        console.print(
+            create_error_panel(
+                f"設定のリセット中に予期せぬエラーが発生しました。詳細: {e}",
+                title="設定リセットエラー",
+            )
+        )
 
 
 @cli.command("validate")

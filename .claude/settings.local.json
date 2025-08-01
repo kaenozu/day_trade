@@ -27,9 +27,8 @@
       "Bash(gh pr:*)",
       "Bash(pip install:*)",
       "Bash(git cherry-pick:*)",
-      "Bash(gh issue close:*)",
-      "Bash(git branch:*)",
-      "Bash(SKIP=pre-commit-hooks git commit -m \"$(cat <<''EOF''\nfeat: アンサンブル戦略を実装し、デフォルトに設定\n\nIssue #86に基づいてアンサンブル戦略を実装しました。\n\n主な機能:\n- 5つの異なる戦略を組み合わせたアンサンブル手法\n- ソフト投票、ハード投票、重み付け平均の投票システム\n- 保守的、積極的、バランス型、適応型の戦略タイプ\n- パフォーマンスベースの動的重み調整\n- メタ学習による市場状況の考慮\n- 設定ファイルによる柔軟な調整\n\n実装内容:\n- EnsembleTradingStrategyクラスの作成\n- 設定管理システムの拡張\n- オーケストレーターへの統合\n- 包括的なテストスイート\n- 詳細なドキュメント\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(PRE_COMMIT_ALLOW_NO_CONFIG=1 git add -A)",
+      "Bash(PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit -m \"fix: Update orchestrator _generate_signals_batch to pass stock_data parameter\n\nResolved merge conflicts and updated method signature to ensure proper data flow to ensemble signal generation.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": []
   }
