@@ -272,6 +272,10 @@ class MultiStepProgressTracker:
             self.task_id, description=f"{self.overall_description}: 完了"
         )
 
+    def complete_step(self):
+        """現在のステップを完了して次に進む"""
+        self.next_step()
+
 
 def show_progress_summary(
     results: List[Dict[str, Any]], title: str = "処理結果サマリー"
