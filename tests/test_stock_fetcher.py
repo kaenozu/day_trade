@@ -1,0 +1,225 @@
+"""
+株価データ取得モジュールのテスト
+"""
+import pytest
+from datetime import datetime, timedelta
+import pandas as pd
+from unittest.mock import Mock, patch, MagicMock
+
+from src.day_trade.data.stock_fetcher import StockFetcher
+
+
+class TestStockFetcher:
+    """StockFetcherクラスのテスト"""
+    
+    @pytest.fixture
+    def fetcher(self):
+        """StockFetcherインスタンスを作成"""
+        return StockFetcher(cache_size=2)
+    
+    @pytest.fixture
+    def mock_ticker_info(self):
+        """モックのティッカー情報"""
+        return {
+            "currentPrice": 2500.0,
+            "previousClose": 2480.0,
+            "volume": 1000000,
+            "longName": "Toyota Motor Corporation",
+            "sector": "Consumer Cyclical",
+            "industry": "Auto Manufacturers",
+            "marketCap": 35000000000000,
+        }
+    
+    def test_format_symbol(self, fetcher):
+        """証券コードのフォーマットテスト"""
+        # 市場コードなしの場合
+        assert fetcher._format_symbol("7203") == "7203.T"
+        
+        # 市場コード指定の場合
+        assert fetcher._format_symbol("7203", "O") == "7203.O"
+        
+        # すでに市場コードがある場合
+        assert fetcher._format_symbol("7203.T") == "7203.T"
+    
+    @patch("yfinance.Ticker")
+    def test_get_current_price_success(self, mock_ticker_class, fetcher, mock_ticker_info):
+        """現在価格取得の正常系テスト"""
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.info = mock_ticker_info
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        result = fetcher.get_current_price("7203")
+        
+        # 検証
+        assert result is not None
+        assert result["symbol"] == "7203.T"
+        assert result["current_price"] == 2500.0
+        assert result["previous_close"] == 2480.0
+        assert result["change"] == 20.0
+        assert result["change_percent"] == pytest.approx(0.806, rel=0.01)
+        assert result["volume"] == 1000000
+        assert isinstance(result["timestamp"], datetime)
+    
+    @patch("yfinance.Ticker")
+    def test_get_current_price_no_data(self, mock_ticker_class, fetcher):
+        """現在価格が取得できない場合のテスト"""
+        # モックの設定（価格情報なし）
+        mock_ticker = Mock()
+        mock_ticker.info = {}
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        result = fetcher.get_current_price("9999")
+        
+        # 検証
+        assert result is None
+    
+    @patch("yfinance.Ticker")
+    def test_get_current_price_exception(self, mock_ticker_class, fetcher):
+        """例外発生時のテスト"""
+        # モックの設定（例外を発生させる）
+        mock_ticker_class.side_effect = Exception("API Error")
+        
+        # テスト実行
+        result = fetcher.get_current_price("7203")
+        
+        # 検証
+        assert result is None
+    
+    @patch("yfinance.Ticker")
+    def test_get_historical_data_success(self, mock_ticker_class, fetcher):
+        """ヒストリカルデータ取得の正常系テスト"""
+        # モックデータの作成
+        dates = pd.date_range(end=datetime.now(), periods=5, freq="D")
+        mock_df = pd.DataFrame({
+            "Open": [2480, 2490, 2485, 2495, 2500],
+            "High": [2495, 2500, 2495, 2505, 2510],
+            "Low": [2475, 2485, 2480, 2490, 2495],
+            "Close": [2490, 2485, 2495, 2500, 2505],
+            "Volume": [1000000, 1100000, 900000, 1200000, 1050000]
+        }, index=dates)
+        
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.history.return_value = mock_df
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        result = fetcher.get_historical_data("7203", period="5d", interval="1d")
+        
+        # 検証
+        assert result is not None
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 5
+        assert list(result.columns) == ["Open", "High", "Low", "Close", "Volume"]
+        mock_ticker.history.assert_called_once_with(period="5d", interval="1d")
+    
+    @patch("yfinance.Ticker")
+    def test_get_historical_data_empty(self, mock_ticker_class, fetcher):
+        """空のヒストリカルデータの場合のテスト"""
+        # モックの設定（空のDataFrame）
+        mock_ticker = Mock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        result = fetcher.get_historical_data("9999")
+        
+        # 検証
+        assert result is None
+    
+    @patch("yfinance.Ticker")
+    def test_get_historical_data_range(self, mock_ticker_class, fetcher):
+        """期間指定でのヒストリカルデータ取得テスト"""
+        # モックデータの作成
+        start_date = datetime(2023, 1, 1)
+        end_date = datetime(2023, 1, 5)
+        dates = pd.date_range(start=start_date, end=end_date, freq="D")
+        mock_df = pd.DataFrame({
+            "Open": [2400, 2410, 2420, 2415, 2425],
+            "Close": [2410, 2420, 2415, 2425, 2430],
+            "Volume": [1000000] * 5
+        }, index=dates)
+        
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.history.return_value = mock_df
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行（文字列での日付指定）
+        result = fetcher.get_historical_data_range(
+            "7203", "2023-01-01", "2023-01-05", interval="1d"
+        )
+        
+        # 検証
+        assert result is not None
+        assert len(result) == 5
+        mock_ticker.history.assert_called_once()
+        
+        # datetimeオブジェクトでの日付指定もテスト
+        result2 = fetcher.get_historical_data_range(
+            "7203", start_date, end_date, interval="1d"
+        )
+        assert result2 is not None
+    
+    @patch("yfinance.Ticker")
+    def test_get_realtime_data(self, mock_ticker_class, fetcher, mock_ticker_info):
+        """複数銘柄のリアルタイムデータ取得テスト"""
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.info = mock_ticker_info
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        codes = ["7203", "6758", "9984"]
+        result = fetcher.get_realtime_data(codes)
+        
+        # 検証
+        assert len(result) == 3
+        assert "7203" in result
+        assert result["7203"]["current_price"] == 2500.0
+    
+    @patch("yfinance.Ticker")
+    def test_get_company_info(self, mock_ticker_class, fetcher, mock_ticker_info):
+        """企業情報取得のテスト"""
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.info = mock_ticker_info
+        mock_ticker_class.return_value = mock_ticker
+        
+        # テスト実行
+        result = fetcher.get_company_info("7203")
+        
+        # 検証
+        assert result is not None
+        assert result["symbol"] == "7203.T"
+        assert result["name"] == "Toyota Motor Corporation"
+        assert result["sector"] == "Consumer Cyclical"
+        assert result["industry"] == "Auto Manufacturers"
+        assert result["market_cap"] == 35000000000000
+    
+    @patch("yfinance.Ticker")
+    def test_lru_cache(self, mock_ticker_class, fetcher):
+        """LRUキャッシュの動作テスト"""
+        # モックの設定
+        mock_ticker = Mock()
+        mock_ticker.info = {"currentPrice": 2500.0, "previousClose": 2480.0}
+        mock_ticker_class.return_value = mock_ticker
+        
+        # 同じ銘柄を複数回取得
+        fetcher.get_current_price("7203")
+        fetcher.get_current_price("7203")
+        fetcher.get_current_price("7203")
+        
+        # Tickerの作成は1回だけのはず
+        mock_ticker_class.assert_called_once_with("7203.T")
+        
+        # キャッシュサイズを超える銘柄を取得
+        fetcher.get_current_price("6758")
+        fetcher.get_current_price("9984")
+        fetcher.get_current_price("7203")  # キャッシュから削除されているはず
+        
+        # 7203.Tは再度作成される
+        assert mock_ticker_class.call_count == 4  # 7203.T, 6758.T, 9984.T, 7203.T(再)

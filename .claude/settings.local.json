@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh label create:*)",
+      "Bash(gh issue create:*)",
+      "Bash(true)",
+      "Bash(for i in {1..5})",
+      "Bash(do gh label create \"phase: $i\" --color \"0052cc\" --description \"Development phase $i\")",
+      "Bash(done)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue edit:*)"
+    ],
+    "deny": []
+  }
+}
