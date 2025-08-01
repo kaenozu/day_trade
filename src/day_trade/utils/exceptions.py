@@ -77,6 +77,24 @@ class AuthenticationError(APIError):
     pass
 
 
+class ResourceNotFoundError(APIError):
+    """リソース未検出エラー"""
+
+    pass
+
+
+class ServerError(APIError):
+    """サーバーエラー"""
+
+    pass
+
+
+class BadRequestError(APIError):
+    """不正なリクエストエラー"""
+
+    pass
+
+
 class DataError(DayTradeError):
     """データ関連エラー"""
 
@@ -161,28 +179,13 @@ class TimeoutError(DayTradeError):
     pass
 
 
-# 従来の例外との互換性を保つためのマッピング
-LEGACY_EXCEPTION_MAPPING = {
-    "StockFetcherError": APIError,
-    "InvalidSymbolError": ValidationError,
-    "DataNotFoundError": DataError,
-}
+# NOTE: レガシー例外マッピングは削除されました
+# StockFetcherError, InvalidSymbolError, DataNotFoundError は
+# stock_fetcher.py で直接継承して定義されているため、
+# ここでのマッピングは不要です
 
 
-def convert_legacy_exception(exception_class_name: str) -> type:
-    """
-    従来の例外クラス名を新しい例外クラスにマッピング
-
-    Args:
-        exception_class_name: 従来の例外クラス名
-
-    Returns:
-        対応する新しい例外クラス
-    """
-    return LEGACY_EXCEPTION_MAPPING.get(exception_class_name, DayTradeError)
-
-
-def handle_database_exception(exc: Exception) -> DatabaseError:
+def handle_database_exception(exc: "sqlalchemy.exc.SQLAlchemyError") -> DatabaseError:
     """
     SQLAlchemy例外を適切なDayTradeError例外に変換
 
@@ -220,7 +223,7 @@ def handle_database_exception(exc: Exception) -> DatabaseError:
         )
 
 
-def handle_network_exception(exc: Exception) -> NetworkError:
+def handle_network_exception(exc: "requests.exceptions.RequestException") -> APIError:
     """
     ネットワーク関連例外を適切なAPIError例外に変換
 
@@ -256,6 +259,24 @@ def handle_network_exception(exc: Exception) -> NetworkError:
             return AuthenticationError(
                 message=f"認証エラー: {exc}",
                 error_code="API_AUTH_ERROR",
+                details={"original_error": str(exc), "status_code": status_code},
+            )
+        elif status_code == 404:
+            return ResourceNotFoundError(
+                message=f"リソース未検出エラー: {exc}",
+                error_code="API_NOT_FOUND_ERROR",
+                details={"original_error": str(exc), "status_code": status_code},
+            )
+        elif status_code == 400:
+            return BadRequestError(
+                message=f"不正なリクエストエラー: {exc}",
+                error_code="API_BAD_REQUEST_ERROR",
+                details={"original_error": str(exc), "status_code": status_code},
+            )
+        elif status_code >= 500:
+            return ServerError(
+                message=f"サーバーエラー: {exc}",
+                error_code="API_SERVER_ERROR",
                 details={"original_error": str(exc), "status_code": status_code},
             )
         else:
