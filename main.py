@@ -3,8 +3,8 @@ import pandas as pd
 import json
 import os
 import logging
-import yfinance as yf # yfinanceをインポート
-import datetime # datetimeをインポート
+import yfinance as yf
+import datetime
 from src.engine import AnalysisEngine, moving_average_cross_strategy, rsi_strategy, volume_analysis_strategy, bollinger_bands_strategy, atr_strategy, sentiment_analysis_strategy, vwap_strategy
 from src.data_fetcher import fetch_stock_data
 from src.backtester import run_backtest
@@ -30,11 +30,23 @@ def get_usd_jpy_exchange_rate():
         return None
 
 def main():
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    # ロギング設定を引数で制御できるように変更
+    parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
+    parser.add_argument("--log_level", type=str, default="WARNING",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                        help="ログレベルを設定 (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+
+    # サブパーサーを定義する前に、一旦引数をパースしてログレベルを取得
+    temp_args, remaining_args = parser.parse_known_args()
+    
+    numeric_level = getattr(logging, temp_args.log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f'Invalid log level: {temp_args.log_level}')
+    logging.basicConfig(level=numeric_level, format='%(asctime)s - %(levelname)s - %(message)s')
 
     config = load_config()
 
-    parser = argparse.ArgumentParser(description="Day Trade Analysis CLI")
+    # サブパーサーの定義
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # run_analysis command
@@ -65,7 +77,7 @@ def main():
     get_current_price_jpy_parser.add_argument("--ticker", type=str, required=True, help="株価シンボル (例: AAPL)")
 
     parser.set_defaults(command='run_analysis') # デフォルトコマンドを設定
-    args = parser.parse_args()
+    args = parser.parse_args(remaining_args) # 残りの引数をパース
 
     # デフォルトコマンドがrun_analysisの場合、run_analysis_parserのデフォルト引数を設定
     if args.command == 'run_analysis' and not hasattr(args, 'tickers'):
@@ -207,26 +219,23 @@ def main():
             logging.info(f"バックテスト結果: {backtest_results}")
             logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを終了します ---")
 
-    elif args.command == "get_current_price_jpy": # 新しいコマンドの処理
+    elif args.command == "get_current_price_jpy":
         ticker_symbol = args.ticker
         logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
         
-        # 現在の株価（USD）を取得
         stock_info = yf.Ticker(ticker_symbol)
-        current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1] if not stock_info.history(period="1d").empty else None
+        current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
 
         if current_price_usd is None:
             logging.error(f"銘柄: {ticker_symbol} の現在の株価（USD）を取得できませんでした。")
             return
 
-        # USD/JPY為替レートを取得
         exchange_rate_usd_jpy = get_usd_jpy_exchange_rate()
 
         if exchange_rate_usd_jpy is None:
             logging.error("USD/JPY為替レートを取得できませんでした。")
             return
 
-        # 日本円に換算
         current_price_jpy = current_price_usd * exchange_rate_usd_jpy
         logging.info(f"銘柄: {ticker_symbol} の現在の株価: {current_price_usd:.2f} USD ({current_price_jpy:.2f} JPY)")
 
