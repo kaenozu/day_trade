@@ -1,0 +1,163 @@
+{
+  "version": "1.0.0",
+  "name": "DayTrade Auto Settings",
+  "description": "全自動デイトレード設定ファイル",
+
+  "watchlist": {
+    "symbols": [
+      {
+        "code": "7203",
+        "name": "トヨタ自動車",
+        "group": "主力株",
+        "priority": "high"
+      },
+      {
+        "code": "8306",
+        "name": "三菱UFJ銀行",
+        "group": "銀行株",
+        "priority": "medium"
+      },
+      {
+        "code": "9984",
+        "name": "ソフトバンクグループ",
+        "group": "テック株",
+        "priority": "high"
+      },
+      {
+        "code": "6758",
+        "name": "ソニー",
+        "group": "テック株",
+        "priority": "medium"
+      },
+      {
+        "code": "4689",
+        "name": "Z Holdings",
+        "group": "テック株",
+        "priority": "low"
+      }
+    ],
+    "update_interval_minutes": 5,
+    "market_hours": {
+      "start": "09:00",
+      "end": "15:00",
+      "lunch_start": "11:30",
+      "lunch_end": "12:30"
+    }
+  },
+
+  "analysis": {
+    "technical_indicators": {
+      "enabled": true,
+      "sma_periods": [5, 20, 50],
+      "ema_periods": [12, 26],
+      "rsi_period": 14,
+      "macd_params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "bollinger_params": {
+        "period": 20,
+        "std_dev": 2
+      }
+    },
+    "pattern_recognition": {
+      "enabled": true,
+      "patterns": [
+        "support_resistance",
+        "trend_lines",
+        "breakout_patterns",
+        "reversal_patterns"
+      ]
+    },
+    "signal_generation": {
+      "enabled": true,
+      "strategies": [
+        "sma_crossover",
+        "rsi_divergence",
+        "macd_signal",
+        "bollinger_breakout"
+      ],
+      "confidence_threshold": 0.6
+    },
+    "ensemble": {
+      "enabled": true,
+      "strategy_type": "balanced",
+      "voting_type": "soft",
+      "performance_file_path": "data/ensemble_performance.json",
+      "strategy_weights": {
+        "conservative_rsi": 0.2,
+        "aggressive_momentum": 0.25,
+        "trend_following": 0.25,
+        "mean_reversion": 0.2,
+        "default_integrated": 0.1
+      },
+      "confidence_thresholds": {
+        "conservative": 60.0,
+        "aggressive": 30.0,
+        "balanced": 45.0,
+        "adaptive": 40.0
+      },
+      "meta_learning_enabled": true,
+      "adaptive_weights_enabled": true
+    }
+  },
+
+  "alerts": {
+    "enabled": true,
+    "price_alerts": {
+      "enabled": true,
+      "threshold_percent": 2.0
+    },
+    "volume_alerts": {
+      "enabled": true,
+      "volume_spike_ratio": 2.0
+    },
+    "technical_alerts": {
+      "enabled": true,
+      "rsi_overbought": 70,
+      "rsi_oversold": 30
+    },
+    "notification_methods": ["console", "file_log"]
+  },
+
+  "backtest": {
+    "enabled": false,
+    "period_days": 30,
+    "initial_capital": 1000000,
+    "position_size_percent": 10,
+    "max_positions": 5,
+    "stop_loss_percent": -5.0,
+    "take_profit_percent": 10.0
+  },
+
+  "reports": {
+    "enabled": true,
+    "output_directory": "reports",
+    "formats": ["json", "csv", "html"],
+    "daily_report": {
+      "enabled": true,
+      "include_charts": false,
+      "include_signals": true,
+      "include_portfolio": true
+    },
+    "weekly_summary": {
+      "enabled": true,
+      "generate_on_friday": true
+    }
+  },
+
+  "execution": {
+    "max_concurrent_requests": 5,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "error_tolerance": "continue",
+    "log_level": "INFO"
+  },
+
+  "database": {
+    "url": "sqlite:///data/trading.db",
+    "backup_enabled": true,
+    "backup_interval_hours": 24
+  }
+}
