@@ -235,7 +235,7 @@ class NotificationHandler:
 銘柄: {trigger.symbol}
 アラートタイプ: {trigger.alert_type.value}
 優先度: {trigger.priority.value}
-発生時刻: {trigger.trigger_time.strftime('%Y-%m-%d %H:%M:%S')}
+発生時刻: {trigger.trigger_time.strftime("%Y-%m-%d %H:%M:%S")}
 
 メッセージ: {trigger.message}
 

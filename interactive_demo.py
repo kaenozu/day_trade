@@ -111,7 +111,7 @@ def demo_rich_interface():
             demo_text.append(
                 f"リアルタイム更新デモ: {current_time}\n", style="bold green"
             )
-            demo_text.append(f"更新回数: {i+1}/10\n", style="cyan")
+            demo_text.append(f"更新回数: {i + 1}/10\n", style="cyan")
             demo_text.append("データ取得中", style="yellow")
 
             if i % 3 == 0:

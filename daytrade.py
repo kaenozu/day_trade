@@ -3,6 +3,7 @@
 DayTrade全自動化メインスクリプト
 ワンクリックでデイトレードの全工程を自動実行
 """
+
 import sys
 import argparse
 import logging
@@ -26,7 +27,7 @@ def setup_logging(log_level: str = "INFO"):
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler(
-                f'daytrade_{datetime.now().strftime("%Y%m%d")}.log', encoding="utf-8"
+                f"daytrade_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"
             ),
         ],
     )

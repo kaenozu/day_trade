@@ -585,7 +585,9 @@ class TradeManager:
             }
 
         except Exception as e:
-            logger.error(f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}")
+            logger.error(
+                f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}"
+            )
             raise
 
 

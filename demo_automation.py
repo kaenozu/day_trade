@@ -3,6 +3,7 @@
 全自動化機能のデモンストレーション
 daytrade.pyの動作確認とテスト
 """
+
 import sys
 import logging
 from pathlib import Path
