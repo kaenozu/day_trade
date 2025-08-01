@@ -130,7 +130,7 @@ def main():
             logging.debug(f"分析結果: {analysis_results}")
 
             final_decision = engine.make_ensemble_decision(analysis_results)
-            logging.info(f"最終決定: {final_decision}")
+            logging.info(f"銘柄: {ticker_symbol} の最終決定: {final_decision}")
 
             # 現在の株価を日本円で表示
             logging.debug(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
