@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_
 
 from ..data.stock_fetcher import StockFetcher
-from ..models import Alert, Stock, WatchlistItem, db_manager
+from ..models import Alert, PriceData, Stock, WatchlistItem, db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -714,4 +714,164 @@ class WatchlistManager:
 
         except Exception as e:
             logger.error(f"CSVエクスポートエラー: {e}")
+            return False
+
+    def bulk_add_stocks(self, stock_data: List[Dict[str, str]]) -> Dict[str, bool]:
+        """
+        複数銘柄を一括でウォッチリストに追加（最適化版）
+
+        Args:
+            stock_data: [{"code": "7203", "group": "default", "memo": ""}...]
+
+        Returns:
+            銘柄コードをキーとした成功/失敗の辞書
+        """
+        results = {}
+
+        try:
+            with db_manager.session_scope() as session:
+                for data in stock_data:
+                    code = data.get("code", "")
+                    group = data.get("group", "default")
+                    memo = data.get("memo", "")
+
+                    try:
+                        # 重複チェック
+                        existing = (
+                            session.query(WatchlistItem)
+                            .filter(
+                                and_(
+                                    WatchlistItem.stock_code == code,
+                                    WatchlistItem.group_name == group,
+                                )
+                            )
+                            .first()
+                        )
+
+                        if existing:
+                            results[code] = False  # 既に存在
+                            continue
+
+                        # 銘柄マスタにない場合は作成
+                        stock = session.query(Stock).filter(Stock.code == code).first()
+                        if not stock:
+                            # 企業情報を取得
+                            company_info = self.fetcher.get_company_info(code)
+                            if company_info:
+                                stock = Stock(
+                                    code=code,
+                                    name=company_info.get("name", code),
+                                    sector=company_info.get("sector"),
+                                    industry=company_info.get("industry"),
+                                )
+                                session.add(stock)
+
+                        # ウォッチリストに追加
+                        watchlist_item = WatchlistItem(
+                            stock_code=code, group_name=group, memo=memo
+                        )
+                        session.add(watchlist_item)
+                        results[code] = True
+
+                    except Exception as e:
+                        logger.error(f"銘柄追加エラー ({code}): {e}")
+                        results[code] = False
+
+        except Exception as e:
+            logger.error(f"一括追加エラー: {e}")
+            # 失敗した銘柄を記録
+            for data in stock_data:
+                code = data.get("code", "")
+                if code not in results:
+                    results[code] = False
+
+        return results
+
+    def get_watchlist_optimized(
+        self, group_name: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        最適化されたウォッチリスト取得（一括JOIN）
+
+        Args:
+            group_name: グループ名（指定しない場合は全て）
+
+        Returns:
+            価格情報付きウォッチリストアイテムのリスト
+        """
+        try:
+            with db_manager.session_scope() as session:
+                # WatchlistItemとStockを一括JOINで取得
+                query = session.query(WatchlistItem, Stock).join(
+                    Stock, WatchlistItem.stock_code == Stock.code
+                )
+
+                if group_name:
+                    query = query.filter(WatchlistItem.group_name == group_name)
+
+                items = query.all()
+
+                # 銘柄コードを抽出して一括で価格データを取得
+                stock_codes = [item.WatchlistItem.stock_code for item in items]
+
+                if stock_codes:
+                    # 最適化されたメソッドで一括取得
+                    latest_prices = PriceData.get_latest_prices(session, stock_codes)
+                else:
+                    latest_prices = {}
+
+                # 結果を構築
+                result = []
+                for item in items:
+                    watchlist_item = item.WatchlistItem
+                    stock = item.Stock
+                    code = watchlist_item.stock_code
+                    price_data = latest_prices.get(code)
+
+                    result.append(
+                        {
+                            "stock_code": code,
+                            "stock_name": stock.name,
+                            "group_name": watchlist_item.group_name,
+                            "memo": watchlist_item.memo,
+                            "added_date": watchlist_item.created_at,
+                            "sector": stock.sector,
+                            "industry": stock.industry,
+                            "current_price": price_data.close if price_data else None,
+                            "volume": price_data.volume if price_data else None,
+                            "last_updated": price_data.datetime if price_data else None,
+                        }
+                    )
+
+                return result
+
+        except Exception as e:
+            logger.error(f"最適化ウォッチリスト取得エラー: {e}")
+            return []
+
+    def clear_watchlist(self, group_name: Optional[str] = None) -> bool:
+        """
+        ウォッチリストをクリア（最適化版）
+
+        Args:
+            group_name: グループ名（指定しない場合は全て）
+
+        Returns:
+            クリアに成功した場合True
+        """
+        try:
+            with db_manager.session_scope() as session:
+                query = session.query(WatchlistItem)
+
+                if group_name:
+                    query = query.filter(WatchlistItem.group_name == group_name)
+
+                # 一括削除
+                deleted_count = query.delete()
+
+                logger.info(f"ウォッチリストから{deleted_count}件を削除しました")
+                return True
+
+        except Exception as e:
+            logger.error(f"ウォッチリストクリアエラー: {e}")
             return False

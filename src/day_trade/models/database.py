@@ -154,9 +154,14 @@ class DatabaseManager:
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
-        """SQLiteの設定"""
+        """SQLiteの設定（パフォーマンス最適化）"""
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")  # WALモードでパフォーマンス向上
+        cursor.execute("PRAGMA synchronous=NORMAL")  # 同期レベルを調整
+        cursor.execute("PRAGMA cache_size=10000")  # キャッシュサイズを増加
+        cursor.execute("PRAGMA temp_store=memory")  # 一時テーブルをメモリに保存
+        cursor.execute("PRAGMA mmap_size=268435456")  # メモリマップサイズ (256MB)
         cursor.close()
 
     def create_tables(self):
@@ -269,6 +274,68 @@ class DatabaseManager:
             converted_error = handle_database_exception(e)
             logger.error(f"Current revision retrieval failed: {converted_error}")
             raise converted_error
+
+    def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
+        """
+        大量データの一括挿入
+
+        Args:
+            model_class: 挿入するモデルクラス
+            data_list: 挿入するデータのリスト（辞書形式）
+            batch_size: バッチサイズ
+        """
+        if not data_list:
+            return
+
+        with self.session_scope() as session:
+            for i in range(0, len(data_list), batch_size):
+                batch = data_list[i : i + batch_size]
+                session.bulk_insert_mappings(model_class, batch)
+                session.flush()
+
+    def bulk_update(self, model_class, data_list: list, batch_size: int = 1000):
+        """
+        大量データの一括更新
+
+        Args:
+            model_class: 更新するモデルクラス
+            data_list: 更新するデータのリスト（辞書形式、idが必要）
+            batch_size: バッチサイズ
+        """
+        if not data_list:
+            return
+
+        with self.session_scope() as session:
+            for i in range(0, len(data_list), batch_size):
+                batch = data_list[i : i + batch_size]
+                session.bulk_update_mappings(model_class, batch)
+                session.flush()
+
+    def execute_query(self, query: str, params: dict = None):
+        """
+        生のSQLクエリを実行（最適化されたクエリ用）
+
+        Args:
+            query: 実行するSQLクエリ
+            params: クエリパラメータ
+
+        Returns:
+            クエリ結果
+        """
+        with self.engine.connect() as connection:
+            result = connection.execute(query, params or {})
+            return result.fetchall()
+
+    def optimize_database(self):
+        """
+        データベースの最適化を実行
+        """
+        if "sqlite" in self.database_url:
+            with self.engine.connect() as connection:
+                # VACUUM操作でデータベースファイルを最適化
+                connection.execute("VACUUM")
+                # ANALYZE操作で統計情報を更新
+                connection.execute("ANALYZE")
 
 
 # デフォルトのデータベースマネージャー

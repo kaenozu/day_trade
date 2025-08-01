@@ -31,9 +31,16 @@ from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
 
-# from ..analysis.screening import StockScreener  # Optional import
-
 logger = logging.getLogger(__name__)
+
+# スクリーニング機能のインポート
+try:
+    from ..analysis.screener import StockScreener
+
+    SCREENER_AVAILABLE = True
+except ImportError:
+    SCREENER_AVAILABLE = False
+    logger.warning("スクリーニング機能は利用できません")
 
 
 @dataclass
@@ -108,7 +115,14 @@ class DayTradeOrchestrator:
         )
         self.watchlist_manager = WatchlistManager()
         self.alert_manager = AlertManager(self.stock_fetcher, self.watchlist_manager)
-        # self.stock_screener = StockScreener()  # Optional component
+
+        # スクリーニング機能（利用可能な場合のみ）
+        if SCREENER_AVAILABLE:
+            self.stock_screener = StockScreener(self.stock_fetcher)
+            logger.info("スクリーニング機能を有効化")
+        else:
+            self.stock_screener = None
+            logger.info("スクリーニング機能は無効です")
 
         # バックテストエンジン（設定で有効な場合のみ）
         self.backtest_engine = None
@@ -955,6 +969,126 @@ class DayTradeOrchestrator:
             alerts_df = pd.DataFrame(self.current_report.triggered_alerts)
             alerts_path = report_dir / f"alerts_{timestamp}.csv"
             alerts_df.to_csv(alerts_path, index=False, encoding="utf-8-sig")
+
+    def run_stock_screening(
+        self,
+        symbols: Optional[List[str]] = None,
+        screener_type: str = "default",
+        min_score: float = 0.1,
+        max_results: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """
+        銘柄スクリーニングを実行
+
+        Args:
+            symbols: 対象銘柄（未指定時は設定から取得）
+            screener_type: スクリーナータイプ（default, growth, value, momentum）
+            min_score: 最小スコア閾値
+            max_results: 最大結果数
+
+        Returns:
+            スクリーニング結果リスト
+        """
+        if not self.stock_screener:
+            logger.error("スクリーニング機能が利用できません")
+            return []
+
+        if symbols is None:
+            symbols = self.config_manager.get_symbol_codes()
+
+        logger.info(
+            f"銘柄スクリーニング開始: {len(symbols)}銘柄, タイプ: {screener_type}"
+        )
+
+        try:
+            if screener_type == "default":
+                results = self.stock_screener.screen_stocks(
+                    symbols, min_score=min_score, max_results=max_results
+                )
+            else:
+                # 事前定義されたスクリーナーを使用
+                predefined_screeners = self.stock_screener.get_predefined_screeners()
+                if screener_type in predefined_screeners:
+                    screener_func = predefined_screeners[screener_type]
+                    results = screener_func(
+                        symbols, min_score=min_score, max_results=max_results
+                    )
+                else:
+                    logger.error(f"不明なスクリーナータイプ: {screener_type}")
+                    return []
+
+            # 結果を辞書形式に変換
+            screening_results = []
+            for result in results:
+                screening_results.append(
+                    {
+                        "symbol": result.symbol,
+                        "score": result.score,
+                        "matched_conditions": [
+                            c.value for c in result.matched_conditions
+                        ],
+                        "last_price": result.last_price,
+                        "volume": result.volume,
+                        "technical_data": result.technical_data,
+                    }
+                )
+
+            logger.info(f"スクリーニング完了: {len(screening_results)}銘柄")
+            return screening_results
+
+        except Exception as e:
+            logger.error(f"スクリーニング実行エラー: {e}")
+            return []
+
+    def generate_screening_report(self, screening_results: List[Dict[str, Any]]) -> str:
+        """
+        スクリーニング結果のレポート生成
+
+        Args:
+            screening_results: スクリーニング結果
+
+        Returns:
+            レポート文字列
+        """
+        if not screening_results:
+            return "スクリーニング条件を満たす銘柄が見つかりませんでした。"
+
+        report_lines = [
+            f"=== 銘柄スクリーニング結果 ({len(screening_results)}銘柄) ===",
+            "",
+        ]
+
+        for i, result in enumerate(screening_results, 1):
+            report_lines.extend(
+                [
+                    f"{i}. 銘柄コード: {result['symbol']}",
+                    f"   スコア: {result['score']:.2f}",
+                    (
+                        f"   現在価格: ¥{result['last_price']:,.0f}"
+                        if result["last_price"]
+                        else "   現在価格: N/A"
+                    ),
+                    (
+                        f"   出来高: {result['volume']:,}"
+                        if result["volume"]
+                        else "   出来高: N/A"
+                    ),
+                    f"   マッチした条件: {', '.join(result['matched_conditions'])}",
+                ]
+            )
+
+            # テクニカルデータの一部を表示
+            if result.get("technical_data"):
+                tech_data = result["technical_data"]
+                if "rsi" in tech_data:
+                    report_lines.append(f"   RSI: {tech_data['rsi']:.1f}")
+                if "price_change_1d" in tech_data:
+                    change = tech_data["price_change_1d"]
+                    report_lines.append(f"   1日変化率: {change:+.2f}%")
+
+            report_lines.append("")
+
+        return "\n".join(report_lines)
 
     def _save_html_report(self, report_dir: Path, timestamp: str):
         """HTMLレポートを保存"""

@@ -485,9 +485,7 @@ class BacktestEngine:
                 continue
 
             data = historical_data[symbol]
-
             current_data_all = data[data.index <= date]  # その日までの全データ
-
             # 必要な最低データ数を設定 (MACDなどの計算に必要な期間を考慮)
             # 例えば、MACDのデフォルト期間は26日EMA + 9日シグナルで合計34日必要
             # RSIは14日

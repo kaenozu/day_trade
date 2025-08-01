@@ -239,7 +239,9 @@ class PortfolioAnalyzer:
                             weights.append(float(position.market_value / total_value))
 
                 except Exception as e:
-                    logger.warning(f"ボラティリティ計算でエラー ({symbol}): {e}")
+                    logger.warning(
+                        f"銘柄 '{symbol}' のボラティリティ計算中にエラーが発生しました。この銘柄は計算から除外されます。詳細: {e}"
+                    )
                     continue
 
             if not returns_data:
@@ -256,7 +258,9 @@ class PortfolioAnalyzer:
             return math.sqrt(portfolio_variance)
 
         except Exception as e:
-            logger.error(f"ボラティリティ計算エラー: {e}")
+            logger.error(
+                f"ポートフォリオ全体のボラティリティ計算中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return None
 
     def _calculate_sharpe_ratio(
@@ -280,7 +284,9 @@ class PortfolioAnalyzer:
             return excess_return / volatility
 
         except Exception as e:
-            logger.error(f"シャープレシオ計算エラー: {e}")
+            logger.error(
+                f"シャープレシオの計算中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return None
 
     def _calculate_max_drawdown(
@@ -302,7 +308,9 @@ class PortfolioAnalyzer:
             return abs(min(pnl_values, default=0)) / 100
 
         except Exception as e:
-            logger.error(f"最大ドローダウン計算エラー: {e}")
+            logger.error(
+                f"最大ドローダウンの計算中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return None
 
     def _calculate_win_ratio(self) -> Optional[float]:
@@ -318,7 +326,7 @@ class PortfolioAnalyzer:
             return wins / total if total > 0 else None
 
         except Exception as e:
-            logger.error(f"勝率計算エラー: {e}")
+            logger.error(f"勝率の計算中に予期せぬエラーが発生しました。詳細: {e}")
             return None
 
     def _calculate_concentration_risk(
@@ -344,7 +352,7 @@ class PortfolioAnalyzer:
             return hhi
 
         except Exception as e:
-            logger.error(f"集中リスク計算エラー: {e}")
+            logger.error(f"集中リスクの計算中に予期せぬエラーが発生しました。詳細: {e}")
             return None
 
     def _calculate_sector_diversity(
@@ -381,7 +389,9 @@ class PortfolioAnalyzer:
             return normalized_diversity
 
         except Exception as e:
-            logger.error(f"セクター多様性計算エラー: {e}")
+            logger.error(
+                f"セクター多様性の計算中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return None
 
     def export_report_to_csv(self, filename: str) -> None:
@@ -427,7 +437,9 @@ class PortfolioAnalyzer:
             logger.info(f"ポートフォリオレポートを出力しました: {metrics_file}")
 
         except Exception as e:
-            logger.error(f"CSVエクスポートエラー: {e}")
+            logger.error(
+                f"ポートフォリオレポートのCSVエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def export_report_to_json(self, filename: str) -> None:
@@ -459,7 +471,9 @@ class PortfolioAnalyzer:
             logger.info(f"ポートフォリオレポートを出力しました: {output_file}")
 
         except Exception as e:
-            logger.error(f"JSONエクスポートエラー: {e}")
+            logger.error(
+                f"ポートフォリオレポートのJSONエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
 

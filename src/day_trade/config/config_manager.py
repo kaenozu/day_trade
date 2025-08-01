@@ -152,7 +152,9 @@ class ConfigManager:
         """設定ファイルを読み込み"""
         try:
             if not self.config_path.exists():
-                logger.error(f"設定ファイルが見つかりません: {self.config_path}")
+                logger.error(
+                    f"設定ファイルが見つかりません。パス: '{self.config_path}'。指定されたパスが正しいか、ファイルが存在するか確認してください。"
+                )
                 raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
             with open(self.config_path, encoding="utf-8") as f:
@@ -162,7 +164,9 @@ class ConfigManager:
             self._validate_config()
 
         except Exception as e:
-            logger.error(f"設定ファイル読み込みエラー: {e}")
+            logger.error(
+                f"設定ファイルの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}"
+            )
             raise
 
     def _validate_config(self):
@@ -171,11 +175,15 @@ class ConfigManager:
 
         for section in required_sections:
             if section not in self.config:
-                raise ValueError(f"必須設定セクション '{section}' が見つかりません")
+                raise ValueError(
+                    f"必須設定セクション '{section}' が設定ファイルに見つかりません。設定ファイルが完全であるか確認してください。"
+                )
 
         # 監視銘柄の妥当性チェック
         if not self.config["watchlist"]["symbols"]:
-            raise ValueError("監視銘柄が設定されていません")
+            raise ValueError(
+                "ウォッチリストに監視銘柄が一つも設定されていません。少なくとも一つ銘柄を追加してください。"
+            )
 
         logger.info("設定の妥当性チェックが完了しました")
 
@@ -358,7 +366,9 @@ class ConfigManager:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             logger.info(f"設定ファイルを保存しました: {self.config_path}")
         except Exception as e:
-            logger.error(f"設定ファイル保存エラー: {e}")
+            logger.error(
+                f"設定ファイルの保存中にエラーが発生しました。ファイルへの書き込み権限を確認してください。詳細: {e}"
+            )
             raise
 
     def update_symbol_priority(self, symbol_code: str, priority: str):
@@ -368,7 +378,9 @@ class ConfigManager:
                 symbol["priority"] = priority
                 break
         else:
-            raise ValueError(f"銘柄コード '{symbol_code}' が見つかりません")
+            raise ValueError(
+                f"ウォッチリストに銘柄コード '{symbol_code}' が見つかりません。"
+            )
 
     def add_symbol(self, code: str, name: str, group: str, priority: str = "medium"):
         """新しい銘柄を追加"""
@@ -386,7 +398,9 @@ class ConfigManager:
         ]
 
         if len(self.config["watchlist"]["symbols"]) == original_count:
-            raise ValueError(f"銘柄コード '{symbol_code}' が見つかりません")
+            raise ValueError(
+                f"ウォッチリストに銘柄コード '{symbol_code}' が見つからなかったため、削除できませんでした。"
+            )
 
         logger.info(f"銘柄を削除しました: {symbol_code}")
 

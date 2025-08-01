@@ -30,6 +30,7 @@ setup(
         "rich>=13.0.0",
         "pandas>=2.0.0",
         "numpy>=1.24.0",
+        "prompt_toolkit>=3.0.0",
         "yfinance>=0.2.28",
         "pandas-datareader>=0.10.0",
         "sqlalchemy>=2.0.0",

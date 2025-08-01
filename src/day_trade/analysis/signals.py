@@ -470,7 +470,9 @@ class TradingSignalGenerator:
             )
 
         except Exception as e:
-            logger.error(f"シグナル生成エラー: {e}")
+            logger.error(
+                f"売買シグナルの生成中に予期せぬエラーが発生しました。入力データまたはルール設定を確認してください。詳細: {e}"
+            )
             return None
 
     def generate_signals_series(
@@ -638,7 +640,9 @@ class TradingSignalGenerator:
             return min(base_score, 100)
 
         except Exception as e:
-            logger.error(f"シグナル検証エラー: {e}")
+            logger.error(
+                f"シグナルの有効性検証中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return 0.0
 
 

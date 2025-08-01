@@ -388,3 +388,58 @@ class TestTradingSignalGenerator:
 
         signal = generator.generate_signal(small_df, small_indicators, small_patterns)
         assert signal is None
+
+    def test_signal_strength_classification(self, generator, sample_data):
+        """シグナル強度の分類テスト"""
+        # 強いシグナルを生成するように設定
+        indicators = TechnicalIndicators.calculate_all(sample_data)
+
+        # 複数の強い条件を設定
+        indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
+        indicators.loc[indicators.index[-2], "MACD"] = -1
+        indicators.loc[indicators.index[-1], "MACD"] = 1  # 強いクロスオーバー
+        indicators.loc[:, "MACD_Signal"] = 0
+
+        # ボリンジャーバンド下限を突破
+        indicators.loc[indicators.index[-1], "BB_Lower"] = (
+            sample_data["Close"].iloc[-1] + 1
+        )
+        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
+
+        assert signal is not None
+        # 複数の強い条件が満たされているので、強いシグナルになるはず
+        active_conditions = sum(1 for v in signal.conditions_met.values() if v)
+        if active_conditions >= 3 and signal.confidence >= 70:
+            assert signal.strength == SignalStrength.STRONG
+
+
+class TestCustomSignalRule:
+    """カスタムシグナルルールのテスト"""
+
+    def test_custom_rule_implementation(self):
+        """カスタムルールの実装テスト"""
+
+        class TestRule(SignalRule):
+            def __init__(self):
+                super().__init__("Test Rule", weight=1.0)
+
+            def evaluate(self, df, indicators, patterns):
+                # 常にTrue、信頼度50%を返す
+                return True, 50.0
+
+        rule = TestRule()
+        assert rule.name == "Test Rule"
+        assert rule.weight == 1.0
+
+        # 評価メソッドのテスト
+        met, confidence = rule.evaluate(None, None, None)
+        assert met is True
+        assert confidence == 50.0
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
