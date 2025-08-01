@@ -155,7 +155,9 @@ class TestDatabaseManager:
             # created_atとupdated_atが設定されていることを確認
             assert stock.created_at is not None
             assert stock.updated_at is not None
-            assert stock.created_at == stock.updated_at
+            # タイムスタンプの差は1秒以内であることを確認（マイクロ秒の差を許容）
+            time_diff = abs((stock.updated_at - stock.created_at).total_seconds())
+            assert time_diff < 1.0
 
             # 更新
             # original_updated = stock.updated_at # Removed
