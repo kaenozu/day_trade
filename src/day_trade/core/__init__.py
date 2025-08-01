@@ -1,5 +1,6 @@
 # Core trading functionality
 from .trade_manager import TradeManager, Trade, Position, RealizedPnL, TradeType, TradeStatus
+from .portfolio import PortfolioAnalyzer, PortfolioMetrics, SectorAllocation, PerformanceReport
 
 __all__ = [
     'TradeManager',
@@ -7,5 +8,9 @@ __all__ = [
     'Position',
     'RealizedPnL',
     'TradeType',
-    'TradeStatus'
+    'TradeStatus',
+    'PortfolioAnalyzer',
+    'PortfolioMetrics',
+    'SectorAllocation',
+    'PerformanceReport'
 ]
