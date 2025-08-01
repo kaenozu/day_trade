@@ -12,6 +12,7 @@ strategies:
     oversold_threshold: 30
 fetch_data:
   default_ticker: AAPL
+  default_tickers: ["AAPL"]
   default_start_date: 2023-01-01
   default_end_date: 2023-01-31
   default_output_path: stock_data.csv

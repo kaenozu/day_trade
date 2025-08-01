@@ -40,7 +40,7 @@ def main():
     # run_analysis command
     run_analysis_parser = subparsers.add_parser("run_analysis", help="市場分析を実行")
     run_analysis_parser.add_argument("--strategies_file", type=str, default=None, help="実行する戦略のリストを含むJSONファイルのパス")
-    run_analysis_parser.add_argument("--ticker", type=str, default=config.get('fetch_data', {}).get('default_ticker', 'AAPL'), help="直接データを取得する株価シンボル (例: AAPL)")
+    run_analysis_parser.add_argument("--tickers", type=str, default=",".join(config.get('fetch_data', {}).get('default_tickers', ['AAPL'])), help="直接データを取得する株価シンボル (カンマ区切り、例: AAPL,MSFT)")
     run_analysis_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
     run_analysis_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
@@ -56,7 +56,7 @@ def main():
     run_backtest_parser.add_argument("--data_path", type=str, default=None, help="バックテスト用株価データCSVファイルのパス")
     run_backtest_parser.add_argument("--strategies_file", type=str, default=None, help="バックテストする戦略のリストを含むJSONファイルのパス")
     run_backtest_parser.add_argument("--initial_capital", type=float, default=config.get('backtest', {}).get('initial_capital', 10000.0), help="バックテストの初期資本")
-    run_backtest_parser.add_argument("--ticker", type=str, default=None, help="直接データを取得する株価シンボル (例: AAPL)")
+    run_backtest_parser.add_argument("--tickers", type=str, default=",".join(config.get('fetch_data', {}).get('default_tickers', ['AAPL'])), help="直接データを取得する株価シンボル (カンマ区切り、例: AAPL,MSFT)")
     run_backtest_parser.add_argument("--start_date", type=str, default=None, help="取得データの開始日 (YYYY-MM-DD)")
     run_backtest_parser.add_argument("--end_date", type=str, default=None, help="取得データの終了日 (YYYY-MM-DD)")
 
@@ -68,70 +68,73 @@ def main():
     args = parser.parse_args()
 
     # デフォルトコマンドがrun_analysisの場合、run_analysis_parserのデフォルト引数を設定
-    if args.command == 'run_analysis' and not hasattr(args, 'ticker'):
+    if args.command == 'run_analysis' and not hasattr(args, 'tickers'):
         run_analysis_parser.parse_args([], namespace=args) # run_analysis_parserのデフォルト引数をargsに設定
 
     if args.command == "run_analysis":
-        ticker_symbol = args.ticker
+        tickers = args.tickers.split(',')
         start_date = args.start_date or config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
         end_date = args.end_date or config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
 
-        logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
-        data = fetch_stock_data(ticker_symbol, start_date, end_date)
+        for ticker_symbol in tickers:
+            logging.info(f"--- 銘柄: {ticker_symbol} の分析を開始します ---")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            data = fetch_stock_data(ticker_symbol, start_date, end_date)
 
-        if data.empty:
-            logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。分析を中止します。")
-            return
+            if data.empty:
+                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。分析を中止します。")
+                continue # 次の銘柄へ
 
-        engine = AnalysisEngine()
+            engine = AnalysisEngine()
 
-        engine.register_strategy("MA Cross", moving_average_cross_strategy)
-        engine.register_strategy("RSI", rsi_strategy)
-        engine.register_strategy("Volume Analysis", volume_analysis_strategy)
-        engine.register_strategy("VWAP", vwap_strategy)
-        engine.register_strategy("Bollinger Bands", bollinger_bands_strategy)
-        engine.register_strategy("ATR", atr_strategy)
-        engine.register_strategy("Sentiment Analysis", sentiment_analysis_strategy)
+            engine.register_strategy("MA Cross", moving_average_cross_strategy)
+            engine.register_strategy("RSI", rsi_strategy)
+            engine.register_strategy("Volume Analysis", volume_analysis_strategy)
+            engine.register_strategy("VWAP", vwap_strategy)
+            engine.register_strategy("Bollinger Bands", bollinger_bands_strategy)
+            engine.register_strategy("ATR", atr_strategy)
+            engine.register_strategy("Sentiment Analysis", sentiment_analysis_strategy)
 
-        if args.strategies_file:
-            try:
-                with open(args.strategies_file, 'r') as f:
-                    strategies_json = f.read()
-                parsed_strategies = json.loads(strategies_json)
-                engine.set_active_strategies(parsed_strategies)
-                logging.info(f"戦略ファイル {args.strategies_file} から戦略を読み込みました。")
-            except FileNotFoundError:
-                logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
-                return
-            except json.JSONDecodeError as e:
-                logging.error(f"戦略JSONファイルの解析エラー: {e}")
-                return
-        else:
-            default_strategies = config.get('strategies', {}).get('default_strategies', [])
-            if default_strategies:
-                engine.set_active_strategies(default_strategies)
-                logging.info(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
-
-        analysis_results = engine.run_analysis(data)
-        logging.info(f"分析結果: {analysis_results}")
-
-        final_decision = engine.make_ensemble_decision(analysis_results)
-        logging.info(f"最終決定: {final_decision}")
-
-        # 現在の株価を日本円で表示
-        logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
-        stock_info = yf.Ticker(ticker_symbol)
-        current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
-
-        if current_price_usd is None:
-            logging.error(f"銘柄: {ticker_symbol} の現在の株価（USD）を取得できませんでした。")
-        else:
-            exchange_rate_usd_jpy = get_usd_jpy_exchange_rate()
-            if exchange_rate_usd_jpy is None:
-                logging.error("USD/JPY為替レートを取得できませんでした。")
+            if args.strategies_file:
+                try:
+                    with open(args.strategies_file, 'r') as f:
+                        strategies_json = f.read()
+                    parsed_strategies = json.loads(strategies_json)
+                    engine.set_active_strategies(parsed_strategies)
+                    logging.info(f"戦略ファイル {args.strategies_file} から戦略を読み込みました。")
+                except FileNotFoundError:
+                    logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
+                    continue # 次の銘柄へ
+                except json.JSONDecodeError as e:
+                    logging.error(f"戦略JSONファイルの解析エラー: {e}")
+                    continue # 次の銘柄へ
             else:
-                current_price_jpy = current_price_usd * exchange_rate_usd_jpy
-                logging.info(f"銘柄: {ticker_symbol} の現在の株価: {current_price_usd:.2f} USD ({current_price_jpy:.2f} JPY)")
+                default_strategies = config.get('strategies', {}).get('default_strategies', [])
+                if default_strategies:
+                    engine.set_active_strategies(default_strategies)
+                    logging.info(f"config.yaml からデフォルト戦略 {default_strategies} を読み込みました。")
+
+            analysis_results = engine.run_analysis(data)
+            logging.info(f"分析結果: {analysis_results}")
+
+            final_decision = engine.make_ensemble_decision(analysis_results)
+            logging.info(f"最終決定: {final_decision}")
+
+            # 現在の株価を日本円で表示
+            logging.info(f"銘柄: {ticker_symbol} の現在の株価を日本円で取得中...")
+            stock_info = yf.Ticker(ticker_symbol)
+            current_price_usd = stock_info.history(period="1d")['Close'].iloc[-1].item() if not stock_info.history(period="1d").empty else None
+
+            if current_price_usd is None:
+                logging.error(f"銘柄: {ticker_symbol} の現在の株価（USD）を取得できませんでした。")
+            else:
+                exchange_rate_usd_jpy = get_usd_jpy_exchange_rate()
+                if exchange_rate_usd_jpy is None:
+                    logging.error("USD/JPY為替レートを取得できませんでした。")
+                else:
+                    current_price_jpy = current_price_usd * exchange_rate_usd_jpy
+                    logging.info(f"銘柄: {ticker_symbol} の現在の株価: {current_price_usd:.2f} USD ({current_price_jpy:.2f} JPY)")
+            logging.info(f"--- 銘柄: {ticker_symbol} の分析を終了します ---")
 
     elif args.command == "fetch_data":
         logging.info(f"銘柄: {args.ticker} のデータを {args.start_date} から {args.end_date} まで取得中...")
@@ -143,74 +146,66 @@ def main():
             logging.error(f"銘柄: {args.ticker} のデータ取得に失敗しました。")
 
     elif args.command == "run_backtest":
-        data = None
-        ticker_symbol = args.ticker if args.ticker else config.get('fetch_data', {}).get('default_ticker', 'AAPL')
-        if args.ticker:
-            logging.info(f"銘柄: {ticker_symbol} のデータを {args.start_date or config.get('fetch_data', {}).get('default_start_date')} から {args.end_date or config.get('fetch_data', {}).get('default_end_date')} まで取得中...")
-            data = fetch_stock_data(
-                args.ticker,
-                args.start_date or config.get('fetch_data', {}).get('default_start_date'),
-                args.end_date or config.get('fetch_data', {}).get('default_end_date')
-            )
+        tickers = args.tickers.split(',')
+        start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
+        end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
+
+        for ticker_symbol in tickers:
+            logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを開始します ---")
+            logging.info(f"銘柄: {ticker_symbol} のデータを {start_date} から {end_date} まで取得中...")
+            data = fetch_stock_data(ticker_symbol, start_date, end_date)
+
             if data.empty:
-                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。")
-                return
+                logging.error(f"銘柄: {ticker_symbol} のデータ取得に失敗しました。バックテストを中止します。")
+                continue # 次の銘柄へ
+
             # バックテストのためにインデックスを日付に設定
             data.index.name = 'Date'
             data.index = pd.to_datetime(data.index)
-        elif args.data_path:
-            logging.info(f"データファイル {args.data_path} と初期資本 {args.initial_capital} でバックテストを実行中...")
-            try:
-                data = pd.read_csv(args.data_path, index_col='Date', parse_dates=True)
-            except FileNotFoundError:
-                logging.error(f"データファイル {args.data_path} が見つかりませんでした。")
-                return
-        else:
-            logging.error("run_backtest コマンドには --data_path または --ticker のいずれかを指定する必要があります。")
-            return
 
-        all_strategies = {
-            "MA Cross": moving_average_cross_strategy,
-            "RSI": rsi_strategy,
-            "Volume Analysis": volume_analysis_strategy,
-            "VWAP": vwap_strategy,
-            "Bollinger Bands": bollinger_bands_strategy,
-            "ATR": atr_strategy,
-            "Sentiment Analysis": sentiment_analysis_strategy
-        }
+            all_strategies = {
+                "MA Cross": moving_average_cross_strategy,
+                "RSI": rsi_strategy,
+                "Volume Analysis": volume_analysis_strategy,
+                "VWAP": vwap_strategy,
+                "Bollinger Bands": bollinger_bands_strategy,
+                "ATR": atr_strategy,
+                "Sentiment Analysis": sentiment_analysis_strategy
+            }
 
-        strategies_to_backtest = {}
-        if args.strategies_file:
-            try:
-                with open(args.strategies_file, 'r') as f:
-                    strategies_json = f.read()
-                parsed_strategies = json.loads(strategies_json)
-                for s_name in parsed_strategies:
-                    if s_name in all_strategies:
-                        strategies_to_backtest[s_name] = all_strategies[s_name]
-                    else:
-                        logging.warning(f"戦略 '{s_name}' が見つかりませんでした。スキップします。")
-            except FileNotFoundError:
-                logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
-                return
-            except json.JSONDecodeError as e:
-                logging.error(f"戦略JSONファイルの解析エラー: {e}")
-                return
-        else:
-            default_strategies = config.get('strategies', {}).get('default_strategies', [])
-            if default_strategies:
-                for s_name in default_strategies:
-                    if s_name in all_strategies:
-                        strategies_to_backtest[s_name] = all_strategies[s_name]
-                    else:
-                        logging.warning(f"config からの戦略 '{s_name}' が見つかりませんでした。スキップします。")
+            strategies_to_backtest = {}
+            if args.strategies_file:
+                try:
+                    with open(args.strategies_file, 'r') as f:
+                        strategies_json = f.read()
+                    parsed_strategies = json.loads(strategies_json)
+                    for s_name in parsed_strategies:
+                        if s_name in all_strategies:
+                            strategies_to_backtest[s_name] = all_strategies[s_name]
+                        else:
+                            logging.warning(f"戦略 '{s_name}' が見つかりませんでした。スキップします。")
+                except FileNotFoundError:
+                    logging.error(f"戦略ファイル {args.strategies_file} が見つかりませんでした。")
+                    continue # 次の銘柄へ
+                except json.JSONDecodeError as e:
+                    logging.error(f"戦略JSONファイルの解析エラー: {e}")
+                    continue # 次の銘柄へ
+            else:
+                default_strategies = config.get('strategies', {}).get('default_strategies', [])
+                if default_strategies:
+                    for s_name in default_strategies:
+                        if s_name in all_strategies:
+                            strategies_to_backtest[s_name] = all_strategies[s_name]
+                        else:
+                            logging.warning(f"config からの戦略 '{s_name}' が見つかりませんでした。スキップします。")
 
-        if not strategies_to_backtest:
-            logging.error("バックテストに有効な戦略が指定されていません。")
-            return
+            if not strategies_to_backtest:
+                logging.error("バックテストに有効な戦略が指定されていません。")
+                continue # 次の銘柄へ
 
-        backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
-        logging.info(f"バックテスト結果: {backtest_results}")
+            backtest_results = run_backtest(data, strategies_to_backtest, args.initial_capital)
+            logging.info(f"バックテスト結果: {backtest_results}")
+            logging.info(f"--- 銘柄: {ticker_symbol} のバックテストを終了します ---")
 
     elif args.command == "get_current_price_jpy": # 新しいコマンドの処理
         ticker_symbol = args.ticker
