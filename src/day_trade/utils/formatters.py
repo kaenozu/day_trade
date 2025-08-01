@@ -807,3 +807,31 @@ def create_status_indicator(status: str, label: str = "Status") -> Text:
     text.append(status.title(), style=color)
 
     return text
+
+
+def create_info_panel(message: str, title: str = "情報") -> Panel:
+    """
+    情報パネルを作成
+
+    Args:
+        message: 情報メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="blue"), title=title, border_style="blue")
+
+
+def create_warning_panel(message: str, title: str = "警告") -> Panel:
+    """
+    警告パネルを作成
+
+    Args:
+        message: 警告メッセージ
+        title: パネルタイトル
+
+    Returns:
+        Richパネル
+    """
+    return Panel(Text(message, style="yellow"), title=title, border_style="yellow")
