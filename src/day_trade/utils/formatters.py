@@ -260,18 +260,43 @@ def create_watchlist_table(watchlist_data: dict) -> Table:
     return table
 
 
-def create_error_panel(message: str, title: str = "エラー") -> Panel:
+def create_error_panel(
+    message: str, title: str = "エラー", solutions: list = None, show_emoji: bool = True
+) -> Panel:
     """
-    エラーパネルを作成
+    ユーザーフレンドリーなエラーパネルを作成
 
     Args:
         message: エラーメッセージ
         title: パネルタイトル
+        solutions: 解決策のリスト
+        show_emoji: 絵文字を表示するか
 
     Returns:
         Richパネル
     """
-    return Panel(Text(message, style="red"), title=title, border_style="red")
+    # 基本的なエラーメッセージを作成
+    content_lines = []
+
+    # 絵文字付きメッセージ
+    emoji = "❌ " if show_emoji else ""
+    content_lines.append(f"[bold red]{emoji}{message}[/bold red]")
+
+    # 解決策がある場合は追加
+    if solutions:
+        content_lines.extend(["", "[bold yellow]💡 解決方法:[/bold yellow]"])
+
+        for i, solution in enumerate(solutions, 1):
+            content_lines.append(f"  {i}. {solution}")
+
+    content = "\n".join(content_lines)
+
+    return Panel(
+        content,
+        title=f"[bold red]{title}[/bold red]",
+        border_style="red",
+        padding=(1, 2),
+    )
 
 
 def create_success_panel(message: str, title: str = "成功") -> Panel:
