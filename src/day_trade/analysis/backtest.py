@@ -13,7 +13,7 @@ from enum import Enum
 import json
 
 from ..data.stock_fetcher import StockFetcher
-from ..analysis.signals import SignalGenerator, Signal, SignalType
+from ..analysis.signals import TradingSignalGenerator, TradingSignal, SignalType, SignalStrength
 from ..core.trade_manager import TradeType
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class BacktestEngine:
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
-        signal_generator: Optional[SignalGenerator] = None
+        signal_generator: Optional[TradingSignalGenerator] = None
     ):
         """
         Args:
@@ -143,7 +143,7 @@ class BacktestEngine:
             signal_generator: シグナル生成インスタンス
         """
         self.stock_fetcher = stock_fetcher or StockFetcher()
-        self.signal_generator = signal_generator or SignalGenerator()
+        self.signal_generator = signal_generator or TradingSignalGenerator()
         
         # バックテスト状態
         self.current_capital = Decimal('0')
@@ -300,7 +300,7 @@ class BacktestEngine:
         symbols: List[str],
         date: datetime,
         historical_data: Dict[str, pd.DataFrame]
-    ) -> List[Signal]:
+    ) -> List[TradingSignal]:
         """デフォルト戦略でのシグナル生成"""
         signals = []
         
@@ -332,7 +332,7 @@ class BacktestEngine:
     
     def _execute_trades(
         self,
-        signals: List[Signal],
+        signals: List[TradingSignal],
         daily_prices: Dict[str, Decimal],
         date: datetime,
         config: BacktestConfig
@@ -612,7 +612,7 @@ class BacktestEngine:
 
 
 # 使用例とデフォルト戦略
-def simple_sma_strategy(symbols: List[str], date: datetime, historical_data: Dict[str, pd.DataFrame]) -> List[Signal]:
+def simple_sma_strategy(symbols: List[str], date: datetime, historical_data: Dict[str, pd.DataFrame]) -> List[TradingSignal]:
     """シンプルな移動平均戦略"""
     signals = []
     
@@ -635,22 +635,24 @@ def simple_sma_strategy(symbols: List[str], date: datetime, historical_data: Dic
         
         # ゴールデンクロス・デッドクロス
         if short_ma.iloc[-1] > long_ma.iloc[-1] and short_ma.iloc[-2] <= long_ma.iloc[-2]:
-            signals.append(Signal(
-                timestamp=date,
-                symbol=symbol,
+            signals.append(TradingSignal(
                 signal_type=SignalType.BUY,
-                confidence=0.7,
-                price=Decimal(str(current_data['Close'].iloc[-1])),
-                indicators={'short_ma': float(short_ma.iloc[-1]), 'long_ma': float(long_ma.iloc[-1])}
+                strength=SignalStrength.MEDIUM,
+                confidence=70.0,
+                reasons=["Golden cross detected"],
+                conditions_met={"golden_cross": True},
+                timestamp=pd.Timestamp(date),
+                price=float(current_data['Close'].iloc[-1])
             ))
         elif short_ma.iloc[-1] < long_ma.iloc[-1] and short_ma.iloc[-2] >= long_ma.iloc[-2]:
-            signals.append(Signal(
-                timestamp=date,
-                symbol=symbol, 
+            signals.append(TradingSignal(
                 signal_type=SignalType.SELL,
-                confidence=0.7,
-                price=Decimal(str(current_data['Close'].iloc[-1])),
-                indicators={'short_ma': float(short_ma.iloc[-1]), 'long_ma': float(long_ma.iloc[-1])}
+                strength=SignalStrength.MEDIUM,
+                confidence=70.0,
+                reasons=["Dead cross detected"],
+                conditions_met={"dead_cross": True},
+                timestamp=pd.Timestamp(date),
+                price=float(current_data['Close'].iloc[-1])
             ))
     
     return signals

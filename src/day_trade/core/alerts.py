@@ -11,13 +11,20 @@ from typing import Dict, List, Optional, Callable, Any, Union
 from decimal import Decimal
 from dataclasses import dataclass, asdict
 from enum import Enum
-import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+try:
+    import smtplib
+    from email.mime.text import MimeText
+    from email.mime.multipart import MimeMultipart
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    MimeText = None
+    MimeMultipart = None
+    smtplib = None
 
 from ..data.stock_fetcher import StockFetcher
 from ..analysis.indicators import TechnicalIndicators
-from ..analysis.patterns import PatternRecognizer
+from ..analysis.patterns import ChartPatternRecognizer
 from ..core.watchlist import WatchlistManager
 
 logger = logging.getLogger(__name__)
@@ -204,6 +211,10 @@ class NotificationHandler:
     
     def _send_email_notification(self, trigger: AlertTrigger):
         """メール通知"""
+        if not EMAIL_AVAILABLE:
+            logger.warning("メール機能が利用できません")
+            return
+            
         if not all(self.email_config.values()):
             logger.warning("メール設定が不完全です")
             return
@@ -266,7 +277,7 @@ class AlertManager:
         self.stock_fetcher = stock_fetcher or StockFetcher()
         self.watchlist_manager = watchlist_manager
         self.technical_indicators = TechnicalIndicators()
-        self.pattern_recognizer = PatternRecognizer()
+        self.pattern_recognizer = ChartPatternRecognizer()
         self.notification_handler = NotificationHandler()
         
         # アラート管理
