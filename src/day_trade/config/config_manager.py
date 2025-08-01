@@ -10,6 +10,8 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field, field_validator
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,18 +64,95 @@ class SignalGenerationSettings:
     confidence_threshold: float
 
 
-@dataclass
-class EnsembleSettings:
+class EnsembleSettings(BaseModel):
     """アンサンブル戦略設定"""
 
-    enabled: bool
-    strategy_type: str
-    voting_type: str
-    performance_file_path: str
-    strategy_weights: Dict[str, float]
-    confidence_thresholds: Dict[str, float]
-    meta_learning_enabled: bool
-    adaptive_weights_enabled: bool
+    enabled: bool = Field(default=True, description="アンサンブル戦略の有効/無効")
+    strategy_type: str = Field(
+        default="balanced",
+        description="戦略タイプ（conservative, aggressive, balanced, adaptive）"
+    )
+    voting_type: str = Field(
+        default="soft",
+        description="投票タイプ（soft, hard, weighted）"
+    )
+    performance_file_path: str = Field(
+        default="data/ensemble_performance.json",
+        description="パフォーマンス履歴ファイルのパス"
+    )
+    strategy_weights: Dict[str, float] = Field(
+        default_factory=lambda: {
+            "conservative_rsi": 0.2,
+            "aggressive_momentum": 0.25,
+            "trend_following": 0.25,
+            "mean_reversion": 0.2,
+            "default_integrated": 0.1,
+        },
+        description="各戦略の重み"
+    )
+    confidence_thresholds: Dict[str, float] = Field(
+        default_factory=lambda: {
+            "conservative": 60.0,
+            "aggressive": 30.0,
+            "balanced": 45.0,
+            "adaptive": 70.0,  # ensemble.pyのデフォルト値（ADAPTIVE時）に合わせる
+        },
+        description="各戦略タイプの信頼度閾値"
+    )
+    meta_learning_enabled: bool = Field(
+        default=True,
+        description="メタ学習の有効/無効"
+    )
+    adaptive_weights_enabled: bool = Field(
+        default=True,
+        description="適応型重み調整の有効/無効"
+    )
+
+    @field_validator('strategy_type')
+    @classmethod
+    def validate_strategy_type(cls, v):
+        """戦略タイプのバリデーション"""
+        valid_types = ['conservative', 'aggressive', 'balanced', 'adaptive']
+        if v not in valid_types:
+            raise ValueError(f'strategy_type must be one of: {valid_types}')
+        return v
+
+    @field_validator('voting_type')
+    @classmethod
+    def validate_voting_type(cls, v):
+        """投票タイプのバリデーション"""
+        valid_types = ['soft', 'hard', 'weighted']
+        if v not in valid_types:
+            raise ValueError(f'voting_type must be one of: {valid_types}')
+        return v
+
+    @field_validator('strategy_weights')
+    @classmethod
+    def validate_strategy_weights(cls, v):
+        """戦略重みのバリデーション"""
+        # 重みの合計チェック
+        total_weight = sum(v.values())
+        if not (0.95 <= total_weight <= 1.05):  # 誤差許容範囲
+            raise ValueError(f'Sum of strategy weights must be close to 1.0, got {total_weight}')
+
+        # 個別重みの範囲チェック
+        for strategy, weight in v.items():
+            if not (0.0 <= weight <= 1.0):
+                raise ValueError(f'Weight for {strategy} must be between 0.0 and 1.0, got {weight}')
+
+        return v
+
+    @field_validator('confidence_thresholds')
+    @classmethod
+    def validate_confidence_thresholds(cls, v):
+        """信頼度閾値のバリデーション"""
+        for threshold_type, threshold_value in v.items():
+            if not (0.0 <= threshold_value <= 100.0):
+                raise ValueError(
+                    f'Confidence threshold for {threshold_type} must be between 0.0 and 100.0, '
+                    f'got {threshold_value}'
+                )
+        return v
 
 
 @dataclass
@@ -247,36 +326,9 @@ class ConfigManager:
         """アンサンブル戦略設定を取得"""
         config = self.config["analysis"].get("ensemble", {})
 
-        # デフォルト値を設定
-        default_weights = {
-            "conservative_rsi": 0.2,
-            "aggressive_momentum": 0.25,
-            "trend_following": 0.25,
-            "mean_reversion": 0.2,
-            "default_integrated": 0.1,
-        }
-
-        default_thresholds = {
-            "conservative": 60.0,
-            "aggressive": 30.0,
-            "balanced": 45.0,
-            "adaptive": 40.0,
-        }
-
-        return EnsembleSettings(
-            enabled=config.get("enabled", True),
-            strategy_type=config.get("strategy_type", "balanced"),
-            voting_type=config.get("voting_type", "soft"),
-            performance_file_path=config.get(
-                "performance_file_path", "data/ensemble_performance.json"
-            ),
-            strategy_weights=config.get("strategy_weights", default_weights),
-            confidence_thresholds=config.get(
-                "confidence_thresholds", default_thresholds
-            ),
-            meta_learning_enabled=config.get("meta_learning_enabled", True),
-            adaptive_weights_enabled=config.get("adaptive_weights_enabled", True),
-        )
+        # Pydanticモデルを使用してバリデーション付きで作成
+        # デフォルト値はモデル側で定義されているため、configの値のみを渡す
+        return EnsembleSettings(**config)
 
     def get_alert_settings(self) -> AlertSettings:
         """アラート設定を取得"""
