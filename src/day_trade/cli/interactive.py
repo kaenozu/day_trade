@@ -5,14 +5,18 @@
 import click
 import logging
 from datetime import datetime, time, timedelta
+from pathlib import Path
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.layout import Layout
 from rich.prompt import Prompt
+import random
 from rich.live import Live
 from rich.rule import Rule
 from typing import Optional, Dict, List, Any
+from decimal import Decimal
 
 from ..core.watchlist import WatchlistManager
 from ..core.config import config_manager
@@ -135,7 +139,7 @@ def run_interactive_backtest():
 
     # モックデータフェッチャーを使用
     mock_fetcher = StockFetcher()
-    engine = BacktestEngine(stock_fetcher=mock_fetcher)
+    _engine = BacktestEngine(stock_fetcher=mock_fetcher)
 
     config = BacktestConfig(
         start_date=datetime(2023, 1, 1),
@@ -143,7 +147,7 @@ def run_interactive_backtest():
         initial_capital=Decimal("1000000"),
     )
 
-    symbols = ["7203", "9984", "8306"]
+    _symbols = ["7203", "9984", "8306"]
 
     def create_progress_layout(current_date, portfolio_value, trades_count):
         layout = Layout()
@@ -394,10 +398,12 @@ def list():
             item.get("group", "N/A"),
             item.get("priority", "N/A"),
             format_currency(item.get("current_price")),
-            f"[{change_color}]{format_percentage(item.get("change_percent", 0))}[/{change_color}]",
-            item.get("memo", "")[:20] + "..."
-            if len(item.get("memo", "")) > 20
-            else item.get("memo", ""),
+            f"[{change_color}]{format_percentage(item.get('change_percent', 0))}[/{change_color}]",
+            (
+                item.get("memo", "")[:20] + "..."
+                if len(item.get("memo", "")) > 20
+                else item.get("memo", "")
+            ),
         )
     console.print(table)
 

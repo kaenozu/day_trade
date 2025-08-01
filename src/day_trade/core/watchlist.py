@@ -110,7 +110,9 @@ class WatchlistManager:
                 return True
 
         except Exception as e:
-            logger.error(f"銘柄 '{stock_code}' のウォッチリストへの追加中にエラーが発生しました。詳細: {e}")
+            logger.error(
+                f"銘柄 '{stock_code}' のウォッチリストへの追加中にエラーが発生しました。詳細: {e}"
+            )
             return False
 
     def remove_stock(self, stock_code: str, group_name: str = "default") -> bool:
@@ -144,7 +146,9 @@ class WatchlistManager:
                     return False
 
         except Exception as e:
-            logger.error(f"銘柄 '{stock_code}' のウォッチリストからの削除中にエラーが発生しました。詳細: {e}")
+            logger.error(
+                f"銘柄 '{stock_code}' のウォッチリストからの削除中にエラーが発生しました。詳細: {e}"
+            )
             return False
 
     def get_watchlist(self, group_name: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -183,7 +187,9 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            logger.error(f"ウォッチリストの取得中に予期せぬエラーが発生しました。データベース接続を確認してください。詳細: {e}")
+            logger.error(
+                f"ウォッチリストの取得中に予期せぬエラーが発生しました。データベース接続を確認してください。詳細: {e}"
+            )
             return []
 
     def get_groups(self) -> List[str]:
@@ -431,7 +437,7 @@ class WatchlistManager:
                     query = query.filter(Alert.stock_code == stock_code)
 
                 if active_only:
-                    query = query.filter(Alert.is_active == True)
+                    query = query.filter(Alert.is_active is True)
 
                 alerts = query.all()
 

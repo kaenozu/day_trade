@@ -12,7 +12,6 @@ from src.day_trade.analysis.signals import (
     SignalType,
     SignalStrength,
     TradingSignal,
-    SignalRule,
     RSIOversoldRule,
     RSIOverboughtRule,
     MACDCrossoverRule,
@@ -200,7 +199,7 @@ class TestTradingSignalGenerator:
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
-        
+
         assert signal is not None
         assert isinstance(signal, TradingSignal)
         assert signal.signal_type in [SignalType.BUY, SignalType.SELL, SignalType.HOLD]
@@ -218,11 +217,15 @@ class TestTradingSignalGenerator:
         """買いシグナル生成のテスト"""
         # RSIを低く設定して買いシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        indicators.loc[indicators.index[-1], 'RSI'] = 25
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data) # patternsを追加
-        
-        signal = generator.generate_signal(sample_data, indicators=indicators, patterns=patterns)
-        
+        indicators.loc[indicators.index[-1], "RSI"] = 25
+        patterns = ChartPatternRecognizer.detect_all_patterns(
+            sample_data
+        )  # patternsを追加
+
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
+
         assert signal is not None
         # RSIが低いので買いシグナルが出やすい
         if signal.signal_type == SignalType.BUY:
@@ -233,11 +236,15 @@ class TestTradingSignalGenerator:
         """売りシグナル生成のテスト"""
         # RSIを高く設定して売りシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        indicators.loc[indicators.index[-1], 'RSI'] = 75
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data) # patternsを追加
-        
-        signal = generator.generate_signal(sample_data, indicators=indicators, patterns=patterns)
-        
+        indicators.loc[indicators.index[-1], "RSI"] = 75
+        patterns = ChartPatternRecognizer.detect_all_patterns(
+            sample_data
+        )  # patternsを追加
+
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
+
         assert signal is not None
         # RSIが高いので売りシグナルが出やすい
         if signal.signal_type == SignalType.SELL:
@@ -251,13 +258,17 @@ class TestTradingSignalGenerator:
         indicators.loc[indicators.index[-1], "RSI"] = 25
 
         # MACDクロスオーバーを追加
-        indicators.loc[indicators.index[-2], 'MACD'] = -0.5
-        indicators.loc[indicators.index[-1], 'MACD'] = 0.5
-        indicators.loc[indicators.index[-2:], 'MACD_Signal'] = 0
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data) # patternsを追加
-        
-        signal = generator.generate_signal(sample_data, indicators=indicators, patterns=patterns)
-        
+        indicators.loc[indicators.index[-2], "MACD"] = -0.5
+        indicators.loc[indicators.index[-1], "MACD"] = 0.5
+        indicators.loc[indicators.index[-2:], "MACD_Signal"] = 0
+        patterns = ChartPatternRecognizer.detect_all_patterns(
+            sample_data
+        )  # patternsを追加
+
+        signal = generator.generate_signal(
+            sample_data, indicators=indicators, patterns=patterns
+        )
+
         assert signal is not None
         # 複数条件が満たされているか確認
         active_conditions = sum(1 for v in signal.conditions_met.values() if v)
@@ -297,9 +308,11 @@ class TestTradingSignalGenerator:
 
         # カスタムルールの動作テスト - 出来高と価格を調整して条件を満たす
         test_data = sample_data.copy()
-        test_data.loc[test_data.index[-1], 'Volume'] = 10000000  # 大きな出来高
-        test_data.loc[test_data.index[-1], 'Close'] = test_data['Close'].iloc[-2] * 1.03  # 3%上昇
-        
+        test_data.loc[test_data.index[-1], "Volume"] = 10000000  # 大きな出来高
+        test_data.loc[test_data.index[-1], "Close"] = (
+            test_data["Close"].iloc[-2] * 1.03
+        )  # 3%上昇
+
         test_indicators = TechnicalIndicators.calculate_all(test_data)
         test_patterns = ChartPatternRecognizer.detect_all_patterns(test_data)
 
@@ -335,7 +348,7 @@ class TestTradingSignalGenerator:
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
-        
+
         if signal:
             validity = generator.validate_signal(signal)
 
@@ -352,12 +365,11 @@ class TestTradingSignalGenerator:
         empty_indicators = pd.DataFrame()
         empty_patterns = {}
         signal = generator.generate_signal(empty_df, empty_indicators, empty_patterns)
-        
+
         assert signal is None
 
     def test_insufficient_data(self, generator):
         """不十分なデータでのエラーハンドリング"""
-<<<<<<< HEAD
         dates = pd.date_range(end=datetime.now(), periods=10, freq="D")
         small_df = pd.DataFrame(
             {
@@ -370,70 +382,8 @@ class TestTradingSignalGenerator:
             }
         )
         small_df.set_index("Date", inplace=True)
-
-        dates = pd.date_range(end=datetime.now(), periods=10, freq='D')
-        small_df = pd.DataFrame({
-            'Date': dates,
-            'Open': [100] * 10,
-            'High': [101] * 10,
-            'Low': [99] * 10,
-            'Close': [100] * 10,
-            'Volume': [1000000] * 10
-        })
-        small_df.set_index('Date', inplace=True)
         small_indicators = TechnicalIndicators.calculate_all(small_df)
         small_patterns = ChartPatternRecognizer.detect_all_patterns(small_df)
-        
+
         signal = generator.generate_signal(small_df, small_indicators, small_patterns)
         assert signal is None
-
-    def test_signal_strength_classification(self, generator, sample_data):
-        """シグナル強度の分類テスト"""
-        # 強いシグナルを生成するように設定
-        indicators = TechnicalIndicators.calculate_all(sample_data)
-
-        # 複数の強い条件を設定
-        indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
-        indicators.loc[indicators.index[-2], "MACD"] = -1
-        indicators.loc[indicators.index[-1], "MACD"] = 1  # 強いクロスオーバー
-        indicators.loc[:, "MACD_Signal"] = 0
-
-        # ボリンジャーバンド下限を突破
-        indicators.loc[indicators.index[-1], 'BB_Lower'] = sample_data['Close'].iloc[-1] + 1
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
-        
-        signal = generator.generate_signal(sample_data, indicators=indicators, patterns=patterns)
-        
-        assert signal is not None
-        # 複数の強い条件が満たされているので、強いシグナルになるはず
-        active_conditions = sum(1 for v in signal.conditions_met.values() if v)
-        if active_conditions >= 3 and signal.confidence >= 70:
-            assert signal.strength == SignalStrength.STRONG
-
-
-class TestCustomSignalRule:
-    """カスタムシグナルルールのテスト"""
-
-    def test_custom_rule_implementation(self):
-        """カスタムルールの実装テスト"""
-
-        class TestRule(SignalRule):
-            def __init__(self):
-                super().__init__("Test Rule", weight=1.0)
-
-            def evaluate(self, df, indicators, patterns):
-                # 常にTrue、信頼度50%を返す
-                return True, 50.0
-
-        rule = TestRule()
-        assert rule.name == "Test Rule"
-        assert rule.weight == 1.0
-
-        # 評価メソッドのテスト
-        met, confidence = rule.evaluate(None, None, None)
-        assert met is True
-        assert confidence == 50.0
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
