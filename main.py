@@ -38,8 +38,21 @@ def main():
         try:
             dummy_data = pd.read_csv(args.data_path)
         except FileNotFoundError:
-            print(f"Error: Data file not found at {args.data_path}")
-            return
+            print(f"Data file not found at {args.data_path}. Fetching data automatically...")
+            ticker = config.get('fetch_data', {}).get('default_ticker', 'AAPL')
+            start_date = config.get('fetch_data', {}).get('default_start_date', '2023-01-01')
+            end_date = config.get('fetch_data', {}).get('default_end_date', '2023-01-31')
+            
+            print(f"Fetching data for {ticker} from {start_date} to {end_date}")
+            df = fetch_stock_data(ticker, start_date, end_date)
+            
+            if not df.empty:
+                df.to_csv(args.data_path, index=True)
+                print(f"Data saved to {args.data_path}")
+                dummy_data = pd.read_csv(args.data_path)
+            else:
+                print(f"Failed to fetch data for {ticker}. Aborting analysis.")
+                return
 
         engine = AnalysisEngine()
 
