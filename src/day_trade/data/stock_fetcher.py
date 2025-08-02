@@ -10,6 +10,14 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import yfinance as yf
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+    after_log,
+)
 
 from ..utils.cache_utils import (
     CacheStats,
@@ -188,31 +196,92 @@ class StockFetcher:
         """Tickerオブジェクトを作成（内部メソッド）"""
         return yf.Ticker(symbol)
 
-    def _retry_on_error(self, func, *args, **kwargs):
-        """エラー時のリトライ機能"""
-        last_exception = None
+    def _create_retry_decorator(self, operation_name: str):
+        """
+        操作別の高度なリトライデコレータを作成
 
-        for attempt in range(self.retry_count):
+        Args:
+            operation_name: 操作名（ログ用）
+        """
+        import requests.exceptions as req_exc
+
+        return retry(
+            # リトライ条件：ネットワーク関連の例外のみ
+            retry=retry_if_exception_type((
+                req_exc.ConnectionError,
+                req_exc.Timeout,
+                req_exc.HTTPError,
+                NetworkError,
+                Exception  # その他の例外も条件付きでリトライ
+            )),
+            # 最大リトライ回数
+            stop=stop_after_attempt(self.retry_count),
+            # 指数バックオフ（初期待機時間、最大待機時間、倍数）
+            wait=wait_exponential(
+                multiplier=self.retry_delay,
+                min=self.retry_delay,
+                max=30  # 最大30秒待機
+            ),
+            # シンプルなログ記録（structlogとの互換性問題を回避）
+            # before_sleep=None,
+            # after=None,
+            # カスタムリトライ条件
+            reraise=True  # 最終的にエラーを再発生
+        )
+
+    def _is_retryable_with_tenacity(self, retry_state):
+        """
+        tenacity用のカスタムリトライ条件判定
+
+        Args:
+            retry_state: tenacityのリトライ状態
+
+        Returns:
+            bool: リトライすべきかどうか
+        """
+        if retry_state.outcome and retry_state.outcome.failed:
+            exception = retry_state.outcome.exception()
+            return self._is_retryable_error(exception)
+        return False
+
+    def _retry_on_error(self, func, *args, **kwargs):
+        """
+        エラー時のリトライ機能（tenacity版）
+
+        Args:
+            func: 実行する関数
+            *args: 関数の位置引数
+            **kwargs: 函数のキーワード引数
+
+        Returns:
+            関数の実行結果
+
+        Raises:
+            最終的に失敗した場合は元の例外を再発生
+        """
+        operation_name = getattr(func, '__name__', 'unknown_operation')
+        retry_decorator = self._create_retry_decorator(operation_name)
+
+        @retry_decorator
+        def _execute_with_retry():
             try:
                 return func(*args, **kwargs)
-
             except Exception as e:
-                last_exception = e
+                # リトライ可能かチェック
+                if not self._is_retryable_error(e):
+                    self.logger.error(f"リトライ不可能なエラー ({operation_name}): {e}")
+                    self._handle_error(e)
 
-                # ネットワークエラーまたは一時的なエラーの場合のみリトライ
-                if self._is_retryable_error(e):
-                    if attempt < self.retry_count - 1:
-                        self.logger.warning(
-                            f"リトライ {attempt + 1}/{self.retry_count}: {e}"
-                        )
-                        time.sleep(self.retry_delay * (attempt + 1))  # 指数バックオフ
-                        continue
-                else:
-                    # リトライ不可能なエラーは即座に再発生
-                    break
+                # リトライ可能な場合は例外を再発生（tenacityがハンドル）
+                self.logger.warning(f"リトライ可能なエラー ({operation_name}): {e}")
+                raise
 
-        # 最終的にエラーを再発生
-        self._handle_error(last_exception)
+        try:
+            return _execute_with_retry()
+        except Exception as e:
+            # 最終的な失敗時はエラーハンドリング
+            self.logger.error(f"全リトライ失敗 ({operation_name}): {e}")
+            self._handle_error(e)
 
     def _is_retryable_error(self, error: Exception) -> bool:
         """リトライ可能なエラーかどうかを判定（改善版）"""
@@ -245,6 +314,76 @@ class StockFetcher:
         ]
 
         return any(pattern in error_message for pattern in retryable_patterns)
+
+    def resilient_api_call(
+        self,
+        max_attempts: Optional[int] = None,
+        min_wait: Optional[float] = None,
+        max_wait: Optional[float] = None
+    ):
+        """
+        API呼び出し用の堅牢なリトライデコレータ
+
+        Args:
+            max_attempts: 最大試行回数（Noneの場合はインスタンス設定を使用）
+            min_wait: 最小待機時間（秒）
+            max_wait: 最大待機時間（秒）
+
+        Returns:
+            デコレータ関数
+        """
+        import requests.exceptions as req_exc
+
+        attempts = max_attempts or self.retry_count
+        min_wait_time = min_wait or self.retry_delay
+        max_wait_time = max_wait or 30
+
+        def decorator(func):
+            @retry(
+                # 特定の例外のみリトライ
+                retry=retry_if_exception_type((
+                    req_exc.ConnectionError,
+                    req_exc.Timeout,
+                    req_exc.HTTPError,
+                    NetworkError,
+                    OSError,  # DNS解決エラーなど
+                    ConnectionError,  # 基本的な接続エラー
+                )),
+                stop=stop_after_attempt(attempts),
+                wait=wait_exponential(
+                    multiplier=min_wait_time,
+                    min=min_wait_time,
+                    max=max_wait_time
+                ),
+                # シンプルなログ記録（tenacityの標準機能を無効化）
+                # before_sleep=None,
+                # after=None,
+                reraise=True
+            )
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                operation_logger = self.logger.bind(
+                    operation=func.__name__,
+                    max_attempts=attempts,
+                    min_wait=min_wait_time,
+                    max_wait=max_wait_time
+                )
+
+                operation_logger.debug("堅牢なAPI呼び出し開始")
+
+                try:
+                    result = func(*args, **kwargs)
+                    operation_logger.debug("API呼び出し成功")
+                    return result
+                except Exception as e:
+                    operation_logger.error("全リトライ失敗", error=str(e))
+                    # エラーを適切に変換
+                    if not self._is_retryable_error(e):
+                        self._handle_error(e)
+                    raise
+
+            return wrapper
+        return decorator
 
     def _handle_error(self, error: Exception) -> None:
         """エラーを適切な例外クラスに変換して再発生（改善版）"""
@@ -382,78 +521,76 @@ class StockFetcher:
             StockFetcherError: その他のエラー
         """
 
-        def _get_price():
-            price_logger = self.logger.bind(
-                operation="get_current_price",
-                stock_code=code
-            )
-            price_logger.info("現在価格取得開始")
+        @self.resilient_api_call(max_attempts=5, min_wait=1.0, max_wait=10.0)
+        def _get_price_resilient():
+            self._validate_symbol(code)
+            symbol = self._format_symbol(code)
+            ticker = self._get_ticker(symbol)
 
-            start_time = time.time()
+            # API呼び出しログ
+            log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
+            info = ticker.info
 
-            try:
-                self._validate_symbol(code)
-                symbol = self._format_symbol(code)
-                ticker = self._get_ticker(symbol)
+            # infoが空または無効な場合
+            if not info or len(info) < 5:
+                raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
 
-                # API呼び出しログ
-                log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
-                info = ticker.info
+            # 基本情報を取得
+            current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+            previous_close = info.get("previousClose")
 
-                # infoが空または無効な場合
-                if not info or len(info) < 5:
-                    price_logger.error("企業情報取得失敗", info_size=len(info) if info else 0)
-                    raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
+            if current_price is None:
+                raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
 
-                # 基本情報を取得
-                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-                previous_close = info.get("previousClose")
+            # 変化額・変化率を計算
+            change = current_price - previous_close if previous_close else 0
+            change_percent = (change / previous_close * 100) if previous_close else 0
 
-                if current_price is None:
-                    price_logger.error("現在価格データなし",
-                                     available_keys=list(info.keys())[:10])
-                    raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
+            return {
+                "symbol": symbol,
+                "current_price": current_price,
+                "previous_close": previous_close,
+                "change": change,
+                "change_percent": change_percent,
+                "volume": info.get("volume", 0),
+                "market_cap": info.get("marketCap"),
+                "timestamp": datetime.now(),
+            }
 
-                # 変化額・変化率を計算
-                change = current_price - previous_close if previous_close else 0
-                change_percent = (change / previous_close * 100) if previous_close else 0
+        price_logger = self.logger.bind(
+            operation="get_current_price",
+            stock_code=code
+        )
+        price_logger.info("現在価格取得開始")
 
-                # パフォーマンスメトリクス
-                elapsed_time = (time.time() - start_time) * 1000
-                log_performance_metric("price_fetch_time", elapsed_time, "ms",
-                                     stock_code=code)
+        start_time = time.time()
 
-                result = {
-                    "symbol": symbol,
-                    "current_price": current_price,
-                    "previous_close": previous_close,
-                    "change": change,
-                    "change_percent": change_percent,
-                    "volume": info.get("volume", 0),
-                    "market_cap": info.get("marketCap"),
-                    "timestamp": datetime.now(),
-                }
+        try:
+            result = _get_price_resilient()
 
-                price_logger.info("現在価格取得完了",
-                                current_price=current_price,
-                                change_percent=change_percent,
-                                elapsed_ms=elapsed_time)
+            # パフォーマンスメトリクス
+            elapsed_time = (time.time() - start_time) * 1000
+            log_performance_metric("price_fetch_time", elapsed_time, "ms",
+                                 stock_code=code)
 
-                return result
+            price_logger.info("現在価格取得完了",
+                            current_price=result['current_price'],
+                            change_percent=result['change_percent'],
+                            elapsed_ms=elapsed_time)
 
-            except Exception as e:
-                elapsed_time = (time.time() - start_time) * 1000
-                log_error_with_context(e, {
-                    "operation": "get_current_price",
-                    "stock_code": code,
-                    "elapsed_ms": elapsed_time
-                })
-                price_logger.error("現在価格取得失敗",
-                                 error=str(e),
-                                 elapsed_ms=elapsed_time)
-                raise
+            return result
 
-        return self._retry_on_error(_get_price)
+        except Exception as e:
+            elapsed_time = (time.time() - start_time) * 1000
+            log_error_with_context(e, {
+                "operation": "get_current_price",
+                "stock_code": code,
+                "elapsed_ms": elapsed_time
+            })
+            price_logger.error("現在価格取得失敗",
+                             error=str(e),
+                             elapsed_ms=elapsed_time)
+            raise
 
     @cache_with_ttl(300)  # 5分キャッシュ
     def get_historical_data(
@@ -477,12 +614,16 @@ class StockFetcher:
             StockFetcherError: その他のエラー
         """
 
-        def _get_historical():
+        @self.resilient_api_call(max_attempts=4, min_wait=2.0, max_wait=15.0)
+        def _get_historical_resilient():
             self._validate_symbol(code)
             self._validate_period_interval(period, interval)
 
             symbol = self._format_symbol(code)
             ticker = self._get_ticker(symbol)
+
+            # API呼び出しログ
+            log_api_call("yfinance", "GET", f"ticker.history for {symbol} (period={period}, interval={interval})")
 
             # データ取得
             df = ticker.history(period=period, interval=interval)
@@ -500,7 +641,43 @@ class StockFetcher:
 
             return df
 
-        return self._retry_on_error(_get_historical)
+        hist_logger = self.logger.bind(
+            operation="get_historical_data",
+            stock_code=code,
+            period=period,
+            interval=interval
+        )
+        hist_logger.info("ヒストリカルデータ取得開始")
+
+        start_time = time.time()
+
+        try:
+            result = _get_historical_resilient()
+
+            # パフォーマンスメトリクス
+            elapsed_time = (time.time() - start_time) * 1000
+            log_performance_metric("historical_data_fetch_time", elapsed_time, "ms",
+                                 stock_code=code, period=period, interval=interval)
+
+            hist_logger.info("ヒストリカルデータ取得完了",
+                           data_points=len(result),
+                           elapsed_ms=elapsed_time)
+
+            return result
+
+        except Exception as e:
+            elapsed_time = (time.time() - start_time) * 1000
+            log_error_with_context(e, {
+                "operation": "get_historical_data",
+                "stock_code": code,
+                "period": period,
+                "interval": interval,
+                "elapsed_ms": elapsed_time
+            })
+            hist_logger.error("ヒストリカルデータ取得失敗",
+                            error=str(e),
+                            elapsed_ms=elapsed_time)
+            raise
 
     def _validate_period_interval(self, period: str, interval: str) -> None:
         """期間と間隔の妥当性をチェック"""
@@ -574,7 +751,8 @@ class StockFetcher:
             StockFetcherError: その他のエラー
         """
 
-        def _get_historical_range():
+        @self.resilient_api_call(max_attempts=4, min_wait=2.0, max_wait=15.0)
+        def _get_historical_range_resilient():
             self._validate_symbol(code)
             self._validate_date_range(start_date, end_date)
 
@@ -588,6 +766,9 @@ class StockFetcher:
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             if isinstance(end_date, str):
                 end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+            # API呼び出しログ
+            log_api_call("yfinance", "GET", f"ticker.history for {symbol} (range={start_dt} to {end_dt}, interval={interval})")
 
             # データ取得
             df = ticker.history(start=start_dt, end=end_dt, interval=interval)
@@ -603,7 +784,45 @@ class StockFetcher:
 
             return df
 
-        return self._retry_on_error(_get_historical_range)
+        range_logger = self.logger.bind(
+            operation="get_historical_data_range",
+            stock_code=code,
+            start_date=str(start_date),
+            end_date=str(end_date),
+            interval=interval
+        )
+        range_logger.info("期間指定ヒストリカルデータ取得開始")
+
+        start_time = time.time()
+
+        try:
+            result = _get_historical_range_resilient()
+
+            # パフォーマンスメトリクス
+            elapsed_time = (time.time() - start_time) * 1000
+            log_performance_metric("historical_range_fetch_time", elapsed_time, "ms",
+                                 stock_code=code, start_date=str(start_date), end_date=str(end_date))
+
+            range_logger.info("期間指定ヒストリカルデータ取得完了",
+                            data_points=len(result),
+                            elapsed_ms=elapsed_time)
+
+            return result
+
+        except Exception as e:
+            elapsed_time = (time.time() - start_time) * 1000
+            log_error_with_context(e, {
+                "operation": "get_historical_data_range",
+                "stock_code": code,
+                "start_date": str(start_date),
+                "end_date": str(end_date),
+                "interval": interval,
+                "elapsed_ms": elapsed_time
+            })
+            range_logger.error("期間指定ヒストリカルデータ取得失敗",
+                             error=str(e),
+                             elapsed_ms=elapsed_time)
+            raise
 
     def get_realtime_data(self, codes: List[str]) -> Dict[str, Dict[str, float]]:
         """
@@ -666,10 +885,14 @@ class StockFetcher:
             StockFetcherError: その他のエラー
         """
 
-        def _get_company_info():
+        @self.resilient_api_call(max_attempts=3, min_wait=1.5, max_wait=12.0)
+        def _get_company_info_resilient():
             self._validate_symbol(code)
             symbol = self._format_symbol(code)
             ticker = self._get_ticker(symbol)
+
+            # API呼び出しログ
+            log_api_call("yfinance", "GET", f"ticker.info for company info {symbol}")
             info = ticker.info
 
             if not info or len(info) < 5:
@@ -690,7 +913,40 @@ class StockFetcher:
                 "exchange": info.get("exchange"),
             }
 
-        return self._retry_on_error(_get_company_info)
+        company_logger = self.logger.bind(
+            operation="get_company_info",
+            stock_code=code
+        )
+        company_logger.info("企業情報取得開始")
+
+        start_time = time.time()
+
+        try:
+            result = _get_company_info_resilient()
+
+            # パフォーマンスメトリクス
+            elapsed_time = (time.time() - start_time) * 1000
+            log_performance_metric("company_info_fetch_time", elapsed_time, "ms",
+                                 stock_code=code)
+
+            company_logger.info("企業情報取得完了",
+                              company_name=result.get('name'),
+                              sector=result.get('sector'),
+                              elapsed_ms=elapsed_time)
+
+            return result
+
+        except Exception as e:
+            elapsed_time = (time.time() - start_time) * 1000
+            log_error_with_context(e, {
+                "operation": "get_company_info",
+                "stock_code": code,
+                "elapsed_ms": elapsed_time
+            })
+            company_logger.error("企業情報取得失敗",
+                                error=str(e),
+                                elapsed_ms=elapsed_time)
+            raise
 
 
 # 使用例
