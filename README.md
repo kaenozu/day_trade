@@ -3,6 +3,8 @@
 [![CI/CD Pipeline](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml)
 [![Pre-commit Checks](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml)
 [![Conflict Detection](https://github.com/kaenozu/day_trade/actions/workflows/conflict-detection.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/conflict-detection.yml)
+[![codecov](https://codecov.io/gh/kaenozu/day_trade/branch/main/graph/badge.svg)](https://codecov.io/gh/kaenozu/day_trade)
+[![Test Coverage](https://img.shields.io/badge/coverage-37.5%25-orange.svg)](https://github.com/kaenozu/day_trade/tree/main/reports/coverage)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

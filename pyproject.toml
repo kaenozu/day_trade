@@ -248,6 +248,7 @@ exclude_lines = [
 ]
 
 # カバレッジの最小しきい値設定
+# 現在36.3%のため、35%を維持しつつ段階的に向上させる
 fail_under = 35
 
 [tool.coverage.html]
