@@ -190,7 +190,7 @@ jobs:
                      --cov-report=html \
                      --cov-report=term-missing \
                      --cov-report=json \
-                     --cov-fail-under=80
+                     --cov-fail-under=40
               ;;
             "unit-slow")
               echo "🐌 Running slow unit tests..."

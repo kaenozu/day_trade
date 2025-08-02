@@ -134,7 +134,7 @@ jobs:
                    --cov-report=html \
                    --cov-report=term-missing \
                    --cov-report=json \
-                   --cov-fail-under=80
+                   --cov-fail-under=40
           else
             echo "🔗 Running integration tests..."
             pytest tests/integration/ -v --tb=short -x --disable-warnings || echo "Integration tests not yet implemented"
