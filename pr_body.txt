@@ -1,0 +1,1 @@
+This PR removes unnecessary files from the repository.
