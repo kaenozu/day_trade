@@ -185,7 +185,12 @@ jobs:
                      --ignore=tests/integration/ \
                      -m "not slow" \
                      --maxfail=3 \
-                     --cov=src/day_trade --cov-report=xml
+                     --cov=src/day_trade \
+                     --cov-report=xml \
+                     --cov-report=html \
+                     --cov-report=term-missing \
+                     --cov-report=json \
+                     --cov-fail-under=80
               ;;
             "unit-slow")
               echo "🐌 Running slow unit tests..."
@@ -201,13 +206,25 @@ jobs:
               ;;
           esac
 
-      - name: 📊 Upload coverage
+      - name: 📊 Upload coverage to Codecov
         if: matrix.test-type == 'unit-fast'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           flags: unittests
           name: coverage-${{ matrix.test-type }}
+        continue-on-error: true
+
+      - name: 📁 Upload coverage reports as artifacts
+        if: matrix.test-type == 'unit-fast'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-optimized
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/
+          retention-days: 30
         continue-on-error: true
 
   # 🔒 セキュリティスキャン（並列実行）
