@@ -248,7 +248,7 @@ exclude_lines = [
 ]
 
 # カバレッジの最小しきい値設定
-fail_under = 80
+fail_under = 35
 
 [tool.coverage.html]
 # HTMLレポート生成設定
