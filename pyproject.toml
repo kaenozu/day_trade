@@ -186,6 +186,7 @@ python_files = [
 # Coverage configuration
 [tool.coverage.run]
 source = ["src"]
+branch = true
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -194,9 +195,16 @@ omit = [
     "*_demo.py",
     "*/example_*.py",
     "*/alembic/*",
+    "*/migrations/*",
+    "*/__main__.py",
 ]
 
 [tool.coverage.report]
+# カバレッジレポートの詳細設定
+show_missing = true
+skip_covered = false
+precision = 2
+sort = "Cover"
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -208,7 +216,28 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
+    "if TYPE_CHECKING:",
+    "pass",
+    "\\.\\.\\.",
 ]
+
+# カバレッジの最小しきい値設定
+fail_under = 80
+
+[tool.coverage.html]
+# HTMLレポート生成設定
+directory = "htmlcov"
+show_contexts = true
+skip_covered = false
+
+[tool.coverage.xml]
+# XMLレポート生成設定（CI用）
+output = "coverage.xml"
+
+[tool.coverage.json]
+# JSONレポート生成設定
+output = "coverage.json"
+show_contexts = true
 
 # Bandit security linter configuration
 [tool.bandit]
