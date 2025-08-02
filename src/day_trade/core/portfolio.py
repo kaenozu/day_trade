@@ -3,7 +3,6 @@
 保有銘柄の管理とパフォーマンス分析を行う
 """
 
-import logging
 import math
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -16,8 +15,9 @@ import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
 from .trade_manager import Position, TradeManager
+from ..utils.logging_config import get_context_logger, log_performance_metric, log_error_with_context
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 @dataclass
@@ -239,9 +239,8 @@ class PortfolioAnalyzer:
                             weights.append(float(position.market_value / total_value))
 
                 except Exception as e:
-                    logger.warning(
-                        f"銘柄 '{symbol}' のボラティリティ計算中にエラーが発生しました。この銘柄は計算から除外されます。詳細: {e}"
-                    )
+                    logger.warning("Symbol volatility calculation failed, excluding from portfolio calculation",
+                                 symbol=symbol, error=str(e))
                     continue
 
             if not returns_data:
@@ -258,9 +257,10 @@ class PortfolioAnalyzer:
             return math.sqrt(portfolio_variance)
 
         except Exception as e:
-            logger.error(
-                f"ポートフォリオ全体のボラティリティ計算中に予期せぬエラーが発生しました。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "portfolio_volatility_calculation",
+                "position_count": len(positions)
+            })
             return None
 
     def _calculate_sharpe_ratio(
@@ -284,9 +284,11 @@ class PortfolioAnalyzer:
             return excess_return / volatility
 
         except Exception as e:
-            logger.error(
-                f"シャープレシオの計算中に予期せぬエラーが発生しました。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "sharpe_ratio_calculation",
+                "volatility": volatility,
+                "risk_free_rate": self.risk_free_rate
+            })
             return None
 
     def _calculate_max_drawdown(
@@ -308,9 +310,10 @@ class PortfolioAnalyzer:
             return abs(min(pnl_values, default=0)) / 100
 
         except Exception as e:
-            logger.error(
-                f"最大ドローダウンの計算中に予期せぬエラーが発生しました。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "max_drawdown_calculation",
+                "position_count": len(positions)
+            })
             return None
 
     def _calculate_win_ratio(self) -> Optional[float]:
@@ -326,7 +329,10 @@ class PortfolioAnalyzer:
             return wins / total if total > 0 else None
 
         except Exception as e:
-            logger.error(f"勝率の計算中に予期せぬエラーが発生しました。詳細: {e}")
+            log_error_with_context(e, {
+                "operation": "win_ratio_calculation",
+                "realized_pnl_count": len(self.trade_manager.realized_pnl)
+            })
             return None
 
     def _calculate_concentration_risk(
@@ -352,7 +358,10 @@ class PortfolioAnalyzer:
             return hhi
 
         except Exception as e:
-            logger.error(f"集中リスクの計算中に予期せぬエラーが発生しました。詳細: {e}")
+            log_error_with_context(e, {
+                "operation": "concentration_risk_calculation",
+                "position_count": len(positions)
+            })
             return None
 
     def _calculate_sector_diversity(
@@ -389,9 +398,10 @@ class PortfolioAnalyzer:
             return normalized_diversity
 
         except Exception as e:
-            logger.error(
-                f"セクター多様性の計算中に予期せぬエラーが発生しました。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "sector_diversity_calculation",
+                "position_count": len(positions)
+            })
             return None
 
     def export_report_to_csv(self, filename: str) -> None:
@@ -434,12 +444,15 @@ class PortfolioAnalyzer:
                 sector_file = f"{base_name}_sectors_{timestamp}.csv"
                 df_sectors.to_csv(sector_file, index=False, encoding="utf-8-sig")
 
-            logger.info(f"ポートフォリオレポートを出力しました: {metrics_file}")
+            logger.info("Portfolio report exported to CSV",
+                       metrics_file=metrics_file,
+                       sector_file=sector_file if report.sector_allocations else None)
 
         except Exception as e:
-            logger.error(
-                f"ポートフォリオレポートのCSVエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "portfolio_csv_export",
+                "filename": filename
+            })
             raise
 
     def export_report_to_json(self, filename: str) -> None:
@@ -468,12 +481,13 @@ class PortfolioAnalyzer:
                     default=decimal_converter,
                 )
 
-            logger.info(f"ポートフォリオレポートを出力しました: {output_file}")
+            logger.info("Portfolio report exported to JSON", output_file=output_file)
 
         except Exception as e:
-            logger.error(
-                f"ポートフォリオレポートのJSONエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "portfolio_json_export",
+                "filename": filename
+            })
             raise
 
 
