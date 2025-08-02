@@ -14,6 +14,8 @@ from src.day_trade.models.database import db_manager
 @pytest.fixture
 def trade_manager():
     """テスト用TradeManagerインスタンス"""
+    # データベースのテーブルを確実に作成
+    db_manager.create_tables()
     return TradeManager(load_from_db=False)
 
 
