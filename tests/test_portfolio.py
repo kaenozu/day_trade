@@ -23,14 +23,14 @@ class TestPortfolioAnalyzer:
 
     def setup_method(self):
         """テストセットアップ"""
-        self.trade_manager = TradeManager()
+        self.trade_manager = TradeManager(load_from_db=False)
         self.mock_stock_fetcher = Mock()
         self.analyzer = PortfolioAnalyzer(self.trade_manager, self.mock_stock_fetcher)
 
         # サンプル取引データを追加
-        self.trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        self.trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("800"))
-        self.trade_manager.add_trade("9984", TradeType.BUY, 10, Decimal("15000"))
+        self.trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        self.trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("800"), persist_to_db=False)
+        self.trade_manager.add_trade("9984", TradeType.BUY, 10, Decimal("15000"), persist_to_db=False)
 
         # 現在価格を設定
         self.trade_manager.update_current_prices(
@@ -81,7 +81,7 @@ class TestPortfolioAnalyzer:
 
     def test_get_portfolio_metrics_empty_portfolio(self):
         """空のポートフォリオでのメトリクステスト"""
-        empty_trade_manager = TradeManager()
+        empty_trade_manager = TradeManager(load_from_db=False)
         empty_analyzer = PortfolioAnalyzer(empty_trade_manager, self.mock_stock_fetcher)
 
         metrics = empty_analyzer.get_portfolio_metrics()
@@ -111,8 +111,8 @@ class TestPortfolioAnalyzer:
     def test_get_sector_allocation_single_sector(self):
         """単一セクターの場合の配分テスト"""
         # 単一セクター（Technology）のみの取引
-        single_tm = TradeManager()
-        single_tm.add_trade("9984", TradeType.BUY, 100, Decimal("15000"))
+        single_tm = TradeManager(load_from_db=False)
+        single_tm.add_trade("9984", TradeType.BUY, 100, Decimal("15000"), persist_to_db=False)
         single_tm.update_current_prices({"9984": Decimal("15500")})
 
         single_analyzer = PortfolioAnalyzer(single_tm, self.mock_stock_fetcher)
@@ -260,7 +260,7 @@ class TestPortfolioAnalyzer:
     def test_sector_mapping_unknown_symbol(self):
         """未知の銘柄のセクターマッピングテスト"""
         # 未知の銘柄を追加
-        self.trade_manager.add_trade("0000", TradeType.BUY, 100, Decimal("1000"))
+        self.trade_manager.add_trade("0000", TradeType.BUY, 100, Decimal("1000"), persist_to_db=False)
         self.trade_manager.update_current_prices({"0000": Decimal("1100")})
 
         allocations = self.analyzer.get_sector_allocation()

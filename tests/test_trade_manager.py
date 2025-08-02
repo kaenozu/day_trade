@@ -150,7 +150,7 @@ class TestTradeManager:
     @pytest.fixture
     def trade_manager(self):
         """テスト用取引管理システム"""
-        return TradeManager(commission_rate=Decimal("0.001"), tax_rate=Decimal("0.2"))
+        return TradeManager(commission_rate=Decimal("0.001"), tax_rate=Decimal("0.2"), load_from_db=False)
 
     def test_initialization(self, trade_manager):
         """初期化のテスト"""
@@ -180,6 +180,7 @@ class TestTradeManager:
             quantity=100,
             price=Decimal("2500"),
             timestamp=timestamp,
+            persist_to_db=False,
         )
 
         assert trade_id is not None
@@ -201,9 +202,9 @@ class TestTradeManager:
     def test_add_multiple_buy_trades(self, trade_manager):
         """複数買い取引のテスト"""
         # 1回目の買い
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
         # 2回目の買い
-        trade_manager.add_trade("7203", TradeType.BUY, 200, Decimal("2450"))
+        trade_manager.add_trade("7203", TradeType.BUY, 200, Decimal("2450"), persist_to_db=False)
 
         position = trade_manager.positions["7203"]
         assert position.quantity == 300
@@ -219,10 +220,10 @@ class TestTradeManager:
     def test_sell_trade_partial(self, trade_manager):
         """一部売却のテスト"""
         # 買い取引
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
 
         # 一部売却
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
 
         # ポジション確認
         position = trade_manager.positions["7203"]
@@ -239,10 +240,10 @@ class TestTradeManager:
     def test_sell_trade_complete(self, trade_manager):
         """完全売却のテスト"""
         # 買い取引
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
 
         # 完全売却
-        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"), persist_to_db=False)
 
         # ポジションが削除されることを確認
         assert "7203" not in trade_manager.positions
@@ -253,7 +254,7 @@ class TestTradeManager:
     def test_sell_without_position(self, trade_manager):
         """ポジションなしでの売却テスト"""
         # ポジションなしで売却（警告ログが出るが処理は継続）
-        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"), persist_to_db=False)
 
         assert len(trade_manager.trades) == 1
         assert len(trade_manager.positions) == 0
@@ -262,10 +263,10 @@ class TestTradeManager:
     def test_sell_excess_quantity(self, trade_manager):
         """過剰売却のテスト"""
         # 100株買い
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
 
         # 150株売却（過剰）- 警告が出るが処理は継続される
-        trade_manager.add_trade("7203", TradeType.SELL, 150, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.SELL, 150, Decimal("2600"), persist_to_db=False)
 
         # ポジションは残っている（過剰分は処理されない）
         assert "7203" in trade_manager.positions
@@ -274,8 +275,8 @@ class TestTradeManager:
 
     def test_current_price_update(self, trade_manager):
         """現在価格更新のテスト"""
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"), persist_to_db=False)
 
         # 価格更新
         prices = {"7203": Decimal("2600"), "8306": Decimal("4200")}
@@ -288,9 +289,9 @@ class TestTradeManager:
     def test_portfolio_summary(self, trade_manager):
         """ポートフォリオサマリーのテスト"""
         # 複数取引
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"))
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
 
         # 現在価格設定
         trade_manager.update_current_prices(
@@ -307,9 +308,9 @@ class TestTradeManager:
 
     def test_trade_history(self, trade_manager):
         """取引履歴のテスト"""
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"))
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
 
         # 全履歴
         all_trades = trade_manager.get_trade_history()
@@ -323,10 +324,10 @@ class TestTradeManager:
     def test_realized_pnl_history(self, trade_manager):
         """実現損益履歴のテスト"""
         # 取引実行
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"))
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
-        trade_manager.add_trade("8306", TradeType.SELL, 25, Decimal("3900"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.SELL, 25, Decimal("3900"), persist_to_db=False)
 
         # 全実現損益
         all_pnl = trade_manager.get_realized_pnl_history()
@@ -342,8 +343,8 @@ class TestTradeManager:
         current_year = datetime.now().year
 
         # 利益の出る取引
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2600"), persist_to_db=False)
 
         tax_info = trade_manager.calculate_tax_implications(current_year)
 
@@ -356,8 +357,8 @@ class TestTradeManager:
     def test_csv_export(self, trade_manager):
         """CSV出力のテスト"""
         # テストデータ作成
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
         trade_manager.update_current_prices({"7203": Decimal("2550")})
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -379,9 +380,9 @@ class TestTradeManager:
     def test_json_save_load(self, trade_manager):
         """JSON保存・読み込みのテスト"""
         # テストデータ作成
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"))
-        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("8306", TradeType.BUY, 50, Decimal("4000"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 50, Decimal("2600"), persist_to_db=False)
         trade_manager.update_current_prices(
             {"7203": Decimal("2550"), "8306": Decimal("4100")}
         )
@@ -394,7 +395,7 @@ class TestTradeManager:
             assert os.path.exists(json_path)
 
             # 新しいマネージャーで読み込み
-            new_manager = TradeManager()
+            new_manager = TradeManager(load_from_db=False)
             new_manager.load_from_json(json_path)
 
             # データ確認
@@ -415,13 +416,13 @@ class TestTradeManager:
     def test_complex_trading_scenario(self, trade_manager):
         """複雑な取引シナリオのテスト"""
         # 複数回に分けて買い
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"))
-        trade_manager.add_trade("7203", TradeType.BUY, 200, Decimal("2450"))
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2550"))
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.BUY, 200, Decimal("2450"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2550"), persist_to_db=False)
 
         # 段階的に売り
-        trade_manager.add_trade("7203", TradeType.SELL, 150, Decimal("2600"))
-        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2650"))
+        trade_manager.add_trade("7203", TradeType.SELL, 150, Decimal("2600"), persist_to_db=False)
+        trade_manager.add_trade("7203", TradeType.SELL, 100, Decimal("2650"), persist_to_db=False)
 
         # 残ポジション確認
         position = trade_manager.positions["7203"]

@@ -1,6 +1,7 @@
 """
 取引記録管理機能
 売買履歴を記録し、損益計算を行う
+データベース永続化対応版
 """
 
 import csv
@@ -12,7 +13,11 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from ..models.database import db_manager
+from ..models.stock import Stock, Trade as DBTrade
+from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+
+logger = get_context_logger(__name__)
 
 
 class TradeType(Enum):
@@ -152,6 +157,7 @@ class TradeManager:
         self,
         commission_rate: Decimal = Decimal("0.001"),
         tax_rate: Decimal = Decimal("0.2"),
+        load_from_db: bool = False,
     ):
         """
         初期化
@@ -159,6 +165,7 @@ class TradeManager:
         Args:
             commission_rate: 手数料率（デフォルト0.1%）
             tax_rate: 税率（デフォルト20%）
+            load_from_db: データベースから取引履歴を読み込むかどうか
         """
         self.trades: List[Trade] = []
         self.positions: Dict[str, Position] = {}
@@ -166,6 +173,12 @@ class TradeManager:
         self.commission_rate = commission_rate
         self.tax_rate = tax_rate
         self._trade_counter = 0
+
+        # ロガーを初期化
+        self.logger = get_context_logger(__name__)
+
+        if load_from_db:
+            self._load_trades_from_db()
 
     def _generate_trade_id(self) -> str:
         """取引IDを生成"""
@@ -188,9 +201,10 @@ class TradeManager:
         timestamp: Optional[datetime] = None,
         commission: Optional[Decimal] = None,
         notes: str = "",
+        persist_to_db: bool = True,
     ) -> str:
         """
-        取引を追加
+        取引を追加（データベース永続化対応）
 
         Args:
             symbol: 銘柄コード
@@ -200,10 +214,22 @@ class TradeManager:
             timestamp: 取引日時
             commission: 手数料（Noneの場合は自動計算）
             notes: メモ
+            persist_to_db: データベースに永続化するかどうか
 
         Returns:
             取引ID
         """
+        operation_logger = logger.bind(
+            operation="add_trade",
+            symbol=symbol,
+            trade_type=trade_type.value,
+            quantity=quantity,
+            price=float(price),
+            persist_to_db=persist_to_db
+        )
+
+        operation_logger.info("取引追加処理開始")
+
         try:
             if timestamp is None:
                 timestamp = datetime.now()
@@ -213,7 +239,8 @@ class TradeManager:
 
             trade_id = self._generate_trade_id()
 
-            trade = Trade(
+            # メモリ内データ構造のトレード
+            memory_trade = Trade(
                 id=trade_id,
                 symbol=symbol,
                 trade_type=trade_type,
@@ -224,18 +251,92 @@ class TradeManager:
                 notes=notes,
             )
 
-            self.trades.append(trade)
-            self._update_position(trade)
+            if persist_to_db:
+                # データベース永続化（トランザクション保護）
+                with db_manager.transaction_scope() as session:
+                    # 1. 銘柄マスタの存在確認・作成
+                    stock = session.query(Stock).filter(Stock.code == symbol).first()
+                    if not stock:
+                        operation_logger.info("銘柄マスタに未登録、新規作成")
+                        stock = Stock(
+                            code=symbol,
+                            name=symbol,  # 名前が不明な場合はコードを使用
+                            market="未定",
+                            sector="未定",
+                            industry="未定"
+                        )
+                        session.add(stock)
+                        session.flush()  # IDを確定
 
-            logger.info(
-                f"取引追加: {trade_id} - {symbol} {trade_type.value} {quantity}株 @{price}円"
-            )
+                    # 2. データベース取引記録を作成
+                    db_trade = DBTrade.create_buy_trade(
+                        session=session,
+                        stock_code=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        memo=notes
+                    ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
+                        session=session,
+                        stock_code=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        memo=notes
+                    )
+
+                    # 3. メモリ内データ構造を更新
+                    self.trades.append(memory_trade)
+                    self._update_position(memory_trade)
+
+                    # 中間状態をflushして整合性を確認
+                    session.flush()
+
+                    # ビジネスイベントログ
+                    log_business_event(
+                        "trade_added",
+                        trade_id=trade_id,
+                        symbol=symbol,
+                        trade_type=trade_type.value,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        persisted=True
+                    )
+
+                    operation_logger.info("取引追加完了（DB永続化）",
+                                        trade_id=trade_id,
+                                        db_trade_id=db_trade.id)
+            else:
+                # メモリ内のみの処理（後方互換性）
+                self.trades.append(memory_trade)
+                self._update_position(memory_trade)
+
+                log_business_event(
+                    "trade_added",
+                    trade_id=trade_id,
+                    symbol=symbol,
+                    trade_type=trade_type.value,
+                    quantity=quantity,
+                    price=float(price),
+                    commission=float(commission),
+                    persisted=False
+                )
+
+                operation_logger.info("取引追加完了（メモリのみ）", trade_id=trade_id)
+
             return trade_id
 
         except Exception as e:
-            logger.error(
-                f"取引の追加中に予期せぬエラーが発生しました。入力データを確認してください。詳細: {e}"
-            )
+            log_error_with_context(e, {
+                "operation": "add_trade",
+                "symbol": symbol,
+                "trade_type": trade_type.value,
+                "quantity": quantity,
+                "price": float(price),
+                "persist_to_db": persist_to_db
+            })
+            operation_logger.error("取引追加失敗", error=str(e))
             raise
 
     def _update_position(self, trade: Trade):
@@ -349,6 +450,87 @@ class TradeManager:
         if buy_trades:
             return min(trade.timestamp for trade in buy_trades)
         return datetime.now()
+
+    def _load_trades_from_db(self):
+        """データベースから取引履歴を読み込み"""
+        load_logger = self.logger.bind(operation="load_trades_from_db")
+        load_logger.info("データベースから取引履歴読み込み開始")
+
+        try:
+            with db_manager.session_scope() as session:
+                # データベースから全取引を取得
+                db_trades = session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
+
+                load_logger.info("DB取引データ取得", count=len(db_trades))
+
+                for db_trade in db_trades:
+                    # セッションから切り離す前に必要な属性を読み込み
+                    trade_id = db_trade.id
+                    stock_code = db_trade.stock_code
+                    trade_type_str = db_trade.trade_type
+                    quantity = db_trade.quantity
+                    price = db_trade.price
+                    trade_datetime = db_trade.trade_datetime
+                    commission = db_trade.commission or Decimal("0")
+                    memo = db_trade.memo or ""
+
+                    # メモリ内形式に変換
+                    trade_type = TradeType.BUY if trade_type_str.lower() == "buy" else TradeType.SELL
+
+                    memory_trade = Trade(
+                        id=f"DB_{trade_id}",  # DBから読み込んだことを示すプレフィックス
+                        symbol=stock_code,
+                        trade_type=trade_type,
+                        quantity=quantity,
+                        price=Decimal(str(price)),
+                        timestamp=trade_datetime,
+                        commission=Decimal(str(commission)),
+                        status=TradeStatus.EXECUTED,
+                        notes=memo,
+                    )
+
+                    self.trades.append(memory_trade)
+                    self._update_position(memory_trade)
+
+                # 取引カウンターを最大値+1に設定
+                if db_trades:
+                    max_id = max(db_trade.id for db_trade in db_trades)
+                    self._trade_counter = max_id + 1
+
+                load_logger.info("データベース読み込み完了",
+                               loaded_trades=len(db_trades),
+                               trade_counter=self._trade_counter)
+
+        except Exception as e:
+            log_error_with_context(e, {
+                "operation": "load_trades_from_db"
+            })
+            load_logger.error("データベース読み込み失敗", error=str(e))
+            raise
+
+    def sync_with_db(self):
+        """データベースとの同期を実行"""
+        sync_logger = self.logger.bind(operation="sync_with_db")
+        sync_logger.info("データベース同期開始")
+
+        try:
+            # 現在のメモリ内データをクリア
+            self.trades.clear()
+            self.positions.clear()
+            self.realized_pnl.clear()
+            self._trade_counter = 0
+
+            # データベースから再読み込み
+            self._load_trades_from_db()
+
+            sync_logger.info("データベース同期完了")
+
+        except Exception as e:
+            log_error_with_context(e, {
+                "operation": "sync_with_db"
+            })
+            sync_logger.error("データベース同期失敗", error=str(e))
+            raise
 
     def get_position(self, symbol: str) -> Optional[Position]:
         """ポジション情報を取得"""
