@@ -520,32 +520,44 @@ if __name__ == "__main__":
 
     # メトリクス表示
     metrics = analyzer.get_portfolio_metrics()
-    print("=== ポートフォリオメトリクス ===")
-    print(f"総資産: {metrics.total_value:,}円")
-    print(f"総損益: {metrics.total_pnl:,}円 ({metrics.total_pnl_percent:.2f}%)")
-    print(
-        f"ボラティリティ: {metrics.volatility:.4f}"
-        if metrics.volatility
-        else "ボラティリティ: N/A"
-    )
-    print(
-        f"シャープレシオ: {metrics.sharpe_ratio:.4f}"
-        if metrics.sharpe_ratio
-        else "シャープレシオ: N/A"
+    logger = get_context_logger(__name__)
+    logger.info(
+        "ポートフォリオメトリクス",
+        section="portfolio_metrics",
+        total_value=float(metrics.total_value),
+        total_pnl=float(metrics.total_pnl),
+        total_pnl_percent=float(metrics.total_pnl_percent),
+        volatility=float(metrics.volatility) if metrics.volatility else None,
+        sharpe_ratio=float(metrics.sharpe_ratio) if metrics.sharpe_ratio else None
     )
 
     # セクター配分
-    print("\n=== セクター配分 ===")
     allocations = analyzer.get_sector_allocation()
     for alloc in allocations:
-        print(f"{alloc.sector}: {alloc.percentage:.1f}% ({alloc.value:,}円)")
+        logger.info(
+            "セクター配分",
+            section="sector_allocation",
+            sector=alloc.sector,
+            percentage=float(alloc.percentage),
+            value=float(alloc.value)
+        )
 
     # パフォーマンスランキング
-    print("\n=== パフォーマンスランキング ===")
     top, worst = analyzer.get_performance_rankings(3)
-    print("上位:")
+
+    logger.info("パフォーマンスランキング開始", section="performance_ranking")
     for symbol, pnl_pct in top:
-        print(f"  {symbol}: {pnl_pct:.2f}%")
-    print("下位:")
+        logger.info(
+            "パフォーマンス上位",
+            section="performance_ranking_top",
+            symbol=symbol,
+            pnl_percent=float(pnl_pct)
+        )
+
     for symbol, pnl_pct in worst:
-        print(f"  {symbol}: {pnl_pct:.2f}%")
+        logger.info(
+            "パフォーマンス下位",
+            section="performance_ranking_worst",
+            symbol=symbol,
+            pnl_percent=float(pnl_pct)
+        )

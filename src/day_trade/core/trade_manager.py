@@ -1092,15 +1092,17 @@ if __name__ == "__main__":
     # ポジション情報表示
     position = tm.get_position("7203")
     if position:
-        print("=== ポジション情報 ===")
-        print(f"銘柄: {position.symbol}")
-        print(f"数量: {position.quantity}株")
-        print(f"平均単価: {position.average_price}円")
-        print(f"総コスト: {position.total_cost}円")
-        print(f"現在価格: {position.current_price}円")
-        print(f"時価総額: {position.market_value}円")
-        print(
-            f"含み損益: {position.unrealized_pnl}円 ({position.unrealized_pnl_percent}%)"
+        logger.info(
+            "ポジション情報表示",
+            section="position_info",
+            symbol=position.symbol,
+            quantity=position.quantity,
+            average_price=float(position.average_price),
+            total_cost=float(position.total_cost),
+            current_price=float(position.current_price),
+            market_value=float(position.market_value),
+            unrealized_pnl=float(position.unrealized_pnl),
+            unrealized_pnl_percent=float(position.unrealized_pnl_percent)
         )
 
     # 一部売却
@@ -1111,26 +1113,29 @@ if __name__ == "__main__":
     # 実現損益表示
     realized_pnl = tm.get_realized_pnl_history("7203")
     if realized_pnl:
-        print("\n=== 実現損益 ===")
+        logger.info("実現損益表示開始", section="realized_pnl")
         for pnl in realized_pnl:
-            print(f"銘柄: {pnl.symbol}")
-            print(f"数量: {pnl.quantity}株")
-            print(f"買値: {pnl.buy_price}円")
-            print(f"売値: {pnl.sell_price}円")
-            print(f"損益: {pnl.pnl}円 ({pnl.pnl_percent}%)")
+            logger.info(
+                "実現損益詳細",
+                section="realized_pnl_detail",
+                symbol=pnl.symbol,
+                quantity=pnl.quantity,
+                buy_price=float(pnl.buy_price),
+                sell_price=float(pnl.sell_price),
+                pnl=float(pnl.pnl),
+                pnl_percent=float(pnl.pnl_percent)
+            )
 
     # ポートフォリオサマリー
     summary = tm.get_portfolio_summary()
-    print("\n=== ポートフォリオサマリー ===")
-    for key, value in summary.items():
-        print(f"{key}: {value}")
+    logger.info("ポートフォリオサマリー", section="portfolio_summary", **summary)
 
     # CSV出力例
-    print("\n=== CSV出力例 ===")
+    logger.info("CSV出力開始", section="csv_export")
     try:
         tm.export_to_csv("trades.csv", "trades")
         tm.export_to_csv("positions.csv", "positions")
         tm.export_to_csv("realized_pnl.csv", "realized_pnl")
-        print("CSV出力完了")
+        logger.info("CSV出力完了", section="csv_export", status="success")
     except Exception as e:
-        print(f"CSV出力エラー: {e}")
+        log_error_with_context(e, {"section": "csv_export", "operation": "export_csv"})

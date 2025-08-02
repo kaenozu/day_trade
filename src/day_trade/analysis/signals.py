@@ -17,8 +17,9 @@ import pandas as pd
 
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
+from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 class SignalType(Enum):
@@ -935,35 +936,40 @@ if __name__ == "__main__":
     signal = generator.generate_signal(df, indicators, patterns)
 
     if signal:
-        print(f"シグナル: {signal.signal_type.value.upper()}")
-        print(f"強度: {signal.strength.value}")
-        print(f"信頼度: {signal.confidence:.1f}%")
-        print(f"価格: {float(signal.price):.2f}")
-        print(f"タイムスタンプ: {signal.timestamp}")
-        print("\n理由:")
-        for reason in signal.reasons:
-            print(f"  - {reason}")
-
-        print("\n条件の状態:")
-        for condition, met in signal.conditions_met.items():
-            status = "✓" if met else "✗"
-            print(f"  {status} {condition}")
-
         # シグナルの検証（市場環境情報も含む）
         market_context = {
             "volatility": df["Close"].pct_change().std(),
             "trend_direction": "upward" if df["Close"].iloc[-1] > df["Close"].iloc[-20] else "downward"
         }
         validity = generator.validate_signal(signal, market_context=market_context)
-        print(f"\n有効性スコア: {validity:.1f}%")
+
+        # シグナル情報をログ出力
+        logger.info(
+            "売買シグナル生成",
+            section="signal_generation",
+            signal_type=signal.signal_type.value.upper(),
+            strength=signal.strength.value,
+            confidence=float(signal.confidence),
+            price=float(signal.price),
+            timestamp=signal.timestamp.isoformat(),
+            reasons=signal.reasons,
+            conditions_met=signal.conditions_met,
+            validity_score=float(validity),
+            market_context=market_context
+        )
     else:
-        print("シグナルなし")
+        logger.info("シグナル生成結果", section="signal_generation", signal_type="none", result="シグナルなし")
 
     # 時系列シグナル生成
-    print("\n=== 時系列シグナル ===")
     signals_series = generator.generate_signals_series(df, lookback_window=30)
 
     if not signals_series.empty:
         # 買い/売りシグナルのみ表示
         active_signals = signals_series[signals_series["Signal"] != "hold"]
-        print(active_signals.tail(10))
+        logger.info(
+            "時系列シグナル生成完了",
+            section="time_series_signals",
+            total_signals=len(signals_series),
+            active_signals=len(active_signals),
+            latest_signals=active_signals.tail(10).to_dict('records') if not active_signals.empty else []
+        )
