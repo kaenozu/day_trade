@@ -3,7 +3,6 @@
 yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得
 """
 
-import logging
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
@@ -25,8 +24,7 @@ from ..utils.exceptions import (
     ValidationError,
     handle_network_exception,
 )
-
-logger = logging.getLogger(__name__)
+from ..utils.logging_config import get_context_logger, log_api_call, log_error_with_context, log_performance_metric
 
 
 class DataCache:
@@ -68,6 +66,8 @@ def cache_with_ttl(ttl_seconds: int):
     """TTL付きキャッシュデコレータ（改善版）"""
     cache = DataCache(ttl_seconds)
     stats = CacheStats()
+    # キャッシュデコレータ用のロガーを取得
+    cache_logger = get_context_logger(__name__)
 
     def decorator(func):
         @wraps(func)
@@ -78,7 +78,7 @@ def cache_with_ttl(ttl_seconds: int):
 
                 # キーの妥当性を検証
                 if not validate_cache_key(cache_key):
-                    logger.warning(
+                    cache_logger.warning(
                         f"Invalid cache key generated for {func.__name__}, skipping cache"
                     )
                     stats.record_error()
@@ -87,7 +87,7 @@ def cache_with_ttl(ttl_seconds: int):
                 # キャッシュから取得を試行
                 cached_result = cache.get(cache_key)
                 if cached_result is not None:
-                    logger.debug(f"キャッシュヒット: {func.__name__}")
+                    cache_logger.debug(f"キャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
@@ -100,12 +100,12 @@ def cache_with_ttl(ttl_seconds: int):
                     sanitized_result = sanitize_cache_value(result)
                     cache.set(cache_key, sanitized_result)
                     stats.record_set()
-                    logger.debug(f"キャッシュに保存: {func.__name__}")
+                    cache_logger.debug(f"キャッシュに保存: {func.__name__}")
 
                 return result
 
             except Exception as e:
-                logger.error(f"キャッシュ処理でエラーが発生: {e}")
+                cache_logger.error(f"キャッシュ処理でエラーが発生: {e}")
                 stats.record_error()
                 # キャッシュエラーでも関数実行は継続
                 return func(*args, **kwargs)
@@ -163,12 +163,21 @@ class StockFetcher:
         self.retry_count = retry_count
         self.retry_delay = retry_delay
 
+        # ロガーを初期化
+        self.logger = get_context_logger(__name__)
+
         # LRUキャッシュを動的に設定
         self._get_ticker = lru_cache(maxsize=cache_size)(self._create_ticker)
 
         # キャッシュTTLを設定
         self.price_cache_ttl = price_cache_ttl
         self.historical_cache_ttl = historical_cache_ttl
+
+        self.logger.info("StockFetcher初期化完了",
+                        cache_size=cache_size,
+                        price_cache_ttl=price_cache_ttl,
+                        historical_cache_ttl=historical_cache_ttl,
+                        retry_count=retry_count)
 
     def _create_ticker(self, symbol: str) -> yf.Ticker:
         """Tickerオブジェクトを作成（内部メソッド）"""
@@ -188,7 +197,7 @@ class StockFetcher:
                 # ネットワークエラーまたは一時的なエラーの場合のみリトライ
                 if self._is_retryable_error(e):
                     if attempt < self.retry_count - 1:
-                        logger.warning(
+                        self.logger.warning(
                             f"リトライ {attempt + 1}/{self.retry_count}: {e}"
                         )
                         time.sleep(self.retry_delay * (attempt + 1))  # 指数バックオフ
@@ -318,7 +327,7 @@ class StockFetcher:
             )
 
         if end_date > datetime.now():
-            logger.warning(f"終了日が未来の日付です: {end_date}")
+            self.logger.warning(f"終了日が未来の日付です: {end_date}")
 
     def clear_all_caches(self) -> None:
         """すべてのキャッシュをクリア"""
@@ -332,7 +341,7 @@ class StockFetcher:
         if hasattr(self.get_historical_data_range, "clear_cache"):
             self.get_historical_data_range.clear_cache()
 
-        logger.info("すべてのキャッシュをクリアしました")
+        self.logger.info("すべてのキャッシュをクリアしました")
 
     def _format_symbol(self, code: str, market: str = "T") -> str:
         """
@@ -369,36 +378,75 @@ class StockFetcher:
         """
 
         def _get_price():
-            self._validate_symbol(code)
-            symbol = self._format_symbol(code)
-            ticker = self._get_ticker(symbol)
-            info = ticker.info
+            price_logger = self.logger.bind(
+                operation="get_current_price",
+                stock_code=code
+            )
+            price_logger.info("現在価格取得開始")
 
-            # infoが空または無効な場合
-            if not info or len(info) < 5:
-                raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
+            start_time = time.time()
 
-            # 基本情報を取得
-            current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-            previous_close = info.get("previousClose")
+            try:
+                self._validate_symbol(code)
+                symbol = self._format_symbol(code)
+                ticker = self._get_ticker(symbol)
 
-            if current_price is None:
-                raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
+                # API呼び出しログ
+                log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
+                info = ticker.info
 
-            # 変化額・変化率を計算
-            change = current_price - previous_close if previous_close else 0
-            change_percent = (change / previous_close * 100) if previous_close else 0
+                # infoが空または無効な場合
+                if not info or len(info) < 5:
+                    price_logger.error("企業情報取得失敗", info_size=len(info) if info else 0)
+                    raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
 
-            return {
-                "symbol": symbol,
-                "current_price": current_price,
-                "previous_close": previous_close,
-                "change": change,
-                "change_percent": change_percent,
-                "volume": info.get("volume", 0),
-                "market_cap": info.get("marketCap"),
-                "timestamp": datetime.now(),
-            }
+                # 基本情報を取得
+                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+                previous_close = info.get("previousClose")
+
+                if current_price is None:
+                    price_logger.error("現在価格データなし",
+                                     available_keys=list(info.keys())[:10])
+                    raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
+
+                # 変化額・変化率を計算
+                change = current_price - previous_close if previous_close else 0
+                change_percent = (change / previous_close * 100) if previous_close else 0
+
+                # パフォーマンスメトリクス
+                elapsed_time = (time.time() - start_time) * 1000
+                log_performance_metric("price_fetch_time", elapsed_time, "ms",
+                                     stock_code=code)
+
+                result = {
+                    "symbol": symbol,
+                    "current_price": current_price,
+                    "previous_close": previous_close,
+                    "change": change,
+                    "change_percent": change_percent,
+                    "volume": info.get("volume", 0),
+                    "market_cap": info.get("marketCap"),
+                    "timestamp": datetime.now(),
+                }
+
+                price_logger.info("現在価格取得完了",
+                                current_price=current_price,
+                                change_percent=change_percent,
+                                elapsed_ms=elapsed_time)
+
+                return result
+
+            except Exception as e:
+                elapsed_time = (time.time() - start_time) * 1000
+                log_error_with_context(e, {
+                    "operation": "get_current_price",
+                    "stock_code": code,
+                    "elapsed_ms": elapsed_time
+                })
+                price_logger.error("現在価格取得失敗",
+                                 error=str(e),
+                                 elapsed_ms=elapsed_time)
+                raise
 
         return self._retry_on_error(_get_price)
 
@@ -587,11 +635,11 @@ class StockFetcher:
                     else:
                         failed_codes.append(code)
                 except Exception as e:
-                    logger.warning(f"銘柄 {code} の取得に失敗: {e}")
+                    self.logger.warning(f"銘柄 {code} の取得に失敗: {e}")
                     failed_codes.append(code)
 
         if failed_codes:
-            logger.info(f"取得に失敗した銘柄: {failed_codes}")
+            self.logger.info(f"取得に失敗した銘柄: {failed_codes}")
 
         return results
 
@@ -643,7 +691,8 @@ class StockFetcher:
 # 使用例
 if __name__ == "__main__":
     # ロギング設定
-    logging.basicConfig(level=logging.INFO)
+    from ..utils.logging_config import setup_logging
+    setup_logging()
 
     # インスタンス作成
     fetcher = StockFetcher()
