@@ -12,11 +12,23 @@ from decimal import Decimal
 import numpy as np
 import pandas as pd
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 from rich.rule import Rule
 from rich.table import Table
+
+# Windows環境対応
+try:
+    from src.day_trade.utils.windows_console_fix import create_safe_live_context
+    safe_live_context = create_safe_live_context()
+except ImportError:
+    from contextlib import contextmanager
+    from rich.live import Live
+
+    @contextmanager
+    def safe_live_context(*args, **kwargs):
+        with Live(*args, **kwargs) as live:
+            yield live
 
 from src.day_trade.analysis.backtest import (
     BacktestConfig,
@@ -536,7 +548,7 @@ def interactive_demo():
         return layout
 
     try:
-        with Live(
+        with safe_live_context(
             create_progress_display(config.start_date, config.initial_capital, 0),
             refresh_per_second=4,
             screen=False,
@@ -549,9 +561,10 @@ def interactive_demo():
                 )
                 trades_count = random.randint(0, day + 1)
 
-                live.update(
-                    create_progress_display(current_date, current_value, trades_count)
-                )
+                if live:  # Liveが有効な場合のみ更新
+                    live.update(
+                        create_progress_display(current_date, current_value, trades_count)
+                    )
                 time.sleep(0.3)
 
         console.print("\n[green]インタラクティブデモが完了しました！[/green]")

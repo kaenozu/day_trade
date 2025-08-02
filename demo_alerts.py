@@ -12,10 +12,22 @@ from decimal import Decimal
 import pandas as pd
 from rich.console import Console
 from rich.layout import Layout
-from rich.live import Live
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
+
+# Windows環境対応
+try:
+    from src.day_trade.utils.windows_console_fix import create_safe_live_context
+    safe_live_context = create_safe_live_context()
+except ImportError:
+    from contextlib import contextmanager
+    from rich.live import Live
+
+    @contextmanager
+    def safe_live_context(*args, **kwargs):
+        with Live(*args, **kwargs) as live:
+            yield live
 
 from src.day_trade.core.alerts import (
     AlertCondition,
@@ -511,7 +523,7 @@ def demo_real_time_monitoring():
     console.print("[dim]価格変動によってアラートが発火します[/dim]\n")
 
     try:
-        with Live(
+        with safe_live_context(
             create_monitoring_display(), refresh_per_second=2, screen=False
         ) as live:
             # 監視開始
@@ -520,7 +532,8 @@ def demo_real_time_monitoring():
             # 30秒間監視
             for _ in range(30):
                 time.sleep(1)
-                live.update(create_monitoring_display())
+                if live:  # Liveが有効な場合のみ更新
+                    live.update(create_monitoring_display())
 
         alert_manager.stop_monitoring()
 

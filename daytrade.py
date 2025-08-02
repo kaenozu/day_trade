@@ -13,6 +13,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+# Windows環境対応の初期化
+try:
+    from src.day_trade.utils.windows_console_fix import setup_windows_console
+    setup_windows_console()
+except ImportError:
+    pass  # Windows環境修正ユーティリティが無い場合はスキップ
+
 from src.day_trade.automation.orchestrator import DayTradeOrchestrator  # Moved to top
 from src.day_trade.config.config_manager import ConfigManager  # Moved to top
 
