@@ -54,7 +54,7 @@ def extract_stock_codes_from_excel(file_content: bytes) -> List[str]:
         logging.info("Extracting stock codes from the excel file.")
         # ダウンロードしたコンテンツをファイルのように扱えるようにする
         file_like_object = io.BytesIO(file_content)
-        
+
         # Excelファイルを読み込む
         # ヘッダーが1行目にあると仮定し、'コード'列を抽出
         df = pd.read_excel(file_like_object, sheet_name=0, header=0)
@@ -66,7 +66,7 @@ def extract_stock_codes_from_excel(file_content: bytes) -> List[str]:
 
         # 'コード'列から値を取得し、NaNを除外してから文字列に変換
         codes = df['コード'].dropna().astype(str).tolist()
-        
+
         logging.info(f"Successfully extracted {len(codes)} stock codes.")
         return codes
     except Exception as e:
