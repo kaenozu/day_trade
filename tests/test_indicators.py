@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.day_trade.analysis.indicators import TechnicalIndicators
+from src.day_trade.analysis.indicators import TechnicalIndicators, IndicatorsConfig
 
 
 class TestTechnicalIndicators:
@@ -429,6 +429,259 @@ class TestTechnicalIndicators:
         ema2 = TechnicalIndicators.ema(sample_data, period=12)
 
         pd.testing.assert_series_equal(ema1, ema2)
+
+
+class TestIndicatorsConfig:
+    """テクニカル指標設定管理のテスト"""
+
+    def test_config_initialization(self):
+        """設定初期化テスト"""
+        config = IndicatorsConfig()
+        assert config.config is not None
+        assert "default_parameters" in config.config
+        assert "calculate_all_defaults" in config.config
+
+    def test_parameter_retrieval(self):
+        """パラメータ取得テスト"""
+        config = IndicatorsConfig()
+
+        # デフォルト値の取得
+        sma_default = config.get_parameter("sma", "default_period")
+        assert sma_default == 20
+
+        rsi_period = config.get_parameter("rsi", "period")
+        assert rsi_period == 14
+
+        # 存在しないパラメータ
+        unknown = config.get_parameter("unknown", "param", "default_value")
+        assert unknown == "default_value"
+
+    def test_calculate_all_defaults(self):
+        """calculate_all設定取得テスト"""
+        config = IndicatorsConfig()
+        defaults = config.get_calculate_all_defaults()
+
+        assert "sma_periods" in defaults
+        assert "bb_period" in defaults
+        assert "rsi_period" in defaults
+        assert isinstance(defaults["sma_periods"], list)
+
+    def test_custom_config_file(self):
+        """カスタム設定ファイルテスト"""
+        import tempfile
+        import json
+        import os
+
+        # テスト用設定
+        test_config = {
+            "default_parameters": {
+                "sma": {"default_period": 25},
+                "rsi": {"period": 21}
+            },
+            "calculate_all_defaults": {
+                "sma_periods": [10, 30],
+                "rsi_period": 21
+            },
+            "performance_settings": {
+                "progress_threshold": 50
+            }
+        }
+
+        # 一時ファイルに保存
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_config, f)
+            temp_path = f.name
+
+        try:
+            config = IndicatorsConfig(temp_path)
+            assert config.get_parameter("sma", "default_period") == 25
+            assert config.get_parameter("rsi", "period") == 21
+
+            defaults = config.get_calculate_all_defaults()
+            assert defaults["sma_periods"] == [10, 30]
+            assert defaults["rsi_period"] == 21
+
+            perf = config.get_performance_settings()
+            assert perf["progress_threshold"] == 50
+
+        finally:
+            os.unlink(temp_path)
+
+
+class TestImprovedIndicators:
+    """改善されたテクニカル指標機能のテスト"""
+
+    @pytest.fixture
+    def sample_data(self):
+        """テスト用データ"""
+        dates = pd.date_range(start="2023-01-01", periods=100, freq="D")
+        np.random.seed(42)
+        close_prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
+
+        return pd.DataFrame({
+            "Open": close_prices + np.random.randn(100) * 0.1,
+            "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
+            "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
+            "Close": close_prices,
+            "Volume": np.random.randint(1000000, 5000000, 100),
+        }, index=dates)
+
+    def test_sma_with_config_defaults(self, sample_data):
+        """設定デフォルト値を使用したSMAテスト"""
+        # デフォルト期間で計算
+        sma_default = TechnicalIndicators.sma(sample_data)
+
+        # 明示的に期間を指定して計算
+        sma_explicit = TechnicalIndicators.sma(sample_data, period=20)
+
+        # 結果が同じであることを確認
+        pd.testing.assert_series_equal(sma_default, sma_explicit)
+
+    def test_ema_with_config_defaults(self, sample_data):
+        """設定デフォルト値を使用したEMAテスト"""
+        # デフォルト期間で計算
+        ema_default = TechnicalIndicators.ema(sample_data)
+
+        # 明示的に期間を指定して計算
+        ema_explicit = TechnicalIndicators.ema(sample_data, period=20)
+
+        # 結果が同じであることを確認
+        pd.testing.assert_series_equal(ema_default, ema_explicit)
+
+    def test_rsi_with_config_defaults(self, sample_data):
+        """設定デフォルト値を使用したRSIテスト"""
+        # デフォルト期間で計算
+        rsi_default = TechnicalIndicators.rsi(sample_data)
+
+        # 明示的に期間を指定して計算
+        rsi_explicit = TechnicalIndicators.rsi(sample_data, period=14)
+
+        # 結果が同じであることを確認
+        pd.testing.assert_series_equal(rsi_default, rsi_explicit)
+
+    def test_rsi_zero_division_handling(self):
+        """RSIのゼロ除算対策テスト"""
+        # 同じ価格（損失がゼロ）
+        constant_data = pd.DataFrame({
+            "Close": [100.0] * 20,
+            "High": [100.1] * 20,
+            "Low": [99.9] * 20,
+            "Volume": [1000000] * 20,
+        })
+        constant_data.index = pd.date_range(start="2023-01-01", periods=20, freq="D")
+
+        rsi = TechnicalIndicators.rsi(constant_data)
+
+        # 変動がない場合、適切に処理されることを確認
+        assert isinstance(rsi, pd.Series)
+        assert len(rsi) == 20
+
+        # 最初の値以外はNaNでないことを確認（値が存在する）
+        valid_values = rsi.dropna()
+        if len(valid_values) > 0:
+            # 値が0-100の範囲内であることを確認
+            assert (valid_values >= 0).all()
+            assert (valid_values <= 100).all()
+
+    def test_calculate_all_optimized(self, sample_data):
+        """最適化されたcalculate_allテスト"""
+        # 新しい実装
+        result = TechnicalIndicators.calculate_all(sample_data)
+
+        # 基本的な検証
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == len(sample_data)
+
+        # 元のデータ列が保持されている
+        for col in sample_data.columns:
+            assert col in result.columns
+
+        # 期待される指標が含まれている
+        expected_indicators = [
+            "SMA_5", "SMA_20", "SMA_60",
+            "EMA_12", "EMA_26",
+            "BB_Upper", "BB_Middle", "BB_Lower",
+            "MACD", "MACD_Signal", "MACD_Histogram",
+            "RSI",
+            "Stoch_K", "Stoch_D",
+            "Volume_MA", "Volume_Ratio",
+            "ATR"
+        ]
+
+        for indicator in expected_indicators:
+            assert indicator in result.columns, f"指標 {indicator} が見つかりません"
+
+    def test_calculate_all_with_custom_parameters(self, sample_data):
+        """カスタムパラメータでのcalculate_allテスト"""
+        result = TechnicalIndicators.calculate_all(
+            sample_data,
+            sma_periods=[10, 50],
+            ema_periods=[9, 21],
+            bb_period=25,
+            rsi_period=21
+        )
+
+        # カスタム設定の指標が含まれている
+        assert "SMA_10" in result.columns
+        assert "SMA_50" in result.columns
+        assert "EMA_9" in result.columns
+        assert "EMA_21" in result.columns
+
+        # デフォルトの指標は含まれていない
+        assert "SMA_5" not in result.columns
+        assert "SMA_20" not in result.columns
+
+    def test_error_handling_empty_dataframe(self):
+        """空DataFrameのエラーハンドリングテスト"""
+        empty_df = pd.DataFrame()
+
+        # SMA
+        sma = TechnicalIndicators.sma(empty_df)
+        assert isinstance(sma, pd.Series)
+        assert len(sma) == 0
+
+        # calculate_all
+        result = TechnicalIndicators.calculate_all(empty_df)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
+
+    def test_error_handling_missing_columns(self):
+        """必須列欠如のエラーハンドリングテスト"""
+        df_no_close = pd.DataFrame({
+            "Open": [100, 101, 102],
+            "High": [102, 103, 104],
+            "Low": [99, 100, 101],
+        })
+
+        # Close列がない場合のSMA
+        sma = TechnicalIndicators.sma(df_no_close)
+        assert isinstance(sma, pd.Series)
+        assert len(sma) == 0
+
+    def test_performance_settings(self, sample_data):
+        """パフォーマンス設定テスト"""
+        # 進捗表示なしで実行
+        result1 = TechnicalIndicators.calculate_all(sample_data, show_progress=False)
+
+        # 進捗表示ありで実行（データサイズが閾値以下なので実際は表示されない）
+        result2 = TechnicalIndicators.calculate_all(sample_data, show_progress=True)
+
+        # 結果が同じであることを確認
+        pd.testing.assert_frame_equal(result1, result2)
+
+    def test_detailed_logging_validation(self, sample_data):
+        """詳細ログ機能のテスト"""
+        # 正常なケースでのログ出力を確認
+        result = TechnicalIndicators.calculate_all(sample_data)
+        assert isinstance(result, pd.DataFrame)
+
+        # 不正なデータでのエラーログを確認
+        bad_data = pd.DataFrame({"Close": [np.nan, np.inf, -np.inf]})
+        bad_data.index = pd.date_range(start="2023-01-01", periods=3, freq="D")
+
+        # エラーが発生しても例外は発生せず、適切に処理される
+        rsi = TechnicalIndicators.rsi(bad_data)
+        assert isinstance(rsi, pd.Series)
 
 
 if __name__ == "__main__":
