@@ -132,13 +132,22 @@ benchmark: ## Run performance benchmarks
 deps-update: ## Update dependencies
 	@echo "📦 Updating dependencies..."
 	pip install --upgrade pip
-	pip-compile requirements.in --upgrade || echo "pip-compile not available"
+	python scripts/dependency_manager.py update --dry-run
 	pre-commit autoupdate
 
 deps-check: ## Check for security vulnerabilities
 	@echo "🔒 Checking dependencies for vulnerabilities..."
+	python scripts/dependency_manager.py check
 	safety check || echo "Safety not installed"
 	pip-audit || echo "pip-audit not installed"
+
+deps-report: ## Generate dependency report
+	@echo "📊 Generating dependency report..."
+	python scripts/dependency_manager.py report
+
+deps-sync: ## Sync requirements files
+	@echo "🔄 Syncing requirements files..."
+	python scripts/dependency_manager.py sync
 
 # リリース
 release-patch: ## Create patch release

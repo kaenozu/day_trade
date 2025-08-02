@@ -8,6 +8,7 @@ JSON形式での出力、フィルタリング、ログレベル管理を統一�
 import logging
 import os
 import sys
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 import structlog
@@ -230,3 +231,132 @@ def log_api_call(api_name: str, method: str, url: str, status_code: int = None, 
         status_code=status_code,
         **kwargs
     )
+
+
+def log_security_event(event_type: str, severity: str = "info", **kwargs) -> None:
+    """セキュリティイベントをログ出力"""
+    logger = get_logger()
+
+    log_data = {
+        "event_type": event_type,
+        "severity": severity,
+        "timestamp": datetime.now().isoformat(),
+        **kwargs
+    }
+
+    if severity == "critical":
+        logger.critical("Security event", **log_data)
+    elif severity == "warning":
+        logger.warning("Security event", **log_data)
+    else:
+        logger.info("Security event", **log_data)
+
+
+def log_user_action(action: str, user_id: str = None, **kwargs) -> None:
+    """ユーザーアクションをログ出力"""
+    logger = get_logger()
+    logger.info(
+        "User action",
+        action=action,
+        user_id=user_id or "anonymous",
+        timestamp=datetime.now().isoformat(),
+        **kwargs
+    )
+
+
+def log_system_health(component: str, status: str, **metrics) -> None:
+    """システムヘルス情報をログ出力"""
+    logger = get_logger()
+    logger.info(
+        "System health",
+        component=component,
+        status=status,
+        timestamp=datetime.now().isoformat(),
+        **metrics
+    )
+
+
+class AlertThreshold:
+    """アラート閾値設定"""
+
+    def __init__(self):
+        self.error_count_threshold = int(os.getenv("ALERT_ERROR_THRESHOLD", "10"))
+        self.response_time_threshold = float(os.getenv("ALERT_RESPONSE_TIME_THRESHOLD", "5.0"))
+        self.memory_usage_threshold = float(os.getenv("ALERT_MEMORY_THRESHOLD", "80.0"))
+
+
+class LoggingAlert:
+    """ログベースアラート機能"""
+
+    def __init__(self):
+        self.thresholds = AlertThreshold()
+        self.error_count = 0
+        self.alert_enabled = os.getenv("ENABLE_LOGGING_ALERTS", "false").lower() == "true"
+
+    def check_error_threshold(self) -> None:
+        """エラー数閾値チェック"""
+        if not self.alert_enabled:
+            return
+
+        self.error_count += 1
+        if self.error_count >= self.thresholds.error_count_threshold:
+            log_security_event(
+                "error_threshold_exceeded",
+                severity="warning",
+                error_count=self.error_count,
+                threshold=self.thresholds.error_count_threshold
+            )
+            self.error_count = 0  # リセット
+
+    def check_performance_threshold(self, metric: str, value: float) -> None:
+        """パフォーマンス閾値チェック"""
+        if not self.alert_enabled:
+            return
+
+        threshold_exceeded = False
+
+        if metric == "response_time" and value > self.thresholds.response_time_threshold:
+            threshold_exceeded = True
+        elif metric == "memory_usage" and value > self.thresholds.memory_usage_threshold:
+            threshold_exceeded = True
+
+        if threshold_exceeded:
+            log_security_event(
+                "performance_threshold_exceeded",
+                severity="warning",
+                metric=metric,
+                value=value,
+                threshold=getattr(self.thresholds, f"{metric}_threshold")
+            )
+
+
+# グローバルアラートインスタンス
+_alert_manager = LoggingAlert()
+
+
+def setup_logging_with_alerts() -> None:
+    """アラート機能付きロギング設定"""
+    setup_logging()
+
+    # カスタムハンドラーでアラート機能を統合
+    if _alert_manager.alert_enabled:
+        logger = get_logger()
+        logger.info("ログベースアラート機能を有効化",
+                   error_threshold=_alert_manager.thresholds.error_count_threshold,
+                   response_time_threshold=_alert_manager.thresholds.response_time_threshold,
+                   memory_threshold=_alert_manager.thresholds.memory_usage_threshold)
+
+
+def enhanced_log_error_with_context(error: Exception, context: Dict[str, Any] = None) -> None:
+    """エラー情報をコンテキスト付きでログ出力（アラート機能付き）"""
+    log_error_with_context(error, context)
+    _alert_manager.check_error_threshold()
+
+
+def enhanced_log_performance_metric(metric_name: str, value: float, unit: str = "ms", **kwargs) -> None:
+    """パフォーマンスメトリクスをログ出力（アラート機能付き）"""
+    log_performance_metric(metric_name, value, unit, **kwargs)
+
+    # 特定のメトリクスに対してアラートチェック
+    if metric_name in ["response_time", "memory_usage"]:
+        _alert_manager.check_performance_threshold(metric_name, value)

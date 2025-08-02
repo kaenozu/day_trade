@@ -155,16 +155,24 @@ def validate_log_level(log_level: str) -> str:
 
 def setup_logging(log_level: str = "INFO"):
     """ログ設定をセットアップ"""
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(
-                f"daytrade_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"
-            ),
-        ],
-    )
+    # 構造化ロギングを優先して使用
+    try:
+        from src.day_trade.utils.logging_config import setup_logging as setup_structured_logging
+        import os
+        os.environ['LOG_LEVEL'] = log_level.upper()
+        setup_structured_logging()
+    except ImportError:
+        # フォールバック: 標準ロギング
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            handlers=[
+                logging.StreamHandler(sys.stdout),
+                logging.FileHandler(
+                    f"daytrade_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"
+                ),
+            ],
+        )
 
 
 def print_banner():
