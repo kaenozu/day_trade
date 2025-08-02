@@ -1021,6 +1021,464 @@ class TradeManager:
             )
             raise
 
+    def buy_stock(
+        self,
+        symbol: str,
+        quantity: int,
+        price: Decimal,
+        current_market_price: Optional[Decimal] = None,
+        notes: str = "",
+        persist_to_db: bool = True
+    ) -> Dict[str, any]:
+        """
+        株式買い注文を実行（完全なトランザクション保護）
+
+        ポートフォリオ更新と取引履歴追加を単一のトランザクションで処理し、
+        データの整合性を保証する。
+
+        Args:
+            symbol: 銘柄コード
+            quantity: 購入数量
+            price: 購入価格
+            current_market_price: 現在の市場価格（ポートフォリオ評価用）
+            notes: 取引メモ
+            persist_to_db: データベースに永続化するかどうか
+
+        Returns:
+            取引結果辞書（取引ID、更新後ポジション、手数料等）
+
+        Raises:
+            ValueError: 無効な購入パラメータ
+            Exception: データベース処理エラー
+        """
+        buy_logger = logger.bind(
+            operation="buy_stock",
+            symbol=symbol,
+            quantity=quantity,
+            price=float(price),
+            persist_to_db=persist_to_db
+        )
+
+        buy_logger.info("株式買い注文処理開始")
+
+        # パラメータ検証
+        if quantity <= 0:
+            raise ValueError(f"購入数量は正数である必要があります: {quantity}")
+        if price <= 0:
+            raise ValueError(f"購入価格は正数である必要があります: {price}")
+
+        # メモリ内データのバックアップ
+        trades_backup = self.trades.copy()
+        positions_backup = self.positions.copy()
+        counter_backup = self._trade_counter
+
+        try:
+            # 手数料計算
+            commission = self._calculate_commission(price, quantity)
+            timestamp = datetime.now()
+
+            if persist_to_db:
+                # データベース永続化の場合は全処理をトランザクション内で実行
+                with db_manager.transaction_scope() as session:
+                    # 1. 銘柄マスタの存在確認・作成
+                    stock = session.query(Stock).filter(Stock.code == symbol).first()
+                    if not stock:
+                        buy_logger.info("銘柄マスタに未登録、新規作成")
+                        stock = Stock(
+                            code=symbol,
+                            name=symbol,
+                            market="未定",
+                            sector="未定",
+                            industry="未定"
+                        )
+                        session.add(stock)
+                        session.flush()
+
+                    # 2. 取引ID生成
+                    trade_id = self._generate_trade_id()
+
+                    # 3. データベース取引記録を作成
+                    db_trade = DBTrade.create_buy_trade(
+                        session=session,
+                        stock_code=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        memo=notes
+                    )
+
+                    # 4. メモリ内取引記録作成
+                    memory_trade = Trade(
+                        id=trade_id,
+                        symbol=symbol,
+                        trade_type=TradeType.BUY,
+                        quantity=quantity,
+                        price=price,
+                        timestamp=timestamp,
+                        commission=commission,
+                        notes=notes
+                    )
+
+                    # 5. ポジション更新（原子的実行）
+                    old_position = self.positions.get(symbol)
+                    self.trades.append(memory_trade)
+                    self._update_position(memory_trade)
+                    new_position = self.positions.get(symbol)
+
+                    # 6. 現在価格更新（指定されている場合）
+                    if current_market_price and symbol in self.positions:
+                        self.positions[symbol].current_price = current_market_price
+
+                    # 中間状態をflushして整合性を確認
+                    session.flush()
+
+                    # ビジネスイベントログ
+                    log_business_event(
+                        "stock_purchased",
+                        trade_id=trade_id,
+                        symbol=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        old_position=old_position.to_dict() if old_position else None,
+                        new_position=new_position.to_dict() if new_position else None,
+                        persisted=True
+                    )
+
+                    buy_logger.info("株式買い注文完了（DB永続化）",
+                                 trade_id=trade_id,
+                                 db_trade_id=db_trade.id,
+                                 commission=float(commission))
+            else:
+                # メモリ内のみの処理
+                trade_id = self._generate_trade_id()
+
+                memory_trade = Trade(
+                    id=trade_id,
+                    symbol=symbol,
+                    trade_type=TradeType.BUY,
+                    quantity=quantity,
+                    price=price,
+                    timestamp=timestamp,
+                    commission=commission,
+                    notes=notes
+                )
+
+                old_position = self.positions.get(symbol)
+                self.trades.append(memory_trade)
+                self._update_position(memory_trade)
+                new_position = self.positions.get(symbol)
+
+                if current_market_price and symbol in self.positions:
+                    self.positions[symbol].current_price = current_market_price
+
+                log_business_event(
+                    "stock_purchased",
+                    trade_id=trade_id,
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=float(price),
+                    commission=float(commission),
+                    old_position=old_position.to_dict() if old_position else None,
+                    new_position=new_position.to_dict() if new_position else None,
+                    persisted=False
+                )
+
+                buy_logger.info("株式買い注文完了（メモリのみ）",
+                             trade_id=trade_id,
+                             commission=float(commission))
+
+            # 結果データ作成
+            result = {
+                "success": True,
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": float(price),
+                "commission": float(commission),
+                "timestamp": timestamp.isoformat(),
+                "position": self.positions[symbol].to_dict() if symbol in self.positions else None,
+                "total_cost": float(price * quantity + commission)
+            }
+
+            return result
+
+        except Exception as e:
+            # エラー時はメモリ内データを復元
+            self.trades = trades_backup
+            self.positions = positions_backup
+            self._trade_counter = counter_backup
+
+            log_error_with_context(e, {
+                "operation": "buy_stock",
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": float(price),
+                "persist_to_db": persist_to_db
+            })
+            buy_logger.error("株式買い注文失敗、変更をロールバック", error=str(e))
+            raise
+
+    def sell_stock(
+        self,
+        symbol: str,
+        quantity: int,
+        price: Decimal,
+        current_market_price: Optional[Decimal] = None,
+        notes: str = "",
+        persist_to_db: bool = True
+    ) -> Dict[str, any]:
+        """
+        株式売り注文を実行（完全なトランザクション保護）
+
+        ポートフォリオ更新、取引履歴追加、実現損益計算を
+        単一のトランザクションで処理し、データの整合性を保証する。
+
+        Args:
+            symbol: 銘柄コード
+            quantity: 売却数量
+            price: 売却価格
+            current_market_price: 現在の市場価格（ポートフォリオ評価用）
+            notes: 取引メモ
+            persist_to_db: データベースに永続化するかどうか
+
+        Returns:
+            取引結果辞書（取引ID、更新後ポジション、実現損益等）
+
+        Raises:
+            ValueError: 無効な売却パラメータ（保有数量不足等）
+            Exception: データベース処理エラー
+        """
+        sell_logger = logger.bind(
+            operation="sell_stock",
+            symbol=symbol,
+            quantity=quantity,
+            price=float(price),
+            persist_to_db=persist_to_db
+        )
+
+        sell_logger.info("株式売り注文処理開始")
+
+        # パラメータ検証
+        if quantity <= 0:
+            raise ValueError(f"売却数量は正数である必要があります: {quantity}")
+        if price <= 0:
+            raise ValueError(f"売却価格は正数である必要があります: {price}")
+
+        # ポジション存在確認
+        if symbol not in self.positions:
+            raise ValueError(f"銘柄 '{symbol}' のポジションが存在しません")
+
+        current_position = self.positions[symbol]
+        if current_position.quantity < quantity:
+            raise ValueError(
+                f"売却数量 ({quantity}) が保有数量 ({current_position.quantity}) を超過しています"
+            )
+
+        # メモリ内データのバックアップ
+        trades_backup = self.trades.copy()
+        positions_backup = self.positions.copy()
+        realized_pnl_backup = self.realized_pnl.copy()
+        counter_backup = self._trade_counter
+
+        try:
+            # 手数料計算
+            commission = self._calculate_commission(price, quantity)
+            timestamp = datetime.now()
+
+            if persist_to_db:
+                # データベース永続化の場合は全処理をトランザクション内で実行
+                with db_manager.transaction_scope() as session:
+                    # 1. 取引ID生成
+                    trade_id = self._generate_trade_id()
+
+                    # 2. データベース取引記録を作成
+                    db_trade = DBTrade.create_sell_trade(
+                        session=session,
+                        stock_code=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        memo=notes
+                    )
+
+                    # 3. メモリ内取引記録作成
+                    memory_trade = Trade(
+                        id=trade_id,
+                        symbol=symbol,
+                        trade_type=TradeType.SELL,
+                        quantity=quantity,
+                        price=price,
+                        timestamp=timestamp,
+                        commission=commission,
+                        notes=notes
+                    )
+
+                    # 4. ポジション更新と実現損益計算（原子的実行）
+                    old_position = self.positions[symbol]
+                    old_realized_pnl_count = len(self.realized_pnl)
+
+                    self.trades.append(memory_trade)
+                    self._update_position(memory_trade)
+
+                    new_position = self.positions.get(symbol)
+                    new_realized_pnl = None
+                    if len(self.realized_pnl) > old_realized_pnl_count:
+                        new_realized_pnl = self.realized_pnl[-1]
+
+                    # 5. 現在価格更新（指定されている場合）
+                    if current_market_price and symbol in self.positions:
+                        self.positions[symbol].current_price = current_market_price
+
+                    # 中間状態をflushして整合性を確認
+                    session.flush()
+
+                    # ビジネスイベントログ
+                    log_business_event(
+                        "stock_sold",
+                        trade_id=trade_id,
+                        symbol=symbol,
+                        quantity=quantity,
+                        price=float(price),
+                        commission=float(commission),
+                        old_position=old_position.to_dict(),
+                        new_position=new_position.to_dict() if new_position else None,
+                        realized_pnl=new_realized_pnl.to_dict() if new_realized_pnl else None,
+                        persisted=True
+                    )
+
+                    sell_logger.info("株式売り注文完了（DB永続化）",
+                                  trade_id=trade_id,
+                                  db_trade_id=db_trade.id,
+                                  commission=float(commission),
+                                  realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None)
+            else:
+                # メモリ内のみの処理
+                trade_id = self._generate_trade_id()
+
+                memory_trade = Trade(
+                    id=trade_id,
+                    symbol=symbol,
+                    trade_type=TradeType.SELL,
+                    quantity=quantity,
+                    price=price,
+                    timestamp=timestamp,
+                    commission=commission,
+                    notes=notes
+                )
+
+                old_position = self.positions[symbol]
+                old_realized_pnl_count = len(self.realized_pnl)
+
+                self.trades.append(memory_trade)
+                self._update_position(memory_trade)
+
+                new_position = self.positions.get(symbol)
+                new_realized_pnl = None
+                if len(self.realized_pnl) > old_realized_pnl_count:
+                    new_realized_pnl = self.realized_pnl[-1]
+
+                if current_market_price and symbol in self.positions:
+                    self.positions[symbol].current_price = current_market_price
+
+                log_business_event(
+                    "stock_sold",
+                    trade_id=trade_id,
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=float(price),
+                    commission=float(commission),
+                    old_position=old_position.to_dict(),
+                    new_position=new_position.to_dict() if new_position else None,
+                    realized_pnl=new_realized_pnl.to_dict() if new_realized_pnl else None,
+                    persisted=False
+                )
+
+                sell_logger.info("株式売り注文完了（メモリのみ）",
+                              trade_id=trade_id,
+                              commission=float(commission),
+                              realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None)
+
+            # 結果データ作成
+            result = {
+                "success": True,
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": float(price),
+                "commission": float(commission),
+                "timestamp": timestamp.isoformat(),
+                "position": new_position.to_dict() if new_position else None,
+                "position_closed": new_position is None,
+                "realized_pnl": new_realized_pnl.to_dict() if new_realized_pnl else None,
+                "gross_proceeds": float(price * quantity - commission)
+            }
+
+            return result
+
+        except Exception as e:
+            # エラー時はメモリ内データを復元
+            self.trades = trades_backup
+            self.positions = positions_backup
+            self.realized_pnl = realized_pnl_backup
+            self._trade_counter = counter_backup
+
+            log_error_with_context(e, {
+                "operation": "sell_stock",
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": float(price),
+                "persist_to_db": persist_to_db
+            })
+            sell_logger.error("株式売り注文失敗、変更をロールバック", error=str(e))
+            raise
+
+    def execute_trade_order(
+        self,
+        trade_order: Dict[str, any],
+        persist_to_db: bool = True
+    ) -> Dict[str, any]:
+        """
+        取引注文を実行（買い/売りを統一インターフェースで処理）
+
+        Args:
+            trade_order: 取引注文辞書
+                {
+                    "action": "buy" | "sell",
+                    "symbol": str,
+                    "quantity": int,
+                    "price": Decimal,
+                    "current_market_price": Optional[Decimal],
+                    "notes": str
+                }
+            persist_to_db: データベースに永続化するかどうか
+
+        Returns:
+            取引結果辞書
+        """
+        action = trade_order.get("action", "").lower()
+
+        if action == "buy":
+            return self.buy_stock(
+                symbol=trade_order["symbol"],
+                quantity=trade_order["quantity"],
+                price=trade_order["price"],
+                current_market_price=trade_order.get("current_market_price"),
+                notes=trade_order.get("notes", ""),
+                persist_to_db=persist_to_db
+            )
+        elif action == "sell":
+            return self.sell_stock(
+                symbol=trade_order["symbol"],
+                quantity=trade_order["quantity"],
+                price=trade_order["price"],
+                current_market_price=trade_order.get("current_market_price"),
+                notes=trade_order.get("notes", ""),
+                persist_to_db=persist_to_db
+            )
+        else:
+            raise ValueError(f"無効な取引アクション: {action}. 'buy' または 'sell' を指定してください")
+
     def calculate_tax_implications(self, year: int) -> Dict:
         """税務計算"""
         try:
@@ -1092,15 +1550,17 @@ if __name__ == "__main__":
     # ポジション情報表示
     position = tm.get_position("7203")
     if position:
-        print("=== ポジション情報 ===")
-        print(f"銘柄: {position.symbol}")
-        print(f"数量: {position.quantity}株")
-        print(f"平均単価: {position.average_price}円")
-        print(f"総コスト: {position.total_cost}円")
-        print(f"現在価格: {position.current_price}円")
-        print(f"時価総額: {position.market_value}円")
-        print(
-            f"含み損益: {position.unrealized_pnl}円 ({position.unrealized_pnl_percent}%)"
+        logger.info(
+            "ポジション情報表示",
+            section="position_info",
+            symbol=position.symbol,
+            quantity=position.quantity,
+            average_price=float(position.average_price),
+            total_cost=float(position.total_cost),
+            current_price=float(position.current_price),
+            market_value=float(position.market_value),
+            unrealized_pnl=float(position.unrealized_pnl),
+            unrealized_pnl_percent=float(position.unrealized_pnl_percent)
         )
 
     # 一部売却
@@ -1111,26 +1571,29 @@ if __name__ == "__main__":
     # 実現損益表示
     realized_pnl = tm.get_realized_pnl_history("7203")
     if realized_pnl:
-        print("\n=== 実現損益 ===")
+        logger.info("実現損益表示開始", section="realized_pnl")
         for pnl in realized_pnl:
-            print(f"銘柄: {pnl.symbol}")
-            print(f"数量: {pnl.quantity}株")
-            print(f"買値: {pnl.buy_price}円")
-            print(f"売値: {pnl.sell_price}円")
-            print(f"損益: {pnl.pnl}円 ({pnl.pnl_percent}%)")
+            logger.info(
+                "実現損益詳細",
+                section="realized_pnl_detail",
+                symbol=pnl.symbol,
+                quantity=pnl.quantity,
+                buy_price=float(pnl.buy_price),
+                sell_price=float(pnl.sell_price),
+                pnl=float(pnl.pnl),
+                pnl_percent=float(pnl.pnl_percent)
+            )
 
     # ポートフォリオサマリー
     summary = tm.get_portfolio_summary()
-    print("\n=== ポートフォリオサマリー ===")
-    for key, value in summary.items():
-        print(f"{key}: {value}")
+    logger.info("ポートフォリオサマリー", section="portfolio_summary", **summary)
 
     # CSV出力例
-    print("\n=== CSV出力例 ===")
+    logger.info("CSV出力開始", section="csv_export")
     try:
         tm.export_to_csv("trades.csv", "trades")
         tm.export_to_csv("positions.csv", "positions")
         tm.export_to_csv("realized_pnl.csv", "realized_pnl")
-        print("CSV出力完了")
+        logger.info("CSV出力完了", section="csv_export", status="success")
     except Exception as e:
-        print(f"CSV出力エラー: {e}")
+        log_error_with_context(e, {"section": "csv_export", "operation": "export_csv"})

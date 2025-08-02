@@ -23,10 +23,11 @@ from ..analysis.signals import (
 from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
+from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 class BacktestMode(Enum):
@@ -976,6 +977,30 @@ if __name__ == "__main__":
     try:
         result = engine.run_backtest(symbols, config, simple_sma_strategy)
 
+        # バックテスト結果の構造化ログ出力
+        backtest_summary = {
+            "period_start": result.start_date.date().isoformat(),
+            "period_end": result.end_date.date().isoformat(),
+            "total_return": result.total_return,
+            "annualized_return": result.annualized_return,
+            "volatility": result.volatility,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown": result.max_drawdown,
+            "win_rate": result.win_rate,
+            "total_trades": result.total_trades,
+            "symbols_tested": symbols,
+            "strategy": "simple_sma_strategy"
+        }
+
+        logger.info("バックテスト完了", **backtest_summary)
+        log_business_event("backtest_completed", **backtest_summary)
+
+        # パフォーマンスメトリクス記録
+        log_performance_metric("sharpe_ratio", result.sharpe_ratio, "ratio")
+        log_performance_metric("total_return", result.total_return, "percentage")
+        log_performance_metric("max_drawdown", result.max_drawdown, "percentage")
+
+        # デモ用コンソール出力
         print("=== バックテスト結果 ===")
         print(f"期間: {result.start_date.date()} - {result.end_date.date()}")
         print(f"総リターン: {result.total_return:.2%}")
