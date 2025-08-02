@@ -266,6 +266,54 @@ class Trade(BaseModel):
             .all()
         )
 
+    @classmethod
+    def create_buy_trade(
+        cls,
+        session: Session,
+        stock_code: str,
+        quantity: int,
+        price: float,
+        commission: float = 0,
+        memo: str = "",
+    ) -> "Trade":
+        """買い取引を作成"""
+        trade = cls(
+            stock_code=stock_code,
+            trade_type="buy",
+            quantity=quantity,
+            price=price,
+            commission=commission,
+            trade_datetime=datetime.now(),
+            memo=memo,
+        )
+        session.add(trade)
+        session.flush()  # IDを取得
+        return trade
+
+    @classmethod
+    def create_sell_trade(
+        cls,
+        session: Session,
+        stock_code: str,
+        quantity: int,
+        price: float,
+        commission: float = 0,
+        memo: str = "",
+    ) -> "Trade":
+        """売り取引を作成"""
+        trade = cls(
+            stock_code=stock_code,
+            trade_type="sell",
+            quantity=quantity,
+            price=price,
+            commission=commission,
+            trade_datetime=datetime.now(),
+            memo=memo,
+        )
+        session.add(trade)
+        session.flush()  # IDを取得
+        return trade
+
 
 class WatchlistItem(BaseModel):
     """ウォッチリストアイテム"""

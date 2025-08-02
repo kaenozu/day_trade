@@ -29,7 +29,7 @@ class IndicatorsConfig:
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
             logger.warning(f"設定ファイルが見つかりません: {self.config_path}")

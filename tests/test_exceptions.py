@@ -2,21 +2,19 @@
 例外システムのテスト
 """
 
-import pytest
-from unittest.mock import Mock
 
 from src.day_trade.utils.exceptions import (
-    DayTradeError,
-    DatabaseError,
+    APIError,
+    AuthenticationError,
+    BadRequestError,
     DatabaseConnectionError,
+    DatabaseError,
     DatabaseIntegrityError,
     DatabaseOperationalError,
-    APIError,
+    DayTradeError,
     NetworkError,
     RateLimitError,
-    AuthenticationError,
     ResourceNotFoundError,
-    BadRequestError,
     ServerError,
     handle_database_exception,
     handle_network_exception,
@@ -119,9 +117,8 @@ class TestDatabaseExceptionHandler:
             from sqlalchemy.exc import OperationalError as SQLOperationalError
             mock_exc = SQLOperationalError("operation failed", None, None)
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("OperationalError", (Exception,), {})
             mock_exc.__class__.__module__ = "sqlalchemy.exc"
@@ -142,9 +139,8 @@ class TestDatabaseExceptionHandler:
             from sqlalchemy.exc import DisconnectionError as SQLDisconnectionError
             mock_exc = SQLDisconnectionError("connection lost")
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("DisconnectionError", (Exception,), {})
             mock_exc.__class__.__module__ = "sqlalchemy.exc"
@@ -169,9 +165,8 @@ class TestNetworkExceptionHandler:
             from requests.exceptions import ConnectionError as ReqConnectionError
             mock_exc = ReqConnectionError("connection failed")
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("ConnectionError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
@@ -189,16 +184,16 @@ class TestNetworkExceptionHandler:
     def test_handle_http_error_404(self):
         """404エラーの処理テスト"""
         try:
-            from requests.exceptions import HTTPError as ReqHTTPError
             from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
             mock_exc = ReqHTTPError("not found")
             mock_response = Mock()
             mock_response.status_code = 404
             mock_exc.response = mock_response
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("HTTPError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
@@ -220,16 +215,16 @@ class TestNetworkExceptionHandler:
     def test_handle_http_error_400(self):
         """400エラーの処理テスト"""
         try:
-            from requests.exceptions import HTTPError as ReqHTTPError
             from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
             mock_exc = ReqHTTPError("bad request")
             mock_response = Mock()
             mock_response.status_code = 400
             mock_exc.response = mock_response
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("HTTPError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
@@ -250,16 +245,16 @@ class TestNetworkExceptionHandler:
     def test_handle_http_error_429(self):
         """レート制限エラーの処理テスト"""
         try:
-            from requests.exceptions import HTTPError as ReqHTTPError
             from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
             mock_exc = ReqHTTPError("rate limit exceeded")
             mock_response = Mock()
             mock_response.status_code = 429
             mock_exc.response = mock_response
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("HTTPError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
@@ -280,16 +275,16 @@ class TestNetworkExceptionHandler:
     def test_handle_http_error_500(self):
         """500エラーの処理テスト"""
         try:
-            from requests.exceptions import HTTPError as ReqHTTPError
             from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
             mock_exc = ReqHTTPError("internal server error")
             mock_response = Mock()
             mock_response.status_code = 500
             mock_exc.response = mock_response
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("HTTPError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
@@ -310,16 +305,16 @@ class TestNetworkExceptionHandler:
     def test_handle_http_error_401(self):
         """認証エラーの処理テスト"""
         try:
-            from requests.exceptions import HTTPError as ReqHTTPError
             from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
             mock_exc = ReqHTTPError("unauthorized")
             mock_response = Mock()
             mock_response.status_code = 401
             mock_exc.response = mock_response
         except ImportError:
-            from unittest.mock import Mock
             import sys
-            from unittest.mock import MagicMock
+            from unittest.mock import MagicMock, Mock
             mock_exc = Mock()
             mock_exc.__class__ = type("HTTPError", (Exception,), {})
             mock_exc.__class__.__module__ = "requests.exceptions"
