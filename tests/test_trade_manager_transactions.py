@@ -213,8 +213,8 @@ class TestTradeManagerTransactions:
     def test_concurrent_transaction_handling(self, test_db_manager):
         """並行トランザクション処理のテスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            tm1 = TradeManager()
-            tm2 = TradeManager()
+            tm1 = TradeManager(load_from_db=False)
+            tm2 = TradeManager(load_from_db=False)
 
             # 2つのTradeManagerから同時に同じ銘柄の取引を追加
             trade_id1 = tm1.add_trade(
