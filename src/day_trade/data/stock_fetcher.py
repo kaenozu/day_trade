@@ -24,7 +24,12 @@ from ..utils.exceptions import (
     ValidationError,
     handle_network_exception,
 )
-from ..utils.logging_config import get_context_logger, log_api_call, log_error_with_context, log_performance_metric
+from ..utils.logging_config import (
+    get_context_logger,
+    log_api_call,
+    log_error_with_context,
+    log_performance_metric,
+)
 
 
 class DataCache:
@@ -691,32 +696,39 @@ class StockFetcher:
 # 使用例
 if __name__ == "__main__":
     # ロギング設定
-    from ..utils.logging_config import setup_logging
+    from ..utils.logging_config import get_context_logger, setup_logging
     setup_logging()
+
+    logger = get_context_logger(__name__)
 
     # インスタンス作成
     fetcher = StockFetcher()
 
     # トヨタ自動車の現在価格を取得
-    print("=== 現在価格 ===")
+    logger.info("=== 現在価格データ取得例 ===")
     current = fetcher.get_current_price("7203")
     if current:
-        print(f"銘柄: {current['symbol']}")
-        print(f"現在値: {current['current_price']:,.0f}円")
-        print(
-            f"前日比: {current['change']:+,.0f}円 ({current['change_percent']:+.2f}%)"
-        )
+        logger.info("Current price data retrieved",
+                   symbol=current['symbol'],
+                   current_price=current['current_price'],
+                   change=current['change'],
+                   change_percent=current['change_percent'])
 
     # ヒストリカルデータを取得
-    print("\n=== ヒストリカルデータ（過去5日） ===")
+    logger.info("=== ヒストリカルデータ取得例 ===")
     hist = fetcher.get_historical_data("7203", period="5d", interval="1d")
     if hist is not None:
-        print(hist[["Open", "High", "Low", "Close", "Volume"]])
+        logger.info("Historical data retrieved",
+                   symbol="7203",
+                   period="5d",
+                   data_points=len(hist))
 
     # 企業情報を取得
-    print("\n=== 企業情報 ===")
+    logger.info("=== 企業情報取得例 ===")
     info = fetcher.get_company_info("7203")
     if info:
-        print(f"企業名: {info['name']}")
-        print(f"セクター: {info['sector']}")
-        print(f"業種: {info['industry']}")
+        logger.info("Company info retrieved",
+                   symbol="7203",
+                   name=info.get('name'),
+                   sector=info.get('sector'),
+                   industry=info.get('industry'))

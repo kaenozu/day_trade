@@ -3,7 +3,6 @@
 SQLAlchemyを使用したデータベース接続とセッション管理
 """
 
-import logging
 import os
 import time
 from contextlib import contextmanager
@@ -18,8 +17,9 @@ from alembic import command
 from alembic.config import Config
 
 from ..utils.exceptions import DatabaseError, handle_database_exception
+from ..utils.logging_config import get_context_logger, log_database_operation, log_error_with_context
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 # ベースクラスの作成
 Base = declarative_base()
@@ -104,6 +104,17 @@ class DatabaseManager:
         self.session_factory = None
         self._initialize_engine()
 
+    def _get_database_type(self) -> str:
+        """データベースタイプを取得"""
+        if self.config.is_sqlite():
+            return "sqlite"
+        elif "postgresql" in self.config.database_url:
+            return "postgresql"
+        elif "mysql" in self.config.database_url:
+            return "mysql"
+        else:
+            return "other"
+
     def _initialize_engine(self):
         """エンジンの初期化"""
         try:
@@ -150,11 +161,16 @@ class DatabaseManager:
             # セッションファクトリーの作成
             self.session_factory = sessionmaker(bind=self.engine)
 
-            logger.info(f"Database engine initialized: {self.config.database_url}")
+            logger.info("Database engine initialized",
+                       database_url=self.config.database_url,
+                       database_type=self._get_database_type())
 
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Database initialization failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "database_initialization",
+                "database_url": self.config.database_url
+            })
             raise converted_error
 
     @staticmethod
@@ -210,7 +226,10 @@ class DatabaseManager:
             session.rollback()
             # エラーを適切な例外に変換
             converted_error = handle_database_exception(e)
-            logger.error(f"Database session error: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "database_session",
+                "session_id": id(session)
+            })
             raise converted_error
         finally:
             session.close()
@@ -253,20 +272,28 @@ class DatabaseManager:
                     raise
             except (OperationalError, IntegrityError) as e:
                 if attempt < retry_count and self._is_retriable_error(e):
-                    logger.warning(
-                        f"Retriable database error on attempt {attempt + 1}/{retry_count + 1}: {e}. "
-                        f"Retrying in {retry_delay} seconds..."
-                    )
+                    logger.warning("Retriable database error, retrying",
+                                 attempt=attempt + 1,
+                                 max_attempts=retry_count + 1,
+                                 retry_delay=retry_delay,
+                                 error=str(e))
                     time.sleep(retry_delay)
                     retry_delay *= 2  # 指数バックオフ
                     continue
                 else:
                     converted_error = handle_database_exception(e)
-                    logger.error(f"Database transaction error after {attempt + 1} attempts: {converted_error}")
+                    log_error_with_context(converted_error, {
+                        "operation": "database_transaction",
+                        "attempts": attempt + 1,
+                        "retry_count": retry_count
+                    })
                     raise converted_error
             except Exception as e:
                 converted_error = handle_database_exception(e)
-                logger.error(f"Unexpected database transaction error: {converted_error}")
+                log_error_with_context(converted_error, {
+                    "operation": "database_transaction",
+                    "error_type": "unexpected"
+                })
                 raise converted_error
             finally:
                 session.close()
@@ -307,7 +334,9 @@ class DatabaseManager:
             logger.info("Alembic initialized successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Alembic initialization failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "alembic_initialization"
+            })
             raise converted_error
 
     def migrate(self, message: str = "Auto migration"):
@@ -315,10 +344,13 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.revision(alembic_cfg, autogenerate=True, message=message)
-            logger.info(f"Migration created: {message}")
+            logger.info("Migration created", message=message)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Migration creation failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "migration_creation",
+                "message": message
+            })
             raise converted_error
 
     def upgrade(self, revision: str = "head"):
@@ -326,10 +358,13 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.upgrade(alembic_cfg, revision)
-            logger.info(f"Database upgraded to: {revision}")
+            logger.info("Database upgraded", revision=revision)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Database upgrade failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "database_upgrade",
+                "revision": revision
+            })
             raise converted_error
 
     def downgrade(self, revision: str = "-1"):
@@ -337,10 +372,13 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.downgrade(alembic_cfg, revision)
-            logger.info(f"Database downgraded to: {revision}")
+            logger.info("Database downgraded", revision=revision)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Database downgrade failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "database_downgrade",
+                "revision": revision
+            })
             raise converted_error
 
     def current_revision(self) -> str:
@@ -353,7 +391,9 @@ class DatabaseManager:
                 return context.get_current_revision() or "None"
         except Exception as e:
             converted_error = handle_database_exception(e)
-            logger.error(f"Current revision retrieval failed: {converted_error}")
+            log_error_with_context(converted_error, {
+                "operation": "current_revision_retrieval"
+            })
             raise converted_error
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
@@ -368,11 +408,27 @@ class DatabaseManager:
         if not data_list:
             return
 
+        operation_logger = logger.bind(
+            operation="bulk_insert",
+            model_class=model_class.__name__,
+            total_records=len(data_list),
+            batch_size=batch_size
+        )
+        operation_logger.info("Starting bulk insert")
+
         with self.transaction_scope() as session:
             for i in range(0, len(data_list), batch_size):
                 batch = data_list[i : i + batch_size]
                 session.bulk_insert_mappings(model_class, batch)
                 session.flush()
+                log_database_operation(
+                    "bulk_insert_batch",
+                    model_class.__table__.name,
+                    batch_number=i // batch_size + 1,
+                    batch_size=len(batch)
+                )
+
+        operation_logger.info("Bulk insert completed")
 
     def bulk_update(self, model_class, data_list: list, batch_size: int = 1000):
         """
@@ -386,11 +442,27 @@ class DatabaseManager:
         if not data_list:
             return
 
+        operation_logger = logger.bind(
+            operation="bulk_update",
+            model_class=model_class.__name__,
+            total_records=len(data_list),
+            batch_size=batch_size
+        )
+        operation_logger.info("Starting bulk update")
+
         with self.transaction_scope() as session:
             for i in range(0, len(data_list), batch_size):
                 batch = data_list[i : i + batch_size]
                 session.bulk_update_mappings(model_class, batch)
                 session.flush()
+                log_database_operation(
+                    "bulk_update_batch",
+                    model_class.__table__.name,
+                    batch_number=i // batch_size + 1,
+                    batch_size=len(batch)
+                )
+
+        operation_logger.info("Bulk update completed")
 
     def atomic_operation(self, operations: list, retry_count: int = 3):
         """
@@ -409,11 +481,21 @@ class DatabaseManager:
 
             db_manager.atomic_operation([operation1, operation2])
         """
+        operation_logger = logger.bind(
+            operation="atomic_operation",
+            operation_count=len(operations),
+            retry_count=retry_count
+        )
+        operation_logger.info("Starting atomic operation")
+
         with self.transaction_scope(retry_count=retry_count) as session:
-            for operation in operations:
+            for i, operation in enumerate(operations):
                 operation(session)
                 # 各操作後に中間状態をflush（デバッグ時などに有用）
                 session.flush()
+                operation_logger.debug("Operation completed", step=i + 1)
+
+        operation_logger.info("Atomic operation completed")
 
     def execute_query(self, query: str, params: dict = None):
         """
@@ -426,20 +508,39 @@ class DatabaseManager:
         Returns:
             クエリ結果
         """
+        operation_logger = logger.bind(
+            operation="execute_query",
+            query_length=len(query),
+            has_params=bool(params)
+        )
+        operation_logger.info("Executing raw SQL query")
+
         with self.engine.connect() as connection:
             result = connection.execute(query, params or {})
-            return result.fetchall()
+            results = result.fetchall()
+            operation_logger.info("Query executed", result_count=len(results))
+            return results
 
     def optimize_database(self):
         """
         データベースの最適化を実行
         """
+        operation_logger = logger.bind(
+            operation="optimize_database",
+            database_type=self._get_database_type()
+        )
+        operation_logger.info("Starting database optimization")
+
         if "sqlite" in self.config.database_url:
             with self.engine.connect() as connection:
                 # VACUUM操作でデータベースファイルを最適化
+                operation_logger.info("Executing VACUUM")
                 connection.execute(text("VACUUM"))
                 # ANALYZE操作で統計情報を更新
+                operation_logger.info("Executing ANALYZE")
                 connection.execute(text("ANALYZE"))
+
+        operation_logger.info("Database optimization completed")
 
 
 # デフォルトのデータベースマネージャー

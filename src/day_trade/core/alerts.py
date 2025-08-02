@@ -29,8 +29,11 @@ from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import (
+    get_context_logger,
+)
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 class AlertType(Enum):
@@ -189,24 +192,14 @@ class NotificationHandler:
 
     def _send_console_notification(self, trigger: AlertTrigger):
         """コンソール通知"""
-        priority_colors = {
-            AlertPriority.LOW: "\033[36m",  # シアン
-            AlertPriority.MEDIUM: "\033[33m",  # 黄色
-            AlertPriority.HIGH: "\033[31m",  # 赤
-            AlertPriority.CRITICAL: "\033[35m",  # マゼンタ
-        }
-
-        color = priority_colors.get(trigger.priority, "\033[0m")
-        reset = "\033[0m"
-
-        print(f"{color}🚨 ALERT [{trigger.priority.value.upper()}]{reset}")
-        print(f"  銘柄: {trigger.symbol}")
-        print(f"  タイプ: {trigger.alert_type.value}")
-        print(f"  時刻: {trigger.trigger_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  メッセージ: {trigger.message}")
-        if trigger.current_price:
-            print(f"  現在価格: ¥{trigger.current_price:,}")
-        print("-" * 50)
+        logger.warning("Alert triggered - Console notification",
+                      symbol=trigger.symbol,
+                      alert_type=trigger.alert_type.value,
+                      priority=trigger.priority.value,
+                      trigger_time=trigger.trigger_time.isoformat(),
+                      message=trigger.message,
+                      current_price=trigger.current_price,
+                      notification_type="console")
 
     def _send_file_log_notification(self, trigger: AlertTrigger):
         """ファイルログ通知"""
@@ -792,24 +785,25 @@ if __name__ == "__main__":
 
     alert_manager.add_alert(custom_alert)
 
-    print("=== アラート設定 ===")
-    for alert in alert_manager.get_alerts():
-        print(f"ID: {alert.alert_id}")
-        print(f"銘柄: {alert.symbol}")
-        print(f"タイプ: {alert.alert_type.value}")
-        print(f"条件: {alert.condition_value}")
-        print(f"説明: {alert.description}")
-        print("-" * 30)
+    logger.info("=== アラート設定確認 ===")
+    alerts = alert_manager.get_alerts()
+    for alert in alerts:
+        logger.info("Alert configuration",
+                   alert_id=alert.alert_id,
+                   symbol=alert.symbol,
+                   alert_type=alert.alert_type.value,
+                   condition_value=alert.condition_value,
+                   description=alert.description)
 
     # 監視開始（デモ用に短時間）
-    print("\nアラート監視を開始...")
+    logger.info("アラート監視開始", interval_seconds=30)
     alert_manager.start_monitoring(interval_seconds=30)
 
     try:
         # 30秒間監視
         time.sleep(30)
     except KeyboardInterrupt:
-        pass
+        logger.info("Monitoring interrupted by user")
     finally:
         alert_manager.stop_monitoring()
-        print("監視を終了しました")
+        logger.info("アラート監視終了")

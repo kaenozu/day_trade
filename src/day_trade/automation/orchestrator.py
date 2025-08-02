@@ -29,9 +29,13 @@ from ..core.portfolio import PortfolioAnalyzer
 from ..core.trade_manager import TradeManager
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import (
+    get_context_logger,
+    log_error_with_context,
+)
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 # スクリーニング機能のインポート
 try:
@@ -1163,22 +1167,24 @@ if __name__ == "__main__":
         # 小規模テスト（3銘柄）
         test_symbols = ["7203", "8306", "9984"]
 
-        print("=== DayTrade自動化テスト実行 ===")
+        logger.info("=== DayTrade自動化テスト実行 ===")
         report = orchestrator.run_full_automation(symbols=test_symbols)
 
-        print("実行結果:")
-        print(f"  成功: {report.successful_symbols}/{report.total_symbols}")
-        print(f"  シグナル数: {len(report.generated_signals)}")
-        print(f"  アラート数: {len(report.triggered_alerts)}")
-        print(f"  エラー数: {len(report.errors)}")
+        logger.info("Automation test completed",
+                   successful_symbols=report.successful_symbols,
+                   total_symbols=report.total_symbols,
+                   signals_count=len(report.generated_signals),
+                   alerts_count=len(report.triggered_alerts),
+                   errors_count=len(report.errors))
 
         if report.errors:
-            print("エラー:")
-            for error in report.errors:
-                print(f"  - {error}")
+            logger.error("Errors occurred during automation test",
+                        errors=report.errors)
 
-        print("テスト完了")
+        logger.info("テスト完了")
 
     except Exception as e:
-        print(f"テストエラー: {e}")
-        traceback.print_exc()
+        log_error_with_context(e, {
+            "operation": "automation_test",
+            "test_symbols": test_symbols
+        })
