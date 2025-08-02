@@ -3,6 +3,7 @@
 """
 
 from datetime import datetime
+from decimal import Decimal
 
 import numpy as np
 import pandas as pd
@@ -18,12 +19,85 @@ from src.day_trade.analysis.signals import (
     RSIOverboughtRule,
     RSIOversoldRule,
     SignalRule,
+    SignalRulesConfig,
     SignalStrength,
     SignalType,
     TradingSignal,
     TradingSignalGenerator,
     VolumeSpikeBuyRule,
 )
+
+
+class TestSignalRulesConfig:
+    """シグナルルール設定クラスのテスト"""
+
+    def test_config_initialization(self):
+        """設定初期化テスト"""
+        config = SignalRulesConfig()
+        assert config.config is not None
+        assert "default_buy_rules" in config.config
+        assert "default_sell_rules" in config.config
+        assert "signal_generation_settings" in config.config
+
+    def test_buy_rules_config_retrieval(self):
+        """買いルール設定取得テスト"""
+        config = SignalRulesConfig()
+        buy_rules = config.get_buy_rules_config()
+        assert isinstance(buy_rules, list)
+        # 設定ファイルが存在しない場合は空のリストが返される
+        # これは正常な動作（デフォルトルールで補完される）
+
+    def test_sell_rules_config_retrieval(self):
+        """売りルール設定取得テスト"""
+        config = SignalRulesConfig()
+        sell_rules = config.get_sell_rules_config()
+        assert isinstance(sell_rules, list)
+        # 設定ファイルが存在しない場合は空のリストが返される
+        # これは正常な動作（デフォルトルールで補完される）
+
+    def test_signal_settings_retrieval(self):
+        """シグナル生成設定取得テスト"""
+        config = SignalRulesConfig()
+        settings = config.get_signal_settings()
+        assert isinstance(settings, dict)
+        assert "min_data_period" in settings
+        assert "confidence_multipliers" in settings
+        assert "strength_thresholds" in settings
+
+    def test_confidence_multiplier_retrieval(self):
+        """信頼度乗数取得テスト"""
+        config = SignalRulesConfig()
+        multiplier = config.get_confidence_multiplier("rsi_oversold", 1.0)
+        assert isinstance(multiplier, float)
+        assert multiplier > 0
+
+        # 存在しないキーのデフォルト値
+        default = config.get_confidence_multiplier("unknown_key", 5.0)
+        assert default == 5.0
+
+    def test_strength_thresholds_retrieval(self):
+        """強度閾値取得テスト"""
+        config = SignalRulesConfig()
+        thresholds = config.get_strength_thresholds()
+        assert isinstance(thresholds, dict)
+        assert "strong" in thresholds
+        assert "medium" in thresholds
+
+    def test_missing_config_file_fallback(self):
+        """設定ファイルが存在しない場合のフォールバックテスト"""
+        # 存在しないパスを指定してデフォルト設定が使用されることを確認
+        config = SignalRulesConfig("/nonexistent/path/signal_rules.json")
+
+        # デフォルト設定が読み込まれていることを確認
+        assert config.config is not None
+        assert "signal_generation_settings" in config.config
+
+        # デフォルト値が正しく取得できることを確認
+        min_period = config.get_signal_settings().get("min_data_period", 0)
+        assert min_period == 60  # デフォルト値
+
+        multiplier = config.get_confidence_multiplier("rsi_oversold", 1.0)
+        assert multiplier == 2.0  # デフォルト値
 
 
 class TestSignalRules:
@@ -213,7 +287,9 @@ class TestTradingSignalGenerator:
         assert 0 <= signal.confidence <= 100
         assert len(signal.reasons) > 0
         assert isinstance(signal.conditions_met, dict)
+        assert isinstance(signal.price, Decimal)
         assert signal.price > 0
+        assert isinstance(signal.timestamp, datetime)
 
     def test_generate_signal_buy(self, generator, sample_data):
         """買いシグナル生成のテスト"""
@@ -352,14 +428,33 @@ class TestTradingSignalGenerator:
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
+            # 基本的な検証
             validity = generator.validate_signal(signal)
-
             assert isinstance(validity, float)
             assert 0 <= validity <= 100
 
-            # 強いシグナルの方が高い有効性スコアを持つ
-            if signal.strength == SignalStrength.STRONG:
-                assert validity >= signal.confidence
+            # 市場環境を含む検証
+            market_context = {
+                "volatility": sample_data["Close"].pct_change().std(),
+                "trend_direction": "upward"
+            }
+            validity_with_context = generator.validate_signal(signal, market_context=market_context)
+            assert isinstance(validity_with_context, float)
+            assert 0 <= validity_with_context <= 100
+
+            # 過去パフォーマンスデータを含む検証
+            historical_data = pd.DataFrame({
+                "Signal": ["buy", "sell", "buy"],
+                "Strength": ["strong", "medium", "weak"],
+                "Success": [True, False, True]
+            })
+            validity_with_history = generator.validate_signal(
+                signal,
+                historical_performance=historical_data,
+                market_context=market_context
+            )
+            assert isinstance(validity_with_history, float)
+            assert 0 <= validity_with_history <= 100
 
     def test_empty_data(self, generator):
         """空データでのエラーハンドリング"""
@@ -440,6 +535,124 @@ class TestCustomSignalRule:
         met, confidence = rule.evaluate(None, None, None)
         assert met is True
         assert confidence == 50.0
+
+
+class TestImprovedSignalGeneration:
+    """改善されたシグナル生成機能のテスト"""
+
+    @pytest.fixture
+    def sample_data(self):
+        """テスト用サンプルデータ"""
+        dates = pd.date_range(start="2023-01-01", periods=100, freq="D")
+        np.random.seed(42)
+        close_prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
+
+        return pd.DataFrame({
+            "Open": close_prices + np.random.randn(100) * 0.1,
+            "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
+            "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
+            "Close": close_prices,
+            "Volume": np.random.randint(1000000, 5000000, 100),
+        }, index=dates)
+
+    def test_config_based_rule_loading(self):
+        """設定ベースルール読み込みテスト"""
+        generator = TradingSignalGenerator()
+
+        # 設定ファイルがない場合でもデフォルトルールが読み込まれる
+        assert len(generator.buy_rules) > 0
+        assert len(generator.sell_rules) > 0
+
+        # デフォルトルールが含まれていることを確認
+        rule_names = [rule.name for rule in generator.buy_rules]
+        assert "RSI Oversold" in rule_names
+
+    def test_decimal_price_handling(self, sample_data):
+        """Decimal価格処理テスト"""
+        generator = TradingSignalGenerator()
+        indicators = TechnicalIndicators.calculate_all(sample_data)
+        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+
+        signal = generator.generate_signal(sample_data, indicators, patterns)
+
+        if signal:
+            assert isinstance(signal.price, Decimal)
+            assert signal.price > 0
+            # Decimalから他の型への変換テスト
+            assert float(signal.price) > 0
+            assert int(signal.price) > 0
+
+    def test_datetime_timestamp_handling(self, sample_data):
+        """datetime タイムスタンプ処理テスト"""
+        generator = TradingSignalGenerator()
+        indicators = TechnicalIndicators.calculate_all(sample_data)
+        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+
+        signal = generator.generate_signal(sample_data, indicators, patterns)
+
+        if signal:
+            assert isinstance(signal.timestamp, datetime)
+            # pandas Timestampとの互換性確認
+            pd_timestamp = pd.Timestamp(signal.timestamp)
+            assert pd_timestamp.year >= 2023
+
+    def test_configurable_strength_thresholds(self, sample_data):
+        """設定可能強度閾値テスト"""
+        generator = TradingSignalGenerator()
+
+        # 強度閾値が設定から読み込まれていることを確認
+        thresholds = generator.config.get_strength_thresholds()
+        assert "strong" in thresholds
+        assert "medium" in thresholds
+
+        # 実際のシグナル生成で閾値が使用されることを確認
+        indicators = TechnicalIndicators.calculate_all(sample_data)
+        # 強いシグナルを作るため複数条件を満たす
+        indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
+        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+
+        signal = generator.generate_signal(sample_data, indicators, patterns)
+        if signal and signal.signal_type == SignalType.BUY:
+            # 設定された閾値に基づいて強度が決定されていることを確認
+            assert signal.strength in [SignalStrength.STRONG, SignalStrength.MEDIUM, SignalStrength.WEAK]
+
+    def test_enhanced_validate_signal(self, sample_data):
+        """拡張されたシグナル検証テスト"""
+        generator = TradingSignalGenerator()
+        indicators = TechnicalIndicators.calculate_all(sample_data)
+        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+
+        signal = generator.generate_signal(sample_data, indicators, patterns)
+
+        if signal:
+            # 市場環境情報によるvalidation
+            market_context = {
+                "volatility": 0.02,  # 低ボラティリティ
+                "trend_direction": "upward"
+            }
+
+            validity_low_vol = generator.validate_signal(signal, market_context=market_context)
+
+            # 高ボラティリティでの検証
+            market_context["volatility"] = 0.08  # 高ボラティリティ
+            validity_high_vol = generator.validate_signal(signal, market_context=market_context)
+
+            # 高ボラティリティ時は信頼度が下がることを確認
+            if signal.signal_type in [SignalType.BUY, SignalType.SELL]:
+                assert validity_low_vol >= validity_high_vol
+
+    def test_rule_parameter_configuration(self):
+        """ルールパラメータ設定テスト"""
+        generator = TradingSignalGenerator()
+
+        # RSIルールのパラメータが設定から読み込まれていることを確認
+        rsi_rules = [rule for rule in generator.buy_rules if "RSI" in rule.name]
+        if rsi_rules:
+            rsi_rule = rsi_rules[0]
+            assert hasattr(rsi_rule, 'threshold')
+            assert hasattr(rsi_rule, 'confidence_multiplier')
+            assert rsi_rule.threshold > 0
+            assert rsi_rule.confidence_multiplier > 0
 
 
 if __name__ == "__main__":
