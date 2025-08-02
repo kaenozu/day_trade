@@ -1,5 +1,7 @@
-"株価データ取得モジュール
-yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得"
+"""
+株価データ取得モジュール
+yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得
+"""
 
 import time
 from datetime import datetime
