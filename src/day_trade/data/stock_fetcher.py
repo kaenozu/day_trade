@@ -3,7 +3,6 @@
 yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得
 """
 
-import logging
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
@@ -25,8 +24,7 @@ from ..utils.exceptions import (
     ValidationError,
     handle_network_exception,
 )
-
-logger = logging.getLogger(__name__)
+from ..utils.logging_config import get_context_logger, log_api_call, log_error_with_context, log_performance_metric
 
 
 class DataCache:
@@ -163,12 +161,21 @@ class StockFetcher:
         self.retry_count = retry_count
         self.retry_delay = retry_delay
 
+        # ロガーを初期化
+        self.logger = get_context_logger(__name__)
+
         # LRUキャッシュを動的に設定
         self._get_ticker = lru_cache(maxsize=cache_size)(self._create_ticker)
 
         # キャッシュTTLを設定
         self.price_cache_ttl = price_cache_ttl
         self.historical_cache_ttl = historical_cache_ttl
+
+        self.logger.info("StockFetcher初期化完了",
+                        cache_size=cache_size,
+                        price_cache_ttl=price_cache_ttl,
+                        historical_cache_ttl=historical_cache_ttl,
+                        retry_count=retry_count)
 
     def _create_ticker(self, symbol: str) -> yf.Ticker:
         """Tickerオブジェクトを作成（内部メソッド）"""
@@ -369,36 +376,75 @@ class StockFetcher:
         """
 
         def _get_price():
-            self._validate_symbol(code)
-            symbol = self._format_symbol(code)
-            ticker = self._get_ticker(symbol)
-            info = ticker.info
+            price_logger = self.logger.bind(
+                operation="get_current_price",
+                stock_code=code
+            )
+            price_logger.info("現在価格取得開始")
 
-            # infoが空または無効な場合
-            if not info or len(info) < 5:
-                raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
+            start_time = time.time()
 
-            # 基本情報を取得
-            current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-            previous_close = info.get("previousClose")
+            try:
+                self._validate_symbol(code)
+                symbol = self._format_symbol(code)
+                ticker = self._get_ticker(symbol)
 
-            if current_price is None:
-                raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
+                # API呼び出しログ
+                log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
+                info = ticker.info
 
-            # 変化額・変化率を計算
-            change = current_price - previous_close if previous_close else 0
-            change_percent = (change / previous_close * 100) if previous_close else 0
+                # infoが空または無効な場合
+                if not info or len(info) < 5:
+                    price_logger.error("企業情報取得失敗", info_size=len(info) if info else 0)
+                    raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
 
-            return {
-                "symbol": symbol,
-                "current_price": current_price,
-                "previous_close": previous_close,
-                "change": change,
-                "change_percent": change_percent,
-                "volume": info.get("volume", 0),
-                "market_cap": info.get("marketCap"),
-                "timestamp": datetime.now(),
-            }
+                # 基本情報を取得
+                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+                previous_close = info.get("previousClose")
+
+                if current_price is None:
+                    price_logger.error("現在価格データなし",
+                                     available_keys=list(info.keys())[:10])
+                    raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
+
+                # 変化額・変化率を計算
+                change = current_price - previous_close if previous_close else 0
+                change_percent = (change / previous_close * 100) if previous_close else 0
+
+                # パフォーマンスメトリクス
+                elapsed_time = (time.time() - start_time) * 1000
+                log_performance_metric("price_fetch_time", elapsed_time, "ms",
+                                     stock_code=code)
+
+                result = {
+                    "symbol": symbol,
+                    "current_price": current_price,
+                    "previous_close": previous_close,
+                    "change": change,
+                    "change_percent": change_percent,
+                    "volume": info.get("volume", 0),
+                    "market_cap": info.get("marketCap"),
+                    "timestamp": datetime.now(),
+                }
+
+                price_logger.info("現在価格取得完了",
+                                current_price=current_price,
+                                change_percent=change_percent,
+                                elapsed_ms=elapsed_time)
+
+                return result
+
+            except Exception as e:
+                elapsed_time = (time.time() - start_time) * 1000
+                log_error_with_context(e, {
+                    "operation": "get_current_price",
+                    "stock_code": code,
+                    "elapsed_ms": elapsed_time
+                })
+                price_logger.error("現在価格取得失敗",
+                                 error=str(e),
+                                 elapsed_ms=elapsed_time)
+                raise
 
         return self._retry_on_error(_get_price)
 
