@@ -452,54 +452,77 @@ class TradeManager:
         return datetime.now()
 
     def _load_trades_from_db(self):
-        """データベースから取引履歴を読み込み"""
+        """データベースから取引履歴を読み込み（トランザクション保護版）"""
         load_logger = self.logger.bind(operation="load_trades_from_db")
         load_logger.info("データベースから取引履歴読み込み開始")
 
         try:
-            with db_manager.session_scope() as session:
+            # トランザクション内で一括処理
+            with db_manager.transaction_scope() as session:
                 # データベースから全取引を取得
                 db_trades = session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
 
                 load_logger.info("DB取引データ取得", count=len(db_trades))
 
-                for db_trade in db_trades:
-                    # セッションから切り離す前に必要な属性を読み込み
-                    trade_id = db_trade.id
-                    stock_code = db_trade.stock_code
-                    trade_type_str = db_trade.trade_type
-                    quantity = db_trade.quantity
-                    price = db_trade.price
-                    trade_datetime = db_trade.trade_datetime
-                    commission = db_trade.commission or Decimal("0")
-                    memo = db_trade.memo or ""
+                # メモリ内データ構造を一旦クリア（原子性保証）
+                trades_backup = self.trades.copy()
+                positions_backup = self.positions.copy()
+                realized_pnl_backup = self.realized_pnl.copy()
+                counter_backup = self._trade_counter
 
-                    # メモリ内形式に変換
-                    trade_type = TradeType.BUY if trade_type_str.lower() == "buy" else TradeType.SELL
+                try:
+                    # メモリ内データクリア
+                    self.trades.clear()
+                    self.positions.clear()
+                    self.realized_pnl.clear()
+                    self._trade_counter = 0
 
-                    memory_trade = Trade(
-                        id=f"DB_{trade_id}",  # DBから読み込んだことを示すプレフィックス
-                        symbol=stock_code,
-                        trade_type=trade_type,
-                        quantity=quantity,
-                        price=Decimal(str(price)),
-                        timestamp=trade_datetime,
-                        commission=Decimal(str(commission)),
-                        status=TradeStatus.EXECUTED,
-                        notes=memo,
-                    )
+                    for db_trade in db_trades:
+                        # セッションから切り離す前に必要な属性を読み込み
+                        trade_id = db_trade.id
+                        stock_code = db_trade.stock_code
+                        trade_type_str = db_trade.trade_type
+                        quantity = db_trade.quantity
+                        price = db_trade.price
+                        trade_datetime = db_trade.trade_datetime
+                        commission = db_trade.commission or Decimal("0")
+                        memo = db_trade.memo or ""
 
-                    self.trades.append(memory_trade)
-                    self._update_position(memory_trade)
+                        # メモリ内形式に変換
+                        trade_type = TradeType.BUY if trade_type_str.lower() == "buy" else TradeType.SELL
 
-                # 取引カウンターを最大値+1に設定
-                if db_trades:
-                    max_id = max(db_trade.id for db_trade in db_trades)
-                    self._trade_counter = max_id + 1
+                        memory_trade = Trade(
+                            id=f"DB_{trade_id}",  # DBから読み込んだことを示すプレフィックス
+                            symbol=stock_code,
+                            trade_type=trade_type,
+                            quantity=quantity,
+                            price=Decimal(str(price)),
+                            timestamp=trade_datetime,
+                            commission=Decimal(str(commission)),
+                            status=TradeStatus.EXECUTED,
+                            notes=memo,
+                        )
 
-                load_logger.info("データベース読み込み完了",
-                               loaded_trades=len(db_trades),
-                               trade_counter=self._trade_counter)
+                        self.trades.append(memory_trade)
+                        self._update_position(memory_trade)
+
+                    # 取引カウンターを最大値+1に設定
+                    if db_trades:
+                        max_id = max(db_trade.id for db_trade in db_trades)
+                        self._trade_counter = max_id + 1
+
+                    load_logger.info("データベース読み込み完了",
+                                   loaded_trades=len(db_trades),
+                                   trade_counter=self._trade_counter)
+
+                except Exception as restore_error:
+                    # メモリ内データの復元
+                    self.trades = trades_backup
+                    self.positions = positions_backup
+                    self.realized_pnl = realized_pnl_backup
+                    self._trade_counter = counter_backup
+                    load_logger.error("読み込み処理失敗、メモリ内データを復元", error=str(restore_error))
+                    raise restore_error
 
         except Exception as e:
             log_error_with_context(e, {
@@ -509,9 +532,15 @@ class TradeManager:
             raise
 
     def sync_with_db(self):
-        """データベースとの同期を実行"""
+        """データベースとの同期を実行（原子性保証版）"""
         sync_logger = self.logger.bind(operation="sync_with_db")
         sync_logger.info("データベース同期開始")
+
+        # 現在のメモリ内データをバックアップ
+        trades_backup = self.trades.copy()
+        positions_backup = self.positions.copy()
+        realized_pnl_backup = self.realized_pnl.copy()
+        counter_backup = self._trade_counter
 
         try:
             # 現在のメモリ内データをクリア
@@ -520,16 +549,273 @@ class TradeManager:
             self.realized_pnl.clear()
             self._trade_counter = 0
 
-            # データベースから再読み込み
+            # データベースから再読み込み（トランザクション保護済み）
             self._load_trades_from_db()
 
             sync_logger.info("データベース同期完了")
 
         except Exception as e:
+            # エラー時にはバックアップデータを復元
+            self.trades = trades_backup
+            self.positions = positions_backup
+            self.realized_pnl = realized_pnl_backup
+            self._trade_counter = counter_backup
+
             log_error_with_context(e, {
                 "operation": "sync_with_db"
             })
-            sync_logger.error("データベース同期失敗", error=str(e))
+            sync_logger.error("データベース同期失敗、メモリ内データを復元", error=str(e))
+            raise
+
+    def add_trades_batch(self, trades_data: List[Dict], persist_to_db: bool = True) -> List[str]:
+        """
+        複数の取引を一括追加（トランザクション保護）
+
+        Args:
+            trades_data: 取引データのリスト
+                [{"symbol": "7203", "trade_type": TradeType.BUY, "quantity": 100, "price": Decimal("2500"), ...}, ...]
+            persist_to_db: データベースに永続化するかどうか
+
+        Returns:
+            作成された取引IDのリスト
+
+        Raises:
+            Exception: いずれかの取引処理でエラーが発生した場合、すべての処理がロールバック
+        """
+        batch_logger = logger.bind(
+            operation="add_trades_batch",
+            batch_size=len(trades_data),
+            persist_to_db=persist_to_db
+        )
+        batch_logger.info("一括取引追加処理開始")
+
+        if not trades_data:
+            batch_logger.warning("空の取引データが渡されました")
+            return []
+
+        trade_ids = []
+
+        # メモリ内データのバックアップ
+        trades_backup = self.trades.copy()
+        positions_backup = self.positions.copy()
+        realized_pnl_backup = self.realized_pnl.copy()
+        counter_backup = self._trade_counter
+
+        try:
+            if persist_to_db:
+                # データベース永続化の場合は全処理をトランザクション内で実行
+                with db_manager.transaction_scope() as session:
+                    for i, trade_data in enumerate(trades_data):
+                        try:
+                            # 取引データの検証と補完
+                            symbol = trade_data["symbol"]
+                            trade_type = trade_data["trade_type"]
+                            quantity = trade_data["quantity"]
+                            price = trade_data["price"]
+                            timestamp = trade_data.get("timestamp", datetime.now())
+                            commission = trade_data.get("commission")
+                            notes = trade_data.get("notes", "")
+
+                            if commission is None:
+                                commission = self._calculate_commission(price, quantity)
+
+                            trade_id = self._generate_trade_id()
+
+                            # 1. 銘柄マスタの存在確認・作成
+                            stock = session.query(Stock).filter(Stock.code == symbol).first()
+                            if not stock:
+                                stock = Stock(
+                                    code=symbol,
+                                    name=symbol,
+                                    market="未定",
+                                    sector="未定",
+                                    industry="未定"
+                                )
+                                session.add(stock)
+                                session.flush()
+
+                            # 2. データベース取引記録を作成
+                            db_trade = DBTrade.create_buy_trade(
+                                session=session,
+                                stock_code=symbol,
+                                quantity=quantity,
+                                price=float(price),
+                                commission=float(commission),
+                                memo=notes
+                            ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
+                                session=session,
+                                stock_code=symbol,
+                                quantity=quantity,
+                                price=float(price),
+                                commission=float(commission),
+                                memo=notes
+                            )
+
+                            # 3. メモリ内データ構造を更新
+                            memory_trade = Trade(
+                                id=trade_id,
+                                symbol=symbol,
+                                trade_type=trade_type,
+                                quantity=quantity,
+                                price=price,
+                                timestamp=timestamp,
+                                commission=commission,
+                                notes=notes,
+                            )
+
+                            self.trades.append(memory_trade)
+                            self._update_position(memory_trade)
+                            trade_ids.append(trade_id)
+
+                            # バッチ内の中間状態をflush
+                            if (i + 1) % 10 == 0:  # 10件ごとにflush
+                                session.flush()
+
+                        except Exception as trade_error:
+                            batch_logger.error("個別取引処理失敗",
+                                            trade_index=i,
+                                            symbol=trade_data.get("symbol", "unknown"),
+                                            error=str(trade_error))
+                            raise trade_error
+
+                    # 最終的なビジネスイベントログ
+                    log_business_event(
+                        "trades_batch_added",
+                        batch_size=len(trades_data),
+                        trade_ids=trade_ids,
+                        persisted=True
+                    )
+
+                    batch_logger.info("一括取引追加完了（DB永続化）", trade_count=len(trade_ids))
+
+            else:
+                # メモリ内のみの処理
+                for trade_data in trades_data:
+                    symbol = trade_data["symbol"]
+                    trade_type = trade_data["trade_type"]
+                    quantity = trade_data["quantity"]
+                    price = trade_data["price"]
+                    timestamp = trade_data.get("timestamp", datetime.now())
+                    commission = trade_data.get("commission")
+                    notes = trade_data.get("notes", "")
+
+                    if commission is None:
+                        commission = self._calculate_commission(price, quantity)
+
+                    trade_id = self._generate_trade_id()
+
+                    memory_trade = Trade(
+                        id=trade_id,
+                        symbol=symbol,
+                        trade_type=trade_type,
+                        quantity=quantity,
+                        price=price,
+                        timestamp=timestamp,
+                        commission=commission,
+                        notes=notes,
+                    )
+
+                    self.trades.append(memory_trade)
+                    self._update_position(memory_trade)
+                    trade_ids.append(trade_id)
+
+                log_business_event(
+                    "trades_batch_added",
+                    batch_size=len(trades_data),
+                    trade_ids=trade_ids,
+                    persisted=False
+                )
+
+                batch_logger.info("一括取引追加完了（メモリのみ）", trade_count=len(trade_ids))
+
+            return trade_ids
+
+        except Exception as e:
+            # エラー時はメモリ内データを復元
+            self.trades = trades_backup
+            self.positions = positions_backup
+            self.realized_pnl = realized_pnl_backup
+            self._trade_counter = counter_backup
+
+            log_error_with_context(e, {
+                "operation": "add_trades_batch",
+                "batch_size": len(trades_data),
+                "persist_to_db": persist_to_db,
+                "completed_trades": len(trade_ids)
+            })
+            batch_logger.error("一括取引追加失敗、すべての変更をロールバック", error=str(e))
+            raise
+
+    def clear_all_data(self, persist_to_db: bool = True):
+        """
+        すべての取引データを削除（トランザクション保護）
+
+        Args:
+            persist_to_db: データベースからも削除するかどうか
+
+        Warning:
+            この操作は取引履歴、ポジション、実現損益をすべて削除します
+        """
+        clear_logger = logger.bind(
+            operation="clear_all_data",
+            persist_to_db=persist_to_db
+        )
+        clear_logger.warning("全データ削除処理開始")
+
+        # メモリ内データのバックアップ
+        trades_backup = self.trades.copy()
+        positions_backup = self.positions.copy()
+        realized_pnl_backup = self.realized_pnl.copy()
+        counter_backup = self._trade_counter
+
+        try:
+            if persist_to_db:
+                # データベースとメモリ両方をクリア
+                with db_manager.transaction_scope() as session:
+                    # データベースの取引データを削除
+                    deleted_count = session.query(DBTrade).delete()
+                    clear_logger.info("データベース取引データ削除", deleted_count=deleted_count)
+
+                    # メモリ内データクリア
+                    self.trades.clear()
+                    self.positions.clear()
+                    self.realized_pnl.clear()
+                    self._trade_counter = 0
+
+                    log_business_event(
+                        "all_data_cleared",
+                        deleted_db_records=deleted_count,
+                        persisted=True
+                    )
+
+                    clear_logger.warning("全データ削除完了（DB + メモリ）")
+            else:
+                # メモリ内のみクリア
+                self.trades.clear()
+                self.positions.clear()
+                self.realized_pnl.clear()
+                self._trade_counter = 0
+
+                log_business_event(
+                    "all_data_cleared",
+                    deleted_db_records=0,
+                    persisted=False
+                )
+
+                clear_logger.warning("全データ削除完了（メモリのみ）")
+
+        except Exception as e:
+            # エラー時はメモリ内データを復元
+            self.trades = trades_backup
+            self.positions = positions_backup
+            self.realized_pnl = realized_pnl_backup
+            self._trade_counter = counter_backup
+
+            log_error_with_context(e, {
+                "operation": "clear_all_data",
+                "persist_to_db": persist_to_db
+            })
+            clear_logger.error("全データ削除失敗、メモリ内データを復元", error=str(e))
             raise
 
     def get_position(self, symbol: str) -> Optional[Position]:
