@@ -1000,16 +1000,19 @@ if __name__ == "__main__":
         log_performance_metric("total_return", result.total_return, "percentage")
         log_performance_metric("max_drawdown", result.max_drawdown, "percentage")
 
-        # デモ用コンソール出力
-        print("=== バックテスト結果 ===")
-        print(f"期間: {result.start_date.date()} - {result.end_date.date()}")
-        print(f"総リターン: {result.total_return:.2%}")
-        print(f"年率リターン: {result.annualized_return:.2%}")
-        print(f"ボラティリティ: {result.volatility:.2%}")
-        print(f"シャープレシオ: {result.sharpe_ratio:.2f}")
-        print(f"最大ドローダウン: {result.max_drawdown:.2%}")
-        print(f"勝率: {result.win_rate:.1%}")
-        print(f"総取引数: {result.total_trades}")
+        # バックテスト結果をログ出力
+        logger.info(
+            "バックテスト完了",
+            start_date=result.start_date.date().isoformat(),
+            end_date=result.end_date.date().isoformat(),
+            total_return=f"{result.total_return:.2%}",
+            annualized_return=f"{result.annualized_return:.2%}",
+            volatility=f"{result.volatility:.2%}",
+            sharpe_ratio=f"{result.sharpe_ratio:.2f}",
+            max_drawdown=f"{result.max_drawdown:.2%}",
+            win_rate=f"{result.win_rate:.1%}",
+            total_trades=result.total_trades
+        )
 
         # 結果をファイルに保存
         engine.export_results(result, "backtest_result.json")

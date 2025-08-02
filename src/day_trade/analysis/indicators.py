@@ -12,8 +12,9 @@ import numpy as np
 import pandas as pd
 
 from ..utils.progress import ProgressType, progress_context
+from ..utils.logging_config import get_context_logger
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__, component="technical_indicators")
 
 
 class IndicatorsConfig:
@@ -630,19 +631,28 @@ if __name__ == "__main__":
     # テクニカル指標計算
     ti = TechnicalIndicators()
 
-    print("=== SMA（20日） ===")
+    logger.info("SMA（20日）計算", period=20)
     sma20 = ti.sma(df, period=20)
-    print(sma20.tail())
+    logger.info("SMA計算結果",
+                last_values=sma20.tail().to_dict(),
+                calculation_period=20)
 
-    print("\n=== RSI（14日） ===")
+    logger.info("RSI（14日）計算", period=14)
     rsi = ti.rsi(df, period=14)
-    print(rsi.tail())
+    logger.info("RSI計算結果",
+                last_values=rsi.tail().to_dict(),
+                calculation_period=14)
 
-    print("\n=== MACD ===")
+    logger.info("MACD計算")
     macd = ti.macd(df)
-    print(macd.tail())
+    logger.info("MACD計算結果",
+                columns=macd.columns.tolist(),
+                sample_data=macd.tail().to_dict())
 
-    print("\n=== 全指標計算 ===")
+    logger.info("全指標計算実行")
     all_indicators = ti.calculate_all(df)
-    print(all_indicators.columns.tolist())
-    print(f"計算完了: {len(all_indicators.columns)}列")
+    logger.info("全指標計算完了",
+                total_columns=len(all_indicators.columns),
+                available_indicators=all_indicators.columns.tolist(),
+                data_rows=len(all_indicators),
+                operation="calculate_all_indicators")

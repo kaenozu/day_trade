@@ -44,7 +44,7 @@ def test_basic_logging():
     logger.warning("警告メッセージ", issue="minor_issue", action="continue")
     logger.error("エラーメッセージ", error_code="E001", retry_count=1)
 
-    print("✓ 基本ロギング機能テスト完了")
+    print("OK 基本ロギング機能テスト完了")
 
 def test_context_logging():
     """コンテキストロギング機能テスト"""
@@ -64,7 +64,7 @@ def test_context_logging():
     trade_logger.info("取引実行", action="buy", amount=250000)
     trade_logger.info("取引完了", result="success", execution_time=0.15)
 
-    print("✓ コンテキストロギング機能テスト完了")
+    print("OK コンテキストロギング機能テスト完了")
 
 def test_business_event_logging():
     """ビジネスイベントロギングテスト"""
@@ -91,7 +91,7 @@ def test_business_event_logging():
                       confidence=85.0,
                       strategy="sma_crossover")
 
-    print("✓ ビジネスイベントロギングテスト完了")
+    print("OK ビジネスイベントロギングテスト完了")
 
 def test_performance_logging():
     """パフォーマンスロギングテスト"""
@@ -119,7 +119,7 @@ def test_performance_logging():
     enhanced_log_performance_metric("response_time", 6000, "ms")  # 閾値超過
     enhanced_log_performance_metric("memory_usage", 85.0, "percentage")  # 閾値超過
 
-    print("✓ パフォーマンスロギングテスト完了")
+    print("OK パフォーマンスロギングテスト完了")
 
 def test_system_logging():
     """システム関連ロギングテスト"""
@@ -147,7 +147,7 @@ def test_system_logging():
                      processed_signals=15,
                      memory_usage=67.8)
 
-    print("✓ システム関連ロギングテスト完了")
+    print("OK システム関連ロギングテスト完了")
 
 def test_security_logging():
     """セキュリティロギングテスト"""
@@ -176,7 +176,7 @@ def test_security_logging():
                       amount=10000000,
                       pattern="unusual")
 
-    print("✓ セキュリティロギングテスト完了")
+    print("OK セキュリティロギングテスト完了")
 
 def test_error_logging():
     """エラーロギングテスト"""
@@ -206,7 +206,7 @@ def test_error_logging():
             "user_id": "user123"
         })
 
-    print("✓ エラーロギングテスト完了")
+    print("OK エラーロギングテスト完了")
 
 def test_alert_functionality():
     """アラート機能テスト"""
@@ -231,7 +231,7 @@ def test_alert_functionality():
     enhanced_log_performance_metric("response_time", 1500, "ms")  # 閾値超過
     enhanced_log_performance_metric("response_time", 500, "ms")   # 正常
 
-    print("✓ アラート機能テスト完了")
+    print("OK アラート機能テスト完了")
 
 def test_json_output():
     """JSON出力テスト"""
@@ -269,7 +269,7 @@ def test_json_output():
     os.environ["ENVIRONMENT"] = "development"
     setup_logging()
 
-    print("✓ JSON出力テスト完了")
+    print("OK JSON出力テスト完了")
 
 def demonstrate_logging_hierarchy():
     """ロギング階層の実演"""
@@ -307,7 +307,7 @@ def demonstrate_logging_hierarchy():
 
     main_logger.info("自動取引処理完了", duration=2.5, total_trades=2)
 
-    print("✓ ロギング階層実演完了")
+    print("OK ロギング階層実演完了")
 
 if __name__ == "__main__":
     print("構造化ロギング機能テスト開始")
@@ -334,7 +334,7 @@ if __name__ == "__main__":
             test_func()
             passed += 1
         except Exception as e:
-            print(f"✗ {test_name}: エラー - {e}")
+            print(f"NG {test_name}: エラー - {e}")
             failed += 1
 
     print(f"\n{'='*50}")
@@ -344,6 +344,6 @@ if __name__ == "__main__":
     print(f"成功率: {passed}/{passed+failed} ({passed/(passed+failed)*100:.1f}%)")
 
     if failed == 0:
-        print("✓ すべての構造化ロギングテストが成功しました")
+        print("OK すべての構造化ロギングテストが成功しました")
     else:
-        print("✗ 一部のテストが失敗しました")
+        print("NG 一部のテストが失敗しました")
