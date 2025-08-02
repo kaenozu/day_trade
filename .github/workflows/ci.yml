@@ -15,7 +15,7 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  CACHE_VERSION: v1
+  CACHE_VERSION: v3
 
 jobs:
   # 変更検出ジョブ - 変更されたファイルに基づいてジョブをスキップ
