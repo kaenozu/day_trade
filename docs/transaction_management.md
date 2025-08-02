@@ -166,9 +166,80 @@ with db_manager.transaction_scope() as session:
 - 平均実行時間
 - デッドロック発生率
 
+## TradeManagerの改善（Issue #187対応）
+
+### データベース永続化対応
+
+TradeManagerクラスが完全なデータベース永続化に対応し、メモリ内操作とDB操作の一貫性を保証：
+
+```python
+from src.day_trade.core.trade_manager import TradeManager, TradeType
+from decimal import Decimal
+
+# データベース永続化対応のTradeManager
+trade_manager = TradeManager(
+    commission_rate=Decimal("0.001"),
+    tax_rate=Decimal("0.2"),
+    load_from_db=True  # 既存取引を読み込み
+)
+
+# 取引を追加（データベースに永続化）
+trade_id = trade_manager.add_trade(
+    symbol="7203",
+    trade_type=TradeType.BUY,
+    quantity=100,
+    price=Decimal("2500"),
+    notes="テスト取引",
+    persist_to_db=True  # データベースに永続化
+)
+```
+
+### アトミック操作の実装
+
+TradeManager内での複数操作が完全にアトミック：
+
+1. **銘柄マスタの存在確認・作成**
+2. **データベース取引記録の作成**
+3. **メモリ内データ構造の更新**
+
+すべてが成功するか、エラー時は全体がロールバック。
+
+### 新機能
+
+1. **データベースからの読み込み**
+   ```python
+   trade_manager = TradeManager(load_from_db=True)
+   ```
+
+2. **データベース同期**
+   ```python
+   trade_manager.sync_with_db()
+   ```
+
+3. **構造化ログ統合**
+   - コンテキスト情報付きログ
+   - ビジネスイベントログ
+   - パフォーマンスメトリクス
+
+### テストカバレッジ
+
+新しいテストスイート `test_trade_manager_transactions.py`:
+
+- データベース永続化テスト
+- トランザクションロールバックテスト
+- アトミック操作テスト
+- 並行処理テスト
+- データベース同期テスト
+
+```bash
+# TradeManagerトランザクションテストを実行
+python -m pytest tests/test_trade_manager_transactions.py -v
+```
+
 ## 今後の拡張予定
 
 1. **分散トランザクション**: 複数データベース間での整合性保証
 2. **読み取り専用トランザクション**: パフォーマンス最適化
 3. **トランザクション監視**: リアルタイムでの状態監視
 4. **自動チューニング**: ワークロードに応じた設定最適化
+5. **バッチ処理機能**: TradeManagerでの大量取引一括処理
