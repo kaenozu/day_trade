@@ -3,7 +3,22 @@ name: Pull Request Conflict Detection
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # mainブランチが更新されたときも実行
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to check (optional)'
+        required: false
+        type: string
+      pr_head_sha:
+        description: 'PR head SHA (optional)'
+        required: false
+        type: string
+  # 定期的なチェック（1時間ごと）
+  schedule:
+    - cron: '0 * * * *'
 
 permissions:
   contents: read
@@ -16,12 +31,44 @@ jobs:
     name: Check for merge conflicts
 
     steps:
+      # mainブランチ更新時または定期実行時は全PRを通知のみ
+      - name: Get open pull requests for batch check
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        id: get-prs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'main'
+            });
+
+            console.log(`📋 Found ${prs.length} open pull requests`);
+            console.log(`🔄 mainブランチが更新されました。各PRでコンフリクトチェックが必要な場合があります。`);
+
+            for (const pr of prs) {
+              console.log(`  - PR #${pr.number}: ${pr.title} (${pr.head.ref})`);
+            }
+
+            core.setOutput('pr_count', prs.length);
+            return prs.length;
+      # mainブランチ更新時はここで終了
+      - name: End for non-PR events
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "✅ mainブランチ更新の通知完了"
+          exit 0
+
       - name: Checkout repository
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Check for merge conflicts
+        if: github.event_name == 'pull_request'
         id: conflict-check
         run: |
           echo "🔍 Checking for merge conflicts..."
@@ -73,7 +120,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Create conflict summary comment
-        if: steps.conflict-check.outputs.conflict_detected == 'true'
+        if: github.event_name == 'pull_request' && steps.conflict-check.outputs.conflict_detected == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -122,13 +169,14 @@ jobs:
             });
 
       - name: Success notification
-        if: steps.conflict-check.outputs.conflict_detected == 'false'
+        if: github.event_name == 'pull_request' && steps.conflict-check.outputs.conflict_detected == 'false'
         uses: actions/github-script@v7
         with:
           script: |
             console.log('✅ No merge conflicts detected. Ready for review!');
 
       - name: Set status check
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -149,7 +197,7 @@ jobs:
             });
 
       - name: Fail job if conflicts detected
-        if: steps.conflict-check.outputs.conflict_detected == 'true'
+        if: github.event_name == 'pull_request' && steps.conflict-check.outputs.conflict_detected == 'true'
         run: |
           echo "❌ Job failed due to merge conflicts"
           echo "Please resolve the conflicts and push the changes"
