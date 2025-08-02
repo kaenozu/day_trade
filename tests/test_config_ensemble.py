@@ -7,7 +7,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
+from src.day_trade.analysis.ensemble import EnsembleTradingStrategy
 from src.day_trade.config.config_manager import ConfigManager, EnsembleSettings
 
 
@@ -266,7 +268,7 @@ class TestEnsembleConfig:
                 "conservative": 60.0,
                 "aggressive": 30.0,
                 "balanced": 45.0,
-                "adaptive": 40.0,
+                "adaptive": 70.0,  # ensemble.pyのデフォルト値に合わせて修正
             }
             assert ensemble_settings.confidence_thresholds == expected_thresholds
 
@@ -406,6 +408,191 @@ class TestEnsembleConfig:
         # 投票タイプが有効な値であることを確認
         valid_voting_types = ["soft", "hard", "weighted"]
         assert ensemble_settings.voting_type in valid_voting_types
+
+    def test_ensemble_settings_validation_errors(self):
+        """EnsembleSettingsのバリデーションエラーシナリオのテスト"""
+
+        # 無効な戦略タイプ
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(strategy_type="invalid_strategy")
+        assert "strategy_type must be one of" in str(exc_info.value)
+
+        # 無効な投票タイプ
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(voting_type="invalid_voting")
+        assert "voting_type must be one of" in str(exc_info.value)
+
+        # 重みの合計が1.0から大きく外れる場合
+        invalid_weights = {
+            "conservative_rsi": 0.5,
+            "aggressive_momentum": 0.5,
+            "trend_following": 0.5,  # 合计1.5 > 1.05
+            "mean_reversion": 0.0,
+            "default_integrated": 0.0,
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(strategy_weights=invalid_weights)
+        assert "Sum of strategy weights must be close to 1.0" in str(exc_info.value)
+
+        # 個別重みが範囲外
+        invalid_weights_negative = {
+            "conservative_rsi": -0.1,  # 負の値
+            "aggressive_momentum": 0.4,
+            "trend_following": 0.4,
+            "mean_reversion": 0.2,
+            "default_integrated": 0.1,
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(strategy_weights=invalid_weights_negative)
+        assert "must be between 0.0 and 1.0" in str(exc_info.value)
+
+        # 信頼度閾値が範囲外
+        invalid_thresholds = {
+            "conservative": 150.0,  # 100を超える
+            "aggressive": 30.0,
+            "balanced": 45.0,
+            "adaptive": 40.0,
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(confidence_thresholds=invalid_thresholds)
+        assert "must be between 0.0 and 100.0" in str(exc_info.value)
+
+        # 負の信頼度閾値
+        negative_thresholds = {
+            "conservative": -10.0,  # 負の値
+            "aggressive": 30.0,
+            "balanced": 45.0,
+            "adaptive": 40.0,
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            EnsembleSettings(confidence_thresholds=negative_thresholds)
+        assert "must be between 0.0 and 100.0" in str(exc_info.value)
+
+    def test_ensemble_settings_sync_with_ensemble_py(self):
+        """EnsembleSettingsのデフォルト値とensemble.pyの同期確認"""
+        from src.day_trade.analysis.ensemble import EnsembleStrategy
+
+        # EnsembleSettingsのデフォルト値を取得
+        settings = EnsembleSettings()
+
+        # EnsembleTradingStrategyのインスタンスを作成してデフォルト値を確認
+        strategy = EnsembleTradingStrategy()
+
+        # デフォルト重みの同期確認
+        # ensemble.pyの_initialize_weightsで定義されている値と比較
+        expected_balanced_weights = {
+            "conservative_rsi": 0.2,
+            "aggressive_momentum": 0.25,
+            "trend_following": 0.25,
+            "mean_reversion": 0.2,
+            "default_integrated": 0.1,
+        }
+        assert settings.strategy_weights == expected_balanced_weights
+
+        # 信頼度閾値の同期確認（正しいEnum型を使用）
+        # balanced戦略の閾値をテスト
+        balanced_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.BALANCED)
+        expected_balanced_threshold = balanced_strategy._get_confidence_threshold()
+        assert settings.confidence_thresholds["balanced"] == expected_balanced_threshold
+
+        # conservative戦略の閾値をテスト
+        conservative_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.CONSERVATIVE)
+        expected_conservative_threshold = conservative_strategy._get_confidence_threshold()
+        assert settings.confidence_thresholds["conservative"] == expected_conservative_threshold
+
+        # aggressive戦略の閾値をテスト
+        aggressive_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.AGGRESSIVE)
+        expected_aggressive_threshold = aggressive_strategy._get_confidence_threshold()
+        assert settings.confidence_thresholds["aggressive"] == expected_aggressive_threshold
+
+    def test_ensemble_settings_complete_validation(self, temp_config_file):
+        """get_ensemble_settings()が返すEnsembleSettingsインスタンスの完全な検証"""
+        config_manager = ConfigManager(temp_config_file)
+        ensemble_settings = config_manager.get_ensemble_settings()
+
+        # Pydanticのmodel_dump()を使用した網羅的な検証
+        settings_dict = ensemble_settings.model_dump()
+
+        # 必須フィールドの存在確認
+        required_fields = [
+            'enabled', 'strategy_type', 'voting_type', 'performance_file_path',
+            'strategy_weights', 'confidence_thresholds', 'meta_learning_enabled',
+            'adaptive_weights_enabled'
+        ]
+        for field in required_fields:
+            assert field in settings_dict, f"Required field {field} missing"
+
+        # 各フィールドの型確認
+        assert isinstance(settings_dict['enabled'], bool)
+        assert isinstance(settings_dict['strategy_type'], str)
+        assert isinstance(settings_dict['voting_type'], str)
+        assert isinstance(settings_dict['performance_file_path'], str)
+        assert isinstance(settings_dict['strategy_weights'], dict)
+        assert isinstance(settings_dict['confidence_thresholds'], dict)
+        assert isinstance(settings_dict['meta_learning_enabled'], bool)
+        assert isinstance(settings_dict['adaptive_weights_enabled'], bool)
+
+        # sample_configの値が正しくマッピングされているか確認
+        assert settings_dict['enabled'] is True
+        assert settings_dict['strategy_type'] == "balanced"
+        assert settings_dict['voting_type'] == "soft"
+        assert settings_dict['performance_file_path'] == "test_performance.json"
+        assert settings_dict['meta_learning_enabled'] is True
+        assert settings_dict['adaptive_weights_enabled'] is False
+
+    def test_ensemble_settings_dynamic_strategy_names(self):
+        """期待される戦略名の動的な取得テスト"""
+        # EnsembleTradingStrategyから動的に戦略名を取得
+        strategy = EnsembleTradingStrategy()
+        actual_strategies = list(strategy.strategies.keys())
+
+        # EnsembleSettingsのデフォルト重みと比較
+        settings = EnsembleSettings()
+        expected_strategies = list(settings.strategy_weights.keys())
+
+        # 戦略名の一致確認
+        assert set(actual_strategies) == set(expected_strategies), \
+            f"Strategy names mismatch: expected {expected_strategies}, got {actual_strategies}"
+
+        # 各戦略に重みが設定されていることを確認
+        for strategy_name in actual_strategies:
+            assert strategy_name in settings.strategy_weights
+            assert 0.0 <= settings.strategy_weights[strategy_name] <= 1.0
+
+    def test_ensemble_settings_edge_cases(self):
+        """エッジケースのテスト"""
+        # 重みの合計がぎりぎり許容範囲内
+        borderline_weights = {
+            "conservative_rsi": 0.19,
+            "aggressive_momentum": 0.24,
+            "trend_following": 0.24,
+            "mean_reversion": 0.19,
+            "default_integrated": 0.095,  # 合計: 0.95 (ぎりぎり許容)
+        }
+        settings = EnsembleSettings(strategy_weights=borderline_weights)
+        assert abs(sum(settings.strategy_weights.values()) - 0.95) < 0.01
+
+        # 重みが0の戦略を含む場合
+        zero_weight_settings = {
+            "conservative_rsi": 0.5,
+            "aggressive_momentum": 0.5,
+            "trend_following": 0.0,  # 0重み
+            "mean_reversion": 0.0,   # 0重み
+            "default_integrated": 0.0, # 0重み
+        }
+        settings = EnsembleSettings(strategy_weights=zero_weight_settings)
+        assert settings.strategy_weights["trend_following"] == 0.0
+
+        # 閾値の境界値
+        boundary_thresholds = {
+            "conservative": 0.0,    # 最小値
+            "aggressive": 100.0,    # 最大値
+            "balanced": 50.0,       # 中間値
+            "adaptive": 25.5,       # 小数点値
+        }
+        settings = EnsembleSettings(confidence_thresholds=boundary_thresholds)
+        assert settings.confidence_thresholds["conservative"] == 0.0
+        assert settings.confidence_thresholds["aggressive"] == 100.0
 
 
 if __name__ == "__main__":
