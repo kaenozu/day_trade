@@ -197,7 +197,7 @@ class NotificationHandler:
                       alert_type=trigger.alert_type.value,
                       priority=trigger.priority.value,
                       trigger_time=trigger.trigger_time.isoformat(),
-                      message=trigger.message,
+                      alert_message=trigger.message,
                       current_price=trigger.current_price,
                       notification_type="console")
 

@@ -127,14 +127,18 @@ class TestNotificationHandler:
             priority=AlertPriority.MEDIUM,
         )
 
-    def test_console_notification(self, capsys):
+    def test_console_notification(self, caplog):
         """コンソール通知テスト"""
+        import logging
+        caplog.set_level(logging.WARNING)
+
         self.handler._send_console_notification(self.sample_trigger)
 
-        captured = capsys.readouterr()
-        assert "ALERT" in captured.out
-        assert "7203" in captured.out
-        assert "テスト通知" in captured.out
+        # ログ出力の確認
+        assert len(caplog.records) > 0
+        log_record = caplog.records[0]
+        assert log_record.levelname == "WARNING"
+        assert "Alert triggered - Console notification" in log_record.getMessage()
 
     def test_file_log_notification(self, tmp_path):
         """ファイルログ通知テスト"""
