@@ -43,7 +43,9 @@ class ChartPatternRecognizer:
 
             # クロスポイントを検出
             fast_above = fast_ma > slow_ma
-            fast_above_shifted = fast_above.shift(1).fillna(False)
+            # pandasの将来警告を回避するため、明示的にbool型で初期化
+            with pd.option_context('future.no_silent_downcasting', True):
+                fast_above_shifted = fast_above.shift(1).fillna(False)
             golden_cross = fast_above & ~fast_above_shifted
             dead_cross = ~fast_above & fast_above_shifted
 
