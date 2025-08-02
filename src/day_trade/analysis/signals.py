@@ -983,8 +983,9 @@ if __name__ == "__main__":
         logger.info("時系列シグナル生成完了", **series_summary)
         log_business_event("time_series_signals_generated", **series_summary)
 
-        # デモ用コンソール出力
-        print("\n=== 時系列シグナル ===")
-        print(active_signals.tail(10))
+        # デモ用表示ログ
+        logger.info("時系列シグナル表示",
+                   signal_count=len(active_signals),
+                   latest_signals=active_signals.tail(10).to_dict("records") if len(active_signals) > 0 else [])
     else:
         logger.info("時系列シグナル生成結果", result="no_active_signals")

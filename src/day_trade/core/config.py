@@ -8,6 +8,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from ..utils.logging_config import get_context_logger, log_error_with_context
+
 
 class TradingConfig(BaseModel):
     """取引設定"""
@@ -52,6 +54,8 @@ class ConfigManager:
         Args:
             config_path: 設定ファイルのパス（指定しない場合はデフォルト）
         """
+        self.logger = get_context_logger(__name__, component="config_manager")
+
         if config_path is None:
             self.config_dir = self.DEFAULT_CONFIG_DIR
             self.config_path = self.config_dir / self.DEFAULT_CONFIG_FILE
@@ -67,12 +71,30 @@ class ConfigManager:
             try:
                 with open(self.config_path, encoding="utf-8") as f:
                     data = json.load(f)
+
+                self.logger.info(
+                    "設定ファイル読み込み成功",
+                    config_path=str(self.config_path),
+                    config_size=len(data)
+                )
                 return AppConfig(**data)
             except Exception as e:
-                print(f"設定ファイル読み込みエラー: {e}")
+                log_error_with_context(e, {
+                    "operation": "load_config",
+                    "config_path": str(self.config_path),
+                    "error_type": type(e).__name__
+                })
+                self.logger.warning(
+                    "設定ファイル読み込みエラー、デフォルト設定を使用",
+                    config_path=str(self.config_path),
+                    error=str(e)
+                )
                 return AppConfig()
         else:
-            # デフォルト設定を返す
+            self.logger.info(
+                "設定ファイルが存在しません、デフォルト設定を使用",
+                config_path=str(self.config_path)
+            )
             return AppConfig()
 
     def save_config(self):
