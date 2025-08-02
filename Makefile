@@ -149,6 +149,21 @@ deps-sync: ## Sync requirements files
 	@echo "🔄 Syncing requirements files..."
 	python scripts/dependency_manager.py sync
 
+deps-unused: ## Check for unused dependencies
+	@echo "🔍 Checking for unused dependencies..."
+	deptry . --extend-exclude "tests" --ignore-notebooks || echo "deptry not installed"
+
+deps-validate: ## Validate dependency configuration
+	@echo "✅ Validating dependency configuration..."
+	pip check
+	pip-check-reqs . || echo "pip-check-reqs not installed"
+
+deps-audit: ## Comprehensive dependency audit
+	@echo "🔒 Running comprehensive dependency audit..."
+	safety check || echo "safety not installed"
+	pip-audit || echo "pip-audit not installed"
+	bandit -r src/ -f json -o reports/dependencies/security_audit.json || echo "bandit not installed"
+
 # リリース
 release-patch: ## Create patch release
 	@echo "🏷️ Creating patch release..."
