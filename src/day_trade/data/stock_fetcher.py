@@ -66,6 +66,8 @@ def cache_with_ttl(ttl_seconds: int):
     """TTL付きキャッシュデコレータ（改善版）"""
     cache = DataCache(ttl_seconds)
     stats = CacheStats()
+    # キャッシュデコレータ用のロガーを取得
+    cache_logger = get_context_logger(__name__)
 
     def decorator(func):
         @wraps(func)
@@ -76,7 +78,7 @@ def cache_with_ttl(ttl_seconds: int):
 
                 # キーの妥当性を検証
                 if not validate_cache_key(cache_key):
-                    logger.warning(
+                    cache_logger.warning(
                         f"Invalid cache key generated for {func.__name__}, skipping cache"
                     )
                     stats.record_error()
@@ -85,7 +87,7 @@ def cache_with_ttl(ttl_seconds: int):
                 # キャッシュから取得を試行
                 cached_result = cache.get(cache_key)
                 if cached_result is not None:
-                    logger.debug(f"キャッシュヒット: {func.__name__}")
+                    cache_logger.debug(f"キャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
@@ -98,12 +100,12 @@ def cache_with_ttl(ttl_seconds: int):
                     sanitized_result = sanitize_cache_value(result)
                     cache.set(cache_key, sanitized_result)
                     stats.record_set()
-                    logger.debug(f"キャッシュに保存: {func.__name__}")
+                    cache_logger.debug(f"キャッシュに保存: {func.__name__}")
 
                 return result
 
             except Exception as e:
-                logger.error(f"キャッシュ処理でエラーが発生: {e}")
+                cache_logger.error(f"キャッシュ処理でエラーが発生: {e}")
                 stats.record_error()
                 # キャッシュエラーでも関数実行は継続
                 return func(*args, **kwargs)
@@ -195,7 +197,7 @@ class StockFetcher:
                 # ネットワークエラーまたは一時的なエラーの場合のみリトライ
                 if self._is_retryable_error(e):
                     if attempt < self.retry_count - 1:
-                        logger.warning(
+                        self.logger.warning(
                             f"リトライ {attempt + 1}/{self.retry_count}: {e}"
                         )
                         time.sleep(self.retry_delay * (attempt + 1))  # 指数バックオフ
@@ -325,7 +327,7 @@ class StockFetcher:
             )
 
         if end_date > datetime.now():
-            logger.warning(f"終了日が未来の日付です: {end_date}")
+            self.logger.warning(f"終了日が未来の日付です: {end_date}")
 
     def clear_all_caches(self) -> None:
         """すべてのキャッシュをクリア"""
@@ -339,7 +341,7 @@ class StockFetcher:
         if hasattr(self.get_historical_data_range, "clear_cache"):
             self.get_historical_data_range.clear_cache()
 
-        logger.info("すべてのキャッシュをクリアしました")
+        self.logger.info("すべてのキャッシュをクリアしました")
 
     def _format_symbol(self, code: str, market: str = "T") -> str:
         """
@@ -633,11 +635,11 @@ class StockFetcher:
                     else:
                         failed_codes.append(code)
                 except Exception as e:
-                    logger.warning(f"銘柄 {code} の取得に失敗: {e}")
+                    self.logger.warning(f"銘柄 {code} の取得に失敗: {e}")
                     failed_codes.append(code)
 
         if failed_codes:
-            logger.info(f"取得に失敗した銘柄: {failed_codes}")
+            self.logger.info(f"取得に失敗した銘柄: {failed_codes}")
 
         return results
 
@@ -689,7 +691,8 @@ class StockFetcher:
 # 使用例
 if __name__ == "__main__":
     # ロギング設定
-    logging.basicConfig(level=logging.INFO)
+    from ..utils.logging_config import setup_logging
+    setup_logging()
 
     # インスタンス作成
     fetcher = StockFetcher()

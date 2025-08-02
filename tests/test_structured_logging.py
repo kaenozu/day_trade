@@ -2,10 +2,7 @@
 構造化ロギングのテスト
 """
 
-import json
 import logging
-import sys
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
