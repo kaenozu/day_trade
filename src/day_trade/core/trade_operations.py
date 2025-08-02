@@ -8,7 +8,11 @@ from typing import Dict, Optional
 from ..data.stock_fetcher import StockFetcher
 from ..models.database import db_manager
 from ..models.stock import Stock, Trade
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 
 class TradeOperationError(Exception):

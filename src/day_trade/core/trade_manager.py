@@ -6,7 +6,6 @@
 
 import csv
 import json
-import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -14,8 +13,13 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 from ..models.database import db_manager
-from ..models.stock import Stock, Trade as DBTrade
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..models.stock import Stock
+from ..models.stock import Trade as DBTrade
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
 

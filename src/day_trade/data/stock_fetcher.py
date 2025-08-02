@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union
 import pandas as pd
 import requests.exceptions as req_exc
 import yfinance as yf
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from ..utils.cache_utils import (
     CacheStats,
@@ -26,7 +26,12 @@ from ..utils.exceptions import (
     ValidationError,
     handle_network_exception,
 )
-from ..utils.logging_config import get_context_logger, log_api_call, log_error_with_context, log_performance_metric
+from ..utils.logging_config import (
+    get_context_logger,
+    log_api_call,
+    log_error_with_context,
+    log_performance_metric,
+)
 
 
 def _is_retryable_error(error: Exception) -> bool:

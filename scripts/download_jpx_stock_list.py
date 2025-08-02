@@ -1,14 +1,16 @@
 
 import io
 import logging
-import requests
-import pandas as pd
-from typing import List, Optional
-from rich.progress import track
+import os
 
 # 親ディレクトリをsys.pathに追加して、srcパッケージを見つけられるようにする
 import sys
-import os
+from typing import List, Optional
+
+import pandas as pd
+import requests
+from rich.progress import track
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.day_trade.data.stock_master import stock_master
