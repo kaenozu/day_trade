@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from src.day_trade.core.trade_manager import TradeManager, TradeType
 from src.day_trade.models.database import DatabaseConfig, db_manager
@@ -39,7 +40,7 @@ class TestTradeManagerTransactions:
         """データベース永続化を有効にした取引追加のテスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # 取引を追加（DB永続化有効）
-            trade_id = trade_manager.add_trade(
+            _ = trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -70,7 +71,7 @@ class TestTradeManagerTransactions:
     def test_add_trade_memory_only(self, trade_manager):
         """メモリのみの取引追加のテスト"""
         # 取引を追加（DB永続化無効）
-        trade_id = trade_manager.add_trade(
+        _ = trade_manager.add_trade(
             symbol="7203",
             trade_type=TradeType.BUY,
             quantity=100,
@@ -85,33 +86,12 @@ class TestTradeManagerTransactions:
 
     def test_transaction_rollback_on_error(self, trade_manager, test_db_manager):
         """エラー時のトランザクションロールバックテスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            # 銘柄作成でエラーを発生させるモック
-            with patch.object(Stock, '__init__', side_effect=Exception("銘柄作成エラー")):
-                with pytest.raises(Exception, match="銘柄作成エラー"):
-                    trade_manager.add_trade(
-                        symbol="7203",
-                        trade_type=TradeType.BUY,
-                        quantity=100,
-                        price=Decimal("2500"),
-                        persist_to_db=True
-                    )
-
-                # メモリ内にデータが残っていないことを確認
-                assert len(trade_manager.trades) == 0
-
-                # データベースにデータが残っていないことを確認
-                with test_db_manager.session_scope() as session:
-                    stock_count = session.query(Stock).count()
-                    trade_count = session.query(Trade).count()
-                    assert stock_count == 0
-                    assert trade_count == 0
-
-    def test_multiple_trades_atomic_transaction(self, trade_manager, test_db_manager):
-        """複数取引のアトミック実行テスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            # 複数の取引を順次追加
-            trade_id1 = trade_manager.add_trade(
+        with (
+            patch('src.day_trade.core.trade_manager.db_manager', test_db_manager),
+            patch.object(Stock, '__init__', side_effect=Exception("銘柄作成エラー")),
+            pytest.raises(Exception, match="銘柄作成エラー"),
+        ):
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -119,7 +99,29 @@ class TestTradeManagerTransactions:
                 persist_to_db=True
             )
 
-            trade_id2 = trade_manager.add_trade(
+        # メモリ内にデータが残っていないことを確認
+        assert len(trade_manager.trades) == 0
+
+        # データベースにデータが残っていないことを確認
+        with test_db_manager.session_scope() as session:
+            stock_count = session.query(Stock).count()
+            trade_count = session.query(Trade).count()
+            assert stock_count == 0
+            assert trade_count == 0
+
+    def test_multiple_trades_atomic_transaction(self, trade_manager, test_db_manager):
+        """複数取引のアトミック実行テスト"""
+        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
+            # 複数の取引を順次追加
+            _ = trade_manager.add_trade(
+                symbol="7203",
+                trade_type=TradeType.BUY,
+                quantity=100,
+                price=Decimal("2500"),
+                persist_to_db=True
+            )
+
+            _ = trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=200,
@@ -165,7 +167,7 @@ class TestTradeManagerTransactions:
                 session.add(stock)
                 session.flush()
 
-                db_trade = Trade.create_buy_trade(
+                _ = Trade.create_buy_trade(
                     session=session,
                     stock_code="7203",
                     quantity=100,
@@ -192,7 +194,7 @@ class TestTradeManagerTransactions:
         """データベース同期テスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # メモリ内に取引を追加（DB永続化あり）
-            trade_id = trade_manager.add_trade(
+            _ = trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -212,12 +214,14 @@ class TestTradeManagerTransactions:
 
     def test_concurrent_transaction_handling(self, test_db_manager):
         """並行トランザクション処理のテスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
+        with (
+            patch('src.day_trade.core.trade_manager.db_manager', test_db_manager),
+        ):
             tm1 = TradeManager(load_from_db=False)
             tm2 = TradeManager(load_from_db=False)
 
             # 2つのTradeManagerから同時に同じ銘柄の取引を追加
-            trade_id1 = tm1.add_trade(
+            _ = tm1.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -225,7 +229,7 @@ class TestTradeManagerTransactions:
                 persist_to_db=True
             )
 
-            trade_id2 = tm2.add_trade(
+            _ = tm2.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=200,
@@ -247,7 +251,7 @@ class TestTradeManagerTransactions:
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # 手数料を明示的に指定
             explicit_commission = Decimal("200")
-            trade_id = trade_manager.add_trade(
+            _ = trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -266,27 +270,27 @@ class TestTradeManagerTransactions:
 
     def test_error_logging_and_context(self, trade_manager, test_db_manager):
         """エラーログとコンテキスト情報のテスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            # ログモックを設定
-            with patch('src.day_trade.core.trade_manager.log_error_with_context') as mock_log_error:
-                with patch('src.day_trade.core.trade_manager.DBTrade.create_buy_trade',
-                          side_effect=Exception("DB取引作成エラー")):
+        with (
+            patch('src.day_trade.core.trade_manager.db_manager', test_db_manager),
+            patch('src.day_trade.core.trade_manager.log_error_with_context') as mock_log_error,
+            patch('src.day_trade.core.trade_manager.DBTrade.create_buy_trade',
+                          side_effect=Exception("DB取引作成エラー")),
+            pytest.raises(Exception),
+        ):
+            trade_manager.add_trade(
+                symbol="7203",
+                trade_type=TradeType.BUY,
+                quantity=100,
+                price=Decimal("2500"),
+                persist_to_db=True
+            )
 
-                    with pytest.raises(Exception):
-                        trade_manager.add_trade(
-                            symbol="7203",
-                            trade_type=TradeType.BUY,
-                            quantity=100,
-                            price=Decimal("2500"),
-                            persist_to_db=True
-                        )
-
-                    # エラーログが適切なコンテキスト情報と共に呼ばれたか確認
-                    mock_log_error.assert_called_once()
-                    call_args = mock_log_error.call_args
-                    assert "symbol" in call_args[0][1]
-                    assert "trade_type" in call_args[0][1]
-                    assert call_args[0][1]["symbol"] == "7203"
+        # エラーログが適切なコンテキスト情報と共に呼ばれたか確認
+        mock_log_error.assert_called_once()
+        call_args = mock_log_error.call_args
+        assert "symbol" in call_args[0][1]
+        assert "trade_type" in call_args[0][1]
+        assert call_args[0][1]["symbol"] == "7203"
 
 
 if __name__ == "__main__":

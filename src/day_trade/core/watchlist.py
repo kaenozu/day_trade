@@ -438,7 +438,7 @@ class WatchlistManager:
                     query = query.filter(Alert.stock_code == stock_code)
 
                 if active_only:
-                    query = query.filter(Alert.is_active == True)
+                    query = query.filter(Alert.is_active)
 
                 alerts = query.all()
 

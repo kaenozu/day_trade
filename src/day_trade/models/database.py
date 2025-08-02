@@ -155,7 +155,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Database initialization failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -211,7 +211,7 @@ class DatabaseManager:
             # エラーを適切な例外に変換
             converted_error = handle_database_exception(e)
             logger.error(f"Database session error: {converted_error}")
-            raise converted_error
+            raise converted_error from e
         finally:
             session.close()
 
@@ -263,11 +263,11 @@ class DatabaseManager:
                 else:
                     converted_error = handle_database_exception(e)
                     logger.error(f"Database transaction error after {attempt + 1} attempts: {converted_error}")
-                    raise converted_error
+                    raise converted_error from e
             except Exception as e:
                 converted_error = handle_database_exception(e)
                 logger.error(f"Unexpected database transaction error: {converted_error}")
-                raise converted_error
+                raise converted_error from e
             finally:
                 session.close()
 
@@ -308,7 +308,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Alembic initialization failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
@@ -319,7 +319,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Migration creation failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
@@ -330,7 +330,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Database upgrade failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
@@ -341,7 +341,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Database downgrade failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
@@ -354,7 +354,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             logger.error(f"Current revision retrieval failed: {converted_error}")
-            raise converted_error
+            raise converted_error from e
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
         """

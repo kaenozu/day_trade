@@ -334,7 +334,7 @@ class I18nMessageHandler:
 
         # それでもない場合はデフォルトメッセージ
         if not lang_data:
-            lang_data = MESSAGES["UNKNOWN_ERROR"][self.language]
+            lang_data = MESSAGES["UNKNOWN_ERROR"].get(self.language, {})
 
         # コンテキスト情報を適用
         result = lang_data.copy()
@@ -368,7 +368,9 @@ class I18nMessageHandler:
         return self.get_message(error_code, language, context)
 
     def format_solutions_list(
-        self, solutions: List[str], language: Optional[Language] = None
+        self,
+        solutions: List[str],
+        language: Optional[Language] = None,
     ) -> str:
         """
         解決策リストをフォーマット
@@ -382,10 +384,7 @@ class I18nMessageHandler:
         """
         lang = language or self.language
 
-        if lang == Language.JAPANESE:
-            header = "💡 解決方法:"
-        else:
-            header = "💡 Solutions:"
+        header = "💡 解決方法:" if lang == Language.JAPANESE else "💡 Solutions:"
 
         formatted_solutions = [
             f"  {i + 1}. {solution}" for i, solution in enumerate(solutions)

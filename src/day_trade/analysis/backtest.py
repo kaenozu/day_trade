@@ -338,12 +338,12 @@ class BacktestEngine:
         self, symbols: List[str], config: BacktestConfig, show_progress: bool = True
     ) -> Dict[str, pd.DataFrame]:
         """履歴データの取得"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         historical_data = {}
 
         # バッファを追加（テクニカル指標計算のため）
         buffer_start = config.start_date - timedelta(days=100)
-
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         if show_progress:
             # 進捗表示付きでデータ取得
@@ -351,45 +351,40 @@ class BacktestEngine:
                 f"履歴データ取得 ({len(symbols)}銘柄)",
                 total=len(symbols),
                 progress_type=ProgressType.DETERMINATE,
-            ) as progress:
-                # Use ThreadPoolExecutor for parallel fetching
-                with ThreadPoolExecutor(
-                    max_workers=min(len(symbols), 5)
-                ) as executor:  # Limit workers to avoid overwhelming
-                    future_to_symbol = {
-                        executor.submit(
-                            self.stock_fetcher.get_historical_data,
-                            symbol,
-                            start_date=buffer_start,
-                            end_date=config.end_date,
-                            interval="1d",
-                        ): symbol
-                        for symbol in symbols
-                    }
+            ) as progress, ThreadPoolExecutor(
+                max_workers=min(len(symbols), 5)
+            ) as executor:  # Limit workers to avoid overwhelming
+                future_to_symbol = {
+                    executor.submit(
+                        self.stock_fetcher.get_historical_data_range,
+                        symbol,
+                        start_date=buffer_start,
+                        end_date=config.end_date,
+                    ): symbol
+                    for symbol in symbols
+                }
 
-                    for future in as_completed(future_to_symbol):
-                        symbol = future_to_symbol[future]
-                        try:
-                            data = future.result()
-                            if data is not None and not data.empty:
-                                historical_data[symbol] = data
-                                logger.info(
-                                    f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
-                                )
-                                progress.set_description(
-                                    f"履歴データ取得完了: {symbol}"
-                                )
-                            else:
-                                logger.warning(
-                                    f"銘柄 '{symbol}' の履歴データを取得できませんでした。この銘柄はバックテストから除外されます。"
-                                )
-
-                        except Exception as e:
-                            logger.error(
-                                f"銘柄 '{symbol}' の履歴データ取得中にエラーが発生しました。詳細: {e}"
+                for future in as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        data = future.result()
+                        if data is not None and not data.empty:
+                            historical_data[symbol] = data
+                            logger.info(
+                                f"履歴データ取得完了: {symbol} ({len(data)} データポイント)"
                             )
-                        finally:
-                            progress.update(1)
+                            progress.set_description(f"履歴データ取得完了: {symbol}")
+                        else:
+                            logger.warning(
+                                f"銘柄 '{symbol}' の履歴データを取得できませんでした。この銘柄はバックテストから除外されます。"
+                            )
+
+                    except Exception as e:
+                        logger.error(
+                            f"銘柄 '{symbol}' の履歴データ取得中にエラーが発生しました。詳細: {e}"
+                        )
+                    finally:
+                        progress.update(1)
         else:
             # Use ThreadPoolExecutor for parallel fetching
             with ThreadPoolExecutor(
@@ -397,11 +392,10 @@ class BacktestEngine:
             ) as executor:  # Limit workers to avoid overwhelming
                 future_to_symbol = {
                     executor.submit(
-                        self.stock_fetcher.get_historical_data,
+                        self.stock_fetcher.get_historical_data_range,
                         symbol,
                         start_date=buffer_start,
                         end_date=config.end_date,
-                        interval="1d",
                     ): symbol
                     for symbol in symbols
                 }
@@ -543,10 +537,8 @@ class BacktestEngine:
                 )
 
                 # 最新のシグナルのみを使用
-                if signal:
-                    # シグナルのタイムスタンプが現在のバックテスト日付と一致することを確認
-                    if signal.timestamp.date() == date.date():
-                        signals.append(signal)
+                if signal and signal.timestamp.date() == date.date():
+                    signals.append(signal)
             except Exception as e:
                 logger.debug(
                     f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' のシグナル生成中にエラーが発生しました。詳細: {e}"

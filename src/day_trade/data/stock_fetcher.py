@@ -1,7 +1,5 @@
-"""
-株価データ取得モジュール
-yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得
-"""
+"株価データ取得モジュール
+yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得"
 
 import time
 from datetime import datetime
@@ -39,11 +37,10 @@ def _is_retryable_error(error: Exception) -> bool:
     if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout)):
         return True
 
-    if isinstance(error, req_exc.HTTPError):
-        if hasattr(error, "response") and error.response is not None:
-            status_code = error.response.status_code
-            retryable_codes = [500, 502, 503, 504, 408, 429]
-            return status_code in retryable_codes
+    if isinstance(error, req_exc.HTTPError) and hasattr(error, "response") and error.response is not None:
+        status_code = error.response.status_code
+        retryable_codes = [500, 502, 503, 504, 408, 429]
+        return status_code in retryable_codes
 
     # yfinanceがrequests以外のエラーを出す可能性も考慮
     error_message = str(error).lower()

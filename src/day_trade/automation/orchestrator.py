@@ -1,7 +1,4 @@
-"""
-全自動化オーケストレーター
-デイトレードの全工程を統合実行
-"""
+"全自動化オーケストレーター\nデイトレードの全工程を統合実行\n"
 
 import logging
 import time
@@ -197,7 +194,7 @@ class DayTradeOrchestrator:
                         self._execute_main_pipeline_with_progress(symbols, progress)
                     else:
                         # レポートのみの場合は全ステップをスキップしてレポート生成
-                        for i in range(len(steps) - 1):
+                        for _ in range(len(steps) - 1):
                             progress.complete_step()
 
                     # レポート生成
@@ -276,7 +273,9 @@ class DayTradeOrchestrator:
         self.current_report.triggered_alerts = alerts
 
     def _run_ensemble_strategy(
-        self, signals: List[Dict[str, Any]], stock_data: Dict[str, Any]
+        self,
+        signals: List[Dict[str, Any]],
+        stock_data: Dict[str, Any],
     ):
         """アンサンブル戦略を実行"""
         if not self.ensemble_strategy:
@@ -334,7 +333,9 @@ class DayTradeOrchestrator:
         self.current_report.triggered_alerts = alerts
 
     def _fetch_stock_data_batch(
-        self, symbols: List[str], show_progress: bool = False
+        self,
+        symbols: List[str],
+        show_progress: bool = False,
     ) -> Dict[str, Any]:
         """株価データを並列取得"""
         stock_data = {}
@@ -389,19 +390,18 @@ class DayTradeOrchestrator:
                 f"株価データ取得 ({len(symbols)}銘柄)",
                 total=len(symbols),
                 progress_type=ProgressType.DETERMINATE,
-            ) as progress:
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    future_to_symbol = {
-                        executor.submit(fetch_single_stock, symbol): symbol
-                        for symbol in symbols
-                    }
+            ) as progress, ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_symbol = {
+                    executor.submit(fetch_single_stock, symbol): symbol
+                    for symbol in symbols
+                }
 
-                    for future in as_completed(future_to_symbol):
-                        symbol, data = future.result()
-                        if data:
-                            stock_data[symbol] = data
-                            progress.set_description(f"データ取得完了: {symbol}")
-                        progress.update(1)
+                for future in as_completed(future_to_symbol):
+                    symbol, data = future.result()
+                    if data:
+                        stock_data[symbol] = data
+                        progress.set_description(f"データ取得完了: {symbol}")
+                    progress.update(1)
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_symbol = {
@@ -418,7 +418,9 @@ class DayTradeOrchestrator:
         return stock_data
 
     def _run_technical_analysis_batch(
-        self, stock_data: Dict[str, Any], show_progress: bool = False
+        self,
+        stock_data: Dict[str, Any],
+        show_progress: bool = False,
     ) -> Dict[str, Dict]:
         """テクニカル分析を並列実行"""
         if not self.config_manager.get_technical_indicator_settings().enabled:
@@ -445,7 +447,9 @@ class DayTradeOrchestrator:
         return analysis_results
 
     def _analyze_single_symbol(
-        self, symbol: str, data: Dict[str, Any]
+        self,
+        symbol: str,
+        data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """単一銘柄のテクニカル分析"""
         try:
@@ -494,7 +498,9 @@ class DayTradeOrchestrator:
         return {}
 
     def _run_pattern_recognition_batch(
-        self, stock_data: Dict[str, Any], show_progress: bool = False
+        self,
+        stock_data: Dict[str, Any],
+        show_progress: bool = False,
     ) -> Dict[str, Dict]:
         """パターン認識を並列実行"""
         if not self.config_manager.get_pattern_recognition_settings().enabled:
@@ -579,7 +585,11 @@ class DayTradeOrchestrator:
         return all_signals
 
     def _generate_ensemble_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict, stock_data: Dict = None
+        self,
+        symbol: str,
+        analysis: Dict,
+        patterns: Dict,
+        stock_data: Dict = None,
     ) -> List[Dict[str, Any]]:
         """アンサンブル戦略によるシグナル生成"""
         signals = []
@@ -614,35 +624,33 @@ class DayTradeOrchestrator:
                     else:
                         indicators_df["RSI"] = rsi_data
 
-            if "macd" in analysis:
+            if "macd" in analysis and isinstance(analysis["macd"], dict):
                 macd_data = analysis["macd"]
-                if isinstance(macd_data, dict):
-                    if "MACD" in macd_data and "Signal" in macd_data:
-                        macd_values = macd_data["MACD"]
-                        signal_values = macd_data["Signal"]
-                        if hasattr(macd_values, "iloc") and hasattr(
-                            signal_values, "iloc"
-                        ):
-                            if len(macd_values) == len(price_df) and len(
-                                signal_values
-                            ) == len(price_df):
-                                indicators_df["MACD"] = macd_values.values
-                                indicators_df["MACD_Signal"] = signal_values.values
+                if "MACD" in macd_data and "Signal" in macd_data:
+                    macd_values = macd_data["MACD"]
+                    signal_values = macd_data["Signal"]
+                    if (
+                        hasattr(macd_values, "iloc")
+                        and hasattr(signal_values, "iloc")
+                        and len(macd_values) == len(price_df)
+                        and len(signal_values) == len(price_df)
+                    ):
+                        indicators_df["MACD"] = macd_values.values
+                        indicators_df["MACD_Signal"] = signal_values.values
 
-            if "bollinger" in analysis:
+            if "bollinger" in analysis and isinstance(analysis["bollinger"], dict):
                 bb_data = analysis["bollinger"]
-                if isinstance(bb_data, dict):
-                    if "Upper" in bb_data and "Lower" in bb_data:
-                        upper_values = bb_data["Upper"]
-                        lower_values = bb_data["Lower"]
-                        if hasattr(upper_values, "iloc") and hasattr(
-                            lower_values, "iloc"
-                        ):
-                            if len(upper_values) == len(price_df) and len(
-                                lower_values
-                            ) == len(price_df):
-                                indicators_df["BB_Upper"] = upper_values.values
-                                indicators_df["BB_Lower"] = lower_values.values
+                if "Upper" in bb_data and "Lower" in bb_data:
+                    upper_values = bb_data["Upper"]
+                    lower_values = bb_data["Lower"]
+                    if (
+                        hasattr(upper_values, "iloc")
+                        and hasattr(lower_values, "iloc")
+                        and len(upper_values) == len(price_df)
+                        and len(lower_values) == len(price_df)
+                    ):
+                        indicators_df["BB_Upper"] = upper_values.values
+                        indicators_df["BB_Lower"] = lower_values.values
 
             # アンサンブルシグナル生成
             ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
@@ -680,7 +688,11 @@ class DayTradeOrchestrator:
             return []
 
     def _evaluate_trading_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict, settings
+        self,
+        symbol: str,
+        analysis: Dict,
+        patterns: Dict,
+        settings,
     ) -> List[Dict[str, Any]]:
         """個別銘柄のシグナル評価"""
         signals = []
@@ -762,7 +774,9 @@ class DayTradeOrchestrator:
             return []
 
     def _check_alerts_batch(
-        self, stock_data: Dict[str, Any], show_progress: bool = False
+        self,
+        stock_data: Dict[str, Any],
+        show_progress: bool = False,
     ) -> List[Dict[str, Any]]:
         """アラートチェックを実行"""
         if not self.config_manager.get_alert_settings().enabled:

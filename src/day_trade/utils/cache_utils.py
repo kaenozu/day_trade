@@ -207,10 +207,7 @@ def validate_cache_key(key: str) -> bool:
         return False
 
     # 制御文字を含むキーを拒否
-    if any(ord(c) < 32 or ord(c) == 127 for c in key):
-        return False
-
-    return True
+    return not any(ord(c) < 32 or ord(c) == 127 for c in key)
 
 
 def sanitize_cache_value(value: Any) -> Any:

@@ -122,7 +122,10 @@ class SignalRule:
         self.weight = weight
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         """
         ルールを評価
@@ -143,7 +146,10 @@ class RSIOversoldRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns:
             return False, 0.0
@@ -170,7 +176,10 @@ class RSIOverboughtRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns:
             return False, 0.0
@@ -197,7 +206,10 @@ class MACDCrossoverRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
             return False, 0.0
@@ -232,7 +244,10 @@ class MACDDeathCrossRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
             return False, 0.0
@@ -272,7 +287,10 @@ class BollingerBandRule(SignalRule):
         self.deviation_multiplier = deviation_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns:
             return False, 0.0
@@ -316,28 +334,29 @@ class PatternBreakoutRule(SignalRule):
         self.direction = direction
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "breakouts" not in patterns or len(patterns["breakouts"]) == 0:
             return False, 0.0
 
         breakouts = patterns["breakouts"]
 
-        if self.direction == "upward":
-            if "Upward_Breakout" in breakouts.columns:
-                latest_breakout = breakouts["Upward_Breakout"].iloc[-1]
-                confidence = breakouts["Upward_Confidence"].iloc[-1]
+        if self.direction == "upward" and "Upward_Breakout" in breakouts.columns:
+            latest_breakout = breakouts["Upward_Breakout"].iloc[-1]
+            confidence = breakouts["Upward_Confidence"].iloc[-1]
 
-                if latest_breakout and confidence > 0:
-                    return True, confidence
+            if latest_breakout and confidence > 0:
+                return True, confidence
 
-        elif self.direction == "downward":
-            if "Downward_Breakout" in breakouts.columns:
-                latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
-                confidence = breakouts["Downward_Confidence"].iloc[-1]
+        elif self.direction == "downward" and "Downward_Breakout" in breakouts.columns:
+            latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
+            confidence = breakouts["Downward_Confidence"].iloc[-1]
 
-                if latest_breakout and confidence > 0:
-                    return True, confidence
+            if latest_breakout and confidence > 0:
+                return True, confidence
 
         return False, 0.0
 
@@ -349,7 +368,10 @@ class GoldenCrossRule(SignalRule):
         super().__init__("Golden Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "crosses" not in patterns or len(patterns["crosses"]) == 0:
             return False, 0.0
@@ -375,7 +397,10 @@ class DeadCrossRule(SignalRule):
         super().__init__("Dead Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if "crosses" not in patterns or len(patterns["crosses"]) == 0:
             return False, 0.0
@@ -489,7 +514,10 @@ class TradingSignalGenerator:
         self.sell_rules.clear()
 
     def generate_signal(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Optional[TradingSignal]:
         """
         売買シグナルを生成
@@ -622,7 +650,9 @@ class TradingSignalGenerator:
             return None
 
     def generate_signals_series(
-        self, df: pd.DataFrame, lookback_window: int = 50
+        self,
+        df: pd.DataFrame,
+        lookback_window: int = 50
     ) -> pd.DataFrame:
         """
         時系列でシグナルを生成
@@ -666,39 +696,23 @@ class TradingSignalGenerator:
 
                 # たとえば、crossesはDataFrameなので、ilocでスライス
                 current_crosses = (
-                    all_patterns["crosses"].iloc[i - lookback_window + 1 : i + 1].copy()
-                    if "crosses" in all_patterns
-                    and isinstance(all_patterns["crosses"], pd.DataFrame)
-                    else pd.DataFrame()
+                    all_patterns.get("crosses", pd.DataFrame())
+                    .iloc[i - lookback_window + 1 : i + 1]
+                    .copy()
                 )
 
                 # breakoutesもDataFrame
                 current_breakouts = (
-                    all_patterns["breakouts"]
+                    all_patterns.get("breakouts", pd.DataFrame())
                     .iloc[i - lookback_window + 1 : i + 1]
                     .copy()
-                    if "breakouts" in all_patterns
-                    and isinstance(all_patterns["breakouts"], pd.DataFrame)
-                    else pd.DataFrame()
                 )
 
                 # levels, trends, overall_confidence は単一の結果と仮定
-                current_levels = (
-                    all_patterns["levels"] if "levels" in all_patterns else {}
-                )
-                current_trends = (
-                    all_patterns["trends"] if "trends" in all_patterns else {}
-                )
-                current_overall_confidence = (
-                    all_patterns["overall_confidence"]
-                    if "overall_confidence" in all_patterns
-                    else 0
-                )
-                current_latest_signal = (
-                    all_patterns["latest_signal"]
-                    if "latest_signal" in all_patterns
-                    else None
-                )
+                current_levels = all_patterns.get("levels", {})
+                current_trends = all_patterns.get("trends", {})
+                current_overall_confidence = all_patterns.get("overall_confidence", 0)
+                current_latest_signal = all_patterns.get("latest_signal", None)
 
                 current_patterns = {
                     "crosses": current_crosses,
@@ -785,13 +799,26 @@ class TradingSignalGenerator:
                     base_score *= 0.9
 
                 # トレンドとシグナルの整合性チェック
-                if trend_direction == "upward" and signal.signal_type == SignalType.BUY or trend_direction == "downward" and signal.signal_type == SignalType.SELL:
+                if (
+                    trend_direction == "upward"
+                    and signal.signal_type == SignalType.BUY
+                ) or (
+                    trend_direction == "downward"
+                    and signal.signal_type == SignalType.SELL
+                ):
                     base_score *= 1.1  # トレンドフォロー
-                elif trend_direction != "neutral" and signal.signal_type != SignalType.HOLD:
-                    # トレンドに逆らうシグナルは信頼度を下げる
-                    if ((trend_direction == "upward" and signal.signal_type == SignalType.SELL) or
-                        (trend_direction == "downward" and signal.signal_type == SignalType.BUY)):
-                        base_score *= 0.85
+                elif (
+                    trend_direction != "neutral"
+                    and signal.signal_type != SignalType.HOLD
+                    and (
+                        (trend_direction == "upward" and signal.signal_type == SignalType.SELL)
+                        or (
+                            trend_direction == "downward"
+                            and signal.signal_type == SignalType.BUY
+                        )
+                    )
+                ):
+                    base_score *= 0.85
 
             # 過去のパフォーマンスデータによる調整
             if historical_performance is not None and len(historical_performance) > 0:
@@ -806,8 +833,12 @@ class TradingSignalGenerator:
                         success_rate = same_type_signals["Success"].mean()
                     else:
                         # 成功データがない場合は強度で代用
-                        strong_signals = same_type_signals[same_type_signals["Strength"] == "strong"]
-                        success_rate = len(strong_signals) / len(same_type_signals) * 0.7 + 0.3
+                        strong_signals = same_type_signals[
+                            same_type_signals["Strength"] == "strong"
+                        ]
+                        success_rate = (
+                            len(strong_signals) / len(same_type_signals) * 0.7 + 0.3
+                        )
 
                     # 成功率による調整（0.6-1.3の範囲）
                     performance_multiplier = 0.6 + 0.7 * success_rate
@@ -817,15 +848,18 @@ class TradingSignalGenerator:
                     same_strength = same_type_signals[
                         same_type_signals["Strength"] == signal.strength.value
                     ]
-                    if len(same_strength) > 0:
-                        if "Success" in historical_performance.columns:
-                            strength_success_rate = same_strength["Success"].mean()
-                            # 強度別成功率による微調整
-                            base_score *= (0.9 + 0.2 * strength_success_rate)
+                    if (
+                        len(same_strength) > 0
+                        and "Success" in historical_performance.columns
+                    ):
+                        strength_success_rate = same_strength["Success"].mean()
+                        # 強度別成功率による微調整
+                        base_score *= 0.9 + 0.2 * strength_success_rate
 
             # シグナルの新鮮度（タイムスタンプからの経過時間）による調整
             if hasattr(signal, 'timestamp') and signal.timestamp:
                 from datetime import datetime, timezone
+
                 current_time = datetime.now(timezone.utc)
                 signal_time = signal.timestamp
                 if signal_time.tzinfo is None:
@@ -865,7 +899,10 @@ class VolumeSpikeBuyRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self,
+        df: pd.DataFrame,
+        indicators: pd.DataFrame,
+        patterns: Dict
     ) -> Tuple[bool, float]:
         if len(df) < 20:
             return False, 0.0

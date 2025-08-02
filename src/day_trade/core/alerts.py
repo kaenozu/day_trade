@@ -175,7 +175,9 @@ class NotificationHandler:
         self.handlers[method] = handler
 
     def send_notification(
-        self, trigger: AlertTrigger, methods: List[NotificationMethod]
+        self,
+        trigger: AlertTrigger,
+        methods: List[NotificationMethod],
     ):
         """通知の送信"""
         for method in methods:
@@ -265,7 +267,8 @@ class NotificationHandler:
             ) as server:
                 server.starttls()
                 server.login(
-                    self.email_config["username"], self.email_config["password"]
+                    self.email_config["username"],
+                    self.email_config["password"],
                 )
                 server.send_message(msg)
 
@@ -528,9 +531,8 @@ class AlertManager:
                     )
                     if result:
                         current_value = "Custom"
-                        message = (
+                        message =
                             f"カスタム条件が満たされました: {condition.description}"
-                        )
 
             # トリガーを作成
             if message:
@@ -622,22 +624,17 @@ class AlertManager:
 
     def _is_expired(self, condition: AlertCondition) -> bool:
         """条件の有効期限チェック"""
-        if condition.expiry_date and datetime.now() > condition.expiry_date:
-            return True
-        return False
+        return condition.expiry_date and datetime.now() > condition.expiry_date
 
     def _validate_condition(self, condition: AlertCondition) -> bool:
         """条件の検証"""
         if not condition.alert_id or not condition.symbol:
             return False
 
-        if (
+        return not (
             condition.alert_type == AlertType.CUSTOM_CONDITION
             and not condition.custom_function
-        ):
-            return False
-
-        return True
+        )
 
     def get_alert_history(
         self, symbol: Optional[str] = None, hours: int = 24

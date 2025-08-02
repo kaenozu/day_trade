@@ -24,10 +24,7 @@ def validate_stock_code(code: str) -> bool:
         return True
 
     # その他の形式（アルファベット含む）
-    if re.match(r"^[A-Z0-9]{1,10}(\.T)?$", code.upper()):
-        return True
-
-    return False
+    return bool(re.match(r"^[A-Z0-9]{1,10}(\.T)?$", code.upper()))
 
 
 def validate_period(period: str) -> bool:

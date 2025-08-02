@@ -1,7 +1,5 @@
-"""
-表示フォーマット用ユーティリティ
-高度なCLI表示機能とASCIIチャート描画
-"""
+"表示フォーマット用ユーティリティ
+高度なCLI表示機能とASCIIチャート描画"
 
 from typing import Any, Dict, List, Union
 
@@ -344,7 +342,7 @@ def create_info_panel(message: str, title: str = "情報") -> Panel:
     return Panel(Text(message, style="blue"), title=title, border_style="blue")
 
 
-# ========== 高度なフォーマッタ機能 ==========
+# ========== 高度なフォーマッタ機能 ========== 
 
 
 def format_large_number(number: Union[int, float], precision: int = 1) -> str:
@@ -427,7 +425,7 @@ def create_ascii_chart(
 
         # チャート部分
         line = ""
-        for col, value in enumerate(sampled_data):
+        for _, value in enumerate(sampled_data):
             if row == 0:  # 最上行
                 if value >= y_value:
                     line += "█"
@@ -485,7 +483,7 @@ def create_sparkline(data: List[float], width: int = 20) -> str:
         return "▄" * width
 
     # スパークライン文字（下から上へ）
-    spark_chars = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    spark_chars = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
     # データを幅に合わせてサンプリング
     if len(data) > width:
@@ -519,10 +517,7 @@ def create_progress_bar_panel(
     Returns:
         プログレスバーパネル
     """
-    if total == 0:
-        percentage = 0
-    else:
-        percentage = (current / total) * 100
+    percentage = 0 if total == 0 else (current / total) * 100
 
     # プログレスバーの作成
     bar_width = 30
@@ -571,7 +566,7 @@ def create_comparison_table(
     # 行を追加
     for metric in sorted(all_keys):
         row = [metric]
-        for item_key, item_data in data.items():
+        for _, item_data in data.items():
             value = item_data.get(metric, "N/A")
 
             # 数値の場合は適切にフォーマット
@@ -837,31 +832,3 @@ def create_status_indicator(status: str, label: str = "Status") -> Text:
     text.append(status.title(), style=color)
 
     return text
-
-
-def create_info_panel(message: str, title: str = "情報") -> Panel:
-    """
-    情報パネルを作成
-
-    Args:
-        message: 情報メッセージ
-        title: パネルタイトル
-
-    Returns:
-        Richパネル
-    """
-    return Panel(Text(message, style="blue"), title=title, border_style="blue")
-
-
-def create_warning_panel(message: str, title: str = "警告") -> Panel:
-    """
-    警告パネルを作成
-
-    Args:
-        message: 警告メッセージ
-        title: パネルタイトル
-
-    Returns:
-        Richパネル
-    """
-    return Panel(Text(message, style="yellow"), title=title, border_style="yellow")
