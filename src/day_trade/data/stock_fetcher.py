@@ -263,21 +263,16 @@ class StockFetcher:
 
         @retry_decorator
         def _execute_with_retry():
-            try:
-                result = func(*args, **kwargs)
-                self._record_request_success()
-                return result
-            except Exception as e:
-                # リトライ回数を記録
-                self._record_retry_attempt()
-                # エラーハンドリングを統一
-                self._handle_error(e)
+            result = func(*args, **kwargs)
+            self._record_request_success()
+            return result
 
         try:
             return _execute_with_retry()
         except Exception as e:
             self._record_request_failure(e)
-            raise
+            # _handle_errorで適切な例外に変換して再発生
+            self._handle_error(e)
 
     def _is_retryable_error(self, error: Exception) -> bool:
         """リトライ可能なエラーかどうかを判定（改善版）"""
