@@ -8,7 +8,10 @@ from datetime import datetime, timedelta
 import pytest
 
 from src.day_trade.core.watchlist import WatchlistManager
-from src.day_trade.models.database import TEST_DATABASE_URL, DatabaseManager, DatabaseConfig
+from src.day_trade.models.database import (
+    DatabaseConfig,
+    DatabaseManager,
+)
 from src.day_trade.models.stock import PriceData, Stock, Trade
 
 
@@ -21,7 +24,6 @@ class TestDatabaseOptimization:
         config = DatabaseConfig.for_testing()
         db = DatabaseManager(config)
         # 全モデルを明示的にインポートしてテーブル作成
-        from src.day_trade.models.stock import Stock, PriceData, Trade, WatchlistItem, Alert
         db.create_tables()
         yield db
         db.drop_tables()
@@ -189,8 +191,8 @@ class TestDatabaseOptimization:
                 return {"name": f"Mock Stock {code}"}
 
         # データベース設定を一時的に変更
-        from src.day_trade.models import database
         from src.day_trade.core import watchlist
+        from src.day_trade.models import database
 
         original_db = database.db_manager
         database.db_manager = test_db

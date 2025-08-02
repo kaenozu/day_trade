@@ -5,10 +5,12 @@ SQLAlchemyを使用したデータベース接続とセッション管理
 
 import logging
 import os
+import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional
 
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -213,6 +215,82 @@ class DatabaseManager:
         finally:
             session.close()
 
+    @contextmanager
+    def transaction_scope(self, retry_count: int = 3, retry_delay: float = 0.1) -> Generator[Session, None, None]:
+        """
+        明示的なトランザクション管理とデッドロック対応
+
+        Args:
+            retry_count: デッドロック時の再試行回数
+            retry_delay: 再試行時の待機時間（秒）
+
+        Usage:
+            with db_manager.transaction_scope() as session:
+                # 複数のDB操作を含む処理
+                session.add(obj1)
+                session.add(obj2)
+                # 明示的にflushして中間結果を確認
+                session.flush()
+                # さらに複雑な処理...
+        """
+        if self.session_factory is None:
+            raise DatabaseError(
+                "DatabaseManager not properly initialized",
+                error_code="DB_NOT_INITIALIZED",
+            )
+
+        for attempt in range(retry_count + 1):
+            session = self.session_factory()
+            try:
+                # session.begin()を明示的に呼び出し
+                transaction = session.begin()
+                try:
+                    yield session
+                    transaction.commit()
+                    break
+                except Exception:
+                    transaction.rollback()
+                    raise
+            except (OperationalError, IntegrityError) as e:
+                if attempt < retry_count and self._is_retriable_error(e):
+                    logger.warning(
+                        f"Retriable database error on attempt {attempt + 1}/{retry_count + 1}: {e}. "
+                        f"Retrying in {retry_delay} seconds..."
+                    )
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # 指数バックオフ
+                    continue
+                else:
+                    converted_error = handle_database_exception(e)
+                    logger.error(f"Database transaction error after {attempt + 1} attempts: {converted_error}")
+                    raise converted_error
+            except Exception as e:
+                converted_error = handle_database_exception(e)
+                logger.error(f"Unexpected database transaction error: {converted_error}")
+                raise converted_error
+            finally:
+                session.close()
+
+    def _is_retriable_error(self, error: Exception) -> bool:
+        """
+        再試行可能なエラーかどうかを判定
+
+        Args:
+            error: 発生したエラー
+
+        Returns:
+            再試行可能な場合True
+        """
+        error_msg = str(error).lower()
+        retriable_patterns = [
+            "deadlock",
+            "lock timeout",
+            "database is locked",
+            "connection was dropped",
+            "connection pool",
+        ]
+        return any(pattern in error_msg for pattern in retriable_patterns)
+
     def get_alembic_config(self) -> Config:
         """Alembic設定を取得"""
         alembic_cfg = Config("alembic.ini")
@@ -290,7 +368,7 @@ class DatabaseManager:
         if not data_list:
             return
 
-        with self.session_scope() as session:
+        with self.transaction_scope() as session:
             for i in range(0, len(data_list), batch_size):
                 batch = data_list[i : i + batch_size]
                 session.bulk_insert_mappings(model_class, batch)
@@ -308,10 +386,33 @@ class DatabaseManager:
         if not data_list:
             return
 
-        with self.session_scope() as session:
+        with self.transaction_scope() as session:
             for i in range(0, len(data_list), batch_size):
                 batch = data_list[i : i + batch_size]
                 session.bulk_update_mappings(model_class, batch)
+                session.flush()
+
+    def atomic_operation(self, operations: list, retry_count: int = 3):
+        """
+        複数のDB操作をアトミックに実行
+
+        Args:
+            operations: 実行する操作のリスト（callable）
+            retry_count: 再試行回数
+
+        Usage:
+            def operation1(session):
+                session.add(obj1)
+
+            def operation2(session):
+                session.add(obj2)
+
+            db_manager.atomic_operation([operation1, operation2])
+        """
+        with self.transaction_scope(retry_count=retry_count) as session:
+            for operation in operations:
+                operation(session)
+                # 各操作後に中間状態をflush（デバッグ時などに有用）
                 session.flush()
 
     def execute_query(self, query: str, params: dict = None):

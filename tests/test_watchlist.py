@@ -2,14 +2,12 @@
 ウォッチリスト機能のテスト
 """
 
-from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from src.day_trade.core.watchlist import (
     AlertCondition,
-    AlertNotification,
     AlertType,
     WatchlistManager,
 )
@@ -32,8 +30,8 @@ def test_db():
 def watchlist_manager(test_db):
     """ウォッチリストマネージャー"""
     # データベース設定を一時的に変更
-    from src.day_trade.models import database
     from src.day_trade.core import watchlist
+    from src.day_trade.models import database
 
     original_db = database.db_manager
     database.db_manager = test_db

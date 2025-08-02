@@ -63,7 +63,7 @@ class SignalRulesConfig:
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
             logger.warning(f"シグナル設定ファイルが見つかりません: {self.config_path}")
@@ -785,9 +785,7 @@ class TradingSignalGenerator:
                     base_score *= 0.9
 
                 # トレンドとシグナルの整合性チェック
-                if trend_direction == "upward" and signal.signal_type == SignalType.BUY:
-                    base_score *= 1.1  # トレンドフォロー
-                elif trend_direction == "downward" and signal.signal_type == SignalType.SELL:
+                if trend_direction == "upward" and signal.signal_type == SignalType.BUY or trend_direction == "downward" and signal.signal_type == SignalType.SELL:
                     base_score *= 1.1  # トレンドフォロー
                 elif trend_direction != "neutral" and signal.signal_type != SignalType.HOLD:
                     # トレンドに逆らうシグナルは信頼度を下げる

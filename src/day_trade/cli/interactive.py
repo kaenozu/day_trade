@@ -34,10 +34,9 @@ from rich.table import Table
 
 from ..analysis.backtest import BacktestConfig, BacktestEngine
 from ..core.config import config_manager
-from ..core.portfolio import PortfolioAnalyzer
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import DataNotFoundError, InvalidSymbolError, StockFetcher
-from ..models.database import db_manager, init_db
+from ..models.database import init_db
 from ..utils.formatters import (
     create_ascii_chart,
     create_company_info_table,
