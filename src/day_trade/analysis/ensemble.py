@@ -770,6 +770,7 @@ class EnsembleTradingStrategy:
             conditions_met={},
             timestamp=latest_signal.timestamp,
             price=latest_signal.price,
+            symbol=getattr(latest_signal, 'symbol', None),
         )
 
         # アンサンブル不確実性を計算（投票スコアの分散）
@@ -845,6 +846,7 @@ class EnsembleTradingStrategy:
             conditions_met={},
             timestamp=latest_signal.timestamp,
             price=latest_signal.price,
+            symbol=getattr(latest_signal, 'symbol', None),
         )
 
         # アンサンブル不確実性を計算
@@ -980,6 +982,7 @@ class EnsembleTradingStrategy:
                 conditions_met={},
                 timestamp=latest_signal.timestamp,
                 price=latest_signal.price,
+                symbol=getattr(latest_signal, 'symbol', None),
             )
 
             # 不確実性計算（ML予測の分散を考慮）

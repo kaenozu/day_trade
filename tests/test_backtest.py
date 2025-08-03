@@ -2,7 +2,7 @@
 バックテスト機能のテスト
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 from unittest.mock import Mock, patch
@@ -640,6 +640,7 @@ class TestBacktestEngine:
                                 conditions_met={"trend": True},
                                 timestamp=pd.Timestamp(date),
                                 price=float(current_data["Close"].iloc[-1]),
+                                symbol=symbol,
                             ))
             return signals
 
@@ -702,6 +703,7 @@ class TestBacktestEngine:
                                 conditions_met={"crash": True},
                                 timestamp=pd.Timestamp(date),
                                 price=float(current_data["Close"].iloc[-1]),
+                                symbol=symbol,
                             ))
             return signals
 
@@ -1133,8 +1135,11 @@ class TestBacktestEngine:
             assert len(historical_data[symbol]) > 0, f"No data rows for symbol {symbol}"
 
         # モックが全銘柄に対して呼ばれたことを確認
+        # バッファ期間を考慮した実際の開始日
+        from datetime import timedelta
+        buffer_start = config.start_date - timedelta(days=100)
         expected_calls = [
-            call(symbol, config.start_date, config.end_date) for symbol in symbols
+            call(symbol, start_date=buffer_start, end_date=config.end_date, interval="1d") for symbol in symbols
         ]
         self.mock_stock_fetcher.get_historical_data.assert_has_calls(expected_calls, any_order=True)
         assert self.mock_stock_fetcher.get_historical_data.call_count == len(symbols)
@@ -1696,6 +1701,7 @@ class TestBacktestEngine:
                                 conditions_met={"sma_breakout": True},
                                 timestamp=pd.Timestamp(date),
                                 price=current_price,
+                                symbol=symbol,
                             ))
                         elif current_price < current_sma * 0.99:  # 1%以上下回る
                             signals.append(TradingSignal(
@@ -1706,6 +1712,7 @@ class TestBacktestEngine:
                                 conditions_met={"sma_breakdown": True},
                                 timestamp=pd.Timestamp(date),
                                 price=current_price,
+                                symbol=symbol,
                             ))
             return signals
 
@@ -2337,6 +2344,7 @@ class TestIntegration:
                                     conditions_met={"test": True},
                                     timestamp=pd.Timestamp(date),
                                     price=float(current_data["Close"].iloc[-1]),
+                                    symbol=symbol,
                                 )
                             )
                 return signals
@@ -2423,6 +2431,7 @@ class TestAdvancedBacktestScenarios:
                             conditions_met={"initial_buy": True},
                             timestamp=pd.Timestamp(date),
                             price=float(current_data["Close"].iloc[-1]),
+                            symbol=symbol,
                         ))
             return signals
 
@@ -2490,6 +2499,7 @@ class TestAdvancedBacktestScenarios:
                                     conditions_met={"momentum_up": True},
                                     timestamp=pd.Timestamp(date),
                                     price=current_price,
+                                    symbol=symbol,
                                 ))
                             elif trend < -0.005:  # 0.5%以上の下落
                                 signals.append(TradingSignal(
@@ -2500,6 +2510,7 @@ class TestAdvancedBacktestScenarios:
                                     conditions_met={"momentum_down": True},
                                     timestamp=pd.Timestamp(date),
                                     price=current_price,
+                                    symbol=symbol,
                                 ))
             return signals
 
@@ -2590,6 +2601,7 @@ class TestAdvancedBacktestScenarios:
                                 conditions_met={"initial_position": True},
                                 timestamp=pd.Timestamp(date),
                                 price=current_price,
+                                symbol=symbol,
                             ))
 
                         # 価格がSMAを大きく下回った場合は売却
@@ -2602,6 +2614,7 @@ class TestAdvancedBacktestScenarios:
                                 conditions_met={"stop_loss": True},
                                 timestamp=pd.Timestamp(date),
                                 price=current_price,
+                                symbol=symbol,
                             ))
             return signals
 

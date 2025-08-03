@@ -487,6 +487,11 @@ class BacktestEngine:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         if show_progress:
+            # シンボルリストが空の場合の早期リターン
+            if not symbols:
+                logger.warning("シンボルリストが空のため、履歴データ取得をスキップします")
+                return historical_data
+
             # 進捗表示付きでデータ取得
             with progress_context(
                 f"履歴データ取得 ({len(symbols)}銘柄)",
@@ -494,8 +499,10 @@ class BacktestEngine:
                 progress_type=ProgressType.DETERMINATE,
             ) as progress:
                 # Use ThreadPoolExecutor for parallel fetching
+                # max_workersが0にならないように最小値を1に設定
+                max_workers = max(min(len(symbols), 5), 1)
                 with ThreadPoolExecutor(
-                    max_workers=min(len(symbols), 5)
+                    max_workers=max_workers
                 ) as executor:  # Limit workers to avoid overwhelming
                     future_to_symbol = {
                         executor.submit(
@@ -532,9 +539,16 @@ class BacktestEngine:
                         finally:
                             progress.update(1)
         else:
+            # シンボルリストが空の場合の早期リターン
+            if not symbols:
+                logger.warning("シンボルリストが空のため、履歴データ取得をスキップします")
+                return historical_data
+
             # Use ThreadPoolExecutor for parallel fetching
+            # max_workersが0にならないように最小値を1に設定
+            max_workers = max(min(len(symbols), 5), 1)
             with ThreadPoolExecutor(
-                max_workers=min(len(symbols), 5)
+                max_workers=max_workers
             ) as executor:  # Limit workers to avoid overwhelming
                 future_to_symbol = {
                     executor.submit(
@@ -1610,6 +1624,7 @@ def simple_sma_strategy(
                     conditions_met={"golden_cross": True},
                     timestamp=pd.Timestamp(date),
                     price=float(current_data["Close"].iloc[-1]),
+                    symbol=symbol,
                 )
             )
         elif (
@@ -1625,6 +1640,7 @@ def simple_sma_strategy(
                     conditions_met={"dead_cross": True},
                     timestamp=pd.Timestamp(date),
                     price=float(current_data["Close"].iloc[-1]),
+                    symbol=symbol,
                 )
             )
 
