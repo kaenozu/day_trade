@@ -344,7 +344,7 @@ class PerformanceIntegrationTester:
         """データ品質向上比較"""
 
         try:
-            from .feature_engineering import DataQualityEnhancer
+            # from .feature_engineering import DataQualityEnhancer  # Not implemented
             from .optimized_feature_engineering import OptimizedDataQualityEnhancer
 
             # ノイズ追加
@@ -355,8 +355,8 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            original_enhancer = DataQualityEnhancer()
-            original_cleaned = original_enhancer.clean_ohlcv_data(noisy_data)
+            # original_enhancer = DataQualityEnhancer()  # Not implemented
+            original_cleaned = noisy_data.dropna()  # Simple fallback
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory

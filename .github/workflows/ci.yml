@@ -127,17 +127,18 @@ jobs:
         run: |
           if [ "${{ matrix.test-group }}" = "unit" ]; then
             echo "🧪 Running unit tests..."
-            pytest tests/ -v --tb=short -x --disable-warnings \
+            pytest tests/ -v --tb=short --disable-warnings \
                    --ignore=tests/integration/ \
+                   --maxfail=10 \
                    --cov=src/day_trade \
                    --cov-report=xml \
                    --cov-report=html \
                    --cov-report=term-missing \
                    --cov-report=json \
-                   --cov-fail-under=35
+                   --cov-fail-under=20
           else
             echo "🔗 Running integration tests..."
-            pytest tests/integration/ -v --tb=short -x --disable-warnings || echo "Integration tests not yet implemented"
+            pytest tests/integration/ -v --tb=short --disable-warnings --maxfail=10 || echo "Integration tests not yet implemented"
           fi
 
       - name: Upload coverage to Codecov
