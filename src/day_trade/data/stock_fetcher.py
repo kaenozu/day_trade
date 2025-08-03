@@ -42,43 +42,183 @@ from ..utils.logging_config import (
 
 
 class DataCache:
-    """データキャッシュクラス"""
+    """高度なデータキャッシュクラス（フォールバック機能付き）"""
 
-    def __init__(self, ttl_seconds: int = 60):
+    def __init__(self, ttl_seconds: int = 60, max_size: int = 1000, stale_while_revalidate: int = 300):
         """
         Args:
             ttl_seconds: キャッシュの有効期限（秒）
+            max_size: 最大キャッシュサイズ（LRU eviction）
+            stale_while_revalidate: 期限切れ後もフォールバックとして利用可能な期間（秒）
         """
         self.ttl_seconds = ttl_seconds
+        self.max_size = max_size
+        self.stale_while_revalidate = stale_while_revalidate
         self._cache = {}
+        self._access_order = []  # LRU tracking
 
-    def get(self, key: str) -> Optional[any]:
-        """キャッシュから値を取得"""
+        # パフォーマンス統計
+        self._hit_count = 0
+        self._miss_count = 0
+        self._stale_hit_count = 0
+        self._eviction_count = 0
+
+    def get(self, key: str, allow_stale: bool = False) -> Optional[any]:
+        """
+        キャッシュから値を取得
+
+        Args:
+            key: キャッシュキー
+            allow_stale: 期限切れキャッシュも許可するか
+        """
         if key in self._cache:
             value, timestamp = self._cache[key]
-            if time.time() - timestamp < self.ttl_seconds:
+            current_time = time.time()
+            age = current_time - timestamp
+
+            # フレッシュなキャッシュ
+            if age < self.ttl_seconds:
+                self._update_access_order(key)
+                self._hit_count += 1
                 return value
+
+            # stale-while-revalidate期間内のキャッシュ
+            elif allow_stale and age < self.ttl_seconds + self.stale_while_revalidate:
+                self._update_access_order(key)
+                self._stale_hit_count += 1
+                return value
+
+            # 完全に期限切れ
             else:
-                # 期限切れのキャッシュを削除
-                del self._cache[key]
+                self._remove_key(key)
+
+        self._miss_count += 1
         return None
 
     def set(self, key: str, value: any) -> None:
-        """キャッシュに値を設定"""
-        self._cache[key] = (value, time.time())
+        """キャッシュに値を設定（LRU eviction付き）"""
+        current_time = time.time()
+
+        # キャッシュサイズ制限の確認
+        if len(self._cache) >= self.max_size and key not in self._cache:
+            self._evict_lru()
+
+        self._cache[key] = (value, current_time)
+        self._update_access_order(key)
+
+    def _update_access_order(self, key: str) -> None:
+        """アクセス順序を更新（LRU tracking）"""
+        if key in self._access_order:
+            self._access_order.remove(key)
+        self._access_order.append(key)
+
+    def _evict_lru(self) -> None:
+        """最も古いキャッシュエントリを削除"""
+        if self._access_order:
+            lru_key = self._access_order[0]
+            self._remove_key(lru_key)
+            self._eviction_count += 1
+
+    def _remove_key(self, key: str) -> None:
+        """キーをキャッシュから完全に削除"""
+        if key in self._cache:
+            del self._cache[key]
+        if key in self._access_order:
+            self._access_order.remove(key)
 
     def clear(self) -> None:
         """キャッシュをクリア"""
         self._cache.clear()
+        self._access_order.clear()
+        # 統計もリセット
+        self._hit_count = 0
+        self._miss_count = 0
+        self._stale_hit_count = 0
+        self._eviction_count = 0
+
+    def get_cache_stats(self) -> dict:
+        """キャッシュ統計を取得"""
+        total_requests = self._hit_count + self._miss_count + self._stale_hit_count
+
+        if total_requests == 0:
+            hit_rate = 0.0
+            stale_hit_rate = 0.0
+        else:
+            hit_rate = self._hit_count / total_requests
+            stale_hit_rate = self._stale_hit_count / total_requests
+
+        return {
+            "hit_count": self._hit_count,
+            "miss_count": self._miss_count,
+            "stale_hit_count": self._stale_hit_count,
+            "total_requests": total_requests,
+            "hit_rate": hit_rate,
+            "stale_hit_rate": stale_hit_rate,
+            "cache_size": len(self._cache),
+            "max_size": self.max_size,
+            "eviction_count": self._eviction_count,
+            "cache_utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0.0
+        }
+
+    def optimize_cache_settings(self) -> dict:
+        """キャッシュ統計に基づいた設定最適化の提案"""
+        stats = self.get_cache_stats()
+        recommendations = {}
+
+        # ヒット率が低い場合の提案
+        if stats["hit_rate"] < 0.5:
+            recommendations["ttl_increase"] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+
+        # 退避回数が多い場合の提案
+        if stats["eviction_count"] > stats["hit_count"] * 0.1:
+            recommendations["size_increase"] = "キャッシュサイズを増加させることを検討"
+
+        # キャッシュ使用率が低い場合の提案
+        if stats["cache_utilization"] < 0.3:
+            recommendations["size_decrease"] = "キャッシュサイズを減少させてメモリ効率を向上"
+
+        # stale hitが多い場合の提案
+        if stats["stale_hit_rate"] > 0.2:
+            recommendations["stale_period_adjust"] = "stale-while-revalidate期間の調整を検討"
+
+        return {
+            "current_stats": stats,
+            "recommendations": recommendations
+        }
 
     def size(self) -> int:
         """キャッシュサイズを取得"""
         return len(self._cache)
 
+    def get_cache_info(self) -> Dict[str, any]:
+        """キャッシュ統計情報を取得"""
+        current_time = time.time()
+        fresh_count = 0
+        stale_count = 0
 
-def cache_with_ttl(ttl_seconds: int):
-    """TTL付きキャッシュデコレータ（改善版）"""
-    cache = DataCache(ttl_seconds)
+        for _, (_, timestamp) in self._cache.items():
+            age = current_time - timestamp
+            if age < self.ttl_seconds:
+                fresh_count += 1
+            elif age < self.ttl_seconds + self.stale_while_revalidate:
+                stale_count += 1
+
+        return {
+            'total_entries': len(self._cache),
+            'fresh_entries': fresh_count,
+            'stale_entries': stale_count,
+            'max_size': self.max_size,
+            'ttl_seconds': self.ttl_seconds,
+            'stale_while_revalidate': self.stale_while_revalidate
+        }
+
+
+def cache_with_ttl(ttl_seconds: int, max_size: int = 1000, stale_while_revalidate: int = None):
+    """TTL付きキャッシュデコレータ（フォールバック機能付き改善版）"""
+    if stale_while_revalidate is None:
+        stale_while_revalidate = ttl_seconds * 5  # デフォルトでTTLの5倍
+
+    cache = DataCache(ttl_seconds, max_size, stale_while_revalidate)
     stats = CacheStats()
     # キャッシュデコレータ用のロガーを取得
     cache_logger = get_context_logger(__name__)
@@ -98,37 +238,55 @@ def cache_with_ttl(ttl_seconds: int):
                     stats.record_error()
                     return func(*args, **kwargs)
 
-                # キャッシュから取得を試行
-                cached_result = cache.get(cache_key)
+                # フレッシュキャッシュを試行
+                cached_result = cache.get(cache_key, allow_stale=False)
                 if cached_result is not None:
-                    cache_logger.debug(f"キャッシュヒット: {func.__name__}")
+                    cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
-                # キャッシュにない場合は実行
-                stats.record_miss()
-                result = func(*args, **kwargs)
+                # APIリクエスト実行を試行
+                try:
+                    stats.record_miss()
+                    result = func(*args, **kwargs)
 
-                # 結果をサニタイズしてキャッシュに保存
-                if result is not None:
-                    sanitized_result = sanitize_cache_value(result)
-                    cache.set(cache_key, sanitized_result)
-                    stats.record_set()
-                    cache_logger.debug(f"キャッシュに保存: {func.__name__}")
+                    # 結果をサニタイズしてキャッシュに保存
+                    if result is not None:
+                        sanitized_result = sanitize_cache_value(result)
+                        cache.set(cache_key, sanitized_result)
+                        stats.record_set()
+                        cache_logger.debug(f"新しいデータをキャッシュに保存: {func.__name__}")
 
-                return result
+                    return result
+
+                except (APIError, NetworkError, DataError) as api_error:
+                    # APIエラー時はstaleキャッシュをフォールバックとして使用
+                    stale_result = cache.get(cache_key, allow_stale=True)
+                    if stale_result is not None:
+                        cache_logger.warning(
+                            f"API失敗、staleキャッシュを使用: {func.__name__} - {api_error}"
+                        )
+                        stats.record_fallback()
+                        return stale_result
+                    else:
+                        # staleキャッシュもない場合は例外を再発生
+                        cache_logger.error(f"API失敗かつキャッシュなし: {func.__name__} - {api_error}")
+                        raise api_error
 
             except Exception as e:
                 cache_logger.error(f"キャッシュ処理でエラーが発生: {e}")
                 stats.record_error()
-                # キャッシュエラーでも関数実行は継続
-                return func(*args, **kwargs)
+                # 重要でないエラーの場合は継続を試行
+                if not isinstance(e, (APIError, NetworkError, DataError)):
+                    return func(*args, **kwargs)
+                raise e
 
         # キャッシュ管理メソッドを追加
         wrapper.clear_cache = cache.clear
         wrapper.cache_size = cache.size
         wrapper.get_stats = lambda: stats.to_dict()
         wrapper.reset_stats = stats.reset
+        wrapper.get_cache_info = cache.get_cache_info
 
         return wrapper
 

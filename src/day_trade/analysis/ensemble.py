@@ -1,6 +1,6 @@
 """
 アンサンブル取引戦略
-複数の戦略を組み合わせて最適化されたシグナルを生成する
+複数の戦略と機械学習モデルを組み合わせて最適化されたシグナルを生成する
 """
 
 import json
@@ -15,9 +15,11 @@ import numpy as np
 import pandas as pd
 
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
+from .ml_models import MLModelManager, ModelConfig, create_ensemble_predictions
+from .feature_engineering import AdvancedFeatureEngineer, create_target_variables
 from ..utils.logging_config import get_context_logger
 
-logger = get_context_logger(__name__, component="ensemble_strategy")
+logger = get_context_logger(__name__, component="ensemble")
 
 
 class EnsembleVotingType(Enum):
@@ -26,6 +28,9 @@ class EnsembleVotingType(Enum):
     SOFT_VOTING = "soft"  # 信頼度による重み付け投票
     HARD_VOTING = "hard"  # 多数決投票
     WEIGHTED_AVERAGE = "weighted"  # 重み付け平均
+    ML_ENSEMBLE = "ml_ensemble"  # 機械学習アンサンブル
+    STACKING = "stacking"  # スタッキング手法
+    DYNAMIC_ENSEMBLE = "dynamic"  # 動的アンサンブル
 
 
 class EnsembleStrategy(Enum):
@@ -35,6 +40,8 @@ class EnsembleStrategy(Enum):
     AGGRESSIVE = "aggressive"  # 積極的（機会重視）
     BALANCED = "balanced"  # バランス型
     ADAPTIVE = "adaptive"  # 適応型（パフォーマンス最適化）
+    ML_OPTIMIZED = "ml_optimized"  # 機械学習最適化
+    REGIME_ADAPTIVE = "regime_adaptive"  # 市場レジーム適応型
 
 
 @dataclass
@@ -92,6 +99,10 @@ class EnsembleSignal:
     strategy_weights: Dict[str, float]  # 各戦略の重み
     voting_type: EnsembleVotingType
     meta_features: Dict[str, Any]  # メタ特徴量
+    ml_predictions: Optional[Dict[str, float]] = None  # 機械学習予測結果
+    feature_importance: Optional[Dict[str, float]] = None  # 特徴量重要度
+    market_regime: Optional[str] = None  # 市場レジーム判定
+    ensemble_uncertainty: Optional[float] = None  # アンサンブル不確実性
 
 
 class EnsembleTradingStrategy:
@@ -102,16 +113,21 @@ class EnsembleTradingStrategy:
         ensemble_strategy: EnsembleStrategy = EnsembleStrategy.BALANCED,
         voting_type: EnsembleVotingType = EnsembleVotingType.SOFT_VOTING,
         performance_file: Optional[str] = None,
+        enable_ml_models: bool = True,
+        models_dir: Optional[str] = None,
     ):
         """
         Args:
             ensemble_strategy: アンサンブル戦略タイプ
             voting_type: 投票方式
             performance_file: パフォーマンス記録ファイル
+            enable_ml_models: 機械学習モデルを有効にするか
+            models_dir: 機械学習モデル保存ディレクトリ
         """
         self.ensemble_strategy = ensemble_strategy
         self.voting_type = voting_type
         self.performance_file = performance_file
+        self.enable_ml_models = enable_ml_models
 
         # 個別戦略の初期化
         self.strategies = self._initialize_strategies()
@@ -125,6 +141,24 @@ class EnsembleTradingStrategy:
 
         # メタ学習のための特徴量
         self.meta_features = {}
+
+        # 機械学習コンポーネント
+        self.ml_manager = None
+        self.feature_engineer = None
+        self.ml_predictions_history = []
+
+        if self.enable_ml_models:
+            try:
+                self.ml_manager = MLModelManager(models_dir)
+                self.feature_engineer = AdvancedFeatureEngineer()
+                self._initialize_ml_models()
+            except ImportError as e:
+                logger.warning(f"機械学習モジュールが利用できません: {e}")
+                self.enable_ml_models = False
+
+        # 市場レジーム検出
+        self.current_market_regime = "unknown"
+        self.regime_history = []
 
     def _initialize_strategies(self) -> Dict[str, TradingSignalGenerator]:
         """個別戦略を初期化"""
@@ -194,6 +228,53 @@ class EnsembleTradingStrategy:
 
         return strategies
 
+    def _initialize_ml_models(self):
+        """機械学習モデルを初期化"""
+        if not self.ml_manager:
+            return
+
+        try:
+            # 1. 回帰モデル（リターン予測）
+            return_model_config = ModelConfig(
+                model_type="random_forest",
+                task_type="regression",
+                cv_folds=5,
+                model_params={"n_estimators": 100, "max_depth": 10}
+            )
+            self.ml_manager.create_model("return_predictor", return_model_config)
+
+            # 2. 分類モデル（方向性予測）
+            direction_model_config = ModelConfig(
+                model_type="gradient_boosting",
+                task_type="classification",
+                cv_folds=5,
+                model_params={"n_estimators": 100, "learning_rate": 0.1}
+            )
+            self.ml_manager.create_model("direction_predictor", direction_model_config)
+
+            # 3. ボラティリティ予測モデル
+            volatility_model_config = ModelConfig(
+                model_type="xgboost",
+                task_type="regression",
+                cv_folds=3,
+                model_params={"n_estimators": 50, "max_depth": 6}
+            )
+            self.ml_manager.create_model("volatility_predictor", volatility_model_config)
+
+            # 4. メタラーナー（アンサンブル最適化）
+            meta_model_config = ModelConfig(
+                model_type="linear",
+                task_type="regression",
+                cv_folds=3
+            )
+            self.ml_manager.create_model("meta_learner", meta_model_config)
+
+            logger.info("機械学習モデルを初期化しました")
+
+        except Exception as e:
+            logger.error(f"機械学習モデル初期化エラー: {e}")
+            self.enable_ml_models = False
+
     def _initialize_weights(self) -> Dict[str, float]:
         """戦略の初期重みを設定"""
         if self.ensemble_strategy == EnsembleStrategy.CONSERVATIVE:
@@ -220,6 +301,18 @@ class EnsembleTradingStrategy:
                 "mean_reversion": 0.2,
                 "default_integrated": 0.1,
             }
+        elif self.ensemble_strategy == EnsembleStrategy.ML_OPTIMIZED:
+            # 機械学習に重きを置いた設定
+            return {
+                "conservative_rsi": 0.15,
+                "aggressive_momentum": 0.2,
+                "trend_following": 0.2,
+                "mean_reversion": 0.15,
+                "default_integrated": 0.3,
+            }
+        elif self.ensemble_strategy == EnsembleStrategy.REGIME_ADAPTIVE:
+            # 市場レジームに基づく動的重み
+            return {name: 0.2 for name in self.strategies}
         else:  # ADAPTIVE
             # 初期は均等、パフォーマンスに基づいて動的調整
             return {name: 0.2 for name in self.strategies}
@@ -323,17 +416,28 @@ class EnsembleTradingStrategy:
             # メタ特徴量を計算
             meta_features = self._calculate_meta_features(df, indicators, patterns)
 
-            # 動的重み調整（適応型の場合）
+            # 機械学習予測の実行
+            ml_predictions = None
+            feature_importance = None
+            if self.enable_ml_models and self.ml_manager:
+                ml_predictions, feature_importance = self._generate_ml_predictions(df, indicators)
+
+            # 市場レジーム検出
+            market_regime = self._detect_market_regime(df, indicators, meta_features)
+
+            # 動的重み調整
             if self.ensemble_strategy == EnsembleStrategy.ADAPTIVE:
                 self._update_adaptive_weights()
+            elif self.ensemble_strategy == EnsembleStrategy.REGIME_ADAPTIVE:
+                self._update_regime_adaptive_weights(market_regime)
 
             # アンサンブル投票を実行
             ensemble_result = self._perform_ensemble_voting(
-                strategy_signals, meta_features
+                strategy_signals, meta_features, ml_predictions, market_regime
             )
 
             if ensemble_result:
-                ensemble_signal, voting_scores, ensemble_confidence = ensemble_result
+                ensemble_signal, voting_scores, ensemble_confidence, ensemble_uncertainty = ensemble_result
 
                 return EnsembleSignal(
                     ensemble_signal=ensemble_signal,
@@ -343,6 +447,10 @@ class EnsembleTradingStrategy:
                     strategy_weights=self.strategy_weights.copy(),
                     voting_type=self.voting_type,
                     meta_features=meta_features,
+                    ml_predictions=ml_predictions,
+                    feature_importance=feature_importance,
+                    market_regime=market_regime,
+                    ensemble_uncertainty=ensemble_uncertainty,
                 )
 
             return None
@@ -411,19 +519,174 @@ class EnsembleTradingStrategy:
             logger.error(f"メタ特徴量計算エラー: {e}")
             return {}
 
+    def _generate_ml_predictions(
+        self, df: pd.DataFrame, indicators: Optional[pd.DataFrame] = None
+    ) -> Tuple[Optional[Dict[str, float]], Optional[Dict[str, float]]]:
+        """機械学習予測を生成"""
+        try:
+            if not self.feature_engineer or len(df) < 50:
+                return None, None
+
+            # 高度な特徴量を生成
+            volume_data = df["Volume"] if "Volume" in df.columns else None
+            features = self.feature_engineer.generate_all_features(
+                price_data=df, volume_data=volume_data
+            )
+
+            if features.empty:
+                return None, None
+
+            # 最新の特徴量を取得
+            latest_features = features.tail(1)
+
+            predictions = {}
+            feature_importance = {}
+
+            # 各モデルで予測を実行
+            for model_name in self.ml_manager.list_models():
+                try:
+                    model = self.ml_manager.models[model_name]
+                    if model.is_fitted:
+                        pred = self.ml_manager.predict(model_name, latest_features)
+                        predictions[model_name] = float(pred[0]) if len(pred) > 0 else 0.0
+
+                        # 特徴量重要度を取得
+                        importance = model._get_feature_importance()
+                        if importance:
+                            feature_importance[model_name] = importance
+
+                except Exception as e:
+                    logger.warning(f"モデル {model_name} の予測でエラー: {e}")
+
+            return predictions, feature_importance
+
+        except Exception as e:
+            logger.error(f"機械学習予測エラー: {e}")
+            return None, None
+
+    def _detect_market_regime(
+        self,
+        df: pd.DataFrame,
+        indicators: Optional[pd.DataFrame] = None,
+        meta_features: Dict[str, Any] = None
+    ) -> str:
+        """市場レジームを検出"""
+        try:
+            if len(df) < 50:
+                return "insufficient_data"
+
+            # ボラティリティベースのレジーム検出
+            returns = df["Close"].pct_change().dropna()
+            current_vol = returns.tail(20).std() * np.sqrt(252)
+            historical_vol = returns.std() * np.sqrt(252)
+
+            # トレンドベースのレジーム検出
+            sma_20 = df["Close"].rolling(20).mean()
+            sma_50 = df["Close"].rolling(50).mean()
+
+            if len(sma_20) > 0 and len(sma_50) > 0:
+                trend_ratio = sma_20.iloc[-1] / sma_50.iloc[-1]
+            else:
+                trend_ratio = 1.0
+
+            # RSIベースのレジーム検出
+            rsi_level = meta_features.get("rsi_level", 50) if meta_features else 50
+
+            # レジーム判定ロジック
+            if current_vol > historical_vol * 1.5:
+                if rsi_level > 70:
+                    regime = "high_vol_overbought"
+                elif rsi_level < 30:
+                    regime = "high_vol_oversold"
+                else:
+                    regime = "high_volatility"
+            elif current_vol < historical_vol * 0.7:
+                regime = "low_volatility"
+            elif trend_ratio > 1.05:
+                regime = "uptrend"
+            elif trend_ratio < 0.95:
+                regime = "downtrend"
+            else:
+                regime = "sideways"
+
+            # レジーム履歴を更新
+            if len(self.regime_history) >= 10:
+                self.regime_history.pop(0)
+            self.regime_history.append(regime)
+            self.current_market_regime = regime
+
+            return regime
+
+        except Exception as e:
+            logger.error(f"市場レジーム検出エラー: {e}")
+            return "unknown"
+
+    def _update_regime_adaptive_weights(self, market_regime: str):
+        """市場レジームに基づく重み調整"""
+        try:
+            if market_regime == "high_volatility":
+                # 高ボラティリティ時は保守的戦略を重視
+                self.strategy_weights.update({
+                    "conservative_rsi": 0.4,
+                    "aggressive_momentum": 0.1,
+                    "trend_following": 0.2,
+                    "mean_reversion": 0.2,
+                    "default_integrated": 0.1,
+                })
+            elif market_regime in ["uptrend", "downtrend"]:
+                # トレンド相場ではトレンドフォロー戦略を重視
+                self.strategy_weights.update({
+                    "conservative_rsi": 0.1,
+                    "aggressive_momentum": 0.3,
+                    "trend_following": 0.4,
+                    "mean_reversion": 0.1,
+                    "default_integrated": 0.1,
+                })
+            elif market_regime == "sideways":
+                # レンジ相場では平均回帰戦略を重視
+                self.strategy_weights.update({
+                    "conservative_rsi": 0.2,
+                    "aggressive_momentum": 0.1,
+                    "trend_following": 0.1,
+                    "mean_reversion": 0.5,
+                    "default_integrated": 0.1,
+                })
+            else:  # low_volatility, unknown など
+                # デフォルトのバランス型
+                self.strategy_weights.update({
+                    "conservative_rsi": 0.2,
+                    "aggressive_momentum": 0.25,
+                    "trend_following": 0.25,
+                    "mean_reversion": 0.2,
+                    "default_integrated": 0.1,
+                })
+
+            logger.debug(f"レジーム適応重み更新: {market_regime} -> {self.strategy_weights}")
+
+        except Exception as e:
+            logger.error(f"レジーム適応重み更新エラー: {e}")
+
     def _perform_ensemble_voting(
         self,
         strategy_signals: List[Tuple[str, TradingSignal]],
         meta_features: Dict[str, Any],
-    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float]]:
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
         """アンサンブル投票を実行"""
         try:
             if self.voting_type == EnsembleVotingType.SOFT_VOTING:
-                return self._soft_voting(strategy_signals, meta_features)
+                return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
             elif self.voting_type == EnsembleVotingType.HARD_VOTING:
-                return self._hard_voting(strategy_signals, meta_features)
+                return self._hard_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            elif self.voting_type == EnsembleVotingType.ML_ENSEMBLE:
+                return self._ml_ensemble_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            elif self.voting_type == EnsembleVotingType.STACKING:
+                return self._stacking_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            elif self.voting_type == EnsembleVotingType.DYNAMIC_ENSEMBLE:
+                return self._dynamic_ensemble_voting(strategy_signals, meta_features, ml_predictions, market_regime)
             else:  # WEIGHTED_AVERAGE
-                return self._weighted_average_voting(strategy_signals, meta_features)
+                return self._weighted_average_voting(strategy_signals, meta_features, ml_predictions, market_regime)
 
         except Exception as e:
             logger.error(f"アンサンブル投票エラー: {e}")
@@ -433,7 +696,9 @@ class EnsembleTradingStrategy:
         self,
         strategy_signals: List[Tuple[str, TradingSignal]],
         meta_features: Dict[str, Any],
-    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float]]:
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
         """ソフト投票（信頼度による重み付け投票）"""
         voting_scores = {"buy": 0.0, "sell": 0.0, "hold": 0.0}
         total_weight = 0.0
@@ -505,15 +770,22 @@ class EnsembleTradingStrategy:
             conditions_met={},
             timestamp=latest_signal.timestamp,
             price=latest_signal.price,
+            symbol=getattr(latest_signal, 'symbol', None),
         )
 
-        return ensemble_signal, strategy_contributions, best_score
+        # アンサンブル不確実性を計算（投票スコアの分散）
+        score_values = list(voting_scores.values())
+        ensemble_uncertainty = np.std(score_values) if len(score_values) > 1 else 0.0
+
+        return ensemble_signal, strategy_contributions, best_score, ensemble_uncertainty
 
     def _hard_voting(
         self,
         strategy_signals: List[Tuple[str, TradingSignal]],
         meta_features: Dict[str, Any],
-    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float]]:
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
         """ハード投票（多数決投票）"""
         vote_counts = {"buy": 0, "sell": 0, "hold": 0}
         strategy_contributions = {}
@@ -574,18 +846,248 @@ class EnsembleTradingStrategy:
             conditions_met={},
             timestamp=latest_signal.timestamp,
             price=latest_signal.price,
+            symbol=getattr(latest_signal, 'symbol', None),
         )
 
-        return ensemble_signal, strategy_contributions, ensemble_confidence
+        # アンサンブル不確実性を計算
+        vote_percentages = [count / total_votes for count in vote_counts.values()]
+        ensemble_uncertainty = 1.0 - max(vote_percentages)  # 最大得票率の逆数
+
+        return ensemble_signal, strategy_contributions, ensemble_confidence, ensemble_uncertainty
 
     def _weighted_average_voting(
         self,
         strategy_signals: List[Tuple[str, TradingSignal]],
         meta_features: Dict[str, Any],
-    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float]]:
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
         """重み付け平均投票"""
         # ソフト投票の変種として実装
-        return self._soft_voting(strategy_signals, meta_features)
+        return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+
+    def _ml_ensemble_voting(
+        self,
+        strategy_signals: List[Tuple[str, TradingSignal]],
+        meta_features: Dict[str, Any],
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
+        """機械学習アンサンブル投票"""
+        try:
+            if not ml_predictions:
+                # MLがない場合はソフト投票にフォールバック
+                return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+
+            # 戦略シグナルとML予測を統合
+            combined_scores = {"buy": 0.0, "sell": 0.0, "hold": 0.0}
+            total_weight = 0.0
+            strategy_contributions = {}
+
+            # 1. 戦略シグナルの処理（重み0.4）
+            strategy_weight_factor = 0.4
+            for strategy_name, signal in strategy_signals:
+                base_weight = self.strategy_weights.get(strategy_name, 0.2) * strategy_weight_factor
+                weighted_confidence = signal.confidence * base_weight
+                combined_scores[signal.signal_type.value] += weighted_confidence
+                total_weight += base_weight
+                strategy_contributions[strategy_name] = weighted_confidence
+
+            # 2. ML予測の処理（重み0.6）
+            ml_weight_factor = 0.6
+            ml_contribution = {}
+
+            # リターン予測の処理
+            if "return_predictor" in ml_predictions:
+                return_pred = ml_predictions["return_predictor"]
+                if return_pred > 0.01:  # 1%以上の上昇予測
+                    combined_scores["buy"] += abs(return_pred) * 100 * ml_weight_factor * 0.4
+                elif return_pred < -0.01:  # 1%以上の下落予測
+                    combined_scores["sell"] += abs(return_pred) * 100 * ml_weight_factor * 0.4
+                else:
+                    combined_scores["hold"] += 20 * ml_weight_factor * 0.4
+
+                ml_contribution["return_predictor"] = abs(return_pred) * 100 * ml_weight_factor * 0.4
+                total_weight += ml_weight_factor * 0.4
+
+            # 方向性予測の処理
+            if "direction_predictor" in ml_predictions:
+                direction_pred = ml_predictions["direction_predictor"]
+                if direction_pred > 0.6:  # 上昇確率が高い
+                    combined_scores["buy"] += direction_pred * 100 * ml_weight_factor * 0.4
+                elif direction_pred < 0.4:  # 下落確率が高い
+                    combined_scores["sell"] += (1 - direction_pred) * 100 * ml_weight_factor * 0.4
+                else:
+                    combined_scores["hold"] += 20 * ml_weight_factor * 0.4
+
+                ml_contribution["direction_predictor"] = direction_pred * 100 * ml_weight_factor * 0.4
+                total_weight += ml_weight_factor * 0.4
+
+            # ボラティリティ予測の処理（リスク調整）
+            if "volatility_predictor" in ml_predictions:
+                vol_pred = ml_predictions["volatility_predictor"]
+                if vol_pred > 0.3:  # 高ボラティリティ予測時はリスク回避
+                    risk_adjustment = 0.7  # 信頼度を30%減らす
+                    for signal_type in combined_scores:
+                        if signal_type != "hold":
+                            combined_scores[signal_type] *= risk_adjustment
+                            combined_scores["hold"] += combined_scores[signal_type] * 0.3
+
+                ml_contribution["volatility_predictor"] = vol_pred * ml_weight_factor * 0.2
+                total_weight += ml_weight_factor * 0.2
+
+            if total_weight == 0:
+                return None
+
+            # 正規化
+            for signal_type in combined_scores:
+                combined_scores[signal_type] /= total_weight
+
+            # 最高スコアの決定
+            best_signal_type = max(combined_scores, key=combined_scores.get)
+            best_score = combined_scores[best_signal_type]
+
+            # 閾値チェック
+            confidence_threshold = self._get_confidence_threshold() * 0.8  # ML使用時は閾値を下げる
+            if best_score < confidence_threshold:
+                best_signal_type = "hold"
+                best_score = 0.0
+
+            # 強度決定
+            if best_score >= 75:
+                strength = SignalStrength.STRONG
+            elif best_score >= 45:
+                strength = SignalStrength.MEDIUM
+            else:
+                strength = SignalStrength.WEAK
+
+            # 理由の統合
+            reasons = [f"機械学習アンサンブル投票: {best_signal_type}"]
+            for strategy_name, signal in strategy_signals:
+                if signal.signal_type.value == best_signal_type:
+                    reasons.extend([f"{strategy_name}: {reason}" for reason in signal.reasons[:2]])
+
+            # ML予測の理由を追加
+            if ml_predictions:
+                for model_name, pred in ml_predictions.items():
+                    reasons.append(f"{model_name}: {pred:.3f}")
+
+            # シグナル作成
+            latest_signal = strategy_signals[0][1]
+            ensemble_signal = TradingSignal(
+                signal_type=SignalType(best_signal_type),
+                strength=strength,
+                confidence=best_score,
+                reasons=reasons,
+                conditions_met={},
+                timestamp=latest_signal.timestamp,
+                price=latest_signal.price,
+                symbol=getattr(latest_signal, 'symbol', None),
+            )
+
+            # 不確実性計算（ML予測の分散を考慮）
+            score_values = list(combined_scores.values())
+            base_uncertainty = np.std(score_values) if len(score_values) > 1 else 0.0
+
+            # ML予測の一致度を考慮
+            ml_agreement = 0.0
+            if len(ml_predictions) > 1:
+                ml_values = list(ml_predictions.values())
+                ml_agreement = 1.0 - np.std(ml_values) / (np.mean(np.abs(ml_values)) + 1e-8)
+
+            ensemble_uncertainty = base_uncertainty * (1.0 - ml_agreement * 0.5)
+
+            # 貢献度を統合
+            all_contributions = {**strategy_contributions, **ml_contribution}
+
+            return ensemble_signal, all_contributions, best_score, ensemble_uncertainty
+
+        except Exception as e:
+            logger.error(f"機械学習アンサンブル投票エラー: {e}")
+            return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+
+    def _stacking_voting(
+        self,
+        strategy_signals: List[Tuple[str, TradingSignal]],
+        meta_features: Dict[str, Any],
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
+        """スタッキング手法"""
+        try:
+            # まず基本的なアンサンブル予測を取得
+            base_ensemble = self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            if not base_ensemble:
+                return None
+
+            # メタラーナーの特徴量を構築
+            meta_features_array = []
+
+            # 各戦略の信頼度を特徴量として使用
+            for strategy_name, signal in strategy_signals:
+                meta_features_array.append(signal.confidence)
+
+            # ML予測を特徴量として追加
+            if ml_predictions:
+                for pred in ml_predictions.values():
+                    meta_features_array.append(pred * 100)  # スケール調整
+
+            # メタ特徴量を追加
+            if meta_features:
+                for key in ["volatility", "trend_strength", "rsi_level", "volume_ratio"]:
+                    meta_features_array.append(meta_features.get(key, 0))
+
+            # メタラーナーが利用可能で十分な特徴量がある場合
+            if (self.ml_manager and "meta_learner" in self.ml_manager.models and
+                len(meta_features_array) >= 5):
+
+                try:
+                    # 特徴量をDataFrameに変換
+                    feature_df = pd.DataFrame([meta_features_array])
+
+                    # メタラーナーで最終予測
+                    meta_pred = self.ml_manager.predict("meta_learner", feature_df)
+                    if len(meta_pred) > 0:
+                        # メタ予測を使って信頼度を調整
+                        adjusted_confidence = base_ensemble[2] * (0.5 + abs(meta_pred[0]) * 0.5)
+                        return (base_ensemble[0], base_ensemble[1], adjusted_confidence, base_ensemble[3])
+
+                except Exception as e:
+                    logger.warning(f"メタラーナー予測エラー: {e}")
+
+            # メタラーナーが使えない場合は基本アンサンブルを返す
+            return base_ensemble
+
+        except Exception as e:
+            logger.error(f"スタッキング投票エラー: {e}")
+            return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+
+    def _dynamic_ensemble_voting(
+        self,
+        strategy_signals: List[Tuple[str, TradingSignal]],
+        meta_features: Dict[str, Any],
+        ml_predictions: Optional[Dict[str, float]] = None,
+        market_regime: Optional[str] = None,
+    ) -> Optional[Tuple[TradingSignal, Dict[str, float], float, float]]:
+        """動的アンサンブル投票"""
+        try:
+            # 市場状況に基づいて投票手法を動的に選択
+            if market_regime in ["high_volatility", "high_vol_overbought", "high_vol_oversold"]:
+                # 高ボラティリティ時は保守的にハード投票
+                return self._hard_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            elif market_regime in ["uptrend", "downtrend"] and ml_predictions:
+                # トレンド相場でML予測がある場合はML重視
+                return self._ml_ensemble_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            elif market_regime == "sideways":
+                # レンジ相場ではスタッキング手法
+                return self._stacking_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+            else:
+                # その他の場合はソフト投票
+                return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
+
+        except Exception as e:
+            logger.error(f"動的アンサンブル投票エラー: {e}")
+            return self._soft_voting(strategy_signals, meta_features, ml_predictions, market_regime)
 
     def _get_confidence_threshold(self) -> float:
         """信頼度閾値を取得"""
@@ -595,6 +1097,16 @@ class EnsembleTradingStrategy:
             return 30.0
         elif self.ensemble_strategy == EnsembleStrategy.BALANCED:
             return 45.0
+        elif self.ensemble_strategy == EnsembleStrategy.ML_OPTIMIZED:
+            return 35.0  # ML使用時は閾値を低く
+        elif self.ensemble_strategy == EnsembleStrategy.REGIME_ADAPTIVE:
+            # 市場レジームに基づく動的閾値
+            if self.current_market_regime == "high_volatility":
+                return 65.0
+            elif self.current_market_regime in ["uptrend", "downtrend"]:
+                return 40.0
+            else:
+                return 50.0
         else:  # ADAPTIVE
             # 過去のパフォーマンスに基づいて動的調整
             avg_success_rate = (
@@ -667,9 +1179,178 @@ class EnsembleTradingStrategy:
         )
         self._save_performance_history()
 
+    def train_ml_models(self, historical_data: pd.DataFrame, retrain: bool = False) -> Dict[str, Any]:
+        """機械学習モデルを訓練"""
+        try:
+            if not self.enable_ml_models or not self.ml_manager or not self.feature_engineer:
+                return {"error": "機械学習機能が無効です"}
+
+            if len(historical_data) < 200:
+                return {"error": "訓練に十分なデータがありません（最低200日必要）"}
+
+            logger.info("機械学習モデルの訓練を開始")
+
+            # 特徴量生成
+            volume_data = historical_data["Volume"] if "Volume" in historical_data.columns else None
+            features = self.feature_engineer.generate_all_features(
+                price_data=historical_data, volume_data=volume_data
+            )
+
+            if features.empty:
+                return {"error": "特徴量生成に失敗しました"}
+
+            # ターゲット変数生成
+            targets = create_target_variables(historical_data, prediction_horizon=5)
+
+            training_results = {}
+
+            # 各モデルの訓練
+            model_configs = [
+                ("return_predictor", "future_returns"),
+                ("direction_predictor", "future_direction"),
+                ("volatility_predictor", "future_high_volatility"),
+            ]
+
+            for model_name, target_name in model_configs:
+                try:
+                    if target_name not in targets:
+                        logger.warning(f"ターゲット変数 {target_name} が見つかりません")
+                        continue
+
+                    # データの整合性チェック
+                    common_index = features.index.intersection(targets[target_name].index)
+                    if len(common_index) < 100:
+                        logger.warning(f"モデル {model_name} に十分なデータがありません")
+                        continue
+
+                    X_train = features.loc[common_index]
+                    y_train = targets[target_name].loc[common_index]
+
+                    # モデルが存在しない場合は作成
+                    if model_name not in self.ml_manager.list_models():
+                        logger.warning(f"モデル {model_name} が存在しません。スキップします。")
+                        continue
+
+                    # 既に訓練済みでretrainがFalseの場合はスキップ
+                    if not retrain and self.ml_manager.models[model_name].is_fitted:
+                        logger.info(f"モデル {model_name} は既に訓練済みです")
+                        continue
+
+                    # モデル訓練
+                    logger.info(f"モデル {model_name} を訓練中...")
+                    result = self.ml_manager.train_model(model_name, X_train, y_train)
+                    training_results[model_name] = result
+
+                    # モデル保存
+                    try:
+                        self.ml_manager.save_model(model_name)
+                        logger.info(f"モデル {model_name} を保存しました")
+                    except Exception as e:
+                        logger.warning(f"モデル {model_name} の保存に失敗: {e}")
+
+                except Exception as e:
+                    logger.error(f"モデル {model_name} の訓練エラー: {e}")
+                    training_results[model_name] = {"error": str(e)}
+
+            # メタラーナーの訓練
+            try:
+                if len(training_results) >= 2:  # 少なくとも2つのモデルが訓練された場合
+                    meta_features_list = []
+                    meta_targets_list = []
+
+                    # 各データポイントでメタ特徴量を生成
+                    for i in range(50, len(historical_data) - 10):  # 十分な履歴とフォワードルッキングを確保
+                        try:
+                            subset_data = historical_data.iloc[:i+1]
+                            future_return = historical_data["Close"].iloc[i+5] / historical_data["Close"].iloc[i] - 1
+
+                            # 各基本モデルの予測を特徴量として使用
+                            model_predictions = []
+                            for model_name in ["return_predictor", "direction_predictor", "volatility_predictor"]:
+                                if model_name in self.ml_manager.list_models():
+                                    try:
+                                        subset_features = self.feature_engineer.generate_all_features(
+                                            price_data=subset_data, volume_data=volume_data.iloc[:i+1] if volume_data is not None else None
+                                        )
+                                        if not subset_features.empty:
+                                            pred = self.ml_manager.predict(model_name, subset_features.tail(1))
+                                            model_predictions.append(pred[0] if len(pred) > 0 else 0.0)
+                                        else:
+                                            model_predictions.append(0.0)
+                                    except:
+                                        model_predictions.append(0.0)
+
+                            if len(model_predictions) >= 2:
+                                meta_features_list.append(model_predictions)
+                                meta_targets_list.append(future_return)
+
+                        except Exception as e:
+                            continue
+
+                    if len(meta_features_list) >= 50:
+                        meta_X = pd.DataFrame(meta_features_list)
+                        meta_y = pd.Series(meta_targets_list)
+
+                        meta_result = self.ml_manager.train_model("meta_learner", meta_X, meta_y)
+                        training_results["meta_learner"] = meta_result
+
+                        try:
+                            self.ml_manager.save_model("meta_learner")
+                            logger.info("メタラーナーを保存しました")
+                        except Exception as e:
+                            logger.warning(f"メタラーナーの保存に失敗: {e}")
+
+            except Exception as e:
+                logger.error(f"メタラーナー訓練エラー: {e}")
+                training_results["meta_learner"] = {"error": str(e)}
+
+            logger.info(f"機械学習モデル訓練完了: {len(training_results)}個のモデル")
+            return {
+                "success": True,
+                "models_trained": len(training_results),
+                "training_results": training_results,
+                "feature_count": len(features.columns),
+                "data_points": len(historical_data)
+            }
+
+        except Exception as e:
+            logger.error(f"機械学習モデル訓練エラー: {e}")
+            return {"error": str(e)}
+
+    def get_ml_model_info(self) -> Dict[str, Any]:
+        """機械学習モデルの情報を取得"""
+        if not self.enable_ml_models or not self.ml_manager:
+            return {"ml_enabled": False}
+
+        info = {
+            "ml_enabled": True,
+            "models": {},
+            "feature_engineer_available": self.feature_engineer is not None
+        }
+
+        for model_name in self.ml_manager.list_models():
+            try:
+                model_info = self.ml_manager.get_model_info(model_name)
+                info["models"][model_name] = {
+                    "model_type": model_info["model_type"],
+                    "task_type": model_info["task_type"],
+                    "is_fitted": model_info["is_fitted"],
+                    "feature_count": model_info["feature_count"]
+                }
+                if model_info["is_fitted"] and "feature_importance" in model_info:
+                    # 上位5個の重要特徴量のみ表示
+                    importance = model_info["feature_importance"]
+                    if importance:
+                        top_features = dict(list(importance.items())[:5])
+                        info["models"][model_name]["top_features"] = top_features
+            except Exception as e:
+                info["models"][model_name] = {"error": str(e)}
+
+        return info
+
     def get_strategy_summary(self) -> Dict[str, Any]:
         """戦略サマリーを取得"""
-        return {
+        summary = {
             "ensemble_strategy": self.ensemble_strategy.value,
             "voting_type": self.voting_type.value,
             "strategy_weights": self.strategy_weights,
@@ -682,7 +1363,22 @@ class EnsembleTradingStrategy:
                 if self.strategy_performance
                 else 0.0
             ),
+            "ml_enabled": self.enable_ml_models,
+            "current_market_regime": self.current_market_regime,
+            "regime_history": self.regime_history[-5:] if self.regime_history else [],
         }
+
+        # ML情報を追加
+        if self.enable_ml_models and self.ml_manager:
+            summary["ml_models"] = {
+                "total_models": len(self.ml_manager.list_models()),
+                "fitted_models": sum(
+                    1 for model_name in self.ml_manager.list_models()
+                    if self.ml_manager.models[model_name].is_fitted
+                )
+            }
+
+        return summary
 
 
 # 使用例

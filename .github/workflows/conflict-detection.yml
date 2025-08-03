@@ -1,333 +1,441 @@
-name: 🔍 Enhanced Conflict Detection
+name: 🚨 Enhanced Pull Request Conflict Detection
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  # mainブランチが更新されたときも実行
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: 'PR number to check (optional)'
+      target_branch:
+        description: 'Target branch to check conflicts against'
         required: false
+        default: ''
         type: string
-      pr_head_sha:
-        description: 'PR head SHA (optional)'
-        required: false
-        type: string
-  # 定期的なチェック（1時間ごと）
-  schedule:
-    - cron: '0 * * * *'
 
 permissions:
   contents: read
   pull-requests: write
   statuses: write
-  checks: write
 
 jobs:
   conflict-detection:
     runs-on: ubuntu-latest
-    name: 🔍 Detect Merge Conflicts
-    outputs:
-      has_conflicts: ${{ steps.conflict-check.outputs.has_conflicts }}
-      conflicted_files: ${{ steps.conflict-check.outputs.conflicted_files }}
-      merge_complexity: ${{ steps.conflict-check.outputs.merge_complexity }}
+    name: 🔍 Advanced Conflict Detection
 
     steps:
-      # mainブランチ更新時または定期実行時は全PRを通知のみ
-      - name: Get open pull requests for batch check
-        if: github.event_name == 'push' || github.event_name == 'schedule'
-        id: get-prs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              base: 'main'
-            });
-
-            console.log(`📋 Found ${prs.length} open pull requests`);
-            console.log(`🔄 mainブランチが更新されました。各PRでコンフリクトチェックが必要な場合があります。`);
-
-            for (const pr of prs) {
-              console.log(`  - PR #${pr.number}: ${pr.title} (${pr.head.ref})`);
-            }
-
-            core.setOutput('pr_count', prs.length);
-            return prs.length;
-      # mainブランチ更新時はここで終了
-      - name: End for non-PR events
-        if: github.event_name != 'pull_request'
-        run: |
-          echo "✅ mainブランチ更新の通知完了"
-          exit 0
-
-      - name: 📥 Checkout with full history
-        if: github.event_name == 'pull_request'
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🎯 Determine target branch
+        id: target-branch
+        run: |
+          if [ -n "${{ github.event.inputs.target_branch }}" ]; then
+            TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
+            echo "Using manual target branch: $TARGET_BRANCH"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+            echo "Using PR base branch: $TARGET_BRANCH"
+          else
+            TARGET_BRANCH="main"
+            echo "Using default target branch: $TARGET_BRANCH"
+          fi
+
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
 
       - name: 🔍 Enhanced conflict detection
-        if: github.event_name == 'pull_request'
         id: conflict-check
         run: |
-          echo "🔍 Performing enhanced merge conflict detection..."
+          set -e  # Exit on any error
 
-          # Fetch the latest base branch
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          git fetch origin $BASE_BRANCH
+          echo "🔍 Checking for merge conflicts with enhanced detection..."
 
-          echo "Base: origin/$BASE_BRANCH"
-          echo "Head: $HEAD_BRANCH ($(git rev-parse HEAD | cut -c1-8))"
+          TARGET_BRANCH="${{ steps.target-branch.outputs.target_branch }}"
+          CURRENT_BRANCH=$(git branch --show-current)
 
-          # Method 1: git merge-tree (most accurate)
-          echo "::group::Method 1: git merge-tree analysis"
-          MERGE_BASE=$(git merge-base HEAD origin/$BASE_BRANCH)
-          echo "Merge base: $MERGE_BASE"
-
-          # Check for conflicts using merge-tree
-          MERGE_TREE_OUTPUT=$(git merge-tree $MERGE_BASE HEAD origin/$BASE_BRANCH)
-
-          if echo "$MERGE_TREE_OUTPUT" | grep -q "<<<<<<< "; then
-            echo "❌ Conflicts detected by merge-tree"
-            CONFLICTS_DETECTED=true
-
-            # Extract conflicted files from merge-tree output
-            CONFLICTED_FILES=$(echo "$MERGE_TREE_OUTPUT" | grep "^+++ " | sed 's/^+++ b\///' | sort -u | tr '\n' ',' | sed 's/,$//')
-          else
-            echo "✅ No conflicts detected by merge-tree"
-            CONFLICTS_DETECTED=false
-            CONFLICTED_FILES=""
+          # Fallback for empty current branch
+          if [ -z "$CURRENT_BRANCH" ]; then
+            CURRENT_BRANCH="${{ github.head_ref }}"
           fi
-          echo "::endgroup::"
 
-          # Method 2: Actual merge simulation (backup verification)
-          echo "::group::Method 2: Merge simulation"
-          ORIGINAL_BRANCH=$(git branch --show-current)
-          git checkout -b temp-conflict-test
+          if [ -z "$CURRENT_BRANCH" ]; then
+            echo "❌ Could not determine current branch"
+            exit 1
+          fi
 
-          # Attempt actual merge
-          if git merge origin/$BASE_BRANCH --no-commit --no-ff >/dev/null 2>&1; then
-            echo "✅ Merge simulation successful"
+          echo "Source branch: $CURRENT_BRANCH"
+          echo "Target branch: $TARGET_BRANCH"
+
+          # Enhanced error handling for git operations
+          cleanup_and_exit() {
+            local exit_code=$1
+            echo "🧹 Performing cleanup..."
             git merge --abort 2>/dev/null || true
-
-            if [ "$CONFLICTS_DETECTED" = "true" ]; then
-              echo "⚠️ Discrepancy: merge-tree detected conflicts but merge succeeded"
-              echo "This may indicate complex conflicts that need manual review"
+            if [ -n "$CURRENT_BRANCH" ]; then
+              git checkout "$CURRENT_BRANCH" 2>/dev/null || true
             fi
-          else
-            echo "❌ Merge simulation failed - conflicts confirmed"
+            git branch -D temp-merge-test 2>/dev/null || true
+            exit $exit_code
+          }
 
-            # Get actual conflicted files from merge
-            ACTUAL_CONFLICTED=$(git diff --name-only --diff-filter=U 2>/dev/null | tr '\n' ',' | sed 's/,$//' || echo "")
+          # Fetch the latest target branch with retry logic
+          echo "📥 Fetching latest $TARGET_BRANCH branch..."
+          for i in {1..3}; do
+            if git fetch origin "$TARGET_BRANCH:$TARGET_BRANCH" 2>&1; then
+              echo "✅ Successfully fetched $TARGET_BRANCH"
+              break
+            else
+              echo "⚠️ Attempt $i failed, retrying..."
+              if [ $i -eq 3 ]; then
+                echo "❌ Failed to fetch $TARGET_BRANCH after 3 attempts"
+                exit 1
+              fi
+              sleep 2
+            fi
+          done
+
+          # Try to merge target into current branch (dry run)
+          echo "::group::Testing merge with $TARGET_BRANCH branch"
+
+          # Create a temporary branch for testing merge with timestamp
+          TEMP_BRANCH="temp-merge-test-$(date +%s)"
+          if ! git checkout -b "$TEMP_BRANCH"; then
+            echo "❌ Failed to create temporary branch"
+            exit 1
+          fi
+
+          # Attempt to merge target branch
+          echo "🔄 Attempting merge with $TARGET_BRANCH..."
+          if git merge "$TARGET_BRANCH" --no-commit --no-ff > merge_output.log 2>&1; then
+            echo "✅ No conflicts detected"
+            echo "conflict_detected=false" >> $GITHUB_OUTPUT
+            echo "CONFLICT_STATUS=no_conflicts" >> $GITHUB_ENV
+            echo "conflicted_files=" >> $GITHUB_OUTPUT
             git merge --abort 2>/dev/null || true
+          else
+            echo "⚠️ Merge conflicts detected!"
+            echo "conflict_detected=true" >> $GITHUB_OUTPUT
+            echo "CONFLICT_STATUS=conflicts_found" >> $GITHUB_ENV
 
-            CONFLICTS_DETECTED=true
-            if [ -n "$ACTUAL_CONFLICTED" ]; then
-              CONFLICTED_FILES="$ACTUAL_CONFLICTED"
+            # Enhanced conflicted files detection with proper quoting
+            echo "📁 Analyzing conflicted files..."
+            CONFLICTED_FILES_RAW=$(git diff --name-only --diff-filter=U 2>/dev/null || echo "")
+
+            if [ -n "$CONFLICTED_FILES_RAW" ]; then
+              # Handle files with spaces by using JSON array format
+              CONFLICTED_FILES_JSON=$(echo "$CONFLICTED_FILES_RAW" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+              echo "conflicted_files_json=$CONFLICTED_FILES_JSON" >> $GITHUB_OUTPUT
+
+              # Traditional space-separated format for backward compatibility
+              CONFLICTED_FILES=$(echo "$CONFLICTED_FILES_RAW" | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+              echo "conflicted_files=$CONFLICTED_FILES" >> $GITHUB_OUTPUT
+              echo "CONFLICTED_FILES=$CONFLICTED_FILES" >> $GITHUB_ENV
+
+              echo "📊 Conflicted files count: $(echo "$CONFLICTED_FILES_RAW" | wc -l)"
+              echo "Conflicted files:"
+              echo "$CONFLICTED_FILES_RAW" | sed 's/^/  - /'
+            else
+              echo "⚠️ Merge failed but no conflicted files detected"
+              echo "conflicted_files=" >> $GITHUB_OUTPUT
+              echo "conflicted_files_json=[]" >> $GITHUB_OUTPUT
             fi
+
+            # Enhanced conflict details with better formatting
+            echo "::group::📋 Detailed Conflict Analysis"
+            if [ -f merge_output.log ]; then
+              echo "Merge output:"
+              cat merge_output.log
+            else
+              echo "No merge output available"
+            fi
+
+            # Additional conflict information
+            echo ""
+            echo "Git status during conflict:"
+            git status --porcelain 2>/dev/null || echo "Unable to get git status"
+            echo "::endgroup::"
+
+            git merge --abort 2>/dev/null || true
           fi
 
-          git checkout $ORIGINAL_BRANCH
-          git branch -D temp-conflict-test 2>/dev/null || true
-          echo "::endgroup::"
-
-          # Method 3: Change overlap analysis
-          echo "::group::Method 3: Change overlap analysis"
-          # Check if same files are modified in both branches
-          BASE_FILES=$(git diff --name-only $MERGE_BASE..origin/$BASE_BRANCH | sort)
-          HEAD_FILES=$(git diff --name-only $MERGE_BASE..HEAD | sort)
-          OVERLAP_FILES=$(comm -12 <(echo "$BASE_FILES") <(echo "$HEAD_FILES") | tr '\n' ' ')
-
-          if [ -n "$OVERLAP_FILES" ]; then
-            echo "📊 Overlapping file changes detected: $OVERLAP_FILES"
-            echo "This increases the risk of conflicts"
-            MERGE_COMPLEXITY="high"
+          # Enhanced cleanup with better error handling
+          echo "🧹 Cleaning up temporary branch..."
+          if [ -n "$CURRENT_BRANCH" ]; then
+            git checkout "$CURRENT_BRANCH" || cleanup_and_exit 1
           else
-            echo "✅ No overlapping file changes"
-            MERGE_COMPLEXITY="low"
+            echo "⚠️ Warning: Current branch is empty, skipping checkout"
           fi
+          git branch -D "$TEMP_BRANCH" 2>/dev/null || {
+            echo "⚠️ Warning: Could not delete temporary branch $TEMP_BRANCH"
+          }
+
           echo "::endgroup::"
 
-          # Final decision
-          echo "::group::Final Analysis"
-          echo "Conflicts detected: $CONFLICTS_DETECTED"
-          echo "Conflicted files: $CONFLICTED_FILES"
-          echo "Merge complexity: $MERGE_COMPLEXITY"
-
-          echo "has_conflicts=$CONFLICTS_DETECTED" >> $GITHUB_OUTPUT
-          echo "conflicted_files=$CONFLICTED_FILES" >> $GITHUB_OUTPUT
-          echo "merge_complexity=$MERGE_COMPLEXITY" >> $GITHUB_OUTPUT
-
-          if [ "$CONFLICTS_DETECTED" = "true" ]; then
-            echo "HAS_CONFLICTS=true" >> $GITHUB_ENV
-            echo "CONFLICTED_FILES=$CONFLICTED_FILES" >> $GITHUB_ENV
-          else
-            echo "HAS_CONFLICTS=false" >> $GITHUB_ENV
-          fi
-          echo "::endgroup::"
-
-      - name: 📝 Create enhanced conflict report
-        if: steps.conflict-check.outputs.has_conflicts == 'true'
+      - name: 🔍 Check for existing conflict comments
+        id: existing-comments
+        if: steps.conflict-check.outputs.conflict_detected == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            const conflictedFiles = '${{ steps.conflict-check.outputs.conflicted_files }}';
-            const mergeComplexity = '${{ steps.conflict-check.outputs.merge_complexity }}';
-            const baseBranch = '${{ github.event.pull_request.base.ref }}';
-            const headBranch = '${{ github.event.pull_request.head.ref }}';
-
-            const complexityIcon = mergeComplexity === 'high' ? '🔴' : '🟡';
-            const filesList = conflictedFiles ? conflictedFiles.split(',').filter(f => f.trim()).map(file => `- \`${file.trim()}\``).join('\n') : '- No specific files identified';
-
-            const body = `## ⚠️ Enhanced Merge Conflict Detection Report
-
-            ${complexityIcon} **Merge Complexity:** ${mergeComplexity}
-            **Base Branch:** \`${baseBranch}\`
-            **Head Branch:** \`${headBranch}\`
-
-            ### 📁 Conflicted Files:
-            ${filesList}
-
-            ### 🔧 Recommended Resolution Steps:
-
-            #### Method 1: Rebase (Recommended)
-            \`\`\`bash
-            # Fetch latest changes
-            git fetch origin ${baseBranch}
-
-            # Rebase your branch
-            git checkout ${headBranch}
-            git rebase origin/${baseBranch}
-
-            # Resolve conflicts as they appear
-            # After resolving each conflict:
-            git add <conflicted-file>
-            git rebase --continue
-
-            # Force push (be careful!)
-            git push --force-with-lease origin ${headBranch}
-            \`\`\`
-
-            #### Method 2: Merge (Alternative)
-            \`\`\`bash
-            # Update local main
-            git checkout ${baseBranch}
-            git pull origin ${baseBranch}
-
-            # Merge into feature branch
-            git checkout ${headBranch}
-            git merge ${baseBranch}
-
-            # Resolve conflicts manually
-            git add .
-            git commit -m "resolve: merge conflicts with ${baseBranch}"
-            git push origin ${headBranch}
-            \`\`\`
-
-            ### 🔍 Conflict Analysis Tips:
-            - Use \`git status\` to see conflicted files
-            - Look for conflict markers: \`<<<<<<<\`, \`=======\`, \`>>>>>>>\`
-            - Consider using a merge tool: \`git mergetool\`
-            - Test thoroughly after resolution
-
-            ### ✅ Verification Checklist:
-            - [ ] All conflict markers removed
-            - [ ] Code compiles/runs without errors
-            - [ ] Tests pass locally
-            - [ ] Manual functionality testing completed
-            - [ ] Commit message follows project conventions
-
-            ---
-            🤖 **Enhanced Detection**: This report uses multiple conflict detection methods for improved accuracy.
-            📅 **Generated**: ${new Date().toISOString()}
-            `;
-
-            // Check for existing conflict comments
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: context.issue.number
             });
 
-            const existingComment = comments.data.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Enhanced Merge Conflict Detection Report')
+            // Look for existing conflict detection comments
+            const conflictComments = comments.data.filter(comment =>
+              comment.body.includes('🚨 Merge Conflicts Detected') ||
+              comment.body.includes('⚠️ Merge Conflicts Detected') ||
+              comment.body.includes('<!-- conflict-detection-comment -->')
             );
 
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
+            console.log(`Found ${conflictComments.length} existing conflict comments`);
 
-      - name: ✅ Success notification
-        if: steps.conflict-check.outputs.has_conflicts == 'false'
+            // Return the most recent conflict comment ID if any
+            const latestComment = conflictComments.length > 0 ? conflictComments[conflictComments.length - 1] : null;
+
+            core.setOutput('has_existing_comment', conflictComments.length > 0);
+            core.setOutput('latest_comment_id', latestComment ? latestComment.id : '');
+
+            return {
+              hasExisting: conflictComments.length > 0,
+              latestId: latestComment ? latestComment.id : null,
+              totalCount: conflictComments.length
+            };
+
+      - name: 🚨 Create or update conflict summary comment
+        if: steps.conflict-check.outputs.conflict_detected == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            const mergeComplexity = '${{ steps.conflict-check.outputs.merge_complexity }}';
-            console.log(`✅ No merge conflicts detected (complexity: ${mergeComplexity})`);
-            console.log('🎉 PR is ready for review!');
-
-      - name: 📊 Set enhanced status check
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const hasConflicts = '${{ steps.conflict-check.outputs.has_conflicts }}' === 'true';
-            const mergeComplexity = '${{ steps.conflict-check.outputs.merge_complexity }}';
+            const targetBranch = '${{ steps.target-branch.outputs.target_branch }}';
+            const conflictedFilesJson = '${{ steps.conflict-check.outputs.conflicted_files_json }}';
             const conflictedFiles = '${{ steps.conflict-check.outputs.conflicted_files }}';
 
-            const state = hasConflicts ? 'failure' : 'success';
-            const description = hasConflicts
-              ? `Conflicts detected (${mergeComplexity} complexity)`
-              : `Ready to merge (${mergeComplexity} complexity)`;
+            let conflictedFilesList = '';
 
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.payload.pull_request.head.sha,
-              state: state,
-              target_url: `${context.payload.repository.html_url}/actions/runs/${context.runId}`,
-              description: description,
-              context: 'ci/enhanced-conflict-detection'
-            });
+            try {
+              // Try to parse JSON format first for better handling
+              const filesArray = JSON.parse(conflictedFilesJson || '[]');
+              if (filesArray.length > 0) {
+                conflictedFilesList = filesArray.map(file => `- \`${file}\``).join('\n');
+              } else {
+                // Fallback to space-separated format
+                const files = conflictedFiles.split(' ').filter(f => f.trim());
+                conflictedFilesList = files.map(file => `- \`${file}\``).join('\n');
+              }
+            } catch (e) {
+              // Final fallback
+              const files = conflictedFiles.split(' ').filter(f => f.trim());
+              conflictedFilesList = files.map(file => `- \`${file}\``).join('\n');
+            }
+
+            if (!conflictedFilesList) {
+              conflictedFilesList = '- _コンフリクトファイルの詳細を取得できませんでした_';
+            }
+
+            const currentTime = new Date().toISOString();
+            const runUrl = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
+
+            const body = [
+              '<!-- conflict-detection-comment -->',
+              '## 🚨 Merge Conflicts Detected',
+              '',
+              `このプルリクエストは現在 **${targetBranch}** ブランチとの間でコンフリクトが発生しています。`,
+              '',
+              '### 📁 コンフリクトが発生しているファイル:',
+              conflictedFilesList,
+              '',
+              '### 🔧 解決方法:',
+              '',
+              `#### 1️⃣ ローカルで${targetBranch}ブランチを最新にプル:`,
+              '```bash',
+              `git checkout ${targetBranch}`,
+              `git pull origin ${targetBranch}`,
+              '```',
+              '',
+              `#### 2️⃣ フィーチャーブランチに${targetBranch}をマージ:`,
+              '```bash',
+              `git checkout ${context.payload.pull_request.head.ref}`,
+              `git merge ${targetBranch}`,
+              '```',
+              '',
+              '#### 3️⃣ コンフリクトを手動で解決してコミット:',
+              '```bash',
+              '# コンフリクトファイルを編集して解決',
+              'git add .',
+              `git commit -m "Resolve merge conflicts with ${targetBranch}"`,
+              `git push origin ${context.payload.pull_request.head.ref}`,
+              '```',
+              '',
+              '### 📊 次のステップ:',
+              '- [ ] 上記手順でコンフリクトを解決',
+              '- [ ] テストが通ることを確認',
+              '- [ ] プルリクエストを更新',
+              '',
+              '### 🔄 自動再チェック',
+              'コンフリクトが解決されると、このチェックは自動的に再実行されます。',
+              '',
+              '---',
+              `📅 **最終チェック:** ${currentTime}`,
+              `🔗 **詳細ログ:** [ワークフロー実行結果](${runUrl})`,
+              '',
+              '> 💡 **ヒント:** このコメントは自動生成されており、コンフリクト状況に応じて更新されます。'
+            ].join('\n');
+
+            const hasExistingComment = '${{ steps.existing-comments.outputs.has_existing_comment }}' === 'true';
+            const latestCommentId = '${{ steps.existing-comments.outputs.latest_comment_id }}';
+
+            try {
+              if (hasExistingComment && latestCommentId) {
+                // Update existing comment
+                console.log(`Updating existing conflict comment ${latestCommentId}`);
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: parseInt(latestCommentId),
+                  body: body
+                });
+                console.log('✅ Updated existing conflict comment');
+              } else {
+                // Create new comment
+                console.log('Creating new conflict comment');
+                const response = await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+                console.log(`✅ Created new conflict comment ${response.data.id}`);
+              }
+            } catch (error) {
+              console.error('❌ Failed to create/update conflict comment:', error.message);
+              // Don't fail the workflow for comment errors
+            }
+
+      - name: 🧹 Clean up resolved conflict comments
+        if: steps.conflict-check.outputs.conflict_detected == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🧹 Checking for outdated conflict comments to clean up...');
+
+            try {
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number
+              });
+
+              // Look for existing conflict detection comments
+              const conflictComments = comments.data.filter(comment =>
+                comment.body.includes('🚨 Merge Conflicts Detected') ||
+                comment.body.includes('⚠️ Merge Conflicts Detected') ||
+                comment.body.includes('<!-- conflict-detection-comment -->')
+              );
+
+              if (conflictComments.length > 0) {
+                console.log(`Found ${conflictComments.length} outdated conflict comments`);
+
+                // Add resolution notice to the latest conflict comment
+                const latestComment = conflictComments[conflictComments.length - 1];
+                const resolvedNotice = [
+                  '',
+                  '***** SEPARATOR *****',
+                  '## ✅ **コンフリクト解決済み**',
+                  '',
+                  'このプルリクエストのマージコンフリクトは解決されました！ 🎉',
+                  '',
+                  `📅 **解決確認時刻:** ${new Date().toISOString()}`,
+                  `🔗 **確認ログ:** [ワークフロー実行結果](${context.payload.repository.html_url}/actions/runs/${context.runId})`,
+                  '',
+                  '> このコメントは履歴として残されていますが、現在はコンフリクトが存在しません。'
+                ].join('\n');
+
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: latestComment.id,
+                  body: latestComment.body + resolvedNotice
+                });
+
+                console.log(`✅ Updated conflict comment with resolution notice`);
+              } else {
+                console.log('No conflict comments found to update');
+              }
+            } catch (error) {
+              console.error('⚠️ Failed to clean up conflict comments:', error.message);
+              // Don't fail the workflow for cleanup errors
+            }
+
+      - name: ✅ Success notification and metrics
+        if: steps.conflict-check.outputs.conflict_detected == 'false'
+        run: |
+          echo "✅ No merge conflicts detected with ${{ steps.target-branch.outputs.target_branch }}!"
+          echo "🎯 Target branch: ${{ steps.target-branch.outputs.target_branch }}"
+          echo "📝 This PR is ready for review and merge."
+
+      - name: 📊 Enhanced status check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conflictDetected = '${{ steps.conflict-check.outputs.conflict_detected }}' === 'true';
+            const targetBranch = '${{ steps.target-branch.outputs.target_branch }}';
+            const state = conflictDetected ? 'failure' : 'success';
+            const description = conflictDetected
+              ? `Merge conflicts detected with ${targetBranch}`
+              : `No conflicts with ${targetBranch} - ready for merge`;
+
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.payload.pull_request.head.sha,
+                state: state,
+                target_url: `${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+                description: description,
+                context: 'ci/enhanced-conflict-detection'
+              });
+
+              console.log(`✅ Status check created: ${state} - ${description}`);
+            } catch (error) {
+              console.error(`❌ Failed to create status check: ${error.message}`);
+            }
+
+      - name: 📋 Generate workflow summary
+        run: |
+          echo "## 🚨 Enhanced Conflict Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Branch:** \`${{ steps.target-branch.outputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Source Branch:** \`${{ github.head_ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Result:** ${{ steps.conflict-check.outputs.conflict_detected == 'true' && '🔴 Conflicts detected' || '🟢 No conflicts' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.conflict-check.outputs.conflict_detected }}" = "true" ]; then
+            echo "### 📁 Conflicted Files:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.conflict-check.outputs.conflicted_files }}" | tr ' ' '\n' >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "- Resolve conflicts locally using the instructions in the PR comment" >> $GITHUB_STEP_SUMMARY
+            echo "- Push the resolved changes to trigger re-validation" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ Status:" >> $GITHUB_STEP_SUMMARY
+            echo "- No merge conflicts detected" >> $GITHUB_STEP_SUMMARY
+            echo "- Ready for review and merge" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow run:** [View details](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> $GITHUB_STEP_SUMMARY
 
       - name: ❌ Fail job if conflicts detected
-        if: steps.conflict-check.outputs.has_conflicts == 'true'
+        if: steps.conflict-check.outputs.conflict_detected == 'true'
         run: |
-          echo "❌ Enhanced conflict detection failed"
-          echo "🔍 Conflicts found in: ${{ steps.conflict-check.outputs.conflicted_files }}"
-          echo "📊 Merge complexity: ${{ steps.conflict-check.outputs.merge_complexity }}"
-          echo "📝 Detailed resolution guide posted as comment"
+          echo "❌ Job failed due to merge conflicts with ${{ steps.target-branch.outputs.target_branch }}"
+          echo "📋 Conflicted files: ${{ steps.conflict-check.outputs.conflicted_files }}"
+          echo "🔧 Please resolve the conflicts and push the changes"
+          echo "📖 Detailed instructions have been posted as a comment on this PR"
           exit 1
-
-  # 🧹 Cleanup redundant workflows
-  cleanup-check:
-    runs-on: ubuntu-latest
-    if: always()
-    name: 🧹 Workflow Cleanup Check
-    steps:
-      - name: 📋 Log workflow optimization
-        run: |
-          echo "🧹 Enhanced conflict detection is active"
-          echo "💡 Consider removing redundant conflict-check.yml workflow"
-          echo "✨ This workflow provides comprehensive conflict analysis"

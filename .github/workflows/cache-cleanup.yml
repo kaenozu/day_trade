@@ -5,6 +5,17 @@ on:
     # 毎週日曜日 02:00 UTC に実行
     - cron: '0 2 * * 0'
   workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: 'Maximum age of caches to keep (in days)'
+        required: false
+        default: '7'
+        type: string
+      dry_run:
+        description: 'Perform dry run without actually deleting caches'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: write
@@ -12,27 +23,34 @@ permissions:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
     name: Clean old caches
+    uses: ./.github/workflows/reusable-cache-cleanup.yml
+    with:
+      max_age_days: ${{ fromJSON(github.event.inputs.max_age_days || '7') }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+      cache_name_pattern: ''
+
+  # 結果をSlackやIssueに通知（オプション）
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: cleanup
+    if: ${{ !github.event.inputs.dry_run }}
+    name: Notify cleanup results
 
     steps:
-      - name: Cleanup old caches
+      - name: 📢 Create cleanup summary
         run: |
-          echo "🧹 Cleaning up old GitHub Actions caches..."
+          echo "### 🧹 Weekly Cache Cleanup Summary" > cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "**Execution Time:** $(date -u)" >> cleanup-summary.md
+          echo "**Deleted Caches:** ${{ needs.cleanup.outputs.deleted_count }}" >> cleanup-summary.md
+          echo "**Space Freed:** $(echo "scale=2; ${{ needs.cleanup.outputs.total_size_freed }} / 1024 / 1024" | bc) MB" >> cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "Cache cleanup completed successfully! 🎉" >> cleanup-summary.md
 
-          # 7日以上古いキャッシュを削除
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/actions/caches \
-            --jq '.actions_caches[] | select(.created_at < (now - 7*24*3600 | strftime("%Y-%m-%dT%H:%M:%SZ"))) | .id' \
-          | while read cache_id; do
-            echo "Deleting cache ID: $cache_id"
-            gh api \
-              --method DELETE \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              /repos/${{ github.repository }}/actions/caches/$cache_id || true
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 📤 Upload cleanup summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-cleanup-summary
+          path: cleanup-summary.md
+          retention-days: 30

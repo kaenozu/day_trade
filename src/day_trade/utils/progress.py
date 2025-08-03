@@ -26,12 +26,52 @@ from rich.progress import (
 
 logger = logging.getLogger(__name__)
 
-# Windows環境での文字エンコーディング問題を回避
-try:
-    console = Console(force_terminal=True, legacy_windows=False)
-except Exception:
-    # フォールバック：より安全な設定
-    console = Console(force_terminal=False)
+# テスト環境ではプログレス表示を無効化
+if os.environ.get('PYTEST_CURRENT_TEST'):
+    # テスト環境用のダミーコンソール
+    class DummyConsole:
+        def __getattr__(self, name):
+            # すべてのメソッド呼び出しに対してダミー関数を返す
+            def dummy_method(*args, **kwargs):
+                return self
+            return dummy_method
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def print(self, *args, **kwargs):
+            pass
+
+        def log(self, *args, **kwargs):
+            pass
+
+        def get_time(self):
+            import time
+            return time.time()
+
+        @property
+        def options(self):
+            return type('Options', (), {'legacy_windows': False})()
+
+        @property
+        def is_terminal(self):
+            return False
+
+        @property
+        def is_jupyter(self):
+            return False
+
+    console = DummyConsole()
+else:
+    # Windows環境での文字エンコーディング問題を回避
+    try:
+        console = Console(force_terminal=True, legacy_windows=False)
+    except Exception:
+        # フォールバック：より安全な設定
+        console = Console(force_terminal=False)
 
 
 # 型定義の追加
@@ -236,6 +276,30 @@ def progress_context(
 
     # テスト環境ではプログレス表示を無効化
     if os.environ.get('PYTEST_CURRENT_TEST'):
+        class DummyUpdater:
+            def update(self, advance: int = 1, description: Optional[str] = None):
+                pass
+            def set_total(self, total: int):
+                pass
+            def complete(self):
+                pass
+            def set_description(self, description: str):
+                pass
+        yield DummyUpdater()
+        return
+
+    # デフォルト総数の決定
+    if total is None:
+        if progress_type == ProgressType.DETERMINATE:
+            total = current_config.default_total_determinate
+        elif progress_type == ProgressType.MULTI_STEP:
+            total = current_config.default_total_multi_step
+        elif progress_type == ProgressType.BATCH:
+            total = current_config.default_total_batch
+        # INDETERMINATE の場合は total は不要
+
+    # テスト環境ではプログレス表示を無効化
+    if os.environ.get('PYTEST_CURRENT_TEST'):
         # テスト環境用のダミーコンテキストマネージャー
         @contextmanager
         def dummy_progress():
@@ -299,9 +363,6 @@ class BatchProgressTracker:
 
     def update_success(self, item_name: Optional[str] = None):
         """成功時の更新（スロットリング対応）"""
-        if not self.progress:
-            return
-
         self.processed_items += 1
 
         # 更新間隔のスロットリング
@@ -314,9 +375,6 @@ class BatchProgressTracker:
         self, item_name: Optional[str] = None, error: Optional[str] = None
     ):
         """失敗時の更新（エラーハンドリング強化）"""
-        if not self.progress:
-            return
-
         self.processed_items += 1
         self.failed_items += 1
 
