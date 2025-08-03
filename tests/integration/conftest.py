@@ -144,5 +144,3 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip_integration)
-
-    
