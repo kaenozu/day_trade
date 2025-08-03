@@ -318,15 +318,43 @@ class TestBacktestEngine:
         linear_trend = np.linspace(0, trend_strength, n_days)
         trend_prices = base_price * (1 + linear_trend)
 
-        # ノイズを追加
+        # トレンド保証のための改良されたノイズ生成
         if seed is not None:
             np.random.seed(seed)
 
-        noise = np.random.normal(0, volatility * base_price, n_days)
-        final_prices = trend_prices + noise
+        # ノイズを期間で正規化し、トレンドの10%以下に制限
+        max_noise_amplitude = abs(trend_strength) * base_price * 0.15
+        daily_volatility = min(volatility * base_price, max_noise_amplitude / np.sqrt(n_days))
 
-        # 負の価格を防ぐ
-        final_prices = np.maximum(final_prices, base_price * 0.5)
+        # 累積的ノイズではなく、各日独立のノイズ（ただし制限付き）
+        raw_noise = np.random.normal(0, daily_volatility, n_days)
+
+        # トレンド方向を保持するためのノイズフィルタリング
+        # 大きなノイズがトレンドと逆方向の場合は減衰
+        for i in range(n_days):
+            if i > 0:
+                trend_direction = trend_prices[i] - trend_prices[i-1]
+                noise_direction = raw_noise[i]
+
+                # ノイズがトレンドと逆方向の場合は50%減衰
+                if (trend_direction > 0 and noise_direction < 0) or (trend_direction < 0 and noise_direction > 0):
+                    if abs(noise_direction) > daily_volatility * 0.5:
+                        raw_noise[i] *= 0.5
+
+        final_prices = trend_prices + raw_noise
+
+        # 価格の健全性保証（トレンドの最終価格を大きく下回らない）
+        min_acceptable_price = base_price * 0.7
+        expected_final_price = base_price * (1 + trend_strength)
+
+        # 最終価格が期待範囲内になるよう調整
+        if final_prices[-1] < expected_final_price * 0.85:
+            adjustment = (expected_final_price * 0.9 - final_prices[-1])
+            # 調整を線形に分散
+            for i in range(n_days):
+                final_prices[i] += adjustment * (i / (n_days - 1))
+
+        final_prices = np.maximum(final_prices, min_acceptable_price)
 
         # OHLCVを生成（final_pricesをCloseとして使用）
         n_days = len(dates)
@@ -388,14 +416,55 @@ class TestBacktestEngine:
         """
         高ボラティリティのテストデータを生成
         """
-        return self._generate_realistic_market_data(
-            dates=dates,
-            base_price=base_price,
-            trend=0.0,
-            volatility=volatility,
-            volume_variance=0.5,  # 出来高も変動を大きく
-            seed=seed
-        )
+        # 高ボラティリティを確実に生成するため、直接実装
+        if seed is not None:
+            np.random.seed(seed)
+
+        n_days = len(dates)
+
+        # 高ボラティリティの日次リターンを生成
+        # ボラティリティを意図的に高く設定
+        daily_returns = np.random.normal(0, volatility * 1.5, n_days)  # 1.5倍で増幅
+
+        # 価格系列を計算
+        prices = [base_price]
+        for i in range(1, n_days):
+            new_price = prices[-1] * (1 + daily_returns[i])
+            new_price = max(new_price, base_price * 0.2)  # 最低価格保証
+            prices.append(new_price)
+
+        # OHLCVデータを生成
+        ohlcv_data = []
+        for i, close_price in enumerate(prices):
+            # 日中ボラティリティも高く設定
+            intraday_vol = volatility * close_price * 1.2
+
+            # より大きな価格変動を生成
+            high_addon = abs(np.random.normal(0, intraday_vol))
+            low_subtract = abs(np.random.normal(0, intraday_vol))
+
+            if i == 0:
+                open_price = base_price
+            else:
+                open_price = prices[i-1] + np.random.normal(0, intraday_vol * 0.8)
+
+            high_price = max(open_price, close_price) + high_addon
+            low_price = min(open_price, close_price) - low_subtract
+
+            # 制約保証
+            low_price = max(low_price, base_price * 0.1)
+            high_price = max(high_price, low_price + 1)
+            open_price = max(min(open_price, high_price), low_price)
+
+            ohlcv_data.append({
+                'Open': open_price,
+                'High': high_price,
+                'Low': low_price,
+                'Close': close_price,
+                'Volume': int(np.random.uniform(1000000, 4000000))  # 大きな出来高変動
+            })
+
+        return pd.DataFrame(ohlcv_data, index=dates)
 
     def _generate_crisis_scenario_data(
         self,

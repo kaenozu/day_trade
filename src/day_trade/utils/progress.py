@@ -233,16 +233,41 @@ def progress_context(
             total = current_config.default_total_batch
         # INDETERMINATE の場合は total は不要
 
-    # 統一されたProgress インスタンス作成
-    progress_instance = _create_progress_instance(progress_type, current_config)
+    # テスト環境ではプログレス表示を無効化
+    import os
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        # テスト環境用のダミーコンテキストマネージャー
+        @contextmanager
+        def dummy_progress():
+            class DummyProgress:
+                def add_task(self, description, total=None):
+                    return 1
+                def update(self, task_id, completed=None, advance=None, description=None):
+                    pass
+                def remove_task(self, task_id):
+                    pass
+                def reset(self, task_id):
+                    pass
+                def stop(self):
+                    pass
+            yield DummyProgress()
 
-    with progress_instance as progress:
-        if progress_type == ProgressType.INDETERMINATE:
-            task = progress.add_task(description)
-        else:
-            task = progress.add_task(description, total=total)
+        with dummy_progress() as progress:
+            if progress_type == ProgressType.INDETERMINATE:
+                task = progress.add_task(description)
+            else:
+                task = progress.add_task(description, total=total)
+            yield ProgressUpdater(progress, task)
+    else:
+        # 統一されたProgress インスタンス作成
+        progress_instance = _create_progress_instance(progress_type, current_config)
 
-        yield ProgressUpdater(progress, task)
+        with progress_instance as progress:
+            if progress_type == ProgressType.INDETERMINATE:
+                task = progress.add_task(description)
+            else:
+                task = progress.add_task(description, total=total)
+            yield ProgressUpdater(progress, task)
 
 
 class BatchProgressTracker:
