@@ -202,7 +202,7 @@ class TestPredictionOrchestrator:
         """高ボラティリティ時のリスク調整テスト"""
         # 高ボラティリティデータを作成
         volatile_data = sample_data.copy()
-        volatile_data["Close"][-20:] = volatile_data["Close"][-20:] * (1 + np.random.randn(20) * 0.1)
+        volatile_data.loc[volatile_data.index[-20:], "Close"] = volatile_data.loc[volatile_data.index[-20:], "Close"] * (1 + np.random.randn(20) * 0.1)
 
         mock_signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -235,7 +235,7 @@ class TestPredictionOrchestrator:
         """リスク要因特定テスト"""
         # 低流動性データを作成
         low_liquidity_data = sample_data.copy()
-        low_liquidity_data["Volume"][-1] = 100000  # 平均より大幅に少ない
+        low_liquidity_data.iloc[-1, low_liquidity_data.columns.get_loc("Volume")] = 100000  # 平均より大幅に少ない
 
         mock_signal = TradingSignal(
             signal_type=SignalType.HOLD,
