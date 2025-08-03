@@ -145,9 +145,4 @@ def pytest_collection_modifyitems(config, items):
             if "integration" in item.keywords:
                 item.add_marker(skip_integration)
 
-    if not config.getoption("--slow"):
-        # --slow フラグが指定されていない場合は低速テストをスキップ
-        skip_slow = pytest.mark.skip(reason="低速テストをスキップ（--slow を使用して実行）")
-        for item in items:
-            if "slow" in item.keywords:
-                item.add_marker(skip_slow)
+    
