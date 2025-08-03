@@ -51,6 +51,24 @@ test-integration: ## Run integration tests only
 	@echo "🔗 Running integration tests..."
 	pytest tests/integration/ -v
 
+# カバレッジ
+coverage: ## Generate comprehensive coverage report
+	@echo "📊 Generating coverage report..."
+	python scripts/coverage_report.py
+
+coverage-goals: ## Check coverage goals and generate progress report
+	@echo "🎯 Checking coverage goals..."
+	python scripts/coverage_goals.py
+
+coverage-html: ## Generate HTML coverage report
+	@echo "🌐 Generating HTML coverage report..."
+	pytest tests/ --cov=src/day_trade --cov-report=html --cov-report=term-missing
+	@echo "📄 HTML report available at: htmlcov/index.html"
+
+coverage-xml: ## Generate XML coverage report for CI
+	@echo "📄 Generating XML coverage report..."
+	pytest tests/ --cov=src/day_trade --cov-report=xml --cov-report=term-missing
+
 # Docker
 docker-build: ## Build Docker images
 	@echo "🐳 Building Docker images..."
