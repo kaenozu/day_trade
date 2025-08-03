@@ -17,7 +17,7 @@ import pandas as pd
 
 from .ensemble import EnsembleStrategy, EnsembleVotingType, StrategyPerformance
 from .feature_engineering import AdvancedFeatureEngineer
-from .ml_models import EnsemblePredictor, ModelPrediction, create_default_model_ensemble
+from .ml_models import MLModelManager
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
 from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
 
@@ -71,7 +71,7 @@ class EnhancedEnsembleSignal:
 
     # 構成要素
     rule_based_signals: Dict[str, TradingSignal] = None
-    ml_predictions: Dict[str, ModelPrediction] = None
+    ml_predictions: Dict[str, float] = None
 
     # メタ情報
     market_context: MarketContext = None
@@ -120,7 +120,11 @@ class EnhancedEnsembleStrategy:
         # 機械学習モデル
         self.ml_ensemble = None
         if self.enable_ml_models:
-            self.ml_ensemble = create_default_model_ensemble()
+            try:
+                self.ml_ensemble = MLModelManager()
+            except Exception as e:
+                logger.warning(f"機械学習モデル初期化エラー: {e}")
+                self.enable_ml_models = False
 
         # パフォーマンス管理
         self.strategy_performance: Dict[str, StrategyPerformance] = {}
@@ -299,7 +303,7 @@ class EnhancedEnsembleStrategy:
         self,
         feature_data: pd.DataFrame,
         prediction_horizon: PredictionHorizon
-    ) -> Dict[str, ModelPrediction]:
+    ) -> Dict[str, float]:
         """機械学習予測生成"""
         ml_predictions = {}
 
@@ -307,31 +311,9 @@ class EnhancedEnsembleStrategy:
             return ml_predictions
 
         try:
-            # 特徴量の準備
-            feature_cols = [col for col in feature_data.columns
-                          if col not in ['Open', 'High', 'Low', 'Close', 'Volume']]
-
-            if len(feature_cols) == 0:
-                logger.warning("ML予測用の特徴量が不足", section="ml_prediction")
-                return ml_predictions
-
-            X = feature_data[feature_cols].fillna(0)
-
-            # 予測期間に応じたターゲット準備（訓練済みの場合）
-            if self.ml_ensemble.models and any(m.is_trained for m in self.ml_ensemble.models):
-                # 最新データのみで予測
-                latest_features = X.tail(1)
-                predictions = self.ml_ensemble.predict(latest_features)
-
-                if predictions:
-                    ml_predictions["ensemble_ml"] = predictions[0]
-
-                    logger.debug(
-                        "機械学習予測完了",
-                        section="ml_prediction",
-                        prediction=predictions[0].prediction,
-                        confidence=predictions[0].confidence
-                    )
+            # MLModelManagerの実装が完了していないため、一時的に無効化
+            logger.info("機械学習予測は一時的に無効化されています", section="ml_prediction")
+            return ml_predictions
 
         except Exception as e:
             logger.error(
@@ -345,7 +327,7 @@ class EnhancedEnsembleStrategy:
     def _integrate_signals(
         self,
         rule_signals: Dict[str, TradingSignal],
-        ml_predictions: Dict[str, ModelPrediction],
+        ml_predictions: Dict[str, float],
         market_context: MarketContext,
         prediction_horizon: PredictionHorizon
     ) -> EnhancedEnsembleSignal:
@@ -374,14 +356,15 @@ class EnhancedEnsembleStrategy:
 
         # 機械学習予測の統合
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
-        for model_name, prediction in ml_predictions.items():
-            # 予測値を売買シグナルに変換
-            if prediction.prediction > 0.02:  # 2%以上の上昇予測
-                buy_score += prediction.confidence * ml_weight
-            elif prediction.prediction < -0.02:  # 2%以上の下落予測
-                sell_score += prediction.confidence * ml_weight
+        for model_name, prediction_value in ml_predictions.items():
+            # 予測値を売買シグナルに変換（prediction_valueは直接floatの予測値）
+            confidence = abs(prediction_value) * 100  # 信頼度は予測値の絶対値から計算
+            if prediction_value > 0.02:  # 2%以上の上昇予測
+                buy_score += confidence * ml_weight
+            elif prediction_value < -0.02:  # 2%以上の下落予測
+                sell_score += confidence * ml_weight
 
-            total_confidence += prediction.confidence * ml_weight
+            total_confidence += confidence * ml_weight
             total_weight += ml_weight
 
         # 最終シグナル決定
@@ -505,7 +488,7 @@ class EnhancedEnsembleStrategy:
     def _calculate_uncertainty(
         self,
         rule_signals: Dict[str, TradingSignal],
-        ml_predictions: Dict[str, ModelPrediction]
+        ml_predictions: Dict[str, float]
     ) -> float:
         """不確実性スコア計算"""
         if not rule_signals and not ml_predictions:
@@ -517,8 +500,9 @@ class EnhancedEnsembleStrategy:
         for signal in rule_signals.values():
             confidences.append(signal.confidence)
 
-        for prediction in ml_predictions.values():
-            confidences.append(prediction.confidence)
+        for prediction_value in ml_predictions.values():
+            # ml_predictionsはDict[str, float]なので、値をそのまま使用
+            confidences.append(abs(prediction_value) * 100)  # 正規化して信頼度相当にする
 
         if len(confidences) > 1:
             uncertainty = np.std(confidences)
