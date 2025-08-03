@@ -1,567 +1,603 @@
 """
-機械学習予測モデルモジュール
-
-複数の機械学習アルゴリズムを用いて株価予測を行う。
-時系列特化型モデルも含む包括的な予測システム。
+機械学習モデル統合システム
+株価予測、方向性予測、リスク予測のための機械学習モデル
 """
 
-import warnings
+import joblib
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 
-warnings.filterwarnings('ignore', category=FutureWarning)
-logger = get_context_logger(__name__)
+logger = get_context_logger(__name__, component="ml_models")
+
+# オプショナル依存関係のインポート
+try:
+    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor
+    from sklearn.linear_model import LinearRegression, LogisticRegression
+    from sklearn.svm import SVR, SVC
+    from sklearn.model_selection import TimeSeriesSplit, cross_val_score
+    from sklearn.metrics import mean_squared_error, accuracy_score, classification_report
+    from sklearn.preprocessing import StandardScaler
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    logger.warning("scikit-learnが利用できません。機械学習機能は制限されます。")
+
+try:
+    import xgboost as xgb
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    logger.info("XGBoostが利用できません。")
+
+try:
+    import lightgbm as lgb
+    LIGHTGBM_AVAILABLE = True
+except ImportError:
+    LIGHTGBM_AVAILABLE = False
+    logger.info("LightGBMが利用できません。")
 
 
 @dataclass
-class ModelPrediction:
-    """モデル予測結果"""
+class ModelConfig:
+    """機械学習モデル設定"""
 
-    prediction: float
-    confidence: float
-    prediction_interval: Optional[Tuple[float, float]] = None
-    model_name: str = ""
-    timestamp: datetime = None
-    features_used: List[str] = None
+    # モデル選択
+    model_type: str  # "random_forest", "gradient_boosting", "xgboost", "lightgbm", "svm", "linear"
+    task_type: str  # "regression", "classification"
 
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-        if self.features_used is None:
-            self.features_used = []
+    # 訓練設定
+    test_size: float = 0.2
+    validation_method: str = "time_series"  # "time_series", "random"
+    cv_folds: int = 5
 
+    # モデル固有パラメータ
+    model_params: Dict[str, Any] = None
 
-@dataclass
-class ModelPerformance:
-    """モデルパフォーマンス評価"""
+    # 特徴量設定
+    feature_selection: bool = True
+    max_features: int = 50
 
-    model_name: str
-    mse: float
-    mae: float
-    rmse: float
-    r2_score: float
-    directional_accuracy: float
-    sharpe_ratio: Optional[float] = None
-    max_drawdown: Optional[float] = None
-    win_rate: Optional[float] = None
+    # 前処理設定
+    scaling: bool = True
+    handle_imbalance: bool = False
 
 
-class BasePredictionModel(ABC):
-    """予測モデルの基底クラス"""
+class BaseMLModel(ABC):
+    """機械学習モデルベースクラス"""
 
-    def __init__(self, name: str, **kwargs):
-        self.name = name
+    def __init__(self, config: ModelConfig):
+        self.config = config
         self.model = None
-        self.is_trained = False
-        self.feature_names = []
-        self.performance_history = []
-        self.kwargs = kwargs
-
-    @abstractmethod
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデルの訓練"""
-        pass
-
-    @abstractmethod
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        pass
-
-    def evaluate(self, X: pd.DataFrame, y: pd.Series) -> ModelPerformance:
-        """モデル性能評価"""
-        predictions = self.predict(X)
-        pred_values = [p.prediction for p in predictions]
-
-        return self._calculate_performance_metrics(y.values, pred_values)
-
-    def _calculate_performance_metrics(self, y_true: np.ndarray, y_pred: np.ndarray) -> ModelPerformance:
-        """パフォーマンスメトリクス計算"""
-        from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-
-        mse = mean_squared_error(y_true, y_pred)
-        mae = mean_absolute_error(y_true, y_pred)
-        rmse = np.sqrt(mse)
-        r2 = r2_score(y_true, y_pred)
-
-        # 方向性予測精度
-        directional_accuracy = np.mean(
-            (y_true[1:] > y_true[:-1]) == (y_pred[1:] > y_pred[:-1])
-        ) if len(y_true) > 1 else 0.0
-
-        return ModelPerformance(
-            model_name=self.name,
-            mse=mse,
-            mae=mae,
-            rmse=rmse,
-            r2_score=r2,
-            directional_accuracy=directional_accuracy
-        )
-
-
-class LinearRegressionModel(BasePredictionModel):
-    """線形回帰モデル"""
-
-    def __init__(self, **kwargs):
-        super().__init__("LinearRegression", **kwargs)
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        from sklearn.linear_model import LinearRegression
-
-        self.model = LinearRegression(**self.kwargs)
-        self.model.fit(X, y)
-        self.feature_names = X.columns.tolist()
-        self.is_trained = True
-
-        logger.info(
-            "線形回帰モデル訓練完了",
-            section="model_training",
-            model_name=self.name,
-            features_count=len(self.feature_names),
-            samples_count=len(X)
-        )
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-
-        predictions = self.model.predict(X)
-
-        # 信頼度は係数の重要度に基づいて簡易計算
-        feature_importance = np.abs(self.model.coef_)
-        avg_importance = np.mean(feature_importance)
-        confidence = min(avg_importance * 100, 100.0)
-
-        return [
-            ModelPrediction(
-                prediction=pred,
-                confidence=confidence,
-                model_name=self.name,
-                features_used=self.feature_names
-            ) for pred in predictions
-        ]
-
-
-class RandomForestModel(BasePredictionModel):
-    """ランダムフォレストモデル"""
-
-    def __init__(self, n_estimators: int = 100, max_depth: int = 10, **kwargs):
-        super().__init__("RandomForest", n_estimators=n_estimators, max_depth=max_depth, **kwargs)
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        from sklearn.ensemble import RandomForestRegressor
-
-        self.model = RandomForestRegressor(
-            n_estimators=self.kwargs.get('n_estimators', 100),
-            max_depth=self.kwargs.get('max_depth', 10),
-            random_state=42,
-            **{k: v for k, v in self.kwargs.items() if k not in ['n_estimators', 'max_depth']}
-        )
-        self.model.fit(X, y)
-        self.feature_names = X.columns.tolist()
-        self.is_trained = True
-
-        logger.info(
-            "ランダムフォレストモデル訓練完了",
-            section="model_training",
-            model_name=self.name,
-            features_count=len(self.feature_names),
-            samples_count=len(X),
-            n_estimators=self.model.n_estimators
-        )
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-
-        predictions = self.model.predict(X)
-
-        # 各決定木の予測の分散を信頼度として使用
-        tree_predictions = np.array([tree.predict(X) for tree in self.model.estimators_])
-        prediction_std = np.std(tree_predictions, axis=0)
-        confidence = np.maximum(0, 100 - prediction_std * 100)
-
-        return [
-            ModelPrediction(
-                prediction=pred,
-                confidence=conf,
-                model_name=self.name,
-                features_used=self.feature_names
-            ) for pred, conf in zip(predictions, confidence)
-        ]
-
-    def get_feature_importance(self) -> Dict[str, float]:
-        """特徴量重要度取得"""
-        if not self.is_trained:
-            return {}
-
-        importance_dict = dict(zip(self.feature_names, self.model.feature_importances_))
-        return dict(sorted(importance_dict.items(), key=lambda x: x[1], reverse=True))
-
-
-class GradientBoostingModel(BasePredictionModel):
-    """勾配ブースティングモデル"""
-
-    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.1, **kwargs):
-        super().__init__("GradientBoosting", n_estimators=n_estimators, learning_rate=learning_rate, **kwargs)
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        from sklearn.ensemble import GradientBoostingRegressor
-
-        self.model = GradientBoostingRegressor(
-            n_estimators=self.kwargs.get('n_estimators', 100),
-            learning_rate=self.kwargs.get('learning_rate', 0.1),
-            random_state=42,
-            **{k: v for k, v in self.kwargs.items() if k not in ['n_estimators', 'learning_rate']}
-        )
-        self.model.fit(X, y)
-        self.feature_names = X.columns.tolist()
-        self.is_trained = True
-
-        logger.info(
-            "勾配ブースティングモデル訓練完了",
-            section="model_training",
-            model_name=self.name,
-            features_count=len(self.feature_names),
-            samples_count=len(X)
-        )
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-
-        predictions = self.model.predict(X)
-
-        # 段階的予測における改善度を信頼度として使用
-        staged_predictions = list(self.model.staged_predict(X))
-        if len(staged_predictions) > 1:
-            improvement = np.abs(staged_predictions[-1] - staged_predictions[-2])
-            confidence = np.maximum(0, 100 - improvement * 1000)
-        else:
-            confidence = np.full(len(predictions), 50.0)
-
-        return [
-            ModelPrediction(
-                prediction=pred,
-                confidence=conf,
-                model_name=self.name,
-                features_used=self.feature_names
-            ) for pred, conf in zip(predictions, confidence)
-        ]
-
-
-class LSTMModel(BasePredictionModel):
-    """LSTM時系列予測モデル"""
-
-    def __init__(self, sequence_length: int = 20, lstm_units: int = 50, **kwargs):
-        super().__init__("LSTM", sequence_length=sequence_length, lstm_units=lstm_units, **kwargs)
-        self.sequence_length = sequence_length
         self.scaler = None
+        self.feature_names = None
+        self.is_fitted = False
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        try:
-            import tensorflow as tf
-            from tensorflow.keras.models import Sequential
-            from tensorflow.keras.layers import LSTM, Dense, Dropout
-            from sklearn.preprocessing import MinMaxScaler
+        if config.scaling and SKLEARN_AVAILABLE:
+            self.scaler = StandardScaler()
 
-            # データの正規化
-            self.scaler = MinMaxScaler()
-            X_scaled = self.scaler.fit_transform(X)
+    @abstractmethod
+    def _create_model(self) -> Any:
+        """モデルインスタンスを作成"""
+        pass
 
-            # シーケンスデータの準備
-            X_seq, y_seq = self._create_sequences(X_scaled, y.values)
+    @abstractmethod
+    def _fit_model(self, X: np.ndarray, y: np.ndarray) -> None:
+        """モデルを訓練"""
+        pass
 
-            # モデル構築
-            self.model = Sequential([
-                LSTM(self.kwargs.get('lstm_units', 50), return_sequences=True, input_shape=(self.sequence_length, X.shape[1])),
-                Dropout(0.2),
-                LSTM(self.kwargs.get('lstm_units', 50), return_sequences=False),
-                Dropout(0.2),
-                Dense(25),
-                Dense(1)
-            ])
+    @abstractmethod
+    def _predict_model(self, X: np.ndarray) -> np.ndarray:
+        """予測を実行"""
+        pass
 
-            self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, Any]:
+        """
+        モデルの訓練
 
-            # 訓練
-            self.model.fit(
-                X_seq, y_seq,
-                batch_size=32,
-                epochs=self.kwargs.get('epochs', 50),
-                validation_split=0.2,
-                verbose=0
-            )
+        Args:
+            X: 特徴量DataFrame
+            y: ターゲット変数
 
-            self.feature_names = X.columns.tolist()
-            self.is_trained = True
+        Returns:
+            訓練結果の辞書
+        """
+        if not SKLEARN_AVAILABLE:
+            raise ImportError("scikit-learnが必要です")
 
-            logger.info(
-                "LSTMモデル訓練完了",
-                section="model_training",
-                model_name=self.name,
-                sequence_length=self.sequence_length,
-                features_count=len(self.feature_names),
-                samples_count=len(X_seq)
-            )
+        logger.info(f"モデル訓練開始: {self.config.model_type}")
 
-        except ImportError:
-            logger.error(
-                "TensorFlowが利用できません",
-                section="model_training",
-                model_name=self.name
-            )
-            raise ImportError("TensorFlow が必要です: pip install tensorflow")
+        # データの前処理
+        X_processed, y_processed = self._preprocess_data(X, y)
 
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        if not self.is_trained:
+        if len(X_processed) < 50:
+            raise ValueError("訓練に十分なデータがありません（最低50サンプル必要）")
+
+        # モデルの作成
+        self.model = self._create_model()
+
+        # 時系列分割での検証
+        if self.config.validation_method == "time_series":
+            validation_scores = self._validate_time_series(X_processed, y_processed)
+        else:
+            validation_scores = self._validate_random(X_processed, y_processed)
+
+        # フルデータでの訓練
+        if self.scaler:
+            X_scaled = self.scaler.fit_transform(X_processed)
+        else:
+            X_scaled = X_processed
+
+        self._fit_model(X_scaled, y_processed)
+        self.feature_names = X.columns.tolist()
+        self.is_fitted = True
+
+        # 特徴量重要度の取得
+        feature_importance = self._get_feature_importance()
+
+        training_result = {
+            "model_type": self.config.model_type,
+            "task_type": self.config.task_type,
+            "training_samples": len(X_processed),
+            "validation_scores": validation_scores,
+            "feature_importance": feature_importance,
+            "feature_count": len(self.feature_names)
+        }
+
+        logger.info(f"モデル訓練完了: {self.config.model_type}")
+        return training_result
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """
+        予測実行
+
+        Args:
+            X: 特徴量DataFrame
+
+        Returns:
+            予測結果
+        """
+        if not self.is_fitted:
             raise ValueError("モデルが訓練されていません")
 
-        X_scaled = self.scaler.transform(X)
-        X_seq, _ = self._create_sequences(X_scaled, np.zeros(len(X)))
+        # 特徴量の整合性チェック
+        if self.feature_names and not all(col in X.columns for col in self.feature_names):
+            missing_features = [col for col in self.feature_names if col not in X.columns]
+            raise ValueError(f"必要な特徴量が不足しています: {missing_features}")
 
-        if len(X_seq) == 0:
-            return []
+        # データの前処理
+        X_processed = X[self.feature_names].fillna(0)
 
-        predictions = self.model.predict(X_seq, verbose=0)
+        if self.scaler:
+            X_scaled = self.scaler.transform(X_processed)
+        else:
+            X_scaled = X_processed
 
-        # LSTM の場合、予測の一貫性を信頼度として使用
-        confidence = np.full(len(predictions), 70.0)  # 固定値（実際はより複雑な計算が可能）
-
-        return [
-            ModelPrediction(
-                prediction=pred[0],
-                confidence=conf,
-                model_name=self.name,
-                features_used=self.feature_names
-            ) for pred, conf in zip(predictions, confidence)
-        ]
-
-    def _create_sequences(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """時系列シーケンスデータ作成"""
-        X_seq, y_seq = [], []
-
-        for i in range(self.sequence_length, len(X)):
-            X_seq.append(X[i-self.sequence_length:i])
-            y_seq.append(y[i])
-
-        return np.array(X_seq), np.array(y_seq)
-
-
-class ARIMAModel(BasePredictionModel):
-    """ARIMA時系列モデル"""
-
-    def __init__(self, order: Tuple[int, int, int] = (1, 1, 1), **kwargs):
-        super().__init__("ARIMA", order=order, **kwargs)
-        self.order = order
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        try:
-            from statsmodels.tsa.arima.model import ARIMA
-
-            # ARIMA は単変量時系列モデルなので、主要な特徴量のみ使用
-            if len(X.columns) > 0:
-                primary_feature = X.iloc[:, 0]  # 最初の特徴量を使用
-            else:
-                primary_feature = y  # 特徴量がない場合はターゲット自体
-
-            self.model = ARIMA(primary_feature, order=self.order)
-            self.model_fit = self.model.fit()
-            self.feature_names = [X.columns[0]] if len(X.columns) > 0 else ['target']
-            self.is_trained = True
-
-            logger.info(
-                "ARIMAモデル訓練完了",
-                section="model_training",
-                model_name=self.name,
-                order=self.order,
-                aic=self.model_fit.aic
-            )
-
-        except ImportError:
-            logger.error(
-                "statsmodels が利用できません",
-                section="model_training",
-                model_name=self.name
-            )
-            raise ImportError("statsmodels が必要です: pip install statsmodels")
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-
-        forecast = self.model_fit.forecast(steps=len(X))
-        confidence_intervals = self.model_fit.get_forecast(steps=len(X)).conf_int()
-
-        predictions = []
-        for i, (pred, conf_int) in enumerate(zip(forecast, confidence_intervals.values)):
-            confidence = max(0, min(100, (1 - (conf_int[1] - conf_int[0]) / abs(pred)) * 100))
-
-            predictions.append(ModelPrediction(
-                prediction=pred,
-                confidence=confidence,
-                prediction_interval=(conf_int[0], conf_int[1]),
-                model_name=self.name,
-                features_used=self.feature_names
-            ))
-
+        # 予測実行
+        predictions = self._predict_model(X_scaled)
         return predictions
 
+    def _preprocess_data(self, X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:
+        """データの前処理"""
+        # 共通インデックスの取得
+        common_index = X.index.intersection(y.index)
+        X_aligned = X.loc[common_index]
+        y_aligned = y.loc[common_index]
 
-class EnsemblePredictor:
-    """アンサンブル予測システム"""
+        # 欠損値の除去
+        valid_mask = ~(X_aligned.isnull().any(axis=1) | y_aligned.isnull())
+        X_clean = X_aligned[valid_mask]
+        y_clean = y_aligned[valid_mask]
 
-    def __init__(self, models: List[BasePredictionModel], voting_method: str = 'weighted'):
-        self.models = models
-        self.voting_method = voting_method
-        self.model_weights = {}
-        self.performance_history = {}
+        # 無限値の除去
+        inf_mask = ~np.isinf(X_clean).any(axis=1) & ~np.isinf(y_clean)
+        X_final = X_clean[inf_mask]
+        y_final = y_clean[inf_mask]
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """全モデルの訓練"""
-        logger.info(
-            "アンサンブルモデル訓練開始",
-            section="ensemble_training",
-            models_count=len(self.models)
-        )
+        return X_final, y_final
 
-        for model in self.models:
-            try:
-                model.fit(X, y)
+    def _validate_time_series(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+        """時系列交差検証"""
+        tscv = TimeSeriesSplit(n_splits=self.config.cv_folds)
+        scores = []
 
-                # 性能評価とウェイト設定
-                performance = model.evaluate(X, y)
-                self.performance_history[model.name] = performance
+        for train_idx, val_idx in tscv.split(X):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
-                # R²スコアベースのウェイト計算
-                weight = max(0, performance.r2_score)
-                self.model_weights[model.name] = weight
+            # モデルの訓練
+            temp_model = self._create_model()
+            temp_scaler = StandardScaler() if self.scaler else None
 
-                logger.info(
-                    f"{model.name}モデル訓練完了",
-                    section="ensemble_training",
-                    r2_score=performance.r2_score,
-                    weight=weight
-                )
-
-            except Exception as e:
-                logger.error(
-                    f"{model.name}モデル訓練エラー",
-                    section="ensemble_training",
-                    error=str(e)
-                )
-                self.model_weights[model.name] = 0
-
-        # ウェイトの正規化
-        total_weight = sum(self.model_weights.values())
-        if total_weight > 0:
-            self.model_weights = {k: v/total_weight for k, v in self.model_weights.items()}
-
-        logger.info(
-            "アンサンブルモデル訓練完了",
-            section="ensemble_training",
-            final_weights=self.model_weights
-        )
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """アンサンブル予測"""
-        all_predictions = {}
-
-        # 各モデルから予測取得
-        for model in self.models:
-            if model.is_trained and self.model_weights.get(model.name, 0) > 0:
-                try:
-                    predictions = model.predict(X)
-                    all_predictions[model.name] = predictions
-                except Exception as e:
-                    logger.warning(
-                        f"{model.name}予測エラー",
-                        section="ensemble_prediction",
-                        error=str(e)
-                    )
-
-        if not all_predictions:
-            return []
-
-        # アンサンブル予測計算
-        ensemble_predictions = []
-        num_samples = len(list(all_predictions.values())[0])
-
-        for i in range(num_samples):
-            weighted_pred = 0
-            weighted_conf = 0
-            total_weight = 0
-
-            for model_name, predictions in all_predictions.items():
-                if i < len(predictions):
-                    weight = self.model_weights.get(model_name, 0)
-                    weighted_pred += predictions[i].prediction * weight
-                    weighted_conf += predictions[i].confidence * weight
-                    total_weight += weight
-
-            if total_weight > 0:
-                final_pred = weighted_pred / total_weight
-                final_conf = weighted_conf / total_weight
+            if temp_scaler:
+                X_train_scaled = temp_scaler.fit_transform(X_train)
+                X_val_scaled = temp_scaler.transform(X_val)
             else:
-                final_pred = 0
-                final_conf = 0
+                X_train_scaled = X_train
+                X_val_scaled = X_val
 
-            ensemble_predictions.append(ModelPrediction(
-                prediction=final_pred,
-                confidence=final_conf,
-                model_name="Ensemble",
-                features_used=X.columns.tolist()
-            ))
+            temp_model.fit(X_train_scaled, y_train)
 
-        return ensemble_predictions
+            # 検証
+            val_pred = temp_model.predict(X_val_scaled)
 
-    def get_model_performances(self) -> Dict[str, ModelPerformance]:
-        """モデル性能履歴取得"""
-        return self.performance_history
+            if self.config.task_type == "regression":
+                score = -mean_squared_error(y_val, val_pred)
+            else:
+                score = accuracy_score(y_val, val_pred)
 
-    def update_weights_by_performance(self, recent_performance: Dict[str, float]) -> None:
-        """性能に基づくウェイト更新"""
-        for model_name, performance in recent_performance.items():
-            if model_name in self.model_weights:
-                # 指数移動平均でウェイト更新
-                alpha = 0.3
-                current_weight = self.model_weights[model_name]
-                self.model_weights[model_name] = alpha * performance + (1 - alpha) * current_weight
+            scores.append(score)
 
-        # 再正規化
-        total_weight = sum(self.model_weights.values())
-        if total_weight > 0:
-            self.model_weights = {k: v/total_weight for k, v in self.model_weights.items()}
+        return {
+            "mean_score": np.mean(scores),
+            "std_score": np.std(scores),
+            "individual_scores": scores
+        }
+
+    def _validate_random(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+        """ランダム交差検証"""
+        scoring = "neg_mean_squared_error" if self.config.task_type == "regression" else "accuracy"
+        scores = cross_val_score(
+            self._create_model(), X, y,
+            cv=self.config.cv_folds,
+            scoring=scoring
+        )
+
+        return {
+            "mean_score": scores.mean(),
+            "std_score": scores.std(),
+            "individual_scores": scores.tolist()
+        }
+
+    def _get_feature_importance(self) -> Optional[Dict[str, float]]:
+        """特徴量重要度の取得"""
+        if not hasattr(self.model, 'feature_importances_') and not hasattr(self.model, 'coef_'):
+            return None
+
+        if hasattr(self.model, 'feature_importances_'):
+            importance = self.model.feature_importances_
+        elif hasattr(self.model, 'coef_'):
+            importance = np.abs(self.model.coef_[0] if self.model.coef_.ndim > 1 else self.model.coef_)
+        else:
+            return None
+
+        if self.feature_names and len(importance) == len(self.feature_names):
+            feature_importance = dict(zip(self.feature_names, importance))
+            # 重要度順にソート
+            return dict(sorted(feature_importance.items(), key=lambda x: x[1], reverse=True))
+
+        return None
+
+    def save_model(self, filepath: str) -> None:
+        """モデルの保存"""
+        if not self.is_fitted:
+            raise ValueError("訓練されていないモデルは保存できません")
+
+        model_data = {
+            "model": self.model,
+            "scaler": self.scaler,
+            "feature_names": self.feature_names,
+            "config": self.config
+        }
+
+        joblib.dump(model_data, filepath)
+        logger.info(f"モデルを保存しました: {filepath}")
+
+    def load_model(self, filepath: str) -> None:
+        """モデルの読み込み"""
+        model_data = joblib.load(filepath)
+
+        self.model = model_data["model"]
+        self.scaler = model_data["scaler"]
+        self.feature_names = model_data["feature_names"]
+        self.config = model_data["config"]
+        self.is_fitted = True
+
+        logger.info(f"モデルを読み込みました: {filepath}")
 
 
-# ユーティリティ関数
+class RandomForestModel(BaseMLModel):
+    """Random Forestモデル"""
 
-def create_default_model_ensemble() -> EnsemblePredictor:
-    """デフォルトモデルアンサンブル作成"""
-    models = [
-        LinearRegressionModel(),
-        RandomForestModel(n_estimators=50, max_depth=8),
-        GradientBoostingModel(n_estimators=50, learning_rate=0.1)
-    ]
+    def _create_model(self) -> Any:
+        params = self.config.model_params or {}
+        default_params = {
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "n_jobs": -1
+        }
+        default_params.update(params)
 
-    # 高度なモデルは optional
-    try:
-        models.append(LSTMModel(sequence_length=10, lstm_units=25, epochs=20))
-    except ImportError:
-        logger.info("TensorFlow利用不可のため、LSTMモデルをスキップ")
+        if self.config.task_type == "regression":
+            return RandomForestRegressor(**default_params)
+        else:
+            return RandomForestClassifier(**default_params)
 
-    try:
-        models.append(ARIMAModel(order=(1, 1, 1)))
-    except ImportError:
-        logger.info("statsmodels利用不可のため、ARIMAモデルをスキップ")
+    def _fit_model(self, X: np.ndarray, y: np.ndarray) -> None:
+        self.model.fit(X, y)
 
-    return EnsemblePredictor(models)
+    def _predict_model(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
+
+class GradientBoostingModel(BaseMLModel):
+    """Gradient Boostingモデル"""
+
+    def _create_model(self) -> Any:
+        params = self.config.model_params or {}
+        default_params = {
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "random_state": 42
+        }
+        default_params.update(params)
+
+        if self.config.task_type == "regression":
+            return GradientBoostingRegressor(**default_params)
+        else:
+            # scikit-learn のGradientBoostingClassifierを使用
+            from sklearn.ensemble import GradientBoostingClassifier
+            return GradientBoostingClassifier(**default_params)
+
+    def _fit_model(self, X: np.ndarray, y: np.ndarray) -> None:
+        self.model.fit(X, y)
+
+    def _predict_model(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
+
+class XGBoostModel(BaseMLModel):
+    """XGBoostモデル"""
+
+    def _create_model(self) -> Any:
+        if not XGBOOST_AVAILABLE:
+            raise ImportError("XGBoostがインストールされていません")
+
+        params = self.config.model_params or {}
+        default_params = {
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "random_state": 42
+        }
+        default_params.update(params)
+
+        if self.config.task_type == "regression":
+            return xgb.XGBRegressor(**default_params)
+        else:
+            return xgb.XGBClassifier(**default_params)
+
+    def _fit_model(self, X: np.ndarray, y: np.ndarray) -> None:
+        self.model.fit(X, y)
+
+    def _predict_model(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
+
+class LinearModel(BaseMLModel):
+    """線形モデル"""
+
+    def _create_model(self) -> Any:
+        params = self.config.model_params or {}
+
+        if self.config.task_type == "regression":
+            return LinearRegression(**params)
+        else:
+            default_params = {"random_state": 42, "max_iter": 1000}
+            default_params.update(params)
+            return LogisticRegression(**default_params)
+
+    def _fit_model(self, X: np.ndarray, y: np.ndarray) -> None:
+        self.model.fit(X, y)
+
+    def _predict_model(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
+
+class MLModelManager:
+    """機械学習モデル管理システム"""
+
+    def __init__(self, models_dir: Optional[str] = None):
+        """
+        Args:
+            models_dir: モデル保存ディレクトリ
+        """
+        self.models_dir = Path(models_dir) if models_dir else Path("models")
+        self.models_dir.mkdir(exist_ok=True)
+
+        self.models: Dict[str, BaseMLModel] = {}
+        self.model_configs: Dict[str, ModelConfig] = {}
+
+    def create_model(self, name: str, config: ModelConfig) -> BaseMLModel:
+        """
+        モデルを作成
+
+        Args:
+            name: モデル名
+            config: モデル設定
+
+        Returns:
+            作成されたモデルインスタンス
+        """
+        if not SKLEARN_AVAILABLE:
+            raise ImportError("scikit-learnが必要です")
+
+        model_type = config.model_type.lower()
+
+        if model_type == "random_forest":
+            model = RandomForestModel(config)
+        elif model_type == "gradient_boosting":
+            model = GradientBoostingModel(config)
+        elif model_type == "xgboost":
+            model = XGBoostModel(config)
+        elif model_type == "linear":
+            model = LinearModel(config)
+        else:
+            raise ValueError(f"サポートされていないモデルタイプ: {model_type}")
+
+        self.models[name] = model
+        self.model_configs[name] = config
+
+        logger.info(f"モデルを作成しました: {name} ({model_type})")
+        return model
+
+    def train_model(self, name: str, X: pd.DataFrame, y: pd.Series) -> Dict[str, Any]:
+        """
+        モデルを訓練
+
+        Args:
+            name: モデル名
+            X: 特徴量
+            y: ターゲット変数
+
+        Returns:
+            訓練結果
+        """
+        if name not in self.models:
+            raise ValueError(f"モデルが見つかりません: {name}")
+
+        return self.models[name].fit(X, y)
+
+    def predict(self, name: str, X: pd.DataFrame) -> np.ndarray:
+        """
+        予測実行
+
+        Args:
+            name: モデル名
+            X: 特徴量
+
+        Returns:
+            予測結果
+        """
+        if name not in self.models:
+            raise ValueError(f"モデルが見つかりません: {name}")
+
+        return self.models[name].predict(X)
+
+    def save_model(self, name: str) -> None:
+        """モデルを保存"""
+        if name not in self.models:
+            raise ValueError(f"モデルが見つかりません: {name}")
+
+        filepath = self.models_dir / f"{name}.joblib"
+        self.models[name].save_model(str(filepath))
+
+    def load_model(self, name: str) -> None:
+        """モデルを読み込み"""
+        filepath = self.models_dir / f"{name}.joblib"
+        if not filepath.exists():
+            raise FileNotFoundError(f"モデルファイルが見つかりません: {filepath}")
+
+        # モデルデータから設定を読み込み
+        model_data = joblib.load(filepath)
+        config = model_data["config"]
+
+        # モデルインスタンスを作成して読み込み
+        model = self.create_model(name, config)
+        model.load_model(str(filepath))
+
+    def get_model_info(self, name: str) -> Dict[str, Any]:
+        """モデル情報を取得"""
+        if name not in self.models:
+            raise ValueError(f"モデルが見つかりません: {name}")
+
+        model = self.models[name]
+        config = self.model_configs[name]
+
+        info = {
+            "name": name,
+            "model_type": config.model_type,
+            "task_type": config.task_type,
+            "is_fitted": model.is_fitted,
+            "feature_count": len(model.feature_names) if model.feature_names else 0,
+            "feature_names": model.feature_names,
+            "config": config
+        }
+
+        if model.is_fitted:
+            info["feature_importance"] = model._get_feature_importance()
+
+        return info
+
+    def list_models(self) -> List[str]:
+        """登録されているモデル名のリストを取得"""
+        return list(self.models.keys())
+
+
+def create_ensemble_predictions(
+    models: Dict[str, BaseMLModel],
+    X: pd.DataFrame,
+    weights: Optional[Dict[str, float]] = None,
+    method: str = "average"
+) -> np.ndarray:
+    """
+    アンサンブル予測の実行
+
+    Args:
+        models: モデル辞書
+        X: 特徴量
+        weights: モデル重み
+        method: アンサンブル手法（average, weighted_average, voting）
+
+    Returns:
+        アンサンブル予測結果
+    """
+    if not models:
+        raise ValueError("予測用のモデルがありません")
+
+    predictions = {}
+    for name, model in models.items():
+        if model.is_fitted:
+            try:
+                pred = model.predict(X)
+                predictions[name] = pred
+            except Exception as e:
+                logger.warning(f"モデル {name} の予測でエラー: {e}")
+
+    if not predictions:
+        raise ValueError("有効な予測結果がありません")
+
+    # アンサンブル計算
+    pred_values = list(predictions.values())
+
+    if method == "average":
+        ensemble_pred = np.mean(pred_values, axis=0)
+    elif method == "weighted_average" and weights:
+        weighted_preds = []
+        total_weight = 0
+        for name, pred in predictions.items():
+            weight = weights.get(name, 1.0)
+            weighted_preds.append(pred * weight)
+            total_weight += weight
+        ensemble_pred = np.sum(weighted_preds, axis=0) / total_weight
+    elif method == "voting":
+        # 分類タスクでの多数決投票
+        pred_array = np.array(pred_values)
+        ensemble_pred = np.apply_along_axis(
+            lambda x: np.bincount(x.astype(int)).argmax(),
+            axis=0,
+            arr=pred_array
+        )
+    else:
+        ensemble_pred = np.mean(pred_values, axis=0)
+
+    return ensemble_pred
+
+
+# 後方互換性のためのアダプタークラス
+def create_default_model_ensemble():
+    """デフォルトのモデルアンサンブルを作成"""
+    manager = MLModelManager()
+    return manager
 
 
 class MLModelManager:
@@ -589,70 +625,86 @@ class MLModelManager:
 
 
 def evaluate_prediction_accuracy(
-    predictions: List[ModelPrediction],
+    predictions: List,
     actual_values: np.ndarray
 ) -> Dict[str, float]:
     """予測精度評価"""
-    pred_values = np.array([p.prediction for p in predictions])
+    if len(predictions) == 0:
+        return {"mse": 0.0, "mae": 0.0, "rmse": 0.0}
+
+    pred_values = np.array(predictions)
+    if pred_values.ndim > 1:
+        pred_values = pred_values.flatten()
+
+    if len(pred_values) != len(actual_values):
+        min_len = min(len(pred_values), len(actual_values))
+        pred_values = pred_values[:min_len]
+        actual_values = actual_values[:min_len]
 
     mse = np.mean((pred_values - actual_values) ** 2)
     mae = np.mean(np.abs(pred_values - actual_values))
-    rmse = np.sqrt(mse)
-
-    # 方向性予測精度
-    if len(actual_values) > 1:
-        actual_direction = actual_values[1:] > actual_values[:-1]
-        pred_direction = pred_values[1:] > pred_values[:-1]
-        directional_accuracy = np.mean(actual_direction == pred_direction)
-    else:
-        directional_accuracy = 0.0
 
     return {
-        'mse': mse,
-        'mae': mae,
-        'rmse': rmse,
-        'directional_accuracy': directional_accuracy
+        "mse": float(mse),
+        "mae": float(mae),
+        "rmse": float(np.sqrt(mse))
     }
 
 
-# 使用例とデモ
 if __name__ == "__main__":
-    # サンプルデータ生成
-    np.random.seed(42)
-    n_samples = 1000
+    # サンプルデータでのテスト
+    if SKLEARN_AVAILABLE:
+        # テストデータの生成
+        np.random.seed(42)
+        n_samples = 1000
+        n_features = 20
 
-    # 模擬特徴量データ
-    features = pd.DataFrame({
-        'feature_1': np.random.randn(n_samples),
-        'feature_2': np.random.randn(n_samples),
-        'feature_3': np.random.randn(n_samples)
-    })
+        X = pd.DataFrame(
+            np.random.randn(n_samples, n_features),
+            columns=[f"feature_{i}" for i in range(n_features)]
+        )
 
-    # 模擬ターゲットデータ（特徴量に基づく）
-    target = (features['feature_1'] * 0.5 +
-              features['feature_2'] * 0.3 +
-              features['feature_3'] * 0.2 +
-              np.random.randn(n_samples) * 0.1)
+        # 回帰タスクのターゲット
+        y_reg = X.iloc[:, :5].sum(axis=1) + np.random.randn(n_samples) * 0.1
 
-    # 訓練・テストデータ分割
-    split_idx = int(n_samples * 0.8)
-    X_train, X_test = features[:split_idx], features[split_idx:]
-    y_train, y_test = target[:split_idx], target[split_idx:]
+        # 分類タスクのターゲット
+        y_clf = (y_reg > y_reg.median()).astype(int)
 
-    # アンサンブルモデル作成・訓練
-    ensemble = create_default_model_ensemble()
-    ensemble.fit(X_train, y_train)
+        # モデルマネージャーのテスト
+        manager = MLModelManager()
 
-    # 予測実行
-    predictions = ensemble.predict(X_test)
+        # 回帰モデル
+        reg_config = ModelConfig(
+            model_type="random_forest",
+            task_type="regression",
+            cv_folds=3
+        )
 
-    # 精度評価
-    accuracy_metrics = evaluate_prediction_accuracy(predictions, y_test.values)
+        manager.create_model("rf_regressor", reg_config)
+        reg_result = manager.train_model("rf_regressor", X, y_reg)
+        print(f"回帰モデル訓練結果: {reg_result['validation_scores']['mean_score']:.4f}")
 
-    logger.info(
-        "機械学習モデルデモ完了",
-        section="demo",
-        models_used=len(ensemble.models),
-        accuracy_metrics=accuracy_metrics,
-        model_weights=ensemble.model_weights
-    )
+        # 分類モデル
+        clf_config = ModelConfig(
+            model_type="random_forest",
+            task_type="classification",
+            cv_folds=3
+        )
+
+        manager.create_model("rf_classifier", clf_config)
+        clf_result = manager.train_model("rf_classifier", X, y_clf)
+        print(f"分類モデル訓練結果: {clf_result['validation_scores']['mean_score']:.4f}")
+
+        # 予測テスト
+        test_X = X.iloc[:10]
+        reg_pred = manager.predict("rf_regressor", test_X)
+        clf_pred = manager.predict("rf_classifier", test_X)
+
+        print(f"回帰予測例: {reg_pred[:3]}")
+        print(f"分類予測例: {clf_pred[:3]}")
+
+        # モデル情報
+        print(f"登録モデル: {manager.list_models()}")
+
+    else:
+        print("scikit-learnが利用できないため、テストをスキップします。")

@@ -1,587 +1,484 @@
 """
-高度な特徴量エンジニアリングモジュール
-
-複数のテクニカル指標を組み合わせた複合特徴量の生成、
-市場全体の特徴量抽出、データ品質向上処理を提供する。
+高度な特徴量エンジニアリング
+テクニカル指標の複合化、市場全体特徴量、時系列特有の特徴量を生成
 """
 
-import warnings
-from typing import Dict, List, Optional, Tuple, Union
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.signal import savgol_filter
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 
-logger = get_context_logger(__name__)
+logger = get_context_logger(__name__, component="feature_engineering")
 
 
-class DataQualityEnhancer:
-    """データ品質向上処理クラス"""
+@dataclass
+class FeatureConfig:
+    """特徴量生成設定"""
 
-    def __init__(self):
-        self.outlier_methods = {
-            'iqr': self._remove_outliers_iqr,
-            'zscore': self._remove_outliers_zscore,
-            'isolation_forest': self._remove_outliers_isolation_forest
-        }
+    # 基本設定
+    lookback_periods: List[int]
+    volatility_windows: List[int]
+    momentum_periods: List[int]
 
-    def clean_ohlcv_data(
-        self,
-        df: pd.DataFrame,
-        remove_outliers: bool = True,
-        outlier_method: str = 'iqr',
-        smooth_data: bool = True,
-        fill_missing: bool = True
-    ) -> pd.DataFrame:
-        """
-        OHLCV データの品質向上処理
+    # 複合特徴量設定
+    enable_cross_features: bool = True
+    enable_statistical_features: bool = True
+    enable_regime_features: bool = True
 
-        Args:
-            df: OHLCV データフレーム
-            remove_outliers: 外れ値除去フラグ
-            outlier_method: 外れ値除去手法 ('iqr', 'zscore', 'isolation_forest')
-            smooth_data: データ平滑化フラグ
-            fill_missing: 欠損値補完フラグ
-
-        Returns:
-            クリーニング済みデータフレーム
-        """
-        logger.info(
-            "データ品質向上処理開始",
-            section="data_cleaning",
-            rows=len(df),
-            remove_outliers=remove_outliers,
-            outlier_method=outlier_method,
-            smooth_data=smooth_data
-        )
-
-        df_cleaned = df.copy()
-
-        # 基本的な妥当性チェック
-        df_cleaned = self._validate_ohlcv_consistency(df_cleaned)
-
-        # 欠損値処理
-        if fill_missing:
-            df_cleaned = self._fill_missing_values(df_cleaned)
-
-        # 外れ値除去
-        if remove_outliers and outlier_method in self.outlier_methods:
-            df_cleaned = self.outlier_methods[outlier_method](df_cleaned)
-
-        # データ平滑化
-        if smooth_data:
-            df_cleaned = self._smooth_data(df_cleaned)
-
-        logger.info(
-            "データ品質向上処理完了",
-            section="data_cleaning",
-            original_rows=len(df),
-            cleaned_rows=len(df_cleaned),
-            removed_rows=len(df) - len(df_cleaned)
-        )
-
-        return df_cleaned
-
-    def _validate_ohlcv_consistency(self, df: pd.DataFrame) -> pd.DataFrame:
-        """OHLCV データの整合性チェックと修正"""
-        df = df.copy()
-
-        # High >= Low の確認
-        invalid_hl = df['High'] < df['Low']
-        if invalid_hl.any():
-            logger.warning(
-                "High < Low の異常データを検出",
-                section="data_validation",
-                invalid_count=invalid_hl.sum()
-            )
-            # High と Low を入れ替え
-            df.loc[invalid_hl, ['High', 'Low']] = df.loc[invalid_hl, ['Low', 'High']].values
-
-        # Open, Close が High-Low 範囲内にあることを確認
-        for col in ['Open', 'Close']:
-            below_low = df[col] < df['Low']
-            above_high = df[col] > df['High']
-
-            if below_low.any():
-                df.loc[below_low, col] = df.loc[below_low, 'Low']
-            if above_high.any():
-                df.loc[above_high, col] = df.loc[above_high, 'High']
-
-        # Volume の負値チェック
-        negative_volume = df['Volume'] < 0
-        if negative_volume.any():
-            logger.warning(
-                "負の出来高データを検出",
-                section="data_validation",
-                negative_count=negative_volume.sum()
-            )
-            df.loc[negative_volume, 'Volume'] = 0
-
-        return df
-
-    def _fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """欠損値補完"""
-        df = df.copy()
-
-        # 価格データは前方補完 + 後方補完
-        price_cols = ['Open', 'High', 'Low', 'Close']
-        df[price_cols] = df[price_cols].fillna(method='ffill').fillna(method='bfill')
-
-        # 出来高は0で補完
-        df['Volume'] = df['Volume'].fillna(0)
-
-        return df
-
-    def _remove_outliers_iqr(self, df: pd.DataFrame) -> pd.DataFrame:
-        """IQR法による外れ値除去"""
-        df_clean = df.copy()
-
-        for col in ['Open', 'High', 'Low', 'Close']:
-            Q1 = df_clean[col].quantile(0.25)
-            Q3 = df_clean[col].quantile(0.75)
-            IQR = Q3 - Q1
-
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-
-            outliers = (df_clean[col] < lower_bound) | (df_clean[col] > upper_bound)
-            df_clean = df_clean[~outliers]
-
-        return df_clean
-
-    def _remove_outliers_zscore(self, df: pd.DataFrame, threshold: float = 3.0) -> pd.DataFrame:
-        """Z-score法による外れ値除去"""
-        df_clean = df.copy()
-
-        for col in ['Open', 'High', 'Low', 'Close']:
-            z_scores = np.abs(stats.zscore(df_clean[col]))
-            outliers = z_scores > threshold
-            df_clean = df_clean[~outliers]
-
-        return df_clean
-
-    def _remove_outliers_isolation_forest(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Isolation Forest による外れ値除去"""
-        try:
-            from sklearn.ensemble import IsolationForest
-
-            price_data = df[['Open', 'High', 'Low', 'Close']].values
-            iso_forest = IsolationForest(contamination=0.1, random_state=42)
-            outliers = iso_forest.fit_predict(price_data) == -1
-
-            return df[~outliers]
-        except ImportError:
-            logger.warning(
-                "scikit-learn が利用できないため、IQR法を使用",
-                section="outlier_removal"
-            )
-            return self._remove_outliers_iqr(df)
-
-    def _smooth_data(self, df: pd.DataFrame, window_length: int = 5) -> pd.DataFrame:
-        """Savitzky-Golay フィルターによるデータ平滑化"""
-        df_smooth = df.copy()
-
-        if len(df_smooth) >= window_length:
-            for col in ['Open', 'High', 'Low', 'Close']:
-                try:
-                    df_smooth[col] = savgol_filter(
-                        df_smooth[col],
-                        window_length=window_length,
-                        polyorder=2
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"データ平滑化エラー: {col}",
-                        section="data_smoothing",
-                        error=str(e)
-                    )
-
-        return df_smooth
+    # 正規化設定
+    scaling_method: str = "robust"  # standard, robust, minmax
+    outlier_threshold: float = 3.0
 
 
 class AdvancedFeatureEngineer:
-    """高度な特徴量エンジニアリングクラス"""
+    """高度な特徴量エンジニアリング"""
 
-    def __init__(self):
-        self.scaler = None
-
-    def generate_composite_features(self, df: pd.DataFrame, indicators: Dict) -> pd.DataFrame:
+    def __init__(self, config: Optional[FeatureConfig] = None):
         """
-        複合特徴量の生成
-
         Args:
-            df: OHLCV データフレーム
-            indicators: テクニカル指標辞書
-
-        Returns:
-            複合特徴量を含むデータフレーム
+            config: 特徴量生成設定
         """
-        logger.info("複合特徴量生成開始", section="feature_engineering")
-
-        features_df = df.copy()
-
-        # 基本的な価格変化特徴量
-        features_df = self._add_price_change_features(features_df)
-
-        # ボラティリティ特徴量
-        features_df = self._add_volatility_features(features_df)
-
-        # 複合テクニカル指標
-        features_df = self._add_composite_technical_features(features_df, indicators)
-
-        # 統計的特徴量
-        features_df = self._add_statistical_features(features_df)
-
-        # 時間的特徴量
-        features_df = self._add_temporal_features(features_df)
-
-        logger.info(
-            "複合特徴量生成完了",
-            section="feature_engineering",
-            total_features=len(features_df.columns),
-            original_features=len(df.columns)
+        self.config = config or FeatureConfig(
+            lookback_periods=[5, 10, 20, 50],
+            volatility_windows=[5, 10, 20],
+            momentum_periods=[1, 3, 5, 10, 20]
         )
 
-        return features_df
+        # スケーラーの初期化
+        if self.config.scaling_method == "standard":
+            self.scaler = StandardScaler()
+        elif self.config.scaling_method == "robust":
+            self.scaler = RobustScaler()
+        else:
+            self.scaler = None
 
-    def _add_price_change_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """価格変化関連の特徴量"""
-        df = df.copy()
-
-        # 基本的なリターン
-        df['returns_1d'] = df['Close'].pct_change()
-        df['returns_3d'] = df['Close'].pct_change(3)
-        df['returns_7d'] = df['Close'].pct_change(7)
-        df['returns_14d'] = df['Close'].pct_change(14)
-
-        # 対数リターン
-        df['log_returns'] = np.log(df['Close'] / df['Close'].shift(1))
-
-        # 価格レンジ
-        df['daily_range'] = (df['High'] - df['Low']) / df['Open']
-        df['gap'] = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1)
-
-        # ボディとヒゲの比率
-        df['body_ratio'] = abs(df['Close'] - df['Open']) / (df['High'] - df['Low'])
-        df['upper_shadow'] = (df['High'] - np.maximum(df['Open'], df['Close'])) / (df['High'] - df['Low'])
-        df['lower_shadow'] = (np.minimum(df['Open'], df['Close']) - df['Low']) / (df['High'] - df['Low'])
-
-        return df
-
-    def _add_volatility_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """ボラティリティ関連の特徴量"""
-        df = df.copy()
-
-        # 実現ボラティリティ（複数期間）
-        for window in [5, 10, 20, 50]:
-            df[f'realized_vol_{window}d'] = df['returns_1d'].rolling(window).std() * np.sqrt(252)
-
-        # Parkinson ボラティリティ推定
-        df['parkinson_vol'] = np.sqrt(
-            np.log(df['High'] / df['Low']) ** 2 / (4 * np.log(2))
-        ).rolling(20).mean() * np.sqrt(252)
-
-        # Garman-Klass ボラティリティ推定
-        df['gk_vol'] = (
-            0.5 * np.log(df['High'] / df['Low']) ** 2 -
-            (2 * np.log(2) - 1) * np.log(df['Close'] / df['Open']) ** 2
-        ).rolling(20).mean() * np.sqrt(252)
-
-        return df
-
-    def _add_composite_technical_features(self, df: pd.DataFrame, indicators: Dict) -> pd.DataFrame:
-        """複合テクニカル指標特徴量"""
-        df = df.copy()
-
-        if 'rsi' in indicators:
-            rsi = indicators['rsi']
-            # RSI の勢い
-            df['rsi_momentum'] = rsi.diff(5)
-            # RSI の相対位置
-            df['rsi_relative'] = (rsi - rsi.rolling(20).mean()) / rsi.rolling(20).std()
-
-        if 'macd' in indicators and 'macd_signal' in indicators:
-            macd = indicators['macd']
-            macd_signal = indicators['macd_signal']
-            # MACD の収束・発散
-            df['macd_convergence'] = (macd - macd_signal).rolling(10).apply(
-                lambda x: 1 if x.iloc[-1] > x.iloc[0] else -1
-            )
-
-        if 'bb_upper' in indicators and 'bb_lower' in indicators:
-            bb_upper = indicators['bb_upper']
-            bb_lower = indicators['bb_lower']
-            # ボリンジャーバンド位置
-            df['bb_position'] = (df['Close'] - bb_lower) / (bb_upper - bb_lower)
-            # バンド幅の変化
-            df['bb_width'] = (bb_upper - bb_lower) / df['Close']
-            df['bb_width_change'] = df['bb_width'].pct_change(5)
-
-        # 複数指標の合成スコア
-        if all(key in indicators for key in ['rsi', 'macd']):
-            # テクニカル強度スコア
-            rsi_norm = (indicators['rsi'] - 50) / 50  # -1 to 1
-            macd_norm = np.tanh(indicators['macd'] / df['Close'].rolling(20).std())  # -1 to 1
-            df['technical_strength'] = (rsi_norm + macd_norm) / 2
-
-        return df
-
-    def _add_statistical_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """統計的特徴量"""
-        df = df.copy()
-
-        # 移動平均からの乖離
-        for window in [5, 20, 50]:
-            ma = df['Close'].rolling(window).mean()
-            df[f'ma_deviation_{window}'] = (df['Close'] - ma) / ma
-
-        # 価格分布の特徴
-        for window in [20, 50]:
-            rolling = df['Close'].rolling(window)
-            df[f'skewness_{window}'] = rolling.skew()
-            df[f'kurtosis_{window}'] = rolling.kurt()
-
-        # 出来高関連統計
-        df['volume_ma_ratio'] = df['Volume'] / df['Volume'].rolling(20).mean()
-        df['volume_volatility'] = df['Volume'].rolling(20).std() / df['Volume'].rolling(20).mean()
-
-        return df
-
-    def _add_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """時間的特徴量"""
-        df = df.copy()
-
-        # 日付インデックスから時間特徴量を抽出
-        if isinstance(df.index, pd.DatetimeIndex):
-            df['day_of_week'] = df.index.dayofweek
-            df['day_of_month'] = df.index.day
-            df['month'] = df.index.month
-            df['quarter'] = df.index.quarter
-
-            # 周期性のエンコーディング
-            df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
-            df['day_of_week_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
-            df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
-            df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
-
-        return df
-
-    def generate_market_features(self, symbol_data: pd.DataFrame, market_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    def generate_all_features(
+        self,
+        price_data: pd.DataFrame,
+        volume_data: Optional[pd.Series] = None,
+        market_data: Optional[Dict[str, pd.DataFrame]] = None
+    ) -> pd.DataFrame:
         """
-        市場全体の特徴量を生成
+        全ての高度な特徴量を生成
 
         Args:
-            symbol_data: 対象銘柄データ
-            market_data: 市場データ辞書 (e.g., {'NIKKEI': df, 'USDJPY': df})
+            price_data: 価格データ（OHLCV）
+            volume_data: 出来高データ
+            market_data: 市場全体データ（インデックス、セクターなど）
 
         Returns:
-            市場特徴量を追加したデータフレーム
+            生成された特徴量DataFrame
         """
-        logger.info("市場特徴量生成開始", section="market_features")
+        logger.info("高度な特徴量生成を開始")
 
-        features_df = symbol_data.copy()
+        features = pd.DataFrame(index=price_data.index)
+
+        try:
+            # 1. 基本価格特徴量
+            basic_features = self._generate_basic_features(price_data)
+            features = pd.concat([features, basic_features], axis=1)
+
+            # 2. 複合テクニカル特徴量
+            if self.config.enable_cross_features:
+                cross_features = self._generate_cross_features(price_data)
+                features = pd.concat([features, cross_features], axis=1)
+
+            # 3. 統計的特徴量
+            if self.config.enable_statistical_features:
+                stat_features = self._generate_statistical_features(price_data)
+                features = pd.concat([features, stat_features], axis=1)
+
+            # 4. 市場レジーム特徴量
+            if self.config.enable_regime_features:
+                regime_features = self._generate_regime_features(price_data)
+                features = pd.concat([features, regime_features], axis=1)
+
+            # 5. 出来高特徴量
+            if volume_data is not None:
+                volume_features = self._generate_volume_features(price_data, volume_data)
+                features = pd.concat([features, volume_features], axis=1)
+
+            # 6. 市場全体特徴量
+            if market_data:
+                market_features = self._generate_market_features(price_data, market_data)
+                features = pd.concat([features, market_features], axis=1)
+
+            # 7. 時系列ラグ特徴量
+            lag_features = self._generate_lag_features(price_data)
+            features = pd.concat([features, lag_features], axis=1)
+
+            # 8. 外れ値除去と正規化
+            features = self._preprocess_features(features)
+
+            logger.info(f"特徴量生成完了: {len(features.columns)}個の特徴量")
+            return features
+
+        except Exception as e:
+            logger.error(f"特徴量生成エラー: {e}")
+            return pd.DataFrame(index=price_data.index)
+
+    def _generate_basic_features(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        """基本価格特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        # リターン系特徴量
+        features["returns_1d"] = price_data["Close"].pct_change()
+        features["returns_log"] = np.log(price_data["Close"] / price_data["Close"].shift(1))
+
+        # 価格レンジ特徴量
+        features["true_range"] = np.maximum(
+            price_data["High"] - price_data["Low"],
+            np.maximum(
+                abs(price_data["High"] - price_data["Close"].shift(1)),
+                abs(price_data["Low"] - price_data["Close"].shift(1))
+            )
+        )
+
+        features["price_range_pct"] = (price_data["High"] - price_data["Low"]) / price_data["Close"]
+        features["body_to_range"] = abs(price_data["Close"] - price_data["Open"]) / (price_data["High"] - price_data["Low"] + 1e-8)
+
+        # 複数期間のボラティリティ
+        for window in self.config.volatility_windows:
+            features[f"volatility_{window}d"] = features["returns_1d"].rolling(window).std()
+            features[f"volatility_log_{window}d"] = features["returns_log"].rolling(window).std()
+
+        # 複数期間のモメンタム
+        for period in self.config.momentum_periods:
+            features[f"momentum_{period}d"] = price_data["Close"] / price_data["Close"].shift(period) - 1
+            features[f"momentum_log_{period}d"] = np.log(price_data["Close"] / price_data["Close"].shift(period))
+
+        return features
+
+    def _generate_cross_features(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        """複合テクニカル特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        # 移動平均クロス特徴量
+        for short_period in [5, 10, 20]:
+            for long_period in [20, 50, 100]:
+                if short_period < long_period:
+                    short_ma = price_data["Close"].rolling(short_period).mean()
+                    long_ma = price_data["Close"].rolling(long_period).mean()
+
+                    features[f"ma_cross_{short_period}_{long_period}"] = short_ma / long_ma - 1
+                    features[f"ma_cross_momentum_{short_period}_{long_period}"] = (short_ma / long_ma).pct_change()
+
+        # RSI組み合わせ
+        for period in [14, 21]:
+            # 簡易RSI計算
+            delta = price_data["Close"].diff()
+            gain = delta.where(delta > 0, 0).rolling(period).mean()
+            loss = (-delta).where(delta < 0, 0).rolling(period).mean()
+            rs = gain / (loss + 1e-8)
+            rsi = 100 - (100 / (1 + rs))
+
+            features[f"rsi_{period}"] = rsi
+            features[f"rsi_{period}_momentum"] = rsi.diff()
+            features[f"rsi_{period}_overbought"] = (rsi > 70).astype(int)
+            features[f"rsi_{period}_oversold"] = (rsi < 30).astype(int)
+
+        # ボリンジャーバンド複合特徴量
+        for window in [20, 50]:
+            sma = price_data["Close"].rolling(window).mean()
+            std = price_data["Close"].rolling(window).std()
+
+            upper_band = sma + (2 * std)
+            lower_band = sma - (2 * std)
+
+            features[f"bb_position_{window}"] = (price_data["Close"] - lower_band) / (upper_band - lower_band)
+            features[f"bb_squeeze_{window}"] = (upper_band - lower_band) / sma
+            features[f"bb_breakout_upper_{window}"] = (price_data["Close"] > upper_band).astype(int)
+            features[f"bb_breakout_lower_{window}"] = (price_data["Close"] < lower_band).astype(int)
+
+        return features
+
+    def _generate_statistical_features(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        """統計的特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        returns = price_data["Close"].pct_change()
+
+        for window in self.config.lookback_periods:
+            # 歪度と尖度
+            features[f"skewness_{window}d"] = returns.rolling(window).skew()
+            features[f"kurtosis_{window}d"] = returns.rolling(window).kurt()
+
+            # パーセンタイル特徴量
+            features[f"percentile_rank_{window}d"] = price_data["Close"].rolling(window).apply(
+                lambda x: stats.percentileofscore(x[:-1], x.iloc[-1]) / 100 if len(x) > 1 else 0.5
+            )
+
+            # 最高値・最安値からの位置
+            high_max = price_data["High"].rolling(window).max()
+            low_min = price_data["Low"].rolling(window).min()
+            features[f"high_low_position_{window}d"] = (price_data["Close"] - low_min) / (high_max - low_min + 1e-8)
+
+            # トレンド強度（線形回帰の傾き）
+            features[f"trend_strength_{window}d"] = price_data["Close"].rolling(window).apply(
+                lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
+            )
+
+        return features
+
+    def _generate_regime_features(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        """市場レジーム特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        returns = price_data["Close"].pct_change()
+
+        for window in [20, 50, 100]:
+            # トレンド判定
+            sma_short = price_data["Close"].rolling(window // 2).mean()
+            sma_long = price_data["Close"].rolling(window).mean()
+
+            features[f"trend_regime_{window}d"] = (sma_short > sma_long).astype(int)
+
+            # ボラティリティレジーム
+            vol = returns.rolling(window).std()
+            vol_percentile = vol.rolling(window * 2).apply(
+                lambda x: stats.percentileofscore(x[:-1], x.iloc[-1]) / 100 if len(x) > 1 else 0.5
+            )
+            features[f"vol_regime_high_{window}d"] = (vol_percentile > 0.75).astype(int)
+            features[f"vol_regime_low_{window}d"] = (vol_percentile < 0.25).astype(int)
+
+            # 平均回帰 vs トレンド継続
+            autocorr = returns.rolling(window).apply(
+                lambda x: x.autocorr(lag=1) if len(x) > 2 else 0
+            )
+            features[f"mean_reversion_{window}d"] = (autocorr < -0.1).astype(int)
+            features[f"trend_continuation_{window}d"] = (autocorr > 0.1).astype(int)
+
+        return features
+
+    def _generate_volume_features(self, price_data: pd.DataFrame, volume_data: pd.Series) -> pd.DataFrame:
+        """出来高特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        # 基本出来高特徴量
+        features["volume_ma_ratio_20d"] = volume_data / volume_data.rolling(20).mean()
+        features["volume_std_ratio_20d"] = volume_data / volume_data.rolling(20).std()
+
+        # 価格-出来高関係
+        returns = price_data["Close"].pct_change()
+        features["price_volume_correlation_20d"] = returns.rolling(20).corr(volume_data.pct_change())
+
+        # On-Balance Volume (簡易版)
+        obv_direction = np.where(returns > 0, 1, np.where(returns < 0, -1, 0))
+        features["obv_normalized"] = (obv_direction * volume_data).rolling(20).sum() / volume_data.rolling(20).sum()
+
+        # Volume Rate of Change
+        for period in [5, 10, 20]:
+            features[f"volume_roc_{period}d"] = volume_data.pct_change(period)
+
+        return features
+
+    def _generate_market_features(self, price_data: pd.DataFrame, market_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+        """市場全体特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
+
+        returns = price_data["Close"].pct_change()
 
         for market_name, market_df in market_data.items():
-            if 'Close' not in market_df.columns:
-                continue
+            if "Close" in market_df.columns:
+                market_returns = market_df["Close"].pct_change()
 
-            # 市場との相関
-            correlation = self._calculate_rolling_correlation(
-                symbol_data['Close'], market_df['Close'], window=50
-            )
-            features_df[f'{market_name}_correlation'] = correlation
+                # 市場との相関
+                for window in [20, 50]:
+                    correlation = returns.rolling(window).corr(market_returns)
+                    features[f"market_correlation_{market_name}_{window}d"] = correlation
 
-            # 市場のリターンとの関係
-            market_returns = market_df['Close'].pct_change()
-            symbol_returns = symbol_data['Close'].pct_change()
+                # 市場に対するベータ
+                for window in [20, 50]:
+                    beta = returns.rolling(window).cov(market_returns) / market_returns.rolling(window).var()
+                    features[f"market_beta_{market_name}_{window}d"] = beta
 
-            beta = self._calculate_rolling_beta(symbol_returns, market_returns, window=50)
-            features_df[f'{market_name}_beta'] = beta
+                # 相対パフォーマンス
+                relative_performance = returns - market_returns
+                features[f"relative_performance_{market_name}"] = relative_performance
+                features[f"relative_performance_{market_name}_ma_20d"] = relative_performance.rolling(20).mean()
 
-            # 市場のボラティリティ
-            market_vol = market_returns.rolling(20).std() * np.sqrt(252)
-            features_df[f'{market_name}_volatility'] = market_vol.reindex(features_df.index, method='ffill')
+        return features
 
-        logger.info("市場特徴量生成完了", section="market_features")
-        return features_df
+    def _generate_lag_features(self, price_data: pd.DataFrame) -> pd.DataFrame:
+        """時系列ラグ特徴量の生成"""
+        features = pd.DataFrame(index=price_data.index)
 
-    def _calculate_rolling_correlation(self, series1: pd.Series, series2: pd.Series, window: int) -> pd.Series:
-        """ローリング相関計算"""
-        return series1.rolling(window).corr(series2.reindex(series1.index, method='ffill'))
+        returns = price_data["Close"].pct_change()
 
-    def _calculate_rolling_beta(self, asset_returns: pd.Series, market_returns: pd.Series, window: int) -> pd.Series:
-        """ローリングベータ計算"""
-        def beta_calc(y, x):
-            if len(y) < window or len(x) < window:
-                return np.nan
-            covariance = np.cov(y, x)[0, 1]
-            market_variance = np.var(x)
-            return covariance / market_variance if market_variance != 0 else np.nan
+        # リターンのラグ特徴量
+        for lag in [1, 2, 3, 5, 10]:
+            features[f"returns_lag_{lag}d"] = returns.shift(lag)
 
-        aligned_market = market_returns.reindex(asset_returns.index, method='ffill')
+        # 価格レベルのラグ特徴量（正規化）
+        close_normalized = price_data["Close"] / price_data["Close"].rolling(20).mean()
+        for lag in [1, 2, 3, 5]:
+            features[f"price_normalized_lag_{lag}d"] = close_normalized.shift(lag)
 
-        beta_series = []
-        for i in range(len(asset_returns)):
-            if i >= window - 1:
-                y_window = asset_returns.iloc[i-window+1:i+1]
-                x_window = aligned_market.iloc[i-window+1:i+1]
-                beta_series.append(beta_calc(y_window.values, x_window.values))
-            else:
-                beta_series.append(np.nan)
+        # ボラティリティのラグ特徴量
+        volatility = returns.rolling(5).std()
+        for lag in [1, 2, 3]:
+            features[f"volatility_lag_{lag}d"] = volatility.shift(lag)
 
-        return pd.Series(beta_series, index=asset_returns.index)
+        return features
 
-    def normalize_features(self, df: pd.DataFrame, method: str = 'robust') -> Tuple[pd.DataFrame, object]:
-        """
-        特徴量の正規化
+    def _preprocess_features(self, features: pd.DataFrame) -> pd.DataFrame:
+        """特徴量の前処理（外れ値除去・正規化）"""
+        # 無限値とNaNの処理
+        features = features.replace([np.inf, -np.inf], np.nan)
 
-        Args:
-            df: 特徴量データフレーム
-            method: 正規化手法 ('standard', 'minmax', 'robust')
+        # 外れ値のキャッピング（Z-score基準）
+        for col in features.select_dtypes(include=[np.number]).columns:
+            series = features[col]
+            if series.std() > 0:
+                z_scores = np.abs(stats.zscore(series.dropna()))
+                outlier_mask = z_scores > self.config.outlier_threshold
+                if outlier_mask.any():
+                    # 外れ値を99%パーセンタイルでキャップ
+                    percentile_99 = series.quantile(0.99)
+                    percentile_1 = series.quantile(0.01)
+                    features[col] = series.clip(lower=percentile_1, upper=percentile_99)
 
-        Returns:
-            正規化済みデータフレームとscalerオブジェクト
-        """
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        df_normalized = df.copy()
+        # スケーリング
+        if self.scaler is not None:
+            numeric_columns = features.select_dtypes(include=[np.number]).columns
+            if len(numeric_columns) > 0:
+                # 最初の100行でスケーラーをフィット（十分なデータがある場合）
+                fit_data = features[numeric_columns].dropna()
+                if len(fit_data) > 100:
+                    self.scaler.fit(fit_data.iloc[:100])
+                    scaled_data = self.scaler.transform(features[numeric_columns].fillna(0))
+                    features[numeric_columns] = scaled_data
 
-        scaler_map = {
-            'standard': StandardScaler(),
-            'minmax': MinMaxScaler(),
-            'robust': RobustScaler()
-        }
-
-        if method not in scaler_map:
-            raise ValueError(f"サポートされていない正規化手法: {method}")
-
-        scaler = scaler_map[method]
-        df_normalized[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-
-        self.scaler = scaler
-        return df_normalized, scaler
+        logger.info(f"特徴量前処理完了: {len(features.columns)}列, {features.shape[0]}行")
+        return features
 
     def select_important_features(
         self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        method: str = 'correlation',
+        features: pd.DataFrame,
+        target: pd.Series,
+        method: str = "correlation",
         top_k: int = 50
     ) -> List[str]:
         """
-        重要な特徴量の選択
+        重要な特徴量を選択
 
         Args:
-            X: 特徴量データフレーム
-            y: ターゲット変数
-            method: 特徴量選択手法 ('correlation', 'mutual_info', 'chi2')
+            features: 特徴量DataFrame
+            target: ターゲット変数
+            method: 選択手法（correlation, mutual_info）
             top_k: 選択する特徴量数
 
         Returns:
             選択された特徴量名のリスト
         """
-        if method == 'correlation':
-            # 相関による特徴量選択
-            correlations = X.corrwith(y).abs().sort_values(ascending=False)
-            return correlations.head(top_k).index.tolist()
+        valid_data = pd.concat([features, target], axis=1).dropna()
 
-        elif method == 'mutual_info':
+        if len(valid_data) < 100:
+            logger.warning("特徴量選択に十分なデータがありません")
+            return features.columns.tolist()[:top_k]
+
+        X = valid_data.iloc[:, :-1]
+        y = valid_data.iloc[:, -1]
+
+        if method == "correlation":
+            # 相関ベースの選択
+            correlations = X.corrwith(y).abs().sort_values(ascending=False)
+            selected_features = correlations.head(top_k).index.tolist()
+
+        elif method == "mutual_info":
             try:
                 from sklearn.feature_selection import mutual_info_regression
-
-                # 欠損値を含む行を除去
-                mask = ~(X.isna().any(axis=1) | y.isna())
-                X_clean = X[mask]
-                y_clean = y[mask]
-
-                mi_scores = mutual_info_regression(X_clean, y_clean, random_state=42)
-                feature_scores = pd.Series(mi_scores, index=X_clean.columns).sort_values(ascending=False)
-                return feature_scores.head(top_k).index.tolist()
-
+                mi_scores = mutual_info_regression(X.fillna(0), y, random_state=42)
+                feature_scores = pd.Series(mi_scores, index=X.columns).sort_values(ascending=False)
+                selected_features = feature_scores.head(top_k).index.tolist()
             except ImportError:
-                logger.warning("scikit-learn が利用できないため、相関による選択を使用")
-                return self.select_important_features(X, y, 'correlation', top_k)
+                logger.warning("scikit-learnが利用できません。相関ベースの選択を使用します")
+                correlations = X.corrwith(y).abs().sort_values(ascending=False)
+                selected_features = correlations.head(top_k).index.tolist()
 
-        else:
-            logger.warning(f"未対応の特徴量選択手法: {method}、相関による選択を使用")
-            return self.select_important_features(X, y, 'correlation', top_k)
-
-
-# ユーティリティ関数
-
-def calculate_feature_importance_scores(
-    X: pd.DataFrame,
-    y: pd.Series,
-    feature_engineer: AdvancedFeatureEngineer
-) -> Dict[str, float]:
-    """特徴量重要度スコアの計算"""
-    importance_scores = {}
-
-    # 相関ベース重要度
-    correlations = X.corrwith(y).abs()
-    importance_scores['correlation'] = correlations.to_dict()
-
-    # 分散ベース重要度（低分散特徴量の除外用）
-    variances = X.var()
-    normalized_variances = (variances - variances.min()) / (variances.max() - variances.min())
-    importance_scores['variance'] = normalized_variances.to_dict()
-
-    return importance_scores
+        logger.info(f"特徴量選択完了: {len(selected_features)}個の特徴量を選択")
+        return selected_features
 
 
-def generate_feature_report(df: pd.DataFrame, target_col: str = None) -> Dict:
-    """特徴量分析レポート生成"""
-    report = {
-        'basic_stats': df.describe(),
-        'missing_values': df.isnull().sum(),
-        'data_types': df.dtypes,
-        'feature_count': len(df.columns),
-        'sample_count': len(df)
-    }
+def create_target_variables(price_data: pd.DataFrame, prediction_horizon: int = 5) -> Dict[str, pd.Series]:
+    """
+    予測用ターゲット変数を生成
 
-    if target_col and target_col in df.columns:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        correlations = df[numeric_cols].corrwith(df[target_col]).abs().sort_values(ascending=False)
-        report['target_correlations'] = correlations
+    Args:
+        price_data: 価格データ
+        prediction_horizon: 予測期間
 
-    return report
+    Returns:
+        ターゲット変数の辞書
+    """
+    targets = {}
+
+    # 将来リターン
+    future_returns = price_data["Close"].pct_change(prediction_horizon).shift(-prediction_horizon)
+    targets["future_returns"] = future_returns
+
+    # 将来の方向性（上昇=1, 下降=0）
+    targets["future_direction"] = (future_returns > 0).astype(int)
+
+    # 将来の大きな変動（閾値以上の変動=1）
+    volatility_threshold = future_returns.rolling(100).std().median()
+    targets["future_high_volatility"] = (abs(future_returns) > volatility_threshold).astype(int)
+
+    # 将来の最大ドローダウン
+    future_prices = pd.concat([price_data["Close"].shift(-i) for i in range(1, prediction_horizon + 1)], axis=1)
+    future_max_dd = (future_prices.min(axis=1) / price_data["Close"] - 1)
+    targets["future_max_drawdown"] = future_max_dd
+
+    return targets
 
 
-# 使用例とデモ
 if __name__ == "__main__":
-    # サンプルデータ生成
-    import yfinance as yf
+    # テスト用のサンプルデータ
+    import datetime
 
-    # データ取得
-    ticker = "7203.T"  # トヨタ
-    data = yf.download(ticker, period="1y")
+    dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
+    np.random.seed(42)
 
-    # データ品質向上
-    quality_enhancer = DataQualityEnhancer()
-    clean_data = quality_enhancer.clean_ohlcv_data(data)
+    # トレンドのある価格データを生成
+    trend = np.linspace(100, 120, len(dates))
+    noise = np.random.randn(len(dates)) * 2
+    close_prices = trend + noise
 
-    # 基本的なテクニカル指標（ダミー）
-    indicators = {
-        'rsi': clean_data['Close'].rolling(14).apply(lambda x: 50),  # ダミーRSI
-        'macd': clean_data['Close'].ewm(12).mean() - clean_data['Close'].ewm(26).mean(),
-        'macd_signal': clean_data['Close'].rolling(9).mean(),
-        'bb_upper': clean_data['Close'].rolling(20).mean() + clean_data['Close'].rolling(20).std() * 2,
-        'bb_lower': clean_data['Close'].rolling(20).mean() - clean_data['Close'].rolling(20).std() * 2
-    }
+    sample_data = pd.DataFrame({
+        "Date": dates,
+        "Open": close_prices + np.random.randn(len(dates)) * 0.5,
+        "High": close_prices + np.abs(np.random.randn(len(dates))) * 2,
+        "Low": close_prices - np.abs(np.random.randn(len(dates))) * 2,
+        "Close": close_prices,
+        "Volume": np.random.randint(1000000, 5000000, len(dates))
+    })
+    sample_data.set_index("Date", inplace=True)
 
-    # 特徴量エンジニアリング
+    # 特徴量エンジニアリングのテスト
     feature_engineer = AdvancedFeatureEngineer()
-    feature_data = feature_engineer.generate_composite_features(clean_data, indicators)
 
-    # 特徴量レポート生成
-    report = generate_feature_report(feature_data, 'returns_1d')
-
-    logger.info(
-        "特徴量エンジニアリングデモ完了",
-        section="demo",
-        features_generated=len(feature_data.columns),
-        top_correlations=report.get('target_correlations', {}).head(10).to_dict() if 'target_correlations' in report else {}
+    features = feature_engineer.generate_all_features(
+        price_data=sample_data,
+        volume_data=sample_data["Volume"]
     )
+
+    print(f"生成された特徴量数: {len(features.columns)}")
+    print(f"データ期間: {features.index[0]} - {features.index[-1]}")
+    print(f"有効データ数: {len(features.dropna())}")
+
+    # ターゲット変数の生成
+    targets = create_target_variables(sample_data)
+    print(f"ターゲット変数: {list(targets.keys())}")
+
+    # 特徴量選択のテスト
+    if len(features.dropna()) > 0:
+        selected_features = feature_engineer.select_important_features(
+            features, targets["future_returns"], top_k=20
+        )
+        print(f"選択された特徴量: {selected_features[:10]}...")
