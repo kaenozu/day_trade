@@ -15,7 +15,7 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  CACHE_VERSION: v3
+  CACHE_VERSION: v4
   PYTHONDONTWRITEBYTECODE: 1
   PYTHONUNBUFFERED: 1
 
@@ -122,7 +122,7 @@ jobs:
             # Fetch base branch for comparison
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             # 変更されたPythonファイルのみをチェック
-            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}..HEAD | grep '\\.py$' || true)
+            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}..HEAD | grep '\.py$' || true)
             if [ -n "$changed_files" ]; then
               echo "$changed_files" | xargs ruff check --fix
               echo "$changed_files" | xargs ruff format
