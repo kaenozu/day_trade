@@ -17,7 +17,7 @@ import pandas as pd
 
 from .ensemble import EnsembleStrategy, EnsembleVotingType, StrategyPerformance
 from .feature_engineering import AdvancedFeatureEngineer
-from .ml_models import MLModelManager
+from .ml_models import create_default_model_ensemble
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
 from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
 
@@ -121,7 +121,7 @@ class EnhancedEnsembleStrategy:
         self.ml_ensemble = None
         if self.enable_ml_models:
             try:
-                self.ml_ensemble = MLModelManager()
+                self.ml_ensemble = create_default_model_ensemble()
             except Exception as e:
                 logger.warning(f"機械学習モデル初期化エラー: {e}")
                 self.enable_ml_models = False
