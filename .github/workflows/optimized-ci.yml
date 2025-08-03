@@ -122,6 +122,10 @@ jobs:
           name: python-env-${{ steps.env-hash.outputs.hash }}
           path: .venv/
           retention-days: 1
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: true
         continue-on-error: false
 
   # ⚡ 超高速コード品質チェック（最適化された環境共有）
