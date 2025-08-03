@@ -536,7 +536,7 @@ class TestEnsembleTradingStrategy:
         # ハード投票では同数の場合、最多得票のシグナルタイプが選ばれる
         # 実装では買いと売りが同数の場合、最初に評価されたものが選ばれる可能性がある
         assert result is not None
-        ensemble_signal, _, _ = result
+        ensemble_signal, _, _, _ = result
         assert ensemble_signal.signal_type in [SignalType.BUY, SignalType.SELL]
 
     def test_edge_case_extreme_confidence_values(self):
@@ -572,7 +572,7 @@ class TestEnsembleTradingStrategy:
 
         result = ensemble._soft_voting(strategy_signals, {})
         assert result is not None
-        ensemble_signal, _, confidence = result
+        ensemble_signal, _, confidence, _ = result
 
         # 高信頼度のBUYシグナルが勝つはず
         assert ensemble_signal.signal_type == SignalType.BUY

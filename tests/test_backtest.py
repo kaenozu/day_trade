@@ -2869,7 +2869,7 @@ class TestAdvancedBacktestScenarios:
         self.engine._initialize_backtest(config)
 
         # エッジケース1: 取引なしの場合
-        result_no_trades = self.engine._calculate_results(config, {})
+        result_no_trades = self.engine._calculate_results(config)
         assert result_no_trades.total_trades == 0
         assert result_no_trades.total_return == 0
         assert result_no_trades.win_rate == 0

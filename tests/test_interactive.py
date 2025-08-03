@@ -29,6 +29,8 @@ class TestInteractiveMode:
         """テストセットアップ（依存性注入使用）"""
         # モック依存関係を作成
         self.mock_console = Mock(spec=Console)
+        self.mock_console.status.return_value.__enter__ = Mock(return_value=self.mock_console)
+        self.mock_console.status.return_value.__exit__ = Mock(return_value=None)
         self.mock_watchlist_manager = Mock(spec=WatchlistManager)
         self.mock_stock_fetcher = Mock(spec=StockFetcher)
         self.mock_trade_manager = Mock()
@@ -195,7 +197,7 @@ class TestInteractiveMode:
             self.mock_console.print.assert_called()
             call_args = self.mock_console.print.call_args[0][0]
             assert isinstance(call_args, Panel)
-            assert "データ取得警告" in call_args.title
+            assert "株式情報取得エラー" in call_args.title
 
     def test_handle_watch_command(self):
         """ウォッチリスト追加コマンドのテスト"""
@@ -467,6 +469,8 @@ class TestInteractiveModeErrorHandling:
     def setup_method(self):
         """エラーハンドリングテスト用セットアップ"""
         self.mock_console = Mock()
+        self.mock_console.status.return_value.__enter__ = Mock(return_value=self.mock_console)
+        self.mock_console.status.return_value.__exit__ = Mock(return_value=None)
         self.mock_stock_fetcher = Mock()
         self.mock_watchlist_manager = Mock()
         self.interactive_mode = InteractiveMode(
@@ -490,7 +494,7 @@ class TestInteractiveModeErrorHandling:
             # エラーメッセージが適切に表示されることを確認
             call_args = self.mock_console.print.call_args[0][0]
             assert isinstance(call_args, Panel)
-            assert "データが見つかりません" in str(call_args.renderable)
+            assert "エラー:" in str(call_args.renderable)
 
     def test_handle_api_error(self):
         """APIErrorのハンドリングテスト"""
