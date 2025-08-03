@@ -172,7 +172,7 @@ class EnhancedEnsembleStrategy:
                     self.weight = weight
 
         # 1. 保守的戦略
-        conservative = TradingSignalGenerator()
+        conservative = TradingSignalGenerator(config_path=None)
         conservative.clear_rules()
         conservative.add_buy_rule(RSIOversoldRule(threshold=25, weight=1.5))
         conservative.add_buy_rule(MACDCrossoverRule(weight=1.0))
@@ -181,7 +181,7 @@ class EnhancedEnsembleStrategy:
         strategies["conservative"] = conservative
 
         # 2. 積極的戦略
-        aggressive = TradingSignalGenerator()
+        aggressive = TradingSignalGenerator(config_path=None)
         aggressive.clear_rules()
         aggressive.add_buy_rule(RSIOversoldRule(threshold=35, weight=2.0))
         aggressive.add_buy_rule(BollingerBandBreakoutRule(weight=1.5))
@@ -190,14 +190,14 @@ class EnhancedEnsembleStrategy:
         strategies["aggressive"] = aggressive
 
         # 3. トレンドフォロー戦略
-        trend_follow = TradingSignalGenerator()
+        trend_follow = TradingSignalGenerator(config_path=None)
         trend_follow.clear_rules()
         trend_follow.add_buy_rule(MACDCrossoverRule(weight=2.0))
         trend_follow.add_sell_rule(MACDDeathCrossRule(weight=2.0))
         strategies["trend_follow"] = trend_follow
 
         # 4. 平均回帰戦略
-        mean_reversion = TradingSignalGenerator()
+        mean_reversion = TradingSignalGenerator(config_path=None)
         mean_reversion.clear_rules()
         mean_reversion.add_buy_rule(BollingerBandMeanReversionRule(weight=2.0))
         mean_reversion.add_sell_rule(RSIOverboughtRule(threshold=70, weight=1.5))
@@ -238,10 +238,11 @@ class EnhancedEnsembleStrategy:
         market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
 
         # 3. 特徴量エンジニアリング
-        feature_data = self.feature_engineer.generate_composite_features(clean_data, indicators)
+        volume_data = clean_data.get('Volume', None) if 'Volume' in clean_data.columns else None
+        feature_data = self.feature_engineer.generate_all_features(clean_data, volume_data)
 
         if market_data:
-            feature_data = self.feature_engineer.generate_market_features(feature_data, market_data)
+            feature_data = self.feature_engineer._generate_market_features(feature_data, market_data)
 
         # 4. ルールベース戦略のシグナル生成
         rule_signals = self._generate_rule_based_signals(clean_data, indicators)
@@ -321,7 +322,7 @@ class EnhancedEnsembleStrategy:
 
             X = feature_data[feature_cols].fillna(0)
 
-            # 簡易的なML予測（ダミー実装）
+            # MLModelManagerが実装されていない場合は簡易実装を使用
             if hasattr(self.ml_ensemble, 'predict'):
                 # 最新データのみで予測
                 latest_features = X.tail(1)
@@ -337,6 +338,10 @@ class EnhancedEnsembleStrategy:
                 except Exception as pred_error:
                     logger.warning(f"ML予測実行エラー: {pred_error}")
                     ml_predictions["ensemble_ml"] = 0.0
+            else:
+                # MLModelManagerの実装が完了していないため、一時的に無効化
+                logger.info("機械学習予測は一時的に無効化されています", section="ml_prediction")
+                return ml_predictions
 
         except Exception as e:
             logger.error(
@@ -381,7 +386,7 @@ class EnhancedEnsembleStrategy:
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
         for model_name, prediction_value in ml_predictions.items():
             # 予測値を売買シグナルに変換
-            confidence = min(abs(prediction_value) * 1000, 80.0)  # 予測値から信頼度算出
+            confidence = min(abs(prediction_value) * 1000, 80.0)  # 予測値から信頼度算出（上限80%）
 
             if prediction_value > 0.02:  # 2%以上の上昇予測
                 buy_score += confidence * ml_weight
@@ -591,8 +596,8 @@ class EnhancedEnsembleStrategy:
             )
 
             # 特徴量エンジニアリング
-            indicators = {}  # 必要に応じて計算
-            feature_data = self.feature_engineer.generate_composite_features(training_data, indicators)
+            volume_data = training_data.get('Volume', None) if 'Volume' in training_data.columns else None
+            feature_data = self.feature_engineer.generate_all_features(training_data, volume_data)
 
             # 特徴量とターゲットの準備
             feature_cols = [col for col in feature_data.columns
@@ -610,7 +615,7 @@ class EnhancedEnsembleStrategy:
 
             y = feature_data[target_column].fillna(0)
 
-            # 訓練実行（簡易実装）
+            # 訓練実行（MLModelManager対応）
             if hasattr(self.ml_ensemble, 'fit'):
                 self.ml_ensemble.fit(X, y)
                 self.last_training_time = datetime.now()
