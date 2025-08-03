@@ -54,6 +54,16 @@ jobs:
           TARGET_BRANCH="${{ steps.target-branch.outputs.target_branch }}"
           CURRENT_BRANCH=$(git branch --show-current)
 
+          # Fallback for empty current branch
+          if [ -z "$CURRENT_BRANCH" ]; then
+            CURRENT_BRANCH="${{ github.head_ref }}"
+          fi
+
+          if [ -z "$CURRENT_BRANCH" ]; then
+            echo "❌ Could not determine current branch"
+            exit 1
+          fi
+
           echo "Source branch: $CURRENT_BRANCH"
           echo "Target branch: $TARGET_BRANCH"
 
@@ -62,7 +72,9 @@ jobs:
             local exit_code=$1
             echo "🧹 Performing cleanup..."
             git merge --abort 2>/dev/null || true
-            git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+            if [ -n "$CURRENT_BRANCH" ]; then
+              git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+            fi
             git branch -D temp-merge-test 2>/dev/null || true
             exit $exit_code
           }
@@ -149,7 +161,11 @@ jobs:
 
           # Enhanced cleanup with better error handling
           echo "🧹 Cleaning up temporary branch..."
-          git checkout "$CURRENT_BRANCH" || cleanup_and_exit 1
+          if [ -n "$CURRENT_BRANCH" ]; then
+            git checkout "$CURRENT_BRANCH" || cleanup_and_exit 1
+          else
+            echo "⚠️ Warning: Current branch is empty, skipping checkout"
+          fi
           git branch -D "$TEMP_BRANCH" 2>/dev/null || {
             echo "⚠️ Warning: Could not delete temporary branch $TEMP_BRANCH"
           }
