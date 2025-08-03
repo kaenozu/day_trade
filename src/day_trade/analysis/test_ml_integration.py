@@ -142,10 +142,9 @@ class MLIntegrationTester:
             # 欠損値も挿入
             test_data.iloc[20:23] = np.nan
 
-            # データ品質向上処理
+            # データ品質向上処理（簡易版）
             # enhancer = DataQualityEnhancer()  # Not implemented
-            # Use simple data cleaning as fallback
-            cleaned_data = test_data.dropna()
+            cleaned_data = test_data.dropna()  # Simple fallback
 
             # 結果検証
             original_outliers = ((test_data['Close'] - test_data['Close'].median()).abs() > test_data['Close'].std() * 3).sum()

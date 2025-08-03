@@ -356,7 +356,6 @@ class PerformanceIntegrationTester:
             start_memory = self._get_memory_usage()
 
             # original_enhancer = DataQualityEnhancer()  # Not implemented
-            # Skip original enhancer since it's not implemented
             original_cleaned = noisy_data.dropna()  # Simple fallback
 
             original_time = time.time() - start_time

@@ -593,6 +593,40 @@ def create_ensemble_predictions(
     return ensemble_pred
 
 
+# 後方互換性のためのアダプタークラス
+def create_default_model_ensemble():
+    """デフォルトのモデルアンサンブルを作成"""
+    manager = MLModelManager()
+    return manager
+
+
+def evaluate_prediction_accuracy(
+    predictions: List,
+    actual_values: np.ndarray
+) -> Dict[str, float]:
+    """予測精度評価"""
+    if len(predictions) == 0:
+        return {"mse": 0.0, "mae": 0.0, "rmse": 0.0}
+
+    pred_values = np.array(predictions)
+    if pred_values.ndim > 1:
+        pred_values = pred_values.flatten()
+
+    if len(pred_values) != len(actual_values):
+        min_len = min(len(pred_values), len(actual_values))
+        pred_values = pred_values[:min_len]
+        actual_values = actual_values[:min_len]
+
+    mse = np.mean((pred_values - actual_values) ** 2)
+    mae = np.mean(np.abs(pred_values - actual_values))
+
+    return {
+        "mse": float(mse),
+        "mae": float(mae),
+        "rmse": float(np.sqrt(mse))
+    }
+
+
 if __name__ == "__main__":
     # サンプルデータでのテスト
     if SKLEARN_AVAILABLE:

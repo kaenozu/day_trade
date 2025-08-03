@@ -2295,6 +2295,219 @@ class TestBacktestResult:
 class TestIntegration:
     """統合テスト"""
 
+    def _generate_trending_data(self, dates, base_price=2500, trend_strength=0.1, volatility=0.02, seed=42):
+        """強化されたトレンド保証アルゴリズムでテストデータを生成"""
+        np.random.seed(seed)
+        n_days = len(dates)
+
+        # 複数のトレンド成分を組み合わせてより自然なトレンドを生成
+        # 1. メインの線形トレンド
+        main_trend = np.linspace(0, trend_strength, n_days)
+
+        # 2. 周期的な変動を追加（市場の循環性を模擬）
+        cycle_component = 0.02 * np.sin(2 * np.pi * np.arange(n_days) / 20)
+
+        # 3. ランダムウォーク成分（市場の予測不可能性）
+        random_walk = np.cumsum(np.random.normal(0, 0.005, n_days))
+
+        # 4. 全体トレンドの組み合わせ
+        combined_trend = main_trend + cycle_component + random_walk
+        trend_prices = base_price * (1 + combined_trend)
+
+        # 5. 日次ボラティリティの追加（トレンドを維持しながら）
+        daily_noise = np.random.normal(0, volatility * base_price * 0.5, n_days)
+        final_prices = trend_prices + daily_noise
+
+        # 6. 価格制約の適用
+        final_prices = np.maximum(final_prices, base_price * 0.3)  # 最低価格保証
+
+        # 7. トレンド方向性の強制確認
+        if trend_strength > 0:  # 上昇トレンドの場合
+            # 終値が開始価格より確実に高くなるよう調整
+            if final_prices[-1] <= final_prices[0]:
+                adjustment = (final_prices[0] * (1 + trend_strength) - final_prices[-1]) / n_days
+                for i in range(n_days):
+                    final_prices[i] += adjustment * (i + 1)
+        elif trend_strength < 0:  # 下降トレンドの場合
+            # 終値が開始価格より確実に低くなるよう調整
+            if final_prices[-1] >= final_prices[0]:
+                adjustment = (final_prices[0] * (1 + trend_strength) - final_prices[-1]) / n_days
+                for i in range(n_days):
+                    final_prices[i] += adjustment * (i + 1)
+
+        # 8. OHLCV データの生成（トレンド一貫性を保持）
+        ohlcv_data = []
+        for i, close_price in enumerate(final_prices):
+            daily_vol = volatility * base_price * 0.3
+
+            # Open価格は前日のClose価格に近い値
+            if i == 0:
+                open_price = close_price + np.random.uniform(-daily_vol/2, daily_vol/2)
+            else:
+                gap = np.random.uniform(-daily_vol/4, daily_vol/4)
+                open_price = final_prices[i-1] + gap
+
+            # High/Low価格の生成（Open/Closeを含む範囲）
+            high_base = max(open_price, close_price)
+            low_base = min(open_price, close_price)
+
+            high = high_base + np.random.uniform(0, daily_vol)
+            low = low_base - np.random.uniform(0, daily_vol)
+
+            # 論理的制約の確保
+            high = max(high, open_price, close_price)
+            low = min(low, open_price, close_price)
+
+            ohlcv_data.append({
+                'Open': max(open_price, low),
+                'High': high,
+                'Low': low,
+                'Close': close_price,
+                'Volume': int(np.random.uniform(800000, 2500000))
+            })
+
+        return pd.DataFrame(ohlcv_data, index=dates)
+
+    def _generate_volatile_data(self, dates, base_price=2500, volatility=0.05, seed=42):
+        """高ボラティリティのテストデータを生成"""
+        np.random.seed(seed)
+        n_days = len(dates)
+
+        # 高ボラティリティの価格変動を生成
+        prices = [base_price]
+        for i in range(1, n_days):
+            # 大きな日次変動（-5%から+5%）
+            daily_change = np.random.normal(0, volatility)
+            new_price = prices[-1] * (1 + daily_change)
+            # 価格が極端に低くならないよう制限
+            new_price = max(new_price, base_price * 0.2)
+            prices.append(new_price)
+
+        # OHLCV データの生成
+        ohlcv_data = []
+        for i, close_price in enumerate(prices):
+            # 高ボラティリティ環境での日中価格レンジ
+            daily_range = volatility * base_price * 0.8
+
+            open_price = close_price + np.random.uniform(-daily_range/2, daily_range/2)
+            high = max(open_price, close_price) + np.random.uniform(0, daily_range)
+            low = min(open_price, close_price) - np.random.uniform(0, daily_range)
+
+            # 制約の適用
+            high = max(high, open_price, close_price)
+            low = min(low, open_price, close_price)
+            low = max(low, base_price * 0.1)  # 最低価格保証
+
+            ohlcv_data.append({
+                'Open': open_price,
+                'High': high,
+                'Low': low,
+                'Close': close_price,
+                'Volume': int(np.random.uniform(2000000, 5000000))  # 高出来高
+            })
+
+        return pd.DataFrame(ohlcv_data, index=dates)
+
+    def _generate_market_crash_scenario(self, dates, base_price=2500, crash_day=10, recovery_days=20, seed=42):
+        """市場クラッシュシナリオのテストデータを生成"""
+        np.random.seed(seed)
+        n_days = len(dates)
+
+        prices = []
+        for i in range(n_days):
+            if i < crash_day:
+                # クラッシュ前：安定した価格
+                price = base_price + np.random.normal(0, base_price * 0.01)
+            elif i == crash_day:
+                # クラッシュ日：大幅下落
+                price = base_price * 0.7  # 30%下落
+            elif i < crash_day + recovery_days:
+                # 回復期：徐々に回復
+                recovery_progress = (i - crash_day) / recovery_days
+                target_price = base_price * 0.7 + (base_price * 0.25) * recovery_progress
+                price = target_price + np.random.normal(0, target_price * 0.02)
+            else:
+                # 回復後：新しい水準で安定
+                price = base_price * 0.95 + np.random.normal(0, base_price * 0.015)
+
+            price = max(price, base_price * 0.1)  # 最低価格保証
+            prices.append(price)
+
+        # OHLCV データの生成
+        ohlcv_data = []
+        for i, close_price in enumerate(prices):
+            if i == crash_day:
+                # クラッシュ日は特別な処理
+                open_price = base_price
+                high = base_price * 1.02
+                low = close_price * 0.95
+                volume = 10000000  # 極めて高い出来高
+            else:
+                daily_vol = base_price * 0.02
+                open_price = close_price + np.random.uniform(-daily_vol/2, daily_vol/2)
+                high = max(open_price, close_price) + np.random.uniform(0, daily_vol/2)
+                low = min(open_price, close_price) - np.random.uniform(0, daily_vol/2)
+                volume = int(np.random.uniform(1500000, 3000000))
+
+            # 制約の適用
+            high = max(high, open_price, close_price)
+            low = min(low, open_price, close_price)
+
+            ohlcv_data.append({
+                'Open': open_price,
+                'High': high,
+                'Low': low,
+                'Close': close_price,
+                'Volume': volume
+            })
+
+        return pd.DataFrame(ohlcv_data, index=dates)
+
+    def test_dynamic_data_generation_utilities(self):
+        """動的データ生成ユーティリティのテスト"""
+        dates = pd.date_range("2023-01-01", periods=50, freq="D")
+
+        # 1. トレンドデータのテスト
+        trending_data = self._generate_trending_data(dates, trend_strength=0.2)
+        assert not trending_data.empty
+        assert len(trending_data) == 50
+
+        # トレンドの確認：最後の価格が最初より高い
+        assert trending_data['Close'].iloc[-1] > trending_data['Close'].iloc[0]
+
+        # データの整合性確認
+        for _, row in trending_data.iterrows():
+            assert row['Low'] <= row['High']
+            assert row['Low'] <= row['Open'] <= row['High']
+            assert row['Low'] <= row['Close'] <= row['High']
+            assert row['Volume'] > 0
+
+        # 2. 高ボラティリティデータのテスト
+        volatile_data = self._generate_volatile_data(dates, volatility=0.1)
+        assert not volatile_data.empty
+        assert len(volatile_data) == 50
+
+        # ボラティリティの確認：価格変動が大きい
+        daily_returns = volatile_data['Close'].pct_change().dropna()
+        assert daily_returns.std() > 0.05  # 高いボラティリティ
+
+        # 3. 市場クラッシュシナリオのテスト
+        crash_data = self._generate_market_crash_scenario(dates, crash_day=10)
+        assert not crash_data.empty
+        assert len(crash_data) == 50
+
+        # クラッシュの確認：指定日に大幅下落
+        pre_crash_price = crash_data['Close'].iloc[9]
+        crash_price = crash_data['Close'].iloc[10]
+        assert crash_price < pre_crash_price * 0.8  # 20%以上の下落
+
+        # 回復の確認：クラッシュ後に徐々に回復
+        recovery_start = crash_data['Close'].iloc[10]
+        recovery_end = crash_data['Close'].iloc[30]
+        assert recovery_end > recovery_start  # 回復傾向
+
+        print("✅ 全ての動的データ生成ユーティリティテストが正常に完了しました")
+
     def test_complete_workflow_mock(self):
         """完全なワークフローテスト（モック使用）"""
         # モックエンジンを作成
@@ -2314,7 +2527,11 @@ class TestIntegration:
             index=dates,
         )
 
-        mock_stock_fetcher.get_historical_data.return_value = sample_data
+        # モック関数でintervalパラメータに対応
+        def mock_get_data(symbol, start_date, end_date, interval="1d"):
+            return sample_data
+
+        mock_stock_fetcher.get_historical_data = mock_get_data
 
         config = BacktestConfig(
             start_date=datetime(2023, 2, 1),
