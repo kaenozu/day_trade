@@ -113,7 +113,8 @@ class CircuitBreaker:
                 self.logger.info("サーキットブレーカーが閉状態に復帰",
                                success_count=self.success_count)
         elif self.state == CircuitState.CLOSED:
-            self.failure_count = max(0, self.failure_count - 1)
+            # 成功時には failure_count を 0 にリセット
+            self.failure_count = 0
 
     def record_failure(self) -> None:
         """失敗を記録"""
@@ -281,85 +282,47 @@ class ResilientAPIClient:
         url: str,
         **kwargs
     ) -> requests.Response:
-        """リトライ機構付きでリクエストを実行"""
+        """リトライ機構付きでリクエストを実行（urllib3のRetryに委任）"""
         circuit_breaker = self.circuit_breakers[endpoint.name]
 
-        for attempt in range(self.retry_config.max_attempts):
-            try:
-                start_time = time.time()
+        try:
+            start_time = time.time()
 
-                # タイムアウトを設定
-                kwargs.setdefault('timeout', endpoint.timeout)
+            # タイムアウトを設定
+            kwargs.setdefault('timeout', endpoint.timeout)
 
-                # リクエスト実行
-                response = self.session.request(method, url, **kwargs)
+            # リクエスト実行（urllib3のRetryが自動的にリトライを処理）
+            response = self.session.request(method, url, **kwargs)
 
-                response_time = (time.time() - start_time) * 1000
+            response_time = (time.time() - start_time) * 1000
 
-                # API呼び出しログ
-                log_api_call(
-                    endpoint.name,
-                    method,
-                    url,
-                    response.status_code,
-                    response_time=response_time,
-                    attempt=attempt + 1
-                )
+            # API呼び出しログ
+            log_api_call(
+                endpoint.name,
+                method,
+                url,
+                response.status_code,
+                response_time=response_time
+            )
 
-                # 成功判定
-                if response.status_code < 400:
-                    circuit_breaker.record_success()
-                    log_performance_metric("api_response_time", response_time, "ms",
-                                         endpoint=endpoint.name,
-                                         method=method,
-                                         status_code=response.status_code)
-                    return response
+            # 成功判定
+            if response.status_code < 400:
+                circuit_breaker.record_success()
+                log_performance_metric("api_response_time", response_time, "ms",
+                                     endpoint=endpoint.name,
+                                     method=method,
+                                     status_code=response.status_code)
+                return response
 
-                # HTTPエラーの場合
-                if response.status_code in self.retry_config.status_forcelist:
-                    if attempt < self.retry_config.max_attempts - 1:
-                        delay = self._calculate_delay(attempt)
-                        self.logger.warning(f"HTTPエラー、リトライします: {response.status_code}",
-                                          endpoint=endpoint.name,
-                                          attempt=attempt + 1,
-                                          delay=delay)
-                        time.sleep(delay)
-                        continue
+            # HTTPエラーの場合（リトライ後も失敗）
+            circuit_breaker.record_failure()
+            self._raise_http_error(response)
 
-                # リトライしないHTTPエラー
-                circuit_breaker.record_failure()
-                self._raise_http_error(response)
+        except requests.exceptions.RequestException as e:
+            circuit_breaker.record_failure()
+            # ネットワークエラー（リトライ後も失敗）
+            self._raise_network_error(e)
 
-            except requests.exceptions.RequestException as e:
-                circuit_breaker.record_failure()
-
-                if attempt < self.retry_config.max_attempts - 1:
-                    delay = self._calculate_delay(attempt)
-                    self.logger.warning(f"リクエストエラー、リトライします: {e}",
-                                      endpoint=endpoint.name,
-                                      attempt=attempt + 1,
-                                      delay=delay)
-                    time.sleep(delay)
-                    continue
-
-                # 最終試行でも失敗
-                self._raise_network_error(e)
-
-        # ここには到達しないはず
-        raise APIError("予期しないエラー")
-
-    def _calculate_delay(self, attempt: int) -> float:
-        """遅延時間を計算（指数バックオフ + ジッター）"""
-        delay = min(
-            self.retry_config.base_delay * (self.retry_config.exponential_base ** attempt),
-            self.retry_config.max_delay
-        )
-
-        if self.retry_config.jitter:
-            import random
-            delay *= (0.5 + random.random() * 0.5)  # 0.5-1.0の範囲でランダム化
-
-        return delay
 
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""
