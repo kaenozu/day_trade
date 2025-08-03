@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .ensemble import EnsembleStrategy, EnsembleVotingType, StrategyPerformance
-from .feature_engineering import AdvancedFeatureEngineer, DataQualityEnhancer
+from .feature_engineering import AdvancedFeatureEngineer
 from .ml_models import EnsemblePredictor, ModelPrediction, create_default_model_ensemble
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
 from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
@@ -112,7 +112,6 @@ class EnhancedEnsembleStrategy:
         self.performance_file = performance_file
 
         # コンポーネント初期化
-        self.data_enhancer = DataQualityEnhancer()
         self.feature_engineer = AdvancedFeatureEngineer()
 
         # ルールベース戦略
@@ -228,8 +227,8 @@ class EnhancedEnsembleStrategy:
             horizon=prediction_horizon.value
         )
 
-        # 1. データ品質向上
-        clean_data = self.data_enhancer.clean_ohlcv_data(data)
+        # 1. データ品質向上（基本的なクリーニング）
+        clean_data = data.dropna()
 
         # 2. 市場コンテキスト分析
         market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
