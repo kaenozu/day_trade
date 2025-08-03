@@ -99,6 +99,12 @@ class LoggingConfig:
         logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
         logging.getLogger("sqlalchemy.orm").setLevel(logging.WARNING)
 
+        # パフォーマンスクリティカルなライブラリのログを制限
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
+        logging.getLogger("yfinance").setLevel(logging.WARNING)
+
         # urllib3のログを制限
         logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
@@ -230,3 +236,151 @@ def log_api_call(api_name: str, method: str, url: str, status_code: int = None, 
         status_code=status_code,
         **kwargs
     )
+
+
+# パフォーマンス最適化関連
+class PerformanceCriticalLogger:
+    """パフォーマンスクリティカルなセクション用の最適化されたロガー"""
+
+    def __init__(self, logger: Any, min_level: int = logging.WARNING):
+        """
+        Args:
+            logger: ベースロガー
+            min_level: 最小ログレベル（これ以下のレベルはスキップ）
+        """
+        self.logger = logger
+        self.min_level = min_level
+        self._is_enabled_cache = {}  # ログレベルチェックのキャッシュ
+
+    def _is_enabled(self, level: int) -> bool:
+        """ログレベルが有効かどうかをキャッシュ付きでチェック"""
+        if level not in self._is_enabled_cache:
+            self._is_enabled_cache[level] = level >= self.min_level
+        return self._is_enabled_cache[level]
+
+    def debug_batch(self, messages: list, **common_context) -> None:
+        """バッチデバッグログ（パフォーマンス最適化）"""
+        if not self._is_enabled(logging.DEBUG):
+            return
+
+        # メッセージを集約してまとめて出力
+        batch_message = f"Batch debug: {len(messages)} items"
+        self.logger.debug(batch_message, messages=messages[:5], total_count=len(messages), **common_context)
+
+    def info_sampled(self, message: str, sample_rate: float = 0.1, **kwargs) -> None:
+        """サンプリングされた情報ログ（高頻度処理用）"""
+        if not self._is_enabled(logging.INFO):
+            return
+
+        import random
+        if random.random() < sample_rate:
+            self.logger.info(f"[SAMPLED] {message}", sample_rate=sample_rate, **kwargs)
+
+    def performance_summary(self, operation: str, metrics: Dict[str, float], **kwargs) -> None:
+        """パフォーマンス概要ログ（詳細を集約）"""
+        if not self._is_enabled(logging.INFO):
+            return
+
+        summary = {
+            'avg': sum(metrics.values()) / len(metrics) if metrics else 0,
+            'max': max(metrics.values()) if metrics else 0,
+            'min': min(metrics.values()) if metrics else 0,
+            'count': len(metrics)
+        }
+
+        self.logger.info(
+            f"Performance summary: {operation}",
+            summary=summary,
+            **kwargs
+        )
+
+
+def get_performance_logger(name: str = None, min_level: int = logging.WARNING) -> PerformanceCriticalLogger:
+    """パフォーマンスクリティカルなロガーを取得"""
+    base_logger = get_logger(name)
+    return PerformanceCriticalLogger(base_logger, min_level)
+
+
+# 遅延評価ログ機能
+class LazyLogMessage:
+    """遅延評価されるログメッセージ（重い処理を含む場合に使用）"""
+
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return self.func(*self.args, **self.kwargs)
+
+
+def lazy_log(func):
+    """重い処理を含むログメッセージを遅延評価する"""
+    return lambda *args, **kwargs: LazyLogMessage(func, *args, **kwargs)
+
+
+# ログ無効化コンテキストマネージャー
+import contextlib
+from typing import Generator
+
+@contextlib.contextmanager
+def disable_logging(logger_names: list = None) -> Generator[None, None, None]:
+    """指定されたロガーを一時的に無効化"""
+    if logger_names is None:
+        logger_names = ['day_trade']  # デフォルトでメインロガーを無効化
+
+    original_levels = {}
+    try:
+        # ログレベルを一時的に引き上げ
+        for name in logger_names:
+            logger = logging.getLogger(name)
+            original_levels[name] = logger.level
+            logger.setLevel(logging.CRITICAL + 1)  # 全てのログを無効化
+
+        yield
+
+    finally:
+        # 元のログレベルに復元
+        for name, level in original_levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+# マクロレベルでのパフォーマンス最適化設定
+class PerformanceOptimizedLogging:
+    """パフォーマンス最適化されたロギング設定"""
+
+    @staticmethod
+    def configure_for_production():
+        """本番環境向けの最適化設定"""
+        # サードパーティライブラリのログを更に制限
+        performance_critical_loggers = [
+            'sqlalchemy',
+            'urllib3',
+            'requests',
+            'yfinance',
+            'pandas',
+            'numpy'
+        ]
+
+        for logger_name in performance_critical_loggers:
+            logging.getLogger(logger_name).setLevel(logging.ERROR)
+
+    @staticmethod
+    def configure_for_backtesting():
+        """バックテスト実行時の最適化設定"""
+        # バックテスト中は詳細ログを制限
+        logging.getLogger('day_trade.analysis.backtest').setLevel(logging.WARNING)
+        logging.getLogger('day_trade.data.stock_fetcher').setLevel(logging.ERROR)
+
+    @staticmethod
+    def configure_for_high_frequency():
+        """高頻度取引時の最適化設定"""
+        # リアルタイム処理では最小限のログのみ
+        trading_loggers = [
+            'day_trade.data',
+            'day_trade.analysis.signals',
+            'day_trade.analysis.indicators'
+        ]
+
+        for logger_name in trading_loggers:
+            logging.getLogger(logger_name).setLevel(logging.ERROR)

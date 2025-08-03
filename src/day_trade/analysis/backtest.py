@@ -1,6 +1,7 @@
 """
 バックテスト機能
 売買戦略の過去データでの検証とパフォーマンス分析
+機械学習統合、Walk-Forward分析、パラメータ最適化を含む
 """
 
 import json
@@ -10,9 +11,12 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import product
 
 import numpy as np
 import pandas as pd
+from scipy import optimize
 
 from ..analysis.signals import (
     SignalStrength,
@@ -23,10 +27,12 @@ from ..analysis.signals import (
 from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
+from ..utils.logging_config import get_context_logger
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
+from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__, component="backtest")
 
 
 class BacktestMode(Enum):
@@ -35,6 +41,20 @@ class BacktestMode(Enum):
     SINGLE_SYMBOL = "single_symbol"  # 単一銘柄
     PORTFOLIO = "portfolio"  # ポートフォリオ
     STRATEGY_COMPARISON = "comparison"  # 戦略比較
+    WALK_FORWARD = "walk_forward"  # Walk-Forward分析
+    MONTE_CARLO = "monte_carlo"  # モンテカルロシミュレーション
+    PARAMETER_OPTIMIZATION = "optimization"  # パラメータ最適化
+    ML_ENSEMBLE = "ml_ensemble"  # 機械学習アンサンブル
+
+
+class OptimizationObjective(Enum):
+    """最適化目標"""
+
+    TOTAL_RETURN = "total_return"
+    SHARPE_RATIO = "sharpe_ratio"
+    CALMAR_RATIO = "calmar_ratio"  # リターン/最大ドローダウン
+    PROFIT_FACTOR = "profit_factor"
+    WIN_RATE = "win_rate"
 
 
 @dataclass
@@ -49,6 +69,30 @@ class BacktestConfig:
     max_position_size: Decimal = Decimal("0.2")  # 最大ポジションサイズ（20%）
     rebalance_frequency: str = "monthly"  # リバランス頻度
 
+    # Walk-Forward分析設定
+    walk_forward_window: int = 252  # 訓練期間（日数）
+    walk_forward_step: int = 21  # ステップサイズ（日数）
+    min_training_samples: int = 100  # 最小訓練サンプル数
+
+    # 最適化設定
+    optimization_objective: OptimizationObjective = OptimizationObjective.SHARPE_RATIO
+    max_optimization_iterations: int = 100
+    optimization_method: str = "differential_evolution"  # scipy.optimize手法
+
+    # モンテカルロ設定
+    monte_carlo_runs: int = 1000
+    confidence_interval: float = 0.95
+
+    # リスク管理設定
+    max_drawdown_limit: Optional[float] = None  # 最大許容ドローダウン
+    stop_loss_pct: Optional[float] = None  # ストップロス率
+    take_profit_pct: Optional[float] = None  # テイクプロフィット率
+
+    # 機械学習設定
+    enable_ml_features: bool = False
+    retrain_frequency: int = 50  # ML再訓練頻度（日数）
+    ml_models_to_use: List[str] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
         return {
@@ -59,6 +103,20 @@ class BacktestConfig:
             "slippage": str(self.slippage),
             "max_position_size": str(self.max_position_size),
             "rebalance_frequency": self.rebalance_frequency,
+            "walk_forward_window": self.walk_forward_window,
+            "walk_forward_step": self.walk_forward_step,
+            "min_training_samples": self.min_training_samples,
+            "optimization_objective": self.optimization_objective.value,
+            "max_optimization_iterations": self.max_optimization_iterations,
+            "optimization_method": self.optimization_method,
+            "monte_carlo_runs": self.monte_carlo_runs,
+            "confidence_interval": self.confidence_interval,
+            "max_drawdown_limit": self.max_drawdown_limit,
+            "stop_loss_pct": self.stop_loss_pct,
+            "take_profit_pct": self.take_profit_pct,
+            "enable_ml_features": self.enable_ml_features,
+            "retrain_frequency": self.retrain_frequency,
+            "ml_models_to_use": self.ml_models_to_use,
         }
 
 
@@ -86,6 +144,48 @@ class Position:
     market_value: Decimal
     unrealized_pnl: Decimal
     weight: Decimal  # ポートフォリオ内での重み
+
+
+@dataclass
+class WalkForwardResult:
+    """Walk-Forward分析結果"""
+
+    period_start: datetime
+    period_end: datetime
+    training_start: datetime
+    training_end: datetime
+    out_of_sample_return: float
+    in_sample_return: float
+    sharpe_ratio: float
+    max_drawdown: float
+    total_trades: int
+    parameters_used: Dict[str, Any]
+
+
+@dataclass
+class OptimizationResult:
+    """パラメータ最適化結果"""
+
+    best_parameters: Dict[str, Any]
+    best_score: float
+    optimization_history: List[Dict[str, Any]]
+    iterations: int
+    convergence_achieved: bool
+    backtest_result: 'BacktestResult'
+
+
+@dataclass
+class MonteCarloResult:
+    """モンテカルロシミュレーション結果"""
+
+    mean_return: float
+    std_return: float
+    confidence_intervals: Dict[str, Tuple[float, float]]  # 信頼区間
+    percentiles: Dict[str, float]  # パーセンタイル
+    probability_of_loss: float
+    var_95: float  # Value at Risk 95%
+    cvar_95: float  # Conditional VaR 95%
+    simulation_runs: int
 
 
 @dataclass
@@ -120,6 +220,18 @@ class BacktestResult:
     portfolio_value: pd.Series
     positions_history: List[Dict[str, Position]]
 
+    # 新しい分析結果
+    walk_forward_results: Optional[List[WalkForwardResult]] = None
+    optimization_result: Optional[OptimizationResult] = None
+    monte_carlo_result: Optional[MonteCarloResult] = None
+
+    # 追加統計
+    calmar_ratio: Optional[float] = None
+    sortino_ratio: Optional[float] = None
+    information_ratio: Optional[float] = None
+    beta: Optional[float] = None
+    alpha: Optional[float] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
         return {
@@ -149,26 +261,55 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    """バックテストエンジン"""
+    """強化されたバックテストエンジン"""
 
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
         signal_generator: Optional[TradingSignalGenerator] = None,
+        ensemble_strategy: Optional[EnsembleTradingStrategy] = None,
+        memory_efficient: bool = True,
+        chunk_size: int = 1000,
     ):
         """
         Args:
             stock_fetcher: 株価データ取得インスタンス
             signal_generator: シグナル生成インスタンス
+            ensemble_strategy: アンサンブル戦略インスタンス
+            memory_efficient: メモリ効率モード（大きなデータセット用）
+            chunk_size: データ処理のチャンクサイズ
         """
         self.stock_fetcher = stock_fetcher or StockFetcher()
         self.signal_generator = signal_generator or TradingSignalGenerator()
+        self.ensemble_strategy = ensemble_strategy
+
+        # パフォーマンス設定
+        self.memory_efficient = memory_efficient
+        self.chunk_size = chunk_size
 
         # バックテスト状態
         self.current_capital = Decimal("0")
         self.positions: Dict[str, Position] = {}
         self.trades: List[Trade] = []
         self.portfolio_values: List[Tuple[datetime, Decimal]] = []
+
+        # 新しい状態管理
+        self.risk_metrics: Dict[str, float] = {}
+        self.benchmark_data: Optional[pd.Series] = None
+        self.optimization_cache: Dict[str, Any] = {}
+        self.parameter_bounds: Dict[str, Tuple[float, float]] = {}
+
+        # パフォーマンス追跡（メモリ効率モードでは制限）
+        if self.memory_efficient:
+            # メモリ効率モードでは詳細追跡を制限
+            self.daily_metrics: List[Dict[str, float]] = []
+            self.max_daily_metrics = 1000  # 最大保持数
+        else:
+            self.daily_metrics: List[Dict[str, float]] = []
+            self.max_daily_metrics = None
+
+        self.rebalance_dates: List[datetime] = []
+        self.ml_retrain_dates: List[datetime] = []
 
     def run_backtest(
         self,
@@ -731,44 +872,11 @@ class BacktestEngine:
         drawdown = (cumulative - running_max) / running_max
         max_drawdown = drawdown.min()
 
-        # 取引統計の計算
-        profitable_trades = 0
-        losing_trades = 0
-        wins = []
-        losses = []
-
-        # 実現損益の計算（簡易版）
-        for i, trade in enumerate(self.trades):
-            if trade.action == TradeType.SELL and i > 0:
-                # 対応する買い注文を探す
-                for j in range(i - 1, -1, -1):
-                    buy_trade = self.trades[j]
-                    if (
-                        buy_trade.symbol == trade.symbol
-                        and buy_trade.action == TradeType.BUY
-                    ):
-                        pnl = (
-                            (trade.price - buy_trade.price) * trade.quantity
-                            - trade.commission
-                            - buy_trade.commission
-                        )
-                        if pnl > 0:
-                            profitable_trades += 1
-                            wins.append(float(pnl))
-                        else:
-                            losing_trades += 1
-                            losses.append(float(abs(pnl)))
-                        break
-
-        total_trades = profitable_trades + losing_trades
-        win_rate = profitable_trades / total_trades if total_trades > 0 else 0
-        avg_win = Decimal(str(np.mean(wins))) if wins else Decimal("0")
-        avg_loss = Decimal(str(np.mean(losses))) if losses else Decimal("0")
-        profit_factor = (
-            float(avg_win * profitable_trades) / float(avg_loss * losing_trades)
-            if losses
-            else float("inf")
-        )
+        # 取引統計の計算（メモリ効率を考慮）
+        if self.memory_efficient:
+            profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = self._calculate_trade_statistics_memory_efficient()
+        else:
+            profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = self._calculate_trade_statistics_vectorized()
 
         return BacktestResult(
             config=config,
@@ -792,6 +900,193 @@ class BacktestEngine:
             portfolio_value=df["Value"],
             positions_history=[],  # 簡単化のため空
         )
+
+    def _calculate_trade_statistics_vectorized(self) -> Tuple[int, int, List[float], List[float], int, float, Decimal, Decimal, float]:
+        """
+        ベクトル化された取引統計計算
+        パフォーマンス最適化版 - O(n²)からO(n log n)に改善
+        """
+        if not self.trades:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        # 取引をPandasのDataFrameに変換
+        trades_data = []
+        for i, trade in enumerate(self.trades):
+            trades_data.append({
+                'index': i,
+                'symbol': trade.symbol,
+                'action': trade.trade_type.value,
+                'price': float(trade.price),
+                'quantity': float(trade.quantity),
+                'commission': float(trade.commission),
+                'timestamp': trade.timestamp
+            })
+
+        if not trades_data:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        trades_df = pd.DataFrame(trades_data)
+
+        # 買い注文と売り注文を分離
+        buy_trades = trades_df[trades_df['action'] == TradeType.BUY.value].copy()
+        sell_trades = trades_df[trades_df['action'] == TradeType.SELL.value].copy()
+
+        if len(buy_trades) == 0 or len(sell_trades) == 0:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        wins = []
+        losses = []
+
+        # 効率的なマッチング処理（FIFO - First In, First Out）
+        for symbol in trades_df['symbol'].unique():
+            symbol_buys = buy_trades[buy_trades['symbol'] == symbol].sort_values('index')
+            symbol_sells = sell_trades[sell_trades['symbol'] == symbol].sort_values('index')
+
+            # マッチングアルゴリズム: 各売り注文に対して最も近い過去の買い注文を探す
+            buy_queue = symbol_buys.copy()
+
+            for _, sell_trade in symbol_sells.iterrows():
+                # 売り注文より前の買い注文のみを対象
+                available_buys = buy_queue[buy_queue['index'] < sell_trade['index']]
+
+                if len(available_buys) > 0:
+                    # 最も最近の買い注文を選択（LIFO - Last In, First Out）
+                    buy_trade = available_buys.iloc[-1]
+
+                    # 損益計算
+                    pnl = (
+                        (sell_trade['price'] - buy_trade['price']) * sell_trade['quantity']
+                        - sell_trade['commission'] - buy_trade['commission']
+                    )
+
+                    if pnl > 0:
+                        wins.append(pnl)
+                    else:
+                        losses.append(abs(pnl))
+
+                    # 使用した買い注文を削除
+                    buy_queue = buy_queue[buy_queue['index'] != buy_trade['index']]
+
+        # 統計計算
+        profitable_trades = len(wins)
+        losing_trades = len(losses)
+        total_trades = profitable_trades + losing_trades
+
+        if total_trades == 0:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        win_rate = profitable_trades / total_trades
+        avg_win = Decimal(str(np.mean(wins))) if wins else Decimal("0")
+        avg_loss = Decimal(str(np.mean(losses))) if losses else Decimal("0")
+
+        profit_factor = (
+            float(avg_win * profitable_trades) / float(avg_loss * losing_trades)
+            if losses and losing_trades > 0
+            else float("inf")
+        )
+
+        return profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor
+
+    def _calculate_trade_statistics_memory_efficient(self) -> Tuple[int, int, List[float], List[float], int, float, Decimal, Decimal, float]:
+        """
+        メモリ効率版の取引統計計算
+        大きなデータセットでもメモリ使用量を抑える
+        """
+        if not self.trades:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        # メモリ効率のためのチャンク処理
+        profitable_trades = 0
+        losing_trades = 0
+        total_pnl = 0.0
+        wins_sum = 0.0
+        losses_sum = 0.0
+        wins_count = 0
+        losses_count = 0
+
+        # チャンクごとに処理してメモリ使用量を制限
+        for i in range(0, len(self.trades), self.chunk_size):
+            chunk_end = min(i + self.chunk_size, len(self.trades))
+            chunk_trades = self.trades[i:chunk_end]
+
+            # チャンク内の取引をDataFrameに変換
+            chunk_data = []
+            for j, trade in enumerate(chunk_trades):
+                chunk_data.append({
+                    'index': i + j,
+                    'symbol': trade.symbol,
+                    'action': trade.trade_type.value,
+                    'price': float(trade.price),
+                    'quantity': float(trade.quantity),
+                    'commission': float(trade.commission),
+                    'timestamp': trade.timestamp
+                })
+
+            if not chunk_data:
+                continue
+
+            trades_df = pd.DataFrame(chunk_data)
+
+            # 買い注文と売り注文を分離
+            buy_trades = trades_df[trades_df['action'] == TradeType.BUY.value].copy()
+            sell_trades = trades_df[trades_df['action'] == TradeType.SELL.value].copy()
+
+            if len(buy_trades) == 0 or len(sell_trades) == 0:
+                continue
+
+            # チャンク内でのマッチング処理
+            for symbol in trades_df['symbol'].unique():
+                symbol_buys = buy_trades[buy_trades['symbol'] == symbol].sort_values('index')
+                symbol_sells = sell_trades[sell_trades['symbol'] == symbol].sort_values('index')
+
+                buy_queue = symbol_buys.copy()
+
+                for _, sell_trade in symbol_sells.iterrows():
+                    available_buys = buy_queue[buy_queue['index'] < sell_trade['index']]
+
+                    if len(available_buys) > 0:
+                        buy_trade = available_buys.iloc[-1]
+
+                        # 損益計算
+                        pnl = (
+                            (sell_trade['price'] - buy_trade['price']) * sell_trade['quantity']
+                            - sell_trade['commission'] - buy_trade['commission']
+                        )
+
+                        total_pnl += pnl
+
+                        if pnl > 0:
+                            wins_sum += pnl
+                            wins_count += 1
+                        else:
+                            losses_sum += abs(pnl)
+                            losses_count += 1
+
+                        buy_queue = buy_queue[buy_queue['index'] != buy_trade['index']]
+
+            # チャンク処理後のメモリクリーンアップ
+            del trades_df, buy_trades, sell_trades, chunk_data
+
+        # 統計計算
+        profitable_trades = wins_count
+        losing_trades = losses_count
+        total_trades = profitable_trades + losing_trades
+
+        if total_trades == 0:
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        win_rate = profitable_trades / total_trades
+        avg_win = Decimal(str(wins_sum / wins_count)) if wins_count > 0 else Decimal("0")
+        avg_loss = Decimal(str(losses_sum / losses_count)) if losses_count > 0 else Decimal("0")
+
+        profit_factor = (
+            wins_sum / losses_sum
+            if losses_sum > 0
+            else float("inf")
+        )
+
+        # メモリ効率モードでは詳細なリストは返さない
+        return profitable_trades, losing_trades, [], [], total_trades, win_rate, avg_win, avg_loss, profit_factor
 
     def run_strategy_comparison(
         self,
@@ -847,6 +1142,387 @@ class BacktestEngine:
                     continue
 
         return results
+
+    def run_walk_forward_analysis(
+        self,
+        symbols: List[str],
+        config: BacktestConfig,
+        strategy_func: Optional[Callable] = None,
+        parameter_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+        show_progress: bool = True,
+    ) -> BacktestResult:
+        """Walk-Forward分析を実行"""
+        logger.info("Walk-Forward分析を開始")
+
+        try:
+            # 全期間の履歴データを取得
+            buffer_start = config.start_date - timedelta(days=config.walk_forward_window + 100)
+            historical_data = self._fetch_historical_data_for_period(
+                symbols, buffer_start, config.end_date, show_progress
+            )
+
+            if not historical_data:
+                raise ValueError("Walk-Forward分析に必要な履歴データを取得できませんでした")
+
+            # Walk-Forwardウィンドウの生成
+            wf_periods = self._generate_walk_forward_periods(config)
+
+            if not wf_periods:
+                raise ValueError("Walk-Forward期間の生成に失敗しました")
+
+            logger.info(f"Walk-Forward分析: {len(wf_periods)}期間")
+
+            wf_results = []
+            total_portfolio_values = []
+            total_trades = []
+
+            if show_progress:
+                progress_desc = f"Walk-Forward分析 ({len(wf_periods)}期間)"
+                with progress_context(
+                    progress_desc, total=len(wf_periods), progress_type=ProgressType.DETERMINATE
+                ) as progress:
+
+                    for i, (train_start, train_end, test_start, test_end) in enumerate(wf_periods):
+                        try:
+                            # 訓練期間とテスト期間のデータを分割
+                            train_data = self._extract_period_data(historical_data, train_start, train_end)
+                            test_data = self._extract_period_data(historical_data, test_start, test_end)
+
+                            if not train_data or not test_data:
+                                logger.warning(f"期間 {i+1} のデータが不足しています。スキップします。")
+                                progress.update(1)
+                                continue
+
+                            # パラメータ最適化（訓練期間）
+                            best_params = {}
+                            if parameter_ranges:
+                                best_params = self._optimize_parameters_for_period(
+                                    symbols, train_data, parameter_ranges, config
+                                )
+
+                            # 訓練期間でのパフォーマンス評価
+                            train_config = self._create_period_config(config, train_start, train_end)
+                            in_sample_result = self._run_period_backtest(
+                                symbols, train_data, train_config, strategy_func, best_params
+                            )
+
+                            # テスト期間でのOut-of-Sample評価
+                            test_config = self._create_period_config(config, test_start, test_end)
+                            out_sample_result = self._run_period_backtest(
+                                symbols, test_data, test_config, strategy_func, best_params
+                            )
+
+                            # Walk-Forward結果を記録
+                            wf_result = WalkForwardResult(
+                                period_start=test_start,
+                                period_end=test_end,
+                                training_start=train_start,
+                                training_end=train_end,
+                                out_of_sample_return=float(out_sample_result.total_return),
+                                in_sample_return=float(in_sample_result.total_return),
+                                sharpe_ratio=out_sample_result.sharpe_ratio,
+                                max_drawdown=out_sample_result.max_drawdown,
+                                total_trades=out_sample_result.total_trades,
+                                parameters_used=best_params,
+                            )
+                            wf_results.append(wf_result)
+
+                            # 全体のポートフォリオ価値と取引を累積
+                            total_portfolio_values.extend(out_sample_result.portfolio_value.to_list())
+                            total_trades.extend(out_sample_result.trades)
+
+                            progress.set_description(
+                                f"期間 {i+1}/{len(wf_periods)} - OOS Return: {wf_result.out_of_sample_return:.2%}"
+                            )
+                            progress.update(1)
+
+                        except Exception as e:
+                            logger.error(f"Walk-Forward期間 {i+1} でエラー: {e}")
+                            progress.update(1)
+                            continue
+
+            else:
+                for i, (train_start, train_end, test_start, test_end) in enumerate(wf_periods):
+                    try:
+                        train_data = self._extract_period_data(historical_data, train_start, train_end)
+                        test_data = self._extract_period_data(historical_data, test_start, test_end)
+
+                        if not train_data or not test_data:
+                            continue
+
+                        best_params = {}
+                        if parameter_ranges:
+                            best_params = self._optimize_parameters_for_period(
+                                symbols, train_data, parameter_ranges, config
+                            )
+
+                        train_config = self._create_period_config(config, train_start, train_end)
+                        in_sample_result = self._run_period_backtest(
+                            symbols, train_data, train_config, strategy_func, best_params
+                        )
+
+                        test_config = self._create_period_config(config, test_start, test_end)
+                        out_sample_result = self._run_period_backtest(
+                            symbols, test_data, test_config, strategy_func, best_params
+                        )
+
+                        wf_result = WalkForwardResult(
+                            period_start=test_start,
+                            period_end=test_end,
+                            training_start=train_start,
+                            training_end=train_end,
+                            out_of_sample_return=float(out_sample_result.total_return),
+                            in_sample_return=float(in_sample_result.total_return),
+                            sharpe_ratio=out_sample_result.sharpe_ratio,
+                            max_drawdown=out_sample_result.max_drawdown,
+                            total_trades=out_sample_result.total_trades,
+                            parameters_used=best_params,
+                        )
+                        wf_results.append(wf_result)
+
+                        total_portfolio_values.extend(out_sample_result.portfolio_value.to_list())
+                        total_trades.extend(out_sample_result.trades)
+
+                    except Exception as e:
+                        logger.error(f"Walk-Forward期間 {i+1} でエラー: {e}")
+                        continue
+
+            # 全体の統合結果を計算
+            integrated_result = self._calculate_walk_forward_integrated_result(
+                config, wf_results, total_portfolio_values, total_trades
+            )
+            integrated_result.walk_forward_results = wf_results
+
+            logger.info(f"Walk-Forward分析完了: {len(wf_results)}期間, 平均OOS Return: {np.mean([r.out_of_sample_return for r in wf_results]):.2%}")
+            return integrated_result
+
+        except Exception as e:
+            logger.error(f"Walk-Forward分析エラー: {e}")
+            raise
+
+    def run_parameter_optimization(
+        self,
+        symbols: List[str],
+        config: BacktestConfig,
+        strategy_func: Callable,
+        parameter_ranges: Dict[str, Tuple[float, float]],
+        show_progress: bool = True,
+    ) -> BacktestResult:
+        """パラメータ最適化を実行"""
+        logger.info(f"パラメータ最適化を開始: {list(parameter_ranges.keys())}")
+
+        try:
+            # 履歴データを取得
+            historical_data = self._fetch_historical_data(symbols, config, show_progress)
+            if not historical_data:
+                raise ValueError("最適化に必要な履歴データを取得できませんでした")
+
+            # 最適化の目的関数を定義
+            def objective_function(params_array):
+                try:
+                    # パラメータ配列を辞書に変換
+                    param_dict = {}
+                    for i, (param_name, _) in enumerate(parameter_ranges.items()):
+                        param_dict[param_name] = params_array[i]
+
+                    # このパラメータセットでバックテストを実行
+                    temp_result = self._run_parameter_backtest(
+                        symbols, historical_data, config, strategy_func, param_dict
+                    )
+
+                    # 目的関数値を計算（最大化問題として扱う）
+                    if config.optimization_objective == OptimizationObjective.TOTAL_RETURN:
+                        return -float(temp_result.total_return)  # 負数にして最小化問題に変換
+                    elif config.optimization_objective == OptimizationObjective.SHARPE_RATIO:
+                        return -temp_result.sharpe_ratio
+                    elif config.optimization_objective == OptimizationObjective.CALMAR_RATIO:
+                        calmar = float(temp_result.annualized_return) / abs(temp_result.max_drawdown) if temp_result.max_drawdown != 0 else 0
+                        return -calmar
+                    elif config.optimization_objective == OptimizationObjective.PROFIT_FACTOR:
+                        return -temp_result.profit_factor
+                    elif config.optimization_objective == OptimizationObjective.WIN_RATE:
+                        return -temp_result.win_rate
+                    else:
+                        return -temp_result.sharpe_ratio
+
+                except Exception as e:
+                    logger.warning(f"最適化中のパラメータ評価でエラー: {e}")
+                    return float('inf')  # エラー時は最悪値を返す
+
+            # パラメータ境界を設定
+            bounds = list(parameter_ranges.values())
+
+            # 最適化履歴を記録
+            optimization_history = []
+            iteration_count = [0]  # リストを使ってスコープ問題を回避
+
+            def callback(xk, convergence=None):
+                iteration_count[0] += 1
+                param_dict = {}
+                for i, (param_name, _) in enumerate(parameter_ranges.items()):
+                    param_dict[param_name] = xk[i]
+
+                score = objective_function(xk)
+                optimization_history.append({
+                    "iteration": iteration_count[0],
+                    "parameters": param_dict.copy(),
+                    "score": -score,  # 元の値に戻す
+                })
+
+                if show_progress and iteration_count[0] % 10 == 0:
+                    logger.info(f"最適化進捗: {iteration_count[0]}/{config.max_optimization_iterations} - 現在のスコア: {-score:.4f}")
+
+            # scipy.optimizeを使用した最適化
+            if config.optimization_method == "differential_evolution":
+                result = optimize.differential_evolution(
+                    objective_function,
+                    bounds,
+                    maxiter=config.max_optimization_iterations,
+                    callback=callback,
+                    seed=42,  # 再現性のため
+                    workers=1,  # 並列化は無効（コールバック問題を避けるため）
+                )
+            elif config.optimization_method == "minimize":
+                # 初期値を範囲の中央に設定
+                x0 = [(b[0] + b[1]) / 2 for b in bounds]
+                result = optimize.minimize(
+                    objective_function,
+                    x0,
+                    bounds=bounds,
+                    method="L-BFGS-B",
+                    options={"maxiter": config.max_optimization_iterations},
+                    callback=callback,
+                )
+            else:
+                raise ValueError(f"サポートされていない最適化手法: {config.optimization_method}")
+
+            # 最適パラメータを取得
+            best_params = {}
+            for i, (param_name, _) in enumerate(parameter_ranges.items()):
+                best_params[param_name] = result.x[i]
+
+            logger.info(f"最適化完了: {best_params}")
+
+            # 最適パラメータでの最終バックテスト
+            final_result = self._run_parameter_backtest(
+                symbols, historical_data, config, strategy_func, best_params
+            )
+
+            # 最適化結果を作成
+            optimization_result = OptimizationResult(
+                best_parameters=best_params,
+                best_score=-result.fun,  # 元の値に戻す
+                optimization_history=optimization_history,
+                iterations=iteration_count[0],
+                convergence_achieved=result.success if hasattr(result, 'success') else False,
+                backtest_result=final_result,
+            )
+
+            final_result.optimization_result = optimization_result
+            return final_result
+
+        except Exception as e:
+            logger.error(f"パラメータ最適化エラー: {e}")
+            raise
+
+    def run_monte_carlo_simulation(
+        self,
+        base_result: BacktestResult,
+        config: BacktestConfig,
+        show_progress: bool = True,
+    ) -> MonteCarloResult:
+        """モンテカルロシミュレーションを実行"""
+        logger.info(f"モンテカルロシミュレーション開始: {config.monte_carlo_runs}回")
+
+        try:
+            if base_result.daily_returns.empty:
+                raise ValueError("ベースとなるリターンデータがありません")
+
+            # ベースとなる日次リターンの統計値
+            base_returns = base_result.daily_returns.dropna()
+            mean_return = base_returns.mean()
+            std_return = base_returns.std()
+
+            # モンテカルロシミュレーション実行
+            simulation_results = []
+
+            if show_progress:
+                with progress_context(
+                    f"モンテカルロシミュレーション ({config.monte_carlo_runs}回)",
+                    total=config.monte_carlo_runs,
+                    progress_type=ProgressType.DETERMINATE,
+                ) as progress:
+
+                    for i in range(config.monte_carlo_runs):
+                        # ランダムリターンを生成（正規分布）
+                        random_returns = np.random.normal(
+                            mean_return, std_return, len(base_returns)
+                        )
+
+                        # 累積リターンを計算
+                        cumulative_return = (1 + pd.Series(random_returns)).prod() - 1
+                        simulation_results.append(cumulative_return)
+
+                        if i % 100 == 0:
+                            progress.set_description(f"シミュレーション実行中: {i+1}/{config.monte_carlo_runs}")
+                        progress.update(1)
+            else:
+                for i in range(config.monte_carlo_runs):
+                    random_returns = np.random.normal(
+                        mean_return, std_return, len(base_returns)
+                    )
+                    cumulative_return = (1 + pd.Series(random_returns)).prod() - 1
+                    simulation_results.append(cumulative_return)
+
+            # 統計値を計算
+            simulation_array = np.array(simulation_results)
+
+            mean_sim_return = np.mean(simulation_array)
+            std_sim_return = np.std(simulation_array)
+
+            # 信頼区間
+            alpha = 1 - config.confidence_interval
+            lower_percentile = (alpha / 2) * 100
+            upper_percentile = (1 - alpha / 2) * 100
+
+            confidence_intervals = {
+                f"{config.confidence_interval*100:.0f}%": (
+                    np.percentile(simulation_array, lower_percentile),
+                    np.percentile(simulation_array, upper_percentile)
+                )
+            }
+
+            # パーセンタイル
+            percentiles = {
+                "5%": np.percentile(simulation_array, 5),
+                "25%": np.percentile(simulation_array, 25),
+                "50%": np.percentile(simulation_array, 50),
+                "75%": np.percentile(simulation_array, 75),
+                "95%": np.percentile(simulation_array, 95),
+            }
+
+            # リスク指標
+            probability_of_loss = np.sum(simulation_array < 0) / len(simulation_array)
+            var_95 = np.percentile(simulation_array, 5)
+            cvar_95 = np.mean(simulation_array[simulation_array <= var_95])
+
+            monte_carlo_result = MonteCarloResult(
+                mean_return=mean_sim_return,
+                std_return=std_sim_return,
+                confidence_intervals=confidence_intervals,
+                percentiles=percentiles,
+                probability_of_loss=probability_of_loss,
+                var_95=var_95,
+                cvar_95=cvar_95,
+                simulation_runs=config.monte_carlo_runs,
+            )
+
+            logger.info(f"モンテカルロシミュレーション完了: 平均リターン {mean_sim_return:.2%}, 損失確率 {probability_of_loss:.1%}")
+            return monte_carlo_result
+
+        except Exception as e:
+            logger.error(f"モンテカルロシミュレーションエラー: {e}")
+            raise
 
     def export_results(self, result: BacktestResult, filename: str):
         """結果をファイルにエクスポート"""
