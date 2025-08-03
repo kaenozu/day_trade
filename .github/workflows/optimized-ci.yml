@@ -96,15 +96,25 @@ jobs:
           pip install -e .[dev]
           pre-commit install-hooks
 
-      - name: 📦 Create environment artifact
+      - name: 📦 Verify and prepare environment artifact
         run: |
-          # 仮想環境をアーティファクトとして準備
+          # 仮想環境の存在確認とクリーンアップ
           if [ -d ".venv" ]; then
-            echo "Virtual environment ready for artifact upload"
+            echo "✅ Virtual environment found"
             # バイナリファイルの除外でサイズ削減
             find .venv -name "*.pyc" -delete || true
             find .venv -name "__pycache__" -type d -exec rm -rf {} + || true
+            echo "Virtual environment ready for artifact upload"
+          else
+            echo "❌ Virtual environment not found - creating minimal environment"
+            python -m venv .venv
+            source .venv/bin/activate
+            python -m pip install --upgrade pip wheel setuptools
+            pip install -e .[dev]
           fi
+
+          # 仮想環境の内容確認
+          ls -la .venv/ || echo "venv directory listing failed"
 
       - name: 📤 Upload environment artifact
         uses: actions/upload-artifact@v4
@@ -112,6 +122,7 @@ jobs:
           name: python-env-${{ steps.env-hash.outputs.hash }}
           path: .venv/
           retention-days: 1
+        continue-on-error: false
 
   # ⚡ 超高速コード品質チェック（最適化された環境共有）
   quality:
