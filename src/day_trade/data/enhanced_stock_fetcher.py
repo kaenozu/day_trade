@@ -191,30 +191,44 @@ class EnhancedStockFetcher(StockFetcher):
 
     def _cache_fallback_execution(self, func, *args, **kwargs):
         """キャッシュフォールバック実行"""
-        # キャッシュから古いデータでも取得を試行
-        if hasattr(func, 'clear_cache'):
-            # TTLを無視してキャッシュから取得
-            try:
-                # 一時的にTTLを延長
-                original_ttl = getattr(func, '_cache_ttl', None)
-                if original_ttl:
-                    func._cache_ttl = 3600 * 24  # 24時間に延長
+        # 親クラスのキャッシュ機能を利用して古いデータを取得
+        try:
+            # TTLを緩和した状態で再試行
+            # 既存のキャッシュ仕組みを使用してより長いTTLで動作させる
 
-                result = func(*args, **kwargs)
+            # 現在のTTL設定を一時的に保存
+            original_price_ttl = self.price_cache_ttl
+            original_historical_ttl = self.historical_cache_ttl
 
-                if result is not None:
-                    self.logger.info("キャッシュフォールバックで取得成功",
-                                   function=func.__name__)
-                    log_business_event("cache_fallback_success",
-                                     function=func.__name__)
-                    return result
+            # TTLを大幅に延長（12時間）
+            self.price_cache_ttl = 3600 * 12
+            self.historical_cache_ttl = 3600 * 12
 
-            except Exception as e:
-                self.logger.debug(f"キャッシュフォールバック失敗: {e}")
-            finally:
-                # TTLを元に戻す
-                if original_ttl:
-                    func._cache_ttl = original_ttl
+            # 親クラスのメソッドを直接呼び出してキャッシュから取得
+            if func.__name__ == 'get_current_price' and args:
+                result = super().get_current_price(args[0])
+            elif func.__name__ == 'get_historical_data' and args:
+                period = args[1] if len(args) > 1 else "1d"
+                interval = args[2] if len(args) > 2 else "1d"
+                result = super().get_historical_data(args[0], period, interval)
+            elif func.__name__ == 'get_company_info' and args:
+                result = super().get_company_info(args[0])
+            else:
+                result = None
+
+            # TTLを元に戻す
+            self.price_cache_ttl = original_price_ttl
+            self.historical_cache_ttl = original_historical_ttl
+
+            if result is not None:
+                self.logger.info("キャッシュフォールバックで取得成功",
+                               function=func.__name__)
+                log_business_event("cache_fallback_success",
+                                 function=func.__name__)
+                return result
+
+        except Exception as e:
+            self.logger.debug(f"キャッシュフォールバック失敗: {e}")
 
         return None
 
