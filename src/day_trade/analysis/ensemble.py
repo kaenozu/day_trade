@@ -1415,27 +1415,22 @@ if __name__ == "__main__":
 
     if ensemble_signal:
         signal = ensemble_signal.ensemble_signal
-        print(f"アンサンブルシグナル: {signal.signal_type.value.upper()}")
-        print(f"強度: {signal.strength.value}")
-        print(f"信頼度: {signal.confidence:.1f}%")
-        print(f"価格: {signal.price:.2f}")
 
-        print("\n戦略別貢献度:")
-        for strategy_name, score in ensemble_signal.voting_scores.items():
-            print(f"  {strategy_name}: {score:.2f}")
+        # 戦略別データを構造化
+        strategy_contributions = {strategy: round(score, 2) for strategy, score in ensemble_signal.voting_scores.items()}
+        strategy_weights = {strategy: round(weight, 2) for strategy, weight in ensemble_signal.strategy_weights.items()}
 
-        print("\n戦略重み:")
-        for strategy_name, weight in ensemble_signal.strategy_weights.items():
-            print(f"  {strategy_name}: {weight:.2f}")
-
-        print("\nメタ特徴量:")
-        for feature, value in ensemble_signal.meta_features.items():
-            print(f"  {feature}: {value}")
+        logger.info("アンサンブルシグナル生成",
+                   signal_type=signal.signal_type.value.upper(),
+                   strength=signal.strength.value,
+                   confidence=round(signal.confidence, 1),
+                   price=round(signal.price, 2),
+                   strategy_contributions=strategy_contributions,
+                   strategy_weights=strategy_weights,
+                   meta_features=ensemble_signal.meta_features)
     else:
-        print("アンサンブルシグナルなし")
+        logger.info("アンサンブルシグナル結果", result="no_signal_generated")
 
     # 戦略サマリー
-    print("\n戦略サマリー:")
     summary = ensemble.get_strategy_summary()
-    for key, value in summary.items():
-        print(f"  {key}: {value}")
+    logger.info("戦略サマリー", **summary)

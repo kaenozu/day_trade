@@ -11,6 +11,7 @@ from rich.table import Table
 from ..core.config import config_manager
 from ..data.stock_fetcher import StockFetcher
 from ..models import init_db
+from ..utils.logging_config import setup_logging, get_context_logger
 from ..utils.formatters import (
     create_company_info_table,
     create_error_panel,
@@ -37,6 +38,9 @@ console = Console()
 @click.pass_context
 def cli(ctx, config):
     """デイトレード支援ツール"""
+    # 構造化ロギングを初期化
+    setup_logging()
+
     # コンテキストに設定を保存
     ctx.ensure_object(dict)
     if config:

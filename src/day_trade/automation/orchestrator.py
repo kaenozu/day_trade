@@ -20,6 +20,10 @@ from ..analysis.ensemble import (
     EnsembleTradingStrategy,
     EnsembleVotingType,
 )
+from ..analysis.enhanced_ensemble import (
+    EnhancedEnsembleStrategy,
+    PredictionHorizon,
+)
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
 from ..analysis.signals import TradingSignalGenerator
@@ -101,16 +105,29 @@ class DayTradeOrchestrator:
         if ensemble_settings.enabled:
             strategy_type = EnsembleStrategy(ensemble_settings.strategy_type)
             voting_type = EnsembleVotingType(ensemble_settings.voting_type)
+
+            # 従来のアンサンブル戦略
             self.ensemble_strategy = EnsembleTradingStrategy(
                 ensemble_strategy=strategy_type,
                 voting_type=voting_type,
                 performance_file=ensemble_settings.performance_file_path,
             )
+
+            # 強化アンサンブル戦略（MLモデル統合）
+            self.enhanced_ensemble = EnhancedEnsembleStrategy(
+                ensemble_strategy=strategy_type,
+                voting_type=voting_type,
+                enable_ml_models=True,
+                performance_file=ensemble_settings.performance_file_path
+            )
+
             logger.info(
                 f"アンサンブル戦略を有効化: {strategy_type.value}, 投票方式: {voting_type.value}"
             )
+            logger.info("強化アンサンブル戦略（MLモデル統合）を有効化")
         else:
             self.ensemble_strategy = None
+            self.enhanced_ensemble = None
             logger.info("アンサンブル戦略は無効化されています")
 
         self.trade_manager = TradeManager()
@@ -130,10 +147,37 @@ class DayTradeOrchestrator:
 
         # バックテストエンジン（設定で有効な場合のみ）
         self.backtest_engine = None
+        self.advanced_backtest_engine = None
+
         if self.config_manager.get_backtest_settings().enabled:
             self.backtest_engine = BacktestEngine(
                 self.stock_fetcher, self.signal_generator
             )
+
+            # 高度なバックテストエンジンも初期化
+            try:
+                from ..analysis.advanced_backtest import AdvancedBacktestEngine, TradingCosts
+
+                trading_costs = TradingCosts(
+                    commission_rate=0.001,
+                    bid_ask_spread_rate=0.001,
+                    slippage_rate=0.0005,
+                    market_impact_rate=0.0002
+                )
+
+                self.advanced_backtest_engine = AdvancedBacktestEngine(
+                    initial_capital=1000000.0,
+                    trading_costs=trading_costs,
+                    position_sizing="percent",
+                    max_position_size=0.2,
+                    realistic_execution=True
+                )
+
+                logger.info("高度なバックテストエンジンを初期化")
+
+            except ImportError as e:
+                logger.warning(f"高度なバックテストエンジンの初期化に失敗: {e}")
+                self.advanced_backtest_engine = None
 
         # 実行状態
         self.current_report: Optional[AutomationReport] = None
@@ -558,8 +602,17 @@ class DayTradeOrchestrator:
                 patterns = pattern_results.get(symbol, {})
 
                 if analysis:
-                    # アンサンブル戦略が有効な場合は優先使用
-                    if self.ensemble_strategy:
+                    # 強化アンサンブル戦略が有効な場合は優先使用
+                    if self.enhanced_ensemble:
+                        symbol_stock_data = (
+                            stock_data.get(symbol) if stock_data else None
+                        )
+                        enhanced_signals = self._generate_enhanced_ensemble_signals(
+                            symbol, analysis, patterns, symbol_stock_data
+                        )
+                        all_signals.extend(enhanced_signals)
+                    elif self.ensemble_strategy:
+                        # 従来のアンサンブル戦略
                         symbol_stock_data = (
                             stock_data.get(symbol) if stock_data else None
                         )
@@ -682,6 +735,150 @@ class DayTradeOrchestrator:
         except Exception as e:
             logger.error(f"アンサンブルシグナル生成エラー ({symbol}): {e}")
             return []
+
+    def _generate_enhanced_ensemble_signals(
+        self, symbol: str, analysis: Dict, patterns: Dict, stock_data: Dict = None
+    ) -> List[Dict[str, Any]]:
+        """強化アンサンブル戦略によるシグナル生成"""
+        signals = []
+
+        try:
+            from datetime import datetime
+
+            # 実際の株価データを取得
+            if stock_data and "historical" in stock_data:
+                price_df = stock_data["historical"]
+            else:
+                logger.warning(f"実際の価格データがありません ({symbol})")
+                return []
+
+            # データ量チェック
+            if len(price_df) < 20:
+                logger.warning(
+                    f"データが不足しています ({symbol}): {len(price_df)}日分"
+                )
+                return []
+
+            # 指標データの変換・統合
+            indicators = self._convert_analysis_to_indicators(analysis, price_df)
+
+            # 市場データ（利用可能な場合）
+            market_data = None  # 今後の実装で市場データを追加予定
+
+            # 強化アンサンブルシグナル生成
+            enhanced_signal = self.enhanced_ensemble.generate_enhanced_signal(
+                price_df, indicators, market_data, PredictionHorizon.SHORT_TERM
+            )
+
+            if enhanced_signal and enhanced_signal.signal_type.value != "hold":
+                signal_data = {
+                    "symbol": symbol,
+                    "type": enhanced_signal.signal_type.value.upper(),
+                    "reason": f"Enhanced Ensemble: ML+Rules (confidence: {enhanced_signal.ensemble_confidence:.1f}%)",
+                    "confidence": enhanced_signal.ensemble_confidence / 100.0,
+                    "timestamp": datetime.now(),
+                    "enhanced_details": {
+                        "prediction_horizon": enhanced_signal.prediction_horizon.value,
+                        "price_target": enhanced_signal.price_target,
+                        "uncertainty": enhanced_signal.uncertainty,
+                        "risk_score": enhanced_signal.risk_score,
+                        "market_context": {
+                            "volatility_regime": enhanced_signal.market_context.volatility_regime,
+                            "trend_direction": enhanced_signal.market_context.trend_direction,
+                            "market_sentiment": enhanced_signal.market_context.market_sentiment,
+                        },
+                        "strategy_weights": enhanced_signal.strategy_weights,
+                        "ml_predictions": {
+                            name: {
+                                "prediction": pred.prediction,
+                                "confidence": pred.confidence,
+                                "model_name": pred.model_name
+                            }
+                            for name, pred in enhanced_signal.ml_predictions.items()
+                        },
+                        "rule_signals": {
+                            name: {
+                                "signal_type": signal.signal_type.value,
+                                "confidence": signal.confidence,
+                                "reasons": signal.reasons[:2]  # 上位2つの理由
+                            }
+                            for name, signal in enhanced_signal.rule_based_signals.items()
+                        }
+                    },
+                }
+                signals.append(signal_data)
+
+                logger.debug(
+                    f"強化アンサンブルシグナル生成 ({symbol}): {signal_data['type']}, "
+                    f"信頼度: {signal_data['confidence']:.2f}, "
+                    f"リスクスコア: {enhanced_signal.risk_score:.1f}"
+                )
+
+            return signals
+
+        except Exception as e:
+            logger.error(f"強化アンサンブルシグナル生成エラー ({symbol}): {e}")
+            logger.error(f"エラー詳細: {str(e)}")
+            return []
+
+    def _convert_analysis_to_indicators(self, analysis: Dict, price_df: pd.DataFrame) -> Dict[str, pd.Series]:
+        """分析結果を指標辞書に変換"""
+        indicators = {}
+
+        try:
+            # RSI変換
+            if "rsi" in analysis:
+                rsi_data = analysis["rsi"]
+                if hasattr(rsi_data, "iloc") and len(rsi_data) > 0:
+                    if len(rsi_data) == len(price_df):
+                        indicators["rsi"] = rsi_data
+                    else:
+                        # サイズが合わない場合は最新の値を使用
+                        indicators["rsi"] = pd.Series(
+                            [rsi_data.iloc[-1]] * len(price_df),
+                            index=price_df.index
+                        )
+
+            # MACD変換
+            if "macd" in analysis:
+                macd_data = analysis["macd"]
+                if isinstance(macd_data, dict):
+                    if "MACD" in macd_data and "Signal" in macd_data:
+                        macd_values = macd_data["MACD"]
+                        signal_values = macd_data["Signal"]
+                        if hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc"):
+                            if len(macd_values) == len(price_df):
+                                indicators["macd"] = macd_values
+                                indicators["macd_signal"] = signal_values
+
+            # ボリンジャーバンド変換
+            if "bollinger" in analysis:
+                bb_data = analysis["bollinger"]
+                if isinstance(bb_data, dict):
+                    if "Upper" in bb_data and "Lower" in bb_data:
+                        upper_values = bb_data["Upper"]
+                        lower_values = bb_data["Lower"]
+                        middle_values = bb_data.get("Middle")
+
+                        if hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc"):
+                            if len(upper_values) == len(price_df):
+                                indicators["bb_upper"] = upper_values
+                                indicators["bb_lower"] = lower_values
+                                if middle_values is not None and hasattr(middle_values, "iloc"):
+                                    indicators["bb_middle"] = middle_values
+
+            # 移動平均変換
+            for key, value in analysis.items():
+                if key.startswith("sma_") and hasattr(value, "iloc"):
+                    if len(value) == len(price_df):
+                        indicators[key] = value
+
+            logger.debug(f"指標変換完了: {len(indicators)}個の指標")
+
+        except Exception as e:
+            logger.error(f"指標変換エラー: {e}")
+
+        return indicators
 
     def _evaluate_trading_signals(
         self, symbol: str, analysis: Dict, patterns: Dict, settings
@@ -1152,6 +1349,215 @@ class DayTradeOrchestrator:
         report_path = report_dir / f"daytrade_report_{timestamp}.html"
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(html_content)
+
+    def train_ml_models(
+        self,
+        symbols: Optional[List[str]] = None,
+        training_period_months: int = 6,
+        retrain_interval_hours: int = 24
+    ) -> Dict[str, Any]:
+        """
+        機械学習モデルの訓練
+
+        Args:
+            symbols: 対象銘柄（未指定時は設定から取得）
+            training_period_months: 訓練データ期間（月）
+            retrain_interval_hours: 再訓練間隔（時間）
+
+        Returns:
+            訓練結果レポート
+        """
+        if not self.enhanced_ensemble:
+            logger.error("強化アンサンブル戦略が利用できません")
+            return {"success": False, "error": "Enhanced ensemble not available"}
+
+        if symbols is None:
+            symbols = self.config_manager.get_symbol_codes()
+
+        logger.info(f"機械学習モデル訓練開始: {len(symbols)}銘柄")
+
+        training_results = {
+            "success": False,
+            "trained_symbols": [],
+            "failed_symbols": [],
+            "models_trained": 0,
+            "errors": []
+        }
+
+        try:
+            # 各銘柄の訓練データを準備・訓練
+            for symbol in symbols:
+                try:
+                    logger.info(f"MLモデル訓練中: {symbol}")
+
+                    # 訓練用履歴データ取得
+                    training_data = self.stock_fetcher.get_historical_data(
+                        symbol,
+                        period=f"{training_period_months}mo",
+                        interval="1d"
+                    )
+
+                    if training_data is None or len(training_data) < 60:
+                        logger.warning(f"訓練データが不足: {symbol} ({len(training_data) if training_data is not None else 0}日分)")
+                        training_results["failed_symbols"].append(symbol)
+                        continue
+
+                    # 機械学習モデル訓練
+                    success = self.enhanced_ensemble.train_ml_models(
+                        training_data,
+                        target_column='future_return',
+                        retrain_interval_hours=retrain_interval_hours
+                    )
+
+                    if success:
+                        training_results["trained_symbols"].append(symbol)
+                        training_results["models_trained"] += 1
+                        logger.info(f"MLモデル訓練完了: {symbol}")
+                    else:
+                        training_results["failed_symbols"].append(symbol)
+                        logger.warning(f"MLモデル訓練失敗: {symbol}")
+
+                except Exception as e:
+                    error_msg = f"MLモデル訓練エラー ({symbol}): {e}"
+                    logger.error(error_msg)
+                    training_results["errors"].append(error_msg)
+                    training_results["failed_symbols"].append(symbol)
+
+            # 結果サマリー
+            total_symbols = len(symbols)
+            successful_symbols = len(training_results["trained_symbols"])
+            training_results["success"] = successful_symbols > 0
+
+            logger.info(
+                f"機械学習モデル訓練完了: {successful_symbols}/{total_symbols} 銘柄成功, "
+                f"{training_results['models_trained']}個のモデル訓練"
+            )
+
+            return training_results
+
+        except Exception as e:
+            error_msg = f"機械学習モデル訓練全体エラー: {e}"
+            logger.error(error_msg)
+            training_results["errors"].append(error_msg)
+            return training_results
+
+    def run_advanced_backtest(
+        self,
+        symbols: Optional[List[str]] = None,
+        strategy_signals: Optional[pd.DataFrame] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        高度なバックテスト実行
+
+        Args:
+            symbols: 対象銘柄
+            strategy_signals: 戦略シグナル
+            start_date: 開始日
+            end_date: 終了日
+
+        Returns:
+            バックテスト結果
+        """
+        if not self.advanced_backtest_engine:
+            logger.error("高度なバックテストエンジンが利用できません")
+            return {"success": False, "error": "Advanced backtest engine not available"}
+
+        if symbols is None:
+            symbols = self.config_manager.get_symbol_codes()[:5]  # テスト用に最初の5銘柄
+
+        logger.info(f"高度なバックテスト開始: {len(symbols)}銘柄")
+
+        try:
+            backtest_results = {}
+
+            for symbol in symbols:
+                try:
+                    # 履歴データ取得
+                    historical_data = self.stock_fetcher.get_historical_data(
+                        symbol, period="1y", interval="1d"
+                    )
+
+                    if historical_data is None or len(historical_data) < 100:
+                        logger.warning(f"バックテスト用データが不足: {symbol}")
+                        continue
+
+                    # 戦略シグナル生成（提供されない場合）
+                    if strategy_signals is None:
+                        # 簡易なシグナル生成（移動平均クロス）
+                        ma_short = historical_data['Close'].rolling(20).mean()
+                        ma_long = historical_data['Close'].rolling(50).mean()
+
+                        signals_df = pd.DataFrame(index=historical_data.index)
+                        signals_df['signal'] = 'hold'
+                        signals_df['confidence'] = 50.0
+
+                        buy_signals = (ma_short > ma_long) & (ma_short.shift(1) <= ma_long.shift(1))
+                        sell_signals = (ma_short < ma_long) & (ma_short.shift(1) >= ma_long.shift(1))
+
+                        signals_df.loc[buy_signals, 'signal'] = 'buy'
+                        signals_df.loc[buy_signals, 'confidence'] = 70.0
+                        signals_df.loc[sell_signals, 'signal'] = 'sell'
+                        signals_df.loc[sell_signals, 'confidence'] = 70.0
+                    else:
+                        signals_df = strategy_signals
+
+                    # バックテスト実行
+                    performance = self.advanced_backtest_engine.run_backtest(
+                        historical_data, signals_df, start_date, end_date
+                    )
+
+                    backtest_results[symbol] = {
+                        "total_return": performance.total_return,
+                        "annual_return": performance.annual_return,
+                        "volatility": performance.volatility,
+                        "sharpe_ratio": performance.sharpe_ratio,
+                        "sortino_ratio": performance.sortino_ratio,
+                        "max_drawdown": performance.max_drawdown,
+                        "calmar_ratio": performance.calmar_ratio,
+                        "win_rate": performance.win_rate,
+                        "profit_factor": performance.profit_factor,
+                        "total_trades": performance.total_trades,
+                        "total_commission": performance.total_commission,
+                        "total_slippage": performance.total_slippage
+                    }
+
+                    logger.info(
+                        f"バックテスト完了 ({symbol}): リターン {performance.total_return:.2%}, "
+                        f"シャープレシオ {performance.sharpe_ratio:.2f}"
+                    )
+
+                except Exception as e:
+                    logger.error(f"個別銘柄バックテストエラー ({symbol}): {e}")
+                    continue
+
+            # 全体結果サマリー
+            if backtest_results:
+                avg_return = sum(r["total_return"] for r in backtest_results.values()) / len(backtest_results)
+                avg_sharpe = sum(r["sharpe_ratio"] for r in backtest_results.values()) / len(backtest_results)
+
+                summary = {
+                    "success": True,
+                    "symbols_tested": len(backtest_results),
+                    "average_return": avg_return,
+                    "average_sharpe_ratio": avg_sharpe,
+                    "individual_results": backtest_results
+                }
+
+                logger.info(
+                    f"高度なバックテスト完了: {len(backtest_results)}銘柄, "
+                    f"平均リターン {avg_return:.2%}, 平均シャープレシオ {avg_sharpe:.2f}"
+                )
+
+                return summary
+            else:
+                return {"success": False, "error": "No successful backtests"}
+
+        except Exception as e:
+            error_msg = f"高度なバックテスト全体エラー: {e}"
+            logger.error(error_msg)
+            return {"success": False, "error": error_msg}
 
 
 # 使用例とテスト

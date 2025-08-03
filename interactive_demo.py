@@ -9,10 +9,22 @@ from rich import box
 from rich.align import Align
 from rich.console import Console
 from rich.layout import Layout
-from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+# Windows環境対応
+try:
+    from src.day_trade.utils.windows_console_fix import create_safe_live_context
+    safe_live_context = create_safe_live_context()
+except ImportError:
+    from contextlib import contextmanager
+    from rich.live import Live
+
+    @contextmanager
+    def safe_live_context(*args, **kwargs):
+        with Live(*args, **kwargs) as live:
+            yield live
 
 
 def demo_rich_interface():
@@ -103,7 +115,7 @@ def demo_rich_interface():
     console.print("実際のインタラクティブモードではリアルタイムで更新されます")
 
     # カウンターデモ
-    with Live(console=console, refresh_per_second=2) as live:
+    with safe_live_context(console=console, refresh_per_second=2) as live:
         for i in range(10):
             # 時刻更新デモ
             current_time = time.strftime("%H:%M:%S")
@@ -122,9 +134,10 @@ def demo_rich_interface():
             else:
                 demo_text.append(" 💹", style="red")
 
-            live.update(
-                Panel(
-                    Align.center(demo_text),
+            if live:  # Liveが有効な場合のみ更新
+                live.update(
+                    Panel(
+                        Align.center(demo_text),
                     title="Live Update Demo",
                     border_style="yellow",
                 )

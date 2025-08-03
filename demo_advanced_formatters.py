@@ -9,10 +9,22 @@ import time
 
 from rich.console import Console
 from rich.layout import Layout
-from rich.live import Live
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
+
+# Windows環境対応
+try:
+    from src.day_trade.utils.windows_console_fix import create_safe_live_context
+    safe_live_context = create_safe_live_context()
+except ImportError:
+    from contextlib import contextmanager
+    from rich.live import Live
+
+    @contextmanager
+    def safe_live_context(*args, **kwargs):
+        with Live(*args, **kwargs) as live:
+            yield live
 
 from src.day_trade.utils.formatters import (
     # 高度なASCII表示機能
@@ -434,10 +446,11 @@ def interactive_demo():
         return layout
 
     try:
-        with Live(create_dashboard(), refresh_per_second=2, screen=True) as live:
+        with safe_live_context(create_dashboard(), refresh_per_second=2, screen=True) as live:
             while True:
                 time.sleep(0.5)
-                live.update(create_dashboard())
+                if live:  # Liveが有効な場合のみ更新
+                    live.update(create_dashboard())
     except KeyboardInterrupt:
         console.print("\n[green]デモを終了しました。[/green]")
 

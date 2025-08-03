@@ -17,8 +17,9 @@ import pandas as pd
 
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
+from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 class SignalType(Enum):
@@ -935,35 +936,56 @@ if __name__ == "__main__":
     signal = generator.generate_signal(df, indicators, patterns)
 
     if signal:
-        print(f"シグナル: {signal.signal_type.value.upper()}")
-        print(f"強度: {signal.strength.value}")
-        print(f"信頼度: {signal.confidence:.1f}%")
-        print(f"価格: {float(signal.price):.2f}")
-        print(f"タイムスタンプ: {signal.timestamp}")
-        print("\n理由:")
-        for reason in signal.reasons:
-            print(f"  - {reason}")
+        # シグナル情報の構造化ログ出力
+        signal_data = {
+            "signal_type": signal.signal_type.value.upper(),
+            "strength": signal.strength.value,
+            "confidence": signal.confidence,
+            "price": float(signal.price),
+            "timestamp": signal.timestamp.isoformat(),
+            "reasons": signal.reasons,
+            "conditions_met": signal.conditions_met
+        }
 
-        print("\n条件の状態:")
-        for condition, met in signal.conditions_met.items():
-            status = "✓" if met else "✗"
-            print(f"  {status} {condition}")
-
-        # シグナルの検証（市場環境情報も含む）
+        # 市場環境情報も含めて検証
         market_context = {
-            "volatility": df["Close"].pct_change().std(),
+            "volatility": float(df["Close"].pct_change().std()),
             "trend_direction": "upward" if df["Close"].iloc[-1] > df["Close"].iloc[-20] else "downward"
         }
         validity = generator.validate_signal(signal, market_context=market_context)
-        print(f"\n有効性スコア: {validity:.1f}%")
+        signal_data["validity_score"] = validity
+        signal_data["market_context"] = market_context
+
+        logger.info("シグナル生成完了", **signal_data)
+
+        # ビジネスイベントとして記録
+        log_business_event("signal_generated", **signal_data)
     else:
-        print("シグナルなし")
+        logger.info("シグナル生成結果", section="signal_generation", signal_type="none", result="シグナルなし")
 
     # 時系列シグナル生成
-    print("\n=== 時系列シグナル ===")
+    logger.info("時系列シグナル生成開始", lookback_window=30)
     signals_series = generator.generate_signals_series(df, lookback_window=30)
 
     if not signals_series.empty:
         # 買い/売りシグナルのみ表示
         active_signals = signals_series[signals_series["Signal"] != "hold"]
-        print(active_signals.tail(10))
+
+        # 構造化ログ出力
+        series_summary = {
+            "total_signals": len(signals_series),
+            "active_signals": len(active_signals),
+            "buy_signals": len(active_signals[active_signals["Signal"] == "buy"]),
+            "sell_signals": len(active_signals[active_signals["Signal"] == "sell"]),
+            "latest_signals": active_signals.tail(5).to_dict("records") if len(active_signals) > 0 else []
+        }
+
+        logger.info("時系列シグナル生成完了", **series_summary)
+        log_business_event("time_series_signals_generated", **series_summary)
+
+        # デモ用表示ログ
+        logger.info("時系列シグナル表示",
+                   signal_count=len(active_signals),
+                   latest_signals=active_signals.tail(10).to_dict("records") if len(active_signals) > 0 else [])
+    else:
+        logger.info("時系列シグナル生成結果", result="no_active_signals")

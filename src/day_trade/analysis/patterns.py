@@ -11,7 +11,9 @@ import pandas as pd
 from scipy.signal import argrelextrema
 from sklearn.linear_model import LinearRegression
 
-logger = logging.getLogger(__name__)
+from ..utils.logging_config import get_context_logger
+
+logger = get_context_logger(__name__, component="chart_patterns")
 
 
 class ChartPatternRecognizer:
@@ -440,30 +442,48 @@ if __name__ == "__main__":
     # パターン認識
     recognizer = ChartPatternRecognizer()
 
-    print("=== ゴールデン・デッドクロス ===")
+    logger.info("ゴールデン・デッドクロス分析開始")
     crosses = recognizer.golden_dead_cross(df)
     golden_dates = df.index[crosses["Golden_Cross"]]
     dead_dates = df.index[crosses["Dead_Cross"]]
 
-    print(f"ゴールデンクロス: {len(golden_dates)}回")
+    golden_cross_data = []
     for date in golden_dates:
         confidence = crosses.loc[date, "Golden_Confidence"]
-        print(f"  {date.date()}: 信頼度 {confidence:.1f}%")
+        golden_cross_data.append({"date": date.date().isoformat(), "confidence": round(confidence, 1)})
 
-    print(f"\nデッドクロス: {len(dead_dates)}回")
+    dead_cross_data = []
     for date in dead_dates:
         confidence = crosses.loc[date, "Dead_Confidence"]
-        print(f"  {date.date()}: 信頼度 {confidence:.1f}%")
+        dead_cross_data.append({"date": date.date().isoformat(), "confidence": round(confidence, 1)})
 
-    print("\n=== サポート・レジスタンス ===")
+    logger.info("ゴールデンクロス・デッドクロス検出結果",
+                golden_cross_count=len(golden_dates),
+                dead_cross_count=len(dead_dates),
+                golden_crosses=golden_cross_data,
+                dead_crosses=dead_cross_data)
+
+    logger.info("サポート・レジスタンス分析")
     levels = recognizer.support_resistance_levels(df)
-    print(f"レジスタンス: {[f'{level:.2f}' for level in levels['resistance']]}")
-    print(f"サポート: {[f'{level:.2f}' for level in levels['support']]}")
+    logger.info("サポート・レジスタンス検出結果",
+                resistance_levels=[round(level, 2) for level in levels['resistance']],
+                support_levels=[round(level, 2) for level in levels['support']],
+                resistance_count=len(levels['resistance']),
+                support_count=len(levels['support']))
 
-    print("\n=== 全パターン検出 ===")
+    logger.info("全パターン検出分析")
     all_patterns = recognizer.detect_all_patterns(df)
-    print(f"総合信頼度: {all_patterns['overall_confidence']:.1f}%")
+
+    pattern_summary = {
+        "overall_confidence": round(all_patterns['overall_confidence'], 1),
+        "pattern_analysis_complete": True
+    }
 
     if "latest_signal" in all_patterns:
         signal = all_patterns["latest_signal"]
-        print(f"最新シグナル: {signal['type']} (信頼度: {signal['confidence']:.1f}%)")
+        pattern_summary["latest_signal"] = {
+            "type": signal['type'],
+            "confidence": round(signal['confidence'], 1)
+        }
+
+    logger.info("全パターン検出完了", **pattern_summary)

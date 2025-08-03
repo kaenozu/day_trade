@@ -14,8 +14,9 @@ import pandas as pd
 from ..data.stock_fetcher import StockFetcher
 from .indicators import TechnicalIndicators
 from .signals import TradingSignalGenerator
+from ..utils.logging_config import get_context_logger
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__, component="stock_screener")
 
 
 class ScreenerCondition(Enum):
@@ -584,9 +585,16 @@ if __name__ == "__main__":
         results = screener.screen_stocks(symbols, min_score=0.1, max_results=10)
 
         if results:
-            print(create_screening_report(results))
+            report = create_screening_report(results)
+            logger.info("スクリーニング結果レポート",
+                       matching_stocks=len(results),
+                       report_generated=True,
+                       screened_symbols=symbols)
         else:
-            print("条件を満たす銘柄が見つかりませんでした。")
+            logger.info("スクリーニング結果",
+                       result="no_matching_stocks",
+                       screened_symbols=symbols,
+                       symbols_count=len(symbols))
 
     except Exception as e:
         logger.error(f"スクリーニング実行エラー: {e}")
