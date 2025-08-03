@@ -113,7 +113,11 @@ class CircuitBreaker:
                 self.logger.info("サーキットブレーカーが閉状態に復帰",
                                success_count=self.success_count)
         elif self.state == CircuitState.CLOSED:
+<<<<<<< Updated upstream
             # 成功時には failure_count を 0 にリセット
+=======
+            # 成功時は失敗回数をリセット
+>>>>>>> Stashed changes
             self.failure_count = 0
 
     def record_failure(self) -> None:
@@ -188,11 +192,11 @@ class ResilientAPIClient:
 
         # リトライ戦略の設定
         retry_strategy = Retry(
-            total=self.retry_config.max_attempts,
-            backoff_factor=self.retry_config.backoff_factor,
+            total=self.retry_config.max_attempts - 1,  # 最初の試行を除くリトライ回数
+            backoff_factor=self.retry_config.base_delay,  # 修正箇所
             status_forcelist=self.retry_config.status_forcelist,
             allowed_methods=self.retry_config.allowed_methods,
-            raise_on_status=False
+            raise_on_status=True  # HTTPエラーもRequests.exceptions.HTTPErrorとして再発生させる
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -282,7 +286,7 @@ class ResilientAPIClient:
         url: str,
         **kwargs
     ) -> requests.Response:
-        """リトライ機構付きでリクエストを実行（urllib3のRetryに委任）"""
+        """リトライ機構付きでリクエストを実行 (urllib3のRetryに任せる)"""
         circuit_breaker = self.circuit_breakers[endpoint.name]
 
         try:
@@ -291,38 +295,58 @@ class ResilientAPIClient:
             # タイムアウトを設定
             kwargs.setdefault('timeout', endpoint.timeout)
 
-            # リクエスト実行（urllib3のRetryが自動的にリトライを処理）
+            # リクエスト実行 (Retryオブジェクトがリトライを処理)
             response = self.session.request(method, url, **kwargs)
 
             response_time = (time.time() - start_time) * 1000
 
             # API呼び出しログ
+            # response.raw.retries は requests 内部の Retry オブジェクト
+            # _retry_counts はリトライ回数を保持する辞書
+            retry_count_for_method = 0
+            if hasattr(response.raw, 'retries') and hasattr(response.raw.retries, '_retry_counts'):
+                # _retry_counts は {method.lower(): count} の形式
+                retry_count_for_method = response.raw.retries._retry_counts.get(method.lower(), 0)
+
             log_api_call(
                 endpoint.name,
                 method,
                 url,
                 response.status_code,
-                response_time=response_time
+                response_time=response_time,
+                attempt=retry_count_for_method + 1 # 試行回数 = 実際のリクエスト数
             )
 
             # 成功判定
-            if response.status_code < 400:
-                circuit_breaker.record_success()
-                log_performance_metric("api_response_time", response_time, "ms",
-                                     endpoint=endpoint.name,
-                                     method=method,
-                                     status_code=response.status_code)
-                return response
+            circuit_breaker.record_success()
+            log_performance_metric("api_response_time", response_time, "ms",
+                                 endpoint=endpoint.name,
+                                 method=method,
+                                 status_code=response.status_code)
+            return response
 
-            # HTTPエラーの場合（リトライ後も失敗）
+        except requests.exceptions.HTTPError as http_exc:
             circuit_breaker.record_failure()
-            self._raise_http_error(response)
+            self.logger.error(f"HTTPエラー発生: {http_exc.response.status_code}",
+                            endpoint=endpoint.name,
+                            error=str(http_exc))
+            self._raise_http_error(http_exc.response)
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException as req_exc:
             circuit_breaker.record_failure()
-            # ネットワークエラー（リトライ後も失敗）
-            self._raise_network_error(e)
+            self.logger.error(f"リクエストエラー発生: {req_exc}",
+                            endpoint=endpoint.name,
+                            error=str(req_exc))
+            self._raise_network_error(req_exc)
 
+        except Exception as e:
+            # 予期せぬエラー
+            circuit_breaker.record_failure()
+            self.logger.error(f"予期せぬエラー発生: {e}",
+                            endpoint=endpoint.name,
+                            error=str(e))
+            raise APIError(f"予期せぬAPIエラー: {e}") from e # DayTradeErrorにラップして再発生
+>>>>>>> Stashed changes
 
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""
