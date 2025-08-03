@@ -322,17 +322,61 @@ class TestBacktestEngine:
         if seed is not None:
             np.random.seed(seed)
 
-        noise = np.random.normal(0, volatility, n_days)
-        final_prices = trend_prices * (1 + noise)
+        noise = np.random.normal(0, volatility * base_price, n_days)
+        final_prices = trend_prices + noise
 
-        # OHLCVを生成
-        return self._generate_realistic_market_data(
-            dates=dates,
-            base_price=base_price,
-            trend=trend_strength/n_days,
-            volatility=volatility,
-            seed=seed
-        )
+        # 負の価格を防ぐ
+        final_prices = np.maximum(final_prices, base_price * 0.5)
+
+        # OHLCVを生成（final_pricesをCloseとして使用）
+        n_days = len(dates)
+
+        # 各OHLCV列のデータを配列として準備
+        opens = np.zeros(n_days)
+        highs = np.zeros(n_days)
+        lows = np.zeros(n_days)
+        closes = final_prices.copy()
+        volumes = np.random.randint(1500000, 2500000, n_days)
+
+        # 各日のOHLを計算
+        for i in range(n_days):
+            close_price = final_prices[i]
+
+            # 日中変動を生成
+            daily_volatility = volatility / np.sqrt(252)
+            price_range = close_price * daily_volatility
+
+            # Open価格（前日のCloseに近い値）
+            if i == 0:
+                open_price = base_price
+            else:
+                open_price = final_prices[i-1] + np.random.normal(0, price_range * 0.5)
+
+            # High/Low価格
+            high_price = max(open_price, close_price) + abs(np.random.normal(0, price_range))
+            low_price = min(open_price, close_price) - abs(np.random.normal(0, price_range))
+
+            # 負の価格を防ぐ
+            low_price = max(low_price, base_price * 0.1)
+            high_price = max(high_price, low_price)
+            open_price = max(min(open_price, high_price), low_price)
+            close_price = max(min(close_price, high_price), low_price)
+
+            opens[i] = open_price
+            highs[i] = high_price
+            lows[i] = low_price
+            closes[i] = close_price
+
+        # DataFrameを作成
+        ohlcv_data = pd.DataFrame({
+            "Open": opens,
+            "High": highs,
+            "Low": lows,
+            "Close": closes,
+            "Volume": volumes
+        }, index=dates)
+
+        return ohlcv_data
 
     def _generate_volatile_data(
         self,
@@ -992,7 +1036,7 @@ class TestBacktestEngine:
         symbols = ["7203", "9984", "8306", "4063", "6758", "2914", "1301", "8001"]
 
         # モックで各銘柄ごとに異なるデータを返すよう設定
-        def mock_get_data(symbol, start_date, end_date):
+        def mock_get_data(symbol, start_date, end_date, interval="1d"):
             # わずかな遅延を追加して並列処理の効果をシミュレート
             time.sleep(0.01)
             dates = pd.date_range(start_date, end_date, freq="D")
@@ -1040,7 +1084,7 @@ class TestBacktestEngine:
         symbols = ["7203", "INVALID", "9984"]
 
         # 一部の銘柄でエラーが発生するよう設定
-        def mock_get_data_with_error(symbol, start_date, end_date):
+        def mock_get_data_with_error(symbol, start_date, end_date, interval="1d"):
             if symbol == "INVALID":
                 raise ValueError(f"Invalid symbol: {symbol}")
             else:
@@ -1128,7 +1172,7 @@ class TestBacktestEngine:
         call_count = {"value": 0}
         call_lock = threading.Lock()
 
-        def thread_safe_mock_get_data(symbol, start_date, end_date):
+        def thread_safe_mock_get_data(symbol, start_date, end_date, interval="1d"):
             with call_lock:
                 call_count["value"] += 1
             return self.sample_data.copy()  # コピーを返して変更の影響を避ける
@@ -2441,7 +2485,7 @@ class TestAdvancedBacktestScenarios:
             "8306": create_symbol_data("8306", 800, 1.1),   # 10%上昇
         }
 
-        def mock_get_data(symbol, start_date, end_date):
+        def mock_get_data(symbol, start_date, end_date, interval="1d"):
             return symbol_data.get(symbol, symbol_data["7203"])
 
         self.mock_stock_fetcher.get_historical_data.side_effect = mock_get_data
