@@ -263,9 +263,9 @@ class StockFetcher:
 
         @retry_decorator
         def _execute_with_retry():
-            result = func(*args, **kwargs)
-            self._record_request_success()
-            return result
+            # _record_request_success() は最終的な成功時のみ呼ばれるように
+            # ここでは呼び出さない
+            return func(*args, **kwargs)
 
         try:
             return _execute_with_retry()
@@ -289,22 +289,7 @@ class StockFetcher:
                 retryable_codes = [500, 502, 503, 504, 408, 429]
                 return status_code in retryable_codes
 
-        # 最後の手段として文字列解析（後方互換性のため）
-        error_message = str(error).lower()
-        retryable_patterns = [
-            "connection",
-            "timeout",
-            "network",
-            "temporary",
-            "read timeout",
-            "connection timeout",
-            "500",
-            "502",
-            "503",
-            "504",
-        ]
-
-        return any(pattern in error_message for pattern in retryable_patterns)
+        return False
 
     def _handle_error(self, error: Exception) -> None:
         """エラーを適切な例外クラスに変換して再発生（改善版）"""
