@@ -327,7 +327,7 @@ class TestEnsembleTradingStrategy:
         result = ensemble._soft_voting(strategy_signals, {})
 
         assert result is not None
-        ensemble_signal, voting_scores, confidence = result
+        ensemble_signal, voting_scores, confidence, uncertainty = result
         assert (
             ensemble_signal.signal_type == SignalType.BUY
         )  # より強い買いシグナルが勝つはず
@@ -355,7 +355,7 @@ class TestEnsembleTradingStrategy:
         result = ensemble._hard_voting(strategy_signals, {})
 
         assert result is not None
-        ensemble_signal, voting_scores, confidence = result
+        ensemble_signal, voting_scores, confidence, uncertainty = result
         assert ensemble_signal.signal_type == SignalType.BUY
 
     def test_confidence_threshold(self):

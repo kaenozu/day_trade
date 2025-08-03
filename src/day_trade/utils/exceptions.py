@@ -101,6 +101,12 @@ class DataError(DayTradeError):
     pass
 
 
+class DataNotFoundError(DataError):
+    """データ未検出エラー"""
+
+    pass
+
+
 class ValidationError(DataError):
     """データ検証エラー"""
 

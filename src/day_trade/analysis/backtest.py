@@ -915,7 +915,7 @@ class BacktestEngine:
             trades_data.append({
                 'index': i,
                 'symbol': trade.symbol,
-                'action': trade.trade_type.value,
+                'action': trade.action.value,
                 'price': float(trade.price),
                 'quantity': float(trade.quantity),
                 'commission': float(trade.commission),
@@ -1015,7 +1015,7 @@ class BacktestEngine:
                 chunk_data.append({
                     'index': i + j,
                     'symbol': trade.symbol,
-                    'action': trade.trade_type.value,
+                    'action': trade.action.value,
                     'price': float(trade.price),
                     'quantity': float(trade.quantity),
                     'commission': float(trade.commission),
