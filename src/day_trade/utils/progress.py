@@ -290,15 +290,15 @@ def progress_context(
         return
 
     # 通常の処理
-        # 統一されたProgress インスタンス作成
-        progress_instance = _create_progress_instance(progress_type, current_config)
+    # 統一されたProgress インスタンス作成
+    progress_instance = _create_progress_instance(progress_type, current_config)
 
-        with progress_instance as progress:
-            if progress_type == ProgressType.INDETERMINATE:
-                task = progress.add_task(description)
-            else:
-                task = progress.add_task(description, total=total)
-            yield ProgressUpdater(progress, task)
+    with progress_instance as progress:
+        if progress_type == ProgressType.INDETERMINATE:
+            task = progress.add_task(description)
+        else:
+            task = progress.add_task(description, total=total)
+        yield ProgressUpdater(progress, task)
 
 
 class BatchProgressTracker:

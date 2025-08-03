@@ -530,7 +530,6 @@ def optimize_dataframe_memory(df: pd.DataFrame) -> pd.DataFrame:
         elif (col_type == 'int64' and
               optimized_df[col].min() >= np.iinfo(np.int32).min and
               optimized_df[col].max() <= np.iinfo(np.int32).max):
-            # より小さい整数型に変換可能な場合
             optimized_df[col] = optimized_df[col].astype(np.int32)
 
     logger.debug(
