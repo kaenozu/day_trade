@@ -337,6 +337,111 @@ def validate_codes(codes):
     console.print(table)
 
 
+@cli.command()
+@click.option("--symbols", "-n", default=5, help="最大選択銘柄数", type=int)
+@click.option("--depth", "-d", default="balanced",
+              type=click.Choice(["fast", "balanced", "comprehensive"]),
+              help="最適化の深さ")
+@click.option("--no-progress", is_flag=True, help="進捗表示を無効化")
+def auto(symbols, depth, no_progress):
+    """全自動最善選択を実行"""
+    try:
+        from ..automation.auto_optimizer import AutoOptimizer
+
+        console.print("[bold green]🚀 全自動最善選択を開始します...[/bold green]")
+
+        # 全自動最適化実行
+        optimizer = AutoOptimizer()
+        result = optimizer.run_auto_optimization(
+            max_symbols=symbols,
+            optimization_depth=depth,
+            show_progress=not no_progress
+        )
+
+        # 成功メッセージ
+        console.print(f"\n[bold green]✅ 最適化完了![/bold green]")
+        console.print(f"選択銘柄: {', '.join(result.best_symbols[:3])}{'...' if len(result.best_symbols) > 3 else ''}")
+        console.print(f"期待リターン: {result.expected_return:.2%}")
+        console.print(f"信頼度: {result.confidence:.1%}")
+
+        # 次のアクション提案
+        console.print("\n[bold cyan]🎯 推奨アクション:[/bold cyan]")
+        console.print("1. 選択された銘柄の詳細を確認: daytrade stock <銘柄コード>")
+        console.print("2. ウォッチリストに追加: daytrade watchlist add <銘柄コード>")
+        console.print("3. 履歴データを確認: daytrade history <銘柄コード>")
+
+    except ImportError as e:
+        console.print(
+            create_error_panel(
+                f"全自動最適化機能の初期化に失敗しました。必要なモジュールが見つかりません: {e}",
+                title="機能エラー",
+            )
+        )
+    except Exception as e:
+        console.print(
+            create_error_panel(
+                f"全自動最適化中にエラーが発生しました: {e}\n詳細なログを確認してください。",
+                title="実行エラー",
+            )
+        )
+
+
+@cli.command()
+@click.argument("symbols", nargs=-1)
+@click.option("--config", "-c", type=click.Path(), help="設定ファイルのパス")
+@click.option("--report-only", is_flag=True, help="レポート生成のみ")
+def run(symbols, config, report_only):
+    """フル自動化処理を実行（従来機能）"""
+    try:
+        from ..automation.orchestrator import DayTradeOrchestrator
+
+        if config:
+            orchestrator = DayTradeOrchestrator(config)
+        else:
+            orchestrator = DayTradeOrchestrator()
+
+        symbol_list = list(symbols) if symbols else None
+
+        console.print("[bold green]🔄 デイトレード自動化処理を開始...[/bold green]")
+
+        with console.status("[bold green]処理中..."):
+            report = orchestrator.run_full_automation(
+                symbols=symbol_list,
+                report_only=report_only,
+                show_progress=True
+            )
+
+        # 結果表示
+        console.print(f"\n[bold green]✅ 処理完了![/bold green]")
+        console.print(f"対象銘柄: {report.total_symbols}")
+        console.print(f"成功: {report.successful_symbols}")
+        console.print(f"失敗: {report.failed_symbols}")
+        console.print(f"生成シグナル: {len(report.generated_signals)}")
+        console.print(f"トリガーアラート: {len(report.triggered_alerts)}")
+
+        if report.errors:
+            console.print(f"\n[red]エラー ({len(report.errors)}件):[/red]")
+            for error in report.errors[:3]:  # 最初の3件のみ表示
+                console.print(f"  • {error}")
+            if len(report.errors) > 3:
+                console.print(f"  ... 他{len(report.errors) - 3}件")
+
+    except ImportError as e:
+        console.print(
+            create_error_panel(
+                f"自動化機能の初期化に失敗しました: {e}",
+                title="機能エラー",
+            )
+        )
+    except Exception as e:
+        console.print(
+            create_error_panel(
+                f"自動化処理中にエラーが発生しました: {e}",
+                title="実行エラー",
+            )
+        )
+
+
 cli.add_command(watchlist)
 
 
