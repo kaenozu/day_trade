@@ -267,9 +267,10 @@ class AdvancedBacktestEngine:
             if order.side == "buy" and market_data['Low'] <= order.price or order.side == "sell" and market_data['High'] >= order.price:
                 return True
 
-        elif order.order_type == OrderType.STOP:
-            if order.side == "buy" and market_data['High'] >= order.stop_price or order.side == "sell" and market_data['Low'] <= order.stop_price:
-                return True
+        elif (order.order_type == OrderType.STOP and
+              ((order.side == "buy" and market_data['High'] >= order.stop_price) or
+               (order.side == "sell" and market_data['Low'] <= order.stop_price))):
+            return True
 
         return False
 

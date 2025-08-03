@@ -493,10 +493,10 @@ class MultiStepProgressTracker:
     def set_step_description(self, step_index: int, description: str):
         """特定ステップの説明を設定（エラーハンドリング付き）"""
         try:
-            if 0 <= step_index < len(self.steps) and description:
-                if step_index == self.current_step and self._is_valid_tracker():
-                    full_description = f"{self.overall_description}: {description}"
-                    self.progress.update(self.task_id, description=full_description)
+            if (0 <= step_index < len(self.steps) and description and
+                step_index == self.current_step and self._is_valid_tracker()):
+                full_description = f"{self.overall_description}: {description}"
+                self.progress.update(self.task_id, description=full_description)
         except Exception as e:
             logger.warning(f"ステップ説明設定エラー (index: {step_index}): {e}")
 

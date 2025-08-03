@@ -400,9 +400,9 @@ class EnsembleVotingValidator:
             expected_confidence_range = scenario.expected_result.get("confidence_range")
             actual_confidence = actual_result["confidence"]
 
-            if expected_confidence_range:
-                if not (expected_confidence_range[0] <= actual_confidence <= expected_confidence_range[1]):
-                    success = False
+            if (expected_confidence_range and
+                not (expected_confidence_range[0] <= actual_confidence <= expected_confidence_range[1])):
+                success = False
 
             # 重み一貫性検証
             weight_consistency = self._validate_weight_consistency(scenario.strategy_weights)

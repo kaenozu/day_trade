@@ -482,10 +482,10 @@ def create_transaction_performance_benchmark():
 if __name__ == "__main__":
 
     # 1. 冪等性保証の例
-    with db_manager.session_scope() as session:
-        with TransactionPatterns.idempotent_operation("user_registration_123", session):
-            # ユーザー登録処理（重複実行防止）
-            pass
+    with db_manager.session_scope() as session, \
+         TransactionPatterns.idempotent_operation("user_registration_123", session):
+        # ユーザー登録処理（重複実行防止）
+        pass
 
     # 2. 楽観的ロック更新の例
     with db_manager.session_scope() as session:

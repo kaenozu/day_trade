@@ -453,7 +453,7 @@ class EnhancedTransactionManager:
                     raise
 
             # Phase 2: Commit (すべて成功した場合のみコミット)
-            for session, result in prepared_transactions:
+            for session, _result in prepared_transactions:
                 session.commit()
 
             log_business_event(
