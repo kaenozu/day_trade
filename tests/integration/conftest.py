@@ -8,6 +8,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from unittest.mock import patch
+import contextlib
 
 # 統合テスト用のマーカーを定義
 def pytest_configure(config):
@@ -34,10 +35,8 @@ def integration_test_db():
     test_db_path = tempfile.mktemp(suffix='.db')
     yield test_db_path
     # クリーンアップ（実装時に追加）
-    try:
+    with contextlib.suppress(Exception):
         Path(test_db_path).unlink(missing_ok=True)
-    except Exception:
-        pass
 
 
 @pytest.fixture(scope="session")
