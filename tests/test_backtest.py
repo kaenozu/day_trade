@@ -648,27 +648,30 @@ class TestIntegration:
         crash_period = n_days // 3
         recovery_period = n_days - crash_period
 
-        prices = []
+        # 必要な価格データを正確に生成
+        all_prices = np.zeros(n_days)
 
         # 1. 暴落期間
-        crash_prices = np.linspace(base_price, base_price * (1 + crash_magnitude), crash_period)
-        # 急激な変動を追加
-        for i, price in enumerate(crash_prices):
-            if i < len(crash_prices) - 1:
-                # 暴落中は激しい価格変動
+        crash_base = np.linspace(base_price, base_price * (1 + crash_magnitude), crash_period)
+        for i in range(crash_period):
+            price = crash_base[i]
+            if i > 0:  # 最初の日以外は変動を追加
                 daily_shock = np.random.choice([-0.08, -0.05, -0.03, 0.02, 0.05], p=[0.3, 0.3, 0.2, 0.1, 0.1])
                 price *= (1 + daily_shock)
-            prices.append(max(price, base_price * 0.3))  # 最低価格保証
+            all_prices[i] = max(price, base_price * 0.3)  # 最低価格保証
 
         # 2. 回復期間
         recovery_target = base_price * (1 + crash_magnitude * (1 - recovery_factor))
-        recovery_prices = np.linspace(prices[-1], recovery_target, recovery_period)
+        recovery_base = np.linspace(all_prices[crash_period - 1], recovery_target, recovery_period)
 
-        for i, price in enumerate(recovery_prices[1:], 1):  # 最初の要素はスキップ
-            # 回復期間中の変動
-            daily_change = np.random.choice([-0.03, 0.01, 0.03, 0.06], p=[0.2, 0.3, 0.3, 0.2])
-            price *= (1 + daily_change)
-            prices.append(max(price, base_price * 0.2))
+        for i in range(recovery_period):
+            price = recovery_base[i]
+            if i > 0:  # 最初の日以外は変動を追加
+                daily_change = np.random.choice([-0.03, 0.01, 0.03, 0.06], p=[0.2, 0.3, 0.3, 0.2])
+                price *= (1 + daily_change)
+            all_prices[crash_period + i] = max(price, base_price * 0.2)
+
+        prices = all_prices
 
         # OHLCVデータの生成
         ohlcv_data = []
