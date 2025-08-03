@@ -113,11 +113,7 @@ class CircuitBreaker:
                 self.logger.info("サーキットブレーカーが閉状態に復帰",
                                success_count=self.success_count)
         elif self.state == CircuitState.CLOSED:
-<<<<<<< Updated upstream
-            # 成功時には failure_count を 0 にリセット
-=======
             # 成功時は失敗回数をリセット
->>>>>>> Stashed changes
             self.failure_count = 0
 
     def record_failure(self) -> None:
@@ -346,8 +342,6 @@ class ResilientAPIClient:
                             endpoint=endpoint.name,
                             error=str(e))
             raise APIError(f"予期せぬAPIエラー: {e}") from e # DayTradeErrorにラップして再発生
->>>>>>> Stashed changes
-
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""
         status_code = response.status_code
