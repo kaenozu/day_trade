@@ -476,39 +476,180 @@ class TestBacktestResult:
 class TestIntegration:
     """統合テスト"""
 
-    def _generate_trending_data(self, dates, base_price=2500, trend_strength=0.1, volatility=0.02, seed=42):
-        """トレンドのあるテストデータを生成"""
-        np.random.seed(seed)
-        n_days = len(dates)
+    def _generate_trending_data(self, periods: int = 50, trend_direction: str = 'neutral', volatility: float = 0.02) -> pd.DataFrame:
+        """強化されたトレンド保証アルゴリズムによるデータ生成"""
 
-        # 線形トレンドの生成
-        linear_trend = np.linspace(0, trend_strength, n_days)
-        trend_prices = base_price * (1 + linear_trend)
+        # ランダムな歩きを初期化
+        current_price = 100.0
+        price_return = []
+        accumulated_trend = 0.0
+        drift_noise = 0.0
 
-        # ボラティリティを加える
-        noise = np.random.normal(0, volatility * base_price, n_days)
-        final_prices = trend_prices + noise
+        for i in range(periods):
+            # より強いトレンドとモメンタム効果
+            random_component = np.random.normal(0, volatility * 0.7)
 
-        # 価格が負にならないように調整
-        final_prices = np.maximum(final_prices, base_price * 0.5)
+            # トレンドドリフトの計算（より強力に）
+            trend_strength = 1.2 if trend_direction == 'up' else 0.8 if trend_direction == 'down' else 1.0
+            drift_factor = (trend_strength - 1.0) * 0.008  # より強いドリフト
 
-        # OHLCV データの生成
-        ohlcv_data = []
-        for i, price in enumerate(final_prices):
-            daily_volatility = volatility * base_price * 0.5
-            high = price + np.random.uniform(0, daily_volatility)
-            low = price - np.random.uniform(0, daily_volatility)
-            open_price = price + np.random.uniform(-daily_volatility/2, daily_volatility/2)
+            # 指数移動平均的な効果でトレンドを強化
+            accumulated_trend = accumulated_trend * 0.92 + drift_factor * 0.08
+            drift_noise = drift_noise * 0.85 + np.random.normal(0, 0.001) * 0.15
 
-            ohlcv_data.append({
-                'Open': max(open_price, low),
-                'High': max(high, price, open_price),
-                'Low': min(low, price, open_price),
-                'Close': price,
-                'Volume': int(np.random.uniform(1000000, 2000000))
-            })
+            # 実際の変化率計算
+            return_value = accumulated_trend + drift_noise + random_component
+            price_return.append(return_value)
 
-        return pd.DataFrame(ohlcv_data, index=dates)
+            current_price *= (1 + return_value)
+
+        # 指定されたトレンドが実際に現れているかの厳密な検証
+        price_data = 100.0 * np.exp(np.cumsum(price_return))
+        first_half = price_data[:periods//2]
+        second_half = price_data[periods//2:]
+        overall_trend_return = (price_data[-1] - price_data[0]) / price_data[0]
+
+        if trend_direction == 'up' and overall_trend_return < 0.02:
+            # 上昇トレンドが不十分な場合の補正
+            additional_trend = np.linspace(0, 0.05, periods)
+            price_return = np.array(price_return) + np.diff(np.concatenate([[0], additional_trend]))
+        elif trend_direction == 'down' and overall_trend_return > -0.02:
+            # 下降トレンドが不十分な場合の補正
+            additional_trend = np.linspace(0, -0.05, periods)
+            price_return = np.array(price_return) + np.diff(np.concatenate([[0], additional_trend]))
+
+        # 最終的な価格データの構築
+        base_price = 100.0
+        prices = [base_price]
+        for return_val in price_return:
+            prices.append(prices[-1] * (1 + return_val))
+
+        data = pd.DataFrame({
+            'Open': prices[:-1],
+            'High': [p * (1 + np.random.uniform(0, 0.02)) for p in prices[:-1]],
+            'Low': [p * (1 - np.random.uniform(0, 0.02)) for p in prices[:-1]],
+            'Close': prices[1:],
+            'Volume': np.random.randint(1000, 10000, periods)
+        })
+
+        # 最終検証
+        final_trend_return = (data['Close'].iloc[-1] - data['Close'].iloc[0]) / data['Close'].iloc[0]
+        if trend_direction == 'up':
+            assert final_trend_return > 0.015, f"上昇トレンドの保証に失敗: {final_trend_return:.3f}"
+        elif trend_direction == 'down':
+            assert final_trend_return < -0.015, f"下降トレンドの保証に失敗: {final_trend_return:.3f}"
+
+        return data
+
+    def _generate_volatile_data(self, periods: int = 50) -> pd.DataFrame:
+        """高ボラティリティデータの生成"""
+        base_price = 100.0
+        returns = np.random.normal(0, 0.05, periods)  # 高ボラティリティ
+
+        # 価格の急激な変動を追加
+        for i in range(0, periods, 10):
+            if i < len(returns):
+                returns[i] *= 3  # 10日おきに急激な変動
+
+        prices = [base_price]
+        for return_val in returns:
+            prices.append(prices[-1] * (1 + return_val))
+
+        return pd.DataFrame({
+            'Open': prices[:-1],
+            'High': [p * (1 + np.random.uniform(0, 0.03)) for p in prices[:-1]],
+            'Low': [p * (1 - np.random.uniform(0, 0.03)) for p in prices[:-1]],
+            'Close': prices[1:],
+            'Volume': np.random.randint(5000, 50000, periods)
+        })
+
+    def _generate_market_crash_scenario(self, periods: int = 30) -> pd.DataFrame:
+        """市場クラッシュシナリオの生成"""
+        base_price = 100.0
+
+        # 急激な下落を模擬
+        crash_returns = []
+        for i in range(periods):
+            if i < 5:  # 最初の5日で急落
+                crash_returns.append(np.random.normal(-0.08, 0.02))
+            elif i < 15:  # 続く10日で継続的な下落
+                crash_returns.append(np.random.normal(-0.03, 0.015))
+            else:  # 残りの期間で緩やかな回復
+                crash_returns.append(np.random.normal(0.01, 0.02))
+
+        prices = [base_price]
+        for return_val in crash_returns:
+            prices.append(prices[-1] * (1 + return_val))
+
+        return pd.DataFrame({
+            'Open': prices[:-1],
+            'High': [p * (1 + np.random.uniform(0, 0.01)) for p in prices[:-1]],
+            'Low': [p * (1 - np.random.uniform(0, 0.02)) for p in prices[:-1]],
+            'Close': prices[1:],
+            'Volume': np.random.randint(20000, 100000, periods)  # クラッシュ時は高出来高
+        })
+
+    def test_trending_market_performance(self):
+        """強いトレンド市場でのパフォーマンステスト"""
+        # 上昇トレンドデータ
+        bull_data = self._generate_trending_data(trend_direction='up')
+        bull_result = self.engine.run_backtest(
+            bull_data,
+            selected_strategies=['moving_average', 'rsi']
+        )
+
+        # 下降トレンドデータ
+        bear_data = self._generate_trending_data(trend_direction='down')
+        bear_result = self.engine.run_backtest(
+            bear_data,
+            selected_strategies=['moving_average', 'rsi']
+        )
+
+        # パフォーマンス評価
+        self.assertIsNotNone(bull_result)
+        self.assertIsNotNone(bear_result)
+        self.assertIn('final_signal', bull_result)
+        self.assertIn('final_signal', bear_result)
+
+    def test_dynamic_data_generation_utilities(self):
+        """動的データ生成ユーティリティのテスト"""
+        # 各種データ生成の検証
+        trending_up = self._generate_trending_data(periods=30, trend_direction='up')
+        trending_down = self._generate_trending_data(periods=30, trend_direction='down')
+        volatile = self._generate_volatile_data(periods=30)
+        crash = self._generate_market_crash_scenario(periods=30)
+
+        # データ構造の検証
+        for data in [trending_up, trending_down, volatile, crash]:
+            self.assertIsInstance(data, pd.DataFrame)
+            self.assertEqual(len(data), 30)
+            self.assertListEqual(
+                list(data.columns),
+                ['Open', 'High', 'Low', 'Close', 'Volume']
+            )
+
+            # 価格の妥当性チェック
+            self.assertTrue(all(data['High'] >= data['Low']))
+            self.assertTrue(all(data['High'] >= data['Open']))
+            self.assertTrue(all(data['High'] >= data['Close']))
+            self.assertTrue(all(data['Low'] <= data['Open']))
+            self.assertTrue(all(data['Low'] <= data['Close']))
+            self.assertTrue(all(data['Volume'] > 0))
+
+        # トレンド方向の検証
+        up_return = (trending_up['Close'].iloc[-1] - trending_up['Close'].iloc[0]) / trending_up['Close'].iloc[0]
+        down_return = (trending_down['Close'].iloc[-1] - trending_down['Close'].iloc[0]) / trending_down['Close'].iloc[0]
+
+        self.assertGreater(up_return, 0.01, "上昇トレンドデータの検証失敗")
+        self.assertLess(down_return, -0.01, "下降トレンドデータの検証失敗")
+
+        # クラッシュシナリオの検証
+        crash_return = (crash['Close'].iloc[-1] - crash['Close'].iloc[0]) / crash['Close'].iloc[0]
+        early_crash_return = (crash['Close'].iloc[4] - crash['Close'].iloc[0]) / crash['Close'].iloc[0]
+
+        self.assertLess(early_crash_return, -0.2, "初期クラッシュの検証失敗")
+        # 全体的には回復を期待（クラッシュ後の回復込み）
+        self.assertGreater(crash_return, early_crash_return, "クラッシュ後の回復検証失敗")
 
     def test_complete_workflow_mock(self):
         """完全なワークフローテスト（モック使用）"""
