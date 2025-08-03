@@ -8,7 +8,6 @@ JSON形式での出力、フィルタリング、ログレベル管理を統一�
 import logging
 import os
 import sys
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 import structlog
@@ -99,6 +98,12 @@ class LoggingConfig:
         logging.getLogger("sqlalchemy.dialects").setLevel(logging.WARNING)
         logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
         logging.getLogger("sqlalchemy.orm").setLevel(logging.WARNING)
+
+        # パフォーマンスクリティカルなライブラリのログを制限
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
+        logging.getLogger("yfinance").setLevel(logging.WARNING)
 
         # urllib3のログを制限
         logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
@@ -233,130 +238,149 @@ def log_api_call(api_name: str, method: str, url: str, status_code: int = None, 
     )
 
 
-def log_security_event(event_type: str, severity: str = "info", **kwargs) -> None:
-    """セキュリティイベントをログ出力"""
-    logger = get_logger()
+# パフォーマンス最適化関連
+class PerformanceCriticalLogger:
+    """パフォーマンスクリティカルなセクション用の最適化されたロガー"""
 
-    log_data = {
-        "event_type": event_type,
-        "severity": severity,
-        "timestamp": datetime.now().isoformat(),
-        **kwargs
-    }
+    def __init__(self, logger: Any, min_level: int = logging.WARNING):
+        """
+        Args:
+            logger: ベースロガー
+            min_level: 最小ログレベル（これ以下のレベルはスキップ）
+        """
+        self.logger = logger
+        self.min_level = min_level
+        self._is_enabled_cache = {}  # ログレベルチェックのキャッシュ
 
-    if severity == "critical":
-        logger.critical("Security event", **log_data)
-    elif severity == "warning":
-        logger.warning("Security event", **log_data)
-    else:
-        logger.info("Security event", **log_data)
+    def _is_enabled(self, level: int) -> bool:
+        """ログレベルが有効かどうかをキャッシュ付きでチェック"""
+        if level not in self._is_enabled_cache:
+            self._is_enabled_cache[level] = level >= self.min_level
+        return self._is_enabled_cache[level]
 
-
-def log_user_action(action: str, user_id: str = None, **kwargs) -> None:
-    """ユーザーアクションをログ出力"""
-    logger = get_logger()
-    logger.info(
-        "User action",
-        action=action,
-        user_id=user_id or "anonymous",
-        timestamp=datetime.now().isoformat(),
-        **kwargs
-    )
-
-
-def log_system_health(component: str, status: str, **metrics) -> None:
-    """システムヘルス情報をログ出力"""
-    logger = get_logger()
-    logger.info(
-        "System health",
-        component=component,
-        status=status,
-        timestamp=datetime.now().isoformat(),
-        **metrics
-    )
-
-
-class AlertThreshold:
-    """アラート閾値設定"""
-
-    def __init__(self):
-        self.error_count_threshold = int(os.getenv("ALERT_ERROR_THRESHOLD", "10"))
-        self.response_time_threshold = float(os.getenv("ALERT_RESPONSE_TIME_THRESHOLD", "5.0"))
-        self.memory_usage_threshold = float(os.getenv("ALERT_MEMORY_THRESHOLD", "80.0"))
-
-
-class LoggingAlert:
-    """ログベースアラート機能"""
-
-    def __init__(self):
-        self.thresholds = AlertThreshold()
-        self.error_count = 0
-        self.alert_enabled = os.getenv("ENABLE_LOGGING_ALERTS", "false").lower() == "true"
-
-    def check_error_threshold(self) -> None:
-        """エラー数閾値チェック"""
-        if not self.alert_enabled:
+    def debug_batch(self, messages: list, **common_context) -> None:
+        """バッチデバッグログ（パフォーマンス最適化）"""
+        if not self._is_enabled(logging.DEBUG):
             return
 
-        self.error_count += 1
-        if self.error_count >= self.thresholds.error_count_threshold:
-            log_security_event(
-                "error_threshold_exceeded",
-                severity="warning",
-                error_count=self.error_count,
-                threshold=self.thresholds.error_count_threshold
-            )
-            self.error_count = 0  # リセット
+        # メッセージを集約してまとめて出力
+        batch_message = f"Batch debug: {len(messages)} items"
+        self.logger.debug(batch_message, messages=messages[:5], total_count=len(messages), **common_context)
 
-    def check_performance_threshold(self, metric: str, value: float) -> None:
-        """パフォーマンス閾値チェック"""
-        if not self.alert_enabled:
+    def info_sampled(self, message: str, sample_rate: float = 0.1, **kwargs) -> None:
+        """サンプリングされた情報ログ（高頻度処理用）"""
+        if not self._is_enabled(logging.INFO):
             return
 
-        threshold_exceeded = False
+        import random
+        if random.random() < sample_rate:
+            self.logger.info(f"[SAMPLED] {message}", sample_rate=sample_rate, **kwargs)
 
-        if metric == "response_time" and value > self.thresholds.response_time_threshold:
-            threshold_exceeded = True
-        elif metric == "memory_usage" and value > self.thresholds.memory_usage_threshold:
-            threshold_exceeded = True
+    def performance_summary(self, operation: str, metrics: Dict[str, float], **kwargs) -> None:
+        """パフォーマンス概要ログ（詳細を集約）"""
+        if not self._is_enabled(logging.INFO):
+            return
 
-        if threshold_exceeded:
-            log_security_event(
-                "performance_threshold_exceeded",
-                severity="warning",
-                metric=metric,
-                value=value,
-                threshold=getattr(self.thresholds, f"{metric}_threshold")
-            )
+        summary = {
+            'avg': sum(metrics.values()) / len(metrics) if metrics else 0,
+            'max': max(metrics.values()) if metrics else 0,
+            'min': min(metrics.values()) if metrics else 0,
+            'count': len(metrics)
+        }
 
-
-# グローバルアラートインスタンス
-_alert_manager = LoggingAlert()
-
-
-def setup_logging_with_alerts() -> None:
-    """アラート機能付きロギング設定"""
-    setup_logging()
-
-    # カスタムハンドラーでアラート機能を統合
-    if _alert_manager.alert_enabled:
-        logger = get_logger()
-        logger.info("ログベースアラート機能を有効化",
-                   error_threshold=_alert_manager.thresholds.error_count_threshold,
-                   response_time_threshold=_alert_manager.thresholds.response_time_threshold,
-                   memory_threshold=_alert_manager.thresholds.memory_usage_threshold)
+        self.logger.info(
+            f"Performance summary: {operation}",
+            summary=summary,
+            **kwargs
+        )
 
 
-def enhanced_log_error_with_context(error: Exception, context: Dict[str, Any] = None) -> None:
-    """エラー情報をコンテキスト付きでログ出力（アラート機能付き）"""
-    log_error_with_context(error, context)
-    _alert_manager.check_error_threshold()
+def get_performance_logger(name: str = None, min_level: int = logging.WARNING) -> PerformanceCriticalLogger:
+    """パフォーマンスクリティカルなロガーを取得"""
+    base_logger = get_logger(name)
+    return PerformanceCriticalLogger(base_logger, min_level)
 
 
-def enhanced_log_performance_metric(metric_name: str, value: float, unit: str = "ms", **kwargs) -> None:
-    """パフォーマンスメトリクスをログ出力（アラート機能付き）"""
-    log_performance_metric(metric_name, value, unit, **kwargs)
+# 遅延評価ログ機能
+class LazyLogMessage:
+    """遅延評価されるログメッセージ（重い処理を含む場合に使用）"""
 
-    # 特定のメトリクスに対してアラートチェック
-    if metric_name in ["response_time", "memory_usage"]:
-        _alert_manager.check_performance_threshold(metric_name, value)
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return self.func(*self.args, **self.kwargs)
+
+
+def lazy_log(func):
+    """重い処理を含むログメッセージを遅延評価する"""
+    return lambda *args, **kwargs: LazyLogMessage(func, *args, **kwargs)
+
+
+# ログ無効化コンテキストマネージャー
+import contextlib
+from typing import Generator
+
+@contextlib.contextmanager
+def disable_logging(logger_names: list = None) -> Generator[None, None, None]:
+    """指定されたロガーを一時的に無効化"""
+    if logger_names is None:
+        logger_names = ['day_trade']  # デフォルトでメインロガーを無効化
+
+    original_levels = {}
+    try:
+        # ログレベルを一時的に引き上げ
+        for name in logger_names:
+            logger = logging.getLogger(name)
+            original_levels[name] = logger.level
+            logger.setLevel(logging.CRITICAL + 1)  # 全てのログを無効化
+
+        yield
+
+    finally:
+        # 元のログレベルに復元
+        for name, level in original_levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+# マクロレベルでのパフォーマンス最適化設定
+class PerformanceOptimizedLogging:
+    """パフォーマンス最適化されたロギング設定"""
+
+    @staticmethod
+    def configure_for_production():
+        """本番環境向けの最適化設定"""
+        # サードパーティライブラリのログを更に制限
+        performance_critical_loggers = [
+            'sqlalchemy',
+            'urllib3',
+            'requests',
+            'yfinance',
+            'pandas',
+            'numpy'
+        ]
+
+        for logger_name in performance_critical_loggers:
+            logging.getLogger(logger_name).setLevel(logging.ERROR)
+
+    @staticmethod
+    def configure_for_backtesting():
+        """バックテスト実行時の最適化設定"""
+        # バックテスト中は詳細ログを制限
+        logging.getLogger('day_trade.analysis.backtest').setLevel(logging.WARNING)
+        logging.getLogger('day_trade.data.stock_fetcher').setLevel(logging.ERROR)
+
+    @staticmethod
+    def configure_for_high_frequency():
+        """高頻度取引時の最適化設定"""
+        # リアルタイム処理では最小限のログのみ
+        trading_loggers = [
+            'day_trade.data',
+            'day_trade.analysis.signals',
+            'day_trade.analysis.indicators'
+        ]
+
+        for logger_name in trading_loggers:
+            logging.getLogger(logger_name).setLevel(logging.ERROR)
