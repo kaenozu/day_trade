@@ -211,7 +211,8 @@ jobs:
                                        --disable-warnings \
                                        --integration \
                                        --cov=src/day_trade \
-                                       --cov-append
+                                       --cov-append \
+                                       --slow  # 追加: --slow オプション
               else
                 echo "⚠️ Integration tests not yet implemented"
                 echo "📝 Creating placeholder to encourage implementation..."
