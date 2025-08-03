@@ -17,7 +17,11 @@ from alembic import command
 from alembic.config import Config
 
 from ..utils.exceptions import DatabaseError, handle_database_exception
-from ..utils.logging_config import get_context_logger, log_database_operation, log_error_with_context
+from ..utils.logging_config import (
+    get_context_logger,
+    log_database_operation,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
 

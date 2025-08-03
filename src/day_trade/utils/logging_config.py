@@ -8,7 +8,7 @@ JSON形式での出力、フィルタリング、ログレベル管理を統一�
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import structlog
 from structlog.types import Processor
@@ -322,6 +322,7 @@ def lazy_log(func):
 # ログ無効化コンテキストマネージャー
 import contextlib
 from typing import Generator
+
 
 @contextlib.contextmanager
 def disable_logging(logger_names: list = None) -> Generator[None, None, None]:

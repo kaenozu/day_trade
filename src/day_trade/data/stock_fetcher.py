@@ -12,12 +12,12 @@ from typing import Dict, List, Optional, Union
 import pandas as pd
 import yfinance as yf
 from tenacity import (
+    after_log,
+    before_sleep_log,
     retry,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception,
-    before_sleep_log,
-    after_log,
 )
 
 from ..utils.cache_utils import (

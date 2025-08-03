@@ -8,16 +8,12 @@
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List
 
-import pandas as pd
-from sqlalchemy import text, func, and_, or_, desc, asc
-from sqlalchemy.orm import Session
-
-from .optimized_database import OptimizedDatabaseManager, OptimizationConfig
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from .optimized_database import OptimizationConfig, OptimizedDatabaseManager
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -419,7 +415,7 @@ class DatabaseOptimizationStrategies:
         # 効果の高い推奨事項から実装
         sorted_recommendations = sorted(recommendations, key=lambda x: x.estimated_benefit, reverse=True)
 
-        for i, rec in enumerate(sorted_recommendations[:max_implementations]):
+        for _i, rec in enumerate(sorted_recommendations[:max_implementations]):
             try:
                 # インデックス作成SQL生成
                 index_name = f"idx_{rec.table_name}_{'_'.join(rec.column_names)}"

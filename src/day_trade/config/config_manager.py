@@ -435,10 +435,7 @@ class ConfigManager:
             return False
 
         # 昼休み時間かチェック
-        if market_hours.lunch_start <= current_time_only <= market_hours.lunch_end:
-            return False
-
-        return True
+        return not market_hours.lunch_start <= current_time_only <= market_hours.lunch_end
 
     def get_high_priority_symbols(self) -> List[str]:
         """高優先度銘柄のコードリストを取得"""

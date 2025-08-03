@@ -4,20 +4,18 @@
 高精度な株価予測システムを構築する
 """
 
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from ..utils.logging_config import get_context_logger
+from .ensemble import EnsembleStrategy, EnsembleTradingStrategy, EnsembleVotingType
 from .feature_engineering import AdvancedFeatureEngineer, create_target_variables
 from .ml_models import MLModelManager, ModelConfig
-from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType
-from .signals import TradingSignal, SignalType, SignalStrength
-from .backtest import BacktestConfig, BacktestResult
-from ..utils.logging_config import get_context_logger
+from .signals import SignalStrength, SignalType
 
 logger = get_context_logger(__name__, component="prediction_orchestrator")
 
@@ -316,7 +314,7 @@ class PredictionOrchestrator:
                     )
 
                     # モデル作成と訓練
-                    model = self.ml_manager.create_model(model_name, config)
+                    self.ml_manager.create_model(model_name, config)
                     training_result = self.ml_manager.train_model(model_name, X_train_selected, y_train)
 
                     # モデル保存
@@ -509,7 +507,7 @@ class PredictionOrchestrator:
             if len(current_data) >= 50:
                 sma_20 = current_data["Close"].rolling(20).mean().iloc[-1]
                 sma_50 = current_data["Close"].rolling(50).mean().iloc[-1]
-                current_price = current_data["Close"].iloc[-1]
+                current_data["Close"].iloc[-1]
 
                 # トレンド状況による調整
                 if sma_20 > sma_50 * 1.05:  # 強い上昇トレンド
@@ -807,7 +805,7 @@ class PredictionOrchestrator:
             test_size = min(50, len(historical_data) // 4)
             train_end = len(historical_data) - test_size
 
-            train_data = historical_data.iloc[:train_end]
+            historical_data.iloc[:train_end]
             test_data = historical_data.iloc[train_end:]
 
             # テスト期間での予測精度評価
@@ -817,7 +815,7 @@ class PredictionOrchestrator:
             for i in range(len(test_data) - self.config.prediction_horizon):
                 try:
                     # その時点でのデータを使用
-                    current_data = historical_data.iloc[:train_end + i + 1]
+                    historical_data.iloc[:train_end + i + 1]
 
                     # 実際の将来リターンを計算
                     future_idx = train_end + i + self.config.prediction_horizon

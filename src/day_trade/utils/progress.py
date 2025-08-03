@@ -3,12 +3,13 @@
 Rich ライブラリを使用した美しい進捗表示機能を提供
 """
 
+import builtins
 import logging
 import os
 import platform
 import time
-from contextlib import contextmanager
-from dataclasses import dataclass, field
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
@@ -436,10 +437,8 @@ class MultiStepProgressTracker:
         except Exception as e:
             logger.error(f"マルチステップ進捗トラッカー初期化エラー: {e}")
             if self.progress:
-                try:
+                with suppress(builtins.BaseException):
                     self.progress.__exit__(None, None, None)
-                except:
-                    pass
             raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):

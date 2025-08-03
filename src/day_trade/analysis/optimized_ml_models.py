@@ -5,24 +5,21 @@
 並列処理、キャッシュ、メモリ最適化を実装。
 """
 
-import functools
 import gc
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
 
 warnings.filterwarnings('ignore')

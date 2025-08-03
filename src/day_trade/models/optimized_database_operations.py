@@ -8,14 +8,13 @@ Issue #165: アプリケーション全体の処理速度向上に向けた最�
 
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Type, Union
 from dataclasses import dataclass
-import logging
+from typing import Any, Dict, List, Optional, Type
 
-from sqlalchemy import create_engine, text, inspect
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta
+from sqlalchemy.orm import Session, sessionmaker
 
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_optimizer import PerformanceProfiler
@@ -417,12 +416,12 @@ class OptimizedDatabaseOperations:
         """PostgreSQL用アップサート"""
         # PostgreSQLのON CONFLICTを使用した実装
         table = model_class.__table__
-        conflict_str = ", ".join(conflict_columns)
+        ", ".join(conflict_columns)
 
         # 更新するカラムを動的に生成
         update_columns = [col.name for col in table.columns
                          if col.name not in conflict_columns]
-        update_str = ", ".join([f"{col} = EXCLUDED.{col}" for col in update_columns])
+        ", ".join([f"{col} = EXCLUDED.{col}" for col in update_columns])
 
         # バルクアップサートクエリを実行
         # 実際の実装では、SQLAlchemyのbulk_insert_mappingsと
@@ -598,10 +597,11 @@ class OptimizedDatabaseOperations:
 
 # 使用例とテスト
 if __name__ == "__main__":
-    from sqlalchemy import create_engine, Column, Integer, String, DateTime
+    from datetime import datetime
+
+    from sqlalchemy import Column, DateTime, Integer, String, create_engine
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.orm import sessionmaker
-    from datetime import datetime
 
     # テスト用のモデル定義
     Base = declarative_base()
@@ -639,7 +639,7 @@ if __name__ == "__main__":
     # バルク挿入テスト
     result = optimizer.bulk_insert_optimized(TestStock, test_data, chunk_size=100)
 
-    print(f"✅ バルク挿入結果:")
+    print("✅ バルク挿入結果:")
     print(f"   成功: {result.success}")
     print(f"   処理件数: {result.processed_count}")
     print(f"   実行時間: {result.execution_time:.3f}秒")
@@ -647,7 +647,7 @@ if __name__ == "__main__":
 
     # テーブル統計取得
     stats = optimizer.get_table_statistics(TestStock)
-    print(f"\n📈 テーブル統計:")
+    print("\n📈 テーブル統計:")
     print(f"   レコード数: {stats['record_count']}")
 
     session.close()

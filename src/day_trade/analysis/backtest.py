@@ -6,13 +6,12 @@
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -26,11 +25,15 @@ from ..analysis.signals import (
 )
 from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_performance_metric,
+)
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
-from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
+from .ensemble import EnsembleTradingStrategy
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
-from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType
 
 logger = get_context_logger(__name__, component="backtest")
 
@@ -484,7 +487,6 @@ class BacktestEngine:
         # バッファを追加（テクニカル指標計算のため）
         buffer_start = config.start_date - timedelta(days=100)
 
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         if show_progress:
             # シンボルリストが空の場合の早期リターン
@@ -500,7 +502,7 @@ class BacktestEngine:
             ) as progress:
                 # Use ThreadPoolExecutor for parallel fetching
                 # max_workersが0にならないように最小値を1に設定
-                max_workers = max(min(len(symbols), 5), 1)
+                max(min(len(symbols), 5), 1)
                 with ThreadPoolExecutor(
                     max_workers=min(max(len(symbols), 1), 5)
                 ) as executor:  # Limit workers to avoid overwhelming
@@ -546,7 +548,6 @@ class BacktestEngine:
 
             # Use ThreadPoolExecutor for parallel fetching
             # max_workersが0にならないように最小値を1に設定
-            max_workers = max(min(len(symbols), 5), 1)
             with ThreadPoolExecutor(
                 max_workers=min(max(len(symbols), 1), 5)
             ) as executor:  # Limit workers to avoid overwhelming
@@ -698,10 +699,8 @@ class BacktestEngine:
                 )
 
                 # 最新のシグナルのみを使用
-                if signal:
-                    # シグナルのタイムスタンプが現在のバックテスト日付と一致することを確認
-                    if signal.timestamp.date() == date.date():
-                        signals.append(signal)
+                if signal and signal.timestamp.date() == date.date():
+                    signals.append(signal)
             except Exception as e:
                 logger.debug(
                     f"銘柄 '{symbol}' の日付 '{date.strftime('%Y-%m-%d')}' のシグナル生成中にエラーが発生しました。詳細: {e}"
@@ -1481,7 +1480,7 @@ class BacktestEngine:
                             progress.set_description(f"シミュレーション実行中: {i+1}/{config.monte_carlo_runs}")
                         progress.update(1)
             else:
-                for i in range(config.monte_carlo_runs):
+                for _ in range(config.monte_carlo_runs):
                     random_returns = np.random.normal(
                         mean_return, std_return, len(base_returns)
                     )

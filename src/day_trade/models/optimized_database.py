@@ -5,27 +5,19 @@
 インデックス最適化、クエリ最適化、バッチ処理、コネクションプール管理。
 """
 
-import asyncio
 import time
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
-from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Optional
 
-import pandas as pd
-from sqlalchemy import (
-    Index, MetaData, create_engine, event, func, inspect, text
-)
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from .database import DatabaseConfig, DatabaseManager, Base
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_database_operation
+from ..utils.logging_config import get_context_logger, log_performance_metric
 from ..utils.performance_analyzer import profile_performance
+from .database import DatabaseConfig, DatabaseManager
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -740,6 +732,5 @@ if __name__ == "__main__":
 
     finally:
         # リソースクリーンアップ
-        if 'db_manager' in locals():
-            if db_manager.query_cache:
-                db_manager.query_cache.clear()
+        if 'db_manager' in locals() and db_manager.query_cache:
+            db_manager.query_cache.clear()

@@ -15,14 +15,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from ..analysis.backtest import BacktestEngine
+from ..analysis.enhanced_ensemble import (
+    EnhancedEnsembleStrategy,
+    PredictionHorizon,
+)
 from ..analysis.ensemble import (
     EnsembleStrategy,
     EnsembleTradingStrategy,
     EnsembleVotingType,
-)
-from ..analysis.enhanced_ensemble import (
-    EnhancedEnsembleStrategy,
-    PredictionHorizon,
 )
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
@@ -156,7 +156,10 @@ class DayTradeOrchestrator:
 
             # 高度なバックテストエンジンも初期化
             try:
-                from ..analysis.advanced_backtest import AdvancedBacktestEngine, TradingCosts
+                from ..analysis.advanced_backtest import (
+                    AdvancedBacktestEngine,
+                    TradingCosts,
+                )
 
                 trading_costs = TradingCosts(
                     commission_rate=0.001,
@@ -245,7 +248,7 @@ class DayTradeOrchestrator:
                         self._execute_main_pipeline_with_progress(symbols, progress)
                     else:
                         # レポートのみの場合は全ステップをスキップしてレポート生成
-                        for i in range(len(steps) - 1):
+                        for _i in range(len(steps) - 1):
                             progress.complete_step()
 
                     # レポート生成
@@ -437,19 +440,18 @@ class DayTradeOrchestrator:
                 f"株価データ取得 ({len(symbols)}銘柄)",
                 total=len(symbols),
                 progress_type=ProgressType.DETERMINATE,
-            ) as progress:
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    future_to_symbol = {
-                        executor.submit(fetch_single_stock, symbol): symbol
-                        for symbol in symbols
-                    }
+            ) as progress, ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_symbol = {
+                    executor.submit(fetch_single_stock, symbol): symbol
+                    for symbol in symbols
+                }
 
-                    for future in as_completed(future_to_symbol):
-                        symbol, data = future.result()
-                        if data:
-                            stock_data[symbol] = data
-                            progress.set_description(f"データ取得完了: {symbol}")
-                        progress.update(1)
+                for future in as_completed(future_to_symbol):
+                    symbol, data = future.result()
+                    if data:
+                        stock_data[symbol] = data
+                        progress.set_description(f"データ取得完了: {symbol}")
+                    progress.update(1)
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_symbol = {

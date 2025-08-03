@@ -5,13 +5,12 @@ Issue 185: 外部API通信の耐障害性強化
 高度なリトライ機構、サーキットブレーカー、フェイルオーバー機能を提供
 """
 
-import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter

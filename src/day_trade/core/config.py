@@ -142,7 +142,7 @@ class ConfigManager:
 
         # ネストした辞書を作成
         current = updates
-        for i, k in enumerate(keys[:-1]):
+        for _i, k in enumerate(keys[:-1]):
             current[k] = {}
             current = current[k]
         current[keys[-1]] = value

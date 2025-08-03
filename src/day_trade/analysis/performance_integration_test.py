@@ -9,19 +9,23 @@ import gc
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import psutil
 
 from ..automation.optimized_orchestrator import OptimizedDayTradeOrchestrator
-from ..automation.orchestrator import DayTradeOrchestrator
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_business_event
+from ..utils.logging_config import (
+    get_context_logger,
+)
 from ..utils.performance_analyzer import (
-    PerformanceProfiler, SystemPerformanceMonitor, BottleneckAnalyzer,
-    PerformanceOptimizer, profile_performance
+    BottleneckAnalyzer,
+    PerformanceOptimizer,
+    PerformanceProfiler,
+    SystemPerformanceMonitor,
+    profile_performance,
 )
 
 warnings.filterwarnings('ignore')
@@ -233,7 +237,7 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            original_features = original_engineer.generate_composite_features(test_data, indicators)
+            original_engineer.generate_composite_features(test_data, indicators)
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -243,7 +247,7 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            optimized_features = optimized_engineer.generate_composite_features(test_data, indicators)
+            optimized_engineer.generate_composite_features(test_data, indicators)
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -297,7 +301,7 @@ class PerformanceIntegrationTester:
 
             original_ensemble = create_default_model_ensemble()
             original_ensemble.fit(feature_data, target)
-            original_predictions = original_ensemble.predict(feature_data.tail(1))
+            original_ensemble.predict(feature_data.tail(1))
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -308,7 +312,7 @@ class PerformanceIntegrationTester:
 
             optimized_ensemble = create_optimized_model_ensemble()
             optimized_ensemble.fit(feature_data, target)
-            optimized_predictions = optimized_ensemble.predict(feature_data.tail(1))
+            optimized_ensemble.predict(feature_data.tail(1))
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -356,7 +360,7 @@ class PerformanceIntegrationTester:
             start_memory = self._get_memory_usage()
 
             # original_enhancer = DataQualityEnhancer()  # Not implemented
-            original_cleaned = noisy_data.dropna()  # Simple fallback
+            noisy_data.dropna()  # Simple fallback
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -366,7 +370,7 @@ class PerformanceIntegrationTester:
             start_memory = self._get_memory_usage()
 
             optimized_enhancer = OptimizedDataQualityEnhancer()
-            optimized_cleaned = optimized_enhancer.clean_ohlcv_data(noisy_data)
+            optimized_enhancer.clean_ohlcv_data(noisy_data)
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -469,7 +473,7 @@ class PerformanceIntegrationTester:
 
         # 最適化処理適用
         gc.collect()
-        optimized_data = self._optimize_memory_usage(large_data)
+        self._optimize_memory_usage(large_data)
 
         after_optimization = self._get_memory_usage()
 
@@ -501,7 +505,7 @@ class PerformanceIntegrationTester:
 
         # 並列処理スループット測定
         start_time = time.time()
-        parallel_results = self._process_symbols_parallel_mock(test_symbols[:3])
+        self._process_symbols_parallel_mock(test_symbols[:3])
         parallel_time = time.time() - start_time
         parallel_throughput = len(test_symbols[:3]) / parallel_time
 

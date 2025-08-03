@@ -6,24 +6,30 @@
 """
 
 import gc
+import threading
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
-import asyncio
-import threading
-from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from ..analysis.optimized_ml_models import OptimizedEnsemblePredictor, create_optimized_model_ensemble
-from ..analysis.optimized_feature_engineering import OptimizedAdvancedFeatureEngineer, OptimizedDataQualityEnhancer
-from ..analysis.ensemble import EnsembleStrategy, EnsembleTradingStrategy, EnsembleVotingType
 from ..analysis.enhanced_ensemble import EnhancedEnsembleStrategy, PredictionHorizon
+from ..analysis.ensemble import (
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
 from ..analysis.indicators import TechnicalIndicators
+from ..analysis.optimized_feature_engineering import (
+    OptimizedAdvancedFeatureEngineer,
+    OptimizedDataQualityEnhancer,
+)
+from ..analysis.optimized_ml_models import (
+    create_optimized_model_ensemble,
+)
 from ..analysis.patterns import ChartPatternRecognizer
 from ..analysis.signals import TradingSignalGenerator
 from ..config.config_manager import ConfigManager
@@ -32,9 +38,10 @@ from ..core.portfolio import PortfolioAnalyzer
 from ..core.trade_manager import TradeManager
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_business_event
-from ..utils.performance_analyzer import profile_performance, global_profiler
-from ..utils.progress import ProgressType, multi_step_progress, progress_context
+from ..utils.logging_config import (
+    get_context_logger,
+)
+from ..utils.performance_analyzer import global_profiler, profile_performance
 
 logger = get_context_logger(__name__)
 
@@ -719,7 +726,7 @@ class OptimizedDayTradeOrchestrator:
                         }
 
         except Exception as e:
-            logger.debug(f"ML予測エラー", error=str(e))
+            logger.debug("ML予測エラー", error=str(e))
 
         return ml_predictions
 

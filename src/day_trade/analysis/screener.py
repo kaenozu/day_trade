@@ -12,9 +12,9 @@ from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import get_context_logger
 from .indicators import TechnicalIndicators
 from .signals import TradingSignalGenerator
-from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__, component="stock_screener")
 
@@ -320,30 +320,29 @@ class StockScreener:
                         score = min(momentum * 100, 100)
                         return True, score
 
-            elif condition == ScreenerCondition.BOLLINGER_BREAKOUT:
-                if (
-                    "BB_Upper" in indicators.columns
-                    and "BB_Lower" in indicators.columns
-                ):
-                    current_price = df["Close"].iloc[-1]
-                    bb_upper = indicators["BB_Upper"].iloc[-1]
-                    bb_lower = indicators["BB_Lower"].iloc[-1]
+            elif condition == ScreenerCondition.BOLLINGER_BREAKOUT and (
+                "BB_Upper" in indicators.columns
+                and "BB_Lower" in indicators.columns
+            ):
+                current_price = df["Close"].iloc[-1]
+                bb_upper = indicators["BB_Upper"].iloc[-1]
+                bb_lower = indicators["BB_Lower"].iloc[-1]
 
-                    if pd.notna(bb_upper) and pd.notna(bb_lower):
-                        # 上限突破
-                        if current_price > bb_upper:
-                            breakout_strength = (
-                                (current_price - bb_upper) / bb_upper * 100
-                            )
-                            score = min(breakout_strength * 50, 100)
-                            return True, score
-                        # 下限突破（買いシグナルとして）
-                        elif current_price < bb_lower:
-                            breakout_strength = (
-                                (bb_lower - current_price) / bb_lower * 100
-                            )
-                            score = min(breakout_strength * 50, 100)
-                            return True, score
+                if pd.notna(bb_upper) and pd.notna(bb_lower):
+                    # 上限突破
+                    if current_price > bb_upper:
+                        breakout_strength = (
+                            (current_price - bb_upper) / bb_upper * 100
+                        )
+                        score = min(breakout_strength * 50, 100)
+                        return True, score
+                    # 下限突破（買いシグナルとして）
+                    elif current_price < bb_lower:
+                        breakout_strength = (
+                            (bb_lower - current_price) / bb_lower * 100
+                        )
+                        score = min(breakout_strength * 50, 100)
+                        return True, score
 
         except Exception as e:
             logger.debug(f"条件評価エラー ({condition.value}): {e}")

@@ -6,23 +6,27 @@
 """
 
 import gc
-import json
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
 
-from .ensemble import (
-    EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType,
-    EnsembleSignal, StrategyPerformance
+from ..utils.logging_config import (
+    get_context_logger,
 )
-from .signals import SignalType, SignalStrength, TradingSignal
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_business_event
+from .ensemble import (
+    EnsembleSignal,
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
+from .signals import SignalType
+
 # from ..utils.performance_analyzer import profile_performance
 
 warnings.filterwarnings('ignore')
@@ -155,12 +159,11 @@ class ComprehensiveEnsembleTester:
             performance_validation = self._validate_performance_tracking()
 
             # 7. エッジケース検証
-            edge_case_validation = self._validate_edge_cases()
+            self._validate_edge_cases()
 
             # 8. ストレステスト（オプション）
-            stress_test_validation = {}
             if include_stress_tests:
-                stress_test_validation = self._run_stress_tests()
+                self._run_stress_tests()
 
             # 結果統計計算
             end_time = datetime.now()

@@ -11,7 +11,6 @@ from rich.table import Table
 from ..core.config import config_manager
 from ..data.stock_fetcher import StockFetcher
 from ..models import init_db
-from ..utils.logging_config import setup_logging, get_context_logger
 from ..utils.formatters import (
     create_company_info_table,
     create_error_panel,
@@ -20,6 +19,7 @@ from ..utils.formatters import (
     create_success_panel,
     create_watchlist_table,
 )
+from ..utils.logging_config import setup_logging
 from ..utils.validators import (
     normalize_stock_codes,
     suggest_stock_code_correction,
@@ -359,7 +359,7 @@ def auto(symbols, depth, no_progress):
         )
 
         # 成功メッセージ
-        console.print(f"\n[bold green]✅ 最適化完了![/bold green]")
+        console.print("\n[bold green]✅ 最適化完了![/bold green]")
         console.print(f"選択銘柄: {', '.join(result.best_symbols[:3])}{'...' if len(result.best_symbols) > 3 else ''}")
         console.print(f"期待リターン: {result.expected_return:.2%}")
         console.print(f"信頼度: {result.confidence:.1%}")
@@ -412,7 +412,7 @@ def run(symbols, config, report_only):
             )
 
         # 結果表示
-        console.print(f"\n[bold green]✅ 処理完了![/bold green]")
+        console.print("\n[bold green]✅ 処理完了![/bold green]")
         console.print(f"対象銘柄: {report.total_symbols}")
         console.print(f"成功: {report.successful_symbols}")
         console.print(f"失敗: {report.failed_symbols}")

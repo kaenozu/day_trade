@@ -4,15 +4,14 @@
 """
 
 import json
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from ..utils.progress import ProgressType, progress_context
 from ..utils.logging_config import get_context_logger
+from ..utils.progress import ProgressType, progress_context
 
 logger = get_context_logger(__name__, component="technical_indicators")
 

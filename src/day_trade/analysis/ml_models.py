@@ -3,13 +3,12 @@
 株価予測、方向性予測、リスク予測のための機械学習モデル
 """
 
-import joblib
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
+import joblib
 import numpy as np
 import pandas as pd
 
@@ -19,12 +18,20 @@ logger = get_context_logger(__name__, component="ml_models")
 
 # オプショナル依存関係のインポート
 try:
-    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor
+    from sklearn.ensemble import (
+        GradientBoostingRegressor,
+        RandomForestClassifier,
+        RandomForestRegressor,
+    )
     from sklearn.linear_model import LinearRegression, LogisticRegression
-    from sklearn.svm import SVR, SVC
+    from sklearn.metrics import (
+        accuracy_score,
+        classification_report,
+        mean_squared_error,
+    )
     from sklearn.model_selection import TimeSeriesSplit, cross_val_score
-    from sklearn.metrics import mean_squared_error, accuracy_score, classification_report
     from sklearn.preprocessing import StandardScaler
+    from sklearn.svm import SVC, SVR
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -175,10 +182,7 @@ class BaseMLModel(ABC):
         # データの前処理
         X_processed = X[self.feature_names].fillna(0)
 
-        if self.scaler:
-            X_scaled = self.scaler.transform(X_processed)
-        else:
-            X_scaled = X_processed
+        X_scaled = self.scaler.transform(X_processed) if self.scaler else X_processed
 
         # 予測実行
         predictions = self._predict_model(X_scaled)

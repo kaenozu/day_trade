@@ -5,23 +5,20 @@
 最適化案を提供する包括的なパフォーマンス分析システム。
 """
 
-import gc
+import cProfile
+import functools
+import io
+import pstats
+import threading
 import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Callable
-import threading
-import functools
-import cProfile
-import pstats
-import io
-import psutil
-import sys
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+import psutil
 
 from ..utils.logging_config import get_context_logger, log_performance_metric
 
@@ -77,7 +74,7 @@ class PerformanceProfiler:
             start_time = time.time()
             process = psutil.Process()
             initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-            initial_cpu = process.cpu_percent()
+            process.cpu_percent()
 
             # プロファイラ開始
             profiler = cProfile.Profile()

@@ -5,21 +5,19 @@
 次世代アンサンブル予測システム。
 """
 
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from ..utils.logging_config import get_context_logger, log_business_event
 from .ensemble import EnsembleStrategy, EnsembleVotingType, StrategyPerformance
 from .feature_engineering import AdvancedFeatureEngineer
 from .ml_models import MLModelManager
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
-from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
 
 logger = get_context_logger(__name__)
 
@@ -153,14 +151,22 @@ class EnhancedEnsembleStrategy:
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
-                MACDCrossoverRule, MACDDeathCrossRule,
-                RSIOverboughtRule, RSIOversoldRule,
-                BollingerBandBreakoutRule, BollingerBandMeanReversionRule
+                BollingerBandBreakoutRule,
+                BollingerBandMeanReversionRule,
+                MACDCrossoverRule,
+                MACDDeathCrossRule,
+                RSIOverboughtRule,
+                RSIOversoldRule,
             )
         except ImportError:
             # 必要なルールクラスが存在しない場合のダミー実装
             logger.warning("一部のシグナルルールクラスが利用できません。基本的なルールのみを使用します。")
-            from .signals import MACDCrossoverRule, MACDDeathCrossRule, RSIOverboughtRule, RSIOversoldRule
+            from .signals import (
+                MACDCrossoverRule,
+                MACDDeathCrossRule,
+                RSIOverboughtRule,
+                RSIOversoldRule,
+            )
 
             # ダミークラス定義
             class BollingerBandBreakoutRule:
@@ -325,7 +331,7 @@ class EnhancedEnsembleStrategy:
             # MLModelManagerが実装されていない場合は簡易実装を使用
             if hasattr(self.ml_ensemble, 'predict'):
                 # 最新データのみで予測
-                latest_features = X.tail(1)
+                X.tail(1)
                 try:
                     prediction_value = float(np.random.randn() * 0.02)  # -2%から+2%の予測
                     ml_predictions["ensemble_ml"] = prediction_value
@@ -384,7 +390,7 @@ class EnhancedEnsembleStrategy:
 
         # 機械学習予測の統合
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
-        for model_name, prediction_value in ml_predictions.items():
+        for _model_name, prediction_value in ml_predictions.items():
             # 予測値を売買シグナルに変換
             confidence = min(abs(prediction_value) * 1000, 80.0)  # 予測値から信頼度算出（上限80%）
 
@@ -532,10 +538,7 @@ class EnhancedEnsembleStrategy:
             confidence = min(abs(prediction_value) * 1000, 80.0)
             confidences.append(confidence)
 
-        if len(confidences) > 1:
-            uncertainty = np.std(confidences)
-        else:
-            uncertainty = 0.0
+        uncertainty = np.std(confidences) if len(confidences) > 1 else 0.0
 
         return min(uncertainty, 100.0)
 
@@ -690,7 +693,7 @@ class MarketContextAnalyzer:
         # 市場相関（市場データがある場合）
         market_correlation = 0.0
         if market_data:
-            for market_name, market_df in market_data.items():
+            for _market_name, market_df in market_data.items():
                 if 'Close' in market_df.columns:
                     market_returns = market_df['Close'].pct_change().dropna()
                     correlation = returns.corr(market_returns)

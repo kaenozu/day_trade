@@ -3,17 +3,17 @@
 Issue #187: データベース操作のトランザクション管理の知見とパターン集
 """
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional
-from datetime import datetime
+from typing import Any, Callable, Dict, List
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, OperationalError
 
 from ..models.database import db_manager
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
-from .transaction_manager import enhanced_transaction_manager, TransactionIsolationLevel
+from ..utils.logging_config import (
+    get_context_logger,
+)
+from .transaction_manager import TransactionIsolationLevel, enhanced_transaction_manager
 
 logger = get_context_logger(__name__, component="transaction_best_practices")
 
@@ -252,7 +252,7 @@ class TransactionOptimizationTips:
 
         # ❌ 悪い例：長時間のトランザクション
         def bad_example():
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # 外部API呼び出し（時間がかかる）
                 # external_data = fetch_external_api()
 
@@ -267,7 +267,7 @@ class TransactionOptimizationTips:
             # external_data = fetch_external_api()
 
             # データベース処理のみトランザクション内で実行
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # record = Model(data=external_data)
                 # session.add(record)
                 pass
@@ -281,7 +281,7 @@ class TransactionOptimizationTips:
             with enhanced_transaction_manager.enhanced_transaction(
                 isolation_level=TransactionIsolationLevel.READ_UNCOMMITTED,
                 readonly=True
-            ) as session:
+            ):
                 # 高速なレポート生成
                 # result = session.query(...).all()
                 pass
@@ -290,7 +290,7 @@ class TransactionOptimizationTips:
         def financial_transaction():
             with enhanced_transaction_manager.enhanced_transaction(
                 isolation_level=TransactionIsolationLevel.SERIALIZABLE
-            ) as session:
+            ):
                 # 厳密な整合性が必要な処理
                 # account = session.query(Account).filter_by(id=account_id).first()
                 # account.balance -= amount
@@ -307,7 +307,7 @@ class TransactionOptimizationTips:
             BATCH_SIZE = 1000
 
             for i in range(0, len(data_list), BATCH_SIZE):
-                batch = data_list[i:i + BATCH_SIZE]
+                data_list[i:i + BATCH_SIZE]
 
                 with db_manager.session_scope() as session:
                     # バルク挿入使用
@@ -327,9 +327,9 @@ class TransactionOptimizationTips:
                 # アカウントIDを昇順でソート（デッドロック防止）
                 ordered_ids = sorted([account_id1, account_id2])
 
-                with db_manager.session_scope() as session:
+                with db_manager.session_scope():
                     # 常に同じ順序でロック取得
-                    for account_id in ordered_ids:
+                    for _account_id in ordered_ids:
                         # account = session.query(Account).filter_by(id=account_id).with_for_update().first()
                         pass
 
@@ -366,7 +366,7 @@ class TransactionTesting:
 
         def test_function():
             # テスト用のトランザクション
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # テストデータ挿入
                 # test_record = TestModel(data="test")
                 # session.add(test_record)
@@ -376,13 +376,11 @@ class TransactionTesting:
                 raise Exception("Test rollback")
 
         # ロールバック後にデータが残っていないことを確認
-        try:
+        with suppress(Exception):
             test_function()
-        except Exception:
-            pass
 
         # データが存在しないことを確認
-        with db_manager.session_scope() as session:
+        with db_manager.session_scope():
             # count = session.query(TestModel).filter_by(data="test").count()
             # assert count == 0, "Rollback failed"
             pass
@@ -391,14 +389,13 @@ class TransactionTesting:
     def test_concurrent_access():
         """並行アクセスのテスト"""
         import threading
-        import time
 
         def concurrent_update_test():
             results = []
 
             def update_worker(worker_id: int):
                 try:
-                    with db_manager.session_scope() as session:
+                    with db_manager.session_scope():
                         # 楽観的ロックテスト
                         # record = session.query(TestModel).filter_by(id=1).first()
                         # time.sleep(0.1)  # 競合状態を作る
@@ -441,8 +438,8 @@ def create_transaction_performance_benchmark():
         # 1. 単一トランザクション vs バッチトランザクション
         def single_transactions(count: int):
             start_time = time.time()
-            for i in range(count):
-                with db_manager.session_scope() as session:
+            for _i in range(count):
+                with db_manager.session_scope():
                     # record = TestModel(value=i)
                     # session.add(record)
                     pass
@@ -450,8 +447,8 @@ def create_transaction_performance_benchmark():
 
         def batch_transaction(count: int):
             start_time = time.time()
-            with db_manager.session_scope() as session:
-                for i in range(count):
+            with db_manager.session_scope():
+                for _i in range(count):
                     # record = TestModel(value=i)
                     # session.add(record)
                     pass

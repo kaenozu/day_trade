@@ -3,14 +3,13 @@
 テクニカル指標の複合化、市場全体特徴量、時系列特有の特徴量を生成
 """
 
-import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from ..utils.logging_config import get_context_logger
 
@@ -440,7 +439,6 @@ def create_target_variables(price_data: pd.DataFrame, prediction_horizon: int = 
 
 if __name__ == "__main__":
     # テスト用のサンプルデータ
-    import datetime
 
     dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
     np.random.seed(42)

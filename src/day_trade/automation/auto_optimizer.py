@@ -4,25 +4,21 @@
 自動的に最善の銘柄選択、データ収集、戦略選択、バックテストを実行
 """
 
-import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ..analysis.backtest import BacktestEngine
 from ..analysis.screener import StockScreener
 from ..automation.orchestrator import DayTradeOrchestrator
 from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
-from ..utils.progress import ProgressType, multi_step_progress
+from ..utils.progress import multi_step_progress
 
 logger = get_context_logger(__name__)
 console = Console()
@@ -221,7 +217,7 @@ class AutoOptimizer:
         if depth == "comprehensive":
             # ML訓練
             logger.info("Step 8: 機械学習モデル訓練")
-            ml_results = self._train_ml_models(optimization_result.best_symbols)
+            self._train_ml_models(optimization_result.best_symbols)
             progress.complete_step()
 
             # リスク分析

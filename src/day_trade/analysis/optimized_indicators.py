@@ -7,13 +7,13 @@ Issue #165: アプリケーション全体の処理速度向上に向けた最�
 高速なテクニカル指標計算を提供します。
 """
 
-import warnings
-from typing import Dict, List, Optional, Tuple, Union
+import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, List, Union
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import multiprocessing as mp
 
 # オプショナルな依存関係
 try:
@@ -577,7 +577,7 @@ class OptimizedIndicatorCalculator:
         )
 
         # 結果をDataFrameに統合
-        for name, indicator_result in indicator_results.items():
+        for _name, indicator_result in indicator_results.items():
             values = indicator_result.values
             if isinstance(values, pd.Series):
                 result[values.name] = values
@@ -616,7 +616,7 @@ class OptimizedIndicatorCalculator:
         # 簡易実装（実際の本格実装は別途）
         high = data["high"]
         low = data["low"]
-        close = data["close"]
+        data["close"]
 
         # 初期値設定
         sar = low.iloc[0]
@@ -647,6 +647,7 @@ class OptimizedIndicatorCalculator:
 # 使用例とベンチマーク
 if __name__ == "__main__":
     import time
+
     from ..utils.performance_optimizer import create_sample_data
 
     print("🚀 最適化テクニカル指標計算 - パフォーマンステスト")
@@ -671,7 +672,7 @@ if __name__ == "__main__":
 
     execution_time = time.perf_counter() - start_time
 
-    print(f"✅ 包括的分析完了:")
+    print("✅ 包括的分析完了:")
     print(f"   実行時間: {execution_time:.3f}秒")
     print(f"   計算指標数: {len(comprehensive_result.columns) - len(test_data.columns)}")
     print(f"   スループット: {len(test_data) / execution_time:.0f} records/sec")
@@ -679,6 +680,6 @@ if __name__ == "__main__":
     # パフォーマンス統計表示
     summary = calculator.profiler.get_summary_report()
     if summary.get("slowest_functions"):
-        print(f"\n⏱️ 最も時間のかかった処理:")
+        print("\n⏱️ 最も時間のかかった処理:")
         for func_metrics in summary["slowest_functions"][:3]:
             print(f"   {func_metrics.function_name}: {func_metrics.execution_time:.3f}秒")

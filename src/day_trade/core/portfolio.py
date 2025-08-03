@@ -14,8 +14,11 @@ import numpy as np
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import (
+    get_context_logger,
+    log_error_with_context,
+)
 from .trade_manager import Position, TradeManager
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_error_with_context
 
 logger = get_context_logger(__name__)
 

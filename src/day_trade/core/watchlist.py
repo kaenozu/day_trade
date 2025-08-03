@@ -12,7 +12,11 @@ from sqlalchemy import and_
 
 from ..data.stock_fetcher import StockFetcher
 from ..models import Alert, PriceData, Stock, WatchlistItem, db_manager
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
 
@@ -467,7 +471,7 @@ class WatchlistManager:
                     query = query.filter(Alert.stock_code == stock_code)
 
                 if active_only:
-                    query = query.filter(Alert.is_active == True)
+                    query = query.filter(Alert.is_active)
 
                 alerts = query.all()
 

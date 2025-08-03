@@ -14,15 +14,14 @@ import pstats
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
-import psutil
-import pandas as pd
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
-from datetime import datetime, timedelta
+import pandas as pd
+import psutil
 
 
 @dataclass
@@ -97,9 +96,7 @@ class PerformanceProfiler:
         """データサイズの推定"""
         if isinstance(data, pd.DataFrame):
             return data.memory_usage(deep=True).sum()
-        elif isinstance(data, (list, tuple)):
-            return len(data)
-        elif isinstance(data, dict):
+        elif isinstance(data, (list, tuple, dict)):
             return len(data)
         return None
 
@@ -239,7 +236,7 @@ class DataFetchOptimizer:
                 # 一括取得を試行
                 return bulk_fetch_func(symbols, **kwargs)
             except Exception as e:
-                warnings.warn(f"一括取得に失敗、個別取得にフォールバック: {e}")
+                warnings.warn(f"一括取得に失敗、個別取得にフォールバック: {e}", stacklevel=2)
                 # 個別取得にフォールバック
                 return self.fetch_multiple_threaded(symbols, single_fetch_func, **kwargs)
         else:

@@ -6,7 +6,6 @@ Issue #205: Windows環境でのdaytrade.py実行時エラー対応
 import os
 import sys
 from contextlib import contextmanager
-from typing import Optional
 
 from ..utils.logging_config import get_context_logger
 
@@ -124,8 +123,9 @@ def create_safe_live_context():
             return
 
         try:
-            from rich.live import Live
             import os
+
+            from rich.live import Live
 
             # テスト環境では無効化
             if os.environ.get('PYTEST_CURRENT_TEST'):

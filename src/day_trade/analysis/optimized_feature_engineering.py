@@ -9,14 +9,14 @@ import gc
 import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from numba import jit, njit
+from numba import njit
 from scipy import stats
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
 
 warnings.filterwarnings('ignore')

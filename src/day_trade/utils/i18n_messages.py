@@ -10,11 +10,10 @@
 """
 
 import json
-import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 
 class Language(Enum):
@@ -70,10 +69,7 @@ class SensitiveDataSanitizer:
             return True
 
         # JWTトークンっぽい形式
-        if text.count('.') == 2 and len(text) > 100:
-            return True
-
-        return False
+        return bool(text.count('.') == 2 and len(text) > 100)
 
     def sanitize(self, text: str, mask_char: str = "*") -> str:
         """機密情報をマスキング"""
@@ -136,7 +132,7 @@ class MessageLoader:
             if not self.messages_file.exists():
                 raise FileNotFoundError(f"Messages file not found: {self.messages_file}")
 
-            with open(self.messages_file, 'r', encoding='utf-8') as f:
+            with open(self.messages_file, encoding='utf-8') as f:
                 data = json.load(f)
 
             # 各セクションを統合

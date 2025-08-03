@@ -9,17 +9,16 @@ import gc
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import List, Optional
 
 import numpy as np
-import pandas as pd
 
-from .database import DatabaseConfig
-from .optimized_database import OptimizedDatabaseManager, OptimizationConfig
-from .database_optimization_strategies import DatabaseOptimizationStrategies
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from .database import DatabaseConfig
+from .database_optimization_strategies import DatabaseOptimizationStrategies
+from .optimized_database import OptimizationConfig, OptimizedDatabaseManager
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -247,7 +246,7 @@ class DatabaseOptimizationTester:
 
             start_time = time.time()
             # 個別挿入のシミュレーション
-            for item in test_data[:100]:  # 100件のサンプル
+            for _item in test_data[:100]:  # 100件のサンプル
                 # 実際のINSERTは省略し、処理時間をシミュレート
                 time.sleep(0.001)  # 1ms/件の処理時間をシミュレート
             standard_time = time.time() - start_time
@@ -356,7 +355,7 @@ class DatabaseOptimizationTester:
 
             # 標準設定
             standard_config = DatabaseConfig(pool_size=5, max_overflow=10)
-            standard_db = OptimizedDatabaseManager(standard_config)
+            OptimizedDatabaseManager(standard_config)
 
             # 最適化設定
             optimization_config = OptimizationConfig(
@@ -364,7 +363,7 @@ class DatabaseOptimizationTester:
                 pool_size=20,
                 max_overflow=30
             )
-            optimized_db = OptimizedDatabaseManager(standard_config, optimization_config)
+            OptimizedDatabaseManager(standard_config, optimization_config)
 
             # 同時接続テスト（シミュレーション）
             start_time = time.time()

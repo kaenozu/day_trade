@@ -4,7 +4,6 @@
 """
 
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -15,9 +14,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+)
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
 
 logger = get_context_logger(__name__)
 
@@ -686,20 +688,16 @@ class TradingSignalGenerator:
 
                 # levels, trends, overall_confidence は単一の結果と仮定
                 current_levels = (
-                    all_patterns["levels"] if "levels" in all_patterns else {}
+                    all_patterns.get("levels", {})
                 )
                 current_trends = (
-                    all_patterns["trends"] if "trends" in all_patterns else {}
+                    all_patterns.get("trends", {})
                 )
                 current_overall_confidence = (
-                    all_patterns["overall_confidence"]
-                    if "overall_confidence" in all_patterns
-                    else 0
+                    all_patterns.get("overall_confidence", 0)
                 )
                 current_latest_signal = (
-                    all_patterns["latest_signal"]
-                    if "latest_signal" in all_patterns
-                    else None
+                    all_patterns.get("latest_signal", None)
                 )
 
                 current_patterns = {

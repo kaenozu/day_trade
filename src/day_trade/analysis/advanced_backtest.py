@@ -9,12 +9,12 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -264,15 +264,11 @@ class AdvancedBacktestEngine:
             return True
 
         elif order.order_type == OrderType.LIMIT:
-            if order.side == "buy" and market_data['Low'] <= order.price:
-                return True
-            elif order.side == "sell" and market_data['High'] >= order.price:
+            if order.side == "buy" and market_data['Low'] <= order.price or order.side == "sell" and market_data['High'] >= order.price:
                 return True
 
         elif order.order_type == OrderType.STOP:
-            if order.side == "buy" and market_data['High'] >= order.stop_price:
-                return True
-            elif order.side == "sell" and market_data['Low'] <= order.stop_price:
+            if order.side == "buy" and market_data['High'] >= order.stop_price or order.side == "sell" and market_data['Low'] <= order.stop_price:
                 return True
 
         return False
@@ -583,10 +579,7 @@ class AdvancedBacktestEngine:
             volatility = 0.0
 
         # リスク調整指標
-        if volatility > 0:
-            sharpe_ratio = annual_return / volatility
-        else:
-            sharpe_ratio = 0.0
+        sharpe_ratio = annual_return / volatility if volatility > 0 else 0.0
 
         # ソルティーノレシオ
         negative_returns = [r for r in self.daily_returns if r < 0]

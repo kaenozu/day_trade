@@ -5,6 +5,7 @@ Issue 185: 外部API通信の耐障害性強化
 高度なリトライ機構、サーキットブレーカー、フェイルオーバー機能を統合
 """
 
+import asyncio
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
@@ -32,11 +33,8 @@ from ..utils.logging_config import (
     log_performance_metric,
     log_security_event,
 )
-from .stock_fetcher import StockFetcher  # 既存実装を継承
 from ..utils.performance_optimizer import DataFetchOptimizer
-import asyncio
-import concurrent.futures
-from functools import partial
+from .stock_fetcher import StockFetcher  # 既存実装を継承
 
 
 class EnhancedStockFetcher(StockFetcher):

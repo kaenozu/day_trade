@@ -3,9 +3,9 @@
 Issue #187: データベース操作のトランザクション管理の拡張機能
 """
 
-import time
 import threading
-from contextlib import contextmanager
+import time
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -14,10 +14,14 @@ from uuid import uuid4
 
 from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session
 
 from ..models.database import db_manager
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context, log_performance_metric
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+    log_performance_metric,
+)
 
 logger = get_context_logger(__name__, component="transaction_manager")
 
@@ -485,10 +489,8 @@ class EnhancedTransactionManager:
         finally:
             # セッションクリーンアップ
             for session in sessions:
-                try:
+                with suppress(Exception):
                     session.close()
-                except Exception:
-                    pass
 
     def execute_with_savepoint(
         self,
@@ -552,7 +554,7 @@ def with_transaction_monitoring(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         transaction_id = str(uuid4())
 
-        start_time = time.time()
+        time.time()
         transaction_monitor.start_transaction(transaction_id)
 
         try:

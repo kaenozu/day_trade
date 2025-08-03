@@ -8,13 +8,13 @@
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -293,7 +293,11 @@ class MLPerformanceBenchmark:
     def _benchmark_traditional_ensemble(self, test_data: pd.DataFrame, symbol: str) -> BenchmarkResult:
         """従来アンサンブルのベンチマーク"""
         try:
-            from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType
+            from .ensemble import (
+                EnsembleStrategy,
+                EnsembleTradingStrategy,
+                EnsembleVotingType,
+            )
 
             # 指標計算
             indicators = self._calculate_basic_indicators(test_data)
@@ -658,7 +662,7 @@ class MLPerformanceBenchmark:
                 continue
 
             report_lines.extend([
-                f"",
+                "",
                 f"【{method}】",
                 f"  平均実行時間: {metrics.get('avg_execution_time', 0):.3f}秒",
                 f"  平均シャープレシオ: {metrics.get('avg_sharpe_ratio', 0):.3f}",

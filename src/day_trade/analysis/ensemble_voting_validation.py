@@ -5,22 +5,17 @@
 戦略合意形成プロセスの検証を実行する。
 """
 
-import json
-import math
-import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
-from scipy import stats
 
-from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType, StrategyPerformance
-from .signals import SignalType, SignalStrength, TradingSignal
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from .ensemble import EnsembleVotingType
+from .signals import SignalStrength, SignalType, TradingSignal
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -395,13 +390,10 @@ class EnsembleVotingValidator:
 
             # 結果検証
             success = True
-            signal_type_match = True
-            confidence_in_range = True
 
             # シグナルタイプ検証
             expected_signal_type = scenario.expected_result.get("signal_type")
             if expected_signal_type and actual_result["signal_type"] != expected_signal_type:
-                signal_type_match = False
                 success = False
 
             # 信頼度範囲検証
@@ -410,7 +402,6 @@ class EnsembleVotingValidator:
 
             if expected_confidence_range:
                 if not (expected_confidence_range[0] <= actual_confidence <= expected_confidence_range[1]):
-                    confidence_in_range = False
                     success = False
 
             # 重み一貫性検証
@@ -621,10 +612,7 @@ class EnsembleVotingValidator:
             return False
 
         # 負の重みがないかチェック
-        if any(w < 0 for w in weights.values()):
-            return False
-
-        return True
+        return not any(w < 0 for w in weights.values())
 
     def _validate_weight_logic(self) -> List[VotingValidationResult]:
         """重み付けロジック検証"""
@@ -655,7 +643,7 @@ class EnsembleVotingValidator:
         else:
             # 全て0の場合は均等割り当て
             n = len(weights)
-            return {k: 1.0 / n for k in weights.keys()} if n > 0 else {}
+            return {k: 1.0 / n for k in weights} if n > 0 else {}
 
     def _validate_edge_cases(self) -> List[VotingValidationResult]:
         """エッジケース検証"""

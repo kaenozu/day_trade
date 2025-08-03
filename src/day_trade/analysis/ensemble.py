@@ -4,7 +4,6 @@
 """
 
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -14,10 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
-from .ml_models import MLModelManager, ModelConfig, create_ensemble_predictions
-from .feature_engineering import AdvancedFeatureEngineer, create_target_variables
 from ..utils.logging_config import get_context_logger
+from .feature_engineering import AdvancedFeatureEngineer, create_target_variables
+from .ml_models import MLModelManager, ModelConfig
+from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
 
 logger = get_context_logger(__name__, component="ensemble")
 
@@ -1024,7 +1023,7 @@ class EnsembleTradingStrategy:
             meta_features_array = []
 
             # 各戦略の信頼度を特徴量として使用
-            for strategy_name, signal in strategy_signals:
+            for _strategy_name, signal in strategy_signals:
                 meta_features_array.append(signal.confidence)
 
             # ML予測を特徴量として追加
@@ -1284,7 +1283,7 @@ class EnsembleTradingStrategy:
                                 meta_features_list.append(model_predictions)
                                 meta_targets_list.append(future_return)
 
-                        except Exception as e:
+                        except Exception:
                             continue
 
                     if len(meta_features_list) >= 50:

@@ -6,14 +6,15 @@
 """
 
 import warnings
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
+from ..utils.logging_config import (
+    get_context_logger,
+)
 
 warnings.filterwarnings('ignore')
 logger = get_context_logger(__name__)
@@ -235,7 +236,10 @@ class MLIntegrationTester:
     def _test_ml_models(self, symbol: str) -> Dict:
         """機械学習モデルのテスト"""
         try:
-            from .ml_models import create_default_model_ensemble, evaluate_prediction_accuracy
+            from .ml_models import (
+                create_default_model_ensemble,
+                evaluate_prediction_accuracy,
+            )
 
             # テストデータ生成
             np.random.seed(42)
