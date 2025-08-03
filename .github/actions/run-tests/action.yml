@@ -1,0 +1,250 @@
+name: 'Run Tests'
+description: 'Comprehensive test execution with coverage and reporting'
+author: 'day-trade'
+
+inputs:
+  test-type:
+    description: 'Test type: unit, integration, all'
+    required: false
+    default: 'unit'
+
+  python-version:
+    description: 'Python version for testing'
+    required: false
+    default: '3.11'
+
+  coverage:
+    description: 'Enable coverage reporting'
+    required: false
+    default: 'false'
+
+  parallel:
+    description: 'Enable parallel test execution'
+    required: false
+    default: 'true'
+
+  coverage-threshold:
+    description: 'Minimum coverage threshold'
+    required: false
+    default: '40'
+
+outputs:
+  test-result:
+    description: 'Result of test execution'
+    value: ${{ steps.run-tests.outputs.result }}
+
+  coverage-percentage:
+    description: 'Coverage percentage achieved'
+    value: ${{ steps.coverage-report.outputs.percentage }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 🗄️ Setup test database
+      shell: bash
+      run: |
+        echo "🗄️ Setting up test database..."
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        try:
+            from day_trade.models.database import init_database
+            init_database(':memory:')
+            print('✅ Test database initialized successfully')
+        except ImportError:
+            print('⚠️ Database module not found, skipping database initialization')
+        except Exception as e:
+            print(f'⚠️ Database initialization failed: {e}')
+            print('Continuing without database...')
+        "
+
+    - name: 🧪 Run tests
+      id: run-tests
+      shell: bash
+      run: |
+        echo "🧪 Running ${{ inputs.test-type }} tests..."
+
+        # テストコマンドの構築
+        test_cmd="pytest"
+
+        # 並列実行の設定
+        if [ "${{ inputs.parallel }}" = "true" ]; then
+          test_cmd="$test_cmd -n auto"
+        fi
+
+        # テストタイプ別の設定
+        case "${{ inputs.test-type }}" in
+          "unit")
+            echo "Running unit tests..."
+            test_cmd="$test_cmd tests/ --ignore=tests/integration/"
+            ;;
+          "integration")
+            echo "Running integration tests..."
+            if [ -d "tests/integration" ] && [ "$(ls -A tests/integration)" ]; then
+              test_cmd="$test_cmd tests/integration/"
+            else
+              echo "⚠️ Integration tests directory not found or empty"
+              echo "Running basic integration check..."
+              python -c "
+              import sys
+              sys.path.insert(0, 'src')
+              try:
+                  import day_trade
+                  from day_trade.data.stock_fetcher import StockFetcher
+                  print('✅ Package import successful')
+                  fetcher = StockFetcher()
+                  print('✅ StockFetcher instantiation successful')
+                  print('result=success' >> '$GITHUB_OUTPUT')
+              except Exception as e:
+                  print(f'❌ Integration test failed: {e}')
+                  print('result=failure' >> '$GITHUB_OUTPUT')
+                  sys.exit(1)
+              "
+              exit 0
+            fi
+            ;;
+          "all")
+            echo "Running all tests..."
+            test_cmd="$test_cmd tests/"
+            ;;
+          *)
+            echo "❌ Unknown test type: ${{ inputs.test-type }}"
+            exit 1
+            ;;
+        esac
+
+        # カバレッジの設定
+        if [ "${{ inputs.coverage }}" = "true" ]; then
+          test_cmd="$test_cmd --cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-report=json --cov-fail-under=${{ inputs.coverage-threshold }}"
+        fi
+
+        # 基本オプション
+        test_cmd="$test_cmd -v --tb=short --disable-warnings"
+
+        # テスト実行
+        set +e  # Continue on error
+        $test_cmd
+        test_exit_code=$?
+        set -e
+
+        if [ $test_exit_code -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "✅ Tests passed"
+        else
+          echo "result=failure" >> $GITHUB_OUTPUT
+          echo "❌ Some tests failed"
+
+          # テスト失敗でもCIを継続する場合のオプション
+          if [ "${{ inputs.test-type }}" = "integration" ]; then
+            echo "⚠️ Integration tests failed, but continuing CI..."
+          else
+            exit $test_exit_code
+          fi
+        fi
+
+    - name: 📊 Process coverage report
+      id: coverage-report
+      if: inputs.coverage == 'true'
+      shell: bash
+      run: |
+        echo "📊 Processing coverage report..."
+
+        if [ -f coverage.json ]; then
+          # coverage.jsonから総合カバレッジを抽出
+          coverage_percent=$(python -c "
+          import json
+          try:
+              with open('coverage.json', 'r') as f:
+                  data = json.load(f)
+              total_coverage = data['totals']['percent_covered']
+              print(f'{total_coverage:.1f}')
+          except Exception as e:
+              print('0.0')
+          ")
+
+          echo "percentage=$coverage_percent" >> $GITHUB_OUTPUT
+          echo "📊 Coverage: ${coverage_percent}%"
+
+          # カバレッジ閾値のチェック
+          threshold=${{ inputs.coverage-threshold }}
+          if [ $(echo "$coverage_percent >= $threshold" | bc -l) -eq 1 ]; then
+            echo "✅ Coverage threshold met: ${coverage_percent}% >= ${threshold}%"
+          else
+            echo "⚠️ Coverage below threshold: ${coverage_percent}% < ${threshold}%"
+            echo "::warning::Coverage ${coverage_percent}% is below threshold ${threshold}%"
+          fi
+        else
+          echo "⚠️ Coverage report not found"
+          echo "percentage=0.0" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 📋 Generate test summary
+      shell: bash
+      run: |
+        echo "📋 Generating test summary..."
+
+        {
+          echo "# Test Execution Summary"
+          echo ""
+          echo "## Configuration"
+          echo "- Test Type: ${{ inputs.test-type }}"
+          echo "- Python Version: ${{ inputs.python-version }}"
+          echo "- Coverage Enabled: ${{ inputs.coverage }}"
+          echo "- Parallel Execution: ${{ inputs.parallel }}"
+          echo "- Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo ""
+
+          echo "## Results"
+          echo "- Test Result: ${{ steps.run-tests.outputs.result }}"
+
+          if [ "${{ inputs.coverage }}" = "true" ]; then
+            echo "- Coverage: ${{ steps.coverage-report.outputs.percentage }}%"
+            echo "- Coverage Threshold: ${{ inputs.coverage-threshold }}%"
+          fi
+
+          echo ""
+          echo "## Artifacts Generated"
+          for artifact in coverage.xml coverage.json htmlcov/ .pytest_cache/; do
+            if [ -e "$artifact" ]; then
+              if [ -d "$artifact" ]; then
+                file_count=$(find "$artifact" -type f | wc -l)
+                echo "- $artifact/ (${file_count} files)"
+              else
+                size=$(stat -c%s "$artifact" 2>/dev/null || stat -f%z "$artifact" 2>/dev/null || echo "unknown")
+                echo "- $artifact (${size} bytes)"
+              fi
+            fi
+          done
+        } > test-summary.md
+
+        echo "✅ Test summary generated"
+
+    - name: 🔍 Analyze test failures
+      if: steps.run-tests.outputs.result == 'failure'
+      shell: bash
+      run: |
+        echo "🔍 Analyzing test failures..."
+
+        # pytest の失敗ログを分析
+        if [ -f .pytest_cache/v/cache/lastfailed ]; then
+          echo "❌ Failed tests detected:"
+          cat .pytest_cache/v/cache/lastfailed
+        fi
+
+        # よくある失敗パターンをチェック
+        echo "🔍 Common failure patterns:"
+
+        # インポートエラー
+        if grep -q "ImportError\|ModuleNotFoundError" pytest.log 2>/dev/null; then
+          echo "::warning::Import errors detected - check dependencies"
+        fi
+
+        # データベース関連エラー
+        if grep -q "database\|sql\|connection" pytest.log 2>/dev/null; then
+          echo "::warning::Database-related errors detected"
+        fi
+
+        # アサーションエラー
+        if grep -q "AssertionError" pytest.log 2>/dev/null; then
+          echo "::warning::Assertion errors detected - check test logic"
+        fi

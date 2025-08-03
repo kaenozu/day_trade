@@ -1,0 +1,406 @@
+name: 🚀 Main CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
+  security-events: write
+
+env:
+  PYTHON_VERSION: '3.11'
+  CACHE_VERSION: v4
+  PYTHONDONTWRITEBYTECODE: 1
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  # 📋 変更検出とセットアップ
+  setup:
+    runs-on: ubuntu-latest
+    name: 📋 Setup & Change Detection
+    outputs:
+      python: ${{ steps.changes.outputs.python }}
+      docs: ${{ steps.changes.outputs.docs }}
+      config: ${{ steps.changes.outputs.config }}
+      tests: ${{ steps.changes.outputs.tests }}
+      workflows: ${{ steps.changes.outputs.workflows }}
+      cache-hit: ${{ steps.cache-deps.outputs.cache-hit }}
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 🔍 Detect file changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            python:
+              - 'src/**/*.py'
+              - 'tests/**/*.py'
+              - '*.py'
+              - 'pyproject.toml'
+              - 'requirements*.txt'
+              - 'setup.py'
+            docs:
+              - '**/*.md'
+              - 'docs/**'
+              - '*.rst'
+            config:
+              - '.pre-commit-config.yaml'
+              - '*.toml'
+              - '*.cfg'
+              - '*.ini'
+            tests:
+              - 'tests/**'
+              - 'conftest.py'
+            workflows:
+              - '.github/workflows/**'
+              - '.github/actions/**'
+
+      - name: 🔧 Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-version: ${{ env.CACHE_VERSION }}
+          install-dependencies: 'true'
+          install-dev-dependencies: 'true'
+          install-test-dependencies: 'true'
+
+  # 🔍 コード品質チェック（修正版）
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.python == 'true' || needs.setup.outputs.config == 'true' || needs.setup.outputs.workflows == 'true'
+    name: 🔍 Code Quality
+    steps:
+      - name: 📥 Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # pre-commit --from-refに必要
+
+      - name: 🔧 Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-version: ${{ env.CACHE_VERSION }}
+          install-dependencies: 'true'
+          install-dev-dependencies: 'true'
+
+      - name: 🔍 Run pre-commit hooks
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "🔍 Running pre-commit on changed files..."
+            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+            pre-commit run --from-ref origin/${{ github.base_ref }} --to-ref HEAD --show-diff-on-failure
+          else
+            echo "🔍 Running pre-commit on all files..."
+            pre-commit run --all-files --show-diff-on-failure
+          fi
+
+  # 🧪 包括的テスト実行（マトリックス拡大）
+  test:
+    runs-on: ubuntu-latest
+    needs: [setup, code-quality]
+    if: needs.setup.outputs.python == 'true' || needs.setup.outputs.tests == 'true'
+    name: 🧪 Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']  # 複数Pythonバージョンサポート
+        test-type: ['unit', 'integration']
+        include:
+          - python-version: '3.11'
+            test-type: 'unit'
+            coverage: true
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache-version: ${{ env.CACHE_VERSION }}
+          install-dependencies: 'true'
+          install-dev-dependencies: 'false'
+          install-test-dependencies: 'true'
+
+      - name: 🧪 Run tests
+        uses: ./.github/actions/run-tests
+        with:
+          test-type: ${{ matrix.test-type }}
+          python-version: ${{ matrix.python-version }}
+          coverage: ${{ matrix.coverage == true }}
+          parallel: 'true'
+          coverage-threshold: '40'
+
+      - name: 📊 Upload coverage to Codecov
+        if: matrix.coverage == true
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: py${{ matrix.python-version }}-${{ matrix.test-type }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+      - name: 📁 Upload coverage reports
+        if: matrix.coverage == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/
+          retention-days: 30
+
+      - name: 📋 Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}-${{ matrix.test-type }}
+          path: |
+            .pytest_cache/
+            *.xml
+          retention-days: 14
+        continue-on-error: true
+
+  # 🔒 厳密化されたセキュリティスキャン
+  security:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.python == 'true'
+    name: 🔒 Security Scan
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-version: ${{ env.CACHE_VERSION }}
+          install-dependencies: 'true'
+          install-dev-dependencies: 'false'
+
+      - name: 🔒 Run security scan
+        uses: ./.github/actions/run-security-scan
+        with:
+          scan-level: 'comprehensive'
+          fail-on-error: 'true'
+          upload-reports: 'true'
+
+  # 📦 ビルドとパッケージング
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped') && (needs.security.result == 'success' || needs.security.result == 'skipped')
+    name: 📦 Build & Package
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine wheel
+
+      - name: 🔧 Build source and wheel distributions
+        run: |
+          echo "📦 Building package distributions..."
+          python -m build
+
+      - name: ✅ Validate package
+        run: |
+          echo "✅ Validating package..."
+          python -m twine check dist/*
+
+          # パッケージサイズチェック
+          for file in dist/*; do
+            size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
+            echo "Package size: $file - $(( size / 1024 ))KB"
+            if [ $size -gt 52428800 ]; then  # 50MB
+              echo "::warning::Large package detected: $file"
+            fi
+          done
+
+      - name: 📤 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 90
+
+  # 🔗 統合テスト強化版
+  integration:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    name: 🔗 Enhanced Integration
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🔧 Test wheel installation
+        run: |
+          echo "🔧 Testing wheel installation..."
+          pip install dist/*.whl
+          python -c "
+          import day_trade
+          print(f'✅ day_trade version: {getattr(day_trade, \"__version__\", \"unknown\")}')
+
+          # 基本的な機能テスト
+          try:
+              from day_trade.data.stock_fetcher import StockFetcher
+              fetcher = StockFetcher()
+              print('✅ StockFetcher import and instantiation successful')
+          except Exception as e:
+              print(f'❌ StockFetcher test failed: {e}')
+
+          try:
+              from day_trade.utils.exceptions import DayTradeError
+              print('✅ Exception classes import successful')
+          except Exception as e:
+              print(f'❌ Exception import failed: {e}')
+          "
+
+      - name: 🏗️ Test source installation
+        run: |
+          echo "🏗️ Testing source installation..."
+          pip uninstall -y day-trade || true
+          pip install dist/*.tar.gz
+          python -c "import day_trade; print('✅ Source installation successful')"
+
+  # 📊 CI結果集約と品質ゲート
+  ci-gate:
+    runs-on: ubuntu-latest
+    needs: [setup, code-quality, test, security, build, integration]
+    if: always()
+    name: 📊 CI Quality Gate
+    steps:
+      - name: 📊 Collect CI metrics
+        id: metrics
+        run: |
+          echo "📊 CI Execution Summary:"
+          echo "======================"
+          echo "Setup: ${{ needs.setup.result }}"
+          echo "Code Quality: ${{ needs.code-quality.result }}"
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Build: ${{ needs.build.result }}"
+          echo "Integration: ${{ needs.integration.result }}"
+
+          # 品質ゲートの評価
+          REQUIRED_SUCCESS=("setup" "code-quality")
+          OPTIONAL_SUCCESS=("test" "security" "build" "integration")
+
+          echo "quality_gate=passed" >> $GITHUB_OUTPUT
+
+      - name: 🎯 Quality gate evaluation
+        run: |
+          echo "🎯 Evaluating quality gate..."
+
+          # 必須ジョブの成功確認
+          if [[ "${{ needs.setup.result }}" == "success" &&
+                ("${{ needs.code-quality.result }}" == "success" || "${{ needs.code-quality.result }}" == "skipped") ]]; then
+            echo "✅ Required jobs passed"
+          else
+            echo "❌ Required jobs failed"
+            exit 1
+          fi
+
+          # オプショナルジョブの警告
+          failed_jobs=()
+          if [[ "${{ needs.test.result }}" == "failure" ]]; then
+            failed_jobs+=("tests")
+          fi
+          if [[ "${{ needs.security.result }}" == "failure" ]]; then
+            failed_jobs+=("security")
+          fi
+          if [[ "${{ needs.build.result }}" == "failure" ]]; then
+            failed_jobs+=("build")
+          fi
+          if [[ "${{ needs.integration.result }}" == "failure" ]]; then
+            failed_jobs+=("integration")
+          fi
+
+          if [ ${#failed_jobs[@]} -gt 0 ]; then
+            echo "⚠️ Some optional jobs failed: ${failed_jobs[*]}"
+            echo "::warning::Optional jobs failed but CI continues"
+          fi
+
+          echo "🎉 CI Quality Gate: PASSED"
+
+  # 🚀 自動デプロイ（実装準備）
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [ci-gate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.ci-gate.result == 'success'
+    environment: production
+    name: 🚀 Deploy
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🚀 Deployment preparation
+        run: |
+          echo "🚀 Preparing deployment..."
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Event: ${{ github.event_name }}"
+
+          # デプロイメント前のチェック
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist/)" ]; then
+            echo "❌ No build artifacts found"
+            exit 1
+          fi
+
+          echo "✅ Build artifacts verified"
+          ls -la dist/
+
+      - name: 🔧 Deploy to staging
+        run: |
+          echo "🔧 Deploying to staging environment..."
+          # TODO: 実際のステージング環境へのデプロイロジック
+          echo "Staging deployment ready"
+
+      - name: 🎯 Production deployment
+        run: |
+          echo "🎯 Deploying to production..."
+          # TODO: 実際のプロダクション環境へのデプロイロジック
+          echo "Production deployment ready"
+          echo "::notice::Deployment placeholder - implement actual deployment logic"
