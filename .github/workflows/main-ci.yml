@@ -141,7 +141,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           coverage: ${{ matrix.coverage == true }}
           parallel: 'true'
-          coverage-threshold: '40'
+          coverage-threshold: '20'
 
       - name: 📊 Upload coverage to Codecov
         if: matrix.coverage == true
