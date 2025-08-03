@@ -1276,7 +1276,7 @@ class EnsembleTradingStrategy:
                                             model_predictions.append(pred[0] if len(pred) > 0 else 0.0)
                                         else:
                                             model_predictions.append(0.0)
-                                    except:
+                                    except Exception:
                                         model_predictions.append(0.0)
 
                             if len(model_predictions) >= 2:

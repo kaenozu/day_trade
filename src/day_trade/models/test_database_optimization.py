@@ -546,7 +546,7 @@ class DatabaseOptimizationTester:
             import psutil
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except Exception:
             return 0.0
 
     def _generate_optimization_recommendations(self, test_results: List[DatabaseOptimizationTestResult]) -> List[str]:

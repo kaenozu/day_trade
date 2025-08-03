@@ -915,7 +915,7 @@ class ComprehensiveEnsembleTester:
             import psutil
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except Exception:
             return 0.0
 
     def generate_detailed_validation_report(self, report: EnsembleValidationReport) -> str:

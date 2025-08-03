@@ -603,7 +603,7 @@ class PerformanceIntegrationTester:
                 'memory_rss_mb': process.memory_info().rss / 1024 / 1024,
                 'num_threads': process.num_threads()
             }
-        except:
+        except Exception:
             return {}
 
     def _get_memory_usage(self) -> float:
@@ -612,7 +612,7 @@ class PerformanceIntegrationTester:
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except Exception:
             return 0.0
 
     def _calculate_improvement_score(self, comparisons: List[PerformanceComparisonResult]) -> float:
