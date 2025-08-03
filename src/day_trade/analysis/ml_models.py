@@ -600,15 +600,23 @@ def create_ensemble_predictions(
 # 後方互換性のためのアダプタークラス
 def create_default_model_ensemble():
     """デフォルトのモデルアンサンブルを作成"""
-    manager = MLModelManager()
-    return manager
+    # 簡易的なダミー実装を返す
+    class DummyEnsemble:
+        def fit(self, X, y):
+            pass
+        def predict(self, X):
+            return []
+        def get_model_performances(self):
+            return {}
+    return DummyEnsemble()
 
 
 class MLModelManager:
     """機械学習モデル管理クラス（後方互換性のため）"""
 
-    def __init__(self):
+    def __init__(self, models_dir: Optional[str] = None):
         """MLModelManagerの初期化"""
+        self.models_dir = models_dir
         self.ensemble = create_default_model_ensemble()
         self.is_trained = False
 
@@ -617,13 +625,13 @@ class MLModelManager:
         self.ensemble.fit(X, y)
         self.is_trained = True
 
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
+    def predict(self, X: pd.DataFrame) -> List[Dict[str, Any]]:
         """予測実行"""
         if not self.is_trained:
             raise ValueError("モデルが訓練されていません")
         return self.ensemble.predict(X)
 
-    def get_performance(self) -> Dict[str, ModelPerformance]:
+    def get_performance(self) -> Dict[str, Dict[str, Any]]:
         """パフォーマンス取得"""
         return self.ensemble.get_model_performances()
 
