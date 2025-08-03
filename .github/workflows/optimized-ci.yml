@@ -1,4 +1,4 @@
-name: 🚀 Ultra-Fast CI/CD
+name: Optimized CI/CD Pipeline
 
 on:
   push:
@@ -20,7 +20,7 @@ env:
   PYTHONUNBUFFERED: 1
 
 jobs:
-  # 🚀 最適化されたセットアップと変更検出
+  # 最適化されたセットアップと変更検出
   setup:
     runs-on: ubuntu-latest
     outputs:
@@ -83,7 +83,7 @@ jobs:
           pip install -e .[dev]
           pre-commit install-hooks
 
-  # 🚀 最適化されたコード品質と静的解析
+  # 最適化されたコード品質と静的解析
   quality:
     runs-on: ubuntu-latest
     needs: setup
@@ -144,7 +144,7 @@ jobs:
             pre-commit run --all-files --show-diff-on-failure
           fi
 
-  # 🚀 最適化されたテスト実行
+  # 最適化されたテスト実行
   test:
     runs-on: ubuntu-latest
     needs: [setup, quality]
@@ -205,21 +205,12 @@ jobs:
               ;;
             "integration")
               echo "🔗 Running integration tests..."
-              # 統合テストの実装を促進
-              if [ -d "tests/integration" ] && [ "$(find tests/integration -name '*.py' -not -name '__init__.py' | wc -l)" -gt 0 ]; then
-                pytest tests/integration/ -v --tb=short \
+              pytest tests/integration/ -v --tb=short \
                                        --disable-warnings \
                                        --integration \
                                        --cov=src/day_trade \
                                        --cov-append \
-                                       --slow  # 追加: --slow オプション
-              else
-                echo "⚠️ Integration tests not yet implemented"
-                echo "📝 Creating placeholder to encourage implementation..."
-                mkdir -p tests/integration
-                touch tests/integration/__init__.py
-                echo "# TODO: Implement integration tests here" > tests/integration/test_placeholder.py
-              fi
+                                       --slow  # --slow オプションを直接渡す
               ;;
           esac
 
@@ -333,7 +324,7 @@ jobs:
           path: dist/
           retention-days: 90
 
-  # 🔗 最適化された統合チェック
+  # 最適化された統合チェック
   status:
     runs-on: ubuntu-latest
     needs: [setup, quality, test, security, build]
@@ -374,7 +365,7 @@ jobs:
             exit 1
           fi
 
-  # 🚀 自動デプロイ
+  # 自動デプロイ
   deploy:
     runs-on: ubuntu-latest
     needs: [status]
@@ -386,5 +377,5 @@ jobs:
         run: |
           echo "🚀 Ready for deployment"
           echo "Branch: ${{ github.ref }}"
-          echo "Event: ${{ github.event_name }}"
+          echo "Event: ${{ github.event.name }}"
           echo "TODO: Implement deployment logic here"
