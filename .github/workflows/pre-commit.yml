@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -31,9 +31,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-${{ runner.os }}-v5-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            pre-commit-${{ runner.os }}-
+            pre-commit-${{ runner.os }}-v5-
 
       - name: Install dependencies
         run: |
@@ -53,6 +53,14 @@ jobs:
         run: |
           echo "🔍 Running pre-commit hooks..."
           pre-commit run --all-files --show-diff-on-failure
+          # 自動修正された変更をコミット
+          if [[ $(git status --porcelain) ]]; then
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add .
+            git commit --amend --no-edit
+            git push
+          fi
 
       - name: Comment PR with pre-commit results
         if: failure() && github.event_name == 'pull_request'
