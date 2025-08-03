@@ -7,7 +7,7 @@ Issue 185: 外部API通信の耐障害性強化
 
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yfinance as yf
@@ -33,6 +33,10 @@ from ..utils.logging_config import (
     log_security_event,
 )
 from .stock_fetcher import StockFetcher  # 既存実装を継承
+from ..utils.performance_optimizer import DataFetchOptimizer
+import asyncio
+import concurrent.futures
+from functools import partial
 
 
 class EnhancedStockFetcher(StockFetcher):
@@ -498,6 +502,259 @@ class EnhancedStockFetcher(StockFetcher):
                                          if check["status"] == "pass"))
 
         return health
+
+    # === パフォーマンス最適化機能 (Issue #165) ===
+
+    def __init_performance_optimizer(self):
+        """パフォーマンス最適化コンポーネントの初期化"""
+        self.data_optimizer = DataFetchOptimizer(
+            max_workers=4,
+            chunk_size=50
+        )
+
+    def fetch_multiple_bulk(
+        self,
+        symbols: List[str],
+        period: str = "1d",
+        interval: str = "1d",
+        use_async: bool = True,
+        auto_retry_failed: bool = True
+    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
+        """
+        複数銘柄の一括データ取得（最適化版）
+
+        Args:
+            symbols: 銘柄コードのリスト
+            period: 取得期間 ("1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max")
+            interval: データ間隔 ("1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo")
+            use_async: 非同期処理を使用するか
+            auto_retry_failed: 失敗した銘柄を自動リトライするか
+
+        Returns:
+            銘柄コードをキーとする辞書。値は成功時はDataFrame、失敗時はException
+        """
+        if not hasattr(self, 'data_optimizer'):
+            self.__init_performance_optimizer()
+
+        start_time = time.time()
+        self.logger.info("一括データ取得開始",
+                        symbol_count=len(symbols),
+                        period=period,
+                        interval=interval,
+                        use_async=use_async)
+
+        try:
+            # yfinanceの一括取得機能を優先使用
+            bulk_result = self._fetch_bulk_yfinance(symbols, period, interval)
+
+            # 失敗した銘柄がある場合は個別取得
+            failed_symbols = [symbol for symbol, data in bulk_result.items()
+                            if isinstance(data, Exception)]
+
+            if failed_symbols and auto_retry_failed:
+                self.logger.warning("一括取得失敗銘柄の個別リトライ",
+                                  failed_count=len(failed_symbols))
+
+                if use_async:
+                    individual_results = asyncio.run(
+                        self.data_optimizer.fetch_multiple_async(
+                            failed_symbols,
+                            self._fetch_single_with_resilience,
+                            period=period,
+                            interval=interval
+                        )
+                    )
+                else:
+                    individual_results = self.data_optimizer.fetch_multiple_threaded(
+                        failed_symbols,
+                        self._fetch_single_with_resilience,
+                        period=period,
+                        interval=interval
+                    )
+
+                # 成功したリトライ結果をマージ
+                bulk_result.update(individual_results.get("success", {}))
+
+            execution_time = time.time() - start_time
+            success_count = sum(1 for v in bulk_result.values() if not isinstance(v, Exception))
+
+            # パフォーマンスメトリクス記録
+            log_performance_metric(
+                self.logger,
+                operation="bulk_fetch",
+                duration=execution_time,
+                symbol_count=len(symbols),
+                success_count=success_count,
+                throughput=success_count / execution_time if execution_time > 0 else 0
+            )
+
+            return bulk_result
+
+        except Exception as e:
+            log_error_with_context(self.logger, e,
+                                 operation="fetch_multiple_bulk",
+                                 symbol_count=len(symbols))
+            # エラー時は全銘柄にエラーオブジェクトを返す
+            return {symbol: e for symbol in symbols}
+
+    def _fetch_bulk_yfinance(
+        self,
+        symbols: List[str],
+        period: str,
+        interval: str
+    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
+        """yfinanceの一括取得機能を使用した最適化取得"""
+        try:
+            # 銘柄リストを空白区切りの文字列に変換
+            symbols_str = " ".join(symbols)
+
+            # yfinanceの一括取得
+            bulk_data = yf.download(
+                tickers=symbols_str,
+                period=period,
+                interval=interval,
+                group_by='ticker',
+                auto_adjust=True,
+                prepost=True,
+                threads=True,  # マルチスレッド有効
+                progress=False  # プログレスバー無効
+            )
+
+            results = {}
+
+            if len(symbols) == 1:
+                # 単一銘柄の場合
+                symbol = symbols[0]
+                if not bulk_data.empty:
+                    results[symbol] = bulk_data
+                else:
+                    results[symbol] = DataError(f"No data available for {symbol}")
+            else:
+                # 複数銘柄の場合
+                for symbol in symbols:
+                    try:
+                        if symbol in bulk_data.columns.levels[0]:
+                            symbol_data = bulk_data[symbol].dropna()
+                            if not symbol_data.empty:
+                                results[symbol] = symbol_data
+                            else:
+                                results[symbol] = DataError(f"No data available for {symbol}")
+                        else:
+                            results[symbol] = DataError(f"Symbol {symbol} not found in bulk data")
+                    except Exception as e:
+                        results[symbol] = e
+
+            return results
+
+        except Exception as e:
+            self.logger.error("一括取得エラー", error=str(e), symbol_count=len(symbols))
+            # エラー時は全銘柄に同じエラーを返す
+            return {symbol: e for symbol in symbols}
+
+    def _fetch_single_with_resilience(
+        self,
+        symbol: str,
+        period: str = "1d",
+        interval: str = "1d"
+    ) -> pd.DataFrame:
+        """耐障害性機能付きの単一銘柄取得"""
+        try:
+            # 既存の単一取得メソッドを使用（耐障害性機能付き）
+            data = self.get_historical_data(symbol, period, interval)
+            if data is None or data.empty:
+                raise DataError(f"No data available for {symbol}")
+            return data
+        except Exception as e:
+            # エラーを適切な型に変換
+            if isinstance(e, (APIError, DataError, NetworkError)):
+                raise e
+            else:
+                raise APIError(f"Failed to fetch data for {symbol}: {str(e)}")
+
+    async def fetch_multiple_async_optimized(
+        self,
+        symbols: List[str],
+        period: str = "1d",
+        interval: str = "1d",
+        batch_size: int = 50
+    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
+        """
+        非同期一括取得の最適化版
+
+        大量の銘柄を効率的に処理するため、バッチ分割と並列処理を組み合わせ
+        """
+        if not hasattr(self, 'data_optimizer'):
+            self.__init_performance_optimizer()
+
+        start_time = time.time()
+        self.logger.info("非同期一括取得開始",
+                        symbol_count=len(symbols),
+                        batch_size=batch_size)
+
+        # バッチ分割
+        batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
+        all_results = {}
+
+        # 各バッチを並列処理
+        for batch_idx, batch in enumerate(batches):
+            try:
+                batch_results = await self.data_optimizer.fetch_multiple_async(
+                    batch,
+                    self._fetch_single_with_resilience,
+                    period=period,
+                    interval=interval
+                )
+
+                all_results.update(batch_results.get("success", {}))
+
+                # エラーもマージ
+                for symbol, error in batch_results.get("errors", {}).items():
+                    all_results[symbol] = error
+
+                self.logger.debug("バッチ処理完了",
+                                batch_index=batch_idx + 1,
+                                batch_symbols=len(batch),
+                                success_count=len(batch_results.get("success", {})))
+
+            except Exception as e:
+                # バッチ全体でエラーの場合
+                for symbol in batch:
+                    all_results[symbol] = e
+
+                self.logger.error("バッチ処理エラー",
+                                batch_index=batch_idx + 1,
+                                error=str(e))
+
+        execution_time = time.time() - start_time
+        success_count = sum(1 for v in all_results.values() if not isinstance(v, Exception))
+
+        log_performance_metric(
+            self.logger,
+            operation="async_bulk_fetch",
+            duration=execution_time,
+            symbol_count=len(symbols),
+            success_count=success_count,
+            throughput=success_count / execution_time if execution_time > 0 else 0,
+            batch_count=len(batches)
+        )
+
+        return all_results
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """パフォーマンス統計を取得"""
+        base_stats = super().get_retry_stats() if hasattr(super(), 'get_retry_stats') else {}
+
+        # 耐障害性統計
+        resilience_stats = {}
+        if hasattr(self, 'resilient_client'):
+            resilience_stats = self.resilient_client.get_statistics()
+
+        return {
+            "basic_stats": base_stats,
+            "resilience_stats": resilience_stats,
+            "optimization_enabled": hasattr(self, 'data_optimizer'),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 # 使用例
