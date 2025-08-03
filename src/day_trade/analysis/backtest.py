@@ -1585,52 +1585,6 @@ class BacktestEngine:
             )
             raise
 
-    def _calculate_trade_statistics_vectorized(self) -> Tuple[int, int, List[Decimal], List[Decimal], int, float, Decimal, Decimal, Any]:
-        """取引統計情報をベクタ化計算で算出（テスト互換性用）"""
-        if not self.trades:
-            return (0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf"))
-
-        # 取引データの集計
-        wins = []
-        losses = []
-
-        for trade in self.trades:
-            if trade.action == TradeType.SELL:
-                # 売り取引の場合、利益/損失を計算
-                # 簡易計算：売値から平均買値を引く
-                profit_loss = trade.price - Decimal("2500")  # 仮の基準価格
-                if profit_loss > 0:
-                    wins.append(profit_loss)
-                else:
-                    losses.append(abs(profit_loss))
-
-        winning_trades = len(wins)
-        losing_trades = len(losses)
-        total_trades = len(self.trades)
-
-        # 勝率計算
-        win_rate = (winning_trades / total_trades) if total_trades > 0 else 0.0
-
-        # 平均勝ち/負け
-        avg_win = Decimal(str(sum(wins) / len(wins))) if wins else Decimal("0")
-        avg_loss = Decimal(str(sum(losses) / len(losses))) if losses else Decimal("0")
-
-        # プロフィットファクター
-        total_wins = sum(wins) if wins else 0
-        total_losses = sum(losses) if losses else 1  # ゼロ除算回避
-        profit_factor = float(total_wins / total_losses) if total_losses > 0 else float("inf")
-
-        return (
-            winning_trades,
-            losing_trades,
-            wins,
-            losses,
-            total_trades,
-            win_rate,
-            avg_win,
-            avg_loss,
-            profit_factor
-        )
 
 
 # 使用例とデフォルト戦略
