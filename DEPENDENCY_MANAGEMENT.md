@@ -1,18 +1,37 @@
 # 依存関係管理ガイド
 
-このプロジェクトでは、依存関係を以下のファイルで管理しています。
+このプロジェクトでは、**pyproject.toml** を中心とした最新の依存関係管理方式を採用しています。
 
 ## ファイル構成
 
-### 本番用依存関係
+### 主要な管理ファイル
 
-- **`requirements.txt`**: 本番環境で必要な依存関係のみ
-- **`pyproject.toml`**: モダンなPython依存関係管理 (本番用は`dependencies`セクション)
+- **`pyproject.toml`**: モダンなPython依存関係管理の標準
+  - `dependencies`: 本番環境で必要な依存関係
+  - `project.optional-dependencies.dev`: 開発用依存関係
 
-### 開発用依存関係
+### レガシーファイル（互換性維持）
 
-- **`requirements-dev.txt`**: 開発用ライブラリ（テスト、リンター、フォーマッタなど）
-- **`pyproject.toml`**: 開発用依存関係 (`project.optional-dependencies.dev`セクション)
+- **`requirements.txt`**: 本番環境用（レガシーサポート）
+- **`requirements-dev.txt`**: 開発用（レガシーサポート）
+
+## バージョン管理戦略
+
+### 厳密なバージョン制約
+
+```toml
+dependencies = [
+    "click>=8.1.0,<9.0",  # メジャーバージョン固定
+    "pandas>=2.0.0,<3.0", # 破壊的変更を回避
+    "numpy>=1.24.0,<2.0", # NumPy 2.x の breaking changes 対応
+]
+```
+
+### セマンティックバージョニング対応
+
+- **パッチレベル更新**: 自動許可 (bug fixes)
+- **マイナーレベル更新**: 制限付き許可 (backward compatible)
+- **メジャーレベル更新**: 手動検証が必要 (breaking changes)
 
 ## 使用方法
 

@@ -3,6 +3,7 @@
 yfinanceを使用してリアルタイムおよびヒストリカルな株価データを取得
 """
 
+import logging
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
@@ -10,6 +11,14 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import yfinance as yf
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception,
+    before_sleep_log,
+    after_log,
+)
 
 from ..utils.cache_utils import (
     CacheStats,
@@ -171,6 +180,16 @@ class StockFetcher:
         # ロガーを初期化
         self.logger = get_context_logger(__name__)
 
+        # リトライ統計を初期化
+        self.retry_stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "total_retries": 0,
+            "retry_success": 0,
+            "errors_by_type": {}
+        }
+
         # LRUキャッシュを動的に設定
         self._get_ticker = lru_cache(maxsize=cache_size)(self._create_ticker)
 
@@ -188,31 +207,72 @@ class StockFetcher:
         """Tickerオブジェクトを作成（内部メソッド）"""
         return yf.Ticker(symbol)
 
+    def _record_request_start(self):
+        """リクエスト開始を記録"""
+        self.retry_stats["total_requests"] += 1
+
+    def _record_request_success(self):
+        """リクエスト成功を記録"""
+        self.retry_stats["successful_requests"] += 1
+
+    def _record_request_failure(self, error: Exception):
+        """リクエスト失敗を記録"""
+        self.retry_stats["failed_requests"] += 1
+        error_type = type(error).__name__
+        self.retry_stats["errors_by_type"][error_type] = (
+            self.retry_stats["errors_by_type"].get(error_type, 0) + 1
+        )
+
+    def _record_retry_attempt(self):
+        """リトライ試行を記録"""
+        self.retry_stats["total_retries"] += 1
+
+    def _record_retry_success(self):
+        """リトライ成功を記録"""
+        self.retry_stats["retry_success"] += 1
+
+    def get_retry_stats(self) -> Dict:
+        """リトライ統計を取得"""
+        stats = self.retry_stats.copy()
+        if stats["total_requests"] > 0:
+            stats["success_rate"] = stats["successful_requests"] / stats["total_requests"]
+            stats["failure_rate"] = stats["failed_requests"] / stats["total_requests"]
+        if stats["total_retries"] > 0:
+            stats["retry_success_rate"] = stats["retry_success"] / stats["total_retries"]
+        return stats
+
+    def _create_retry_decorator(self):
+        """tenacityを使用したリトライデコレータを作成"""
+        return retry(
+            stop=stop_after_attempt(self.retry_count),
+            wait=wait_exponential(
+                multiplier=self.retry_delay,
+                min=self.retry_delay,
+                max=60  # 最大60秒待機
+            ),
+            retry=retry_if_exception(self._is_retryable_error),
+            before_sleep=before_sleep_log(self.logger, logging.WARNING),
+            after=after_log(self.logger, logging.INFO),
+            reraise=True
+        )
+
     def _retry_on_error(self, func, *args, **kwargs):
-        """エラー時のリトライ機能"""
-        last_exception = None
+        """tenacityベースのリトライ機能（統計記録付き）"""
+        self._record_request_start()
+        retry_decorator = self._create_retry_decorator()
 
-        for attempt in range(self.retry_count):
-            try:
-                return func(*args, **kwargs)
+        @retry_decorator
+        def _execute_with_retry():
+            # _record_request_success() は最終的な成功時のみ呼ばれるように
+            # ここでは呼び出さない
+            return func(*args, **kwargs)
 
-            except Exception as e:
-                last_exception = e
-
-                # ネットワークエラーまたは一時的なエラーの場合のみリトライ
-                if self._is_retryable_error(e):
-                    if attempt < self.retry_count - 1:
-                        self.logger.warning(
-                            f"リトライ {attempt + 1}/{self.retry_count}: {e}"
-                        )
-                        time.sleep(self.retry_delay * (attempt + 1))  # 指数バックオフ
-                        continue
-                else:
-                    # リトライ不可能なエラーは即座に再発生
-                    break
-
-        # 最終的にエラーを再発生
-        self._handle_error(last_exception)
+        try:
+            return _execute_with_retry()
+        except Exception as e:
+            self._record_request_failure(e)
+            # _handle_errorで適切な例外に変換して再発生
+            self._handle_error(e)
 
     def _is_retryable_error(self, error: Exception) -> bool:
         """リトライ可能なエラーかどうかを判定（改善版）"""
@@ -229,22 +289,7 @@ class StockFetcher:
                 retryable_codes = [500, 502, 503, 504, 408, 429]
                 return status_code in retryable_codes
 
-        # 最後の手段として文字列解析（後方互換性のため）
-        error_message = str(error).lower()
-        retryable_patterns = [
-            "connection",
-            "timeout",
-            "network",
-            "temporary",
-            "read timeout",
-            "connection timeout",
-            "500",
-            "502",
-            "503",
-            "504",
-        ]
-
-        return any(pattern in error_message for pattern in retryable_patterns)
+        return False
 
     def _handle_error(self, error: Exception) -> None:
         """エラーを適切な例外クラスに変換して再発生（改善版）"""

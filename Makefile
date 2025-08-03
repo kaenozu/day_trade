@@ -51,6 +51,24 @@ test-integration: ## Run integration tests only
 	@echo "🔗 Running integration tests..."
 	pytest tests/integration/ -v
 
+# カバレッジ
+coverage: ## Generate comprehensive coverage report
+	@echo "📊 Generating coverage report..."
+	python scripts/coverage_report.py
+
+coverage-goals: ## Check coverage goals and generate progress report
+	@echo "🎯 Checking coverage goals..."
+	python scripts/coverage_goals.py
+
+coverage-html: ## Generate HTML coverage report
+	@echo "🌐 Generating HTML coverage report..."
+	pytest tests/ --cov=src/day_trade --cov-report=html --cov-report=term-missing
+	@echo "📄 HTML report available at: htmlcov/index.html"
+
+coverage-xml: ## Generate XML coverage report for CI
+	@echo "📄 Generating XML coverage report..."
+	pytest tests/ --cov=src/day_trade --cov-report=xml --cov-report=term-missing
+
 # Docker
 docker-build: ## Build Docker images
 	@echo "🐳 Building Docker images..."
@@ -148,6 +166,21 @@ deps-report: ## Generate dependency report
 deps-sync: ## Sync requirements files
 	@echo "🔄 Syncing requirements files..."
 	python scripts/dependency_manager.py sync
+
+deps-unused: ## Check for unused dependencies
+	@echo "🔍 Checking for unused dependencies..."
+	deptry . --extend-exclude "tests" --ignore-notebooks || echo "deptry not installed"
+
+deps-validate: ## Validate dependency configuration
+	@echo "✅ Validating dependency configuration..."
+	pip check
+	pip-check-reqs . || echo "pip-check-reqs not installed"
+
+deps-audit: ## Comprehensive dependency audit
+	@echo "🔒 Running comprehensive dependency audit..."
+	safety check || echo "safety not installed"
+	pip-audit || echo "pip-audit not installed"
+	bandit -r src/ -f json -o reports/dependencies/security_audit.json || echo "bandit not installed"
 
 # リリース
 release-patch: ## Create patch release
