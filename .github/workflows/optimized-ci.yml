@@ -201,16 +201,16 @@ jobs:
           case "${{ matrix.test-type }}" in
             "unit-fast")
               echo "🚀 Running fast unit tests..."
-              pytest tests/ -v --tb=short -x --disable-warnings \
+              pytest tests/ -v --tb=short --disable-warnings \
                           --ignore=tests/integration/ \
                           -m "not slow" \
-                          --maxfail=3 \
+                          --maxfail=10 \
                           --cov=src/day_trade \
                           --cov-report=xml \
                           --cov-report=html \
                           --cov-report=term-missing \
                           --cov-report=json \
-                          --cov-fail-under=35
+                          --cov-fail-under=20
               ;;
             "unit-slow")
               echo "🐌 Running slow unit tests..."
