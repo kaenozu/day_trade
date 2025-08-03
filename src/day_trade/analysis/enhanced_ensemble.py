@@ -238,7 +238,8 @@ class EnhancedEnsembleStrategy:
         market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
 
         # 3. 特徴量エンジニアリング
-        feature_data = self.feature_engineer.generate_all_features(clean_data, indicators)
+        volume_data = clean_data.get('Volume', None) if 'Volume' in clean_data.columns else None
+        feature_data = self.feature_engineer.generate_all_features(clean_data, volume_data)
 
         if market_data:
             feature_data = self.feature_engineer._generate_market_features(feature_data, market_data)
@@ -595,8 +596,8 @@ class EnhancedEnsembleStrategy:
             )
 
             # 特徴量エンジニアリング
-            indicators = {}  # 必要に応じて計算
-            feature_data = self.feature_engineer.generate_all_features(training_data, indicators)
+            volume_data = training_data.get('Volume', None) if 'Volume' in training_data.columns else None
+            feature_data = self.feature_engineer.generate_all_features(training_data, volume_data)
 
             # 特徴量とターゲットの準備
             feature_cols = [col for col in feature_data.columns
