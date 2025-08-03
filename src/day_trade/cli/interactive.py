@@ -868,11 +868,17 @@ def screen_stocks(
 class InteractiveMode:
     """対話型モードクラス"""
 
-    def __init__(self):
+    def __init__(self, watchlist_manager=None, stock_fetcher=None, trade_manager=None, signal_generator=None, console=None):
         """初期化"""
-        self.console = Console()
-        self.watchlist_manager = _get_watchlist_manager()
-        self.stock_fetcher = StockFetcher()
+        self.console = console or Console()
+        self.watchlist_manager = watchlist_manager or _get_watchlist_manager()
+        self.stock_fetcher = stock_fetcher or StockFetcher()
+        self.trade_manager = trade_manager
+        self.signal_generator = signal_generator
+        self._background_update_running = False
+        self._update_interval = 5.0
+        self._cached_data = {}
+        self._last_update = None
 
     def start(self):
         """対話型モードを開始"""
