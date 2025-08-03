@@ -500,12 +500,23 @@ class TechnicalIndicators:
                     progress_type=ProgressType.DETERMINATE,
                 ) as progress:
                     cls._calculate_all_indicators(
-                        df, indicators, params, progress=progress
+                        df, indicators,
+                        params['sma_periods'], params['ema_periods'],
+                        params['bb_period'], params['bb_std'],
+                        params['macd_fast'], params['macd_slow'], params['macd_signal'],
+                        params['rsi_period'], params['stoch_k'], params['stoch_d'],
+                        params['stoch_smooth'], params['volume_period'], params['atr_period'],
+                        progress=progress
                     )
             else:
                 # 進捗表示なしで実行
                 cls._calculate_all_indicators(
-                    df, indicators, params
+                    df, indicators,
+                    params['sma_periods'], params['ema_periods'],
+                    params['bb_period'], params['bb_std'],
+                    params['macd_fast'], params['macd_slow'], params['macd_signal'],
+                    params['rsi_period'], params['stoch_k'], params['stoch_d'],
+                    params['stoch_smooth'], params['volume_period'], params['atr_period']
                 )
 
             # 一度にDataFrameを構築（パフォーマンス最適化）

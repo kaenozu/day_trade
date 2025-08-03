@@ -858,6 +858,31 @@ class TradingSignalGenerator:
             )
             return 0.0
 
+    def _merge_conditions_safely(
+        self, buy_conditions: Dict[str, bool], sell_conditions: Dict[str, bool]
+    ) -> Dict[str, bool]:
+        """コンディションを安全に結合し、同名キーの衝突を警告"""
+        merged = buy_conditions.copy()
+
+        # 衝突チェック
+        overlapping_keys = set(buy_conditions.keys()) & set(sell_conditions.keys())
+        if overlapping_keys:
+            logger.warning(
+                f"買い・売りコンディションで同名キーが検出されました: {overlapping_keys}"
+            )
+            # 売り条件を優先（より安全）
+            for key in overlapping_keys:
+                merged[f"buy_{key}"] = buy_conditions[key]
+                merged[f"sell_{key}"] = sell_conditions[key]
+                del merged[key]
+
+        # 残りの売り条件を追加
+        for key, value in sell_conditions.items():
+            if key not in overlapping_keys:
+                merged[key] = value
+
+        return merged
+
 
 # カスタムルールの例
 class VolumeSpikeBuyRule(SignalRule):
