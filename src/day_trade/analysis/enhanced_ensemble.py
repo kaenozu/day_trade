@@ -586,15 +586,19 @@ class EnhancedEnsembleStrategy:
 
             y = feature_data[target_column].fillna(0)
 
-            # 訓練実行
-            self.ml_ensemble.fit(X, y)
-            self.last_training_time = datetime.now()
+            # 訓練実行（MLModelManagerの場合）
+            if hasattr(self.ml_ensemble, 'fit'):
+                self.ml_ensemble.fit(X, y)
+                self.last_training_time = datetime.now()
 
-            logger.info(
-                "機械学習モデル訓練完了",
-                section="ml_training",
-                models_trained=len([m for m in self.ml_ensemble.models if m.is_trained])
-            )
+                logger.info(
+                    "機械学習モデル訓練完了",
+                    section="ml_training",
+                    features_count=len(feature_cols),
+                    samples_count=len(X)
+                )
+            else:
+                logger.warning("MLモデル訓練メソッドが利用できません", section="ml_training")
 
             return True
 
