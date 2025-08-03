@@ -671,27 +671,10 @@ class BacktestEngine:
                     [-1]
                 ].copy()
 
-                # patternsは辞書であり、その中にDataFrameが含まれている可能性があるため、
-                # patterns.py の detect_all_patterns が返す構造を考慮してスライス
-                latest_patterns = {}
-                for key, value in all_patterns_for_current_data.items():
-                    if isinstance(value, pd.DataFrame):
-                        # patterns内のDataFrameも最新の行を抽出
-                        if not value.empty:
-                            latest_patterns[key] = value.iloc[[-1]].copy()
-                        else:
-                            latest_patterns[key] = pd.DataFrame()
-                    elif isinstance(value, dict):
-                        # ネストされた辞書の場合、個別に処理
-                        nested_dict = {}
-                        for nested_key, nested_value in value.items():
-                            if isinstance(nested_value, pd.Series):
-                                nested_dict[nested_key] = nested_value.iloc[[-1]].copy()
-                            else:
-                                nested_dict[nested_key] = nested_value
-                        latest_patterns[key] = nested_dict
-                    else:
-                        latest_patterns[key] = value
+                # パターン結果を簡略化 - 最新データポイントのみを抽出
+                latest_patterns = self._extract_latest_pattern_data(
+                    all_patterns_for_current_data
+                )
 
                 signal = self.signal_generator.generate_signal(
                     latest_df_row, latest_indicators_row, latest_patterns
@@ -1585,52 +1568,114 @@ class BacktestEngine:
             )
             raise
 
+    def _extract_latest_pattern_data(self, patterns_data: Dict[str, Any]) -> Dict[str, Any]:
+        """パターンデータから最新データポイントを抽出する簡略化メソッド"""
+        latest_patterns = {}
+
+        for key, value in patterns_data.items():
+            try:
+                if isinstance(value, pd.DataFrame):
+                    # DataFrameの場合は最新行を抽出
+                    if not value.empty:
+                        latest_patterns[key] = value.iloc[[-1]].copy()
+                    else:
+                        latest_patterns[key] = pd.DataFrame()
+                elif isinstance(value, dict):
+                    # ネストされた辞書の場合は再帰的に処理
+                    nested_dict = {}
+                    for nested_key, nested_value in value.items():
+                        if isinstance(nested_value, (pd.Series, pd.DataFrame)):
+                            if hasattr(nested_value, 'iloc') and len(nested_value) > 0:
+                                nested_dict[nested_key] = nested_value.iloc[[-1]].copy()
+                            else:
+                                nested_dict[nested_key] = nested_value
+                        else:
+                            nested_dict[nested_key] = nested_value
+                    latest_patterns[key] = nested_dict
+                else:
+                    # その他の型はそのまま保持
+                    latest_patterns[key] = value
+
+            except Exception as e:
+                logger.debug(f"パターンデータ抽出エラー ({key}): {e}")
+                # エラー時はスキップ
+                continue
+
+        return latest_patterns
+
+    def _calculate_realized_pnl(self) -> List[Decimal]:
+        """改良版実現損益計算 - ポジション追跡による正確な損益計算"""
+        realized_pnl = []
+        position_tracker = {}  # symbol -> [買い注文のリスト]
+
+        for trade in self.trades:
+            symbol = trade.symbol
+
+            if symbol not in position_tracker:
+                position_tracker[symbol] = []
+
+            if trade.action == TradeType.BUY:
+                # 買い注文を追加
+                position_tracker[symbol].append(trade)
+
+            elif trade.action == TradeType.SELL:
+                # 売り注文：FIFO方式で対応する買い注文を処理
+                remaining_quantity = trade.quantity
+                sell_proceeds = trade.price * trade.quantity - trade.commission
+                total_cost = Decimal("0")
+
+                while remaining_quantity > 0 and position_tracker[symbol]:
+                    buy_trade = position_tracker[symbol][0]
+
+                    if buy_trade.quantity <= remaining_quantity:
+                        # 買いポジションを完全に決済
+                        cost = (buy_trade.price * buy_trade.quantity +
+                               buy_trade.commission)
+                        total_cost += cost
+                        remaining_quantity -= buy_trade.quantity
+                        position_tracker[symbol].pop(0)
+                    else:
+                        # 買いポジションを部分決済
+                        partial_quantity = remaining_quantity
+                        partial_cost = (buy_trade.price * partial_quantity +
+                                      buy_trade.commission *
+                                      (partial_quantity / buy_trade.quantity))
+                        total_cost += partial_cost
+
+                        # 残りの買いポジションを更新
+                        buy_trade.quantity -= partial_quantity
+                        buy_trade.commission *= (buy_trade.quantity /
+                                               (buy_trade.quantity + partial_quantity))
+                        remaining_quantity = 0
+
+                # 実現損益を計算
+                if total_cost > 0:
+                    pnl = sell_proceeds - total_cost
+                    realized_pnl.append(pnl)
+
+        return realized_pnl
     def _calculate_trade_statistics_vectorized(self) -> Tuple[int, int, List[Decimal], List[Decimal], int, float, Decimal, Decimal, Any]:
         """取引統計情報をベクタ化計算で算出（テスト互換性用）"""
         if not self.trades:
             return (0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf"))
 
-        # 取引データの集計
-        wins = []
-        losses = []
+        realized_pnl = self._calculate_realized_pnl()
+        wins = [pnl for pnl in realized_pnl if pnl > 0]
+        losses = [abs(pnl) for pnl in realized_pnl if pnl < 0]  # 正の値に変換
 
-        for trade in self.trades:
-            if trade.action == TradeType.SELL:
-                # 売り取引の場合、利益/損失を計算
-                # 簡易計算：売値から平均買値を引く
-                profit_loss = trade.price - Decimal("2500")  # 仮の基準価格
-                if profit_loss > 0:
-                    wins.append(profit_loss)
-                else:
-                    losses.append(abs(profit_loss))
-
-        winning_trades = len(wins)
+        profitable_trades = len(wins)
         losing_trades = len(losses)
-        total_trades = len(self.trades)
+        total_trades = len(realized_pnl)
+        win_rate = len(wins) / total_trades if total_trades > 0 else 0.0
+        avg_win = sum(wins) / len(wins) if wins else Decimal("0")
+        avg_loss = sum(losses) / len(losses) if losses else Decimal("0")
+        if losses:
+            # テスト互換性のためfloatに変換
+            profit_factor = float(sum(wins) / sum(losses))
+        else:
+            profit_factor = float("inf")  # No losses (either no trades or only wins)
 
-        # 勝率計算
-        win_rate = (winning_trades / total_trades) if total_trades > 0 else 0.0
-
-        # 平均勝ち/負け
-        avg_win = Decimal(str(sum(wins) / len(wins))) if wins else Decimal("0")
-        avg_loss = Decimal(str(sum(losses) / len(losses))) if losses else Decimal("0")
-
-        # プロフィットファクター
-        total_wins = sum(wins) if wins else 0
-        total_losses = sum(losses) if losses else 1  # ゼロ除算回避
-        profit_factor = float(total_wins / total_losses) if total_losses > 0 else float("inf")
-
-        return (
-            winning_trades,
-            losing_trades,
-            wins,
-            losses,
-            total_trades,
-            win_rate,
-            avg_win,
-            avg_loss,
-            profit_factor
-        )
+        return (profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor)
 
 
 # 使用例とデフォルト戦略
@@ -1695,9 +1740,9 @@ def simple_sma_strategy(
 
 
 if __name__ == "__main__":
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
+    # ロギング設定は logging_config.py で一元管理
+    from ..utils.logging_config import setup_logging
+    setup_logging()
 
     # サンプルバックテスト
     engine = BacktestEngine()
