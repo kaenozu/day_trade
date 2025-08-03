@@ -1,0 +1,162 @@
+name: 🧹 Reusable Cache Cleanup
+
+on:
+  workflow_call:
+    inputs:
+      max_age_days:
+        description: 'Maximum age of caches to keep (in days)'
+        required: false
+        default: 7
+        type: number
+      dry_run:
+        description: 'Perform dry run without actually deleting caches'
+        required: false
+        default: false
+        type: boolean
+      cache_name_pattern:
+        description: 'Pattern to filter cache names (regex)'
+        required: false
+        default: ''
+        type: string
+    outputs:
+      deleted_count:
+        description: 'Number of caches deleted'
+        value: ${{ jobs.cleanup.outputs.deleted_count }}
+      total_size_freed:
+        description: 'Total size freed in bytes'
+        value: ${{ jobs.cleanup.outputs.total_size_freed }}
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    name: Clean old caches
+    outputs:
+      deleted_count: ${{ steps.cleanup.outputs.deleted_count }}
+      total_size_freed: ${{ steps.cleanup.outputs.total_size_freed }}
+
+    steps:
+      - name: 🧹 Clean old caches
+        id: cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🧹 Starting cache cleanup...');
+            console.log(`Configuration:`);
+            console.log(`- Max age: ${{ inputs.max_age_days }} days`);
+            console.log(`- Dry run: ${{ inputs.dry_run }}`);
+            console.log(`- Pattern filter: "${{ inputs.cache_name_pattern }}"`);
+
+            const maxAgeDays = ${{ inputs.max_age_days }};
+            const dryRun = ${{ inputs.dry_run }};
+            const namePattern = '${{ inputs.cache_name_pattern }}';
+
+            // カットオフ日時を計算
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+            console.log(`Cutoff date: ${cutoffDate.toISOString()}`);
+
+            let deletedCount = 0;
+            let totalSizeFreed = 0;
+            let page = 1;
+            const perPage = 100;
+
+            try {
+              while (true) {
+                const caches = await github.rest.actions.getActionsCacheList({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  per_page: perPage,
+                  page: page
+                });
+
+                if (caches.data.actions_caches.length === 0) {
+                  break;
+                }
+
+                console.log(`Processing page ${page} (${caches.data.actions_caches.length} caches)`);
+
+                for (const cache of caches.data.actions_caches) {
+                  const cacheDate = new Date(cache.created_at);
+                  const isOld = cacheDate < cutoffDate;
+
+                  // パターンフィルタリング
+                  let matchesPattern = true;
+                  if (namePattern) {
+                    const regex = new RegExp(namePattern);
+                    matchesPattern = regex.test(cache.key);
+                  }
+
+                  if (isOld && matchesPattern) {
+                    const ageInDays = Math.floor((Date.now() - cacheDate.getTime()) / (1000 * 60 * 60 * 24));
+                    const sizeInMB = (cache.size_in_bytes / 1024 / 1024).toFixed(2);
+
+                    console.log(`${dryRun ? '[DRY RUN] Would delete' : 'Deleting'} cache:`);
+                    console.log(`  - Key: ${cache.key}`);
+                    console.log(`  - Age: ${ageInDays} days`);
+                    console.log(`  - Size: ${sizeInMB} MB`);
+                    console.log(`  - Created: ${cache.created_at}`);
+
+                    if (!dryRun) {
+                      try {
+                        await github.rest.actions.deleteActionsCacheById({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          cache_id: cache.id
+                        });
+                        console.log(`  ✅ Successfully deleted cache ${cache.key}`);
+                      } catch (deleteError) {
+                        console.log(`  ❌ Failed to delete cache ${cache.key}: ${deleteError.message}`);
+                        continue;
+                      }
+                    }
+
+                    deletedCount++;
+                    totalSizeFreed += cache.size_in_bytes;
+                  }
+                }
+
+                page++;
+              }
+
+              const totalSizeFreedMB = (totalSizeFreed / 1024 / 1024).toFixed(2);
+              console.log(`\n📊 Cleanup Summary:`);
+              console.log(`==================`);
+              console.log(`${dryRun ? 'Would have deleted' : 'Deleted'}: ${deletedCount} caches`);
+              console.log(`${dryRun ? 'Would have freed' : 'Freed'}: ${totalSizeFreedMB} MB`);
+
+              // Set outputs
+              core.setOutput('deleted_count', deletedCount);
+              core.setOutput('total_size_freed', totalSizeFreed);
+
+              if (dryRun) {
+                console.log(`\n💡 This was a dry run. No caches were actually deleted.`);
+              } else {
+                console.log(`\n✅ Cache cleanup completed successfully!`);
+              }
+
+            } catch (error) {
+              console.error(`❌ Error during cache cleanup: ${error.message}`);
+              if (error.stack) {
+                console.error(`Stack trace: ${error.stack}`);
+              }
+              throw error;
+            }
+
+      - name: 📊 Generate cleanup report
+        if: ${{ !inputs.dry_run }}
+        run: |
+          echo "## 🧹 Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Max age: ${{ inputs.max_age_days }} days" >> $GITHUB_STEP_SUMMARY
+          echo "- Pattern filter: \`${{ inputs.cache_name_pattern }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Results:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🗑️ Deleted caches: ${{ steps.cleanup.outputs.deleted_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 💾 Space freed: $(echo "scale=2; ${{ steps.cleanup.outputs.total_size_freed }} / 1024 / 1024" | bc) MB" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "*Report generated on: $(date -u)*" >> $GITHUB_STEP_SUMMARY

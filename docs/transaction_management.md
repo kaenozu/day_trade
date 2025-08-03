@@ -78,7 +78,7 @@ result = trade_ops.sell_stock("7203", 50, price=2600.0)
 
 以下のエラーパターンで自動再試行：
 - deadlock
-- lock timeout  
+- lock timeout
 - database is locked
 - connection was dropped
 - connection pool
