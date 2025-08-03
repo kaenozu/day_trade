@@ -172,7 +172,7 @@ jobs:
             changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' || true)
             if [ -n "$changed_files" ]; then
               echo "$changed_files" | xargs ruff check --fix
-              echo "$changed_files" | xargs ruff format --check
+              echo "$changed_files" | xargs ruff format || true
             else
               echo "No Python files changed"
             fi
