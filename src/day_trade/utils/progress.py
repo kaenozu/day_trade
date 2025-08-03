@@ -28,8 +28,39 @@ logger = logging.getLogger(__name__)
 if os.environ.get('PYTEST_CURRENT_TEST'):
     # テスト環境用のダミーコンソール
     class DummyConsole:
+        def __getattr__(self, name):
+            # すべてのメソッド呼び出しに対してダミー関数を返す
+            def dummy_method(*args, **kwargs):
+                return self
+            return dummy_method
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
         def print(self, *args, **kwargs):
             pass
+
+        def log(self, *args, **kwargs):
+            pass
+
+        def get_time(self):
+            import time
+            return time.time()
+
+        @property
+        def options(self):
+            return type('Options', (), {'legacy_windows': False})()
+
+        @property
+        def is_terminal(self):
+            return False
+
+        @property
+        def is_jupyter(self):
+            return False
 
     console = DummyConsole()
 else:
@@ -96,10 +127,9 @@ def progress_context(
                 progress.update(1)
     """
 
-    # テスト環境では何もしない
+    # テスト環境ではプログレス表示を無効化
     if os.environ.get('PYTEST_CURRENT_TEST'):
-        # ダミーの進捗更新クラス
-        class DummyProgressUpdater:
+        class DummyUpdater:
             def update(self, advance: int = 1, description: Optional[str] = None):
                 pass
             def set_total(self, total: int):
@@ -108,8 +138,7 @@ def progress_context(
                 pass
             def set_description(self, description: str):
                 pass
-
-        yield DummyProgressUpdater()
+        yield DummyUpdater()
         return
 
     if progress_type == ProgressType.DETERMINATE and total:
@@ -178,12 +207,6 @@ class BatchProgressTracker:
         self.task_id = None
 
     def __enter__(self):
-        # テスト環境では何もしない
-        if os.environ.get('PYTEST_CURRENT_TEST'):
-            self.progress = None
-            self.task_id = 0
-            return self
-
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -264,12 +287,6 @@ class MultiStepProgressTracker:
         self.task_id = None
 
     def __enter__(self):
-        # テスト環境では何もしない
-        if os.environ.get('PYTEST_CURRENT_TEST'):
-            self.progress = None
-            self.task_id = 0
-            return self
-
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
