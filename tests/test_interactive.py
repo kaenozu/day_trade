@@ -19,7 +19,8 @@ from rich.table import Table
 from src.day_trade.cli.interactive import InteractiveMode
 from src.day_trade.core.watchlist import WatchlistManager
 from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.utils.exceptions import DataNotFoundError, APIError
+from src.day_trade.utils.exceptions import APIError
+from src.day_trade.data.stock_fetcher import DataNotFoundError
 
 
 class TestInteractiveMode:

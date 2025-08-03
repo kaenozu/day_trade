@@ -172,7 +172,7 @@ class EnhancedEnsembleStrategy:
                     self.weight = weight
 
         # 1. 保守的戦略
-        conservative = TradingSignalGenerator()
+        conservative = TradingSignalGenerator(config_path=None)
         conservative.clear_rules()
         conservative.add_buy_rule(RSIOversoldRule(threshold=25, weight=1.5))
         conservative.add_buy_rule(MACDCrossoverRule(weight=1.0))
@@ -181,7 +181,7 @@ class EnhancedEnsembleStrategy:
         strategies["conservative"] = conservative
 
         # 2. 積極的戦略
-        aggressive = TradingSignalGenerator()
+        aggressive = TradingSignalGenerator(config_path=None)
         aggressive.clear_rules()
         aggressive.add_buy_rule(RSIOversoldRule(threshold=35, weight=2.0))
         aggressive.add_buy_rule(BollingerBandBreakoutRule(weight=1.5))
@@ -190,14 +190,14 @@ class EnhancedEnsembleStrategy:
         strategies["aggressive"] = aggressive
 
         # 3. トレンドフォロー戦略
-        trend_follow = TradingSignalGenerator()
+        trend_follow = TradingSignalGenerator(config_path=None)
         trend_follow.clear_rules()
         trend_follow.add_buy_rule(MACDCrossoverRule(weight=2.0))
         trend_follow.add_sell_rule(MACDDeathCrossRule(weight=2.0))
         strategies["trend_follow"] = trend_follow
 
         # 4. 平均回帰戦略
-        mean_reversion = TradingSignalGenerator()
+        mean_reversion = TradingSignalGenerator(config_path=None)
         mean_reversion.clear_rules()
         mean_reversion.add_buy_rule(BollingerBandMeanReversionRule(weight=2.0))
         mean_reversion.add_sell_rule(RSIOverboughtRule(threshold=70, weight=1.5))

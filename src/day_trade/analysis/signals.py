@@ -49,6 +49,7 @@ class TradingSignal:
     conditions_met: Dict[str, bool]
     timestamp: datetime
     price: Decimal
+    symbol: Optional[str] = None  # バックテスト互換性用
 
 
 class SignalRulesConfig:

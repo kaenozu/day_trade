@@ -355,7 +355,7 @@ class BacktestEngine:
             ) as progress:
                 # Use ThreadPoolExecutor for parallel fetching
                 with ThreadPoolExecutor(
-                    max_workers=min(len(symbols), 5)
+                    max_workers=min(max(len(symbols), 1), 5)
                 ) as executor:  # Limit workers to avoid overwhelming
                     future_to_symbol = {
                         executor.submit(
@@ -394,7 +394,7 @@ class BacktestEngine:
         else:
             # Use ThreadPoolExecutor for parallel fetching
             with ThreadPoolExecutor(
-                max_workers=min(len(symbols), 5)
+                max_workers=min(max(len(symbols), 1), 5)
             ) as executor:  # Limit workers to avoid overwhelming
                 future_to_symbol = {
                     executor.submit(
@@ -952,6 +952,29 @@ class BacktestEngine:
                     realized_pnl.append(pnl)
 
         return realized_pnl
+
+    def _calculate_trade_statistics_vectorized(self) -> Tuple[int, int, List[Decimal], List[Decimal], int, float, Decimal, Decimal, Any]:
+        """取引統計情報をベクタ化計算で算出（テスト互換性用）"""
+        if not self.trades:
+            return (0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf"))
+
+        realized_pnl = self._calculate_realized_pnl()
+        wins = [pnl for pnl in realized_pnl if pnl > 0]
+        losses = [abs(pnl) for pnl in realized_pnl if pnl < 0]  # 正の値に変換
+
+        profitable_trades = len(wins)
+        losing_trades = len(losses)
+        total_trades = len(realized_pnl)
+        win_rate = len(wins) / total_trades if total_trades > 0 else 0.0
+        avg_win = sum(wins) / len(wins) if wins else Decimal("0")
+        avg_loss = sum(losses) / len(losses) if losses else Decimal("0")
+        if losses:
+            # テスト互換性のためfloatに変換
+            profit_factor = float(sum(wins) / sum(losses))
+        else:
+            profit_factor = float("inf")  # No losses (either no trades or only wins)
+
+        return (profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor)
 
 
 # 使用例とデフォルト戦略
