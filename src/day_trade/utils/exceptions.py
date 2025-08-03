@@ -173,8 +173,8 @@ class CacheError(DayTradeError):
     pass
 
 
-class TimeoutError(DayTradeError):
-    """タイムアウトエラー"""
+class TimeoutError(NetworkError):
+    """タイムアウトエラー（ネットワーク関連）"""
 
     pass
 
