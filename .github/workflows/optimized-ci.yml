@@ -122,12 +122,20 @@ jobs:
             # Fetch base branch for comparison
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             # 変更されたPythonファイルのみをチェック
-            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}..HEAD | grep '\.py$' || true)
+            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}..HEAD | grep '\\.py$' || true)
             if [ -n "$changed_files" ]; then
               echo "$changed_files" | xargs ruff check --fix
               echo "$changed_files" | xargs ruff format
             else
               echo "No Python files changed"
+            fi
+            # 自動修正された変更をコミット
+            if [[ $(git status --porcelain) ]]; then
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git add .
+              git commit --amend --no-edit
+              git push
             fi
           else
             echo "🔍 Linting all files..."
@@ -140,6 +148,14 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             pre-commit run --from-ref ${{ github.base_ref }} --to-ref HEAD
+            # 自動修正された変更をコミット
+            if [[ $(git status --porcelain) ]]; then
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git add .
+              git commit --amend --no-edit
+              git push
+            fi
           else
             pre-commit run --all-files --show-diff-on-failure
           fi
@@ -210,7 +226,7 @@ jobs:
                                        --integration \
                                        --cov=src/day_trade \
                                        --cov-append \
-                                       --slow  # --slow オプションを直接渡す
+                                       --slow
               ;;
           esac
 
