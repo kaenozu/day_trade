@@ -476,6 +476,40 @@ class TestBacktestResult:
 class TestIntegration:
     """統合テスト"""
 
+    def _generate_trending_data(self, dates, base_price=2500, trend_strength=0.1, volatility=0.02, seed=42):
+        """トレンドのあるテストデータを生成"""
+        np.random.seed(seed)
+        n_days = len(dates)
+
+        # 線形トレンドの生成
+        linear_trend = np.linspace(0, trend_strength, n_days)
+        trend_prices = base_price * (1 + linear_trend)
+
+        # ボラティリティを加える
+        noise = np.random.normal(0, volatility * base_price, n_days)
+        final_prices = trend_prices + noise
+
+        # 価格が負にならないように調整
+        final_prices = np.maximum(final_prices, base_price * 0.5)
+
+        # OHLCV データの生成
+        ohlcv_data = []
+        for i, price in enumerate(final_prices):
+            daily_volatility = volatility * base_price * 0.5
+            high = price + np.random.uniform(0, daily_volatility)
+            low = price - np.random.uniform(0, daily_volatility)
+            open_price = price + np.random.uniform(-daily_volatility/2, daily_volatility/2)
+
+            ohlcv_data.append({
+                'Open': max(open_price, low),
+                'High': max(high, price, open_price),
+                'Low': min(low, price, open_price),
+                'Close': price,
+                'Volume': int(np.random.uniform(1000000, 2000000))
+            })
+
+        return pd.DataFrame(ohlcv_data, index=dates)
+
     def test_complete_workflow_mock(self):
         """完全なワークフローテスト（モック使用）"""
         # モックエンジンを作成
@@ -495,7 +529,11 @@ class TestIntegration:
             index=dates,
         )
 
-        mock_stock_fetcher.get_historical_data.return_value = sample_data
+        # モック関数でintervalパラメータに対応
+        def mock_get_data(symbol, start_date, end_date, interval="1d"):
+            return sample_data
+
+        mock_stock_fetcher.get_historical_data = mock_get_data
 
         config = BacktestConfig(
             start_date=datetime(2023, 2, 1),
