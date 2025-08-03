@@ -6,32 +6,16 @@ on:
     - cron: '0 2 * * 0'
   workflow_dispatch:
     inputs:
-      cache_age_days:
-        description: '削除するキャッシュの経過日数'
+      max_age_days:
+        description: 'Maximum age of caches to keep (in days)'
         required: false
         default: '7'
-        type: number
-      cache_key_pattern:
-        description: '削除対象のキャッシュキーパターン（空の場合は全て）'
-        required: false
-        default: ''
-        type: string
-      exclude_key_pattern:
-        description: '削除対象から除外するキャッシュキーパターン'
-        required: false
-        default: ''
         type: string
       dry_run:
-        description: 'ドライランモード（実際には削除せず、対象を表示のみ）'
+        description: 'Perform dry run without actually deleting caches'
         required: false
         default: false
         type: boolean
-
-env:
-  CACHE_AGE_DAYS: ${{ github.event.inputs.cache_age_days || '7' }}
-  CACHE_KEY_PATTERN: ${{ github.event.inputs.cache_key_pattern || '' }}
-  EXCLUDE_KEY_PATTERN: ${{ github.event.inputs.exclude_key_pattern || '' }}
-  DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
 
 permissions:
   actions: write
@@ -40,298 +24,34 @@ permissions:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
     name: Clean old caches
+    uses: ./.github/workflows/reusable-cache-cleanup.yml
+    with:
+      max_age_days: ${{ fromJSON(github.event.inputs.max_age_days || '7') }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+      cache_name_pattern: ''
+
+  # 結果をSlackやIssueに通知（オプション）
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: cleanup
+    if: ${{ !github.event.inputs.dry_run }}
+    name: Notify cleanup results
 
     steps:
-      - name: Install jq explicitly
+      - name: 📢 Create cleanup summary
         run: |
-          # jqは通常ubuntu-latestにプリインストールされているが、明示的にインストールする
-          if ! command -v jq &> /dev/null; then
-            echo "📎 Installing jq..."
-            sudo apt-get update && sudo apt-get install -y jq
-          else
-            echo "✅ jq is already installed: $(jq --version)"
-          fi
+          echo "### 🧹 Weekly Cache Cleanup Summary" > cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "**Execution Time:** $(date -u)" >> cleanup-summary.md
+          echo "**Deleted Caches:** ${{ needs.cleanup.outputs.deleted_count }}" >> cleanup-summary.md
+          echo "**Space Freed:** $(echo "scale=2; ${{ needs.cleanup.outputs.total_size_freed }} / 1024 / 1024" | bc) MB" >> cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "Cache cleanup completed successfully! 🎉" >> cleanup-summary.md
 
-      - name: Analyze cache inventory
-        id: cache-analysis
-        run: |
-          echo "📊 Analyzing cache inventory..."
-
-          # 全キャッシュの取得
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/actions/caches \
-            --paginate > all_caches.json
-
-          total_caches=$(jq '.actions_caches | length' all_caches.json)
-          total_size=$(jq '[.actions_caches[].size_in_bytes] | add // 0' all_caches.json)
-          total_size_mb=$((total_size / 1024 / 1024))
-
-          echo "total_caches=$total_caches" >> $GITHUB_OUTPUT
-          echo "total_size_mb=$total_size_mb" >> $GITHUB_OUTPUT
-
-          echo "📋 Cache Inventory:"
-          echo "  Total caches: $total_caches"
-          echo "  Total size: ${total_size_mb}MB"
-
-          # 日数でフィルタリング
-          age_cutoff_date=$(date -d "${{ env.CACHE_AGE_DAYS }} days ago" --iso-8601)
-          echo "  Age cutoff: $age_cutoff_date (older than ${{ env.CACHE_AGE_DAYS }} days)"
-
-          # 対象キャッシュのフィルタリング
-          jq_filter=".actions_caches[] | select(.created_at < \"$age_cutoff_date\")"
-
-          # キーパターンフィルタの適用
-          if [ -n "${{ env.CACHE_KEY_PATTERN }}" ]; then
-            echo "  Key pattern filter: ${{ env.CACHE_KEY_PATTERN }}"
-            jq_filter="$jq_filter | select(.key | test(\"${{ env.CACHE_KEY_PATTERN }}\"))"
-          fi
-
-          # 除外パターンフィルタの適用
-          if [ -n "${{ env.EXCLUDE_KEY_PATTERN }}" ]; then
-            echo "  Exclude pattern filter: ${{ env.EXCLUDE_KEY_PATTERN }}"
-            jq_filter="$jq_filter | select(.key | test(\"${{ env.EXCLUDE_KEY_PATTERN }}\") | not)"
-          fi
-
-          # 対象キャッシュの抽出
-          jq "[$jq_filter]" all_caches.json > target_caches.json
-
-          target_count=$(jq 'length' target_caches.json)
-          target_size=$(jq '[.[].size_in_bytes] | add // 0' target_caches.json)
-          target_size_mb=$((target_size / 1024 / 1024))
-
-          echo "target_count=$target_count" >> $GITHUB_OUTPUT
-          echo "target_size_mb=$target_size_mb" >> $GITHUB_OUTPUT
-
-          echo "🎯 Target caches for cleanup:"
-          echo "  Count: $target_count"
-          echo "  Size: ${target_size_mb}MB"
-
-          if [ "$target_count" -eq 0 ]; then
-            echo "✅ No caches found matching cleanup criteria"
-            echo "has_targets=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_targets=true" >> $GITHUB_OUTPUT
-            echo "📋 Target cache details:"
-            jq -r '.[] | "  - \(.key) (\(.created_at), \((.size_in_bytes/1024/1024)|floor)MB)"' target_caches.json | head -10
-            if [ "$target_count" -gt 10 ]; then
-              echo "  ... and $(($target_count - 10)) more caches"
-            fi
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Dry run summary
-        if: env.DRY_RUN == 'true' && steps.cache-analysis.outputs.has_targets == 'true'
-        run: |
-          echo "📝 DRY RUN MODE - No caches will be deleted"
-          echo "=========================================="
-          echo ""
-          echo "📋 Summary of caches that WOULD be deleted:"
-          echo "  Total caches to delete: ${{ steps.cache-analysis.outputs.target_count }}"
-          echo "  Total size to free: ${{ steps.cache-analysis.outputs.target_size_mb }}MB"
-          echo ""
-          echo "📊 Full list of target caches:"
-          jq -r '.[] | "\(.id): \(.key) (\(.created_at), \((.size_in_bytes/1024/1024)|floor)MB)"' target_caches.json
-          echo ""
-          echo "To actually delete these caches, run this workflow again with dry_run=false"
-
-      - name: Execute cache cleanup
-        if: env.DRY_RUN == 'false' && steps.cache-analysis.outputs.has_targets == 'true'
-        id: cleanup-execution
-        run: |
-          echo "🧹 Executing cache cleanup..."
-          echo "Target count: ${{ steps.cache-analysis.outputs.target_count }}"
-
-          deleted_count=0
-          deleted_size=0
-          failed_count=0
-
-          while IFS= read -r cache_info; do
-            cache_id=$(echo "$cache_info" | jq -r '.id')
-            cache_key=$(echo "$cache_info" | jq -r '.key')
-            cache_size=$(echo "$cache_info" | jq -r '.size_in_bytes')
-
-            echo "Deleting cache: $cache_key (ID: $cache_id)"
-
-            if gh api \
-              --method DELETE \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/${{ github.repository }}/actions/caches/$cache_id" 2>/dev/null; then
-              deleted_count=$((deleted_count + 1))
-              deleted_size=$((deleted_size + cache_size))
-              echo "✅ Successfully deleted cache: $cache_key"
-            else
-              failed_count=$((failed_count + 1))
-              echo "❌ Failed to delete cache: $cache_key (ID: $cache_id)"
-            fi
-          done < <(jq -c '.[]' target_caches.json)
-
-          deleted_size_mb=$((deleted_size / 1024 / 1024))
-
-          echo "deleted_count=$deleted_count" >> $GITHUB_OUTPUT
-          echo "deleted_size_mb=$deleted_size_mb" >> $GITHUB_OUTPUT
-          echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
-
-          echo ""
-          echo "📊 Cleanup Results:"
-          echo "  Successfully deleted: $deleted_count caches"
-          echo "  Failed deletions: $failed_count caches"
-          echo "  Total size freed: ${deleted_size_mb}MB"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate cleanup summary
-        if: always() && steps.cache-analysis.outputs.has_targets == 'true'
-        run: |
-          echo "📊 Generating cleanup summary..."
-
-          {
-            echo "# Cache Cleanup Summary"
-            echo ""
-            echo "**Execution Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            echo "**Repository:** ${{ github.repository }}"
-            echo "**Workflow Run:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-            echo ""
-
-            echo "## Configuration"
-            echo "- **Cache Age Threshold:** ${{ env.CACHE_AGE_DAYS }} days"
-            echo "- **Key Pattern Filter:** ${{ env.CACHE_KEY_PATTERN || 'None' }}"
-            echo "- **Exclude Pattern Filter:** ${{ env.EXCLUDE_KEY_PATTERN || 'None' }}"
-            echo "- **Dry Run Mode:** ${{ env.DRY_RUN }}"
-            echo ""
-
-            echo "## Cache Inventory"
-            echo "- **Total Caches:** ${{ steps.cache-analysis.outputs.total_caches }}"
-            echo "- **Total Size:** ${{ steps.cache-analysis.outputs.total_size_mb }}MB"
-            echo "- **Target Caches:** ${{ steps.cache-analysis.outputs.target_count }}"
-            echo "- **Target Size:** ${{ steps.cache-analysis.outputs.target_size_mb }}MB"
-            echo ""
-
-            if [ "${{ env.DRY_RUN }}" = "true" ]; then
-              echo "## Dry Run Results"
-              echo "⚠️ **This was a dry run - no caches were actually deleted**"
-              echo "- **Caches that would be deleted:** ${{ steps.cache-analysis.outputs.target_count }}"
-              echo "- **Space that would be freed:** ${{ steps.cache-analysis.outputs.target_size_mb }}MB"
-            else
-              echo "## Cleanup Results"
-              echo "- **Successfully Deleted:** ${{ steps.cleanup-execution.outputs.deleted_count || '0' }} caches"
-              echo "- **Failed Deletions:** ${{ steps.cleanup-execution.outputs.failed_count || '0' }} caches"
-              echo "- **Space Freed:** ${{ steps.cleanup-execution.outputs.deleted_size_mb || '0' }}MB"
-
-              if [ "${{ steps.cleanup-execution.outputs.failed_count || '0' }}" -gt 0 ]; then
-                echo ""
-                echo "### ⚠️ Failures Detected"
-                echo "Some cache deletions failed. This may be due to:"
-                echo "- Concurrent access to caches"
-                echo "- API rate limits"
-                echo "- Insufficient permissions"
-                echo "- Caches being used by running workflows"
-              fi
-            fi
-
-            echo ""
-            echo "## Recommendations"
-
-            remaining_caches=$((${{ steps.cache-analysis.outputs.total_caches }} - ${{ steps.cleanup-execution.outputs.deleted_count || '0' }}))
-            remaining_size=$((${{ steps.cache-analysis.outputs.total_size_mb }} - ${{ steps.cleanup-execution.outputs.deleted_size_mb || '0' }}))
-
-            if [ "$remaining_size" -gt 1000 ]; then
-              echo "- ⚠️ **High cache usage detected:** ${remaining_size}MB remaining"
-              echo "- Consider more frequent cleanups or stricter age thresholds"
-            elif [ "$remaining_size" -gt 500 ]; then
-              echo "- 📊 **Moderate cache usage:** ${remaining_size}MB remaining"
-              echo "- Current cleanup schedule appears adequate"
-            else
-              echo "- ✅ **Cache usage is optimal:** ${remaining_size}MB remaining"
-            fi
-
-            if [ "${{ steps.cache-analysis.outputs.target_count }}" -eq 0 ]; then
-              echo "- ✅ **No cleanup needed** - all caches are within age threshold"
-            fi
-          } > cache-cleanup-summary.md
-
-          echo "✅ Cleanup summary generated"
-
-      - name: Create issue for significant cleanups
-        if: |
-          env.DRY_RUN == 'false' &&
-          steps.cache-analysis.outputs.has_targets == 'true' &&
-          (steps.cleanup-execution.outputs.deleted_count > 50 ||
-           steps.cleanup-execution.outputs.deleted_size_mb > 1000 ||
-           steps.cleanup-execution.outputs.failed_count > 10)
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = `🧹 Significant Cache Cleanup - ${new Date().toISOString().split('T')[0]}`;
-            const body = `## Significant Cache Cleanup Report
-
-            A significant cache cleanup operation has been completed:
-
-            **Cleanup Statistics:**
-            - Deleted Caches: ${{ steps.cleanup-execution.outputs.deleted_count }}
-            - Space Freed: ${{ steps.cleanup-execution.outputs.deleted_size_mb }}MB
-            - Failed Deletions: ${{ steps.cleanup-execution.outputs.failed_count }}
-
-            **Configuration:**
-            - Age Threshold: ${{ env.CACHE_AGE_DAYS }} days
-            - Key Pattern: ${{ env.CACHE_KEY_PATTERN || 'None' }}
-            - Exclude Pattern: ${{ env.EXCLUDE_KEY_PATTERN || 'None' }}
-
-            **Workflow Details:**
-            - Workflow Run: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            - Execution Date: ${new Date().toISOString()}
-
-            This issue was automatically created due to the significant scale of the cleanup operation.
-            `;
-
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['maintenance', 'automated', 'cache-cleanup']
-            });
-
-            console.log('Created issue for significant cache cleanup');
-
-      - name: Upload cleanup artifacts
-        if: always() && steps.cache-analysis.outputs.has_targets == 'true'
+      - name: 📤 Upload cleanup summary
         uses: actions/upload-artifact@v4
         with:
-          name: cache-cleanup-report-${{ github.run_number }}
-          path: |
-            cache-cleanup-summary.md
-            all_caches.json
-            target_caches.json
+          name: cache-cleanup-summary
+          path: cleanup-summary.md
           retention-days: 30
-
-      - name: Display final summary
-        if: always()
-        run: |
-          echo "🎉 Cache Cleanup Workflow Completed!"
-          echo "====================================="
-
-          if [ "${{ steps.cache-analysis.outputs.has_targets }}" = "true" ]; then
-            if [ "${{ env.DRY_RUN }}" = "true" ]; then
-              echo "📝 DRY RUN completed - no actual changes made"
-              echo "  Target caches: ${{ steps.cache-analysis.outputs.target_count }}"
-              echo "  Target size: ${{ steps.cache-analysis.outputs.target_size_mb }}MB"
-            else
-              echo "🧹 Cleanup completed"
-              echo "  Deleted: ${{ steps.cleanup-execution.outputs.deleted_count || '0' }} caches"
-              echo "  Freed: ${{ steps.cleanup-execution.outputs.deleted_size_mb || '0' }}MB"
-              echo "  Failed: ${{ steps.cleanup-execution.outputs.failed_count || '0' }} deletions"
-            fi
-          else
-            echo "✅ No cleanup needed - no caches matched criteria"
-          fi
-
-          echo ""
-          echo "📊 Repository cache status:"
-          echo "  Total caches: ${{ steps.cache-analysis.outputs.total_caches }}"
-          echo "  Total size: ${{ steps.cache-analysis.outputs.total_size_mb }}MB"
