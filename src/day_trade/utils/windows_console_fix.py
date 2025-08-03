@@ -125,6 +125,18 @@ def create_safe_live_context():
 
         try:
             from rich.live import Live
+            import os
+
+            # テスト環境では無効化
+            if os.environ.get('PYTEST_CURRENT_TEST'):
+                # テスト中はダミーLiveオブジェクトを返す
+                class DummyLive:
+                    def update(self, *args, **kwargs):
+                        pass
+                    def refresh(self):
+                        pass
+                yield DummyLive()
+                return
 
             # Liveインスタンスカウンターを増加
             safe_live_context._active_count = getattr(safe_live_context, '_active_count', 0) + 1
