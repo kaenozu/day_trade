@@ -12,7 +12,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-logger = logging.getLogger(__name__)
+from ..utils.logging_config import get_context_logger
+
+logger = get_context_logger(__name__, component="config_manager")
 
 
 @dataclass
@@ -467,25 +469,22 @@ if __name__ == "__main__":
         # 設定管理クラスのテスト
         config_manager = ConfigManager()
 
-        print("=== 設定情報 ===")
-        print(f"監視銘柄数: {len(config_manager.get_symbol_codes())}")
-        print(f"銘柄コード: {config_manager.get_symbol_codes()}")
-        print(f"高優先度銘柄: {config_manager.get_high_priority_symbols()}")
-
-        # 市場営業時間チェック
-        print(f"現在市場オープン中: {config_manager.is_market_open()}")
-
         # 各種設定の取得テスト
         tech_settings = config_manager.get_technical_indicator_settings()
-        print(f"テクニカル指標有効: {tech_settings.enabled}")
-
         alert_settings = config_manager.get_alert_settings()
-        print(f"アラート有効: {alert_settings.enabled}")
-
         report_settings = config_manager.get_report_settings()
-        print(f"レポート出力形式: {report_settings.formats}")
 
-        print("設定管理システムのテストが完了しました")
+        config_info = {
+            "watchlist_symbols_count": len(config_manager.get_symbol_codes()),
+            "symbol_codes": config_manager.get_symbol_codes(),
+            "high_priority_symbols": config_manager.get_high_priority_symbols(),
+            "market_open": config_manager.is_market_open(),
+            "technical_indicators_enabled": tech_settings.enabled,
+            "alerts_enabled": alert_settings.enabled,
+            "report_formats": report_settings.formats
+        }
+
+        logger.info("設定管理システムテスト完了", **config_info)
 
     except Exception as e:
-        print(f"エラー: {e}")
+        logger.error("設定管理システムテストエラー", error=str(e), error_type=type(e).__name__)
