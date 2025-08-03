@@ -30,11 +30,13 @@ jobs:
       config: ${{ steps.changes.outputs.config }}
       tests: ${{ steps.changes.outputs.tests }}
       cache-hit: ${{ steps.cache-deps.outputs.cache-hit }}
+      env-id: ${{ steps.env-hash.outputs.hash }}
     steps:
-      - name: 📥 Checkout (shallow)
+      - name: 📥 Checkout (optimized depth)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # dorny/paths-filter が比較に必要な最小限の履歴を取得
+          fetch-depth: 2
 
       - name: 🔍 Detect changes
         uses: dorny/paths-filter@v3
@@ -59,13 +61,21 @@ jobs:
             tests:
               - 'tests/**'
 
+      - name: 🔧 Generate environment hash
+        id: env-hash
+        run: |
+          # 環境ハッシュ生成（キャッシュキー用）
+          env_hash=$(echo "${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}" | sha256sum | cut -d' ' -f1)
+          echo "hash=$env_hash" >> $GITHUB_OUTPUT
+          echo "Environment hash: $env_hash"
+
       - name: 🐍 Setup Python (with cache)
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: 📦 Cache dependencies
+      - name: 📦 Cache dependencies and virtual environment
         id: cache-deps
         uses: actions/cache@v4
         with:
@@ -73,66 +83,93 @@ jobs:
             ~/.cache/pip
             ~/.cache/pre-commit
             .venv
-          key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
+          key: deps-${{ env.CACHE_VERSION }}-${{ steps.env-hash.outputs.hash }}
           restore-keys: |
             deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
-      - name: 🚀 Install dependencies (if cache miss)
+      - name: 🚀 Setup virtual environment and install dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          python -m pip install --upgrade pip wheel
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel setuptools
           pip install -e .[dev]
           pre-commit install-hooks
 
-  # ⚡ 超高速コード品質チェック（並列実行）
+      - name: 📦 Create environment artifact
+        run: |
+          # 仮想環境をアーティファクトとして準備
+          if [ -d ".venv" ]; then
+            echo "Virtual environment ready for artifact upload"
+            # バイナリファイルの除外でサイズ削減
+            find .venv -name "*.pyc" -delete || true
+            find .venv -name "__pycache__" -type d -exec rm -rf {} + || true
+          fi
+
+      - name: 📤 Upload environment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-env-${{ steps.env-hash.outputs.hash }}
+          path: .venv/
+          retention-days: 1
+
+  # ⚡ 超高速コード品質チェック（最適化された環境共有）
   quality:
     runs-on: ubuntu-latest
     needs: setup
     if: needs.setup.outputs.python == 'true' || needs.setup.outputs.config == 'true'
     name: 🔍 Quality Check
     steps:
-      - name: 📥 Checkout (shallow)
+      - name: 📥 Checkout (full for pre-commit)
         uses: actions/checkout@v4
         with:
+          # pre-commit が git history を参照するため完全取得
           fetch-depth: 0
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
-      - name: 📦 Restore cache
-        uses: actions/cache@v4
+      - name: 📥 Download environment artifact
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pre-commit
-            .venv
-          key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
+          name: python-env-${{ needs.setup.outputs.env-id }}
+          path: .venv/
 
-      - name: 🔧 Install dependencies (if needed)
+      - name: 🔧 Restore virtual environment
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .[dev]
+          # 仮想環境のアクティベート用スクリプト権限復元
+          chmod +x .venv/bin/* || true
+          # 環境の有効性確認
+          source .venv/bin/activate
+          python --version
+          pip list
 
-      - name: ⚡ Fast linting (changed files only)
+      - name: ⚡ Fast linting (optimized with venv)
         run: |
+          source .venv/bin/activate
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "🔍 Linting changed files only..."
             # Fetch base branch for comparison
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             # 変更されたPythonファイルのみをチェック
-            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff check --fix || true
-            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff format --check || true
+            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' || true)
+            if [ -n "$changed_files" ]; then
+              echo "$changed_files" | xargs ruff check --fix
+              echo "$changed_files" | xargs ruff format --check
+            else
+              echo "No Python files changed"
+            fi
           else
             echo "🔍 Linting all files..."
-            ruff check --fix src/ tests/ || true
-            ruff format --check src/ tests/ || true
+            ruff check --fix src/ tests/
+            ruff format --check src/ tests/
           fi
 
-      - name: 🪝 Pre-commit (incremental)
+      - name: 🪝 Pre-commit (optimized incremental)
         run: |
+          source .venv/bin/activate
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             pre-commit run --from-ref ${{ github.base_ref }} --to-ref HEAD
@@ -140,7 +177,7 @@ jobs:
             pre-commit run --all-files --show-diff-on-failure
           fi
 
-  # ⚡ 超高速テスト実行（最適化された並列実行）
+  # ⚡ 超高速テスト実行（最適化された環境共有）
   test:
     runs-on: ubuntu-latest
     needs: [setup, quality]
@@ -160,24 +197,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
-      - name: 📦 Restore cache
-        uses: actions/cache@v4
+      - name: 📥 Download environment artifact
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/pre-commit
-            .venv
-          key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
+          name: python-env-${{ needs.setup.outputs.env-id }}
+          path: .venv/
 
-      - name: 🔧 Install dependencies (if needed)
+      - name: 🔧 Restore virtual environment
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .[dev]
+          chmod +x .venv/bin/* || true
+          source .venv/bin/activate
+          python --version
 
       - name: ⚡ Run tests (${{ matrix.test-type }})
         run: |
+          source .venv/bin/activate
           case "${{ matrix.test-type }}" in
             "unit-fast")
               echo "🚀 Running fast unit tests..."
@@ -201,8 +236,19 @@ jobs:
               ;;
             "integration")
               echo "🔗 Running integration tests..."
-              pytest tests/integration/ -v --tb=short \
-                     --disable-warnings || echo "Integration tests not implemented"
+              # 統合テストの実装を促進
+              if [ -d "tests/integration" ] && [ "$(find tests/integration -name '*.py' -not -name '__init__.py' | wc -l)" -gt 0 ]; then
+                pytest tests/integration/ -v --tb=short \
+                       --disable-warnings \
+                       --cov=src/day_trade \
+                       --cov-append
+              else
+                echo "⚠️ Integration tests not yet implemented"
+                echo "📝 Creating placeholder to encourage implementation..."
+                mkdir -p tests/integration
+                touch tests/integration/__init__.py
+                echo "# TODO: Implement integration tests here" > tests/integration/test_placeholder.py
+              fi
               ;;
           esac
 
@@ -227,7 +273,7 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  # 🔒 セキュリティスキャン（並列実行）
+  # 🔒 セキュリティスキャン（最適化された並列実行）
   security:
     runs-on: ubuntu-latest
     needs: setup
@@ -243,43 +289,70 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
-      - name: 🔒 Install security tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install safety bandit[toml] semgrep
+      - name: 📥 Download environment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-env-${{ needs.setup.outputs.env-id }}
+          path: .venv/
 
-      - name: ⚡ Parallel security scan
+      - name: 🔧 Restore virtual environment
         run: |
-          echo "🔒 Running parallel security scans..."
+          chmod +x .venv/bin/* || true
+          source .venv/bin/activate
+          python --version
+
+      - name: 🔒 Install additional security tools
+        run: |
+          source .venv/bin/activate
+          pip install semgrep
+
+      - name: ⚡ Enhanced parallel security scan
+        run: |
+          source .venv/bin/activate
+          echo "🔒 Running enhanced parallel security scans..."
+          mkdir -p security-reports
+
+          # エラー出力を削除してより詳細なログを表示
           (
-            echo "🛡️ Safety check..."
-            safety check --json > safety-report.json 2>/dev/null || echo "Safety check completed with warnings"
+            echo "🛡️ Safety check (dependency vulnerabilities)..."
+            safety check --json --output security-reports/safety-report.json && echo "✅ Safety check passed" || echo "⚠️ Safety found vulnerabilities - check report"
           ) &
+
           (
-            echo "🔍 Bandit scan..."
-            bandit -r src/ -f json -o bandit-report.json -ll 2>/dev/null || echo "Bandit scan completed"
+            echo "🔍 Bandit scan (code security issues)..."
+            bandit -r src/ -f json -o security-reports/bandit-report.json -ll && echo "✅ Bandit scan passed" || echo "⚠️ Bandit found issues - check report"
           ) &
+
           (
-            echo "🔬 Semgrep scan..."
-            semgrep --config=auto --json --output=semgrep-report.json src/ 2>/dev/null || echo "Semgrep scan completed"
+            echo "🔬 Semgrep scan (security patterns)..."
+            semgrep --config=auto --json --output=security-reports/semgrep-report.json src/ && echo "✅ Semgrep scan passed" || echo "⚠️ Semgrep found issues - check report"
           ) &
+
           wait
           echo "✅ All security scans completed"
+
+          # セキュリティレポートのサマリー表示
+          echo "📊 Security Scan Summary:"
+          echo "========================"
+          for report in security-reports/*.json; do
+            if [ -f "$report" ]; then
+              echo "📄 $(basename "$report"): $(wc -l < "$report") lines"
+            fi
+          done
 
       - name: 📋 Upload security reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-reports-${{ github.sha }}
-          path: "*-report.json"
+          path: security-reports/
           retention-days: 30
 
-  # 📦 ビルドとパッケージング
+  # 📦 ビルドとパッケージング（最適化された環境共有）
   build:
     runs-on: ubuntu-latest
-    needs: [test, security]
+    needs: [setup, test, security]
     if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped') && (needs.security.result == 'success' || needs.security.result == 'skipped')
     name: 📦 Build
     steps:
@@ -292,20 +365,29 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
-      - name: 📦 Install build tools
+      - name: 📥 Download environment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-env-${{ needs.setup.outputs.env-id }}
+          path: .venv/
+
+      - name: 🔧 Restore virtual environment and install build tools
         run: |
-          python -m pip install --upgrade pip
+          chmod +x .venv/bin/* || true
+          source .venv/bin/activate
+          python --version
           pip install build twine
 
       - name: ⚡ Fast build
         run: |
+          source .venv/bin/activate
           echo "📦 Building package..."
           python -m build --wheel
 
       - name: ✅ Quick package check
         run: |
+          source .venv/bin/activate
           echo "✅ Checking package..."
           python -m twine check dist/*
 
@@ -323,13 +405,30 @@ jobs:
     if: always()
     name: ✅ Status
     steps:
-      - name: 📊 Calculate CI duration
+      - name: 📊 Calculate CI duration and performance metrics
         id: duration
         run: |
-          start_time="${{ github.event.head_commit.timestamp || github.event.pull_request.created_at }}"
+          # より信頼性の高い時間計算
+          workflow_start="${{ github.event.head_commit.timestamp || github.event.pull_request.created_at || github.event.repository.pushed_at }}"
           current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "CI started at: $start_time"
-          echo "CI finished at: $current_time"
+
+          echo "🕐 Workflow started at: $workflow_start"
+          echo "🕐 Workflow finished at: $current_time"
+
+          # GitHub APIを使用してより正確な実行時間を取得
+          if [ -n "${{ github.token }}" ]; then
+            echo "📊 Fetching detailed workflow metrics..."
+            curl -s -H "Authorization: token ${{ github.token }}" \
+                 -H "Accept: application/vnd.github.v3+json" \
+                 "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+                 | jq -r '.created_at, .updated_at, .run_started_at' || echo "API fetch failed"
+          fi
+
+          echo "⚡ CI optimization metrics:"
+          echo "  - Environment sharing: ✅ Enabled"
+          echo "  - Parallel execution: ✅ Enabled"
+          echo "  - Smart caching: ✅ Enabled"
+          echo "  - Incremental checks: ✅ Enabled"
 
       - name: 🎯 Final status check
         run: |
@@ -357,17 +456,38 @@ jobs:
             exit 1
           fi
 
-  # 🚀 自動デプロイ（条件付き）
+  # 🚀 自動デプロイ（実装準備完了）
   deploy:
     runs-on: ubuntu-latest
-    needs: [status]
+    needs: [status, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.status.result == 'success'
     environment: production
     name: 🚀 Deploy
     steps:
-      - name: 🚀 Deployment preparation
+      - name: 📥 Checkout for deployment
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 📥 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: 🚀 Deploy to PyPI (Test)
         run: |
-          echo "🚀 Ready for deployment"
-          echo "Branch: ${{ github.ref }}"
-          echo "Event: ${{ github.event_name }}"
-          echo "TODO: Implement deployment logic here"
+          echo "🚀 Deployment ready for implementation"
+          echo "📋 Deployment checklist:"
+          echo "  - Branch: ${{ github.ref }}"
+          echo "  - Event: ${{ github.event_name }}"
+          echo "  - Commit: ${{ github.sha }}"
+          echo "  - Build artifacts: $(ls -la dist/ || echo 'No dist found')"
+          echo ""
+          echo "🔧 Ready for implementation:"
+          echo "  1. Configure PyPI tokens"
+          echo "  2. Add: pip install twine"
+          echo "  3. Add: twine upload dist/*"
+          echo "  4. Configure environment protection rules"
+          echo ""
+          echo "✅ Deployment infrastructure ready"
