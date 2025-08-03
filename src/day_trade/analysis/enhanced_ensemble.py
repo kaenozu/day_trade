@@ -238,10 +238,10 @@ class EnhancedEnsembleStrategy:
         market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
 
         # 3. 特徴量エンジニアリング
-        feature_data = self.feature_engineer.generate_composite_features(clean_data, indicators)
+        feature_data = self.feature_engineer.generate_all_features(clean_data, indicators)
 
         if market_data:
-            feature_data = self.feature_engineer.generate_market_features(feature_data, market_data)
+            feature_data = self.feature_engineer._generate_market_features(feature_data, market_data)
 
         # 4. ルールベース戦略のシグナル生成
         rule_signals = self._generate_rule_based_signals(clean_data, indicators)
@@ -596,7 +596,7 @@ class EnhancedEnsembleStrategy:
 
             # 特徴量エンジニアリング
             indicators = {}  # 必要に応じて計算
-            feature_data = self.feature_engineer.generate_composite_features(training_data, indicators)
+            feature_data = self.feature_engineer.generate_all_features(training_data, indicators)
 
             # 特徴量とターゲットの準備
             feature_cols = [col for col in feature_data.columns
