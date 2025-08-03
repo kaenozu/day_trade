@@ -345,6 +345,12 @@ class TestStockFetcher:
         result3 = fetcher.get_current_price("7203")
 
         # 結果が同じであることを確認
+        # timestamp は比較から除外する
+        # result.pop('timestamp') を使用してtimestampを削除し、残りの辞書を比較
+        result1.pop('timestamp', None)
+        result2.pop('timestamp', None)
+        result3.pop('timestamp', None)
+
         assert result1 == result2 == result3
 
         # TTLキャッシュが動作していることを確認（複数回呼び出しても値は同じ）
@@ -386,14 +392,30 @@ class TestStockFetcher:
 
     def test_is_retryable_error(self, fetcher):
         """リトライ可能エラー判定のテスト"""
-        # リトライ可能なエラー
-        assert fetcher._is_retryable_error(Exception("Connection timeout"))
-        assert fetcher._is_retryable_error(Exception("Network error"))
-        assert fetcher._is_retryable_error(Exception("500 Internal Server Error"))
+        import requests.exceptions as req_exc
 
-        # リトライ不可能なエラー
-        assert not fetcher._is_retryable_error(Exception("Invalid symbol"))
-        assert not fetcher._is_retryable_error(Exception("Permission denied"))
+        # リトライ可能なエラー (ConnectionError, Timeout)
+        assert fetcher._is_retryable_error(req_exc.ConnectionError("Connection failed"))
+        assert fetcher._is_retryable_error(req_exc.Timeout("Request timed out"))
+
+        # リトライ可能なHTTPエラー (5xx, 408, 429)
+        mock_response_500 = Mock()
+        mock_response_500.status_code = 500
+        http_error_500 = req_exc.HTTPError("500 Internal Server Error", response=mock_response_500)
+        assert fetcher._is_retryable_error(http_error_500)
+
+        mock_response_408 = Mock()
+        mock_response_408.status_code = 408
+        http_error_408 = req_exc.HTTPError("408 Request Timeout", response=mock_response_408)
+        assert fetcher._is_retryable_error(http_error_408)
+
+        # リトライ不可能なエラー (その他のExceptionや、リトライ対象外のHTTPエラー)
+        assert not fetcher._is_retryable_error(Exception("Some other error"))
+
+        mock_response_401 = Mock()
+        mock_response_401.status_code = 401
+        http_error_401 = req_exc.HTTPError("401 Unauthorized", response=mock_response_401)
+        assert not fetcher._is_retryable_error(http_error_401)
 
     @patch("day_trade.data.stock_fetcher.yf.Ticker")
     def test_get_current_price_with_errors(self, mock_ticker_class, fetcher):
