@@ -24,16 +24,44 @@ from rich.progress import (
 
 logger = logging.getLogger(__name__)
 
+# テスト環境ではプログレス表示を無効化
+if os.environ.get('PYTEST_CURRENT_TEST'):
+    # テスト環境用のダミーコンソール
+    class DummyConsole:
+        def __getattr__(self, name):
+            # すべてのメソッド呼び出しに対してダミー関数を返す
+            def dummy_method(*args, **kwargs):
+                return self
+            return dummy_method
 
-class DummyConsole:
-    """テスト環境用のダミーコンソール"""
+        def __enter__(self):
+            return self
 
-    def print(self, *args, **kwargs):
-        pass
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
 
+        def print(self, *args, **kwargs):
+            pass
 
-# テスト環境ではダミーコンソールを使用
-if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
+        def log(self, *args, **kwargs):
+            pass
+
+        def get_time(self):
+            import time
+            return time.time()
+
+        @property
+        def options(self):
+            return type('Options', (), {'legacy_windows': False})()
+
+        @property
+        def is_terminal(self):
+            return False
+
+        @property
+        def is_jupyter(self):
+            return False
+
     console = DummyConsole()
 else:
     console = Console()
@@ -99,10 +127,10 @@ def progress_context(
                 progress.update(1)
     """
 
-    # テスト環境ではダミーの進捗オブジェクトを返す
-    if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
-        class DummyProgress:
-            def update(self, *args, **kwargs):
+    # テスト環境ではプログレス表示を無効化
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        class DummyUpdater:
+            def update(self, advance: int = 1, description: Optional[str] = None):
                 pass
             def set_total(self, total: int):
                 pass
@@ -110,7 +138,7 @@ def progress_context(
                 pass
             def set_description(self, description: str):
                 pass
-        yield DummyProgress()
+        yield DummyUpdater()
         return
 
     if progress_type == ProgressType.DETERMINATE and total:
@@ -175,18 +203,10 @@ class BatchProgressTracker:
         self.processed_items = 0
         self.failed_items = 0
         self.start_time = time.time()
-        # テスト環境では進捗表示を無効化
-        if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
-            self.progress = None
-        else:
-            self.progress = None
+        self.progress = None
         self.task_id = None
 
     def __enter__(self):
-        # テスト環境では進捗表示をスキップ
-        if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
-            return self
-
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -263,18 +283,10 @@ class MultiStepProgressTracker:
         self.steps = steps
         self.overall_description = overall_description
         self.current_step = 0
-        # テスト環境では進捗表示を無効化
-        if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
-            self.progress = None
-        else:
-            self.progress = None
+        self.progress = None
         self.task_id = None
 
     def __enter__(self):
-        # テスト環境では進捗表示をスキップ
-        if os.getenv('PYTEST_CURRENT_TEST') or 'pytest' in os.getenv('_', ''):
-            return self
-
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),

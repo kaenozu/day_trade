@@ -212,6 +212,22 @@ class DatabaseSettings:
     backup_interval_hours: int
 
 
+@dataclass
+class AutoOptimizerSettings:
+    """全自動最適化設定"""
+
+    enabled: bool
+    default_max_symbols: int
+    default_optimization_depth: str
+    data_quality_threshold: float
+    performance_threshold: float
+    risk_tolerance: float
+    fallback_symbols: List[str]
+    screening_strategies: List[str]
+    backtest_period_months: int
+    ml_training_enabled: bool
+
+
 class ConfigManager:
     """設定管理クラス"""
 
@@ -385,6 +401,22 @@ class ConfigManager:
             url=config["url"],
             backup_enabled=config["backup_enabled"],
             backup_interval_hours=config["backup_interval_hours"],
+        )
+
+    def get_auto_optimizer_settings(self) -> AutoOptimizerSettings:
+        """全自動最適化設定を取得"""
+        config = self.config.get("auto_optimizer", {})
+        return AutoOptimizerSettings(
+            enabled=config.get("enabled", True),
+            default_max_symbols=config.get("default_max_symbols", 5),
+            default_optimization_depth=config.get("default_optimization_depth", "balanced"),
+            data_quality_threshold=config.get("data_quality_threshold", 0.7),
+            performance_threshold=config.get("performance_threshold", 0.05),
+            risk_tolerance=config.get("risk_tolerance", 0.7),
+            fallback_symbols=config.get("fallback_symbols", ["7203", "8306", "9984"]),
+            screening_strategies=config.get("screening_strategies", ["default", "momentum"]),
+            backtest_period_months=config.get("backtest_period_months", 6),
+            ml_training_enabled=config.get("ml_training_enabled", False),
         )
 
     def is_market_open(self, current_time: Optional[datetime] = None) -> bool:
