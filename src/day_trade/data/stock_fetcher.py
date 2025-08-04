@@ -49,9 +49,9 @@ class DataCache:
 
     def __init__(
         self,
-        ttl_seconds: int = 300,  # 5分に延長（価格データは頻繁に変わらない）
-        max_size: int = 2000,    # キャッシュサイズを倍増
-        stale_while_revalidate: int = 600,  # 10分に延長
+        ttl_seconds: int = None,  # デフォルトは環境変数から取得
+        max_size: int = None,     # デフォルトは環境変数から取得
+        stale_while_revalidate: int = None,  # デフォルトは環境変数から取得
     ):
         """
         Args:
@@ -59,9 +59,12 @@ class DataCache:
             max_size: 最大キャッシュサイズ（LRU eviction）
             stale_while_revalidate: 期限切れ後もフォールバックとして利用可能な期間（秒）
         """
-        self.ttl_seconds = ttl_seconds
-        self.max_size = max_size
-        self.stale_while_revalidate = stale_while_revalidate
+        import os
+
+        # 環境変数から設定を取得（デフォルト値付き）
+        self.ttl_seconds = ttl_seconds or int(os.getenv("STOCK_CACHE_TTL_SECONDS", "300"))  # 5分
+        self.max_size = max_size or int(os.getenv("STOCK_CACHE_MAX_SIZE", "2000"))
+        self.stale_while_revalidate = stale_while_revalidate or int(os.getenv("STOCK_CACHE_STALE_SECONDS", "600"))  # 10分
         self._cache = {}
         self._access_order = []  # LRU tracking
 
@@ -256,7 +259,9 @@ def cache_with_ttl(
                 # フレッシュキャッシュを試行
                 cached_result = cache.get(cache_key, allow_stale=False)
                 if cached_result is not None:
-                    cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
+                    # パフォーマンス最適化: デバッグログの条件付き出力
+                    if cache_logger.isEnabledFor(logging.DEBUG):
+                        cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
@@ -270,9 +275,11 @@ def cache_with_ttl(
                         sanitized_result = sanitize_cache_value(result)
                         cache.set(cache_key, sanitized_result)
                         stats.record_set()
-                        cache_logger.debug(
-                            f"新しいデータをキャッシュに保存: {func.__name__}"
-                        )
+                        # パフォーマンス最適化: デバッグログの条件付き出力
+                        if cache_logger.isEnabledFor(logging.DEBUG):
+                            cache_logger.debug(
+                                f"新しいデータをキャッシュに保存: {func.__name__}"
+                            )
 
                     return result
 
@@ -677,12 +684,13 @@ class StockFetcher:
                     "timestamp": datetime.now(),
                 }
 
-                # パフォーマンス最適化: 成功ログをサンプリング
-                self.performance_logger.info_sampled(
-                    "現在価格取得完了",
-                    sample_rate=0.1,  # 10%のログのみ出力
-                    current_price=current_price,
-                    change_percent=change_percent,
+                # パフォーマンス最適化: サンプリングログの有効化判定
+                if hasattr(self.performance_logger, 'logger') and self.performance_logger.logger.isEnabledFor(logging.INFO):
+                    self.performance_logger.info_sampled(
+                        "現在価格取得完了",
+                        sample_rate=0.1,  # 10%のログのみ出力
+                        current_price=current_price,
+                        change_percent=change_percent,
                     elapsed_ms=elapsed_time,
                 )
 

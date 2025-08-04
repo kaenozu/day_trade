@@ -109,6 +109,11 @@ class LoggingConfig:
         # requests関連のログを制限
         logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
 
+        # パフォーマンス最適化: アプリケーション内の高頻度処理モジュールを制限
+        logging.getLogger("day_trade.utils.cache_utils").setLevel(logging.WARNING)
+        logging.getLogger("day_trade.data.stock_fetcher").setLevel(logging.INFO)
+        logging.getLogger("day_trade.analysis.indicators").setLevel(logging.WARNING)
+
     def get_logger(self, name: str) -> Any:
         """構造化ロガーを取得"""
         if not self.is_configured:
