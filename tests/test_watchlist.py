@@ -214,7 +214,7 @@ class TestAlertFunctionality:
             )
             alert2 = Alert(
                 stock_code="7203",
-                alert_type="price_below",
+                alert_type=AlertType.PRICE_BELOW,
                 threshold=2000.0,
                 is_active=False,
             )
