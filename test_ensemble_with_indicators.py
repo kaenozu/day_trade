@@ -7,7 +7,7 @@ import os
 import sys
 
 # パスを追加
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 import numpy as np
 import pandas as pd
@@ -23,45 +23,46 @@ def calculate_technical_indicators(df):
     """テクニカル指標計算"""
 
     indicators = pd.DataFrame(index=df.index)
-    close = df['Close']
-    df['High']
-    df['Low']
-    volume = df['Volume']
+    close = df["Close"]
+    df["High"]
+    df["Low"]
+    volume = df["Volume"]
 
     # RSI計算
     delta = close.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
-    indicators['RSI'] = 100 - (100 / (1 + rs))
+    indicators["RSI"] = 100 - (100 / (1 + rs))
 
     # MACD計算
     ema12 = close.ewm(span=12).mean()
     ema26 = close.ewm(span=26).mean()
-    indicators['MACD'] = ema12 - ema26
-    indicators['MACD_Signal'] = indicators['MACD'].ewm(span=9).mean()
+    indicators["MACD"] = ema12 - ema26
+    indicators["MACD_Signal"] = indicators["MACD"].ewm(span=9).mean()
 
     # 移動平均
-    indicators['SMA_20'] = close.rolling(window=20).mean()
-    indicators['SMA_50'] = close.rolling(window=50).mean()
+    indicators["SMA_20"] = close.rolling(window=20).mean()
+    indicators["SMA_50"] = close.rolling(window=50).mean()
 
     # ボリンジャーバンド
     sma_20 = close.rolling(window=20).mean()
     std_20 = close.rolling(window=20).std()
-    indicators['BB_Upper'] = sma_20 + (std_20 * 2)
-    indicators['BB_Lower'] = sma_20 - (std_20 * 2)
-    indicators['BB_Middle'] = sma_20
+    indicators["BB_Upper"] = sma_20 + (std_20 * 2)
+    indicators["BB_Lower"] = sma_20 - (std_20 * 2)
+    indicators["BB_Middle"] = sma_20
 
     # 出来高指標
-    indicators['Volume_SMA'] = volume.rolling(window=20).mean()
-    indicators['Volume_Ratio'] = volume / indicators['Volume_SMA']
+    indicators["Volume_SMA"] = volume.rolling(window=20).mean()
+    indicators["Volume_Ratio"] = volume / indicators["Volume_SMA"]
 
     return indicators
+
 
 def create_test_data():
     """テストデータ作成"""
 
-    dates = pd.date_range(start='2024-01-01', end='2024-03-31', freq='D')
+    dates = pd.date_range(start="2024-01-01", end="2024-03-31", freq="D")
     np.random.seed(42)
 
     # より現実的な価格データ生成
@@ -72,7 +73,7 @@ def create_test_data():
     trend = np.linspace(0, 20, n_days)  # 上昇トレンド
 
     # 季節性成分
-    seasonality = 5 * np.sin(np.linspace(0, 4*np.pi, n_days))
+    seasonality = 5 * np.sin(np.linspace(0, 4 * np.pi, n_days))
 
     # ノイズ成分
     noise = np.random.normal(0, 2, n_days)
@@ -86,17 +87,20 @@ def create_test_data():
     lows = np.minimum(opens, close_prices) - np.abs(np.random.normal(0, 1, n_days))
     volumes = np.random.lognormal(12, 0.5, n_days).astype(int)
 
-    df = pd.DataFrame({
-        'Date': dates,
-        'Open': opens,
-        'High': highs,
-        'Low': lows,
-        'Close': close_prices,
-        'Volume': volumes
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Open": opens,
+            "High": highs,
+            "Low": lows,
+            "Close": close_prices,
+            "Volume": volumes,
+        }
+    )
 
-    df.set_index('Date', inplace=True)
+    df.set_index("Date", inplace=True)
     return df
+
 
 def test_ensemble_with_indicators():
     """テクニカル指標付きアンサンブルテスト"""
@@ -112,7 +116,7 @@ def test_ensemble_with_indicators():
 
     # テクニカル指標の統計情報
     print("\nテクニカル指標統計:")
-    for col in ['RSI', 'MACD', 'SMA_20']:
+    for col in ["RSI", "MACD", "SMA_20"]:
         if col in indicators.columns:
             latest_value = indicators[col].iloc[-1]
             if not pd.isna(latest_value):
@@ -120,9 +124,21 @@ def test_ensemble_with_indicators():
 
     # アンサンブル戦略テスト
     test_configs = [
-        (EnsembleStrategy.CONSERVATIVE, EnsembleVotingType.SOFT_VOTING, "保守的+ソフト投票"),
-        (EnsembleStrategy.AGGRESSIVE, EnsembleVotingType.HARD_VOTING, "積極的+ハード投票"),
-        (EnsembleStrategy.BALANCED, EnsembleVotingType.SOFT_VOTING, "バランス+ソフト投票"),
+        (
+            EnsembleStrategy.CONSERVATIVE,
+            EnsembleVotingType.SOFT_VOTING,
+            "保守的+ソフト投票",
+        ),
+        (
+            EnsembleStrategy.AGGRESSIVE,
+            EnsembleVotingType.HARD_VOTING,
+            "積極的+ハード投票",
+        ),
+        (
+            EnsembleStrategy.BALANCED,
+            EnsembleVotingType.SOFT_VOTING,
+            "バランス+ソフト投票",
+        ),
     ]
 
     results = []
@@ -133,15 +149,14 @@ def test_ensemble_with_indicators():
 
             # アンサンブル戦略作成
             ensemble = EnsembleTradingStrategy(
-                ensemble_strategy=strategy_type,
-                voting_type=voting_type
+                ensemble_strategy=strategy_type, voting_type=voting_type
             )
 
             # シグナル生成（テクニカル指標付き）
             ensemble_signal = ensemble.generate_ensemble_signal(
                 df=df,
                 indicators=indicators,
-                patterns={}  # パターン認識は省略
+                patterns={},  # パターン認識は省略
             )
 
             if ensemble_signal:
@@ -164,32 +179,28 @@ def test_ensemble_with_indicators():
                         else:
                             print(f"  {feature}: {value}")
 
-                results.append({
-                    'config': description,
-                    'signal_type': signal.signal_type.value,
-                    'confidence': signal.confidence,
-                    'success': True
-                })
+                results.append(
+                    {
+                        "config": description,
+                        "signal_type": signal.signal_type.value,
+                        "confidence": signal.confidence,
+                        "success": True,
+                    }
+                )
             else:
                 print("シグナルなし")
-                results.append({
-                    'config': description,
-                    'success': False,
-                    'reason': 'no_signal'
-                })
+                results.append(
+                    {"config": description, "success": False, "reason": "no_signal"}
+                )
 
         except Exception as e:
             print(f"エラー: {e}")
-            results.append({
-                'config': description,
-                'success': False,
-                'error': str(e)
-            })
+            results.append({"config": description, "success": False, "error": str(e)})
 
     # 結果サマリー
     print("\n=== テスト結果サマリー ===")
-    successful_tests = [r for r in results if r.get('success', False)]
-    failed_tests = [r for r in results if not r.get('success', False)]
+    successful_tests = [r for r in results if r.get("success", False)]
+    failed_tests = [r for r in results if not r.get("success", False)]
 
     print(f"成功: {len(successful_tests)}/{len(results)}")
     print(f"失敗: {len(failed_tests)}/{len(results)}")
@@ -197,17 +208,20 @@ def test_ensemble_with_indicators():
     if successful_tests:
         print("\n成功したテスト:")
         for result in successful_tests:
-            print(f"  {result['config']}: {result['signal_type']} (信頼度: {result['confidence']:.1f}%)")
+            print(
+                f"  {result['config']}: {result['signal_type']} (信頼度: {result['confidence']:.1f}%)"
+            )
 
     if failed_tests:
         print("\n失敗したテスト:")
         for result in failed_tests:
-            if 'error' in result:
+            if "error" in result:
                 print(f"  {result['config']}: {result['error']}")
             else:
                 print(f"  {result['config']}: {result.get('reason', 'unknown')}")
 
     return len(successful_tests) > 0
+
 
 def test_strategy_weights_analysis():
     """戦略重み分析テスト"""
@@ -223,14 +237,14 @@ def test_strategy_weights_analysis():
             (EnsembleStrategy.CONSERVATIVE, "保守的"),
             (EnsembleStrategy.AGGRESSIVE, "積極的"),
             (EnsembleStrategy.BALANCED, "バランス"),
-            (EnsembleStrategy.ADAPTIVE, "適応型")
+            (EnsembleStrategy.ADAPTIVE, "適応型"),
         ]
 
         print("戦略タイプ別重み分析:")
         for strategy_type, name in strategy_types:
             ensemble = EnsembleTradingStrategy(
                 ensemble_strategy=strategy_type,
-                voting_type=EnsembleVotingType.SOFT_VOTING
+                voting_type=EnsembleVotingType.SOFT_VOTING,
             )
 
             print(f"\n{name}戦略:")
@@ -242,6 +256,7 @@ def test_strategy_weights_analysis():
     except Exception as e:
         print(f"戦略重み分析エラー: {e}")
         return False
+
 
 if __name__ == "__main__":
     print("テクニカル指標付きアンサンブルテスト開始")

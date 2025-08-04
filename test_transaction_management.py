@@ -8,7 +8,7 @@ import sys
 from decimal import Decimal
 
 # パスを追加
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.day_trade.core.trade_manager import TradeManager
 
@@ -29,7 +29,7 @@ def test_buy_stock_transaction():
             price=Decimal("2500"),
             current_market_price=Decimal("2520"),
             notes="テスト買い注文",
-            persist_to_db=False  # メモリ内テスト
+            persist_to_db=False,  # メモリ内テスト
         )
 
         print("買い注文成功:")
@@ -40,8 +40,8 @@ def test_buy_stock_transaction():
         print(f"  手数料: {result['commission']}円")
         print(f"  総コスト: {result['total_cost']}円")
 
-        if result['position']:
-            pos = result['position']
+        if result["position"]:
+            pos = result["position"]
             print("  更新後ポジション:")
             print(f"    保有数量: {pos['quantity']}")
             print(f"    平均単価: {pos['average_price']}円")
@@ -54,6 +54,7 @@ def test_buy_stock_transaction():
         print(f"買い注文エラー: {e}")
         return False
 
+
 def test_sell_stock_transaction():
     """株式売り注文のトランザクション管理テスト"""
 
@@ -64,10 +65,7 @@ def test_sell_stock_transaction():
 
     # まず買い注文でポジション作成
     tm.buy_stock(
-        symbol="7203",
-        quantity=200,
-        price=Decimal("2500"),
-        persist_to_db=False
+        symbol="7203", quantity=200, price=Decimal("2500"), persist_to_db=False
     )
 
     # 売り注文実行
@@ -78,7 +76,7 @@ def test_sell_stock_transaction():
             price=Decimal("2650"),
             current_market_price=Decimal("2650"),
             notes="テスト売り注文",
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         print("売り注文成功:")
@@ -90,14 +88,14 @@ def test_sell_stock_transaction():
         print(f"  売却収入: {result['gross_proceeds']}円")
         print(f"  ポジション完全クローズ: {result['position_closed']}")
 
-        if result['realized_pnl']:
-            pnl = result['realized_pnl']
+        if result["realized_pnl"]:
+            pnl = result["realized_pnl"]
             print("  実現損益:")
             print(f"    損益: {pnl['pnl']}円")
             print(f"    損益率: {pnl['pnl_percent']}%")
 
-        if result['position']:
-            pos = result['position']
+        if result["position"]:
+            pos = result["position"]
             print("  残りポジション:")
             print(f"    保有数量: {pos['quantity']}")
             print(f"    平均単価: {pos['average_price']}円")
@@ -108,6 +106,7 @@ def test_sell_stock_transaction():
         print(f"売り注文エラー: {e}")
         return False
 
+
 def test_transaction_rollback():
     """トランザクションロールバックテスト"""
 
@@ -117,10 +116,7 @@ def test_transaction_rollback():
 
     # 正常な買い注文でポジション作成
     tm.buy_stock(
-        symbol="7203",
-        quantity=100,
-        price=Decimal("2500"),
-        persist_to_db=False
+        symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
     )
 
     initial_position = tm.get_position("7203")
@@ -136,7 +132,7 @@ def test_transaction_rollback():
             symbol="7203",
             quantity=200,  # 保有数量100を超過
             price=Decimal("2600"),
-            persist_to_db=False
+            persist_to_db=False,
         )
         print("エラー：想定していたエラーが発生しませんでした")
         return False
@@ -153,13 +149,16 @@ def test_transaction_rollback():
         print(f"  取引履歴数: {rollback_trades_count}")
 
         # 初期状態と同じであることを確認
-        if (rollback_position.quantity == initial_position.quantity and
-            rollback_trades_count == initial_trades_count):
+        if (
+            rollback_position.quantity == initial_position.quantity
+            and rollback_trades_count == initial_trades_count
+        ):
             print("✓ トランザクションロールバック成功")
             return True
         else:
             print("✗ トランザクションロールバック失敗")
             return False
+
 
 def test_execute_trade_order():
     """統一取引注文インターフェーステスト"""
@@ -175,7 +174,7 @@ def test_execute_trade_order():
         "quantity": 1000,
         "price": Decimal("150"),
         "current_market_price": Decimal("152"),
-        "notes": "統一インターフェース買いテスト"
+        "notes": "統一インターフェース買いテスト",
     }
 
     try:
@@ -189,7 +188,7 @@ def test_execute_trade_order():
             "quantity": 500,
             "price": Decimal("155"),
             "current_market_price": Decimal("155"),
-            "notes": "統一インターフェース売りテスト"
+            "notes": "統一インターフェース売りテスト",
         }
 
         sell_result = tm.execute_trade_order(sell_order, persist_to_db=False)
@@ -200,7 +199,7 @@ def test_execute_trade_order():
             "action": "invalid",
             "symbol": "8411",
             "quantity": 100,
-            "price": Decimal("150")
+            "price": Decimal("150"),
         }
 
         try:
@@ -215,6 +214,7 @@ def test_execute_trade_order():
     except Exception as e:
         print(f"統一インターフェーステストエラー: {e}")
         return False
+
 
 def test_data_consistency():
     """データ整合性テスト"""
@@ -251,9 +251,12 @@ def test_data_consistency():
     # 個別ポジション確認
     print("\n個別ポジション:")
     for symbol, position in tm.get_all_positions().items():
-        print(f"  {symbol}: {position.quantity}株 (平均単価: {position.average_price}円)")
+        print(
+            f"  {symbol}: {position.quantity}株 (平均単価: {position.average_price}円)"
+        )
 
     return True
+
 
 if __name__ == "__main__":
     print("トランザクション管理テスト開始")
@@ -285,7 +288,9 @@ if __name__ == "__main__":
     print("\n=== テスト結果 ===")
     print(f"成功: {passed}")
     print(f"失敗: {failed}")
-    print(f"成功率: {passed}/{passed+failed} ({passed/(passed+failed)*100:.1f}%)")
+    print(
+        f"成功率: {passed}/{passed + failed} ({passed / (passed + failed) * 100:.1f}%)"
+    )
 
     if failed == 0:
         print("✓ すべてのトランザクション管理テストが成功しました")

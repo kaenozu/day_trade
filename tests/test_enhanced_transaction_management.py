@@ -29,7 +29,7 @@ from src.day_trade.utils.transaction_manager import (
 
 # テスト用のSQLAlchemyモデル
 class MockModel(Base):
-    __tablename__ = 'test_model'
+    __tablename__ = "test_model"
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
@@ -62,7 +62,7 @@ class TestTransactionMonitor:
             transaction_id,
             status=TransactionStatus.ACTIVE,
             affected_table="test_table",
-            retry_count=1
+            retry_count=1,
         )
 
         assert metrics.status == TransactionStatus.ACTIVE
@@ -70,10 +70,7 @@ class TestTransactionMonitor:
         assert metrics.retry_count == 1
 
         # トランザクション完了
-        self.monitor.complete_transaction(
-            transaction_id,
-            TransactionStatus.COMMITTED
-        )
+        self.monitor.complete_transaction(transaction_id, TransactionStatus.COMMITTED)
 
         assert transaction_id not in self.monitor.active_transactions
         assert len(self.monitor.completed_transactions) == 1
@@ -92,12 +89,12 @@ class TestTransactionMonitor:
 
             # 成功と失敗を混在
             if i < 7:
-                self.monitor.complete_transaction(transaction_id, TransactionStatus.COMMITTED)
+                self.monitor.complete_transaction(
+                    transaction_id, TransactionStatus.COMMITTED
+                )
             else:
                 self.monitor.complete_transaction(
-                    transaction_id,
-                    TransactionStatus.FAILED,
-                    "Test error"
+                    transaction_id, TransactionStatus.FAILED, "Test error"
                 )
 
         stats = self.monitor.get_transaction_statistics(24)
@@ -146,7 +143,7 @@ class TestEnhancedTransactionManager:
         executed = False
 
         # get_sessionメソッドをモック
-        with patch.object(db_manager, 'get_session') as mock_get_session:
+        with patch.object(db_manager, "get_session") as mock_get_session:
             mock_session = Mock()
             mock_session.execute = Mock()
             mock_session.commit = Mock()
@@ -156,7 +153,7 @@ class TestEnhancedTransactionManager:
 
             with self.enhanced_manager.enhanced_transaction(
                 isolation_level=TransactionIsolationLevel.READ_COMMITTED,
-                timeout_seconds=10.0
+                timeout_seconds=10.0,
             ) as session:
                 assert session is not None
                 executed = True
@@ -181,27 +178,29 @@ class TestEnhancedTransactionManager:
             mock_session.info = {}
             return mock_session
 
-        with patch.object(db_manager, 'get_session', side_effect=mock_retriable_error), \
-             patch.object(db_manager, '_is_retriable_error', return_value=True):
-                try:
-                    with self.enhanced_manager.enhanced_transaction(retry_count=3):
-                        pass
-                except Exception:
-                    pass  # エラーは期待される
+        with patch.object(
+            db_manager, "get_session", side_effect=mock_retriable_error
+        ), patch.object(db_manager, "_is_retriable_error", return_value=True):
+            try:
+                with self.enhanced_manager.enhanced_transaction(retry_count=3):
+                    pass
+            except Exception:
+                pass  # エラーは期待される
 
         assert retry_count >= 2  # 再試行が実行されたことを確認
 
     def test_transaction_timeout(self):
         """トランザクションタイムアウトのテスト"""
-        with pytest.raises(OperationalError), \
-             self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
-                time.sleep(0.2)  # タイムアウトを超過
+        with pytest.raises(
+            OperationalError
+        ), self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
+            time.sleep(0.2)  # タイムアウトを超過
 
     def test_readonly_transaction(self):
         """読み取り専用トランザクションのテスト"""
         executed = False
 
-        with patch.object(db_manager, 'get_session') as mock_get_session:
+        with patch.object(db_manager, "get_session") as mock_get_session:
             mock_session = Mock()
             mock_session.execute = Mock()
             mock_session.commit = Mock()
@@ -227,7 +226,7 @@ class TestEnhancedTransactionManager:
             results.append("context2")
             return "result2"
 
-        with patch.object(db_manager, 'get_session') as mock_get_session:
+        with patch.object(db_manager, "get_session") as mock_get_session:
             mock_session = Mock()
             mock_session.begin = Mock()
             mock_session.commit = Mock()
@@ -253,7 +252,7 @@ class TestEnhancedTransactionManager:
             results.append("context2")
             raise Exception("Context2 failed")
 
-        with patch.object(db_manager, 'get_session') as mock_get_session:
+        with patch.object(db_manager, "get_session") as mock_get_session:
             mock_session = Mock()
             mock_session.begin = Mock()
             mock_session.rollback = Mock()
@@ -261,9 +260,10 @@ class TestEnhancedTransactionManager:
             mock_session.close = Mock()
             mock_get_session.return_value = mock_session
 
-            with pytest.raises(Exception, match="Context2 failed"), \
-                 self.enhanced_manager.distributed_transaction([context1, context2]):
-                    pass
+            with pytest.raises(
+                Exception, match="Context2 failed"
+            ), self.enhanced_manager.distributed_transaction([context1, context2]):
+                pass
 
         assert "context1" in results
         assert "context2" in results
@@ -282,7 +282,9 @@ class TestEnhancedTransactionManager:
         def operation3(session):
             operations_executed.append("op3")
 
-        with pytest.raises(Exception, match="Operation 2 failed"):  # Operation 2 failed例外
+        with pytest.raises(
+            Exception, match="Operation 2 failed"
+        ):  # Operation 2 failed例外
             self.enhanced_manager.execute_with_savepoint(
                 [operation1, operation2, operation3]
             )
@@ -306,9 +308,10 @@ class TestTransactionPatterns:
 
         def test_operation():
             nonlocal executed_count
-            with db_manager.session_scope() as session, \
-                 TransactionPatterns.idempotent_operation(operation_key, session):
-                    executed_count += 1
+            with db_manager.session_scope() as session, TransactionPatterns.idempotent_operation(
+                operation_key, session
+            ):
+                executed_count += 1
 
         # 同じ操作を複数回実行
         test_operation()
@@ -324,8 +327,10 @@ class TestTransactionPatterns:
             # モックセッションの設定
             mock_record = MockModel(id=1, version=1)
 
-            with patch.object(session, 'query') as mock_query:
-                mock_query.return_value.filter_by.return_value.first.return_value = mock_record
+            with patch.object(session, "query") as mock_query:
+                mock_query.return_value.filter_by.return_value.first.return_value = (
+                    mock_record
+                )
                 mock_query.return_value.filter_by.return_value.update.return_value = 1
 
                 # 楽観的ロック更新のテスト
@@ -333,7 +338,7 @@ class TestTransactionPatterns:
                     session=session,
                     model_class=MockModel,
                     record_id=1,
-                    update_data={"name": "updated", "version": 1}
+                    update_data={"name": "updated", "version": 1},
                 )
 
                 assert success is True
@@ -343,26 +348,27 @@ class TestTransactionPatterns:
         records_data = [
             {"id": 1, "name": "record1"},
             {"id": 2, "name": "record2"},
-            {"id": 3, "name": "record3"}
+            {"id": 3, "name": "record3"},
         ]
 
-        with db_manager.session_scope() as session, \
-             patch.object(session, 'query') as mock_query:
-                # 既存レコードなしとして模擬
-                mock_query.return_value.filter_by.return_value.first.return_value = None
-                with patch.object(session, 'add') as mock_add:
-                    # バッチアップサートの実行
-                    TransactionPatterns.batch_upsert_pattern(
-                        session=session,
-                        model_class=MockModel,
-                        records_data=records_data,
-                        unique_keys=["id"],
-                        batch_size=2
-                    )
+        with db_manager.session_scope() as session, patch.object(
+            session, "query"
+        ) as mock_query:
+            # 既存レコードなしとして模擬
+            mock_query.return_value.filter_by.return_value.first.return_value = None
+            with patch.object(session, "add") as mock_add:
+                # バッチアップサートの実行
+                TransactionPatterns.batch_upsert_pattern(
+                    session=session,
+                    model_class=MockModel,
+                    records_data=records_data,
+                    unique_keys=["id"],
+                    batch_size=2,
+                )
 
-                    # 呼び出し回数の検証
-                    assert mock_query.called
-                    assert mock_add.called
+                # 呼び出し回数の検証
+                assert mock_query.called
+                assert mock_add.called
 
     def test_saga_transaction_pattern(self):
         """Sagaトランザクションパターンのテスト"""
@@ -377,7 +383,9 @@ class TestTransactionPatterns:
         compensation_steps = [compensation1, compensation2]
 
         # 正常ケース
-        with TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
+        with TransactionPatterns.saga_transaction_pattern(
+            compensation_steps
+        ) as executed_steps:
             executed_steps.append(0)
             executed_steps.append(1)
 
@@ -386,11 +394,12 @@ class TestTransactionPatterns:
         # 異常ケース
         compensation_calls.clear()
 
-        with pytest.raises(RuntimeError), \
-             TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
-                executed_steps.append(0)
-                executed_steps.append(1)
-                raise RuntimeError("Business error")
+        with pytest.raises(RuntimeError), TransactionPatterns.saga_transaction_pattern(
+            compensation_steps
+        ) as executed_steps:
+            executed_steps.append(0)
+            executed_steps.append(1)
+            raise RuntimeError("Business error")
 
         assert "comp1" in compensation_calls
         assert "comp2" in compensation_calls
@@ -472,7 +481,7 @@ class TestTransactionIntegration:
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("1000"),
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         assert trade_id is not None

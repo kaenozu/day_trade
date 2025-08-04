@@ -64,7 +64,7 @@ class PerformanceBenchmark:
             # 従来の個別取得 vs 最適化版一括取得の比較
             fetcher = EnhancedStockFetcher(
                 enable_fallback=True,
-                enable_circuit_breaker=False  # テスト用
+                enable_circuit_breaker=False,  # テスト用
             )
 
             # 一括取得テスト（シミュレーション）
@@ -87,7 +87,7 @@ class PerformanceBenchmark:
             self.results["data_fetch"] = {
                 "symbols_count": len(test_symbols),
                 "optimization_enabled": True,
-                "status": "success"
+                "status": "success",
             }
 
         except Exception as e:
@@ -117,14 +117,14 @@ class PerformanceBenchmark:
             Base = declarative_base()
 
             class TestStock(Base):
-                __tablename__ = 'test_stocks_perf'
+                __tablename__ = "test_stocks_perf"
                 id = Column(Integer, primary_key=True)
                 symbol = Column(String(10))
                 price = Column(Float)
                 volume = Column(Integer)
                 timestamp = Column(DateTime, default=datetime.now)
 
-            engine = create_engine('sqlite:///:memory:', echo=False)
+            engine = create_engine("sqlite:///:memory:", echo=False)
             Base.metadata.create_all(engine)
 
             Session = sessionmaker(bind=engine)
@@ -138,7 +138,7 @@ class PerformanceBenchmark:
                 {
                     "symbol": f"TST{i:04d}",
                     "price": 1000 + np.random.randint(-100, 100),
-                    "volume": np.random.randint(10000, 100000)
+                    "volume": np.random.randint(10000, 100000),
                 }
                 for i in range(5000)  # 5000レコード
             ]
@@ -148,9 +148,7 @@ class PerformanceBenchmark:
             # バルク挿入テスト
             with performance_monitor("最適化バルク挿入"):
                 result = optimizer.bulk_insert_optimized(
-                    TestStock,
-                    test_data,
-                    chunk_size=500
+                    TestStock, test_data, chunk_size=500
                 )
 
             print(" バルク挿入結果:")
@@ -161,19 +159,14 @@ class PerformanceBenchmark:
 
             # 更新用データ生成
             update_data = [
-                {
-                    "id": i + 1,
-                    "price": 1100 + np.random.randint(-50, 50)
-                }
+                {"id": i + 1, "price": 1100 + np.random.randint(-50, 50)}
                 for i in range(1000)  # 1000件更新
             ]
 
             # バルク更新テスト
             with performance_monitor("最適化バルク更新"):
                 update_result = optimizer.bulk_update_optimized(
-                    TestStock,
-                    update_data,
-                    chunk_size=200
+                    TestStock, update_data, chunk_size=200
                 )
 
             print(" バルク更新結果:")
@@ -190,7 +183,7 @@ class PerformanceBenchmark:
             self.results["database"] = {
                 "insert_throughput": result.throughput,
                 "update_throughput": update_result.throughput,
-                "status": "success"
+                "status": "success",
             }
 
         except Exception as e:
@@ -218,9 +211,14 @@ class PerformanceBenchmark:
                 {"name": "sma", "period": 20},
                 {"name": "ema", "period": 12},
                 {"name": "rsi", "period": 14},
-                {"name": "macd", "fast_period": 12, "slow_period": 26, "signal_period": 9},
+                {
+                    "name": "macd",
+                    "fast_period": 12,
+                    "slow_period": 26,
+                    "signal_period": 9,
+                },
                 {"name": "bollinger_bands", "period": 20, "std_dev": 2.0},
-                {"name": "atr", "period": 14}
+                {"name": "atr", "period": 14},
             ]
 
             # 並列計算テスト
@@ -236,16 +234,24 @@ class PerformanceBenchmark:
                 )
 
             print(" 並列計算結果:")
-            total_parallel_time = sum(r.execution_time for r in parallel_results.values())
+            total_parallel_time = sum(
+                r.execution_time for r in parallel_results.values()
+            )
             print(f"   計算指標数: {len(parallel_results)}")
             print(f"   総実行時間: {total_parallel_time:.3f}秒")
 
             print(" 逐次計算結果:")
-            total_sequential_time = sum(r.execution_time for r in sequential_results.values())
+            total_sequential_time = sum(
+                r.execution_time for r in sequential_results.values()
+            )
             print(f"   計算指標数: {len(sequential_results)}")
             print(f"   総実行時間: {total_sequential_time:.3f}秒")
 
-            speedup = total_sequential_time / total_parallel_time if total_parallel_time > 0 else 1
+            speedup = (
+                total_sequential_time / total_parallel_time
+                if total_parallel_time > 0
+                else 1
+            )
             print(f" 速度向上: {speedup:.2f}x")
 
             # 包括的分析テスト
@@ -257,14 +263,16 @@ class PerformanceBenchmark:
             print(" 包括的分析結果:")
             print(f"   元データ列数: {len(test_data.columns)}")
             print(f"   結果データ列数: {len(comprehensive_result.columns)}")
-            print(f"   追加指標数: {len(comprehensive_result.columns) - len(test_data.columns)}")
+            print(
+                f"   追加指標数: {len(comprehensive_result.columns) - len(test_data.columns)}"
+            )
 
             self.results["calculation"] = {
                 "parallel_time": total_parallel_time,
                 "sequential_time": total_sequential_time,
                 "speedup": speedup,
                 "indicators_count": len(comprehensive_result.columns),
-                "status": "success"
+                "status": "success",
             }
 
         except Exception as e:
@@ -289,7 +297,14 @@ class PerformanceBenchmark:
             data_dict = {}
             for symbol in symbols:
                 data_dict[symbol] = create_sample_data(1000)
-                data_dict[symbol].columns = ["date", "open", "high", "low", "close", "volume"]
+                data_dict[symbol].columns = [
+                    "date",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ]
                 data_dict[symbol].set_index("date", inplace=True)
 
             # 2. テクニカル分析
@@ -298,7 +313,9 @@ class PerformanceBenchmark:
 
             analysis_results = {}
             for symbol, data in data_dict.items():
-                analysis_results[symbol] = calculator.calculate_comprehensive_analysis(data)
+                analysis_results[symbol] = calculator.calculate_comprehensive_analysis(
+                    data
+                )
 
             # 3. データベース保存（シミュレーション）
             print("   3. データベース保存...")
@@ -313,14 +330,18 @@ class PerformanceBenchmark:
 
             # パフォーマンス統計
             summary = self.profiler.get_summary_report()
-            print(f"   プロファイル関数数: {summary.get('total_functions_profiled', 0)}")
-            print(f"   最大メモリ使用量: {summary.get('peak_memory_usage_mb', 0):.2f}MB")
+            print(
+                f"   プロファイル関数数: {summary.get('total_functions_profiled', 0)}"
+            )
+            print(
+                f"   最大メモリ使用量: {summary.get('peak_memory_usage_mb', 0):.2f}MB"
+            )
 
             self.results["integrated"] = {
                 "total_time": total_time,
                 "symbols_count": len(symbols),
                 "time_per_symbol": total_time / len(symbols),
-                "status": "success"
+                "status": "success",
             }
 
         except Exception as e:
@@ -341,11 +362,17 @@ class PerformanceBenchmark:
 
                 if test_name == "data_fetch":
                     print(f"   - 銘柄数: {result.get('symbols_count', 'N/A')}")
-                    print(f"   - 最適化: {'有効' if result.get('optimization_enabled') else '無効'}")
+                    print(
+                        f"   - 最適化: {'有効' if result.get('optimization_enabled') else '無効'}"
+                    )
 
                 elif test_name == "database":
-                    print(f"   - 挿入スループット: {result.get('insert_throughput', 0):.0f} records/sec")
-                    print(f"   - 更新スループット: {result.get('update_throughput', 0):.0f} records/sec")
+                    print(
+                        f"   - 挿入スループット: {result.get('insert_throughput', 0):.0f} records/sec"
+                    )
+                    print(
+                        f"   - 更新スループット: {result.get('update_throughput', 0):.0f} records/sec"
+                    )
 
                 elif test_name == "calculation":
                     print(f"   - 並列化速度向上: {result.get('speedup', 1):.2f}x")
@@ -353,14 +380,17 @@ class PerformanceBenchmark:
 
                 elif test_name == "integrated":
                     print(f"   - 総実行時間: {result.get('total_time', 0):.3f}秒")
-                    print(f"   - 銘柄あたり時間: {result.get('time_per_symbol', 0):.3f}秒")
+                    print(
+                        f"   - 銘柄あたり時間: {result.get('time_per_symbol', 0):.3f}秒"
+                    )
 
             else:
                 print(f"    失敗: {result.get('error', 'Unknown error')}")
 
         # 総合評価
-        success_count = sum(1 for result in self.results.values()
-                          if result.get("status") == "success")
+        success_count = sum(
+            1 for result in self.results.values() if result.get("status") == "success"
+        )
         total_tests = len(self.results)
 
         print(f"\n 総合結果: {success_count}/{total_tests} テスト成功")

@@ -19,6 +19,7 @@ from rich.table import Table
 # Windows環境対応
 try:
     from src.day_trade.utils.windows_console_fix import create_safe_live_context
+
     safe_live_context = create_safe_live_context()
 except ImportError:
     from contextlib import contextmanager
@@ -29,6 +30,7 @@ except ImportError:
     def safe_live_context(*args, **kwargs):
         with Live(*args, **kwargs) as live:
             yield live
+
 
 from src.day_trade.core.alerts import (
     AlertCondition,

@@ -520,8 +520,9 @@ class StockMasterManager:
 
                 # 新規銘柄のみをフィルタリング
                 new_stocks = [
-                    stock for stock in stocks_data
-                    if stock.get('code') not in existing_codes
+                    stock
+                    for stock in stocks_data
+                    if stock.get("code") not in existing_codes
                 ]
 
                 if not new_stocks:
@@ -530,28 +531,32 @@ class StockMasterManager:
 
                 # バッチ処理で一括挿入
                 for i in range(0, len(new_stocks), batch_size):
-                    batch = new_stocks[i:i + batch_size]
+                    batch = new_stocks[i : i + batch_size]
 
                     # データの検証と準備
                     validated_batch = []
                     for stock_data in batch:
-                        if not stock_data.get('code') or not stock_data.get('name'):
+                        if not stock_data.get("code") or not stock_data.get("name"):
                             logger.warning(f"無効な銘柄データをスキップ: {stock_data}")
                             continue
-                        validated_batch.append({
-                            'code': stock_data['code'],
-                            'name': stock_data['name'],
-                            'market': stock_data.get('market'),
-                            'sector': stock_data.get('sector'),
-                            'industry': stock_data.get('industry')
-                        })
+                        validated_batch.append(
+                            {
+                                "code": stock_data["code"],
+                                "name": stock_data["name"],
+                                "market": stock_data.get("market"),
+                                "sector": stock_data.get("sector"),
+                                "industry": stock_data.get("industry"),
+                            }
+                        )
 
                     if validated_batch:
                         # 一括挿入実行
                         session.bulk_insert_mappings(Stock, validated_batch)
                         added_count += len(validated_batch)
 
-                        logger.info(f"バッチ {i//batch_size + 1}: {len(validated_batch)}件の銘柄を追加")
+                        logger.info(
+                            f"バッチ {i // batch_size + 1}: {len(validated_batch)}件の銘柄を追加"
+                        )
 
                 logger.info(f"一括追加完了: 合計 {added_count}件の銘柄を追加しました")
                 return added_count
@@ -560,7 +565,9 @@ class StockMasterManager:
                 logger.error(f"一括追加エラー: {e}")
                 return 0
 
-    def bulk_update_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> int:
+    def bulk_update_stocks(
+        self, stocks_data: List[dict], batch_size: int = 1000
+    ) -> int:
         """
         銘柄の一括更新（パフォーマンス最適化版）
 
@@ -588,12 +595,16 @@ class StockMasterManager:
                 # 存在する銘柄のみをフィルタリング
                 update_stocks = []
                 for stock_data in stocks_data:
-                    code = stock_data.get('code')
+                    code = stock_data.get("code")
                     if code and code in existing_stocks:
                         # IDを追加して更新用データを準備
                         update_data = {
-                            'id': existing_stocks[code],
-                            **{k: v for k, v in stock_data.items() if k != 'code' and v is not None}
+                            "id": existing_stocks[code],
+                            **{
+                                k: v
+                                for k, v in stock_data.items()
+                                if k != "code" and v is not None
+                            },
                         }
                         update_stocks.append(update_data)
 
@@ -603,13 +614,15 @@ class StockMasterManager:
 
                 # バッチ処理で一括更新
                 for i in range(0, len(update_stocks), batch_size):
-                    batch = update_stocks[i:i + batch_size]
+                    batch = update_stocks[i : i + batch_size]
 
                     # 一括更新実行
                     session.bulk_update_mappings(Stock, batch)
                     updated_count += len(batch)
 
-                    logger.info(f"バッチ {i//batch_size + 1}: {len(batch)}件の銘柄を更新")
+                    logger.info(
+                        f"バッチ {i // batch_size + 1}: {len(batch)}件の銘柄を更新"
+                    )
 
                 logger.info(f"一括更新完了: 合計 {updated_count}件の銘柄を更新しました")
                 return updated_count
@@ -618,7 +631,9 @@ class StockMasterManager:
                 logger.error(f"一括更新エラー: {e}")
                 return 0
 
-    def bulk_upsert_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> dict:
+    def bulk_upsert_stocks(
+        self, stocks_data: List[dict], batch_size: int = 1000
+    ) -> dict:
         """
         銘柄の一括upsert（存在すれば更新、なければ追加）
 
@@ -630,7 +645,7 @@ class StockMasterManager:
             実行結果の辞書 {'added': int, 'updated': int, 'total': int}
         """
         if not stocks_data:
-            return {'added': 0, 'updated': 0, 'total': 0}
+            return {"added": 0, "updated": 0, "total": 0}
 
         with db_manager.session_scope() as session:
             try:
@@ -644,7 +659,7 @@ class StockMasterManager:
                 update_stocks = []
 
                 for stock_data in stocks_data:
-                    code = stock_data.get('code')
+                    code = stock_data.get("code")
                     if not code:
                         logger.warning(f"銘柄コードが無効です: {stock_data}")
                         continue
@@ -655,22 +670,30 @@ class StockMasterManager:
                         new_stocks.append(stock_data)
 
                 # 一括追加と一括更新を実行
-                added_count = self.bulk_add_stocks(new_stocks, batch_size) if new_stocks else 0
-                updated_count = self.bulk_update_stocks(update_stocks, batch_size) if update_stocks else 0
+                added_count = (
+                    self.bulk_add_stocks(new_stocks, batch_size) if new_stocks else 0
+                )
+                updated_count = (
+                    self.bulk_update_stocks(update_stocks, batch_size)
+                    if update_stocks
+                    else 0
+                )
 
                 total_count = added_count + updated_count
 
-                logger.info(f"一括upsert完了: 追加 {added_count}件, 更新 {updated_count}件, 合計 {total_count}件")
+                logger.info(
+                    f"一括upsert完了: 追加 {added_count}件, 更新 {updated_count}件, 合計 {total_count}件"
+                )
 
                 return {
-                    'added': added_count,
-                    'updated': updated_count,
-                    'total': total_count
+                    "added": added_count,
+                    "updated": updated_count,
+                    "total": total_count,
                 }
 
             except Exception as e:
                 logger.error(f"一括upsertエラー: {e}")
-                return {'added': 0, 'updated': 0, 'total': 0}
+                return {"added": 0, "updated": 0, "total": 0}
 
 
 # グローバルインスタンス

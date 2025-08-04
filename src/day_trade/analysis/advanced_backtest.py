@@ -16,12 +16,13 @@ import pandas as pd
 
 from ..utils.logging_config import get_context_logger
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
 class OrderType(Enum):
     """注文タイプ"""
+
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
@@ -30,6 +31,7 @@ class OrderType(Enum):
 
 class OrderStatus(Enum):
     """注文状態"""
+
     PENDING = "pending"
     FILLED = "filled"
     PARTIALLY_FILLED = "partially_filled"
@@ -41,11 +43,11 @@ class OrderStatus(Enum):
 class TradingCosts:
     """取引コスト設定"""
 
-    commission_rate: float = 0.001      # 手数料率 (0.1%)
-    min_commission: float = 0.0         # 最小手数料
-    max_commission: float = float('inf')# 最大手数料
+    commission_rate: float = 0.001  # 手数料率 (0.1%)
+    min_commission: float = 0.0  # 最小手数料
+    max_commission: float = float("inf")  # 最大手数料
     bid_ask_spread_rate: float = 0.001  # ビッドアスクスプレッド率
-    slippage_rate: float = 0.0005       # スリッページ率
+    slippage_rate: float = 0.0005  # スリッページ率
     market_impact_rate: float = 0.0002  # マーケットインパクト率
 
 
@@ -119,7 +121,7 @@ class AdvancedBacktestEngine:
         max_position_size: float = 0.1,  # ポートフォリオの10%まで
         enable_slippage: bool = True,
         enable_market_impact: bool = True,
-        realistic_execution: bool = True
+        realistic_execution: bool = True,
     ):
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
@@ -149,7 +151,7 @@ class AdvancedBacktestEngine:
             "高度バックテストエンジン初期化",
             section="backtest_init",
             initial_capital=initial_capital,
-            realistic_execution=realistic_execution
+            realistic_execution=realistic_execution,
         )
 
     def run_backtest(
@@ -157,7 +159,7 @@ class AdvancedBacktestEngine:
         data: pd.DataFrame,
         strategy_signals: pd.DataFrame,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
     ) -> PerformanceMetrics:
         """
         バックテスト実行
@@ -175,7 +177,7 @@ class AdvancedBacktestEngine:
             "バックテスト開始",
             section="backtest_execution",
             data_range=f"{data.index[0]} to {data.index[-1]}",
-            signals_count=len(strategy_signals)
+            signals_count=len(strategy_signals),
         )
 
         # データ範囲設定
@@ -213,7 +215,7 @@ class AdvancedBacktestEngine:
                 logger.warning(
                     f"バックテスト処理エラー: {current_date}",
                     section="backtest_execution",
-                    error=str(e)
+                    error=str(e),
                 )
 
         # パフォーマンス計算
@@ -225,7 +227,7 @@ class AdvancedBacktestEngine:
             total_return=performance.total_return,
             sharpe_ratio=performance.sharpe_ratio,
             max_drawdown=performance.max_drawdown,
-            total_trades=performance.total_trades
+            total_trades=performance.total_trades,
         )
 
         return performance
@@ -264,27 +266,33 @@ class AdvancedBacktestEngine:
             return True
 
         elif order.order_type == OrderType.LIMIT:
-            if order.side == "buy" and market_data['Low'] <= order.price or order.side == "sell" and market_data['High'] >= order.price:
+            if (
+                order.side == "buy"
+                and market_data["Low"] <= order.price
+                or order.side == "sell"
+                and market_data["High"] >= order.price
+            ):
                 return True
 
-        elif (order.order_type == OrderType.STOP and
-              ((order.side == "buy" and market_data['High'] >= order.stop_price) or
-               (order.side == "sell" and market_data['Low'] <= order.stop_price))):
+        elif order.order_type == OrderType.STOP and (
+            (order.side == "buy" and market_data["High"] >= order.stop_price)
+            or (order.side == "sell" and market_data["Low"] <= order.stop_price)
+        ):
             return True
 
         return False
 
     def _calculate_fill_price(self, order: Order, market_data: pd.Series) -> float:
         """約定価格計算"""
-        base_price = market_data['Close']
+        base_price = market_data["Close"]
 
         if order.order_type == OrderType.MARKET:
             # マーケット注文：現在価格 + スプレッド + スリッページ
             spread_impact = self.trading_costs.bid_ask_spread_rate / 2
             if order.side == "buy":
-                base_price *= (1 + spread_impact)
+                base_price *= 1 + spread_impact
             else:
-                base_price *= (1 - spread_impact)
+                base_price *= 1 - spread_impact
 
         elif order.order_type == OrderType.LIMIT:
             base_price = order.price
@@ -296,18 +304,18 @@ class AdvancedBacktestEngine:
         if self.enable_slippage:
             slippage = np.random.normal(0, self.trading_costs.slippage_rate)
             if order.side == "buy":
-                base_price *= (1 + abs(slippage))
+                base_price *= 1 + abs(slippage)
             else:
-                base_price *= (1 - abs(slippage))
+                base_price *= 1 - abs(slippage)
 
         # マーケットインパクト適用
         if self.enable_market_impact:
-            volume_ratio = order.quantity / market_data.get('Volume', 1000000)
+            volume_ratio = order.quantity / market_data.get("Volume", 1000000)
             impact = volume_ratio * self.trading_costs.market_impact_rate
             if order.side == "buy":
-                base_price *= (1 + impact)
+                base_price *= 1 + impact
             else:
-                base_price *= (1 - impact)
+                base_price *= 1 - impact
 
         return base_price
 
@@ -318,8 +326,8 @@ class AdvancedBacktestEngine:
             self.trading_costs.min_commission,
             min(
                 self.trading_costs.max_commission,
-                order.quantity * fill_price * self.trading_costs.commission_rate
-            )
+                order.quantity * fill_price * self.trading_costs.commission_rate,
+            ),
         )
 
         # 注文更新
@@ -333,14 +341,14 @@ class AdvancedBacktestEngine:
 
         # 取引記録
         trade_record = {
-            'timestamp': execution_time,
-            'symbol': order.symbol,
-            'side': order.side,
-            'quantity': order.quantity,
-            'price': fill_price,
-            'commission': commission,
-            'slippage': abs(fill_price - (order.price or fill_price)),
-            'order_type': order.order_type.value
+            "timestamp": execution_time,
+            "symbol": order.symbol,
+            "side": order.side,
+            "quantity": order.quantity,
+            "price": fill_price,
+            "commission": commission,
+            "slippage": abs(fill_price - (order.price or fill_price)),
+            "order_type": order.order_type.value,
         }
         self.trade_history.append(trade_record)
 
@@ -348,7 +356,7 @@ class AdvancedBacktestEngine:
             f"注文執行: {order.side} {order.quantity} {order.symbol}",
             section="order_execution",
             fill_price=fill_price,
-            commission=commission
+            commission=commission,
         )
 
     def _update_position_from_order(self, order: Order):
@@ -362,7 +370,10 @@ class AdvancedBacktestEngine:
 
         if order.side == "buy":
             # 買い注文
-            total_cost = position.quantity * position.average_price + order.quantity * order.filled_price
+            total_cost = (
+                position.quantity * position.average_price
+                + order.quantity * order.filled_price
+            )
             total_quantity = position.quantity + order.quantity
 
             if total_quantity > 0:
@@ -373,7 +384,9 @@ class AdvancedBacktestEngine:
             # 売り注文
             if position.quantity >= order.quantity:
                 # 実現損益計算
-                realized_pnl = (order.filled_price - position.average_price) * order.quantity - order.commission
+                realized_pnl = (
+                    order.filled_price - position.average_price
+                ) * order.quantity - order.commission
                 position.realized_pnl += realized_pnl
                 position.quantity -= order.quantity
 
@@ -384,42 +397,45 @@ class AdvancedBacktestEngine:
                     f"ショートポジション発生: {symbol}",
                     section="position_management",
                     current_quantity=position.quantity,
-                    sell_quantity=order.quantity
+                    sell_quantity=order.quantity,
                 )
 
         # 資本更新
         if order.side == "buy":
-            self.current_capital -= (order.quantity * order.filled_price + order.commission)
+            self.current_capital -= (
+                order.quantity * order.filled_price + order.commission
+            )
         else:
-            self.current_capital += (order.quantity * order.filled_price - order.commission)
+            self.current_capital += (
+                order.quantity * order.filled_price - order.commission
+            )
 
     def _update_positions(self, current_date: datetime, market_data: pd.Series):
         """ポジション時価更新"""
-        symbol = market_data.name if hasattr(market_data, 'name') else 'UNKNOWN'
+        symbol = market_data.name if hasattr(market_data, "name") else "UNKNOWN"
 
         if symbol in self.positions:
             position = self.positions[symbol]
-            current_price = market_data['Close']
+            current_price = market_data["Close"]
 
             position.market_value = position.quantity * current_price
-            position.unrealized_pnl = (current_price - position.average_price) * position.quantity
+            position.unrealized_pnl = (
+                current_price - position.average_price
+            ) * position.quantity
             position.last_updated = current_date
 
     def _process_strategy_signal(
-        self,
-        current_date: datetime,
-        market_data: pd.Series,
-        signal_data: pd.Series
+        self, current_date: datetime, market_data: pd.Series, signal_data: pd.Series
     ):
         """戦略シグナル処理"""
-        symbol = market_data.name if hasattr(market_data, 'name') else 'DEFAULT'
-        signal = signal_data.get('signal', 'hold')
-        confidence = signal_data.get('confidence', 0.0)
+        symbol = market_data.name if hasattr(market_data, "name") else "DEFAULT"
+        signal = signal_data.get("signal", "hold")
+        confidence = signal_data.get("confidence", 0.0)
 
-        if signal in ['buy', 'sell'] and confidence > 50.0:
+        if signal in ["buy", "sell"] and confidence > 50.0:
             # ポジションサイズ計算
             position_size = self._calculate_position_size(
-                symbol, market_data['Close'], confidence
+                symbol, market_data["Close"], confidence
             )
 
             if position_size > 0:
@@ -430,7 +446,7 @@ class AdvancedBacktestEngine:
                     order_type=OrderType.MARKET,
                     side=signal,
                     quantity=position_size,
-                    timestamp=current_date
+                    timestamp=current_date,
                 )
 
                 self.orders.append(order)
@@ -438,10 +454,12 @@ class AdvancedBacktestEngine:
                 logger.debug(
                     f"シグナル注文生成: {signal} {position_size} {symbol}",
                     section="signal_processing",
-                    confidence=confidence
+                    confidence=confidence,
                 )
 
-    def _calculate_position_size(self, symbol: str, price: float, confidence: float) -> int:
+    def _calculate_position_size(
+        self, symbol: str, price: float, confidence: float
+    ) -> int:
         """ポジションサイズ計算"""
         if self.position_sizing == "fixed":
             # 固定金額
@@ -470,7 +488,9 @@ class AdvancedBacktestEngine:
 
         # 最大日次損失制限
         if self.max_daily_loss_limit:
-            daily_pnl = portfolio_value - self.equity_curve[-1] if self.equity_curve else 0
+            daily_pnl = (
+                portfolio_value - self.equity_curve[-1] if self.equity_curve else 0
+            )
             if daily_pnl < -self.max_daily_loss_limit:
                 self._close_all_positions(current_date, "daily_loss_limit")
 
@@ -495,20 +515,21 @@ class AdvancedBacktestEngine:
                     order_type=OrderType.MARKET,
                     side="sell",
                     quantity=position.quantity,
-                    timestamp=current_date
+                    timestamp=current_date,
                 )
                 self.orders.append(order)
 
         logger.info(
             f"全ポジション決済実行: {reason}",
             section="risk_management",
-            positions_count=len([p for p in self.positions.values() if p.quantity > 0])
+            positions_count=len([p for p in self.positions.values() if p.quantity > 0]),
         )
 
     def _reduce_risky_positions(self, current_date: datetime):
         """リスクの高いポジション削減"""
         risky_positions = [
-            (symbol, pos) for symbol, pos in self.positions.items()
+            (symbol, pos)
+            for symbol, pos in self.positions.items()
             if pos.quantity > 0 and pos.unrealized_pnl < 0
         ]
 
@@ -516,7 +537,7 @@ class AdvancedBacktestEngine:
         risky_positions.sort(key=lambda x: x[1].unrealized_pnl)
 
         # 上位のリスクポジションを半分決済
-        for symbol, position in risky_positions[:len(risky_positions)//2]:
+        for symbol, position in risky_positions[: len(risky_positions) // 2]:
             reduce_quantity = position.quantity // 2
             if reduce_quantity > 0:
                 order = Order(
@@ -525,7 +546,7 @@ class AdvancedBacktestEngine:
                     order_type=OrderType.MARKET,
                     side="sell",
                     quantity=reduce_quantity,
-                    timestamp=current_date
+                    timestamp=current_date,
                 )
                 self.orders.append(order)
 
@@ -540,7 +561,9 @@ class AdvancedBacktestEngine:
 
         # 日次リターン計算
         if self.equity_curve:
-            daily_return = (portfolio_value - self.equity_curve[-1]) / self.equity_curve[-1]
+            daily_return = (
+                portfolio_value - self.equity_curve[-1]
+            ) / self.equity_curve[-1]
             self.daily_returns.append(daily_return)
 
         self.equity_curve.append(portfolio_value)
@@ -552,13 +575,15 @@ class AdvancedBacktestEngine:
 
         # ポートフォリオ履歴記録
         portfolio_record = {
-            'timestamp': current_date,
-            'portfolio_value': portfolio_value,
-            'cash': self.current_capital,
-            'positions_value': sum(pos.market_value for pos in self.positions.values()),
-            'unrealized_pnl': sum(pos.unrealized_pnl for pos in self.positions.values()),
-            'daily_return': self.daily_returns[-1] if self.daily_returns else 0.0,
-            'drawdown': drawdown
+            "timestamp": current_date,
+            "portfolio_value": portfolio_value,
+            "cash": self.current_capital,
+            "positions_value": sum(pos.market_value for pos in self.positions.values()),
+            "unrealized_pnl": sum(
+                pos.unrealized_pnl for pos in self.positions.values()
+            ),
+            "daily_return": self.daily_returns[-1] if self.daily_returns else 0.0,
+            "drawdown": drawdown,
         }
         self.portfolio_history.append(portfolio_record)
 
@@ -568,7 +593,9 @@ class AdvancedBacktestEngine:
             return PerformanceMetrics()
 
         # 基本リターン計算
-        total_return = (self.equity_curve[-1] - self.equity_curve[0]) / self.equity_curve[0]
+        total_return = (
+            self.equity_curve[-1] - self.equity_curve[0]
+        ) / self.equity_curve[0]
 
         # 年率換算リターン
         if len(self.daily_returns) > 0:
@@ -586,7 +613,11 @@ class AdvancedBacktestEngine:
         negative_returns = [r for r in self.daily_returns if r < 0]
         if negative_returns:
             downside_deviation = np.std(negative_returns) * np.sqrt(252)
-            sortino_ratio = annual_return / downside_deviation if downside_deviation > 1e-10 else 0.0
+            sortino_ratio = (
+                annual_return / downside_deviation
+                if downside_deviation > 1e-10
+                else 0.0
+            )
         else:
             sortino_ratio = 0.0
 
@@ -594,7 +625,11 @@ class AdvancedBacktestEngine:
         max_drawdown = min(self.drawdown_series) if self.drawdown_series else 0.0
 
         # カルマーレシオ
-        calmar_ratio = annual_return / abs(max_drawdown) if max_drawdown != 0 and abs(max_drawdown) > 1e-10 else 0.0
+        calmar_ratio = (
+            annual_return / abs(max_drawdown)
+            if max_drawdown != 0 and abs(max_drawdown) > 1e-10
+            else 0.0
+        )
 
         # 取引分析
         if self.trade_history:
@@ -602,7 +637,7 @@ class AdvancedBacktestEngine:
             losses = []
 
             for trade in self.trade_history:
-                if trade['side'] == 'sell':  # 利益確定取引のみ
+                if trade["side"] == "sell":  # 利益確定取引のみ
                     # 簡易実装：実際は buy-sell ペアで計算すべき
                     pnl = 0  # 実装省略
                     if pnl > 0:
@@ -617,11 +652,15 @@ class AdvancedBacktestEngine:
             win_rate = winning_trades / total_trades if total_trades > 0 else 0.0
             avg_win = np.mean(profits) if profits else 0.0
             avg_loss = np.mean(losses) if losses else 0.0
-            profit_factor = sum(profits) / sum(losses) if losses and sum(losses) > 0 else (float('inf') if profits else 0.0)
+            profit_factor = (
+                sum(profits) / sum(losses)
+                if losses and sum(losses) > 0
+                else (float("inf") if profits else 0.0)
+            )
 
             # コスト分析
-            total_commission = sum(trade['commission'] for trade in self.trade_history)
-            total_slippage = sum(trade['slippage'] for trade in self.trade_history)
+            total_commission = sum(trade["commission"] for trade in self.trade_history)
+            total_slippage = sum(trade["slippage"] for trade in self.trade_history)
         else:
             total_trades = winning_trades = losing_trades = 0
             win_rate = avg_win = avg_loss = profit_factor = 0.0
@@ -643,7 +682,7 @@ class AdvancedBacktestEngine:
             winning_trades=winning_trades,
             losing_trades=losing_trades,
             total_commission=total_commission,
-            total_slippage=total_slippage
+            total_slippage=total_slippage,
         )
 
 
@@ -654,8 +693,8 @@ class WalkForwardOptimizer:
         self,
         backtest_engine: AdvancedBacktestEngine,
         optimization_window: int = 252,  # 1年
-        rebalance_frequency: int = 63,   # 四半期
-        parameter_grid: Optional[Dict[str, List]] = None
+        rebalance_frequency: int = 63,  # 四半期
+        parameter_grid: Optional[Dict[str, List]] = None,
     ):
         self.backtest_engine = backtest_engine
         self.optimization_window = optimization_window
@@ -667,7 +706,7 @@ class WalkForwardOptimizer:
         data: pd.DataFrame,
         strategy_func,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
     ) -> Dict[str, Any]:
         """
         ウォークフォワード最適化実行
@@ -685,7 +724,7 @@ class WalkForwardOptimizer:
             "ウォークフォワード最適化開始",
             section="walk_forward",
             optimization_window=self.optimization_window,
-            rebalance_frequency=self.rebalance_frequency
+            rebalance_frequency=self.rebalance_frequency,
         )
 
         results = []
@@ -698,28 +737,29 @@ class WalkForwardOptimizer:
 
             # テスト期間の設定
             test_start = current_date
-            test_end = min(current_date + timedelta(days=self.rebalance_frequency), end_date)
+            test_end = min(
+                current_date + timedelta(days=self.rebalance_frequency), end_date
+            )
 
             # 最適化実行
             if opt_start >= data.index[0]:
                 best_params = self._optimize_parameters(
-                    data.loc[opt_start:opt_end],
-                    strategy_func
+                    data.loc[opt_start:opt_end], strategy_func
                 )
 
                 # テスト実行
                 test_performance = self._test_parameters(
-                    data.loc[test_start:test_end],
-                    strategy_func,
-                    best_params
+                    data.loc[test_start:test_end], strategy_func, best_params
                 )
 
-                results.append({
-                    'optimization_period': (opt_start, opt_end),
-                    'test_period': (test_start, test_end),
-                    'best_parameters': best_params,
-                    'test_performance': test_performance
-                })
+                results.append(
+                    {
+                        "optimization_period": (opt_start, opt_end),
+                        "test_period": (test_start, test_end),
+                        "best_parameters": best_params,
+                        "test_performance": test_performance,
+                    }
+                )
 
             current_date = test_end
 
@@ -730,7 +770,7 @@ class WalkForwardOptimizer:
             "ウォークフォワード最適化完了",
             section="walk_forward",
             periods_tested=len(results),
-            avg_sharpe=analysis.get('avg_sharpe', 0)
+            avg_sharpe=analysis.get("avg_sharpe", 0),
         )
 
         return analysis
@@ -741,7 +781,7 @@ class WalkForwardOptimizer:
             return {}
 
         best_params = {}
-        best_sharpe = -float('inf')
+        best_sharpe = -float("inf")
 
         # グリッドサーチ（簡易実装）
         for param_name, param_values in self.parameter_grid.items():
@@ -763,16 +803,13 @@ class WalkForwardOptimizer:
                     logger.warning(
                         f"パラメータ最適化エラー: {params}",
                         section="parameter_optimization",
-                        error=str(e)
+                        error=str(e),
                     )
 
         return best_params
 
     def _test_parameters(
-        self,
-        data: pd.DataFrame,
-        strategy_func,
-        params: Dict[str, Any]
+        self, data: pd.DataFrame, strategy_func, params: Dict[str, Any]
     ) -> PerformanceMetrics:
         """パラメータテスト"""
         try:
@@ -782,7 +819,7 @@ class WalkForwardOptimizer:
             logger.error(
                 f"パラメータテストエラー: {params}",
                 section="parameter_test",
-                error=str(e)
+                error=str(e),
             )
             return PerformanceMetrics()
 
@@ -792,18 +829,19 @@ class WalkForwardOptimizer:
             return {}
 
         # パフォーマンス統計
-        sharpe_ratios = [r['test_performance'].sharpe_ratio for r in results]
-        returns = [r['test_performance'].total_return for r in results]
-        max_drawdowns = [r['test_performance'].max_drawdown for r in results]
+        sharpe_ratios = [r["test_performance"].sharpe_ratio for r in results]
+        returns = [r["test_performance"].total_return for r in results]
+        max_drawdowns = [r["test_performance"].max_drawdown for r in results]
 
         analysis = {
-            'avg_sharpe': np.mean(sharpe_ratios),
-            'std_sharpe': np.std(sharpe_ratios),
-            'avg_return': np.mean(returns),
-            'std_return': np.std(returns),
-            'avg_max_drawdown': np.mean(max_drawdowns),
-            'stability_score': 1 - (np.std(sharpe_ratios) / max(np.mean(sharpe_ratios), 0.01)),
-            'parameter_stability': self._analyze_parameter_stability(results)
+            "avg_sharpe": np.mean(sharpe_ratios),
+            "std_sharpe": np.std(sharpe_ratios),
+            "avg_return": np.mean(returns),
+            "std_return": np.std(returns),
+            "avg_max_drawdown": np.mean(max_drawdowns),
+            "stability_score": 1
+            - (np.std(sharpe_ratios) / max(np.mean(sharpe_ratios), 0.01)),
+            "parameter_stability": self._analyze_parameter_stability(results),
         }
 
         return analysis
@@ -813,8 +851,8 @@ class WalkForwardOptimizer:
         param_changes = {}
 
         for i in range(1, len(results)):
-            prev_params = results[i-1]['best_parameters']
-            curr_params = results[i]['best_parameters']
+            prev_params = results[i - 1]["best_parameters"]
+            curr_params = results[i]["best_parameters"]
 
             for param_name in prev_params:
                 if param_name in curr_params:
@@ -829,7 +867,9 @@ class WalkForwardOptimizer:
         total_periods = len(results) - 1
 
         for param_name, changes in param_changes.items():
-            stability_scores[param_name] = 1 - (changes / total_periods) if total_periods > 0 else 1.0
+            stability_scores[param_name] = (
+                1 - (changes / total_periods) if total_periods > 0 else 1.0
+            )
 
         return stability_scores
 
@@ -845,26 +885,24 @@ if __name__ == "__main__":
 
     # 簡易戦略シグナル生成
     signals = pd.DataFrame(index=data.index)
-    signals['signal'] = 'hold'
-    signals['confidence'] = 50.0
+    signals["signal"] = "hold"
+    signals["confidence"] = 50.0
 
     # 簡易移動平均クロス戦略
-    ma_short = data['Close'].rolling(20).mean()
-    ma_long = data['Close'].rolling(50).mean()
+    ma_short = data["Close"].rolling(20).mean()
+    ma_long = data["Close"].rolling(50).mean()
 
     buy_signals = (ma_short > ma_long) & (ma_short.shift(1) <= ma_long.shift(1))
     sell_signals = (ma_short < ma_long) & (ma_short.shift(1) >= ma_long.shift(1))
 
-    signals.loc[buy_signals, 'signal'] = 'buy'
-    signals.loc[buy_signals, 'confidence'] = 70.0
-    signals.loc[sell_signals, 'signal'] = 'sell'
-    signals.loc[sell_signals, 'confidence'] = 70.0
+    signals.loc[buy_signals, "signal"] = "buy"
+    signals.loc[buy_signals, "confidence"] = 70.0
+    signals.loc[sell_signals, "signal"] = "sell"
+    signals.loc[sell_signals, "confidence"] = 70.0
 
     # バックテストエンジン設定
     trading_costs = TradingCosts(
-        commission_rate=0.001,
-        bid_ask_spread_rate=0.001,
-        slippage_rate=0.0005
+        commission_rate=0.001, bid_ask_spread_rate=0.001, slippage_rate=0.0005
     )
 
     backtest_engine = AdvancedBacktestEngine(
@@ -872,7 +910,7 @@ if __name__ == "__main__":
         trading_costs=trading_costs,
         position_sizing="percent",
         max_position_size=0.2,
-        realistic_execution=True
+        realistic_execution=True,
     )
 
     # バックテスト実行
@@ -885,5 +923,5 @@ if __name__ == "__main__":
         sharpe_ratio=performance.sharpe_ratio,
         max_drawdown=performance.max_drawdown,
         total_trades=performance.total_trades,
-        win_rate=performance.win_rate
+        win_rate=performance.win_rate,
     )

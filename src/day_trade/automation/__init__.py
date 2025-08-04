@@ -11,5 +11,5 @@ __all__ = [
     "AutomationReport",
     "AutoOptimizer",
     "OptimizationResult",
-    "DataAssessment"
+    "DataAssessment",
 ]

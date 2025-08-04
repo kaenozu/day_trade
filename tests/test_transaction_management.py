@@ -25,7 +25,7 @@ class TestTransactionManagement:
     @pytest.fixture
     def trade_operations(self):
         """取引操作インスタンス"""
-        with patch('src.day_trade.core.trade_operations.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_operations.db_manager") as mock_db:
             mock_db.transaction_scope.return_value.__enter__ = Mock()
             mock_db.transaction_scope.return_value.__exit__ = Mock(return_value=None)
             return TradeOperations()
@@ -72,6 +72,7 @@ class TestTransactionManagement:
 
     def test_atomic_operation(self, test_db_manager):
         """アトミック操作のテスト"""
+
         def operation1(session):
             stock1 = Stock(code="ATOMIC1", name="Atomic Test 1")
             session.add(stock1)
@@ -107,7 +108,7 @@ class TestTransactionManagement:
             count = session.query(Stock).filter(Stock.code.like("BULK%")).count()
             assert count == 3
 
-    @patch('src.day_trade.core.trade_operations.StockFetcher')
+    @patch("src.day_trade.core.trade_operations.StockFetcher")
     def test_buy_stock_transaction(self, mock_fetcher_class, test_db_manager):
         """買い注文のトランザクション管理テスト"""
         # モックの設定
@@ -115,13 +116,13 @@ class TestTransactionManagement:
         mock_fetcher.get_company_info.return_value = {
             "name": "Test Company",
             "sector": "Technology",
-            "industry": "Software"
+            "industry": "Software",
         }
         mock_fetcher.get_current_price.return_value = {"price": 1000.0}
         mock_fetcher_class.return_value = mock_fetcher
 
         # データベース設定をパッチ
-        with patch('src.day_trade.core.trade_operations.db_manager', test_db_manager):
+        with patch("src.day_trade.core.trade_operations.db_manager", test_db_manager):
             trade_ops = TradeOperations(mock_fetcher)
 
             # 買い注文実行
@@ -140,19 +141,23 @@ class TestTransactionManagement:
                 assert stock is not None
                 assert stock.name == "Test Company"
 
-                trade = session.query(Trade).filter(Trade.stock_code == "TEST001").first()
+                trade = (
+                    session.query(Trade).filter(Trade.stock_code == "TEST001").first()
+                )
                 assert trade is not None
                 assert trade.trade_type == "buy"
                 assert trade.quantity == 100
 
-    @patch('src.day_trade.core.trade_operations.StockFetcher')
-    def test_sell_stock_insufficient_holdings(self, mock_fetcher_class, test_db_manager):
+    @patch("src.day_trade.core.trade_operations.StockFetcher")
+    def test_sell_stock_insufficient_holdings(
+        self, mock_fetcher_class, test_db_manager
+    ):
         """売り注文での保有不足エラーテスト"""
         # モックの設定
         mock_fetcher = Mock()
         mock_fetcher.get_company_info.return_value = {
             "name": "Test Company",
-            "sector": "Technology"
+            "sector": "Technology",
         }
         mock_fetcher_class.return_value = mock_fetcher
 
@@ -161,7 +166,7 @@ class TestTransactionManagement:
             stock = Stock(code="SELL001", name="Sell Test")
             session.add(stock)
 
-        with patch('src.day_trade.core.trade_operations.db_manager', test_db_manager):
+        with patch("src.day_trade.core.trade_operations.db_manager", test_db_manager):
             trade_ops = TradeOperations(mock_fetcher)
 
             # 保有していない銘柄の売り注文
@@ -209,14 +214,14 @@ class TestTradeOperations:
         fetcher.get_company_info.return_value = {
             "name": "Mock Company",
             "sector": "Technology",
-            "industry": "Software"
+            "industry": "Software",
         }
         fetcher.get_current_price.return_value = {"price": 1500.0}
         return fetcher
 
     def test_trade_operation_error_handling(self, mock_stock_fetcher):
         """取引操作のエラーハンドリングテスト"""
-        with patch('src.day_trade.core.trade_operations.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_operations.db_manager") as mock_db:
             # セッションでエラーが発生するようにモック
             mock_session = Mock()
             mock_session.query.side_effect = Exception("Database error")
@@ -231,7 +236,7 @@ class TestTradeOperations:
 
     def test_batch_operations(self, mock_stock_fetcher):
         """バッチ操作のテスト"""
-        with patch('src.day_trade.core.trade_operations.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_operations.db_manager") as mock_db:
             mock_session = Mock()
             mock_db.transaction_scope.return_value.__enter__.return_value = mock_session
 

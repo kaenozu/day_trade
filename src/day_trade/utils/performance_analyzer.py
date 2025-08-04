@@ -22,7 +22,7 @@ import psutil
 
 from ..utils.logging_config import get_context_logger, log_performance_metric
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
@@ -69,6 +69,7 @@ class PerformanceProfiler:
 
     def profile_function(self, func: Callable):
         """関数のパフォーマンスプロファイリングデコレータ"""
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             start_time = time.time()
@@ -96,7 +97,7 @@ class PerformanceProfiler:
                 # プロファイリング結果解析
                 s = io.StringIO()
                 ps = pstats.Stats(profiler, stream=s)
-                ps.sort_stats('cumulative')
+                ps.sort_stats("cumulative")
                 function_calls = ps.total_calls
 
                 # メトリクス記録
@@ -104,7 +105,7 @@ class PerformanceProfiler:
                     execution_time=execution_time,
                     memory_usage_mb=memory_usage,
                     cpu_usage_percent=cpu_usage,
-                    function_calls=function_calls
+                    function_calls=function_calls,
                 )
 
                 func_name = f"{func.__module__}.{func.__name__}"
@@ -118,8 +119,8 @@ class PerformanceProfiler:
                     additional_data={
                         "memory_usage_mb": memory_usage,
                         "cpu_usage_percent": cpu_usage,
-                        "function_calls": function_calls
-                    }
+                        "function_calls": function_calls,
+                    },
                 )
 
                 logger.debug(
@@ -128,14 +129,16 @@ class PerformanceProfiler:
                     execution_time=execution_time,
                     memory_usage_mb=memory_usage,
                     cpu_usage_percent=cpu_usage,
-                    function_calls=function_calls
+                    function_calls=function_calls,
                 )
 
                 return result
 
             except Exception as e:
                 profiler.disable()
-                logger.error(f"プロファイリング中にエラー: {func.__name__}", error=str(e))
+                logger.error(
+                    f"プロファイリング中にエラー: {func.__name__}", error=str(e)
+                )
                 raise
 
         return wrapper
@@ -145,10 +148,18 @@ class PerformanceProfiler:
         if not self.metrics_history:
             return {}
 
-        total_execution_time = sum(m.execution_time for m in self.metrics_history.values())
-        avg_memory_usage = np.mean([m.memory_usage_mb for m in self.metrics_history.values()])
-        avg_cpu_usage = np.mean([m.cpu_usage_percent for m in self.metrics_history.values()])
-        total_function_calls = sum(m.function_calls for m in self.metrics_history.values())
+        total_execution_time = sum(
+            m.execution_time for m in self.metrics_history.values()
+        )
+        avg_memory_usage = np.mean(
+            [m.memory_usage_mb for m in self.metrics_history.values()]
+        )
+        avg_cpu_usage = np.mean(
+            [m.cpu_usage_percent for m in self.metrics_history.values()]
+        )
+        total_function_calls = sum(
+            m.function_calls for m in self.metrics_history.values()
+        )
 
         return {
             "total_functions_profiled": len(self.metrics_history),
@@ -157,7 +168,7 @@ class PerformanceProfiler:
             "average_cpu_usage_percent": avg_cpu_usage,
             "total_function_calls": total_function_calls,
             "slowest_functions": self._get_slowest_functions(5),
-            "memory_intensive_functions": self._get_memory_intensive_functions(5)
+            "memory_intensive_functions": self._get_memory_intensive_functions(5),
         }
 
     def _get_slowest_functions(self, count: int) -> List[Tuple[str, float]]:
@@ -165,18 +176,22 @@ class PerformanceProfiler:
         sorted_funcs = sorted(
             self.metrics_history.items(),
             key=lambda x: x[1].execution_time,
-            reverse=True
+            reverse=True,
         )
-        return [(name, metrics.execution_time) for name, metrics in sorted_funcs[:count]]
+        return [
+            (name, metrics.execution_time) for name, metrics in sorted_funcs[:count]
+        ]
 
     def _get_memory_intensive_functions(self, count: int) -> List[Tuple[str, float]]:
         """メモリ使用量の多い関数を取得"""
         sorted_funcs = sorted(
             self.metrics_history.items(),
             key=lambda x: x[1].memory_usage_mb,
-            reverse=True
+            reverse=True,
         )
-        return [(name, metrics.memory_usage_mb) for name, metrics in sorted_funcs[:count]]
+        return [
+            (name, metrics.memory_usage_mb) for name, metrics in sorted_funcs[:count]
+        ]
 
 
 class SystemPerformanceMonitor:
@@ -194,7 +209,9 @@ class SystemPerformanceMonitor:
             return
 
         self.is_monitoring = True
-        self.monitoring_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self.monitoring_thread = threading.Thread(
+            target=self._monitor_loop, daemon=True
+        )
         self.monitoring_thread.start()
 
         logger.info("システムパフォーマンス監視開始", section="system_monitoring")
@@ -218,8 +235,7 @@ class SystemPerformanceMonitor:
                 # 古いメトリクスの削除（最新1時間分のみ保持）
                 cutoff_time = datetime.now() - timedelta(hours=1)
                 self.system_metrics = [
-                    m for m in self.system_metrics
-                    if m["timestamp"] > cutoff_time
+                    m for m in self.system_metrics if m["timestamp"] > cutoff_time
                 ]
 
                 time.sleep(self.monitoring_interval)
@@ -257,7 +273,7 @@ class SystemPerformanceMonitor:
             "disk_read_bytes": disk_io.read_bytes if disk_io else 0,
             "disk_write_bytes": disk_io.write_bytes if disk_io else 0,
             "network_bytes_sent": network_io.bytes_sent if network_io else 0,
-            "network_bytes_recv": network_io.bytes_recv if network_io else 0
+            "network_bytes_recv": network_io.bytes_recv if network_io else 0,
         }
 
     def get_performance_summary(self) -> Dict[str, Any]:
@@ -272,7 +288,9 @@ class SystemPerformanceMonitor:
         process_memory = [m["process_memory_rss_mb"] for m in self.system_metrics]
 
         return {
-            "monitoring_duration_minutes": len(self.system_metrics) * self.monitoring_interval / 60,
+            "monitoring_duration_minutes": len(self.system_metrics)
+            * self.monitoring_interval
+            / 60,
             "avg_cpu_system": np.mean(cpu_system),
             "max_cpu_system": np.max(cpu_system),
             "avg_cpu_process": np.mean(cpu_process),
@@ -281,7 +299,7 @@ class SystemPerformanceMonitor:
             "max_memory_percent": np.max(memory_percent),
             "avg_process_memory_mb": np.mean(process_memory),
             "max_process_memory_mb": np.max(process_memory),
-            "total_samples": len(self.system_metrics)
+            "total_samples": len(self.system_metrics),
         }
 
 
@@ -297,13 +315,11 @@ class BottleneckAnalyzer:
             "execution_time_critical": 5.0,
             "execution_time_high": 2.0,
             "function_calls_critical": 10000,
-            "function_calls_high": 5000
+            "function_calls_high": 5000,
         }
 
     def analyze_bottlenecks(
-        self,
-        profiler: PerformanceProfiler,
-        monitor: SystemPerformanceMonitor
+        self, profiler: PerformanceProfiler, monitor: SystemPerformanceMonitor
     ) -> List[BottleneckResult]:
         """ボトルネック分析実行"""
         bottlenecks = []
@@ -325,12 +341,14 @@ class BottleneckAnalyzer:
             section="bottleneck_analysis",
             total_bottlenecks=len(bottlenecks),
             critical_issues=len([b for b in bottlenecks if b.severity == "critical"]),
-            high_issues=len([b for b in bottlenecks if b.severity == "high"])
+            high_issues=len([b for b in bottlenecks if b.severity == "high"]),
         )
 
         return bottlenecks
 
-    def _analyze_function_bottlenecks(self, profiler: PerformanceProfiler) -> List[BottleneckResult]:
+    def _analyze_function_bottlenecks(
+        self, profiler: PerformanceProfiler
+    ) -> List[BottleneckResult]:
         """関数レベルのボトルネック分析"""
         bottlenecks = []
 
@@ -341,22 +359,27 @@ class BottleneckAnalyzer:
             estimated_improvement = 0.0
 
             # 実行時間分析
-            if metrics.execution_time > self.performance_thresholds["execution_time_critical"]:
+            if (
+                metrics.execution_time
+                > self.performance_thresholds["execution_time_critical"]
+            ):
                 severity = "critical"
                 estimated_improvement = 60.0
-                suggestions.extend([
-                    "アルゴリズムの最適化を検討",
-                    "並列処理の導入",
-                    "データ構造の見直し",
-                    "キャッシュの導入"
-                ])
-            elif metrics.execution_time > self.performance_thresholds["execution_time_high"]:
+                suggestions.extend(
+                    [
+                        "アルゴリズムの最適化を検討",
+                        "並列処理の導入",
+                        "データ構造の見直し",
+                        "キャッシュの導入",
+                    ]
+                )
+            elif (
+                metrics.execution_time
+                > self.performance_thresholds["execution_time_high"]
+            ):
                 severity = "high"
                 estimated_improvement = 30.0
-                suggestions.extend([
-                    "処理ロジックの最適化",
-                    "不要な計算の除去"
-                ])
+                suggestions.extend(["処理ロジックの最適化", "不要な計算の除去"])
 
             # メモリ使用量分析
             if metrics.memory_usage_mb > 100:  # 100MB以上
@@ -364,32 +387,41 @@ class BottleneckAnalyzer:
                     severity = "high" if metrics.memory_usage_mb > 500 else "medium"
                 issue_type = "memory"
                 estimated_improvement = max(estimated_improvement, 40.0)
-                suggestions.extend([
-                    "メモリ使用量の最適化",
-                    "データの分割処理",
-                    "不要なオブジェクトの削除"
-                ])
+                suggestions.extend(
+                    [
+                        "メモリ使用量の最適化",
+                        "データの分割処理",
+                        "不要なオブジェクトの削除",
+                    ]
+                )
 
             # 関数呼び出し数分析
-            if metrics.function_calls > self.performance_thresholds["function_calls_critical"]:
+            if (
+                metrics.function_calls
+                > self.performance_thresholds["function_calls_critical"]
+            ):
                 if severity in ["low", "medium"]:
                     severity = "high"
                 suggestions.append("関数呼び出し回数の削減")
                 estimated_improvement = max(estimated_improvement, 25.0)
 
             if severity != "low" or suggestions:
-                bottlenecks.append(BottleneckResult(
-                    component=func_name,
-                    severity=severity,
-                    issue_type=issue_type,
-                    current_performance=metrics,
-                    optimization_suggestions=suggestions,
-                    estimated_improvement=estimated_improvement
-                ))
+                bottlenecks.append(
+                    BottleneckResult(
+                        component=func_name,
+                        severity=severity,
+                        issue_type=issue_type,
+                        current_performance=metrics,
+                        optimization_suggestions=suggestions,
+                        estimated_improvement=estimated_improvement,
+                    )
+                )
 
         return bottlenecks
 
-    def _analyze_system_bottlenecks(self, monitor: SystemPerformanceMonitor) -> List[BottleneckResult]:
+    def _analyze_system_bottlenecks(
+        self, monitor: SystemPerformanceMonitor
+    ) -> List[BottleneckResult]:
         """システムレベルのボトルネック分析"""
         bottlenecks = []
         summary = monitor.get_performance_summary()
@@ -399,43 +431,50 @@ class BottleneckAnalyzer:
 
         # CPU使用率分析
         if summary["max_cpu_system"] > self.performance_thresholds["cpu_critical"]:
-            bottlenecks.append(BottleneckResult(
-                component="system_cpu",
-                severity="critical",
-                issue_type="cpu",
-                current_performance=PerformanceMetrics(
-                    execution_time=0,
-                    memory_usage_mb=0,
-                    cpu_usage_percent=summary["max_cpu_system"],
-                    function_calls=0
-                ),
-                optimization_suggestions=[
-                    "CPU集約的な処理の最適化",
-                    "並列処理の導入",
-                    "処理の分散化"
-                ],
-                estimated_improvement=50.0
-            ))
+            bottlenecks.append(
+                BottleneckResult(
+                    component="system_cpu",
+                    severity="critical",
+                    issue_type="cpu",
+                    current_performance=PerformanceMetrics(
+                        execution_time=0,
+                        memory_usage_mb=0,
+                        cpu_usage_percent=summary["max_cpu_system"],
+                        function_calls=0,
+                    ),
+                    optimization_suggestions=[
+                        "CPU集約的な処理の最適化",
+                        "並列処理の導入",
+                        "処理の分散化",
+                    ],
+                    estimated_improvement=50.0,
+                )
+            )
 
         # メモリ使用率分析
-        if summary["max_memory_percent"] > self.performance_thresholds["memory_critical"]:
-            bottlenecks.append(BottleneckResult(
-                component="system_memory",
-                severity="critical",
-                issue_type="memory",
-                current_performance=PerformanceMetrics(
-                    execution_time=0,
-                    memory_usage_mb=summary["max_process_memory_mb"],
-                    cpu_usage_percent=0,
-                    function_calls=0
-                ),
-                optimization_suggestions=[
-                    "メモリリークの調査",
-                    "データ処理の最適化",
-                    "ガベージコレクションの調整"
-                ],
-                estimated_improvement=60.0
-            ))
+        if (
+            summary["max_memory_percent"]
+            > self.performance_thresholds["memory_critical"]
+        ):
+            bottlenecks.append(
+                BottleneckResult(
+                    component="system_memory",
+                    severity="critical",
+                    issue_type="memory",
+                    current_performance=PerformanceMetrics(
+                        execution_time=0,
+                        memory_usage_mb=summary["max_process_memory_mb"],
+                        cpu_usage_percent=0,
+                        function_calls=0,
+                    ),
+                    optimization_suggestions=[
+                        "メモリリークの調査",
+                        "データ処理の最適化",
+                        "ガベージコレクションの調整",
+                    ],
+                    estimated_improvement=60.0,
+                )
+            )
 
         return bottlenecks
 
@@ -446,12 +485,14 @@ class PerformanceOptimizer:
     def __init__(self):
         self.optimization_history = []
 
-    def apply_optimizations(self, bottlenecks: List[BottleneckResult]) -> Dict[str, Any]:
+    def apply_optimizations(
+        self, bottlenecks: List[BottleneckResult]
+    ) -> Dict[str, Any]:
         """最適化の適用"""
         optimization_results = {
             "applied_optimizations": [],
             "total_estimated_improvement": 0.0,
-            "optimization_errors": []
+            "optimization_errors": [],
         }
 
         for bottleneck in bottlenecks:
@@ -459,7 +500,9 @@ class PerformanceOptimizer:
                 try:
                     result = self._apply_optimization(bottleneck)
                     optimization_results["applied_optimizations"].append(result)
-                    optimization_results["total_estimated_improvement"] += bottleneck.estimated_improvement
+                    optimization_results["total_estimated_improvement"] += (
+                        bottleneck.estimated_improvement
+                    )
 
                 except Exception as e:
                     error_msg = f"最適化適用エラー ({bottleneck.component}): {e}"
@@ -470,7 +513,7 @@ class PerformanceOptimizer:
             "パフォーマンス最適化完了",
             section="performance_optimization",
             applied_count=len(optimization_results["applied_optimizations"]),
-            estimated_improvement=optimization_results["total_estimated_improvement"]
+            estimated_improvement=optimization_results["total_estimated_improvement"],
         )
 
         return optimization_results
@@ -486,7 +529,7 @@ class PerformanceOptimizer:
             "severity": bottleneck.severity,
             "suggestions": bottleneck.optimization_suggestions,
             "estimated_improvement": bottleneck.estimated_improvement,
-            "status": "planned"  # 実際の適用は別途実装が必要
+            "status": "planned",  # 実際の適用は別途実装が必要
         }
 
         self.optimization_history.append(optimization_plan)
@@ -496,7 +539,7 @@ class PerformanceOptimizer:
             section="performance_optimization",
             issue_type=bottleneck.issue_type,
             severity=bottleneck.severity,
-            estimated_improvement=bottleneck.estimated_improvement
+            estimated_improvement=bottleneck.estimated_improvement,
         )
 
         return optimization_plan
@@ -524,7 +567,7 @@ if __name__ == "__main__":
     def memory_intensive_operation():
         """メモリ集約的な処理のデモ"""
         large_list = [i for i in range(1000000)]
-        df = pd.DataFrame({'col1': large_list, 'col2': [x*2 for x in large_list]})
+        df = pd.DataFrame({"col1": large_list, "col2": [x * 2 for x in large_list]})
         return df.sum().sum()
 
     # パフォーマンス分析デモ
@@ -563,7 +606,7 @@ if __name__ == "__main__":
             profiler_summary=profiler_summary,
             system_summary=system_summary,
             bottlenecks_found=len(bottlenecks),
-            optimization_plans=len(optimization_results["applied_optimizations"])
+            optimization_plans=len(optimization_results["applied_optimizations"]),
         )
 
     finally:

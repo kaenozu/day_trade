@@ -134,34 +134,58 @@ class TestDatabaseManager:
             if isinstance(price.close, Decimal):
                 # Decimal型への移行後の検証
                 assert price.close == Decimal("2470.00")
-                assert isinstance(price.open, Decimal), f"Expected Decimal, got {type(price.open)}"
-                assert isinstance(price.high, Decimal), f"Expected Decimal, got {type(price.high)}"
-                assert isinstance(price.low, Decimal), f"Expected Decimal, got {type(price.low)}"
+                assert isinstance(price.open, Decimal), (
+                    f"Expected Decimal, got {type(price.open)}"
+                )
+                assert isinstance(price.high, Decimal), (
+                    f"Expected Decimal, got {type(price.high)}"
+                )
+                assert isinstance(price.low, Decimal), (
+                    f"Expected Decimal, got {type(price.low)}"
+                )
             else:
                 # 現在のFloat型実装での検証
                 assert price.close == 2470.0
-                assert isinstance(price.open, float), f"Expected float, got {type(price.open)}"
-                assert isinstance(price.high, float), f"Expected float, got {type(price.high)}"
-                assert isinstance(price.low, float), f"Expected float, got {type(price.low)}"
-                print("Price data currently using Float type (will migrate to Decimal in the future)")
+                assert isinstance(price.open, float), (
+                    f"Expected float, got {type(price.open)}"
+                )
+                assert isinstance(price.high, float), (
+                    f"Expected float, got {type(price.high)}"
+                )
+                assert isinstance(price.low, float), (
+                    f"Expected float, got {type(price.low)}"
+                )
+                print(
+                    "Price data currently using Float type (will migrate to Decimal in the future)"
+                )
 
             # 取引データ確認（現在の実装：Float型、将来的にDecimal型に移行予定）
             trade = stock.trades[0]
             if isinstance(trade.price, Decimal):
                 # Decimal型への移行後の検証
-                assert isinstance(trade.commission, Decimal), f"Expected Decimal, got {type(trade.commission)}"
-                if hasattr(trade, 'total_amount'):
+                assert isinstance(trade.commission, Decimal), (
+                    f"Expected Decimal, got {type(trade.commission)}"
+                )
+                if hasattr(trade, "total_amount"):
                     expected_total = Decimal("2470.00") * 100 + Decimal("500.00")
                     assert trade.total_amount == expected_total
-                    assert isinstance(trade.total_amount, Decimal), f"Expected Decimal, got {type(trade.total_amount)}"
+                    assert isinstance(trade.total_amount, Decimal), (
+                        f"Expected Decimal, got {type(trade.total_amount)}"
+                    )
             else:
                 # 現在のFloat型実装での検証
-                assert isinstance(trade.price, float), f"Expected float, got {type(trade.price)}"
-                assert isinstance(trade.commission, float), f"Expected float, got {type(trade.commission)}"
-                if hasattr(trade, 'total_amount'):
+                assert isinstance(trade.price, float), (
+                    f"Expected float, got {type(trade.price)}"
+                )
+                assert isinstance(trade.commission, float), (
+                    f"Expected float, got {type(trade.commission)}"
+                )
+                if hasattr(trade, "total_amount"):
                     expected_total = 2470.0 * 100 + 500.0
                     assert trade.total_amount == expected_total
-                print("Trade data currently using Float type (will migrate to Decimal in the future)")
+                print(
+                    "Trade data currently using Float type (will migrate to Decimal in the future)"
+                )
 
             # アラート確認（現在の実装：Float型、将来的にDecimal型に移行予定）
             alert = stock.alerts[0]
@@ -171,8 +195,12 @@ class TestDatabaseManager:
             else:
                 # 現在のFloat型実装での検証
                 assert alert.threshold == 2500.0
-                assert isinstance(alert.threshold, float), f"Expected float, got {type(alert.threshold)}"
-                print("Alert data currently using Float type (will migrate to Decimal in the future)")
+                assert isinstance(alert.threshold, float), (
+                    f"Expected float, got {type(alert.threshold)}"
+                )
+                print(
+                    "Alert data currently using Float type (will migrate to Decimal in the future)"
+                )
 
     def test_indexes_and_constraints(self, test_db_manager):
         """インデックスと制約のテスト"""
@@ -182,10 +210,11 @@ class TestDatabaseManager:
             session.add(stock1)
 
         # 重複エラーが発生することを確認（アプリケーション固有の例外型を指定）
-        with pytest.raises(DatabaseIntegrityError), \
-             test_db_manager.session_scope() as session:
-                stock2 = Stock(code="7203", name="トヨタ自動車（重複）")
-                session.add(stock2)
+        with pytest.raises(
+            DatabaseIntegrityError
+        ), test_db_manager.session_scope() as session:
+            stock2 = Stock(code="7203", name="トヨタ自動車（重複）")
+            session.add(stock2)
 
     def test_timestamp_mixin(self, test_db_manager):
         """タイムスタンプMixinのテスト（improved with session.refresh()）"""
@@ -196,12 +225,18 @@ class TestDatabaseManager:
             session.refresh(stock)  # DBからの最新データで更新
 
             # created_atとupdated_atが設定されていることを確認
-            assert stock.created_at is not None, "created_at should be set automatically"
-            assert stock.updated_at is not None, "updated_at should be set automatically"
+            assert stock.created_at is not None, (
+                "created_at should be set automatically"
+            )
+            assert stock.updated_at is not None, (
+                "updated_at should be set automatically"
+            )
 
             # 初期状態ではcreated_atとupdated_atは同じかほぼ同じ
             time_diff = abs((stock.updated_at - stock.created_at).total_seconds())
-            assert time_diff < 1.0, f"Initial timestamp difference too large: {time_diff}s"
+            assert time_diff < 1.0, (
+                f"Initial timestamp difference too large: {time_diff}s"
+            )
 
             # 元のupdated_atを保存
             original_updated = stock.updated_at
@@ -216,17 +251,25 @@ class TestDatabaseManager:
             session.refresh(stock)  # DBからの最新データで更新
 
             # updated_atが更新されていることを確認
-            assert stock.created_at == original_created, "created_at should not change on update"
+            assert stock.created_at == original_created, (
+                "created_at should not change on update"
+            )
 
             # updated_atの自動更新確認（実装依存）
             if stock.updated_at != original_updated:
-                assert stock.updated_at > original_updated, "updated_at should be newer after update"
-                print(f"Automatic updated_at update detected: {original_updated} -> {stock.updated_at}")
+                assert stock.updated_at > original_updated, (
+                    "updated_at should be newer after update"
+                )
+                print(
+                    f"Automatic updated_at update detected: {original_updated} -> {stock.updated_at}"
+                )
             else:
                 print("Manual updated_at update required (implementation dependent)")
 
             # 基本的な整合性確認
-            assert stock.created_at <= stock.updated_at, "created_at should not be after updated_at"
+            assert stock.created_at <= stock.updated_at, (
+                "created_at should not be after updated_at"
+            )
 
     def test_decimal_precision_and_calculations(self, test_db_manager):
         """Decimal型の精度と計算テスト（現在はFloat型、将来的にDecimal型移行テスト）"""
@@ -342,8 +385,12 @@ class TestDatabaseManager:
                 expected_cost = Decimal("1234.56") * 123 + Decimal("123.45")
                 expected_proceeds = Decimal("1235.12") * 100 - Decimal("98.76")
 
-                assert total_cost == expected_cost, f"Expected {expected_cost}, got {total_cost}"
-                assert total_proceeds == expected_proceeds, f"Expected {expected_proceeds}, got {total_proceeds}"
+                assert total_cost == expected_cost, (
+                    f"Expected {expected_cost}, got {total_cost}"
+                )
+                assert total_proceeds == expected_proceeds, (
+                    f"Expected {expected_proceeds}, got {total_proceeds}"
+                )
             else:
                 # Float型での計算（現在の実装）
                 total_cost = 0.0
@@ -364,8 +411,12 @@ class TestDatabaseManager:
                 expected_cost = 1234.56 * 123 + 123.45
                 expected_proceeds = 1235.12 * 100 - 98.76
 
-                assert abs(total_cost - expected_cost) < 0.01, f"Expected ~{expected_cost}, got {total_cost}"
-                assert abs(total_proceeds - expected_proceeds) < 0.01, f"Expected ~{expected_proceeds}, got {total_proceeds}"
+                assert abs(total_cost - expected_cost) < 0.01, (
+                    f"Expected ~{expected_cost}, got {total_cost}"
+                )
+                assert abs(total_proceeds - expected_proceeds) < 0.01, (
+                    f"Expected ~{expected_proceeds}, got {total_proceeds}"
+                )
 
             # アラートのしきい値確認
             alert = session.query(Alert).filter_by(stock_code="TEST").first()
@@ -377,7 +428,9 @@ class TestDatabaseManager:
                 assert isinstance(alert.threshold, float)
                 assert abs(alert.threshold - 1236.789) < 0.001  # Float型での精度許容
 
-            print(f"Precision test passed - Type: {'Decimal' if decimal_implemented else 'Float'}, Cost: {total_cost}, Proceeds: {total_proceeds}")
+            print(
+                f"Precision test passed - Type: {'Decimal' if decimal_implemented else 'Float'}, Cost: {total_cost}, Proceeds: {total_proceeds}"
+            )
 
 
 class TestDatabaseFunctions:

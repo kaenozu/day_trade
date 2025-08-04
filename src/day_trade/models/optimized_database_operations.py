@@ -23,6 +23,7 @@ from ..utils.performance_optimizer import PerformanceProfiler
 @dataclass
 class BulkOperationResult:
     """バルク操作の結果"""
+
     success: bool
     processed_count: int
     execution_time: float
@@ -49,13 +50,17 @@ class OptimizedDatabaseOperations:
             yield
             self.session.commit()
             execution_time = time.perf_counter() - start_time
-            self.logger.info(f"バルク操作成功: {operation_name}",
-                           execution_time=execution_time)
+            self.logger.info(
+                f"バルク操作成功: {operation_name}", execution_time=execution_time
+            )
         except Exception as e:
             self.session.rollback()
             execution_time = time.perf_counter() - start_time
-            self.logger.error(f"バルク操作失敗: {operation_name}",
-                            error=str(e), execution_time=execution_time)
+            self.logger.error(
+                f"バルク操作失敗: {operation_name}",
+                error=str(e),
+                execution_time=execution_time,
+            )
             raise
 
     def bulk_insert_optimized(
@@ -63,7 +68,7 @@ class OptimizedDatabaseOperations:
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
         chunk_size: int = 1000,
-        return_defaults: bool = False
+        return_defaults: bool = False,
     ) -> BulkOperationResult:
         """
         最適化されたバルク挿入
@@ -85,24 +90,26 @@ class OptimizedDatabaseOperations:
             with self.bulk_operation_context("bulk_insert_optimized"):
                 # データをチャンクに分割して処理
                 for i in range(0, len(data), chunk_size):
-                    chunk = data[i:i + chunk_size]
+                    chunk = data[i : i + chunk_size]
 
                     try:
                         self.session.bulk_insert_mappings(
-                            model_class,
-                            chunk,
-                            return_defaults=return_defaults
+                            model_class, chunk, return_defaults=return_defaults
                         )
                         total_processed += len(chunk)
 
-                        self.logger.debug("チャンク挿入完了",
-                                        chunk_size=len(chunk),
-                                        total_processed=total_processed)
+                        self.logger.debug(
+                            "チャンク挿入完了",
+                            chunk_size=len(chunk),
+                            total_processed=total_processed,
+                        )
 
                     except IntegrityError as e:
                         # 重複データなどの整合性エラーの場合、個別処理
-                        self.logger.warning("チャンク挿入で整合性エラー、個別処理に切り替え",
-                                          error=str(e))
+                        self.logger.warning(
+                            "チャンク挿入で整合性エラー、個別処理に切り替え",
+                            error=str(e),
+                        )
 
                         individual_result = self._handle_individual_inserts(
                             model_class, chunk
@@ -118,7 +125,7 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=throughput,
-                failed_records=failed_records if failed_records else None
+                failed_records=failed_records if failed_records else None,
             )
 
         except Exception as e:
@@ -128,7 +135,7 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=0,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def bulk_update_optimized(
@@ -136,7 +143,7 @@ class OptimizedDatabaseOperations:
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
         chunk_size: int = 1000,
-        update_changed_only: bool = True
+        update_changed_only: bool = True,
     ) -> BulkOperationResult:
         """
         最適化されたバルク更新
@@ -158,7 +165,7 @@ class OptimizedDatabaseOperations:
             with self.bulk_operation_context("bulk_update_optimized"):
                 # データをチャンクに分割して処理
                 for i in range(0, len(data), chunk_size):
-                    chunk = data[i:i + chunk_size]
+                    chunk = data[i : i + chunk_size]
 
                     try:
                         if update_changed_only:
@@ -173,18 +180,17 @@ class OptimizedDatabaseOperations:
                                 total_processed += len(filtered_chunk)
                         else:
                             # 全レコードを更新
-                            self.session.bulk_update_mappings(
-                                model_class, chunk
-                            )
+                            self.session.bulk_update_mappings(model_class, chunk)
                             total_processed += len(chunk)
 
-                        self.logger.debug("チャンク更新完了",
-                                        chunk_size=len(chunk),
-                                        total_processed=total_processed)
+                        self.logger.debug(
+                            "チャンク更新完了",
+                            chunk_size=len(chunk),
+                            total_processed=total_processed,
+                        )
 
                     except Exception as e:
-                        self.logger.warning("チャンク更新エラー",
-                                          error=str(e))
+                        self.logger.warning("チャンク更新エラー", error=str(e))
                         failed_records.extend(chunk)
 
             execution_time = time.perf_counter() - start_time
@@ -195,7 +201,7 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=throughput,
-                failed_records=failed_records if failed_records else None
+                failed_records=failed_records if failed_records else None,
             )
 
         except Exception as e:
@@ -205,7 +211,7 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=0,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def bulk_upsert_optimized(
@@ -213,7 +219,7 @@ class OptimizedDatabaseOperations:
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
         conflict_columns: List[str],
-        chunk_size: int = 1000
+        chunk_size: int = 1000,
     ) -> BulkOperationResult:
         """
         最適化されたバルクアップサート（INSERT ... ON CONFLICT）
@@ -237,26 +243,36 @@ class OptimizedDatabaseOperations:
 
                 # データをチャンクに分割して処理
                 for i in range(0, len(data), chunk_size):
-                    chunk = data[i:i + chunk_size]
+                    chunk = data[i : i + chunk_size]
 
-                    if dialect_name == 'postgresql':
+                    if dialect_name == "postgresql":
                         # PostgreSQLのON CONFLICT構文を使用
-                        result = self._upsert_postgresql(model_class, chunk, conflict_columns)
-                    elif dialect_name == 'sqlite':
+                        result = self._upsert_postgresql(
+                            model_class, chunk, conflict_columns
+                        )
+                    elif dialect_name == "sqlite":
                         # SQLiteのINSERT OR REPLACE構文を使用
-                        result = self._upsert_sqlite(model_class, chunk, conflict_columns)
-                    elif dialect_name == 'mysql':
+                        result = self._upsert_sqlite(
+                            model_class, chunk, conflict_columns
+                        )
+                    elif dialect_name == "mysql":
                         # MySQLのON DUPLICATE KEY UPDATE構文を使用
-                        result = self._upsert_mysql(model_class, chunk, conflict_columns)
+                        result = self._upsert_mysql(
+                            model_class, chunk, conflict_columns
+                        )
                     else:
                         # その他のデータベースでは個別処理
-                        result = self._upsert_fallback(model_class, chunk, conflict_columns)
+                        result = self._upsert_fallback(
+                            model_class, chunk, conflict_columns
+                        )
 
                     total_processed += result["processed_count"]
 
-                    self.logger.debug("チャンクアップサート完了",
-                                    chunk_size=len(chunk),
-                                    total_processed=total_processed)
+                    self.logger.debug(
+                        "チャンクアップサート完了",
+                        chunk_size=len(chunk),
+                        total_processed=total_processed,
+                    )
 
             execution_time = time.perf_counter() - start_time
             throughput = total_processed / execution_time if execution_time > 0 else 0
@@ -265,7 +281,7 @@ class OptimizedDatabaseOperations:
                 success=True,
                 processed_count=total_processed,
                 execution_time=execution_time,
-                throughput=throughput
+                throughput=throughput,
             )
 
         except Exception as e:
@@ -275,14 +291,14 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=0,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def bulk_delete_optimized(
         self,
         model_class: Type[DeclarativeMeta],
         filter_conditions: List[Dict[str, Any]],
-        chunk_size: int = 1000
+        chunk_size: int = 1000,
     ) -> BulkOperationResult:
         """
         最適化されたバルク削除
@@ -302,7 +318,7 @@ class OptimizedDatabaseOperations:
             with self.bulk_operation_context("bulk_delete_optimized"):
                 # 条件をチャンクに分割して処理
                 for i in range(0, len(filter_conditions), chunk_size):
-                    chunk = filter_conditions[i:i + chunk_size]
+                    chunk = filter_conditions[i : i + chunk_size]
 
                     # IN句を使用した効率的な削除
                     primary_keys = []
@@ -321,10 +337,12 @@ class OptimizedDatabaseOperations:
                         deleted_count = query.delete(synchronize_session=False)
                         total_processed += deleted_count
 
-                        self.logger.debug("チャンク削除完了",
-                                        chunk_size=len(chunk),
-                                        deleted_count=deleted_count,
-                                        total_processed=total_processed)
+                        self.logger.debug(
+                            "チャンク削除完了",
+                            chunk_size=len(chunk),
+                            deleted_count=deleted_count,
+                            total_processed=total_processed,
+                        )
 
             execution_time = time.perf_counter() - start_time
             throughput = total_processed / execution_time if execution_time > 0 else 0
@@ -333,7 +351,7 @@ class OptimizedDatabaseOperations:
                 success=True,
                 processed_count=total_processed,
                 execution_time=execution_time,
-                throughput=throughput
+                throughput=throughput,
             )
 
         except Exception as e:
@@ -343,13 +361,11 @@ class OptimizedDatabaseOperations:
                 processed_count=total_processed,
                 execution_time=execution_time,
                 throughput=0,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def _handle_individual_inserts(
-        self,
-        model_class: Type[DeclarativeMeta],
-        data: List[Dict[str, Any]]
+        self, model_class: Type[DeclarativeMeta], data: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """個別挿入の処理（整合性エラー対応）"""
         success_count = 0
@@ -363,23 +379,15 @@ class OptimizedDatabaseOperations:
                 success_count += 1
             except Exception as e:
                 self.session.rollback()
-                failed_records.append({
-                    "record": record,
-                    "error": str(e)
-                })
+                failed_records.append({"record": record, "error": str(e)})
 
                 # セッションの状態をリセット
                 self.session.begin()
 
-        return {
-            "success_count": success_count,
-            "failed_records": failed_records
-        }
+        return {"success_count": success_count, "failed_records": failed_records}
 
     def _filter_changed_records(
-        self,
-        model_class: Type[DeclarativeMeta],
-        data: List[Dict[str, Any]]
+        self, model_class: Type[DeclarativeMeta], data: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """変更されたレコードのみをフィルタリング"""
         changed_records = []
@@ -411,7 +419,7 @@ class OptimizedDatabaseOperations:
         self,
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
-        conflict_columns: List[str]
+        conflict_columns: List[str],
     ) -> Dict[str, int]:
         """PostgreSQL用アップサート"""
         # PostgreSQLのON CONFLICTを使用した実装
@@ -419,8 +427,9 @@ class OptimizedDatabaseOperations:
         ", ".join(conflict_columns)
 
         # 更新するカラムを動的に生成
-        update_columns = [col.name for col in table.columns
-                         if col.name not in conflict_columns]
+        update_columns = [
+            col.name for col in table.columns if col.name not in conflict_columns
+        ]
         ", ".join([f"{col} = EXCLUDED.{col}" for col in update_columns])
 
         # バルクアップサートクエリを実行
@@ -433,7 +442,7 @@ class OptimizedDatabaseOperations:
         self,
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
-        conflict_columns: List[str]
+        conflict_columns: List[str],
     ) -> Dict[str, int]:
         """SQLite用アップサート"""
         # SQLiteのINSERT OR REPLACEを使用した実装
@@ -443,7 +452,7 @@ class OptimizedDatabaseOperations:
         self,
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
-        conflict_columns: List[str]
+        conflict_columns: List[str],
     ) -> Dict[str, int]:
         """MySQL用アップサート"""
         # MySQLのON DUPLICATE KEY UPDATEを使用した実装
@@ -453,7 +462,7 @@ class OptimizedDatabaseOperations:
         self,
         model_class: Type[DeclarativeMeta],
         data: List[Dict[str, Any]],
-        conflict_columns: List[str]
+        conflict_columns: List[str],
     ) -> Dict[str, int]:
         """フォールバック用アップサート（個別処理）"""
         processed_count = 0
@@ -461,7 +470,9 @@ class OptimizedDatabaseOperations:
         for record in data:
             # 存在チェック
             filter_conditions = {col: record.get(col) for col in conflict_columns}
-            existing = self.session.query(model_class).filter_by(**filter_conditions).first()
+            existing = (
+                self.session.query(model_class).filter_by(**filter_conditions).first()
+            )
 
             if existing:
                 # 更新
@@ -478,9 +489,7 @@ class OptimizedDatabaseOperations:
         return {"processed_count": processed_count}
 
     def optimize_query_performance(
-        self,
-        query_sql: str,
-        explain_analyze: bool = False
+        self, query_sql: str, explain_analyze: bool = False
     ) -> Dict[str, Any]:
         """
         クエリパフォーマンスの分析と最適化提案
@@ -516,19 +525,20 @@ class OptimizedDatabaseOperations:
                 "explain_output": [str(row) for row in explain_output],
                 "explain_execution_time": execution_time,
                 "query_execution_time": query_execution_time,
-                "optimization_suggestions": self._generate_optimization_suggestions(explain_output)
+                "optimization_suggestions": self._generate_optimization_suggestions(
+                    explain_output
+                ),
             }
 
         except Exception as e:
             return {
                 "error": str(e),
                 "explain_output": [],
-                "optimization_suggestions": []
+                "optimization_suggestions": [],
             }
 
     def _generate_optimization_suggestions(
-        self,
-        explain_output: List[Any]
+        self, explain_output: List[Any]
     ) -> List[str]:
         """EXPLAIN結果から最適化提案を生成"""
         suggestions = []
@@ -536,22 +546,29 @@ class OptimizedDatabaseOperations:
 
         # 一般的なボトルネックパターンをチェック
         if "seq scan" in explain_text:
-            suggestions.append("シーケンシャルスキャンが検出されました。インデックスの追加を検討してください。")
+            suggestions.append(
+                "シーケンシャルスキャンが検出されました。インデックスの追加を検討してください。"
+            )
 
         if "nested loop" in explain_text and "rows=" in explain_text:
-            suggestions.append("ネストしたループが検出されました。JOINの最適化やインデックスの見直しを検討してください。")
+            suggestions.append(
+                "ネストしたループが検出されました。JOINの最適化やインデックスの見直しを検討してください。"
+            )
 
         if "sort" in explain_text and "disk" in explain_text:
-            suggestions.append("ディスクソートが発生しています。work_memの増加やORDER BYの最適化を検討してください。")
+            suggestions.append(
+                "ディスクソートが発生しています。work_memの増加やORDER BYの最適化を検討してください。"
+            )
 
         if "hash" in explain_text and "buckets" in explain_text:
-            suggestions.append("ハッシュ結合が使用されています。適切なサイズのwork_memを設定してください。")
+            suggestions.append(
+                "ハッシュ結合が使用されています。適切なサイズのwork_memを設定してください。"
+            )
 
         return suggestions
 
     def get_table_statistics(
-        self,
-        model_class: Type[DeclarativeMeta]
+        self, model_class: Type[DeclarativeMeta]
     ) -> Dict[str, Any]:
         """テーブル統計情報を取得"""
         table_name = model_class.__tablename__
@@ -563,14 +580,16 @@ class OptimizedDatabaseOperations:
             # テーブルサイズ（データベース固有）
             dialect_name = self.session.bind.dialect.name
 
-            if dialect_name == 'postgresql':
+            if dialect_name == "postgresql":
                 size_query = f"""
                 SELECT pg_size_pretty(pg_total_relation_size('{table_name}')) as table_size,
                        pg_size_pretty(pg_relation_size('{table_name}')) as data_size,
                        pg_size_pretty(pg_total_relation_size('{table_name}') - pg_relation_size('{table_name}')) as index_size
                 """
-            elif dialect_name == 'sqlite':
-                size_query = f"SELECT COUNT(*) * 1024 as estimated_size FROM {table_name}"
+            elif dialect_name == "sqlite":
+                size_query = (
+                    f"SELECT COUNT(*) * 1024 as estimated_size FROM {table_name}"
+                )
             else:
                 size_query = None
 
@@ -584,15 +603,11 @@ class OptimizedDatabaseOperations:
                 "table_name": table_name,
                 "record_count": count_query,
                 "size_info": size_result,
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
         except Exception as e:
-            return {
-                "table_name": table_name,
-                "error": str(e),
-                "timestamp": time.time()
-            }
+            return {"table_name": table_name, "error": str(e), "timestamp": time.time()}
 
 
 # 使用例とテスト
@@ -607,7 +622,7 @@ if __name__ == "__main__":
     Base = declarative_base()
 
     class TestStock(Base):
-        __tablename__ = 'test_stocks'
+        __tablename__ = "test_stocks"
 
         id = Column(Integer, primary_key=True)
         symbol = Column(String(10), unique=True)
@@ -619,7 +634,7 @@ if __name__ == "__main__":
     print("🔧 データベース最適化ツール - テスト実行")
 
     # インメモリSQLiteでテスト
-    engine = create_engine('sqlite:///:memory:', echo=False)
+    engine = create_engine("sqlite:///:memory:", echo=False)
     Base.metadata.create_all(engine)
 
     Session = sessionmaker(bind=engine)

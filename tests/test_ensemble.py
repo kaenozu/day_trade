@@ -149,7 +149,8 @@ class TestEnsembleTradingStrategy:
 
         # MACD乖離の検証（最後の値）
         expected_macd_divergence = (
-            sample_indicators["MACD"].iloc[-1] - sample_indicators["MACD_Signal"].iloc[-1]
+            sample_indicators["MACD"].iloc[-1]
+            - sample_indicators["MACD_Signal"].iloc[-1]
         )
         assert abs(meta_features["macd_divergence"] - expected_macd_divergence) < 0.01
 
@@ -263,8 +264,16 @@ class TestEnsembleTradingStrategy:
         ]
 
         # アンサンブル投票の結果（信頼度閾値により結果が変わる可能性）
-        assert ensemble_signal.signal_type in [SignalType.BUY, SignalType.SELL, SignalType.HOLD]
-        assert ensemble_signal.strength in [SignalStrength.WEAK, SignalStrength.MEDIUM, SignalStrength.STRONG]
+        assert ensemble_signal.signal_type in [
+            SignalType.BUY,
+            SignalType.SELL,
+            SignalType.HOLD,
+        ]
+        assert ensemble_signal.strength in [
+            SignalStrength.WEAK,
+            SignalStrength.MEDIUM,
+            SignalStrength.STRONG,
+        ]
         assert ensemble_signal.confidence >= 0  # 0も含む（HOLDの場合）
 
         # 戦略シグナルの検証（モックした戦略のみ）
@@ -437,11 +446,17 @@ class TestEnsembleTradingStrategy:
 
         # パフォーマンスの高い戦略の重みが増加していることを確認
         # conservative_rsi（成功率0.8）の重みが元の値より高くなっているはず
-        assert ensemble.strategy_weights["conservative_rsi"] > original_weights["conservative_rsi"]
+        assert (
+            ensemble.strategy_weights["conservative_rsi"]
+            > original_weights["conservative_rsi"]
+        )
 
         # パフォーマンスの低い戦略の重みが減少していることを確認
         # aggressive_momentum（成功率0.3）の重みが元の値より低くなっているはず
-        assert ensemble.strategy_weights["aggressive_momentum"] < original_weights["aggressive_momentum"]
+        assert (
+            ensemble.strategy_weights["aggressive_momentum"]
+            < original_weights["aggressive_momentum"]
+        )
 
         # trend_following（成功率0.6）の重みも適切に調整されていることを確認
         # 中程度のパフォーマンスなので、元の値と比較して妥当な範囲内
@@ -457,7 +472,13 @@ class TestEnsembleTradingStrategy:
         assert ensemble.strategy_weights["default_integrated"] > 0
 
         # 両戦略の重みが近い値であることを確認（デフォルト重み0.2を使用）
-        assert abs(ensemble.strategy_weights["mean_reversion"] - ensemble.strategy_weights["default_integrated"]) < 0.01
+        assert (
+            abs(
+                ensemble.strategy_weights["mean_reversion"]
+                - ensemble.strategy_weights["default_integrated"]
+            )
+            < 0.01
+        )
 
     def test_strategy_summary(self):
         """戦略サマリーテスト"""
@@ -474,8 +495,9 @@ class TestEnsembleTradingStrategy:
         assert "strategy_weights" in summary
         assert "avg_success_rate" in summary
 
-
-    def test_edge_case_all_hold_signals(self, sample_df, sample_indicators, sample_patterns):
+    def test_edge_case_all_hold_signals(
+        self, sample_df, sample_indicators, sample_patterns
+    ):
         """エッジケース: 全てのシグナルがHOLDの場合"""
         ensemble = EnsembleTradingStrategy(voting_type=EnsembleVotingType.SOFT_VOTING)
 
@@ -490,10 +512,22 @@ class TestEnsembleTradingStrategy:
         )
 
         # 全戦略がHOLDシグナルを返すようにモック
-        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=hold_signal), \
-             patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=hold_signal), \
-             patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=hold_signal):
-            result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
+        with patch.object(
+            ensemble.strategies["conservative_rsi"],
+            "generate_signal",
+            return_value=hold_signal,
+        ), patch.object(
+            ensemble.strategies["trend_following"],
+            "generate_signal",
+            return_value=hold_signal,
+        ), patch.object(
+            ensemble.strategies["aggressive_momentum"],
+            "generate_signal",
+            return_value=hold_signal,
+        ):
+            result = ensemble.generate_ensemble_signal(
+                sample_df, sample_indicators, sample_patterns
+            )
 
         assert result is not None
         assert result.ensemble_signal.signal_type == SignalType.HOLD
@@ -575,7 +609,9 @@ class TestEnsembleTradingStrategy:
         assert ensemble_signal.signal_type == SignalType.BUY
         assert confidence > 0
 
-    def test_error_handling_strategy_exception(self, sample_df, sample_indicators, sample_patterns):
+    def test_error_handling_strategy_exception(
+        self, sample_df, sample_indicators, sample_patterns
+    ):
         """エラーハンドリング: 個別戦略でエラーが発生した場合"""
         ensemble = EnsembleTradingStrategy()
 
@@ -583,7 +619,7 @@ class TestEnsembleTradingStrategy:
         with patch.object(
             ensemble.strategies["conservative_rsi"],
             "generate_signal",
-            side_effect=Exception("Strategy error")
+            side_effect=Exception("Strategy error"),
         ):
             # 他の戦略は正常なシグナルを返す
             normal_signal = TradingSignal(
@@ -599,9 +635,11 @@ class TestEnsembleTradingStrategy:
             with patch.object(
                 ensemble.strategies["trend_following"],
                 "generate_signal",
-                return_value=normal_signal
+                return_value=normal_signal,
             ):
-                result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
+                result = ensemble.generate_ensemble_signal(
+                    sample_df, sample_indicators, sample_patterns
+                )
 
         # エラーが発生した戦略は除外されるが、他の戦略で結果を生成できるはず
         if result is not None:
@@ -610,17 +648,33 @@ class TestEnsembleTradingStrategy:
             strategy_names = [signal[0] for signal in result.strategy_signals]
             assert "conservative_rsi" not in strategy_names
 
-    def test_error_handling_no_valid_signals(self, sample_df, sample_indicators, sample_patterns):
+    def test_error_handling_no_valid_signals(
+        self, sample_df, sample_indicators, sample_patterns
+    ):
         """エラーハンドリング: 有効なシグナルがない場合"""
         ensemble = EnsembleTradingStrategy()
 
         # 全ての戦略がNoneを返すようにモック
-        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=None), \
-             patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=None), \
-             patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=None), \
-             patch.object(ensemble.strategies["mean_reversion"], "generate_signal", return_value=None), \
-             patch.object(ensemble.strategies["default_integrated"], "generate_signal", return_value=None):
-            result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
+        with patch.object(
+            ensemble.strategies["conservative_rsi"],
+            "generate_signal",
+            return_value=None,
+        ), patch.object(
+            ensemble.strategies["trend_following"], "generate_signal", return_value=None
+        ), patch.object(
+            ensemble.strategies["aggressive_momentum"],
+            "generate_signal",
+            return_value=None,
+        ), patch.object(
+            ensemble.strategies["mean_reversion"], "generate_signal", return_value=None
+        ), patch.object(
+            ensemble.strategies["default_integrated"],
+            "generate_signal",
+            return_value=None,
+        ):
+            result = ensemble.generate_ensemble_signal(
+                sample_df, sample_indicators, sample_patterns
+            )
 
         # 有効なシグナルがない場合はNoneが返されるはず
         assert result is None
@@ -628,7 +682,9 @@ class TestEnsembleTradingStrategy:
     def test_confidence_threshold_edge_cases(self):
         """信頼度閾値のエッジケース"""
         # 適応型戦略でパフォーマンスデータがない場合
-        adaptive_ensemble = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.ADAPTIVE)
+        adaptive_ensemble = EnsembleTradingStrategy(
+            ensemble_strategy=EnsembleStrategy.ADAPTIVE
+        )
         threshold = adaptive_ensemble._get_confidence_threshold()
 
         # パフォーマンスデータがない場合のデフォルト計算
@@ -637,8 +693,7 @@ class TestEnsembleTradingStrategy:
 
         # パフォーマンスデータがある場合
         adaptive_ensemble.strategy_performance["test"] = StrategyPerformance(
-            strategy_name="test",
-            success_rate=0.6
+            strategy_name="test", success_rate=0.6
         )
         threshold_with_data = adaptive_ensemble._get_confidence_threshold()
 

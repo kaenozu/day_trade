@@ -31,10 +31,7 @@ class TestDatabaseOptimization:
         """テスト用データベース（メモリ内で高速実行）"""
         # メモリ内SQLiteで高速テスト実行
         config = DatabaseConfig(
-            database_url="sqlite:///:memory:",
-            echo=False,
-            pool_size=1,
-            max_overflow=0
+            database_url="sqlite:///:memory:", echo=False, pool_size=1, max_overflow=0
         )
 
         db = DatabaseManager(config)
@@ -99,9 +96,14 @@ class TestDatabaseOptimization:
                 # 最新数日にスパイクを配置して検出されやすくする
                 current_day = base_date + timedelta(days=i)
 
-                if stock["code"] == "7203" and i in [27, 29]:  # トヨタに最新2日でスパイク
+                if stock["code"] == "7203" and i in [
+                    27,
+                    29,
+                ]:  # トヨタに最新2日でスパイク
                     volume = int(volume * 2.5)  # 250%増加でスパイク
-                elif stock["code"] == "9984" and i == 28:  # ソフトバンクに最新1日でスパイク
+                elif (
+                    stock["code"] == "9984" and i == 28
+                ):  # ソフトバンクに最新1日でスパイク
                     volume = int(volume * 3.0)  # 300%増加でスパイク
 
                 price_data.append(
@@ -170,23 +172,31 @@ class TestDatabaseOptimization:
         except Exception as e:
             individual_time = time.time() - start_time
             individual_success = False
-            pytest.fail(f"Individual insert failed after {individual_time:.3f}s with error: {e}")
+            pytest.fail(
+                f"Individual insert failed after {individual_time:.3f}s with error: {e}"
+            )
 
         # 詳細なパフォーマンス分析とアサーション
         assert bulk_success, "Bulk insert operation must succeed"
         assert individual_success, "Individual insert operation must succeed"
         assert bulk_time > 0, f"Bulk insert time must be positive, got {bulk_time}"
-        assert individual_time > 0, f"Individual insert time must be positive, got {individual_time}"
+        assert individual_time > 0, (
+            f"Individual insert time must be positive, got {individual_time}"
+        )
 
-        bulk_rate = 1000 / bulk_time if bulk_time > 0 else float('inf')
-        individual_rate = 100 / individual_time if individual_time > 0 else float('inf')
+        bulk_rate = 1000 / bulk_time if bulk_time > 0 else float("inf")
+        individual_rate = 100 / individual_time if individual_time > 0 else float("inf")
 
         # パフォーマンス基準の検証（最低限の処理能力）
         min_bulk_rate = 100  # 最低100件/秒
         min_individual_rate = 10  # 最低10件/秒
 
-        assert bulk_rate >= min_bulk_rate, f"Bulk insert rate {bulk_rate:.1f} records/sec below minimum {min_bulk_rate}"
-        assert individual_rate >= min_individual_rate, f"Individual insert rate {individual_rate:.1f} records/sec below minimum {min_individual_rate}"
+        assert bulk_rate >= min_bulk_rate, (
+            f"Bulk insert rate {bulk_rate:.1f} records/sec below minimum {min_bulk_rate}"
+        )
+        assert individual_rate >= min_individual_rate, (
+            f"Individual insert rate {individual_rate:.1f} records/sec below minimum {min_individual_rate}"
+        )
 
         print(f"Bulk insert time (1000 records): {bulk_time:.3f}s")
         print(f"Individual insert time (100 records): {individual_time:.3f}s")
@@ -199,36 +209,58 @@ class TestDatabaseOptimization:
             total_count = session.query(Stock).count()
 
             # バルクインサート分の検証
-            bulk_inserted = session.query(Stock).filter(
-                Stock.code.between('1000', '1999')
-            ).all()
+            bulk_inserted = (
+                session.query(Stock).filter(Stock.code.between("1000", "1999")).all()
+            )
             bulk_inserted_count = len(bulk_inserted)
 
             # 個別インサート分の検証
-            individual_inserted = session.query(Stock).filter(
-                Stock.code.between('2000', '2099')
-            ).all()
+            individual_inserted = (
+                session.query(Stock).filter(Stock.code.between("2000", "2099")).all()
+            )
             individual_inserted_count = len(individual_inserted)
 
             # 厳密な件数検証
             expected_minimum_total = 1100  # バルク1000 + 個別100
-            assert total_count >= expected_minimum_total, f"Expected ≥{expected_minimum_total} total records, got {total_count}"
-            assert bulk_inserted_count == 1000, f"Expected exactly 1000 bulk records, got {bulk_inserted_count}"
-            assert individual_inserted_count == 100, f"Expected exactly 100 individual records, got {individual_inserted_count}"
+            assert total_count >= expected_minimum_total, (
+                f"Expected ≥{expected_minimum_total} total records, got {total_count}"
+            )
+            assert bulk_inserted_count == 1000, (
+                f"Expected exactly 1000 bulk records, got {bulk_inserted_count}"
+            )
+            assert individual_inserted_count == 100, (
+                f"Expected exactly 100 individual records, got {individual_inserted_count}"
+            )
 
             # データ品質の検証（バルクインサート分）
             for stock in bulk_inserted[:10]:  # サンプリング検証
-                assert stock.code.startswith('1'), f"Bulk stock code should start with '1', got {stock.code}"
-                assert "テスト銘柄" in stock.name, f"Bulk stock name should contain 'テスト銘柄', got {stock.name}"
-                assert stock.sector in sectors, f"Invalid sector {stock.sector} for bulk stock {stock.code}"
-                assert stock.market in markets, f"Invalid market {stock.market} for bulk stock {stock.code}"
+                assert stock.code.startswith("1"), (
+                    f"Bulk stock code should start with '1', got {stock.code}"
+                )
+                assert "テスト銘柄" in stock.name, (
+                    f"Bulk stock name should contain 'テスト銘柄', got {stock.name}"
+                )
+                assert stock.sector in sectors, (
+                    f"Invalid sector {stock.sector} for bulk stock {stock.code}"
+                )
+                assert stock.market in markets, (
+                    f"Invalid market {stock.market} for bulk stock {stock.code}"
+                )
 
             # データ品質の検証（個別インサート分）
             for stock in individual_inserted[:10]:  # サンプリング検証
-                assert stock.code.startswith('2'), f"Individual stock code should start with '2', got {stock.code}"
-                assert "個別銘柄" in stock.name, f"Individual stock name should contain '個別銘柄', got {stock.name}"
-                assert stock.sector in sectors, f"Invalid sector {stock.sector} for individual stock {stock.code}"
-                assert stock.market in markets, f"Invalid market {stock.market} for individual stock {stock.code}"
+                assert stock.code.startswith("2"), (
+                    f"Individual stock code should start with '2', got {stock.code}"
+                )
+                assert "個別銘柄" in stock.name, (
+                    f"Individual stock name should contain '個別銘柄', got {stock.name}"
+                )
+                assert stock.sector in sectors, (
+                    f"Invalid sector {stock.sector} for individual stock {stock.code}"
+                )
+                assert stock.market in markets, (
+                    f"Invalid market {stock.market} for individual stock {stock.code}"
+                )
 
             # パフォーマンス効率性の検証
             if bulk_time > 0 and individual_time > 0:
@@ -237,12 +269,16 @@ class TestDatabaseOptimization:
                 efficiency_ratio = individual_per_record / bulk_per_record
 
                 print(f"Bulk insert efficiency ratio: {efficiency_ratio:.1f}x faster")
-                print(f"Bulk insert per record: {bulk_per_record*1000:.2f}ms")
-                print(f"Individual insert per record: {individual_per_record*1000:.2f}ms")
+                print(f"Bulk insert per record: {bulk_per_record * 1000:.2f}ms")
+                print(
+                    f"Individual insert per record: {individual_per_record * 1000:.2f}ms"
+                )
 
                 # バルクインサートの効率性を強く検証
                 min_efficiency_ratio = 1.0  # 最低でも同等の効率性
-                assert efficiency_ratio >= min_efficiency_ratio, f"Bulk insert efficiency ratio {efficiency_ratio:.2f} below minimum {min_efficiency_ratio}"
+                assert efficiency_ratio >= min_efficiency_ratio, (
+                    f"Bulk insert efficiency ratio {efficiency_ratio:.2f} below minimum {min_efficiency_ratio}"
+                )
 
     def test_optimized_queries(self, test_db, sample_data):
         """最適化されたクエリのテスト（厳密な結果検証）"""
@@ -255,23 +291,37 @@ class TestDatabaseOptimization:
             optimized_time = time.time() - start_time
 
             # 厳密な結果検証
-            assert len(latest_prices) == len(stock_codes), f"Expected {len(stock_codes)} prices, got {len(latest_prices)}"
+            assert len(latest_prices) == len(stock_codes), (
+                f"Expected {len(stock_codes)} prices, got {len(latest_prices)}"
+            )
 
             for code in stock_codes:
                 assert code in latest_prices, f"Missing price data for {code}"
                 price_data = latest_prices[code]
 
                 # 価格データの詳細検証
-                assert price_data.close > Decimal("0"), f"Invalid close price for {code}: {price_data.close}"
-                assert price_data.open > Decimal("0"), f"Invalid open price for {code}: {price_data.open}"
-                assert price_data.high >= price_data.close, f"High should be >= close for {code}"
-                assert price_data.low <= price_data.close, f"Low should be <= close for {code}"
-                assert price_data.volume > 0, f"Invalid volume for {code}: {price_data.volume}"
+                assert price_data.close > Decimal("0"), (
+                    f"Invalid close price for {code}: {price_data.close}"
+                )
+                assert price_data.open > Decimal("0"), (
+                    f"Invalid open price for {code}: {price_data.open}"
+                )
+                assert price_data.high >= price_data.close, (
+                    f"High should be >= close for {code}"
+                )
+                assert price_data.low <= price_data.close, (
+                    f"Low should be <= close for {code}"
+                )
+                assert price_data.volume > 0, (
+                    f"Invalid volume for {code}: {price_data.volume}"
+                )
 
                 # 期待される価格範囲の検証（テストデータに基づく）
                 expected_min = Decimal("1000.00")
                 expected_max = Decimal("1500.00")
-                assert expected_min <= price_data.close <= expected_max, f"Price {price_data.close} out of expected range for {code}"
+                assert expected_min <= price_data.close <= expected_max, (
+                    f"Price {price_data.close} out of expected range for {code}"
+                )
 
             print(f"Optimized latest prices query time: {optimized_time:.3f}s")
             print(f"Retrieved prices for {len(latest_prices)} stocks successfully")
@@ -284,9 +334,13 @@ class TestDatabaseOptimization:
             print(f"Total price records: {len(all_price_data)}")
 
             # 最新数日のデータを確認
-            recent_data = session.query(PriceData).filter(
-                PriceData.datetime >= datetime.now() - timedelta(days=2)
-            ).order_by(PriceData.datetime.desc()).limit(10).all()
+            recent_data = (
+                session.query(PriceData)
+                .filter(PriceData.datetime >= datetime.now() - timedelta(days=2))
+                .order_by(PriceData.datetime.desc())
+                .limit(10)
+                .all()
+            )
 
             print("Recent price data:")
             for data in recent_data:
@@ -300,40 +354,66 @@ class TestDatabaseOptimization:
             detection_time = time.time() - start_time
 
             # 意図的に作成したスパイクの検出を検証
-            assert isinstance(spike_candidates, list), "Spike candidates should be a list"
+            assert isinstance(spike_candidates, list), (
+                "Spike candidates should be a list"
+            )
 
             print(f"Spike detection returned: {len(spike_candidates)} candidates")
 
             # スパイク検出の柔軟な検証（データの性質上、必ずしも検出されない場合もある）
             if len(spike_candidates) > 0:
                 # 検出されたスパイクの詳細検証
-                detected_codes = [candidate.stock_code for candidate in spike_candidates]
+                detected_codes = [
+                    candidate.stock_code for candidate in spike_candidates
+                ]
 
                 # 各検出結果の詳細検証
                 for candidate in spike_candidates:
-                    assert candidate.volume > 0, f"Invalid volume for spike candidate: {candidate.volume}"
-                    assert candidate.stock_code in [stock["code"] for stock in sample_data], f"Unknown stock code: {candidate.stock_code}"
+                    assert candidate.volume > 0, (
+                        f"Invalid volume for spike candidate: {candidate.volume}"
+                    )
+                    assert candidate.stock_code in [
+                        stock["code"] for stock in sample_data
+                    ], f"Unknown stock code: {candidate.stock_code}"
 
-                print(f"Found {len(spike_candidates)} spike candidates: {detected_codes}")
+                print(
+                    f"Found {len(spike_candidates)} spike candidates: {detected_codes}"
+                )
             else:
-                print("No spike candidates detected - this may be due to data timing or threshold settings")
+                print(
+                    "No spike candidates detected - this may be due to data timing or threshold settings"
+                )
 
                 # 手動でスパイクデータの存在を確認
-                toyota_high_volume = session.query(PriceData).filter(
-                    PriceData.stock_code == "7203",
-                    PriceData.volume > 2000000  # 2倍以上の出来高
-                ).all()
+                toyota_high_volume = (
+                    session.query(PriceData)
+                    .filter(
+                        PriceData.stock_code == "7203",
+                        PriceData.volume > 2000000,  # 2倍以上の出来高
+                    )
+                    .all()
+                )
 
-                softbank_high_volume = session.query(PriceData).filter(
-                    PriceData.stock_code == "9984",
-                    PriceData.volume > 2500000  # 2.5倍以上の出来高
-                ).all()
+                softbank_high_volume = (
+                    session.query(PriceData)
+                    .filter(
+                        PriceData.stock_code == "9984",
+                        PriceData.volume > 2500000,  # 2.5倍以上の出来高
+                    )
+                    .all()
+                )
 
-                print(f"Manual check - Toyota high volume records: {len(toyota_high_volume)}")
-                print(f"Manual check - SoftBank high volume records: {len(softbank_high_volume)}")
+                print(
+                    f"Manual check - Toyota high volume records: {len(toyota_high_volume)}"
+                )
+                print(
+                    f"Manual check - SoftBank high volume records: {len(softbank_high_volume)}"
+                )
 
                 # 少なくとも高出来高データが存在することを確認
-                assert len(toyota_high_volume) > 0 or len(softbank_high_volume) > 0, "Expected to find high volume data for manual verification"
+                assert len(toyota_high_volume) > 0 or len(softbank_high_volume) > 0, (
+                    "Expected to find high volume data for manual verification"
+                )
 
             print(f"Volume spike detection time: {detection_time:.3f}s")
 
@@ -377,8 +457,12 @@ class TestDatabaseOptimization:
             bulk_add_time = time.time() - start_time
 
             # 厳密な結果検証
-            assert len(results) == len(bulk_data), f"Expected {len(bulk_data)} results, got {len(results)}"
-            assert all(results.values()), f"All operations should succeed, but got: {results}"
+            assert len(results) == len(bulk_data), (
+                f"Expected {len(bulk_data)} results, got {len(results)}"
+            )
+            assert all(results.values()), (
+                f"All operations should succeed, but got: {results}"
+            )
 
             # 追加された銘柄の詳細検証
             expected_codes = {item["code"] for item in bulk_data}
@@ -392,11 +476,18 @@ class TestDatabaseOptimization:
             optimized_get_time = time.time() - start_time
 
             # ウォッチリスト結果の厳密な検証
-            assert len(optimized_watchlist) == len(bulk_data), f"Expected {len(bulk_data)} items in watchlist, got {len(optimized_watchlist)}"
+            assert len(optimized_watchlist) == len(bulk_data), (
+                f"Expected {len(bulk_data)} items in watchlist, got {len(optimized_watchlist)}"
+            )
 
             # 各ウォッチリスト項目の検証
-            watchlist_codes = {item.get("stock_code") or item.get("code") for item in optimized_watchlist}
-            assert expected_codes.issubset(watchlist_codes), f"Expected codes {expected_codes} not found in watchlist {watchlist_codes}"
+            watchlist_codes = {
+                item.get("stock_code") or item.get("code")
+                for item in optimized_watchlist
+            }
+            assert expected_codes.issubset(watchlist_codes), (
+                f"Expected codes {expected_codes} not found in watchlist {watchlist_codes}"
+            )
 
             # グループとメモの検証
             for item in optimized_watchlist:
@@ -404,13 +495,19 @@ class TestDatabaseOptimization:
                 if code in expected_codes:
                     original_item = next(bd for bd in bulk_data if bd["code"] == code)
                     if "group" in item:
-                        assert item["group"] == original_item["group"], f"Group mismatch for {code}"
+                        assert item["group"] == original_item["group"], (
+                            f"Group mismatch for {code}"
+                        )
                     if "memo" in item:
-                        assert item["memo"] == original_item["memo"], f"Memo mismatch for {code}"
+                        assert item["memo"] == original_item["memo"], (
+                            f"Memo mismatch for {code}"
+                        )
 
             print(f"Bulk add time: {bulk_add_time:.3f}s")
             print(f"Optimized get time: {optimized_get_time:.3f}s")
-            print(f"Successfully added and retrieved {len(optimized_watchlist)} watchlist items")
+            print(
+                f"Successfully added and retrieved {len(optimized_watchlist)} watchlist items"
+            )
 
         finally:
             # 元の設定を復元
@@ -461,14 +558,22 @@ class TestDatabaseOptimization:
             assert "total_proceeds" in summary, "Total proceeds key missing in summary"
 
             # トヨタのポジション確認（100株買い - 50株売り = 50株保有）
-            assert "7203" in summary["portfolio"], "Toyota (7203) missing from portfolio"
+            assert "7203" in summary["portfolio"], (
+                "Toyota (7203) missing from portfolio"
+            )
             toyota_position = summary["portfolio"]["7203"]
-            assert toyota_position["quantity"] == 50, f"Expected Toyota quantity 50, got {toyota_position['quantity']}"
+            assert toyota_position["quantity"] == 50, (
+                f"Expected Toyota quantity 50, got {toyota_position['quantity']}"
+            )
 
             # ソフトバンクのポジション確認（200株買いのみ）
-            assert "9984" in summary["portfolio"], "SoftBank (9984) missing from portfolio"
+            assert "9984" in summary["portfolio"], (
+                "SoftBank (9984) missing from portfolio"
+            )
             softbank_position = summary["portfolio"]["9984"]
-            assert softbank_position["quantity"] == 200, f"Expected SoftBank quantity 200, got {softbank_position['quantity']}"
+            assert softbank_position["quantity"] == 200, (
+                f"Expected SoftBank quantity 200, got {softbank_position['quantity']}"
+            )
 
             # 合計値の基本的な妥当性検証（型変換対応）
             total_cost = summary["total_cost"]
@@ -481,21 +586,33 @@ class TestDatabaseOptimization:
                 total_proceeds = Decimal(str(total_proceeds))
 
             # 基本的な値の妥当性（負の値でないこと、数値型の確認）
-            assert total_cost >= 0, f"Total cost should be non-negative, got {total_cost}"
-            assert total_proceeds >= 0, f"Total proceeds should be non-negative, got {total_proceeds}"
-            assert isinstance(total_cost, (Decimal, int, float)), f"Invalid total_cost type: {type(total_cost)}"
-            assert isinstance(total_proceeds, (Decimal, int, float)), f"Invalid total_proceeds type: {type(total_proceeds)}"
+            assert total_cost >= 0, (
+                f"Total cost should be non-negative, got {total_cost}"
+            )
+            assert total_proceeds >= 0, (
+                f"Total proceeds should be non-negative, got {total_proceeds}"
+            )
+            assert isinstance(total_cost, (Decimal, int, float)), (
+                f"Invalid total_cost type: {type(total_cost)}"
+            )
+            assert isinstance(total_proceeds, (Decimal, int, float)), (
+                f"Invalid total_proceeds type: {type(total_proceeds)}"
+            )
 
             # 計算の妥当性（概算確認）
             portfolio = summary["portfolio"]
             if len(portfolio) > 0:
                 # 何らかの取引があれば、最低限のコストが発生していることを確認
-                assert total_cost > 0 or total_proceeds > 0, "Expected some cost or proceeds from trades"
+                assert total_cost > 0 or total_proceeds > 0, (
+                    "Expected some cost or proceeds from trades"
+                )
 
             print(f"Portfolio summary calculation time: {summary_time:.3f}s")
             print(f"Portfolio positions: {len(portfolio)} stocks")
             print(f"Total cost: {total_cost}, Total proceeds: {total_proceeds}")
-            print(f"Cost type: {type(total_cost)}, Proceeds type: {type(total_proceeds)}")
+            print(
+                f"Cost type: {type(total_cost)}, Proceeds type: {type(total_proceeds)}"
+            )
 
     def test_sector_search_performance(self, test_db, sample_data):
         """セクター検索のパフォーマンステスト"""
@@ -506,15 +623,21 @@ class TestDatabaseOptimization:
             sector_search_time = time.time() - start_time
 
             # セクター検索結果の厳密な検証
-            assert len(tech_stocks) >= 1, f"Expected at least 1 tech stock, got {len(tech_stocks)}"
+            assert len(tech_stocks) >= 1, (
+                f"Expected at least 1 tech stock, got {len(tech_stocks)}"
+            )
 
             # ソニーグループが確実に含まれることを確認
             tech_codes = [stock.code for stock in tech_stocks]
-            assert "6758" in tech_codes, f"Sony (6758) should be in tech stocks, got {tech_codes}"
+            assert "6758" in tech_codes, (
+                f"Sony (6758) should be in tech stocks, got {tech_codes}"
+            )
 
             # 各結果の属性検証
             for stock in tech_stocks:
-                assert stock.sector == "電気機器", f"Stock {stock.code} has wrong sector: {stock.sector}"
+                assert stock.sector == "電気機器", (
+                    f"Stock {stock.code} has wrong sector: {stock.sector}"
+                )
                 assert stock.code is not None, "Stock code should not be None"
                 assert stock.name is not None, "Stock name should not be None"
 
@@ -524,21 +647,29 @@ class TestDatabaseOptimization:
             name_search_time = time.time() - start_time
 
             # 名前検索結果の厳密な検証
-            assert len(search_results) >= 1, f"Expected at least 1 search result for 'ソニー', got {len(search_results)}"
+            assert len(search_results) >= 1, (
+                f"Expected at least 1 search result for 'ソニー', got {len(search_results)}"
+            )
 
             # ソニーグループが検索結果に含まれることを確認
             search_codes = [stock.code for stock in search_results]
             search_names = [stock.name for stock in search_results]
 
-            assert "6758" in search_codes, f"Sony (6758) should be in search results, got {search_codes}"
+            assert "6758" in search_codes, (
+                f"Sony (6758) should be in search results, got {search_codes}"
+            )
 
             # 検索語が名前に含まれることを確認
             sony_found = any("ソニー" in name for name in search_names)
-            assert sony_found, f"Search term 'ソニー' should be found in names: {search_names}"
+            assert sony_found, (
+                f"Search term 'ソニー' should be found in names: {search_names}"
+            )
 
             print(f"Sector search time: {sector_search_time:.3f}s")
             print(f"Name search time: {name_search_time:.3f}s")
-            print(f"Found {len(tech_stocks)} tech stocks and {len(search_results)} search results")
+            print(
+                f"Found {len(tech_stocks)} tech stocks and {len(search_results)} search results"
+            )
 
 
 if __name__ == "__main__":

@@ -16,19 +16,22 @@ from typing import Any, Dict, List, Optional
 # 軽量な可視化ライブラリを使用（外部依存を最小限に）
 try:
     import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
     print("警告: matplotlib が見つかりません。グラフ生成をスキップします。")
 
+
 def load_coverage_data(json_file: Path) -> Optional[Dict[str, Any]]:
     """カバレッジJSONファイルを読み込み"""
     try:
-        with open(json_file, encoding='utf-8') as f:
+        with open(json_file, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"カバレッジデータ読み込みエラー: {e}")
         return None
+
 
 def create_coverage_summary_chart(coverage_data: Dict[str, Any], output_dir: Path):
     """カバレッジサマリーチャートを生成"""
@@ -45,45 +48,50 @@ def create_coverage_summary_chart(coverage_data: Dict[str, Any], output_dir: Pat
     covered_pct = percent_covered
     uncovered_pct = 100 - covered_pct
 
-    colors = ['#2ECC71', '#E74C3C']  # 緑（カバー済み）、赤（未カバー）
-    ax1.pie([covered_pct, uncovered_pct],
-            labels=[f'カバー済み\n{covered_pct:.1f}%', f'未カバー\n{uncovered_pct:.1f}%'],
-            colors=colors, autopct='%1.1f%%', startangle=90)
-    ax1.set_title('全体カバレッジ', fontsize=14, fontweight='bold')
+    colors = ["#2ECC71", "#E74C3C"]  # 緑（カバー済み）、赤（未カバー）
+    ax1.pie(
+        [covered_pct, uncovered_pct],
+        labels=[f"カバー済み\n{covered_pct:.1f}%", f"未カバー\n{uncovered_pct:.1f}%"],
+        colors=colors,
+        autopct="%1.1f%%",
+        startangle=90,
+    )
+    ax1.set_title("全体カバレッジ", fontsize=14, fontweight="bold")
 
     # 右: カバレッジ目標との比較
     targets = [60, 70, 80, 90]
-    target_labels = ['最低限\n(60%)', '良好\n(70%)', '優秀\n(80%)', '理想\n(90%)']
-    target_colors = ['#F39C12', '#E67E22', '#27AE60', '#16A085']
+    target_labels = ["最低限\n(60%)", "良好\n(70%)", "優秀\n(80%)", "理想\n(90%)"]
+    target_colors = ["#F39C12", "#E67E22", "#27AE60", "#16A085"]
 
-    current_color = '#E74C3C'  # デフォルト赤
+    current_color = "#E74C3C"  # デフォルト赤
     for i, target in enumerate(targets):
         if covered_pct >= target:
             current_color = target_colors[i]
 
     # 横棒グラフ
     y_pos = range(len(targets))
-    ax2.barh(y_pos, targets, color=target_colors, alpha=0.3, label='目標')
-    ax2.barh(len(targets), covered_pct, color=current_color, alpha=0.8, label='現在')
+    ax2.barh(y_pos, targets, color=target_colors, alpha=0.3, label="目標")
+    ax2.barh(len(targets), covered_pct, color=current_color, alpha=0.8, label="現在")
 
     ax2.set_yticks(list(y_pos) + [len(targets)])
-    ax2.set_yticklabels(target_labels + ['現在'])
-    ax2.set_xlabel('カバレッジ (%)')
-    ax2.set_title('カバレッジ目標達成度', fontsize=14, fontweight='bold')
+    ax2.set_yticklabels(target_labels + ["現在"])
+    ax2.set_xlabel("カバレッジ (%)")
+    ax2.set_title("カバレッジ目標達成度", fontsize=14, fontweight="bold")
     ax2.set_xlim(0, 100)
 
     # 目標線を追加
     for target in targets:
-        ax2.axvline(x=target, color='gray', linestyle='--', alpha=0.5)
+        ax2.axvline(x=target, color="gray", linestyle="--", alpha=0.5)
 
     plt.tight_layout()
 
     # 保存
     chart_file = output_dir / "coverage_summary.png"
-    plt.savefig(chart_file, dpi=300, bbox_inches='tight')
+    plt.savefig(chart_file, dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"サマリーチャートを生成: {chart_file}")
+
 
 def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     """ファイル別カバレッジチャートを生成"""
@@ -98,7 +106,9 @@ def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     file_coverage = []
     for filename, data in files_data.items():
         # パス名を短縮
-        short_name = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
+        short_name = filename.replace("src\\day_trade\\", "").replace(
+            "src/day_trade/", ""
+        )
         if len(short_name) > 40:
             short_name = "..." + short_name[-37:]
 
@@ -120,49 +130,71 @@ def create_file_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     # 上位20件（高カバレッジ）
     if top_files:
         names, values = zip(*top_files)
-        colors = ['#27AE60' if v >= 80 else '#F39C12' if v >= 60 else '#E74C3C' for v in values]
+        colors = [
+            "#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C"
+            for v in values
+        ]
 
         y_pos = range(len(names))
         bars1 = ax1.barh(y_pos, values, color=colors, alpha=0.7)
         ax1.set_yticks(y_pos)
         ax1.set_yticklabels(names, fontsize=8)
-        ax1.set_xlabel('カバレッジ (%)')
-        ax1.set_title('ファイル別カバレッジ（上位20件）', fontsize=12, fontweight='bold')
+        ax1.set_xlabel("カバレッジ (%)")
+        ax1.set_title(
+            "ファイル別カバレッジ（上位20件）", fontsize=12, fontweight="bold"
+        )
         ax1.set_xlim(0, 100)
 
         # 値をバーに表示
         for bar, value in zip(bars1, values):
             width = bar.get_width()
-            ax1.text(width + 1, bar.get_y() + bar.get_height()/2,
-                    f'{value:.1f}%', ha='left', va='center', fontsize=7)
+            ax1.text(
+                width + 1,
+                bar.get_y() + bar.get_height() / 2,
+                f"{value:.1f}%",
+                ha="left",
+                va="center",
+                fontsize=7,
+            )
 
     # 下位20件（低カバレッジ）
     if bottom_files:
         names, values = zip(*bottom_files)
-        colors = ['#E74C3C' if v < 60 else '#F39C12' if v < 80 else '#27AE60' for v in values]
+        colors = [
+            "#E74C3C" if v < 60 else "#F39C12" if v < 80 else "#27AE60" for v in values
+        ]
 
         y_pos = range(len(names))
         bars2 = ax2.barh(y_pos, values, color=colors, alpha=0.7)
         ax2.set_yticks(y_pos)
         ax2.set_yticklabels(names, fontsize=8)
-        ax2.set_xlabel('カバレッジ (%)')
-        ax2.set_title('ファイル別カバレッジ（下位20件）', fontsize=12, fontweight='bold')
+        ax2.set_xlabel("カバレッジ (%)")
+        ax2.set_title(
+            "ファイル別カバレッジ（下位20件）", fontsize=12, fontweight="bold"
+        )
         ax2.set_xlim(0, 100)
 
         # 値をバーに表示
         for bar, value in zip(bars2, values):
             width = bar.get_width()
-            ax2.text(width + 1, bar.get_y() + bar.get_height()/2,
-                    f'{value:.1f}%', ha='left', va='center', fontsize=7)
+            ax2.text(
+                width + 1,
+                bar.get_y() + bar.get_height() / 2,
+                f"{value:.1f}%",
+                ha="left",
+                va="center",
+                fontsize=7,
+            )
 
     plt.tight_layout()
 
     # 保存
     chart_file = output_dir / "file_coverage.png"
-    plt.savefig(chart_file, dpi=300, bbox_inches='tight')
+    plt.savefig(chart_file, dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"ファイル別チャートを生成: {chart_file}")
+
 
 def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Path):
     """パッケージ別カバレッジチャートを生成"""
@@ -178,7 +210,11 @@ def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Pat
 
     for filename, data in files_data.items():
         # パッケージ名を抽出
-        path_parts = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "").split("/")
+        path_parts = (
+            filename.replace("src\\day_trade\\", "")
+            .replace("src/day_trade/", "")
+            .split("/")
+        )
         if "\\" in filename:
             path_parts = filename.replace("src\\day_trade\\", "").split("\\")
 
@@ -215,36 +251,45 @@ def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Pat
     sizes = [item[2] for item in package_coverage]
 
     # バーの色を設定
-    colors = ['#27AE60' if v >= 80 else '#F39C12' if v >= 60 else '#E74C3C' for v in values]
+    colors = [
+        "#27AE60" if v >= 80 else "#F39C12" if v >= 60 else "#E74C3C" for v in values
+    ]
 
     y_pos = range(len(names))
     bars = ax.barh(y_pos, values, color=colors, alpha=0.7)
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(names)
-    ax.set_xlabel('カバレッジ (%)')
-    ax.set_title('パッケージ別カバレッジ', fontsize=14, fontweight='bold')
+    ax.set_xlabel("カバレッジ (%)")
+    ax.set_title("パッケージ別カバレッジ", fontsize=14, fontweight="bold")
     ax.set_xlim(0, 100)
 
     # 値とサイズをバーに表示
     for bar, value, size in zip(bars, values, sizes):
         width = bar.get_width()
-        ax.text(width + 1, bar.get_y() + bar.get_height()/2,
-                f'{value:.1f}% ({size} lines)', ha='left', va='center', fontsize=9)
+        ax.text(
+            width + 1,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:.1f}% ({size} lines)",
+            ha="left",
+            va="center",
+            fontsize=9,
+        )
 
     # 目標線を追加
     for target in [60, 70, 80]:
-        ax.axvline(x=target, color='gray', linestyle='--', alpha=0.5)
-        ax.text(target, len(names), f'{target}%', ha='center', va='bottom', fontsize=8)
+        ax.axvline(x=target, color="gray", linestyle="--", alpha=0.5)
+        ax.text(target, len(names), f"{target}%", ha="center", va="bottom", fontsize=8)
 
     plt.tight_layout()
 
     # 保存
     chart_file = output_dir / "package_coverage.png"
-    plt.savefig(chart_file, dpi=300, bbox_inches='tight')
+    plt.savefig(chart_file, dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"パッケージ別チャートを生成: {chart_file}")
+
 
 def create_coverage_heatmap(coverage_data: Dict[str, Any], output_dir: Path):
     """カバレッジヒートマップを生成（ASCII版）"""
@@ -255,16 +300,16 @@ def create_coverage_heatmap(coverage_data: Dict[str, Any], output_dir: Path):
     # ファイル別データを抽出
     file_matrix = []
     for filename, data in files_data.items():
-        short_name = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
+        short_name = filename.replace("src\\day_trade\\", "").replace(
+            "src/day_trade/", ""
+        )
         summary = data.get("summary", {})
         coverage_pct = summary.get("percent_covered", 0)
         num_statements = summary.get("num_statements", 0)
 
-        file_matrix.append({
-            "name": short_name,
-            "coverage": coverage_pct,
-            "size": num_statements
-        })
+        file_matrix.append(
+            {"name": short_name, "coverage": coverage_pct, "size": num_statements}
+        )
 
     # サイズでソート
     file_matrix.sort(key=lambda x: x["size"], reverse=True)
@@ -308,14 +353,15 @@ def create_coverage_heatmap(coverage_data: Dict[str, Any], output_dir: Path):
 
     # ファイルに保存
     heatmap_file = output_dir / "coverage_heatmap.md"
-    with open(heatmap_file, 'w', encoding='utf-8') as f:
+    with open(heatmap_file, "w", encoding="utf-8") as f:
         f.write(heatmap_content)
 
     print(f"カバレッジヒートマップを生成: {heatmap_file}")
 
+
 def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
     """HTMLダッシュボードを生成"""
-    timestamp = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
+    timestamp = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
 
     # 最新のカバレッジデータを取得
     latest_file = sorted(coverage_files)[-1] if coverage_files else None
@@ -439,26 +485,26 @@ def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
 
         <div class="metrics">
             <div class="metric-card">
-                <div class="metric-value">{totals.get('percent_covered', 0):.1f}%</div>
+                <div class="metric-value">{totals.get("percent_covered", 0):.1f}%</div>
                 <div class="metric-label">ライン カバレッジ</div>
                 <div class="progress-bar">
-                    <div class="progress-fill {'coverage-high' if totals.get('percent_covered', 0) >= 80 else 'coverage-medium' if totals.get('percent_covered', 0) >= 60 else 'coverage-low'}"
-                         style="width: {totals.get('percent_covered', 0)}%"></div>
+                    <div class="progress-fill {"coverage-high" if totals.get("percent_covered", 0) >= 80 else "coverage-medium" if totals.get("percent_covered", 0) >= 60 else "coverage-low"}"
+                         style="width: {totals.get("percent_covered", 0)}%"></div>
                 </div>
             </div>
 
             <div class="metric-card">
-                <div class="metric-value">{totals.get('covered_lines', 0):,}</div>
+                <div class="metric-value">{totals.get("covered_lines", 0):,}</div>
                 <div class="metric-label">カバー済み行数</div>
             </div>
 
             <div class="metric-card">
-                <div class="metric-value">{totals.get('num_statements', 0):,}</div>
+                <div class="metric-value">{totals.get("num_statements", 0):,}</div>
                 <div class="metric-label">総行数</div>
             </div>
 
             <div class="metric-card">
-                <div class="metric-value">{len(coverage_data.get('files', {}))}</div>
+                <div class="metric-value">{len(coverage_data.get("files", {}))}</div>
                 <div class="metric-label">ファイル数</div>
             </div>
         </div>
@@ -466,21 +512,25 @@ def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
 
     # 推奨事項の追加
     recommendations = []
-    coverage_pct = totals.get('percent_covered', 0)
+    coverage_pct = totals.get("percent_covered", 0)
 
     if coverage_pct < 60:
         recommendations.append("🔴 カバレッジが60%未満です。テストの追加が急務です。")
     elif coverage_pct < 70:
-        recommendations.append("🟡 カバレッジは60%以上ですが、70%を目標に改善を続けてください。")
+        recommendations.append(
+            "🟡 カバレッジは60%以上ですが、70%を目標に改善を続けてください。"
+        )
     elif coverage_pct < 80:
         recommendations.append("🟢 良好なカバレッジです。80%達成を目指しましょう。")
     else:
         recommendations.append("🏆 優秀なカバレッジです！この水準を維持してください。")
 
     # ファイル数が多い場合の推奨
-    file_count = len(coverage_data.get('files', {}))
+    file_count = len(coverage_data.get("files", {}))
     if file_count > 50:
-        recommendations.append("📁 ファイル数が多いため、モジュール別のテスト戦略を検討してください。")
+        recommendations.append(
+            "📁 ファイル数が多いため、モジュール別のテスト戦略を検討してください。"
+        )
 
     if recommendations:
         html_content += """
@@ -500,7 +550,7 @@ def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
     chart_files = [
         ("coverage_summary.png", "カバレッジサマリー"),
         ("file_coverage.png", "ファイル別カバレッジ"),
-        ("package_coverage.png", "パッケージ別カバレッジ")
+        ("package_coverage.png", "パッケージ別カバレッジ"),
     ]
 
     html_content += """
@@ -530,10 +580,11 @@ def create_coverage_dashboard(coverage_files: List[Path], output_dir: Path):
 
     # ダッシュボードを保存
     dashboard_file = output_dir / "dashboard.html"
-    with open(dashboard_file, 'w', encoding='utf-8') as f:
+    with open(dashboard_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     print(f"HTMLダッシュボードを生成: {dashboard_file}")
+
 
 def main():
     """メイン実行関数"""
@@ -587,11 +638,14 @@ def main():
     print(f"  {output_dir / 'dashboard.html'}")
 
     if not HAS_MATPLOTLIB:
-        print("\n注意: matplotlib がインストールされていないため、一部のグラフが生成されませんでした。")
+        print(
+            "\n注意: matplotlib がインストールされていないため、一部のグラフが生成されませんでした。"
+        )
         print("グラフを表示するには以下を実行してください:")
         print("  pip install matplotlib")
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

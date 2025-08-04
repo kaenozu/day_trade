@@ -113,14 +113,14 @@ class TestIntegration:
         mock_fetcher = Mock()
         mock_fetcher.get_company_info.return_value = {
             "name": "Test Company",
-            "sector": "Technology"
+            "sector": "Technology",
         }
         mock_fetcher.get_current_price.return_value = {"price": 1000.0}
 
         trade_ops = TradeOperations(mock_fetcher)
 
         # ロガーが正しく初期化されていることを確認
-        assert hasattr(trade_ops, 'logger')
+        assert hasattr(trade_ops, "logger")
         assert isinstance(trade_ops.logger, ContextLogger)
 
     def test_stock_fetcher_logging(self):
@@ -133,7 +133,7 @@ class TestIntegration:
         fetcher = StockFetcher()
 
         # ロガーが正しく初期化されていることを確認
-        assert hasattr(fetcher, 'logger')
+        assert hasattr(fetcher, "logger")
         assert isinstance(fetcher.logger, ContextLogger)
 
 
@@ -152,6 +152,7 @@ class TestLoggingOutput:
 
         # プロセッサーにJSONRendererが含まれることを確認
         from structlog.processors import JSONRenderer
+
         processor_types = [type(processor) for processor in processors]
         assert JSONRenderer in processor_types
 
@@ -167,6 +168,7 @@ class TestLoggingOutput:
 
         # プロセッサーにConsoleRendererが含まれることを確認
         from structlog.dev import ConsoleRenderer
+
         processor_types = [type(processor) for processor in processors]
         assert ConsoleRenderer in processor_types
 

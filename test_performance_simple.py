@@ -49,8 +49,8 @@ def test_basic_optimization():
         test_data = create_sample_data(5000)
 
         # 基本的な計算
-        test_data['sma'] = test_data.iloc[:, 1].rolling(window=20).mean()
-        test_data['ema'] = test_data.iloc[:, 1].ewm(span=12).mean()
+        test_data["sma"] = test_data.iloc[:, 1].rolling(window=20).mean()
+        test_data["ema"] = test_data.iloc[:, 1].ewm(span=12).mean()
 
     # 3. 統計レポート
     print("\n3. パフォーマンス統計")
@@ -74,7 +74,7 @@ def test_basic_optimization():
 
     for i in range(len(data)):
         if i >= window - 1:
-            sma_slow.append(data.iloc[i-window+1:i+1, 1].mean())
+            sma_slow.append(data.iloc[i - window + 1 : i + 1, 1].mean())
         else:
             sma_slow.append(np.nan)
 
@@ -117,4 +117,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n>> テストエラー: {e}")
         import traceback
+
         traceback.print_exc()

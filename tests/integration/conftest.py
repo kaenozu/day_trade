@@ -3,6 +3,7 @@
 
 統合テスト実行時の共通設定とフィクスチャを定義します。
 """
+
 import contextlib
 import shutil
 import tempfile
@@ -18,9 +19,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: 統合テスト（複数コンポーネント間の連携テスト）"
     )
-    config.addinivalue_line(
-        "markers", "slow: 実行時間の長いテスト"
-    )
+    config.addinivalue_line("markers", "slow: 実行時間の長いテスト")
 
 
 @pytest.fixture(scope="session")
@@ -34,7 +33,7 @@ def integration_test_db():
     - セッション終了時のクリーンアップ
     """
     # プレースホルダー実装
-    test_db_path = tempfile.mktemp(suffix='.db')
+    test_db_path = tempfile.mktemp(suffix=".db")
     yield test_db_path
     # クリーンアップ（実装時に追加）
     with contextlib.suppress(Exception):
@@ -60,17 +59,14 @@ def mock_external_apis():
     統合テストでも外部APIの実際の呼び出しは避け、
     制御されたレスポンスを使用
     """
-    with patch('yfinance.download') as mock_yf, \
-         patch('pandas_datareader.data.DataReader') as mock_pdr:
-
+    with patch("yfinance.download") as mock_yf, patch(
+        "pandas_datareader.data.DataReader"
+    ) as mock_pdr:
         # デフォルトのモック動作を設定
         mock_yf.return_value = None
         mock_pdr.return_value = None
 
-        yield {
-            'yfinance': mock_yf,
-            'pandas_datareader': mock_pdr
-        }
+        yield {"yfinance": mock_yf, "pandas_datareader": mock_pdr}
 
 
 @pytest.fixture
@@ -80,17 +76,11 @@ def integration_config():
     テスト環境に適した設定値を提供
     """
     return {
-        'database': {
-            'url': 'sqlite:///test.db',
-            'echo': False
+        "database": {"url": "sqlite:///test.db", "echo": False},
+        "api": {"timeout": 5, "max_retries": 2},
+        "logging": {
+            "level": "WARNING"  # テスト時はログレベルを上げる
         },
-        'api': {
-            'timeout': 5,
-            'max_retries': 2
-        },
-        'logging': {
-            'level': 'WARNING'  # テスト時はログレベルを上げる
-        }
     }
 
 
@@ -109,23 +99,22 @@ def assert_performance_within_limits(execution_time, max_time=30.0):
 
     実行時間が許容範囲内であることを確認
     """
-    assert execution_time <= max_time, f"実行時間 {execution_time}秒 が制限 {max_time}秒 を超過"
+    assert execution_time <= max_time, (
+        f"実行時間 {execution_time}秒 が制限 {max_time}秒 を超過"
+    )
 
 
 # pytest実行時のオプション設定
 def pytest_addoption(parser):
     """カスタムコマンドラインオプションの追加"""
     parser.addoption(
-        "--integration",
-        action="store_true",
-        default=False,
-        help="統合テストを実行"
+        "--integration", action="store_true", default=False, help="統合テストを実行"
     )
     parser.addoption(
         "--slow",
         action="store_true",
         default=False,
-        help="実行時間の長いテストも含めて実行"
+        help="実行時間の長いテストも含めて実行",
     )
 
 
@@ -136,13 +125,17 @@ def pytest_collection_modifyitems(config, items):
     """
     if config.getoption("--integration"):
         # --integration フラグが指定された場合は統合テストのみ実行
-        skip_unit = pytest.mark.skip(reason="--integration フラグにより単体テストをスキップ")
+        skip_unit = pytest.mark.skip(
+            reason="--integration フラグにより単体テストをスキップ"
+        )
         for item in items:
             if "integration" not in item.keywords:
                 item.add_marker(skip_unit)
     else:
         # デフォルトでは統合テストをスキップ
-        skip_integration = pytest.mark.skip(reason="統合テストをスキップ（--integration を使用して実行）")
+        skip_integration = pytest.mark.skip(
+            reason="統合テストをスキップ（--integration を使用して実行）"
+        )
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip_integration)

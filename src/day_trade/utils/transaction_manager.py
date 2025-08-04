@@ -28,6 +28,7 @@ logger = get_context_logger(__name__, component="transaction_manager")
 
 class TransactionIsolationLevel(Enum):
     """トランザクション分離レベル"""
+
     READ_UNCOMMITTED = "READ UNCOMMITTED"
     READ_COMMITTED = "READ COMMITTED"
     REPEATABLE_READ = "REPEATABLE READ"
@@ -36,6 +37,7 @@ class TransactionIsolationLevel(Enum):
 
 class TransactionStatus(Enum):
     """トランザクション状態"""
+
     STARTED = "started"
     ACTIVE = "active"
     COMMITTED = "committed"
@@ -46,6 +48,7 @@ class TransactionStatus(Enum):
 @dataclass
 class TransactionMetrics:
     """トランザクションメトリクス"""
+
     transaction_id: str
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -78,13 +81,15 @@ class TransactionMetrics:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "status": self.status.value,
-            "isolation_level": self.isolation_level.value if self.isolation_level else None,
+            "isolation_level": self.isolation_level.value
+            if self.isolation_level
+            else None,
             "retry_count": self.retry_count,
             "operations_count": self.operations_count,
             "affected_tables": list(self.affected_tables),
             "error_message": self.error_message,
             "session_id": self.session_id,
-            "duration_ms": self.duration_ms
+            "duration_ms": self.duration_ms,
         }
 
 
@@ -99,11 +104,14 @@ class TransactionMonitor:
 
     def _setup_event_listeners(self):
         """SQLAlchemyイベントリスナーを設定"""
+
         @event.listens_for(db_manager.engine, "before_execute")
-        def receive_before_execute(conn, clauseelement, multiparams, params, execution_options):
+        def receive_before_execute(
+            conn, clauseelement, multiparams, params, execution_options
+        ):
             """SQL実行前のイベント"""
             # トランザクション内のSQL実行をカウント
-            transaction_id = getattr(conn.info, 'transaction_id', None)
+            transaction_id = getattr(conn.info, "transaction_id", None)
             if transaction_id and transaction_id in self.active_transactions:
                 with self.lock:
                     self.active_transactions[transaction_id].operations_count += 1
@@ -112,7 +120,7 @@ class TransactionMonitor:
         self,
         transaction_id: Optional[str] = None,
         isolation_level: Optional[TransactionIsolationLevel] = None,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
     ) -> str:
         """トランザクション開始の記録"""
         if not transaction_id:
@@ -122,16 +130,18 @@ class TransactionMonitor:
             transaction_id=transaction_id,
             start_time=datetime.now(),
             isolation_level=isolation_level,
-            session_id=session_id
+            session_id=session_id,
         )
 
         with self.lock:
             self.active_transactions[transaction_id] = metrics
 
-        logger.info("トランザクション開始",
-                   transaction_id=transaction_id,
-                   isolation_level=isolation_level.value if isolation_level else None,
-                   session_id=session_id)
+        logger.info(
+            "トランザクション開始",
+            transaction_id=transaction_id,
+            isolation_level=isolation_level.value if isolation_level else None,
+            session_id=session_id,
+        )
 
         return transaction_id
 
@@ -141,7 +151,7 @@ class TransactionMonitor:
         status: Optional[TransactionStatus] = None,
         affected_table: Optional[str] = None,
         retry_count: Optional[int] = None,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
     ):
         """トランザクション状態の更新"""
         with self.lock:
@@ -161,7 +171,7 @@ class TransactionMonitor:
         self,
         transaction_id: str,
         status: TransactionStatus,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
     ):
         """トランザクション完了の記録"""
         with self.lock:
@@ -189,15 +199,17 @@ class TransactionMonitor:
             status=status.value,
             retry_count=metrics.retry_count,
             operations_count=metrics.operations_count,
-            affected_tables_count=len(metrics.affected_tables)
+            affected_tables_count=len(metrics.affected_tables),
         )
 
-        logger.info("トランザクション完了",
-                   transaction_id=transaction_id,
-                   status=status.value,
-                   duration_ms=metrics.duration_ms,
-                   operations_count=metrics.operations_count,
-                   retry_count=metrics.retry_count)
+        logger.info(
+            "トランザクション完了",
+            transaction_id=transaction_id,
+            status=status.value,
+            duration_ms=metrics.duration_ms,
+            operations_count=metrics.operations_count,
+            retry_count=metrics.retry_count,
+        )
 
     def get_active_transactions(self) -> List[TransactionMetrics]:
         """実行中のトランザクション一覧"""
@@ -205,9 +217,7 @@ class TransactionMonitor:
             return list(self.active_transactions.values())
 
     def get_completed_transactions(
-        self,
-        limit: int = 100,
-        status_filter: Optional[TransactionStatus] = None
+        self, limit: int = 100, status_filter: Optional[TransactionStatus] = None
     ) -> List[TransactionMetrics]:
         """完了済みトランザクション一覧"""
         with self.lock:
@@ -224,8 +234,7 @@ class TransactionMonitor:
 
         with self.lock:
             recent_transactions = [
-                t for t in self.completed_transactions
-                if t.start_time >= cutoff_time
+                t for t in self.completed_transactions if t.start_time >= cutoff_time
             ]
 
         if not recent_transactions:
@@ -235,14 +244,22 @@ class TransactionMonitor:
                 "success_rate": 0.0,
                 "average_duration_ms": 0.0,
                 "total_operations": 0,
-                "retry_rate": 0.0
+                "retry_rate": 0.0,
             }
 
-        successful = [t for t in recent_transactions if t.status == TransactionStatus.COMMITTED]
-        failed = [t for t in recent_transactions if t.status in [TransactionStatus.FAILED, TransactionStatus.ROLLED_BACK]]
+        successful = [
+            t for t in recent_transactions if t.status == TransactionStatus.COMMITTED
+        ]
+        failed = [
+            t
+            for t in recent_transactions
+            if t.status in [TransactionStatus.FAILED, TransactionStatus.ROLLED_BACK]
+        ]
         retried = [t for t in recent_transactions if t.retry_count > 0]
 
-        durations = [t.duration_ms for t in recent_transactions if t.duration_ms is not None]
+        durations = [
+            t.duration_ms for t in recent_transactions if t.duration_ms is not None
+        ]
         avg_duration = sum(durations) / len(durations) if durations else 0.0
 
         return {
@@ -255,7 +272,9 @@ class TransactionMonitor:
             "retry_rate": len(retried) / len(recent_transactions) * 100,
             "average_duration_ms": avg_duration,
             "total_operations": sum(t.operations_count for t in recent_transactions),
-            "affected_tables": len(set().union(*[t.affected_tables for t in recent_transactions]))
+            "affected_tables": len(
+                set().union(*[t.affected_tables for t in recent_transactions])
+            ),
         }
 
 
@@ -277,7 +296,7 @@ class EnhancedTransactionManager:
         retry_delay: float = 0.1,
         timeout_seconds: Optional[float] = None,
         readonly: bool = False,
-        transaction_id: Optional[str] = None
+        transaction_id: Optional[str] = None,
     ):
         """
         強化されたトランザクション管理
@@ -302,8 +321,7 @@ class EnhancedTransactionManager:
 
         # トランザクション開始を記録
         self.monitor.start_transaction(
-            transaction_id=transaction_id,
-            isolation_level=isolation_level
+            transaction_id=transaction_id, isolation_level=isolation_level
         )
 
         start_time = time.time()
@@ -315,18 +333,22 @@ class EnhancedTransactionManager:
 
                 # トランザクション設定
                 if isolation_level:
-                    session.execute(text(f"SET TRANSACTION ISOLATION LEVEL {isolation_level.value}"))
+                    session.execute(
+                        text(f"SET TRANSACTION ISOLATION LEVEL {isolation_level.value}")
+                    )
 
                 if readonly:
                     session.execute(text("SET TRANSACTION READ ONLY"))
 
                 # セッション情報にトランザクションIDを設定
-                session.info['transaction_id'] = transaction_id
+                session.info["transaction_id"] = transaction_id
 
                 # タイムアウト監視
                 session.execute(text("BEGIN"))
 
-                self.monitor.update_transaction(transaction_id, status=TransactionStatus.ACTIVE)
+                self.monitor.update_transaction(
+                    transaction_id, status=TransactionStatus.ACTIVE
+                )
 
                 # タイムアウトチェック用の開始時間
                 operation_start = time.time()
@@ -335,15 +357,17 @@ class EnhancedTransactionManager:
                     yield session
 
                     # タイムアウトチェック
-                    if timeout_seconds and (time.time() - operation_start) > timeout_seconds:
+                    if (
+                        timeout_seconds
+                        and (time.time() - operation_start) > timeout_seconds
+                    ):
                         raise OperationalError("Transaction timeout", None, None)
 
                     session.commit()
 
                     # 成功を記録
                     self.monitor.complete_transaction(
-                        transaction_id,
-                        TransactionStatus.COMMITTED
+                        transaction_id, TransactionStatus.COMMITTED
                     )
 
                     # ビジネスイベントログ
@@ -352,8 +376,10 @@ class EnhancedTransactionManager:
                         transaction_id=transaction_id,
                         duration_ms=(time.time() - start_time) * 1000,
                         attempt=attempt + 1,
-                        isolation_level=isolation_level.value if isolation_level else None,
-                        readonly=readonly
+                        isolation_level=isolation_level.value
+                        if isolation_level
+                        else None,
+                        readonly=readonly,
                     )
 
                     return
@@ -364,49 +390,55 @@ class EnhancedTransactionManager:
 
             except (OperationalError, IntegrityError) as e:
                 self.monitor.update_transaction(
-                    transaction_id,
-                    retry_count=attempt,
-                    error_message=str(e)
+                    transaction_id, retry_count=attempt, error_message=str(e)
                 )
 
                 if attempt < retry_count and db_manager._is_retriable_error(e):
-                    logger.warning("トランザクション再試行",
-                                 transaction_id=transaction_id,
-                                 attempt=attempt + 1,
-                                 max_attempts=retry_count + 1,
-                                 error=str(e))
+                    logger.warning(
+                        "トランザクション再試行",
+                        transaction_id=transaction_id,
+                        attempt=attempt + 1,
+                        max_attempts=retry_count + 1,
+                        error=str(e),
+                    )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # 指数バックオフ
                     continue
                 else:
                     # 失敗を記録
                     self.monitor.complete_transaction(
-                        transaction_id,
-                        TransactionStatus.FAILED,
-                        str(e)
+                        transaction_id, TransactionStatus.FAILED, str(e)
                     )
 
-                    log_error_with_context(e, {
-                        "transaction_id": transaction_id,
-                        "attempts": attempt + 1,
-                        "isolation_level": isolation_level.value if isolation_level else None,
-                        "readonly": readonly
-                    })
+                    log_error_with_context(
+                        e,
+                        {
+                            "transaction_id": transaction_id,
+                            "attempts": attempt + 1,
+                            "isolation_level": isolation_level.value
+                            if isolation_level
+                            else None,
+                            "readonly": readonly,
+                        },
+                    )
                     raise
 
             except Exception as e:
                 # その他のエラー
                 self.monitor.complete_transaction(
-                    transaction_id,
-                    TransactionStatus.FAILED,
-                    str(e)
+                    transaction_id, TransactionStatus.FAILED, str(e)
                 )
 
-                log_error_with_context(e, {
-                    "transaction_id": transaction_id,
-                    "error_type": "unexpected",
-                    "isolation_level": isolation_level.value if isolation_level else None
-                })
+                log_error_with_context(
+                    e,
+                    {
+                        "transaction_id": transaction_id,
+                        "error_type": "unexpected",
+                        "isolation_level": isolation_level.value
+                        if isolation_level
+                        else None,
+                    },
+                )
                 raise
 
             finally:
@@ -447,9 +479,11 @@ class EnhancedTransactionManager:
                     session.flush()
 
                 except Exception as e:
-                    logger.error(f"分散トランザクションPhase1失敗 (context {i})",
-                               transaction_id=transaction_id,
-                               error=str(e))
+                    logger.error(
+                        f"分散トランザクションPhase1失敗 (context {i})",
+                        transaction_id=transaction_id,
+                        error=str(e),
+                    )
                     raise
 
             # Phase 2: Commit (すべて成功した場合のみコミット)
@@ -460,7 +494,7 @@ class EnhancedTransactionManager:
                 "distributed_transaction_completed",
                 transaction_id=transaction_id,
                 contexts_count=len(transaction_contexts),
-                status="success"
+                status="success",
             )
 
             logger.info("分散トランザクション完了", transaction_id=transaction_id)
@@ -472,18 +506,22 @@ class EnhancedTransactionManager:
                 try:
                     session.rollback()
                 except Exception as rollback_error:
-                    logger.error("分散トランザクションロールバック失敗",
-                               transaction_id=transaction_id,
-                               rollback_error=str(rollback_error))
+                    logger.error(
+                        "分散トランザクションロールバック失敗",
+                        transaction_id=transaction_id,
+                        rollback_error=str(rollback_error),
+                    )
 
             log_business_event(
                 "distributed_transaction_failed",
                 transaction_id=transaction_id,
                 contexts_count=len(transaction_contexts),
-                error=str(e)
+                error=str(e),
             )
 
-            logger.error("分散トランザクション失敗", transaction_id=transaction_id, error=str(e))
+            logger.error(
+                "分散トランザクション失敗", transaction_id=transaction_id, error=str(e)
+            )
             raise
 
         finally:
@@ -493,9 +531,7 @@ class EnhancedTransactionManager:
                     session.close()
 
     def execute_with_savepoint(
-        self,
-        operations: List[Callable],
-        savepoint_name: str = "sp1"
+        self, operations: List[Callable], savepoint_name: str = "sp1"
     ):
         """
         セーブポイントを使用した部分ロールバック対応処理
@@ -518,10 +554,12 @@ class EnhancedTransactionManager:
                         session.flush()
 
                     except Exception as operation_error:
-                        logger.warning(f"操作 {i} でエラー、セーブポイントにロールバック",
-                                     transaction_id=transaction_id,
-                                     operation_index=i,
-                                     error=str(operation_error))
+                        logger.warning(
+                            f"操作 {i} でエラー、セーブポイントにロールバック",
+                            transaction_id=transaction_id,
+                            operation_index=i,
+                            error=str(operation_error),
+                        )
 
                         # セーブポイントにロールバック
                         session.execute(text(f"ROLLBACK TO SAVEPOINT {savepoint_name}"))
@@ -533,7 +571,11 @@ class EnhancedTransactionManager:
                 session.execute(text(f"RELEASE SAVEPOINT {savepoint_name}"))
 
             except Exception as e:
-                logger.error("セーブポイント処理失敗", transaction_id=transaction_id, error=str(e))
+                logger.error(
+                    "セーブポイント処理失敗",
+                    transaction_id=transaction_id,
+                    error=str(e),
+                )
                 raise
 
 
@@ -551,6 +593,7 @@ def with_transaction_monitoring(func: Callable) -> Callable:
             # データベース処理
             pass
     """
+
     def wrapper(*args, **kwargs):
         transaction_id = str(uuid4())
 
@@ -560,16 +603,13 @@ def with_transaction_monitoring(func: Callable) -> Callable:
         try:
             result = func(*args, **kwargs)
             transaction_monitor.complete_transaction(
-                transaction_id,
-                TransactionStatus.COMMITTED
+                transaction_id, TransactionStatus.COMMITTED
             )
             return result
 
         except Exception as e:
             transaction_monitor.complete_transaction(
-                transaction_id,
-                TransactionStatus.FAILED,
-                str(e)
+                transaction_id, TransactionStatus.FAILED, str(e)
             )
             raise
 
@@ -591,8 +631,7 @@ def get_transaction_health_report() -> Dict[str, Any]:
     now = datetime.now()
     long_running_threshold = timedelta(minutes=5)
     long_running = [
-        t for t in active_transactions
-        if (now - t.start_time) > long_running_threshold
+        t for t in active_transactions if (now - t.start_time) > long_running_threshold
     ]
 
     return {
@@ -602,25 +641,35 @@ def get_transaction_health_report() -> Dict[str, Any]:
         "stats_24h": stats_24h,
         "stats_1h": stats_1h,
         "health_status": "healthy" if stats_24h["success_rate"] > 95 else "warning",
-        "recommendations": _generate_health_recommendations(stats_24h, long_running)
+        "recommendations": _generate_health_recommendations(stats_24h, long_running),
     }
 
 
-def _generate_health_recommendations(stats: Dict[str, Any], long_running: List[TransactionMetrics]) -> List[str]:
+def _generate_health_recommendations(
+    stats: Dict[str, Any], long_running: List[TransactionMetrics]
+) -> List[str]:
     """健全性改善提案を生成"""
     recommendations = []
 
     if stats["success_rate"] < 95:
-        recommendations.append("トランザクション成功率が低下しています。エラーログを確認してください。")
+        recommendations.append(
+            "トランザクション成功率が低下しています。エラーログを確認してください。"
+        )
 
     if stats["retry_rate"] > 10:
-        recommendations.append("再試行率が高いです。データベース負荷やロック競合を確認してください。")
+        recommendations.append(
+            "再試行率が高いです。データベース負荷やロック競合を確認してください。"
+        )
 
     if stats["average_duration_ms"] > 1000:
-        recommendations.append("トランザクション実行時間が長いです。クエリ最適化を検討してください。")
+        recommendations.append(
+            "トランザクション実行時間が長いです。クエリ最適化を検討してください。"
+        )
 
     if long_running:
-        recommendations.append(f"{len(long_running)}個の長時間実行トランザクションが検出されました。")
+        recommendations.append(
+            f"{len(long_running)}個の長時間実行トランザクションが検出されました。"
+        )
 
     if not recommendations:
         recommendations.append("トランザクション処理は健全に動作しています。")

@@ -44,8 +44,17 @@ class SensitiveDataSanitizer:
             sensitive_patterns: 機密と見なすパターンのリスト
         """
         self.sensitive_patterns = sensitive_patterns or [
-            "password", "passwd", "pwd", "token", "key", "secret",
-            "credential", "auth", "api_key", "access_token", "private_key"
+            "password",
+            "passwd",
+            "pwd",
+            "token",
+            "key",
+            "secret",
+            "credential",
+            "auth",
+            "api_key",
+            "access_token",
+            "private_key",
         ]
 
         # 正規表現パターンをコンパイル
@@ -65,11 +74,11 @@ class SensitiveDataSanitizer:
 
         # 一般的な機密情報の形式をチェック
         # APIキーっぽい形式 (32文字以上の英数字)
-        if re.match(r'^[a-zA-Z0-9]{32,}$', text):
+        if re.match(r"^[a-zA-Z0-9]{32,}$", text):
             return True
 
         # JWTトークンっぽい形式
-        return bool(text.count('.') == 2 and len(text) > 100)
+        return bool(text.count(".") == 2 and len(text) > 100)
 
     def sanitize(self, text: str, mask_char: str = "*") -> str:
         """機密情報をマスキング"""
@@ -130,29 +139,33 @@ class MessageLoader:
         """メッセージファイルをロード"""
         try:
             if not self.messages_file.exists():
-                raise FileNotFoundError(f"Messages file not found: {self.messages_file}")
+                raise FileNotFoundError(
+                    f"Messages file not found: {self.messages_file}"
+                )
 
-            with open(self.messages_file, encoding='utf-8') as f:
+            with open(self.messages_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             # 各セクションを統合
             self._messages = {}
             for category_name, category_data in data.items():
-                if isinstance(category_data, dict) and category_name.endswith('_errors'):
+                if isinstance(category_data, dict) and category_name.endswith(
+                    "_errors"
+                ):
                     for key, value in category_data.items():
                         self._messages[key] = value
 
             # 例外マッピング
-            self._exception_mapping = data.get('exception_mapping', {})
+            self._exception_mapping = data.get("exception_mapping", {})
 
             # 機密パターン
-            self._sensitive_patterns = data.get('sensitive_patterns', [])
+            self._sensitive_patterns = data.get("sensitive_patterns", [])
 
             # UIメッセージ
-            self._ui_messages = data.get('ui_messages', {})
+            self._ui_messages = data.get("ui_messages", {})
 
             # general_errorsから一般エラーを追加
-            general_errors = data.get('general_errors', {})
+            general_errors = data.get("general_errors", {})
             for key, value in general_errors.items():
                 self._messages[key] = value
 
@@ -170,27 +183,22 @@ class MessageLoader:
                     "message": "予期しないエラーが発生しました。",
                     "solutions": ["アプリケーションを再起動してください"],
                     "emoji": "❓",
-                    "category": "general"
+                    "category": "general",
                 },
                 "en": {
                     "title": "Unknown Error",
                     "message": "An unexpected error occurred.",
                     "solutions": ["Restart the application"],
                     "emoji": "❓",
-                    "category": "general"
-                }
+                    "category": "general",
+                },
             }
         }
 
-        self._exception_mapping = {
-            "Exception": "UNKNOWN_ERROR"
-        }
+        self._exception_mapping = {"Exception": "UNKNOWN_ERROR"}
 
         self._ui_messages = {
-            "solutions_header": {
-                "ja": "💡 解決方法:",
-                "en": "💡 Solutions:"
-            }
+            "solutions_header": {"ja": "💡 解決方法:", "en": "💡 Solutions:"}
         }
 
     @property
@@ -217,7 +225,7 @@ class EnhancedI18nMessageHandler:
         self,
         language: Language = Language.JAPANESE,
         message_loader: Optional[MessageLoader] = None,
-        sanitizer: Optional[SensitiveDataSanitizer] = None
+        sanitizer: Optional[SensitiveDataSanitizer] = None,
     ):
         """
         Args:
@@ -274,12 +282,15 @@ class EnhancedI18nMessageHandler:
         # それでもない場合はデフォルトメッセージ
         if not lang_data:
             unknown_error = self.message_loader.messages.get("UNKNOWN_ERROR", {})
-            lang_data = unknown_error.get(self.language.value, {
-                "title": "Unknown Error",
-                "message": "An unexpected error occurred.",
-                "solutions": ["Restart the application"],
-                "emoji": "❓"
-            })
+            lang_data = unknown_error.get(
+                self.language.value,
+                {
+                    "title": "Unknown Error",
+                    "message": "An unexpected error occurred.",
+                    "solutions": ["Restart the application"],
+                    "emoji": "❓",
+                },
+            )
 
         # コンテキスト情報を適用
         result = lang_data.copy()
@@ -310,18 +321,18 @@ class EnhancedI18nMessageHandler:
             メッセージ辞書
         """
         exception_name = type(exception).__name__
-        error_code = self.message_loader.exception_mapping.get(exception_name, "UNKNOWN_ERROR")
+        error_code = self.message_loader.exception_mapping.get(
+            exception_name, "UNKNOWN_ERROR"
+        )
 
         # カスタム例外の対応
-        if hasattr(exception, 'error_code'):
+        if hasattr(exception, "error_code"):
             error_code = exception.error_code
 
         return self.get_message(error_code, language, context)
 
     def format_solutions_list(
-        self,
-        solutions: List[str],
-        language: Optional[Language] = None
+        self, solutions: List[str], language: Optional[Language] = None
     ) -> str:
         """
         解決策リストをフォーマット（外部化されたヘッダー使用）
@@ -395,8 +406,7 @@ def get_default_handler() -> EnhancedI18nMessageHandler:
 
 
 def create_handler(
-    language: Language = Language.JAPANESE,
-    messages_file: Optional[str] = None
+    language: Language = Language.JAPANESE, messages_file: Optional[str] = None
 ) -> EnhancedI18nMessageHandler:
     """新しいハンドラーインスタンスを作成（依存性注入対応）"""
     loader = MessageLoader(messages_file) if messages_file else None

@@ -4,6 +4,7 @@
 このモジュールは、day_tradeアプリケーションの完全なワークフローをテストします。
 Issue #177: CI最適化の一環として統合テストの実装を促進。
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,7 +44,7 @@ class TestEndToEndWorkflow:
         assert True, "データベース統合テスト実装予定"
 
     @pytest.mark.slow
-    @patch('yfinance.download')
+    @patch("yfinance.download")
     def test_external_api_integration_placeholder(self, mock_yfinance):
         """外部API統合テストのプレースホルダー
 

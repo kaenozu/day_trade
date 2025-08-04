@@ -242,8 +242,11 @@ class PortfolioAnalyzer:
                             weights.append(float(position.market_value / total_value))
 
                 except Exception as e:
-                    logger.warning("Symbol volatility calculation failed, excluding from portfolio calculation",
-                                 symbol=symbol, error=str(e))
+                    logger.warning(
+                        "Symbol volatility calculation failed, excluding from portfolio calculation",
+                        symbol=symbol,
+                        error=str(e),
+                    )
                     continue
 
             if not returns_data:
@@ -260,10 +263,13 @@ class PortfolioAnalyzer:
             return math.sqrt(portfolio_variance)
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "portfolio_volatility_calculation",
-                "position_count": len(positions)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "portfolio_volatility_calculation",
+                    "position_count": len(positions),
+                },
+            )
             return None
 
     def _calculate_sharpe_ratio(
@@ -287,11 +293,14 @@ class PortfolioAnalyzer:
             return excess_return / volatility
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "sharpe_ratio_calculation",
-                "volatility": volatility,
-                "risk_free_rate": self.risk_free_rate
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "sharpe_ratio_calculation",
+                    "volatility": volatility,
+                    "risk_free_rate": self.risk_free_rate,
+                },
+            )
             return None
 
     def _calculate_max_drawdown(
@@ -313,10 +322,13 @@ class PortfolioAnalyzer:
             return abs(min(pnl_values, default=0)) / 100
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "max_drawdown_calculation",
-                "position_count": len(positions)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "max_drawdown_calculation",
+                    "position_count": len(positions),
+                },
+            )
             return None
 
     def _calculate_win_ratio(self) -> Optional[float]:
@@ -332,10 +344,13 @@ class PortfolioAnalyzer:
             return wins / total if total > 0 else None
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "win_ratio_calculation",
-                "realized_pnl_count": len(self.trade_manager.realized_pnl)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "win_ratio_calculation",
+                    "realized_pnl_count": len(self.trade_manager.realized_pnl),
+                },
+            )
             return None
 
     def _calculate_concentration_risk(
@@ -361,10 +376,13 @@ class PortfolioAnalyzer:
             return hhi
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "concentration_risk_calculation",
-                "position_count": len(positions)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "concentration_risk_calculation",
+                    "position_count": len(positions),
+                },
+            )
             return None
 
     def _calculate_sector_diversity(
@@ -401,10 +419,13 @@ class PortfolioAnalyzer:
             return normalized_diversity
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "sector_diversity_calculation",
-                "position_count": len(positions)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "sector_diversity_calculation",
+                    "position_count": len(positions),
+                },
+            )
             return None
 
     def export_report_to_csv(self, filename: str) -> None:
@@ -447,15 +468,16 @@ class PortfolioAnalyzer:
                 sector_file = f"{base_name}_sectors_{timestamp}.csv"
                 df_sectors.to_csv(sector_file, index=False, encoding="utf-8-sig")
 
-            logger.info("Portfolio report exported to CSV",
-                       metrics_file=metrics_file,
-                       sector_file=sector_file if report.sector_allocations else None)
+            logger.info(
+                "Portfolio report exported to CSV",
+                metrics_file=metrics_file,
+                sector_file=sector_file if report.sector_allocations else None,
+            )
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "portfolio_csv_export",
-                "filename": filename
-            })
+            log_error_with_context(
+                e, {"operation": "portfolio_csv_export", "filename": filename}
+            )
             raise
 
     def export_report_to_json(self, filename: str) -> None:
@@ -487,10 +509,9 @@ class PortfolioAnalyzer:
             logger.info("Portfolio report exported to JSON", output_file=output_file)
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "portfolio_json_export",
-                "filename": filename
-            })
+            log_error_with_context(
+                e, {"operation": "portfolio_json_export", "filename": filename}
+            )
             raise
 
 
@@ -531,7 +552,7 @@ if __name__ == "__main__":
         total_pnl=float(metrics.total_pnl),
         total_pnl_percent=float(metrics.total_pnl_percent),
         volatility=float(metrics.volatility) if metrics.volatility else None,
-        sharpe_ratio=float(metrics.sharpe_ratio) if metrics.sharpe_ratio else None
+        sharpe_ratio=float(metrics.sharpe_ratio) if metrics.sharpe_ratio else None,
     )
 
     # セクター配分
@@ -542,7 +563,7 @@ if __name__ == "__main__":
             section="sector_allocation",
             sector=alloc.sector,
             percentage=float(alloc.percentage),
-            value=float(alloc.value)
+            value=float(alloc.value),
         )
 
     # パフォーマンスランキング
@@ -554,7 +575,7 @@ if __name__ == "__main__":
             "パフォーマンス上位",
             section="performance_ranking_top",
             symbol=symbol,
-            pnl_percent=float(pnl_pct)
+            pnl_percent=float(pnl_pct),
         )
 
     for symbol, pnl_pct in worst:
@@ -562,5 +583,5 @@ if __name__ == "__main__":
             "パフォーマンス下位",
             section="performance_ranking_worst",
             symbol=symbol,
-            pnl_percent=float(pnl_pct)
+            pnl_percent=float(pnl_pct),
         )

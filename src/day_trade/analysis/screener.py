@@ -317,8 +317,7 @@ class StockScreener:
                         return True, score
 
             elif condition == ScreenerCondition.BOLLINGER_BREAKOUT and (
-                "BB_Upper" in indicators.columns
-                and "BB_Lower" in indicators.columns
+                "BB_Upper" in indicators.columns and "BB_Lower" in indicators.columns
             ):
                 current_price = df["Close"].iloc[-1]
                 bb_upper = indicators["BB_Upper"].iloc[-1]
@@ -327,16 +326,12 @@ class StockScreener:
                 if pd.notna(bb_upper) and pd.notna(bb_lower):
                     # 上限突破
                     if current_price > bb_upper:
-                        breakout_strength = (
-                            (current_price - bb_upper) / bb_upper * 100
-                        )
+                        breakout_strength = (current_price - bb_upper) / bb_upper * 100
                         score = min(breakout_strength * 50, 100)
                         return True, score
                     # 下限突破（買いシグナルとして）
                     elif current_price < bb_lower:
-                        breakout_strength = (
-                            (bb_lower - current_price) / bb_lower * 100
-                        )
+                        breakout_strength = (bb_lower - current_price) / bb_lower * 100
                         score = min(breakout_strength * 50, 100)
                         return True, score
 
@@ -581,15 +576,19 @@ if __name__ == "__main__":
 
         if results:
             report = create_screening_report(results)
-            logger.info("スクリーニング結果レポート",
-                       matching_stocks=len(results),
-                       report_generated=True,
-                       screened_symbols=symbols)
+            logger.info(
+                "スクリーニング結果レポート",
+                matching_stocks=len(results),
+                report_generated=True,
+                screened_symbols=symbols,
+            )
         else:
-            logger.info("スクリーニング結果",
-                       result="no_matching_stocks",
-                       screened_symbols=symbols,
-                       symbols_count=len(symbols))
+            logger.info(
+                "スクリーニング結果",
+                result="no_matching_stocks",
+                screened_symbols=symbols,
+                symbols_count=len(symbols),
+            )
 
     except Exception as e:
         logger.error(f"スクリーニング実行エラー: {e}")

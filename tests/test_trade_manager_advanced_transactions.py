@@ -29,22 +29,22 @@ def sample_trades_data():
             "trade_type": TradeType.BUY,
             "quantity": 100,
             "price": Decimal("2500"),
-            "notes": "バッチ取引1"
+            "notes": "バッチ取引1",
         },
         {
             "symbol": "8306",
             "trade_type": TradeType.BUY,
             "quantity": 50,
             "price": Decimal("800"),
-            "notes": "バッチ取引2"
+            "notes": "バッチ取引2",
         },
         {
             "symbol": "9984",
             "trade_type": TradeType.BUY,
             "quantity": 10,
             "price": Decimal("15000"),
-            "notes": "バッチ取引3"
-        }
+            "notes": "バッチ取引3",
+        },
     ]
 
 
@@ -54,7 +54,9 @@ class TestBatchTradeOperations:
     def test_add_trades_batch_memory_only(self, trade_manager, sample_trades_data):
         """メモリ内のみの一括取引追加テスト"""
         # 実行
-        trade_ids = trade_manager.add_trades_batch(sample_trades_data, persist_to_db=False)
+        trade_ids = trade_manager.add_trades_batch(
+            sample_trades_data, persist_to_db=False
+        )
 
         # 検証
         assert len(trade_ids) == 3
@@ -71,10 +73,14 @@ class TestBatchTradeOperations:
         assert position_7203.quantity == 100
         assert position_7203.average_price > Decimal("2500")  # 手数料込み
 
-    def test_add_trades_batch_with_db_persistence(self, trade_manager, sample_trades_data):
+    def test_add_trades_batch_with_db_persistence(
+        self, trade_manager, sample_trades_data
+    ):
         """データベース永続化を含む一括取引追加テスト"""
         # 実行
-        trade_ids = trade_manager.add_trades_batch(sample_trades_data, persist_to_db=True)
+        trade_ids = trade_manager.add_trades_batch(
+            sample_trades_data, persist_to_db=True
+        )
 
         # 検証
         assert len(trade_ids) == 3
@@ -83,6 +89,7 @@ class TestBatchTradeOperations:
         # データベースに保存されていることを確認
         with db_manager.session_scope() as session:
             from src.day_trade.models.stock import Trade as DBTrade
+
             db_trades = session.query(DBTrade).all()
             assert len(db_trades) >= 3  # 他のテストからの残りがある可能性
 
@@ -103,14 +110,14 @@ class TestBatchTradeOperations:
                 "symbol": "7203",
                 "trade_type": TradeType.BUY,
                 "quantity": 100,
-                "price": Decimal("2500")
+                "price": Decimal("2500"),
             },
             {
                 "symbol": "INVALID",
                 "trade_type": TradeType.BUY,
                 "quantity": 50,
-                "price": "INVALID_PRICE"  # 無効な価格（文字列）
-            }
+                "price": "INVALID_PRICE",  # 無効な価格（文字列）
+            },
         ]
 
         # 実行前の状態確認
@@ -125,10 +132,12 @@ class TestBatchTradeOperations:
         assert len(trade_manager.trades) == initial_trades_count
         assert len(trade_manager.positions) == initial_positions_count
 
-    def test_add_trades_batch_partial_processing(self, trade_manager, sample_trades_data):
+    def test_add_trades_batch_partial_processing(
+        self, trade_manager, sample_trades_data
+    ):
         """部分的な処理でのトランザクション保護テスト"""
         # DB永続化でエラーを発生させるためのモック
-        with patch('src.day_trade.models.stock.Trade.create_buy_trade') as mock_create:
+        with patch("src.day_trade.models.stock.Trade.create_buy_trade") as mock_create:
             # 2回目の呼び出しでエラーを発生
             mock_create.side_effect = [None, DatabaseError("DB Error"), None]
 
@@ -168,6 +177,7 @@ class TestDataClearOperations:
         # データベースにデータが存在することを確認
         with db_manager.session_scope() as session:
             from src.day_trade.models.stock import Trade as DBTrade
+
             initial_db_count = session.query(DBTrade).count()
             assert initial_db_count > 0
 
@@ -182,6 +192,7 @@ class TestDataClearOperations:
         # データベースのクリア確認
         with db_manager.session_scope() as session:
             from src.day_trade.models.stock import Trade as DBTrade
+
             final_db_count = session.query(DBTrade).count()
             assert final_db_count == 0
 
@@ -193,7 +204,7 @@ class TestDataClearOperations:
         initial_positions = trade_manager.positions.copy()
 
         # DBエラーをシミュレート
-        with patch.object(db_manager, 'transaction_scope') as mock_transaction:
+        with patch.object(db_manager, "transaction_scope") as mock_transaction:
             mock_transaction.side_effect = DatabaseError("DB Connection Error")
 
             # エラーが発生することを確認
@@ -211,7 +222,9 @@ class TestImprovedLoadOperations:
     def test_load_trades_from_db_atomic_operation(self, trade_manager):
         """データベース読み込みの原子性テスト"""
         # 事前にメモリ内データを作成
-        trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
+        trade_manager.add_trade(
+            "7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False
+        )
         trade_manager.trades.copy()
 
         # データベースに別のデータを追加
@@ -222,7 +235,13 @@ class TestImprovedLoadOperations:
             # 銘柄マスタ確認・作成
             stock = session.query(Stock).filter(Stock.code == "8306").first()
             if not stock:
-                stock = Stock(code="8306", name="三菱UFJ", market="東証プライム", sector="金融", industry="銀行")
+                stock = Stock(
+                    code="8306",
+                    name="三菱UFJ",
+                    market="東証プライム",
+                    sector="金融",
+                    industry="銀行",
+                )
                 session.add(stock)
                 session.flush()
 
@@ -233,7 +252,7 @@ class TestImprovedLoadOperations:
                 quantity=50,
                 price=800.0,
                 commission=100.0,
-                memo="DB読み込みテスト"
+                memo="DB読み込みテスト",
             )
 
         # データベースから再読み込み
@@ -254,7 +273,7 @@ class TestImprovedLoadOperations:
         initial_positions = trade_manager.positions.copy()
 
         # _load_trades_from_dbでエラーをシミュレート
-        with patch.object(trade_manager, '_load_trades_from_db') as mock_load:
+        with patch.object(trade_manager, "_load_trades_from_db") as mock_load:
             mock_load.side_effect = DatabaseError("DB Load Error")
 
             # エラーが発生することを確認
@@ -273,10 +292,30 @@ class TestTransactionIntegrity:
         """複雑なトランザクションシナリオのテスト"""
         # 複数銘柄での複雑な取引シナリオ
         complex_trades = [
-            {"symbol": "7203", "trade_type": TradeType.BUY, "quantity": 100, "price": Decimal("2500")},
-            {"symbol": "7203", "trade_type": TradeType.BUY, "quantity": 200, "price": Decimal("2450")},
-            {"symbol": "8306", "trade_type": TradeType.BUY, "quantity": 1000, "price": Decimal("800")},
-            {"symbol": "7203", "trade_type": TradeType.SELL, "quantity": 150, "price": Decimal("2600")},
+            {
+                "symbol": "7203",
+                "trade_type": TradeType.BUY,
+                "quantity": 100,
+                "price": Decimal("2500"),
+            },
+            {
+                "symbol": "7203",
+                "trade_type": TradeType.BUY,
+                "quantity": 200,
+                "price": Decimal("2450"),
+            },
+            {
+                "symbol": "8306",
+                "trade_type": TradeType.BUY,
+                "quantity": 1000,
+                "price": Decimal("800"),
+            },
+            {
+                "symbol": "7203",
+                "trade_type": TradeType.SELL,
+                "quantity": 150,
+                "price": Decimal("2600"),
+            },
         ]
 
         # 一括処理で実行
@@ -303,10 +342,20 @@ class TestTransactionIntegrity:
         """同時アクセスシミュレーションテスト"""
         # 複数の操作を順次実行してデータの整合性を確認
         trades_batch_1 = [
-            {"symbol": "7203", "trade_type": TradeType.BUY, "quantity": 100, "price": Decimal("2500")}
+            {
+                "symbol": "7203",
+                "trade_type": TradeType.BUY,
+                "quantity": 100,
+                "price": Decimal("2500"),
+            }
         ]
         trades_batch_2 = [
-            {"symbol": "8306", "trade_type": TradeType.BUY, "quantity": 50, "price": Decimal("800")}
+            {
+                "symbol": "8306",
+                "trade_type": TradeType.BUY,
+                "quantity": 50,
+                "price": Decimal("800"),
+            }
         ]
 
         # バッチ1実行

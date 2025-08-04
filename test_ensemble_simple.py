@@ -7,7 +7,7 @@ import os
 import sys
 
 # パスを追加
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ from src.day_trade.analysis.ensemble import (
 def create_test_data():
     """テストデータ作成"""
 
-    dates = pd.date_range(start='2024-01-01', end='2024-01-31', freq='D')
+    dates = pd.date_range(start="2024-01-01", end="2024-01-31", freq="D")
     np.random.seed(42)
 
     # 基本価格データ
@@ -33,17 +33,20 @@ def create_test_data():
     for r in returns[1:]:
         prices.append(prices[-1] * (1 + r))
 
-    df = pd.DataFrame({
-        'Date': dates,
-        'Open': [p * (1 + np.random.normal(0, 0.005)) for p in prices],
-        'High': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
-        'Low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
-        'Close': prices,
-        'Volume': np.random.randint(100000, 1000000, len(dates))
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Open": [p * (1 + np.random.normal(0, 0.005)) for p in prices],
+            "High": [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
+            "Low": [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
+            "Close": prices,
+            "Volume": np.random.randint(100000, 1000000, len(dates)),
+        }
+    )
 
-    df.set_index('Date', inplace=True)
+    df.set_index("Date", inplace=True)
     return df
+
 
 def test_ensemble_strategies():
     """アンサンブル戦略テスト"""
@@ -59,13 +62,13 @@ def test_ensemble_strategies():
         (EnsembleStrategy.CONSERVATIVE, "保守的"),
         (EnsembleStrategy.AGGRESSIVE, "積極的"),
         (EnsembleStrategy.BALANCED, "バランス型"),
-        (EnsembleStrategy.ADAPTIVE, "適応型")
+        (EnsembleStrategy.ADAPTIVE, "適応型"),
     ]
 
     voting_types = [
         (EnsembleVotingType.SOFT_VOTING, "ソフト投票"),
         (EnsembleVotingType.HARD_VOTING, "ハード投票"),
-        (EnsembleVotingType.WEIGHTED_AVERAGE, "重み付け平均")
+        (EnsembleVotingType.WEIGHTED_AVERAGE, "重み付け平均"),
     ]
 
     results = []
@@ -77,8 +80,7 @@ def test_ensemble_strategies():
 
                 # アンサンブル戦略作成
                 ensemble = EnsembleTradingStrategy(
-                    ensemble_strategy=strategy_type,
-                    voting_type=voting_type
+                    ensemble_strategy=strategy_type, voting_type=voting_type
                 )
 
                 # シグナル生成
@@ -105,36 +107,42 @@ def test_ensemble_strategies():
                             else:
                                 print(f"  {feature}: {value}")
 
-                    results.append({
-                        'strategy': strategy_name,
-                        'voting': voting_name,
-                        'signal_type': signal.signal_type.value,
-                        'confidence': signal.confidence,
-                        'success': True
-                    })
+                    results.append(
+                        {
+                            "strategy": strategy_name,
+                            "voting": voting_name,
+                            "signal_type": signal.signal_type.value,
+                            "confidence": signal.confidence,
+                            "success": True,
+                        }
+                    )
                 else:
                     print("シグナルなし")
-                    results.append({
-                        'strategy': strategy_name,
-                        'voting': voting_name,
-                        'signal_type': 'none',
-                        'confidence': 0,
-                        'success': False
-                    })
+                    results.append(
+                        {
+                            "strategy": strategy_name,
+                            "voting": voting_name,
+                            "signal_type": "none",
+                            "confidence": 0,
+                            "success": False,
+                        }
+                    )
 
             except Exception as e:
                 print(f"エラー: {e}")
-                results.append({
-                    'strategy': strategy_name,
-                    'voting': voting_name,
-                    'error': str(e),
-                    'success': False
-                })
+                results.append(
+                    {
+                        "strategy": strategy_name,
+                        "voting": voting_name,
+                        "error": str(e),
+                        "success": False,
+                    }
+                )
 
     # 結果サマリー
     print("\n=== テスト結果サマリー ===")
-    successful_tests = [r for r in results if r.get('success', False)]
-    failed_tests = [r for r in results if not r.get('success', False)]
+    successful_tests = [r for r in results if r.get("success", False)]
+    failed_tests = [r for r in results if not r.get("success", False)]
 
     print(f"成功: {len(successful_tests)}/{len(results)}")
     print(f"失敗: {len(failed_tests)}/{len(results)}")
@@ -142,18 +150,21 @@ def test_ensemble_strategies():
     if successful_tests:
         print("\n成功したテスト:")
         for result in successful_tests:
-            print(f"  {result['strategy']} + {result['voting']}: "
-                  f"{result['signal_type']} (信頼度: {result['confidence']:.1f}%)")
+            print(
+                f"  {result['strategy']} + {result['voting']}: "
+                f"{result['signal_type']} (信頼度: {result['confidence']:.1f}%)"
+            )
 
     if failed_tests:
         print("\n失敗したテスト:")
         for result in failed_tests:
-            if 'error' in result:
+            if "error" in result:
                 print(f"  {result['strategy']} + {result['voting']}: {result['error']}")
             else:
                 print(f"  {result['strategy']} + {result['voting']}: シグナルなし")
 
     return results
+
 
 def test_strategy_summary():
     """戦略サマリーテスト"""
@@ -163,7 +174,7 @@ def test_strategy_summary():
     try:
         ensemble = EnsembleTradingStrategy(
             ensemble_strategy=EnsembleStrategy.BALANCED,
-            voting_type=EnsembleVotingType.SOFT_VOTING
+            voting_type=EnsembleVotingType.SOFT_VOTING,
         )
 
         summary = ensemble.get_strategy_summary()
@@ -178,6 +189,7 @@ def test_strategy_summary():
         print(f"戦略サマリーテストエラー: {e}")
         return False
 
+
 if __name__ == "__main__":
     print("アンサンブル戦略シンプルテスト開始")
 
@@ -188,7 +200,7 @@ if __name__ == "__main__":
     summary_success = test_strategy_summary()
 
     # 全体結果
-    successful_tests = len([r for r in results if r.get('success', False)])
+    successful_tests = len([r for r in results if r.get("success", False)])
     total_tests = len(results)
 
     print("\n=== 最終結果 ===")

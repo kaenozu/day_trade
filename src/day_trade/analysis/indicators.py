@@ -31,7 +31,7 @@ class IndicatorsConfig:
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
         try:
-            with open(self.config_path, encoding='utf-8') as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 return json.load(f)
         except FileNotFoundError:
             logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
@@ -51,7 +51,7 @@ class IndicatorsConfig:
                 "rsi": {"period": 14},
                 "stochastic": {"k_period": 14, "d_period": 3, "smooth_k": 3},
                 "volume_analysis": {"period": 20},
-                "atr": {"period": 14}
+                "atr": {"period": 14},
             },
             "calculate_all_defaults": {
                 "sma_periods": [5, 20, 60],
@@ -66,21 +66,19 @@ class IndicatorsConfig:
                 "stoch_d": 3,
                 "stoch_smooth": 3,
                 "volume_period": 20,
-                "atr_period": 14
+                "atr_period": 14,
             },
-            "performance_settings": {
-                "progress_threshold": 100,
-                "batch_concat": True
-            },
-            "error_handling": {
-                "return_none_on_error": False,
-                "detailed_logging": True
-            }
+            "performance_settings": {"progress_threshold": 100, "batch_concat": True},
+            "error_handling": {"return_none_on_error": False, "detailed_logging": True},
         }
 
     def get_parameter(self, indicator: str, param: str, default=None):
         """指標パラメータを取得"""
-        return self.config.get("default_parameters", {}).get(indicator, {}).get(param, default)
+        return (
+            self.config.get("default_parameters", {})
+            .get(indicator, {})
+            .get(param, default)
+        )
 
     def get_calculate_all_defaults(self) -> Dict[str, Any]:
         """calculate_allのデフォルト設定を取得"""
@@ -108,7 +106,9 @@ class TechnicalIndicators:
         return cls._config
 
     @classmethod
-    def sma(cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close") -> pd.Series:
+    def sma(
+        cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close"
+    ) -> pd.Series:
         """
         単純移動平均線（Simple Moving Average）
 
@@ -149,7 +149,9 @@ class TechnicalIndicators:
             return pd.Series(dtype=float)
 
     @classmethod
-    def ema(cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close") -> pd.Series:
+    def ema(
+        cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close"
+    ) -> pd.Series:
         """
         指数移動平均線（Exponential Moving Average）
 
@@ -266,7 +268,9 @@ class TechnicalIndicators:
             return pd.DataFrame()
 
     @classmethod
-    def rsi(cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close") -> pd.Series:
+    def rsi(
+        cls, df: pd.DataFrame, period: Optional[int] = None, column: str = "Close"
+    ) -> pd.Series:
         """
         RSI（Relative Strength Index）
 
@@ -288,7 +292,9 @@ class TechnicalIndicators:
                 return pd.Series(dtype=float)
 
             if len(df) < period + 1:
-                logger.warning(f"RSI計算: データ不足（必要: {period + 1}行、実際: {len(df)}行）")
+                logger.warning(
+                    f"RSI計算: データ不足（必要: {period + 1}行、実際: {len(df)}行）"
+                )
                 return pd.Series(index=df.index, dtype=float)
 
             delta = df[column].diff()
@@ -299,9 +305,13 @@ class TechnicalIndicators:
             avg_loss = loss.ewm(com=period - 1, adjust=False).mean()
 
             # ゼロ除算対策: avg_lossが0の場合の処理
-            rs = np.where(avg_loss == 0,
-                         np.where(avg_gain == 0, 1, np.inf),  # gain=0,loss=0なら50, gainのみならRSI=100
-                         avg_gain / avg_loss)
+            rs = np.where(
+                avg_loss == 0,
+                np.where(
+                    avg_gain == 0, 1, np.inf
+                ),  # gain=0,loss=0なら50, gainのみならRSI=100
+                avg_gain / avg_loss,
+            )
 
             # RSI計算（無限大の場合は100になる）
             rsi = np.where(np.isinf(rs), 100, 100 - (100 / (1 + rs)))
@@ -446,19 +456,19 @@ class TechnicalIndicators:
 
         # パラメータの簡略化初期化
         params = {
-            'sma_periods': sma_periods or defaults.get("sma_periods", [5, 20, 60]),
-            'ema_periods': ema_periods or defaults.get("ema_periods", [12, 26]),
-            'bb_period': bb_period or defaults.get("bb_period", 20),
-            'bb_std': bb_std or defaults.get("bb_std", 2.0),
-            'macd_fast': macd_fast or defaults.get("macd_fast", 12),
-            'macd_slow': macd_slow or defaults.get("macd_slow", 26),
-            'macd_signal': macd_signal or defaults.get("macd_signal", 9),
-            'rsi_period': rsi_period or defaults.get("rsi_period", 14),
-            'stoch_k': stoch_k or defaults.get("stoch_k", 14),
-            'stoch_d': stoch_d or defaults.get("stoch_d", 3),
-            'stoch_smooth': stoch_smooth or defaults.get("stoch_smooth", 3),
-            'volume_period': volume_period or defaults.get("volume_period", 20),
-            'atr_period': atr_period or defaults.get("atr_period", 14)
+            "sma_periods": sma_periods or defaults.get("sma_periods", [5, 20, 60]),
+            "ema_periods": ema_periods or defaults.get("ema_periods", [12, 26]),
+            "bb_period": bb_period or defaults.get("bb_period", 20),
+            "bb_std": bb_std or defaults.get("bb_std", 2.0),
+            "macd_fast": macd_fast or defaults.get("macd_fast", 12),
+            "macd_slow": macd_slow or defaults.get("macd_slow", 26),
+            "macd_signal": macd_signal or defaults.get("macd_signal", 9),
+            "rsi_period": rsi_period or defaults.get("rsi_period", 14),
+            "stoch_k": stoch_k or defaults.get("stoch_k", 14),
+            "stoch_d": stoch_d or defaults.get("stoch_d", 3),
+            "stoch_smooth": stoch_smooth or defaults.get("stoch_smooth", 3),
+            "volume_period": volume_period or defaults.get("volume_period", 20),
+            "atr_period": atr_period or defaults.get("atr_period", 14),
         }
 
         try:
@@ -475,8 +485,8 @@ class TechnicalIndicators:
 
             # 計算対象指標の総数を計算
             total_indicators = (
-                len(params['sma_periods'])
-                + len(params['ema_periods'])
+                len(params["sma_periods"])
+                + len(params["ema_periods"])
                 + 4  # BB, MACD系, RSI, ATR
                 + 2  # ストキャスティクス, 出来高分析
             )
@@ -499,28 +509,48 @@ class TechnicalIndicators:
                     progress_type=ProgressType.DETERMINATE,
                 ) as progress:
                     cls._calculate_all_indicators(
-                        df, indicators,
-                        params['sma_periods'], params['ema_periods'],
-                        params['bb_period'], params['bb_std'],
-                        params['macd_fast'], params['macd_slow'], params['macd_signal'],
-                        params['rsi_period'], params['stoch_k'], params['stoch_d'],
-                        params['stoch_smooth'], params['volume_period'], params['atr_period'],
-                        progress=progress
+                        df,
+                        indicators,
+                        params["sma_periods"],
+                        params["ema_periods"],
+                        params["bb_period"],
+                        params["bb_std"],
+                        params["macd_fast"],
+                        params["macd_slow"],
+                        params["macd_signal"],
+                        params["rsi_period"],
+                        params["stoch_k"],
+                        params["stoch_d"],
+                        params["stoch_smooth"],
+                        params["volume_period"],
+                        params["atr_period"],
+                        progress=progress,
                     )
             else:
                 # 進捗表示なしで実行
                 cls._calculate_all_indicators(
-                    df, indicators,
-                    params['sma_periods'], params['ema_periods'],
-                    params['bb_period'], params['bb_std'],
-                    params['macd_fast'], params['macd_slow'], params['macd_signal'],
-                    params['rsi_period'], params['stoch_k'], params['stoch_d'],
-                    params['stoch_smooth'], params['volume_period'], params['atr_period']
+                    df,
+                    indicators,
+                    params["sma_periods"],
+                    params["ema_periods"],
+                    params["bb_period"],
+                    params["bb_std"],
+                    params["macd_fast"],
+                    params["macd_slow"],
+                    params["macd_signal"],
+                    params["rsi_period"],
+                    params["stoch_k"],
+                    params["stoch_d"],
+                    params["stoch_smooth"],
+                    params["volume_period"],
+                    params["atr_period"],
                 )
 
             # 一度にDataFrameを構築（パフォーマンス最適化）
             result = pd.DataFrame(indicators, index=df.index)
-            logger.debug(f"テクニカル指標計算完了: 元データ{len(df.columns)}列 → 結果{len(result.columns)}列")
+            logger.debug(
+                f"テクニカル指標計算完了: 元データ{len(df.columns)}列 → 結果{len(result.columns)}列"
+            )
             return result
 
         except Exception as e:
@@ -543,15 +573,26 @@ class TechnicalIndicators:
 
     @classmethod
     def _calculate_all_indicators(
-        cls, df: pd.DataFrame, indicators: Dict[str, pd.Series],
-        sma_periods: List[int], ema_periods: List[int],
-        bb_period: int, bb_std: float,
-        macd_fast: int, macd_slow: int, macd_signal: int, rsi_period: int,
-        stoch_k: int, stoch_d: int, stoch_smooth: int,
-        volume_period: int, atr_period: int,
-        progress=None
+        cls,
+        df: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        sma_periods: List[int],
+        ema_periods: List[int],
+        bb_period: int,
+        bb_std: float,
+        macd_fast: int,
+        macd_slow: int,
+        macd_signal: int,
+        rsi_period: int,
+        stoch_k: int,
+        stoch_d: int,
+        stoch_smooth: int,
+        volume_period: int,
+        atr_period: int,
+        progress=None,
     ):
         """指標計算の内部ロジック（進捗管理含む）"""
+
         def update_progress(description: str):
             if progress:
                 progress.set_description(description)
@@ -631,26 +672,26 @@ if __name__ == "__main__":
 
     logger.info("SMA（20日）計算", period=20)
     sma20 = ti.sma(df, period=20)
-    logger.info("SMA計算結果",
-                last_values=sma20.tail().to_dict(),
-                calculation_period=20)
+    logger.info(
+        "SMA計算結果", last_values=sma20.tail().to_dict(), calculation_period=20
+    )
 
     logger.info("RSI（14日）計算", period=14)
     rsi = ti.rsi(df, period=14)
-    logger.info("RSI計算結果",
-                last_values=rsi.tail().to_dict(),
-                calculation_period=14)
+    logger.info("RSI計算結果", last_values=rsi.tail().to_dict(), calculation_period=14)
 
     logger.info("MACD計算")
     macd = ti.macd(df)
-    logger.info("MACD計算結果",
-                columns=macd.columns.tolist(),
-                sample_data=macd.tail().to_dict())
+    logger.info(
+        "MACD計算結果", columns=macd.columns.tolist(), sample_data=macd.tail().to_dict()
+    )
 
     logger.info("全指標計算実行")
     all_indicators = ti.calculate_all(df)
-    logger.info("全指標計算完了",
-                total_columns=len(all_indicators.columns),
-                available_indicators=all_indicators.columns.tolist(),
-                data_rows=len(all_indicators),
-                operation="calculate_all_indicators")
+    logger.info(
+        "全指標計算完了",
+        total_columns=len(all_indicators.columns),
+        available_indicators=all_indicators.columns.tolist(),
+        data_rows=len(all_indicators),
+        operation="calculate_all_indicators",
+    )

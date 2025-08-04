@@ -118,7 +118,7 @@ class DayTradeOrchestrator:
                 ensemble_strategy=strategy_type,
                 voting_type=voting_type,
                 enable_ml_models=True,
-                performance_file=ensemble_settings.performance_file_path
+                performance_file=ensemble_settings.performance_file_path,
             )
 
             logger.info(
@@ -165,7 +165,7 @@ class DayTradeOrchestrator:
                     commission_rate=0.001,
                     bid_ask_spread_rate=0.001,
                     slippage_rate=0.0005,
-                    market_impact_rate=0.0002
+                    market_impact_rate=0.0002,
                 )
 
                 self.advanced_backtest_engine = AdvancedBacktestEngine(
@@ -173,7 +173,7 @@ class DayTradeOrchestrator:
                     trading_costs=trading_costs,
                     position_sizing="percent",
                     max_position_size=0.2,
-                    realistic_execution=True
+                    realistic_execution=True,
                 )
 
                 logger.info("高度なバックテストエンジンを初期化")
@@ -675,21 +675,37 @@ class DayTradeOrchestrator:
 
             if "macd" in analysis:
                 macd_data = analysis["macd"]
-                if (isinstance(macd_data, dict) and "MACD" in macd_data and "Signal" in macd_data):
+                if (
+                    isinstance(macd_data, dict)
+                    and "MACD" in macd_data
+                    and "Signal" in macd_data
+                ):
                     macd_values = macd_data["MACD"]
                     signal_values = macd_data["Signal"]
-                    if (hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc") and
-                        len(macd_values) == len(price_df) and len(signal_values) == len(price_df)):
+                    if (
+                        hasattr(macd_values, "iloc")
+                        and hasattr(signal_values, "iloc")
+                        and len(macd_values) == len(price_df)
+                        and len(signal_values) == len(price_df)
+                    ):
                         indicators_df["MACD"] = macd_values.values
                         indicators_df["MACD_Signal"] = signal_values.values
 
             if "bollinger" in analysis:
                 bb_data = analysis["bollinger"]
-                if (isinstance(bb_data, dict) and "Upper" in bb_data and "Lower" in bb_data):
+                if (
+                    isinstance(bb_data, dict)
+                    and "Upper" in bb_data
+                    and "Lower" in bb_data
+                ):
                     upper_values = bb_data["Upper"]
                     lower_values = bb_data["Lower"]
-                    if (hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc") and
-                        len(upper_values) == len(price_df) and len(lower_values) == len(price_df)):
+                    if (
+                        hasattr(upper_values, "iloc")
+                        and hasattr(lower_values, "iloc")
+                        and len(upper_values) == len(price_df)
+                        and len(lower_values) == len(price_df)
+                    ):
                         indicators_df["BB_Upper"] = upper_values.values
                         indicators_df["BB_Lower"] = lower_values.values
 
@@ -784,7 +800,7 @@ class DayTradeOrchestrator:
                             name: {
                                 "prediction": pred.prediction,
                                 "confidence": pred.confidence,
-                                "model_name": pred.model_name
+                                "model_name": pred.model_name,
                             }
                             for name, pred in enhanced_signal.ml_predictions.items()
                         },
@@ -792,10 +808,10 @@ class DayTradeOrchestrator:
                             name: {
                                 "signal_type": signal.signal_type.value,
                                 "confidence": signal.confidence,
-                                "reasons": signal.reasons[:2]  # 上位2つの理由
+                                "reasons": signal.reasons[:2],  # 上位2つの理由
                             }
                             for name, signal in enhanced_signal.rule_based_signals.items()
-                        }
+                        },
                     },
                 }
                 signals.append(signal_data)
@@ -813,7 +829,9 @@ class DayTradeOrchestrator:
             logger.error(f"エラー詳細: {str(e)}")
             return []
 
-    def _convert_analysis_to_indicators(self, analysis: Dict, price_df: pd.DataFrame) -> Dict[str, pd.Series]:
+    def _convert_analysis_to_indicators(
+        self, analysis: Dict, price_df: pd.DataFrame
+    ) -> Dict[str, pd.Series]:
         """分析結果を指標辞書に変換"""
         indicators = {}
 
@@ -827,31 +845,44 @@ class DayTradeOrchestrator:
                     else:
                         # サイズが合わない場合は最新の値を使用
                         indicators["rsi"] = pd.Series(
-                            [rsi_data.iloc[-1]] * len(price_df),
-                            index=price_df.index
+                            [rsi_data.iloc[-1]] * len(price_df), index=price_df.index
                         )
 
             # MACD変換
             if "macd" in analysis:
                 macd_data = analysis["macd"]
-                if (isinstance(macd_data, dict) and "MACD" in macd_data and "Signal" in macd_data):
+                if (
+                    isinstance(macd_data, dict)
+                    and "MACD" in macd_data
+                    and "Signal" in macd_data
+                ):
                     macd_values = macd_data["MACD"]
                     signal_values = macd_data["Signal"]
-                    if (hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc") and
-                        len(macd_values) == len(price_df)):
+                    if (
+                        hasattr(macd_values, "iloc")
+                        and hasattr(signal_values, "iloc")
+                        and len(macd_values) == len(price_df)
+                    ):
                         indicators["macd"] = macd_values
                         indicators["macd_signal"] = signal_values
 
             # ボリンジャーバンド変換
             if "bollinger" in analysis:
                 bb_data = analysis["bollinger"]
-                if (isinstance(bb_data, dict) and "Upper" in bb_data and "Lower" in bb_data):
+                if (
+                    isinstance(bb_data, dict)
+                    and "Upper" in bb_data
+                    and "Lower" in bb_data
+                ):
                     upper_values = bb_data["Upper"]
                     lower_values = bb_data["Lower"]
                     middle_values = bb_data.get("Middle")
 
-                    if (hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc") and
-                        len(upper_values) == len(price_df)):
+                    if (
+                        hasattr(upper_values, "iloc")
+                        and hasattr(lower_values, "iloc")
+                        and len(upper_values) == len(price_df)
+                    ):
                         indicators["bb_upper"] = upper_values
                         indicators["bb_lower"] = lower_values
                         if middle_values is not None and hasattr(middle_values, "iloc"):
@@ -859,7 +890,11 @@ class DayTradeOrchestrator:
 
             # 移動平均変換
             for key, value in analysis.items():
-                if key.startswith("sma_") and hasattr(value, "iloc") and len(value) == len(price_df):
+                if (
+                    key.startswith("sma_")
+                    and hasattr(value, "iloc")
+                    and len(value) == len(price_df)
+                ):
                     indicators[key] = value
 
             logger.debug(f"指標変換完了: {len(indicators)}個の指標")
@@ -1343,7 +1378,7 @@ class DayTradeOrchestrator:
         self,
         symbols: Optional[List[str]] = None,
         training_period_months: int = 6,
-        retrain_interval_hours: int = 24
+        retrain_interval_hours: int = 24,
     ) -> Dict[str, Any]:
         """
         機械学習モデルの訓練
@@ -1370,7 +1405,7 @@ class DayTradeOrchestrator:
             "trained_symbols": [],
             "failed_symbols": [],
             "models_trained": 0,
-            "errors": []
+            "errors": [],
         }
 
         try:
@@ -1381,21 +1416,21 @@ class DayTradeOrchestrator:
 
                     # 訓練用履歴データ取得
                     training_data = self.stock_fetcher.get_historical_data(
-                        symbol,
-                        period=f"{training_period_months}mo",
-                        interval="1d"
+                        symbol, period=f"{training_period_months}mo", interval="1d"
                     )
 
                     if training_data is None or len(training_data) < 60:
-                        logger.warning(f"訓練データが不足: {symbol} ({len(training_data) if training_data is not None else 0}日分)")
+                        logger.warning(
+                            f"訓練データが不足: {symbol} ({len(training_data) if training_data is not None else 0}日分)"
+                        )
                         training_results["failed_symbols"].append(symbol)
                         continue
 
                     # 機械学習モデル訓練
                     success = self.enhanced_ensemble.train_ml_models(
                         training_data,
-                        target_column='future_return',
-                        retrain_interval_hours=retrain_interval_hours
+                        target_column="future_return",
+                        retrain_interval_hours=retrain_interval_hours,
                     )
 
                     if success:
@@ -1435,7 +1470,7 @@ class DayTradeOrchestrator:
         symbols: Optional[List[str]] = None,
         strategy_signals: Optional[pd.DataFrame] = None,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """
         高度なバックテスト実行
@@ -1454,7 +1489,9 @@ class DayTradeOrchestrator:
             return {"success": False, "error": "Advanced backtest engine not available"}
 
         if symbols is None:
-            symbols = self.config_manager.get_symbol_codes()[:5]  # テスト用に最初の5銘柄
+            symbols = self.config_manager.get_symbol_codes()[
+                :5
+            ]  # テスト用に最初の5銘柄
 
         logger.info(f"高度なバックテスト開始: {len(symbols)}銘柄")
 
@@ -1475,20 +1512,24 @@ class DayTradeOrchestrator:
                     # 戦略シグナル生成（提供されない場合）
                     if strategy_signals is None:
                         # 簡易なシグナル生成（移動平均クロス）
-                        ma_short = historical_data['Close'].rolling(20).mean()
-                        ma_long = historical_data['Close'].rolling(50).mean()
+                        ma_short = historical_data["Close"].rolling(20).mean()
+                        ma_long = historical_data["Close"].rolling(50).mean()
 
                         signals_df = pd.DataFrame(index=historical_data.index)
-                        signals_df['signal'] = 'hold'
-                        signals_df['confidence'] = 50.0
+                        signals_df["signal"] = "hold"
+                        signals_df["confidence"] = 50.0
 
-                        buy_signals = (ma_short > ma_long) & (ma_short.shift(1) <= ma_long.shift(1))
-                        sell_signals = (ma_short < ma_long) & (ma_short.shift(1) >= ma_long.shift(1))
+                        buy_signals = (ma_short > ma_long) & (
+                            ma_short.shift(1) <= ma_long.shift(1)
+                        )
+                        sell_signals = (ma_short < ma_long) & (
+                            ma_short.shift(1) >= ma_long.shift(1)
+                        )
 
-                        signals_df.loc[buy_signals, 'signal'] = 'buy'
-                        signals_df.loc[buy_signals, 'confidence'] = 70.0
-                        signals_df.loc[sell_signals, 'signal'] = 'sell'
-                        signals_df.loc[sell_signals, 'confidence'] = 70.0
+                        signals_df.loc[buy_signals, "signal"] = "buy"
+                        signals_df.loc[buy_signals, "confidence"] = 70.0
+                        signals_df.loc[sell_signals, "signal"] = "sell"
+                        signals_df.loc[sell_signals, "confidence"] = 70.0
                     else:
                         signals_df = strategy_signals
 
@@ -1509,7 +1550,7 @@ class DayTradeOrchestrator:
                         "profit_factor": performance.profit_factor,
                         "total_trades": performance.total_trades,
                         "total_commission": performance.total_commission,
-                        "total_slippage": performance.total_slippage
+                        "total_slippage": performance.total_slippage,
                     }
 
                     logger.info(
@@ -1523,15 +1564,19 @@ class DayTradeOrchestrator:
 
             # 全体結果サマリー
             if backtest_results:
-                avg_return = sum(r["total_return"] for r in backtest_results.values()) / len(backtest_results)
-                avg_sharpe = sum(r["sharpe_ratio"] for r in backtest_results.values()) / len(backtest_results)
+                avg_return = sum(
+                    r["total_return"] for r in backtest_results.values()
+                ) / len(backtest_results)
+                avg_sharpe = sum(
+                    r["sharpe_ratio"] for r in backtest_results.values()
+                ) / len(backtest_results)
 
                 summary = {
                     "success": True,
                     "symbols_tested": len(backtest_results),
                     "average_return": avg_return,
                     "average_sharpe_ratio": avg_sharpe,
-                    "individual_results": backtest_results
+                    "individual_results": backtest_results,
                 }
 
                 logger.info(
@@ -1565,21 +1610,21 @@ if __name__ == "__main__":
         logger.info("=== DayTrade自動化テスト実行 ===")
         report = orchestrator.run_full_automation(symbols=test_symbols)
 
-        logger.info("Automation test completed",
-                   successful_symbols=report.successful_symbols,
-                   total_symbols=report.total_symbols,
-                   signals_count=len(report.generated_signals),
-                   alerts_count=len(report.triggered_alerts),
-                   errors_count=len(report.errors))
+        logger.info(
+            "Automation test completed",
+            successful_symbols=report.successful_symbols,
+            total_symbols=report.total_symbols,
+            signals_count=len(report.generated_signals),
+            alerts_count=len(report.triggered_alerts),
+            errors_count=len(report.errors),
+        )
 
         if report.errors:
-            logger.error("Errors occurred during automation test",
-                        errors=report.errors)
+            logger.error("Errors occurred during automation test", errors=report.errors)
 
         logger.info("テスト完了")
 
     except Exception as e:
-        log_error_with_context(e, {
-            "operation": "automation_test",
-            "test_symbols": test_symbols
-        })
+        log_error_with_context(
+            e, {"operation": "automation_test", "test_symbols": test_symbols}
+        )

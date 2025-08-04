@@ -44,7 +44,12 @@ from ..utils.logging_config import (
 class DataCache:
     """高度なデータキャッシュクラス（フォールバック機能付き）"""
 
-    def __init__(self, ttl_seconds: int = 60, max_size: int = 1000, stale_while_revalidate: int = 300):
+    def __init__(
+        self,
+        ttl_seconds: int = 60,
+        max_size: int = 1000,
+        stale_while_revalidate: int = 300,
+    ):
         """
         Args:
             ttl_seconds: キャッシュの有効期限（秒）
@@ -157,7 +162,9 @@ class DataCache:
             "cache_size": len(self._cache),
             "max_size": self.max_size,
             "eviction_count": self._eviction_count,
-            "cache_utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0.0
+            "cache_utilization": len(self._cache) / self.max_size
+            if self.max_size > 0
+            else 0.0,
         }
 
     def optimize_cache_settings(self) -> dict:
@@ -167,7 +174,9 @@ class DataCache:
 
         # ヒット率が低い場合の提案
         if stats["hit_rate"] < 0.5:
-            recommendations["ttl_increase"] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+            recommendations["ttl_increase"] = (
+                "TTLを延長してキャッシュヒット率を向上させることを検討"
+            )
 
         # 退避回数が多い場合の提案
         if stats["eviction_count"] > stats["hit_count"] * 0.1:
@@ -175,16 +184,17 @@ class DataCache:
 
         # キャッシュ使用率が低い場合の提案
         if stats["cache_utilization"] < 0.3:
-            recommendations["size_decrease"] = "キャッシュサイズを減少させてメモリ効率を向上"
+            recommendations["size_decrease"] = (
+                "キャッシュサイズを減少させてメモリ効率を向上"
+            )
 
         # stale hitが多い場合の提案
         if stats["stale_hit_rate"] > 0.2:
-            recommendations["stale_period_adjust"] = "stale-while-revalidate期間の調整を検討"
+            recommendations["stale_period_adjust"] = (
+                "stale-while-revalidate期間の調整を検討"
+            )
 
-        return {
-            "current_stats": stats,
-            "recommendations": recommendations
-        }
+        return {"current_stats": stats, "recommendations": recommendations}
 
     def size(self) -> int:
         """キャッシュサイズを取得"""
@@ -204,16 +214,18 @@ class DataCache:
                 stale_count += 1
 
         return {
-            'total_entries': len(self._cache),
-            'fresh_entries': fresh_count,
-            'stale_entries': stale_count,
-            'max_size': self.max_size,
-            'ttl_seconds': self.ttl_seconds,
-            'stale_while_revalidate': self.stale_while_revalidate
+            "total_entries": len(self._cache),
+            "fresh_entries": fresh_count,
+            "stale_entries": stale_count,
+            "max_size": self.max_size,
+            "ttl_seconds": self.ttl_seconds,
+            "stale_while_revalidate": self.stale_while_revalidate,
         }
 
 
-def cache_with_ttl(ttl_seconds: int, max_size: int = 1000, stale_while_revalidate: int = None):
+def cache_with_ttl(
+    ttl_seconds: int, max_size: int = 1000, stale_while_revalidate: int = None
+):
     """TTL付きキャッシュデコレータ（フォールバック機能付き改善版）"""
     if stale_while_revalidate is None:
         stale_while_revalidate = ttl_seconds * 5  # デフォルトでTTLの5倍
@@ -255,7 +267,9 @@ def cache_with_ttl(ttl_seconds: int, max_size: int = 1000, stale_while_revalidat
                         sanitized_result = sanitize_cache_value(result)
                         cache.set(cache_key, sanitized_result)
                         stats.record_set()
-                        cache_logger.debug(f"新しいデータをキャッシュに保存: {func.__name__}")
+                        cache_logger.debug(
+                            f"新しいデータをキャッシュに保存: {func.__name__}"
+                        )
 
                     return result
 
@@ -270,7 +284,9 @@ def cache_with_ttl(ttl_seconds: int, max_size: int = 1000, stale_while_revalidat
                         return stale_result
                     else:
                         # staleキャッシュもない場合は例外を再発生
-                        cache_logger.error(f"API失敗かつキャッシュなし: {func.__name__} - {api_error}")
+                        cache_logger.error(
+                            f"API失敗かつキャッシュなし: {func.__name__} - {api_error}"
+                        )
                         raise api_error
 
             except Exception as e:
@@ -345,7 +361,7 @@ class StockFetcher:
             "failed_requests": 0,
             "total_retries": 0,
             "retry_success": 0,
-            "errors_by_type": {}
+            "errors_by_type": {},
         }
 
         # LRUキャッシュを動的に設定
@@ -355,11 +371,13 @@ class StockFetcher:
         self.price_cache_ttl = price_cache_ttl
         self.historical_cache_ttl = historical_cache_ttl
 
-        self.logger.info("StockFetcher初期化完了",
-                        cache_size=cache_size,
-                        price_cache_ttl=price_cache_ttl,
-                        historical_cache_ttl=historical_cache_ttl,
-                        retry_count=retry_count)
+        self.logger.info(
+            "StockFetcher初期化完了",
+            cache_size=cache_size,
+            price_cache_ttl=price_cache_ttl,
+            historical_cache_ttl=historical_cache_ttl,
+            retry_count=retry_count,
+        )
 
     def _create_ticker(self, symbol: str) -> yf.Ticker:
         """Tickerオブジェクトを作成（内部メソッド）"""
@@ -393,10 +411,14 @@ class StockFetcher:
         """リトライ統計を取得"""
         stats = self.retry_stats.copy()
         if stats["total_requests"] > 0:
-            stats["success_rate"] = stats["successful_requests"] / stats["total_requests"]
+            stats["success_rate"] = (
+                stats["successful_requests"] / stats["total_requests"]
+            )
             stats["failure_rate"] = stats["failed_requests"] / stats["total_requests"]
         if stats["total_retries"] > 0:
-            stats["retry_success_rate"] = stats["retry_success"] / stats["total_retries"]
+            stats["retry_success_rate"] = (
+                stats["retry_success"] / stats["total_retries"]
+            )
         return stats
 
     def _create_retry_decorator(self):
@@ -406,12 +428,12 @@ class StockFetcher:
             wait=wait_exponential(
                 multiplier=self.retry_delay,
                 min=self.retry_delay,
-                max=60  # 最大60秒待機
+                max=60,  # 最大60秒待機
             ),
             retry=retry_if_exception(self._is_retryable_error),
             before_sleep=before_sleep_log(self.logger, logging.WARNING),
             after=after_log(self.logger, logging.INFO),
-            reraise=True
+            reraise=True,
         )
 
     def _retry_on_error(self, func, *args, **kwargs):
@@ -440,8 +462,11 @@ class StockFetcher:
         if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout)):
             return True
 
-        if (isinstance(error, req_exc.HTTPError) and
-            hasattr(error, "response") and error.response is not None):
+        if (
+            isinstance(error, req_exc.HTTPError)
+            and hasattr(error, "response")
+            and error.response is not None
+        ):
             status_code = error.response.status_code
             # リトライ可能なHTTPステータスコード
             retryable_codes = [500, 502, 503, 504, 408, 429]
@@ -587,8 +612,7 @@ class StockFetcher:
 
         def _get_price():
             price_logger = self.logger.bind(
-                operation="get_current_price",
-                stock_code=code
+                operation="get_current_price", stock_code=code
             )
             price_logger.info("現在価格取得開始")
 
@@ -605,26 +629,34 @@ class StockFetcher:
 
                 # infoが空または無効な場合
                 if not info or len(info) < 5:
-                    price_logger.error("企業情報取得失敗", info_size=len(info) if info else 0)
+                    price_logger.error(
+                        "企業情報取得失敗", info_size=len(info) if info else 0
+                    )
                     raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
 
                 # 基本情報を取得
-                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+                current_price = info.get("currentPrice") or info.get(
+                    "regularMarketPrice"
+                )
                 previous_close = info.get("previousClose")
 
                 if current_price is None:
-                    price_logger.error("現在価格データなし",
-                                     available_keys=list(info.keys())[:10])
+                    price_logger.error(
+                        "現在価格データなし", available_keys=list(info.keys())[:10]
+                    )
                     raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
 
                 # 変化額・変化率を計算
                 change = current_price - previous_close if previous_close else 0
-                change_percent = (change / previous_close * 100) if previous_close else 0
+                change_percent = (
+                    (change / previous_close * 100) if previous_close else 0
+                )
 
                 # パフォーマンスメトリクス
                 elapsed_time = (time.time() - start_time) * 1000
-                log_performance_metric("price_fetch_time", elapsed_time, "ms",
-                                     stock_code=code)
+                log_performance_metric(
+                    "price_fetch_time", elapsed_time, "ms", stock_code=code
+                )
 
                 result = {
                     "symbol": symbol,
@@ -637,23 +669,28 @@ class StockFetcher:
                     "timestamp": datetime.now(),
                 }
 
-                price_logger.info("現在価格取得完了",
-                                current_price=current_price,
-                                change_percent=change_percent,
-                                elapsed_ms=elapsed_time)
+                price_logger.info(
+                    "現在価格取得完了",
+                    current_price=current_price,
+                    change_percent=change_percent,
+                    elapsed_ms=elapsed_time,
+                )
 
                 return result
 
             except Exception as e:
                 elapsed_time = (time.time() - start_time) * 1000
-                log_error_with_context(e, {
-                    "operation": "get_current_price",
-                    "stock_code": code,
-                    "elapsed_ms": elapsed_time
-                })
-                price_logger.error("現在価格取得失敗",
-                                 error=str(e),
-                                 elapsed_ms=elapsed_time)
+                log_error_with_context(
+                    e,
+                    {
+                        "operation": "get_current_price",
+                        "stock_code": code,
+                        "elapsed_ms": elapsed_time,
+                    },
+                )
+                price_logger.error(
+                    "現在価格取得失敗", error=str(e), elapsed_ms=elapsed_time
+                )
                 raise
 
         return self._retry_on_error(_get_price)
@@ -900,6 +937,7 @@ class StockFetcher:
 if __name__ == "__main__":
     # ロギング設定
     from ..utils.logging_config import get_context_logger, setup_logging
+
     setup_logging()
 
     logger = get_context_logger(__name__)
@@ -911,27 +949,33 @@ if __name__ == "__main__":
     logger.info("=== 現在価格データ取得例 ===")
     current = fetcher.get_current_price("7203")
     if current:
-        logger.info("Current price data retrieved",
-                   symbol=current['symbol'],
-                   current_price=current['current_price'],
-                   change=current['change'],
-                   change_percent=current['change_percent'])
+        logger.info(
+            "Current price data retrieved",
+            symbol=current["symbol"],
+            current_price=current["current_price"],
+            change=current["change"],
+            change_percent=current["change_percent"],
+        )
 
     # ヒストリカルデータを取得
     logger.info("=== ヒストリカルデータ取得例 ===")
     hist = fetcher.get_historical_data("7203", period="5d", interval="1d")
     if hist is not None:
-        logger.info("Historical data retrieved",
-                   symbol="7203",
-                   period="5d",
-                   data_points=len(hist))
+        logger.info(
+            "Historical data retrieved",
+            symbol="7203",
+            period="5d",
+            data_points=len(hist),
+        )
 
     # 企業情報を取得
     logger.info("=== 企業情報取得例 ===")
     info = fetcher.get_company_info("7203")
     if info:
-        logger.info("Company info retrieved",
-                   symbol="7203",
-                   name=info.get('name'),
-                   sector=info.get('sector'),
-                   industry=info.get('industry'))
+        logger.info(
+            "Company info retrieved",
+            symbol="7203",
+            name=info.get("name"),
+            sector=info.get("sector"),
+            industry=info.get("industry"),
+        )

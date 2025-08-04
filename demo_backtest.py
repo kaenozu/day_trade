@@ -20,6 +20,7 @@ from rich.table import Table
 # Windows環境対応
 try:
     from src.day_trade.utils.windows_console_fix import create_safe_live_context
+
     safe_live_context = create_safe_live_context()
 except ImportError:
     from contextlib import contextmanager
@@ -30,6 +31,7 @@ except ImportError:
     def safe_live_context(*args, **kwargs):
         with Live(*args, **kwargs) as live:
             yield live
+
 
 from src.day_trade.analysis.backtest import (
     BacktestConfig,
@@ -564,7 +566,9 @@ def interactive_demo():
 
                 if live:  # Liveが有効な場合のみ更新
                     live.update(
-                        create_progress_display(current_date, current_value, trades_count)
+                        create_progress_display(
+                            current_date, current_value, trades_count
+                        )
                     )
                 time.sleep(0.3)
 

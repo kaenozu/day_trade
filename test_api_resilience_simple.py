@@ -8,7 +8,7 @@ import sys
 import time
 
 # パスを追加
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from src.day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from src.day_trade.utils.api_resilience import (
@@ -25,10 +25,7 @@ def test_circuit_breaker():
     print("=== サーキットブレーカーテスト ===")
 
     config = CircuitBreakerConfig(
-        failure_threshold=3,
-        success_threshold=2,
-        timeout=1.0,
-        monitor_window=60.0
+        failure_threshold=3, success_threshold=2, timeout=1.0, monitor_window=60.0
     )
 
     circuit_breaker = CircuitBreaker(config)
@@ -65,10 +62,7 @@ def test_retry_config():
     print("=== リトライ設定テスト ===")
 
     retry_config = RetryConfig(
-        max_attempts=5,
-        base_delay=0.1,
-        max_delay=2.0,
-        exponential_base=2.0
+        max_attempts=5, base_delay=0.1, max_delay=2.0, exponential_base=2.0
     )
 
     assert retry_config.max_attempts == 5
@@ -85,7 +79,7 @@ def test_enhanced_fetcher():
     fetcher = EnhancedStockFetcher(
         enable_fallback=True,
         enable_circuit_breaker=True,
-        enable_health_monitoring=False
+        enable_health_monitoring=False,
     )
 
     assert fetcher.enable_fallback
@@ -116,7 +110,7 @@ def test_validation():
     valid_response = {
         "currentPrice": 1500.0,
         "previousClose": 1480.0,
-        "volume": 1000000
+        "volume": 1000000,
     }
     assert fetcher._validate_api_response(valid_response)
     print("OK 有効レスポンス検証")
@@ -193,7 +187,7 @@ def run_all_tests():
 
     print("=" * 50)
     print(f"結果: 成功 {passed}, 失敗 {failed}")
-    print(f"成功率: {passed/(passed+failed)*100:.1f}%")
+    print(f"成功率: {passed / (passed + failed) * 100:.1f}%")
 
     if failed == 0:
         print("すべてのテストが成功しました")

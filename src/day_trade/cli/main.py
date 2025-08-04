@@ -339,9 +339,13 @@ def validate_codes(codes):
 
 @cli.command()
 @click.option("--symbols", "-n", default=5, help="最大選択銘柄数", type=int)
-@click.option("--depth", "-d", default="balanced",
-              type=click.Choice(["fast", "balanced", "comprehensive"]),
-              help="最適化の深さ")
+@click.option(
+    "--depth",
+    "-d",
+    default="balanced",
+    type=click.Choice(["fast", "balanced", "comprehensive"]),
+    help="最適化の深さ",
+)
 @click.option("--no-progress", is_flag=True, help="進捗表示を無効化")
 def auto(symbols, depth, no_progress):
     """全自動最善選択を実行"""
@@ -353,14 +357,14 @@ def auto(symbols, depth, no_progress):
         # 全自動最適化実行
         optimizer = AutoOptimizer()
         result = optimizer.run_auto_optimization(
-            max_symbols=symbols,
-            optimization_depth=depth,
-            show_progress=not no_progress
+            max_symbols=symbols, optimization_depth=depth, show_progress=not no_progress
         )
 
         # 成功メッセージ
         console.print("\n[bold green]✅ 最適化完了![/bold green]")
-        console.print(f"選択銘柄: {', '.join(result.best_symbols[:3])}{'...' if len(result.best_symbols) > 3 else ''}")
+        console.print(
+            f"選択銘柄: {', '.join(result.best_symbols[:3])}{'...' if len(result.best_symbols) > 3 else ''}"
+        )
         console.print(f"期待リターン: {result.expected_return:.2%}")
         console.print(f"信頼度: {result.confidence:.1%}")
 
@@ -406,9 +410,7 @@ def run(symbols, config, report_only):
 
         with console.status("[bold green]処理中..."):
             report = orchestrator.run_full_automation(
-                symbols=symbol_list,
-                report_only=report_only,
-                show_progress=True
+                symbols=symbol_list, report_only=report_only, show_progress=True
             )
 
         # 結果表示
