@@ -186,7 +186,7 @@ class TestEnhancedTransactionManager:
                 try:
                     with self.enhanced_manager.enhanced_transaction(retry_count=3):
                         pass
-                except:
+                except Exception:
                     pass  # エラーは期待される
 
         assert retry_count >= 2  # 再試行が実行されたことを確認
@@ -261,7 +261,7 @@ class TestEnhancedTransactionManager:
             mock_session.close = Mock()
             mock_get_session.return_value = mock_session
 
-            with pytest.raises(Exception):  # Context2 failed例外
+            with pytest.raises(RuntimeError):  # Context2 failed例外
                 with self.enhanced_manager.distributed_transaction([context1, context2]):
                     pass
 
@@ -282,7 +282,7 @@ class TestEnhancedTransactionManager:
         def operation3(session):
             operations_executed.append("op3")
 
-        with pytest.raises(Exception):  # Operation 2 failed例外
+        with pytest.raises(RuntimeError):  # Operation 2 failed例外
             self.enhanced_manager.execute_with_savepoint(
                 [operation1, operation2, operation3]
             )
@@ -386,11 +386,11 @@ class TestTransactionPatterns:
         # 異常ケース
         compensation_calls.clear()
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             with TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
                 executed_steps.append(0)
                 executed_steps.append(1)
-                raise Exception("Business error")
+                raise RuntimeError("Business error")
 
         assert "comp1" in compensation_calls
         assert "comp2" in compensation_calls

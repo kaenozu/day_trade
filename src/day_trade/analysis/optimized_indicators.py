@@ -17,7 +17,6 @@ import pandas as pd
 
 # オプショナルな依存関係
 try:
-    import numba
     from numba import jit, prange
     NUMBA_AVAILABLE = True
 except ImportError:
