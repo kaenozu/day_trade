@@ -98,7 +98,7 @@ class TestDatabaseOptimization:
 
                 # 最新数日にスパイクを配置して検出されやすくする
                 current_day = base_date + timedelta(days=i)
-                (datetime.now() - current_day).days
+                days_ago = (datetime.now() - current_day).days
 
                 if stock["code"] == "7203" and i in [27, 29]:  # トヨタに最新2日でスパイク
                     volume = int(volume * 2.5)  # 250%増加でスパイク

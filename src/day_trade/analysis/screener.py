@@ -266,15 +266,13 @@ class StockScreener:
                         len(macd) >= 2
                         and not macd.isna().any()
                         and not signal.isna().any()
+                        and macd.iloc[-2] <= signal.iloc[-2]
+                        and macd.iloc[-1] > signal.iloc[-1]
                     ):
                         # MACDがシグナルを上抜け
-                        if (
-                            macd.iloc[-2] <= signal.iloc[-2]
-                            and macd.iloc[-1] > signal.iloc[-1]
-                        ):
-                            crossover_strength = abs(macd.iloc[-1] - signal.iloc[-1])
-                            score = min(crossover_strength * 1000, 100)
-                            return True, score
+                        crossover_strength = abs(macd.iloc[-1] - signal.iloc[-1])
+                        score = min(crossover_strength * 1000, 100)
+                        return True, score
 
             elif condition == ScreenerCondition.GOLDEN_CROSS:
                 if "SMA_20" in indicators.columns and "SMA_50" in indicators.columns:
@@ -285,17 +283,15 @@ class StockScreener:
                         len(sma20) >= 2
                         and not sma20.isna().any()
                         and not sma50.isna().any()
+                        and sma20.iloc[-2] <= sma50.iloc[-2]
+                        and sma20.iloc[-1] > sma50.iloc[-1]
                     ):
                         # 20日線が50日線を上抜け
-                        if (
-                            sma20.iloc[-2] <= sma50.iloc[-2]
-                            and sma20.iloc[-1] > sma50.iloc[-1]
-                        ):
-                            cross_strength = (
-                                (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
-                            )
-                            score = min(cross_strength * 50, 100)
-                            return True, score
+                        cross_strength = (
+                            (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
+                        )
+                        score = min(cross_strength * 50, 100)
+                        return True, score
 
             elif condition == ScreenerCondition.VOLUME_SPIKE:
                 volume_threshold = threshold or 2.0

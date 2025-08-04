@@ -181,8 +181,8 @@ class TestEnhancedTransactionManager:
             mock_session.info = {}
             return mock_session
 
-        with patch.object(db_manager, 'get_session', side_effect=mock_retriable_error):
-            with patch.object(db_manager, '_is_retriable_error', return_value=True):
+        with patch.object(db_manager, 'get_session', side_effect=mock_retriable_error), \
+             patch.object(db_manager, '_is_retriable_error', return_value=True):
                 try:
                     with self.enhanced_manager.enhanced_transaction(retry_count=3):
                         pass

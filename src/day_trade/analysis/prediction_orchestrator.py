@@ -513,9 +513,8 @@ class PredictionOrchestrator:
                 if sma_20 > sma_50 * 1.05:  # 強い上昇トレンド
                     if prediction["price_direction"] > 0:
                         adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
-                elif sma_20 < sma_50 * 0.95:  # 強い下降トレンド
-                    if prediction["price_direction"] < 0:
-                        adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
+                elif sma_20 < sma_50 * 0.95 and prediction["price_direction"] < 0:  # 強い下降トレンド
+                    adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
 
             # 4. 信頼度閾値適用
             if adjusted_prediction["confidence"] < self.config.confidence_threshold:
@@ -665,10 +664,9 @@ class PredictionOrchestrator:
                 reason = "不明確なシグナル"
 
             # 不確実性による調整
-            if uncertainty > self.config.max_prediction_uncertainty * 0.8:
-                if action != "HOLD":
-                    strength = "WEAK"
-                    reason += "（高い不確実性により強度減）"
+            if uncertainty > self.config.max_prediction_uncertainty * 0.8 and action != "HOLD":
+                strength = "WEAK"
+                reason += "（高い不確実性により強度減）"
 
             return {
                 "action": action,
