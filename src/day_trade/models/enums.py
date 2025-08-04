@@ -19,5 +19,5 @@ class AlertType(enum.Enum):
 
 
 class TradeType(enum.Enum):
-    BUY = "buy"
-    SELL = "sell"
+    BUY = "BUY"
+    SELL = "SELL"

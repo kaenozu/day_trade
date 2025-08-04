@@ -371,7 +371,7 @@ class Alert(BaseModel):
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     alert_type = Column(Enum(AlertType), nullable=False)
-    threshold = Column(DECIMAL(precision=10, scale=2), nullable=False)
+    threshold = Column(DECIMAL(precision=10, scale=3), nullable=False)
     is_active = Column(Boolean, default=True)
     last_triggered = Column(DateTime)
     memo = Column(String(200))
