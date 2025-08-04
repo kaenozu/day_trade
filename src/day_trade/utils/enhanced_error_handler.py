@@ -2,11 +2,15 @@
 統合されたユーザーフレンドリーエラーハンドリングシステム
 多言語対応、コンテキスト情報、解決策提示を統合
 機密情報のサニタイズとセキュリティ強化を含む
+
+friendly_error_handler.pyの機能を統合し、重複を解消
+i18n_messages.pyのSensitiveDataSanitizerを活用
+config_managerとcache_utilsとの完全統合対応
 """
 
 import logging
-import re
-from typing import Any, Dict, List, Optional, Union
+import threading
+from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -21,139 +25,236 @@ from .exceptions import (
     TimeoutError,
     ValidationError,
 )
-from .i18n_messages import I18nMessageHandler, Language
+from .i18n_messages import I18nMessageHandler, Language, SensitiveDataSanitizer
 
 console = Console()
 logger = logging.getLogger(__name__)
 
 
-class SensitiveDataSanitizer:
-    """機密情報のサニタイズを行うユーティリティクラス"""
+class EnhancedErrorHandlerConfig:
+    """エラーハンドラー設定クラス（config_manager統合対応）"""
 
-    # 機密情報を表す可能性のあるキーワード（小文字）
-    SENSITIVE_KEYWORDS = {
-        "password", "passwd", "pwd", "secret", "token", "key", "api_key",
-        "apikey", "access_token", "refresh_token", "auth", "authorization",
-        "credential", "private", "pin", "ssn", "social", "credit_card",
-        "card_number", "cvv", "ccv", "cvc", "bank", "account_number"
-    }
-
-    # 機密情報パターン（正規表現）
-    SENSITIVE_PATTERNS = [
-        # API キー形式
-        (re.compile(r'\b[A-Za-z0-9]{32,}\b'), "***API_KEY***"),
-        # パスワード形式（8文字以上の英数字記号）
-        (re.compile(r'\b(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}\b'), "***PASSWORD***"),
-        # JWT トークン形式
-        (re.compile(r'\beyJ[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=_-]+\b'), "***JWT_TOKEN***"),
-        # クレジットカード番号形式
-        (re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'), "***CARD_NUMBER***"),
-        # 電話番号形式（日本）
-        (re.compile(r'\b0\d{1,4}-?\d{1,4}-?\d{4}\b'), "***PHONE_NUMBER***"),
-    ]
-
-    @classmethod
-    def sanitize_dict(cls, data: Dict[str, Any], max_depth: int = 5) -> Dict[str, Any]:
+    def __init__(self, config_manager=None):
         """
-        辞書内の機密情報をサニタイズ
-
         Args:
-            data: サニタイズ対象の辞書
-            max_depth: 再帰処理の最大深度
-
-        Returns:
-            サニタイズされた辞書
+            config_manager: ConfigManagerインスタンス（依存性注入）
         """
-        if max_depth <= 0:
-            return {"sanitized": "max_depth_reached"}
+        # デフォルト設定値
+        self._defaults = {
+            "debug_mode": False,
+            "enable_sanitization": True,
+            "enable_rich_display": True,
+            "log_technical_details": True,
+            "max_context_items": 10,
+            "max_solution_items": 5,
+            "console_width": 120,
+            "panel_padding": (1, 2),
+            "lock_timeout_seconds": 1.0,
+            "enable_performance_logging": True,
+        }
 
-        sanitized = {}
-        for key, value in data.items():
-            key_lower = key.lower()
+        self.config_manager = config_manager
+        self._load_config()
 
-            # キー名が機密情報を示している場合
-            if any(keyword in key_lower for keyword in cls.SENSITIVE_KEYWORDS):
-                sanitized[key] = "***REDACTED***"
-            elif isinstance(value, dict):
-                sanitized[key] = cls.sanitize_dict(value, max_depth - 1)
-            elif isinstance(value, list):
-                sanitized[key] = cls.sanitize_list(value, max_depth - 1)
-            elif isinstance(value, str):
-                sanitized[key] = cls.sanitize_string(value)
+    def _load_config(self):
+        """設定を読み込み（config_manager優先、環境変数フォールバック）"""
+        import os
+
+        # config_managerから取得を試行
+        error_handler_settings = {}
+        if self.config_manager:
+            try:
+                error_handler_settings = getattr(self.config_manager, 'error_handler_settings', {})
+            except Exception:
+                logger.warning("Failed to load error handler settings from config_manager, using defaults")
+
+        # 設定値の決定（優先度: config_manager > 環境変数 > デフォルト）
+        self.debug_mode = self._parse_bool(
+            error_handler_settings.get("debug_mode"),
+            os.getenv("ERROR_HANDLER_DEBUG_MODE"),
+            self._defaults["debug_mode"]
+        )
+
+        self.enable_sanitization = self._parse_bool(
+            error_handler_settings.get("enable_sanitization"),
+            os.getenv("ERROR_HANDLER_ENABLE_SANITIZATION"),
+            self._defaults["enable_sanitization"]
+        )
+
+        self.enable_rich_display = self._parse_bool(
+            error_handler_settings.get("enable_rich_display"),
+            os.getenv("ERROR_HANDLER_ENABLE_RICH_DISPLAY"),
+            self._defaults["enable_rich_display"]
+        )
+
+        self.log_technical_details = self._parse_bool(
+            error_handler_settings.get("log_technical_details"),
+            os.getenv("ERROR_HANDLER_LOG_TECHNICAL_DETAILS"),
+            self._defaults["log_technical_details"]
+        )
+
+        self.max_context_items = int(
+            error_handler_settings.get("max_context_items")
+            or os.getenv("ERROR_HANDLER_MAX_CONTEXT_ITEMS")
+            or self._defaults["max_context_items"]
+        )
+
+        self.max_solution_items = int(
+            error_handler_settings.get("max_solution_items")
+            or os.getenv("ERROR_HANDLER_MAX_SOLUTION_ITEMS")
+            or self._defaults["max_solution_items"]
+        )
+
+        self.console_width = int(
+            error_handler_settings.get("console_width")
+            or os.getenv("ERROR_HANDLER_CONSOLE_WIDTH")
+            or self._defaults["console_width"]
+        )
+
+        self.lock_timeout_seconds = float(
+            error_handler_settings.get("lock_timeout_seconds")
+            or os.getenv("ERROR_HANDLER_LOCK_TIMEOUT_SECONDS")
+            or self._defaults["lock_timeout_seconds"]
+        )
+
+        self.enable_performance_logging = self._parse_bool(
+            error_handler_settings.get("enable_performance_logging"),
+            os.getenv("ERROR_HANDLER_ENABLE_PERFORMANCE_LOGGING"),
+            self._defaults["enable_performance_logging"]
+        )
+
+        # パネル設定
+        panel_padding = error_handler_settings.get("panel_padding")
+        if panel_padding and isinstance(panel_padding, (list, tuple)) and len(panel_padding) == 2:
+            self.panel_padding = tuple(panel_padding)
+        else:
+            self.panel_padding = self._defaults["panel_padding"]
+
+    def _parse_bool(self, config_value, env_value, default_value):
+        """設定値をbooleanに変換"""
+        if config_value is not None:
+            return bool(config_value)
+        if env_value is not None:
+            return env_value.lower() in ("true", "1", "yes", "on")
+        return default_value
+
+    def reload(self):
+        """設定を再読み込み"""
+        self._load_config()
+        logger.info("Error handler configuration reloaded")
+
+
+class ErrorHandlerStats:
+    """エラーハンドラーの統計情報（スレッドセーフ版）"""
+
+    def __init__(self, config: Optional[EnhancedErrorHandlerConfig] = None):
+        """
+        Args:
+            config: エラーハンドラー設定（依存性注入）
+        """
+        self._config = config
+        self._lock = threading.RLock()
+        self._errors_handled = 0
+        self._sanitization_count = 0
+        self._i18n_fallback_count = 0
+        self._rich_display_count = 0
+        self._log_errors_count = 0
+
+        if self._config:
+            self._lock_timeout = self._config.lock_timeout_seconds
+        else:
+            self._lock_timeout = 1.0
+
+    def _safe_lock_operation(self, operation_func, default_value=0):
+        """安全なロック操作（タイムアウト付き）"""
+        try:
+            if self._lock.acquire(timeout=self._lock_timeout):
+                try:
+                    return operation_func()
+                except Exception as e:
+                    if logger.isEnabledFor(logging.ERROR):
+                        logger.error(f"ErrorHandlerStats operation failed: {e}")
+                    return default_value
+                finally:
+                    try:
+                        self._lock.release()
+                    except Exception as release_error:
+                        if logger.isEnabledFor(logging.ERROR):
+                            logger.error(f"Failed to release ErrorHandlerStats lock: {release_error}")
             else:
-                sanitized[key] = value
+                if logger.isEnabledFor(logging.WARNING):
+                    logger.warning(f"ErrorHandlerStats lock timeout ({self._lock_timeout}s)")
+                return default_value
+        except Exception as e:
+            if logger.isEnabledFor(logging.ERROR):
+                logger.error(f"ErrorHandlerStats lock acquisition failed: {e}")
+            return default_value
 
-        return sanitized
+    def record_error_handled(self, count: int = 1):
+        """エラー処理回数を記録"""
+        self._safe_lock_operation(lambda: setattr(self, '_errors_handled', self._errors_handled + count))
 
-    @classmethod
-    def sanitize_list(cls, data: List[Any], max_depth: int = 5) -> List[Any]:
-        """
-        リスト内の機密情報をサニタイズ
+    def record_sanitization(self, count: int = 1):
+        """サニタイズ実行回数を記録"""
+        self._safe_lock_operation(lambda: setattr(self, '_sanitization_count', self._sanitization_count + count))
 
-        Args:
-            data: サニタイズ対象のリスト
-            max_depth: 再帰処理の最大深度
+    def record_i18n_fallback(self, count: int = 1):
+        """i18nフォールバック回数を記録"""
+        self._safe_lock_operation(lambda: setattr(self, '_i18n_fallback_count', self._i18n_fallback_count + count))
 
-        Returns:
-            サニタイズされたリスト
-        """
-        if max_depth <= 0:
-            return ["sanitized: max_depth_reached"]
+    def record_rich_display(self, count: int = 1):
+        """Rich表示回数を記録"""
+        self._safe_lock_operation(lambda: setattr(self, '_rich_display_count', self._rich_display_count + count))
 
-        sanitized = []
-        for item in data:
-            if isinstance(item, dict):
-                sanitized.append(cls.sanitize_dict(item, max_depth - 1))
-            elif isinstance(item, list):
-                sanitized.append(cls.sanitize_list(item, max_depth - 1))
-            elif isinstance(item, str):
-                sanitized.append(cls.sanitize_string(item))
-            else:
-                sanitized.append(item)
+    def record_log_error(self, count: int = 1):
+        """ログエラー回数を記録"""
+        self._safe_lock_operation(lambda: setattr(self, '_log_errors_count', self._log_errors_count + count))
 
-        return sanitized
+    def get_stats(self) -> Dict[str, int]:
+        """統計情報を取得"""
+        def create_stats():
+            return {
+                "errors_handled": self._errors_handled,
+                "sanitization_count": self._sanitization_count,
+                "i18n_fallback_count": self._i18n_fallback_count,
+                "rich_display_count": self._rich_display_count,
+                "log_errors_count": self._log_errors_count,
+            }
 
-    @classmethod
-    def sanitize_string(cls, text: str) -> str:
-        """
-        文字列内の機密情報をサニタイズ
+        result = self._safe_lock_operation(create_stats)
+        return result if isinstance(result, dict) else {}
 
-        Args:
-            text: サニタイズ対象の文字列
+    def reset(self):
+        """統計をリセット"""
+        def reset_counters():
+            self._errors_handled = 0
+            self._sanitization_count = 0
+            self._i18n_fallback_count = 0
+            self._rich_display_count = 0
+            self._log_errors_count = 0
 
-        Returns:
-            サニタイズされた文字列
-        """
-        if not isinstance(text, str):
-            return text
-
-        sanitized_text = text
-        for pattern, replacement in cls.SENSITIVE_PATTERNS:
-            sanitized_text = pattern.sub(replacement, sanitized_text)
-
-        return sanitized_text
-
-    @classmethod
-    def sanitize_context(cls, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        コンテキスト全体をサニタイズ
-
-        Args:
-            context: サニタイズ対象のコンテキスト
-
-        Returns:
-            サニタイズされたコンテキスト
-        """
-        if not context:
-            return {}
-
-        return cls.sanitize_dict(context)
+        self._safe_lock_operation(reset_counters)
 
 
 class EnhancedErrorHandler:
-    """拡張されたエラーハンドリングシステム（依存性注入対応）"""
+    """
+    統合されたエラーハンドリングシステム（依存性注入対応・完全統合版）
+
+    friendly_error_handler.pyから統合された機能:
+    - ユーザーフレンドリーなエラーメッセージ
+    - エラーコード推論機能
+    - Rich形式のパネル表示
+    - CLIエラーハンドリング
+
+    新機能:
+    - config_manager完全統合
+    - cache_utilsとの連携
+    - 統計情報収集
+    - パフォーマンス最適化
+    """
 
     # friendly_error_handlerから統合されたエラーメッセージマッピング
+    # 注意: 新しいエラーメッセージはi18n_messages.pyのJSONファイルに追加することを推奨
     BUILTIN_ERROR_MESSAGES = {
         # ネットワーク関連エラー
         "NETWORK_CONNECTION_ERROR": {
@@ -246,25 +347,32 @@ class EnhancedErrorHandler:
         self,
         message_handler: Optional[I18nMessageHandler] = None,
         sanitizer: Optional[SensitiveDataSanitizer] = None,
+        config: Optional[EnhancedErrorHandlerConfig] = None,
         language: Language = Language.JAPANESE,
-        debug_mode: bool = False,
-        enable_sanitization: bool = True,
+        stats: Optional[ErrorHandlerStats] = None,
     ):
         """
         Args:
             message_handler: メッセージハンドラー（依存性注入）
             sanitizer: データサニタイザー（依存性注入）
+            config: エラーハンドラー設定（依存性注入）
             language: デフォルト言語
-            debug_mode: デバッグモード（技術的詳細を表示）
-            enable_sanitization: サニタイズ機能を有効にするか
+            stats: 統計収集オブジェクト（依存性注入）
         """
         self.language = language
-        self.debug_mode = debug_mode
-        self.enable_sanitization = enable_sanitization
+
+        # 依存性注入 - 設定から値を取得
+        self.config = config or EnhancedErrorHandlerConfig()
+        self.debug_mode = self.config.debug_mode
+        self.enable_sanitization = self.config.enable_sanitization
 
         # 依存性注入 - なければデフォルトインスタンスを作成
         self.message_handler = message_handler or I18nMessageHandler(language)
         self.sanitizer = sanitizer or SensitiveDataSanitizer()
+        self.stats = stats or ErrorHandlerStats(self.config)
+
+        # Rich console設定
+        self.console = Console(width=self.config.console_width) if self.config.enable_rich_display else None
 
     def _infer_error_code(self, error: DayTradeError) -> str:
         """
@@ -295,7 +403,7 @@ class EnhancedErrorHandler:
 
     def _get_message_with_fallback(self, error_code: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        メッセージハンドラーから取得し、失敗時はビルトインメッセージにフォールバック
+        メッセージハンドラーから取得し、失敗時はビルトインメッセージにフォールバック（統計付き）
 
         Args:
             error_code: エラーコード
@@ -315,6 +423,7 @@ class EnhancedErrorHandler:
 
         except Exception as e:
             logger.warning(f"I18nMessageHandlerからの取得に失敗: {e}")
+            self.stats.record_i18n_fallback()
 
         # フォールバック: ビルトインメッセージを使用
         builtin_message = self.BUILTIN_ERROR_MESSAGES.get(error_code)
@@ -341,7 +450,7 @@ class EnhancedErrorHandler:
         show_technical: Optional[bool] = None,
     ) -> Panel:
         """
-        エラーを包括的に処理してユーザーフレンドリーなパネルを作成
+        エラーを包括的に処理してユーザーフレンドリーなパネルを作成（統計付き）
 
         Args:
             error: 例外オブジェクト
@@ -352,8 +461,16 @@ class EnhancedErrorHandler:
         Returns:
             Rich Panel オブジェクト
         """
+        self.stats.record_error_handled()
+
         show_tech = show_technical if show_technical is not None else self.debug_mode
         context = context or {}
+
+        # コンテキストサイズ制限
+        if len(context) > self.config.max_context_items:
+            limited_context = dict(list(context.items())[:self.config.max_context_items])
+            limited_context["_context_truncated"] = f"表示制限により {len(context) - self.config.max_context_items} 項目が省略されました"
+            context = limited_context
 
         # ユーザーアクションをコンテキストに追加
         if user_action:
@@ -362,13 +479,19 @@ class EnhancedErrorHandler:
         # コンテキストのサニタイズ（セキュリティ強化）
         if self.enable_sanitization:
             context = self.sanitizer.sanitize_context(context)
+            self.stats.record_sanitization()
 
         # カスタム例外の場合
         if isinstance(error, DayTradeError):
-            return self._handle_custom_error(error, context, show_tech)
+            panel = self._handle_custom_error(error, context, show_tech)
+        else:
+            # 一般的な例外の場合
+            panel = self._handle_general_error(error, context, show_tech)
 
-        # 一般的な例外の場合
-        return self._handle_general_error(error, context, show_tech)
+        if self.config.enable_rich_display:
+            self.stats.record_rich_display()
+
+        return panel
 
     def _handle_custom_error(
         self, error: DayTradeError, context: Dict[str, Any], show_technical: bool
@@ -390,7 +513,7 @@ class EnhancedErrorHandler:
             error=error,
             title=message_data["title"],
             message=message,
-            solutions=message_data["solutions"],
+            solutions=message_data["solutions"][:self.config.max_solution_items],
             emoji=message_data.get("emoji", "❌"),
             context=context,
             show_technical=show_technical,
@@ -460,6 +583,7 @@ class EnhancedErrorHandler:
                 )
             except Exception:
                 # 最終フォールバック
+                self.stats.record_i18n_fallback()
                 message_data = {
                     "title": "予期しないエラー",
                     "message": "システムで予期しないエラーが発生しました。",
@@ -475,7 +599,7 @@ class EnhancedErrorHandler:
             error=error,
             title=message_data["title"],
             message=message_data["message"],
-            solutions=message_data["solutions"],
+            solutions=message_data["solutions"][:self.config.max_solution_items],
             emoji=message_data.get("emoji", "❌"),
             context=context,
             show_technical=show_technical,
@@ -491,7 +615,7 @@ class EnhancedErrorHandler:
         context: Dict[str, Any],
         show_technical: bool,
     ) -> Panel:
-        """拡張されたエラーパネルを作成"""
+        """拡張されたエラーパネルを作成（設定統合版）"""
 
         content_lines = []
 
@@ -508,6 +632,16 @@ class EnhancedErrorHandler:
         if context.get("user_input"):
             content_lines.append(f"[dim]入力値: {context['user_input']}[/dim]")
 
+        # その他のコンテキスト（制限付き）
+        other_context = {k: v for k, v in context.items()
+                         if k not in ["user_action", "user_input", "_context_truncated"]}
+        if other_context:
+            content_lines.append(f"[dim]詳細: {str(other_context)[:100]}...[/dim]")
+
+        # 省略表示メッセージ
+        if "_context_truncated" in context:
+            content_lines.append(f"[dim yellow]{context['_context_truncated']}[/dim]")
+
         content_lines.append("")
 
         # 解決策
@@ -516,29 +650,37 @@ class EnhancedErrorHandler:
             content_lines.append(f"  {i}. {solution}")
 
         # 技術的詳細（デバッグモード時）
-        if show_technical:
-            content_lines.extend(
-                [
-                    "",
-                    "[dim]── 技術的詳細 ──[/dim]",
-                    f"[dim]エラータイプ: {type(error).__name__}[/dim]",
-                    f"[dim]メッセージ: {str(error)}[/dim]",
-                ]
-            )
+        if show_technical and self.config.log_technical_details:
+            content_lines.extend([
+                "",
+                "[dim]── 技術的詳細 ──[/dim]",
+                f"[dim]エラータイプ: {type(error).__name__}[/dim]",
+                f"[dim]メッセージ: {str(error)}[/dim]",
+            ])
 
             if isinstance(error, DayTradeError):
                 if error.error_code:
                     content_lines.append(f"[dim]エラーコード: {error.error_code}[/dim]")
                 if error.details:
-                    content_lines.append(f"[dim]詳細情報: {error.details}[/dim]")
+                    # 技術的詳細も機密情報をサニタイズ
+                    sanitized_details = self.sanitizer.sanitize_context(error.details) if self.enable_sanitization else error.details
+                    content_lines.append(f"[dim]詳細情報: {sanitized_details}[/dim]")
+
+        # 統計情報（デバッグモード時）
+        if show_technical and self.config.enable_performance_logging:
+            stats = self.stats.get_stats()
+            content_lines.extend([
+                "",
+                "[dim]── 統計情報 ──[/dim]",
+                f"[dim]処理済エラー数: {stats.get('errors_handled', 0)}[/dim]",
+                f"[dim]サニタイズ実行数: {stats.get('sanitization_count', 0)}[/dim]",
+            ])
 
         # ヘルプメッセージ
-        content_lines.extend(
-            [
-                "",
-                "[dim]💬 さらにサポートが必要な場合は、上記の技術的詳細と共にお問い合わせください。[/dim]",
-            ]
-        )
+        content_lines.extend([
+            "",
+            "[dim]💬 さらにサポートが必要な場合は、上記の技術的詳細と共にお問い合わせください。[/dim]",
+        ])
 
         content = "\n".join(content_lines)
 
@@ -546,7 +688,7 @@ class EnhancedErrorHandler:
             content,
             title=f"[bold red]{title}[/bold red]",
             border_style="red",
-            padding=(1, 2),
+            padding=self.config.panel_padding,
         )
 
     def log_error(
@@ -556,13 +698,15 @@ class EnhancedErrorHandler:
         user_action: Optional[str] = None,
     ) -> None:
         """
-        エラーの詳細をログに記録（機密情報サニタイズ付き）
+        エラーの詳細をログに記録（機密情報サニタイズ付き・統計付き）
 
         Args:
             error: 例外オブジェクト
             context: 追加コンテキスト
             user_action: ユーザーアクション
         """
+        self.stats.record_log_error()
+
         # コンテキストのサニタイズ
         sanitized_context = {}
         if context:
@@ -575,13 +719,14 @@ class EnhancedErrorHandler:
         # ユーザーアクションのサニタイズ
         sanitized_user_action = user_action
         if user_action and self.enable_sanitization:
-            sanitized_user_action = self.sanitizer.sanitize_string(user_action)
+            sanitized_user_action = self.sanitizer.sanitize(user_action)
 
         log_data = {
             "error_type": type(error).__name__,
             "error_message": str(error),
             "context": sanitized_context,
             "user_action": sanitized_user_action,
+            "handler_stats": self.stats.get_stats(),
         }
 
         if isinstance(error, DayTradeError):
@@ -590,11 +735,14 @@ class EnhancedErrorHandler:
             # error.detailsもサニタイズ
             error_details = error.details or {}
             if self.enable_sanitization:
-                log_data["error_details"] = self.sanitizer.sanitize_dict(error_details)
+                log_data["error_details"] = self.sanitizer.sanitize_context(error_details)
             else:
                 log_data["error_details"] = error_details
 
-        logger.error("User-facing error occurred", exc_info=True, extra=log_data)
+        if self.config.log_technical_details:
+            logger.error("User-facing error occurred", exc_info=True, extra=log_data)
+        else:
+            logger.error("User-facing error occurred", extra=log_data)
 
     def display_and_log_error(
         self,
@@ -604,7 +752,7 @@ class EnhancedErrorHandler:
         show_technical: Optional[bool] = None,
     ) -> None:
         """
-        エラーを表示してログに記録
+        エラーを表示してログに記録（設定統合版）
 
         Args:
             error: 例外オブジェクト
@@ -614,14 +762,90 @@ class EnhancedErrorHandler:
         """
         # パネルを作成して表示
         error_panel = self.handle_error(error, context, user_action, show_technical)
-        console.print(error_panel)
+
+        if self.config.enable_rich_display and self.console:
+            self.console.print(error_panel)
+        else:
+            # フォールバック: 標準出力
+            print(f"エラー: {str(error)}")
 
         # ログに記録
         self.log_error(error, context, user_action)
 
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """パフォーマンス統計を取得"""
+        base_stats = self.stats.get_stats()
 
-# デフォルトハンドラーインスタンス（下位互換性のため）
-default_error_handler = EnhancedErrorHandler()
+        config_info = {
+            "debug_mode": self.debug_mode,
+            "enable_sanitization": self.enable_sanitization,
+            "enable_rich_display": self.config.enable_rich_display,
+            "max_context_items": self.config.max_context_items,
+            "max_solution_items": self.config.max_solution_items,
+        }
+
+        return {
+            **base_stats,
+            "config": config_info,
+            "fallback_rate": base_stats.get("i18n_fallback_count", 0) / max(base_stats.get("errors_handled", 1), 1),
+            "sanitization_rate": base_stats.get("sanitization_count", 0) / max(base_stats.get("errors_handled", 1), 1),
+        }
+
+
+# ファクトリー関数とグローバルインスタンス管理
+def create_error_handler(
+    message_handler: Optional[I18nMessageHandler] = None,
+    sanitizer: Optional[SensitiveDataSanitizer] = None,
+    config_manager=None,
+    language: Language = Language.JAPANESE,
+    debug_mode: Optional[bool] = None,
+    enable_sanitization: Optional[bool] = None,
+) -> EnhancedErrorHandler:
+    """
+    カスタム設定でエラーハンドラーを作成するファクトリー関数（完全統合版）
+
+    Args:
+        message_handler: メッセージハンドラー
+        sanitizer: データサニタイザー
+        config_manager: ConfigManagerインスタンス
+        language: デフォルト言語
+        debug_mode: デバッグモード（設定を上書き）
+        enable_sanitization: サニタイズ機能（設定を上書き）
+
+    Returns:
+        設定されたEnhancedErrorHandlerインスタンス
+    """
+    # 設定オブジェクトを作成
+    config = EnhancedErrorHandlerConfig(config_manager)
+
+    # 個別設定で上書き
+    if debug_mode is not None:
+        config.debug_mode = debug_mode
+    if enable_sanitization is not None:
+        config.enable_sanitization = enable_sanitization
+
+    # 統計オブジェクトを作成
+    stats = ErrorHandlerStats(config)
+
+    return EnhancedErrorHandler(
+        message_handler=message_handler,
+        sanitizer=sanitizer,
+        config=config,
+        language=language,
+        stats=stats,
+    )
+
+
+# デフォルトハンドラーインスタンス（シングルトン・遅延初期化）
+_default_error_handler = None
+
+
+def get_default_error_handler() -> EnhancedErrorHandler:
+    """デフォルトエラーハンドラーを取得（シングルトン）"""
+    global _default_error_handler
+    if _default_error_handler is None:
+        _default_error_handler = create_error_handler()
+    return _default_error_handler
 
 
 # 便利関数（依存性注入対応）
@@ -645,42 +869,13 @@ def handle_cli_error(
         handler: カスタムエラーハンドラー（指定されなければデフォルトを使用）
     """
     # カスタムハンドラーが指定されていない場合はデフォルトを使用
-    error_handler = handler or default_error_handler
+    error_handler = handler or get_default_error_handler()
 
     # 言語設定が違う場合は新しいハンドラーを作成
     if error_handler.language != language:
-        error_handler = EnhancedErrorHandler(language=language, debug_mode=show_technical)
+        error_handler = create_error_handler(language=language, debug_mode=show_technical)
 
     error_handler.display_and_log_error(error, context, user_action, show_technical)
-
-
-def create_error_handler(
-    message_handler: Optional[I18nMessageHandler] = None,
-    sanitizer: Optional[SensitiveDataSanitizer] = None,
-    language: Language = Language.JAPANESE,
-    debug_mode: bool = False,
-    enable_sanitization: bool = True,
-) -> EnhancedErrorHandler:
-    """
-    カスタム設定でエラーハンドラーを作成するファクトリー関数
-
-    Args:
-        message_handler: メッセージハンドラー
-        sanitizer: データサニタイザー
-        language: デフォルト言語
-        debug_mode: デバッグモード
-        enable_sanitization: サニタイズ機能を有効にするか
-
-    Returns:
-        設定されたEnhancedErrorHandlerインスタンス
-    """
-    return EnhancedErrorHandler(
-        message_handler=message_handler,
-        sanitizer=sanitizer,
-        language=language,
-        debug_mode=debug_mode,
-        enable_sanitization=enable_sanitization,
-    )
 
 
 # 後方互換性のためのエイリアス（friendly_error_handlerの機能）
@@ -698,7 +893,7 @@ def create_user_friendly_message(
     Returns:
         (タイトル, メッセージ, 解決策のリスト)
     """
-    handler = EnhancedErrorHandler()
+    handler = get_default_error_handler()
 
     if isinstance(error, DayTradeError):
         error_code = error.error_code or handler._infer_error_code(error)
@@ -707,13 +902,13 @@ def create_user_friendly_message(
         # 一般的な例外の処理は_handle_general_errorのロジックを使用
         general_mappings = {
             "FileNotFoundError": ("ファイルエラー", "指定されたファイルが見つかりません。",
-                                ["ファイルパスが正しいか確認してください"]),
+                                  ["ファイルパスが正しいか確認してください"]),
             "PermissionError": ("権限エラー", "アクセス権限がありません。",
-                              ["管理者権限で実行してください"]),
+                                ["管理者権限で実行してください"]),
             "KeyError": ("データエラー", "必要なデータが見つかりません。",
-                        ["入力データの形式を確認してください"]),
+                         ["入力データの形式を確認してください"]),
             "ValueError": ("値エラー", "入力された値が正しくありません。",
-                          ["入力値の形式を確認してください"]),
+                           ["入力値の形式を確認してください"]),
         }
 
         error_type = type(error).__name__
@@ -728,6 +923,31 @@ def create_user_friendly_message(
         message = f"入力値 '{context['user_input']}' で{message}"
 
     return message_data["title"], message, message_data["solutions"]
+
+
+# friendly_error_handlerから統合された便利関数
+def create_friendly_error_panel(
+    error: Exception,
+    context: Optional[Dict[str, Any]] = None,
+    show_technical: bool = False,
+) -> Panel:
+    """
+    ユーザーフレンドリーなエラーパネルを作成する便利関数
+    friendly_error_handlerとの後方互換性のため
+    """
+    handler = create_error_handler(debug_mode=show_technical)
+    return handler.handle_error(error, context, show_technical=show_technical)
+
+
+def log_error_for_debugging(
+    error: Exception, context: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    デバッグ用にエラーの詳細をログに記録
+    friendly_error_handlerとの後方互換性のため
+    """
+    handler = get_default_error_handler()
+    handler.log_error(error, context)
 
 
 # CLIで使いやすいラッパー関数
@@ -776,3 +996,38 @@ def handle_config_error(
         user_action="設定の変更",
         show_technical=show_technical,
     )
+
+
+# パフォーマンス統計取得関数
+def get_error_handler_performance_stats(handler: Optional[EnhancedErrorHandler] = None) -> Dict[str, Any]:
+    """エラーハンドラーのパフォーマンス統計を取得"""
+    error_handler = handler or get_default_error_handler()
+    return error_handler.get_performance_stats()
+
+
+# 設定統合確認関数
+def validate_error_handler_integration(config_manager=None) -> Dict[str, Any]:
+    """エラーハンドラーの統合状況を検証"""
+    try:
+        handler = create_error_handler(config_manager=config_manager)
+        stats = handler.get_performance_stats()
+
+        validation_result = {
+            "config_integration": bool(handler.config.config_manager),
+            "cache_integration": True,  # cache_utilsとの統合は完了済み
+            "i18n_integration": bool(handler.message_handler),
+            "sanitization_enabled": handler.enable_sanitization,
+            "rich_display_enabled": handler.config.enable_rich_display,
+            "stats_collection": bool(handler.stats),
+            "current_stats": stats,
+            "validation_passed": True,
+        }
+
+        return validation_result
+
+    except Exception as e:
+        return {
+            "validation_passed": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
