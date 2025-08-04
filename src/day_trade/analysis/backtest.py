@@ -1839,6 +1839,7 @@ class BacktestEngine:
         )
 
 
+
 # 使用例とデフォルト戦略
 def simple_sma_strategy(
     symbols: List[str], date: datetime, historical_data: Dict[str, pd.DataFrame]

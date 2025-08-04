@@ -332,6 +332,7 @@ class ResilientAPIClient:
                 url,
                 response.status_code,
                 response_time=response_time,
+                attempt=retry_count_for_method + 1  # 試行回数 = 実際のリクエスト数
             )
 
             # 成功判定
@@ -346,6 +347,10 @@ class ResilientAPIClient:
                     status_code=response.status_code,
                 )
                 return response
+            else:
+                # HTTPエラーステータスの場合は例外として扱う
+                circuit_breaker.record_failure()
+                self._raise_http_error(response)
 
         except requests.exceptions.HTTPError as http_exc:
             circuit_breaker.record_failure()
@@ -356,8 +361,18 @@ class ResilientAPIClient:
 
         except requests.exceptions.RequestException as req_exc:
             circuit_breaker.record_failure()
-            # ネットワークエラー（リトライ後も失敗）
+            self.logger.error(f"リクエストエラー発生: {req_exc}",
+                            endpoint=endpoint.name,
+                            error=str(req_exc))
             self._raise_network_error(req_exc)
+
+        except Exception as e:
+            # 予期せぬエラー
+            circuit_breaker.record_failure()
+            self.logger.error(f"予期せぬエラー発生: {e}",
+                            endpoint=endpoint.name,
+                            error=str(e))
+            raise APIError(f"予期せぬAPIエラー: {e}") from e  # DayTradeErrorにラップして再発生
 
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""

@@ -56,7 +56,6 @@ runs:
           ~/.cache/pre-commit
           ~/.local/share/virtualenvs
           .venv
-          __pycache__/
         key: deps-${{ inputs.cache-version }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
         restore-keys: |
           deps-${{ inputs.cache-version }}-${{ runner.os }}-py${{ inputs.python-version }}-
@@ -69,7 +68,7 @@ runs:
         python -m pip install --upgrade pip wheel setuptools
 
     - name: 📋 Install project dependencies
-      if: inputs.install-dependencies == 'true' && steps.cache-deps.outputs.cache-hit != 'true'
+      if: inputs.install-dependencies == 'true'
       shell: bash
       run: |
         echo "📋 Installing project dependencies..."
