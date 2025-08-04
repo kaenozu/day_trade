@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager, get_db
+from src.day_trade.models.enums import AlertType, TradeType
 from src.day_trade.models.stock import Alert, PriceData, Stock, Trade, WatchlistItem
 from src.day_trade.utils.exceptions import DatabaseIntegrityError
 
@@ -90,7 +91,6 @@ class TestDatabaseManager:
             session.add(price)
 
             # 取引データ作成（Decimal型で精密計算）
-            from src.day_trade.models.enums import TradeType
             trade = Trade(
                 stock_code="7203",
                 trade_type=TradeType.BUY,
@@ -111,7 +111,7 @@ class TestDatabaseManager:
             # アラート作成（Decimal型で精密計算）
             alert = Alert(
                 stock_code="7203",
-                alert_type="price_above",
+                alert_type=AlertType.PRICE_ABOVE,
                 threshold=Decimal("2500.00"),
                 is_active=True,
                 memo="高値警戒",
@@ -329,7 +329,7 @@ class TestDatabaseManager:
             # アラートでの精密しきい値
             alert = Alert(
                 stock_code="TEST",
-                alert_type="price_above",
+                alert_type=AlertType.PRICE_ABOVE,
                 threshold=Decimal("1236.789"),  # 小数点第3位まで
                 is_active=True,
             )
