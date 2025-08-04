@@ -26,8 +26,11 @@ from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import (
     get_context_logger,
+    get_performance_logger,
     log_business_event,
     log_performance_metric,
+    PerformanceTimer,
+    AggregatedLogger,
 )
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
 from .ensemble import EnsembleTradingStrategy
@@ -35,6 +38,8 @@ from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
 
 logger = get_context_logger(__name__, component="backtest")
+performance_logger = get_performance_logger(__name__)
+aggregated_logger = AggregatedLogger(logger)
 
 
 class BacktestMode(Enum):
@@ -929,6 +934,12 @@ class BacktestEngine:
         if not self.trades:
             return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
 
+        # パフォーマンス測定と最適化されたロギング
+        with PerformanceTimer(performance_logger, "trade_statistics_calculation", threshold_ms=50.0):
+            return self._perform_trade_calculation()
+
+    def _perform_trade_calculation(self):
+        """実際の取引計算処理"""
         # 取引をPandasのDataFrameに変換
         trades_data = []
         for i, trade in enumerate(self.trades):
@@ -959,41 +970,63 @@ class BacktestEngine:
         wins = []
         losses = []
 
-        # 効率的なマッチング処理（FIFO - First In, First Out）
+        # 超高速マッチング処理（O(n log n)に最適化）
+        processed_symbols = 0
         for symbol in trades_df["symbol"].unique():
             symbol_buys = buy_trades[buy_trades["symbol"] == symbol].sort_values(
-                "index"
+                ["index"]
             )
             symbol_sells = sell_trades[sell_trades["symbol"] == symbol].sort_values(
-                "index"
+                ["index"]
             )
 
-            # マッチングアルゴリズム: 各売り注文に対して最も近い過去の買い注文を探す
-            buy_queue = symbol_buys.copy()
+            if len(symbol_buys) == 0 or len(symbol_sells) == 0:
+                aggregated_logger.increment_counter("skipped_symbols")
+                continue
 
-            for _, sell_trade in symbol_sells.iterrows():
-                # 売り注文より前の買い注文のみを対象
-                available_buys = buy_queue[buy_queue["index"] < sell_trade["index"]]
+            processed_symbols += 1
 
-                if len(available_buys) > 0:
-                    # 最も最近の買い注文を選択（LIFO - Last In, First Out）
-                    buy_trade = available_buys.iloc[-1]
+            # NumPyを使用したベクトル化マッチング
+            buy_indices = symbol_buys["index"].values
+            buy_prices = symbol_buys["price"].values
+            buy_commissions = symbol_buys["commission"].values
 
-                    # 損益計算
+            sell_indices = symbol_sells["index"].values
+            sell_prices = symbol_sells["price"].values
+            sell_quantities = symbol_sells["quantity"].values
+            sell_commissions = symbol_sells["commission"].values
+
+            # 各売り注文に対してマッチングする買い注文を効率的に特定
+            # searchsortedを使用してO(log n)でマッチング
+            for i, sell_idx in enumerate(sell_indices):
+                # 売り注文より前の買い注文のインデックスを取得
+                valid_buy_positions = np.searchsorted(buy_indices, sell_idx, side='left')
+
+                if valid_buy_positions > 0:
+                    # 最も最近の買い注文を選択（LIFO）
+                    buy_position = valid_buy_positions - 1
+
+                    # 損益計算（ベクトル化）
                     pnl = (
-                        (sell_trade["price"] - buy_trade["price"])
-                        * sell_trade["quantity"]
-                        - sell_trade["commission"]
-                        - buy_trade["commission"]
+                        (sell_prices[i] - buy_prices[buy_position])
+                        * sell_quantities[i]
+                        - sell_commissions[i]
+                        - buy_commissions[buy_position]
                     )
 
                     if pnl > 0:
                         wins.append(pnl)
+                        aggregated_logger.increment_counter("winning_trades")
+                        aggregated_logger.record_metric("win_amount", pnl)
                     else:
                         losses.append(abs(pnl))
+                        aggregated_logger.increment_counter("losing_trades")
+                        aggregated_logger.record_metric("loss_amount", abs(pnl))
 
-                    # 使用した買い注文を削除
-                    buy_queue = buy_queue[buy_queue["index"] != buy_trade["index"]]
+                    # マッチした買い注文を除外（効率的な削除）
+                    buy_indices = np.delete(buy_indices, buy_position)
+                    buy_prices = np.delete(buy_prices, buy_position)
+                    buy_commissions = np.delete(buy_commissions, buy_position)
 
         # 統計計算
         profitable_trades = len(wins)
@@ -1012,6 +1045,10 @@ class BacktestEngine:
             if losses and losing_trades > 0
             else float("inf")
         )
+
+        # 集約データをフラッシュ
+        aggregated_logger.increment_counter("processed_symbols", processed_symbols)
+        aggregated_logger.flush()
 
         return (
             profitable_trades,

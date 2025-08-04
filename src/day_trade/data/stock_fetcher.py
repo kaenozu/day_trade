@@ -4,6 +4,7 @@ yfinanceを使用してリアルタイムおよびヒストリカルな株価デ
 """
 
 import logging
+import os
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
@@ -35,9 +36,11 @@ from ..utils.exceptions import (
 )
 from ..utils.logging_config import (
     get_context_logger,
+    get_performance_logger,
     log_api_call,
     log_error_with_context,
     log_performance_metric,
+    conditional_log,
 )
 
 
@@ -46,9 +49,9 @@ class DataCache:
 
     def __init__(
         self,
-        ttl_seconds: int = 60,
-        max_size: int = 1000,
-        stale_while_revalidate: int = 300,
+        ttl_seconds: int = 300,  # 5分に延長（価格データは頻繁に変わらない）
+        max_size: int = 2000,    # キャッシュサイズを倍増
+        stale_while_revalidate: int = 600,  # 10分に延長
     ):
         """
         Args:
@@ -353,6 +356,10 @@ class StockFetcher:
 
         # ロガーを初期化
         self.logger = get_context_logger(__name__)
+        self.performance_logger = get_performance_logger(__name__)
+
+        # 条件付きデバッグロギング（本番環境では無効化）
+        self.enable_debug_logging = os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
 
         # リトライ統計を初期化
         self.retry_stats = {
@@ -623,8 +630,9 @@ class StockFetcher:
                 symbol = self._format_symbol(code)
                 ticker = self._get_ticker(symbol)
 
-                # API呼び出しログ
-                log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
+                # 条件付きAPI呼び出しログ（デバッグ時のみ）
+                if self.enable_debug_logging:
+                    log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
                 info = ticker.info
 
                 # infoが空または無効な場合
@@ -669,8 +677,10 @@ class StockFetcher:
                     "timestamp": datetime.now(),
                 }
 
-                price_logger.info(
+                # パフォーマンス最適化: 成功ログをサンプリング
+                self.performance_logger.info_sampled(
                     "現在価格取得完了",
+                    sample_rate=0.1,  # 10%のログのみ出力
                     current_price=current_price,
                     change_percent=change_percent,
                     elapsed_ms=elapsed_time,
