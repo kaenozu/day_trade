@@ -364,7 +364,7 @@ def cache_with_ttl(
                 cached_result = cache.get(cache_key, allow_stale=False)
                 if cached_result is not None:
                     # パフォーマンス最適化: デバッグログの条件付き出力
-                    if cache_logger.isEnabledFor(logging.DEBUG):
+                    if hasattr(cache_logger, 'isEnabledFor') and cache_logger.isEnabledFor(logging.DEBUG):
                         cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
@@ -380,7 +380,7 @@ def cache_with_ttl(
                         cache.set(cache_key, sanitized_result)
                         stats.record_set()
                         # パフォーマンス最適化: デバッグログの条件付き出力
-                        if cache_logger.isEnabledFor(logging.DEBUG):
+                        if hasattr(cache_logger, 'isEnabledFor') and cache_logger.isEnabledFor(logging.DEBUG):
                             cache_logger.debug(
                                 f"新しいデータをキャッシュに保存: {func.__name__}"
                             )
@@ -795,7 +795,7 @@ class StockFetcher:
                 }
 
                 # パフォーマンス最適化: サンプリングログの有効化判定
-                if hasattr(self.performance_logger, 'logger') and self.performance_logger.logger.isEnabledFor(logging.INFO):
+                if hasattr(self.performance_logger, 'logger') and hasattr(self.performance_logger.logger, 'isEnabledFor') and self.performance_logger.logger.isEnabledFor(logging.INFO):
                     self.performance_logger.info_sampled(
                         "現在価格取得完了",
                         sample_rate=0.1,  # 10%のログのみ出力

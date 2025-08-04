@@ -158,7 +158,7 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
         cache_key = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
         # パフォーマンス最適化: デバッグログの条件付き出力
-        if logger.isEnabledFor(logging.DEBUG):
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Generated cache key for {func_name}: {cache_key}")
         return f"{func_name}:{cache_key}"
 
@@ -183,7 +183,7 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
             ) from e
     except Exception as e:
         # 予期しない例外
-        if logger.isEnabledFor(logging.ERROR):
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
             logger.error(f"Unexpected error in cache key generation: {e}", exc_info=True)
         raise CacheError(
             f"キャッシュキー生成で予期しないエラーが発生しました: {e}",
@@ -222,7 +222,7 @@ def _normalize_arguments(args: Union[Tuple, Dict, Any], max_depth: int = None, c
 
     if current_depth >= max_depth:
         # パフォーマンス最適化: 警告ログの条件付き出力
-        if logger.isEnabledFor(logging.WARNING):
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
             logger.warning(f"Recursion depth limit reached ({max_depth}), truncating object")
         return f"<truncated at depth {max_depth}>"
 
@@ -385,7 +385,7 @@ def _generate_fallback_cache_key(func_name: str, args: Tuple, kwargs: Dict) -> s
 
     except Exception as e:
         # 最終フォールバック
-        if logger.isEnabledFor(logging.ERROR):
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
             logger.error(f"Fallback cache key generation failed: {e}")
         import time
         import uuid
@@ -416,23 +416,23 @@ class CacheStats:
                     return operation_func()
                 except Exception as e:
                     # 操作実行中のエラー
-                    if logger.isEnabledFor(logging.ERROR):
+                    if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
                         logger.error(f"CacheStats operation failed: {e}", exc_info=True)
                     return default_value
                 finally:
                     try:
                         self._lock.release()
                     except Exception as release_error:
-                        if logger.isEnabledFor(logging.ERROR):
+                        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
                             logger.error(f"Failed to release CacheStats lock: {release_error}")
             else:
                 # ロック取得タイムアウト
-                if logger.isEnabledFor(logging.WARNING):
+                if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
                     logger.warning(f"CacheStats lock timeout ({self._lock_timeout}s) - returning default value")
                 return default_value
         except Exception as e:
             # ロック取得自体のエラー
-            if logger.isEnabledFor(logging.ERROR):
+            if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
                 logger.error(f"CacheStats lock acquisition failed: {e}", exc_info=True)
             return default_value
 
@@ -505,14 +505,14 @@ class CacheStats:
 
             # オーバーフロー検査（Python の int は無限精度だが、異常に大きな値をチェック）
             if new_value > 2**63 - 1:  # 64bit 符号付き整数の最大値
-                if logger.isEnabledFor(logging.WARNING):
+                if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
                     logger.warning(f"Counter '{counter_name}' approaching overflow, resetting to 0")
                 setattr(self, counter_name, 0)
             else:
                 setattr(self, counter_name, new_value)
 
         except (AttributeError, ValueError, TypeError) as e:
-            if logger.isEnabledFor(logging.ERROR):
+            if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.ERROR):
                 logger.error(f"Failed to increment counter '{counter_name}': {e}")
             # エラーが発生した場合はカウントを無視
 
@@ -603,7 +603,7 @@ def sanitize_cache_value(value: Any) -> Any:
 
         size = sys.getsizeof(value)
         if size > cache_config.max_value_size_bytes:
-            if cache_config.enable_size_warnings and logger.isEnabledFor(logging.WARNING):
+            if cache_config.enable_size_warnings and hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
                 logger.warning(f"Large cache value detected: {size} bytes")
     except Exception:
         pass  # サイズ取得に失敗した場合は無視

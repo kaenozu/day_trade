@@ -135,7 +135,7 @@ class DayTradeOrchestrator:
             self.trade_manager, self.stock_fetcher
         )
         self.watchlist_manager = WatchlistManager()
-        self.alert_manager = AlertManager(self.stock_fetcher, self.watchlist_manager)
+        self.alert_manager = AlertManager(self.stock_fetcher)
 
         # スクリーニング機能（利用可能な場合のみ）
         if SCREENER_AVAILABLE:

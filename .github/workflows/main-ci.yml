@@ -151,7 +151,7 @@ jobs:
               python -c "import day_trade; from day_trade.data.stock_fetcher import StockFetcher; print('Import test passed')"
             fi
           else
-            pytest tests/ --ignore=tests/integration/ -v --tb=short ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-report=html --cov-fail-under=20' || '' }}
+            pytest tests/ --ignore=tests/integration/ -v --tb=short ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=35' || '' }}
           fi
 
       - name: 📊 Upload coverage to Codecov
@@ -209,9 +209,57 @@ jobs:
 
       - name: 🔒 Run security scan
         run: |
-          echo "Running basic security checks..."
-          safety check || echo "Safety check completed with warnings"
-          bandit -r src/ -ll || echo "Bandit scan completed with warnings"
+          echo "Running comprehensive security checks..."
+
+          # Safety dependency vulnerability check with detailed reporting
+          echo "🔍 Running Safety dependency scan..."
+          safety check --json --output json > safety-report.json || true
+          if [ -f "safety-report.json" ] && [ -s "safety-report.json" ]; then
+            echo "⚠️ Security vulnerabilities found:"
+            cat safety-report.json | jq -r '.[] | "Package: \(.package_name) \(.installed_version) - \(.vulnerability)"' || cat safety-report.json
+          else
+            echo "✅ No dependency vulnerabilities found"
+          fi
+
+          # Bandit security scan with detailed configuration
+          echo "🔍 Running Bandit security analysis..."
+          bandit -r src/ -ll -f json -o bandit-report.json || true
+          if [ -f "bandit-report.json" ] && [ -s "bandit-report.json" ]; then
+            echo "⚠️ Security issues found by Bandit:"
+            cat bandit-report.json | jq -r '.results[] | "File: \(.filename):\(.line_number) - \(.issue_text)"' || cat bandit-report.json
+          else
+            echo "✅ No security issues found by Bandit"
+          fi
+
+          # Additional security checks
+          echo "🔍 Running additional security checks..."
+
+          # Check for hardcoded secrets patterns
+          echo "Checking for potential secrets..."
+          if grep -r -E "(password|secret|key|token)" --include="*.py" src/ | grep -v "# nosec" | head -5; then
+            echo "⚠️ Potential secrets found - please review"
+          else
+            echo "✅ No obvious secrets patterns found"
+          fi
+
+          # Check for SQL injection patterns
+          echo "Checking for SQL injection patterns..."
+          if grep -r -E "(execute|query).*%.*s" --include="*.py" src/ | head -3; then
+            echo "⚠️ Potential SQL injection patterns found"
+          else
+            echo "✅ No SQL injection patterns found"
+          fi
+
+      - name: 📤 Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: |
+            safety-report.json
+            bandit-report.json
+          retention-days: 30
+          if-no-files-found: ignore
 
   # 📦 ビルドとパッケージング
   build:
