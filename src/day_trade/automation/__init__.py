@@ -2,7 +2,7 @@
 自動化モジュール
 """
 
-from .auto_optimizer import AutoOptimizer, OptimizationResult, DataAssessment
+from .auto_optimizer import AutoOptimizer, DataAssessment, OptimizationResult
 from .orchestrator import AutomationReport, DayTradeOrchestrator, ExecutionResult
 
 __all__ = [
@@ -11,5 +11,5 @@ __all__ = [
     "AutomationReport",
     "AutoOptimizer",
     "OptimizationResult",
-    "DataAssessment"
+    "DataAssessment",
 ]

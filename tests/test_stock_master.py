@@ -18,6 +18,7 @@ def setup_test_db():
     """テスト用データベースのセットアップ"""
     # テスト用インメモリDBを使用
     from day_trade.models.database import DatabaseConfig, DatabaseManager
+
     config = DatabaseConfig.for_testing()
     test_db_manager = DatabaseManager(config)
     test_db_manager.create_tables()

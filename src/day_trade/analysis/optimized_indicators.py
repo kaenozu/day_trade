@@ -7,30 +7,34 @@ Issue #165: アプリケーション全体の処理速度向上に向けた最�
 高速なテクニカル指標計算を提供します。
 """
 
-import warnings
-from typing import Dict, List, Optional, Tuple, Union
+import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, List, Union
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import multiprocessing as mp
 
 # オプショナルな依存関係
 try:
-    import numba
     from numba import jit, prange
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
+
     # Numbaが利用できない場合のダミー実装
     def jit(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
     prange = range
 
 try:
     import talib
+
     TALIB_AVAILABLE = True
 except ImportError:
     TALIB_AVAILABLE = False
@@ -42,6 +46,7 @@ from ..utils.performance_optimizer import PerformanceProfiler
 @dataclass
 class IndicatorResult:
     """指標計算結果"""
+
     name: str
     values: Union[pd.Series, pd.DataFrame]
     parameters: Dict
@@ -64,10 +69,7 @@ class OptimizedIndicatorCalculator:
             self.logger.warning("TALibが利用できません。純粋Python実装を使用します。")
 
     def calculate_multiple_indicators(
-        self,
-        data: pd.DataFrame,
-        indicators: List[Dict],
-        use_parallel: bool = None
+        self, data: pd.DataFrame, indicators: List[Dict], use_parallel: bool = None
     ) -> Dict[str, IndicatorResult]:
         """
         複数の指標を並列計算
@@ -81,7 +83,9 @@ class OptimizedIndicatorCalculator:
         Returns:
             指標名をキーとする計算結果辞書
         """
-        use_parallel = use_parallel if use_parallel is not None else self.enable_parallel
+        use_parallel = (
+            use_parallel if use_parallel is not None else self.enable_parallel
+        )
 
         if use_parallel and len(indicators) > 1:
             return self._calculate_parallel(data, indicators)
@@ -89,9 +93,7 @@ class OptimizedIndicatorCalculator:
             return self._calculate_sequential(data, indicators)
 
     def _calculate_sequential(
-        self,
-        data: pd.DataFrame,
-        indicators: List[Dict]
+        self, data: pd.DataFrame, indicators: List[Dict]
     ) -> Dict[str, IndicatorResult]:
         """逐次計算"""
         results = {}
@@ -107,9 +109,7 @@ class OptimizedIndicatorCalculator:
         return results
 
     def _calculate_parallel(
-        self,
-        data: pd.DataFrame,
-        indicators: List[Dict]
+        self, data: pd.DataFrame, indicators: List[Dict]
     ) -> Dict[str, IndicatorResult]:
         """並列計算"""
         results = {}
@@ -135,12 +135,11 @@ class OptimizedIndicatorCalculator:
         return results
 
     def _calculate_single_indicator(
-        self,
-        data: pd.DataFrame,
-        config: Dict
+        self, data: pd.DataFrame, config: Dict
     ) -> IndicatorResult:
         """単一指標の計算"""
         import time
+
         start_time = time.perf_counter()
 
         name = config["name"]
@@ -162,55 +161,46 @@ class OptimizedIndicatorCalculator:
             values=values,
             parameters=params,
             execution_time=execution_time,
-            data_points=len(data)
+            data_points=len(data),
         )
 
     # === 移動平均系指標 ===
 
     def calculate_sma(
-        self,
-        data: pd.DataFrame,
-        period: int = 20,
-        column: str = "close"
+        self, data: pd.DataFrame, period: int = 20, column: str = "close"
     ) -> pd.Series:
         """単純移動平均（最適化版）"""
         if self.talib_available:
             return pd.Series(
                 talib.SMA(data[column].values, timeperiod=period),
                 index=data.index,
-                name=f"sma_{period}"
+                name=f"sma_{period}",
             )
         else:
             return self._sma_optimized(data[column], period)
 
     def calculate_ema(
-        self,
-        data: pd.DataFrame,
-        period: int = 12,
-        column: str = "close"
+        self, data: pd.DataFrame, period: int = 12, column: str = "close"
     ) -> pd.Series:
         """指数移動平均（最適化版）"""
         if self.talib_available:
             return pd.Series(
                 talib.EMA(data[column].values, timeperiod=period),
                 index=data.index,
-                name=f"ema_{period}"
+                name=f"ema_{period}",
             )
         else:
             return self._ema_optimized(data[column], period)
 
     def calculate_wma(
-        self,
-        data: pd.DataFrame,
-        period: int = 20,
-        column: str = "close"
+        self, data: pd.DataFrame, period: int = 20, column: str = "close"
     ) -> pd.Series:
         """加重移動平均（最適化版）"""
         if self.talib_available:
             return pd.Series(
                 talib.WMA(data[column].values, timeperiod=period),
                 index=data.index,
-                name=f"wma_{period}"
+                name=f"wma_{period}",
             )
         else:
             return self._wma_optimized(data[column], period)
@@ -218,17 +208,14 @@ class OptimizedIndicatorCalculator:
     # === オシレーター系指標 ===
 
     def calculate_rsi(
-        self,
-        data: pd.DataFrame,
-        period: int = 14,
-        column: str = "close"
+        self, data: pd.DataFrame, period: int = 14, column: str = "close"
     ) -> pd.Series:
         """RSI（最適化版）"""
         if self.talib_available:
             return pd.Series(
                 talib.RSI(data[column].values, timeperiod=period),
                 index=data.index,
-                name=f"rsi_{period}"
+                name=f"rsi_{period}",
             )
         else:
             return self._rsi_optimized(data[column], period)
@@ -238,7 +225,7 @@ class OptimizedIndicatorCalculator:
         data: pd.DataFrame,
         k_period: int = 14,
         d_period: int = 3,
-        slow_period: int = 3
+        slow_period: int = 3,
     ) -> pd.DataFrame:
         """ストキャスティクス（最適化版）"""
         if self.talib_available:
@@ -248,12 +235,11 @@ class OptimizedIndicatorCalculator:
                 data["close"].values,
                 fastk_period=k_period,
                 slowk_period=slow_period,
-                slowd_period=d_period
+                slowd_period=d_period,
             )
-            return pd.DataFrame({
-                f"stoch_k_{k_period}": k,
-                f"stoch_d_{d_period}": d
-            }, index=data.index)
+            return pd.DataFrame(
+                {f"stoch_k_{k_period}": k, f"stoch_d_{d_period}": d}, index=data.index
+            )
         else:
             return self._stoch_optimized(data, k_period, d_period, slow_period)
 
@@ -263,7 +249,7 @@ class OptimizedIndicatorCalculator:
         fast_period: int = 12,
         slow_period: int = 26,
         signal_period: int = 9,
-        column: str = "close"
+        column: str = "close",
     ) -> pd.DataFrame:
         """MACD（最適化版）"""
         if self.talib_available:
@@ -271,15 +257,16 @@ class OptimizedIndicatorCalculator:
                 data[column].values,
                 fastperiod=fast_period,
                 slowperiod=slow_period,
-                signalperiod=signal_period
+                signalperiod=signal_period,
             )
-            return pd.DataFrame({
-                "macd": macd,
-                "macd_signal": signal,
-                "macd_histogram": histogram
-            }, index=data.index)
+            return pd.DataFrame(
+                {"macd": macd, "macd_signal": signal, "macd_histogram": histogram},
+                index=data.index,
+            )
         else:
-            return self._macd_optimized(data[column], fast_period, slow_period, signal_period)
+            return self._macd_optimized(
+                data[column], fast_period, slow_period, signal_period
+            )
 
     # === ボラティリティ系指標 ===
 
@@ -288,29 +275,25 @@ class OptimizedIndicatorCalculator:
         data: pd.DataFrame,
         period: int = 20,
         std_dev: float = 2.0,
-        column: str = "close"
+        column: str = "close",
     ) -> pd.DataFrame:
         """ボリンジャーバンド（最適化版）"""
         if self.talib_available:
             upper, middle, lower = talib.BBANDS(
-                data[column].values,
-                timeperiod=period,
-                nbdevup=std_dev,
-                nbdevdn=std_dev
+                data[column].values, timeperiod=period, nbdevup=std_dev, nbdevdn=std_dev
             )
-            return pd.DataFrame({
-                f"bb_upper_{period}": upper,
-                f"bb_middle_{period}": middle,
-                f"bb_lower_{period}": lower
-            }, index=data.index)
+            return pd.DataFrame(
+                {
+                    f"bb_upper_{period}": upper,
+                    f"bb_middle_{period}": middle,
+                    f"bb_lower_{period}": lower,
+                },
+                index=data.index,
+            )
         else:
             return self._bollinger_optimized(data[column], period, std_dev)
 
-    def calculate_atr(
-        self,
-        data: pd.DataFrame,
-        period: int = 14
-    ) -> pd.Series:
+    def calculate_atr(self, data: pd.DataFrame, period: int = 14) -> pd.Series:
         """ATR（最適化版）"""
         if self.talib_available:
             return pd.Series(
@@ -318,34 +301,28 @@ class OptimizedIndicatorCalculator:
                     data["high"].values,
                     data["low"].values,
                     data["close"].values,
-                    timeperiod=period
+                    timeperiod=period,
                 ),
                 index=data.index,
-                name=f"atr_{period}"
+                name=f"atr_{period}",
             )
         else:
             return self._atr_optimized(data, period)
 
     # === 出来高系指標 ===
 
-    def calculate_obv(
-        self,
-        data: pd.DataFrame
-    ) -> pd.Series:
+    def calculate_obv(self, data: pd.DataFrame) -> pd.Series:
         """OBV（最適化版）"""
         if self.talib_available:
             return pd.Series(
                 talib.OBV(data["close"].values, data["volume"].values),
                 index=data.index,
-                name="obv"
+                name="obv",
             )
         else:
             return self._obv_optimized(data)
 
-    def calculate_vwap(
-        self,
-        data: pd.DataFrame
-    ) -> pd.Series:
+    def calculate_vwap(self, data: pd.DataFrame) -> pd.Series:
         """VWAP（最適化版）"""
         return self._vwap_optimized(data)
 
@@ -362,11 +339,11 @@ class OptimizedIndicatorCalculator:
             return result
 
         # 初回計算
-        result[period-1] = np.mean(prices[:period])
+        result[period - 1] = np.mean(prices[:period])
 
         # 増分計算
         for i in prange(period, n):
-            result[i] = result[i-1] + (prices[i] - prices[i-period]) / period
+            result[i] = result[i - 1] + (prices[i] - prices[i - period]) / period
 
         return result
 
@@ -389,7 +366,7 @@ class OptimizedIndicatorCalculator:
         result[0] = prices[0]
 
         for i in prange(1, n):
-            result[i] = alpha * prices[i] + (1 - alpha) * result[i-1]
+            result[i] = alpha * prices[i] + (1 - alpha) * result[i - 1]
 
         return result
 
@@ -411,8 +388,8 @@ class OptimizedIndicatorCalculator:
         weights = np.arange(1, period + 1, dtype=np.float64)
         weight_sum = np.sum(weights)
 
-        for i in prange(period-1, n):
-            window = prices[i-period+1:i+1]
+        for i in prange(period - 1, n):
+            window = prices[i - period + 1 : i + 1]
             result[i] = np.sum(window * weights) / weight_sum
 
         return result
@@ -450,8 +427,8 @@ class OptimizedIndicatorCalculator:
         # EMアベレージによる更新
         alpha = 1.0 / period
         for i in prange(period + 1, n):
-            avg_gain = (1 - alpha) * avg_gain + alpha * gains[i-1]
-            avg_loss = (1 - alpha) * avg_loss + alpha * losses[i-1]
+            avg_gain = (1 - alpha) * avg_gain + alpha * gains[i - 1]
+            avg_loss = (1 - alpha) * avg_loss + alpha * losses[i - 1]
 
             if avg_loss == 0:
                 result[i] = 100.0
@@ -467,28 +444,24 @@ class OptimizedIndicatorCalculator:
         return pd.Series(values, index=prices.index, name=f"rsi_{period}")
 
     def _bollinger_optimized(
-        self,
-        prices: pd.Series,
-        period: int,
-        std_dev: float
+        self, prices: pd.Series, period: int, std_dev: float
     ) -> pd.DataFrame:
         """最適化版ボリンジャーバンド"""
         # Pandasのローリング関数を使用（十分に最適化されている）
         sma = prices.rolling(window=period).mean()
         std = prices.rolling(window=period).std()
 
-        return pd.DataFrame({
-            f"bb_upper_{period}": sma + (std * std_dev),
-            f"bb_middle_{period}": sma,
-            f"bb_lower_{period}": sma - (std * std_dev)
-        }, index=prices.index)
+        return pd.DataFrame(
+            {
+                f"bb_upper_{period}": sma + (std * std_dev),
+                f"bb_middle_{period}": sma,
+                f"bb_lower_{period}": sma - (std * std_dev),
+            },
+            index=prices.index,
+        )
 
     def _macd_optimized(
-        self,
-        prices: pd.Series,
-        fast_period: int,
-        slow_period: int,
-        signal_period: int
+        self, prices: pd.Series, fast_period: int, slow_period: int, signal_period: int
     ) -> pd.DataFrame:
         """最適化版MACD"""
         ema_fast = self._ema_optimized(prices, fast_period)
@@ -497,18 +470,13 @@ class OptimizedIndicatorCalculator:
         signal = self._ema_optimized(macd, signal_period)
         histogram = macd - signal
 
-        return pd.DataFrame({
-            "macd": macd,
-            "macd_signal": signal,
-            "macd_histogram": histogram
-        }, index=prices.index)
+        return pd.DataFrame(
+            {"macd": macd, "macd_signal": signal, "macd_histogram": histogram},
+            index=prices.index,
+        )
 
     def _stoch_optimized(
-        self,
-        data: pd.DataFrame,
-        k_period: int,
-        d_period: int,
-        slow_period: int
+        self, data: pd.DataFrame, k_period: int, d_period: int, slow_period: int
     ) -> pd.DataFrame:
         """最適化版ストキャスティクス"""
         lowest_low = data["low"].rolling(window=k_period).min()
@@ -518,10 +486,10 @@ class OptimizedIndicatorCalculator:
         k_slow = k_percent.rolling(window=slow_period).mean()
         d_slow = k_slow.rolling(window=d_period).mean()
 
-        return pd.DataFrame({
-            f"stoch_k_{k_period}": k_slow,
-            f"stoch_d_{d_period}": d_slow
-        }, index=data.index)
+        return pd.DataFrame(
+            {f"stoch_k_{k_period}": k_slow, f"stoch_d_{d_period}": d_slow},
+            index=data.index,
+        )
 
     def _atr_optimized(self, data: pd.DataFrame, period: int) -> pd.Series:
         """最適化版ATR"""
@@ -551,9 +519,7 @@ class OptimizedIndicatorCalculator:
     # === 一括計算用の高速化メソッド ===
 
     def calculate_comprehensive_analysis(
-        self,
-        data: pd.DataFrame,
-        include_advanced: bool = True
+        self, data: pd.DataFrame, include_advanced: bool = True
     ) -> pd.DataFrame:
         """包括的テクニカル分析（一括最適化計算）"""
         result = data.copy()
@@ -568,7 +534,7 @@ class OptimizedIndicatorCalculator:
             {"name": "rsi", "period": 14},
             {"name": "macd", "fast_period": 12, "slow_period": 26, "signal_period": 9},
             {"name": "bollinger_bands", "period": 20, "std_dev": 2.0},
-            {"name": "atr", "period": 14}
+            {"name": "atr", "period": 14},
         ]
 
         # 高速一括計算
@@ -577,7 +543,7 @@ class OptimizedIndicatorCalculator:
         )
 
         # 結果をDataFrameに統合
-        for name, indicator_result in indicator_results.items():
+        for _name, indicator_result in indicator_results.items():
             values = indicator_result.values
             if isinstance(values, pd.Series):
                 result[values.name] = values
@@ -616,7 +582,7 @@ class OptimizedIndicatorCalculator:
         # 簡易実装（実際の本格実装は別途）
         high = data["high"]
         low = data["low"]
-        close = data["close"]
+        data["close"]
 
         # 初期値設定
         sar = low.iloc[0]
@@ -627,16 +593,16 @@ class OptimizedIndicatorCalculator:
 
         for i in range(1, len(data)):
             if trend == 1:  # uptrend
-                sar = sar + af * (high.iloc[i-1] - sar)
+                sar = sar + af * (high.iloc[i - 1] - sar)
                 if low.iloc[i] <= sar:
                     trend = -1
-                    sar = high.iloc[i-1]
+                    sar = high.iloc[i - 1]
                     af = 0.02
             else:  # downtrend
-                sar = sar + af * (low.iloc[i-1] - sar)
+                sar = sar + af * (low.iloc[i - 1] - sar)
                 if high.iloc[i] >= sar:
                     trend = 1
-                    sar = low.iloc[i-1]
+                    sar = low.iloc[i - 1]
                     af = 0.02
 
             sar_values.append(sar)
@@ -647,6 +613,7 @@ class OptimizedIndicatorCalculator:
 # 使用例とベンチマーク
 if __name__ == "__main__":
     import time
+
     from ..utils.performance_optimizer import create_sample_data
 
     print("🚀 最適化テクニカル指標計算 - パフォーマンステスト")
@@ -671,14 +638,18 @@ if __name__ == "__main__":
 
     execution_time = time.perf_counter() - start_time
 
-    print(f"✅ 包括的分析完了:")
+    print("✅ 包括的分析完了:")
     print(f"   実行時間: {execution_time:.3f}秒")
-    print(f"   計算指標数: {len(comprehensive_result.columns) - len(test_data.columns)}")
+    print(
+        f"   計算指標数: {len(comprehensive_result.columns) - len(test_data.columns)}"
+    )
     print(f"   スループット: {len(test_data) / execution_time:.0f} records/sec")
 
     # パフォーマンス統計表示
     summary = calculator.profiler.get_summary_report()
     if summary.get("slowest_functions"):
-        print(f"\n⏱️ 最も時間のかかった処理:")
+        print("\n⏱️ 最も時間のかかった処理:")
         for func_metrics in summary["slowest_functions"][:3]:
-            print(f"   {func_metrics.function_name}: {func_metrics.execution_time:.3f}秒")
+            print(
+                f"   {func_metrics.function_name}: {func_metrics.execution_time:.3f}秒"
+            )

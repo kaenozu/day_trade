@@ -44,7 +44,7 @@ def watchlist_manager(test_db):
     mock_fetcher.get_company_info.return_value = {
         "name": "Test Company",
         "sector": "Test Sector",
-        "industry": "Test Industry"
+        "industry": "Test Industry",
     }
 
     manager = WatchlistManager()
@@ -64,7 +64,9 @@ class TestWatchlistManager:
         """銘柄追加成功テスト"""
         # 銘柄をデータベースに追加
         with test_db.session_scope() as session:
-            stock = Stock(code="7203", name="トヨタ自動車", sector="輸送用機器", market="プライム")
+            stock = Stock(
+                code="7203", name="トヨタ自動車", sector="輸送用機器", market="プライム"
+            )
             session.add(stock)
 
         result = watchlist_manager.add_stock("7203", "default", "テストメモ")
@@ -92,7 +94,9 @@ class TestWatchlistManager:
         # 事前にデータを追加
         with test_db.session_scope() as session:
             stock = Stock(code="7203", name="トヨタ自動車")
-            watchlist_item = WatchlistItem(stock_code="7203", group_name="default", memo="テスト")
+            watchlist_item = WatchlistItem(
+                stock_code="7203", group_name="default", memo="テスト"
+            )
             session.add(stock)
             session.add(watchlist_item)
 
@@ -138,7 +142,9 @@ class TestWatchlistManager:
         # 事前にデータを追加
         with test_db.session_scope() as session:
             stock = Stock(code="7203", name="トヨタ自動車")
-            watchlist_item = WatchlistItem(stock_code="7203", group_name="default", memo="旧メモ")
+            watchlist_item = WatchlistItem(
+                stock_code="7203", group_name="default", memo="旧メモ"
+            )
             session.add(stock)
             session.add(watchlist_item)
 
@@ -172,7 +178,7 @@ class TestAlertFunctionality:
             stock_code="7203",
             alert_type=AlertType.PRICE_ABOVE,
             threshold=3000.0,
-            memo="高値警戒"
+            memo="高値警戒",
         )
 
         result = watchlist_manager.add_alert(condition)
@@ -187,7 +193,7 @@ class TestAlertFunctionality:
                 stock_code="7203",
                 alert_type="price_above",
                 threshold=3000.0,
-                is_active=True
+                is_active=True,
             )
             session.add(stock)
             session.add(alert)
@@ -204,13 +210,13 @@ class TestAlertFunctionality:
                 stock_code="7203",
                 alert_type="price_above",
                 threshold=3000.0,
-                is_active=True
+                is_active=True,
             )
             alert2 = Alert(
                 stock_code="7203",
                 alert_type="price_below",
                 threshold=2000.0,
-                is_active=False
+                is_active=False,
             )
             session.add_all([stock, alert1, alert2])
 
@@ -231,7 +237,7 @@ class TestAlertFunctionality:
                 stock_code="7203",
                 alert_type="price_above",
                 threshold=3000.0,
-                is_active=True
+                is_active=True,
             )
             session.add(stock)
             session.add(alert)

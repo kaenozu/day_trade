@@ -4,25 +4,21 @@
 自動的に最善の銘柄選択、データ収集、戦略選択、バックテストを実行
 """
 
-import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ..analysis.backtest import BacktestEngine
 from ..analysis.screener import StockScreener
 from ..automation.orchestrator import DayTradeOrchestrator
 from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
-from ..utils.progress import ProgressType, multi_step_progress
+from ..utils.progress import multi_step_progress
 
 logger = get_context_logger(__name__)
 console = Console()
@@ -99,7 +95,7 @@ class AutoOptimizer:
         self,
         max_symbols: int = 10,
         optimization_depth: str = "balanced",  # fast, balanced, comprehensive
-        show_progress: bool = True
+        show_progress: bool = True,
     ) -> OptimizationResult:
         """
         全自動最適化を実行
@@ -114,12 +110,14 @@ class AutoOptimizer:
         """
         start_time = time.time()
 
-        console.print(Panel.fit(
-            "[bold green]>> 全自動最善選択開始[/bold green]\n"
-            f"最適化深度: {optimization_depth}\n"
-            f"最大銘柄数: {max_symbols}",
-            title="自動最適化"
-        ))
+        console.print(
+            Panel.fit(
+                "[bold green]>> 全自動最善選択開始[/bold green]\n"
+                f"最適化深度: {optimization_depth}\n"
+                f"最大銘柄数: {max_symbols}",
+                title="自動最適化",
+            )
+        )
 
         try:
             if show_progress:
@@ -129,7 +127,9 @@ class AutoOptimizer:
                         max_symbols, optimization_depth, progress
                     )
             else:
-                result = self._run_optimization_pipeline(max_symbols, optimization_depth)
+                result = self._run_optimization_pipeline(
+                    max_symbols, optimization_depth
+                )
 
             result.optimization_time = time.time() - start_time
 
@@ -140,10 +140,7 @@ class AutoOptimizer:
 
         except Exception as e:
             logger.error(f"自動最適化エラー: {e}")
-            console.print(Panel.fit(
-                f"[red]最適化エラー: {e}[/red]",
-                title="エラー"
-            ))
+            console.print(Panel.fit(f"[red]最適化エラー: {e}[/red]", title="エラー"))
             raise
 
     def _get_optimization_steps(self, depth: str) -> List[Tuple[str, str, float]]:
@@ -161,7 +158,11 @@ class AutoOptimizer:
 
         if depth == "fast":
             # 高速モード：一部ステップをスキップ
-            return [s for s in base_steps if s[0] not in ["data_collection", "final_validation"]]
+            return [
+                s
+                for s in base_steps
+                if s[0] not in ["data_collection", "final_validation"]
+            ]
         elif depth == "comprehensive":
             # 包括モード：追加ステップを含む
             comprehensive_steps = base_steps + [
@@ -221,19 +222,25 @@ class AutoOptimizer:
         if depth == "comprehensive":
             # ML訓練
             logger.info("Step 8: 機械学習モデル訓練")
-            ml_results = self._train_ml_models(optimization_result.best_symbols)
+            self._train_ml_models(optimization_result.best_symbols)
             progress.complete_step()
 
             # リスク分析
             logger.info("Step 9: リスク分析")
-            risk_analysis = self._perform_risk_analysis(optimization_result.best_symbols)
+            risk_analysis = self._perform_risk_analysis(
+                optimization_result.best_symbols
+            )
             optimization_result.risk_score = risk_analysis["overall_risk"]
             progress.complete_step()
 
             # ポートフォリオ最適化
             logger.info("Step 10: ポートフォリオ最適化")
-            portfolio_weights = self._optimize_portfolio_weights(optimization_result.best_symbols)
-            optimization_result.recommendations.extend(portfolio_weights["recommendations"])
+            portfolio_weights = self._optimize_portfolio_weights(
+                optimization_result.best_symbols
+            )
+            optimization_result.recommendations.extend(
+                portfolio_weights["recommendations"]
+            )
             progress.complete_step()
 
         # 最終検証（fast以外）
@@ -245,7 +252,9 @@ class AutoOptimizer:
 
         return optimization_result
 
-    def _run_optimization_pipeline(self, max_symbols: int, depth: str) -> OptimizationResult:
+    def _run_optimization_pipeline(
+        self, max_symbols: int, depth: str
+    ) -> OptimizationResult:
         """最適化パイプライン実行（進捗表示なし）"""
 
         # 銘柄ユニバース拡張
@@ -331,14 +340,16 @@ class AutoOptimizer:
                     # 市場流動性評価（出来高ベース）
                     market_liquidity = 0.5  # デフォルト
                     if historical_3mo is not None and len(historical_3mo) > 0:
-                        avg_volume = historical_3mo['Volume'].mean()
+                        avg_volume = historical_3mo["Volume"].mean()
                         if avg_volume > 1000000:  # 100万株以上
                             market_liquidity = 1.0
                         elif avg_volume > 100000:  # 10万株以上
                             market_liquidity = 0.7
 
                     # 予測準備度
-                    prediction_readiness = min(data_availability, data_quality, market_liquidity)
+                    prediction_readiness = min(
+                        data_availability, data_quality, market_liquidity
+                    )
 
                     # 欠損期間特定
                     missing_periods = []
@@ -356,7 +367,7 @@ class AutoOptimizer:
                         market_liquidity=market_liquidity,
                         prediction_readiness=prediction_readiness,
                         missing_periods=missing_periods,
-                        last_update=datetime.now()
+                        last_update=datetime.now(),
                     )
 
                     assessments[symbol] = assessment
@@ -372,15 +383,21 @@ class AutoOptimizer:
                         market_liquidity=0.0,
                         prediction_readiness=0.0,
                         missing_periods=["all_data"],
-                        last_update=datetime.now()
+                        last_update=datetime.now(),
                     )
 
                 progress.update(task, advance=1)
 
         # 評価結果のサマリー表示
-        high_quality = [s for s, a in assessments.items() if a.prediction_readiness > 0.7]
-        medium_quality = [s for s, a in assessments.items() if 0.4 <= a.prediction_readiness <= 0.7]
-        low_quality = [s for s, a in assessments.items() if a.prediction_readiness < 0.4]
+        high_quality = [
+            s for s, a in assessments.items() if a.prediction_readiness > 0.7
+        ]
+        medium_quality = [
+            s for s, a in assessments.items() if 0.4 <= a.prediction_readiness <= 0.7
+        ]
+        low_quality = [
+            s for s, a in assessments.items() if a.prediction_readiness < 0.4
+        ]
 
         console.print(f"<< 高品質データ: {len(high_quality)}銘柄")
         console.print(f"<< 中品質データ: {len(medium_quality)}銘柄")
@@ -391,7 +408,8 @@ class AutoOptimizer:
     def _collect_missing_data(self, assessments: Dict[str, DataAssessment]):
         """不足データを収集"""
         symbols_needing_data = [
-            symbol for symbol, assessment in assessments.items()
+            symbol
+            for symbol, assessment in assessments.items()
             if assessment.missing_periods and assessment.data_availability > 0
         ]
 
@@ -439,7 +457,7 @@ class AutoOptimizer:
                     assessment.prediction_readiness = min(
                         assessment.data_availability,
                         assessment.data_quality,
-                        assessment.market_liquidity
+                        assessment.market_liquidity,
                     )
 
                 except Exception as e:
@@ -453,10 +471,14 @@ class AutoOptimizer:
         """銘柄スクリーニング"""
         if not self.screener_available:
             # スクリーナーが利用できない場合は先頭からN個を選択
-            console.print("!! スクリーニング機能が利用できません。デフォルト選択を使用します。")
+            console.print(
+                "!! スクリーニング機能が利用できません。デフォルト選択を使用します。"
+            )
             return symbols[:target_count]
 
-        console.print(f">> {len(symbols)}銘柄からトップ{target_count}銘柄をスクリーニング...")
+        console.print(
+            f">> {len(symbols)}銘柄からトップ{target_count}銘柄をスクリーニング..."
+        )
 
         try:
             # 複数のスクリーニング戦略を実行
@@ -467,8 +489,10 @@ class AutoOptimizer:
             for strategy in strategies:
                 try:
                     results = self.orchestrator.run_stock_screening(
-                        symbols, screener_type=strategy,
-                        min_score=0.1, max_results=target_count
+                        symbols,
+                        screener_type=strategy,
+                        min_score=0.1,
+                        max_results=target_count,
                     )
                     screening_results[strategy] = results
                 except Exception as e:
@@ -476,7 +500,7 @@ class AutoOptimizer:
 
             # 結果を統合してランキング
             symbol_scores = {}
-            for strategy, results in screening_results.items():
+            for _strategy, results in screening_results.items():
                 for result in results:
                     symbol = result["symbol"]
                     score = result["score"]
@@ -492,9 +516,7 @@ class AutoOptimizer:
 
             # トップN銘柄選択
             selected_symbols = sorted(
-                avg_scores.keys(),
-                key=lambda x: avg_scores[x],
-                reverse=True
+                avg_scores.keys(), key=lambda x: avg_scores[x], reverse=True
             )[:target_count]
 
             console.print(f"<< {len(selected_symbols)}銘柄を選択")
@@ -526,13 +548,13 @@ class AutoOptimizer:
                 "technical_analysis": 0.7,
                 "ensemble": 0.8,
                 "enhanced_ensemble": 0.9,
-                "ml_models": 0.75
+                "ml_models": 0.75,
             },
             "recommended_settings": {
                 "confidence_threshold": 0.6,
                 "risk_tolerance": "medium",
-                "position_sizing": "dynamic"
-            }
+                "position_sizing": "dynamic",
+            },
         }
 
         # 実際の戦略評価ロジックはここに実装
@@ -567,7 +589,7 @@ class AutoOptimizer:
                 sorted_results = sorted(
                     backtest_results.items(),
                     key=lambda x: x[1].get("total_return", 0),
-                    reverse=True
+                    reverse=True,
                 )
 
                 table = Table(title="バックテスト結果（上位5銘柄）")
@@ -581,7 +603,7 @@ class AutoOptimizer:
                         symbol,
                         f"{result.get('total_return', 0):.2%}",
                         f"{result.get('sharpe_ratio', 0):.2f}",
-                        f"{result.get('max_drawdown', 0):.2%}"
+                        f"{result.get('max_drawdown', 0):.2%}",
                     )
 
                 console.print(table)
@@ -597,7 +619,7 @@ class AutoOptimizer:
         symbols: List[str],
         strategy_results: Dict[str, Any],
         backtest_results: Dict[str, Any],
-        max_symbols: int
+        max_symbols: int,
     ) -> OptimizationResult:
         """最適化選択"""
         console.print(">> 最適選択実行中...")
@@ -620,7 +642,7 @@ class AutoOptimizer:
                 # シャープレシオスコア（正規化）
                 sharpe_score = min(sharpe_ratio / 2.0, 1.0)  # シャープ2.0で最大スコア
 
-                score += (return_score * 0.4 + sharpe_score * 0.6)
+                score += return_score * 0.4 + sharpe_score * 0.6
             else:
                 score += 0.3  # バックテストデータなしのデフォルトスコア
 
@@ -630,7 +652,7 @@ class AutoOptimizer:
         best_symbols = sorted(
             symbol_composite_scores.keys(),
             key=lambda x: symbol_composite_scores[x],
-            reverse=True
+            reverse=True,
         )[:max_symbols]
 
         # 期待リターンとリスク計算
@@ -638,10 +660,16 @@ class AutoOptimizer:
         risk_score = 0.5
 
         if backtest_results:
-            returns = [backtest_results[s].get("total_return", 0) for s in best_symbols if s in backtest_results]
+            returns = [
+                backtest_results[s].get("total_return", 0)
+                for s in best_symbols
+                if s in backtest_results
+            ]
             if returns:
                 expected_return = sum(returns) / len(returns)
-                risk_score = max(0.1, min(0.9, expected_return * 2))  # リターンに比例したリスク
+                risk_score = max(
+                    0.1, min(0.9, expected_return * 2)
+                )  # リターンに比例したリスク
 
         # 推奨事項生成
         recommendations = [
@@ -651,7 +679,9 @@ class AutoOptimizer:
         ]
 
         if expected_return > 0.15:
-            recommendations.append("!! 高リターンが期待されますが、リスクも高くなります")
+            recommendations.append(
+                "!! 高リターンが期待されますが、リスクも高くなります"
+            )
         elif expected_return < 0.05:
             recommendations.append("|| 保守的な戦略です。リスクは低めです")
 
@@ -664,7 +694,7 @@ class AutoOptimizer:
             backtest_performance=backtest_results,
             optimization_time=0.0,  # 後で設定
             data_quality_score=0.8,  # 簡略化
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         return result
@@ -703,8 +733,8 @@ class AutoOptimizer:
             "recommendations": [
                 "ポートフォリオの分散化を検討",
                 "定期的なリバランシングを実施",
-                "市場変動時の対応計画を準備"
-            ]
+                "市場変動時の対応計画を準備",
+            ],
         }
 
         return risk_analysis
@@ -725,8 +755,8 @@ class AutoOptimizer:
             "recommendations": [
                 "分散投資により リスクを軽減",
                 "定期的なリバランシング（四半期ごと）を推奨",
-                "市場環境変化時の戦略見直しを検討"
-            ]
+                "市場環境変化時の戦略見直しを検討",
+            ],
         }
 
         return portfolio_weights
@@ -740,7 +770,8 @@ class AutoOptimizer:
             "data_completeness": len(result.best_symbols) >= 3,
             "performance_threshold": result.expected_return > 0.05,
             "risk_acceptable": result.risk_score < 0.8,
-            "strategy_viable": result.best_strategy in ["ensemble", "enhanced_ensemble"]
+            "strategy_viable": result.best_strategy
+            in ["ensemble", "enhanced_ensemble"],
         }
 
         passed_validations = sum(validations.values())
@@ -751,7 +782,11 @@ class AutoOptimizer:
         validation_result = {
             "confidence": confidence,
             "validations": validations,
-            "overall_assessment": "excellent" if confidence > 0.8 else "good" if confidence > 0.6 else "acceptable"
+            "overall_assessment": "excellent"
+            if confidence > 0.8
+            else "good"
+            if confidence > 0.6
+            else "acceptable",
         }
 
         return validation_result
@@ -759,16 +794,18 @@ class AutoOptimizer:
     def _display_optimization_result(self, result: OptimizationResult):
         """最適化結果表示"""
         console.print("\n")
-        console.print(Panel.fit(
-            f"[bold green]>> 全自動最適化完了[/bold green]\n\n"
-            f"[cyan]選択銘柄数:[/cyan] {len(result.best_symbols)}\n"
-            f"[cyan]推奨戦略:[/cyan] {result.best_strategy}\n"
-            f"[cyan]期待リターン:[/cyan] {result.expected_return:.2%}\n"
-            f"[cyan]リスクスコア:[/cyan] {result.risk_score:.1f}/1.0\n"
-            f"[cyan]信頼度:[/cyan] {result.confidence:.1%}\n"
-            f"[cyan]最適化時間:[/cyan] {result.optimization_time:.1f}秒",
-            title="最適化結果"
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]>> 全自動最適化完了[/bold green]\n\n"
+                f"[cyan]選択銘柄数:[/cyan] {len(result.best_symbols)}\n"
+                f"[cyan]推奨戦略:[/cyan] {result.best_strategy}\n"
+                f"[cyan]期待リターン:[/cyan] {result.expected_return:.2%}\n"
+                f"[cyan]リスクスコア:[/cyan] {result.risk_score:.1f}/1.0\n"
+                f"[cyan]信頼度:[/cyan] {result.confidence:.1%}\n"
+                f"[cyan]最適化時間:[/cyan] {result.optimization_time:.1f}秒",
+                title="最適化結果",
+            )
+        )
 
         # 選択銘柄表示
         symbols_table = Table(title="選択銘柄")
@@ -797,9 +834,7 @@ def main():
 
         # テスト実行
         result = optimizer.run_auto_optimization(
-            max_symbols=5,
-            optimization_depth="balanced",
-            show_progress=True
+            max_symbols=5, optimization_depth="balanced", show_progress=True
         )
 
         print(f"\n最適化完了: {len(result.best_symbols)}銘柄選択")

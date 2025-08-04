@@ -1,4 +1,4 @@
-name: ⚡ Ultra-Fast CI/CD
+name: Optimized CI/CD Pipeline
 
 on:
   push:
@@ -15,13 +15,12 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  CACHE_VERSION: v3
+  CACHE_VERSION: v4
   PYTHONDONTWRITEBYTECODE: 1
   PYTHONUNBUFFERED: 1
 
-# 共通のキャッシュキーを定義
 jobs:
-  # ⚡ 超高速変更検出とキャッシュウォームアップ
+  # 最適化されたセットアップと変更検出
   setup:
     runs-on: ubuntu-latest
     outputs:
@@ -77,14 +76,14 @@ jobs:
           restore-keys: |
             deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
-      - name: 🚀 Install dependencies (if cache miss)
+      - name: 💡 Install dependencies (if cache miss)
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
           pip install -e .[dev,test]
           pre-commit install-hooks
 
-  # ⚡ 超高速コード品質チェック（並列実行）
+  # 最適化されたコード品質と静的解析
   quality:
     runs-on: ubuntu-latest
     needs: setup
@@ -111,36 +110,57 @@ jobs:
             .venv
           key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
 
-      - name: 🔧 Install dependencies (if needed)
+      - name: 💡 Install dependencies (if needed)
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev,test]
 
-      - name: ⚡ Fast linting (changed files only)
+      - name: 🚀 Fast linting (changed files only)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "🔍 Linting changed files only..."
             # Fetch base branch for comparison
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             # 変更されたPythonファイルのみをチェック
-            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff check --fix || true
-            git diff --name-only --diff-filter=AM ${{ github.base_ref }}...HEAD | grep '\.py$' | xargs -r ruff format --check || true
+            changed_files=$(git diff --name-only --diff-filter=AM ${{ github.base_ref }}..HEAD | grep '\.py$' || true)
+            if [ -n "$changed_files" ]; then
+              echo "$changed_files" | xargs ruff check --fix
+              echo "$changed_files" | xargs ruff format
+            else
+              echo "No Python files changed"
+            fi
+            # 自動修正された変更をコミット
+            if [[ $(git status --porcelain) ]]; then
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git add .
+              git commit --amend --no-edit
+              git push
+            fi
           else
             echo "🔍 Linting all files..."
             ruff check --fix src/ tests/ || true
             ruff format --check src/ tests/ || true
           fi
 
-      - name: 🪝 Pre-commit (incremental)
+      - name: 💡 Pre-commit (incremental)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
             pre-commit run --from-ref ${{ github.base_ref }} --to-ref HEAD
+            # 自動修正された変更をコミット
+            if [[ $(git status --porcelain) ]]; then
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git add .
+              git commit --amend --no-edit
+              git push
+            fi
           else
             pre-commit run --all-files --show-diff-on-failure
           fi
 
-  # ⚡ 超高速テスト実行（最適化された並列実行）
+  # 最適化されたテスト実行
   test:
     runs-on: ubuntu-latest
     needs: [setup, quality]
@@ -171,12 +191,12 @@ jobs:
             .venv
           key: deps-${{ env.CACHE_VERSION }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
 
-      - name: 🔧 Install dependencies (if needed)
+      - name: 💡 Install dependencies (if needed)
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev,test]
 
-      - name: ⚡ Run tests (${{ matrix.test-type }})
+      - name: 🚀 Run tests (${{ matrix.test-type }})
         run: |
           case "${{ matrix.test-type }}" in
             "unit-fast")
@@ -195,14 +215,18 @@ jobs:
             "unit-slow")
               echo "🐌 Running slow unit tests..."
               pytest tests/ -v --tb=short \
-                     --ignore=tests/integration/ \
-                     -m "slow" \
-                     --disable-warnings || echo "No slow tests found"
+                           --ignore=tests/integration/ \
+                           -m "slow" \
+                           --disable-warnings || echo "No slow tests found"
               ;;
             "integration")
               echo "🔗 Running integration tests..."
               pytest tests/integration/ -v --tb=short \
-                     --disable-warnings || echo "Integration tests not implemented"
+                                       --disable-warnings \
+                                       --integration \
+                                       --cov=src/day_trade \
+                                       --cov-append \
+                                       --slow
               ;;
           esac
 
@@ -215,7 +239,7 @@ jobs:
           name: coverage-${{ matrix.test-type }}
         continue-on-error: true
 
-      - name: 📁 Upload coverage reports as artifacts
+      - name: 📂 Upload coverage reports as artifacts
         if: matrix.test-type == 'unit-fast'
         uses: actions/upload-artifact@v4
         with:
@@ -227,7 +251,7 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  # 🔒 セキュリティスキャン（並列実行）
+  # 🔒 最適化されたセキュリティスキャン
   security:
     runs-on: ubuntu-latest
     needs: setup
@@ -245,38 +269,38 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: 🔒 Install security tools
+      - name: 💡 Install security tools
         run: |
           python -m pip install --upgrade pip
           pip install safety bandit[toml] semgrep
 
-      - name: ⚡ Parallel security scan
+      - name: 🚀 Parallel security scan
         run: |
-          echo "🔒 Running parallel security scans..."
+          echo "🚀 Running parallel security scans..."
           (
-            echo "🛡️ Safety check..."
+            echo "🕵️ Safety check..."
             safety check --json > safety-report.json 2>/dev/null || echo "Safety check completed with warnings"
           ) &
           (
-            echo "🔍 Bandit scan..."
-            bandit -r src/ -f json -o bandit-report.json -ll 2>/dev/null || echo "Bandit scan completed"
+            echo "🕵️ Bandit scan..."
+            bandit -r src/ -f json -o bandit-report.json -l 2>/dev/null || echo "Bandit scan completed"
           ) &
           (
-            echo "🔬 Semgrep scan..."
+            echo "🕵️ Semgrep scan..."
             semgrep --config=auto --json --output=semgrep-report.json src/ 2>/dev/null || echo "Semgrep scan completed"
           ) &
           wait
           echo "✅ All security scans completed"
 
-      - name: 📋 Upload security reports
+      - name: 📤 Upload security reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-reports-${{ github.sha }}
-          path: "*-report.json"
+          path: "*.json"
           retention-days: 30
 
-  # 📦 ビルドとパッケージング
+  # 📦 最適化されたビルドとパッケージング
   build:
     runs-on: ubuntu-latest
     needs: [test, security]
@@ -299,7 +323,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
-      - name: ⚡ Fast build
+      - name: 🚀 Fast build
         run: |
           echo "📦 Building package..."
           python -m build --wheel
@@ -316,48 +340,48 @@ jobs:
           path: dist/
           retention-days: 90
 
-  # 🎯 最終チェック
+  # 最適化された統合チェック
   status:
     runs-on: ubuntu-latest
     needs: [setup, quality, test, security, build]
     if: always()
-    name: ✅ Status
+    name: 📊 Status
     steps:
-      - name: 📊 Calculate CI duration
+      - name: ⏱️ Calculate CI duration
         id: duration
         run: |
-          start_time="${{ github.event.head_commit.timestamp || github.event.pull_request.created_at }}"
+          start_time="${{ github.event.head_commit.timestamp }}"
           current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           echo "CI started at: $start_time"
           echo "CI finished at: $current_time"
 
-      - name: 🎯 Final status check
+      - name: 📊 Final status check
         run: |
           echo "📊 Final CI Status Report:"
-          echo "=========================="
+          echo "==============================="
           echo "Setup: ${{ needs.setup.result }}"
           echo "Quality: ${{ needs.quality.result }}"
           echo "Tests: ${{ needs.test.result }}"
           echo "Security: ${{ needs.security.result }}"
           echo "Build: ${{ needs.build.result }}"
 
-          # 成功条件の判定（より柔軟）
-          if [[
-            "${{ needs.setup.result }}" == "success" &&
-            ("${{ needs.quality.result }}" == "success" || "${{ needs.quality.result }}" == "skipped") &&
-            ("${{ needs.test.result }}" == "success" || "${{ needs.test.result }}" == "skipped") &&
-            ("${{ needs.security.result }}" == "success" || "${{ needs.security.result }}" == "skipped") &&
-            ("${{ needs.build.result }}" == "success" || "${{ needs.build.result }}" == "skipped")
+          # 全ての必須ジョブが成功またはスキップされたら成功
+          if [[ \
+            "${{ needs.setup.result }}" == "success" && \
+            ("${{ needs.quality.result }}" == "success" || "${{ needs.quality.result }}" == "skipped") && \
+            ("${{ needs.test.result }}" == "success" || "${{ needs.test.result }}" == "skipped") && \
+            ("${{ needs.security.result }}" == "success" || "${{ needs.security.result }}" == "skipped") && \
+            ("${{ needs.build.result }}" == "success" || "${{ needs.build.result }}" == "skipped") \
           ]]; then
             echo "🎉 CI Pipeline completed successfully!"
-            echo "⚡ Optimized execution with smart caching and parallel processing"
+            echo "🚀 Optimized execution with smart caching and parallel processing"
             exit 0
           else
             echo "❌ CI Pipeline failed"
             exit 1
           fi
 
-  # 🚀 自動デプロイ（条件付き）
+  # 自動デプロイ
   deploy:
     runs-on: ubuntu-latest
     needs: [status]
@@ -369,5 +393,5 @@ jobs:
         run: |
           echo "🚀 Ready for deployment"
           echo "Branch: ${{ github.ref }}"
-          echo "Event: ${{ github.event_name }}"
+          echo "Event: ${{ github.event.name }}"
           echo "TODO: Implement deployment logic here"

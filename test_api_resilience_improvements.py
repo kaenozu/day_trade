@@ -6,32 +6,30 @@ Issue #211: API耐障害性機能の正確性と堅牢性の向上
 修正された機能のテストとベンチマーク
 """
 
+import sys
 import time
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
-import sys
+from unittest.mock import Mock, patch
 
 # プロジェクトのルートを追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from day_trade.utils.api_resilience import (
+    APIEndpoint,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitState,
     ResilientAPIClient,
-    APIEndpoint,
-    RetryConfig
+    RetryConfig,
 )
 from day_trade.utils.exceptions import (
     APIError,
     NetworkError,
+    ServerError,
     TimeoutError,
-    AuthenticationError,
-    RateLimitError,
-    ServerError
 )
-from day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 
 
 class TestCircuitBreakerImprovements(unittest.TestCase):
@@ -40,10 +38,7 @@ class TestCircuitBreakerImprovements(unittest.TestCase):
     def setUp(self):
         """テスト前準備"""
         config = CircuitBreakerConfig(
-            failure_threshold=3,
-            success_threshold=2,
-            timeout=1.0,
-            monitor_window=10.0
+            failure_threshold=3, success_threshold=2, timeout=1.0, monitor_window=10.0
         )
         self.circuit_breaker = CircuitBreaker(config)
 
@@ -101,10 +96,7 @@ class TestExceptionHierarchy(unittest.TestCase):
     def test_exception_hierarchy_consistency(self):
         """例外階層の一貫性をテスト"""
         # ネットワーク関連の例外はすべてNetworkErrorを継承
-        network_exceptions = [
-            NetworkError("test"),
-            TimeoutError("test timeout")
-        ]
+        network_exceptions = [NetworkError("test"), TimeoutError("test timeout")]
 
         for exc in network_exceptions:
             self.assertIsInstance(exc, NetworkError)
@@ -116,16 +108,12 @@ class TestRetryLogicImprovements(unittest.TestCase):
 
     def setUp(self):
         """テスト前準備"""
-        self.endpoints = [
-            APIEndpoint("test", "https://httpbin.org", timeout=5.0)
-        ]
+        self.endpoints = [APIEndpoint("test", "https://httpbin.org", timeout=5.0)]
         self.retry_config = RetryConfig(
-            max_attempts=3,
-            backoff_factor=1.0,
-            status_forcelist=[500, 502, 503, 504]
+            max_attempts=3, backoff_factor=1.0, status_forcelist=[500, 502, 503, 504]
         )
 
-    @patch('day_trade.utils.api_resilience.requests.Session')
+    @patch("day_trade.utils.api_resilience.requests.Session")
     def test_retry_logic_delegation_to_urllib3(self, mock_session_class):
         """urllib3のRetryにリトライ処理が委任されることをテスト"""
         # Sessionインスタンスのモック
@@ -139,9 +127,7 @@ class TestRetryLogicImprovements(unittest.TestCase):
 
         # ResilientAPIClientを作成
         client = ResilientAPIClient(
-            self.endpoints,
-            self.retry_config,
-            enable_health_check=False
+            self.endpoints, self.retry_config, enable_health_check=False
         )
 
         # リクエスト実行
@@ -151,7 +137,7 @@ class TestRetryLogicImprovements(unittest.TestCase):
         self.assertEqual(mock_session.request.call_count, 1)
         self.assertEqual(response.status_code, 200)
 
-    @patch('day_trade.utils.api_resilience.requests.Session')
+    @patch("day_trade.utils.api_resilience.requests.Session")
     def test_circuit_breaker_integration(self, mock_session_class):
         """サーキットブレーカーとの統合テスト"""
         mock_session = Mock()
@@ -164,9 +150,7 @@ class TestRetryLogicImprovements(unittest.TestCase):
         mock_session.request.return_value = mock_response
 
         client = ResilientAPIClient(
-            self.endpoints,
-            self.retry_config,
-            enable_health_check=False
+            self.endpoints, self.retry_config, enable_health_check=False
         )
 
         # 複数回失敗させてサーキットブレーカーを開く
@@ -183,13 +167,14 @@ class TestCacheFallbackImprovements(unittest.TestCase):
         fetcher = EnhancedStockFetcher(
             enable_fallback=True,
             enable_circuit_breaker=False,  # テスト用
-            enable_health_monitoring=False
+            enable_health_monitoring=False,
         )
 
         # _cache_fallback_executionメソッドのテスト
         def mock_function():
             pass
-        mock_function.__name__ = 'get_current_price'
+
+        mock_function.__name__ = "get_current_price"
 
         # キャッシュフォールバック実行のテスト
         result = fetcher._cache_fallback_execution(mock_function, "AAPL")
@@ -234,7 +219,7 @@ def run_improvement_tests():
         TestExceptionHierarchy,
         TestRetryLogicImprovements,
         TestCacheFallbackImprovements,
-        TestPerformanceBenchmark
+        TestPerformanceBenchmark,
     ]
 
     total_tests = 0

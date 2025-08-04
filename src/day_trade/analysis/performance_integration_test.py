@@ -9,22 +9,26 @@ import gc
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import psutil
 
 from ..automation.optimized_orchestrator import OptimizedDayTradeOrchestrator
-from ..automation.orchestrator import DayTradeOrchestrator
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_business_event
+from ..utils.logging_config import (
+    get_context_logger,
+)
 from ..utils.performance_analyzer import (
-    PerformanceProfiler, SystemPerformanceMonitor, BottleneckAnalyzer,
-    PerformanceOptimizer, profile_performance
+    BottleneckAnalyzer,
+    PerformanceOptimizer,
+    PerformanceProfiler,
+    SystemPerformanceMonitor,
+    profile_performance,
 )
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
@@ -84,15 +88,14 @@ class PerformanceIntegrationTester:
         self.test_data_cache = {}
 
         logger.info(
-            "パフォーマンス統合テスター初期化完了",
-            section="integration_test_init"
+            "パフォーマンス統合テスター初期化完了", section="integration_test_init"
         )
 
     @profile_performance
     def run_comprehensive_integration_test(
         self,
         test_symbols: Optional[List[str]] = None,
-        enable_system_monitoring: bool = True
+        enable_system_monitoring: bool = True,
     ) -> IntegrationTestReport:
         """包括的統合テスト実行"""
 
@@ -101,7 +104,7 @@ class PerformanceIntegrationTester:
         logger.info(
             "包括的パフォーマンス統合テスト開始",
             section="comprehensive_test",
-            test_symbols_count=len(test_symbols) if test_symbols else 0
+            test_symbols_count=len(test_symbols) if test_symbols else 0,
         )
 
         # テスト用銘柄設定
@@ -115,12 +118,20 @@ class PerformanceIntegrationTester:
 
         try:
             # 1. コンポーネント別パフォーマンス比較
-            logger.info("コンポーネント別パフォーマンス比較開始", section="component_comparison")
-            component_comparisons = self._run_component_performance_comparison(test_symbols)
+            logger.info(
+                "コンポーネント別パフォーマンス比較開始", section="component_comparison"
+            )
+            component_comparisons = self._run_component_performance_comparison(
+                test_symbols
+            )
 
             # 2. オーケストレーター統合テスト
-            logger.info("オーケストレーター統合テスト開始", section="orchestrator_integration")
-            orchestrator_comparison = self._run_orchestrator_integration_test(test_symbols)
+            logger.info(
+                "オーケストレーター統合テスト開始", section="orchestrator_integration"
+            )
+            orchestrator_comparison = self._run_orchestrator_integration_test(
+                test_symbols
+            )
 
             # 3. メモリ使用量分析
             logger.info("メモリ使用量分析開始", section="memory_analysis")
@@ -132,10 +143,14 @@ class PerformanceIntegrationTester:
 
             # 5. ボトルネック分析
             logger.info("ボトルネック分析開始", section="bottleneck_analysis")
-            bottlenecks = self.bottleneck_analyzer.analyze_bottlenecks(self.profiler, self.system_monitor)
+            bottlenecks = self.bottleneck_analyzer.analyze_bottlenecks(
+                self.profiler, self.system_monitor
+            )
 
             # 6. 最適化推奨事項
-            logger.info("最適化推奨事項生成開始", section="optimization_recommendations")
+            logger.info(
+                "最適化推奨事項生成開始", section="optimization_recommendations"
+            )
             optimization_results = self.optimizer.apply_optimizations(bottlenecks)
 
             # システム監視停止・統計取得
@@ -161,13 +176,21 @@ class PerformanceIntegrationTester:
                 tests_failed=sum(1 for r in all_comparisons if not r.success),
                 performance_comparisons=all_comparisons,
                 bottlenecks_identified=[vars(b) for b in bottlenecks],
-                optimization_recommendations=optimization_results.get('applied_optimizations', []),
+                optimization_recommendations=optimization_results.get(
+                    "applied_optimizations", []
+                ),
                 system_performance_before=system_perf_before,
                 system_performance_after=system_perf_after,
-                memory_usage_reduction=memory_analysis.get('reduction_percentage', 0),
-                throughput_improvement=throughput_analysis.get('improvement_percentage', 0),
-                overall_improvement_score=self._calculate_improvement_score(all_comparisons),
-                recommendation_summary=self._generate_recommendation_summary(all_comparisons, bottlenecks)
+                memory_usage_reduction=memory_analysis.get("reduction_percentage", 0),
+                throughput_improvement=throughput_analysis.get(
+                    "improvement_percentage", 0
+                ),
+                overall_improvement_score=self._calculate_improvement_score(
+                    all_comparisons
+                ),
+                recommendation_summary=self._generate_recommendation_summary(
+                    all_comparisons, bottlenecks
+                ),
             )
 
             logger.info(
@@ -176,16 +199,14 @@ class PerformanceIntegrationTester:
                 duration=test_duration,
                 tests_passed=report.tests_passed,
                 tests_failed=report.tests_failed,
-                improvement_score=report.overall_improvement_score
+                improvement_score=report.overall_improvement_score,
             )
 
             return report
 
         except Exception as e:
             logger.error(
-                "統合テスト実行エラー",
-                section="comprehensive_test",
-                error=str(e)
+                "統合テスト実行エラー", section="comprehensive_test", error=str(e)
             )
             raise
 
@@ -193,7 +214,9 @@ class PerformanceIntegrationTester:
             if enable_system_monitoring:
                 self.system_monitor.stop_monitoring()
 
-    def _run_component_performance_comparison(self, test_symbols: List[str]) -> List[PerformanceComparisonResult]:
+    def _run_component_performance_comparison(
+        self, test_symbols: List[str]
+    ) -> List[PerformanceComparisonResult]:
         """コンポーネント別パフォーマンス比較"""
 
         comparisons = []
@@ -215,7 +238,9 @@ class PerformanceIntegrationTester:
 
         return comparisons
 
-    def _compare_feature_engineering(self, test_data: pd.DataFrame) -> PerformanceComparisonResult:
+    def _compare_feature_engineering(
+        self, test_data: pd.DataFrame
+    ) -> PerformanceComparisonResult:
         """特徴量エンジニアリング比較"""
 
         try:
@@ -224,8 +249,12 @@ class PerformanceIntegrationTester:
 
             # テスト指標
             indicators = {
-                'rsi': pd.Series(50 + np.random.randn(len(test_data)) * 15, index=test_data.index),
-                'macd': pd.Series(np.random.randn(len(test_data)), index=test_data.index)
+                "rsi": pd.Series(
+                    50 + np.random.randn(len(test_data)) * 15, index=test_data.index
+                ),
+                "macd": pd.Series(
+                    np.random.randn(len(test_data)), index=test_data.index
+                ),
             }
 
             # 既存版テスト
@@ -233,7 +262,7 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            original_features = original_engineer.generate_composite_features(test_data, indicators)
+            original_engineer.generate_composite_features(test_data, indicators)
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -243,7 +272,7 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            optimized_features = optimized_engineer.generate_composite_features(test_data, indicators)
+            optimized_engineer.generate_composite_features(test_data, indicators)
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -259,7 +288,7 @@ class PerformanceIntegrationTester:
                 memory_original_mb=original_memory,
                 memory_optimized_mb=optimized_memory,
                 memory_improvement_mb=original_memory - optimized_memory,
-                success=True
+                success=True,
             )
 
         except Exception as e:
@@ -272,10 +301,12 @@ class PerformanceIntegrationTester:
                 memory_optimized_mb=0,
                 memory_improvement_mb=0,
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
-    def _compare_ml_models(self, test_data: pd.DataFrame) -> PerformanceComparisonResult:
+    def _compare_ml_models(
+        self, test_data: pd.DataFrame
+    ) -> PerformanceComparisonResult:
         """機械学習モデル比較"""
 
         try:
@@ -286,8 +317,8 @@ class PerformanceIntegrationTester:
             n_features = 10
             feature_data = pd.DataFrame(
                 np.random.randn(len(test_data), n_features),
-                columns=[f'feature_{i}' for i in range(n_features)],
-                index=test_data.index
+                columns=[f"feature_{i}" for i in range(n_features)],
+                index=test_data.index,
             )
             target = pd.Series(np.random.randn(len(test_data)), index=test_data.index)
 
@@ -297,7 +328,7 @@ class PerformanceIntegrationTester:
 
             original_ensemble = create_default_model_ensemble()
             original_ensemble.fit(feature_data, target)
-            original_predictions = original_ensemble.predict(feature_data.tail(1))
+            original_ensemble.predict(feature_data.tail(1))
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -308,7 +339,7 @@ class PerformanceIntegrationTester:
 
             optimized_ensemble = create_optimized_model_ensemble()
             optimized_ensemble.fit(feature_data, target)
-            optimized_predictions = optimized_ensemble.predict(feature_data.tail(1))
+            optimized_ensemble.predict(feature_data.tail(1))
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -324,7 +355,7 @@ class PerformanceIntegrationTester:
                 memory_original_mb=original_memory,
                 memory_optimized_mb=optimized_memory,
                 memory_improvement_mb=original_memory - optimized_memory,
-                success=True
+                success=True,
             )
 
         except Exception as e:
@@ -337,10 +368,12 @@ class PerformanceIntegrationTester:
                 memory_optimized_mb=0,
                 memory_improvement_mb=0,
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
-    def _compare_data_quality_enhancement(self, test_data: pd.DataFrame) -> PerformanceComparisonResult:
+    def _compare_data_quality_enhancement(
+        self, test_data: pd.DataFrame
+    ) -> PerformanceComparisonResult:
         """データ品質向上比較"""
 
         try:
@@ -356,7 +389,7 @@ class PerformanceIntegrationTester:
             start_memory = self._get_memory_usage()
 
             # original_enhancer = DataQualityEnhancer()  # Not implemented
-            original_cleaned = noisy_data.dropna()  # Simple fallback
+            noisy_data.dropna()  # Simple fallback
 
             original_time = time.time() - start_time
             original_memory = self._get_memory_usage() - start_memory
@@ -366,7 +399,7 @@ class PerformanceIntegrationTester:
             start_memory = self._get_memory_usage()
 
             optimized_enhancer = OptimizedDataQualityEnhancer()
-            optimized_cleaned = optimized_enhancer.clean_ohlcv_data(noisy_data)
+            optimized_enhancer.clean_ohlcv_data(noisy_data)
 
             optimized_time = time.time() - start_time
             optimized_memory = self._get_memory_usage() - start_memory
@@ -382,7 +415,7 @@ class PerformanceIntegrationTester:
                 memory_original_mb=original_memory,
                 memory_optimized_mb=optimized_memory,
                 memory_improvement_mb=original_memory - optimized_memory,
-                success=True
+                success=True,
             )
 
         except Exception as e:
@@ -395,10 +428,12 @@ class PerformanceIntegrationTester:
                 memory_optimized_mb=0,
                 memory_improvement_mb=0,
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
-    def _run_orchestrator_integration_test(self, test_symbols: List[str]) -> PerformanceComparisonResult:
+    def _run_orchestrator_integration_test(
+        self, test_symbols: List[str]
+    ) -> PerformanceComparisonResult:
         """オーケストレーター統合テスト"""
 
         try:
@@ -416,14 +451,16 @@ class PerformanceIntegrationTester:
             start_time = time.time()
             start_memory = self._get_memory_usage()
 
-            optimized_orchestrator = OptimizedDayTradeOrchestrator(enable_optimizations=True)
+            optimized_orchestrator = OptimizedDayTradeOrchestrator(
+                enable_optimizations=True
+            )
 
             # 小規模テスト実行
             test_report = optimized_orchestrator.run_optimized_automation(
                 symbols=test_symbols[:2],  # 2銘柄のみでテスト
                 enable_parallel=True,
                 enable_caching=True,
-                show_progress=False
+                show_progress=False,
             )
 
             optimized_time = time.time() - start_time
@@ -440,7 +477,7 @@ class PerformanceIntegrationTester:
                 memory_original_mb=original_memory,
                 memory_optimized_mb=optimized_memory,
                 memory_improvement_mb=original_memory - optimized_memory,
-                success=test_report.successful_symbols > 0
+                success=test_report.successful_symbols > 0,
             )
 
         except Exception as e:
@@ -453,7 +490,7 @@ class PerformanceIntegrationTester:
                 memory_optimized_mb=0,
                 memory_improvement_mb=0,
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
     def _run_memory_usage_analysis(self, test_symbols: List[str]) -> Dict[str, float]:
@@ -469,20 +506,24 @@ class PerformanceIntegrationTester:
 
         # 最適化処理適用
         gc.collect()
-        optimized_data = self._optimize_memory_usage(large_data)
+        self._optimize_memory_usage(large_data)
 
         after_optimization = self._get_memory_usage()
 
         # メモリ削減率計算
         memory_reduction = before_optimization - after_optimization
-        reduction_percentage = (memory_reduction / before_optimization * 100) if before_optimization > 0 else 0
+        reduction_percentage = (
+            (memory_reduction / before_optimization * 100)
+            if before_optimization > 0
+            else 0
+        )
 
         return {
-            'initial_memory_mb': initial_memory,
-            'before_optimization_mb': before_optimization,
-            'after_optimization_mb': after_optimization,
-            'reduction_mb': memory_reduction,
-            'reduction_percentage': reduction_percentage
+            "initial_memory_mb": initial_memory,
+            "before_optimization_mb": before_optimization,
+            "after_optimization_mb": after_optimization,
+            "reduction_mb": memory_reduction,
+            "reduction_percentage": reduction_percentage,
         }
 
     def _run_throughput_analysis(self, test_symbols: List[str]) -> Dict[str, float]:
@@ -501,19 +542,27 @@ class PerformanceIntegrationTester:
 
         # 並列処理スループット測定
         start_time = time.time()
-        parallel_results = self._process_symbols_parallel_mock(test_symbols[:3])
+        self._process_symbols_parallel_mock(test_symbols[:3])
         parallel_time = time.time() - start_time
         parallel_throughput = len(test_symbols[:3]) / parallel_time
 
         # 改善率計算
-        improvement_percentage = ((parallel_throughput - sequential_throughput) / sequential_throughput * 100) if sequential_throughput > 0 else 0
+        improvement_percentage = (
+            (
+                (parallel_throughput - sequential_throughput)
+                / sequential_throughput
+                * 100
+            )
+            if sequential_throughput > 0
+            else 0
+        )
 
         return {
-            'sequential_throughput': sequential_throughput,
-            'parallel_throughput': parallel_throughput,
-            'improvement_percentage': improvement_percentage,
-            'sequential_time': sequential_time,
-            'parallel_time': parallel_time
+            "sequential_throughput": sequential_throughput,
+            "parallel_throughput": parallel_throughput,
+            "improvement_percentage": improvement_percentage,
+            "sequential_time": sequential_time,
+            "parallel_time": parallel_time,
         }
 
     def _prepare_test_data(self, symbol: str) -> pd.DataFrame:
@@ -523,19 +572,22 @@ class PerformanceIntegrationTester:
             return self.test_data_cache[symbol]
 
         # モックOHLCVデータ生成
-        dates = pd.date_range(end=datetime.now(), periods=1000, freq='1min')
+        dates = pd.date_range(end=datetime.now(), periods=1000, freq="1min")
         np.random.seed(42)
 
         base_price = 1000
         prices = base_price + np.cumsum(np.random.randn(1000) * 1)
 
-        test_data = pd.DataFrame({
-            'Open': prices + np.random.randn(1000) * 0.5,
-            'High': prices + np.abs(np.random.randn(1000)) * 1,
-            'Low': prices - np.abs(np.random.randn(1000)) * 1,
-            'Close': prices,
-            'Volume': np.random.randint(100000, 500000, 1000)
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": prices + np.random.randn(1000) * 0.5,
+                "High": prices + np.abs(np.random.randn(1000)) * 1,
+                "Low": prices - np.abs(np.random.randn(1000)) * 1,
+                "Close": prices,
+                "Volume": np.random.randint(100000, 500000, 1000),
+            },
+            index=dates,
+        )
 
         self.test_data_cache[symbol] = test_data
         return test_data
@@ -543,17 +595,20 @@ class PerformanceIntegrationTester:
     def _generate_large_test_dataset(self, size: int) -> pd.DataFrame:
         """大容量テストデータセット生成"""
 
-        dates = pd.date_range(end=datetime.now(), periods=size, freq='1min')
+        dates = pd.date_range(end=datetime.now(), periods=size, freq="1min")
 
         # 大容量データ
-        return pd.DataFrame({
-            'data': np.random.randn(size),
-            'feature_1': np.random.randn(size),
-            'feature_2': np.random.randn(size),
-            'feature_3': np.random.randn(size),
-            'feature_4': np.random.randn(size),
-            'feature_5': np.random.randn(size)
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "data": np.random.randn(size),
+                "feature_1": np.random.randn(size),
+                "feature_2": np.random.randn(size),
+                "feature_3": np.random.randn(size),
+                "feature_4": np.random.randn(size),
+                "feature_5": np.random.randn(size),
+            },
+            index=dates,
+        )
 
     def _optimize_memory_usage(self, data: pd.DataFrame) -> pd.DataFrame:
         """メモリ使用量最適化"""
@@ -561,7 +616,7 @@ class PerformanceIntegrationTester:
         optimized_data = data.copy()
 
         # float64 -> float32 変換
-        for col in optimized_data.select_dtypes(include=['float64']).columns:
+        for col in optimized_data.select_dtypes(include=["float64"]).columns:
             optimized_data[col] = optimized_data[col].astype(np.float32)
 
         return optimized_data
@@ -575,7 +630,7 @@ class PerformanceIntegrationTester:
         else:
             time.sleep(0.05)  # 逐次処理版
 
-        return {'symbol': symbol, 'processed': True}
+        return {"symbol": symbol, "processed": True}
 
     def _process_symbols_parallel_mock(self, symbols: List[str]) -> List[Dict]:
         """並列銘柄処理モック"""
@@ -583,7 +638,10 @@ class PerformanceIntegrationTester:
         from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(self._process_symbol_mock, symbol, True) for symbol in symbols]
+            futures = [
+                executor.submit(self._process_symbol_mock, symbol, True)
+                for symbol in symbols
+            ]
             results = [future.result() for future in futures]
 
         return results
@@ -594,12 +652,12 @@ class PerformanceIntegrationTester:
         try:
             process = psutil.Process()
             return {
-                'cpu_percent': process.cpu_percent(),
-                'memory_percent': process.memory_percent(),
-                'memory_rss_mb': process.memory_info().rss / 1024 / 1024,
-                'num_threads': process.num_threads()
+                "cpu_percent": process.cpu_percent(),
+                "memory_percent": process.memory_percent(),
+                "memory_rss_mb": process.memory_info().rss / 1024 / 1024,
+                "num_threads": process.num_threads(),
             }
-        except:
+        except Exception:
             return {}
 
     def _get_memory_usage(self) -> float:
@@ -608,10 +666,12 @@ class PerformanceIntegrationTester:
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except Exception:
             return 0.0
 
-    def _calculate_improvement_score(self, comparisons: List[PerformanceComparisonResult]) -> float:
+    def _calculate_improvement_score(
+        self, comparisons: List[PerformanceComparisonResult]
+    ) -> float:
         """改善スコア計算"""
 
         if not comparisons:
@@ -628,19 +688,22 @@ class PerformanceIntegrationTester:
         # メモリ改善の平均
         memory_improvements = [
             c.memory_improvement_mb / max(c.memory_original_mb, 1.0)
-            for c in successful_comparisons if c.memory_original_mb > 0
+            for c in successful_comparisons
+            if c.memory_original_mb > 0
         ]
-        avg_memory_improvement = np.mean(memory_improvements) if memory_improvements else 0
+        avg_memory_improvement = (
+            np.mean(memory_improvements) if memory_improvements else 0
+        )
 
         # 総合スコア（実行時間60%、メモリ40%の重み）
-        improvement_score = (avg_time_improvement * 0.6 + (1 + avg_memory_improvement) * 0.4) * 100
+        improvement_score = (
+            avg_time_improvement * 0.6 + (1 + avg_memory_improvement) * 0.4
+        ) * 100
 
         return min(improvement_score, 500.0)  # 上限500%
 
     def _generate_recommendation_summary(
-        self,
-        comparisons: List[PerformanceComparisonResult],
-        bottlenecks: List
+        self, comparisons: List[PerformanceComparisonResult], bottlenecks: List
     ) -> str:
         """推奨事項サマリー生成"""
 
@@ -651,24 +714,40 @@ class PerformanceIntegrationTester:
         if successful_comps:
             avg_improvement = np.mean([c.improvement_ratio for c in successful_comps])
             if avg_improvement > 1.5:
-                recommendations.append("最適化により大幅なパフォーマンス向上が確認されました")
+                recommendations.append(
+                    "最適化により大幅なパフォーマンス向上が確認されました"
+                )
             elif avg_improvement > 1.2:
-                recommendations.append("最適化により中程度のパフォーマンス向上が確認されました")
+                recommendations.append(
+                    "最適化により中程度のパフォーマンス向上が確認されました"
+                )
 
         # ボトルネック改善
-        critical_bottlenecks = [b for b in bottlenecks if hasattr(b, 'severity') and b.severity == 'critical']
+        critical_bottlenecks = [
+            b
+            for b in bottlenecks
+            if hasattr(b, "severity") and b.severity == "critical"
+        ]
         if critical_bottlenecks:
-            recommendations.append(f"{len(critical_bottlenecks)}個の重要なボトルネックの対処が必要です")
+            recommendations.append(
+                f"{len(critical_bottlenecks)}個の重要なボトルネックの対処が必要です"
+            )
 
         # メモリ最適化
-        memory_heavy_comps = [c for c in successful_comps if c.memory_improvement_mb > 50]
+        memory_heavy_comps = [
+            c for c in successful_comps if c.memory_improvement_mb > 50
+        ]
         if memory_heavy_comps:
             recommendations.append("メモリ使用量の最適化が効果的です")
 
         # 並列処理
         recommendations.append("並列処理の導入により更なる高速化が期待できます")
 
-        return " / ".join(recommendations) if recommendations else "最適化の効果が限定的です"
+        return (
+            " / ".join(recommendations)
+            if recommendations
+            else "最適化の効果が限定的です"
+        )
 
     def generate_detailed_report(self, report: IntegrationTestReport) -> str:
         """詳細レポート生成"""
@@ -685,35 +764,36 @@ class PerformanceIntegrationTester:
             f"総合改善スコア: {report.overall_improvement_score:.1f}%",
             "",
             "コンポーネント別パフォーマンス比較:",
-            "-" * 50
+            "-" * 50,
         ]
 
         for comp in report.performance_comparisons:
             if comp.success:
-                lines.extend([
-                    f"{comp.component_name}:",
-                    f"  実行時間: {comp.original_time:.3f}s -> {comp.optimized_time:.3f}s ({comp.improvement_ratio:.1f}x改善)",
-                    f"  メモリ使用量: {comp.memory_original_mb:.1f}MB -> {comp.memory_optimized_mb:.1f}MB ({comp.memory_improvement_mb:.1f}MB削減)",
-                    ""
-                ])
+                lines.extend(
+                    [
+                        f"{comp.component_name}:",
+                        f"  実行時間: {comp.original_time:.3f}s -> {comp.optimized_time:.3f}s ({comp.improvement_ratio:.1f}x改善)",
+                        f"  メモリ使用量: {comp.memory_original_mb:.1f}MB -> {comp.memory_optimized_mb:.1f}MB ({comp.memory_improvement_mb:.1f}MB削減)",
+                        "",
+                    ]
+                )
             else:
-                lines.extend([
-                    f"{comp.component_name}: テスト失敗 - {comp.error}",
-                    ""
-                ])
+                lines.extend([f"{comp.component_name}: テスト失敗 - {comp.error}", ""])
 
-        lines.extend([
-            "システム統計:",
-            "-" * 30,
-            f"メモリ使用量削減: {report.memory_usage_reduction:.1f}%",
-            f"スループット改善: {report.throughput_improvement:.1f}%",
-            "",
-            "推奨事項:",
-            "-" * 30,
-            report.recommendation_summary,
-            "",
-            "=" * 80
-        ])
+        lines.extend(
+            [
+                "システム統計:",
+                "-" * 30,
+                f"メモリ使用量削減: {report.memory_usage_reduction:.1f}%",
+                f"スループット改善: {report.throughput_improvement:.1f}%",
+                "",
+                "推奨事項:",
+                "-" * 30,
+                report.recommendation_summary,
+                "",
+                "=" * 80,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -728,8 +808,7 @@ if __name__ == "__main__":
 
         # 包括的統合テスト実行
         test_report = tester.run_comprehensive_integration_test(
-            test_symbols=["7203", "8306", "9984"],
-            enable_system_monitoring=True
+            test_symbols=["7203", "8306", "9984"], enable_system_monitoring=True
         )
 
         # 詳細レポート生成
@@ -740,7 +819,7 @@ if __name__ == "__main__":
             section="demo",
             improvement_score=test_report.overall_improvement_score,
             tests_passed=test_report.tests_passed,
-            tests_failed=test_report.tests_failed
+            tests_failed=test_report.tests_failed,
         )
 
         print(detailed_report)

@@ -19,25 +19,25 @@ repos:
       - id: check-toml
       - id: check-json
 
-  # Python code formatting and linting with Ruff (temporarily disabled for gradual improvement)
+  # Python code formatting and linting with Ruff (temporarily disabled for CI stability)
   # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: v0.12.7
+  #   rev: v0.1.15
   #   hooks:
   #     - id: ruff
   #       alias: ruff-check
-  #       args: [--fix, --exit-non-zero-on-fix, --ignore=SIM102,SIM103,SIM105,SIM108,SIM117,SIM401,B007,B017,F821]
+  #       args: [--fix, --exit-non-zero-on-fix]
   #     - id: ruff-format
 
-  # Type checking with mypy (disabled temporarily for gradual improvement)
+  # Type checking with mypy (temporarily disabled for CI stability)
   # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.8.0
+  #   rev: v1.7.1
   #   hooks:
   #     - id: mypy
   #       additional_dependencies: [types-requests, types-setuptools]
   #       args: [--ignore-missing-imports, --show-error-codes, --follow-imports=skip]
   #       exclude: ^(tests/|docs/|scripts/|alembic/|demo_.*\.py|.*_demo\.py|example_.*\.py|src/day_trade/cli/enhanced_interactive\.py)
 
-  # Security scanning with bandit (disabled temporarily for gradual improvement)
+  # Security scanning with bandit (temporarily disabled for CI stability)
   # - repo: https://github.com/PyCQA/bandit
   #   rev: 1.7.5
   #   hooks:
