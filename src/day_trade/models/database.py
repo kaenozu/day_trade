@@ -10,7 +10,7 @@ from typing import Any, Dict, Generator, Optional
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
 from alembic import command
@@ -25,15 +25,17 @@ from ..utils.logging_config import (
 
 logger = get_context_logger(__name__)
 
-# ベースクラスの作成
-Base = declarative_base()
+# SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
+class Base(DeclarativeBase):
+    """SQLAlchemy 2.0のモダンなDeclarativeBase"""
+    pass
 
 # テスト用のデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 
 class DatabaseConfig:
-    """データベース設定クラス"""
+    """データベース設定クラス（ConfigManager統合対応）"""
 
     def __init__(
         self,
@@ -44,6 +46,7 @@ class DatabaseConfig:
         pool_timeout: int = 30,
         pool_recycle: int = 3600,
         connect_args: Optional[Dict[str, Any]] = None,
+        config_manager=None,
     ):
         """
         Args:
@@ -54,16 +57,44 @@ class DatabaseConfig:
             pool_timeout: 接続タイムアウト（秒）
             pool_recycle: 接続リサイクル時間（秒）
             connect_args: 接続引数
+            config_manager: ConfigManagerインスタンス（依存性注入）
         """
-        self.database_url = database_url or os.environ.get(
-            "DATABASE_URL", "sqlite:///./day_trade.db"
+        self._config_manager = config_manager
+
+        # 設定の優先順位: 引数 > config_manager > 環境変数 > デフォルト
+        self.database_url = self._get_config_value(
+            "database_url", database_url, "DATABASE_URL", "sqlite:///./day_trade.db"
         )
-        self.echo = echo
-        self.pool_size = pool_size
-        self.max_overflow = max_overflow
-        self.pool_timeout = pool_timeout
-        self.pool_recycle = pool_recycle
+        self.echo = self._get_config_value("echo", echo, "DB_ECHO", False, bool)
+        self.pool_size = self._get_config_value("pool_size", pool_size, "DB_POOL_SIZE", 5, int)
+        self.max_overflow = self._get_config_value("max_overflow", max_overflow, "DB_MAX_OVERFLOW", 10, int)
+        self.pool_timeout = self._get_config_value("pool_timeout", pool_timeout, "DB_POOL_TIMEOUT", 30, int)
+        self.pool_recycle = self._get_config_value("pool_recycle", pool_recycle, "DB_POOL_RECYCLE", 3600, int)
         self.connect_args = connect_args or {"check_same_thread": False}
+
+    def _get_config_value(self, key: str, explicit_value, env_key: str, default_value, type_converter=str):
+        """設定値を優先順位に従って取得"""
+        if explicit_value is not None and explicit_value != (False if type_converter == bool else 0):
+            return explicit_value
+
+        if self._config_manager:
+            try:
+                config_value = self._config_manager.get(f"database.{key}")
+                if config_value is not None:
+                    return type_converter(config_value) if type_converter != str else config_value
+            except Exception:
+                pass  # ConfigManagerが利用できない場合は無視
+
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            try:
+                if type_converter == bool:
+                    return env_value.lower() in ('true', '1', 'yes', 'on')
+                return type_converter(env_value)
+            except (ValueError, TypeError):
+                pass
+
+        return default_value
 
     @classmethod
     def for_testing(cls) -> "DatabaseConfig":
@@ -96,16 +127,23 @@ class DatabaseConfig:
 
 
 class DatabaseManager:
-    """データベース管理クラス（改善版）"""
+    """データベース管理クラス（改善版・依存性注入対応）"""
 
-    def __init__(self, config: Optional[DatabaseConfig] = None):
+    def __init__(self, config: Optional[DatabaseConfig] = None, config_manager=None):
         """
         Args:
             config: データベース設定
+            config_manager: ConfigManagerインスタンス（依存性注入）
         """
-        self.config = config or DatabaseConfig()
+        self._config_manager = config_manager
+        self.config = config or DatabaseConfig(config_manager=config_manager)
         self.engine = None
         self.session_factory = None
+        self._connection_pool_stats = {
+            "created_connections": 0,
+            "closed_connections": 0,
+            "active_sessions": 0,
+        }
         self._initialize_engine()
 
     def _get_database_type(self) -> str:
@@ -606,3 +644,134 @@ def downgrade_db(revision: str = "-1"):
 def get_current_revision() -> str:
     """現在のリビジョンを取得"""
     return db_manager.current_revision()
+
+
+# 拡張機能をDatabaseManagerクラスに追加
+def _add_enhanced_features():
+    """DatabaseManagerクラスに拡張機能を動的に追加"""
+
+    def get_connection_pool_stats(self) -> Dict[str, Any]:
+        """接続プール統計情報を取得"""
+        if not self.engine:
+            return {}
+
+        pool = self.engine.pool
+
+        # 基本統計情報
+        stats = {
+            "pool_size": getattr(pool, 'size', lambda: 0)(),
+            "checked_in": getattr(pool, 'checkedin', lambda: 0)(),
+            "checked_out": getattr(pool, 'checkedout', lambda: 0)(),
+            "overflow": getattr(pool, 'overflow', lambda: 0)(),
+            "invalid": getattr(pool, 'invalid', lambda: 0)(),
+        }
+
+        # 詳細統計（利用可能な場合）
+        stats.update(self._connection_pool_stats)
+
+        return stats
+
+    def health_check(self) -> Dict[str, Any]:
+        """データベース接続のヘルスチェック"""
+        health_status = {
+            "status": "unknown",
+            "database_type": self._get_database_type(),
+            "database_url": self.config.database_url,
+            "connection_pool": {},
+            "last_check": time.time(),
+            "errors": [],
+        }
+
+        try:
+            # 基本接続テスト
+            with self.session_scope() as session:
+                result = session.execute(text("SELECT 1")).scalar()
+                if result == 1:
+                    health_status["status"] = "healthy"
+                else:
+                    health_status["status"] = "unhealthy"
+                    health_status["errors"].append("Unexpected query result")
+
+            # 接続プール統計
+            health_status["connection_pool"] = self.get_connection_pool_stats()
+
+        except Exception as e:
+            health_status["status"] = "unhealthy"
+            health_status["errors"].append(str(e))
+            log_error_with_context(e, {"operation": "database_health_check"})
+
+        return health_status
+
+    def optimize_performance(self):
+        """パフォーマンス最適化設定を適用"""
+        if not self.config.is_sqlite():
+            return  # SQLite以外は現在対応なし
+
+        try:
+            with self.session_scope() as session:
+                # SQLiteの高度な最適化設定
+                optimizations = [
+                    "PRAGMA journal_mode=WAL",
+                    "PRAGMA synchronous=NORMAL",
+                    "PRAGMA cache_size=10000",
+                    "PRAGMA temp_store=memory",
+                    "PRAGMA mmap_size=268435456",
+                    "PRAGMA page_size=4096",
+                    "PRAGMA auto_vacuum=INCREMENTAL",
+                    "PRAGMA incremental_vacuum(1000)",
+                ]
+
+                for pragma in optimizations:
+                    session.execute(text(pragma))
+
+                logger.info("Database performance optimizations applied")
+
+        except Exception as e:
+            log_error_with_context(e, {"operation": "database_optimization"})
+
+    @contextmanager
+    def performance_monitor(self, operation_name: str):
+        """パフォーマンス監視コンテキストマネージャー"""
+        start_time = time.perf_counter()
+        pool_stats_before = self.get_connection_pool_stats()
+
+        try:
+            yield
+        finally:
+            elapsed_time = time.perf_counter() - start_time
+            pool_stats_after = self.get_connection_pool_stats()
+
+            # パフォーマンス情報をログ出力
+            logger.info(
+                "Database operation performance",
+                operation=operation_name,
+                elapsed_ms=round(elapsed_time * 1000, 2),
+                pool_before=pool_stats_before,
+                pool_after=pool_stats_after,
+            )
+
+    def create_factory(self, config_manager=None) -> "DatabaseManager":
+        """ファクトリー方式でDatabaseManagerインスタンスを作成"""
+        return DatabaseManager(
+            config=DatabaseConfig(config_manager=config_manager),
+            config_manager=config_manager
+        )
+
+    # メソッドを動的に追加
+    DatabaseManager.get_connection_pool_stats = get_connection_pool_stats
+    DatabaseManager.health_check = health_check
+    DatabaseManager.optimize_performance = optimize_performance
+    DatabaseManager.performance_monitor = performance_monitor
+    DatabaseManager.create_factory = create_factory
+
+# 拡張機能を適用
+_add_enhanced_features()
+
+
+# 依存性注入用のファクトリー関数
+def create_database_manager(config_manager=None) -> DatabaseManager:
+    """ConfigManager統合版のDatabaseManagerを作成"""
+    return DatabaseManager(
+        config=DatabaseConfig(config_manager=config_manager),
+        config_manager=config_manager
+    )
