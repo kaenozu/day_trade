@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import yfinance as yf
 from sqlalchemy import text
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..models.database import db_manager
 from ..models.stock import Stock
+from ..models.bulk_operations import AdvancedBulkOperations
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class StockMasterManager:
     def __init__(self):
         """初期化"""
         self.db_manager = db_manager
+        self.bulk_operations = AdvancedBulkOperations(db_manager)
 
     def add_stock(
         self,
@@ -647,9 +649,9 @@ class StockMasterManager:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
 
-    def bulk_add_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> int:
+    def bulk_add_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> Dict[str, int]:
         """
-        銘柄の一括追加（パフォーマンス最適化版）
+        銘柄の一括追加（AdvancedBulkOperations使用・パフォーマンス最適化版）
 
         Args:
             stocks_data: 銘柄データのリスト
@@ -657,72 +659,47 @@ class StockMasterManager:
             batch_size: バッチサイズ
 
         Returns:
-            追加された銘柄数
+            追加結果の統計情報
         """
         if not stocks_data:
-            return 0
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
 
-        added_count = 0
+        try:
+            # データの検証と準備
+            validated_data = []
+            for stock_data in stocks_data:
+                if not stock_data.get("code") or not stock_data.get("name"):
+                    logger.warning(f"無効な銘柄データをスキップ: {stock_data}")
+                    continue
+                validated_data.append({
+                    "code": stock_data["code"],
+                    "name": stock_data["name"],
+                    "market": stock_data.get("market"),
+                    "sector": stock_data.get("sector"),
+                    "industry": stock_data.get("industry"),
+                })
 
-        with db_manager.session_scope() as session:
-            try:
-                # 既存銘柄コードを取得してセット化（高速検索用）
-                existing_codes = set(
-                    code[0] for code in session.query(Stock.code).all()
-                )
+            # AdvancedBulkOperationsを使用して一括挿入
+            result = self.bulk_operations.bulk_insert_with_conflict_resolution(
+                Stock,
+                validated_data,
+                conflict_strategy="ignore",  # 重複は無視
+                chunk_size=batch_size,
+                unique_columns=["code"]
+            )
 
-                # 新規銘柄のみをフィルタリング
-                new_stocks = [
-                    stock
-                    for stock in stocks_data
-                    if stock.get("code") not in existing_codes
-                ]
+            logger.info(f"銘柄一括追加完了: {result}")
+            return result
 
-                if not new_stocks:
-                    logger.info("追加すべき新規銘柄がありません")
-                    return 0
-
-                # バッチ処理で一括挿入
-                for i in range(0, len(new_stocks), batch_size):
-                    batch = new_stocks[i : i + batch_size]
-
-                    # データの検証と準備
-                    validated_batch = []
-                    for stock_data in batch:
-                        if not stock_data.get("code") or not stock_data.get("name"):
-                            logger.warning(f"無効な銘柄データをスキップ: {stock_data}")
-                            continue
-                        validated_batch.append(
-                            {
-                                "code": stock_data["code"],
-                                "name": stock_data["name"],
-                                "market": stock_data.get("market"),
-                                "sector": stock_data.get("sector"),
-                                "industry": stock_data.get("industry"),
-                            }
-                        )
-
-                    if validated_batch:
-                        # 一括挿入実行
-                        session.bulk_insert_mappings(Stock, validated_batch)
-                        added_count += len(validated_batch)
-
-                        logger.info(
-                            f"バッチ {i // batch_size + 1}: {len(validated_batch)}件の銘柄を追加"
-                        )
-
-                logger.info(f"一括追加完了: 合計 {added_count}件の銘柄を追加しました")
-                return added_count
-
-            except Exception as e:
-                logger.error(f"一括追加エラー: {e}")
-                return 0
+        except Exception as e:
+            logger.error(f"銘柄一括追加エラー: {e}")
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
     def bulk_update_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
-    ) -> int:
+    ) -> Dict[str, int]:
         """
-        銘柄の一括更新（パフォーマンス最適化版）
+        銘柄の一括更新（AdvancedBulkOperations使用・パフォーマンス最適化版）
 
         Args:
             stocks_data: 更新する銘柄データのリスト
@@ -730,123 +707,90 @@ class StockMasterManager:
             batch_size: バッチサイズ
 
         Returns:
-            更新された銘柄数
+            更新結果の統計情報
         """
         if not stocks_data:
-            return 0
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
 
-        updated_count = 0
+        try:
+            # データの検証と準備
+            validated_data = []
+            for stock_data in stocks_data:
+                code = stock_data.get("code")
+                if not code:
+                    logger.warning(f"銘柄コードが無効です: {stock_data}")
+                    continue
+                validated_data.append({
+                    "code": code,
+                    "name": stock_data.get("name"),
+                    "market": stock_data.get("market"),
+                    "sector": stock_data.get("sector"),
+                    "industry": stock_data.get("industry"),
+                })
 
-        with db_manager.session_scope() as session:
-            try:
-                # 既存銘柄コードとIDのマッピングを取得
-                existing_stocks = {
-                    stock.code: stock.id
-                    for stock in session.query(Stock.id, Stock.code).all()
-                }
+            # AdvancedBulkOperationsを使用してupsert（挿入または更新）
+            result = self.bulk_operations.bulk_insert_with_conflict_resolution(
+                Stock,
+                validated_data,
+                conflict_strategy="update",  # 重複時は更新
+                chunk_size=batch_size,
+                unique_columns=["code"]
+            )
 
-                # 存在する銘柄のみをフィルタリング
-                update_stocks = []
-                for stock_data in stocks_data:
-                    code = stock_data.get("code")
-                    if code and code in existing_stocks:
-                        # IDを追加して更新用データを準備
-                        update_data = {
-                            "id": existing_stocks[code],
-                            **{
-                                k: v
-                                for k, v in stock_data.items()
-                                if k != "code" and v is not None
-                            },
-                        }
-                        update_stocks.append(update_data)
+            logger.info(f"銘柄一括更新完了: {result}")
+            return result
 
-                if not update_stocks:
-                    logger.info("更新すべき銘柄がありません")
-                    return 0
-
-                # バッチ処理で一括更新
-                for i in range(0, len(update_stocks), batch_size):
-                    batch = update_stocks[i : i + batch_size]
-
-                    # 一括更新実行
-                    session.bulk_update_mappings(Stock, batch)
-                    updated_count += len(batch)
-
-                    logger.info(
-                        f"バッチ {i // batch_size + 1}: {len(batch)}件の銘柄を更新"
-                    )
-
-                logger.info(f"一括更新完了: 合計 {updated_count}件の銘柄を更新しました")
-                return updated_count
-
-            except Exception as e:
-                logger.error(f"一括更新エラー: {e}")
-                return 0
+        except Exception as e:
+            logger.error(f"銘柄一括更新エラー: {e}")
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
     def bulk_upsert_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
-    ) -> dict:
+    ) -> Dict[str, int]:
         """
-        銘柄の一括upsert（存在すれば更新、なければ追加）
+        銘柄の一括upsert（AdvancedBulkOperations使用・存在すれば更新、なければ追加）
 
         Args:
             stocks_data: 銘柄データのリスト
             batch_size: バッチサイズ
 
         Returns:
-            実行結果の辞書 {'added': int, 'updated': int, 'total': int}
+            実行結果の統計情報
         """
         if not stocks_data:
-            return {"added": 0, "updated": 0, "total": 0}
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
 
-        with db_manager.session_scope() as session:
-            try:
-                # 既存銘柄コードのセットを取得
-                existing_codes = set(
-                    code[0] for code in session.query(Stock.code).all()
-                )
+        try:
+            # データの検証と準備
+            validated_data = []
+            for stock_data in stocks_data:
+                code = stock_data.get("code")
+                if not code:
+                    logger.warning(f"銘柄コードが無効です: {stock_data}")
+                    continue
+                validated_data.append({
+                    "code": code,
+                    "name": stock_data.get("name"),
+                    "market": stock_data.get("market"),
+                    "sector": stock_data.get("sector"),
+                    "industry": stock_data.get("industry"),
+                })
 
-                # 新規追加と更新に分離
-                new_stocks = []
-                update_stocks = []
+            # AdvancedBulkOperationsを使用してupsert
+            result = self.bulk_operations.bulk_insert_with_conflict_resolution(
+                Stock,
+                validated_data,
+                conflict_strategy="update",  # 重複時は更新
+                chunk_size=batch_size,
+                unique_columns=["code"]
+            )
 
-                for stock_data in stocks_data:
-                    code = stock_data.get("code")
-                    if not code:
-                        logger.warning(f"銘柄コードが無効です: {stock_data}")
-                        continue
+            logger.info(f"銘柄一括upsert完了: {result}")
+            return result
 
-                    if code in existing_codes:
-                        update_stocks.append(stock_data)
-                    else:
-                        new_stocks.append(stock_data)
-
-                # 一括追加と一括更新を実行
-                added_count = (
-                    self.bulk_add_stocks(new_stocks, batch_size) if new_stocks else 0
-                )
-                updated_count = (
-                    self.bulk_update_stocks(update_stocks, batch_size)
-                    if update_stocks
-                    else 0
-                )
-
-                total_count = added_count + updated_count
-
-                logger.info(
-                    f"一括upsert完了: 追加 {added_count}件, 更新 {updated_count}件, 合計 {total_count}件"
-                )
-
-                return {
-                    "added": added_count,
-                    "updated": updated_count,
-                    "total": total_count,
-                }
-
-            except Exception as e:
-                logger.error(f"一括upsertエラー: {e}")
-                return {"added": 0, "updated": 0, "total": 0}
+        except Exception as e:
+            logger.error(f"銘柄一括upsertエラー: {e}")
+            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
 
 # グローバルインスタンス
