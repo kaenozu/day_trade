@@ -20,7 +20,7 @@ class StockMasterManager:
 
     def __init__(self):
         """初期化"""
-        pass
+        self.db_manager = db_manager
 
     def add_stock(
         self,
