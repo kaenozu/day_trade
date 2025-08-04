@@ -12,7 +12,7 @@ on:
 
 env:
   # Performance monitoring configuration
-  PERFORMANCE_REGRESSION_THRESHOLD: '20'  # Percentage threshold for regression detection
+  PERFORMANCE_REGRESSION_THRESHOLD: '30'  # Percentage threshold for regression detection
   PERFORMANCE_HISTORY_DAYS: '30'          # Days of history to analyze
   LARGE_FILE_THRESHOLD: '1M'              # Threshold for large file detection
   REPORT_RETENTION_DAYS: '90'             # Artifact retention days

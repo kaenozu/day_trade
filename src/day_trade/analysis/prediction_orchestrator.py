@@ -4,20 +4,18 @@
 高精度な株価予測システムを構築する
 """
 
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from ..utils.logging_config import get_context_logger
+from .ensemble import EnsembleStrategy, EnsembleTradingStrategy, EnsembleVotingType
 from .feature_engineering import AdvancedFeatureEngineer, create_target_variables
 from .ml_models import MLModelManager, ModelConfig
-from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType
-from .signals import TradingSignal, SignalType, SignalStrength
-from .backtest import BacktestConfig, BacktestResult
-from ..utils.logging_config import get_context_logger
+from .signals import SignalStrength, SignalType
 
 logger = get_context_logger(__name__, component="prediction_orchestrator")
 
@@ -57,7 +55,7 @@ class PredictionOrchestrator:
         self,
         config: PredictionConfig,
         models_dir: Optional[str] = None,
-        enable_ml: bool = True
+        enable_ml: bool = True,
     ):
         """
         Args:
@@ -75,7 +73,7 @@ class PredictionOrchestrator:
             ensemble_strategy=config.ensemble_strategy,
             voting_type=config.voting_type,
             enable_ml_models=enable_ml,
-            models_dir=models_dir
+            models_dir=models_dir,
         )
 
         # 予測履歴と性能追跡
@@ -86,7 +84,7 @@ class PredictionOrchestrator:
             "recall": [],
             "f1_score": [],
             "directional_accuracy": [],
-            "return_correlation": []
+            "return_correlation": [],
         }
 
         # 適応的重み
@@ -99,7 +97,7 @@ class PredictionOrchestrator:
         self,
         historical_data: pd.DataFrame,
         symbols: Optional[List[str]] = None,
-        force_retrain: bool = False
+        force_retrain: bool = False,
     ) -> Dict[str, Any]:
         """
         予測システム全体を訓練
@@ -116,16 +114,21 @@ class PredictionOrchestrator:
             logger.info("予測システムの訓練を開始")
 
             if len(historical_data) < self.config.min_data_length:
-                raise ValueError(f"データが不足しています（最低{self.config.min_data_length}日必要）")
+                raise ValueError(
+                    f"データが不足しています（最低{self.config.min_data_length}日必要）"
+                )
 
             training_results = {}
 
             # 1. 特徴量エンジニアリング
             logger.info("高度な特徴量を生成中...")
-            volume_data = historical_data["Volume"] if "Volume" in historical_data.columns else None
+            volume_data = (
+                historical_data["Volume"]
+                if "Volume" in historical_data.columns
+                else None
+            )
             features = self.feature_engineer.generate_all_features(
-                price_data=historical_data,
-                volume_data=volume_data
+                price_data=historical_data, volume_data=volume_data
             )
 
             if features.empty:
@@ -133,8 +136,7 @@ class PredictionOrchestrator:
 
             # 2. ターゲット変数生成
             targets = create_target_variables(
-                historical_data,
-                prediction_horizon=self.config.prediction_horizon
+                historical_data, prediction_horizon=self.config.prediction_horizon
             )
 
             # 3. 機械学習モデル訓練
@@ -144,8 +146,7 @@ class PredictionOrchestrator:
 
             # 4. アンサンブル戦略訓練
             ensemble_results = self.ensemble_strategy.train_ml_models(
-                historical_data,
-                retrain=force_retrain
+                historical_data, retrain=force_retrain
             )
             training_results["ensemble_models"] = ensemble_results
 
@@ -168,7 +169,7 @@ class PredictionOrchestrator:
                 "training_date": self.last_retrain_date.isoformat(),
                 "feature_count": len(features.columns),
                 "data_length": len(historical_data),
-                "results": training_results
+                "results": training_results,
             }
 
         except Exception as e:
@@ -179,7 +180,7 @@ class PredictionOrchestrator:
         self,
         current_data: pd.DataFrame,
         indicators: Optional[pd.DataFrame] = None,
-        market_data: Optional[Dict[str, pd.DataFrame]] = None
+        market_data: Optional[Dict[str, pd.DataFrame]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         強化された予測を生成
@@ -198,11 +199,13 @@ class PredictionOrchestrator:
                 return None
 
             # 1. 特徴量生成
-            volume_data = current_data["Volume"] if "Volume" in current_data.columns else None
+            volume_data = (
+                current_data["Volume"] if "Volume" in current_data.columns else None
+            )
             features = self.feature_engineer.generate_all_features(
                 price_data=current_data,
                 volume_data=volume_data,
-                market_data=market_data
+                market_data=market_data,
             )
 
             if features.empty:
@@ -242,8 +245,10 @@ class PredictionOrchestrator:
                 "uncertainty": prediction_uncertainty,
                 "ml_predictions": ml_predictions,
                 "ml_confidence": ml_confidence,
-                "ensemble_signal": ensemble_signal.ensemble_signal.signal_type.value if ensemble_signal else None,
-                "features_used": len(features.columns)
+                "ensemble_signal": ensemble_signal.ensemble_signal.signal_type.value
+                if ensemble_signal
+                else None,
+                "features_used": len(features.columns),
             }
 
             self.prediction_history.append(prediction_record)
@@ -259,8 +264,10 @@ class PredictionOrchestrator:
                 "ml_predictions": ml_predictions,
                 "ensemble_signal": ensemble_signal,
                 "risk_factors": self._identify_risk_factors(current_data, features),
-                "recommendation": self._generate_recommendation(risk_adjusted_prediction, prediction_uncertainty),
-                "timestamp": datetime.now()
+                "recommendation": self._generate_recommendation(
+                    risk_adjusted_prediction, prediction_uncertainty
+                ),
+                "timestamp": datetime.now(),
             }
 
         except Exception as e:
@@ -271,7 +278,7 @@ class PredictionOrchestrator:
         self,
         features: pd.DataFrame,
         targets: Dict[str, pd.Series],
-        force_retrain: bool = False
+        force_retrain: bool = False,
     ) -> Dict[str, Any]:
         """機械学習モデルを訓練"""
         try:
@@ -279,11 +286,31 @@ class PredictionOrchestrator:
 
             # モデル設定の定義
             model_configs = [
-                ("enhanced_return_predictor", "future_returns", "xgboost", "regression"),
-                ("enhanced_direction_predictor", "future_direction", "gradient_boosting", "classification"),
-                ("volatility_forecaster", "future_high_volatility", "random_forest", "classification"),
+                (
+                    "enhanced_return_predictor",
+                    "future_returns",
+                    "xgboost",
+                    "regression",
+                ),
+                (
+                    "enhanced_direction_predictor",
+                    "future_direction",
+                    "gradient_boosting",
+                    "classification",
+                ),
+                (
+                    "volatility_forecaster",
+                    "future_high_volatility",
+                    "random_forest",
+                    "classification",
+                ),
                 ("trend_detector", "future_returns", "linear", "regression"),
-                ("momentum_predictor", "future_direction", "random_forest", "classification")
+                (
+                    "momentum_predictor",
+                    "future_direction",
+                    "random_forest",
+                    "classification",
+                ),
             ]
 
             for model_name, target_name, model_type, task_type in model_configs:
@@ -292,7 +319,9 @@ class PredictionOrchestrator:
                         continue
 
                     # データの準備
-                    common_index = features.index.intersection(targets[target_name].index)
+                    common_index = features.index.intersection(
+                        targets[target_name].index
+                    )
                     if len(common_index) < 100:
                         continue
 
@@ -312,12 +341,14 @@ class PredictionOrchestrator:
                         cv_folds=5,
                         feature_selection=True,
                         max_features=self.config.feature_selection_top_k,
-                        model_params=self._get_optimized_model_params(model_type)
+                        model_params=self._get_optimized_model_params(model_type),
                     )
 
                     # モデル作成と訓練
-                    model = self.ml_manager.create_model(model_name, config)
-                    training_result = self.ml_manager.train_model(model_name, X_train_selected, y_train)
+                    self.ml_manager.create_model(model_name, config)
+                    training_result = self.ml_manager.train_model(
+                        model_name, X_train_selected, y_train
+                    )
 
                     # モデル保存
                     self.ml_manager.save_model(model_name)
@@ -327,7 +358,7 @@ class PredictionOrchestrator:
                         "model_type": model_type,
                         "task_type": task_type,
                         "training_result": training_result,
-                        "selected_features": selected_features
+                        "selected_features": selected_features,
                     }
 
                     logger.info(f"モデル {model_name} の訓練完了")
@@ -342,7 +373,9 @@ class PredictionOrchestrator:
             logger.error(f"機械学習モデル訓練エラー: {e}")
             return {"error": str(e)}
 
-    def _generate_ml_predictions(self, features: pd.DataFrame) -> Tuple[Dict[str, float], Dict[str, float]]:
+    def _generate_ml_predictions(
+        self, features: pd.DataFrame
+    ) -> Tuple[Dict[str, float], Dict[str, float]]:
         """機械学習予測を生成"""
         predictions = {}
         confidence_scores = {}
@@ -356,7 +389,9 @@ class PredictionOrchestrator:
                     if model.is_fitted:
                         # 予測実行
                         pred = self.ml_manager.predict(model_name, latest_features)
-                        predictions[model_name] = float(pred[0]) if len(pred) > 0 else 0.0
+                        predictions[model_name] = (
+                            float(pred[0]) if len(pred) > 0 else 0.0
+                        )
 
                         # 信頼度スコア計算（特徴量重要度と履歴パフォーマンスベース）
                         confidence = self._calculate_model_confidence(model_name, model)
@@ -376,7 +411,7 @@ class PredictionOrchestrator:
         ml_predictions: Dict[str, float],
         ensemble_signal: Optional[Any],
         current_data: pd.DataFrame,
-        features: pd.DataFrame
+        features: pd.DataFrame,
     ) -> Dict[str, Any]:
         """予測を統合"""
         try:
@@ -396,22 +431,26 @@ class PredictionOrchestrator:
                 "expected_return": 0.0,
                 "volatility_forecast": 0.0,
                 "trend_strength": 0.0,
-                "confidence": 0.0
+                "confidence": 0.0,
             }
 
             # ML予測の統合
             if ml_predictions:
                 # リターン予測
                 return_preds = [
-                    pred for name, pred in ml_predictions.items()
+                    pred
+                    for name, pred in ml_predictions.items()
                     if "return" in name or "trend" in name
                 ]
                 if return_preds:
-                    integrated_result["expected_return"] = np.mean(return_preds) * ml_weight
+                    integrated_result["expected_return"] = (
+                        np.mean(return_preds) * ml_weight
+                    )
 
                 # 方向性予測
                 direction_preds = [
-                    pred for name, pred in ml_predictions.items()
+                    pred
+                    for name, pred in ml_predictions.items()
                     if "direction" in name or "momentum" in name
                 ]
                 if direction_preds:
@@ -421,11 +460,14 @@ class PredictionOrchestrator:
 
                 # ボラティリティ予測
                 vol_preds = [
-                    pred for name, pred in ml_predictions.items()
+                    pred
+                    for name, pred in ml_predictions.items()
                     if "volatility" in name
                 ]
                 if vol_preds:
-                    integrated_result["volatility_forecast"] = np.mean(vol_preds) * ml_weight
+                    integrated_result["volatility_forecast"] = (
+                        np.mean(vol_preds) * ml_weight
+                    )
 
             # アンサンブル予測の統合
             if ensemble_signal and ensemble_signal.ensemble_signal:
@@ -447,21 +489,39 @@ class PredictionOrchestrator:
                 elif signal.strength == SignalStrength.WEAK:
                     strength_multiplier = 0.4
 
-                ensemble_contribution = signal_value * (signal.confidence / 100.0) * strength_multiplier
-                integrated_result["price_direction"] += ensemble_contribution * ensemble_weight
-                integrated_result["trend_strength"] = strength_multiplier * ensemble_weight
+                ensemble_contribution = (
+                    signal_value * (signal.confidence / 100.0) * strength_multiplier
+                )
+                integrated_result["price_direction"] += (
+                    ensemble_contribution * ensemble_weight
+                )
+                integrated_result["trend_strength"] = (
+                    strength_multiplier * ensemble_weight
+                )
 
             # 全体信頼度の計算
-            ml_confidence = np.mean(list(self.model_weights.values())) if self.model_weights else 0.0
-            ensemble_confidence = (ensemble_signal.ensemble_confidence / 100.0) if ensemble_signal else 0.0
+            ml_confidence = (
+                np.mean(list(self.model_weights.values()))
+                if self.model_weights
+                else 0.0
+            )
+            ensemble_confidence = (
+                (ensemble_signal.ensemble_confidence / 100.0)
+                if ensemble_signal
+                else 0.0
+            )
 
             integrated_result["confidence"] = (
                 ml_confidence * ml_weight + ensemble_confidence * ensemble_weight
             )
 
             # 範囲制限
-            integrated_result["price_direction"] = np.clip(integrated_result["price_direction"], -1.0, 1.0)
-            integrated_result["confidence"] = np.clip(integrated_result["confidence"], 0.0, 1.0)
+            integrated_result["price_direction"] = np.clip(
+                integrated_result["price_direction"], -1.0, 1.0
+            )
+            integrated_result["confidence"] = np.clip(
+                integrated_result["confidence"], 0.0, 1.0
+            )
 
             return integrated_result
 
@@ -472,14 +532,14 @@ class PredictionOrchestrator:
                 "expected_return": 0.0,
                 "volatility_forecast": 0.0,
                 "trend_strength": 0.0,
-                "confidence": 0.0
+                "confidence": 0.0,
             }
 
     def _apply_risk_adjustments(
         self,
         prediction: Dict[str, Any],
         current_data: pd.DataFrame,
-        features: pd.DataFrame
+        features: pd.DataFrame,
     ) -> Dict[str, Any]:
         """リスク調整を適用"""
         try:
@@ -509,20 +569,23 @@ class PredictionOrchestrator:
             if len(current_data) >= 50:
                 sma_20 = current_data["Close"].rolling(20).mean().iloc[-1]
                 sma_50 = current_data["Close"].rolling(50).mean().iloc[-1]
-                current_price = current_data["Close"].iloc[-1]
+                current_data["Close"].iloc[-1]
 
                 # トレンド状況による調整
                 if sma_20 > sma_50 * 1.05:  # 強い上昇トレンド
                     if prediction["price_direction"] > 0:
                         adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
-                elif sma_20 < sma_50 * 0.95:  # 強い下降トレンド
-                    if prediction["price_direction"] < 0:
-                        adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
+                elif (
+                    sma_20 < sma_50 * 0.95 and prediction["price_direction"] < 0
+                ):  # 強い下降トレンド
+                    adjusted_prediction["confidence"] *= 1.1  # 信頼度向上
 
             # 4. 信頼度閾値適用
             if adjusted_prediction["confidence"] < self.config.confidence_threshold:
                 # 低信頼度の場合は予測を弱める
-                confidence_ratio = adjusted_prediction["confidence"] / self.config.confidence_threshold
+                confidence_ratio = (
+                    adjusted_prediction["confidence"] / self.config.confidence_threshold
+                )
                 adjusted_prediction["price_direction"] *= confidence_ratio
                 adjusted_prediction["expected_return"] *= confidence_ratio
 
@@ -536,7 +599,7 @@ class PredictionOrchestrator:
         self,
         ml_predictions: Dict[str, float],
         ensemble_signal: Optional[Any],
-        features: pd.DataFrame
+        features: pd.DataFrame,
     ) -> float:
         """予測の不確実性を計算"""
         try:
@@ -550,18 +613,22 @@ class PredictionOrchestrator:
                     uncertainty_factors.append(ml_std)
 
             # 2. アンサンブル不確実性
-            if ensemble_signal and hasattr(ensemble_signal, 'ensemble_uncertainty'):
+            if ensemble_signal and hasattr(ensemble_signal, "ensemble_uncertainty"):
                 uncertainty_factors.append(ensemble_signal.ensemble_uncertainty)
 
             # 3. 特徴量の品質
             if not features.empty:
                 # 欠損値率
-                missing_rate = features.isnull().sum().sum() / (features.shape[0] * features.shape[1])
+                missing_rate = features.isnull().sum().sum() / (
+                    features.shape[0] * features.shape[1]
+                )
                 uncertainty_factors.append(missing_rate)
 
                 # 特徴量の変動性
                 if len(features) > 1:
-                    feature_volatility = features.std().mean() / (features.mean().abs().mean() + 1e-8)
+                    feature_volatility = features.std().mean() / (
+                        features.mean().abs().mean() + 1e-8
+                    )
                     uncertainty_factors.append(min(feature_volatility, 1.0))
 
             # 4. モデル一致度
@@ -581,9 +648,7 @@ class PredictionOrchestrator:
             return self.config.max_prediction_uncertainty
 
     def _identify_risk_factors(
-        self,
-        current_data: pd.DataFrame,
-        features: pd.DataFrame
+        self, current_data: pd.DataFrame, features: pd.DataFrame
     ) -> List[str]:
         """リスク要因を特定"""
         risk_factors = []
@@ -605,9 +670,7 @@ class PredictionOrchestrator:
 
             # 3. 極端な価格レベル
             if len(current_data) >= 50:
-                price_percentile = (
-                    current_data["Close"].tail(50).rank().iloc[-1] / 50
-                )
+                price_percentile = current_data["Close"].tail(50).rank().iloc[-1] / 50
                 if price_percentile > 0.95:
                     risk_factors.append("価格高値圏")
                 elif price_percentile < 0.05:
@@ -615,7 +678,9 @@ class PredictionOrchestrator:
 
             # 4. データ品質問題
             if not features.empty:
-                missing_rate = features.isnull().sum().sum() / (features.shape[0] * features.shape[1])
+                missing_rate = features.isnull().sum().sum() / (
+                    features.shape[0] * features.shape[1]
+                )
                 if missing_rate > 0.1:
                     risk_factors.append("データ品質低下")
 
@@ -626,9 +691,7 @@ class PredictionOrchestrator:
             return []
 
     def _generate_recommendation(
-        self,
-        prediction: Dict[str, Any],
-        uncertainty: float
+        self, prediction: Dict[str, Any], uncertainty: float
     ) -> Dict[str, Any]:
         """推奨アクションを生成"""
         try:
@@ -667,10 +730,12 @@ class PredictionOrchestrator:
                 reason = "不明確なシグナル"
 
             # 不確実性による調整
-            if uncertainty > self.config.max_prediction_uncertainty * 0.8:
-                if action != "HOLD":
-                    strength = "WEAK"
-                    reason += "（高い不確実性により強度減）"
+            if (
+                uncertainty > self.config.max_prediction_uncertainty * 0.8
+                and action != "HOLD"
+            ):
+                strength = "WEAK"
+                reason += "（高い不確実性により強度減）"
 
             return {
                 "action": action,
@@ -679,7 +744,9 @@ class PredictionOrchestrator:
                 "expected_return": expected_return,
                 "uncertainty": uncertainty,
                 "reason": reason,
-                "position_size_suggestion": self._suggest_position_size(confidence, uncertainty)
+                "position_size_suggestion": self._suggest_position_size(
+                    confidence, uncertainty
+                ),
             }
 
         except Exception as e:
@@ -691,7 +758,7 @@ class PredictionOrchestrator:
                 "expected_return": 0.0,
                 "uncertainty": 1.0,
                 "reason": "エラーのため取引停止",
-                "position_size_suggestion": 0.0
+                "position_size_suggestion": 0.0,
             }
 
     def _suggest_position_size(self, confidence: float, uncertainty: float) -> float:
@@ -721,7 +788,7 @@ class PredictionOrchestrator:
                 "min_samples_leaf": 2,
                 "max_features": "sqrt",
                 "bootstrap": True,
-                "random_state": 42
+                "random_state": 42,
             },
             "gradient_boosting": {
                 "n_estimators": 150,
@@ -730,7 +797,7 @@ class PredictionOrchestrator:
                 "min_samples_split": 10,
                 "min_samples_leaf": 4,
                 "subsample": 0.8,
-                "random_state": 42
+                "random_state": 42,
             },
             "xgboost": {
                 "n_estimators": 200,
@@ -739,13 +806,9 @@ class PredictionOrchestrator:
                 "min_child_weight": 3,
                 "subsample": 0.8,
                 "colsample_bytree": 0.8,
-                "random_state": 42
+                "random_state": 42,
             },
-            "linear": {
-                "alpha": 0.01,
-                "max_iter": 2000,
-                "random_state": 42
-            }
+            "linear": {"alpha": 0.01, "max_iter": 2000, "random_state": 42},
         }
 
         return optimized_params.get(model_type, {})
@@ -756,12 +819,14 @@ class PredictionOrchestrator:
             base_confidence = 0.5
 
             # 特徴量重要度による調整
-            if hasattr(model, '_get_feature_importance'):
+            if hasattr(model, "_get_feature_importance"):
                 importance = model._get_feature_importance()
                 if importance:
                     # 重要度の集中度（少数の特徴量に集中している方が安定）
                     importance_values = list(importance.values())
-                    importance_concentration = np.max(importance_values) / (np.mean(importance_values) + 1e-8)
+                    importance_concentration = np.max(importance_values) / (
+                        np.mean(importance_values) + 1e-8
+                    )
                     concentration_boost = min(importance_concentration / 10.0, 0.3)
                     base_confidence += concentration_boost
 
@@ -775,7 +840,9 @@ class PredictionOrchestrator:
             logger.error(f"モデル信頼度計算エラー: {e}")
             return 0.5
 
-    def _initialize_adaptive_weights(self, features: pd.DataFrame, targets: Dict[str, pd.Series]):
+    def _initialize_adaptive_weights(
+        self, features: pd.DataFrame, targets: Dict[str, pd.Series]
+    ):
         """適応的重みを初期化"""
         try:
             if not self.ml_manager:
@@ -783,7 +850,9 @@ class PredictionOrchestrator:
 
             # 各モデルの初期重みを設定
             for model_name in self.ml_manager.list_models():
-                self.model_weights[model_name] = 1.0 / len(self.ml_manager.list_models())
+                self.model_weights[model_name] = 1.0 / len(
+                    self.ml_manager.list_models()
+                )
 
             logger.info(f"適応的重みを初期化: {self.model_weights}")
 
@@ -794,7 +863,7 @@ class PredictionOrchestrator:
         self,
         historical_data: pd.DataFrame,
         features: pd.DataFrame,
-        targets: Dict[str, pd.Series]
+        targets: Dict[str, pd.Series],
     ) -> Dict[str, Any]:
         """予測パフォーマンスを評価"""
         try:
@@ -807,7 +876,7 @@ class PredictionOrchestrator:
             test_size = min(50, len(historical_data) // 4)
             train_end = len(historical_data) - test_size
 
-            train_data = historical_data.iloc[:train_end]
+            historical_data.iloc[:train_end]
             test_data = historical_data.iloc[train_end:]
 
             # テスト期間での予測精度評価
@@ -817,18 +886,21 @@ class PredictionOrchestrator:
             for i in range(len(test_data) - self.config.prediction_horizon):
                 try:
                     # その時点でのデータを使用
-                    current_data = historical_data.iloc[:train_end + i + 1]
+                    historical_data.iloc[: train_end + i + 1]
 
                     # 実際の将来リターンを計算
                     future_idx = train_end + i + self.config.prediction_horizon
                     if future_idx < len(historical_data):
                         actual_return = (
-                            historical_data["Close"].iloc[future_idx] /
-                            historical_data["Close"].iloc[train_end + i] - 1
+                            historical_data["Close"].iloc[future_idx]
+                            / historical_data["Close"].iloc[train_end + i]
+                            - 1
                         )
 
                         # 簡略化された予測（デモ用）
-                        predicted_direction = 1 if i % 2 == 0 else -1  # プレースホルダー
+                        predicted_direction = (
+                            1 if i % 2 == 0 else -1
+                        )  # プレースホルダー
                         actual_direction = 1 if actual_return > 0 else -1
 
                         if predicted_direction == actual_direction:
@@ -839,14 +911,18 @@ class PredictionOrchestrator:
                     continue
 
             # 精度計算
-            accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
+            accuracy = (
+                correct_predictions / total_predictions
+                if total_predictions > 0
+                else 0.0
+            )
 
             evaluation_results = {
                 "directional_accuracy": accuracy,
                 "total_predictions": total_predictions,
                 "correct_predictions": correct_predictions,
                 "evaluation_period": test_size,
-                "evaluation_date": datetime.now().isoformat()
+                "evaluation_date": datetime.now().isoformat(),
             }
 
             return evaluation_results
@@ -864,15 +940,18 @@ class PredictionOrchestrator:
                     "feature_selection_top_k": self.config.feature_selection_top_k,
                     "confidence_threshold": self.config.confidence_threshold,
                     "ensemble_strategy": self.config.ensemble_strategy.value,
-                    "voting_type": self.config.voting_type.value
+                    "voting_type": self.config.voting_type.value,
                 },
                 "ml_enabled": self.enable_ml,
-                "last_retrain_date": self.last_retrain_date.isoformat() if self.last_retrain_date else None,
+                "last_retrain_date": self.last_retrain_date.isoformat()
+                if self.last_retrain_date
+                else None,
                 "prediction_history_length": len(self.prediction_history),
                 "model_weights": self.model_weights.copy(),
                 "performance_metrics": {
-                    metric: len(values) for metric, values in self.performance_metrics.items()
-                }
+                    metric: len(values)
+                    for metric, values in self.performance_metrics.items()
+                },
             }
 
             # ML情報
@@ -880,10 +959,11 @@ class PredictionOrchestrator:
                 status["ml_models"] = {
                     "total_models": len(self.ml_manager.list_models()),
                     "fitted_models": sum(
-                        1 for model_name in self.ml_manager.list_models()
+                        1
+                        for model_name in self.ml_manager.list_models()
                         if self.ml_manager.models[model_name].is_fitted
                     ),
-                    "model_list": self.ml_manager.list_models()
+                    "model_list": self.ml_manager.list_models(),
                 }
 
             # アンサンブル情報
@@ -910,21 +990,21 @@ if __name__ == "__main__":
     noise = np.random.randn(len(dates)) * 5
     close_prices = trend + noise
 
-    sample_data = pd.DataFrame({
-        "Date": dates,
-        "Open": close_prices + np.random.randn(len(dates)) * 1,
-        "High": close_prices + np.abs(np.random.randn(len(dates))) * 3,
-        "Low": close_prices - np.abs(np.random.randn(len(dates))) * 3,
-        "Close": close_prices,
-        "Volume": np.random.randint(1000000, 10000000, len(dates))
-    })
+    sample_data = pd.DataFrame(
+        {
+            "Date": dates,
+            "Open": close_prices + np.random.randn(len(dates)) * 1,
+            "High": close_prices + np.abs(np.random.randn(len(dates))) * 3,
+            "Low": close_prices - np.abs(np.random.randn(len(dates))) * 3,
+            "Close": close_prices,
+            "Volume": np.random.randint(1000000, 10000000, len(dates)),
+        }
+    )
     sample_data.set_index("Date", inplace=True)
 
     # 予測オーケストレーターのテスト
     config = PredictionConfig(
-        prediction_horizon=5,
-        enable_ensemble_ml=True,
-        confidence_threshold=0.6
+        prediction_horizon=5, enable_ensemble_ml=True, confidence_threshold=0.6
     )
 
     orchestrator = PredictionOrchestrator(config, enable_ml=False)  # テスト用にMLを無効

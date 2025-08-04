@@ -130,6 +130,7 @@ class TestNotificationHandler:
     def test_console_notification(self, caplog):
         """コンソール通知テスト"""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         self.handler._send_console_notification(self.sample_trigger)
@@ -211,10 +212,8 @@ class TestAlertManager:
     def setup_method(self):
         """テストセットアップ"""
         self.mock_stock_fetcher = Mock()
-        self.mock_watchlist_manager = Mock()
         self.alert_manager = AlertManager(
             stock_fetcher=self.mock_stock_fetcher,
-            watchlist_manager=self.mock_watchlist_manager,
         )
 
         # サンプルアラート条件

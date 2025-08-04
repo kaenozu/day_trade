@@ -7,29 +7,32 @@ Issue 183: テストカバレッジの計測と可視化
 CI/CDパイプラインでの品質ゲートとして使用できます。
 """
 
+import fnmatch
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-import fnmatch
+from typing import Any, Dict, List, Optional
+
 
 def load_coverage_config(config_file: Path) -> Dict[str, Any]:
     """カバレッジ設定ファイルを読み込み"""
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"設定ファイル読み込みエラー: {e}")
         return {}
 
+
 def load_coverage_data(json_file: Path) -> Optional[Dict[str, Any]]:
     """カバレッジJSONファイルを読み込み"""
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"カバレッジデータ読み込みエラー: {e}")
         return None
+
 
 def get_package_name(filename: str) -> str:
     """ファイルパスからパッケージ名を抽出"""
@@ -44,14 +47,15 @@ def get_package_name(filename: str) -> str:
     else:
         return "root"
 
+
 def match_patterns(filename: str, patterns: List[str]) -> bool:
     """ファイル名がパターンにマッチするかチェック"""
-    for pattern in patterns:
-        if fnmatch.fnmatch(filename, pattern):
-            return True
-    return False
+    return any(fnmatch.fnmatch(filename, pattern) for pattern in patterns)
 
-def evaluate_overall_coverage(coverage_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+
+def evaluate_overall_coverage(
+    coverage_data: Dict[str, Any], config: Dict[str, Any]
+) -> Dict[str, Any]:
     """全体カバレッジの評価"""
     totals = coverage_data.get("totals", {})
     coverage_pct = totals.get("percent_covered", 0)
@@ -92,10 +96,13 @@ def evaluate_overall_coverage(coverage_data: Dict[str, Any], config: Dict[str, A
         "target_good": targets.get("good", 70),
         "target_excellent": targets.get("excellent", 80),
         "lines_covered": totals.get("covered_lines", 0),
-        "lines_total": totals.get("num_statements", 0)
+        "lines_total": totals.get("num_statements", 0),
     }
 
-def evaluate_package_coverage(coverage_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+
+def evaluate_package_coverage(
+    coverage_data: Dict[str, Any], config: Dict[str, Any]
+) -> Dict[str, Any]:
     """パッケージ別カバレッジの評価"""
     files_data = coverage_data.get("files", {})
     package_targets = config.get("coverage_targets", {}).get("by_package", {})
@@ -111,7 +118,7 @@ def evaluate_package_coverage(coverage_data: Dict[str, Any], config: Dict[str, A
             package_stats[package] = {
                 "covered_lines": 0,
                 "total_lines": 0,
-                "file_count": 0
+                "file_count": 0,
             }
 
         package_stats[package]["covered_lines"] += summary.get("covered_lines", 0)
@@ -126,9 +133,12 @@ def evaluate_package_coverage(coverage_data: Dict[str, Any], config: Dict[str, A
             continue
 
         coverage_pct = (stats["covered_lines"] / stats["total_lines"]) * 100
-        targets = package_targets.get(package, package_targets.get("default", {
-            "minimum": 60, "good": 70, "excellent": 80, "ideal": 90
-        }))
+        targets = package_targets.get(
+            package,
+            package_targets.get(
+                "default", {"minimum": 60, "good": 70, "excellent": 80, "ideal": 90}
+            ),
+        )
 
         # レベル判定
         if coverage_pct >= targets.get("ideal", 90):
@@ -155,12 +165,15 @@ def evaluate_package_coverage(coverage_data: Dict[str, Any], config: Dict[str, A
             "total_lines": stats["total_lines"],
             "file_count": stats["file_count"],
             "targets": targets,
-            "meets_minimum": coverage_pct >= targets.get("minimum", 60)
+            "meets_minimum": coverage_pct >= targets.get("minimum", 60),
         }
 
     return package_evaluations
 
-def evaluate_file_type_coverage(coverage_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+
+def evaluate_file_type_coverage(
+    coverage_data: Dict[str, Any], config: Dict[str, Any]
+) -> Dict[str, Any]:
     """ファイルタイプ別カバレッジの評価"""
     files_data = coverage_data.get("files", {})
     file_type_targets = config.get("coverage_targets", {}).get("by_file_type", {})
@@ -181,11 +194,15 @@ def evaluate_file_type_coverage(coverage_data: Dict[str, Any], config: Dict[str,
                         "covered_lines": 0,
                         "total_lines": 0,
                         "file_count": 0,
-                        "files": []
+                        "files": [],
                     }
 
-                file_type_stats[file_type]["covered_lines"] += summary.get("covered_lines", 0)
-                file_type_stats[file_type]["total_lines"] += summary.get("num_statements", 0)
+                file_type_stats[file_type]["covered_lines"] += summary.get(
+                    "covered_lines", 0
+                )
+                file_type_stats[file_type]["total_lines"] += summary.get(
+                    "num_statements", 0
+                )
                 file_type_stats[file_type]["file_count"] += 1
                 file_type_stats[file_type]["files"].append(filename)
                 break
@@ -225,28 +242,29 @@ def evaluate_file_type_coverage(coverage_data: Dict[str, Any], config: Dict[str,
             "total_lines": stats["total_lines"],
             "file_count": stats["file_count"],
             "targets": targets,
-            "meets_minimum": coverage_pct >= targets.get("minimum", 60)
+            "meets_minimum": coverage_pct >= targets.get("minimum", 60),
         }
 
     return file_type_evaluations
 
-def generate_quality_report(overall: Dict[str, Any], packages: Dict[str, Any],
-                          file_types: Dict[str, Any], config: Dict[str, Any]) -> str:
+
+def generate_quality_report(
+    overall: Dict[str, Any],
+    packages: Dict[str, Any],
+    file_types: Dict[str, Any],
+    config: Dict[str, Any],
+) -> str:
     """品質チェックレポートを生成"""
     report = "# テストカバレッジ品質チェックレポート\n\n"
 
     from datetime import datetime
+
     report += f"**生成日時**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n\n"
 
     # 全体評価
     report += "## 🎯 全体評価\n\n"
 
-    status_emoji = {
-        "excellent": "🟢",
-        "good": "🟡",
-        "acceptable": "🟠",
-        "poor": "🔴"
-    }
+    status_emoji = {"excellent": "🟢", "good": "🟡", "acceptable": "🟠", "poor": "🔴"}
 
     emoji = status_emoji.get(overall["status"], "⚪")
     report += f"{emoji} **ステータス**: {overall['status'].upper()}\n"
@@ -279,8 +297,7 @@ def generate_quality_report(overall: Dict[str, Any], packages: Dict[str, Any],
 
         # ステータス順でソート
         sorted_packages = sorted(
-            packages.items(),
-            key=lambda x: (x[1]["status"], -x[1]["coverage_percent"])
+            packages.items(), key=lambda x: (x[1]["status"], -x[1]["coverage_percent"])
         )
 
         for package, eval_data in sorted_packages:
@@ -300,7 +317,7 @@ def generate_quality_report(overall: Dict[str, Any], packages: Dict[str, Any],
         # ステータス順でソート
         sorted_types = sorted(
             file_types.items(),
-            key=lambda x: (x[1]["status"], -x[1]["coverage_percent"])
+            key=lambda x: (x[1]["status"], -x[1]["coverage_percent"]),
         )
 
         for file_type, eval_data in sorted_types:
@@ -318,26 +335,38 @@ def generate_quality_report(overall: Dict[str, Any], packages: Dict[str, Any],
 
     # 全体的な推奨
     if overall["coverage_percent"] < 60:
-        recommendations.append("🚨 **緊急**: 全体カバレッジが60%未満です。テストの大幅な追加が必要です。")
+        recommendations.append(
+            "🚨 **緊急**: 全体カバレッジが60%未満です。テストの大幅な追加が必要です。"
+        )
     elif overall["coverage_percent"] < 70:
-        recommendations.append("⚠️ **注意**: 全体カバレッジが70%未満です。追加テストを検討してください。")
+        recommendations.append(
+            "⚠️ **注意**: 全体カバレッジが70%未満です。追加テストを検討してください。"
+        )
 
     # パッケージ別推奨
     poor_packages = [pkg for pkg, data in packages.items() if not data["meets_minimum"]]
     if poor_packages:
-        recommendations.append(f"📦 **パッケージ改善**: {', '.join(poor_packages)} のテストを強化してください。")
+        recommendations.append(
+            f"📦 **パッケージ改善**: {', '.join(poor_packages)} のテストを強化してください。"
+        )
 
     # ファイルタイプ別推奨
     poor_types = [ft for ft, data in file_types.items() if not data["meets_minimum"]]
     if poor_types:
-        recommendations.append(f"📄 **ファイルタイプ改善**: {', '.join(poor_types)} のテストを強化してください。")
+        recommendations.append(
+            f"📄 **ファイルタイプ改善**: {', '.join(poor_types)} のテストを強化してください。"
+        )
 
     # 目標到達の推奨
     if overall["coverage_percent"] >= 70 and overall["coverage_percent"] < 80:
-        recommendations.append("🎯 **次の目標**: 80%達成まであと少しです。重要なモジュールを重点的にテストしてください。")
+        recommendations.append(
+            "🎯 **次の目標**: 80%達成まであと少しです。重要なモジュールを重点的にテストしてください。"
+        )
 
     if not recommendations:
-        recommendations.append("🎉 **素晴らしい**: 現在のカバレッジレベルは良好です。この水準を維持してください。")
+        recommendations.append(
+            "🎉 **素晴らしい**: 現在のカバレッジレベルは良好です。この水準を維持してください。"
+        )
 
     for rec in recommendations:
         report += f"- {rec}\n"
@@ -350,9 +379,12 @@ def generate_quality_report(overall: Dict[str, Any], packages: Dict[str, Any],
     report += f"- **失敗閾値**: {quality_gates.get('fail_under', 60)}%\n"
     report += f"- **警告閾値**: {quality_gates.get('warn_under', 70)}%\n"
     report += f"- **PR ブロック閾値**: {quality_gates.get('block_pr_under', 50)}%\n"
-    report += f"- **新規コード最低要件**: {quality_gates.get('new_code_minimum', 80)}%\n"
+    report += (
+        f"- **新規コード最低要件**: {quality_gates.get('new_code_minimum', 80)}%\n"
+    )
 
     return report
+
 
 def main():
     """メイン実行関数"""
@@ -401,14 +433,17 @@ def main():
     # レポート生成
     print("品質レポート生成中...")
 
-    quality_report = generate_quality_report(overall_eval, package_eval, file_type_eval, config)
+    quality_report = generate_quality_report(
+        overall_eval, package_eval, file_type_eval, config
+    )
 
     # レポート保存
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_file = coverage_dir / f"quality_report_{timestamp}.md"
 
-    with open(report_file, 'w', encoding='utf-8') as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write(quality_report)
 
     print(f"品質レポート保存完了: {report_file}")
@@ -434,11 +469,14 @@ def main():
         exit_code = 0
 
     # パッケージ別サマリー
-    poor_packages = [pkg for pkg, data in package_eval.items() if not data["meets_minimum"]]
+    poor_packages = [
+        pkg for pkg, data in package_eval.items() if not data["meets_minimum"]
+    ]
     if poor_packages:
         print(f"改善が必要なパッケージ: {', '.join(poor_packages)}")
 
     return exit_code
+
 
 if __name__ == "__main__":
     sys.exit(main())

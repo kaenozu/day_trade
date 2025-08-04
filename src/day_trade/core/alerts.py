@@ -27,29 +27,13 @@ except ImportError:
 
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
-from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
+from ..models.enums import AlertType
 from ..utils.logging_config import (
     get_context_logger,
 )
 
 logger = get_context_logger(__name__)
-
-
-class AlertType(Enum):
-    """アラートタイプ"""
-
-    PRICE_ABOVE = "price_above"  # 価格上限突破
-    PRICE_BELOW = "price_below"  # 価格下限突破
-    CHANGE_PERCENT_UP = "change_percent_up"  # 上昇率
-    CHANGE_PERCENT_DOWN = "change_percent_down"  # 下落率
-    VOLUME_SPIKE = "volume_spike"  # 出来高急増
-    RSI_OVERBOUGHT = "rsi_overbought"  # RSI買われすぎ
-    RSI_OVERSOLD = "rsi_oversold"  # RSI売られすぎ
-    MACD_SIGNAL = "macd_signal"  # MACDシグナル
-    BOLLINGER_BREAKOUT = "bollinger_breakout"  # ボリンジャーバンド突破
-    PATTERN_DETECTED = "pattern_detected"  # チャートパターン検出
-    CUSTOM_CONDITION = "custom_condition"  # カスタム条件
 
 
 class AlertPriority(Enum):
@@ -192,14 +176,16 @@ class NotificationHandler:
 
     def _send_console_notification(self, trigger: AlertTrigger):
         """コンソール通知"""
-        logger.warning("Alert triggered - Console notification",
-                      symbol=trigger.symbol,
-                      alert_type=trigger.alert_type.value,
-                      priority=trigger.priority.value,
-                      trigger_time=trigger.trigger_time.isoformat(),
-                      alert_message=trigger.message,
-                      current_price=trigger.current_price,
-                      notification_type="console")
+        logger.warning(
+            "Alert triggered - Console notification",
+            symbol=trigger.symbol,
+            alert_type=trigger.alert_type.value,
+            priority=trigger.priority.value,
+            trigger_time=trigger.trigger_time.isoformat(),
+            alert_message=trigger.message,
+            current_price=trigger.current_price,
+            notification_type="console",
+        )
 
     def _send_file_log_notification(self, trigger: AlertTrigger):
         """ファイルログ通知"""
@@ -276,15 +262,14 @@ class AlertManager:
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
-        watchlist_manager: Optional[WatchlistManager] = None,
     ):
         """
         Args:
             stock_fetcher: 株価データ取得インスタンス
-            watchlist_manager: ウォッチリスト管理インスタンス
         """
+        from ..core.watchlist import WatchlistManager
         self.stock_fetcher = stock_fetcher or StockFetcher()
-        self.watchlist_manager = watchlist_manager
+        self.watchlist_manager = WatchlistManager()
         self.technical_indicators = TechnicalIndicators()
         self.pattern_recognizer = ChartPatternRecognizer()
         self.notification_handler = NotificationHandler()
@@ -615,22 +600,17 @@ class AlertManager:
 
     def _is_expired(self, condition: AlertCondition) -> bool:
         """条件の有効期限チェック"""
-        if condition.expiry_date and datetime.now() > condition.expiry_date:
-            return True
-        return False
+        return bool(condition.expiry_date and datetime.now() > condition.expiry_date)
 
     def _validate_condition(self, condition: AlertCondition) -> bool:
         """条件の検証"""
         if not condition.alert_id or not condition.symbol:
             return False
 
-        if (
+        return not (
             condition.alert_type == AlertType.CUSTOM_CONDITION
             and not condition.custom_function
-        ):
-            return False
-
-        return True
+        )
 
     def get_alert_history(
         self, symbol: Optional[str] = None, hours: int = 24
@@ -788,12 +768,14 @@ if __name__ == "__main__":
     logger.info("=== アラート設定確認 ===")
     alerts = alert_manager.get_alerts()
     for alert in alerts:
-        logger.info("Alert configuration",
-                   alert_id=alert.alert_id,
-                   symbol=alert.symbol,
-                   alert_type=alert.alert_type.value,
-                   condition_value=alert.condition_value,
-                   description=alert.description)
+        logger.info(
+            "Alert configuration",
+            alert_id=alert.alert_id,
+            symbol=alert.symbol,
+            alert_type=alert.alert_type.value,
+            condition_value=alert.condition_value,
+            description=alert.description,
+        )
 
     # 監視開始（デモ用に短時間）
     logger.info("アラート監視開始", interval_seconds=30)

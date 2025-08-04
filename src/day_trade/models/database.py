@@ -17,7 +17,11 @@ from alembic import command
 from alembic.config import Config
 
 from ..utils.exceptions import DatabaseError, handle_database_exception
-from ..utils.logging_config import get_context_logger, log_database_operation, log_error_with_context
+from ..utils.logging_config import (
+    get_context_logger,
+    log_database_operation,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
 
@@ -161,17 +165,22 @@ class DatabaseManager:
             # セッションファクトリーの作成
             self.session_factory = sessionmaker(bind=self.engine)
 
-            logger.info("Database engine initialized",
-                       database_url=self.config.database_url,
-                       database_type=self._get_database_type())
+            logger.info(
+                "Database engine initialized",
+                database_url=self.config.database_url,
+                database_type=self._get_database_type(),
+            )
 
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "database_initialization",
-                "database_url": self.config.database_url
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error,
+                {
+                    "operation": "database_initialization",
+                    "database_url": self.config.database_url,
+                },
+            )
+            raise converted_error from e
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -226,16 +235,18 @@ class DatabaseManager:
             session.rollback()
             # エラーを適切な例外に変換
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "database_session",
-                "session_id": id(session)
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error,
+                {"operation": "database_session", "session_id": id(session)},
+            )
+            raise converted_error from e
         finally:
             session.close()
 
     @contextmanager
-    def transaction_scope(self, retry_count: int = 3, retry_delay: float = 0.1) -> Generator[Session, None, None]:
+    def transaction_scope(
+        self, retry_count: int = 3, retry_delay: float = 0.1
+    ) -> Generator[Session, None, None]:
         """
         明示的なトランザクション管理とデッドロック対応
 
@@ -272,29 +283,34 @@ class DatabaseManager:
                     raise
             except (OperationalError, IntegrityError) as e:
                 if attempt < retry_count and self._is_retriable_error(e):
-                    logger.warning("Retriable database error, retrying",
-                                 attempt=attempt + 1,
-                                 max_attempts=retry_count + 1,
-                                 retry_delay=retry_delay,
-                                 error=str(e))
+                    logger.warning(
+                        "Retriable database error, retrying",
+                        attempt=attempt + 1,
+                        max_attempts=retry_count + 1,
+                        retry_delay=retry_delay,
+                        error=str(e),
+                    )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # 指数バックオフ
                     continue
                 else:
                     converted_error = handle_database_exception(e)
-                    log_error_with_context(converted_error, {
-                        "operation": "database_transaction",
-                        "attempts": attempt + 1,
-                        "retry_count": retry_count
-                    })
-                    raise converted_error
+                    log_error_with_context(
+                        converted_error,
+                        {
+                            "operation": "database_transaction",
+                            "attempts": attempt + 1,
+                            "retry_count": retry_count,
+                        },
+                    )
+                    raise converted_error from e
             except Exception as e:
                 converted_error = handle_database_exception(e)
-                log_error_with_context(converted_error, {
-                    "operation": "database_transaction",
-                    "error_type": "unexpected"
-                })
-                raise converted_error
+                log_error_with_context(
+                    converted_error,
+                    {"operation": "database_transaction", "error_type": "unexpected"},
+                )
+                raise converted_error from e
             finally:
                 session.close()
 
@@ -334,10 +350,10 @@ class DatabaseManager:
             logger.info("Alembic initialized successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "alembic_initialization"
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error, {"operation": "alembic_initialization"}
+            )
+            raise converted_error from e
 
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
@@ -347,11 +363,10 @@ class DatabaseManager:
             logger.info("Migration created", message=message)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "migration_creation",
-                "message": message
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error, {"operation": "migration_creation", "message": message}
+            )
+            raise converted_error from e
 
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
@@ -361,11 +376,10 @@ class DatabaseManager:
             logger.info("Database upgraded", revision=revision)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "database_upgrade",
-                "revision": revision
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error, {"operation": "database_upgrade", "revision": revision}
+            )
+            raise converted_error from e
 
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
@@ -375,11 +389,11 @@ class DatabaseManager:
             logger.info("Database downgraded", revision=revision)
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "database_downgrade",
-                "revision": revision
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error,
+                {"operation": "database_downgrade", "revision": revision},
+            )
+            raise converted_error from e
 
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
@@ -391,10 +405,10 @@ class DatabaseManager:
                 return context.get_current_revision() or "None"
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {
-                "operation": "current_revision_retrieval"
-            })
-            raise converted_error
+            log_error_with_context(
+                converted_error, {"operation": "current_revision_retrieval"}
+            )
+            raise converted_error from e
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
         """
@@ -412,7 +426,7 @@ class DatabaseManager:
             operation="bulk_insert",
             model_class=model_class.__name__,
             total_records=len(data_list),
-            batch_size=batch_size
+            batch_size=batch_size,
         )
         operation_logger.info("Starting bulk insert")
 
@@ -425,7 +439,7 @@ class DatabaseManager:
                     "bulk_insert_batch",
                     model_class.__table__.name,
                     batch_number=i // batch_size + 1,
-                    batch_size=len(batch)
+                    batch_size=len(batch),
                 )
 
         operation_logger.info("Bulk insert completed")
@@ -446,7 +460,7 @@ class DatabaseManager:
             operation="bulk_update",
             model_class=model_class.__name__,
             total_records=len(data_list),
-            batch_size=batch_size
+            batch_size=batch_size,
         )
         operation_logger.info("Starting bulk update")
 
@@ -459,7 +473,7 @@ class DatabaseManager:
                     "bulk_update_batch",
                     model_class.__table__.name,
                     batch_number=i // batch_size + 1,
-                    batch_size=len(batch)
+                    batch_size=len(batch),
                 )
 
         operation_logger.info("Bulk update completed")
@@ -484,7 +498,7 @@ class DatabaseManager:
         operation_logger = logger.bind(
             operation="atomic_operation",
             operation_count=len(operations),
-            retry_count=retry_count
+            retry_count=retry_count,
         )
         operation_logger.info("Starting atomic operation")
 
@@ -509,9 +523,7 @@ class DatabaseManager:
             クエリ結果
         """
         operation_logger = logger.bind(
-            operation="execute_query",
-            query_length=len(query),
-            has_params=bool(params)
+            operation="execute_query", query_length=len(query), has_params=bool(params)
         )
         operation_logger.info("Executing raw SQL query")
 
@@ -526,8 +538,7 @@ class DatabaseManager:
         データベースの最適化を実行
         """
         operation_logger = logger.bind(
-            operation="optimize_database",
-            database_type=self._get_database_type()
+            operation="optimize_database", database_type=self._get_database_type()
         )
         operation_logger.info("Starting database optimization")
 

@@ -115,11 +115,11 @@ runs:
 
         # カバレッジの設定
         if [ "${{ inputs.coverage }}" = "true" ]; then
-          test_cmd="$test_cmd --cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-report=json --cov-fail-under=${{ inputs.coverage-threshold }}"
+          test_cmd="$test_cmd --cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-report=json --cov-fail-under=${{ inputs.coverage-threshold }} --maxfail=10"
         fi
 
         # 基本オプション
-        test_cmd="$test_cmd -v --tb=short --disable-warnings"
+        test_cmd="$test_cmd -v --tb=short --disable-warnings --maxfail=10"
 
         # テスト実行
         set +e  # Continue on error

@@ -1,7 +1,6 @@
 """
 銘柄関連のデータベースモデル
 """
-
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
     Index,
@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, relationship
 
 from .base import BaseModel
+from .enums import AlertType, TradeType
 
 
 class Stock(BaseModel):
@@ -176,7 +177,7 @@ class Trade(BaseModel):
     __tablename__ = "trades"
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
-    trade_type = Column(String(10), nullable=False)  # 'buy' or 'sell'
+    trade_type = Column(Enum(TradeType), nullable=False)
     quantity = Column(Integer, nullable=False)
     price = Column(Float, nullable=False)
     commission = Column(Float, default=0)
@@ -200,7 +201,7 @@ class Trade(BaseModel):
     @property
     def total_amount(self):
         """取引総額（手数料込み）"""
-        if self.trade_type == "buy":
+        if self.trade_type == TradeType.BUY:
             return self.price * self.quantity + self.commission
         else:  # sell
             return self.price * self.quantity - self.commission
@@ -230,7 +231,7 @@ class Trade(BaseModel):
                     "trades": [],
                 }
 
-            if trade.trade_type == "buy":
+            if trade.trade_type == TradeType.BUY:
                 portfolio[code]["quantity"] += trade.quantity
                 portfolio[code]["total_cost"] += trade.total_amount
                 total_cost += trade.total_amount
@@ -241,7 +242,7 @@ class Trade(BaseModel):
             portfolio[code]["trades"].append(trade)
 
         # 平均価格を計算
-        for code, data in portfolio.items():
+        for _code, data in portfolio.items():
             if data["quantity"] > 0:
                 data["avg_price"] = data["total_cost"] / data["quantity"]
 
@@ -279,7 +280,7 @@ class Trade(BaseModel):
         """買い取引を作成"""
         trade = cls(
             stock_code=stock_code,
-            trade_type="buy",
+            trade_type=TradeType.BUY,
             quantity=quantity,
             price=price,
             commission=commission,
@@ -303,7 +304,7 @@ class Trade(BaseModel):
         """売り取引を作成"""
         trade = cls(
             stock_code=stock_code,
-            trade_type="sell",
+            trade_type=TradeType.SELL,
             quantity=quantity,
             price=price,
             commission=commission,
@@ -340,9 +341,7 @@ class Alert(BaseModel):
     __tablename__ = "alerts"
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
-    alert_type = Column(
-        String(20), nullable=False
-    )  # 'price_above', 'price_below', 'change_percent', etc.
+    alert_type = Column(Enum(AlertType), nullable=False)
     threshold = Column(Float, nullable=False)
     is_active = Column(Boolean, default=True)
     last_triggered = Column(DateTime)

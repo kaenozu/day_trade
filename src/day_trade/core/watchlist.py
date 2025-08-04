@@ -5,26 +5,20 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_
 
 from ..data.stock_fetcher import StockFetcher
 from ..models import Alert, PriceData, Stock, WatchlistItem, db_manager
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..models.enums import AlertType
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
-
-
-class AlertType(Enum):
-    """アラートタイプ"""
-
-    PRICE_ABOVE = "price_above"  # 価格が閾値を上回る
-    PRICE_BELOW = "price_below"  # 価格が閾値を下回る
-    CHANGE_PERCENT_UP = "change_percent_up"  # 変化率が閾値を上回る
-    CHANGE_PERCENT_DOWN = "change_percent_down"  # 変化率が閾値を下回る
-    VOLUME_SPIKE = "volume_spike"  # 出来高急増
 
 
 @dataclass
@@ -111,11 +105,14 @@ class WatchlistManager:
                 return True
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "add_stock_to_watchlist",
-                "stock_code": stock_code,
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "add_stock_to_watchlist",
+                    "stock_code": stock_code,
+                    "group_name": group_name,
+                },
+            )
             return False
 
     def remove_stock(self, stock_code: str, group_name: str = "default") -> bool:
@@ -149,11 +146,14 @@ class WatchlistManager:
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "remove_stock_from_watchlist",
-                "stock_code": stock_code,
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "remove_stock_from_watchlist",
+                    "stock_code": stock_code,
+                    "group_name": group_name,
+                },
+            )
             return False
 
     def get_watchlist(self, group_name: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -192,10 +192,9 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "get_watchlist",
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e, {"operation": "get_watchlist", "group_name": group_name}
+            )
             return []
 
     def get_groups(self) -> List[str]:
@@ -276,11 +275,14 @@ class WatchlistManager:
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "update_memo",
-                "stock_code": stock_code,
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "update_memo",
+                    "stock_code": stock_code,
+                    "group_name": group_name,
+                },
+            )
             return False
 
     def move_to_group(self, stock_code: str, from_group: str, to_group: str) -> bool:
@@ -330,12 +332,15 @@ class WatchlistManager:
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "move_to_group",
-                "stock_code": stock_code,
-                "from_group": from_group,
-                "to_group": to_group
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "move_to_group",
+                    "stock_code": stock_code,
+                    "from_group": from_group,
+                    "to_group": to_group,
+                },
+            )
             return False
 
     # アラート機能
@@ -357,7 +362,7 @@ class WatchlistManager:
                     .filter(
                         and_(
                             Alert.stock_code == condition.stock_code,
-                            Alert.alert_type == condition.alert_type.value,
+                            Alert.alert_type == condition.alert_type,
                             Alert.threshold == condition.threshold,
                         )
                     )
@@ -365,34 +370,41 @@ class WatchlistManager:
                 )
 
                 if existing:
-                    logger.warning("Alert condition already exists",
-                                  stock_code=condition.stock_code,
-                                  alert_type=condition.alert_type.value,
-                                  threshold=condition.threshold)
+                    logger.warning(
+                        "Alert condition already exists",
+                        stock_code=condition.stock_code,
+                        alert_type=condition.alert_type.value,
+                        threshold=condition.threshold,
+                    )
                     return False
 
                 # 新しいアラートを追加
                 alert = Alert(
                     stock_code=condition.stock_code,
-                    alert_type=condition.alert_type.value,
+                    alert_type=condition.alert_type,
                     threshold=condition.threshold,
                     memo=condition.memo,
                     is_active=True,
                 )
                 session.add(alert)
 
-                log_business_event("alert_added",
-                                 stock_code=condition.stock_code,
-                                 alert_type=condition.alert_type.value,
-                                 threshold=condition.threshold)
+                log_business_event(
+                    "alert_added",
+                    stock_code=condition.stock_code,
+                    alert_type=condition.alert_type.value,
+                    threshold=condition.threshold,
+                )
                 return True
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "add_alert",
-                "stock_code": condition.stock_code,
-                "alert_type": condition.alert_type.value
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "add_alert",
+                    "stock_code": condition.stock_code,
+                    "alert_type": condition.alert_type.value,
+                },
+            )
             return False
 
     def remove_alert(
@@ -416,7 +428,7 @@ class WatchlistManager:
                     .filter(
                         and_(
                             Alert.stock_code == stock_code,
-                            Alert.alert_type == alert_type.value,
+                            Alert.alert_type == alert_type,
                             Alert.threshold == threshold,
                         )
                     )
@@ -425,25 +437,32 @@ class WatchlistManager:
 
                 if alert:
                     session.delete(alert)
-                    log_business_event("alert_removed",
-                                     stock_code=stock_code,
-                                     alert_type=alert_type.value,
-                                     threshold=threshold)
+                    log_business_event(
+                        "alert_removed",
+                        stock_code=stock_code,
+                        alert_type=alert_type.value,
+                        threshold=threshold,
+                    )
                     return True
                 else:
-                    logger.warning("Alert not found for removal",
-                                  stock_code=stock_code,
-                                  alert_type=alert_type.value,
-                                  threshold=threshold)
+                    logger.warning(
+                        "Alert not found for removal",
+                        stock_code=stock_code,
+                        alert_type=alert_type.value,
+                        threshold=threshold,
+                    )
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "remove_alert",
-                "stock_code": stock_code,
-                "alert_type": alert_type.value,
-                "threshold": threshold
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "remove_alert",
+                    "stock_code": stock_code,
+                    "alert_type": alert_type.value,
+                    "threshold": threshold,
+                },
+            )
             return False
 
     def get_alerts(
@@ -467,7 +486,7 @@ class WatchlistManager:
                     query = query.filter(Alert.stock_code == stock_code)
 
                 if active_only:
-                    query = query.filter(Alert.is_active == True)
+                    query = query.filter(Alert.is_active)
 
                 alerts = query.all()
 
@@ -475,7 +494,11 @@ class WatchlistManager:
                 for alert in alerts:
                     # 銘柄名を別途取得
                     try:
-                        stock = session.query(Stock).filter(Stock.code == alert.stock_code).first()
+                        stock = (
+                            session.query(Stock)
+                            .filter(Stock.code == alert.stock_code)
+                            .first()
+                        )
                         stock_name = stock.name if stock else alert.stock_code
                     except Exception:
                         stock_name = alert.stock_code
@@ -497,11 +520,14 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "get_alerts",
-                "stock_code": stock_code,
-                "active_only": active_only
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "get_alerts",
+                    "stock_code": stock_code,
+                    "active_only": active_only,
+                },
+            )
             return []
 
     def toggle_alert(self, alert_id: int) -> bool:
@@ -520,21 +546,21 @@ class WatchlistManager:
 
                 if alert:
                     alert.is_active = not alert.is_active
-                    log_business_event("alert_toggled",
-                                     alert_id=alert_id,
-                                     stock_code=alert.stock_code,
-                                     new_status=alert.is_active)
+                    log_business_event(
+                        "alert_toggled",
+                        alert_id=alert_id,
+                        stock_code=alert.stock_code,
+                        new_status=alert.is_active,
+                    )
                     return True
                 else:
-                    logger.warning("Alert not found for toggle",
-                                  alert_id=alert_id)
+                    logger.warning("Alert not found for toggle", alert_id=alert_id)
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "toggle_alert",
-                "alert_id": alert_id
-            })
+            log_error_with_context(
+                e, {"operation": "toggle_alert", "alert_id": alert_id}
+            )
             return False
 
     def check_alerts(self) -> List[AlertNotification]:
@@ -563,8 +589,10 @@ class WatchlistManager:
                         current_data = price_data.get(code)
 
                         if not current_data:
-                            logger.warning("Price data not available for alert check",
-                                          stock_code=code)
+                            logger.warning(
+                                "Price data not available for alert check",
+                                stock_code=code,
+                            )
                             continue
 
                         # アラート条件をチェック
@@ -587,17 +615,18 @@ class WatchlistManager:
                                 db_alert.last_triggered = datetime.now()
 
                     except Exception as e:
-                        log_error_with_context(e, {
-                            "operation": "individual_alert_check",
-                            "stock_code": alert['stock_code'],
-                            "alert_id": alert.get('id')
-                        })
+                        log_error_with_context(
+                            e,
+                            {
+                                "operation": "individual_alert_check",
+                                "stock_code": alert["stock_code"],
+                                "alert_id": alert.get("id"),
+                            },
+                        )
                         continue
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "bulk_alert_check"
-            })
+            log_error_with_context(e, {"operation": "bulk_alert_check"})
 
         return notifications
 
@@ -618,36 +647,41 @@ class WatchlistManager:
         threshold = alert["threshold"]
 
         try:
-            if alert_type == AlertType.PRICE_ABOVE.value:
+            if alert_type == AlertType.PRICE_ABOVE:
                 return price_data["current_price"] > threshold
 
-            elif alert_type == AlertType.PRICE_BELOW.value:
+            elif alert_type == AlertType.PRICE_BELOW:
                 return price_data["current_price"] < threshold
 
-            elif alert_type == AlertType.CHANGE_PERCENT_UP.value:
+            elif alert_type == AlertType.CHANGE_PERCENT_UP:
                 return price_data.get("change_percent", 0) > threshold
 
-            elif alert_type == AlertType.CHANGE_PERCENT_DOWN.value:
+            elif alert_type == AlertType.CHANGE_PERCENT_DOWN:
                 return price_data.get("change_percent", 0) < threshold
 
-            elif alert_type == AlertType.VOLUME_SPIKE.value:
+            elif alert_type == AlertType.VOLUME_SPIKE:
                 # 出来高が平均の何倍かをチェック（簡易版）
                 volume = price_data.get("volume", 0)
                 # 実際の実装では過去平均出来高と比較すべき
                 return volume > threshold
 
             else:
-                logger.warning("Unknown alert type",
-                              alert_type=alert_type,
-                              stock_code=alert.get('stock_code', 'unknown'))
+                logger.warning(
+                    "Unknown alert type",
+                    alert_type=alert_type,
+                    stock_code=alert.get("stock_code", "unknown"),
+                )
                 return False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "check_alert_condition",
-                "alert_type": alert.get('alert_type'),
-                "stock_code": alert.get('stock_code')
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "check_alert_condition",
+                    "alert_type": alert.get("alert_type"),
+                    "stock_code": alert.get("stock_code"),
+                },
+            )
             return False
 
     def _create_notification(
@@ -712,9 +746,7 @@ class WatchlistManager:
             }
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "get_watchlist_summary"
-            })
+            log_error_with_context(e, {"operation": "get_watchlist_summary"})
             return {
                 "total_groups": 0,
                 "total_stocks": 0,
@@ -742,8 +774,7 @@ class WatchlistManager:
             watchlist_data = self.get_watchlist_with_prices(group_name)
 
             if not watchlist_data:
-                logger.warning("No data available for export",
-                              group_name=group_name)
+                logger.warning("No data available for export", group_name=group_name)
                 return False
 
             # DataFrameに変換
@@ -766,18 +797,23 @@ class WatchlistManager:
             df = pd.DataFrame(df_data)
             df.to_csv(filename, index=False, encoding="utf-8-sig")
 
-            logger.info("Watchlist exported to CSV",
-                       filename=filename,
-                       group_name=group_name,
-                       item_count=len(watchlist_data))
+            logger.info(
+                "Watchlist exported to CSV",
+                filename=filename,
+                group_name=group_name,
+                item_count=len(watchlist_data),
+            )
             return True
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "export_watchlist_to_csv",
-                "filename": filename,
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "export_watchlist_to_csv",
+                    "filename": filename,
+                    "group_name": group_name,
+                },
+            )
             return False
 
     def bulk_add_stocks(self, stock_data: List[Dict[str, str]]) -> Dict[str, bool]:
@@ -838,18 +874,20 @@ class WatchlistManager:
                         results[code] = True
 
                     except Exception as e:
-                        log_error_with_context(e, {
-                            "operation": "bulk_add_individual_stock",
-                            "stock_code": code,
-                            "group_name": group
-                        })
+                        log_error_with_context(
+                            e,
+                            {
+                                "operation": "bulk_add_individual_stock",
+                                "stock_code": code,
+                                "group_name": group,
+                            },
+                        )
                         results[code] = False
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "bulk_add_stocks",
-                "total_stocks": len(stock_data)
-            })
+            log_error_with_context(
+                e, {"operation": "bulk_add_stocks", "total_stocks": len(stock_data)}
+            )
             # 失敗した銘柄を記録
             for data in stock_data:
                 code = data.get("code", "")
@@ -917,10 +955,9 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "get_watchlist_optimized",
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e, {"operation": "get_watchlist_optimized", "group_name": group_name}
+            )
             return []
 
     def clear_watchlist(self, group_name: Optional[str] = None) -> bool:
@@ -943,14 +980,15 @@ class WatchlistManager:
                 # 一括削除
                 deleted_count = query.delete()
 
-                log_business_event("watchlist_cleared",
-                                 group_name=group_name,
-                                 deleted_count=deleted_count)
+                log_business_event(
+                    "watchlist_cleared",
+                    group_name=group_name,
+                    deleted_count=deleted_count,
+                )
                 return True
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "clear_watchlist",
-                "group_name": group_name
-            })
+            log_error_with_context(
+                e, {"operation": "clear_watchlist", "group_name": group_name}
+            )
             return False
