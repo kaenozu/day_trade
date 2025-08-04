@@ -337,13 +337,12 @@ class PatternBreakoutRule(SignalRule):
                 if latest_breakout and confidence > 0:
                     return True, confidence
 
-        elif self.direction == "downward":
-            if "Downward_Breakout" in breakouts.columns:
-                latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
-                confidence = breakouts["Downward_Confidence"].iloc[-1]
+        elif self.direction == "downward" and "Downward_Breakout" in breakouts.columns:
+            latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
+            confidence = breakouts["Downward_Confidence"].iloc[-1]
 
-                if latest_breakout and confidence > 0:
-                    return True, confidence
+            if latest_breakout and confidence > 0:
+                return True, confidence
 
         return False, 0.0
 
@@ -798,11 +797,11 @@ class TradingSignalGenerator:
                 # トレンドとシグナルの整合性チェック
                 if trend_direction == "upward" and signal.signal_type == SignalType.BUY or trend_direction == "downward" and signal.signal_type == SignalType.SELL:
                     base_score *= 1.1  # トレンドフォロー
-                elif trend_direction != "neutral" and signal.signal_type != SignalType.HOLD:
+                elif (trend_direction != "neutral" and signal.signal_type != SignalType.HOLD and
+                      ((trend_direction == "upward" and signal.signal_type == SignalType.SELL) or
+                       (trend_direction == "downward" and signal.signal_type == SignalType.BUY))):
                     # トレンドに逆らうシグナルは信頼度を下げる
-                    if ((trend_direction == "upward" and signal.signal_type == SignalType.SELL) or
-                        (trend_direction == "downward" and signal.signal_type == SignalType.BUY)):
-                        base_score *= 0.85
+                    base_score *= 0.85
 
             # 過去のパフォーマンスデータによる調整
             if historical_performance is not None and len(historical_performance) > 0:
@@ -828,11 +827,10 @@ class TradingSignalGenerator:
                     same_strength = same_type_signals[
                         same_type_signals["Strength"] == signal.strength.value
                     ]
-                    if len(same_strength) > 0:
-                        if "Success" in historical_performance.columns:
-                            strength_success_rate = same_strength["Success"].mean()
-                            # 強度別成功率による微調整
-                            base_score *= (0.9 + 0.2 * strength_success_rate)
+                    if len(same_strength) > 0 and "Success" in historical_performance.columns:
+                        strength_success_rate = same_strength["Success"].mean()
+                        # 強度別成功率による微調整
+                        base_score *= (0.9 + 0.2 * strength_success_rate)
 
             # シグナルの新鮮度（タイムスタンプからの経過時間）による調整
             if hasattr(signal, 'timestamp') and signal.timestamp:

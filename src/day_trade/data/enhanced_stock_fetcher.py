@@ -681,7 +681,7 @@ class EnhancedStockFetcher(StockFetcher):
             if isinstance(e, (APIError, DataError, NetworkError)):
                 raise e
             else:
-                raise APIError(f"Failed to fetch data for {symbol}: {str(e)}")
+                raise APIError(f"Failed to fetch data for {symbol}: {str(e)}") from e
 
     async def fetch_multiple_async_optimized(
         self,

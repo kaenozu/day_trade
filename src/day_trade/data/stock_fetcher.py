@@ -440,12 +440,12 @@ class StockFetcher:
         if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout)):
             return True
 
-        if isinstance(error, req_exc.HTTPError):
-            if hasattr(error, "response") and error.response is not None:
-                status_code = error.response.status_code
-                # リトライ可能なHTTPステータスコード
-                retryable_codes = [500, 502, 503, 504, 408, 429]
-                return status_code in retryable_codes
+        if (isinstance(error, req_exc.HTTPError) and
+            hasattr(error, "response") and error.response is not None):
+            status_code = error.response.status_code
+            # リトライ可能なHTTPステータスコード
+            retryable_codes = [500, 502, 503, 504, 408, 429]
+            return status_code in retryable_codes
 
         return False
 

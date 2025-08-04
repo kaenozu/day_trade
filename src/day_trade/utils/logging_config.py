@@ -5,10 +5,11 @@
 JSON形式での出力、フィルタリング、ログレベル管理を統一。
 """
 
+import contextlib
 import logging
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Generator
 
 import structlog
 from structlog.types import Processor
@@ -320,8 +321,6 @@ def lazy_log(func):
 
 
 # ログ無効化コンテキストマネージャー
-import contextlib
-from typing import Generator
 
 
 @contextlib.contextmanager

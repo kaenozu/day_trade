@@ -175,7 +175,7 @@ class DatabaseManager:
                 "operation": "database_initialization",
                 "database_url": self.config.database_url
             })
-            raise converted_error
+            raise converted_error from e
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -234,7 +234,7 @@ class DatabaseManager:
                 "operation": "database_session",
                 "session_id": id(session)
             })
-            raise converted_error
+            raise converted_error from e
         finally:
             session.close()
 
@@ -291,14 +291,14 @@ class DatabaseManager:
                         "attempts": attempt + 1,
                         "retry_count": retry_count
                     })
-                    raise converted_error
+                    raise converted_error from e
             except Exception as e:
                 converted_error = handle_database_exception(e)
                 log_error_with_context(converted_error, {
                     "operation": "database_transaction",
                     "error_type": "unexpected"
                 })
-                raise converted_error
+                raise converted_error from e
             finally:
                 session.close()
 
@@ -341,7 +341,7 @@ class DatabaseManager:
             log_error_with_context(converted_error, {
                 "operation": "alembic_initialization"
             })
-            raise converted_error
+            raise converted_error from e
 
     def migrate(self, message: str = "Auto migration"):
         """新しいマイグレーションを作成"""
@@ -355,7 +355,7 @@ class DatabaseManager:
                 "operation": "migration_creation",
                 "message": message
             })
-            raise converted_error
+            raise converted_error from e
 
     def upgrade(self, revision: str = "head"):
         """マイグレーションを適用"""
@@ -369,7 +369,7 @@ class DatabaseManager:
                 "operation": "database_upgrade",
                 "revision": revision
             })
-            raise converted_error
+            raise converted_error from e
 
     def downgrade(self, revision: str = "-1"):
         """マイグレーションをロールバック"""
@@ -383,7 +383,7 @@ class DatabaseManager:
                 "operation": "database_downgrade",
                 "revision": revision
             })
-            raise converted_error
+            raise converted_error from e
 
     def current_revision(self) -> str:
         """現在のリビジョンを取得"""
@@ -398,7 +398,7 @@ class DatabaseManager:
             log_error_with_context(converted_error, {
                 "operation": "current_revision_retrieval"
             })
-            raise converted_error
+            raise converted_error from e
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
         """

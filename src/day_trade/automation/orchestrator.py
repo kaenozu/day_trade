@@ -675,33 +675,23 @@ class DayTradeOrchestrator:
 
             if "macd" in analysis:
                 macd_data = analysis["macd"]
-                if isinstance(macd_data, dict):
-                    if "MACD" in macd_data and "Signal" in macd_data:
-                        macd_values = macd_data["MACD"]
-                        signal_values = macd_data["Signal"]
-                        if hasattr(macd_values, "iloc") and hasattr(
-                            signal_values, "iloc"
-                        ):
-                            if len(macd_values) == len(price_df) and len(
-                                signal_values
-                            ) == len(price_df):
-                                indicators_df["MACD"] = macd_values.values
-                                indicators_df["MACD_Signal"] = signal_values.values
+                if (isinstance(macd_data, dict) and "MACD" in macd_data and "Signal" in macd_data):
+                    macd_values = macd_data["MACD"]
+                    signal_values = macd_data["Signal"]
+                    if (hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc") and
+                        len(macd_values) == len(price_df) and len(signal_values) == len(price_df)):
+                        indicators_df["MACD"] = macd_values.values
+                        indicators_df["MACD_Signal"] = signal_values.values
 
             if "bollinger" in analysis:
                 bb_data = analysis["bollinger"]
-                if isinstance(bb_data, dict):
-                    if "Upper" in bb_data and "Lower" in bb_data:
-                        upper_values = bb_data["Upper"]
-                        lower_values = bb_data["Lower"]
-                        if hasattr(upper_values, "iloc") and hasattr(
-                            lower_values, "iloc"
-                        ):
-                            if len(upper_values) == len(price_df) and len(
-                                lower_values
-                            ) == len(price_df):
-                                indicators_df["BB_Upper"] = upper_values.values
-                                indicators_df["BB_Lower"] = lower_values.values
+                if (isinstance(bb_data, dict) and "Upper" in bb_data and "Lower" in bb_data):
+                    upper_values = bb_data["Upper"]
+                    lower_values = bb_data["Lower"]
+                    if (hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc") and
+                        len(upper_values) == len(price_df) and len(lower_values) == len(price_df)):
+                        indicators_df["BB_Upper"] = upper_values.values
+                        indicators_df["BB_Lower"] = lower_values.values
 
             # アンサンブルシグナル生成
             ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
@@ -844,36 +834,33 @@ class DayTradeOrchestrator:
             # MACD変換
             if "macd" in analysis:
                 macd_data = analysis["macd"]
-                if isinstance(macd_data, dict):
-                    if "MACD" in macd_data and "Signal" in macd_data:
-                        macd_values = macd_data["MACD"]
-                        signal_values = macd_data["Signal"]
-                        if hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc"):
-                            if len(macd_values) == len(price_df):
-                                indicators["macd"] = macd_values
-                                indicators["macd_signal"] = signal_values
+                if (isinstance(macd_data, dict) and "MACD" in macd_data and "Signal" in macd_data):
+                    macd_values = macd_data["MACD"]
+                    signal_values = macd_data["Signal"]
+                    if (hasattr(macd_values, "iloc") and hasattr(signal_values, "iloc") and
+                        len(macd_values) == len(price_df)):
+                        indicators["macd"] = macd_values
+                        indicators["macd_signal"] = signal_values
 
             # ボリンジャーバンド変換
             if "bollinger" in analysis:
                 bb_data = analysis["bollinger"]
-                if isinstance(bb_data, dict):
-                    if "Upper" in bb_data and "Lower" in bb_data:
-                        upper_values = bb_data["Upper"]
-                        lower_values = bb_data["Lower"]
-                        middle_values = bb_data.get("Middle")
+                if (isinstance(bb_data, dict) and "Upper" in bb_data and "Lower" in bb_data):
+                    upper_values = bb_data["Upper"]
+                    lower_values = bb_data["Lower"]
+                    middle_values = bb_data.get("Middle")
 
-                        if hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc"):
-                            if len(upper_values) == len(price_df):
-                                indicators["bb_upper"] = upper_values
-                                indicators["bb_lower"] = lower_values
-                                if middle_values is not None and hasattr(middle_values, "iloc"):
-                                    indicators["bb_middle"] = middle_values
+                    if (hasattr(upper_values, "iloc") and hasattr(lower_values, "iloc") and
+                        len(upper_values) == len(price_df)):
+                        indicators["bb_upper"] = upper_values
+                        indicators["bb_lower"] = lower_values
+                        if middle_values is not None and hasattr(middle_values, "iloc"):
+                            indicators["bb_middle"] = middle_values
 
             # 移動平均変換
             for key, value in analysis.items():
-                if key.startswith("sma_") and hasattr(value, "iloc"):
-                    if len(value) == len(price_df):
-                        indicators[key] = value
+                if key.startswith("sma_") and hasattr(value, "iloc") and len(value) == len(price_df):
+                    indicators[key] = value
 
             logger.debug(f"指標変換完了: {len(indicators)}個の指標")
 

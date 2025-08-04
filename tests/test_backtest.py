@@ -334,9 +334,9 @@ class TestBacktestEngine:
                 noise_direction = raw_noise[i]
 
                 # ノイズがトレンドと逆方向の場合は50%減衰
-                if (trend_direction > 0 and noise_direction < 0) or (trend_direction < 0 and noise_direction > 0):
-                    if abs(noise_direction) > daily_volatility * 0.5:
-                        raw_noise[i] *= 0.5
+                if (((trend_direction > 0 and noise_direction < 0) or (trend_direction < 0 and noise_direction > 0)) and
+                    abs(noise_direction) > daily_volatility * 0.5):
+                    raw_noise[i] *= 0.5
 
         final_prices = trend_prices + raw_noise
 

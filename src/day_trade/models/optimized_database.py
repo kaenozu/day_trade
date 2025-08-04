@@ -146,10 +146,7 @@ class BatchProcessor:
         })
 
         # バッチサイズに達した場合は自動実行
-        if len(self.pending_operations) >= self.batch_size:
-            return True  # 実行必要
-
-        return False
+        return len(self.pending_operations) >= self.batch_size
 
     def get_batch_operations(self, operation_type: str = None) -> List[Dict]:
         """バッチ操作取得"""
