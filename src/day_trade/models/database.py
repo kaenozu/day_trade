@@ -72,6 +72,13 @@ class DatabaseConfig:
         self.pool_recycle = self._get_config_value("pool_recycle", pool_recycle, "DB_POOL_RECYCLE", 3600, int)
         self.connect_args = connect_args or {"check_same_thread": False}
 
+        # SQLite最適化パラメータ（設定化対応）
+        self.sqlite_cache_size = self._get_config_value("sqlite_cache_size", None, "DB_SQLITE_CACHE_SIZE", 10000, int)
+        self.sqlite_mmap_size = self._get_config_value("sqlite_mmap_size", None, "DB_SQLITE_MMAP_SIZE", 268435456, int)  # 256MB
+        self.sqlite_temp_store = self._get_config_value("sqlite_temp_store", None, "DB_SQLITE_TEMP_STORE", "memory", str)
+        self.sqlite_journal_mode = self._get_config_value("sqlite_journal_mode", None, "DB_SQLITE_JOURNAL_MODE", "WAL", str)
+        self.sqlite_synchronous = self._get_config_value("sqlite_synchronous", None, "DB_SQLITE_SYNCHRONOUS", "NORMAL", str)
+
     def _get_config_value(self, key: str, explicit_value, env_key: str, default_value, type_converter=str):
         """設定値を優先順位に従って取得"""
         if explicit_value is not None and explicit_value != (False if type_converter == bool else 0):
@@ -198,7 +205,7 @@ class DatabaseManager:
 
             # SQLiteの場合は外部キー制約を有効化
             if self.config.is_sqlite():
-                event.listen(self.engine, "connect", self._set_sqlite_pragma)
+                event.listen(self.engine, "connect", lambda conn, rec: self._set_sqlite_pragma(conn, rec))
 
             # セッションファクトリーの作成
             self.session_factory = sessionmaker(bind=self.engine)
@@ -220,16 +227,15 @@ class DatabaseManager:
             )
             raise converted_error from e
 
-    @staticmethod
-    def _set_sqlite_pragma(dbapi_connection, connection_record):
-        """SQLiteの設定（パフォーマンス最適化）"""
+    def _set_sqlite_pragma(self, dbapi_connection, connection_record):
+        """SQLiteの設定（パフォーマンス最適化・設定化対応）"""
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")  # WALモードでパフォーマンス向上
-        cursor.execute("PRAGMA synchronous=NORMAL")  # 同期レベルを調整
-        cursor.execute("PRAGMA cache_size=10000")  # キャッシュサイズを増加
-        cursor.execute("PRAGMA temp_store=memory")  # 一時テーブルをメモリに保存
-        cursor.execute("PRAGMA mmap_size=268435456")  # メモリマップサイズ (256MB)
+        cursor.execute(f"PRAGMA journal_mode={self.config.sqlite_journal_mode}")
+        cursor.execute(f"PRAGMA synchronous={self.config.sqlite_synchronous}")
+        cursor.execute(f"PRAGMA cache_size={self.config.sqlite_cache_size}")
+        cursor.execute(f"PRAGMA temp_store={self.config.sqlite_temp_store}")
+        cursor.execute(f"PRAGMA mmap_size={self.config.sqlite_mmap_size}")
         cursor.close()
 
     def create_tables(self):
@@ -372,9 +378,41 @@ class DatabaseManager:
         ]
         return any(pattern in error_msg for pattern in retriable_patterns)
 
-    def get_alembic_config(self) -> Config:
-        """Alembic設定を取得"""
-        alembic_cfg = Config("alembic.ini")
+    def get_alembic_config(self, config_path: Optional[str] = None) -> Config:
+        """
+        Alembic設定を取得（柔軟なパス対応）
+
+        Args:
+            config_path: alembic.iniファイルのパス（Noneの場合は自動検索）
+        """
+        if config_path is None:
+            # 設定ファイルの自動検索
+            possible_paths = [
+                "alembic.ini",
+                "./alembic.ini",
+                os.path.join(os.getcwd(), "alembic.ini"),
+                os.path.join(os.path.dirname(__file__), "..", "..", "..", "alembic.ini"),
+            ]
+
+            config_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    config_path = path
+                    break
+
+            if config_path is None:
+                raise DatabaseError(
+                    "alembic.ini not found in any of the expected locations",
+                    error_code="ALEMBIC_CONFIG_NOT_FOUND"
+                )
+
+        if not os.path.exists(config_path):
+            raise DatabaseError(
+                f"Alembic config file not found: {config_path}",
+                error_code="ALEMBIC_CONFIG_NOT_FOUND"
+            )
+
+        alembic_cfg = Config(config_path)
         alembic_cfg.set_main_option("sqlalchemy.url", self.config.database_url)
         return alembic_cfg
 
@@ -450,7 +488,7 @@ class DatabaseManager:
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
         """
-        大量データの一括挿入
+        大量データの一括挿入（堅牢性向上版）
 
         Args:
             model_class: 挿入するモデルクラス
@@ -468,23 +506,39 @@ class DatabaseManager:
         )
         operation_logger.info("Starting bulk insert")
 
-        with self.transaction_scope() as session:
-            for i in range(0, len(data_list), batch_size):
-                batch = data_list[i : i + batch_size]
-                session.bulk_insert_mappings(model_class, batch)
-                session.flush()
-                log_database_operation(
-                    "bulk_insert_batch",
-                    model_class.__table__.name,
-                    batch_number=i // batch_size + 1,
-                    batch_size=len(batch),
-                )
+        try:
+            with self.transaction_scope() as session:
+                for i in range(0, len(data_list), batch_size):
+                    batch = data_list[i : i + batch_size]
+                    batch_number = i // batch_size + 1
 
-        operation_logger.info("Bulk insert completed")
+                    try:
+                        session.bulk_insert_mappings(model_class, batch)
+                        session.flush()
+                        log_database_operation(
+                            "bulk_insert_batch",
+                            model_class.__table__.name,
+                            batch_number=batch_number,
+                            batch_size=len(batch),
+                        )
+                    except Exception as batch_error:
+                        operation_logger.error(
+                            "Bulk insert batch failed",
+                            batch_number=batch_number,
+                            batch_size=len(batch),
+                            error=str(batch_error),
+                        )
+                        raise
+
+            operation_logger.info("Bulk insert completed successfully")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            operation_logger.error("Bulk insert operation failed", error=str(converted_error))
+            raise converted_error from e
 
     def bulk_update(self, model_class, data_list: list, batch_size: int = 1000):
         """
-        大量データの一括更新
+        大量データの一括更新（堅牢性向上版）
 
         Args:
             model_class: 更新するモデルクラス
@@ -502,19 +556,35 @@ class DatabaseManager:
         )
         operation_logger.info("Starting bulk update")
 
-        with self.transaction_scope() as session:
-            for i in range(0, len(data_list), batch_size):
-                batch = data_list[i : i + batch_size]
-                session.bulk_update_mappings(model_class, batch)
-                session.flush()
-                log_database_operation(
-                    "bulk_update_batch",
-                    model_class.__table__.name,
-                    batch_number=i // batch_size + 1,
-                    batch_size=len(batch),
-                )
+        try:
+            with self.transaction_scope() as session:
+                for i in range(0, len(data_list), batch_size):
+                    batch = data_list[i : i + batch_size]
+                    batch_number = i // batch_size + 1
 
-        operation_logger.info("Bulk update completed")
+                    try:
+                        session.bulk_update_mappings(model_class, batch)
+                        session.flush()
+                        log_database_operation(
+                            "bulk_update_batch",
+                            model_class.__table__.name,
+                            batch_number=batch_number,
+                            batch_size=len(batch),
+                        )
+                    except Exception as batch_error:
+                        operation_logger.error(
+                            "Bulk update batch failed",
+                            batch_number=batch_number,
+                            batch_size=len(batch),
+                            error=str(batch_error),
+                        )
+                        raise
+
+            operation_logger.info("Bulk update completed successfully")
+        except Exception as e:
+            converted_error = handle_database_exception(e)
+            operation_logger.error("Bulk update operation failed", error=str(converted_error))
+            raise converted_error from e
 
     def atomic_operation(self, operations: list, retry_count: int = 3):
         """
@@ -592,8 +662,37 @@ class DatabaseManager:
         operation_logger.info("Database optimization completed")
 
 
-# デフォルトのデータベースマネージャー
-db_manager = DatabaseManager()
+# デフォルトのデータベースマネージャー（後方互換性のため）
+# 注意: 本番環境では依存性注入の使用を推奨
+_default_db_manager = None
+
+def get_default_database_manager(config_manager=None) -> DatabaseManager:
+    """
+    デフォルトのデータベースマネージャーを取得（依存性注入対応）
+
+    Args:
+        config_manager: ConfigManagerインスタンス（オプション）
+
+    Returns:
+        DatabaseManager: データベースマネージャーインスタンス
+    """
+    global _default_db_manager
+    if _default_db_manager is None:
+        _default_db_manager = DatabaseManager(config_manager=config_manager)
+    return _default_db_manager
+
+def set_default_database_manager(manager: DatabaseManager):
+    """
+    デフォルトのデータベースマネージャーを設定（テスト用）
+
+    Args:
+        manager: データベースマネージャーインスタンス
+    """
+    global _default_db_manager
+    _default_db_manager = manager
+
+# 後方互換性のためのグローバルインスタンス
+db_manager = get_default_database_manager()
 
 
 # 便利な関数
