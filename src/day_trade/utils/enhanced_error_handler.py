@@ -2,11 +2,13 @@
 統合されたユーザーフレンドリーエラーハンドリングシステム
 多言語対応、コンテキスト情報、解決策提示を統合
 機密情報のサニタイズとセキュリティ強化を含む
+
+friendly_error_handler.pyの機能を統合し、重複を解消
+i18n_messages.pyのSensitiveDataSanitizerを活用
 """
 
 import logging
-import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -21,139 +23,25 @@ from .exceptions import (
     TimeoutError,
     ValidationError,
 )
-from .i18n_messages import I18nMessageHandler, Language
+from .i18n_messages import I18nMessageHandler, Language, SensitiveDataSanitizer
 
 console = Console()
 logger = logging.getLogger(__name__)
 
 
-class SensitiveDataSanitizer:
-    """機密情報のサニタイズを行うユーティリティクラス"""
-
-    # 機密情報を表す可能性のあるキーワード（小文字）
-    SENSITIVE_KEYWORDS = {
-        "password", "passwd", "pwd", "secret", "token", "key", "api_key",
-        "apikey", "access_token", "refresh_token", "auth", "authorization",
-        "credential", "private", "pin", "ssn", "social", "credit_card",
-        "card_number", "cvv", "ccv", "cvc", "bank", "account_number"
-    }
-
-    # 機密情報パターン（正規表現）
-    SENSITIVE_PATTERNS = [
-        # API キー形式
-        (re.compile(r'\b[A-Za-z0-9]{32,}\b'), "***API_KEY***"),
-        # パスワード形式（8文字以上の英数字記号）
-        (re.compile(r'\b(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}\b'), "***PASSWORD***"),
-        # JWT トークン形式
-        (re.compile(r'\beyJ[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=_-]+\b'), "***JWT_TOKEN***"),
-        # クレジットカード番号形式
-        (re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'), "***CARD_NUMBER***"),
-        # 電話番号形式（日本）
-        (re.compile(r'\b0\d{1,4}-?\d{1,4}-?\d{4}\b'), "***PHONE_NUMBER***"),
-    ]
-
-    @classmethod
-    def sanitize_dict(cls, data: Dict[str, Any], max_depth: int = 5) -> Dict[str, Any]:
-        """
-        辞書内の機密情報をサニタイズ
-
-        Args:
-            data: サニタイズ対象の辞書
-            max_depth: 再帰処理の最大深度
-
-        Returns:
-            サニタイズされた辞書
-        """
-        if max_depth <= 0:
-            return {"sanitized": "max_depth_reached"}
-
-        sanitized = {}
-        for key, value in data.items():
-            key_lower = key.lower()
-
-            # キー名が機密情報を示している場合
-            if any(keyword in key_lower for keyword in cls.SENSITIVE_KEYWORDS):
-                sanitized[key] = "***REDACTED***"
-            elif isinstance(value, dict):
-                sanitized[key] = cls.sanitize_dict(value, max_depth - 1)
-            elif isinstance(value, list):
-                sanitized[key] = cls.sanitize_list(value, max_depth - 1)
-            elif isinstance(value, str):
-                sanitized[key] = cls.sanitize_string(value)
-            else:
-                sanitized[key] = value
-
-        return sanitized
-
-    @classmethod
-    def sanitize_list(cls, data: List[Any], max_depth: int = 5) -> List[Any]:
-        """
-        リスト内の機密情報をサニタイズ
-
-        Args:
-            data: サニタイズ対象のリスト
-            max_depth: 再帰処理の最大深度
-
-        Returns:
-            サニタイズされたリスト
-        """
-        if max_depth <= 0:
-            return ["sanitized: max_depth_reached"]
-
-        sanitized = []
-        for item in data:
-            if isinstance(item, dict):
-                sanitized.append(cls.sanitize_dict(item, max_depth - 1))
-            elif isinstance(item, list):
-                sanitized.append(cls.sanitize_list(item, max_depth - 1))
-            elif isinstance(item, str):
-                sanitized.append(cls.sanitize_string(item))
-            else:
-                sanitized.append(item)
-
-        return sanitized
-
-    @classmethod
-    def sanitize_string(cls, text: str) -> str:
-        """
-        文字列内の機密情報をサニタイズ
-
-        Args:
-            text: サニタイズ対象の文字列
-
-        Returns:
-            サニタイズされた文字列
-        """
-        if not isinstance(text, str):
-            return text
-
-        sanitized_text = text
-        for pattern, replacement in cls.SENSITIVE_PATTERNS:
-            sanitized_text = pattern.sub(replacement, sanitized_text)
-
-        return sanitized_text
-
-    @classmethod
-    def sanitize_context(cls, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        コンテキスト全体をサニタイズ
-
-        Args:
-            context: サニタイズ対象のコンテキスト
-
-        Returns:
-            サニタイズされたコンテキスト
-        """
-        if not context:
-            return {}
-
-        return cls.sanitize_dict(context)
-
-
 class EnhancedErrorHandler:
-    """拡張されたエラーハンドリングシステム（依存性注入対応）"""
+    """
+    統合されたエラーハンドリングシステム（依存性注入対応）
+
+    friendly_error_handler.pyから統合された機能:
+    - ユーザーフレンドリーなエラーメッセージ
+    - エラーコード推論機能
+    - Rich形式のパネル表示
+    - CLIエラーハンドリング
+    """
 
     # friendly_error_handlerから統合されたエラーメッセージマッピング
+    # 注意: 新しいエラーメッセージはi18n_messages.pyのJSONファイルに追加することを推奨
     BUILTIN_ERROR_MESSAGES = {
         # ネットワーク関連エラー
         "NETWORK_CONNECTION_ERROR": {
@@ -575,7 +463,7 @@ class EnhancedErrorHandler:
         # ユーザーアクションのサニタイズ
         sanitized_user_action = user_action
         if user_action and self.enable_sanitization:
-            sanitized_user_action = self.sanitizer.sanitize_string(user_action)
+            sanitized_user_action = self.sanitizer.sanitize(user_action)
 
         log_data = {
             "error_type": type(error).__name__,
@@ -590,7 +478,7 @@ class EnhancedErrorHandler:
             # error.detailsもサニタイズ
             error_details = error.details or {}
             if self.enable_sanitization:
-                log_data["error_details"] = self.sanitizer.sanitize_dict(error_details)
+                log_data["error_details"] = self.sanitizer.sanitize_context(error_details)
             else:
                 log_data["error_details"] = error_details
 
@@ -728,6 +616,31 @@ def create_user_friendly_message(
         message = f"入力値 '{context['user_input']}' で{message}"
 
     return message_data["title"], message, message_data["solutions"]
+
+
+# friendly_error_handlerから統合された便利関数
+def create_friendly_error_panel(
+    error: Exception,
+    context: Optional[Dict[str, Any]] = None,
+    show_technical: bool = False,
+) -> Panel:
+    """
+    ユーザーフレンドリーなエラーパネルを作成する便利関数
+    friendly_error_handlerとの後方互換性のため
+    """
+    handler = EnhancedErrorHandler(debug_mode=show_technical)
+    return handler.handle_error(error, context, show_technical=show_technical)
+
+
+def log_error_for_debugging(
+    error: Exception, context: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    デバッグ用にエラーの詳細をログに記録
+    friendly_error_handlerとの後方互換性のため
+    """
+    handler = EnhancedErrorHandler()
+    handler.log_error(error, context)
 
 
 # CLIで使いやすいラッパー関数
