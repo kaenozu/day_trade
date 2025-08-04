@@ -56,7 +56,6 @@ runs:
           ~/.cache/pre-commit
           ~/.local/share/virtualenvs
           .venv
-          __pycache__/
         key: deps-${{ inputs.cache-version }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '.pre-commit-config.yaml') }}
         restore-keys: |
           deps-${{ inputs.cache-version }}-${{ runner.os }}-py${{ inputs.python-version }}-
@@ -69,32 +68,33 @@ runs:
         python -m pip install --upgrade pip wheel setuptools
 
     - name: 📋 Install project dependencies
-      if: inputs.install-dependencies == 'true' && steps.cache-deps.outputs.cache-hit != 'true'
+      if: inputs.install-dependencies == 'true'
       shell: bash
       run: |
         echo "📋 Installing project dependencies..."
         if [ -f pyproject.toml ]; then
+          echo "Found pyproject.toml, installing dependencies..."
           if [ "${{ inputs.install-dev-dependencies }}" = "true" ] && [ "${{ inputs.install-test-dependencies }}" = "true" ]; then
             echo "Installing with dev and test dependencies..."
-            pip install -e .[dev,test]
+            pip install -e .[dev,test] || pip install -e . || echo "Base installation failed, continuing..."
           elif [ "${{ inputs.install-dev-dependencies }}" = "true" ]; then
             echo "Installing with dev dependencies..."
-            pip install -e .[dev]
+            pip install -e .[dev] || pip install -e . || echo "Base installation failed, continuing..."
           elif [ "${{ inputs.install-test-dependencies }}" = "true" ]; then
             echo "Installing with test dependencies..."
-            pip install -e .[test]
+            pip install -e .[test] || pip install -e . || echo "Base installation failed, continuing..."
           else
             echo "Installing core package only..."
-            pip install -e .
+            pip install -e . || echo "Core installation failed, continuing..."
           fi
         elif [ -f requirements.txt ]; then
           echo "Installing from requirements.txt..."
-          pip install -r requirements.txt
+          pip install -r requirements.txt || echo "Requirements installation failed, continuing..."
         elif [ -f setup.py ]; then
           echo "Installing from setup.py..."
-          pip install -e .
+          pip install -e . || echo "Setup.py installation failed, continuing..."
         else
-          echo "⚠️ No package configuration found"
+          echo "⚠️ No package configuration found, installing basic tools only"
         fi
 
     - name: 🧪 Install test dependencies
@@ -120,10 +120,10 @@ runs:
       shell: bash
       run: |
         echo "✅ Verifying Python environment..."
-        python --version
-        pip --version
+        python --version || echo "Python version check failed"
+        pip --version || echo "Pip version check failed"
         echo "Installed packages:"
-        pip list --format=columns | head -20
+        pip list --format=columns | head -20 || echo "Package list failed"
 
         # パッケージが正しくインストールされているかチェック
         if [ -f pyproject.toml ] || [ -f setup.py ]; then

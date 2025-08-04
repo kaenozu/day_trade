@@ -212,10 +212,8 @@ class TestAlertManager:
     def setup_method(self):
         """テストセットアップ"""
         self.mock_stock_fetcher = Mock()
-        self.mock_watchlist_manager = Mock()
         self.alert_manager = AlertManager(
             stock_fetcher=self.mock_stock_fetcher,
-            watchlist_manager=self.mock_watchlist_manager,
         )
 
         # サンプルアラート条件

@@ -9,6 +9,7 @@ import contextlib
 import logging
 import os
 import sys
+import time
 from typing import Any, Dict, Generator
 
 import structlog
@@ -107,6 +108,11 @@ class LoggingConfig:
 
         # requests関連のログを制限
         logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
+
+        # パフォーマンス最適化: アプリケーション内の高頻度処理モジュールを制限
+        logging.getLogger("day_trade.utils.cache_utils").setLevel(logging.WARNING)
+        logging.getLogger("day_trade.data.stock_fetcher").setLevel(logging.INFO)
+        logging.getLogger("day_trade.analysis.indicators").setLevel(logging.WARNING)
 
     def get_logger(self, name: str) -> Any:
         """構造化ロガーを取得"""
@@ -244,6 +250,8 @@ class PerformanceCriticalLogger:
         self.logger = logger
         self.min_level = min_level
         self._is_enabled_cache = {}  # ログレベルチェックのキャッシュ
+        self._log_buffer = []  # バッファードログ用
+        self._buffer_size = 100  # バッファサイズ
 
     def _is_enabled(self, level: int) -> bool:
         """ログレベルが有効かどうかをキャッシュ付きでチェック"""
@@ -290,6 +298,49 @@ class PerformanceCriticalLogger:
         }
 
         self.logger.info(f"Performance summary: {operation}", summary=summary, **kwargs)
+
+    def buffer_log(self, level: int, message: str, **kwargs) -> None:
+        """ログをバッファに蓄積（高頻度処理用）"""
+        if not self._is_enabled(level):
+            return
+
+        self._log_buffer.append({
+            'level': level,
+            'message': message,
+            'timestamp': time.time(),
+            'kwargs': kwargs
+        })
+
+        # バッファが満杯になったら一括出力
+        if len(self._log_buffer) >= self._buffer_size:
+            self.flush_buffer()
+
+    def flush_buffer(self) -> None:
+        """バッファ内のログを一括出力"""
+        if not self._log_buffer:
+            return
+
+        # レベル別に集約
+        level_counts = {}
+        for log_entry in self._log_buffer:
+            level = log_entry['level']
+            level_counts[level] = level_counts.get(level, 0) + 1
+
+        # 集約結果をログ出力
+        self.logger.info(
+            "Buffered logs flushed",
+            buffer_size=len(self._log_buffer),
+            level_counts=level_counts,
+            time_span=self._log_buffer[-1]['timestamp'] - self._log_buffer[0]['timestamp']
+        )
+
+        # バッファをクリア
+        self._log_buffer.clear()
+
+    def __del__(self):
+        """デストラクタでバッファの残りを出力"""
+        if hasattr(self, '_log_buffer') and self._log_buffer:
+            self.flush_buffer()
 
 
 def get_performance_logger(
@@ -382,3 +433,198 @@ class PerformanceOptimizedLogging:
 
         for logger_name in trading_loggers:
             logging.getLogger(logger_name).setLevel(logging.ERROR)
+
+
+# パフォーマンス測定とタイマー
+class PerformanceTimer:
+    """高性能なタイマーコンテキストマネージャー"""
+
+    def __init__(self, logger: Any, operation_name: str, threshold_ms: float = 1000.0):
+        """
+        Args:
+            logger: ロガーインスタンス
+            operation_name: 操作名
+            threshold_ms: ログ出力の閾値（ミリ秒）
+        """
+        self.logger = logger
+        self.operation_name = operation_name
+        self.threshold_ms = threshold_ms
+        self.start_time = None
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time is not None:
+            elapsed_ms = (time.perf_counter() - self.start_time) * 1000
+
+            # 閾値を超えた場合のみログ出力
+            if elapsed_ms >= self.threshold_ms:
+                self.logger.info(
+                    f"Performance: {self.operation_name}",
+                    elapsed_ms=round(elapsed_ms, 2),
+                    threshold_ms=self.threshold_ms
+                )
+
+
+class AggregatedLogger:
+    """集約ログ機能（大量の類似ログを効率的に処理）"""
+
+    def __init__(self, base_logger: Any, flush_interval: int = 60):
+        """
+        Args:
+            base_logger: ベースロガー
+            flush_interval: フラッシュ間隔（秒）
+        """
+        self.base_logger = base_logger
+        self.flush_interval = flush_interval
+        self.counters = {}
+        self.last_flush = time.time()
+
+    def increment_counter(self, counter_name: str, value: int = 1):
+        """カウンターをインクリメント"""
+        self.counters[counter_name] = self.counters.get(counter_name, 0) + value
+
+        # 定期的にフラッシュ
+        current_time = time.time()
+        if current_time - self.last_flush >= self.flush_interval:
+            self.flush()
+
+    def flush(self):
+        """集約されたカウンターをログ出力"""
+        if not self.counters:
+            return
+
+        self.base_logger.info(
+            "Aggregated counters",
+            counters=dict(self.counters),
+            time_window=self.flush_interval
+        )
+
+        self.counters.clear()
+        self.last_flush = time.time()
+
+
+# 条件付きロギング用デコレータ
+def conditional_log(condition_func):
+    """条件が満たされた場合のみログを出力するデコレータ"""
+    def decorator(log_func):
+        def wrapper(*args, **kwargs):
+            if condition_func():
+                return log_func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# パフォーマンス測定とロギングの統合
+class PerformanceTimer:
+    """パフォーマンス測定とロギングを統合したクラス"""
+
+    def __init__(self, logger: Any, operation: str, threshold_ms: float = 100.0):
+        """
+        Args:
+            logger: ロガーインスタンス
+            operation: 操作名
+            threshold_ms: ログ出力の閾値（ミリ秒）
+        """
+        self.logger = logger
+        self.operation = operation
+        self.threshold_ms = threshold_ms
+        self.start_time = None
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time is not None:
+            elapsed_ms = (time.perf_counter() - self.start_time) * 1000
+
+            # 閾値を超えた場合のみログ出力
+            if elapsed_ms > self.threshold_ms:
+                self.logger.warning(
+                    "Slow operation detected",
+                    operation=self.operation,
+                    elapsed_ms=elapsed_ms,
+                    threshold_ms=self.threshold_ms
+                )
+
+
+# 集約ロギング機能
+class AggregatedLogger:
+    """複数のログエントリを集約して効率的に出力"""
+
+    def __init__(self, logger: Any, flush_interval: float = 1.0):
+        """
+        Args:
+            logger: ベースロガー
+            flush_interval: フラッシュ間隔（秒）
+        """
+        self.logger = logger
+        self.flush_interval = flush_interval
+        self.counters = {}
+        self.metrics = {}
+        self.last_flush = time.time()
+
+    def increment_counter(self, key: str, value: int = 1):
+        """カウンターをインクリメント"""
+        self.counters[key] = self.counters.get(key, 0) + value
+        self._maybe_flush()
+
+    def record_metric(self, key: str, value: float):
+        """メトリクスを記録"""
+        if key not in self.metrics:
+            self.metrics[key] = []
+        self.metrics[key].append(value)
+        self._maybe_flush()
+
+    def _maybe_flush(self):
+        """必要に応じてフラッシュ"""
+        if time.time() - self.last_flush > self.flush_interval:
+            self.flush()
+
+    def flush(self):
+        """集約データを出力"""
+        if self.counters or self.metrics:
+            # メトリクスの統計計算
+            metric_stats = {}
+            for key, values in self.metrics.items():
+                if values:
+                    metric_stats[key] = {
+                        'count': len(values),
+                        'avg': sum(values) / len(values),
+                        'min': min(values),
+                        'max': max(values)
+                    }
+
+            self.logger.info(
+                "Aggregated metrics",
+                counters=self.counters,
+                metrics=metric_stats,
+                flush_interval=self.flush_interval
+            )
+
+            # データをクリア
+            self.counters.clear()
+            self.metrics.clear()
+            self.last_flush = time.time()
+
+
+# セキュリティ関連のロギング（最適化版）
+def log_security_event(event_type: str, severity: str = "info", **kwargs) -> None:
+    """セキュリティイベントをログ出力（パフォーマンス最適化版）"""
+    # セキュリティイベントは必ず出力するが、詳細度を調整
+    logger = get_logger()
+
+    # 重要度に応じてログレベルを調整
+    log_func = getattr(logger, severity.lower(), logger.info)
+
+    # 最小限の情報のみを記録
+    log_func(
+        "Security event",
+        event_type=event_type,
+        severity=severity,
+        timestamp=time.time(),
+        **{k: v for k, v in kwargs.items() if k in ['user_id', 'ip_address', 'action']}
+    )

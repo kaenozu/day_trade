@@ -8,10 +8,10 @@ import pytest
 
 from src.day_trade.core.watchlist import (
     AlertCondition,
-    AlertType,
     WatchlistManager,
 )
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager
+from src.day_trade.models.enums import AlertType
 from src.day_trade.models.stock import Alert, Stock, WatchlistItem
 
 
@@ -191,7 +191,7 @@ class TestAlertFunctionality:
             stock = Stock(code="7203", name="トヨタ自動車")
             alert = Alert(
                 stock_code="7203",
-                alert_type="price_above",
+                alert_type=AlertType.PRICE_ABOVE,
                 threshold=3000.0,
                 is_active=True,
             )
@@ -208,13 +208,13 @@ class TestAlertFunctionality:
             stock = Stock(code="7203", name="トヨタ自動車")
             alert1 = Alert(
                 stock_code="7203",
-                alert_type="price_above",
+                alert_type=AlertType.PRICE_ABOVE,
                 threshold=3000.0,
                 is_active=True,
             )
             alert2 = Alert(
                 stock_code="7203",
-                alert_type="price_below",
+                alert_type=AlertType.PRICE_BELOW,
                 threshold=2000.0,
                 is_active=False,
             )
@@ -235,7 +235,7 @@ class TestAlertFunctionality:
             stock = Stock(code="7203", name="トヨタ自動車")
             alert = Alert(
                 stock_code="7203",
-                alert_type="price_above",
+                alert_type=AlertType.PRICE_ABOVE,
                 threshold=3000.0,
                 is_active=True,
             )
