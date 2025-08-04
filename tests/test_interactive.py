@@ -457,15 +457,15 @@ class TestInteractiveModeUI:
 
     def test_rendered_error_output(self):
         """エラー表示の実際のレンダリング結果テスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=False):
-            with self.capture_console_output() as output:
-                self.interactive_mode.handle_command("stock INVALID")
+        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=False), \
+             self.capture_console_output() as output:
+            self.interactive_mode.handle_command("stock INVALID")
 
-                output_str = output.getvalue()
+            output_str = output.getvalue()
 
-                # エラーメッセージの確認
-                assert "無効な銘柄コード" in output_str
-                assert "入力エラー" in output_str
+            # エラーメッセージの確認
+            assert "無効な銘柄コード" in output_str
+            assert "入力エラー" in output_str
 
 
 class TestInteractiveModeErrorHandling:
