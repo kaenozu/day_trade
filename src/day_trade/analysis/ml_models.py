@@ -604,29 +604,7 @@ def create_default_model_ensemble():
     return DummyEnsemble()
 
 
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self, models_dir: Optional[str] = None):
-        """MLModelManagerの初期化"""
-        self.models_dir = models_dir
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[Dict[str, Any]]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, Dict[str, Any]]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
+# 後方互換性のためのエイリアス（重複定義を削除）
 
 
 def evaluate_prediction_accuracy(
@@ -701,9 +679,9 @@ if __name__ == "__main__":
         print(f"分類モデル訓練結果: {clf_result['validation_scores']['mean_score']:.4f}")
 
         # 予測テスト
-        test_X = X.iloc[:10]
-        reg_pred = manager.predict("rf_regressor", test_X)
-        clf_pred = manager.predict("rf_classifier", test_X)
+        test_x = X.iloc[:10]
+        reg_pred = manager.predict("rf_regressor", test_x)
+        clf_pred = manager.predict("rf_classifier", test_x)
 
         print(f"回帰予測例: {reg_pred[:3]}")
         print(f"分類予測例: {clf_pred[:3]}")
