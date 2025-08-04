@@ -90,9 +90,10 @@ class TestDatabaseManager:
             session.add(price)
 
             # 取引データ作成（Decimal型で精密計算）
+            from src.day_trade.models.enums import TradeType
             trade = Trade(
                 stock_code="7203",
-                trade_type="buy",
+                trade_type=TradeType.BUY,
                 quantity=100,
                 price=Decimal("2470.00"),
                 commission=Decimal("500.00"),
@@ -306,7 +307,7 @@ class TestDatabaseManager:
             # 取引データでの精密計算
             trade1 = Trade(
                 stock_code="TEST",
-                trade_type="buy",
+                trade_type=TradeType.BUY,
                 quantity=123,
                 price=Decimal("1234.56"),
                 commission=Decimal("123.45"),
@@ -315,7 +316,7 @@ class TestDatabaseManager:
 
             trade2 = Trade(
                 stock_code="TEST",
-                trade_type="sell",
+                trade_type=TradeType.SELL,
                 quantity=100,
                 price=Decimal("1235.12"),
                 commission=Decimal("98.76"),
@@ -376,7 +377,7 @@ class TestDatabaseManager:
 
                     trade_amount = trade.price * trade.quantity
 
-                    if trade.trade_type == "buy":
+                    if trade.trade_type == TradeType.BUY:
                         total_cost += trade_amount + trade.commission
                     else:
                         total_proceeds += trade_amount - trade.commission
@@ -402,7 +403,7 @@ class TestDatabaseManager:
 
                     trade_amount = trade.price * trade.quantity
 
-                    if trade.trade_type == "buy":
+                    if trade.trade_type == TradeType.BUY:
                         total_cost += trade_amount + trade.commission
                     else:
                         total_proceeds += trade_amount - trade.commission
