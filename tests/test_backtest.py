@@ -2074,8 +2074,6 @@ class TestBacktestEngine:
         print(f"  Sharpe Ratio: {result.sharpe_ratio}")
         print(f"  Max Drawdown: {result.max_drawdown}")
 
-        return result
-
     def test_calculate_results_comprehensive(self):
         """_calculate_resultsメソッドの包括的テスト"""
         config = BacktestConfig(
