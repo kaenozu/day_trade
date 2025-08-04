@@ -256,9 +256,9 @@ class TestConfigManager:
         config_json = json.dumps(invalid_config)
 
         with patch("builtins.open", mock_open(read_data=config_json)), \
-             patch("pathlib.Path.exists", return_value=True):
-                with pytest.raises(ValueError, match="必須設定セクション"):
-                    ConfigManager("test_config.json")
+             patch("pathlib.Path.exists", return_value=True), \
+             pytest.raises(ValueError, match="必須設定セクション"):
+                ConfigManager("test_config.json")
 
     def test_config_validation_empty_symbols(self):
         """空の監視銘柄設定エラーテスト"""
@@ -267,9 +267,9 @@ class TestConfigManager:
         config_json = json.dumps(invalid_config)
 
         with patch("builtins.open", mock_open(read_data=config_json)), \
-             patch("pathlib.Path.exists", return_value=True):
-                with pytest.raises(ValueError, match="ウォッチリストに監視銘柄が一つも設定されていません"):
-                    ConfigManager("test_config.json")
+             patch("pathlib.Path.exists", return_value=True), \
+             pytest.raises(ValueError, match="ウォッチリストに監視銘柄が一つも設定されていません"):
+                ConfigManager("test_config.json")
 
 
 class TestDayTradeOrchestrator:

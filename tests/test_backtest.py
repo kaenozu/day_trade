@@ -2324,12 +2324,11 @@ class TestIntegration:
                 adjustment = (final_prices[0] * (1 + trend_strength) - final_prices[-1]) / n_days
                 for i in range(n_days):
                     final_prices[i] += adjustment * (i + 1)
-        elif trend_strength < 0:  # 下降トレンドの場合
+        elif trend_strength < 0 and final_prices[-1] >= final_prices[0]:  # 下降トレンドの場合
             # 終値が開始価格より確実に低くなるよう調整
-            if final_prices[-1] >= final_prices[0]:
-                adjustment = (final_prices[0] * (1 + trend_strength) - final_prices[-1]) / n_days
-                for i in range(n_days):
-                    final_prices[i] += adjustment * (i + 1)
+            adjustment = (final_prices[0] * (1 + trend_strength) - final_prices[-1]) / n_days
+            for i in range(n_days):
+                final_prices[i] += adjustment * (i + 1)
 
         # 8. OHLCV データの生成（トレンド一貫性を保持）
         ohlcv_data = []
