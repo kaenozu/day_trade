@@ -129,10 +129,10 @@ class TestBatchTradeOperations:
         # DB永続化でエラーを発生させるためのモック
         with patch('src.day_trade.models.stock.Trade.create_buy_trade') as mock_create:
             # 2回目の呼び出しでエラーを発生
-            mock_create.side_effect = [None, Exception("DB Error"), None]
+            mock_create.side_effect = [None, RuntimeError("DB Error"), None]
 
             # エラーが発生することを確認
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 trade_manager.add_trades_batch(sample_trades_data, persist_to_db=True)
 
             # すべての処理がロールバックされていることを確認
@@ -193,10 +193,10 @@ class TestDataClearOperations:
 
         # DBエラーをシミュレート
         with patch.object(db_manager, 'transaction_scope') as mock_transaction:
-            mock_transaction.side_effect = Exception("DB Connection Error")
+            mock_transaction.side_effect = RuntimeError("DB Connection Error")
 
             # エラーが発生することを確認
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 trade_manager.clear_all_data(persist_to_db=True)
 
             # データが復元されていることを確認
@@ -254,10 +254,10 @@ class TestImprovedLoadOperations:
 
         # _load_trades_from_dbでエラーをシミュレート
         with patch.object(trade_manager, '_load_trades_from_db') as mock_load:
-            mock_load.side_effect = Exception("DB Load Error")
+            mock_load.side_effect = RuntimeError("DB Load Error")
 
             # エラーが発生することを確認
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 trade_manager.sync_with_db()
 
             # メモリ内データが復元されていることを確認

@@ -490,10 +490,10 @@ class TestEnsembleTradingStrategy:
         )
 
         # 全戦略がHOLDシグナルを返すようにモック
-        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=hold_signal):
-            with patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=hold_signal):
-                with patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=hold_signal):
-                    result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
+        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=hold_signal), \
+             patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=hold_signal), \
+             patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=hold_signal):
+            result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
 
         assert result is not None
         assert result.ensemble_signal.signal_type == SignalType.HOLD
@@ -615,12 +615,12 @@ class TestEnsembleTradingStrategy:
         ensemble = EnsembleTradingStrategy()
 
         # 全ての戦略がNoneを返すようにモック
-        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=None):
-            with patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=None):
-                with patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=None):
-                    with patch.object(ensemble.strategies["mean_reversion"], "generate_signal", return_value=None):
-                        with patch.object(ensemble.strategies["default_integrated"], "generate_signal", return_value=None):
-                            result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
+        with patch.object(ensemble.strategies["conservative_rsi"], "generate_signal", return_value=None), \
+             patch.object(ensemble.strategies["trend_following"], "generate_signal", return_value=None), \
+             patch.object(ensemble.strategies["aggressive_momentum"], "generate_signal", return_value=None), \
+             patch.object(ensemble.strategies["mean_reversion"], "generate_signal", return_value=None), \
+             patch.object(ensemble.strategies["default_integrated"], "generate_signal", return_value=None):
+            result = ensemble.generate_ensemble_signal(sample_df, sample_indicators, sample_patterns)
 
         # 有効なシグナルがない場合はNoneが返されるはず
         assert result is None

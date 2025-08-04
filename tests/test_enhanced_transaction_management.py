@@ -193,7 +193,7 @@ class TestEnhancedTransactionManager:
 
     def test_transaction_timeout(self):
         """トランザクションタイムアウトのテスト"""
-        with pytest.raises(Exception):  # タイムアウトエラーが期待される
+        with pytest.raises(RuntimeError):  # タイムアウトエラーが期待される
             with self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
                 time.sleep(0.2)  # タイムアウトを超過
 
@@ -261,7 +261,7 @@ class TestEnhancedTransactionManager:
             mock_session.close = Mock()
             mock_get_session.return_value = mock_session
 
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 with self.enhanced_manager.distributed_transaction([context1, context2]):
                     pass
 
@@ -282,7 +282,7 @@ class TestEnhancedTransactionManager:
         def operation3(session):
             operations_executed.append("op3")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             self.enhanced_manager.execute_with_savepoint(
                 [operation1, operation2, operation3]
             )
@@ -386,11 +386,11 @@ class TestTransactionPatterns:
         # 異常ケース
         compensation_calls.clear()
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             with TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
                 executed_steps.append(0)
                 executed_steps.append(1)
-                raise Exception("Business error")
+                raise RuntimeError("Business error")
 
         assert "comp1" in compensation_calls
         assert "comp2" in compensation_calls
