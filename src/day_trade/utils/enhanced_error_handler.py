@@ -9,6 +9,7 @@ config_managerとcache_utilsとの完全統合対応
 """
 
 import logging
+import re
 import threading
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -403,23 +404,52 @@ class EnhancedErrorHandler:
 
     def _get_message_with_fallback(self, error_code: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        メッセージハンドラーから取得し、失敗時はビルトインメッセージにフォールバック（統計付き）
+        メッセージハンドラーから取得し、失敗時はビルトインメッセージにフォールバック（堅牢性強化版）
 
         Args:
             error_code: エラーコード
             context: コンテキスト情報
 
         Returns:
-            メッセージ辞書
+            メッセージ辞書（必要なキーが保証される）
         """
+        message_data = None
+
         try:
             # まずi18nメッセージハンドラーから取得を試行
             message_data = self.message_handler.get_message(error_code, context=context)
 
-            # 必要なキーが存在するかチェック
-            required_keys = ["title", "message", "solutions"]
-            if all(key in message_data for key in required_keys):
-                return message_data
+            # 必要なキーが存在し、かつ適切な型であるかチェック（堅牢性強化）
+            required_keys = {
+                "title": str,
+                "message": str,
+                "solutions": list
+            }
+
+            is_valid = True
+            for key, expected_type in required_keys.items():
+                if key not in message_data:
+                    is_valid = False
+                    break
+                if not isinstance(message_data[key], expected_type):
+                    is_valid = False
+                    break
+                # 空の値もチェック
+                if expected_type == str and not message_data[key].strip():
+                    is_valid = False
+                    break
+                if expected_type == list and not message_data[key]:
+                    is_valid = False
+                    break
+
+            if is_valid:
+                # 安全なコピーを返す（参照問題を回避）
+                return {
+                    "title": str(message_data["title"]),
+                    "message": str(message_data["message"]),
+                    "solutions": list(message_data["solutions"]),
+                    "emoji": message_data.get("emoji", "❌")
+                }
 
         except Exception as e:
             logger.warning(f"I18nMessageHandlerからの取得に失敗: {e}")
@@ -428,9 +458,12 @@ class EnhancedErrorHandler:
         # フォールバック: ビルトインメッセージを使用
         builtin_message = self.BUILTIN_ERROR_MESSAGES.get(error_code)
         if builtin_message:
-            return builtin_message.copy()
+            # ビルトインメッセージも検証
+            validated_builtin = self._validate_message_data(builtin_message)
+            if validated_builtin:
+                return validated_builtin
 
-        # 最終フォールバック: デフォルトメッセージ
+        # 最終フォールバック: デフォルトメッセージ（常に有効）
         return {
             "title": "エラー",
             "message": "予期しないエラーが発生しました。",
@@ -441,6 +474,153 @@ class EnhancedErrorHandler:
             ],
             "emoji": "❌"
         }
+
+    def _validate_message_data(self, message_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        メッセージデータの検証とサニタイズ
+
+        Args:
+            message_data: 検証するメッセージデータ
+
+        Returns:
+            検証済みのメッセージデータ、またはNone
+        """
+        if not isinstance(message_data, dict):
+            return None
+
+        try:
+            title = message_data.get("title", "")
+            message = message_data.get("message", "")
+            solutions = message_data.get("solutions", [])
+
+            # 基本検証
+            if not isinstance(title, str) or not title.strip():
+                return None
+            if not isinstance(message, str) or not message.strip():
+                return None
+            if not isinstance(solutions, list) or not solutions:
+                return None
+
+            # solutionsの各要素も検証
+            valid_solutions = []
+            for solution in solutions:
+                if isinstance(solution, str) and solution.strip():
+                    valid_solutions.append(solution.strip())
+
+            if not valid_solutions:
+                return None
+
+            return {
+                "title": title.strip(),
+                "message": message.strip(),
+                "solutions": valid_solutions[:self.config.max_solution_items],
+                "emoji": message_data.get("emoji", "❌")
+            }
+
+        except Exception as e:
+            logger.warning(f"メッセージデータの検証中にエラー: {e}")
+            return None
+
+    def _enhanced_sanitize_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        強化された機密情報サニタイズ（セキュリティ強化版）
+
+        Args:
+            context: サニタイズするコンテキスト
+
+        Returns:
+            サニタイズされたコンテキスト
+        """
+        if not context:
+            return context
+
+        # 基本サニタイズ（既存のSensitiveDataSanitizerを使用）
+        sanitized_context = self.sanitizer.sanitize_context(context.copy())
+
+        # 追加の機密情報パターン検出（強化版）
+        sensitive_patterns = [
+            # APIキー関連
+            r'(?i)(api[_-]?key|token|secret|password|passwd|pwd)',
+            # 金融関連
+            r'(?i)(credit[_-]?card|bank[_-]?account|account[_-]?number)',
+            # 個人情報
+            r'(?i)(ssn|social[_-]?security|driver[_-]?license)',
+            # サーバー関連
+            r'(?i)(server[_-]?password|db[_-]?password|database[_-]?password)',
+        ]
+
+        def is_sensitive_value(value_str: str) -> bool:
+            """値が機密情報かどうかを判定"""
+            if not isinstance(value_str, str):
+                return False
+
+            value_lower = value_str.lower()
+
+            # 長いランダム文字列（APIキーなど）
+            if len(value_str) > 20 and any(c.isalnum() for c in value_str):
+                # 英数字の組み合わせで長い文字列
+                alpha_count = sum(1 for c in value_str if c.isalpha())
+                digit_count = sum(1 for c in value_str if c.isdigit())
+                if alpha_count > 5 and digit_count > 5:
+                    return True
+
+            # JWT トークンパターン
+            if value_str.count('.') == 2 and len(value_str) > 100:
+                return True
+
+            # Base64エンコードされた長い文字列
+            if len(value_str) > 50 and value_str.replace('=', '').replace('+', '').replace('/', '').isalnum():
+                return True
+
+            return False
+
+        def sanitize_recursive(obj: Any, depth: int = 0) -> Any:
+            """再帰的にオブジェクトをサニタイズ（深度制限付き）"""
+            # 再帰深度制限
+            if depth > 10:
+                return "[深すぎる構造のため省略]"
+
+            if isinstance(obj, dict):
+                result = {}
+                for key, value in obj.items():
+                    key_str = str(key).lower()
+
+                    # キー名で機密情報を判定
+                    is_sensitive_key = any(
+                        re.search(pattern, key_str)
+                        for pattern in sensitive_patterns
+                    )
+
+                    if is_sensitive_key:
+                        result[key] = "[機密情報のため非表示]"
+                    elif isinstance(value, str) and is_sensitive_value(value):
+                        result[key] = "[機密データのため非表示]"
+                    else:
+                        result[key] = sanitize_recursive(value, depth + 1)
+
+                return result
+
+            elif isinstance(obj, (list, tuple)):
+                return type(obj)(sanitize_recursive(item, depth + 1) for item in obj)
+
+            elif isinstance(obj, str):
+                if is_sensitive_value(obj):
+                    return "[機密データのため非表示]"
+                return obj
+
+            else:
+                return obj
+
+        try:
+            # 強化されたサニタイズを実行
+            enhanced_sanitized = sanitize_recursive(sanitized_context)
+
+            return enhanced_sanitized
+
+        except Exception as e:
+            logger.warning(f"強化サニタイズ中にエラー: {e}")
+            # フォールバック: 基本サニタイズのみ
+            return sanitized_context
 
     def handle_error(
         self,
@@ -476,9 +656,9 @@ class EnhancedErrorHandler:
         if user_action:
             context["user_action"] = user_action
 
-        # コンテキストのサニタイズ（セキュリティ強化）
+        # コンテキストのサニタイズ（セキュリティ強化版）
         if self.enable_sanitization:
-            context = self.sanitizer.sanitize_context(context)
+            context = self._enhanced_sanitize_context(context)
             self.stats.record_sanitization()
 
         # カスタム例外の場合
@@ -836,16 +1016,51 @@ def create_error_handler(
     )
 
 
-# デフォルトハンドラーインスタンス（シングルトン・遅延初期化）
+# デフォルトハンドラーインスタンス（スレッドセーフ・遅延初期化）
 _default_error_handler = None
+_handler_lock = threading.RLock()
 
 
 def get_default_error_handler() -> EnhancedErrorHandler:
-    """デフォルトエラーハンドラーを取得（シングルトン）"""
+    """
+    デフォルトエラーハンドラーを取得（スレッドセーフ・シングルトン）
+
+    注意: 実運用環境では dependency injection を推奨します。
+    この関数は主に後方互換性と開発時の利便性のために提供されています。
+    """
     global _default_error_handler
+
     if _default_error_handler is None:
-        _default_error_handler = create_error_handler()
+        with _handler_lock:
+            # ダブルチェックロッキングパターン
+            if _default_error_handler is None:
+                _default_error_handler = create_error_handler()
+
     return _default_error_handler
+
+
+def set_default_error_handler(handler: EnhancedErrorHandler) -> None:
+    """
+    デフォルトエラーハンドラーを設定（依存性注入サポート）
+
+    Args:
+        handler: 設定するエラーハンドラー
+    """
+    global _default_error_handler
+
+    if not isinstance(handler, EnhancedErrorHandler):
+        raise ValueError("ハンドラーはEnhancedErrorHandlerインスタンスである必要があります")
+
+    with _handler_lock:
+        _default_error_handler = handler
+
+
+def reset_default_error_handler() -> None:
+    """デフォルトエラーハンドラーをリセット（テスト用）"""
+    global _default_error_handler
+
+    with _handler_lock:
+        _default_error_handler = None
 
 
 # 便利関数（依存性注入対応）
