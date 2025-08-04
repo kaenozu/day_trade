@@ -622,22 +622,84 @@ class StockMasterManager:
             stock = self.get_stock_by_code(code)
             if stock:
                 logger.info(f"銘柄情報を更新: {code} - {name}")
-                return self.update_stock(
+                updated_stock = self.update_stock(
                     code=code,
                     name=name,
                     market=market,
                     sector=sector,
                     industry=industry,
                 )
+                # 属性を事前読み込み
+                if updated_stock:
+                    _ = (updated_stock.code, updated_stock.name, updated_stock.market,
+                         updated_stock.sector, updated_stock.industry)
+                return updated_stock
             else:
                 logger.info(f"新規銘柄を追加: {code} - {name}")
-                return self.add_stock(
+                new_stock = self.add_stock(
                     code=code,
                     name=name,
                     market=market,
                     sector=sector,
                     industry=industry,
                 )
+                # 属性を事前読み込み
+                if new_stock:
+                    _ = (new_stock.code, new_stock.name, new_stock.market,
+                         new_stock.sector, new_stock.industry)
+                return new_stock
+
+        except Exception as e:
+            logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
+            return None
+
+    def fetch_and_update_stock_info_as_dict(self, code: str) -> Optional[Dict]:
+        """
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（连書返却版）
+
+        Args:
+            code: 証券コード
+
+        Returns:
+            更新されたStockオブジェクトの连書表現
+        """
+        try:
+            # StockFetcherのget_company_infoメソッドを使用（リトライ、キャッシュの恩恵を受ける）
+            company_info = self.stock_fetcher.get_company_info(code)
+
+            if not company_info:
+                logger.warning(f"StockFetcherから企業情報を取得できません: {code}")
+                return None
+
+            # データを整理
+            name = company_info.get("name") or ""
+            sector = company_info.get("sector") or ""
+            industry = company_info.get("industry") or ""
+
+            # 市場区分を推定（改善版）
+            market = self._estimate_market_segment(code, company_info)
+
+            # セッションスコープ内で更新・作成し、結果を连書で返却
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄を更新または新規作成
+                stock = session.query(Stock).filter(Stock.code == code).first()
+                if stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    stock.name = name
+                    stock.market = market
+                    stock.sector = sector
+                    stock.industry = industry
+                    session.flush()
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    stock = Stock(
+                        code=code, name=name, market=market, sector=sector, industry=industry
+                    )
+                    session.add(stock)
+                    session.flush()
+
+                # BaseModelのTo_dictメソッドを使用して连書として返却
+                return stock.to_dict()
 
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
@@ -863,15 +925,9 @@ class StockMasterManager:
 
             for code in batch_codes:
                 try:
-                    stock = self.fetch_and_update_stock_info(code)
-                    if stock:
-                        updated_stocks.append({
-                            "code": stock.code,
-                            "name": stock.name,
-                            "market": stock.market,
-                            "sector": stock.sector,
-                            "industry": stock.industry,
-                        })
+                    stock_info = self.fetch_and_update_stock_info_as_dict(code)
+                    if stock_info:
+                        updated_stocks.append(stock_info)
                         success_count += 1
                     else:
                         skipped_count += 1

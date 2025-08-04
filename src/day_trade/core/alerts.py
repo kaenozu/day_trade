@@ -417,18 +417,22 @@ class AlertManager:
         bulk_data = {}
 
         # 現在価格データの一括取得を試行
-        if hasattr(self.stock_fetcher, 'get_bulk_current_prices'):
+        bulk_method = getattr(self.stock_fetcher, 'get_bulk_current_prices', None)
+        if bulk_method and callable(bulk_method):
             try:
-                current_prices = self.stock_fetcher.get_bulk_current_prices(symbols)
-                for symbol, price_data in current_prices.items():
-                    bulk_data[symbol] = {
-                        'current_data': price_data,
-                        'historical_data': None  # 遅延読み込み
-                    }
+                current_prices = bulk_method(symbols)
+                if current_prices and isinstance(current_prices, dict):
+                    for symbol, price_data in current_prices.items():
+                        bulk_data[symbol] = {
+                            'current_data': price_data,
+                            'historical_data': None  # 遅延読み込み
+                        }
             except Exception as e:
                 logger.error(f"バルクデータ取得エラー: {e}")
-        else:
-            # 一括取得がサポートされていない場合は個別取得
+                # フォールバックして個別取得を実行
+                bulk_data = {}
+        # 一括取得が利用できない場合は個別取得
+        if not bulk_data:
             for symbol in symbols:
                 try:
                     current_data = self.stock_fetcher.get_current_price(symbol)
@@ -579,6 +583,33 @@ class AlertManager:
 
         return None
 
+
+    def _compare_values(
+        self,
+        current: Union[Decimal, float],
+        target: Union[Decimal, float, str],
+        operator: str,
+    ) -> bool:
+        """値の比較（後方互換性のため）"""
+        try:
+            current_val = float(current)
+            target_val = float(target)
+
+            if operator == ">":
+                return current_val > target_val
+            elif operator == "<":
+                return current_val < target_val
+            elif operator == ">=":
+                return current_val >= target_val
+            elif operator == "<=":
+                return current_val <= target_val
+            elif operator == "==":
+                return abs(current_val - target_val) < 0.001  # 小数点以下の誤差を考慮
+
+        except (ValueError, TypeError):
+            pass
+
+        return False
 
     def _handle_alert_trigger(self, trigger: AlertTrigger):
         """アラート発火の処理"""

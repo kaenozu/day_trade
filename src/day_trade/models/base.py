@@ -85,11 +85,11 @@ class BaseModel(Base, TimestampMixin):
     def __init__(self, **kwargs):
         """初期化（タイムスタンプ設定を含む）"""
         super().__init__(**kwargs)
-        # タイムスタンプを明示的に設定
+        # タイムスタンプを明示的に設定（既に値が設定されている場合は上書きしない）
         now_utc = datetime.now(timezone.utc)
-        if not hasattr(self, 'created_at') or self.created_at is None:
+        if 'created_at' not in kwargs and (not hasattr(self, 'created_at') or self.created_at is None):
             self.created_at = now_utc
-        if not hasattr(self, 'updated_at') or self.updated_at is None:
+        if 'updated_at' not in kwargs and (not hasattr(self, 'updated_at') or self.updated_at is None):
             self.updated_at = now_utc
 
     def to_dict(
@@ -228,6 +228,10 @@ class BaseModel(Base, TimestampMixin):
                                     # タイムゾーン情報がない場合はUTCとして扱う
                                     if value.tzinfo is None:
                                         value = value.replace(tzinfo=timezone.utc)
+                                    logger.debug(f"DateTime変換成功: {key} = {value}")
+                                elif not isinstance(value, datetime):
+                                    # datetime以外の場合はスキップするかエラーとする
+                                    logger.warning(f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}")
                             # Decimal型の変換
                             elif hasattr(column.type, 'scale'):
                                 if isinstance(value, (int, float, str)):
