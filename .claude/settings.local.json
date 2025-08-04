@@ -28,7 +28,8 @@
       "Bash(pip install:*)",
       "Bash(git cherry-pick:*)",
       "Bash(PRE_COMMIT_ALLOW_NO_CONFIG=1 git add -A)",
-      "Bash(PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit -m \"fix: Update orchestrator _generate_signals_batch to pass stock_data parameter\n\nResolved merge conflicts and updated method signature to ensure proper data flow to ensemble signal generation.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit -m \"fix: Update orchestrator _generate_signals_batch to pass stock_data parameter\n\nResolved merge conflicts and updated method signature to ensure proper data flow to ensemble signal generation.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git merge:*)"
     ],
     "deny": []
   }

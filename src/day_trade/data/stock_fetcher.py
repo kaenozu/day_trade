@@ -4,6 +4,7 @@ yfinanceを使用してリアルタイムおよびヒストリカルな株価デ
 """
 
 import logging
+import os
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
@@ -35,9 +36,11 @@ from ..utils.exceptions import (
 )
 from ..utils.logging_config import (
     get_context_logger,
+    get_performance_logger,
     log_api_call,
     log_error_with_context,
     log_performance_metric,
+    conditional_log,
 )
 
 
@@ -46,9 +49,9 @@ class DataCache:
 
     def __init__(
         self,
-        ttl_seconds: int = 60,
-        max_size: int = 1000,
-        stale_while_revalidate: int = 300,
+        ttl_seconds: int = None,  # デフォルトは環境変数から取得
+        max_size: int = None,     # デフォルトは環境変数から取得
+        stale_while_revalidate: int = None,  # デフォルトは環境変数から取得
     ):
         """
         Args:
@@ -56,9 +59,12 @@ class DataCache:
             max_size: 最大キャッシュサイズ（LRU eviction）
             stale_while_revalidate: 期限切れ後もフォールバックとして利用可能な期間（秒）
         """
-        self.ttl_seconds = ttl_seconds
-        self.max_size = max_size
-        self.stale_while_revalidate = stale_while_revalidate
+        import os
+
+        # 環境変数から設定を取得（デフォルト値付き）
+        self.ttl_seconds = ttl_seconds or int(os.getenv("STOCK_CACHE_TTL_SECONDS", "300"))  # 5分
+        self.max_size = max_size or int(os.getenv("STOCK_CACHE_MAX_SIZE", "2000"))
+        self.stale_while_revalidate = stale_while_revalidate or int(os.getenv("STOCK_CACHE_STALE_SECONDS", "600"))  # 10分
         self._cache = {}
         self._access_order = []  # LRU tracking
 
@@ -253,7 +259,9 @@ def cache_with_ttl(
                 # フレッシュキャッシュを試行
                 cached_result = cache.get(cache_key, allow_stale=False)
                 if cached_result is not None:
-                    cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
+                    # パフォーマンス最適化: デバッグログの条件付き出力
+                    if cache_logger.isEnabledFor(logging.DEBUG):
+                        cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
@@ -267,9 +275,11 @@ def cache_with_ttl(
                         sanitized_result = sanitize_cache_value(result)
                         cache.set(cache_key, sanitized_result)
                         stats.record_set()
-                        cache_logger.debug(
-                            f"新しいデータをキャッシュに保存: {func.__name__}"
-                        )
+                        # パフォーマンス最適化: デバッグログの条件付き出力
+                        if cache_logger.isEnabledFor(logging.DEBUG):
+                            cache_logger.debug(
+                                f"新しいデータをキャッシュに保存: {func.__name__}"
+                            )
 
                     return result
 
@@ -353,6 +363,10 @@ class StockFetcher:
 
         # ロガーを初期化
         self.logger = get_context_logger(__name__)
+        self.performance_logger = get_performance_logger(__name__)
+
+        # 条件付きデバッグロギング（本番環境では無効化）
+        self.enable_debug_logging = os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
 
         # リトライ統計を初期化
         self.retry_stats = {
@@ -623,8 +637,9 @@ class StockFetcher:
                 symbol = self._format_symbol(code)
                 ticker = self._get_ticker(symbol)
 
-                # API呼び出しログ
-                log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
+                # 条件付きAPI呼び出しログ（デバッグ時のみ）
+                if self.enable_debug_logging:
+                    log_api_call("yfinance", "GET", f"ticker.info for {symbol}")
                 info = ticker.info
 
                 # infoが空または無効な場合
@@ -669,10 +684,13 @@ class StockFetcher:
                     "timestamp": datetime.now(),
                 }
 
-                price_logger.info(
-                    "現在価格取得完了",
-                    current_price=current_price,
-                    change_percent=change_percent,
+                # パフォーマンス最適化: サンプリングログの有効化判定
+                if hasattr(self.performance_logger, 'logger') and self.performance_logger.logger.isEnabledFor(logging.INFO):
+                    self.performance_logger.info_sampled(
+                        "現在価格取得完了",
+                        sample_rate=0.1,  # 10%のログのみ出力
+                        current_price=current_price,
+                        change_percent=change_percent,
                     elapsed_ms=elapsed_time,
                 )
 
