@@ -21,7 +21,7 @@ try:
     try:
         config_manager = ConfigManager()
         auto_settings = config_manager.get_auto_optimizer_settings()
-        print(f"<< 設定読み込み成功")
+        print("<< 設定読み込み成功")
         print(f"   - 有効: {auto_settings.enabled}")
         print(f"   - デフォルト銘柄数: {auto_settings.default_max_symbols}")
         print(f"   - 最適化深度: {auto_settings.default_optimization_depth}")

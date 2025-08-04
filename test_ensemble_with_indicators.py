@@ -3,29 +3,29 @@
 テクニカル指標を計算してアンサンブル戦略をテスト
 """
 
-import sys
 import os
-from datetime import datetime
+import sys
 
 # パスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
+import numpy as np
+import pandas as pd
+
 from src.day_trade.analysis.ensemble import (
-    EnsembleTradingStrategy,
     EnsembleStrategy,
-    EnsembleVotingType
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
 )
 
-import pandas as pd
-import numpy as np
 
 def calculate_technical_indicators(df):
     """テクニカル指標計算"""
 
     indicators = pd.DataFrame(index=df.index)
     close = df['Close']
-    high = df['High']
-    low = df['Low']
+    df['High']
+    df['Low']
     volume = df['Volume']
 
     # RSI計算
@@ -216,7 +216,7 @@ def test_strategy_weights_analysis():
 
     try:
         df = create_test_data()
-        indicators = calculate_technical_indicators(df)
+        calculate_technical_indicators(df)
 
         # 各戦略タイプの重み比較
         strategy_types = [
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     # 戦略重み分析
     weights_success = test_strategy_weights_analysis()
 
-    print(f"\n=== 最終結果 ===")
+    print("\n=== 最終結果 ===")
     print(f"メインテスト: {'成功' if main_success else '失敗'}")
     print(f"重み分析: {'成功' if weights_success else '失敗'}")
 

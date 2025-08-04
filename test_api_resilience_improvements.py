@@ -6,32 +6,30 @@ Issue #211: API耐障害性機能の正確性と堅牢性の向上
 修正された機能のテストとベンチマーク
 """
 
+import sys
 import time
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
-import sys
+from unittest.mock import Mock, patch
 
 # プロジェクトのルートを追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from day_trade.utils.api_resilience import (
+    APIEndpoint,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitState,
     ResilientAPIClient,
-    APIEndpoint,
-    RetryConfig
+    RetryConfig,
 )
 from day_trade.utils.exceptions import (
     APIError,
     NetworkError,
+    ServerError,
     TimeoutError,
-    AuthenticationError,
-    RateLimitError,
-    ServerError
 )
-from day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 
 
 class TestCircuitBreakerImprovements(unittest.TestCase):

@@ -5,7 +5,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -119,7 +119,7 @@ class TestPosition:
         # 未実現損益パーセンテージの確認（プロパティが存在する場合）
         if hasattr(position, 'unrealized_pnl_percent'):
             expected_pnl_percent = (position.current_price - position.average_price) / position.average_price
-            assert abs(position.unrealized_pnl_percent - expected_pnl_percent) < Decimal("0.0001"), f"Unrealized PnL percentage calculation error"
+            assert abs(position.unrealized_pnl_percent - expected_pnl_percent) < Decimal("0.0001"), "Unrealized PnL percentage calculation error"
 
     def test_position_zero_quantity(self):
         """ゼロ数量ポジションテスト"""
@@ -236,12 +236,9 @@ class TestBacktestEngine:
 
         # OHLC価格を現実的な関係で生成
         data = []
-        for i, (date, base, daily_vol) in enumerate(zip(dates, base_prices, daily_volatility)):
+        for i, (_date, base, daily_vol) in enumerate(zip(dates, base_prices, daily_volatility)):
             # 前日終値を基準にする（初日は基準価格）
-            if i == 0:
-                prev_close = base
-            else:
-                prev_close = data[i-1]["Close"]
+            prev_close = base if i == 0 else data[i - 1]["Close"]
 
             # 日中変動幅を設定
             daily_range = prev_close * abs(daily_vol) * 2
@@ -871,7 +868,7 @@ class TestBacktestEngine:
             assert abs(avg_loss - expected_loss) < Decimal("0.01"), \
                 f"Average loss {avg_loss} should be close to {expected_loss}"
 
-        print(f"Decimal precision test passed:")
+        print("Decimal precision test passed:")
         print(f"  Expected Toyota P&L: {expected_toyota_pnl}")
         print(f"  Expected SoftBank P&L: {expected_softbank_pnl}")
         print(f"  Calculated Avg Win: {avg_win}")
@@ -957,7 +954,7 @@ class TestBacktestEngine:
             assert losing_trades == 1, "Should detect large loss"
             assert abs(avg_loss - abs(large_pnl)) < Decimal("1"), "Should calculate large loss accurately"
 
-        print(f"Decimal edge cases test passed:")
+        print("Decimal edge cases test passed:")
         print(f"  Tiny P&L: {expected_tiny_pnl}")
         print(f"  Large P&L: {large_pnl}")
 
@@ -1014,7 +1011,7 @@ class TestBacktestEngine:
             assert abs(avg_win - expected_pnl) < Decimal("0.001"), \
                 f"Float conversion should maintain reasonable precision: {avg_win} vs {expected_pnl}"
 
-        print(f"Decimal conversion from float test passed:")
+        print("Decimal conversion from float test passed:")
         print(f"  Buy price (Decimal): {decimal_price_buy}")
         print(f"  Sell price (Decimal): {decimal_price_sell}")
         print(f"  Expected P&L: {expected_pnl}")
@@ -1054,7 +1051,7 @@ class TestBacktestEngine:
         assert isinstance(pnl_step, Decimal), f"Result should be Decimal, got {type(pnl_step)}"
         assert isinstance(pnl_separate, Decimal), f"Result should be Decimal, got {type(pnl_separate)}"
 
-        print(f"Decimal arithmetic consistency test passed:")
+        print("Decimal arithmetic consistency test passed:")
         print(f"  All calculation methods produced: {pnl_direct}")
 
     def test_initialize_backtest(self):
@@ -1094,7 +1091,6 @@ class TestBacktestEngine:
     def test_fetch_historical_data_threadpool_performance(self):
         """履歴データ取得のThreadPoolExecutor並列処理テスト"""
         import time
-        from concurrent.futures import ThreadPoolExecutor
         from unittest.mock import call
 
         config = BacktestConfig(
@@ -1227,7 +1223,7 @@ class TestBacktestEngine:
         assert large_dataset_time < 10.0, f"Large dataset fetch should complete within 10 seconds, took {large_dataset_time:.3f}s"
 
         print(f"Large dataset ({len(symbols)} symbols) fetch time: {large_dataset_time:.3f}s")
-        print(f"ThreadPoolExecutor effectiveness demonstrated")
+        print("ThreadPoolExecutor effectiveness demonstrated")
 
     def test_fetch_historical_data_concurrent_safety(self):
         """並行処理での安全性テスト"""
@@ -1389,7 +1385,7 @@ class TestBacktestEngine:
         # スリッページと手数料の影響を確認
         trade = self.engine.trades[0]
         expected_slippage_price = price * (1 + config.slippage)
-        expected_commission = trade.quantity * expected_slippage_price * config.commission
+        trade.quantity * expected_slippage_price * config.commission
 
         assert trade.price >= price, f"Trade price should include slippage: {trade.price} >= {price}"
         assert trade.commission > 0, f"Commission should be positive: {trade.commission}"
@@ -1397,7 +1393,7 @@ class TestBacktestEngine:
         # 資金減少の確認（スリッページと手数料込み）
         total_cost = trade.quantity * trade.price + trade.commission
         expected_remaining = initial_capital - total_cost
-        assert abs(self.engine.current_capital - expected_remaining) < Decimal("1"), f"Capital calculation mismatch"
+        assert abs(self.engine.current_capital - expected_remaining) < Decimal("1"), "Capital calculation mismatch"
 
         # 2回目の購入（ポジション追加）
         self.engine._execute_buy_order(symbol, price * Decimal("1.1"), date, config)
@@ -1511,7 +1507,7 @@ class TestBacktestEngine:
 
         # スリッページと手数料の影響を確認
         trade = self.engine.trades[0]
-        expected_slippage_price = sell_price * (1 - config.slippage)  # 売りなのでマイナス
+        sell_price * (1 - config.slippage)  # 売りなのでマイナス
 
         assert trade.price <= sell_price, f"Sell price should include negative slippage: {trade.price} <= {sell_price}"
         assert trade.commission > 0, f"Commission should be positive: {trade.commission}"
@@ -1522,7 +1518,7 @@ class TestBacktestEngine:
         net_proceeds = gross_proceeds - trade.commission
         expected_capital = initial_capital + net_proceeds
 
-        assert abs(self.engine.current_capital - expected_capital) < Decimal("1"), f"Capital calculation mismatch"
+        assert abs(self.engine.current_capital - expected_capital) < Decimal("1"), "Capital calculation mismatch"
 
         # 実現損益の確認
         cost_basis = trade.quantity * original_avg_price
@@ -1773,7 +1769,7 @@ class TestBacktestEngine:
         # ポジション履歴の検証
         assert isinstance(result.positions_history, list), "Positions history should be list"
 
-        print(f"Backtest completed successfully:")
+        print("Backtest completed successfully:")
         print(f"  Total Return: {result.total_return}")
         print(f"  Total Trades: {result.total_trades}")
         print(f"  Win Rate: {result.win_rate if result.total_trades > 0 else 'N/A'}")
@@ -1913,7 +1909,7 @@ class TestBacktestEngine:
         assert isinstance(result.portfolio_value, pd.Series), "Portfolio value should be pandas Series"
         assert len(result.portfolio_value) == len(portfolio_values), "Portfolio value should match input data"
 
-        print(f"Calculate results test passed:")
+        print("Calculate results test passed:")
         print(f"  Total Return: {result.total_return}")
         print(f"  Total Trades: {result.total_trades}")
         print(f"  Win Rate: {result.win_rate}")
@@ -2042,7 +2038,7 @@ class TestBacktestEngine:
         for actual, expected in zip(losses, expected_losses):
             assert abs(actual - expected) < 1, f"Loss {actual} should be close to {expected}"
 
-        print(f"Trade statistics vectorized test passed:")
+        print("Trade statistics vectorized test passed:")
         print(f"  Total Trades: {total_trades}")
         print(f"  Profitable: {profitable_trades}, Losing: {losing_trades}")
         print(f"  Win Rate: {win_rate:.2%}")
@@ -2375,7 +2371,7 @@ class TestIntegration:
 
         # 高ボラティリティの価格変動を生成
         prices = [base_price]
-        for i in range(1, n_days):
+        for _i in range(1, n_days):
             # 大きな日次変動（-5%から+5%）
             daily_change = np.random.normal(0, volatility)
             new_price = prices[-1] * (1 + daily_change)
@@ -2385,7 +2381,7 @@ class TestIntegration:
 
         # OHLCV データの生成
         ohlcv_data = []
-        for i, close_price in enumerate(prices):
+        for _i, close_price in enumerate(prices):
             # 高ボラティリティ環境での日中価格レンジ
             daily_range = volatility * base_price * 0.8
 
@@ -2663,7 +2659,7 @@ class TestAdvancedBacktestScenarios:
         # トレード数の確認を緩和（戦略によってはトレードが発生しない場合もある）
         assert len(result.trades) >= 0, "Trades count should be non-negative"
 
-        print(f"Crash scenario results:")
+        print("Crash scenario results:")
         print(f"  Total Return: {result.total_return:.2%}")
         print(f"  Max Drawdown: {result.max_drawdown:.2%}")
         print(f"  Volatility: {result.volatility:.2%}")
@@ -2753,7 +2749,7 @@ class TestAdvancedBacktestScenarios:
             )
             commission_ratio = total_commission / abs(gross_profit) if gross_profit != 0 else 0
 
-            print(f"High frequency trading results:")
+            print("High frequency trading results:")
             print(f"  Total Trades: {result.total_trades}")
             print(f"  Total Commission: {total_commission}")
             print(f"  Commission Ratio: {commission_ratio:.2%}")
@@ -2852,7 +2848,7 @@ class TestAdvancedBacktestScenarios:
         for trade in result.trades:
             symbol_trade_counts[trade.symbol] = symbol_trade_counts.get(trade.symbol, 0) + 1
 
-        print(f"Multiple position management results:")
+        print("Multiple position management results:")
         print(f"  Traded symbols: {traded_symbols}")
         print(f"  Trade counts per symbol: {symbol_trade_counts}")
         print(f"  Total return: {result.total_return:.2%}")
@@ -2938,7 +2934,7 @@ class TestAdvancedBacktestScenarios:
             assert abs(profit_factor - expected_profit_factor) < 0.01, \
                 f"Profit factor calculation error: {profit_factor} vs {expected_profit_factor}"
 
-        print(f"Edge case test results:")
+        print("Edge case test results:")
         print(f"  Balanced scenario profit factor: {profit_factor}")
         print(f"  Win rate with equal wins/losses: {win_rate}")
 

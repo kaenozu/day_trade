@@ -4,8 +4,9 @@
 このモジュールは、day_tradeアプリケーションの完全なワークフローをテストします。
 Issue #177: CI最適化の一環として統合テストの実装を促進。
 """
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 # 統合テストのマーカー定義
 pytestmark = pytest.mark.integration

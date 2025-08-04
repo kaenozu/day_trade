@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class DependencyManager:
@@ -274,10 +274,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # reportコマンド
-    report_parser = subparsers.add_parser("report", help="依存関係レポートを生成")
+    subparsers.add_parser("report", help="依存関係レポートを生成")
 
     # checkコマンド
-    check_parser = subparsers.add_parser("check", help="古いパッケージをチェック")
+    subparsers.add_parser("check", help="古いパッケージをチェック")
 
     # updateコマンド
     update_parser = subparsers.add_parser("update", help="パッケージを更新")
@@ -293,7 +293,7 @@ def main():
     )
 
     # syncコマンド
-    sync_parser = subparsers.add_parser("sync", help="requirements.txtを同期")
+    subparsers.add_parser("sync", help="requirements.txtを同期")
 
     args = parser.parse_args()
 

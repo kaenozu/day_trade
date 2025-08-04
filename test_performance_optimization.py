@@ -6,26 +6,22 @@ Issue #165: アプリケーション全体の処理速度向上に向けた最�
 このスクリプトは、実装した最適化機能のパフォーマンステストを実行します。
 """
 
-import time
-import asyncio
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-from pathlib import Path
 import sys
+import time
+from pathlib import Path
+
+import numpy as np
 
 # プロジェクトのルートを追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from day_trade.analysis.optimized_indicators import OptimizedIndicatorCalculator
 from day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from day_trade.models.optimized_database_operations import OptimizedDatabaseOperations
-from day_trade.analysis.optimized_indicators import OptimizedIndicatorCalculator
 from day_trade.utils.performance_optimizer import (
     PerformanceProfiler,
-    DataFetchOptimizer,
-    CalculationOptimizer,
+    create_sample_data,
     performance_monitor,
-    create_sample_data
 )
 
 
@@ -85,7 +81,7 @@ class PerformanceBenchmark:
 
             # 統計情報
             stats = fetcher.get_performance_stats()
-            print(f" 統計情報:")
+            print(" 統計情報:")
             print(f"   最適化機能有効: {stats.get('optimization_enabled', False)}")
 
             self.results["data_fetch"] = {
@@ -104,10 +100,18 @@ class PerformanceBenchmark:
         print("-" * 40)
 
         try:
-            from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+            from datetime import datetime
+
+            from sqlalchemy import (
+                Column,
+                DateTime,
+                Float,
+                Integer,
+                String,
+                create_engine,
+            )
             from sqlalchemy.ext.declarative import declarative_base
             from sqlalchemy.orm import sessionmaker
-            from datetime import datetime
 
             # テスト用インメモリデータベース
             Base = declarative_base()
@@ -149,7 +153,7 @@ class PerformanceBenchmark:
                     chunk_size=500
                 )
 
-            print(f" バルク挿入結果:")
+            print(" バルク挿入結果:")
             print(f"   成功: {result.success}")
             print(f"   処理件数: {result.processed_count}")
             print(f"   実行時間: {result.execution_time:.3f}秒")
@@ -172,7 +176,7 @@ class PerformanceBenchmark:
                     chunk_size=200
                 )
 
-            print(f" バルク更新結果:")
+            print(" バルク更新結果:")
             print(f"   処理件数: {update_result.processed_count}")
             print(f"   実行時間: {update_result.execution_time:.3f}秒")
             print(f"   スループット: {update_result.throughput:.0f} records/sec")
@@ -231,12 +235,12 @@ class PerformanceBenchmark:
                     test_data, indicators, use_parallel=False
                 )
 
-            print(f" 並列計算結果:")
+            print(" 並列計算結果:")
             total_parallel_time = sum(r.execution_time for r in parallel_results.values())
             print(f"   計算指標数: {len(parallel_results)}")
             print(f"   総実行時間: {total_parallel_time:.3f}秒")
 
-            print(f" 逐次計算結果:")
+            print(" 逐次計算結果:")
             total_sequential_time = sum(r.execution_time for r in sequential_results.values())
             print(f"   計算指標数: {len(sequential_results)}")
             print(f"   総実行時間: {total_sequential_time:.3f}秒")
@@ -250,7 +254,7 @@ class PerformanceBenchmark:
                     test_data, include_advanced=True
                 )
 
-            print(f" 包括的分析結果:")
+            print(" 包括的分析結果:")
             print(f"   元データ列数: {len(test_data.columns)}")
             print(f"   結果データ列数: {len(comprehensive_result.columns)}")
             print(f"   追加指標数: {len(comprehensive_result.columns) - len(test_data.columns)}")
@@ -302,7 +306,7 @@ class PerformanceBenchmark:
 
             total_time = time.perf_counter() - start_time
 
-            print(f" 統合ワークフロー完了:")
+            print(" 統合ワークフロー完了:")
             print(f"   総実行時間: {total_time:.3f}秒")
             print(f"   処理銘柄数: {len(symbols)}")
             print(f"   銘柄あたり時間: {total_time / len(symbols):.3f}秒")
@@ -378,9 +382,9 @@ if __name__ == "__main__":
     benchmark = PerformanceBenchmark()
     benchmark.run_all_benchmarks()
 
-    print(f"\n 最適化機能の詳細:")
-    print(f"   - パフォーマンスプロファイラー: ")
-    print(f"   - データ取得最適化: ")
-    print(f"   - データベース最適化: ")
-    print(f"   - 計算ベクトル化: ")
-    print(f"   - 並列処理: ")
+    print("\n 最適化機能の詳細:")
+    print("   - パフォーマンスプロファイラー: ")
+    print("   - データ取得最適化: ")
+    print("   - データベース最適化: ")
+    print("   - 計算ベクトル化: ")
+    print("   - 並列処理: ")

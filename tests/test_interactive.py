@@ -6,10 +6,9 @@
 import io
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
-from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
-from contextlib import contextmanager, redirect_stdout
+from unittest.mock import Mock, patch
 
 import pytest
 from rich.console import Console
@@ -19,7 +18,7 @@ from rich.table import Table
 from src.day_trade.cli.interactive import InteractiveMode
 from src.day_trade.core.watchlist import WatchlistManager
 from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.utils.exceptions import DataNotFoundError, APIError
+from src.day_trade.utils.exceptions import APIError, DataNotFoundError
 
 
 class TestInteractiveMode:
@@ -547,7 +546,7 @@ class TestInteractiveModeErrorHandling:
     def test_enhanced_error_handler_integration(self):
         """enhanced_error_handlerとの連携テスト"""
         with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive.logger') as mock_logger:
+             patch('src.day_trade.cli.interactive.logger'):
 
             # APIエラーが発生する状況をシミュレート
             self.mock_stock_fetcher.get_current_price.side_effect = APIError("API connection failed")
@@ -1061,7 +1060,7 @@ class TestInteractiveModeAdvancedFeatures:
     def test_memory_usage_optimization(self):
         """メモリ使用量最適化のテスト"""
         # 大量のコマンド実行でメモリリークがないことを確認
-        for i in range(100):
+        for _i in range(100):
             result = self.interactive_mode.handle_command("help")
             assert result is True
 
@@ -1069,7 +1068,7 @@ class TestInteractiveModeAdvancedFeatures:
         initial_cache_size = len(self.interactive_mode._cached_data)
 
         # 何回実行してもキャッシュサイズが異常に増加しないこと
-        for i in range(50):
+        for _i in range(50):
             self.interactive_mode.handle_command("portfolio")
 
         final_cache_size = len(self.interactive_mode._cached_data)

@@ -5,7 +5,6 @@
 """
 
 import json
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -1669,11 +1668,7 @@ class BacktestEngine:
         win_rate = len(wins) / total_trades if total_trades > 0 else 0.0
         avg_win = sum(wins) / len(wins) if wins else Decimal("0")
         avg_loss = sum(losses) / len(losses) if losses else Decimal("0")
-        if losses:
-            # テスト互換性のためfloatに変換
-            profit_factor = float(sum(wins) / sum(losses))
-        else:
-            profit_factor = float("inf")  # No losses (either no trades or only wins)
+        profit_factor = float(sum(wins) / sum(losses)) if losses else float("inf")
 
         return (profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor)
 

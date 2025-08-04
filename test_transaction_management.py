@@ -3,15 +3,15 @@
 Issue 187: DB操作のトランザクション管理の徹底
 """
 
-import sys
 import os
+import sys
 from decimal import Decimal
-from datetime import datetime
 
 # パスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.day_trade.core.trade_manager import TradeManager, TradeType
+from src.day_trade.core.trade_manager import TradeManager
+
 
 def test_buy_stock_transaction():
     """株式買い注文のトランザクション管理テスト"""
@@ -32,7 +32,7 @@ def test_buy_stock_transaction():
             persist_to_db=False  # メモリ内テスト
         )
 
-        print(f"買い注文成功:")
+        print("買い注文成功:")
         print(f"  取引ID: {result['trade_id']}")
         print(f"  銘柄: {result['symbol']}")
         print(f"  数量: {result['quantity']}")
@@ -42,7 +42,7 @@ def test_buy_stock_transaction():
 
         if result['position']:
             pos = result['position']
-            print(f"  更新後ポジション:")
+            print("  更新後ポジション:")
             print(f"    保有数量: {pos['quantity']}")
             print(f"    平均単価: {pos['average_price']}円")
             print(f"    時価総額: {pos['market_value']}円")
@@ -81,7 +81,7 @@ def test_sell_stock_transaction():
             persist_to_db=False
         )
 
-        print(f"売り注文成功:")
+        print("売り注文成功:")
         print(f"  取引ID: {result['trade_id']}")
         print(f"  銘柄: {result['symbol']}")
         print(f"  数量: {result['quantity']}")
@@ -92,13 +92,13 @@ def test_sell_stock_transaction():
 
         if result['realized_pnl']:
             pnl = result['realized_pnl']
-            print(f"  実現損益:")
+            print("  実現損益:")
             print(f"    損益: {pnl['pnl']}円")
             print(f"    損益率: {pnl['pnl_percent']}%")
 
         if result['position']:
             pos = result['position']
-            print(f"  残りポジション:")
+            print("  残りポジション:")
             print(f"    保有数量: {pos['quantity']}")
             print(f"    平均単価: {pos['average_price']}円")
 
@@ -126,7 +126,7 @@ def test_transaction_rollback():
     initial_position = tm.get_position("7203")
     initial_trades_count = len(tm.trades)
 
-    print(f"初期状態:")
+    print("初期状態:")
     print(f"  ポジション数量: {initial_position.quantity}")
     print(f"  取引履歴数: {initial_trades_count}")
 
@@ -148,7 +148,7 @@ def test_transaction_rollback():
         rollback_position = tm.get_position("7203")
         rollback_trades_count = len(tm.trades)
 
-        print(f"ロールバック後:")
+        print("ロールバック後:")
         print(f"  ポジション数量: {rollback_position.quantity}")
         print(f"  取引履歴数: {rollback_trades_count}")
 
@@ -241,7 +241,7 @@ def test_data_consistency():
     # データ整合性チェック
     summary = tm.get_portfolio_summary()
 
-    print(f"ポートフォリオサマリー:")
+    print("ポートフォリオサマリー:")
     print(f"  総ポジション数: {summary['total_positions']}")
     print(f"  総コスト: {summary['total_cost']}円")
     print(f"  総取引数: {summary['total_trades']}")
@@ -249,7 +249,7 @@ def test_data_consistency():
     print(f"  勝率: {summary['win_rate']}")
 
     # 個別ポジション確認
-    print(f"\n個別ポジション:")
+    print("\n個別ポジション:")
     for symbol, position in tm.get_all_positions().items():
         print(f"  {symbol}: {position.quantity}株 (平均単価: {position.average_price}円)")
 
@@ -282,7 +282,7 @@ if __name__ == "__main__":
             print(f"✗ {test_name}: エラー - {e}")
             failed += 1
 
-    print(f"\n=== テスト結果 ===")
+    print("\n=== テスト結果 ===")
     print(f"成功: {passed}")
     print(f"失敗: {failed}")
     print(f"成功率: {passed}/{passed+failed} ({passed/(passed+failed)*100:.1f}%)")

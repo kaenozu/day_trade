@@ -3,30 +3,28 @@
 Issue #187: データベース操作のトランザクション管理の追加機能テスト
 """
 
-import pytest
-import time
 import threading
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
+
+import pytest
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.exc import OperationalError
 
-from src.day_trade.utils.transaction_manager import (
-    TransactionMonitor,
-    TransactionIsolationLevel,
-    TransactionStatus,
-    EnhancedTransactionManager,
-    transaction_monitor,
-    enhanced_transaction_manager,
-    get_transaction_health_report
-)
+from src.day_trade.models.database import Base, DatabaseConfig, db_manager
 from src.day_trade.utils.transaction_best_practices import (
     TransactionPatterns,
-    TransactionOptimizationTips,
-    TransactionTesting
 )
-from src.day_trade.models.database import db_manager, DatabaseConfig, Base
+from src.day_trade.utils.transaction_manager import (
+    EnhancedTransactionManager,
+    TransactionIsolationLevel,
+    TransactionMonitor,
+    TransactionStatus,
+    enhanced_transaction_manager,
+    transaction_monitor,
+)
 
 
 # テスト用のSQLAlchemyモデル
@@ -117,7 +115,7 @@ class TestTransactionMonitor:
         old_metrics.start_time = datetime.now() - timedelta(minutes=10)
 
         # 新しいトランザクション
-        new_transaction_id = self.monitor.start_transaction()
+        self.monitor.start_transaction()
 
         active_transactions = self.monitor.get_active_transactions()
         assert len(active_transactions) == 2
@@ -186,7 +184,7 @@ class TestEnhancedTransactionManager:
         with patch.object(db_manager, 'get_session', side_effect=mock_retriable_error):
             with patch.object(db_manager, '_is_retriable_error', return_value=True):
                 try:
-                    with self.enhanced_manager.enhanced_transaction(retry_count=3) as session:
+                    with self.enhanced_manager.enhanced_transaction(retry_count=3):
                         pass
                 except:
                     pass  # エラーは期待される
@@ -196,7 +194,7 @@ class TestEnhancedTransactionManager:
     def test_transaction_timeout(self):
         """トランザクションタイムアウトのテスト"""
         with pytest.raises(Exception):  # タイムアウトエラーが期待される
-            with self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1) as session:
+            with self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
                 time.sleep(0.2)  # タイムアウトを超過
 
     def test_readonly_transaction(self):
@@ -211,7 +209,7 @@ class TestEnhancedTransactionManager:
             mock_session.info = {}
             mock_get_session.return_value = mock_session
 
-            with self.enhanced_manager.enhanced_transaction(readonly=True) as session:
+            with self.enhanced_manager.enhanced_transaction(readonly=True):
                 # 読み取り専用では更新操作は制限される
                 executed = True
 
@@ -403,9 +401,9 @@ class TestTransactionPerformance:
 
     def test_transaction_performance_monitoring(self):
         """トランザクションパフォーマンス監視のテスト"""
-        start_time = time.time()
+        time.time()
 
-        with enhanced_transaction_manager.enhanced_transaction() as session:
+        with enhanced_transaction_manager.enhanced_transaction():
             # 軽い処理をシミュレート
             time.sleep(0.01)
 
@@ -423,7 +421,7 @@ class TestTransactionPerformance:
 
         def worker_function(worker_id):
             try:
-                with enhanced_transaction_manager.enhanced_transaction() as session:
+                with enhanced_transaction_manager.enhanced_transaction():
                     # 並行処理のシミュレート
                     time.sleep(0.01)
                     results.append(f"worker_{worker_id}_success")
@@ -449,8 +447,8 @@ class TestTransactionPerformance:
         initial_active = len(transaction_monitor.get_active_transactions())
 
         # 複数のトランザクションを実行
-        for i in range(3):
-            with enhanced_transaction_manager.enhanced_transaction() as session:
+        for _i in range(3):
+            with enhanced_transaction_manager.enhanced_transaction():
                 pass
 
         # リソースがクリーンアップされているか確認
@@ -507,10 +505,10 @@ class TestTransactionIntegration:
         initial_stats = transaction_monitor.get_transaction_statistics(1)
 
         # 複数のトランザクション処理を実行
-        with enhanced_transaction_manager.enhanced_transaction() as session1:
+        with enhanced_transaction_manager.enhanced_transaction():
             pass
 
-        with enhanced_transaction_manager.enhanced_transaction() as session2:
+        with enhanced_transaction_manager.enhanced_transaction():
             pass
 
         final_stats = transaction_monitor.get_transaction_statistics(1)

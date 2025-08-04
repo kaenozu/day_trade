@@ -7,16 +7,17 @@ Issue 183: テストカバレッジの計測と可視化
 CI/CDパイプラインでの品質ゲートとして使用できます。
 """
 
+import fnmatch
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-import fnmatch
+from typing import Any, Dict, List, Optional
+
 
 def load_coverage_config(config_file: Path) -> Dict[str, Any]:
     """カバレッジ設定ファイルを読み込み"""
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"設定ファイル読み込みエラー: {e}")
@@ -25,7 +26,7 @@ def load_coverage_config(config_file: Path) -> Dict[str, Any]:
 def load_coverage_data(json_file: Path) -> Optional[Dict[str, Any]]:
     """カバレッジJSONファイルを読み込み"""
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"カバレッジデータ読み込みエラー: {e}")
@@ -46,10 +47,7 @@ def get_package_name(filename: str) -> str:
 
 def match_patterns(filename: str, patterns: List[str]) -> bool:
     """ファイル名がパターンにマッチするかチェック"""
-    for pattern in patterns:
-        if fnmatch.fnmatch(filename, pattern):
-            return True
-    return False
+    return any(fnmatch.fnmatch(filename, pattern) for pattern in patterns)
 
 def evaluate_overall_coverage(coverage_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
     """全体カバレッジの評価"""

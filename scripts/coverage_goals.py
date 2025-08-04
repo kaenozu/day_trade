@@ -8,9 +8,9 @@ Issue #183: テストカバレッジの計測と可視化
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 
 class CoverageGoals:
@@ -49,7 +49,7 @@ class CoverageGoals:
 
         latest_file = sorted(json_files)[-1]
         try:
-            with open(latest_file, 'r') as f:
+            with open(latest_file) as f:
                 return json.load(f)
         except Exception as e:
             print(f"カバレッジデータ読み込みエラー: {e}")
@@ -104,10 +104,7 @@ class CoverageGoals:
             # パッケージ名を抽出
             if "src/day_trade/" in file_path or "src\\day_trade\\" in file_path:
                 parts = file_path.replace("src/day_trade/", "").replace("src\\day_trade\\", "").split("/")
-                if len(parts) > 1:
-                    package = parts[0]
-                else:
-                    package = "root"
+                package = parts[0] if len(parts) > 1 else "root"
             else:
                 continue
 
@@ -218,7 +215,7 @@ class CoverageGoals:
         if status.get('next_goal'):
             next_goal = status['next_goal']
             gap = status.get('gap_to_next', 0)
-            report += f"### 次の目標\n"
+            report += "### 次の目標\n"
             report += f"**{next_goal['name']}**: {next_goal['value']:.1f}% (あと{gap:.1f}%)\n\n"
 
         # パッケージ別詳細

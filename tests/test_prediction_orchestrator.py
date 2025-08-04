@@ -3,18 +3,18 @@
 統合予測システムの包括的なテスト
 """
 
-import pytest
+from datetime import datetime
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 
 from src.day_trade.analysis.prediction_orchestrator import (
+    PredictionConfig,
     PredictionOrchestrator,
-    PredictionConfig
 )
-from src.day_trade.analysis.ensemble import EnsembleStrategy, EnsembleVotingType
-from src.day_trade.analysis.signals import TradingSignal, SignalType, SignalStrength
+from src.day_trade.analysis.signals import SignalStrength, SignalType, TradingSignal
 
 
 class TestPredictionOrchestrator:
@@ -75,7 +75,7 @@ class TestPredictionOrchestrator:
         orchestrator = PredictionOrchestrator(prediction_config, enable_ml=False)
 
         assert orchestrator.config == prediction_config
-        assert orchestrator.enable_ml == False
+        assert not orchestrator.enable_ml
         assert orchestrator.feature_engineer is not None
         assert orchestrator.ensemble_strategy is not None
         assert orchestrator.prediction_history == []
@@ -86,7 +86,7 @@ class TestPredictionOrchestrator:
         with patch('src.day_trade.analysis.prediction_orchestrator.MLModelManager'):
             orchestrator = PredictionOrchestrator(prediction_config, enable_ml=True)
 
-            assert orchestrator.enable_ml == True
+            assert orchestrator.enable_ml
             assert orchestrator.ml_manager is not None
 
     def test_generate_enhanced_prediction_no_ml(self, orchestrator_no_ml, sample_data):
@@ -392,7 +392,7 @@ class TestPredictionOrchestrator:
         assert config["confidence_threshold"] == orchestrator_no_ml.config.confidence_threshold
 
         # ML無効の確認
-        assert status["ml_enabled"] == False
+        assert not status["ml_enabled"]
 
     def test_prediction_history_management(self, orchestrator_no_ml, sample_data):
         """予測履歴管理テスト"""

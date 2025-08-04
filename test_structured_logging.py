@@ -12,20 +12,21 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.day_trade.utils.logging_config import (
+    enhanced_log_error_with_context,
+    enhanced_log_performance_metric,
+    get_context_logger,
+    get_logger,
+    log_api_call,
+    log_business_event,
+    log_database_operation,
+    log_performance_metric,
+    log_security_event,
+    log_system_health,
+    log_user_action,
     setup_logging,
     setup_logging_with_alerts,
-    get_logger,
-    get_context_logger,
-    log_business_event,
-    log_performance_metric,
-    log_api_call,
-    log_database_operation,
-    log_security_event,
-    log_user_action,
-    log_system_health,
-    enhanced_log_error_with_context,
-    enhanced_log_performance_metric
 )
+
 
 def test_basic_logging():
     """基本ロギング機能テスト"""
@@ -338,7 +339,7 @@ if __name__ == "__main__":
             failed += 1
 
     print(f"\n{'='*50}")
-    print(f"テスト結果:")
+    print("テスト結果:")
     print(f"成功: {passed}")
     print(f"失敗: {failed}")
     print(f"成功率: {passed}/{passed+failed} ({passed/(passed+failed)*100:.1f}%)")

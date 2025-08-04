@@ -3,22 +3,21 @@
 TradingSignalのエラーを回避して基本機能をテスト
 """
 
-import sys
 import os
-from datetime import datetime
+import sys
 
 # パスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.day_trade.analysis.ensemble import (
-    EnsembleTradingStrategy,
-    EnsembleStrategy,
-    EnsembleVotingType
-)
-from src.day_trade.analysis.signals import SignalType, SignalStrength, TradingSignal
-
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from src.day_trade.analysis.ensemble import (
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
+
 
 def create_test_data():
     """テストデータ作成"""
@@ -192,7 +191,7 @@ if __name__ == "__main__":
     successful_tests = len([r for r in results if r.get('success', False)])
     total_tests = len(results)
 
-    print(f"\n=== 最終結果 ===")
+    print("\n=== 最終結果 ===")
     print(f"アンサンブルテスト: {successful_tests}/{total_tests} 成功")
     print(f"サマリーテスト: {'成功' if summary_success else '失敗'}")
 

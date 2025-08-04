@@ -164,8 +164,11 @@ def setup_logging(log_level: str = "INFO"):
     """ログ設定をセットアップ"""
     # 構造化ロギングを優先して使用
     try:
-        from src.day_trade.utils.logging_config import setup_logging as setup_structured_logging
         import os
+
+        from src.day_trade.utils.logging_config import (
+            setup_logging as setup_structured_logging,
+        )
         os.environ['LOG_LEVEL'] = log_level.upper()
         setup_structured_logging()
     except ImportError:

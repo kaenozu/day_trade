@@ -23,6 +23,7 @@ try:
     safe_live_context = create_safe_live_context()
 except ImportError:
     from contextlib import contextmanager
+
     from rich.live import Live
 
     @contextmanager

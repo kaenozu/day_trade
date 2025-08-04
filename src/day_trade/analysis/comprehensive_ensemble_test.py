@@ -1018,8 +1018,8 @@ if __name__ == "__main__":
         # 詳細レポートをログに記録
         logger.info("アンサンブル検証レポート生成完了",
                    report_length=len(detailed_report),
-                   total_tests=test_report.successful_tests + test_report.failed_tests,
-                   success_rate=test_report.successful_tests / max(test_report.successful_tests + test_report.failed_tests, 1))
+                   total_tests=validation_report.successful_tests + validation_report.failed_tests,
+                   success_rate=validation_report.successful_tests / max(validation_report.successful_tests + validation_report.failed_tests, 1))
 
         # デモ用コンソール出力
         print(detailed_report)

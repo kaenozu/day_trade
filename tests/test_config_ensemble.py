@@ -396,7 +396,7 @@ class TestEnsembleConfig:
 
         # 信頼度閾値が妥当な範囲にあることを確認
         for (
-            threshold_type,
+            _threshold_type,
             threshold_value,
         ) in ensemble_settings.confidence_thresholds.items():
             assert 0 <= threshold_value <= 100
@@ -476,7 +476,7 @@ class TestEnsembleConfig:
         settings = EnsembleSettings()
 
         # EnsembleTradingStrategyのインスタンスを作成してデフォルト値を確認
-        strategy = EnsembleTradingStrategy()
+        EnsembleTradingStrategy()
 
         # デフォルト重みの同期確認
         # ensemble.pyの_initialize_weightsで定義されている値と比較

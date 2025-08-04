@@ -2,8 +2,6 @@
 データベース最適化のテスト
 """
 
-import os
-import tempfile
 import time
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -100,7 +98,7 @@ class TestDatabaseOptimization:
 
                 # 最新数日にスパイクを配置して検出されやすくする
                 current_day = base_date + timedelta(days=i)
-                days_from_now = (datetime.now() - current_day).days
+                (datetime.now() - current_day).days
 
                 if stock["code"] == "7203" and i in [27, 29]:  # トヨタに最新2日でスパイク
                     volume = int(volume * 2.5)  # 250%増加でスパイク
@@ -387,7 +385,7 @@ class TestDatabaseOptimization:
             expected_codes = {item["code"] for item in bulk_data}
             for code in expected_codes:
                 assert code in results, f"Missing result for {code}"
-                assert results[code] == True, f"Failed to add {code}"
+                assert results[code], f"Failed to add {code}"
 
             # 最適化されたウォッチリスト取得
             start_time = time.time()
@@ -518,8 +516,8 @@ class TestDatabaseOptimization:
             # 各結果の属性検証
             for stock in tech_stocks:
                 assert stock.sector == "電気機器", f"Stock {stock.code} has wrong sector: {stock.sector}"
-                assert stock.code is not None, f"Stock code should not be None"
-                assert stock.name is not None, f"Stock name should not be None"
+                assert stock.code is not None, "Stock code should not be None"
+                assert stock.name is not None, "Stock name should not be None"
 
             # 銘柄名・コード検索
             start_time = time.time()

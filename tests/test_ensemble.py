@@ -233,25 +233,22 @@ class TestEnsembleTradingStrategy:
             ensemble.strategies["conservative_rsi"],
             "generate_signal",
             return_value=buy_signal_strong,
+        ), patch.object(
+            ensemble.strategies["trend_following"],
+            "generate_signal",
+            return_value=buy_signal_medium,
+        ), patch.object(
+            ensemble.strategies["aggressive_momentum"],
+            "generate_signal",
+            return_value=sell_signal_weak,
+        ), patch.object(
+            ensemble.strategies["mean_reversion"],
+            "generate_signal",
+            return_value=hold_signal,
         ):
-            with patch.object(
-                ensemble.strategies["trend_following"],
-                "generate_signal",
-                return_value=buy_signal_medium,
-            ):
-                with patch.object(
-                    ensemble.strategies["aggressive_momentum"],
-                    "generate_signal",
-                    return_value=sell_signal_weak,
-                ):
-                    with patch.object(
-                        ensemble.strategies["mean_reversion"],
-                        "generate_signal",
-                        return_value=hold_signal,
-                    ):
-                        result = ensemble.generate_ensemble_signal(
-                            sample_df, sample_indicators, sample_patterns
-                        )
+            result = ensemble.generate_ensemble_signal(
+                sample_df, sample_indicators, sample_patterns
+            )
 
         # 基本的な検証
         assert result is not None

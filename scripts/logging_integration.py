@@ -6,11 +6,9 @@ print文をstructlogベースの構造化ロギングに置き換えるツール
 """
 
 import argparse
-import ast
 import re
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List
 
 
 class PrintToLogConverter:
@@ -25,7 +23,7 @@ class PrintToLogConverter:
     def find_print_statements(self, file_path: Path) -> List[Dict[str, any]]:
         """print文を検出"""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
             return []
@@ -73,7 +71,7 @@ class PrintToLogConverter:
     def convert_print_to_log(self, file_path: Path, dry_run: bool = True) -> Dict[str, any]:
         """print文をロギングに変換"""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
             return {"success": False, "error": "ファイル読み込みエラー"}
@@ -89,8 +87,7 @@ class PrintToLogConverter:
                 logging_imported = True
                 break
 
-        for line_num, line in enumerate(lines):
-            original_line = line
+        for _line_num, line in enumerate(lines):
 
             # print文を検出して変換
             if re.search(r'print\s*\(', line) and not line.strip().startswith('#'):
@@ -328,7 +325,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # analyzeコマンド
-    analyze_parser = subparsers.add_parser("analyze", help="print文を分析")
+    subparsers.add_parser("analyze", help="print文を分析")
 
     # convertコマンド
     convert_parser = subparsers.add_parser("convert", help="print文をロギングに変換")
@@ -344,7 +341,7 @@ def main():
     )
 
     # reportコマンド
-    report_parser = subparsers.add_parser("report", help="分析レポートを生成")
+    subparsers.add_parser("report", help="分析レポートを生成")
 
     args = parser.parse_args()
 
@@ -356,7 +353,7 @@ def main():
 
     if args.command == "analyze":
         analysis = converter.analyze_project()
-        print(f"分析結果:")
+        print("分析結果:")
         print(f"  ファイル数: {analysis['files_analyzed']}")
         print(f"  print文を含むファイル数: {analysis['files_with_prints']}")
         print(f"  総print文数: {analysis['total_prints']}")

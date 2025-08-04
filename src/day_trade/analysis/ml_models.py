@@ -26,12 +26,10 @@ try:
     from sklearn.linear_model import LinearRegression, LogisticRegression
     from sklearn.metrics import (
         accuracy_score,
-        classification_report,
         mean_squared_error,
     )
     from sklearn.model_selection import TimeSeriesSplit, cross_val_score
     from sklearn.preprocessing import StandardScaler
-    from sklearn.svm import SVC, SVR
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -44,12 +42,7 @@ except ImportError:
     XGBOOST_AVAILABLE = False
     logger.info("XGBoostが利用できません。")
 
-try:
-    import lightgbm as lgb
-    LIGHTGBM_AVAILABLE = True
-except ImportError:
-    LIGHTGBM_AVAILABLE = False
-    logger.info("LightGBMが利用できません。")
+LIGHTGBM_AVAILABLE = False
 
 
 @dataclass

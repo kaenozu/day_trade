@@ -7,15 +7,14 @@ Issue 183: テストカバレッジの計測と可視化
 詳細なレポートを生成します。
 """
 
-import os
-import sys
 import json
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-import tempfile
+from typing import Any, Dict, List, Optional
+
 
 def run_command(command: List[str], cwd: Optional[str] = None) -> tuple[int, str, str]:
     """コマンドを実行して結果を返す"""
@@ -200,7 +199,7 @@ def generate_coverage_report() -> Dict[str, Any]:
     json_file = reports_dir / f"coverage_{timestamp}.json"
     if json_file.exists():
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file) as f:
                 json_data = json.load(f)
 
             # ファイル別カバレッジデータを追加
@@ -242,7 +241,7 @@ def analyze_coverage_trends(reports_dir: Path) -> Dict[str, Any]:
 
     for json_file in recent_files:
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file) as f:
                 data = json.load(f)
 
             totals = data.get("totals", {})
@@ -394,7 +393,7 @@ def generate_detailed_report(coverage_results: Dict[str, Any], trends: Dict[str,
             report += f"- [{rel_path}]({rel_path})\n"
 
     # フッター
-    report += f"\n---\n*このレポートは scripts/coverage_report.py により自動生成されました。*\n"
+    report += "\n---\n*このレポートは scripts/coverage_report.py により自動生成されました。*\n"
 
     return report
 
@@ -443,7 +442,7 @@ def main():
 
         print(f"前回比: {change:+.2f}% ({direction})")
 
-    print(f"\n詳細は以下のファイルで確認できます:")
+    print("\n詳細は以下のファイルで確認できます:")
     for file_path in coverage_results.get("files_generated", []):
         print(f"  - {file_path}")
 

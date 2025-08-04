@@ -8,12 +8,11 @@ Issue 185: 外部API通信の耐障害性強化
 import os
 import sys
 import time
-from datetime import datetime
-from unittest.mock import Mock, patch
 
 # パスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
+from src.day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from src.day_trade.utils.api_resilience import (
     APIEndpoint,
     CircuitBreaker,
@@ -26,7 +25,6 @@ from src.day_trade.utils.logging_config import (
     get_context_logger,
     setup_logging,
 )
-from src.day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 
 
 def test_circuit_breaker_functionality():
@@ -46,7 +44,7 @@ def test_circuit_breaker_functionality():
 
     # 初期状態確認
     assert circuit_breaker.state == CircuitState.CLOSED
-    assert circuit_breaker.can_execute() == True
+    assert circuit_breaker.can_execute()
     print("OK 初期状態（CLOSED）確認")
 
     # 失敗を記録してOPEN状態に移行させる
@@ -55,16 +53,16 @@ def test_circuit_breaker_functionality():
         print(f"  失敗記録 {i+1}/{config.failure_threshold}")
 
     assert circuit_breaker.state == CircuitState.OPEN
-    assert circuit_breaker.can_execute() == False
+    assert not circuit_breaker.can_execute()
     print("OK OPEN状態移行確認")
 
     # タイムアウト前は実行不可
-    assert circuit_breaker.can_execute() == False
+    assert not circuit_breaker.can_execute()
     print("OK タイムアウト前実行不可確認")
 
     # タイムアウト後はHALF_OPEN状態に移行
     time.sleep(config.timeout + 0.1)
-    assert circuit_breaker.can_execute() == True
+    assert circuit_breaker.can_execute()
     assert circuit_breaker.state == CircuitState.HALF_OPEN
     print("OK HALF_OPEN状態移行確認")
 
@@ -134,7 +132,7 @@ def test_api_endpoint_configuration():
     assert primary.name == "primary"
     assert primary.base_url == "https://api.example.com"
     assert primary.timeout == 30.0
-    assert primary.is_active == True
+    assert primary.is_active
     print("✓ エンドポイント設定値確認")
 
     print("✓ APIエンドポイント設定テスト完了")
@@ -188,9 +186,9 @@ def test_enhanced_stock_fetcher_initialization():
         enable_health_monitoring=False  # テスト用にヘルスチェック無効
     )
 
-    assert fetcher.enable_fallback == True
-    assert fetcher.enable_circuit_breaker == True
-    assert fetcher.enable_health_monitoring == False
+    assert fetcher.enable_fallback
+    assert fetcher.enable_circuit_breaker
+    assert not fetcher.enable_health_monitoring
     print("✓ 設定値確認")
 
     # 耐障害性クライアントが初期化されているか確認
@@ -255,20 +253,20 @@ def test_validation_enhancements():
         "previousClose": 1480.0,
         "volume": 1000000
     }
-    assert fetcher._validate_api_response(valid_response) == True
+    assert fetcher._validate_api_response(valid_response)
     print("✓ 有効なAPIレスポンス検証")
 
     # 無効なレスポンス
     invalid_response1 = {}
-    assert fetcher._validate_api_response(invalid_response1) == False
+    assert not fetcher._validate_api_response(invalid_response1)
     print("✓ 空のレスポンス検証")
 
     invalid_response2 = None
-    assert fetcher._validate_api_response(invalid_response2) == False
+    assert not fetcher._validate_api_response(invalid_response2)
     print("✓ Noneレスポンス検証")
 
     invalid_response3 = "invalid"
-    assert fetcher._validate_api_response(invalid_response3) == False
+    assert not fetcher._validate_api_response(invalid_response3)
     print("✓ 非辞書型レスポンス検証")
 
     # 価格データ抽出と検証
@@ -342,13 +340,13 @@ def test_error_handling_improvements():
     # 無効なシンボルテスト
     try:
         fetcher._validate_symbol("")
-        assert False, "空のシンボルで例外が発生すべき"
+        raise AssertionError("空のシンボルで例外が発生すべき")
     except Exception as e:
         print(f"✓ 空のシンボル検証: {type(e).__name__}")
 
     try:
         fetcher._validate_symbol("X")
-        assert False, "短すぎるシンボルで例外が発生すべき"
+        raise AssertionError("短すぎるシンボルで例外が発生すべき")
     except Exception as e:
         print(f"✓ 短いシンボル検証: {type(e).__name__}")
 
@@ -468,7 +466,7 @@ if __name__ == "__main__":
         print()  # 空行でテスト間を区切り
 
     print(f"{'='*50}")
-    print(f"テスト結果:")
+    print("テスト結果:")
     print(f"成功: {passed}")
     print(f"失敗: {failed}")
     print(f"成功率: {passed}/{passed+failed} ({passed/(passed+failed)*100:.1f}%)")

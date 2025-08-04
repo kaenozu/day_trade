@@ -2,9 +2,12 @@
 リトライ機能のデバッグテスト
 """
 
-import requests
 from unittest.mock import Mock, patch
+
+import requests
+
 from src.day_trade.data.stock_fetcher import StockFetcher
+
 
 def test_retry_debug():
     """リトライ機能の動作を確認"""

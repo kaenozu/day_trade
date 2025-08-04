@@ -2,12 +2,13 @@
 データベース基盤のテスト
 """
 
+import contextlib
+import time
 from datetime import datetime
 from decimal import Decimal
-import time
 
 import pytest
-from sqlalchemy import exc, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager, get_db
@@ -396,10 +397,8 @@ class TestDatabaseFunctions:
             pytest.fail(f"Session is not functional: {e}")
 
         # クリーンアップ
-        try:
+        with contextlib.suppress(StopIteration):
             next(gen)
-        except StopIteration:
-            pass
 
     def test_database_manager_dependency_injection(self):
         """DatabaseManagerのDI対応テスト（将来の機能追加を考慮）"""

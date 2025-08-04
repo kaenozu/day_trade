@@ -2,13 +2,13 @@
 TradeManagerのトランザクション管理テスト
 """
 
-import pytest
 from decimal import Decimal
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from src.day_trade.core.trade_manager import TradeManager, TradeType, TradeStatus
-from src.day_trade.models.database import db_manager, DatabaseConfig
+import pytest
+
+from src.day_trade.core.trade_manager import TradeManager, TradeType
+from src.day_trade.models.database import DatabaseConfig, db_manager
 from src.day_trade.models.stock import Stock, Trade
 
 
@@ -39,7 +39,7 @@ class TestTradeManagerTransactions:
         """データベース永続化を有効にした取引追加のテスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # 取引を追加（DB永続化有効）
-            trade_id = trade_manager.add_trade(
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -70,7 +70,7 @@ class TestTradeManagerTransactions:
     def test_add_trade_memory_only(self, trade_manager):
         """メモリのみの取引追加のテスト"""
         # 取引を追加（DB永続化無効）
-        trade_id = trade_manager.add_trade(
+        trade_manager.add_trade(
             symbol="7203",
             trade_type=TradeType.BUY,
             quantity=100,
@@ -85,9 +85,8 @@ class TestTradeManagerTransactions:
 
     def test_transaction_rollback_on_error(self, trade_manager, test_db_manager):
         """エラー時のトランザクションロールバックテスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            # 銘柄作成でエラーを発生させるモック
-            with patch.object(Stock, '__init__', side_effect=Exception("銘柄作成エラー")):
+        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager), \
+             patch.object(Stock, '__init__', side_effect=Exception("銘柄作成エラー")):
                 with pytest.raises(Exception, match="銘柄作成エラー"):
                     trade_manager.add_trade(
                         symbol="7203",
@@ -111,7 +110,7 @@ class TestTradeManagerTransactions:
         """複数取引のアトミック実行テスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # 複数の取引を順次追加
-            trade_id1 = trade_manager.add_trade(
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -119,7 +118,7 @@ class TestTradeManagerTransactions:
                 persist_to_db=True
             )
 
-            trade_id2 = trade_manager.add_trade(
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=200,
@@ -165,7 +164,7 @@ class TestTradeManagerTransactions:
                 session.add(stock)
                 session.flush()
 
-                db_trade = Trade.create_buy_trade(
+                Trade.create_buy_trade(
                     session=session,
                     stock_code="7203",
                     quantity=100,
@@ -192,7 +191,7 @@ class TestTradeManagerTransactions:
         """データベース同期テスト"""
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # メモリ内に取引を追加（DB永続化あり）
-            trade_id = trade_manager.add_trade(
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -217,7 +216,7 @@ class TestTradeManagerTransactions:
             tm2 = TradeManager(load_from_db=False)
 
             # 2つのTradeManagerから同時に同じ銘柄の取引を追加
-            trade_id1 = tm1.add_trade(
+            tm1.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -225,7 +224,7 @@ class TestTradeManagerTransactions:
                 persist_to_db=True
             )
 
-            trade_id2 = tm2.add_trade(
+            tm2.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=200,
@@ -247,7 +246,7 @@ class TestTradeManagerTransactions:
         with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
             # 手数料を明示的に指定
             explicit_commission = Decimal("200")
-            trade_id = trade_manager.add_trade(
+            trade_manager.add_trade(
                 symbol="7203",
                 trade_type=TradeType.BUY,
                 quantity=100,
@@ -266,13 +265,12 @@ class TestTradeManagerTransactions:
 
     def test_error_logging_and_context(self, trade_manager, test_db_manager):
         """エラーログとコンテキスト情報のテスト"""
-        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager):
-            # ログモックを設定
-            with patch('src.day_trade.core.trade_manager.log_error_with_context') as mock_log_error:
-                with patch('src.day_trade.core.trade_manager.DBTrade.create_buy_trade',
-                          side_effect=Exception("DB取引作成エラー")):
+        with patch('src.day_trade.core.trade_manager.db_manager', test_db_manager), \
+             patch('src.day_trade.core.trade_manager.log_error_with_context') as mock_log_error, \
+             patch('src.day_trade.core.trade_manager.DBTrade.create_buy_trade',
+                   side_effect=Exception("DB取引作成エラー")):
 
-                    with pytest.raises(Exception):
+                    with pytest.raises(Exception, match="DB取引作成エラー"):
                         trade_manager.add_trade(
                             symbol="7203",
                             trade_type=TradeType.BUY,

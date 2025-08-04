@@ -2,10 +2,10 @@
 TradeManagerの高度なトランザクション機能のテスト
 """
 
-import pytest
 from decimal import Decimal
-from datetime import datetime
 from unittest.mock import patch
+
+import pytest
 
 from src.day_trade.core.trade_manager import TradeManager, TradeType
 from src.day_trade.models.database import db_manager
@@ -211,11 +211,12 @@ class TestImprovedLoadOperations:
         """データベース読み込みの原子性テスト"""
         # 事前にメモリ内データを作成
         trade_manager.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), persist_to_db=False)
-        initial_memory_data = trade_manager.trades.copy()
+        trade_manager.trades.copy()
 
         # データベースに別のデータを追加
         with db_manager.transaction_scope() as session:
-            from src.day_trade.models.stock import Trade as DBTrade, Stock
+            from src.day_trade.models.stock import Stock
+            from src.day_trade.models.stock import Trade as DBTrade
 
             # 銘柄マスタ確認・作成
             stock = session.query(Stock).filter(Stock.code == "8306").first()
@@ -225,7 +226,7 @@ class TestImprovedLoadOperations:
                 session.flush()
 
             # DB取引追加
-            db_trade = DBTrade.create_buy_trade(
+            DBTrade.create_buy_trade(
                 session=session,
                 stock_code="8306",
                 quantity=50,

@@ -6,21 +6,18 @@ Issue 185: 外部API通信の耐障害性強化
 import os
 import sys
 import time
-from datetime import datetime
 
 # パスを追加
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
+from src.day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
 from src.day_trade.utils.api_resilience import (
-    APIEndpoint,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitState,
-    ResilientAPIClient,
     RetryConfig,
 )
-from src.day_trade.utils.logging_config import setup_logging, get_context_logger
-from src.day_trade.data.enhanced_stock_fetcher import EnhancedStockFetcher
+from src.day_trade.utils.logging_config import get_context_logger, setup_logging
 
 
 def test_circuit_breaker():
@@ -41,7 +38,7 @@ def test_circuit_breaker():
     print("OK 初期状態CLOSED")
 
     # 失敗を記録
-    for i in range(config.failure_threshold):
+    for _i in range(config.failure_threshold):
         circuit_breaker.record_failure()
 
     assert circuit_breaker.state == CircuitState.OPEN
@@ -49,12 +46,12 @@ def test_circuit_breaker():
 
     # タイムアウト後
     time.sleep(config.timeout + 0.1)
-    assert circuit_breaker.can_execute() == True
+    assert circuit_breaker.can_execute()
     assert circuit_breaker.state == CircuitState.HALF_OPEN
     print("OK HALF_OPEN状態移行")
 
     # 成功記録
-    for i in range(config.success_threshold):
+    for _i in range(config.success_threshold):
         circuit_breaker.record_success()
 
     assert circuit_breaker.state == CircuitState.CLOSED
@@ -91,8 +88,8 @@ def test_enhanced_fetcher():
         enable_health_monitoring=False
     )
 
-    assert fetcher.enable_fallback == True
-    assert fetcher.enable_circuit_breaker == True
+    assert fetcher.enable_fallback
+    assert fetcher.enable_circuit_breaker
     print("OK 初期化設定")
 
     # システム状態
@@ -121,12 +118,12 @@ def test_validation():
         "previousClose": 1480.0,
         "volume": 1000000
     }
-    assert fetcher._validate_api_response(valid_response) == True
+    assert fetcher._validate_api_response(valid_response)
     print("OK 有効レスポンス検証")
 
     # 無効なレスポンス
-    assert fetcher._validate_api_response({}) == False
-    assert fetcher._validate_api_response(None) == False
+    assert not fetcher._validate_api_response({})
+    assert not fetcher._validate_api_response(None)
     print("OK 無効レスポンス検証")
 
     # 価格データ抽出

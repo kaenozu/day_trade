@@ -11,13 +11,11 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-import re
+from typing import Any, Dict, List, Optional
 
 # 軽量な可視化ライブラリを使用（外部依存を最小限に）
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.patches as patches
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -26,7 +24,7 @@ except ImportError:
 def load_coverage_data(json_file: Path) -> Optional[Dict[str, Any]]:
     """カバレッジJSONファイルを読み込み"""
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"カバレッジデータ読み込みエラー: {e}")
@@ -184,10 +182,7 @@ def create_package_coverage_chart(coverage_data: Dict[str, Any], output_dir: Pat
         if "\\" in filename:
             path_parts = filename.replace("src\\day_trade\\", "").split("\\")
 
-        if len(path_parts) > 1:
-            package = path_parts[0]
-        else:
-            package = "root"
+        package = path_parts[0] if len(path_parts) > 1 else "root"
 
         summary = data.get("summary", {})
         covered_lines = summary.get("covered_lines", 0)
@@ -586,9 +581,9 @@ def main():
 
     print("\n" + "=" * 50)
     print("可視化完了!")
-    print(f"結果は以下のディレクトリで確認できます:")
+    print("結果は以下のディレクトリで確認できます:")
     print(f"  {output_dir}")
-    print(f"\nHTMLダッシュボード:")
+    print("\nHTMLダッシュボード:")
     print(f"  {output_dir / 'dashboard.html'}")
 
     if not HAS_MATPLOTLIB:
