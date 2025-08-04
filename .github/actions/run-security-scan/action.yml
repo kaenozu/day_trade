@@ -1,0 +1,205 @@
+name: 'Run Security Scan'
+description: 'Comprehensive security scanning with multiple tools'
+author: 'day-trade'
+
+inputs:
+  scan-level:
+    description: 'Security scan level: basic, standard, comprehensive'
+    required: false
+    default: 'standard'
+
+  fail-on-error:
+    description: 'Whether to fail the action on security issues'
+    required: false
+    default: 'false'
+
+  upload-reports:
+    description: 'Whether to upload security reports as artifacts'
+    required: false
+    default: 'true'
+
+outputs:
+  safety-result:
+    description: 'Result of Safety scan'
+    value: ${{ steps.safety.outputs.result }}
+
+  bandit-result:
+    description: 'Result of Bandit scan'
+    value: ${{ steps.bandit.outputs.result }}
+
+  semgrep-result:
+    description: 'Result of Semgrep scan'
+    value: ${{ steps.semgrep.outputs.result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 🔒 Install security tools
+      shell: bash
+      run: |
+        echo "🔒 Installing security scanning tools..."
+        python -m pip install --upgrade pip
+
+        # 基本ツール
+        pip install safety bandit[toml]
+
+        # 追加ツール（レベルに応じて）
+        if [ "${{ inputs.scan-level }}" = "comprehensive" ]; then
+          pip install semgrep pip-audit
+        elif [ "${{ inputs.scan-level }}" = "standard" ]; then
+          pip install pip-audit
+        fi
+
+    - name: 🛡️ Safety check (dependency vulnerabilities)
+      id: safety
+      shell: bash
+      run: |
+        echo "🛡️ Running Safety check for dependency vulnerabilities..."
+
+        set +e  # Continue on error
+        safety check --json > safety-report.json
+        safety_exit_code=$?
+        set -e
+
+        if [ $safety_exit_code -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "✅ Safety check passed"
+        else
+          echo "result=failure" >> $GITHUB_OUTPUT
+          echo "⚠️ Safety check found vulnerabilities"
+
+          if [ -f safety-report.json ]; then
+            # 脆弱性の数を数える
+            vuln_count=$(jq '. | length' safety-report.json 2>/dev/null || echo "unknown")
+            echo "::warning::Found $vuln_count potential vulnerabilities"
+          fi
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit $safety_exit_code
+          fi
+        fi
+
+    - name: 🔍 Bandit security analysis
+      id: bandit
+      shell: bash
+      run: |
+        echo "🔍 Running Bandit static security analysis..."
+
+        set +e  # Continue on error
+        bandit -r src/ -f json -o bandit-report.json -ll
+        bandit_exit_code=$?
+        set -e
+
+        if [ $bandit_exit_code -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "✅ Bandit scan passed"
+        else
+          echo "result=failure" >> $GITHUB_OUTPUT
+          echo "⚠️ Bandit found security issues"
+
+          if [ -f bandit-report.json ]; then
+            # 高リスクの問題をチェック
+            high_issues=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json 2>/dev/null || echo "0")
+            medium_issues=$(jq '.results | map(select(.issue_severity == "MEDIUM")) | length' bandit-report.json 2>/dev/null || echo "0")
+
+            echo "::warning::Found security issues - High: $high_issues, Medium: $medium_issues"
+
+            # 高リスクの問題がある場合は詳細を表示
+            if [ "$high_issues" -gt 0 ]; then
+              echo "::error::Critical security issues detected"
+              if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+                exit 1
+              fi
+            fi
+          fi
+        fi
+
+    - name: 🔬 Semgrep advanced analysis
+      id: semgrep
+      if: inputs.scan-level == 'comprehensive'
+      shell: bash
+      run: |
+        echo "🔬 Running Semgrep advanced security analysis..."
+
+        set +e  # Continue on error
+        semgrep --config=auto --json --output=semgrep-report.json src/ --timeout=300
+        semgrep_exit_code=$?
+        set -e
+
+        if [ $semgrep_exit_code -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "✅ Semgrep scan passed"
+        else
+          echo "result=failure" >> $GITHUB_OUTPUT
+          echo "⚠️ Semgrep found potential issues"
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit $semgrep_exit_code
+          fi
+        fi
+
+    - name: 🔍 Dependency audit
+      if: inputs.scan-level != 'basic'
+      shell: bash
+      run: |
+        echo "🔍 Running dependency audit..."
+
+        set +e  # Continue on error
+        pip-audit --format=json --output=pip-audit-report.json
+        audit_exit_code=$?
+        set -e
+
+        if [ $audit_exit_code -eq 0 ]; then
+          echo "✅ Dependency audit passed"
+        else
+          echo "⚠️ Dependency audit found issues"
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit $audit_exit_code
+          fi
+        fi
+
+    - name: 📊 Generate security summary
+      shell: bash
+      run: |
+        echo "📊 Generating security scan summary..."
+
+        # セキュリティスキャンのサマリーを生成
+        {
+          echo "# Security Scan Summary"
+          echo ""
+          echo "## Scan Configuration"
+          echo "- Scan Level: ${{ inputs.scan-level }}"
+          echo "- Fail on Error: ${{ inputs.fail-on-error }}"
+          echo "- Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo ""
+
+          echo "## Results"
+          echo "- Safety: ${{ steps.safety.outputs.result }}"
+          echo "- Bandit: ${{ steps.bandit.outputs.result }}"
+
+          if [ "${{ inputs.scan-level }}" = "comprehensive" ]; then
+            echo "- Semgrep: ${{ steps.semgrep.outputs.result }}"
+          fi
+
+          echo ""
+          echo "## Reports Generated"
+          for report in *-report.json; do
+            if [ -f "$report" ]; then
+              size=$(stat -c%s "$report" 2>/dev/null || stat -f%z "$report" 2>/dev/null || echo "unknown")
+              echo "- $report (${size} bytes)"
+            fi
+          done
+        } > security-summary.md
+
+        echo "✅ Security summary generated"
+
+    - name: 📤 Upload security reports
+      if: inputs.upload-reports == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports-${{ github.sha }}
+        path: |
+          *-report.json
+          security-summary.md
+        retention-days: 90

@@ -436,22 +436,26 @@ class TestTradingSignalGenerator:
             # 市場環境を含む検証
             market_context = {
                 "volatility": sample_data["Close"].pct_change().std(),
-                "trend_direction": "upward"
+                "trend_direction": "upward",
             }
-            validity_with_context = generator.validate_signal(signal, market_context=market_context)
+            validity_with_context = generator.validate_signal(
+                signal, market_context=market_context
+            )
             assert isinstance(validity_with_context, float)
             assert 0 <= validity_with_context <= 100
 
             # 過去パフォーマンスデータを含む検証
-            historical_data = pd.DataFrame({
-                "Signal": ["buy", "sell", "buy"],
-                "Strength": ["strong", "medium", "weak"],
-                "Success": [True, False, True]
-            })
+            historical_data = pd.DataFrame(
+                {
+                    "Signal": ["buy", "sell", "buy"],
+                    "Strength": ["strong", "medium", "weak"],
+                    "Success": [True, False, True],
+                }
+            )
             validity_with_history = generator.validate_signal(
                 signal,
                 historical_performance=historical_data,
-                market_context=market_context
+                market_context=market_context,
             )
             assert isinstance(validity_with_history, float)
             assert 0 <= validity_with_history <= 100
@@ -547,13 +551,16 @@ class TestImprovedSignalGeneration:
         np.random.seed(42)
         close_prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
 
-        return pd.DataFrame({
-            "Open": close_prices + np.random.randn(100) * 0.1,
-            "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
-            "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
-            "Close": close_prices,
-            "Volume": np.random.randint(1000000, 5000000, 100),
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "Open": close_prices + np.random.randn(100) * 0.1,
+                "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
+                "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
+                "Close": close_prices,
+                "Volume": np.random.randint(1000000, 5000000, 100),
+            },
+            index=dates,
+        )
 
     def test_config_based_rule_loading(self):
         """設定ベースルール読み込みテスト"""
@@ -614,7 +621,11 @@ class TestImprovedSignalGeneration:
         signal = generator.generate_signal(sample_data, indicators, patterns)
         if signal and signal.signal_type == SignalType.BUY:
             # 設定された閾値に基づいて強度が決定されていることを確認
-            assert signal.strength in [SignalStrength.STRONG, SignalStrength.MEDIUM, SignalStrength.WEAK]
+            assert signal.strength in [
+                SignalStrength.STRONG,
+                SignalStrength.MEDIUM,
+                SignalStrength.WEAK,
+            ]
 
     def test_enhanced_validate_signal(self, sample_data):
         """拡張されたシグナル検証テスト"""
@@ -628,14 +639,18 @@ class TestImprovedSignalGeneration:
             # 市場環境情報によるvalidation
             market_context = {
                 "volatility": 0.02,  # 低ボラティリティ
-                "trend_direction": "upward"
+                "trend_direction": "upward",
             }
 
-            validity_low_vol = generator.validate_signal(signal, market_context=market_context)
+            validity_low_vol = generator.validate_signal(
+                signal, market_context=market_context
+            )
 
             # 高ボラティリティでの検証
             market_context["volatility"] = 0.08  # 高ボラティリティ
-            validity_high_vol = generator.validate_signal(signal, market_context=market_context)
+            validity_high_vol = generator.validate_signal(
+                signal, market_context=market_context
+            )
 
             # 高ボラティリティ時は信頼度が下がることを確認
             if signal.signal_type in [SignalType.BUY, SignalType.SELL]:
@@ -649,8 +664,8 @@ class TestImprovedSignalGeneration:
         rsi_rules = [rule for rule in generator.buy_rules if "RSI" in rule.name]
         if rsi_rules:
             rsi_rule = rsi_rules[0]
-            assert hasattr(rsi_rule, 'threshold')
-            assert hasattr(rsi_rule, 'confidence_multiplier')
+            assert hasattr(rsi_rule, "threshold")
+            assert hasattr(rsi_rule, "confidence_multiplier")
             assert rsi_rule.threshold > 0
             assert rsi_rule.confidence_multiplier > 0
 

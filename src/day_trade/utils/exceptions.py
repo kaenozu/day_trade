@@ -3,6 +3,12 @@ Day Trade システム用カスタム例外クラス
 エラーハンドリングの統一化と分類を行う
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import requests.exceptions
+    import sqlalchemy.exc
+
 
 class DayTradeError(Exception):
     """Day Trade システムの基底例外クラス"""

@@ -16,15 +16,18 @@ from rich.text import Text
 # Windows環境対応
 try:
     from src.day_trade.utils.windows_console_fix import create_safe_live_context
+
     safe_live_context = create_safe_live_context()
 except ImportError:
     from contextlib import contextmanager
+
     from rich.live import Live
 
     @contextmanager
     def safe_live_context(*args, **kwargs):
         with Live(*args, **kwargs) as live:
             yield live
+
 
 from src.day_trade.utils.formatters import (
     # 高度なASCII表示機能
@@ -446,7 +449,9 @@ def interactive_demo():
         return layout
 
     try:
-        with safe_live_context(create_dashboard(), refresh_per_second=2, screen=True) as live:
+        with safe_live_context(
+            create_dashboard(), refresh_per_second=2, screen=True
+        ) as live:
             while True:
                 time.sleep(0.5)
                 if live:  # Liveが有効な場合のみ更新

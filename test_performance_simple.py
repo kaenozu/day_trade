@@ -6,20 +6,19 @@ Issue #165: アプリケーション全体の処理速度向上に向けた最�
 簡略化されたテストでWindows環境での動作を確認します。
 """
 
-import time
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-from pathlib import Path
 import sys
+import time
+from pathlib import Path
+
+import numpy as np
 
 # プロジェクトのルートを追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from day_trade.utils.performance_optimizer import (
     PerformanceProfiler,
+    create_sample_data,
     performance_monitor,
-    create_sample_data
 )
 
 
@@ -50,8 +49,8 @@ def test_basic_optimization():
         test_data = create_sample_data(5000)
 
         # 基本的な計算
-        test_data['sma'] = test_data.iloc[:, 1].rolling(window=20).mean()
-        test_data['ema'] = test_data.iloc[:, 1].ewm(span=12).mean()
+        test_data["sma"] = test_data.iloc[:, 1].rolling(window=20).mean()
+        test_data["ema"] = test_data.iloc[:, 1].ewm(span=12).mean()
 
     # 3. 統計レポート
     print("\n3. パフォーマンス統計")
@@ -75,7 +74,7 @@ def test_basic_optimization():
 
     for i in range(len(data)):
         if i >= window - 1:
-            sma_slow.append(data.iloc[i-window+1:i+1, 1].mean())
+            sma_slow.append(data.iloc[i - window + 1 : i + 1, 1].mean())
         else:
             sma_slow.append(np.nan)
 
@@ -83,7 +82,7 @@ def test_basic_optimization():
 
     # 最適化版（Pandasベクトル化）
     start_time = time.perf_counter()
-    sma_fast = data.iloc[:, 1].rolling(window=window).mean()
+    data.iloc[:, 1].rolling(window=window).mean()
     fast_time = time.perf_counter() - start_time
 
     speedup = slow_time / fast_time if fast_time > 0 else 1
@@ -104,7 +103,7 @@ def test_basic_optimization():
     print("  - ベクトル化計算: OK")
     print(f"  - 計算処理高速化: {speedup:.2f}x向上")
 
-    print(f"\n期待される効果:")
+    print("\n期待される効果:")
     print("  - 大量データ処理の高速化")
     print("  - メモリ使用量の最適化")
     print("  - アプリケーション応答性の向上")
@@ -118,4 +117,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n>> テストエラー: {e}")
         import traceback
+
         traceback.print_exc()

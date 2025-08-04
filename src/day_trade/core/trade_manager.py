@@ -6,7 +6,6 @@
 
 import csv
 import json
-import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -14,8 +13,13 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 from ..models.database import db_manager
-from ..models.stock import Stock, Trade as DBTrade
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..models.stock import Stock
+from ..models.stock import Trade as DBTrade
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 logger = get_context_logger(__name__)
 
@@ -225,7 +229,7 @@ class TradeManager:
             trade_type=trade_type.value,
             quantity=quantity,
             price=float(price),
-            persist_to_db=persist_to_db
+            persist_to_db=persist_to_db,
         )
 
         operation_logger.info("取引追加処理開始")
@@ -263,26 +267,30 @@ class TradeManager:
                             name=symbol,  # 名前が不明な場合はコードを使用
                             market="未定",
                             sector="未定",
-                            industry="未定"
+                            industry="未定",
                         )
                         session.add(stock)
                         session.flush()  # IDを確定
 
                     # 2. データベース取引記録を作成
-                    db_trade = DBTrade.create_buy_trade(
-                        session=session,
-                        stock_code=symbol,
-                        quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
-                        memo=notes
-                    ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
-                        session=session,
-                        stock_code=symbol,
-                        quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
-                        memo=notes
+                    db_trade = (
+                        DBTrade.create_buy_trade(
+                            session=session,
+                            stock_code=symbol,
+                            quantity=quantity,
+                            price=float(price),
+                            commission=float(commission),
+                            memo=notes,
+                        )
+                        if trade_type == TradeType.BUY
+                        else DBTrade.create_sell_trade(
+                            session=session,
+                            stock_code=symbol,
+                            quantity=quantity,
+                            price=float(price),
+                            commission=float(commission),
+                            memo=notes,
+                        )
                     )
 
                     # 3. メモリ内データ構造を更新
@@ -301,12 +309,14 @@ class TradeManager:
                         quantity=quantity,
                         price=float(price),
                         commission=float(commission),
-                        persisted=True
+                        persisted=True,
                     )
 
-                    operation_logger.info("取引追加完了（DB永続化）",
-                                        trade_id=trade_id,
-                                        db_trade_id=db_trade.id)
+                    operation_logger.info(
+                        "取引追加完了（DB永続化）",
+                        trade_id=trade_id,
+                        db_trade_id=db_trade.id,
+                    )
             else:
                 # メモリ内のみの処理（後方互換性）
                 self.trades.append(memory_trade)
@@ -320,7 +330,7 @@ class TradeManager:
                     quantity=quantity,
                     price=float(price),
                     commission=float(commission),
-                    persisted=False
+                    persisted=False,
                 )
 
                 operation_logger.info("取引追加完了（メモリのみ）", trade_id=trade_id)
@@ -328,14 +338,17 @@ class TradeManager:
             return trade_id
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "add_trade",
-                "symbol": symbol,
-                "trade_type": trade_type.value,
-                "quantity": quantity,
-                "price": float(price),
-                "persist_to_db": persist_to_db
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "add_trade",
+                    "symbol": symbol,
+                    "trade_type": trade_type.value,
+                    "quantity": quantity,
+                    "price": float(price),
+                    "persist_to_db": persist_to_db,
+                },
+            )
             operation_logger.error("取引追加失敗", error=str(e))
             raise
 
@@ -460,7 +473,9 @@ class TradeManager:
             # トランザクション内で一括処理
             with db_manager.transaction_scope() as session:
                 # データベースから全取引を取得
-                db_trades = session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
+                db_trades = (
+                    session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
+                )
 
                 load_logger.info("DB取引データ取得", count=len(db_trades))
 
@@ -489,7 +504,11 @@ class TradeManager:
                         memo = db_trade.memo or ""
 
                         # メモリ内形式に変換
-                        trade_type = TradeType.BUY if trade_type_str.lower() == "buy" else TradeType.SELL
+                        trade_type = (
+                            TradeType.BUY
+                            if trade_type_str.lower() == "buy"
+                            else TradeType.SELL
+                        )
 
                         memory_trade = Trade(
                             id=f"DB_{trade_id}",  # DBから読み込んだことを示すプレフィックス
@@ -511,9 +530,11 @@ class TradeManager:
                         max_id = max(db_trade.id for db_trade in db_trades)
                         self._trade_counter = max_id + 1
 
-                    load_logger.info("データベース読み込み完了",
-                                   loaded_trades=len(db_trades),
-                                   trade_counter=self._trade_counter)
+                    load_logger.info(
+                        "データベース読み込み完了",
+                        loaded_trades=len(db_trades),
+                        trade_counter=self._trade_counter,
+                    )
 
                 except Exception as restore_error:
                     # メモリ内データの復元
@@ -521,13 +542,14 @@ class TradeManager:
                     self.positions = positions_backup
                     self.realized_pnl = realized_pnl_backup
                     self._trade_counter = counter_backup
-                    load_logger.error("読み込み処理失敗、メモリ内データを復元", error=str(restore_error))
+                    load_logger.error(
+                        "読み込み処理失敗、メモリ内データを復元",
+                        error=str(restore_error),
+                    )
                     raise restore_error
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "load_trades_from_db"
-            })
+            log_error_with_context(e, {"operation": "load_trades_from_db"})
             load_logger.error("データベース読み込み失敗", error=str(e))
             raise
 
@@ -561,13 +583,15 @@ class TradeManager:
             self.realized_pnl = realized_pnl_backup
             self._trade_counter = counter_backup
 
-            log_error_with_context(e, {
-                "operation": "sync_with_db"
-            })
-            sync_logger.error("データベース同期失敗、メモリ内データを復元", error=str(e))
+            log_error_with_context(e, {"operation": "sync_with_db"})
+            sync_logger.error(
+                "データベース同期失敗、メモリ内データを復元", error=str(e)
+            )
             raise
 
-    def add_trades_batch(self, trades_data: List[Dict], persist_to_db: bool = True) -> List[str]:
+    def add_trades_batch(
+        self, trades_data: List[Dict], persist_to_db: bool = True
+    ) -> List[str]:
         """
         複数の取引を一括追加（トランザクション保護）
 
@@ -585,7 +609,7 @@ class TradeManager:
         batch_logger = logger.bind(
             operation="add_trades_batch",
             batch_size=len(trades_data),
-            persist_to_db=persist_to_db
+            persist_to_db=persist_to_db,
         )
         batch_logger.info("一括取引追加処理開始")
 
@@ -622,33 +646,37 @@ class TradeManager:
                             trade_id = self._generate_trade_id()
 
                             # 1. 銘柄マスタの存在確認・作成
-                            stock = session.query(Stock).filter(Stock.code == symbol).first()
+                            stock = (
+                                session.query(Stock)
+                                .filter(Stock.code == symbol)
+                                .first()
+                            )
                             if not stock:
                                 stock = Stock(
                                     code=symbol,
                                     name=symbol,
                                     market="未定",
                                     sector="未定",
-                                    industry="未定"
+                                    industry="未定",
                                 )
                                 session.add(stock)
                                 session.flush()
 
                             # 2. データベース取引記録を作成
-                            db_trade = DBTrade.create_buy_trade(
+                            DBTrade.create_buy_trade(
                                 session=session,
                                 stock_code=symbol,
                                 quantity=quantity,
                                 price=float(price),
                                 commission=float(commission),
-                                memo=notes
+                                memo=notes,
                             ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
                                 session=session,
                                 stock_code=symbol,
                                 quantity=quantity,
                                 price=float(price),
                                 commission=float(commission),
-                                memo=notes
+                                memo=notes,
                             )
 
                             # 3. メモリ内データ構造を更新
@@ -672,10 +700,12 @@ class TradeManager:
                                 session.flush()
 
                         except Exception as trade_error:
-                            batch_logger.error("個別取引処理失敗",
-                                            trade_index=i,
-                                            symbol=trade_data.get("symbol", "unknown"),
-                                            error=str(trade_error))
+                            batch_logger.error(
+                                "個別取引処理失敗",
+                                trade_index=i,
+                                symbol=trade_data.get("symbol", "unknown"),
+                                error=str(trade_error),
+                            )
                             raise trade_error
 
                     # 最終的なビジネスイベントログ
@@ -683,10 +713,12 @@ class TradeManager:
                         "trades_batch_added",
                         batch_size=len(trades_data),
                         trade_ids=trade_ids,
-                        persisted=True
+                        persisted=True,
                     )
 
-                    batch_logger.info("一括取引追加完了（DB永続化）", trade_count=len(trade_ids))
+                    batch_logger.info(
+                        "一括取引追加完了（DB永続化）", trade_count=len(trade_ids)
+                    )
 
             else:
                 # メモリ内のみの処理
@@ -723,10 +755,12 @@ class TradeManager:
                     "trades_batch_added",
                     batch_size=len(trades_data),
                     trade_ids=trade_ids,
-                    persisted=False
+                    persisted=False,
                 )
 
-                batch_logger.info("一括取引追加完了（メモリのみ）", trade_count=len(trade_ids))
+                batch_logger.info(
+                    "一括取引追加完了（メモリのみ）", trade_count=len(trade_ids)
+                )
 
             return trade_ids
 
@@ -737,13 +771,18 @@ class TradeManager:
             self.realized_pnl = realized_pnl_backup
             self._trade_counter = counter_backup
 
-            log_error_with_context(e, {
-                "operation": "add_trades_batch",
-                "batch_size": len(trades_data),
-                "persist_to_db": persist_to_db,
-                "completed_trades": len(trade_ids)
-            })
-            batch_logger.error("一括取引追加失敗、すべての変更をロールバック", error=str(e))
+            log_error_with_context(
+                e,
+                {
+                    "operation": "add_trades_batch",
+                    "batch_size": len(trades_data),
+                    "persist_to_db": persist_to_db,
+                    "completed_trades": len(trade_ids),
+                },
+            )
+            batch_logger.error(
+                "一括取引追加失敗、すべての変更をロールバック", error=str(e)
+            )
             raise
 
     def clear_all_data(self, persist_to_db: bool = True):
@@ -757,8 +796,7 @@ class TradeManager:
             この操作は取引履歴、ポジション、実現損益をすべて削除します
         """
         clear_logger = logger.bind(
-            operation="clear_all_data",
-            persist_to_db=persist_to_db
+            operation="clear_all_data", persist_to_db=persist_to_db
         )
         clear_logger.warning("全データ削除処理開始")
 
@@ -774,7 +812,9 @@ class TradeManager:
                 with db_manager.transaction_scope() as session:
                     # データベースの取引データを削除
                     deleted_count = session.query(DBTrade).delete()
-                    clear_logger.info("データベース取引データ削除", deleted_count=deleted_count)
+                    clear_logger.info(
+                        "データベース取引データ削除", deleted_count=deleted_count
+                    )
 
                     # メモリ内データクリア
                     self.trades.clear()
@@ -785,7 +825,7 @@ class TradeManager:
                     log_business_event(
                         "all_data_cleared",
                         deleted_db_records=deleted_count,
-                        persisted=True
+                        persisted=True,
                     )
 
                     clear_logger.warning("全データ削除完了（DB + メモリ）")
@@ -797,9 +837,7 @@ class TradeManager:
                 self._trade_counter = 0
 
                 log_business_event(
-                    "all_data_cleared",
-                    deleted_db_records=0,
-                    persisted=False
+                    "all_data_cleared", deleted_db_records=0, persisted=False
                 )
 
                 clear_logger.warning("全データ削除完了（メモリのみ）")
@@ -811,10 +849,9 @@ class TradeManager:
             self.realized_pnl = realized_pnl_backup
             self._trade_counter = counter_backup
 
-            log_error_with_context(e, {
-                "operation": "clear_all_data",
-                "persist_to_db": persist_to_db
-            })
+            log_error_with_context(
+                e, {"operation": "clear_all_data", "persist_to_db": persist_to_db}
+            )
             clear_logger.error("全データ削除失敗、メモリ内データを復元", error=str(e))
             raise
 
@@ -1028,7 +1065,7 @@ class TradeManager:
         price: Decimal,
         current_market_price: Optional[Decimal] = None,
         notes: str = "",
-        persist_to_db: bool = True
+        persist_to_db: bool = True,
     ) -> Dict[str, any]:
         """
         株式買い注文を実行（完全なトランザクション保護）
@@ -1056,7 +1093,7 @@ class TradeManager:
             symbol=symbol,
             quantity=quantity,
             price=float(price),
-            persist_to_db=persist_to_db
+            persist_to_db=persist_to_db,
         )
 
         buy_logger.info("株式買い注文処理開始")
@@ -1089,7 +1126,7 @@ class TradeManager:
                             name=symbol,
                             market="未定",
                             sector="未定",
-                            industry="未定"
+                            industry="未定",
                         )
                         session.add(stock)
                         session.flush()
@@ -1104,7 +1141,7 @@ class TradeManager:
                         quantity=quantity,
                         price=float(price),
                         commission=float(commission),
-                        memo=notes
+                        memo=notes,
                     )
 
                     # 4. メモリ内取引記録作成
@@ -1116,7 +1153,7 @@ class TradeManager:
                         price=price,
                         timestamp=timestamp,
                         commission=commission,
-                        notes=notes
+                        notes=notes,
                     )
 
                     # 5. ポジション更新（原子的実行）
@@ -1142,13 +1179,15 @@ class TradeManager:
                         commission=float(commission),
                         old_position=old_position.to_dict() if old_position else None,
                         new_position=new_position.to_dict() if new_position else None,
-                        persisted=True
+                        persisted=True,
                     )
 
-                    buy_logger.info("株式買い注文完了（DB永続化）",
-                                 trade_id=trade_id,
-                                 db_trade_id=db_trade.id,
-                                 commission=float(commission))
+                    buy_logger.info(
+                        "株式買い注文完了（DB永続化）",
+                        trade_id=trade_id,
+                        db_trade_id=db_trade.id,
+                        commission=float(commission),
+                    )
             else:
                 # メモリ内のみの処理
                 trade_id = self._generate_trade_id()
@@ -1161,7 +1200,7 @@ class TradeManager:
                     price=price,
                     timestamp=timestamp,
                     commission=commission,
-                    notes=notes
+                    notes=notes,
                 )
 
                 old_position = self.positions.get(symbol)
@@ -1181,12 +1220,14 @@ class TradeManager:
                     commission=float(commission),
                     old_position=old_position.to_dict() if old_position else None,
                     new_position=new_position.to_dict() if new_position else None,
-                    persisted=False
+                    persisted=False,
                 )
 
-                buy_logger.info("株式買い注文完了（メモリのみ）",
-                             trade_id=trade_id,
-                             commission=float(commission))
+                buy_logger.info(
+                    "株式買い注文完了（メモリのみ）",
+                    trade_id=trade_id,
+                    commission=float(commission),
+                )
 
             # 結果データ作成
             result = {
@@ -1197,8 +1238,10 @@ class TradeManager:
                 "price": float(price),
                 "commission": float(commission),
                 "timestamp": timestamp.isoformat(),
-                "position": self.positions[symbol].to_dict() if symbol in self.positions else None,
-                "total_cost": float(price * quantity + commission)
+                "position": self.positions[symbol].to_dict()
+                if symbol in self.positions
+                else None,
+                "total_cost": float(price * quantity + commission),
             }
 
             return result
@@ -1209,13 +1252,16 @@ class TradeManager:
             self.positions = positions_backup
             self._trade_counter = counter_backup
 
-            log_error_with_context(e, {
-                "operation": "buy_stock",
-                "symbol": symbol,
-                "quantity": quantity,
-                "price": float(price),
-                "persist_to_db": persist_to_db
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "buy_stock",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "price": float(price),
+                    "persist_to_db": persist_to_db,
+                },
+            )
             buy_logger.error("株式買い注文失敗、変更をロールバック", error=str(e))
             raise
 
@@ -1226,7 +1272,7 @@ class TradeManager:
         price: Decimal,
         current_market_price: Optional[Decimal] = None,
         notes: str = "",
-        persist_to_db: bool = True
+        persist_to_db: bool = True,
     ) -> Dict[str, any]:
         """
         株式売り注文を実行（完全なトランザクション保護）
@@ -1254,7 +1300,7 @@ class TradeManager:
             symbol=symbol,
             quantity=quantity,
             price=float(price),
-            persist_to_db=persist_to_db
+            persist_to_db=persist_to_db,
         )
 
         sell_logger.info("株式売り注文処理開始")
@@ -1299,7 +1345,7 @@ class TradeManager:
                         quantity=quantity,
                         price=float(price),
                         commission=float(commission),
-                        memo=notes
+                        memo=notes,
                     )
 
                     # 3. メモリ内取引記録作成
@@ -1311,7 +1357,7 @@ class TradeManager:
                         price=price,
                         timestamp=timestamp,
                         commission=commission,
-                        notes=notes
+                        notes=notes,
                     )
 
                     # 4. ポジション更新と実現損益計算（原子的実行）
@@ -1343,15 +1389,19 @@ class TradeManager:
                         commission=float(commission),
                         old_position=old_position.to_dict(),
                         new_position=new_position.to_dict() if new_position else None,
-                        realized_pnl=new_realized_pnl.to_dict() if new_realized_pnl else None,
-                        persisted=True
+                        realized_pnl=new_realized_pnl.to_dict()
+                        if new_realized_pnl
+                        else None,
+                        persisted=True,
                     )
 
-                    sell_logger.info("株式売り注文完了（DB永続化）",
-                                  trade_id=trade_id,
-                                  db_trade_id=db_trade.id,
-                                  commission=float(commission),
-                                  realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None)
+                    sell_logger.info(
+                        "株式売り注文完了（DB永続化）",
+                        trade_id=trade_id,
+                        db_trade_id=db_trade.id,
+                        commission=float(commission),
+                        realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None,
+                    )
             else:
                 # メモリ内のみの処理
                 trade_id = self._generate_trade_id()
@@ -1364,7 +1414,7 @@ class TradeManager:
                     price=price,
                     timestamp=timestamp,
                     commission=commission,
-                    notes=notes
+                    notes=notes,
                 )
 
                 old_position = self.positions[symbol]
@@ -1390,14 +1440,18 @@ class TradeManager:
                     commission=float(commission),
                     old_position=old_position.to_dict(),
                     new_position=new_position.to_dict() if new_position else None,
-                    realized_pnl=new_realized_pnl.to_dict() if new_realized_pnl else None,
-                    persisted=False
+                    realized_pnl=new_realized_pnl.to_dict()
+                    if new_realized_pnl
+                    else None,
+                    persisted=False,
                 )
 
-                sell_logger.info("株式売り注文完了（メモリのみ）",
-                              trade_id=trade_id,
-                              commission=float(commission),
-                              realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None)
+                sell_logger.info(
+                    "株式売り注文完了（メモリのみ）",
+                    trade_id=trade_id,
+                    commission=float(commission),
+                    realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None,
+                )
 
             # 結果データ作成
             result = {
@@ -1410,8 +1464,10 @@ class TradeManager:
                 "timestamp": timestamp.isoformat(),
                 "position": new_position.to_dict() if new_position else None,
                 "position_closed": new_position is None,
-                "realized_pnl": new_realized_pnl.to_dict() if new_realized_pnl else None,
-                "gross_proceeds": float(price * quantity - commission)
+                "realized_pnl": new_realized_pnl.to_dict()
+                if new_realized_pnl
+                else None,
+                "gross_proceeds": float(price * quantity - commission),
             }
 
             return result
@@ -1423,20 +1479,21 @@ class TradeManager:
             self.realized_pnl = realized_pnl_backup
             self._trade_counter = counter_backup
 
-            log_error_with_context(e, {
-                "operation": "sell_stock",
-                "symbol": symbol,
-                "quantity": quantity,
-                "price": float(price),
-                "persist_to_db": persist_to_db
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "sell_stock",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "price": float(price),
+                    "persist_to_db": persist_to_db,
+                },
+            )
             sell_logger.error("株式売り注文失敗、変更をロールバック", error=str(e))
             raise
 
     def execute_trade_order(
-        self,
-        trade_order: Dict[str, any],
-        persist_to_db: bool = True
+        self, trade_order: Dict[str, any], persist_to_db: bool = True
     ) -> Dict[str, any]:
         """
         取引注文を実行（買い/売りを統一インターフェースで処理）
@@ -1465,7 +1522,7 @@ class TradeManager:
                 price=trade_order["price"],
                 current_market_price=trade_order.get("current_market_price"),
                 notes=trade_order.get("notes", ""),
-                persist_to_db=persist_to_db
+                persist_to_db=persist_to_db,
             )
         elif action == "sell":
             return self.sell_stock(
@@ -1474,10 +1531,12 @@ class TradeManager:
                 price=trade_order["price"],
                 current_market_price=trade_order.get("current_market_price"),
                 notes=trade_order.get("notes", ""),
-                persist_to_db=persist_to_db
+                persist_to_db=persist_to_db,
             )
         else:
-            raise ValueError(f"無効な取引アクション: {action}. 'buy' または 'sell' を指定してください")
+            raise ValueError(
+                f"無効な取引アクション: {action}. 'buy' または 'sell' を指定してください"
+            )
 
     def calculate_tax_implications(self, year: int) -> Dict:
         """税務計算"""
@@ -1560,7 +1619,7 @@ if __name__ == "__main__":
             current_price=float(position.current_price),
             market_value=float(position.market_value),
             unrealized_pnl=float(position.unrealized_pnl),
-            unrealized_pnl_percent=float(position.unrealized_pnl_percent)
+            unrealized_pnl_percent=float(position.unrealized_pnl_percent),
         )
 
     # 一部売却
@@ -1581,7 +1640,7 @@ if __name__ == "__main__":
                 buy_price=float(pnl.buy_price),
                 sell_price=float(pnl.sell_price),
                 pnl=float(pnl.pnl),
-                pnl_percent=float(pnl.pnl_percent)
+                pnl_percent=float(pnl.pnl_percent),
             )
 
     # ポートフォリオサマリー
