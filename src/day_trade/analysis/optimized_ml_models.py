@@ -5,27 +5,24 @@
 並列処理、キャッシュ、メモリ最適化を実装。
 """
 
-import functools
 import gc
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
@@ -57,7 +54,7 @@ class PerformanceCache:
             return "empty_data"
 
         # 利用可能な列を使用
-        available_cols = data.columns[:min(2, len(data.columns))]
+        available_cols = data.columns[: min(2, len(data.columns))]
         if len(available_cols) > 0:
             recent_data = data[available_cols].tail(min(5, len(data)))
             key_str = f"{recent_data.values.tobytes().hex()}"
@@ -73,11 +70,11 @@ class PerformanceCache:
             cached_item = self.cache[key]
 
             # TTLチェック
-            if datetime.now() - cached_item['timestamp'] < self.ttl:
+            if datetime.now() - cached_item["timestamp"] < self.ttl:
                 self.access_times[key] = datetime.now()
 
                 # キャッシュヒットをマーク
-                predictions = cached_item['predictions']
+                predictions = cached_item["predictions"]
                 for pred in predictions:
                     pred.cache_hit = True
 
@@ -85,7 +82,7 @@ class PerformanceCache:
                     "キャッシュヒット",
                     section="ml_cache",
                     key=key[:8],
-                    predictions_count=len(predictions)
+                    predictions_count=len(predictions),
                 )
 
                 return predictions
@@ -104,22 +101,20 @@ class PerformanceCache:
         # キャッシュサイズ制限
         if len(self.cache) >= self.max_size:
             # 最も古いアクセスのキーを削除
-            oldest_key = min(self.access_times.keys(),
-                           key=lambda k: self.access_times[k])
+            oldest_key = min(
+                self.access_times.keys(), key=lambda k: self.access_times[k]
+            )
             del self.cache[oldest_key]
             del self.access_times[oldest_key]
 
-        self.cache[key] = {
-            'predictions': predictions,
-            'timestamp': datetime.now()
-        }
+        self.cache[key] = {"predictions": predictions, "timestamp": datetime.now()}
         self.access_times[key] = datetime.now()
 
         logger.debug(
             "キャッシュ保存",
             section="ml_cache",
             key=key[:8],
-            cache_size=len(self.cache)
+            cache_size=len(self.cache),
         )
 
 
@@ -146,7 +141,7 @@ class OptimizedBasePredictionModel:
         logger.info(
             f"モデル訓練開始: {self.model_name}",
             section="ml_training",
-            data_shape=X.shape
+            data_shape=X.shape,
         )
 
         try:
@@ -166,23 +161,25 @@ class OptimizedBasePredictionModel:
             self.feature_names = list(X_processed.columns)
 
             # 訓練履歴記録
-            self.training_history.append({
-                'timestamp': datetime.now(),
-                'data_size': len(X),
-                'features_count': X_processed.shape[1]
-            })
+            self.training_history.append(
+                {
+                    "timestamp": datetime.now(),
+                    "data_size": len(X),
+                    "features_count": X_processed.shape[1],
+                }
+            )
 
             logger.info(
                 f"モデル訓練完了: {self.model_name}",
                 section="ml_training",
-                features_count=len(self.feature_names)
+                features_count=len(self.feature_names),
             )
 
         except Exception as e:
             logger.error(
                 f"モデル訓練エラー: {self.model_name}",
                 section="ml_training",
-                error=str(e)
+                error=str(e),
             )
             raise
 
@@ -218,21 +215,19 @@ class OptimizedBasePredictionModel:
                 prediction=prediction,
                 confidence=confidence,
                 model_name=self.model_name,
-                computation_time=computation_time
+                computation_time=computation_time,
             )
 
         except Exception as e:
             logger.error(
-                f"予測エラー: {self.model_name}",
-                section="ml_prediction",
-                error=str(e)
+                f"予測エラー: {self.model_name}", section="ml_prediction", error=str(e)
             )
             raise
 
     def _preprocess_features(self, X: pd.DataFrame) -> pd.DataFrame:
         """特徴量前処理（メモリ効率化）"""
         # 欠損値を効率的に処理
-        X_filled = X.fillna(method='ffill').fillna(0)
+        X_filled = X.fillna(method="ffill").fillna(0)
 
         # 無限値の処理
         X_clean = X_filled.replace([np.inf, -np.inf], 0)
@@ -260,7 +255,7 @@ class OptimizedBasePredictionModel:
                 f"特徴量調整: {self.model_name}",
                 section="feature_alignment",
                 missing=len(missing_features),
-                extra=len(extra_features)
+                extra=len(extra_features),
             )
 
         return X_aligned
@@ -287,7 +282,7 @@ class OptimizedBasePredictionModel:
         base_params = {}
 
         if self.enable_parallel:
-            base_params['n_jobs'] = -1  # 全CPUコア使用
+            base_params["n_jobs"] = -1  # 全CPUコア使用
 
         return base_params
 
@@ -314,13 +309,15 @@ class OptimizedRandomForestModel(OptimizedBasePredictionModel):
 
     def _get_optimized_model_params(self) -> Dict[str, Any]:
         params = super()._get_optimized_model_params()
-        params.update({
-            'n_estimators': 50,      # 軽量化のため削減
-            'max_depth': 10,         # 深さ制限
-            'min_samples_split': 10, # 分割条件を緩和
-            'min_samples_leaf': 5,   # リーフ条件を緩和
-            'random_state': 42
-        })
+        params.update(
+            {
+                "n_estimators": 50,  # 軽量化のため削減
+                "max_depth": 10,  # 深さ制限
+                "min_samples_split": 10,  # 分割条件を緩和
+                "min_samples_leaf": 5,  # リーフ条件を緩和
+                "random_state": 42,
+            }
+        )
         return params
 
     def _create_model(self, **params):
@@ -335,13 +332,15 @@ class OptimizedGradientBoostingModel(OptimizedBasePredictionModel):
 
     def _get_optimized_model_params(self) -> Dict[str, Any]:
         params = super()._get_optimized_model_params()
-        params.update({
-            'n_estimators': 30,      # 軽量化
-            'max_depth': 6,          # 深さ制限
-            'learning_rate': 0.1,
-            'subsample': 0.8,        # サブサンプリング
-            'random_state': 42
-        })
+        params.update(
+            {
+                "n_estimators": 30,  # 軽量化
+                "max_depth": 6,  # 深さ制限
+                "learning_rate": 0.1,
+                "subsample": 0.8,  # サブサンプリング
+                "random_state": 42,
+            }
+        )
         return params
 
     def _create_model(self, **params):
@@ -365,7 +364,7 @@ class OptimizedEnsemblePredictor:
             "最適化済みアンサンブル予測器初期化",
             section="ensemble_init",
             parallel_enabled=enable_parallel,
-            cache_enabled=enable_cache
+            cache_enabled=enable_cache,
         )
 
     def add_model(self, model: OptimizedBasePredictionModel, weight: float = 1.0):
@@ -377,7 +376,7 @@ class OptimizedEnsemblePredictor:
             f"モデル追加: {model.model_name}",
             section="ensemble_setup",
             weight=weight,
-            total_models=len(self.models)
+            total_models=len(self.models),
         )
 
     @profile_performance
@@ -387,7 +386,7 @@ class OptimizedEnsemblePredictor:
             "アンサンブル訓練開始",
             section="ensemble_training",
             models_count=len(self.models),
-            data_shape=X.shape
+            data_shape=X.shape,
         )
 
         if self.enable_parallel:
@@ -403,11 +402,12 @@ class OptimizedEnsemblePredictor:
         logger.info(
             "アンサンブル訓練完了",
             section="ensemble_training",
-            trained_models=len([m for m in self.models if m.is_trained])
+            trained_models=len([m for m in self.models if m.is_trained]),
         )
 
     def _fit_parallel(self, X: pd.DataFrame, y: pd.Series):
         """並列訓練実行"""
+
         def train_model(model):
             try:
                 model.fit(X, y)
@@ -458,6 +458,7 @@ class OptimizedEnsemblePredictor:
 
     def _predict_parallel(self, X: pd.DataFrame) -> List[OptimizedModelPrediction]:
         """並列予測実行"""
+
         def predict_model(model):
             try:
                 if model.is_trained:
@@ -503,25 +504,25 @@ class OptimizedEnsemblePredictor:
     def get_performance_stats(self) -> Dict[str, Any]:
         """パフォーマンス統計取得"""
         stats = {
-            'total_models': len(self.models),
-            'trained_models': len([m for m in self.models if m.is_trained]),
-            'cache_enabled': self.enable_cache,
-            'parallel_enabled': self.enable_parallel,
-            'model_stats': {}
+            "total_models": len(self.models),
+            "trained_models": len([m for m in self.models if m.is_trained]),
+            "cache_enabled": self.enable_cache,
+            "parallel_enabled": self.enable_parallel,
+            "model_stats": {},
         }
 
         for model in self.models:
-            stats['model_stats'][model.model_name] = {
-                'prediction_count': model.prediction_count,
-                'avg_prediction_time': model.avg_prediction_time,
-                'is_trained': model.is_trained
+            stats["model_stats"][model.model_name] = {
+                "prediction_count": model.prediction_count,
+                "avg_prediction_time": model.avg_prediction_time,
+                "is_trained": model.is_trained,
             }
 
         if self.cache:
-            stats['cache_stats'] = {
-                'cache_size': len(self.cache.cache),
-                'max_size': self.cache.max_size,
-                'ttl_hours': self.cache.ttl.total_seconds() / 3600
+            stats["cache_stats"] = {
+                "cache_size": len(self.cache.cache),
+                "max_size": self.cache.max_size,
+                "ttl_hours": self.cache.ttl.total_seconds() / 3600,
             }
 
         return stats
@@ -544,7 +545,7 @@ def create_optimized_model_ensemble() -> OptimizedEnsemblePredictor:
     logger.info(
         "最適化済みアンサンブル作成完了",
         section="ensemble_creation",
-        models_count=len(ensemble.models)
+        models_count=len(ensemble.models),
     )
 
     return ensemble
@@ -552,8 +553,7 @@ def create_optimized_model_ensemble() -> OptimizedEnsemblePredictor:
 
 @profile_performance
 def optimize_prediction_accuracy(
-    predictions: List[OptimizedModelPrediction],
-    actual: np.ndarray
+    predictions: List[OptimizedModelPrediction], actual: np.ndarray
 ) -> Dict[str, float]:
     """予測精度評価（最適化済み）"""
     if not predictions or len(actual) == 0:
@@ -564,7 +564,11 @@ def optimize_prediction_accuracy(
     # 複数予測がある場合は重み付き平均
     if len(predictions) > 1:
         weights = np.array([p.confidence / 100.0 for p in predictions])
-        weights = weights / np.sum(weights) if np.sum(weights) > 0 else np.ones_like(weights) / len(weights)
+        weights = (
+            weights / np.sum(weights)
+            if np.sum(weights) > 0
+            else np.ones_like(weights) / len(weights)
+        )
         final_prediction = np.average(pred_values, weights=weights)
     else:
         final_prediction = pred_values[0]
@@ -582,13 +586,15 @@ def optimize_prediction_accuracy(
             mape = 0.0
 
         return {
-            'mae': mae,
-            'mse': mse,
-            'rmse': rmse,
-            'mape': mape,
-            'prediction_count': len(predictions),
-            'avg_confidence': float(np.mean([p.confidence for p in predictions])),
-            'cache_hit_rate': sum(1 for p in predictions if p.cache_hit) / len(predictions) * 100
+            "mae": mae,
+            "mse": mse,
+            "rmse": rmse,
+            "mape": mape,
+            "prediction_count": len(predictions),
+            "avg_confidence": float(np.mean([p.confidence for p in predictions])),
+            "cache_hit_rate": sum(1 for p in predictions if p.cache_hit)
+            / len(predictions)
+            * 100,
         }
 
     except Exception as e:
@@ -603,7 +609,7 @@ def optimize_memory_usage():
     logger.debug(
         "ガベージコレクション実行",
         section="memory_optimization",
-        collected_objects=collected
+        collected_objects=collected,
     )
     return collected
 
@@ -618,16 +624,20 @@ if __name__ == "__main__":
         np.random.seed(42)
         n_samples = 1000  # サンプル数を削減
 
-        features = pd.DataFrame({
-            'feature_1': np.random.randn(n_samples),
-            'feature_2': np.random.randn(n_samples),
-            'feature_3': np.random.randn(n_samples),
-            'feature_4': np.random.randn(n_samples)
-        })
+        features = pd.DataFrame(
+            {
+                "feature_1": np.random.randn(n_samples),
+                "feature_2": np.random.randn(n_samples),
+                "feature_3": np.random.randn(n_samples),
+                "feature_4": np.random.randn(n_samples),
+            }
+        )
 
-        target = (features['feature_1'] * 0.5 +
-                 features['feature_2'] * 0.3 +
-                 np.random.randn(n_samples) * 0.2)
+        target = (
+            features["feature_1"] * 0.5
+            + features["feature_2"] * 0.3
+            + np.random.randn(n_samples) * 0.2
+        )
 
         # アンサンブル作成・訓練
         ensemble = create_optimized_model_ensemble()
@@ -646,7 +656,9 @@ if __name__ == "__main__":
 
         # 精度評価
         if predictions1:
-            accuracy_metrics = optimize_prediction_accuracy(predictions1, y_test.tail(1).values)
+            accuracy_metrics = optimize_prediction_accuracy(
+                predictions1, y_test.tail(1).values
+            )
 
             # パフォーマンス統計
             perf_stats = ensemble.get_performance_stats()
@@ -655,7 +667,7 @@ if __name__ == "__main__":
                 "最適化済みMLモデルデモ完了",
                 section="demo",
                 accuracy_metrics=accuracy_metrics,
-                performance_stats=perf_stats
+                performance_stats=perf_stats,
             )
 
             # メモリクリーンアップ
@@ -666,6 +678,6 @@ if __name__ == "__main__":
 
     finally:
         # リソース解放
-        if 'ensemble' in locals():
+        if "ensemble" in locals():
             del ensemble
         optimize_memory_usage()

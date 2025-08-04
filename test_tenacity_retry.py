@@ -6,6 +6,7 @@ Issue #185: API耐障害性強化のテスト
 import time
 import unittest
 from unittest.mock import Mock, patch
+
 import requests
 
 from src.day_trade.data.stock_fetcher import StockFetcher
@@ -19,7 +20,7 @@ class TestTenacityRetry(unittest.TestCase):
         """テストセットアップ"""
         self.fetcher = StockFetcher(
             retry_count=3,
-            retry_delay=0.1  # テスト用に短縮
+            retry_delay=0.1,  # テスト用に短縮
         )
 
     def test_successful_request_no_retry(self):
@@ -28,9 +29,9 @@ class TestTenacityRetry(unittest.TestCase):
         mock_ticker = Mock()
         mock_ticker.history.return_value = Mock(empty=False)
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
+        with patch.object(self.fetcher, "_create_ticker", return_value=mock_ticker):
             # リクエスト成功
-            result = self.fetcher.get_current_price("7203")
+            self.fetcher.get_current_price("7203")
 
         # 統計を確認
         stats = self.fetcher.get_retry_stats()
@@ -47,12 +48,12 @@ class TestTenacityRetry(unittest.TestCase):
         mock_ticker.history.side_effect = [
             requests.exceptions.ConnectionError("Connection failed"),
             requests.exceptions.Timeout("Request timeout"),
-            Mock(empty=False)  # 3回目は成功
+            Mock(empty=False),  # 3回目は成功
         ]
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
+        with patch.object(self.fetcher, "_create_ticker", return_value=mock_ticker):
             # リトライが発生して最終的に成功
-            result = self.fetcher.get_current_price("7203")
+            self.fetcher.get_current_price("7203")
 
         # 統計を確認
         stats = self.fetcher.get_retry_stats()
@@ -65,11 +66,14 @@ class TestTenacityRetry(unittest.TestCase):
         mock_ticker = Mock()
 
         # すべて失敗
-        mock_ticker.history.side_effect = requests.exceptions.ConnectionError("Connection failed")
+        mock_ticker.history.side_effect = requests.exceptions.ConnectionError(
+            "Connection failed"
+        )
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
-            with self.assertRaises(NetworkError):
-                self.fetcher.get_current_price("7203")
+        with patch.object(
+            self.fetcher, "_create_ticker", return_value=mock_ticker
+        ), self.assertRaises(NetworkError):
+            self.fetcher.get_current_price("7203")
 
         # 統計を確認
         stats = self.fetcher.get_retry_stats()
@@ -88,9 +92,10 @@ class TestTenacityRetry(unittest.TestCase):
         http_error.response.status_code = 401
         mock_ticker.history.side_effect = http_error
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
-            with self.assertRaises(NetworkError):
-                self.fetcher.get_current_price("7203")
+        with patch.object(
+            self.fetcher, "_create_ticker", return_value=mock_ticker
+        ), self.assertRaises(NetworkError):
+            self.fetcher.get_current_price("7203")
 
         # 統計を確認（リトライされていない）
         stats = self.fetcher.get_retry_stats()
@@ -102,13 +107,13 @@ class TestTenacityRetry(unittest.TestCase):
         mock_ticker.history.side_effect = [
             requests.exceptions.ConnectionError("Connection failed"),
             requests.exceptions.ConnectionError("Connection failed"),
-            Mock(empty=False)  # 3回目は成功
+            Mock(empty=False),  # 3回目は成功
         ]
 
         start_time = time.time()
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
-            result = self.fetcher.get_current_price("7203")
+        with patch.object(self.fetcher, "_create_ticker", return_value=mock_ticker):
+            self.fetcher.get_current_price("7203")
 
         elapsed_time = time.time() - start_time
 
@@ -124,6 +129,7 @@ class TestTenacityRetry(unittest.TestCase):
         # 2回目: 1回リトライして成功
         # 3回目: 失敗
         call_count = 0
+
         def side_effect_func(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -138,7 +144,7 @@ class TestTenacityRetry(unittest.TestCase):
 
         mock_ticker.history.side_effect = side_effect_func
 
-        with patch.object(self.fetcher, '_create_ticker', return_value=mock_ticker):
+        with patch.object(self.fetcher, "_create_ticker", return_value=mock_ticker):
             # 1回目: 成功
             self.fetcher.get_current_price("7203")
 
@@ -147,7 +153,9 @@ class TestTenacityRetry(unittest.TestCase):
 
             # 3回目: 失敗
             with self.assertRaises(NetworkError):
-                mock_ticker.history.side_effect = requests.exceptions.ConnectionError("Connection failed")
+                mock_ticker.history.side_effect = requests.exceptions.ConnectionError(
+                    "Connection failed"
+                )
                 self.fetcher.get_current_price("8306")
 
         # 統計を確認
@@ -158,7 +166,7 @@ class TestTenacityRetry(unittest.TestCase):
         self.assertGreater(stats["total_retries"], 0)
 
         # 成功率の確認
-        self.assertAlmostEqual(stats["success_rate"], 2/3, places=2)
+        self.assertAlmostEqual(stats["success_rate"], 2 / 3, places=2)
 
 
 if __name__ == "__main__":

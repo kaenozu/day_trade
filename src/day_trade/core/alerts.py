@@ -192,14 +192,16 @@ class NotificationHandler:
 
     def _send_console_notification(self, trigger: AlertTrigger):
         """コンソール通知"""
-        logger.warning("Alert triggered - Console notification",
-                      symbol=trigger.symbol,
-                      alert_type=trigger.alert_type.value,
-                      priority=trigger.priority.value,
-                      trigger_time=trigger.trigger_time.isoformat(),
-                      alert_message=trigger.message,
-                      current_price=trigger.current_price,
-                      notification_type="console")
+        logger.warning(
+            "Alert triggered - Console notification",
+            symbol=trigger.symbol,
+            alert_type=trigger.alert_type.value,
+            priority=trigger.priority.value,
+            trigger_time=trigger.trigger_time.isoformat(),
+            alert_message=trigger.message,
+            current_price=trigger.current_price,
+            notification_type="console",
+        )
 
     def _send_file_log_notification(self, trigger: AlertTrigger):
         """ファイルログ通知"""
@@ -615,22 +617,17 @@ class AlertManager:
 
     def _is_expired(self, condition: AlertCondition) -> bool:
         """条件の有効期限チェック"""
-        if condition.expiry_date and datetime.now() > condition.expiry_date:
-            return True
-        return False
+        return bool(condition.expiry_date and datetime.now() > condition.expiry_date)
 
     def _validate_condition(self, condition: AlertCondition) -> bool:
         """条件の検証"""
         if not condition.alert_id or not condition.symbol:
             return False
 
-        if (
+        return not (
             condition.alert_type == AlertType.CUSTOM_CONDITION
             and not condition.custom_function
-        ):
-            return False
-
-        return True
+        )
 
     def get_alert_history(
         self, symbol: Optional[str] = None, hours: int = 24
@@ -788,12 +785,14 @@ if __name__ == "__main__":
     logger.info("=== アラート設定確認 ===")
     alerts = alert_manager.get_alerts()
     for alert in alerts:
-        logger.info("Alert configuration",
-                   alert_id=alert.alert_id,
-                   symbol=alert.symbol,
-                   alert_type=alert.alert_type.value,
-                   condition_value=alert.condition_value,
-                   description=alert.description)
+        logger.info(
+            "Alert configuration",
+            alert_id=alert.alert_id,
+            symbol=alert.symbol,
+            alert_type=alert.alert_type.value,
+            condition_value=alert.condition_value,
+            description=alert.description,
+        )
 
     # 監視開始（デモ用に短時間）
     logger.info("アラート監視開始", interval_seconds=30)

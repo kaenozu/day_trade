@@ -12,9 +12,9 @@ from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
+from ..utils.logging_config import get_context_logger
 from .indicators import TechnicalIndicators
 from .signals import TradingSignalGenerator
-from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__, component="stock_screener")
 
@@ -266,15 +266,13 @@ class StockScreener:
                         len(macd) >= 2
                         and not macd.isna().any()
                         and not signal.isna().any()
+                        and macd.iloc[-2] <= signal.iloc[-2]
+                        and macd.iloc[-1] > signal.iloc[-1]
                     ):
                         # MACDがシグナルを上抜け
-                        if (
-                            macd.iloc[-2] <= signal.iloc[-2]
-                            and macd.iloc[-1] > signal.iloc[-1]
-                        ):
-                            crossover_strength = abs(macd.iloc[-1] - signal.iloc[-1])
-                            score = min(crossover_strength * 1000, 100)
-                            return True, score
+                        crossover_strength = abs(macd.iloc[-1] - signal.iloc[-1])
+                        score = min(crossover_strength * 1000, 100)
+                        return True, score
 
             elif condition == ScreenerCondition.GOLDEN_CROSS:
                 if "SMA_20" in indicators.columns and "SMA_50" in indicators.columns:
@@ -285,17 +283,15 @@ class StockScreener:
                         len(sma20) >= 2
                         and not sma20.isna().any()
                         and not sma50.isna().any()
+                        and sma20.iloc[-2] <= sma50.iloc[-2]
+                        and sma20.iloc[-1] > sma50.iloc[-1]
                     ):
                         # 20日線が50日線を上抜け
-                        if (
-                            sma20.iloc[-2] <= sma50.iloc[-2]
-                            and sma20.iloc[-1] > sma50.iloc[-1]
-                        ):
-                            cross_strength = (
-                                (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
-                            )
-                            score = min(cross_strength * 50, 100)
-                            return True, score
+                        cross_strength = (
+                            (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
+                        )
+                        score = min(cross_strength * 50, 100)
+                        return True, score
 
             elif condition == ScreenerCondition.VOLUME_SPIKE:
                 volume_threshold = threshold or 2.0
@@ -320,30 +316,24 @@ class StockScreener:
                         score = min(momentum * 100, 100)
                         return True, score
 
-            elif condition == ScreenerCondition.BOLLINGER_BREAKOUT:
-                if (
-                    "BB_Upper" in indicators.columns
-                    and "BB_Lower" in indicators.columns
-                ):
-                    current_price = df["Close"].iloc[-1]
-                    bb_upper = indicators["BB_Upper"].iloc[-1]
-                    bb_lower = indicators["BB_Lower"].iloc[-1]
+            elif condition == ScreenerCondition.BOLLINGER_BREAKOUT and (
+                "BB_Upper" in indicators.columns and "BB_Lower" in indicators.columns
+            ):
+                current_price = df["Close"].iloc[-1]
+                bb_upper = indicators["BB_Upper"].iloc[-1]
+                bb_lower = indicators["BB_Lower"].iloc[-1]
 
-                    if pd.notna(bb_upper) and pd.notna(bb_lower):
-                        # 上限突破
-                        if current_price > bb_upper:
-                            breakout_strength = (
-                                (current_price - bb_upper) / bb_upper * 100
-                            )
-                            score = min(breakout_strength * 50, 100)
-                            return True, score
-                        # 下限突破（買いシグナルとして）
-                        elif current_price < bb_lower:
-                            breakout_strength = (
-                                (bb_lower - current_price) / bb_lower * 100
-                            )
-                            score = min(breakout_strength * 50, 100)
-                            return True, score
+                if pd.notna(bb_upper) and pd.notna(bb_lower):
+                    # 上限突破
+                    if current_price > bb_upper:
+                        breakout_strength = (current_price - bb_upper) / bb_upper * 100
+                        score = min(breakout_strength * 50, 100)
+                        return True, score
+                    # 下限突破（買いシグナルとして）
+                    elif current_price < bb_lower:
+                        breakout_strength = (bb_lower - current_price) / bb_lower * 100
+                        score = min(breakout_strength * 50, 100)
+                        return True, score
 
         except Exception as e:
             logger.debug(f"条件評価エラー ({condition.value}): {e}")
@@ -586,15 +576,19 @@ if __name__ == "__main__":
 
         if results:
             report = create_screening_report(results)
-            logger.info("スクリーニング結果レポート",
-                       matching_stocks=len(results),
-                       report_generated=True,
-                       screened_symbols=symbols)
+            logger.info(
+                "スクリーニング結果レポート",
+                matching_stocks=len(results),
+                report_generated=True,
+                screened_symbols=symbols,
+            )
         else:
-            logger.info("スクリーニング結果",
-                       result="no_matching_stocks",
-                       screened_symbols=symbols,
-                       symbols_count=len(symbols))
+            logger.info(
+                "スクリーニング結果",
+                result="no_matching_stocks",
+                screened_symbols=symbols,
+                symbols_count=len(symbols),
+            )
 
     except Exception as e:
         logger.error(f"スクリーニング実行エラー: {e}")

@@ -5,30 +5,29 @@
 次世代アンサンブル予測システム。
 """
 
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from ..utils.logging_config import get_context_logger, log_business_event
 from .ensemble import EnsembleStrategy, EnsembleVotingType, StrategyPerformance
 from .feature_engineering import AdvancedFeatureEngineer
 from .ml_models import MLModelManager
 from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
-from ..utils.logging_config import get_context_logger, log_business_event, log_performance_metric
 
 logger = get_context_logger(__name__)
 
 
 class PredictionHorizon(Enum):
     """予測期間"""
-    SHORT_TERM = "1d"      # 1日
-    MEDIUM_TERM = "5d"     # 5日
-    LONG_TERM = "20d"      # 20日
+
+    SHORT_TERM = "1d"  # 1日
+    MEDIUM_TERM = "5d"  # 5日
+    LONG_TERM = "20d"  # 20日
 
 
 @dataclass
@@ -36,26 +35,26 @@ class MarketContext:
     """市場コンテキスト情報"""
 
     volatility_regime: str  # "low", "medium", "high"
-    trend_direction: str    # "upward", "downward", "sideways"
-    market_sentiment: float # -1 to 1
-    volume_profile: str     # "low", "normal", "high"
+    trend_direction: str  # "upward", "downward", "sideways"
+    market_sentiment: float  # -1 to 1
+    volume_profile: str  # "low", "normal", "high"
     correlation_with_market: float
     sector_rotation: Optional[str] = None
 
     def to_features(self) -> Dict[str, float]:
         """特徴量として使用するための数値変換"""
         return {
-            'volatility_low': 1.0 if self.volatility_regime == "low" else 0.0,
-            'volatility_medium': 1.0 if self.volatility_regime == "medium" else 0.0,
-            'volatility_high': 1.0 if self.volatility_regime == "high" else 0.0,
-            'trend_upward': 1.0 if self.trend_direction == "upward" else 0.0,
-            'trend_downward': 1.0 if self.trend_direction == "downward" else 0.0,
-            'trend_sideways': 1.0 if self.trend_direction == "sideways" else 0.0,
-            'market_sentiment': self.market_sentiment,
-            'volume_low': 1.0 if self.volume_profile == "low" else 0.0,
-            'volume_normal': 1.0 if self.volume_profile == "normal" else 0.0,
-            'volume_high': 1.0 if self.volume_profile == "high" else 0.0,
-            'market_correlation': self.correlation_with_market
+            "volatility_low": 1.0 if self.volatility_regime == "low" else 0.0,
+            "volatility_medium": 1.0 if self.volatility_regime == "medium" else 0.0,
+            "volatility_high": 1.0 if self.volatility_regime == "high" else 0.0,
+            "trend_upward": 1.0 if self.trend_direction == "upward" else 0.0,
+            "trend_downward": 1.0 if self.trend_direction == "downward" else 0.0,
+            "trend_sideways": 1.0 if self.trend_direction == "sideways" else 0.0,
+            "market_sentiment": self.market_sentiment,
+            "volume_low": 1.0 if self.volume_profile == "low" else 0.0,
+            "volume_normal": 1.0 if self.volume_profile == "normal" else 0.0,
+            "volume_high": 1.0 if self.volume_profile == "high" else 0.0,
+            "market_correlation": self.correlation_with_market,
         }
 
 
@@ -103,7 +102,7 @@ class EnhancedEnsembleStrategy:
         voting_type: EnsembleVotingType = EnsembleVotingType.WEIGHTED_AVERAGE,
         enable_ml_models: bool = True,
         prediction_horizons: List[PredictionHorizon] = None,
-        performance_file: Optional[str] = None
+        performance_file: Optional[str] = None,
     ):
         self.ensemble_strategy = ensemble_strategy
         self.voting_type = voting_type
@@ -143,7 +142,7 @@ class EnhancedEnsembleStrategy:
             section="ensemble_init",
             enable_ml=self.enable_ml_models,
             prediction_horizons=[h.value for h in self.prediction_horizons],
-            strategies_count=len(self.rule_based_strategies)
+            strategies_count=len(self.rule_based_strategies),
         )
 
     def _initialize_rule_based_strategies(self) -> Dict[str, TradingSignalGenerator]:
@@ -153,14 +152,24 @@ class EnhancedEnsembleStrategy:
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
-                MACDCrossoverRule, MACDDeathCrossRule,
-                RSIOverboughtRule, RSIOversoldRule,
-                BollingerBandBreakoutRule, BollingerBandMeanReversionRule
+                BollingerBandBreakoutRule,
+                BollingerBandMeanReversionRule,
+                MACDCrossoverRule,
+                MACDDeathCrossRule,
+                RSIOverboughtRule,
+                RSIOversoldRule,
             )
         except ImportError:
             # 必要なルールクラスが存在しない場合のダミー実装
-            logger.warning("一部のシグナルルールクラスが利用できません。基本的なルールのみを使用します。")
-            from .signals import MACDCrossoverRule, MACDDeathCrossRule, RSIOverboughtRule, RSIOversoldRule
+            logger.warning(
+                "一部のシグナルルールクラスが利用できません。基本的なルールのみを使用します。"
+            )
+            from .signals import (
+                MACDCrossoverRule,
+                MACDDeathCrossRule,
+                RSIOverboughtRule,
+                RSIOversoldRule,
+            )
 
             # ダミークラス定義
             class BollingerBandBreakoutRule:
@@ -210,7 +219,7 @@ class EnhancedEnsembleStrategy:
         data: pd.DataFrame,
         indicators: Dict[str, pd.Series],
         market_data: Optional[Dict[str, pd.DataFrame]] = None,
-        prediction_horizon: PredictionHorizon = PredictionHorizon.SHORT_TERM
+        prediction_horizon: PredictionHorizon = PredictionHorizon.SHORT_TERM,
     ) -> EnhancedEnsembleSignal:
         """
         強化されたアンサンブルシグナル生成
@@ -228,21 +237,29 @@ class EnhancedEnsembleStrategy:
             "強化アンサンブルシグナル生成開始",
             section="signal_generation",
             data_length=len(data),
-            horizon=prediction_horizon.value
+            horizon=prediction_horizon.value,
         )
 
         # 1. データ品質向上（基本的なクリーニング）
         clean_data = data.dropna()
 
         # 2. 市場コンテキスト分析
-        market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
+        market_context = self.market_analyzer.analyze_market_context(
+            clean_data, market_data
+        )
 
         # 3. 特徴量エンジニアリング
-        volume_data = clean_data.get('Volume', None) if 'Volume' in clean_data.columns else None
-        feature_data = self.feature_engineer.generate_all_features(clean_data, volume_data)
+        volume_data = (
+            clean_data.get("Volume", None) if "Volume" in clean_data.columns else None
+        )
+        feature_data = self.feature_engineer.generate_all_features(
+            clean_data, volume_data
+        )
 
         if market_data:
-            feature_data = self.feature_engineer._generate_market_features(feature_data, market_data)
+            feature_data = self.feature_engineer._generate_market_features(
+                feature_data, market_data
+            )
 
         # 4. ルールベース戦略のシグナル生成
         rule_signals = self._generate_rule_based_signals(clean_data, indicators)
@@ -250,7 +267,9 @@ class EnhancedEnsembleStrategy:
         # 5. 機械学習予測
         ml_predictions = {}
         if self.enable_ml_models and self.ml_ensemble:
-            ml_predictions = self._generate_ml_predictions(feature_data, prediction_horizon)
+            ml_predictions = self._generate_ml_predictions(
+                feature_data, prediction_horizon
+            )
 
         # 6. アンサンブル統合
         ensemble_signal = self._integrate_signals(
@@ -265,15 +284,13 @@ class EnhancedEnsembleStrategy:
             section="signal_generation",
             final_signal=ensemble_signal.signal_type.value,
             confidence=ensemble_signal.ensemble_confidence,
-            strategy_weights=ensemble_signal.strategy_weights
+            strategy_weights=ensemble_signal.strategy_weights,
         )
 
         return ensemble_signal
 
     def _generate_rule_based_signals(
-        self,
-        data: pd.DataFrame,
-        indicators: Dict[str, pd.Series]
+        self, data: pd.DataFrame, indicators: Dict[str, pd.Series]
     ) -> Dict[str, TradingSignal]:
         """ルールベース戦略のシグナル生成"""
         rule_signals = {}
@@ -288,22 +305,20 @@ class EnhancedEnsembleStrategy:
                         f"ルールベースシグナル生成: {strategy_name}",
                         section="rule_signals",
                         signal_type=signal.signal_type.value,
-                        confidence=signal.confidence
+                        confidence=signal.confidence,
                     )
 
             except Exception as e:
                 logger.warning(
                     f"ルールベースシグナル生成エラー: {strategy_name}",
                     section="rule_signals",
-                    error=str(e)
+                    error=str(e),
                 )
 
         return rule_signals
 
     def _generate_ml_predictions(
-        self,
-        feature_data: pd.DataFrame,
-        prediction_horizon: PredictionHorizon
+        self, feature_data: pd.DataFrame, prediction_horizon: PredictionHorizon
     ) -> Dict[str, float]:
         """機械学習予測生成"""
         ml_predictions = {}
@@ -313,8 +328,11 @@ class EnhancedEnsembleStrategy:
 
         try:
             # 特徴量の準備
-            feature_cols = [col for col in feature_data.columns
-                          if col not in ['Open', 'High', 'Low', 'Close', 'Volume']]
+            feature_cols = [
+                col
+                for col in feature_data.columns
+                if col not in ["Open", "High", "Low", "Close", "Volume"]
+            ]
 
             if len(feature_cols) == 0:
                 logger.warning("ML予測用の特徴量が不足", section="ml_prediction")
@@ -323,32 +341,32 @@ class EnhancedEnsembleStrategy:
             X = feature_data[feature_cols].fillna(0)
 
             # MLModelManagerが実装されていない場合は簡易実装を使用
-            if hasattr(self.ml_ensemble, 'predict'):
+            if hasattr(self.ml_ensemble, "predict"):
                 # 最新データのみで予測
-                latest_features = X.tail(1)
+                X.tail(1)
                 try:
-                    prediction_value = float(np.random.randn() * 0.02)  # -2%から+2%の予測
+                    prediction_value = float(
+                        np.random.randn() * 0.02
+                    )  # -2%から+2%の予測
                     ml_predictions["ensemble_ml"] = prediction_value
 
                     logger.debug(
                         "機械学習予測完了",
                         section="ml_prediction",
-                        prediction=prediction_value
+                        prediction=prediction_value,
                     )
                 except Exception as pred_error:
                     logger.warning(f"ML予測実行エラー: {pred_error}")
                     ml_predictions["ensemble_ml"] = 0.0
             else:
                 # MLModelManagerの実装が完了していないため、一時的に無効化
-                logger.info("機械学習予測は一時的に無効化されています", section="ml_prediction")
+                logger.info(
+                    "機械学習予測は一時的に無効化されています", section="ml_prediction"
+                )
                 return ml_predictions
 
         except Exception as e:
-            logger.error(
-                "機械学習予測エラー",
-                section="ml_prediction",
-                error=str(e)
-            )
+            logger.error("機械学習予測エラー", section="ml_prediction", error=str(e))
 
         return ml_predictions
 
@@ -357,7 +375,7 @@ class EnhancedEnsembleStrategy:
         rule_signals: Dict[str, TradingSignal],
         ml_predictions: Dict[str, float],
         market_context: MarketContext,
-        prediction_horizon: PredictionHorizon
+        prediction_horizon: PredictionHorizon,
     ) -> EnhancedEnsembleSignal:
         """シグナル統合"""
 
@@ -384,15 +402,16 @@ class EnhancedEnsembleStrategy:
 
         # 機械学習予測の統合
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
-        for model_name, prediction_value in ml_predictions.items():
+        for _model_name, prediction_value in ml_predictions.items():
             # 予測値を売買シグナルに変換
-            confidence = min(abs(prediction_value) * 1000, 80.0)  # 予測値から信頼度算出（上限80%）
+            confidence = min(
+                abs(prediction_value) * 1000, 80.0
+            )  # 予測値から信頼度算出（上限80%）
 
             if prediction_value > 0.02:  # 2%以上の上昇予測
                 buy_score += confidence * ml_weight
             elif prediction_value < -0.02:  # 2%以上の下落予測
                 sell_score += confidence * ml_weight
-
             total_confidence += confidence * ml_weight
             total_weight += ml_weight
 
@@ -411,10 +430,18 @@ class EnhancedEnsembleStrategy:
 
         if buy_score > sell_score and normalized_confidence > confidence_threshold:
             signal_type = SignalType.BUY
-            signal_strength = SignalStrength.STRONG if normalized_confidence > strength_threshold else SignalStrength.MEDIUM
+            signal_strength = (
+                SignalStrength.STRONG
+                if normalized_confidence > strength_threshold
+                else SignalStrength.MEDIUM
+            )
         elif sell_score > buy_score and normalized_confidence > confidence_threshold:
             signal_type = SignalType.SELL
-            signal_strength = SignalStrength.STRONG if normalized_confidence > strength_threshold else SignalStrength.MEDIUM
+            signal_strength = (
+                SignalStrength.STRONG
+                if normalized_confidence > strength_threshold
+                else SignalStrength.MEDIUM
+            )
 
         # 市場コンテキストによる調整
         normalized_confidence = self._adjust_confidence_by_market_context(
@@ -435,17 +462,19 @@ class EnhancedEnsembleStrategy:
             prediction_horizon=prediction_horizon,
             strategy_weights=strategy_weights,
             uncertainty=uncertainty,
-            risk_score=risk_score
+            risk_score=risk_score,
         )
 
-    def _calculate_adaptive_weights(self, market_context: MarketContext) -> Dict[str, float]:
+    def _calculate_adaptive_weights(
+        self, market_context: MarketContext
+    ) -> Dict[str, float]:
         """適応型重み計算"""
         base_weights = {
             "conservative": 0.2,
             "aggressive": 0.15,
             "trend_follow": 0.2,
             "mean_reversion": 0.15,
-            "ml_ensemble": 0.3
+            "ml_ensemble": 0.3,
         }
 
         # 市場コンテキストに基づく調整
@@ -475,9 +504,13 @@ class EnhancedEnsembleStrategy:
             if strategy_name in self.strategy_performance:
                 perf = self.strategy_performance[strategy_name]
                 if perf.success_rate > 0.6:
-                    context_adjustments[strategy_name] = context_adjustments.get(strategy_name, 1.0) * 1.2
+                    context_adjustments[strategy_name] = (
+                        context_adjustments.get(strategy_name, 1.0) * 1.2
+                    )
                 elif perf.success_rate < 0.4:
-                    context_adjustments[strategy_name] = context_adjustments.get(strategy_name, 1.0) * 0.8
+                    context_adjustments[strategy_name] = (
+                        context_adjustments.get(strategy_name, 1.0) * 0.8
+                    )
 
         # 調整済み重みの計算
         adjusted_weights = {}
@@ -488,14 +521,14 @@ class EnhancedEnsembleStrategy:
         # 正規化
         total_weight = sum(adjusted_weights.values())
         if total_weight > 0:
-            adjusted_weights = {k: v/total_weight for k, v in adjusted_weights.items()}
+            adjusted_weights = {
+                k: v / total_weight for k, v in adjusted_weights.items()
+            }
 
         return adjusted_weights
 
     def _adjust_confidence_by_market_context(
-        self,
-        confidence: float,
-        market_context: MarketContext
+        self, confidence: float, market_context: MarketContext
     ) -> float:
         """市場コンテキストによる信頼度調整"""
         adjusted_confidence = confidence
@@ -515,9 +548,7 @@ class EnhancedEnsembleStrategy:
         return min(adjusted_confidence, 100.0)
 
     def _calculate_uncertainty(
-        self,
-        rule_signals: Dict[str, TradingSignal],
-        ml_predictions: Dict[str, float]
+        self, rule_signals: Dict[str, TradingSignal], ml_predictions: Dict[str, float]
     ) -> float:
         """不確実性スコア計算"""
         if not rule_signals and not ml_predictions:
@@ -533,14 +564,13 @@ class EnhancedEnsembleStrategy:
             confidence = min(abs(prediction_value) * 1000, 80.0)
             confidences.append(confidence)
 
-        if len(confidences) > 1:
-            uncertainty = np.std(confidences)
-        else:
-            uncertainty = 0.0
+        uncertainty = np.std(confidences) if len(confidences) > 1 else 0.0
 
         return min(uncertainty, 100.0)
 
-    def _calculate_risk_score(self, market_context: MarketContext, uncertainty: float) -> float:
+    def _calculate_risk_score(
+        self, market_context: MarketContext, uncertainty: float
+    ) -> float:
         """リスクスコア計算"""
         risk_score = 0.0
 
@@ -568,20 +598,23 @@ class EnhancedEnsembleStrategy:
             uncertainty=signal.uncertainty,
             risk_score=signal.risk_score,
             market_volatility=signal.market_context.volatility_regime,
-            market_trend=signal.market_context.trend_direction
+            market_trend=signal.market_context.trend_direction,
         )
 
     def train_ml_models(
         self,
         training_data: pd.DataFrame,
-        target_column: str = 'future_return',
-        retrain_interval_hours: int = 24
+        target_column: str = "future_return",
+        retrain_interval_hours: int = 24,
     ) -> bool:
         """機械学習モデルの訓練"""
 
         # 再訓練間隔チェック
-        if (self.last_training_time and
-            datetime.now() - self.last_training_time < timedelta(hours=retrain_interval_hours)):
+        if (
+            self.last_training_time
+            and datetime.now() - self.last_training_time
+            < timedelta(hours=retrain_interval_hours)
+        ):
             logger.info("再訓練間隔に達していないため、スキップ", section="ml_training")
             return False
 
@@ -592,16 +625,25 @@ class EnhancedEnsembleStrategy:
             logger.info(
                 "機械学習モデル訓練開始",
                 section="ml_training",
-                data_size=len(training_data)
+                data_size=len(training_data),
             )
 
             # 特徴量エンジニアリング
-            volume_data = training_data.get('Volume', None) if 'Volume' in training_data.columns else None
-            feature_data = self.feature_engineer.generate_all_features(training_data, volume_data)
+            volume_data = (
+                training_data.get("Volume", None)
+                if "Volume" in training_data.columns
+                else None
+            )
+            feature_data = self.feature_engineer.generate_all_features(
+                training_data, volume_data
+            )
 
             # 特徴量とターゲットの準備
-            feature_cols = [col for col in feature_data.columns
-                          if col not in ['Open', 'High', 'Low', 'Close', 'Volume', target_column]]
+            feature_cols = [
+                col
+                for col in feature_data.columns
+                if col not in ["Open", "High", "Low", "Close", "Volume", target_column]
+            ]
 
             if len(feature_cols) == 0:
                 logger.warning("訓練用特徴量が不足", section="ml_training")
@@ -611,12 +653,14 @@ class EnhancedEnsembleStrategy:
 
             # ターゲット変数作成（未来のリターン）
             if target_column not in feature_data.columns:
-                feature_data[target_column] = feature_data['Close'].pct_change(5).shift(-5)
+                feature_data[target_column] = (
+                    feature_data["Close"].pct_change(5).shift(-5)
+                )
 
             y = feature_data[target_column].fillna(0)
 
             # 訓練実行（MLModelManager対応）
-            if hasattr(self.ml_ensemble, 'fit'):
+            if hasattr(self.ml_ensemble, "fit"):
                 self.ml_ensemble.fit(X, y)
                 self.last_training_time = datetime.now()
 
@@ -624,18 +668,18 @@ class EnhancedEnsembleStrategy:
                     "機械学習モデル訓練完了",
                     section="ml_training",
                     features_count=len(feature_cols),
-                    samples_count=len(X)
+                    samples_count=len(X),
                 )
             else:
-                logger.warning("MLモデル訓練メソッドが利用できません", section="ml_training")
+                logger.warning(
+                    "MLモデル訓練メソッドが利用できません", section="ml_training"
+                )
 
             return True
 
         except Exception as e:
             logger.error(
-                "機械学習モデル訓練エラー",
-                section="ml_training",
-                error=str(e)
+                "機械学習モデル訓練エラー", section="ml_training", error=str(e)
             )
             return False
 
@@ -644,14 +688,12 @@ class MarketContextAnalyzer:
     """市場コンテキスト分析器"""
 
     def analyze_market_context(
-        self,
-        data: pd.DataFrame,
-        market_data: Optional[Dict[str, pd.DataFrame]] = None
+        self, data: pd.DataFrame, market_data: Optional[Dict[str, pd.DataFrame]] = None
     ) -> MarketContext:
         """市場コンテキスト分析"""
 
         # ボラティリティ分析
-        returns = data['Close'].pct_change().dropna()
+        returns = data["Close"].pct_change().dropna()
         current_vol = returns.rolling(20).std().iloc[-1] * np.sqrt(252)
 
         if current_vol > 0.3:
@@ -662,9 +704,9 @@ class MarketContextAnalyzer:
             volatility_regime = "low"
 
         # トレンド分析
-        ma_short = data['Close'].rolling(10).mean().iloc[-1]
-        ma_long = data['Close'].rolling(50).mean().iloc[-1]
-        current_price = data['Close'].iloc[-1]
+        ma_short = data["Close"].rolling(10).mean().iloc[-1]
+        ma_long = data["Close"].rolling(50).mean().iloc[-1]
+        current_price = data["Close"].iloc[-1]
 
         if current_price > ma_short > ma_long:
             trend_direction = "upward"
@@ -678,8 +720,8 @@ class MarketContextAnalyzer:
         market_sentiment = np.tanh(recent_returns * 50)  # -1 to 1
 
         # 出来高分析
-        avg_volume = data['Volume'].rolling(20).mean().iloc[-1]
-        current_volume = data['Volume'].iloc[-1]
+        avg_volume = data["Volume"].rolling(20).mean().iloc[-1]
+        current_volume = data["Volume"].iloc[-1]
 
         if current_volume > avg_volume * 1.5:
             volume_profile = "high"
@@ -691,9 +733,9 @@ class MarketContextAnalyzer:
         # 市場相関（市場データがある場合）
         market_correlation = 0.0
         if market_data:
-            for market_name, market_df in market_data.items():
-                if 'Close' in market_df.columns:
-                    market_returns = market_df['Close'].pct_change().dropna()
+            for _market_name, market_df in market_data.items():
+                if "Close" in market_df.columns:
+                    market_returns = market_df["Close"].pct_change().dropna()
                     correlation = returns.corr(market_returns)
                     if not np.isnan(correlation):
                         market_correlation = correlation
@@ -704,7 +746,7 @@ class MarketContextAnalyzer:
             trend_direction=trend_direction,
             market_sentiment=market_sentiment,
             volume_profile=volume_profile,
-            correlation_with_market=market_correlation
+            correlation_with_market=market_correlation,
         )
 
 
@@ -719,15 +761,14 @@ if __name__ == "__main__":
 
     # 基本指標計算
     indicators = {
-        'rsi': data['Close'].rolling(14).apply(lambda x: 50),  # ダミーRSI
-        'macd': data['Close'].ewm(12).mean() - data['Close'].ewm(26).mean(),
-        'macd_signal': data['Close'].rolling(9).mean()
+        "rsi": data["Close"].rolling(14).apply(lambda x: 50),  # ダミーRSI
+        "macd": data["Close"].ewm(12).mean() - data["Close"].ewm(26).mean(),
+        "macd_signal": data["Close"].rolling(9).mean(),
     }
 
     # 強化アンサンブル戦略
     enhanced_ensemble = EnhancedEnsembleStrategy(
-        ensemble_strategy=EnsembleStrategy.ADAPTIVE,
-        enable_ml_models=True
+        ensemble_strategy=EnsembleStrategy.ADAPTIVE, enable_ml_models=True
     )
 
     # 機械学習モデル訓練（簡易版）
@@ -744,5 +785,5 @@ if __name__ == "__main__":
         final_signal=signal.signal_type.value,
         confidence=signal.ensemble_confidence,
         ml_training_success=training_success,
-        risk_score=signal.risk_score
+        risk_score=signal.risk_score,
     )

@@ -396,7 +396,7 @@ class TestEnsembleConfig:
 
         # 信頼度閾値が妥当な範囲にあることを確認
         for (
-            threshold_type,
+            _threshold_type,
             threshold_value,
         ) in ensemble_settings.confidence_thresholds.items():
             assert 0 <= threshold_value <= 100
@@ -476,7 +476,7 @@ class TestEnsembleConfig:
         settings = EnsembleSettings()
 
         # EnsembleTradingStrategyのインスタンスを作成してデフォルト値を確認
-        strategy = EnsembleTradingStrategy()
+        EnsembleTradingStrategy()
 
         # デフォルト重みの同期確認
         # ensemble.pyの_initialize_weightsで定義されている値と比較
@@ -491,19 +491,33 @@ class TestEnsembleConfig:
 
         # 信頼度閾値の同期確認（正しいEnum型を使用）
         # balanced戦略の閾値をテスト
-        balanced_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.BALANCED)
+        balanced_strategy = EnsembleTradingStrategy(
+            ensemble_strategy=EnsembleStrategy.BALANCED
+        )
         expected_balanced_threshold = balanced_strategy._get_confidence_threshold()
         assert settings.confidence_thresholds["balanced"] == expected_balanced_threshold
 
         # conservative戦略の閾値をテスト
-        conservative_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.CONSERVATIVE)
-        expected_conservative_threshold = conservative_strategy._get_confidence_threshold()
-        assert settings.confidence_thresholds["conservative"] == expected_conservative_threshold
+        conservative_strategy = EnsembleTradingStrategy(
+            ensemble_strategy=EnsembleStrategy.CONSERVATIVE
+        )
+        expected_conservative_threshold = (
+            conservative_strategy._get_confidence_threshold()
+        )
+        assert (
+            settings.confidence_thresholds["conservative"]
+            == expected_conservative_threshold
+        )
 
         # aggressive戦略の閾値をテスト
-        aggressive_strategy = EnsembleTradingStrategy(ensemble_strategy=EnsembleStrategy.AGGRESSIVE)
+        aggressive_strategy = EnsembleTradingStrategy(
+            ensemble_strategy=EnsembleStrategy.AGGRESSIVE
+        )
         expected_aggressive_threshold = aggressive_strategy._get_confidence_threshold()
-        assert settings.confidence_thresholds["aggressive"] == expected_aggressive_threshold
+        assert (
+            settings.confidence_thresholds["aggressive"]
+            == expected_aggressive_threshold
+        )
 
     def test_ensemble_settings_complete_validation(self, temp_config_file):
         """get_ensemble_settings()が返すEnsembleSettingsインスタンスの完全な検証"""
@@ -515,30 +529,35 @@ class TestEnsembleConfig:
 
         # 必須フィールドの存在確認
         required_fields = [
-            'enabled', 'strategy_type', 'voting_type', 'performance_file_path',
-            'strategy_weights', 'confidence_thresholds', 'meta_learning_enabled',
-            'adaptive_weights_enabled'
+            "enabled",
+            "strategy_type",
+            "voting_type",
+            "performance_file_path",
+            "strategy_weights",
+            "confidence_thresholds",
+            "meta_learning_enabled",
+            "adaptive_weights_enabled",
         ]
         for field in required_fields:
             assert field in settings_dict, f"Required field {field} missing"
 
         # 各フィールドの型確認
-        assert isinstance(settings_dict['enabled'], bool)
-        assert isinstance(settings_dict['strategy_type'], str)
-        assert isinstance(settings_dict['voting_type'], str)
-        assert isinstance(settings_dict['performance_file_path'], str)
-        assert isinstance(settings_dict['strategy_weights'], dict)
-        assert isinstance(settings_dict['confidence_thresholds'], dict)
-        assert isinstance(settings_dict['meta_learning_enabled'], bool)
-        assert isinstance(settings_dict['adaptive_weights_enabled'], bool)
+        assert isinstance(settings_dict["enabled"], bool)
+        assert isinstance(settings_dict["strategy_type"], str)
+        assert isinstance(settings_dict["voting_type"], str)
+        assert isinstance(settings_dict["performance_file_path"], str)
+        assert isinstance(settings_dict["strategy_weights"], dict)
+        assert isinstance(settings_dict["confidence_thresholds"], dict)
+        assert isinstance(settings_dict["meta_learning_enabled"], bool)
+        assert isinstance(settings_dict["adaptive_weights_enabled"], bool)
 
         # sample_configの値が正しくマッピングされているか確認
-        assert settings_dict['enabled'] is True
-        assert settings_dict['strategy_type'] == "balanced"
-        assert settings_dict['voting_type'] == "soft"
-        assert settings_dict['performance_file_path'] == "test_performance.json"
-        assert settings_dict['meta_learning_enabled'] is True
-        assert settings_dict['adaptive_weights_enabled'] is False
+        assert settings_dict["enabled"] is True
+        assert settings_dict["strategy_type"] == "balanced"
+        assert settings_dict["voting_type"] == "soft"
+        assert settings_dict["performance_file_path"] == "test_performance.json"
+        assert settings_dict["meta_learning_enabled"] is True
+        assert settings_dict["adaptive_weights_enabled"] is False
 
     def test_ensemble_settings_dynamic_strategy_names(self):
         """期待される戦略名の動的な取得テスト"""
@@ -551,8 +570,9 @@ class TestEnsembleConfig:
         expected_strategies = list(settings.strategy_weights.keys())
 
         # 戦略名の一致確認
-        assert set(actual_strategies) == set(expected_strategies), \
+        assert set(actual_strategies) == set(expected_strategies), (
             f"Strategy names mismatch: expected {expected_strategies}, got {actual_strategies}"
+        )
 
         # 各戦略に重みが設定されていることを確認
         for strategy_name in actual_strategies:
@@ -577,18 +597,18 @@ class TestEnsembleConfig:
             "conservative_rsi": 0.5,
             "aggressive_momentum": 0.5,
             "trend_following": 0.0,  # 0重み
-            "mean_reversion": 0.0,   # 0重み
-            "default_integrated": 0.0, # 0重み
+            "mean_reversion": 0.0,  # 0重み
+            "default_integrated": 0.0,  # 0重み
         }
         settings = EnsembleSettings(strategy_weights=zero_weight_settings)
         assert settings.strategy_weights["trend_following"] == 0.0
 
         # 閾値の境界値
         boundary_thresholds = {
-            "conservative": 0.0,    # 最小値
-            "aggressive": 100.0,    # 最大値
-            "balanced": 50.0,       # 中間値
-            "adaptive": 25.5,       # 小数点値
+            "conservative": 0.0,  # 最小値
+            "aggressive": 100.0,  # 最大値
+            "balanced": 50.0,  # 中間値
+            "adaptive": 25.5,  # 小数点値
         }
         settings = EnsembleSettings(confidence_thresholds=boundary_thresholds)
         assert settings.confidence_thresholds["conservative"] == 0.0

@@ -115,150 +115,160 @@ class TestConfigManager:
         """ConfigManager初期化テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
 
-                assert config_manager.config == self.sample_config
+            assert config_manager.config == self.sample_config
 
     def test_get_watchlist_symbols(self):
         """監視銘柄取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                symbols = config_manager.get_watchlist_symbols()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            symbols = config_manager.get_watchlist_symbols()
 
-                assert len(symbols) == 2
-                assert isinstance(symbols[0], WatchlistSymbol)
-                assert symbols[0].code == "7203"
-                assert symbols[0].name == "トヨタ自動車"
-                assert symbols[1].code == "8306"
+            assert len(symbols) == 2
+            assert isinstance(symbols[0], WatchlistSymbol)
+            assert symbols[0].code == "7203"
+            assert symbols[0].name == "トヨタ自動車"
+            assert symbols[1].code == "8306"
 
     def test_get_symbol_codes(self):
         """銘柄コードリスト取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                codes = config_manager.get_symbol_codes()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            codes = config_manager.get_symbol_codes()
 
-                assert codes == ["7203", "8306"]
+            assert codes == ["7203", "8306"]
 
     def test_get_market_hours(self):
         """市場営業時間取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                market_hours = config_manager.get_market_hours()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            market_hours = config_manager.get_market_hours()
 
-                assert isinstance(market_hours, MarketHours)
-                assert market_hours.start == time(9, 0)
-                assert market_hours.end == time(15, 0)
-                assert market_hours.lunch_start == time(11, 30)
-                assert market_hours.lunch_end == time(12, 30)
+            assert isinstance(market_hours, MarketHours)
+            assert market_hours.start == time(9, 0)
+            assert market_hours.end == time(15, 0)
+            assert market_hours.lunch_start == time(11, 30)
+            assert market_hours.lunch_end == time(12, 30)
 
     def test_get_technical_indicator_settings(self):
         """テクニカル指標設定取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                settings = config_manager.get_technical_indicator_settings()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            settings = config_manager.get_technical_indicator_settings()
 
-                assert isinstance(settings, TechnicalIndicatorSettings)
-                assert settings.enabled is True
-                assert settings.sma_periods == [5, 20]
-                assert settings.rsi_period == 14
+            assert isinstance(settings, TechnicalIndicatorSettings)
+            assert settings.enabled is True
+            assert settings.sma_periods == [5, 20]
+            assert settings.rsi_period == 14
 
     def test_get_alert_settings(self):
         """アラート設定取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                settings = config_manager.get_alert_settings()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            settings = config_manager.get_alert_settings()
 
-                assert isinstance(settings, AlertSettings)
-                assert settings.enabled is True
-                assert settings.notification_methods == ["console"]
+            assert isinstance(settings, AlertSettings)
+            assert settings.enabled is True
+            assert settings.notification_methods == ["console"]
 
     def test_is_market_open(self):
         """市場営業時間判定テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
 
-                # 営業時間内（午前10時）
-                market_time = datetime(2024, 1, 15, 10, 0)  # 月曜日
-                assert config_manager.is_market_open(market_time) is True
+            # 営業時間内（午前10時）
+            market_time = datetime(2024, 1, 15, 10, 0)  # 月曜日
+            assert config_manager.is_market_open(market_time) is True
 
-                # 営業時間外（午前8時）
-                before_market = datetime(2024, 1, 15, 8, 0)
-                assert config_manager.is_market_open(before_market) is False
+            # 営業時間外（午前8時）
+            before_market = datetime(2024, 1, 15, 8, 0)
+            assert config_manager.is_market_open(before_market) is False
 
-                # 昼休み時間
-                lunch_time = datetime(2024, 1, 15, 12, 0)
-                assert config_manager.is_market_open(lunch_time) is False
+            # 昼休み時間
+            lunch_time = datetime(2024, 1, 15, 12, 0)
+            assert config_manager.is_market_open(lunch_time) is False
 
     def test_get_high_priority_symbols(self):
         """高優先度銘柄取得テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
-                high_priority = config_manager.get_high_priority_symbols()
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
+            high_priority = config_manager.get_high_priority_symbols()
 
-                assert high_priority == ["7203"]  # トヨタのみhigh priority
+            assert high_priority == ["7203"]  # トヨタのみhigh priority
 
     def test_add_symbol(self):
         """銘柄追加テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
 
-                original_count = len(config_manager.get_symbol_codes())
-                config_manager.add_symbol("9984", "ソフトバンクG", "テック株", "high")
+            original_count = len(config_manager.get_symbol_codes())
+            config_manager.add_symbol("9984", "ソフトバンクG", "テック株", "high")
 
-                new_codes = config_manager.get_symbol_codes()
-                assert len(new_codes) == original_count + 1
-                assert "9984" in new_codes
+            new_codes = config_manager.get_symbol_codes()
+            assert len(new_codes) == original_count + 1
+            assert "9984" in new_codes
 
     def test_remove_symbol(self):
         """銘柄削除テスト"""
         config_json = json.dumps(self.sample_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                config_manager = ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
+            config_manager = ConfigManager("test_config.json")
 
-                original_count = len(config_manager.get_symbol_codes())
-                config_manager.remove_symbol("8306")
+            original_count = len(config_manager.get_symbol_codes())
+            config_manager.remove_symbol("8306")
 
-                new_codes = config_manager.get_symbol_codes()
-                assert len(new_codes) == original_count - 1
-                assert "8306" not in new_codes
+            new_codes = config_manager.get_symbol_codes()
+            assert len(new_codes) == original_count - 1
+            assert "8306" not in new_codes
 
     def test_config_validation_missing_section(self):
         """設定検証エラーテスト"""
         invalid_config = {"watchlist": {"symbols": []}}  # 必須セクション不足
         config_json = json.dumps(invalid_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                with pytest.raises(ValueError, match="必須設定セクション"):
-                    ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ), pytest.raises(ValueError, match="必須設定セクション"):
+            ConfigManager("test_config.json")
 
     def test_config_validation_empty_symbols(self):
         """空の監視銘柄設定エラーテスト"""
@@ -266,10 +276,12 @@ class TestConfigManager:
         invalid_config["watchlist"]["symbols"] = []
         config_json = json.dumps(invalid_config)
 
-        with patch("builtins.open", mock_open(read_data=config_json)):
-            with patch("pathlib.Path.exists", return_value=True):
-                with pytest.raises(ValueError, match="ウォッチリストに監視銘柄が一つも設定されていません"):
-                    ConfigManager("test_config.json")
+        with patch("builtins.open", mock_open(read_data=config_json)), patch(
+            "pathlib.Path.exists", return_value=True
+        ), pytest.raises(
+            ValueError, match="ウォッチリストに監視銘柄が一つも設定されていません"
+        ):
+            ConfigManager("test_config.json")
 
 
 class TestDayTradeOrchestrator:
@@ -359,7 +371,7 @@ class TestDayTradeOrchestrator:
             enabled=True,
             strategy_type="balanced",
             voting_type="soft",
-            performance_file_path="ensemble_performance.json"
+            performance_file_path="ensemble_performance.json",
         )
         mock_config_manager.return_value = mock_instance
 
@@ -398,7 +410,7 @@ class TestDayTradeOrchestrator:
             enabled=True,
             strategy_type="balanced",
             voting_type="soft",
-            performance_file_path="ensemble_performance.json"
+            performance_file_path="ensemble_performance.json",
         )
         mock_config_manager.return_value = mock_config_instance
 
