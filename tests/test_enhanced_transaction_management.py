@@ -261,7 +261,7 @@ class TestEnhancedTransactionManager:
             mock_session.close = Mock()
             mock_get_session.return_value = mock_session
 
-            with pytest.raises(RuntimeError), \
+            with pytest.raises(Exception, match="Context2 failed"), \
                  self.enhanced_manager.distributed_transaction([context1, context2]):
                     pass
 
@@ -282,7 +282,7 @@ class TestEnhancedTransactionManager:
         def operation3(session):
             operations_executed.append("op3")
 
-        with pytest.raises(RuntimeError):  # Operation 2 failed例外
+        with pytest.raises(Exception, match="Operation 2 failed"):  # Operation 2 failed例外
             self.enhanced_manager.execute_with_savepoint(
                 [operation1, operation2, operation3]
             )
