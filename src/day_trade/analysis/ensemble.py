@@ -148,7 +148,7 @@ class EnsembleTradingStrategy:
 
         if self.enable_ml_models:
             try:
-                self.ml_manager = MLModelManager(models_dir)
+                self.ml_manager = MLModelManager()
                 self.feature_engineer = AdvancedFeatureEngineer()
                 self._initialize_ml_models()
             except ImportError as e:

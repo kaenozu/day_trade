@@ -358,6 +358,7 @@ class ResilientAPIClient:
             circuit_breaker.record_failure()
             # ネットワークエラー（リトライ後も失敗）
             self._raise_network_error(req_exc)
+
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""
         status_code = response.status_code
