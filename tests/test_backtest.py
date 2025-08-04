@@ -5,7 +5,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -110,16 +110,26 @@ class TestPosition:
 
         # 市場価値の確認
         expected_market_value = position.quantity * position.current_price
-        assert position.market_value == expected_market_value, f"Market value calculation: {position.market_value} == {expected_market_value}"
+        assert position.market_value == expected_market_value, (
+            f"Market value calculation: {position.market_value} == {expected_market_value}"
+        )
 
         # 未実現損益の確認
-        expected_unrealized_pnl = (position.current_price - position.average_price) * position.quantity
-        assert position.unrealized_pnl == expected_unrealized_pnl, f"Unrealized PnL calculation: {position.unrealized_pnl} == {expected_unrealized_pnl}"
+        expected_unrealized_pnl = (
+            position.current_price - position.average_price
+        ) * position.quantity
+        assert position.unrealized_pnl == expected_unrealized_pnl, (
+            f"Unrealized PnL calculation: {position.unrealized_pnl} == {expected_unrealized_pnl}"
+        )
 
         # 未実現損益パーセンテージの確認（プロパティが存在する場合）
-        if hasattr(position, 'unrealized_pnl_percent'):
-            expected_pnl_percent = (position.current_price - position.average_price) / position.average_price
-            assert abs(position.unrealized_pnl_percent - expected_pnl_percent) < Decimal("0.0001"), f"Unrealized PnL percentage calculation error"
+        if hasattr(position, "unrealized_pnl_percent"):
+            expected_pnl_percent = (
+                position.current_price - position.average_price
+            ) / position.average_price
+            assert abs(
+                position.unrealized_pnl_percent - expected_pnl_percent
+            ) < Decimal("0.0001"), "Unrealized PnL percentage calculation error"
 
     def test_position_zero_quantity(self):
         """ゼロ数量ポジションテスト"""
@@ -150,7 +160,9 @@ class TestPosition:
         )
 
         # 損失の確認
-        expected_loss = (position.current_price - position.average_price) * position.quantity
+        expected_loss = (
+            position.current_price - position.average_price
+        ) * position.quantity
         assert position.unrealized_pnl == expected_loss
         assert position.unrealized_pnl < 0, "Should have negative unrealized PnL"
 
@@ -171,7 +183,9 @@ class TestPosition:
 
         # 精密計算の確認
         expected_market_value = position.quantity * position.current_price
-        expected_pnl = (position.current_price - position.average_price) * position.quantity
+        expected_pnl = (
+            position.current_price - position.average_price
+        ) * position.quantity
 
         assert position.market_value == expected_market_value
         assert position.unrealized_pnl == expected_pnl
@@ -197,7 +211,7 @@ class TestBacktestEngine:
             trend=0.0001,  # 微小な上昇トレンド
             volatility=0.02,
             volume_base=2000000,
-            volume_variance=0.3
+            volume_variance=0.3,
         )
 
     def _generate_realistic_market_data(
@@ -208,7 +222,7 @@ class TestBacktestEngine:
         volatility: float = 0.02,
         volume_base: int = 2000000,
         volume_variance: float = 0.3,
-        seed: Optional[int] = 42
+        seed: Optional[int] = 42,
     ) -> pd.DataFrame:
         """
         現実的な市場データを動的に生成するユーティリティ
@@ -228,7 +242,7 @@ class TestBacktestEngine:
         n_days = len(dates)
 
         # 価格の基本トレンドを生成
-        price_trend = np.cumsum(np.random.normal(trend, volatility/4, n_days))
+        price_trend = np.cumsum(np.random.normal(trend, volatility / 4, n_days))
         base_prices = base_price * np.exp(price_trend)
 
         # 日次ボラティリティを追加
@@ -236,23 +250,26 @@ class TestBacktestEngine:
 
         # OHLC価格を現実的な関係で生成
         data = []
-        for i, (date, base, daily_vol) in enumerate(zip(dates, base_prices, daily_volatility)):
+        for i, (_date, base, daily_vol) in enumerate(
+            zip(dates, base_prices, daily_volatility)
+        ):
             # 前日終値を基準にする（初日は基準価格）
-            if i == 0:
-                prev_close = base
-            else:
-                prev_close = data[i-1]["Close"]
+            prev_close = base if i == 0 else data[i - 1]["Close"]
 
             # 日中変動幅を設定
             daily_range = prev_close * abs(daily_vol) * 2
 
             # Openは前日終値の近く
-            open_price = prev_close * (1 + np.random.normal(0, volatility/10))
+            open_price = prev_close * (1 + np.random.normal(0, volatility / 10))
 
             # HighとLowの生成
             high_low_spread = daily_range * np.random.uniform(0.5, 1.5)
-            high_price = max(open_price, prev_close) + np.random.uniform(0, high_low_spread/2)
-            low_price = min(open_price, prev_close) - np.random.uniform(0, high_low_spread/2)
+            high_price = max(open_price, prev_close) + np.random.uniform(
+                0, high_low_spread / 2
+            )
+            low_price = min(open_price, prev_close) - np.random.uniform(
+                0, high_low_spread / 2
+            )
 
             # Closeの生成（Open付近だが、HighとLowの範囲内）
             close_factor = np.random.uniform(-0.5, 0.5)
@@ -265,18 +282,22 @@ class TestBacktestEngine:
 
             # 出来高の生成（価格変動が大きい日は出来高も多い傾向）
             volatility_factor = abs(daily_vol) * 10 + 1
-            volume = int(volume_base * volatility_factor * np.random.uniform(
-                1 - volume_variance, 1 + volume_variance
-            ))
+            volume = int(
+                volume_base
+                * volatility_factor
+                * np.random.uniform(1 - volume_variance, 1 + volume_variance)
+            )
             volume = max(100000, volume)  # 最小出来高保証
 
-            data.append({
-                "Open": round(open_price, 2),
-                "High": round(high_price, 2),
-                "Low": round(low_price, 2),
-                "Close": round(close_price, 2),
-                "Volume": volume
-            })
+            data.append(
+                {
+                    "Open": round(open_price, 2),
+                    "High": round(high_price, 2),
+                    "Low": round(low_price, 2),
+                    "Close": round(close_price, 2),
+                    "Volume": volume,
+                }
+            )
 
         # DataFrameに変換
         df = pd.DataFrame(data, index=dates)
@@ -300,7 +321,7 @@ class TestBacktestEngine:
         base_price: float = 2500,
         trend_strength: float = 0.1,  # 10%の総変動
         volatility: float = 0.02,
-        seed: Optional[int] = 42
+        seed: Optional[int] = 42,
     ) -> pd.DataFrame:
         """
         明確なトレンドを持つテストデータを生成
@@ -324,7 +345,9 @@ class TestBacktestEngine:
 
         # ノイズを期間で正規化し、トレンドの10%以下に制限
         max_noise_amplitude = abs(trend_strength) * base_price * 0.15
-        daily_volatility = min(volatility * base_price, max_noise_amplitude / np.sqrt(n_days))
+        daily_volatility = min(
+            volatility * base_price, max_noise_amplitude / np.sqrt(n_days)
+        )
 
         # 累積的ノイズではなく、各日独立のノイズ（ただし制限付き）
         raw_noise = np.random.normal(0, daily_volatility, n_days)
@@ -333,13 +356,15 @@ class TestBacktestEngine:
         # 大きなノイズがトレンドと逆方向の場合は減衰
         for i in range(n_days):
             if i > 0:
-                trend_direction = trend_prices[i] - trend_prices[i-1]
+                trend_direction = trend_prices[i] - trend_prices[i - 1]
                 noise_direction = raw_noise[i]
 
                 # ノイズがトレンドと逆方向の場合は50%減衰
-                if (trend_direction > 0 and noise_direction < 0) or (trend_direction < 0 and noise_direction > 0):
-                    if abs(noise_direction) > daily_volatility * 0.5:
-                        raw_noise[i] *= 0.5
+                if (
+                    (trend_direction > 0 and noise_direction < 0)
+                    or (trend_direction < 0 and noise_direction > 0)
+                ) and abs(noise_direction) > daily_volatility * 0.5:
+                    raw_noise[i] *= 0.5
 
         final_prices = trend_prices + raw_noise
 
@@ -349,7 +374,7 @@ class TestBacktestEngine:
 
         # 最終価格が期待範囲内になるよう調整
         if final_prices[-1] < expected_final_price * 0.85:
-            adjustment = (expected_final_price * 0.9 - final_prices[-1])
+            adjustment = expected_final_price * 0.9 - final_prices[-1]
             # 調整を線形に分散
             for i in range(n_days):
                 final_prices[i] += adjustment * (i / (n_days - 1))
@@ -378,11 +403,17 @@ class TestBacktestEngine:
             if i == 0:
                 open_price = base_price
             else:
-                open_price = final_prices[i-1] + np.random.normal(0, price_range * 0.5)
+                open_price = final_prices[i - 1] + np.random.normal(
+                    0, price_range * 0.5
+                )
 
             # High/Low価格
-            high_price = max(open_price, close_price) + abs(np.random.normal(0, price_range))
-            low_price = min(open_price, close_price) - abs(np.random.normal(0, price_range))
+            high_price = max(open_price, close_price) + abs(
+                np.random.normal(0, price_range)
+            )
+            low_price = min(open_price, close_price) - abs(
+                np.random.normal(0, price_range)
+            )
 
             # 負の価格を防ぐ
             low_price = max(low_price, base_price * 0.1)
@@ -396,13 +427,16 @@ class TestBacktestEngine:
             closes[i] = close_price
 
         # DataFrameを作成
-        ohlcv_data = pd.DataFrame({
-            "Open": opens,
-            "High": highs,
-            "Low": lows,
-            "Close": closes,
-            "Volume": volumes
-        }, index=dates)
+        ohlcv_data = pd.DataFrame(
+            {
+                "Open": opens,
+                "High": highs,
+                "Low": lows,
+                "Close": closes,
+                "Volume": volumes,
+            },
+            index=dates,
+        )
 
         return ohlcv_data
 
@@ -411,7 +445,7 @@ class TestBacktestEngine:
         dates: pd.DatetimeIndex,
         base_price: float = 2500,
         volatility: float = 0.05,  # 高ボラティリティ
-        seed: Optional[int] = 42
+        seed: Optional[int] = 42,
     ) -> pd.DataFrame:
         """
         高ボラティリティのテストデータを生成
@@ -446,7 +480,7 @@ class TestBacktestEngine:
             if i == 0:
                 open_price = base_price
             else:
-                open_price = prices[i-1] + np.random.normal(0, intraday_vol * 0.8)
+                open_price = prices[i - 1] + np.random.normal(0, intraday_vol * 0.8)
 
             high_price = max(open_price, close_price) + high_addon
             low_price = min(open_price, close_price) - low_subtract
@@ -456,13 +490,17 @@ class TestBacktestEngine:
             high_price = max(high_price, low_price + 1)
             open_price = max(min(open_price, high_price), low_price)
 
-            ohlcv_data.append({
-                'Open': open_price,
-                'High': high_price,
-                'Low': low_price,
-                'Close': close_price,
-                'Volume': int(np.random.uniform(1000000, 4000000))  # 大きな出来高変動
-            })
+            ohlcv_data.append(
+                {
+                    "Open": open_price,
+                    "High": high_price,
+                    "Low": low_price,
+                    "Close": close_price,
+                    "Volume": int(
+                        np.random.uniform(1000000, 4000000)
+                    ),  # 大きな出来高変動
+                }
+            )
 
         return pd.DataFrame(ohlcv_data, index=dates)
 
@@ -473,7 +511,7 @@ class TestBacktestEngine:
         crash_start: int = None,
         crash_duration: int = 10,
         crash_magnitude: float = -0.3,  # 30%下落
-        seed: Optional[int] = 42
+        seed: Optional[int] = 42,
     ) -> pd.DataFrame:
         """
         市場クラッシュシナリオのテストデータを生成
@@ -487,7 +525,7 @@ class TestBacktestEngine:
             base_price=base_price,
             trend=0.0005,  # 通常時は小幅上昇
             volatility=0.015,
-            seed=seed
+            seed=seed,
         )
 
         # クラッシュ期間中の価格調整
@@ -512,8 +550,12 @@ class TestBacktestEngine:
             open_price = base_data.iloc[i]["Open"]
             close = base_data.iloc[i]["Close"]
 
-            base_data.iloc[i, base_data.columns.get_loc("High")] = max(high, open_price, close)
-            base_data.iloc[i, base_data.columns.get_loc("Low")] = min(low, open_price, close)
+            base_data.iloc[i, base_data.columns.get_loc("High")] = max(
+                high, open_price, close
+            )
+            base_data.iloc[i, base_data.columns.get_loc("Low")] = min(
+                low, open_price, close
+            )
 
         return base_data
 
@@ -527,12 +569,18 @@ class TestBacktestEngine:
             base_price=3000,
             trend=0.002,  # 0.2%/日の上昇
             volatility=0.025,
-            seed=123
+            seed=123,
         )
 
         # データの基本検証
         assert len(realistic_data) == len(dates), "Data length should match dates"
-        assert list(realistic_data.columns) == ["Open", "High", "Low", "Close", "Volume"], "Should have OHLCV columns"
+        assert list(realistic_data.columns) == [
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "Volume",
+        ], "Should have OHLCV columns"
 
         # OHLC関係の検証
         for i in range(len(realistic_data)):
@@ -549,7 +597,7 @@ class TestBacktestEngine:
             base_price=2500,
             trend_strength=0.15,  # 15%上昇
             volatility=0.02,
-            seed=123
+            seed=123,
         )
 
         # トレンドの確認
@@ -558,14 +606,16 @@ class TestBacktestEngine:
         actual_trend = (end_price - start_price) / start_price
 
         # 約15%のトレンドが生成されているか確認（ボラティリティによる誤差を考慮）
-        assert 0.10 <= actual_trend <= 0.20, f"Trend should be around 15%, got {actual_trend:.2%}"
+        assert 0.10 <= actual_trend <= 0.20, (
+            f"Trend should be around 15%, got {actual_trend:.2%}"
+        )
 
         # 高ボラティリティデータのテスト
         volatile_data = self._generate_volatile_data(
             dates=dates,
             base_price=2500,
             volatility=0.08,  # 8%の高ボラティリティ
-            seed=123
+            seed=123,
         )
 
         # ボラティリティの計算
@@ -582,7 +632,7 @@ class TestBacktestEngine:
             crash_start=10,
             crash_duration=5,
             crash_magnitude=-0.25,  # 25%下落
-            seed=123
+            seed=123,
         )
 
         # クラッシュの確認
@@ -591,7 +641,9 @@ class TestBacktestEngine:
         crash_magnitude = (crash_low - pre_crash_price) / pre_crash_price
 
         # 下落が発生していることを確認
-        assert crash_magnitude < -0.15, f"Crash should cause significant drop, got {crash_magnitude:.2%}"
+        assert crash_magnitude < -0.15, (
+            f"Crash should cause significant drop, got {crash_magnitude:.2%}"
+        )
 
         print("Dynamic data generation utilities test passed:")
         print(f"  Realistic data: {len(realistic_data)} days")
@@ -616,7 +668,7 @@ class TestBacktestEngine:
             base_price=2500,
             trend_strength=0.20,  # 20%上昇
             volatility=0.02,
-            seed=100
+            seed=100,
         )
 
         self.mock_stock_fetcher.get_historical_data.return_value = bullish_data
@@ -630,18 +682,23 @@ class TestBacktestEngine:
                     current_data = data[data.index <= date]
                     if len(current_data) >= 2:
                         # 価格が上昇傾向にあれば買い
-                        recent_change = (current_data["Close"].iloc[-1] - current_data["Close"].iloc[-2]) / current_data["Close"].iloc[-2]
+                        recent_change = (
+                            current_data["Close"].iloc[-1]
+                            - current_data["Close"].iloc[-2]
+                        ) / current_data["Close"].iloc[-2]
                         if recent_change > 0.01:  # 1%以上上昇
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.BUY,
-                                strength=SignalStrength.STRONG,
-                                confidence=85.0,
-                                reasons=["Strong upward trend"],
-                                conditions_met={"trend": True},
-                                timestamp=pd.Timestamp(date),
-                                price=float(current_data["Close"].iloc[-1]),
-                                symbol=symbol,
-                            ))
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.BUY,
+                                    strength=SignalStrength.STRONG,
+                                    confidence=85.0,
+                                    reasons=["Strong upward trend"],
+                                    conditions_met={"trend": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=float(current_data["Close"].iloc[-1]),
+                                    symbol=symbol,
+                                )
+                            )
             return signals
 
         symbols = ["7203"]
@@ -649,14 +706,16 @@ class TestBacktestEngine:
 
         # 上昇トレンド下では利益が期待される
         assert isinstance(result, BacktestResult), "Should return BacktestResult"
-        assert float(result.total_return) > 0, f"Should have positive return in bullish scenario, got {result.total_return}"
+        assert float(result.total_return) > 0, (
+            f"Should have positive return in bullish scenario, got {result.total_return}"
+        )
 
         # シナリオ2: 高ボラティリティ環境
         volatile_data = self._generate_volatile_data(
             dates=dates,
             base_price=2500,
             volatility=0.06,  # 6%の高ボラティリティ
-            seed=200
+            seed=200,
         )
 
         self.mock_stock_fetcher.get_historical_data.return_value = volatile_data
@@ -666,11 +725,17 @@ class TestBacktestEngine:
             # ボラティリティが高い時は取引を控える
             return []  # 何も取引しない
 
-        result_volatile = self.engine.run_backtest(symbols, config, conservative_strategy)
+        result_volatile = self.engine.run_backtest(
+            symbols, config, conservative_strategy
+        )
 
         # 取引しない場合、リターンは手数料分のマイナスのみ
-        assert abs(float(result_volatile.total_return)) < 0.01, "Conservative strategy should have minimal return"
-        assert result_volatile.total_trades == 0, "Conservative strategy should make no trades"
+        assert abs(float(result_volatile.total_return)) < 0.01, (
+            "Conservative strategy should have minimal return"
+        )
+        assert result_volatile.total_trades == 0, (
+            "Conservative strategy should make no trades"
+        )
 
         # シナリオ3: クラッシュシナリオ
         crash_data = self._generate_crisis_scenario_data(
@@ -679,7 +744,7 @@ class TestBacktestEngine:
             crash_start=10,
             crash_duration=7,
             crash_magnitude=-0.30,
-            seed=300
+            seed=300,
         )
 
         self.mock_stock_fetcher.get_historical_data.return_value = crash_data
@@ -694,17 +759,21 @@ class TestBacktestEngine:
                     if len(current_data) >= 3:
                         # 連続下落を検知したら売り
                         recent_changes = current_data["Close"].pct_change().tail(2)
-                        if all(change < -0.02 for change in recent_changes):  # 連続2%下落
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.SELL,
-                                strength=SignalStrength.STRONG,
-                                confidence=90.0,
-                                reasons=["Crash detected"],
-                                conditions_met={"crash": True},
-                                timestamp=pd.Timestamp(date),
-                                price=float(current_data["Close"].iloc[-1]),
-                                symbol=symbol,
-                            ))
+                        if all(
+                            change < -0.02 for change in recent_changes
+                        ):  # 連続2%下落
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.SELL,
+                                    strength=SignalStrength.STRONG,
+                                    confidence=90.0,
+                                    reasons=["Crash detected"],
+                                    conditions_met={"crash": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=float(current_data["Close"].iloc[-1]),
+                                    symbol=symbol,
+                                )
+                            )
             return signals
 
         # ポジションを事前に設定（売るために）
@@ -738,7 +807,9 @@ class TestBacktestEngine:
         data2 = self._generate_realistic_market_data(dates=dates, seed=555)
 
         # 完全に同じデータが生成されることを確認
-        pd.testing.assert_frame_equal(data1, data2, "Data should be reproducible with same seed")
+        pd.testing.assert_frame_equal(
+            data1, data2, "Data should be reproducible with same seed"
+        )
 
         # 異なるシードで生成
         data3 = self._generate_realistic_market_data(dates=dates, seed=556)
@@ -755,16 +826,16 @@ class TestBacktestEngine:
         single_day_data = self._generate_realistic_market_data(dates=single_date)
 
         assert len(single_day_data) == 1, "Should handle single day"
-        assert single_day_data.iloc[0]["High"] >= single_day_data.iloc[0]["Close"], "OHLC relationship should hold"
+        assert single_day_data.iloc[0]["High"] >= single_day_data.iloc[0]["Close"], (
+            "OHLC relationship should hold"
+        )
 
         # 極端なパラメータ
         dates = pd.date_range("2023-01-01", "2023-01-05", freq="D")
 
         # ゼロボラティリティ
         zero_vol_data = self._generate_realistic_market_data(
-            dates=dates,
-            volatility=0.0,
-            seed=777
+            dates=dates, volatility=0.0, seed=777
         )
 
         # ボラティリティがゼロでも、わずかな変動は許容される
@@ -774,7 +845,7 @@ class TestBacktestEngine:
         high_vol_data = self._generate_realistic_market_data(
             dates=dates,
             volatility=0.20,  # 20%
-            seed=777
+            seed=777,
         )
 
         assert len(high_vol_data) == len(dates), "Should handle high volatility"
@@ -839,39 +910,64 @@ class TestBacktestEngine:
         ]
 
         # Decimal計算の精度テスト
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = \
-            self.engine._calculate_trade_statistics_vectorized()
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = self.engine._calculate_trade_statistics_vectorized()
 
         # 期待される精密計算結果
         # トヨタ: (2700.5678 - 2500.1234) * 100 - 250.1234 - 270.0568 = 200.4444 * 100 - 520.18 = 19524.26
         # ソフトバンク: (4800.1234 - 5000.9876) * 50.123 - 250.683 - 240.589 = -200.864 * 50.123 - 491.272 = -10563.55484
 
-        expected_toyota_pnl = (Decimal("2700.5678") - Decimal("2500.1234")) * 100 - Decimal("250.1234") - Decimal("270.0568")
-        expected_softbank_pnl = (Decimal("4800.1234") - Decimal("5000.9876")) * Decimal("50.123") - Decimal("250.683") - Decimal("240.589")
+        expected_toyota_pnl = (
+            (Decimal("2700.5678") - Decimal("2500.1234")) * 100
+            - Decimal("250.1234")
+            - Decimal("270.0568")
+        )
+        expected_softbank_pnl = (
+            (Decimal("4800.1234") - Decimal("5000.9876")) * Decimal("50.123")
+            - Decimal("250.683")
+            - Decimal("240.589")
+        )
 
         # 基本統計の確認
         assert total_trades == 2, f"Should have 2 completed trades, got {total_trades}"
-        assert profitable_trades == 1, f"Should have 1 profitable trade, got {profitable_trades}"
+        assert profitable_trades == 1, (
+            f"Should have 1 profitable trade, got {profitable_trades}"
+        )
         assert losing_trades == 1, f"Should have 1 losing trade, got {losing_trades}"
 
         # Decimal精度の確認
-        assert isinstance(avg_win, Decimal), f"Average win should be Decimal, got {type(avg_win)}"
-        assert isinstance(avg_loss, Decimal), f"Average loss should be Decimal, got {type(avg_loss)}"
+        assert isinstance(avg_win, Decimal), (
+            f"Average win should be Decimal, got {type(avg_win)}"
+        )
+        assert isinstance(avg_loss, Decimal), (
+            f"Average loss should be Decimal, got {type(avg_loss)}"
+        )
 
         # 精密計算結果の検証（小数点以下も含めて）
         if profitable_trades > 0:
             # トヨタの取引が利益のはず
             expected_win = abs(expected_toyota_pnl)
-            assert abs(avg_win - expected_win) < Decimal("0.01"), \
+            assert abs(avg_win - expected_win) < Decimal("0.01"), (
                 f"Average win {avg_win} should be close to {expected_win}"
+            )
 
         if losing_trades > 0:
             # ソフトバンクの取引が損失のはず
             expected_loss = abs(expected_softbank_pnl)
-            assert abs(avg_loss - expected_loss) < Decimal("0.01"), \
+            assert abs(avg_loss - expected_loss) < Decimal("0.01"), (
                 f"Average loss {avg_loss} should be close to {expected_loss}"
+            )
 
-        print(f"Decimal precision test passed:")
+        print("Decimal precision test passed:")
         print(f"  Expected Toyota P&L: {expected_toyota_pnl}")
         print(f"  Expected SoftBank P&L: {expected_softbank_pnl}")
         print(f"  Calculated Avg Win: {avg_win}")
@@ -879,11 +975,13 @@ class TestBacktestEngine:
 
     def test_decimal_edge_cases_and_rounding(self):
         """Decimal型のエッジケースと丸め処理テスト"""
-        self.engine._initialize_backtest(BacktestConfig(
-            start_date=datetime(2023, 1, 1),
-            end_date=datetime(2023, 6, 30),
-            initial_capital=Decimal("1000000"),
-        ))
+        self.engine._initialize_backtest(
+            BacktestConfig(
+                start_date=datetime(2023, 1, 1),
+                end_date=datetime(2023, 6, 30),
+                initial_capital=Decimal("1000000"),
+            )
+        )
 
         # エッジケース1: 非常に小さな利益/損失
         self.engine.trades = [
@@ -908,17 +1006,35 @@ class TestBacktestEngine:
         ]
 
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         # 微小利益でも正確に計算されることを確認
-        expected_tiny_pnl = (Decimal("2500.0002") - Decimal("2500.0001")) * 1 - Decimal("0.0001") - Decimal("0.0001")
+        expected_tiny_pnl = (
+            (Decimal("2500.0002") - Decimal("2500.0001")) * 1
+            - Decimal("0.0001")
+            - Decimal("0.0001")
+        )
 
         if expected_tiny_pnl > 0:
             assert profitable_trades == 1, "Should detect tiny profit"
-            assert abs(avg_win - expected_tiny_pnl) < Decimal("0.0001"), "Should calculate tiny profit accurately"
+            assert abs(avg_win - expected_tiny_pnl) < Decimal("0.0001"), (
+                "Should calculate tiny profit accurately"
+            )
         else:
             assert losing_trades == 1, "Should detect tiny loss"
-            assert abs(avg_loss - abs(expected_tiny_pnl)) < Decimal("0.0001"), "Should calculate tiny loss accurately"
+            assert abs(avg_loss - abs(expected_tiny_pnl)) < Decimal("0.0001"), (
+                "Should calculate tiny loss accurately"
+            )
 
         # エッジケース2: 大きな数値での精度
         self.engine.trades = [
@@ -943,21 +1059,39 @@ class TestBacktestEngine:
         ]
 
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         # 大きな数値でも正確に計算されることを確認
-        large_pnl = (Decimal("100000.0001") - Decimal("99999.9999")) * 1000000 - Decimal("99999.9999") - Decimal("100000.0001")
+        large_pnl = (
+            (Decimal("100000.0001") - Decimal("99999.9999")) * 1000000
+            - Decimal("99999.9999")
+            - Decimal("100000.0001")
+        )
 
         assert total_trades == 1, "Should have 1 completed trade"
 
         if large_pnl > 0:
             assert profitable_trades == 1, "Should detect large profit"
-            assert abs(avg_win - large_pnl) < Decimal("1"), "Should calculate large profit accurately"
+            assert abs(avg_win - large_pnl) < Decimal("1"), (
+                "Should calculate large profit accurately"
+            )
         else:
             assert losing_trades == 1, "Should detect large loss"
-            assert abs(avg_loss - abs(large_pnl)) < Decimal("1"), "Should calculate large loss accurately"
+            assert abs(avg_loss - abs(large_pnl)) < Decimal("1"), (
+                "Should calculate large loss accurately"
+            )
 
-        print(f"Decimal edge cases test passed:")
+        print("Decimal edge cases test passed:")
         print(f"  Tiny P&L: {expected_tiny_pnl}")
         print(f"  Large P&L: {large_pnl}")
 
@@ -1001,20 +1135,35 @@ class TestBacktestEngine:
         ]
 
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         # Float→Decimal変換でも適切な精度が保たれることを確認
-        expected_pnl = (decimal_price_sell - decimal_price_buy) * 100 - Decimal("250.00") - Decimal("260.00")
+        expected_pnl = (
+            (decimal_price_sell - decimal_price_buy) * 100
+            - Decimal("250.00")
+            - Decimal("260.00")
+        )
 
         assert total_trades == 1, "Should have 1 completed trade"
 
         if expected_pnl > 0:
             assert profitable_trades == 1, "Should detect profit from float conversion"
             # Float精度の制限により、多少の誤差は許容
-            assert abs(avg_win - expected_pnl) < Decimal("0.001"), \
+            assert abs(avg_win - expected_pnl) < Decimal("0.001"), (
                 f"Float conversion should maintain reasonable precision: {avg_win} vs {expected_pnl}"
+            )
 
-        print(f"Decimal conversion from float test passed:")
+        print("Decimal conversion from float test passed:")
         print(f"  Buy price (Decimal): {decimal_price_buy}")
         print(f"  Sell price (Decimal): {decimal_price_sell}")
         print(f"  Expected P&L: {expected_pnl}")
@@ -1045,16 +1194,28 @@ class TestBacktestEngine:
         pnl_separate = proceeds - cost
 
         # すべての計算方法で同じ結果になることを確認
-        assert pnl_direct == pnl_step, f"Direct and step calculations should match: {pnl_direct} vs {pnl_step}"
-        assert pnl_direct == pnl_separate, f"Direct and separate calculations should match: {pnl_direct} vs {pnl_separate}"
-        assert pnl_step == pnl_separate, f"Step and separate calculations should match: {pnl_step} vs {pnl_separate}"
+        assert pnl_direct == pnl_step, (
+            f"Direct and step calculations should match: {pnl_direct} vs {pnl_step}"
+        )
+        assert pnl_direct == pnl_separate, (
+            f"Direct and separate calculations should match: {pnl_direct} vs {pnl_separate}"
+        )
+        assert pnl_step == pnl_separate, (
+            f"Step and separate calculations should match: {pnl_step} vs {pnl_separate}"
+        )
 
         # 結果がDecimal型であることを確認
-        assert isinstance(pnl_direct, Decimal), f"Result should be Decimal, got {type(pnl_direct)}"
-        assert isinstance(pnl_step, Decimal), f"Result should be Decimal, got {type(pnl_step)}"
-        assert isinstance(pnl_separate, Decimal), f"Result should be Decimal, got {type(pnl_separate)}"
+        assert isinstance(pnl_direct, Decimal), (
+            f"Result should be Decimal, got {type(pnl_direct)}"
+        )
+        assert isinstance(pnl_step, Decimal), (
+            f"Result should be Decimal, got {type(pnl_step)}"
+        )
+        assert isinstance(pnl_separate, Decimal), (
+            f"Result should be Decimal, got {type(pnl_separate)}"
+        )
 
-        print(f"Decimal arithmetic consistency test passed:")
+        print("Decimal arithmetic consistency test passed:")
         print(f"  All calculation methods produced: {pnl_direct}")
 
     def test_initialize_backtest(self):
@@ -1094,7 +1255,6 @@ class TestBacktestEngine:
     def test_fetch_historical_data_threadpool_performance(self):
         """履歴データ取得のThreadPoolExecutor並列処理テスト"""
         import time
-        from concurrent.futures import ThreadPoolExecutor
         from unittest.mock import call
 
         config = BacktestConfig(
@@ -1111,13 +1271,16 @@ class TestBacktestEngine:
             # わずかな遅延を追加して並列処理の効果をシミュレート
             time.sleep(0.01)
             dates = pd.date_range(start_date, end_date, freq="D")
-            return pd.DataFrame({
-                "Open": np.random.uniform(2400, 2600, len(dates)),
-                "High": np.random.uniform(2500, 2700, len(dates)),
-                "Low": np.random.uniform(2300, 2500, len(dates)),
-                "Close": np.random.uniform(2400, 2600, len(dates)),
-                "Volume": np.random.randint(1000000, 3000000, len(dates)),
-            }, index=dates)
+            return pd.DataFrame(
+                {
+                    "Open": np.random.uniform(2400, 2600, len(dates)),
+                    "High": np.random.uniform(2500, 2700, len(dates)),
+                    "Low": np.random.uniform(2300, 2500, len(dates)),
+                    "Close": np.random.uniform(2400, 2600, len(dates)),
+                    "Volume": np.random.randint(1000000, 3000000, len(dates)),
+                },
+                index=dates,
+            )
 
         self.mock_stock_fetcher.get_historical_data.side_effect = mock_get_data
 
@@ -1127,7 +1290,9 @@ class TestBacktestEngine:
         parallel_time = time.time() - start_time
 
         # 結果の検証
-        assert len(historical_data) == len(symbols), f"Expected {len(symbols)} datasets, got {len(historical_data)}"
+        assert len(historical_data) == len(symbols), (
+            f"Expected {len(symbols)} datasets, got {len(historical_data)}"
+        )
 
         for symbol in symbols:
             assert symbol in historical_data, f"Missing data for symbol {symbol}"
@@ -1137,15 +1302,21 @@ class TestBacktestEngine:
         # モックが全銘柄に対して呼ばれたことを確認
         # バッファ期間を考慮した実際の開始日
         from datetime import timedelta
+
         buffer_start = config.start_date - timedelta(days=100)
         expected_calls = [
-            call(symbol, start_date=buffer_start, end_date=config.end_date, interval="1d") for symbol in symbols
+            call(
+                symbol, start_date=buffer_start, end_date=config.end_date, interval="1d"
+            )
+            for symbol in symbols
         ]
-        self.mock_stock_fetcher.get_historical_data.assert_has_calls(expected_calls, any_order=True)
+        self.mock_stock_fetcher.get_historical_data.assert_has_calls(
+            expected_calls, any_order=True
+        )
         assert self.mock_stock_fetcher.get_historical_data.call_count == len(symbols)
 
         print(f"Parallel fetch time for {len(symbols)} symbols: {parallel_time:.3f}s")
-        print(f"Average time per symbol: {parallel_time/len(symbols):.3f}s")
+        print(f"Average time per symbol: {parallel_time / len(symbols):.3f}s")
 
     def test_fetch_historical_data_error_handling(self):
         """履歴データ取得のエラーハンドリングテスト"""
@@ -1164,21 +1335,29 @@ class TestBacktestEngine:
             else:
                 return self.sample_data
 
-        self.mock_stock_fetcher.get_historical_data.side_effect = mock_get_data_with_error
+        self.mock_stock_fetcher.get_historical_data.side_effect = (
+            mock_get_data_with_error
+        )
 
         # エラーハンドリングの確認
         try:
             historical_data = self.engine._fetch_historical_data(symbols, config)
             # エラーがあっても有効な銘柄のデータは取得されることを確認
-            assert len(historical_data) <= len(symbols), "Should not have more data than valid symbols"
+            assert len(historical_data) <= len(symbols), (
+                "Should not have more data than valid symbols"
+            )
             # 有効な銘柄のデータは取得されていることを確認
             valid_symbols = [s for s in symbols if s != "INVALID"]
             for symbol in valid_symbols:
                 if symbol in historical_data:
-                    assert not historical_data[symbol].empty, f"Valid symbol {symbol} should have data"
+                    assert not historical_data[symbol].empty, (
+                        f"Valid symbol {symbol} should have data"
+                    )
         except Exception as e:
             # エラーが適切に処理されることを確認
-            assert "INVALID" in str(e) or "Invalid symbol" in str(e), f"Error should mention invalid symbol: {e}"
+            assert "INVALID" in str(e) or "Invalid symbol" in str(e), (
+                f"Error should mention invalid symbol: {e}"
+            )
 
         print("Error handling test completed successfully")
 
@@ -1193,8 +1372,12 @@ class TestBacktestEngine:
         symbols = []
         historical_data = self.engine._fetch_historical_data(symbols, config)
 
-        assert len(historical_data) == 0, "Empty symbols should return empty historical data"
-        assert isinstance(historical_data, dict), "Should return dictionary even for empty symbols"
+        assert len(historical_data) == 0, (
+            "Empty symbols should return empty historical data"
+        )
+        assert isinstance(historical_data, dict), (
+            "Should return dictionary even for empty symbols"
+        )
 
     def test_fetch_historical_data_large_dataset(self):
         """大量銘柄での履歴データ取得テスト（ThreadPoolExecutor効果確認）"""
@@ -1211,23 +1394,32 @@ class TestBacktestEngine:
         self.mock_stock_fetcher.get_historical_data.return_value = self.sample_data
 
         import time
+
         start_time = time.time()
         historical_data = self.engine._fetch_historical_data(symbols, config)
         large_dataset_time = time.time() - start_time
 
         # 結果の検証
-        assert len(historical_data) == len(symbols), f"Expected {len(symbols)} datasets, got {len(historical_data)}"
+        assert len(historical_data) == len(symbols), (
+            f"Expected {len(symbols)} datasets, got {len(historical_data)}"
+        )
 
         # すべての銘柄でデータが取得されていることを確認
         for symbol in symbols:
             assert symbol in historical_data, f"Missing data for symbol {symbol}"
-            assert isinstance(historical_data[symbol], pd.DataFrame), f"Data should be DataFrame for {symbol}"
+            assert isinstance(historical_data[symbol], pd.DataFrame), (
+                f"Data should be DataFrame for {symbol}"
+            )
 
         # パフォーマンスの確認（20銘柄でも合理的な時間内に完了）
-        assert large_dataset_time < 10.0, f"Large dataset fetch should complete within 10 seconds, took {large_dataset_time:.3f}s"
+        assert large_dataset_time < 10.0, (
+            f"Large dataset fetch should complete within 10 seconds, took {large_dataset_time:.3f}s"
+        )
 
-        print(f"Large dataset ({len(symbols)} symbols) fetch time: {large_dataset_time:.3f}s")
-        print(f"ThreadPoolExecutor effectiveness demonstrated")
+        print(
+            f"Large dataset ({len(symbols)} symbols) fetch time: {large_dataset_time:.3f}s"
+        )
+        print("ThreadPoolExecutor effectiveness demonstrated")
 
     def test_fetch_historical_data_concurrent_safety(self):
         """並行処理での安全性テスト"""
@@ -1251,11 +1443,16 @@ class TestBacktestEngine:
                 call_count["value"] += 1
             return self.sample_data.copy()  # コピーを返して変更の影響を避ける
 
-        self.mock_stock_fetcher.get_historical_data.side_effect = thread_safe_mock_get_data
+        self.mock_stock_fetcher.get_historical_data.side_effect = (
+            thread_safe_mock_get_data
+        )
 
         # 複数のエンジンで同時実行
         engines = [
-            BacktestEngine(stock_fetcher=self.mock_stock_fetcher, signal_generator=self.mock_signal_generator)
+            BacktestEngine(
+                stock_fetcher=self.mock_stock_fetcher,
+                signal_generator=self.mock_signal_generator,
+            )
             for _ in range(3)
         ]
 
@@ -1282,9 +1479,13 @@ class TestBacktestEngine:
 
         # 並行実行でも期待回数の呼び出しが行われることを確認
         expected_total_calls = len(engines) * len(symbols)
-        assert call_count["value"] == expected_total_calls, f"Expected {expected_total_calls} calls, got {call_count['value']}"
+        assert call_count["value"] == expected_total_calls, (
+            f"Expected {expected_total_calls} calls, got {call_count['value']}"
+        )
 
-        print(f"Concurrent safety test passed with {len(engines)} engines and {len(symbols)} symbols")
+        print(
+            f"Concurrent safety test passed with {len(engines)} engines and {len(symbols)} symbols"
+        )
         print(f"Total mock calls: {call_count['value']}")
 
     def test_get_trading_dates(self):
@@ -1389,15 +1590,21 @@ class TestBacktestEngine:
         # スリッページと手数料の影響を確認
         trade = self.engine.trades[0]
         expected_slippage_price = price * (1 + config.slippage)
-        expected_commission = trade.quantity * expected_slippage_price * config.commission
+        trade.quantity * expected_slippage_price * config.commission
 
-        assert trade.price >= price, f"Trade price should include slippage: {trade.price} >= {price}"
-        assert trade.commission > 0, f"Commission should be positive: {trade.commission}"
+        assert trade.price >= price, (
+            f"Trade price should include slippage: {trade.price} >= {price}"
+        )
+        assert trade.commission > 0, (
+            f"Commission should be positive: {trade.commission}"
+        )
 
         # 資金減少の確認（スリッページと手数料込み）
         total_cost = trade.quantity * trade.price + trade.commission
         expected_remaining = initial_capital - total_cost
-        assert abs(self.engine.current_capital - expected_remaining) < Decimal("1"), f"Capital calculation mismatch"
+        assert abs(self.engine.current_capital - expected_remaining) < Decimal("1"), (
+            "Capital calculation mismatch"
+        )
 
         # 2回目の購入（ポジション追加）
         self.engine._execute_buy_order(symbol, price * Decimal("1.1"), date, config)
@@ -1405,12 +1612,19 @@ class TestBacktestEngine:
         # ポジションが合算されることを確認
         position = self.engine.positions[symbol]
         assert len(self.engine.trades) == 2, "Should have 2 trades"
-        assert position.quantity == self.engine.trades[0].quantity + self.engine.trades[1].quantity
+        assert (
+            position.quantity
+            == self.engine.trades[0].quantity + self.engine.trades[1].quantity
+        )
 
         # 平均価格の計算確認
         trade1, trade2 = self.engine.trades[0], self.engine.trades[1]
-        expected_avg_price = (trade1.quantity * trade1.price + trade2.quantity * trade2.price) / position.quantity
-        assert abs(position.average_price - expected_avg_price) < Decimal("0.01"), "Average price calculation error"
+        expected_avg_price = (
+            trade1.quantity * trade1.price + trade2.quantity * trade2.price
+        ) / position.quantity
+        assert abs(position.average_price - expected_avg_price) < Decimal("0.01"), (
+            "Average price calculation error"
+        )
 
     def test_execute_buy_order_insufficient_funds(self):
         """買い注文実行テスト（資金不足）"""
@@ -1433,9 +1647,15 @@ class TestBacktestEngine:
         self.engine._execute_buy_order(symbol, price, date, config)
 
         # 購入が実行されないことを確認
-        assert len(self.engine.positions) == initial_positions, "No position should be created with insufficient funds"
-        assert len(self.engine.trades) == initial_trades, "No trade should be recorded with insufficient funds"
-        assert self.engine.current_capital == initial_capital, "Capital should remain unchanged"
+        assert len(self.engine.positions) == initial_positions, (
+            "No position should be created with insufficient funds"
+        )
+        assert len(self.engine.trades) == initial_trades, (
+            "No trade should be recorded with insufficient funds"
+        )
+        assert self.engine.current_capital == initial_capital, (
+            "Capital should remain unchanged"
+        )
 
     def test_execute_sell_order(self):
         """売り注文実行テスト（基本機能）"""
@@ -1511,18 +1731,26 @@ class TestBacktestEngine:
 
         # スリッページと手数料の影響を確認
         trade = self.engine.trades[0]
-        expected_slippage_price = sell_price * (1 - config.slippage)  # 売りなのでマイナス
+        sell_price * (1 - config.slippage)  # 売りなのでマイナス
 
-        assert trade.price <= sell_price, f"Sell price should include negative slippage: {trade.price} <= {sell_price}"
-        assert trade.commission > 0, f"Commission should be positive: {trade.commission}"
-        assert trade.quantity == original_quantity, f"Should sell entire position: {trade.quantity} == {original_quantity}"
+        assert trade.price <= sell_price, (
+            f"Sell price should include negative slippage: {trade.price} <= {sell_price}"
+        )
+        assert trade.commission > 0, (
+            f"Commission should be positive: {trade.commission}"
+        )
+        assert trade.quantity == original_quantity, (
+            f"Should sell entire position: {trade.quantity} == {original_quantity}"
+        )
 
         # 利益計算の確認
         gross_proceeds = trade.quantity * trade.price
         net_proceeds = gross_proceeds - trade.commission
         expected_capital = initial_capital + net_proceeds
 
-        assert abs(self.engine.current_capital - expected_capital) < Decimal("1"), f"Capital calculation mismatch"
+        assert abs(self.engine.current_capital - expected_capital) < Decimal("1"), (
+            "Capital calculation mismatch"
+        )
 
         # 実現損益の確認
         cost_basis = trade.quantity * original_avg_price
@@ -1564,7 +1792,9 @@ class TestBacktestEngine:
         # 売却後の状態確認
         trade = self.engine.trades[0]
         assert trade.action == TradeType.SELL
-        assert trade.quantity <= original_quantity, f"Sell quantity should not exceed original: {trade.quantity} <= {original_quantity}"
+        assert trade.quantity <= original_quantity, (
+            f"Sell quantity should not exceed original: {trade.quantity} <= {original_quantity}"
+        )
 
     def test_execute_sell_order_no_position(self):
         """売り注文実行テスト（ポジションなし）"""
@@ -1587,8 +1817,12 @@ class TestBacktestEngine:
         self.engine._execute_sell_order(symbol, price, date, config)
 
         # 何も実行されないことを確認
-        assert len(self.engine.trades) == initial_trades, "No trade should be executed without position"
-        assert self.engine.current_capital == initial_capital, "Capital should remain unchanged"
+        assert len(self.engine.trades) == initial_trades, (
+            "No trade should be executed without position"
+        )
+        assert self.engine.current_capital == initial_capital, (
+            "Capital should remain unchanged"
+        )
         assert symbol not in self.engine.positions, "No position should be created"
 
     def test_calculate_total_portfolio_value(self):
@@ -1644,13 +1878,19 @@ class TestBacktestEngine:
         price_trend = np.linspace(base_price, base_price * 1.1, len(dates))  # 10%上昇
         volatility = 0.02
 
-        realistic_data = pd.DataFrame({
-            "Open": price_trend * (1 + np.random.normal(0, volatility/2, len(dates))),
-            "High": price_trend * (1 + np.random.uniform(0, volatility, len(dates))),
-            "Low": price_trend * (1 - np.random.uniform(0, volatility, len(dates))),
-            "Close": price_trend * (1 + np.random.normal(0, volatility/4, len(dates))),
-            "Volume": np.random.randint(1000000, 3000000, len(dates)),
-        }, index=dates)
+        realistic_data = pd.DataFrame(
+            {
+                "Open": price_trend
+                * (1 + np.random.normal(0, volatility / 2, len(dates))),
+                "High": price_trend
+                * (1 + np.random.uniform(0, volatility, len(dates))),
+                "Low": price_trend * (1 - np.random.uniform(0, volatility, len(dates))),
+                "Close": price_trend
+                * (1 + np.random.normal(0, volatility / 4, len(dates))),
+                "Volume": np.random.randint(1000000, 3000000, len(dates)),
+            },
+            index=dates,
+        )
 
         # 負の価格を修正
         for col in ["Open", "High", "Low", "Close"]:
@@ -1663,9 +1903,13 @@ class TestBacktestEngine:
             close = realistic_data.iloc[i]["Close"]
 
             # Highを最大値に設定
-            realistic_data.iloc[i, realistic_data.columns.get_loc("High")] = max(high, close, low)
+            realistic_data.iloc[i, realistic_data.columns.get_loc("High")] = max(
+                high, close, low
+            )
             # Lowを最小値に設定
-            realistic_data.iloc[i, realistic_data.columns.get_loc("Low")] = min(high, close, low)
+            realistic_data.iloc[i, realistic_data.columns.get_loc("Low")] = min(
+                high, close, low
+            )
 
         config = BacktestConfig(
             start_date=datetime(2023, 1, 1),
@@ -1693,27 +1937,31 @@ class TestBacktestEngine:
 
                         # 価格がSMA5を上回ったら買い、下回ったら売り
                         if current_price > current_sma * 1.01:  # 1%以上上回る
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.BUY,
-                                strength=SignalStrength.MEDIUM,
-                                confidence=75.0,
-                                reasons=["Price above SMA5"],
-                                conditions_met={"sma_breakout": True},
-                                timestamp=pd.Timestamp(date),
-                                price=current_price,
-                                symbol=symbol,
-                            ))
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.BUY,
+                                    strength=SignalStrength.MEDIUM,
+                                    confidence=75.0,
+                                    reasons=["Price above SMA5"],
+                                    conditions_met={"sma_breakout": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=current_price,
+                                    symbol=symbol,
+                                )
+                            )
                         elif current_price < current_sma * 0.99:  # 1%以上下回る
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.SELL,
-                                strength=SignalStrength.MEDIUM,
-                                confidence=75.0,
-                                reasons=["Price below SMA5"],
-                                conditions_met={"sma_breakdown": True},
-                                timestamp=pd.Timestamp(date),
-                                price=current_price,
-                                symbol=symbol,
-                            ))
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.SELL,
+                                    strength=SignalStrength.MEDIUM,
+                                    confidence=75.0,
+                                    reasons=["Price below SMA5"],
+                                    conditions_met={"sma_breakdown": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=current_price,
+                                    symbol=symbol,
+                                )
+                            )
             return signals
 
         symbols = ["7203"]
@@ -1722,7 +1970,9 @@ class TestBacktestEngine:
         result = self.engine.run_backtest(symbols, config, test_strategy)
 
         # 結果の詳細検証
-        assert isinstance(result, BacktestResult), "Result should be BacktestResult instance"
+        assert isinstance(result, BacktestResult), (
+            "Result should be BacktestResult instance"
+        )
 
         # 基本的な結果の存在確認
         assert result.config == config, "Config should be preserved in result"
@@ -1731,49 +1981,93 @@ class TestBacktestEngine:
         assert result.duration_days > 0, "Duration should be positive"
 
         # パフォーマンス指標の検証
-        assert isinstance(result.total_return, Decimal), "Total return should be Decimal"
-        assert isinstance(result.annualized_return, Decimal), "Annualized return should be Decimal"
-        assert isinstance(result.volatility, (int, float)), "Volatility should be numeric"
-        assert isinstance(result.sharpe_ratio, (int, float)), "Sharpe ratio should be numeric"
-        assert isinstance(result.max_drawdown, (int, float)), "Max drawdown should be numeric"
+        assert isinstance(result.total_return, Decimal), (
+            "Total return should be Decimal"
+        )
+        assert isinstance(result.annualized_return, Decimal), (
+            "Annualized return should be Decimal"
+        )
+        assert isinstance(result.volatility, (int, float)), (
+            "Volatility should be numeric"
+        )
+        assert isinstance(result.sharpe_ratio, (int, float)), (
+            "Sharpe ratio should be numeric"
+        )
+        assert isinstance(result.max_drawdown, (int, float)), (
+            "Max drawdown should be numeric"
+        )
 
         # パフォーマンス指標の妥当性確認
-        assert -1 <= result.total_return <= 1, f"Total return should be reasonable: {result.total_return}"
-        assert result.volatility >= 0, f"Volatility should be non-negative: {result.volatility}"
-        assert result.max_drawdown <= 0, f"Max drawdown should be non-positive: {result.max_drawdown}"
+        assert -1 <= result.total_return <= 1, (
+            f"Total return should be reasonable: {result.total_return}"
+        )
+        assert result.volatility >= 0, (
+            f"Volatility should be non-negative: {result.volatility}"
+        )
+        assert result.max_drawdown <= 0, (
+            f"Max drawdown should be non-positive: {result.max_drawdown}"
+        )
 
         # 取引関連の検証
         assert isinstance(result.total_trades, int), "Total trades should be integer"
         assert result.total_trades >= 0, "Total trades should be non-negative"
-        assert result.profitable_trades + result.losing_trades <= result.total_trades, "Profitable + losing trades should not exceed total"
+        assert result.profitable_trades + result.losing_trades <= result.total_trades, (
+            "Profitable + losing trades should not exceed total"
+        )
 
         if result.total_trades > 0:
-            assert isinstance(result.win_rate, (int, float)), "Win rate should be numeric"
-            assert 0 <= result.win_rate <= 1, f"Win rate should be between 0 and 1: {result.win_rate}"
-            assert len(result.trades) == result.total_trades, "Trades list length should match total_trades"
+            assert isinstance(result.win_rate, (int, float)), (
+                "Win rate should be numeric"
+            )
+            assert 0 <= result.win_rate <= 1, (
+                f"Win rate should be between 0 and 1: {result.win_rate}"
+            )
+            assert len(result.trades) == result.total_trades, (
+                "Trades list length should match total_trades"
+            )
 
             # 個別取引の検証
             for trade in result.trades:
                 assert isinstance(trade, Trade), "Each trade should be Trade instance"
-                assert trade.symbol in symbols, f"Trade symbol should be in test symbols: {trade.symbol}"
-                assert trade.action in [TradeType.BUY, TradeType.SELL], f"Trade action should be valid: {trade.action}"
-                assert trade.quantity > 0, f"Trade quantity should be positive: {trade.quantity}"
-                assert isinstance(trade.price, Decimal), f"Trade price should be Decimal: {type(trade.price)}"
-                assert isinstance(trade.commission, Decimal), f"Trade commission should be Decimal: {type(trade.commission)}"
+                assert trade.symbol in symbols, (
+                    f"Trade symbol should be in test symbols: {trade.symbol}"
+                )
+                assert trade.action in [TradeType.BUY, TradeType.SELL], (
+                    f"Trade action should be valid: {trade.action}"
+                )
+                assert trade.quantity > 0, (
+                    f"Trade quantity should be positive: {trade.quantity}"
+                )
+                assert isinstance(trade.price, Decimal), (
+                    f"Trade price should be Decimal: {type(trade.price)}"
+                )
+                assert isinstance(trade.commission, Decimal), (
+                    f"Trade commission should be Decimal: {type(trade.commission)}"
+                )
 
         # ポートフォリオ履歴の検証
-        assert isinstance(result.portfolio_value, pd.Series), "Portfolio value should be pandas Series"
+        assert isinstance(result.portfolio_value, pd.Series), (
+            "Portfolio value should be pandas Series"
+        )
         assert len(result.portfolio_value) > 0, "Portfolio value should not be empty"
-        assert result.portfolio_value.iloc[0] == float(config.initial_capital), "Initial portfolio value should match initial capital"
+        assert result.portfolio_value.iloc[0] == float(config.initial_capital), (
+            "Initial portfolio value should match initial capital"
+        )
 
         # 日次リターンの検証
-        assert isinstance(result.daily_returns, pd.Series), "Daily returns should be pandas Series"
-        assert len(result.daily_returns) >= 0, "Daily returns should not be negative length"
+        assert isinstance(result.daily_returns, pd.Series), (
+            "Daily returns should be pandas Series"
+        )
+        assert len(result.daily_returns) >= 0, (
+            "Daily returns should not be negative length"
+        )
 
         # ポジション履歴の検証
-        assert isinstance(result.positions_history, list), "Positions history should be list"
+        assert isinstance(result.positions_history, list), (
+            "Positions history should be list"
+        )
 
-        print(f"Backtest completed successfully:")
+        print("Backtest completed successfully:")
         print(f"  Total Return: {result.total_return}")
         print(f"  Total Trades: {result.total_trades}")
         print(f"  Win Rate: {result.win_rate if result.total_trades > 0 else 'N/A'}")
@@ -1806,7 +2100,7 @@ class TestBacktestEngine:
             date = base_date + timedelta(days=i)
             # 毎日0.3%ずつ上昇（月末に約10%）
             daily_growth = 1.003
-            value = float(config.initial_capital) * (daily_growth ** i)
+            value = float(config.initial_capital) * (daily_growth**i)
             portfolio_values.append([date, value])
 
         self.engine.portfolio_values = portfolio_values
@@ -1855,33 +2149,57 @@ class TestBacktestEngine:
         result = self.engine._calculate_results(config)
 
         # 基本結果の検証
-        assert isinstance(result, BacktestResult), "Result should be BacktestResult instance"
+        assert isinstance(result, BacktestResult), (
+            "Result should be BacktestResult instance"
+        )
         assert result.config == config, "Config should be preserved"
 
         # 期間の検証
-        assert result.duration_days == 30, f"Duration should be 30 days, got {result.duration_days}"
+        assert result.duration_days == 30, (
+            f"Duration should be 30 days, got {result.duration_days}"
+        )
 
         # リターンの検証（約10%上昇を期待）
         expected_return_range = (0.05, 0.15)  # 5%-15%の範囲
-        assert expected_return_range[0] <= float(result.total_return) <= expected_return_range[1], \
+        assert (
+            expected_return_range[0]
+            <= float(result.total_return)
+            <= expected_return_range[1]
+        ), (
             f"Total return {result.total_return} should be in range {expected_return_range}"
+        )
 
         # 年率リターンの検証
-        assert isinstance(result.annualized_return, Decimal), "Annualized return should be Decimal"
-        assert float(result.annualized_return) > 0, "Annualized return should be positive"
+        assert isinstance(result.annualized_return, Decimal), (
+            "Annualized return should be Decimal"
+        )
+        assert float(result.annualized_return) > 0, (
+            "Annualized return should be positive"
+        )
 
         # パフォーマンス指標の検証
-        assert result.volatility >= 0, f"Volatility should be non-negative: {result.volatility}"
-        assert isinstance(result.sharpe_ratio, (int, float)), f"Sharpe ratio should be numeric: {type(result.sharpe_ratio)}"
-        assert result.max_drawdown <= 0, f"Max drawdown should be non-positive: {result.max_drawdown}"
+        assert result.volatility >= 0, (
+            f"Volatility should be non-negative: {result.volatility}"
+        )
+        assert isinstance(result.sharpe_ratio, (int, float)), (
+            f"Sharpe ratio should be numeric: {type(result.sharpe_ratio)}"
+        )
+        assert result.max_drawdown <= 0, (
+            f"Max drawdown should be non-positive: {result.max_drawdown}"
+        )
 
         # 取引統計の検証
-        assert result.total_trades == 2, f"Should have 2 completed trades (buy-sell pairs), got {result.total_trades}"
-        assert result.profitable_trades + result.losing_trades == result.total_trades, \
+        assert result.total_trades == 2, (
+            f"Should have 2 completed trades (buy-sell pairs), got {result.total_trades}"
+        )
+        assert result.profitable_trades + result.losing_trades == result.total_trades, (
             "Profitable + losing trades should equal total trades"
+        )
 
         # 勝率の検証
-        assert 0 <= result.win_rate <= 1, f"Win rate should be between 0 and 1: {result.win_rate}"
+        assert 0 <= result.win_rate <= 1, (
+            f"Win rate should be between 0 and 1: {result.win_rate}"
+        )
 
         # 実現損益の詳細検証
         # トヨタ: (2700 - 2500) * 100 - 250 - 270 = 20000 - 520 = 19480（利益）
@@ -1892,28 +2210,39 @@ class TestBacktestEngine:
         if result.profitable_trades > 0:
             assert isinstance(result.avg_win, Decimal), "Average win should be Decimal"
             # 許容誤差内での検証
-            assert abs(result.avg_win - expected_avg_win) < Decimal("100"), \
+            assert abs(result.avg_win - expected_avg_win) < Decimal("100"), (
                 f"Average win {result.avg_win} should be close to {expected_avg_win}"
+            )
 
         if result.losing_trades > 0:
-            assert isinstance(result.avg_loss, Decimal), "Average loss should be Decimal"
-            assert abs(result.avg_loss - expected_avg_loss) < Decimal("100"), \
+            assert isinstance(result.avg_loss, Decimal), (
+                "Average loss should be Decimal"
+            )
+            assert abs(result.avg_loss - expected_avg_loss) < Decimal("100"), (
                 f"Average loss {result.avg_loss} should be close to {expected_avg_loss}"
+            )
 
         # プロフィットファクターの検証
         if result.losing_trades > 0:
             expected_profit_factor = float(expected_avg_win) / float(expected_avg_loss)
-            assert abs(result.profit_factor - expected_profit_factor) < 0.1, \
+            assert abs(result.profit_factor - expected_profit_factor) < 0.1, (
                 f"Profit factor {result.profit_factor} should be close to {expected_profit_factor}"
+            )
 
         # 時系列データの検証
-        assert isinstance(result.daily_returns, pd.Series), "Daily returns should be pandas Series"
+        assert isinstance(result.daily_returns, pd.Series), (
+            "Daily returns should be pandas Series"
+        )
         assert len(result.daily_returns) > 0, "Daily returns should not be empty"
 
-        assert isinstance(result.portfolio_value, pd.Series), "Portfolio value should be pandas Series"
-        assert len(result.portfolio_value) == len(portfolio_values), "Portfolio value should match input data"
+        assert isinstance(result.portfolio_value, pd.Series), (
+            "Portfolio value should be pandas Series"
+        )
+        assert len(result.portfolio_value) == len(portfolio_values), (
+            "Portfolio value should match input data"
+        )
 
-        print(f"Calculate results test passed:")
+        print("Calculate results test passed:")
         print(f"  Total Return: {result.total_return}")
         print(f"  Total Trades: {result.total_trades}")
         print(f"  Win Rate: {result.win_rate}")
@@ -1923,11 +2252,13 @@ class TestBacktestEngine:
 
     def test_calculate_trade_statistics_vectorized(self):
         """_calculate_trade_statistics_vectorizedメソッドの詳細テスト"""
-        self.engine._initialize_backtest(BacktestConfig(
-            start_date=datetime(2023, 1, 1),
-            end_date=datetime(2023, 6, 30),
-            initial_capital=Decimal("1000000"),
-        ))
+        self.engine._initialize_backtest(
+            BacktestConfig(
+                start_date=datetime(2023, 1, 1),
+                end_date=datetime(2023, 6, 30),
+                initial_capital=Decimal("1000000"),
+            )
+        )
 
         # 複雑な取引履歴を作成（複数銘柄、複数取引）
         self.engine.trades = [
@@ -1991,13 +2322,23 @@ class TestBacktestEngine:
         ]
 
         # メソッド実行
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = \
-            self.engine._calculate_trade_statistics_vectorized()
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = self.engine._calculate_trade_statistics_vectorized()
 
         # 基本統計の検証
         assert total_trades == 3, f"Should have 3 completed trades, got {total_trades}"
-        assert profitable_trades + losing_trades == total_trades, \
+        assert profitable_trades + losing_trades == total_trades, (
             f"Profitable ({profitable_trades}) + losing ({losing_trades}) should equal total ({total_trades})"
+        )
 
         # 期待される計算結果
         # トヨタ取引1: (2700 - 2500) * 100 - 250 - 270 = 19480（利益）
@@ -2007,42 +2348,59 @@ class TestBacktestEngine:
         expected_wins = [19480, 24475]  # 2つの利益取引
         expected_losses = [41080]  # 1つの損失取引
 
-        assert profitable_trades == 2, f"Should have 2 profitable trades, got {profitable_trades}"
+        assert profitable_trades == 2, (
+            f"Should have 2 profitable trades, got {profitable_trades}"
+        )
         assert losing_trades == 1, f"Should have 1 losing trade, got {losing_trades}"
 
         # 勝率の検証
         expected_win_rate = 2 / 3
-        assert abs(win_rate - expected_win_rate) < 0.01, f"Win rate {win_rate} should be close to {expected_win_rate}"
+        assert abs(win_rate - expected_win_rate) < 0.01, (
+            f"Win rate {win_rate} should be close to {expected_win_rate}"
+        )
 
         # 平均利益・損失の検証
         expected_avg_win = Decimal(str(np.mean(expected_wins)))
         expected_avg_loss = Decimal(str(np.mean(expected_losses)))
 
-        assert abs(avg_win - expected_avg_win) < Decimal("1"), \
+        assert abs(avg_win - expected_avg_win) < Decimal("1"), (
             f"Average win {avg_win} should be close to {expected_avg_win}"
-        assert abs(avg_loss - expected_avg_loss) < Decimal("1"), \
+        )
+        assert abs(avg_loss - expected_avg_loss) < Decimal("1"), (
             f"Average loss {avg_loss} should be close to {expected_avg_loss}"
+        )
 
         # プロフィットファクターの検証
-        expected_profit_factor = float(avg_win * profitable_trades) / float(avg_loss * losing_trades)
-        assert abs(profit_factor - expected_profit_factor) < 0.01, \
+        expected_profit_factor = float(avg_win * profitable_trades) / float(
+            avg_loss * losing_trades
+        )
+        assert abs(profit_factor - expected_profit_factor) < 0.01, (
             f"Profit factor {profit_factor} should be close to {expected_profit_factor}"
+        )
 
         # 詳細利益・損失配列の検証
-        assert len(wins) == profitable_trades, f"Wins array length {len(wins)} should match profitable trades {profitable_trades}"
-        assert len(losses) == losing_trades, f"Losses array length {len(losses)} should match losing trades {losing_trades}"
+        assert len(wins) == profitable_trades, (
+            f"Wins array length {len(wins)} should match profitable trades {profitable_trades}"
+        )
+        assert len(losses) == losing_trades, (
+            f"Losses array length {len(losses)} should match losing trades {losing_trades}"
+        )
 
         # 個別利益の確認（順序は問わない）
         sorted_wins = sorted(wins)
         sorted_expected_wins = sorted(expected_wins)
         for actual, expected in zip(sorted_wins, sorted_expected_wins):
-            assert abs(actual - expected) < 1, f"Win {actual} should be close to {expected}"
+            assert abs(actual - expected) < 1, (
+                f"Win {actual} should be close to {expected}"
+            )
 
         # 個別損失の確認
         for actual, expected in zip(losses, expected_losses):
-            assert abs(actual - expected) < 1, f"Loss {actual} should be close to {expected}"
+            assert abs(actual - expected) < 1, (
+                f"Loss {actual} should be close to {expected}"
+            )
 
-        print(f"Trade statistics vectorized test passed:")
+        print("Trade statistics vectorized test passed:")
         print(f"  Total Trades: {total_trades}")
         print(f"  Profitable: {profitable_trades}, Losing: {losing_trades}")
         print(f"  Win Rate: {win_rate:.2%}")
@@ -2051,23 +2409,39 @@ class TestBacktestEngine:
 
     def test_calculate_trade_statistics_edge_cases(self):
         """取引統計計算のエッジケーステスト"""
-        self.engine._initialize_backtest(BacktestConfig(
-            start_date=datetime(2023, 1, 1),
-            end_date=datetime(2023, 6, 30),
-            initial_capital=Decimal("1000000"),
-        ))
+        self.engine._initialize_backtest(
+            BacktestConfig(
+                start_date=datetime(2023, 1, 1),
+                end_date=datetime(2023, 6, 30),
+                initial_capital=Decimal("1000000"),
+            )
+        )
 
         # ケース1: 取引なし
         self.engine.trades = []
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable, losing, wins, losses, total, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable,
+            losing,
+            wins,
+            losses,
+            total,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         assert total == 0, "No trades should result in 0 total trades"
-        assert profitable == 0 and losing == 0, "No trades should result in 0 profitable and losing trades"
+        assert profitable == 0 and losing == 0, (
+            "No trades should result in 0 profitable and losing trades"
+        )
         assert win_rate == 0.0, "No trades should result in 0 win rate"
         assert avg_win == Decimal("0"), "No trades should result in 0 average win"
         assert avg_loss == Decimal("0"), "No trades should result in 0 average loss"
-        assert profit_factor == float("inf"), "No trades should result in infinite profit factor"
+        assert profit_factor == float("inf"), (
+            "No trades should result in infinite profit factor"
+        )
 
         # ケース2: 買いのみ（売りなし）
         self.engine.trades = [
@@ -2082,7 +2456,17 @@ class TestBacktestEngine:
             ),
         ]
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable, losing, wins, losses, total, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable,
+            losing,
+            wins,
+            losses,
+            total,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         assert total == 0, "Buy-only should result in 0 completed trades"
 
@@ -2099,7 +2483,17 @@ class TestBacktestEngine:
             ),
         ]
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable, losing, wins, losses, total, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable,
+            losing,
+            wins,
+            losses,
+            total,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         assert total == 0, "Sell-only should result in 0 completed trades"
 
@@ -2125,14 +2519,28 @@ class TestBacktestEngine:
             ),
         ]
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable, losing, wins, losses, total, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable,
+            losing,
+            wins,
+            losses,
+            total,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         assert total == 1, "Should have 1 completed trade"
-        assert profitable == 1 and losing == 0, "Should have 1 profitable and 0 losing trades"
+        assert profitable == 1 and losing == 0, (
+            "Should have 1 profitable and 0 losing trades"
+        )
         assert win_rate == 1.0, "Win rate should be 100%"
         assert avg_win > Decimal("0"), "Average win should be positive"
         assert avg_loss == Decimal("0"), "Average loss should be 0"
-        assert profit_factor == float("inf"), "Profit factor should be infinite with no losses"
+        assert profit_factor == float("inf"), (
+            "Profit factor should be infinite with no losses"
+        )
 
         # ケース5: 損失のみの取引
         self.engine.trades = [
@@ -2156,10 +2564,22 @@ class TestBacktestEngine:
             ),
         ]
         result = self.engine._calculate_trade_statistics_vectorized()
-        profitable, losing, wins, losses, total, win_rate, avg_win, avg_loss, profit_factor = result
+        (
+            profitable,
+            losing,
+            wins,
+            losses,
+            total,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = result
 
         assert total == 1, "Should have 1 completed trade"
-        assert profitable == 0 and losing == 1, "Should have 0 profitable and 1 losing trade"
+        assert profitable == 0 and losing == 1, (
+            "Should have 0 profitable and 1 losing trade"
+        )
         assert win_rate == 0.0, "Win rate should be 0%"
         assert avg_win == Decimal("0"), "Average win should be 0"
         assert avg_loss > Decimal("0"), "Average loss should be positive"
@@ -2181,7 +2601,10 @@ class TestBacktestEngine:
         self.engine.portfolio_values = []
 
         # エラーが発生することを確認
-        with pytest.raises(ValueError, match="バックテスト結果の計算に必要なポートフォリオ価値のデータが不足しています"):
+        with pytest.raises(
+            ValueError,
+            match="バックテスト結果の計算に必要なポートフォリオ価値のデータが不足しています",
+        ):
             self.engine._calculate_results(config)
 
         print("Empty portfolio error handling test passed")
@@ -2295,7 +2718,9 @@ class TestBacktestResult:
 class TestIntegration:
     """統合テスト"""
 
-    def _generate_trending_data(self, dates, base_price=2500, trend_strength=0.1, volatility=0.02, seed=42):
+    def _generate_trending_data(
+        self, dates, base_price=2500, trend_strength=0.1, volatility=0.02, seed=42
+    ):
         """強化されたトレンド保証アルゴリズムでテストデータを生成"""
         np.random.seed(seed)
         n_days = len(dates)
@@ -2314,222 +2739,94 @@ class TestIntegration:
         combined_trend = main_trend + cycle_component + random_walk
         trend_prices = base_price * (1 + combined_trend)
 
-        return pd.DataFrame({
-            'Open': trend_prices,
-            'High': trend_prices * 1.02,
-            'Low': trend_prices * 0.98,
-            'Close': trend_prices,
-            'Volume': np.random.randint(1000000, 3000000, n_days)
-        }, index=dates)
+        # 5. 日次ボラティリティの追加（トレンドを維持しながら）
+        daily_noise = np.random.normal(0, volatility * base_price * 0.5, n_days)
+        final_prices = trend_prices + daily_noise
+
+        # 6. 価格制約の適用
+        final_prices = np.maximum(final_prices, base_price * 0.3)  # 最低価格保証
+
+        # 7. トレンド方向性の強制確認
+        if trend_strength > 0:  # 上昇トレンドの場合
+            # 終値が開始価格より確実に高くなるよう調整
+            if final_prices[-1] <= final_prices[0]:
+                adjustment = (
+                    final_prices[0] * (1 + trend_strength) - final_prices[-1]
+                ) / n_days
+                for i in range(n_days):
+                    final_prices[i] += adjustment * (i + 1)
+        elif (
+            trend_strength < 0 and final_prices[-1] >= final_prices[0]
+        ):  # 下降トレンドの場合
+            # 終値が開始価格より確実に低くなるよう調整
+            adjustment = (
+                final_prices[0] * (1 + trend_strength) - final_prices[-1]
+            ) / n_days
+            for i in range(n_days):
+                final_prices[i] += adjustment * (i + 1)
+
+        # 8. OHLCV データの生成（トレンド一貫性を保持）
+        ohlcv_data = []
+        for i, close_price in enumerate(final_prices):
+            daily_vol = volatility * base_price * 0.3
+
+            # Open価格は前日のClose価格に近い値
+            if i == 0:
+                open_price = close_price + np.random.uniform(
+                    -daily_vol / 2, daily_vol / 2
+                )
+            else:
+                gap = np.random.uniform(-daily_vol / 4, daily_vol / 4)
+                open_price = final_prices[i - 1] + gap
+
+            # High/Low価格の生成（Open/Closeを含む範囲）
+            high_base = max(open_price, close_price)
+            low_base = min(open_price, close_price)
+
+            high = high_base + np.random.uniform(0, daily_vol)
+            low = low_base - np.random.uniform(0, daily_vol)
+
+            # 論理的制約の確保
+            high = max(high, open_price, close_price)
+            low = min(low, open_price, close_price)
+
+            ohlcv_data.append(
+                {
+                    "Open": max(open_price, low),
+                    "High": high,
+                    "Low": low,
+                    "Close": close_price,
+                    "Volume": int(np.random.uniform(800000, 2500000)),
+                }
+            )
+
+        return pd.DataFrame(ohlcv_data, index=dates)
+
+    def _generate_volatile_data(self, dates, base_price=2500, volatility=0.05, seed=42):
+        """高ボラティリティのテストデータを生成"""
+        np.random.seed(seed)
+        n_days = len(dates)
+
+        # 高ボラティリティの価格変動を生成
         prices = [base_price]
-        for return_val in price_return:
-            prices.append(prices[-1] * (1 + return_val))
+        for _i in range(1, n_days):
+            # 大きな日次変動（-5%から+5%）
+            daily_change = np.random.normal(0, volatility)
+            new_price = prices[-1] * (1 + daily_change)
+            # 価格が極端に低くならないよう制限
+            new_price = max(new_price, base_price * 0.2)
+            prices.append(new_price)
 
-        data = pd.DataFrame({
-            'Open': prices[:-1],
-            'High': [p * (1 + np.random.uniform(0, 0.02)) for p in prices[:-1]],
-            'Low': [p * (1 - np.random.uniform(0, 0.02)) for p in prices[:-1]],
-            'Close': prices[1:],
-            'Volume': np.random.randint(1000, 10000, periods)
-        })
+        # OHLCV データの生成
+        ohlcv_data = []
+        for _i, close_price in enumerate(prices):
+            # 高ボラティリティ環境での日中価格レンジ
+            daily_range = volatility * base_price * 0.8
 
-        # 最終検証（より寛容な閾値）
-        final_trend_return = (data['Close'].iloc[-1] - data['Close'].iloc[0]) / data['Close'].iloc[0]
-        if trend_direction == 'up':
-            assert final_trend_return > 0.01, f"上昇トレンドの保証に失敗: {final_trend_return:.3f}"
-        elif trend_direction == 'down':
-            assert final_trend_return < -0.01, f"下降トレンドの保証に失敗: {final_trend_return:.3f}"
-
-        return data
-
-    def _generate_volatile_data(self, periods: int = 50) -> pd.DataFrame:
-        """高ボラティリティデータの生成"""
-        base_price = 100.0
-        returns = np.random.normal(0, 0.05, periods)  # 高ボラティリティ
-
-        # 価格の急激な変動を追加
-        for i in range(0, periods, 10):
-            if i < len(returns):
-                returns[i] *= 3  # 10日おきに急激な変動
-
-        prices = [base_price]
-        for return_val in returns:
-            prices.append(prices[-1] * (1 + return_val))
-
-        return pd.DataFrame({
-            'Open': prices[:-1],
-            'High': [p * (1 + np.random.uniform(0, 0.03)) for p in prices[:-1]],
-            'Low': [p * (1 - np.random.uniform(0, 0.03)) for p in prices[:-1]],
-            'Close': prices[1:],
-            'Volume': np.random.randint(5000, 50000, periods)
-        })
-
-    def _generate_market_crash_scenario(self, periods: int = 30) -> pd.DataFrame:
-        """市場クラッシュシナリオの生成"""
-        base_price = 100.0
-
-        # 急激な下落を模擬
-        crash_returns = []
-        for i in range(periods):
-            if i < 5:  # 最初の5日で急落
-                crash_returns.append(np.random.normal(-0.08, 0.02))
-            elif i < 15:  # 続く10日で継続的な下落
-                crash_returns.append(np.random.normal(-0.03, 0.015))
-            else:  # 残りの期間で緩やかな回復
-                crash_returns.append(np.random.normal(0.01, 0.02))
-
-        prices = [base_price]
-        for return_val in crash_returns:
-            prices.append(prices[-1] * (1 + return_val))
-
-        return pd.DataFrame({
-            'Open': prices[:-1],
-            'High': [p * (1 + np.random.uniform(0, 0.01)) for p in prices[:-1]],
-            'Low': [p * (1 - np.random.uniform(0, 0.02)) for p in prices[:-1]],
-            'Close': prices[1:],
-            'Volume': np.random.randint(20000, 100000, periods)  # クラッシュ時は高出来高
-        })
-
-    @pytest.mark.skip(reason="バックテストの日付比較エラーのため一時的にスキップ")
-    def test_trending_market_performance(self):
-        """強いトレンド市場でのパフォーマンステスト"""
-        from datetime import datetime
-        from decimal import Decimal
-
-        # 上昇トレンドデータ
-        bull_data = self._generate_trending_data(trend_direction='up')
-
-        # モックデータ設定
-        self.mock_stock_fetcher.get_historical_data.return_value = bull_data
-
-        config = BacktestConfig(
-            start_date=datetime(2023, 1, 1),
-            end_date=datetime(2023, 2, 28),
-            initial_capital=Decimal("1000000"),
-        )
-
-        def simple_strategy(symbols, date, historical_data):
-            return []  # 簡単なストラテジー
-
-        # 上昇トレンドでのバックテスト
-        bull_result = self.engine.run_backtest(['TEST'], config, simple_strategy)
-
-        # 下降トレンドデータ
-        bear_data = self._generate_trending_data(trend_direction='down')
-        self.mock_stock_fetcher.get_historical_data.return_value = bear_data
-
-        # 下降トレンドでのバックテスト
-        bear_result = self.engine.run_backtest(['TEST'], config, simple_strategy)
-
-        # パフォーマンス評価
-        assert isinstance(bull_result, BacktestResult)
-        assert isinstance(bear_result, BacktestResult)
-        assert bull_result is not None
-        assert bear_result is not None
-
-    @pytest.mark.skip(reason="データ生成アルゴリズムの価格制約エラーのため一時的にスキップ")
-    def test_dynamic_data_generation_utilities(self):
-        """動的データ生成ユーティリティのテスト"""
-        # 各種データ生成の検証
-        trending_up = self._generate_trending_data(periods=30, trend_direction='up')
-        trending_down = self._generate_trending_data(periods=30, trend_direction='down')
-        volatile = self._generate_volatile_data(periods=30)
-        crash = self._generate_market_crash_scenario(periods=30)
-
-        # データ構造の検証
-        for data in [trending_up, trending_down, volatile, crash]:
-            assert isinstance(data, pd.DataFrame)
-            assert len(data) == 30
-            assert list(data.columns) == ['Open', 'High', 'Low', 'Close', 'Volume']
-
-            # 価格の妥当性チェック
-            assert all(data['High'] >= data['Low'])
-            assert all(data['High'] >= data['Open'])
-            assert all(data['High'] >= data['Close'])
-            assert all(data['Low'] <= data['Open'])
-            assert all(data['Low'] <= data['Close'])
-            assert all(data['Volume'] > 0)
-
-        # トレンド方向の検証
-        up_return = (trending_up['Close'].iloc[-1] - trending_up['Close'].iloc[0]) / trending_up['Close'].iloc[0]
-        down_return = (trending_down['Close'].iloc[-1] - trending_down['Close'].iloc[0]) / trending_down['Close'].iloc[0]
-
-        assert up_return > 0.01, f"上昇トレンドデータの検証失敗: {up_return:.3f}"
-        assert down_return < -0.01, f"下降トレンドデータの検証失敗: {down_return:.3f}"
-
-        # クラッシュシナリオの検証
-        crash_return = (crash['Close'].iloc[-1] - crash['Close'].iloc[0]) / crash['Close'].iloc[0]
-        early_crash_return = (crash['Close'].iloc[4] - crash['Close'].iloc[0]) / crash['Close'].iloc[0]
-
-        assert early_crash_return < -0.2, f"初期クラッシュの検証失敗: {early_crash_return:.3f}"
-        # 全体的には回復を期待（クラッシュ後の回復込み）
-        assert crash_return > early_crash_return, f"クラッシュ後の回復検証失敗: crash={crash_return:.3f}, early={early_crash_return:.3f}"
-
-    def test_complete_workflow_mock(self):
-        """完全なワークフローテスト（モック使用）"""
-        # モックエンジンを作成
-        mock_stock_fetcher = Mock()
-        engine = BacktestEngine(stock_fetcher=mock_stock_fetcher)
-
-        # サンプルデータの準備
-        dates = pd.date_range("2023-01-01", "2023-03-31", freq="D")
-        sample_data = pd.DataFrame(
-            {
-                "Open": 2500,
-                "High": 2600,
-                "Low": 2400,
-                "Close": 2550,
-                "Volume": 1500000,
-            },
-            index=dates
-        )
-
-        # モック設定
-        mock_stock_fetcher.get_historical_data.return_value = sample_data
-
-        config = BacktestConfig(
-            start_date=datetime(2023, 1, 1),
-            end_date=datetime(2023, 3, 31),
-            initial_capital=Decimal("1000000"),
-        )
-
-        symbols = ["TEST"]
-
-        try:
-            # シンプルなストラテジーを定義
-            def always_buy_strategy(symbols, date, historical_data):
-                signals = []
-                for symbol in symbols:
-                    if symbol in historical_data:
-                        current_data = historical_data[symbol][
-                            historical_data[symbol].index <= pd.Timestamp(date)
-                        ]
-                        if len(current_data) > 0:
-                            signals.append(
-                                TradingSignal(
-                                    signal_type=SignalType.BUY,
-                                    strength=SignalStrength.MEDIUM,
-                                    confidence=80.0,
-                                    reasons=["Test signal"],
-                                    conditions_met={"test": True},
-                                    timestamp=pd.Timestamp(date),
-                                    price=float(current_data["Close"].iloc[-1]),
-                                )
-                            )
-                return signals
-
-            result = engine.run_backtest(symbols, config, always_buy_strategy)
-
-            # 基本的な結果検証
-            assert isinstance(result, BacktestResult)
-            assert result.config == config
-            assert result.duration_days > 0
-            assert result.total_return != 0  # リターンが計算されている
-
-        except Exception as e:
-            # エラーハンドリングのテスト
-            print(f"Expected error in integration test: {e}")
-            assert True  # エラーが適切にハンドリングされることを確認
+            open_price = close_price + np.random.uniform(
+                -daily_range / 2, daily_range / 2
+            )
+            high = max(open_price, close_price) + np.random.uniform(0, daily_range)
             low = min(open_price, close_price) - np.random.uniform(0, daily_range)
 
             # 制約の適用
@@ -2537,17 +2834,21 @@ class TestIntegration:
             low = min(low, open_price, close_price)
             low = max(low, base_price * 0.1)  # 最低価格保証
 
-            ohlcv_data.append({
-                'Open': open_price,
-                'High': high,
-                'Low': low,
-                'Close': close_price,
-                'Volume': int(np.random.uniform(2000000, 5000000))  # 高出来高
-            })
+            ohlcv_data.append(
+                {
+                    "Open": open_price,
+                    "High": high,
+                    "Low": low,
+                    "Close": close_price,
+                    "Volume": int(np.random.uniform(2000000, 5000000)),  # 高出来高
+                }
+            )
 
         return pd.DataFrame(ohlcv_data, index=dates)
 
-    def _generate_market_crash_scenario(self, dates, base_price=2500, crash_day=10, recovery_days=20, seed=42):
+    def _generate_market_crash_scenario(
+        self, dates, base_price=2500, crash_day=10, recovery_days=20, seed=42
+    ):
         """市場クラッシュシナリオのテストデータを生成"""
         np.random.seed(seed)
         n_days = len(dates)
@@ -2563,7 +2864,9 @@ class TestIntegration:
             elif i < crash_day + recovery_days:
                 # 回復期：徐々に回復
                 recovery_progress = (i - crash_day) / recovery_days
-                target_price = base_price * 0.7 + (base_price * 0.25) * recovery_progress
+                target_price = (
+                    base_price * 0.7 + (base_price * 0.25) * recovery_progress
+                )
                 price = target_price + np.random.normal(0, target_price * 0.02)
             else:
                 # 回復後：新しい水準で安定
@@ -2583,22 +2886,28 @@ class TestIntegration:
                 volume = 10000000  # 極めて高い出来高
             else:
                 daily_vol = base_price * 0.02
-                open_price = close_price + np.random.uniform(-daily_vol/2, daily_vol/2)
-                high = max(open_price, close_price) + np.random.uniform(0, daily_vol/2)
-                low = min(open_price, close_price) - np.random.uniform(0, daily_vol/2)
+                open_price = close_price + np.random.uniform(
+                    -daily_vol / 2, daily_vol / 2
+                )
+                high = max(open_price, close_price) + np.random.uniform(
+                    0, daily_vol / 2
+                )
+                low = min(open_price, close_price) - np.random.uniform(0, daily_vol / 2)
                 volume = int(np.random.uniform(1500000, 3000000))
 
             # 制約の適用
             high = max(high, open_price, close_price)
             low = min(low, open_price, close_price)
 
-            ohlcv_data.append({
-                'Open': open_price,
-                'High': high,
-                'Low': low,
-                'Close': close_price,
-                'Volume': volume
-            })
+            ohlcv_data.append(
+                {
+                    "Open": open_price,
+                    "High": high,
+                    "Low": low,
+                    "Close": close_price,
+                    "Volume": volume,
+                }
+            )
 
         return pd.DataFrame(ohlcv_data, index=dates)
 
@@ -2612,14 +2921,14 @@ class TestIntegration:
         assert len(trending_data) == 50
 
         # トレンドの確認：最後の価格が最初より高い
-        assert trending_data['Close'].iloc[-1] > trending_data['Close'].iloc[0]
+        assert trending_data["Close"].iloc[-1] > trending_data["Close"].iloc[0]
 
         # データの整合性確認
         for _, row in trending_data.iterrows():
-            assert row['Low'] <= row['High']
-            assert row['Low'] <= row['Open'] <= row['High']
-            assert row['Low'] <= row['Close'] <= row['High']
-            assert row['Volume'] > 0
+            assert row["Low"] <= row["High"]
+            assert row["Low"] <= row["Open"] <= row["High"]
+            assert row["Low"] <= row["Close"] <= row["High"]
+            assert row["Volume"] > 0
 
         # 2. 高ボラティリティデータのテスト
         volatile_data = self._generate_volatile_data(dates, volatility=0.1)
@@ -2627,7 +2936,7 @@ class TestIntegration:
         assert len(volatile_data) == 50
 
         # ボラティリティの確認：価格変動が大きい
-        daily_returns = volatile_data['Close'].pct_change().dropna()
+        daily_returns = volatile_data["Close"].pct_change().dropna()
         assert daily_returns.std() > 0.05  # 高いボラティリティ
 
         # 3. 市場クラッシュシナリオのテスト
@@ -2636,13 +2945,13 @@ class TestIntegration:
         assert len(crash_data) == 50
 
         # クラッシュの確認：指定日に大幅下落
-        pre_crash_price = crash_data['Close'].iloc[9]
-        crash_price = crash_data['Close'].iloc[10]
+        pre_crash_price = crash_data["Close"].iloc[9]
+        crash_price = crash_data["Close"].iloc[10]
         assert crash_price < pre_crash_price * 0.8  # 20%以上の下落
 
         # 回復の確認：クラッシュ後に徐々に回復
-        recovery_start = crash_data['Close'].iloc[10]
-        recovery_end = crash_data['Close'].iloc[30]
+        recovery_start = crash_data["Close"].iloc[10]
+        recovery_end = crash_data["Close"].iloc[30]
         assert recovery_end > recovery_start  # 回復傾向
 
         print("✅ 全ての動的データ生成ユーティリティテストが正常に完了しました")
@@ -2735,7 +3044,9 @@ class TestAdvancedBacktestScenarios:
         # 段階的暴落パターン（年間で50%下落）
         crash_dates = len(dates) // 4  # 最初の1/4は安定
         stable_prices = np.full(crash_dates, base_price)
-        crash_prices = np.linspace(base_price, base_price * 0.5, len(dates) - crash_dates)
+        crash_prices = np.linspace(
+            base_price, base_price * 0.5, len(dates) - crash_dates
+        )
         price_trend = np.concatenate([stable_prices, crash_prices])
 
         # 高ボラティリティを追加
@@ -2743,13 +3054,18 @@ class TestAdvancedBacktestScenarios:
         noise = np.random.normal(0, volatility, len(dates))
         close_prices = price_trend * (1 + noise)
 
-        crash_data = pd.DataFrame({
-            "Open": close_prices * (1 + np.random.normal(0, 0.01, len(dates))),
-            "High": close_prices * (1 + np.abs(np.random.normal(0, 0.02, len(dates)))),
-            "Low": close_prices * (1 - np.abs(np.random.normal(0, 0.02, len(dates)))),
-            "Close": close_prices,
-            "Volume": np.random.randint(5000000, 15000000, len(dates))  # 高出来高
-        }, index=dates)
+        crash_data = pd.DataFrame(
+            {
+                "Open": close_prices * (1 + np.random.normal(0, 0.01, len(dates))),
+                "High": close_prices
+                * (1 + np.abs(np.random.normal(0, 0.02, len(dates)))),
+                "Low": close_prices
+                * (1 - np.abs(np.random.normal(0, 0.02, len(dates)))),
+                "Close": close_prices,
+                "Volume": np.random.randint(5000000, 15000000, len(dates)),  # 高出来高
+            },
+            index=dates,
+        )
 
         # 価格の一貫性を保証
         for i in range(len(crash_data)):
@@ -2758,8 +3074,12 @@ class TestAdvancedBacktestScenarios:
             close = crash_data.iloc[i]["Close"]
             open_price = crash_data.iloc[i]["Open"]
 
-            crash_data.iloc[i, crash_data.columns.get_loc("High")] = max(high, close, low, open_price)
-            crash_data.iloc[i, crash_data.columns.get_loc("Low")] = min(high, close, low, open_price)
+            crash_data.iloc[i, crash_data.columns.get_loc("High")] = max(
+                high, close, low, open_price
+            )
+            crash_data.iloc[i, crash_data.columns.get_loc("Low")] = min(
+                high, close, low, open_price
+            )
 
         self.mock_stock_fetcher.get_historical_data.return_value = crash_data
 
@@ -2779,16 +3099,18 @@ class TestAdvancedBacktestScenarios:
                     data = historical_data[symbol]
                     current_data = data[data.index <= date]
                     if len(current_data) == 5:  # 開始5日目に1回だけ購入
-                        signals.append(TradingSignal(
-                            signal_type=SignalType.BUY,
-                            strength=SignalStrength.STRONG,
-                            confidence=100.0,
-                            reasons=["Buy and hold strategy"],
-                            conditions_met={"initial_buy": True},
-                            timestamp=pd.Timestamp(date),
-                            price=float(current_data["Close"].iloc[-1]),
-                            symbol=symbol,
-                        ))
+                        signals.append(
+                            TradingSignal(
+                                signal_type=SignalType.BUY,
+                                strength=SignalStrength.STRONG,
+                                confidence=100.0,
+                                reasons=["Buy and hold strategy"],
+                                conditions_met={"initial_buy": True},
+                                timestamp=pd.Timestamp(date),
+                                price=float(current_data["Close"].iloc[-1]),
+                                symbol=symbol,
+                            )
+                        )
             return signals
 
         result = self.engine.run_backtest(["7203"], config, buy_and_hold_strategy)
@@ -2797,12 +3119,16 @@ class TestAdvancedBacktestScenarios:
         assert isinstance(result, BacktestResult)
         assert result.total_return < 0, "Should have negative return in crash scenario"
         # より現実的なドローダウン期待値に調整
-        assert result.max_drawdown < -0.1, f"Max drawdown should be significant: {result.max_drawdown}"
-        assert result.volatility > 0.02, f"Volatility should be high: {result.volatility}"
+        assert result.max_drawdown < -0.1, (
+            f"Max drawdown should be significant: {result.max_drawdown}"
+        )
+        assert result.volatility > 0.02, (
+            f"Volatility should be high: {result.volatility}"
+        )
         # トレード数の確認を緩和（戦略によってはトレードが発生しない場合もある）
         assert len(result.trades) >= 0, "Trades count should be non-negative"
 
-        print(f"Crash scenario results:")
+        print("Crash scenario results:")
         print(f"  Total Return: {result.total_return:.2%}")
         print(f"  Max Drawdown: {result.max_drawdown:.2%}")
         print(f"  Volatility: {result.volatility:.2%}")
@@ -2816,13 +3142,18 @@ class TestAdvancedBacktestScenarios:
         # 小さな価格変動パターン
         close_prices = base_price * (1 + np.sin(np.arange(len(dates)) * 0.2) * 0.01)
 
-        hft_data = pd.DataFrame({
-            "Open": close_prices * (1 + np.random.normal(0, 0.001, len(dates))),
-            "High": close_prices * (1 + np.abs(np.random.normal(0, 0.002, len(dates)))),
-            "Low": close_prices * (1 - np.abs(np.random.normal(0, 0.002, len(dates)))),
-            "Close": close_prices,
-            "Volume": np.random.randint(2000000, 4000000, len(dates))
-        }, index=dates)
+        hft_data = pd.DataFrame(
+            {
+                "Open": close_prices * (1 + np.random.normal(0, 0.001, len(dates))),
+                "High": close_prices
+                * (1 + np.abs(np.random.normal(0, 0.002, len(dates)))),
+                "Low": close_prices
+                * (1 - np.abs(np.random.normal(0, 0.002, len(dates)))),
+                "Close": close_prices,
+                "Volume": np.random.randint(2000000, 4000000, len(dates)),
+            },
+            index=dates,
+        )
 
         self.mock_stock_fetcher.get_historical_data.return_value = hft_data
 
@@ -2849,27 +3180,31 @@ class TestAdvancedBacktestScenarios:
                             current_price = float(prices.iloc[-1])
 
                             if trend > 0.005:  # 0.5%以上の上昇
-                                signals.append(TradingSignal(
-                                    signal_type=SignalType.BUY,
-                                    strength=SignalStrength.WEAK,
-                                    confidence=60.0,
-                                    reasons=["Short-term uptrend"],
-                                    conditions_met={"momentum_up": True},
-                                    timestamp=pd.Timestamp(date),
-                                    price=current_price,
-                                    symbol=symbol,
-                                ))
+                                signals.append(
+                                    TradingSignal(
+                                        signal_type=SignalType.BUY,
+                                        strength=SignalStrength.WEAK,
+                                        confidence=60.0,
+                                        reasons=["Short-term uptrend"],
+                                        conditions_met={"momentum_up": True},
+                                        timestamp=pd.Timestamp(date),
+                                        price=current_price,
+                                        symbol=symbol,
+                                    )
+                                )
                             elif trend < -0.005:  # 0.5%以上の下落
-                                signals.append(TradingSignal(
-                                    signal_type=SignalType.SELL,
-                                    strength=SignalStrength.WEAK,
-                                    confidence=60.0,
-                                    reasons=["Short-term downtrend"],
-                                    conditions_met={"momentum_down": True},
-                                    timestamp=pd.Timestamp(date),
-                                    price=current_price,
-                                    symbol=symbol,
-                                ))
+                                signals.append(
+                                    TradingSignal(
+                                        signal_type=SignalType.SELL,
+                                        strength=SignalStrength.WEAK,
+                                        confidence=60.0,
+                                        reasons=["Short-term downtrend"],
+                                        conditions_met={"momentum_down": True},
+                                        timestamp=pd.Timestamp(date),
+                                        price=current_price,
+                                        symbol=symbol,
+                                    )
+                                )
             return signals
 
         result = self.engine.run_backtest(["7203"], config, momentum_scalping_strategy)
@@ -2877,7 +3212,9 @@ class TestAdvancedBacktestScenarios:
         # 高頻度取引の結果検証
         assert isinstance(result, BacktestResult)
         # トレード数の期待値を現実的に調整（短期間での取引は少ない可能性がある）
-        assert result.total_trades >= 0, f"Should have non-negative trades: {result.total_trades}"
+        assert result.total_trades >= 0, (
+            f"Should have non-negative trades: {result.total_trades}"
+        )
 
         # 手数料の影響をテスト
         if result.total_trades > 0:
@@ -2886,13 +3223,16 @@ class TestAdvancedBacktestScenarios:
 
             # 手数料が利益に与える影響の確認
             gross_profit = sum(
-                (trade.price * trade.quantity - trade.commission) if trade.action == TradeType.SELL
+                (trade.price * trade.quantity - trade.commission)
+                if trade.action == TradeType.SELL
                 else -(trade.price * trade.quantity + trade.commission)
                 for trade in result.trades
             )
-            commission_ratio = total_commission / abs(gross_profit) if gross_profit != 0 else 0
+            commission_ratio = (
+                total_commission / abs(gross_profit) if gross_profit != 0 else 0
+            )
 
-            print(f"High frequency trading results:")
+            print("High frequency trading results:")
             print(f"  Total Trades: {result.total_trades}")
             print(f"  Total Commission: {total_commission}")
             print(f"  Commission Ratio: {commission_ratio:.2%}")
@@ -2909,19 +3249,24 @@ class TestAdvancedBacktestScenarios:
             noise = np.random.normal(0, 0.02, len(dates))
             close_prices = trend * (1 + noise)
 
-            return pd.DataFrame({
-                "Open": close_prices * (1 + np.random.normal(0, 0.005, len(dates))),
-                "High": close_prices * (1 + np.abs(np.random.normal(0, 0.01, len(dates)))),
-                "Low": close_prices * (1 - np.abs(np.random.normal(0, 0.01, len(dates)))),
-                "Close": close_prices,
-                "Volume": np.random.randint(1000000, 5000000, len(dates))
-            }, index=dates)
+            return pd.DataFrame(
+                {
+                    "Open": close_prices * (1 + np.random.normal(0, 0.005, len(dates))),
+                    "High": close_prices
+                    * (1 + np.abs(np.random.normal(0, 0.01, len(dates)))),
+                    "Low": close_prices
+                    * (1 - np.abs(np.random.normal(0, 0.01, len(dates)))),
+                    "Close": close_prices,
+                    "Volume": np.random.randint(1000000, 5000000, len(dates)),
+                },
+                index=dates,
+            )
 
         # 銘柄別データ生成
         symbol_data = {
             "7203": create_symbol_data("7203", 2500, 1.2),  # 20%上昇
             "9984": create_symbol_data("9984", 5000, 0.9),  # 10%下落
-            "8306": create_symbol_data("8306", 800, 1.1),   # 10%上昇
+            "8306": create_symbol_data("8306", 800, 1.1),  # 10%上昇
         }
 
         def mock_get_data(symbol, start_date, end_date, interval="1d"):
@@ -2952,29 +3297,36 @@ class TestAdvancedBacktestScenarios:
 
                         # 3か月経過後に最初の買い注文
                         if len(current_data) == 90:  # 約3ヶ月後
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.BUY,
-                                strength=SignalStrength.MEDIUM,
-                                confidence=70.0,
-                                reasons=[f"Initial buy for {symbol}"],
-                                conditions_met={"initial_position": True},
-                                timestamp=pd.Timestamp(date),
-                                price=current_price,
-                                symbol=symbol,
-                            ))
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.BUY,
+                                    strength=SignalStrength.MEDIUM,
+                                    confidence=70.0,
+                                    reasons=[f"Initial buy for {symbol}"],
+                                    conditions_met={"initial_position": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=current_price,
+                                    symbol=symbol,
+                                )
+                            )
 
                         # 価格がSMAを大きく下回った場合は売却
-                        elif len(current_data) > 90 and current_price < current_sma * 0.95:
-                            signals.append(TradingSignal(
-                                signal_type=SignalType.SELL,
-                                strength=SignalStrength.MEDIUM,
-                                confidence=70.0,
-                                reasons=[f"Stop loss for {symbol}"],
-                                conditions_met={"stop_loss": True},
-                                timestamp=pd.Timestamp(date),
-                                price=current_price,
-                                symbol=symbol,
-                            ))
+                        elif (
+                            len(current_data) > 90
+                            and current_price < current_sma * 0.95
+                        ):
+                            signals.append(
+                                TradingSignal(
+                                    signal_type=SignalType.SELL,
+                                    strength=SignalStrength.MEDIUM,
+                                    confidence=70.0,
+                                    reasons=[f"Stop loss for {symbol}"],
+                                    conditions_met={"stop_loss": True},
+                                    timestamp=pd.Timestamp(date),
+                                    price=current_price,
+                                    symbol=symbol,
+                                )
+                            )
             return signals
 
         result = self.engine.run_backtest(symbols, config, diversified_strategy)
@@ -2984,21 +3336,27 @@ class TestAdvancedBacktestScenarios:
 
         # 複数銘柄での取引が発生していることを確認
         traded_symbols = set(trade.symbol for trade in result.trades)
-        assert len(traded_symbols) > 1, f"Should trade multiple symbols: {traded_symbols}"
+        assert len(traded_symbols) > 1, (
+            f"Should trade multiple symbols: {traded_symbols}"
+        )
 
         # 各銘柄の取引数を確認
         symbol_trade_counts = {}
         for trade in result.trades:
-            symbol_trade_counts[trade.symbol] = symbol_trade_counts.get(trade.symbol, 0) + 1
+            symbol_trade_counts[trade.symbol] = (
+                symbol_trade_counts.get(trade.symbol, 0) + 1
+            )
 
-        print(f"Multiple position management results:")
+        print("Multiple position management results:")
         print(f"  Traded symbols: {traded_symbols}")
         print(f"  Trade counts per symbol: {symbol_trade_counts}")
         print(f"  Total return: {result.total_return:.2%}")
 
         # リスク分散効果の簡易検証
         if len(traded_symbols) >= 2:
-            assert result.volatility < 0.5, f"Diversification should reduce volatility: {result.volatility}"
+            assert result.volatility < 0.5, (
+                f"Diversification should reduce volatility: {result.volatility}"
+            )
 
     def test_performance_calculation_edge_cases(self):
         """パフォーマンス計算エッジケーステスト"""
@@ -3018,7 +3376,7 @@ class TestAdvancedBacktestScenarios:
         assert result_no_trades.total_return == 0
         assert result_no_trades.win_rate == 0
         # 取引がない場合のprofit_factorは無限大になる（ゼロ除算回避）
-        assert result_no_trades.profit_factor == float('inf')
+        assert result_no_trades.profit_factor == float("inf")
 
         # エッジケース2: 同額の利益と損失
         self.engine.trades = [
@@ -3068,16 +3426,26 @@ class TestAdvancedBacktestScenarios:
         assert result_balanced.win_rate == 0.5
 
         # 利益・損失の絶対値が同じ場合のプロフィットファクターをテスト
-        profitable_trades, losing_trades, wins, losses, total_trades, win_rate, avg_win, avg_loss, profit_factor = \
-            self.engine._calculate_trade_statistics_vectorized()
+        (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        ) = self.engine._calculate_trade_statistics_vectorized()
 
         # プロフィットファクター計算の検証
         if avg_loss > 0:
             expected_profit_factor = float(avg_win) / float(avg_loss)
-            assert abs(profit_factor - expected_profit_factor) < 0.01, \
+            assert abs(profit_factor - expected_profit_factor) < 0.01, (
                 f"Profit factor calculation error: {profit_factor} vs {expected_profit_factor}"
+            )
 
-        print(f"Edge case test results:")
+        print("Edge case test results:")
         print(f"  Balanced scenario profit factor: {profit_factor}")
         print(f"  Win rate with equal wins/losses: {win_rate}")
 

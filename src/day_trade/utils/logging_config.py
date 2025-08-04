@@ -5,10 +5,11 @@
 JSON形式での出力、フィルタリング、ログレベル管理を統一。
 """
 
+import contextlib
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generator
 
 import structlog
 from structlog.types import Processor
@@ -76,13 +77,9 @@ class LoggingConfig:
 
         # 開発環境か本番環境かでフォーマットを変更
         if self._is_development():
-            processors.extend([
-                structlog.dev.ConsoleRenderer(colors=True)
-            ])
+            processors.extend([structlog.dev.ConsoleRenderer(colors=True)])
         else:
-            processors.extend([
-                structlog.processors.JSONRenderer()
-            ])
+            processors.extend([structlog.processors.JSONRenderer()])
 
         return processors
 
@@ -132,9 +129,10 @@ def get_logger(name: str = None) -> Any:
     if name is None:
         # 呼び出し元のモジュール名を自動取得
         import inspect
+
         frame = inspect.currentframe()
         if frame and frame.f_back:
-            name = frame.f_back.f_globals.get('__name__', 'unknown')
+            name = frame.f_back.f_globals.get("__name__", "unknown")
 
     return _logging_config.get_logger(name)
 
@@ -191,20 +189,18 @@ def log_error_with_context(error: Exception, context: Dict[str, Any] = None) -> 
     error_context = {
         "error_type": type(error).__name__,
         "error_message": str(error),
-        **(context or {})
+        **(context or {}),
     }
     logger.error("Error occurred", **error_context)
 
 
-def log_performance_metric(metric_name: str, value: float, unit: str = "ms", **kwargs) -> None:
+def log_performance_metric(
+    metric_name: str, value: float, unit: str = "ms", **kwargs
+) -> None:
     """パフォーマンスメトリクスをログ出力"""
     logger = get_logger()
     logger.info(
-        "Performance metric",
-        metric_name=metric_name,
-        value=value,
-        unit=unit,
-        **kwargs
+        "Performance metric", metric_name=metric_name, value=value, unit=unit, **kwargs
     )
 
 
@@ -217,15 +213,12 @@ def log_business_event(event_name: str, **kwargs) -> None:
 def log_database_operation(operation: str, table: str, **kwargs) -> None:
     """データベース操作をログ出力"""
     logger = get_logger()
-    logger.info(
-        "Database operation",
-        operation=operation,
-        table=table,
-        **kwargs
-    )
+    logger.info("Database operation", operation=operation, table=table, **kwargs)
 
 
-def log_api_call(api_name: str, method: str, url: str, status_code: int = None, **kwargs) -> None:
+def log_api_call(
+    api_name: str, method: str, url: str, status_code: int = None, **kwargs
+) -> None:
     """API呼び出しをログ出力"""
     logger = get_logger()
     logger.info(
@@ -234,7 +227,7 @@ def log_api_call(api_name: str, method: str, url: str, status_code: int = None, 
         method=method,
         url=url,
         status_code=status_code,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -265,7 +258,12 @@ class PerformanceCriticalLogger:
 
         # メッセージを集約してまとめて出力
         batch_message = f"Batch debug: {len(messages)} items"
-        self.logger.debug(batch_message, messages=messages[:5], total_count=len(messages), **common_context)
+        self.logger.debug(
+            batch_message,
+            messages=messages[:5],
+            total_count=len(messages),
+            **common_context,
+        )
 
     def info_sampled(self, message: str, sample_rate: float = 0.1, **kwargs) -> None:
         """サンプリングされた情報ログ（高頻度処理用）"""
@@ -273,29 +271,30 @@ class PerformanceCriticalLogger:
             return
 
         import random
+
         if random.random() < sample_rate:
             self.logger.info(f"[SAMPLED] {message}", sample_rate=sample_rate, **kwargs)
 
-    def performance_summary(self, operation: str, metrics: Dict[str, float], **kwargs) -> None:
+    def performance_summary(
+        self, operation: str, metrics: Dict[str, float], **kwargs
+    ) -> None:
         """パフォーマンス概要ログ（詳細を集約）"""
         if not self._is_enabled(logging.INFO):
             return
 
         summary = {
-            'avg': sum(metrics.values()) / len(metrics) if metrics else 0,
-            'max': max(metrics.values()) if metrics else 0,
-            'min': min(metrics.values()) if metrics else 0,
-            'count': len(metrics)
+            "avg": sum(metrics.values()) / len(metrics) if metrics else 0,
+            "max": max(metrics.values()) if metrics else 0,
+            "min": min(metrics.values()) if metrics else 0,
+            "count": len(metrics),
         }
 
-        self.logger.info(
-            f"Performance summary: {operation}",
-            summary=summary,
-            **kwargs
-        )
+        self.logger.info(f"Performance summary: {operation}", summary=summary, **kwargs)
 
 
-def get_performance_logger(name: str = None, min_level: int = logging.WARNING) -> PerformanceCriticalLogger:
+def get_performance_logger(
+    name: str = None, min_level: int = logging.WARNING
+) -> PerformanceCriticalLogger:
     """パフォーマンスクリティカルなロガーを取得"""
     base_logger = get_logger(name)
     return PerformanceCriticalLogger(base_logger, min_level)
@@ -320,14 +319,13 @@ def lazy_log(func):
 
 
 # ログ無効化コンテキストマネージャー
-import contextlib
-from typing import Generator
+
 
 @contextlib.contextmanager
 def disable_logging(logger_names: list = None) -> Generator[None, None, None]:
     """指定されたロガーを一時的に無効化"""
     if logger_names is None:
-        logger_names = ['day_trade']  # デフォルトでメインロガーを無効化
+        logger_names = ["day_trade"]  # デフォルトでメインロガーを無効化
 
     original_levels = {}
     try:
@@ -354,12 +352,12 @@ class PerformanceOptimizedLogging:
         """本番環境向けの最適化設定"""
         # サードパーティライブラリのログを更に制限
         performance_critical_loggers = [
-            'sqlalchemy',
-            'urllib3',
-            'requests',
-            'yfinance',
-            'pandas',
-            'numpy'
+            "sqlalchemy",
+            "urllib3",
+            "requests",
+            "yfinance",
+            "pandas",
+            "numpy",
         ]
 
         for logger_name in performance_critical_loggers:
@@ -369,17 +367,17 @@ class PerformanceOptimizedLogging:
     def configure_for_backtesting():
         """バックテスト実行時の最適化設定"""
         # バックテスト中は詳細ログを制限
-        logging.getLogger('day_trade.analysis.backtest').setLevel(logging.WARNING)
-        logging.getLogger('day_trade.data.stock_fetcher').setLevel(logging.ERROR)
+        logging.getLogger("day_trade.analysis.backtest").setLevel(logging.WARNING)
+        logging.getLogger("day_trade.data.stock_fetcher").setLevel(logging.ERROR)
 
     @staticmethod
     def configure_for_high_frequency():
         """高頻度取引時の最適化設定"""
         # リアルタイム処理では最小限のログのみ
         trading_loggers = [
-            'day_trade.data',
-            'day_trade.analysis.signals',
-            'day_trade.analysis.indicators'
+            "day_trade.data",
+            "day_trade.analysis.signals",
+            "day_trade.analysis.indicators",
         ]
 
         for logger_name in trading_loggers:

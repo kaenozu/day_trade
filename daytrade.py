@@ -16,6 +16,7 @@ from typing import List
 # Windows環境対応の初期化
 try:
     from src.day_trade.utils.windows_console_fix import setup_windows_console
+
     setup_windows_console()
 except ImportError:
     pass  # Windows環境修正ユーティリティが無い場合はスキップ
@@ -164,9 +165,13 @@ def setup_logging(log_level: str = "INFO"):
     """ログ設定をセットアップ"""
     # 構造化ロギングを優先して使用
     try:
-        from src.day_trade.utils.logging_config import setup_logging as setup_structured_logging
         import os
-        os.environ['LOG_LEVEL'] = log_level.upper()
+
+        from src.day_trade.utils.logging_config import (
+            setup_logging as setup_structured_logging,
+        )
+
+        os.environ["LOG_LEVEL"] = log_level.upper()
         setup_structured_logging()
     except ImportError:
         # フォールバック: 標準ロギング
@@ -176,7 +181,8 @@ def setup_logging(log_level: str = "INFO"):
             handlers=[
                 logging.StreamHandler(sys.stdout),
                 logging.FileHandler(
-                    f"daytrade_{datetime.now().strftime('%Y%m%d')}.log", encoding="utf-8"
+                    f"daytrade_{datetime.now().strftime('%Y%m%d')}.log",
+                    encoding="utf-8",
                 ),
             ],
         )

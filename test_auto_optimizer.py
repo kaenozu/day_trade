@@ -21,7 +21,7 @@ try:
     try:
         config_manager = ConfigManager()
         auto_settings = config_manager.get_auto_optimizer_settings()
-        print(f"<< 設定読み込み成功")
+        print("<< 設定読み込み成功")
         print(f"   - 有効: {auto_settings.enabled}")
         print(f"   - デフォルト銘柄数: {auto_settings.default_max_symbols}")
         print(f"   - 最適化深度: {auto_settings.default_optimization_depth}")
@@ -34,7 +34,9 @@ try:
         print("<< AutoOptimizer初期化成功")
 
         # デフォルト銘柄ユニバース確認
-        print(f"   - デフォルト銘柄ユニバース: {len(optimizer.default_symbol_universe)}銘柄")
+        print(
+            f"   - デフォルト銘柄ユニバース: {len(optimizer.default_symbol_universe)}銘柄"
+        )
         print(f"   - 先頭3銘柄: {optimizer.default_symbol_universe[:3]}")
 
         # スクリーナー可用性確認
@@ -48,9 +50,7 @@ try:
     try:
         print("\n>> 高速最適化テスト実行中...")
         result = optimizer.run_auto_optimization(
-            max_symbols=3,
-            optimization_depth="fast",
-            show_progress=False
+            max_symbols=3, optimization_depth="fast", show_progress=False
         )
 
         print("<< 高速最適化テスト成功")
@@ -63,6 +63,7 @@ try:
     except Exception as e:
         print(f"XX 高速最適化テスト失敗: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\n" + "=" * 50)
@@ -78,5 +79,6 @@ except ImportError as e:
 except Exception as e:
     print(f"XX 予期しないエラー: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)

@@ -868,12 +868,14 @@ def screen_stocks(
 class InteractiveMode:
     """対話型モードクラス（依存性注入対応）"""
 
-    def __init__(self,
-                 watchlist_manager: Optional[WatchlistManager] = None,
-                 stock_fetcher: Optional[StockFetcher] = None,
-                 trade_manager = None,
-                 signal_generator = None,
-                 console: Optional[Console] = None):
+    def __init__(
+        self,
+        watchlist_manager: Optional[WatchlistManager] = None,
+        stock_fetcher: Optional[StockFetcher] = None,
+        trade_manager=None,
+        signal_generator=None,
+        console: Optional[Console] = None,
+    ):
         """
         初期化（依存性注入対応）
 
@@ -901,13 +903,15 @@ class InteractiveMode:
 
     def start(self):
         """対話型モードを開始"""
-        self.console.print(Panel(
-            "[bold green]Day Trade Interactive Mode[/bold green]\n"
-            "対話型モードを開始します。\n"
-            "[dim]'help' でコマンド一覧を表示[/dim]",
-            title="🚀 起動完了",
-            border_style="green"
-        ))
+        self.console.print(
+            Panel(
+                "[bold green]Day Trade Interactive Mode[/bold green]\n"
+                "対話型モードを開始します。\n"
+                "[dim]'help' でコマンド一覧を表示[/dim]",
+                title="🚀 起動完了",
+                border_style="green",
+            )
+        )
         self._display_welcome_info()
 
     def _display_welcome_info(self):
@@ -923,7 +927,7 @@ class InteractiveMode:
             ("portfolio", "ポートフォリオ情報表示"),
             ("signals <code>", "売買シグナル分析"),
             ("help", "ヘルプ表示"),
-            ("exit", "終了")
+            ("exit", "終了"),
         ]
 
         for cmd, desc in commands:
@@ -977,10 +981,11 @@ class InteractiveMode:
     def _handle_stock_command(self, stock_code: str):
         """株式情報コマンドを処理"""
         if not validate_stock_code(stock_code):
-            self.console.print(create_error_panel(
-                f"無効な銘柄コード: {stock_code}",
-                title="入力エラー"
-            ))
+            self.console.print(
+                create_error_panel(
+                    f"無効な銘柄コード: {stock_code}", title="入力エラー"
+                )
+            )
             return
 
         try:
@@ -990,30 +995,34 @@ class InteractiveMode:
             if current_price:
                 _display_stock_details(stock_code, current_price, show_details=True)
             else:
-                self.console.print(create_warning_panel(
-                    f"銘柄 {stock_code} の情報を取得できませんでした",
-                    title="データ取得警告"
-                ))
+                self.console.print(
+                    create_warning_panel(
+                        f"銘柄 {stock_code} の情報を取得できませんでした",
+                        title="データ取得警告",
+                    )
+                )
 
         except Exception as e:
-            self.console.print(create_error_panel(
-                f"エラー: {str(e)}",
-                title="株式情報取得エラー"
-            ))
+            self.console.print(
+                create_error_panel(f"エラー: {str(e)}", title="株式情報取得エラー")
+            )
 
     def _handle_watch_command(self, stock_code: str):
         """ウォッチリスト追加コマンドを処理"""
         try:
             # ウォッチリストに追加のロジック（実装に応じて調整）
-            self.console.print(create_success_panel(
-                f"銘柄 {stock_code} をウォッチリストに追加しました",
-                title="追加完了"
-            ))
+            self.console.print(
+                create_success_panel(
+                    f"銘柄 {stock_code} をウォッチリストに追加しました",
+                    title="追加完了",
+                )
+            )
         except Exception as e:
-            self.console.print(create_error_panel(
-                f"ウォッチリスト追加エラー: {str(e)}",
-                title="追加失敗"
-            ))
+            self.console.print(
+                create_error_panel(
+                    f"ウォッチリスト追加エラー: {str(e)}", title="追加失敗"
+                )
+            )
 
     def _handle_watchlist_command(self):
         """ウォッチリスト表示コマンドを処理"""
@@ -1031,37 +1040,41 @@ class InteractiveMode:
             self.console.print(watchlist_table)
 
         except Exception as e:
-            self.console.print(create_error_panel(
-                f"ウォッチリスト表示エラー: {str(e)}",
-                title="表示失敗"
-            ))
+            self.console.print(
+                create_error_panel(
+                    f"ウォッチリスト表示エラー: {str(e)}", title="表示失敗"
+                )
+            )
 
     def _handle_portfolio_command(self):
         """ポートフォリオ表示コマンドを処理"""
-        self.console.print(create_info_panel(
-            "ポートフォリオ機能は開発中です",
-            title="機能開発中"
-        ))
+        self.console.print(
+            create_info_panel("ポートフォリオ機能は開発中です", title="機能開発中")
+        )
 
     def _handle_signals_command(self, stock_code: str):
         """シグナル分析コマンドを処理"""
         if self.signal_generator:
             try:
                 # シグナル生成のロジック（実装に応じて調整）
-                self.console.print(create_info_panel(
-                    f"銘柄 {stock_code} のシグナル分析を実行中...",
-                    title="シグナル分析"
-                ))
+                self.console.print(
+                    create_info_panel(
+                        f"銘柄 {stock_code} のシグナル分析を実行中...",
+                        title="シグナル分析",
+                    )
+                )
             except Exception as e:
-                self.console.print(create_error_panel(
-                    f"シグナル分析エラー: {str(e)}",
-                    title="分析失敗"
-                ))
+                self.console.print(
+                    create_error_panel(
+                        f"シグナル分析エラー: {str(e)}", title="分析失敗"
+                    )
+                )
         else:
-            self.console.print(create_warning_panel(
-                "シグナル生成機能が利用できません",
-                title="機能無効"
-            ))
+            self.console.print(
+                create_warning_panel(
+                    "シグナル生成機能が利用できません", title="機能無効"
+                )
+            )
 
     def _show_help(self):
         """ヘルプを表示"""
@@ -1077,34 +1090,40 @@ class InteractiveMode:
             "[yellow]exit/quit/q[/yellow] - 終了\n\n"
             "[dim]例: stock 7203, watch 9984[/dim]",
             title="📖 ヘルプ",
-            border_style="blue"
+            border_style="blue",
         )
         self.console.print(help_panel)
 
     def _show_unknown_command(self, command: str):
         """不明なコマンドを表示"""
-        self.console.print(create_warning_panel(
-            f"不明なコマンド: '{command}'\n'help' でコマンド一覧を確認してください",
-            title="コマンドエラー"
-        ))
+        self.console.print(
+            create_warning_panel(
+                f"不明なコマンド: '{command}'\n'help' でコマンド一覧を確認してください",
+                title="コマンドエラー",
+            )
+        )
 
     def _handle_command_error(self, command: str, error: Exception):
         """コマンド実行エラーを処理"""
         logger.error(f"Command execution error for '{command}': {error}")
-        self.console.print(create_error_panel(
-            f"コマンド '{command}' の実行中にエラーが発生しました:\n{str(error)}",
-            title="実行エラー"
-        ))
+        self.console.print(
+            create_error_panel(
+                f"コマンド '{command}' の実行中にエラーが発生しました:\n{str(error)}",
+                title="実行エラー",
+            )
+        )
 
     def stop(self):
         """対話型モードを停止"""
         self._background_update_running = False
-        self.console.print(Panel(
-            "[bold red]対話型モードを終了します[/bold red]\n"
-            "[dim]お疲れ様でした！[/dim]",
-            title="👋 終了",
-            border_style="red"
-        ))
+        self.console.print(
+            Panel(
+                "[bold red]対話型モードを終了します[/bold red]\n"
+                "[dim]お疲れ様でした！[/dim]",
+                title="👋 終了",
+                border_style="red",
+            )
+        )
 
 
 if __name__ == "__main__":

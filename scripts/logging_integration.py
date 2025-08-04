@@ -6,11 +6,9 @@ print文をstructlogベースの構造化ロギングに置き換えるツール
 """
 
 import argparse
-import ast
 import re
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List
 
 
 class PrintToLogConverter:
@@ -25,33 +23,35 @@ class PrintToLogConverter:
     def find_print_statements(self, file_path: Path) -> List[Dict[str, any]]:
         """print文を検出"""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
             return []
 
         print_statements = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for line_num, line in enumerate(lines, 1):
             # print文のパターンマッチング
             patterns = [
-                r'print\s*\(',  # print(
-                r'print\s+',    # print
+                r"print\s*\(",  # print(
+                r"print\s+",  # print
             ]
 
             for pattern in patterns:
                 if re.search(pattern, line):
                     # コメント行は除外
-                    if line.strip().startswith('#'):
+                    if line.strip().startswith("#"):
                         continue
 
-                    print_statements.append({
-                        'line_number': line_num,
-                        'line_content': line.strip(),
-                        'file_path': str(file_path),
-                        'severity': self._determine_log_level(line)
-                    })
+                    print_statements.append(
+                        {
+                            "line_number": line_num,
+                            "line_content": line.strip(),
+                            "file_path": str(file_path),
+                            "severity": self._determine_log_level(line),
+                        }
+                    )
 
         return print_statements
 
@@ -59,41 +59,46 @@ class PrintToLogConverter:
         """print文の内容からログレベルを推定"""
         line_lower = line.lower()
 
-        if any(word in line_lower for word in ['error', 'エラー', 'exception', '例外']):
-            return 'error'
-        elif any(word in line_lower for word in ['warning', '警告', 'warn']):
-            return 'warning'
-        elif any(word in line_lower for word in ['debug', 'デバッグ', 'trace']):
-            return 'debug'
-        elif any(word in line_lower for word in ['info', '情報', 'status', 'ステータス']):
-            return 'info'
+        if any(word in line_lower for word in ["error", "エラー", "exception", "例外"]):
+            return "error"
+        elif any(word in line_lower for word in ["warning", "警告", "warn"]):
+            return "warning"
+        elif any(word in line_lower for word in ["debug", "デバッグ", "trace"]):
+            return "debug"
+        elif any(
+            word in line_lower for word in ["info", "情報", "status", "ステータス"]
+        ):
+            return "info"
         else:
-            return 'info'  # デフォルト
+            return "info"  # デフォルト
 
-    def convert_print_to_log(self, file_path: Path, dry_run: bool = True) -> Dict[str, any]:
+    def convert_print_to_log(
+        self, file_path: Path, dry_run: bool = True
+    ) -> Dict[str, any]:
         """print文をロギングに変換"""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
             return {"success": False, "error": "ファイル読み込みエラー"}
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         modified_lines = []
         changes_made = 0
         logging_imported = False
 
         # ロギングのインポートをチェック
         for line in lines:
-            if 'from day_trade.utils.logging_config import' in line or 'import logging' in line:
+            if (
+                "from day_trade.utils.logging_config import" in line
+                or "import logging" in line
+            ):
                 logging_imported = True
                 break
 
-        for line_num, line in enumerate(lines):
-            original_line = line
-
+        for _line_num, line in enumerate(lines):
             # print文を検出して変換
-            if re.search(r'print\s*\(', line) and not line.strip().startswith('#'):
+            if re.search(r"print\s*\(", line) and not line.strip().startswith("#"):
                 # ログレベルを決定
                 log_level = self._determine_log_level(line)
 
@@ -109,9 +114,11 @@ class PrintToLogConverter:
             # インポート文を挿入する位置を特定
             import_index = 0
             for i, line in enumerate(modified_lines):
-                if line.strip().startswith('import ') or line.strip().startswith('from '):
+                if line.strip().startswith("import ") or line.strip().startswith(
+                    "from "
+                ):
                     import_index = i + 1
-                elif line.strip() == '' and import_index > 0:
+                elif line.strip() == "" and import_index > 0:
                     break
 
             # ロギングインポートを追加
@@ -123,7 +130,7 @@ class PrintToLogConverter:
 
         if not dry_run and changes_made > 0:
             # ファイルに書き戻し
-            new_content = '\n'.join(modified_lines)
+            new_content = "\n".join(modified_lines)
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(new_content)
 
@@ -131,16 +138,16 @@ class PrintToLogConverter:
             "success": True,
             "changes_made": changes_made,
             "logging_imported": logging_imported,
-            "file_path": str(file_path)
+            "file_path": str(file_path),
         }
 
     def _convert_line_to_logging(self, line: str, log_level: str) -> str:
         """print文をロギング文に変換"""
         # インデントを保持
-        indent = re.match(r'^(\s*)', line).group(1)
+        indent = re.match(r"^(\s*)", line).group(1)
 
         # print文の内容を抽出
-        print_match = re.search(r'print\s*\((.*)\)', line)
+        print_match = re.search(r"print\s*\((.*)\)", line)
         if not print_match:
             return line
 
@@ -150,10 +157,10 @@ class PrintToLogConverter:
         if print_content.startswith('f"') or print_content.startswith("f'"):
             # f-string の場合
             converted = f"{indent}logger.{log_level}({print_content})"
-        elif '.format(' in print_content:
+        elif ".format(" in print_content:
             # .format() の場合
             converted = f"{indent}logger.{log_level}({print_content})"
-        elif '%' in print_content:
+        elif "%" in print_content:
             # % formatting の場合
             converted = f"{indent}logger.{log_level}({print_content})"
         else:
@@ -183,17 +190,19 @@ class PrintToLogConverter:
                 files_with_prints += 1
                 total_prints += len(print_statements)
 
-                file_reports.append({
-                    "file_path": str(file_path.relative_to(self.project_root)),
-                    "print_count": len(print_statements),
-                    "statements": print_statements
-                })
+                file_reports.append(
+                    {
+                        "file_path": str(file_path.relative_to(self.project_root)),
+                        "print_count": len(print_statements),
+                        "statements": print_statements,
+                    }
+                )
 
         return {
             "total_prints": total_prints,
             "files_with_prints": files_with_prints,
             "files_analyzed": files_analyzed,
-            "file_reports": file_reports
+            "file_reports": file_reports,
         }
 
     def generate_report(self, analysis_result: Dict) -> str:
@@ -205,22 +214,22 @@ class PrintToLogConverter:
 
         report_content = f"""# 構造化ロギング統合レポート
 
-**生成日時**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}
+**生成日時**: {datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")}
 
 ## 📊 概要
 
-- **分析ファイル数**: {analysis_result['files_analyzed']}
-- **print文を含むファイル数**: {analysis_result['files_with_prints']}
-- **総print文数**: {analysis_result['total_prints']}
+- **分析ファイル数**: {analysis_result["files_analyzed"]}
+- **print文を含むファイル数**: {analysis_result["files_with_prints"]}
+- **総print文数**: {analysis_result["total_prints"]}
 
 ## 📁 ファイル別詳細
 
 """
 
         for file_report in analysis_result["file_reports"]:
-            report_content += f"""### {file_report['file_path']}
+            report_content += f"""### {file_report["file_path"]}
 
-**print文数**: {file_report['print_count']}
+**print文数**: {file_report["print_count"]}
 
 """
 
@@ -311,7 +320,7 @@ export ENVIRONMENT=production
             "files_processed": len(conversion_results),
             "total_changes": total_changes,
             "results": conversion_results,
-            "dry_run": dry_run
+            "dry_run": dry_run,
         }
 
 
@@ -322,29 +331,23 @@ def main():
         "--project-root",
         type=Path,
         default=Path.cwd(),
-        help="プロジェクトルートディレクトリ"
+        help="プロジェクトルートディレクトリ",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # analyzeコマンド
-    analyze_parser = subparsers.add_parser("analyze", help="print文を分析")
+    subparsers.add_parser("analyze", help="print文を分析")
 
     # convertコマンド
     convert_parser = subparsers.add_parser("convert", help="print文をロギングに変換")
     convert_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="実際には変更せず、変更予定を表示"
+        "--dry-run", action="store_true", help="実際には変更せず、変更予定を表示"
     )
-    convert_parser.add_argument(
-        "--file",
-        type=Path,
-        help="特定のファイルのみ変換"
-    )
+    convert_parser.add_argument("--file", type=Path, help="特定のファイルのみ変換")
 
     # reportコマンド
-    report_parser = subparsers.add_parser("report", help="分析レポートを生成")
+    subparsers.add_parser("report", help="分析レポートを生成")
 
     args = parser.parse_args()
 
@@ -356,7 +359,7 @@ def main():
 
     if args.command == "analyze":
         analysis = converter.analyze_project()
-        print(f"分析結果:")
+        print("分析結果:")
         print(f"  ファイル数: {analysis['files_analyzed']}")
         print(f"  print文を含むファイル数: {analysis['files_with_prints']}")
         print(f"  総print文数: {analysis['total_prints']}")

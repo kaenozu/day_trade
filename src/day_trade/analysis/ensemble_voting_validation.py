@@ -5,24 +5,19 @@
 戦略合意形成プロセスの検証を実行する。
 """
 
-import json
-import math
-import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
-from scipy import stats
 
-from .ensemble import EnsembleTradingStrategy, EnsembleStrategy, EnsembleVotingType, StrategyPerformance
-from .signals import SignalType, SignalStrength, TradingSignal
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from .ensemble import EnsembleVotingType
+from .signals import SignalStrength, SignalType, TradingSignal
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
 
@@ -92,15 +87,17 @@ class EnsembleVotingValidator:
         self.validation_results = []
         self.mathematical_precision = 1e-6
 
-        logger.info("アンサンブル投票アルゴリズム検証器初期化完了", section="voting_validator_init")
+        logger.info(
+            "アンサンブル投票アルゴリズム検証器初期化完了",
+            section="voting_validator_init",
+        )
 
     @profile_performance
     def run_comprehensive_voting_validation(self) -> VotingAnalysisReport:
         """包括的投票検証実行"""
 
         logger.info(
-            "包括的投票アルゴリズム検証開始",
-            section="comprehensive_voting_validation"
+            "包括的投票アルゴリズム検証開始", section="comprehensive_voting_validation"
         )
 
         try:
@@ -128,7 +125,7 @@ class EnsembleVotingValidator:
                 weighted_average_results,
                 weight_validation_results,
                 edge_case_results,
-                mathematical_validation
+                mathematical_validation,
             )
 
             logger.info(
@@ -136,7 +133,11 @@ class EnsembleVotingValidator:
                 section="comprehensive_voting_validation",
                 total_scenarios=analysis_report.total_scenarios,
                 passed_scenarios=analysis_report.passed_scenarios,
-                success_rate=analysis_report.passed_scenarios / analysis_report.total_scenarios * 100 if analysis_report.total_scenarios > 0 else 0
+                success_rate=analysis_report.passed_scenarios
+                / analysis_report.total_scenarios
+                * 100
+                if analysis_report.total_scenarios > 0
+                else 0,
             )
 
             return analysis_report
@@ -145,7 +146,7 @@ class EnsembleVotingValidator:
             logger.error(
                 "包括的投票検証エラー",
                 section="comprehensive_voting_validation",
-                error=str(e)
+                error=str(e),
             )
             raise
 
@@ -168,7 +169,7 @@ class EnsembleVotingValidator:
 
         logger.info(
             f"投票テストシナリオ生成完了: {len(self.test_scenarios)}件",
-            section="voting_scenario_generation"
+            section="voting_scenario_generation",
         )
 
     def _create_consensus_scenarios(self) -> List[VotingTestScenario]:
@@ -180,39 +181,51 @@ class EnsembleVotingValidator:
         buy_signals = [
             ("strategy_1", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 80.0)),
             ("strategy_2", TradingSignal(SignalType.BUY, SignalStrength.MEDIUM, 75.0)),
-            ("strategy_3", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 85.0))
+            ("strategy_3", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 85.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="unanimous_buy_consensus",
-            description="全戦略による買い合意",
-            strategy_signals=buy_signals,
-            strategy_weights={"strategy_1": 0.4, "strategy_2": 0.3, "strategy_3": 0.3},
-            expected_result={
-                "signal_type": SignalType.BUY,
-                "confidence_range": (75.0, 85.0)
-            },
-            voting_type=EnsembleVotingType.SOFT_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="unanimous_buy_consensus",
+                description="全戦略による買い合意",
+                strategy_signals=buy_signals,
+                strategy_weights={
+                    "strategy_1": 0.4,
+                    "strategy_2": 0.3,
+                    "strategy_3": 0.3,
+                },
+                expected_result={
+                    "signal_type": SignalType.BUY,
+                    "confidence_range": (75.0, 85.0),
+                },
+                voting_type=EnsembleVotingType.SOFT_VOTING,
+            )
+        )
 
         # 全戦略売り合意
         sell_signals = [
             ("strategy_1", TradingSignal(SignalType.SELL, SignalStrength.STRONG, 90.0)),
             ("strategy_2", TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 70.0)),
-            ("strategy_3", TradingSignal(SignalType.SELL, SignalStrength.STRONG, 85.0))
+            ("strategy_3", TradingSignal(SignalType.SELL, SignalStrength.STRONG, 85.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="unanimous_sell_consensus",
-            description="全戦略による売り合意",
-            strategy_signals=sell_signals,
-            strategy_weights={"strategy_1": 0.4, "strategy_2": 0.3, "strategy_3": 0.3},
-            expected_result={
-                "signal_type": SignalType.SELL,
-                "confidence_range": (70.0, 90.0)
-            },
-            voting_type=EnsembleVotingType.SOFT_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="unanimous_sell_consensus",
+                description="全戦略による売り合意",
+                strategy_signals=sell_signals,
+                strategy_weights={
+                    "strategy_1": 0.4,
+                    "strategy_2": 0.3,
+                    "strategy_3": 0.3,
+                },
+                expected_result={
+                    "signal_type": SignalType.SELL,
+                    "confidence_range": (70.0, 90.0),
+                },
+                voting_type=EnsembleVotingType.SOFT_VOTING,
+            )
+        )
 
         return scenarios
 
@@ -225,39 +238,51 @@ class EnsembleVotingValidator:
         split_signals_buy = [
             ("strategy_1", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 80.0)),
             ("strategy_2", TradingSignal(SignalType.BUY, SignalStrength.MEDIUM, 70.0)),
-            ("strategy_3", TradingSignal(SignalType.SELL, SignalStrength.WEAK, 60.0))
+            ("strategy_3", TradingSignal(SignalType.SELL, SignalStrength.WEAK, 60.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="buy_majority_split",
-            description="買い優勢の2対1分裂",
-            strategy_signals=split_signals_buy,
-            strategy_weights={"strategy_1": 0.33, "strategy_2": 0.33, "strategy_3": 0.34},
-            expected_result={
-                "signal_type": SignalType.BUY,
-                "confidence_range": (60.0, 80.0)
-            },
-            voting_type=EnsembleVotingType.HARD_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="buy_majority_split",
+                description="買い優勢の2対1分裂",
+                strategy_signals=split_signals_buy,
+                strategy_weights={
+                    "strategy_1": 0.33,
+                    "strategy_2": 0.33,
+                    "strategy_3": 0.34,
+                },
+                expected_result={
+                    "signal_type": SignalType.BUY,
+                    "confidence_range": (60.0, 80.0),
+                },
+                voting_type=EnsembleVotingType.HARD_VOTING,
+            )
+        )
 
         # 1対1対1の完全分裂
         complete_split_signals = [
             ("strategy_1", TradingSignal(SignalType.BUY, SignalStrength.MEDIUM, 70.0)),
             ("strategy_2", TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 75.0)),
-            ("strategy_3", TradingSignal(SignalType.HOLD, SignalStrength.WEAK, 50.0))
+            ("strategy_3", TradingSignal(SignalType.HOLD, SignalStrength.WEAK, 50.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="complete_split",
-            description="完全分裂シナリオ",
-            strategy_signals=complete_split_signals,
-            strategy_weights={"strategy_1": 0.33, "strategy_2": 0.33, "strategy_3": 0.34},
-            expected_result={
-                "signal_type": SignalType.HOLD,  # 分裂時のデフォルト
-                "confidence_range": (40.0, 60.0)
-            },
-            voting_type=EnsembleVotingType.HARD_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="complete_split",
+                description="完全分裂シナリオ",
+                strategy_signals=complete_split_signals,
+                strategy_weights={
+                    "strategy_1": 0.33,
+                    "strategy_2": 0.33,
+                    "strategy_3": 0.34,
+                },
+                expected_result={
+                    "signal_type": SignalType.HOLD,  # 分裂時のデフォルト
+                    "confidence_range": (40.0, 60.0),
+                },
+                voting_type=EnsembleVotingType.HARD_VOTING,
+            )
+        )
 
         return scenarios
 
@@ -268,22 +293,37 @@ class EnsembleVotingValidator:
 
         # 高重み戦略による影響力テスト
         weighted_signals = [
-            ("high_weight_strategy", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 85.0)),
-            ("low_weight_strategy_1", TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 70.0)),
-            ("low_weight_strategy_2", TradingSignal(SignalType.SELL, SignalStrength.WEAK, 60.0))
+            (
+                "high_weight_strategy",
+                TradingSignal(SignalType.BUY, SignalStrength.STRONG, 85.0),
+            ),
+            (
+                "low_weight_strategy_1",
+                TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 70.0),
+            ),
+            (
+                "low_weight_strategy_2",
+                TradingSignal(SignalType.SELL, SignalStrength.WEAK, 60.0),
+            ),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="high_weight_dominance",
-            description="高重み戦略の支配力テスト",
-            strategy_signals=weighted_signals,
-            strategy_weights={"high_weight_strategy": 0.7, "low_weight_strategy_1": 0.15, "low_weight_strategy_2": 0.15},
-            expected_result={
-                "signal_type": SignalType.BUY,  # 高重み戦略が勝利
-                "confidence_range": (70.0, 85.0)
-            },
-            voting_type=EnsembleVotingType.WEIGHTED_AVERAGE
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="high_weight_dominance",
+                description="高重み戦略の支配力テスト",
+                strategy_signals=weighted_signals,
+                strategy_weights={
+                    "high_weight_strategy": 0.7,
+                    "low_weight_strategy_1": 0.15,
+                    "low_weight_strategy_2": 0.15,
+                },
+                expected_result={
+                    "signal_type": SignalType.BUY,  # 高重み戦略が勝利
+                    "confidence_range": (70.0, 85.0),
+                },
+                voting_type=EnsembleVotingType.WEIGHTED_AVERAGE,
+            )
+        )
 
         return scenarios
 
@@ -296,39 +336,51 @@ class EnsembleVotingValidator:
         zero_confidence_signals = [
             ("strategy_1", TradingSignal(SignalType.BUY, SignalStrength.WEAK, 0.0)),
             ("strategy_2", TradingSignal(SignalType.SELL, SignalStrength.WEAK, 0.0)),
-            ("strategy_3", TradingSignal(SignalType.HOLD, SignalStrength.WEAK, 0.0))
+            ("strategy_3", TradingSignal(SignalType.HOLD, SignalStrength.WEAK, 0.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="zero_confidence_signals",
-            description="信頼度ゼロシグナルの処理",
-            strategy_signals=zero_confidence_signals,
-            strategy_weights={"strategy_1": 0.33, "strategy_2": 0.33, "strategy_3": 0.34},
-            expected_result={
-                "signal_type": SignalType.HOLD,
-                "confidence_range": (0.0, 10.0)
-            },
-            voting_type=EnsembleVotingType.SOFT_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="zero_confidence_signals",
+                description="信頼度ゼロシグナルの処理",
+                strategy_signals=zero_confidence_signals,
+                strategy_weights={
+                    "strategy_1": 0.33,
+                    "strategy_2": 0.33,
+                    "strategy_3": 0.34,
+                },
+                expected_result={
+                    "signal_type": SignalType.HOLD,
+                    "confidence_range": (0.0, 10.0),
+                },
+                voting_type=EnsembleVotingType.SOFT_VOTING,
+            )
+        )
 
         # 極端に高い信頼度
         extreme_confidence_signals = [
             ("strategy_1", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 100.0)),
             ("strategy_2", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 100.0)),
-            ("strategy_3", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 100.0))
+            ("strategy_3", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 100.0)),
         ]
 
-        scenarios.append(VotingTestScenario(
-            scenario_name="extreme_confidence_signals",
-            description="極端に高い信頼度の処理",
-            strategy_signals=extreme_confidence_signals,
-            strategy_weights={"strategy_1": 0.33, "strategy_2": 0.33, "strategy_3": 0.34},
-            expected_result={
-                "signal_type": SignalType.BUY,
-                "confidence_range": (95.0, 100.0)
-            },
-            voting_type=EnsembleVotingType.SOFT_VOTING
-        ))
+        scenarios.append(
+            VotingTestScenario(
+                scenario_name="extreme_confidence_signals",
+                description="極端に高い信頼度の処理",
+                strategy_signals=extreme_confidence_signals,
+                strategy_weights={
+                    "strategy_1": 0.33,
+                    "strategy_2": 0.33,
+                    "strategy_3": 0.34,
+                },
+                expected_result={
+                    "signal_type": SignalType.BUY,
+                    "confidence_range": (95.0, 100.0),
+                },
+                voting_type=EnsembleVotingType.SOFT_VOTING,
+            )
+        )
 
         return scenarios
 
@@ -336,7 +388,11 @@ class EnsembleVotingValidator:
         """ソフト投票検証"""
 
         results = []
-        soft_voting_scenarios = [s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.SOFT_VOTING]
+        soft_voting_scenarios = [
+            s
+            for s in self.test_scenarios
+            if s.voting_type == EnsembleVotingType.SOFT_VOTING
+        ]
 
         for scenario in soft_voting_scenarios:
             result = self._execute_voting_test(scenario)
@@ -345,7 +401,7 @@ class EnsembleVotingValidator:
         logger.info(
             f"ソフト投票検証完了: {len(results)}件",
             section="soft_voting_validation",
-            passed=sum(1 for r in results if r.success)
+            passed=sum(1 for r in results if r.success),
         )
 
         return results
@@ -354,7 +410,11 @@ class EnsembleVotingValidator:
         """ハード投票検証"""
 
         results = []
-        hard_voting_scenarios = [s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.HARD_VOTING]
+        hard_voting_scenarios = [
+            s
+            for s in self.test_scenarios
+            if s.voting_type == EnsembleVotingType.HARD_VOTING
+        ]
 
         for scenario in hard_voting_scenarios:
             result = self._execute_voting_test(scenario)
@@ -363,7 +423,7 @@ class EnsembleVotingValidator:
         logger.info(
             f"ハード投票検証完了: {len(results)}件",
             section="hard_voting_validation",
-            passed=sum(1 for r in results if r.success)
+            passed=sum(1 for r in results if r.success),
         )
 
         return results
@@ -372,7 +432,11 @@ class EnsembleVotingValidator:
         """重み付け平均検証"""
 
         results = []
-        weighted_scenarios = [s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.WEIGHTED_AVERAGE]
+        weighted_scenarios = [
+            s
+            for s in self.test_scenarios
+            if s.voting_type == EnsembleVotingType.WEIGHTED_AVERAGE
+        ]
 
         for scenario in weighted_scenarios:
             result = self._execute_voting_test(scenario)
@@ -381,12 +445,14 @@ class EnsembleVotingValidator:
         logger.info(
             f"重み付け平均検証完了: {len(results)}件",
             section="weighted_average_validation",
-            passed=sum(1 for r in results if r.success)
+            passed=sum(1 for r in results if r.success),
         )
 
         return results
 
-    def _execute_voting_test(self, scenario: VotingTestScenario) -> VotingValidationResult:
+    def _execute_voting_test(
+        self, scenario: VotingTestScenario
+    ) -> VotingValidationResult:
         """投票テスト実行"""
 
         try:
@@ -395,30 +461,36 @@ class EnsembleVotingValidator:
 
             # 結果検証
             success = True
-            signal_type_match = True
-            confidence_in_range = True
 
             # シグナルタイプ検証
             expected_signal_type = scenario.expected_result.get("signal_type")
-            if expected_signal_type and actual_result["signal_type"] != expected_signal_type:
-                signal_type_match = False
+            if (
+                expected_signal_type
+                and actual_result["signal_type"] != expected_signal_type
+            ):
                 success = False
 
             # 信頼度範囲検証
             expected_confidence_range = scenario.expected_result.get("confidence_range")
             actual_confidence = actual_result["confidence"]
 
-            if expected_confidence_range:
-                if not (expected_confidence_range[0] <= actual_confidence <= expected_confidence_range[1]):
-                    confidence_in_range = False
-                    success = False
+            if expected_confidence_range and not (
+                expected_confidence_range[0]
+                <= actual_confidence
+                <= expected_confidence_range[1]
+            ):
+                success = False
 
             # 重み一貫性検証
-            weight_consistency = self._validate_weight_consistency(scenario.strategy_weights)
+            weight_consistency = self._validate_weight_consistency(
+                scenario.strategy_weights
+            )
 
             confidence_error = 0.0
             if expected_confidence_range:
-                expected_mid = (expected_confidence_range[0] + expected_confidence_range[1]) / 2
+                expected_mid = (
+                    expected_confidence_range[0] + expected_confidence_range[1]
+                ) / 2
                 confidence_error = abs(actual_confidence - expected_mid)
 
             return VotingValidationResult(
@@ -428,10 +500,12 @@ class EnsembleVotingValidator:
                 actual_signal_type=actual_result["signal_type"],
                 expected_signal_type=expected_signal_type,
                 actual_confidence=actual_confidence,
-                expected_confidence=expected_confidence_range[0] if expected_confidence_range else 0,
+                expected_confidence=expected_confidence_range[0]
+                if expected_confidence_range
+                else 0,
                 confidence_error=confidence_error,
                 weight_consistency=weight_consistency,
-                calculation_details=actual_result.get("details", {})
+                calculation_details=actual_result.get("details", {}),
             )
 
         except Exception as e:
@@ -439,10 +513,12 @@ class EnsembleVotingValidator:
                 scenario_name=scenario.scenario_name,
                 voting_type=scenario.voting_type.value,
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
 
-    def _simulate_voting_calculation(self, scenario: VotingTestScenario) -> Dict[str, Any]:
+    def _simulate_voting_calculation(
+        self, scenario: VotingTestScenario
+    ) -> Dict[str, Any]:
         """投票計算シミュレーション"""
 
         signals = scenario.strategy_signals
@@ -458,7 +534,9 @@ class EnsembleVotingValidator:
         else:
             raise ValueError(f"Unsupported voting type: {voting_type}")
 
-    def _calculate_soft_voting(self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]) -> Dict[str, Any]:
+    def _calculate_soft_voting(
+        self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]
+    ) -> Dict[str, Any]:
         """ソフト投票計算"""
 
         buy_score = 0.0
@@ -505,11 +583,13 @@ class EnsembleVotingValidator:
                 "buy_score": buy_score,
                 "sell_score": sell_score,
                 "hold_score": hold_score,
-                "total_weight": total_weight
-            }
+                "total_weight": total_weight,
+            },
         }
 
-    def _calculate_hard_voting(self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]) -> Dict[str, Any]:
+    def _calculate_hard_voting(
+        self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]
+    ) -> Dict[str, Any]:
         """ハード投票計算"""
 
         buy_votes = 0
@@ -545,7 +625,11 @@ class EnsembleVotingValidator:
             confidence = vote_weights["hold"] / max(sum(vote_weights.values()), 1) * 100
 
         # 同票の場合はHOLD
-        if buy_votes == sell_votes or (buy_votes == hold_votes and buy_votes > sell_votes) or (sell_votes == hold_votes and sell_votes > buy_votes):
+        if (
+            buy_votes == sell_votes
+            or (buy_votes == hold_votes and buy_votes > sell_votes)
+            or (sell_votes == hold_votes and sell_votes > buy_votes)
+        ):
             signal_type = SignalType.HOLD
             confidence = total_confidence / len(signals) if signals else 50.0
 
@@ -556,11 +640,13 @@ class EnsembleVotingValidator:
                 "buy_votes": buy_votes,
                 "sell_votes": sell_votes,
                 "hold_votes": hold_votes,
-                "vote_weights": vote_weights
-            }
+                "vote_weights": vote_weights,
+            },
         }
 
-    def _calculate_weighted_average(self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]) -> Dict[str, Any]:
+    def _calculate_weighted_average(
+        self, signals: List[Tuple[str, TradingSignal]], weights: Dict[str, float]
+    ) -> Dict[str, Any]:
         """重み付け平均計算"""
 
         # シグナルタイプを数値化（BUY=1, HOLD=0, SELL=-1）
@@ -584,10 +670,17 @@ class EnsembleVotingValidator:
 
         # 重み付け平均計算
         if sum(weight_values) > 0:
-            weighted_signal = sum(sv * cv * wv for sv, cv, wv in zip(signal_values, confidence_values, weight_values))
-            weighted_signal /= sum(cv * wv for cv, wv in zip(confidence_values, weight_values))
+            weighted_signal = sum(
+                sv * cv * wv
+                for sv, cv, wv in zip(signal_values, confidence_values, weight_values)
+            )
+            weighted_signal /= sum(
+                cv * wv for cv, wv in zip(confidence_values, weight_values)
+            )
 
-            weighted_confidence = sum(cv * wv for cv, wv in zip(confidence_values, weight_values))
+            weighted_confidence = sum(
+                cv * wv for cv, wv in zip(confidence_values, weight_values)
+            )
             weighted_confidence /= sum(weight_values)
         else:
             weighted_signal = 0.0
@@ -608,8 +701,8 @@ class EnsembleVotingValidator:
                 "weighted_signal_value": weighted_signal,
                 "signal_values": signal_values,
                 "confidence_values": confidence_values,
-                "weight_values": weight_values
-            }
+                "weight_values": weight_values,
+            },
         }
 
     def _validate_weight_consistency(self, weights: Dict[str, float]) -> bool:
@@ -621,10 +714,7 @@ class EnsembleVotingValidator:
             return False
 
         # 負の重みがないかチェック
-        if any(w < 0 for w in weights.values()):
-            return False
-
-        return True
+        return not any(w < 0 for w in weights.values())
 
     def _validate_weight_logic(self) -> List[VotingValidationResult]:
         """重み付けロジック検証"""
@@ -635,14 +725,21 @@ class EnsembleVotingValidator:
         test_weights = {"s1": 0.2, "s2": 0.3, "s3": 0.6}  # 合計1.1
         normalized = self._normalize_weights(test_weights)
 
-        normalization_success = abs(sum(normalized.values()) - 1.0) < self.mathematical_precision
+        normalization_success = (
+            abs(sum(normalized.values()) - 1.0) < self.mathematical_precision
+        )
 
-        results.append(VotingValidationResult(
-            scenario_name="weight_normalization",
-            voting_type="weight_logic",
-            success=normalization_success,
-            calculation_details={"original": test_weights, "normalized": normalized}
-        ))
+        results.append(
+            VotingValidationResult(
+                scenario_name="weight_normalization",
+                voting_type="weight_logic",
+                success=normalization_success,
+                calculation_details={
+                    "original": test_weights,
+                    "normalized": normalized,
+                },
+            )
+        )
 
         return results
 
@@ -655,13 +752,18 @@ class EnsembleVotingValidator:
         else:
             # 全て0の場合は均等割り当て
             n = len(weights)
-            return {k: 1.0 / n for k in weights.keys()} if n > 0 else {}
+            return {k: 1.0 / n for k in weights} if n > 0 else {}
 
     def _validate_edge_cases(self) -> List[VotingValidationResult]:
         """エッジケース検証"""
 
         results = []
-        edge_case_scenarios = [s for s in self.test_scenarios if "zero_confidence" in s.scenario_name or "extreme_confidence" in s.scenario_name]
+        edge_case_scenarios = [
+            s
+            for s in self.test_scenarios
+            if "zero_confidence" in s.scenario_name
+            or "extreme_confidence" in s.scenario_name
+        ]
 
         for scenario in edge_case_scenarios:
             result = self._execute_voting_test(scenario)
@@ -677,7 +779,7 @@ class EnsembleVotingValidator:
         # 可換性テスト（順序を変えても結果が同じ）
         original_signals = [
             ("s1", TradingSignal(SignalType.BUY, SignalStrength.STRONG, 80.0)),
-            ("s2", TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 70.0))
+            ("s2", TradingSignal(SignalType.SELL, SignalStrength.MEDIUM, 70.0)),
         ]
         reversed_signals = list(reversed(original_signals))
         weights = {"s1": 0.6, "s2": 0.4}
@@ -686,19 +788,22 @@ class EnsembleVotingValidator:
         reversed_result = self._calculate_soft_voting(reversed_signals, weights)
 
         commutativity_success = (
-            original_result["signal_type"] == reversed_result["signal_type"] and
-            abs(original_result["confidence"] - reversed_result["confidence"]) < self.mathematical_precision
+            original_result["signal_type"] == reversed_result["signal_type"]
+            and abs(original_result["confidence"] - reversed_result["confidence"])
+            < self.mathematical_precision
         )
 
-        results.append(VotingValidationResult(
-            scenario_name="commutativity_test",
-            voting_type="mathematical_correctness",
-            success=commutativity_success,
-            calculation_details={
-                "original_result": original_result,
-                "reversed_result": reversed_result
-            }
-        ))
+        results.append(
+            VotingValidationResult(
+                scenario_name="commutativity_test",
+                voting_type="mathematical_correctness",
+                success=commutativity_success,
+                calculation_details={
+                    "original_result": original_result,
+                    "reversed_result": reversed_result,
+                },
+            )
+        )
 
         return results
 
@@ -709,13 +814,17 @@ class EnsembleVotingValidator:
         weighted_average_results: List[VotingValidationResult],
         weight_validation_results: List[VotingValidationResult],
         edge_case_results: List[VotingValidationResult],
-        mathematical_validation: List[VotingValidationResult]
+        mathematical_validation: List[VotingValidationResult],
     ) -> VotingAnalysisReport:
         """投票結果分析"""
 
         all_results = (
-            soft_voting_results + hard_voting_results + weighted_average_results +
-            weight_validation_results + edge_case_results + mathematical_validation
+            soft_voting_results
+            + hard_voting_results
+            + weighted_average_results
+            + weight_validation_results
+            + edge_case_results
+            + mathematical_validation
         )
 
         total_scenarios = len(all_results)
@@ -723,20 +832,49 @@ class EnsembleVotingValidator:
         failed_scenarios = total_scenarios - passed_scenarios
 
         # 投票タイプ別結果
-        soft_voting_stats = {"passed": sum(1 for r in soft_voting_results if r.success), "failed": len(soft_voting_results) - sum(1 for r in soft_voting_results if r.success)}
-        hard_voting_stats = {"passed": sum(1 for r in hard_voting_results if r.success), "failed": len(hard_voting_results) - sum(1 for r in hard_voting_results if r.success)}
-        weighted_average_stats = {"passed": sum(1 for r in weighted_average_results if r.success), "failed": len(weighted_average_results) - sum(1 for r in weighted_average_results if r.success)}
+        soft_voting_stats = {
+            "passed": sum(1 for r in soft_voting_results if r.success),
+            "failed": len(soft_voting_results)
+            - sum(1 for r in soft_voting_results if r.success),
+        }
+        hard_voting_stats = {
+            "passed": sum(1 for r in hard_voting_results if r.success),
+            "failed": len(hard_voting_results)
+            - sum(1 for r in hard_voting_results if r.success),
+        }
+        weighted_average_stats = {
+            "passed": sum(1 for r in weighted_average_results if r.success),
+            "failed": len(weighted_average_results)
+            - sum(1 for r in weighted_average_results if r.success),
+        }
 
         # 精度分析
-        confidence_errors = [r.confidence_error for r in all_results if r.confidence_error > 0]
+        confidence_errors = [
+            r.confidence_error for r in all_results if r.confidence_error > 0
+        ]
         avg_confidence_error = np.mean(confidence_errors) if confidence_errors else 0.0
         max_confidence_error = np.max(confidence_errors) if confidence_errors else 0.0
 
-        signal_type_matches = sum(1 for r in all_results if r.actual_signal_type == r.expected_signal_type and r.expected_signal_type is not None)
-        signal_type_accuracy = signal_type_matches / len([r for r in all_results if r.expected_signal_type is not None]) * 100 if len([r for r in all_results if r.expected_signal_type is not None]) > 0 else 0
+        signal_type_matches = sum(
+            1
+            for r in all_results
+            if r.actual_signal_type == r.expected_signal_type
+            and r.expected_signal_type is not None
+        )
+        signal_type_accuracy = (
+            signal_type_matches
+            / len([r for r in all_results if r.expected_signal_type is not None])
+            * 100
+            if len([r for r in all_results if r.expected_signal_type is not None]) > 0
+            else 0
+        )
 
         # 重み付け分析
-        weight_consistency_rate = sum(1 for r in all_results if r.weight_consistency) / total_scenarios * 100 if total_scenarios > 0 else 0
+        weight_consistency_rate = (
+            sum(1 for r in all_results if r.weight_consistency) / total_scenarios * 100
+            if total_scenarios > 0
+            else 0
+        )
 
         # 推奨事項生成
         recommendations = self._generate_voting_recommendations(all_results)
@@ -756,25 +894,33 @@ class EnsembleVotingValidator:
             weight_consistency_rate=weight_consistency_rate,
             weight_distribution_analysis={},
             voting_algorithm_recommendations=recommendations,
-            identified_issues=issues
+            identified_issues=issues,
         )
 
-    def _generate_voting_recommendations(self, results: List[VotingValidationResult]) -> List[str]:
+    def _generate_voting_recommendations(
+        self, results: List[VotingValidationResult]
+    ) -> List[str]:
         """投票推奨事項生成"""
 
         recommendations = []
 
-        success_rate = sum(1 for r in results if r.success) / len(results) * 100 if results else 0
+        success_rate = (
+            sum(1 for r in results if r.success) / len(results) * 100 if results else 0
+        )
 
         if success_rate > 95:
             recommendations.append("投票アルゴリズムは非常に高い精度で動作している")
         elif success_rate > 85:
-            recommendations.append("投票アルゴリズムは良好に動作しているが、細部の改善の余地がある")
+            recommendations.append(
+                "投票アルゴリズムは良好に動作しているが、細部の改善の余地がある"
+            )
         else:
             recommendations.append("投票アルゴリズムの大幅な改善が必要")
 
         # 信頼度エラー分析
-        confidence_errors = [r.confidence_error for r in results if r.confidence_error > 0]
+        confidence_errors = [
+            r.confidence_error for r in results if r.confidence_error > 0
+        ]
         if confidence_errors:
             avg_error = np.mean(confidence_errors)
             if avg_error > 10:
@@ -782,7 +928,9 @@ class EnsembleVotingValidator:
 
         return recommendations
 
-    def _identify_voting_issues(self, results: List[VotingValidationResult]) -> List[str]:
+    def _identify_voting_issues(
+        self, results: List[VotingValidationResult]
+    ) -> List[str]:
         """投票問題特定"""
 
         issues = []
@@ -809,7 +957,9 @@ class EnsembleVotingValidator:
             f"分析日時: {report.analysis_timestamp}",
             f"総シナリオ数: {report.total_scenarios}",
             f"成功: {report.passed_scenarios}, 失敗: {report.failed_scenarios}",
-            f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%" if report.total_scenarios > 0 else "成功率: N/A",
+            f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%"
+            if report.total_scenarios > 0
+            else "成功率: N/A",
             "",
             "投票アルゴリズム別結果:",
             "-" * 50,
@@ -825,25 +975,18 @@ class EnsembleVotingValidator:
             f"重み一貫性率: {report.weight_consistency_rate:.1f}%",
             "",
             "推奨事項:",
-            "-" * 30
+            "-" * 30,
         ]
 
         for recommendation in report.voting_algorithm_recommendations:
             lines.append(f"- {recommendation}")
 
         if report.identified_issues:
-            lines.extend([
-                "",
-                "特定された問題:",
-                "-" * 30
-            ])
+            lines.extend(["", "特定された問題:", "-" * 30])
             for issue in report.identified_issues:
                 lines.append(f"- {issue}")
 
-        lines.extend([
-            "",
-            "=" * 80
-        ])
+        lines.extend(["", "=" * 80])
 
         return "\n".join(lines)
 
@@ -866,7 +1009,11 @@ if __name__ == "__main__":
             "アンサンブル投票アルゴリズム検証デモ完了",
             section="demo",
             total_scenarios=analysis_report.total_scenarios,
-            success_rate=analysis_report.passed_scenarios / analysis_report.total_scenarios * 100 if analysis_report.total_scenarios > 0 else 0
+            success_rate=analysis_report.passed_scenarios
+            / analysis_report.total_scenarios
+            * 100
+            if analysis_report.total_scenarios > 0
+            else 0,
         )
 
         print(detailed_report)
@@ -877,4 +1024,5 @@ if __name__ == "__main__":
     finally:
         # リソースクリーンアップ
         import gc
+
         gc.collect()

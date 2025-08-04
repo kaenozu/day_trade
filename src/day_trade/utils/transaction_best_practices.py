@@ -3,17 +3,17 @@
 Issue #187: データベース操作のトランザクション管理の知見とパターン集
 """
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional
-from datetime import datetime
+from typing import Any, Callable, Dict, List
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, OperationalError
 
 from ..models.database import db_manager
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
-from .transaction_manager import enhanced_transaction_manager, TransactionIsolationLevel
+from ..utils.logging_config import (
+    get_context_logger,
+)
+from .transaction_manager import TransactionIsolationLevel, enhanced_transaction_manager
 
 logger = get_context_logger(__name__, component="transaction_best_practices")
 
@@ -37,8 +37,7 @@ class TransactionPatterns:
         # (実際の実装では専用のoperation_logテーブルを使用)
 
         operation_logger = logger.bind(
-            pattern="idempotent_operation",
-            operation_key=operation_key
+            pattern="idempotent_operation", operation_key=operation_key
         )
 
         try:
@@ -74,7 +73,7 @@ class TransactionPatterns:
         model_class,
         record_id: Any,
         update_data: Dict[str, Any],
-        version_field: str = "version"
+        version_field: str = "version",
     ) -> bool:
         """
         楽観的ロックによる更新パターン
@@ -92,7 +91,7 @@ class TransactionPatterns:
         update_logger = logger.bind(
             pattern="optimistic_locking_update",
             model_class=model_class.__name__,
-            record_id=record_id
+            record_id=record_id,
         )
 
         try:
@@ -107,26 +106,28 @@ class TransactionPatterns:
 
             # バージョンチェック
             if current_version != expected_version:
-                update_logger.warning("楽観的ロック競合検出",
-                                    current_version=current_version,
-                                    expected_version=expected_version)
+                update_logger.warning(
+                    "楽観的ロック競合検出",
+                    current_version=current_version,
+                    expected_version=expected_version,
+                )
                 return False
 
             # 更新実行（バージョンをインクリメント）
             update_data[version_field] = current_version + 1
 
-            rows_updated = session.query(model_class).filter_by(
-                id=record_id,
-                **{version_field: current_version}
-            ).update(update_data)
+            rows_updated = (
+                session.query(model_class)
+                .filter_by(id=record_id, **{version_field: current_version})
+                .update(update_data)
+            )
 
             if rows_updated == 0:
                 update_logger.warning("他のプロセスにより更新されました")
                 return False
 
             session.flush()
-            update_logger.info("楽観的ロック更新成功",
-                             new_version=current_version + 1)
+            update_logger.info("楽観的ロック更新成功", new_version=current_version + 1)
             return True
 
         except Exception as e:
@@ -139,7 +140,7 @@ class TransactionPatterns:
         model_class,
         records_data: List[Dict[str, Any]],
         unique_keys: List[str],
-        batch_size: int = 1000
+        batch_size: int = 1000,
     ):
         """
         バッチアップサート（存在すれば更新、なければ挿入）パターン
@@ -155,7 +156,7 @@ class TransactionPatterns:
             pattern="batch_upsert",
             model_class=model_class.__name__,
             total_records=len(records_data),
-            batch_size=batch_size
+            batch_size=batch_size,
         )
 
         batch_logger.info("バッチアップサート開始")
@@ -165,18 +166,21 @@ class TransactionPatterns:
 
         try:
             for i in range(0, len(records_data), batch_size):
-                batch = records_data[i:i + batch_size]
+                batch = records_data[i : i + batch_size]
 
                 for record_data in batch:
                     # 一意キーで既存レコードを検索
                     filter_conditions = {
-                        key: record_data[key] for key in unique_keys
+                        key: record_data[key]
+                        for key in unique_keys
                         if key in record_data
                     }
 
-                    existing_record = session.query(model_class).filter_by(
-                        **filter_conditions
-                    ).first()
+                    existing_record = (
+                        session.query(model_class)
+                        .filter_by(**filter_conditions)
+                        .first()
+                    )
 
                     if existing_record:
                         # 更新
@@ -193,13 +197,17 @@ class TransactionPatterns:
                 # バッチごとにflush
                 session.flush()
 
-                batch_logger.debug("バッチ処理完了",
-                                 batch_number=i // batch_size + 1,
-                                 processed=min(i + batch_size, len(records_data)))
+                batch_logger.debug(
+                    "バッチ処理完了",
+                    batch_number=i // batch_size + 1,
+                    processed=min(i + batch_size, len(records_data)),
+                )
 
-            batch_logger.info("バッチアップサート完了",
-                            inserted_count=inserted_count,
-                            updated_count=updated_count)
+            batch_logger.info(
+                "バッチアップサート完了",
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+            )
 
         except Exception as e:
             batch_logger.error("バッチアップサート失敗", error=str(e))
@@ -218,7 +226,9 @@ class TransactionPatterns:
         executed_steps = []
 
         try:
-            saga_logger.info("Sagaトランザクション開始", steps_count=len(compensation_steps))
+            saga_logger.info(
+                "Sagaトランザクション開始", steps_count=len(compensation_steps)
+            )
 
             # 前進フェーズは呼び出し元で実行
             yield executed_steps
@@ -235,9 +245,9 @@ class TransactionPatterns:
                         compensation_steps[step_index]()
                         saga_logger.info("補償処理完了", step=step_index)
                 except Exception as compensation_error:
-                    saga_logger.error("補償処理失敗",
-                                    step=step_index,
-                                    error=str(compensation_error))
+                    saga_logger.error(
+                        "補償処理失敗", step=step_index, error=str(compensation_error)
+                    )
 
             saga_logger.info("補償処理完了")
             raise
@@ -252,7 +262,7 @@ class TransactionOptimizationTips:
 
         # ❌ 悪い例：長時間のトランザクション
         def bad_example():
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # 外部API呼び出し（時間がかかる）
                 # external_data = fetch_external_api()
 
@@ -267,7 +277,7 @@ class TransactionOptimizationTips:
             # external_data = fetch_external_api()
 
             # データベース処理のみトランザクション内で実行
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # record = Model(data=external_data)
                 # session.add(record)
                 pass
@@ -280,8 +290,8 @@ class TransactionOptimizationTips:
         def generate_report():
             with enhanced_transaction_manager.enhanced_transaction(
                 isolation_level=TransactionIsolationLevel.READ_UNCOMMITTED,
-                readonly=True
-            ) as session:
+                readonly=True,
+            ):
                 # 高速なレポート生成
                 # result = session.query(...).all()
                 pass
@@ -290,7 +300,7 @@ class TransactionOptimizationTips:
         def financial_transaction():
             with enhanced_transaction_manager.enhanced_transaction(
                 isolation_level=TransactionIsolationLevel.SERIALIZABLE
-            ) as session:
+            ):
                 # 厳密な整合性が必要な処理
                 # account = session.query(Account).filter_by(id=account_id).first()
                 # account.balance -= amount
@@ -307,7 +317,7 @@ class TransactionOptimizationTips:
             BATCH_SIZE = 1000
 
             for i in range(0, len(data_list), BATCH_SIZE):
-                batch = data_list[i:i + BATCH_SIZE]
+                data_list[i : i + BATCH_SIZE]
 
                 with db_manager.session_scope() as session:
                     # バルク挿入使用
@@ -327,9 +337,9 @@ class TransactionOptimizationTips:
                 # アカウントIDを昇順でソート（デッドロック防止）
                 ordered_ids = sorted([account_id1, account_id2])
 
-                with db_manager.session_scope() as session:
+                with db_manager.session_scope():
                     # 常に同じ順序でロック取得
-                    for account_id in ordered_ids:
+                    for _account_id in ordered_ids:
                         # account = session.query(Account).filter_by(id=account_id).with_for_update().first()
                         pass
 
@@ -350,7 +360,7 @@ class TransactionOptimizationTips:
                 "checked_in": pool.checkedin(),
                 "checked_out": pool.checkedout(),
                 "overflow": pool.overflow(),
-                "invalid": pool.invalidated()
+                "invalid": pool.invalidated(),
             }
 
             logger.info("コネクションプール状態", **pool_status)
@@ -366,7 +376,7 @@ class TransactionTesting:
 
         def test_function():
             # テスト用のトランザクション
-            with db_manager.session_scope() as session:
+            with db_manager.session_scope():
                 # テストデータ挿入
                 # test_record = TestModel(data="test")
                 # session.add(test_record)
@@ -376,13 +386,11 @@ class TransactionTesting:
                 raise Exception("Test rollback")
 
         # ロールバック後にデータが残っていないことを確認
-        try:
+        with suppress(Exception):
             test_function()
-        except Exception:
-            pass
 
         # データが存在しないことを確認
-        with db_manager.session_scope() as session:
+        with db_manager.session_scope():
             # count = session.query(TestModel).filter_by(data="test").count()
             # assert count == 0, "Rollback failed"
             pass
@@ -391,14 +399,13 @@ class TransactionTesting:
     def test_concurrent_access():
         """並行アクセスのテスト"""
         import threading
-        import time
 
         def concurrent_update_test():
             results = []
 
             def update_worker(worker_id: int):
                 try:
-                    with db_manager.session_scope() as session:
+                    with db_manager.session_scope():
                         # 楽観的ロックテスト
                         # record = session.query(TestModel).filter_by(id=1).first()
                         # time.sleep(0.1)  # 競合状態を作る
@@ -441,8 +448,8 @@ def create_transaction_performance_benchmark():
         # 1. 単一トランザクション vs バッチトランザクション
         def single_transactions(count: int):
             start_time = time.time()
-            for i in range(count):
-                with db_manager.session_scope() as session:
+            for _i in range(count):
+                with db_manager.session_scope():
                     # record = TestModel(value=i)
                     # session.add(record)
                     pass
@@ -450,8 +457,8 @@ def create_transaction_performance_benchmark():
 
         def batch_transaction(count: int):
             start_time = time.time()
-            with db_manager.session_scope() as session:
-                for i in range(count):
+            with db_manager.session_scope():
+                for _i in range(count):
                     # record = TestModel(value=i)
                     # session.add(record)
                     pass
@@ -461,34 +468,38 @@ def create_transaction_performance_benchmark():
         operation_count = 1000
 
         single_time = single_transactions(operation_count)
-        results.append(BenchmarkResult(
-            "single_transactions",
-            single_time,
-            operation_count,
-            operation_count / single_time,
-            single_time / operation_count
-        ))
+        results.append(
+            BenchmarkResult(
+                "single_transactions",
+                single_time,
+                operation_count,
+                operation_count / single_time,
+                single_time / operation_count,
+            )
+        )
 
         batch_time = batch_transaction(operation_count)
-        results.append(BenchmarkResult(
-            "batch_transaction",
-            batch_time,
-            operation_count,
-            operation_count / batch_time,
-            batch_time / operation_count
-        ))
+        results.append(
+            BenchmarkResult(
+                "batch_transaction",
+                batch_time,
+                operation_count,
+                operation_count / batch_time,
+                batch_time / operation_count,
+            )
+        )
 
         return results
 
 
 # 使用例とベストプラクティスの実演
 if __name__ == "__main__":
-
     # 1. 冪等性保証の例
-    with db_manager.session_scope() as session:
-        with TransactionPatterns.idempotent_operation("user_registration_123", session):
-            # ユーザー登録処理（重複実行防止）
-            pass
+    with db_manager.session_scope() as session, TransactionPatterns.idempotent_operation(
+        "user_registration_123", session
+    ):
+        # ユーザー登録処理（重複実行防止）
+        pass
 
     # 2. 楽観的ロック更新の例
     with db_manager.session_scope() as session:
@@ -496,7 +507,7 @@ if __name__ == "__main__":
             session=session,
             model_class=None,  # 実際のモデルクラスを指定
             record_id=1,
-            update_data={"name": "updated_name", "version": 1}
+            update_data={"name": "updated_name", "version": 1},
         )
         logger.info("楽観的ロック更新結果", success=success)
 
@@ -508,7 +519,9 @@ if __name__ == "__main__":
         logger.info("補償処理2実行")
 
     try:
-        with TransactionPatterns.saga_transaction_pattern([compensation_step_1, compensation_step_2]) as executed_steps:
+        with TransactionPatterns.saga_transaction_pattern(
+            [compensation_step_1, compensation_step_2]
+        ) as executed_steps:
             # ステップ1実行
             executed_steps.append(0)
             logger.info("ステップ1完了")

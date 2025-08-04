@@ -6,24 +6,30 @@
 """
 
 import gc
+import threading
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
-import asyncio
-import threading
-from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from ..analysis.optimized_ml_models import OptimizedEnsemblePredictor, create_optimized_model_ensemble
-from ..analysis.optimized_feature_engineering import OptimizedAdvancedFeatureEngineer, OptimizedDataQualityEnhancer
-from ..analysis.ensemble import EnsembleStrategy, EnsembleTradingStrategy, EnsembleVotingType
 from ..analysis.enhanced_ensemble import EnhancedEnsembleStrategy, PredictionHorizon
+from ..analysis.ensemble import (
+    EnsembleStrategy,
+    EnsembleTradingStrategy,
+    EnsembleVotingType,
+)
 from ..analysis.indicators import TechnicalIndicators
+from ..analysis.optimized_feature_engineering import (
+    OptimizedAdvancedFeatureEngineer,
+    OptimizedDataQualityEnhancer,
+)
+from ..analysis.optimized_ml_models import (
+    create_optimized_model_ensemble,
+)
 from ..analysis.patterns import ChartPatternRecognizer
 from ..analysis.signals import TradingSignalGenerator
 from ..config.config_manager import ConfigManager
@@ -32,9 +38,10 @@ from ..core.portfolio import PortfolioAnalyzer
 from ..core.trade_manager import TradeManager
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
-from ..utils.logging_config import get_context_logger, log_performance_metric, log_business_event
-from ..utils.performance_analyzer import profile_performance, global_profiler
-from ..utils.progress import ProgressType, multi_step_progress, progress_context
+from ..utils.logging_config import (
+    get_context_logger,
+)
+from ..utils.performance_analyzer import global_profiler, profile_performance
 
 logger = get_context_logger(__name__)
 
@@ -100,9 +107,9 @@ class SymbolCache:
                 cached_item = self.cache[key]
 
                 # TTLチェック
-                if datetime.now() - cached_item['timestamp'] < self.ttl:
+                if datetime.now() - cached_item["timestamp"] < self.ttl:
                     self.access_times[key] = datetime.now()
-                    return cached_item['data']
+                    return cached_item["data"]
                 else:
                     # 期限切れのため削除
                     del self.cache[key]
@@ -119,15 +126,13 @@ class SymbolCache:
             # キャッシュサイズ制限
             if len(self.cache) >= self.max_size:
                 # 最も古いアクセスのキーを削除
-                oldest_key = min(self.access_times.keys(),
-                               key=lambda k: self.access_times[k])
+                oldest_key = min(
+                    self.access_times.keys(), key=lambda k: self.access_times[k]
+                )
                 del self.cache[oldest_key]
                 del self.access_times[oldest_key]
 
-            self.cache[key] = {
-                'data': data.copy(),
-                'timestamp': datetime.now()
-            }
+            self.cache[key] = {"data": data.copy(), "timestamp": datetime.now()}
             self.access_times[key] = datetime.now()
 
     def clear(self):
@@ -140,16 +145,18 @@ class SymbolCache:
         """キャッシュ統計"""
         with self.lock:
             return {
-                'cache_size': len(self.cache),
-                'max_size': self.max_size,
-                'ttl_minutes': self.ttl.total_seconds() / 60
+                "cache_size": len(self.cache),
+                "max_size": self.max_size,
+                "ttl_minutes": self.ttl.total_seconds() / 60,
             }
 
 
 class OptimizedDayTradeOrchestrator:
     """パフォーマンス最適化済みデイトレード自動化オーケストレーター"""
 
-    def __init__(self, config_path: Optional[str] = None, enable_optimizations: bool = True):
+    def __init__(
+        self, config_path: Optional[str] = None, enable_optimizations: bool = True
+    ):
         """
         Args:
             config_path: 設定ファイルのパス
@@ -170,11 +177,11 @@ class OptimizedDayTradeOrchestrator:
 
         # パフォーマンス統計
         self.performance_stats = {
-            'symbols_processed': 0,
-            'cache_hits': 0,
-            'cache_misses': 0,
-            'total_processing_time': 0.0,
-            'memory_peaks': []
+            "symbols_processed": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "total_processing_time": 0.0,
+            "memory_peaks": [],
         }
 
         # 各コンポーネントの初期化
@@ -189,7 +196,7 @@ class OptimizedDayTradeOrchestrator:
             section="orchestrator_init",
             optimizations_enabled=enable_optimizations,
             max_workers=self.max_workers,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
         )
 
     def _initialize_components(self):
@@ -227,7 +234,7 @@ class OptimizedDayTradeOrchestrator:
                 ensemble_strategy=strategy_type,
                 voting_type=voting_type,
                 enable_ml_models=self.enable_optimizations,
-                performance_file=ensemble_settings.performance_file_path
+                performance_file=ensemble_settings.performance_file_path,
             )
         else:
             self.ensemble_strategy = None
@@ -235,13 +242,17 @@ class OptimizedDayTradeOrchestrator:
 
         # その他のコンポーネント
         self.trade_manager = TradeManager()
-        self.portfolio_analyzer = PortfolioAnalyzer(self.trade_manager, self.stock_fetcher)
+        self.portfolio_analyzer = PortfolioAnalyzer(
+            self.trade_manager, self.stock_fetcher
+        )
         self.watchlist_manager = WatchlistManager()
         self.alert_manager = AlertManager(self.stock_fetcher, self.watchlist_manager)
 
         # スレッドプール
         self.thread_executor = ThreadPoolExecutor(max_workers=self.max_workers)
-        self.process_executor = ProcessPoolExecutor(max_workers=max(2, self.max_workers // 2))
+        self.process_executor = ProcessPoolExecutor(
+            max_workers=max(2, self.max_workers // 2)
+        )
 
     @profile_performance
     def run_optimized_automation(
@@ -249,7 +260,7 @@ class OptimizedDayTradeOrchestrator:
         symbols: Optional[List[str]] = None,
         enable_parallel: bool = True,
         enable_caching: bool = True,
-        show_progress: bool = True
+        show_progress: bool = True,
     ) -> OptimizedAutomationReport:
         """
         最適化済み全自動化処理を実行
@@ -268,7 +279,7 @@ class OptimizedDayTradeOrchestrator:
             section="optimized_automation",
             symbols_count=len(symbols) if symbols else 0,
             parallel_enabled=enable_parallel,
-            caching_enabled=enable_caching
+            caching_enabled=enable_caching,
         )
 
         try:
@@ -287,14 +298,18 @@ class OptimizedDayTradeOrchestrator:
                 generated_signals=[],
                 triggered_alerts=[],
                 portfolio_summary={},
-                errors=[]
+                errors=[],
             )
 
             # バッチ処理実行
             if enable_parallel and len(symbols) > self.batch_size:
-                execution_results = self._run_parallel_processing(symbols, enable_caching, show_progress)
+                execution_results = self._run_parallel_processing(
+                    symbols, enable_caching, show_progress
+                )
             else:
-                execution_results = self._run_sequential_processing(symbols, enable_caching, show_progress)
+                execution_results = self._run_sequential_processing(
+                    symbols, enable_caching, show_progress
+                )
 
             # 結果統合
             report.execution_results = execution_results
@@ -316,16 +331,27 @@ class OptimizedDayTradeOrchestrator:
             report.total_execution_time = (end_time - start_time).total_seconds()
 
             if len(symbols) > 0:
-                report.avg_execution_time_per_symbol = report.total_execution_time / len(symbols)
-                report.throughput_symbols_per_second = len(symbols) / report.total_execution_time
+                report.avg_execution_time_per_symbol = (
+                    report.total_execution_time / len(symbols)
+                )
+                report.throughput_symbols_per_second = (
+                    len(symbols) / report.total_execution_time
+                )
 
             # キャッシュ統計
-            total_requests = self.performance_stats['cache_hits'] + self.performance_stats['cache_misses']
+            total_requests = (
+                self.performance_stats["cache_hits"]
+                + self.performance_stats["cache_misses"]
+            )
             if total_requests > 0:
-                report.cache_hit_rate = self.performance_stats['cache_hits'] / total_requests * 100
+                report.cache_hit_rate = (
+                    self.performance_stats["cache_hits"] / total_requests * 100
+                )
 
             # メモリ統計
-            report.total_memory_usage_mb = sum(r.memory_usage_mb for r in execution_results)
+            report.total_memory_usage_mb = sum(
+                r.memory_usage_mb for r in execution_results
+            )
 
             self.current_report = report
 
@@ -336,7 +362,7 @@ class OptimizedDayTradeOrchestrator:
                 successful_symbols=report.successful_symbols,
                 failed_symbols=report.failed_symbols,
                 cache_hit_rate=report.cache_hit_rate,
-                throughput=report.throughput_symbols_per_second
+                throughput=report.throughput_symbols_per_second,
             )
 
             return report
@@ -345,37 +371,38 @@ class OptimizedDayTradeOrchestrator:
             logger.error(
                 "最適化済み自動化処理エラー",
                 section="optimized_automation",
-                error=str(e)
+                error=str(e),
             )
             raise
         finally:
             self.is_running = False
 
     def _run_parallel_processing(
-        self,
-        symbols: List[str],
-        enable_caching: bool,
-        show_progress: bool
+        self, symbols: List[str], enable_caching: bool, show_progress: bool
     ) -> List[OptimizedExecutionResult]:
         """並列処理実行"""
 
         execution_results = []
 
         # シンボルをバッチに分割
-        batches = [symbols[i:i + self.batch_size]
-                  for i in range(0, len(symbols), self.batch_size)]
+        batches = [
+            symbols[i : i + self.batch_size]
+            for i in range(0, len(symbols), self.batch_size)
+        ]
 
         logger.info(
             f"並列処理開始: {len(batches)}バッチ",
             section="parallel_processing",
             total_symbols=len(symbols),
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
         )
 
         # バッチ並列実行
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_batch = {
-                executor.submit(self._process_symbol_batch, batch, enable_caching): batch
+                executor.submit(
+                    self._process_symbol_batch, batch, enable_caching
+                ): batch
                 for batch in batches
             }
 
@@ -388,31 +415,27 @@ class OptimizedDayTradeOrchestrator:
                     logger.debug(
                         f"バッチ処理完了: {len(batch)}銘柄",
                         section="parallel_processing",
-                        successful=sum(1 for r in batch_results if r.success)
+                        successful=sum(1 for r in batch_results if r.success),
                     )
 
                 except Exception as e:
                     logger.error(
                         f"バッチ処理エラー: {batch}",
                         section="parallel_processing",
-                        error=str(e)
+                        error=str(e),
                     )
 
                     # エラーバッチの個別処理
                     for symbol in batch:
                         error_result = OptimizedExecutionResult(
-                            success=False,
-                            symbol=symbol,
-                            error=str(e)
+                            success=False, symbol=symbol, error=str(e)
                         )
                         execution_results.append(error_result)
 
         return execution_results
 
     def _process_symbol_batch(
-        self,
-        symbols: List[str],
-        enable_caching: bool
+        self, symbols: List[str], enable_caching: bool
     ) -> List[OptimizedExecutionResult]:
         """銘柄バッチ処理"""
 
@@ -428,28 +451,21 @@ class OptimizedDayTradeOrchestrator:
 
             except Exception as e:
                 error_result = OptimizedExecutionResult(
-                    success=False,
-                    symbol=symbol,
-                    error=str(e)
+                    success=False, symbol=symbol, error=str(e)
                 )
                 batch_results.append(error_result)
 
         return batch_results
 
     def _run_sequential_processing(
-        self,
-        symbols: List[str],
-        enable_caching: bool,
-        show_progress: bool
+        self, symbols: List[str], enable_caching: bool, show_progress: bool
     ) -> List[OptimizedExecutionResult]:
         """逐次処理実行"""
 
         execution_results = []
 
         logger.info(
-            "逐次処理開始",
-            section="sequential_processing",
-            total_symbols=len(symbols)
+            "逐次処理開始", section="sequential_processing", total_symbols=len(symbols)
         )
 
         for i, symbol in enumerate(symbols):
@@ -460,14 +476,12 @@ class OptimizedDayTradeOrchestrator:
                 if show_progress and (i + 1) % 10 == 0:
                     logger.info(
                         f"進捗: {i + 1}/{len(symbols)} 銘柄処理完了",
-                        section="sequential_processing"
+                        section="sequential_processing",
                     )
 
             except Exception as e:
                 error_result = OptimizedExecutionResult(
-                    success=False,
-                    symbol=symbol,
-                    error=str(e)
+                    success=False, symbol=symbol, error=str(e)
                 )
                 execution_results.append(error_result)
 
@@ -475,9 +489,7 @@ class OptimizedDayTradeOrchestrator:
 
     @profile_performance
     def _process_single_symbol_optimized(
-        self,
-        symbol: str,
-        enable_caching: bool
+        self, symbol: str, enable_caching: bool
     ) -> OptimizedExecutionResult:
         """単一銘柄の最適化処理"""
 
@@ -490,57 +502,61 @@ class OptimizedDayTradeOrchestrator:
             # 1. データ取得（キャッシュ対応）
             stage_start = time.time()
             data = self._get_symbol_data_cached(symbol, enable_caching)
-            processing_stages['data_fetch'] = time.time() - stage_start
+            processing_stages["data_fetch"] = time.time() - stage_start
 
             if data is None or len(data) < 50:
                 return OptimizedExecutionResult(
                     success=False,
                     symbol=symbol,
                     error="データ不足",
-                    execution_time=time.time() - start_time
+                    execution_time=time.time() - start_time,
                 )
 
             # 2. テクニカル指標計算（最適化版）
             stage_start = time.time()
-            indicators = self._calculate_indicators_optimized(data, symbol, enable_caching)
-            processing_stages['indicators'] = time.time() - stage_start
+            indicators = self._calculate_indicators_optimized(
+                data, symbol, enable_caching
+            )
+            processing_stages["indicators"] = time.time() - stage_start
 
             # 3. 特徴量エンジニアリング（最適化版）
             features_generated = 0
             if self.enable_optimizations:
                 stage_start = time.time()
                 enhanced_data = self.optimized_data_enhancer.clean_ohlcv_data(data)
-                feature_data = self.optimized_feature_engineer.generate_composite_features(
-                    enhanced_data, indicators
+                feature_data = (
+                    self.optimized_feature_engineer.generate_composite_features(
+                        enhanced_data, indicators
+                    )
                 )
                 features_generated = feature_data.shape[1] - data.shape[1]
-                processing_stages['feature_engineering'] = time.time() - stage_start
+                processing_stages["feature_engineering"] = time.time() - stage_start
             else:
                 feature_data = data
 
             # 4. シグナル生成（アンサンブル）
             stage_start = time.time()
             signals = self._generate_signals_optimized(symbol, feature_data, indicators)
-            processing_stages['signal_generation'] = time.time() - stage_start
+            processing_stages["signal_generation"] = time.time() - stage_start
 
             # 5. 機械学習予測（最適化版）
             ml_predictions = {}
             if self.enable_optimizations and len(feature_data) > 100:
                 stage_start = time.time()
                 ml_predictions = self._generate_ml_predictions_optimized(feature_data)
-                processing_stages['ml_prediction'] = time.time() - stage_start
+                processing_stages["ml_prediction"] = time.time() - stage_start
 
             # 結果データ構築
             result_data = {
-                'data': data.tail(10).to_dict(),  # 最新10行のみ保存
-                'indicators': {k: v.tail(5).to_dict() for k, v in indicators.items()},
-                'signals': signals,
-                'ml_predictions': ml_predictions,
-                'features_count': features_generated
+                "data": data.tail(10).to_dict(),  # 最新10行のみ保存
+                "indicators": {k: v.tail(5).to_dict() for k, v in indicators.items()},
+                "signals": signals,
+                "ml_predictions": ml_predictions,
+                "features_count": features_generated,
             }
 
             # パフォーマンス統計更新
-            self.performance_stats['symbols_processed'] += 1
+            self.performance_stats["symbols_processed"] += 1
 
             execution_time = time.time() - start_time
             memory_usage = self._get_memory_usage() - start_memory
@@ -553,14 +569,12 @@ class OptimizedDayTradeOrchestrator:
                 memory_usage_mb=memory_usage,
                 processing_stages=processing_stages,
                 features_generated=features_generated,
-                signals_generated=len(signals)
+                signals_generated=len(signals),
             )
 
         except Exception as e:
             logger.error(
-                f"銘柄処理エラー: {symbol}",
-                section="symbol_processing",
-                error=str(e)
+                f"銘柄処理エラー: {symbol}", section="symbol_processing", error=str(e)
             )
 
             return OptimizedExecutionResult(
@@ -568,26 +582,28 @@ class OptimizedDayTradeOrchestrator:
                 symbol=symbol,
                 error=str(e),
                 execution_time=time.time() - start_time,
-                processing_stages=processing_stages
+                processing_stages=processing_stages,
             )
 
-    def _get_symbol_data_cached(self, symbol: str, enable_caching: bool) -> Optional[pd.DataFrame]:
+    def _get_symbol_data_cached(
+        self, symbol: str, enable_caching: bool
+    ) -> Optional[pd.DataFrame]:
         """キャッシュ対応データ取得"""
 
         if enable_caching:
-            cached_data = self.symbol_cache.get(symbol, 'stock_data')
+            cached_data = self.symbol_cache.get(symbol, "stock_data")
             if cached_data is not None:
-                self.performance_stats['cache_hits'] += 1
+                self.performance_stats["cache_hits"] += 1
                 return cached_data
             else:
-                self.performance_stats['cache_misses'] += 1
+                self.performance_stats["cache_misses"] += 1
 
         # データフェッチ
         try:
             data = self.stock_fetcher.get_stock_data(symbol, period="3mo")
 
             if enable_caching and data is not None:
-                self.symbol_cache.put(symbol, 'stock_data', data)
+                self.symbol_cache.put(symbol, "stock_data", data)
 
             return data
 
@@ -596,10 +612,7 @@ class OptimizedDayTradeOrchestrator:
             return None
 
     def _calculate_indicators_optimized(
-        self,
-        data: pd.DataFrame,
-        symbol: str,
-        enable_caching: bool
+        self, data: pd.DataFrame, symbol: str, enable_caching: bool
     ) -> Dict[str, pd.Series]:
         """最適化済み指標計算"""
 
@@ -613,27 +626,27 @@ class OptimizedDayTradeOrchestrator:
 
         try:
             # 基本指標（ベクトル化）
-            indicators['sma_20'] = data['Close'].rolling(20).mean()
-            indicators['sma_50'] = data['Close'].rolling(50).mean()
-            indicators['ema_12'] = data['Close'].ewm(span=12).mean()
-            indicators['ema_26'] = data['Close'].ewm(span=26).mean()
+            indicators["sma_20"] = data["Close"].rolling(20).mean()
+            indicators["sma_50"] = data["Close"].rolling(50).mean()
+            indicators["ema_12"] = data["Close"].ewm(span=12).mean()
+            indicators["ema_26"] = data["Close"].ewm(span=26).mean()
 
             # MACD
-            indicators['macd'] = indicators['ema_12'] - indicators['ema_26']
-            indicators['macd_signal'] = indicators['macd'].ewm(span=9).mean()
+            indicators["macd"] = indicators["ema_12"] - indicators["ema_26"]
+            indicators["macd_signal"] = indicators["macd"].ewm(span=9).mean()
 
             # RSI（簡易版）
-            delta = data['Close'].diff()
+            delta = data["Close"].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
             rs = gain / loss
-            indicators['rsi'] = 100 - (100 / (1 + rs))
+            indicators["rsi"] = 100 - (100 / (1 + rs))
 
             # ボリンジャーバンド
-            bb_sma = data['Close'].rolling(20).mean()
-            bb_std = data['Close'].rolling(20).std()
-            indicators['bb_upper'] = bb_sma + (bb_std * 2)
-            indicators['bb_lower'] = bb_sma - (bb_std * 2)
+            bb_sma = data["Close"].rolling(20).mean()
+            bb_std = data["Close"].rolling(20).std()
+            indicators["bb_upper"] = bb_sma + (bb_std * 2)
+            indicators["bb_lower"] = bb_sma - (bb_std * 2)
 
             if enable_caching:
                 self.feature_cache[cache_key] = indicators
@@ -641,19 +654,16 @@ class OptimizedDayTradeOrchestrator:
         except Exception as e:
             logger.warning(f"指標計算エラー: {symbol}", error=str(e))
             indicators = {
-                'sma_20': pd.Series(dtype=float),
-                'sma_50': pd.Series(dtype=float),
-                'rsi': pd.Series(dtype=float),
-                'macd': pd.Series(dtype=float)
+                "sma_20": pd.Series(dtype=float),
+                "sma_50": pd.Series(dtype=float),
+                "rsi": pd.Series(dtype=float),
+                "macd": pd.Series(dtype=float),
             }
 
         return indicators
 
     def _generate_signals_optimized(
-        self,
-        symbol: str,
-        data: pd.DataFrame,
-        indicators: Dict[str, pd.Series]
+        self, symbol: str, data: pd.DataFrame, indicators: Dict[str, pd.Series]
     ) -> List[Dict[str, Any]]:
         """最適化済みシグナル生成"""
 
@@ -667,35 +677,43 @@ class OptimizedDayTradeOrchestrator:
                 )
 
                 if enhanced_signal:
-                    signals.append({
-                        'type': 'enhanced_ensemble',
-                        'signal': enhanced_signal.signal_type.value,
-                        'confidence': enhanced_signal.ensemble_confidence,
-                        'timestamp': datetime.now(),
-                        'symbol': symbol,
-                        'risk_score': enhanced_signal.risk_score,
-                        'uncertainty': enhanced_signal.uncertainty
-                    })
+                    signals.append(
+                        {
+                            "type": "enhanced_ensemble",
+                            "signal": enhanced_signal.signal_type.value,
+                            "confidence": enhanced_signal.ensemble_confidence,
+                            "timestamp": datetime.now(),
+                            "symbol": symbol,
+                            "risk_score": enhanced_signal.risk_score,
+                            "uncertainty": enhanced_signal.uncertainty,
+                        }
+                    )
 
             # 従来のアンサンブルシグナル（補完用）
             if self.ensemble_strategy:
-                traditional_signal = self.ensemble_strategy.generate_signal(data, indicators)
+                traditional_signal = self.ensemble_strategy.generate_signal(
+                    data, indicators
+                )
 
                 if traditional_signal:
-                    signals.append({
-                        'type': 'traditional_ensemble',
-                        'signal': traditional_signal.signal_type.value,
-                        'confidence': traditional_signal.confidence,
-                        'timestamp': datetime.now(),
-                        'symbol': symbol
-                    })
+                    signals.append(
+                        {
+                            "type": "traditional_ensemble",
+                            "signal": traditional_signal.signal_type.value,
+                            "confidence": traditional_signal.confidence,
+                            "timestamp": datetime.now(),
+                            "symbol": symbol,
+                        }
+                    )
 
         except Exception as e:
             logger.warning(f"シグナル生成エラー: {symbol}", error=str(e))
 
         return signals
 
-    def _generate_ml_predictions_optimized(self, feature_data: pd.DataFrame) -> Dict[str, Any]:
+    def _generate_ml_predictions_optimized(
+        self, feature_data: pd.DataFrame
+    ) -> Dict[str, Any]:
         """最適化済みML予測"""
 
         ml_predictions = {}
@@ -703,8 +721,11 @@ class OptimizedDayTradeOrchestrator:
         try:
             if self.optimized_ml_ensemble and len(feature_data) > 50:
                 # 特徴量準備
-                feature_cols = [col for col in feature_data.columns
-                              if col not in ['Open', 'High', 'Low', 'Close', 'Volume']]
+                feature_cols = [
+                    col
+                    for col in feature_data.columns
+                    if col not in ["Open", "High", "Low", "Close", "Volume"]
+                ]
 
                 if len(feature_cols) > 5:
                     X = feature_data[feature_cols].fillna(0).tail(1)
@@ -712,43 +733,49 @@ class OptimizedDayTradeOrchestrator:
 
                     if predictions:
                         ml_predictions = {
-                            'prediction': predictions[0].prediction,
-                            'confidence': predictions[0].confidence,
-                            'model_name': predictions[0].model_name,
-                            'cache_hit': predictions[0].cache_hit
+                            "prediction": predictions[0].prediction,
+                            "confidence": predictions[0].confidence,
+                            "model_name": predictions[0].model_name,
+                            "cache_hit": predictions[0].cache_hit,
                         }
 
         except Exception as e:
-            logger.debug(f"ML予測エラー", error=str(e))
+            logger.debug("ML予測エラー", error=str(e))
 
         return ml_predictions
 
-    def _aggregate_signals(self, execution_results: List[OptimizedExecutionResult]) -> List[Dict[str, Any]]:
+    def _aggregate_signals(
+        self, execution_results: List[OptimizedExecutionResult]
+    ) -> List[Dict[str, Any]]:
         """シグナル統合"""
         all_signals = []
 
         for result in execution_results:
-            if result.success and result.data and 'signals' in result.data:
-                all_signals.extend(result.data['signals'])
+            if result.success and result.data and "signals" in result.data:
+                all_signals.extend(result.data["signals"])
 
         return all_signals
 
-    def _process_alerts(self, execution_results: List[OptimizedExecutionResult]) -> List[Dict[str, Any]]:
+    def _process_alerts(
+        self, execution_results: List[OptimizedExecutionResult]
+    ) -> List[Dict[str, Any]]:
         """アラート処理（軽量版）"""
         alerts = []
 
         # 高信頼度シグナルのみアラート対象
         for result in execution_results:
-            if result.success and result.data and 'signals' in result.data:
-                for signal in result.data['signals']:
-                    if signal.get('confidence', 0) > 80:
-                        alerts.append({
-                            'symbol': result.symbol,
-                            'signal_type': signal.get('signal'),
-                            'confidence': signal.get('confidence'),
-                            'timestamp': signal.get('timestamp'),
-                            'alert_level': 'high'
-                        })
+            if result.success and result.data and "signals" in result.data:
+                for signal in result.data["signals"]:
+                    if signal.get("confidence", 0) > 80:
+                        alerts.append(
+                            {
+                                "symbol": result.symbol,
+                                "signal_type": signal.get("signal"),
+                                "confidence": signal.get("confidence"),
+                                "timestamp": signal.get("timestamp"),
+                                "alert_level": "high",
+                            }
+                        )
 
         return alerts
 
@@ -758,12 +785,12 @@ class OptimizedDayTradeOrchestrator:
             return self.portfolio_analyzer.get_current_analysis()
         except Exception as e:
             logger.warning("ポートフォリオ分析エラー", error=str(e))
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     def _monitor_memory_usage(self):
         """メモリ使用量監視"""
         current_memory = self._get_memory_usage()
-        self.performance_stats['memory_peaks'].append(current_memory)
+        self.performance_stats["memory_peaks"].append(current_memory)
 
         # メモリ制限チェック
         if current_memory > self.memory_limit_mb:
@@ -771,7 +798,7 @@ class OptimizedDayTradeOrchestrator:
                 "メモリ使用量が制限を超過",
                 section="memory_monitoring",
                 current_mb=current_memory,
-                limit_mb=self.memory_limit_mb
+                limit_mb=self.memory_limit_mb,
             )
 
             # メモリクリーンアップ
@@ -781,9 +808,10 @@ class OptimizedDayTradeOrchestrator:
         """現在のメモリ使用量取得（MB）"""
         try:
             import psutil
+
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except Exception:
             return 0.0
 
     def _cleanup_memory(self):
@@ -800,27 +828,38 @@ class OptimizedDayTradeOrchestrator:
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス統計サマリー"""
         return {
-            'symbols_processed': self.performance_stats['symbols_processed'],
-            'cache_stats': {
-                'hits': self.performance_stats['cache_hits'],
-                'misses': self.performance_stats['cache_misses'],
-                'hit_rate': (self.performance_stats['cache_hits'] /
-                           max(1, self.performance_stats['cache_hits'] + self.performance_stats['cache_misses']) * 100)
+            "symbols_processed": self.performance_stats["symbols_processed"],
+            "cache_stats": {
+                "hits": self.performance_stats["cache_hits"],
+                "misses": self.performance_stats["cache_misses"],
+                "hit_rate": (
+                    self.performance_stats["cache_hits"]
+                    / max(
+                        1,
+                        self.performance_stats["cache_hits"]
+                        + self.performance_stats["cache_misses"],
+                    )
+                    * 100
+                ),
             },
-            'memory_stats': {
-                'current_usage_mb': self._get_memory_usage(),
-                'peak_usage_mb': max(self.performance_stats['memory_peaks']) if self.performance_stats['memory_peaks'] else 0,
-                'avg_usage_mb': np.mean(self.performance_stats['memory_peaks']) if self.performance_stats['memory_peaks'] else 0
+            "memory_stats": {
+                "current_usage_mb": self._get_memory_usage(),
+                "peak_usage_mb": max(self.performance_stats["memory_peaks"])
+                if self.performance_stats["memory_peaks"]
+                else 0,
+                "avg_usage_mb": np.mean(self.performance_stats["memory_peaks"])
+                if self.performance_stats["memory_peaks"]
+                else 0,
             },
-            'cache_system_stats': self.symbol_cache.get_stats(),
-            'profiler_summary': global_profiler.get_metrics_summary()
+            "cache_system_stats": self.symbol_cache.get_stats(),
+            "profiler_summary": global_profiler.get_metrics_summary(),
         }
 
     def __del__(self):
         """リソースクリーンアップ"""
-        if hasattr(self, 'thread_executor'):
+        if hasattr(self, "thread_executor"):
             self.thread_executor.shutdown(wait=False)
-        if hasattr(self, 'process_executor'):
+        if hasattr(self, "process_executor"):
             self.process_executor.shutdown(wait=False)
 
 
@@ -840,7 +879,7 @@ if __name__ == "__main__":
             symbols=test_symbols,
             enable_parallel=True,
             enable_caching=True,
-            show_progress=True
+            show_progress=True,
         )
 
         # パフォーマンス統計
@@ -852,7 +891,7 @@ if __name__ == "__main__":
             execution_time=report.total_execution_time,
             throughput=report.throughput_symbols_per_second,
             cache_hit_rate=report.cache_hit_rate,
-            performance_summary=perf_summary
+            performance_summary=perf_summary,
         )
 
     except Exception as e:
@@ -860,6 +899,6 @@ if __name__ == "__main__":
 
     finally:
         # リソースクリーンアップ
-        if 'orchestrator' in locals():
+        if "orchestrator" in locals():
             del orchestrator
         gc.collect()

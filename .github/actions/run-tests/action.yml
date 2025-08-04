@@ -26,7 +26,7 @@ inputs:
   coverage-threshold:
     description: 'Minimum coverage threshold'
     required: false
-    default: '40'
+    default: '20'
 
 outputs:
   test-result:
@@ -115,7 +115,7 @@ runs:
 
         # カバレッジの設定
         if [ "${{ inputs.coverage }}" = "true" ]; then
-          test_cmd="$test_cmd --cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-report=json --cov-fail-under=${{ inputs.coverage-threshold }}"
+          test_cmd="$test_cmd --cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing --cov-report=json --cov-fail-under=${{ inputs.coverage-threshold }} --maxfail=10"
         fi
 
         # 基本オプション

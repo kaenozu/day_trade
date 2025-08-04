@@ -8,11 +8,16 @@ from typing import Dict, Optional
 from ..data.stock_fetcher import StockFetcher
 from ..models.database import db_manager
 from ..models.stock import Stock, Trade
-from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from ..utils.logging_config import (
+    get_context_logger,
+    log_business_event,
+    log_error_with_context,
+)
 
 
 class TradeOperationError(Exception):
     """取引操作エラー"""
+
     pass
 
 
@@ -60,7 +65,7 @@ class TradeOperations:
             stock_code=stock_code,
             quantity=quantity,
             price=price,
-            commission=commission
+            commission=commission,
         )
 
         operation_logger.info("買い注文処理を開始")
@@ -75,7 +80,9 @@ class TradeOperations:
                     # 銘柄情報を外部APIから取得
                     company_info = self.stock_fetcher.get_company_info(stock_code)
                     if not company_info:
-                        raise TradeOperationError(f"銘柄情報を取得できません: {stock_code}")
+                        raise TradeOperationError(
+                            f"銘柄情報を取得できません: {stock_code}"
+                        )
 
                     stock = Stock(
                         code=stock_code,
@@ -87,17 +94,21 @@ class TradeOperations:
                     session.add(stock)
                     session.flush()  # 銘柄レコードをコミット前に確定
 
-                    operation_logger.info("新規銘柄をマスタに追加",
-                                        stock_name=stock.name,
-                                        market=stock.market,
-                                        sector=stock.sector)
+                    operation_logger.info(
+                        "新規銘柄をマスタに追加",
+                        stock_name=stock.name,
+                        market=stock.market,
+                        sector=stock.sector,
+                    )
 
                 # 2. 価格取得（未指定時）
                 if price is None:
                     operation_logger.info("現在価格を取得中")
                     current_data = self.stock_fetcher.get_current_price(stock_code)
                     if not current_data or "price" not in current_data:
-                        raise TradeOperationError(f"現在価格を取得できません: {stock_code}")
+                        raise TradeOperationError(
+                            f"現在価格を取得できません: {stock_code}"
+                        )
                     price = current_data["price"]
                     operation_logger.info("現在価格を取得", current_price=price)
 
@@ -141,25 +152,30 @@ class TradeOperations:
                     stock_name=stock.name,
                     quantity=quantity,
                     price=price,
-                    total_amount=result['total_amount'],
-                    trade_id=trade.id
+                    total_amount=result["total_amount"],
+                    trade_id=trade.id,
                 )
 
-                operation_logger.info("買い注文処理完了",
-                                    trade_id=trade.id,
-                                    total_amount=result['total_amount'])
+                operation_logger.info(
+                    "買い注文処理完了",
+                    trade_id=trade.id,
+                    total_amount=result["total_amount"],
+                )
 
                 return result
 
         except Exception as e:
             # エラーログ
-            log_error_with_context(e, {
-                "operation": "buy_stock",
-                "stock_code": stock_code,
-                "quantity": quantity,
-                "price": price,
-                "commission": commission
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "buy_stock",
+                    "stock_code": stock_code,
+                    "quantity": quantity,
+                    "price": price,
+                    "commission": commission,
+                },
+            )
             operation_logger.error("買い注文処理失敗", error=str(e))
             raise TradeOperationError(f"買い注文処理エラー ({stock_code}): {e}") from e
 
@@ -196,7 +212,7 @@ class TradeOperations:
             stock_code=stock_code,
             quantity=quantity,
             price=price,
-            commission=commission
+            commission=commission,
         )
 
         operation_logger.info("売り注文処理を開始")
@@ -226,23 +242,29 @@ class TradeOperations:
                 total_sold = sum(trade.quantity for trade in sell_trades)
                 current_holdings = total_bought - total_sold
 
-                operation_logger.info("保有ポジション確認完了",
-                                    total_bought=total_bought,
-                                    total_sold=total_sold,
-                                    current_holdings=current_holdings)
+                operation_logger.info(
+                    "保有ポジション確認完了",
+                    total_bought=total_bought,
+                    total_sold=total_sold,
+                    current_holdings=current_holdings,
+                )
 
                 if current_holdings < quantity:
                     error_msg = f"売却数量が保有数量を上回ります: 保有{current_holdings}株 < 売却{quantity}株"
-                    operation_logger.error("保有数量不足",
-                                         current_holdings=current_holdings,
-                                         requested_quantity=quantity)
+                    operation_logger.error(
+                        "保有数量不足",
+                        current_holdings=current_holdings,
+                        requested_quantity=quantity,
+                    )
                     raise TradeOperationError(error_msg)
 
                 # 3. 価格取得（未指定時）
                 if price is None:
                     current_data = self.stock_fetcher.get_current_price(stock_code)
                     if not current_data or "price" not in current_data:
-                        raise TradeOperationError(f"現在価格を取得できません: {stock_code}")
+                        raise TradeOperationError(
+                            f"現在価格を取得できません: {stock_code}"
+                        )
                     price = current_data["price"]
 
                 # 4. 売り取引記録の作成
@@ -285,27 +307,32 @@ class TradeOperations:
                     stock_name=stock.name,
                     quantity=quantity,
                     price=price,
-                    total_amount=result['total_amount'],
-                    remaining_holdings=result['remaining_holdings'],
-                    trade_id=trade.id
+                    total_amount=result["total_amount"],
+                    remaining_holdings=result["remaining_holdings"],
+                    trade_id=trade.id,
                 )
 
-                operation_logger.info("売り注文処理完了",
-                                    trade_id=trade.id,
-                                    total_amount=result['total_amount'],
-                                    remaining_holdings=result['remaining_holdings'])
+                operation_logger.info(
+                    "売り注文処理完了",
+                    trade_id=trade.id,
+                    total_amount=result["total_amount"],
+                    remaining_holdings=result["remaining_holdings"],
+                )
 
                 return result
 
         except Exception as e:
             # エラーログ
-            log_error_with_context(e, {
-                "operation": "sell_stock",
-                "stock_code": stock_code,
-                "quantity": quantity,
-                "price": price,
-                "commission": commission
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "sell_stock",
+                    "stock_code": stock_code,
+                    "quantity": quantity,
+                    "price": price,
+                    "commission": commission,
+                },
+            )
             operation_logger.error("売り注文処理失敗", error=str(e))
             raise TradeOperationError(f"売り注文処理エラー ({stock_code}): {e}") from e
 
@@ -327,8 +354,7 @@ class TradeOperations:
             result = trade_ops.batch_trade_operations(operations)
         """
         batch_logger = self.logger.bind(
-            operation="batch_trade_operations",
-            total_operations=len(operations)
+            operation="batch_trade_operations", total_operations=len(operations)
         )
 
         batch_logger.info("バッチ取引操作開始", operations_count=len(operations))
@@ -352,25 +378,31 @@ class TradeOperations:
                         results.append(result)
 
                     except Exception as e:
-                        error_msg = f"操作 {i+1} でエラー: {e}"
+                        error_msg = f"操作 {i + 1} でエラー: {e}"
                         errors.append(error_msg)
-                        batch_logger.error("バッチ操作でエラー",
-                                         operation_index=i+1,
-                                         operation=operation,
-                                         error=str(e))
+                        batch_logger.error(
+                            "バッチ操作でエラー",
+                            operation_index=i + 1,
+                            operation=operation,
+                            error=str(e),
+                        )
 
                 # エラーがある場合はトランザクション全体をロールバック
                 if errors:
-                    batch_logger.error("バッチ操作でエラー発生、ロールバック実行",
-                                     error_count=len(errors))
+                    batch_logger.error(
+                        "バッチ操作でエラー発生、ロールバック実行",
+                        error_count=len(errors),
+                    )
                     raise TradeOperationError(f"バッチ操作中にエラーが発生: {errors}")
 
                 # 中間状態をflush
                 session.flush()
 
-            batch_logger.info("バッチ取引操作完了",
-                            successful_operations=len(results),
-                            error_count=len(errors))
+            batch_logger.info(
+                "バッチ取引操作完了",
+                successful_operations=len(results),
+                error_count=len(errors),
+            )
 
             return {
                 "success": True,
@@ -381,10 +413,13 @@ class TradeOperations:
             }
 
         except Exception as e:
-            log_error_with_context(e, {
-                "operation": "batch_trade_operations",
-                "total_operations": len(operations)
-            })
+            log_error_with_context(
+                e,
+                {
+                    "operation": "batch_trade_operations",
+                    "total_operations": len(operations),
+                },
+            )
             batch_logger.error("バッチ取引操作失敗", error=str(e))
             return {
                 "success": False,

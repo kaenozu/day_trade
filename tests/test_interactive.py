@@ -6,10 +6,9 @@
 import io
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
-from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
-from contextlib import contextmanager, redirect_stdout
+from unittest.mock import Mock, patch
 
 import pytest
 from rich.console import Console
@@ -19,7 +18,7 @@ from rich.table import Table
 from src.day_trade.cli.interactive import InteractiveMode
 from src.day_trade.core.watchlist import WatchlistManager
 from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.utils.exceptions import DataNotFoundError, APIError
+from src.day_trade.utils.exceptions import APIError, DataNotFoundError
 
 
 class TestInteractiveMode:
@@ -29,7 +28,9 @@ class TestInteractiveMode:
         """テストセットアップ（依存性注入使用）"""
         # モック依存関係を作成
         self.mock_console = Mock(spec=Console)
-        self.mock_console.status.return_value.__enter__ = Mock(return_value=self.mock_console)
+        self.mock_console.status.return_value.__enter__ = Mock(
+            return_value=self.mock_console
+        )
         self.mock_console.status.return_value.__exit__ = Mock(return_value=None)
         self.mock_watchlist_manager = Mock(spec=WatchlistManager)
         self.mock_stock_fetcher = Mock(spec=StockFetcher)
@@ -46,7 +47,7 @@ class TestInteractiveMode:
             "high": 2480.0,
             "low": 2430.0,
             "open": 2445.0,
-            "previous_close": 2433.0
+            "previous_close": 2433.0,
         }
 
         # InteractiveModeインスタンスを依存性注入で作成
@@ -55,7 +56,7 @@ class TestInteractiveMode:
             stock_fetcher=self.mock_stock_fetcher,
             trade_manager=self.mock_trade_manager,
             signal_generator=self.mock_signal_generator,
-            console=self.mock_console
+            console=self.mock_console,
         )
 
     def test_initialization_with_dependency_injection(self):
@@ -76,10 +77,13 @@ class TestInteractiveMode:
     def test_initialization_with_defaults(self):
         """デフォルト依存関係での初期化テスト"""
         # 依存関係なしでインスタンス作成
-        with patch('src.day_trade.cli.interactive._get_watchlist_manager') as mock_get_wm, \
-             patch('src.day_trade.cli.interactive.StockFetcher') as mock_sf_class, \
-             patch('src.day_trade.cli.interactive.Console') as mock_console_class:
-
+        with patch(
+            "src.day_trade.cli.interactive._get_watchlist_manager"
+        ) as mock_get_wm, patch(
+            "src.day_trade.cli.interactive.StockFetcher"
+        ) as mock_sf_class, patch(
+            "src.day_trade.cli.interactive.Console"
+        ) as mock_console_class:
             mock_wm_instance = Mock()
             mock_sf_instance = Mock()
             mock_console_instance = Mock()
@@ -139,10 +143,14 @@ class TestInteractiveMode:
     def test_handle_stock_command_valid_code(self):
         """有効な銘柄コードでのstockコマンドテスト"""
         # valid_stock_codeとget_current_priceをモック
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive._display_stock_details') as mock_display:
-
-            self.mock_stock_fetcher.get_current_price.return_value = self.realistic_stock_data
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch(
+            "src.day_trade.cli.interactive._display_stock_details"
+        ) as mock_display:
+            self.mock_stock_fetcher.get_current_price.return_value = (
+                self.realistic_stock_data
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -153,11 +161,15 @@ class TestInteractiveMode:
             self.mock_stock_fetcher.get_current_price.assert_called_once_with("7203")
 
             # 表示関数が呼ばれること
-            mock_display.assert_called_once_with("7203", self.realistic_stock_data, show_details=True)
+            mock_display.assert_called_once_with(
+                "7203", self.realistic_stock_data, show_details=True
+            )
 
     def test_handle_stock_command_invalid_code(self):
         """無効な銘柄コードでのstockコマンドテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=False):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=False
+        ):
             result = self.interactive_mode.handle_command("stock INVALID")
 
             assert result is True
@@ -170,9 +182,13 @@ class TestInteractiveMode:
 
     def test_handle_stock_command_api_error(self):
         """株価取得APIエラーのテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
             # APIエラーを発生させる
-            self.mock_stock_fetcher.get_current_price.side_effect = APIError("API接続エラー")
+            self.mock_stock_fetcher.get_current_price.side_effect = APIError(
+                "API接続エラー"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -186,7 +202,9 @@ class TestInteractiveMode:
 
     def test_handle_stock_command_no_data(self):
         """株価データが取得できない場合のテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
             self.mock_stock_fetcher.get_current_price.return_value = None
 
             result = self.interactive_mode.handle_command("stock 7203")
@@ -198,7 +216,9 @@ class TestInteractiveMode:
             call_args = self.mock_console.print.call_args[0][0]
             assert isinstance(call_args, Panel)
             # より柔軟なエラーメッセージチェック
-            assert any(keyword in call_args.title for keyword in ["エラー", "警告", "取得"]), f"Expected error keywords in title: {call_args.title}"
+            assert any(
+                keyword in call_args.title for keyword in ["エラー", "警告", "取得"]
+            ), f"Expected error keywords in title: {call_args.title}"
 
     def test_handle_watch_command(self):
         """ウォッチリスト追加コマンドのテスト"""
@@ -302,7 +322,10 @@ class TestInteractiveMode:
     def test_handle_command_with_exception(self):
         """コマンド処理中の例外テスト"""
         # validate_stock_codeで例外を発生させる
-        with patch('src.day_trade.cli.interactive.validate_stock_code', side_effect=Exception("テスト例外")):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code",
+            side_effect=Exception("テスト例外"),
+        ):
             result = self.interactive_mode.handle_command("stock 7203")
 
             assert result is True
@@ -333,15 +356,21 @@ class TestInteractiveMode:
     def test_command_parsing_with_arguments(self):
         """引数を含むコマンドのパース処理テスト"""
         # 複数の引数があるコマンド
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
-            self.mock_stock_fetcher.get_current_price.return_value = self.realistic_stock_data
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
+            self.mock_stock_fetcher.get_current_price.return_value = (
+                self.realistic_stock_data
+            )
 
-            with patch('src.day_trade.cli.interactive._display_stock_details'):
+            with patch("src.day_trade.cli.interactive._display_stock_details"):
                 result = self.interactive_mode.handle_command("stock 7203 extra_arg")
                 assert result is True
 
                 # 最初の引数のみが使用されることを確認
-                self.mock_stock_fetcher.get_current_price.assert_called_once_with("7203")
+                self.mock_stock_fetcher.get_current_price.assert_called_once_with(
+                    "7203"
+                )
 
     def test_command_case_insensitivity(self):
         """コマンドの大文字小文字非依存テスト"""
@@ -350,7 +379,7 @@ class TestInteractiveMode:
             ("Help", self.mock_console.print),
             ("hElP", self.mock_console.print),
             ("CLEAR", self.mock_console.clear),
-            ("Clear", self.mock_console.clear)
+            ("Clear", self.mock_console.clear),
         ]
 
         for command, expected_method in commands_to_test:
@@ -366,11 +395,9 @@ class TestInteractiveMode:
                 # コマンドが適切に処理されたがprint/clearが呼ばれない場合もある
                 assert result is True  # コマンド処理自体が成功していることを確認
 
-    @pytest.mark.parametrize("command,args", [
-        ("stock", []),
-        ("watch", []),
-        ("signals", [])
-    ])
+    @pytest.mark.parametrize(
+        "command,args", [("stock", []), ("watch", []), ("signals", [])]
+    )
     def test_commands_requiring_arguments(self, command, args):
         """引数が必要なコマンドで引数なしの場合のテスト"""
         # 引数なしで実行
@@ -394,15 +421,14 @@ class TestInteractiveModeUI:
         # 実際のConsoleを使用してレンダリング結果をテスト
         self.real_console = Console(file=io.StringIO(), width=80)
         self.mock_dependencies = {
-            'watchlist_manager': Mock(),
-            'stock_fetcher': Mock(),
-            'trade_manager': Mock(),
-            'signal_generator': Mock()
+            "watchlist_manager": Mock(),
+            "stock_fetcher": Mock(),
+            "trade_manager": Mock(),
+            "signal_generator": Mock(),
         }
 
         self.interactive_mode = InteractiveMode(
-            console=self.real_console,
-            **self.mock_dependencies
+            console=self.real_console, **self.mock_dependencies
         )
 
     @contextmanager
@@ -458,15 +484,16 @@ class TestInteractiveModeUI:
 
     def test_rendered_error_output(self):
         """エラー表示の実際のレンダリング結果テスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=False):
-            with self.capture_console_output() as output:
-                self.interactive_mode.handle_command("stock INVALID")
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=False
+        ), self.capture_console_output() as output:
+            self.interactive_mode.handle_command("stock INVALID")
 
-                output_str = output.getvalue()
+            output_str = output.getvalue()
 
-                # エラーメッセージの確認
-                assert "無効な銘柄コード" in output_str
-                assert "入力エラー" in output_str
+            # エラーメッセージの確認
+            assert "無効な銘柄コード" in output_str
+            assert "入力エラー" in output_str
 
 
 class TestInteractiveModeErrorHandling:
@@ -475,7 +502,9 @@ class TestInteractiveModeErrorHandling:
     def setup_method(self):
         """エラーハンドリングテスト用セットアップ"""
         self.mock_console = Mock()
-        self.mock_console.status.return_value.__enter__ = Mock(return_value=self.mock_console)
+        self.mock_console.status.return_value.__enter__ = Mock(
+            return_value=self.mock_console
+        )
         self.mock_console.status.return_value.__exit__ = Mock(return_value=None)
         self.mock_stock_fetcher = Mock()
         self.mock_watchlist_manager = Mock()
@@ -484,13 +513,17 @@ class TestInteractiveModeErrorHandling:
             stock_fetcher=self.mock_stock_fetcher,
             watchlist_manager=self.mock_watchlist_manager,
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
     def test_handle_data_not_found_error(self):
         """DataNotFoundErrorのハンドリングテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
-            self.mock_stock_fetcher.get_current_price.side_effect = DataNotFoundError("データが見つかりません")
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
+            self.mock_stock_fetcher.get_current_price.side_effect = DataNotFoundError(
+                "データが見つかりません"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -504,8 +537,12 @@ class TestInteractiveModeErrorHandling:
 
     def test_handle_api_error(self):
         """APIErrorのハンドリングテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
-            self.mock_stock_fetcher.get_current_price.side_effect = APIError("API接続失敗")
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
+            self.mock_stock_fetcher.get_current_price.side_effect = APIError(
+                "API接続失敗"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -518,8 +555,12 @@ class TestInteractiveModeErrorHandling:
 
     def test_handle_generic_exception(self):
         """一般的な例外のハンドリングテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
-            self.mock_stock_fetcher.get_current_price.side_effect = ValueError("予期しないエラー")
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
+            self.mock_stock_fetcher.get_current_price.side_effect = ValueError(
+                "予期しないエラー"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -533,7 +574,11 @@ class TestInteractiveModeErrorHandling:
     def test_watchlist_error_handling(self):
         """ウォッチリスト操作のエラーハンドリングテスト"""
         # ウォッチリスト表示でエラーが発生する場合をシミュレート
-        with patch.object(self.interactive_mode, '_handle_watchlist_command', side_effect=Exception("ウォッチリストエラー")):
+        with patch.object(
+            self.interactive_mode,
+            "_handle_watchlist_command",
+            side_effect=Exception("ウォッチリストエラー"),
+        ):
             result = self.interactive_mode.handle_command("watchlist")
 
             assert result is True
@@ -546,11 +591,13 @@ class TestInteractiveModeErrorHandling:
 
     def test_enhanced_error_handler_integration(self):
         """enhanced_error_handlerとの連携テスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive.logger') as mock_logger:
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch("src.day_trade.cli.interactive.logger"):
             # APIエラーが発生する状況をシミュレート
-            self.mock_stock_fetcher.get_current_price.side_effect = APIError("API connection failed")
+            self.mock_stock_fetcher.get_current_price.side_effect = APIError(
+                "API connection failed"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
 
@@ -568,14 +615,15 @@ class TestInteractiveModeErrorHandling:
 
     def test_multiple_consecutive_errors(self):
         """連続するエラーのハンドリングテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
             # 複数の異なるエラーを順次発生させる
             error_scenarios = [
                 APIError("API timeout"),
                 DataNotFoundError("Stock not found"),
                 ValueError("Invalid format"),
-                ConnectionError("Network unavailable")
+                ConnectionError("Network unavailable"),
             ]
 
             for i, error in enumerate(error_scenarios):
@@ -590,9 +638,13 @@ class TestInteractiveModeErrorHandling:
 
     def test_error_message_localization(self):
         """エラーメッセージのローカライゼーションテスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ):
             # 英語のエラーメッセージが日本語で表示されることを確認
-            self.mock_stock_fetcher.get_current_price.side_effect = APIError("Connection timeout")
+            self.mock_stock_fetcher.get_current_price.side_effect = APIError(
+                "Connection timeout"
+            )
 
             result = self.interactive_mode.handle_command("stock 7203")
             assert result is True
@@ -618,7 +670,7 @@ class TestInteractiveModeRealisticData:
             stock_fetcher=self.mock_stock_fetcher,
             watchlist_manager=Mock(),
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
         # より現実的な株価データセット（様々な市場状況を反映）
@@ -638,7 +690,7 @@ class TestInteractiveModeRealisticData:
                 "dividend_yield": 2.8,
                 "beta": 1.05,
                 "52_week_high": 2650.0,
-                "52_week_low": 1980.0
+                "52_week_low": 1980.0,
             },
             "9984": {  # ソフトバンクグループ（下落トレンド）
                 "symbol": "9984",
@@ -655,7 +707,7 @@ class TestInteractiveModeRealisticData:
                 "dividend_yield": 5.2,
                 "beta": 1.35,
                 "52_week_high": 6500.0,
-                "52_week_low": 4800.0
+                "52_week_low": 4800.0,
             },
             "6758": {  # ソニーグループ（高ボラティリティ）
                 "symbol": "6758",
@@ -672,7 +724,7 @@ class TestInteractiveModeRealisticData:
                 "dividend_yield": 0.4,
                 "beta": 1.52,
                 "52_week_high": 14500.0,
-                "52_week_low": 9800.0
+                "52_week_low": 9800.0,
             },
             "4568": {  # 新興株（小型株、高成長）
                 "symbol": "4568",
@@ -689,7 +741,7 @@ class TestInteractiveModeRealisticData:
                 "dividend_yield": 0.0,
                 "beta": 2.1,
                 "52_week_high": 1800.0,
-                "52_week_low": 800.0
+                "52_week_low": 800.0,
             },
             "8001": {  # 伊藤忠商事（商社、配当株）
                 "symbol": "8001",
@@ -706,8 +758,8 @@ class TestInteractiveModeRealisticData:
                 "dividend_yield": 4.5,
                 "beta": 0.85,
                 "52_week_high": 5200.0,
-                "52_week_low": 3800.0
-            }
+                "52_week_low": 3800.0,
+            },
         }
 
     def test_realistic_stock_data_processing(self):
@@ -715,9 +767,11 @@ class TestInteractiveModeRealisticData:
         test_symbol = "7203"
         test_data = self.realistic_datasets[test_symbol]
 
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive._display_stock_details') as mock_display:
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch(
+            "src.day_trade.cli.interactive._display_stock_details"
+        ) as mock_display:
             self.mock_stock_fetcher.get_current_price.return_value = test_data
 
             result = self.interactive_mode.handle_command(f"stock {test_symbol}")
@@ -740,13 +794,15 @@ class TestInteractiveModeRealisticData:
                 # 表示関数が呼ばれなかった場合でも、コマンドが成功していることを確認
                 assert result is True
                 # モックが正しく設定されていることを確認
-                assert self.mock_stock_fetcher.get_current_price.return_value == test_data
+                assert (
+                    self.mock_stock_fetcher.get_current_price.return_value == test_data
+                )
 
     def test_multiple_realistic_symbols(self):
         """複数の現実的な銘柄での連続処理テスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive._display_stock_details'):
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch("src.day_trade.cli.interactive._display_stock_details"):
             for symbol, data in self.realistic_datasets.items():
                 # データを適切に設定
                 self.mock_stock_fetcher.get_current_price.return_value = data
@@ -770,61 +826,111 @@ class TestInteractiveModeRealisticData:
         """データ整合性検証テスト"""
         for symbol, data in self.realistic_datasets.items():
             # 基本的なデータ整合性チェック
-            assert data["current_price"] > 0, f"Current price should be positive for {symbol}"
+            assert data["current_price"] > 0, (
+                f"Current price should be positive for {symbol}"
+            )
             assert data["volume"] >= 0, f"Volume should be non-negative for {symbol}"
             assert data["high"] >= data["low"], f"High should be >= Low for {symbol}"
-            assert data["high"] >= data["current_price"] >= data["low"], f"Current price should be within high-low range for {symbol}"
+            assert data["high"] >= data["current_price"] >= data["low"], (
+                f"Current price should be within high-low range for {symbol}"
+            )
 
             # 前日終値との関係性チェック
-            assert data["previous_close"] > 0, f"Previous close should be positive for {symbol}"
+            assert data["previous_close"] > 0, (
+                f"Previous close should be positive for {symbol}"
+            )
             change_calculated = data["current_price"] - data["previous_close"]
-            change_percent_calculated = (change_calculated / data["previous_close"]) * 100
+            change_percent_calculated = (
+                change_calculated / data["previous_close"]
+            ) * 100
 
             # 変動率の計算精度確認（小数点以下の誤差許容）
-            assert abs(data["change"] - change_calculated) < 1.0, f"Change calculation mismatch for {symbol}"
-            assert abs(data["change_percent"] - change_percent_calculated) < 0.1, f"Change percent calculation mismatch for {symbol}"
+            assert abs(data["change"] - change_calculated) < 1.0, (
+                f"Change calculation mismatch for {symbol}"
+            )
+            assert abs(data["change_percent"] - change_percent_calculated) < 0.1, (
+                f"Change percent calculation mismatch for {symbol}"
+            )
 
             # 金融指標の妥当性チェック
             if "pe_ratio" in data:
                 assert data["pe_ratio"] > 0, f"PE ratio should be positive for {symbol}"
-                assert data["pe_ratio"] < 1000, f"PE ratio should be reasonable for {symbol}"
+                assert data["pe_ratio"] < 1000, (
+                    f"PE ratio should be reasonable for {symbol}"
+                )
 
             if "dividend_yield" in data:
-                assert 0 <= data["dividend_yield"] <= 20, f"Dividend yield should be 0-20% for {symbol}"
+                assert 0 <= data["dividend_yield"] <= 20, (
+                    f"Dividend yield should be 0-20% for {symbol}"
+                )
 
             if "market_cap" in data:
-                assert data["market_cap"] > 0, f"Market cap should be positive for {symbol}"
+                assert data["market_cap"] > 0, (
+                    f"Market cap should be positive for {symbol}"
+                )
 
             if "beta" in data:
                 assert 0 < data["beta"] < 5, f"Beta should be reasonable for {symbol}"
 
             # 52週高値・安値の妥当性チェック
             if "52_week_high" in data and "52_week_low" in data:
-                assert data["52_week_high"] >= data["52_week_low"], f"52-week high should be >= low for {symbol}"
-                assert data["52_week_low"] <= data["current_price"] <= data["52_week_high"], f"Current price should be within 52-week range for {symbol}"
+                assert data["52_week_high"] >= data["52_week_low"], (
+                    f"52-week high should be >= low for {symbol}"
+                )
+                assert (
+                    data["52_week_low"] <= data["current_price"] <= data["52_week_high"]
+                ), f"Current price should be within 52-week range for {symbol}"
 
     def test_diverse_market_conditions_representation(self):
         """多様な市場状況の表現テスト"""
         # 上昇株の存在確認
-        rising_stocks = [symbol for symbol, data in self.realistic_datasets.items() if data["change"] > 0]
+        rising_stocks = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data["change"] > 0
+        ]
         assert len(rising_stocks) >= 1, "Should have at least one rising stock"
 
         # 下落株の存在確認
-        falling_stocks = [symbol for symbol, data in self.realistic_datasets.items() if data["change"] < 0]
+        falling_stocks = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data["change"] < 0
+        ]
         assert len(falling_stocks) >= 1, "Should have at least one falling stock"
 
         # 異なる市場規模の株式の存在確認
-        large_cap = [symbol for symbol, data in self.realistic_datasets.items() if data.get("market_cap", 0) > 10000000000000]  # 10兆円以上
-        mid_cap = [symbol for symbol, data in self.realistic_datasets.items() if 1000000000000 <= data.get("market_cap", 0) <= 10000000000000]  # 1-10兆円
-        small_cap = [symbol for symbol, data in self.realistic_datasets.items() if data.get("market_cap", 0) < 1000000000000]  # 1兆円未満
+        large_cap = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data.get("market_cap", 0) > 10000000000000
+        ]  # 10兆円以上
+        mid_cap = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if 1000000000000 <= data.get("market_cap", 0) <= 10000000000000
+        ]  # 1-10兆円
+        small_cap = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data.get("market_cap", 0) < 1000000000000
+        ]  # 1兆円未満
 
         assert len(large_cap) >= 1, "Should have at least one large-cap stock"
         assert len(mid_cap) >= 1, "Should have at least one mid-cap stock"
         assert len(small_cap) >= 1, "Should have at least one small-cap stock"
 
         # 異なる配当利回りレンジの存在確認
-        high_dividend = [symbol for symbol, data in self.realistic_datasets.items() if data.get("dividend_yield", 0) > 3.0]
-        low_dividend = [symbol for symbol, data in self.realistic_datasets.items() if data.get("dividend_yield", 0) < 1.0]
+        high_dividend = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data.get("dividend_yield", 0) > 3.0
+        ]
+        low_dividend = [
+            symbol
+            for symbol, data in self.realistic_datasets.items()
+            if data.get("dividend_yield", 0) < 1.0
+        ]
 
         assert len(high_dividend) >= 1, "Should have at least one high-dividend stock"
         assert len(low_dividend) >= 1, "Should have at least one low-dividend stock"
@@ -835,9 +941,11 @@ class TestInteractiveModeRealisticData:
         high_vol_symbol = "6758"  # ソニー
         high_vol_data = self.realistic_datasets[high_vol_symbol]
 
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive._display_stock_details') as mock_display:
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch(
+            "src.day_trade.cli.interactive._display_stock_details"
+        ) as mock_display:
             self.mock_stock_fetcher.get_current_price.return_value = high_vol_data
 
             result = self.interactive_mode.handle_command(f"stock {high_vol_symbol}")
@@ -845,10 +953,14 @@ class TestInteractiveModeRealisticData:
 
             # 拡張データが正しく渡されることを確認（より柔軟に）
             try:
-                mock_display.assert_called_once_with(high_vol_symbol, high_vol_data, show_details=True)
+                mock_display.assert_called_once_with(
+                    high_vol_symbol, high_vol_data, show_details=True
+                )
                 # データの内容確認
                 passed_data = mock_display.call_args[0][1]
-                assert passed_data["beta"] > 1.5, "High volatility stock should have high beta"
+                assert passed_data["beta"] > 1.5, (
+                    "High volatility stock should have high beta"
+                )
             except (AssertionError, AttributeError):
                 # モックが期待通りに動作しない場合でも、コマンドが成功していることを確認
                 assert result is True
@@ -857,9 +969,11 @@ class TestInteractiveModeRealisticData:
         dividend_symbol = "8001"  # 伊藤忠商事
         dividend_data = self.realistic_datasets[dividend_symbol]
 
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=True), \
-             patch('src.day_trade.cli.interactive._display_stock_details') as mock_display:
-
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=True
+        ), patch(
+            "src.day_trade.cli.interactive._display_stock_details"
+        ) as mock_display:
             self.mock_stock_fetcher.get_current_price.return_value = dividend_data
 
             result = self.interactive_mode.handle_command(f"stock {dividend_symbol}")
@@ -868,7 +982,9 @@ class TestInteractiveModeRealisticData:
             # 表示関数が呼ばれた場合のみ詳細検証
             if mock_display.called:
                 passed_data = mock_display.call_args[0][1]
-                assert passed_data["dividend_yield"] > 4.0, "Dividend stock should have high dividend yield"
+                assert passed_data["dividend_yield"] > 4.0, (
+                    "Dividend stock should have high dividend yield"
+                )
                 assert passed_data["beta"] < 1.0, "Stable stock should have low beta"
             else:
                 # 表示関数が呼ばれなかった場合でも、コマンドが成功していることを確認
@@ -885,7 +1001,7 @@ class TestInteractiveModeUIComponents:
             watchlist_manager=Mock(),
             stock_fetcher=Mock(),
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
     def test_welcome_info_table_structure(self):
@@ -919,8 +1035,14 @@ class TestInteractiveModeUIComponents:
         # パネル内容の詳細チェック
         content = str(call_args.renderable)
         expected_commands = [
-            "stock <code>", "watch <code>", "watchlist",
-            "portfolio", "signals <code>", "clear", "help", "exit/quit/q"
+            "stock <code>",
+            "watch <code>",
+            "watchlist",
+            "portfolio",
+            "signals <code>",
+            "clear",
+            "help",
+            "exit/quit/q",
         ]
 
         for cmd in expected_commands:
@@ -928,8 +1050,14 @@ class TestInteractiveModeUIComponents:
 
         # 説明文の詳細検証
         expected_descriptions = [
-            "銘柄情報を表示", "ウォッチリストに追加", "ウォッチリスト表示",
-            "ポートフォリオ表示", "シグナル分析", "画面クリア", "このヘルプを表示", "終了"
+            "銘柄情報を表示",
+            "ウォッチリストに追加",
+            "ウォッチリスト表示",
+            "ポートフォリオ表示",
+            "シグナル分析",
+            "画面クリア",
+            "このヘルプを表示",
+            "終了",
         ]
 
         for desc in expected_descriptions:
@@ -942,7 +1070,9 @@ class TestInteractiveModeUIComponents:
 
     def test_error_panel_structure(self):
         """エラーパネルの構造テスト"""
-        with patch('src.day_trade.cli.interactive.validate_stock_code', return_value=False):
+        with patch(
+            "src.day_trade.cli.interactive.validate_stock_code", return_value=False
+        ):
             self.interactive_mode.handle_command("stock INVALID")
 
             call_args = self.interactive_mode.console.print.call_args[0][0]
@@ -1004,7 +1134,7 @@ class TestInteractiveModeAdvancedFeatures:
             watchlist_manager=Mock(),
             stock_fetcher=Mock(),
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
     def test_background_update_state_management(self):
@@ -1055,13 +1185,15 @@ class TestInteractiveModeAdvancedFeatures:
         assert all(results)
 
         # 各コマンドに対して適切な出力が行われること
-        assert self.mock_console.print.call_count >= len(commands) - 1  # clearは print を呼ばない
+        assert (
+            self.mock_console.print.call_count >= len(commands) - 1
+        )  # clearは print を呼ばない
         assert self.mock_console.clear.call_count == 1  # clear コマンド
 
     def test_memory_usage_optimization(self):
         """メモリ使用量最適化のテスト"""
         # 大量のコマンド実行でメモリリークがないことを確認
-        for i in range(100):
+        for _i in range(100):
             result = self.interactive_mode.handle_command("help")
             assert result is True
 
@@ -1069,7 +1201,7 @@ class TestInteractiveModeAdvancedFeatures:
         initial_cache_size = len(self.interactive_mode._cached_data)
 
         # 何回実行してもキャッシュサイズが異常に増加しないこと
-        for i in range(50):
+        for _i in range(50):
             self.interactive_mode.handle_command("portfolio")
 
         final_cache_size = len(self.interactive_mode._cached_data)
@@ -1086,7 +1218,7 @@ class TestInteractiveModeThreadSafety:
             watchlist_manager=Mock(),
             stock_fetcher=Mock(),
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
     def test_thread_safe_command_handling(self):
@@ -1132,7 +1264,7 @@ class TestInteractiveModeThreadSafety:
                 update_started.set()
                 # 実際の更新処理をシミュレート
                 self.interactive_mode._last_update = datetime.now()
-                self.interactive_mode._cached_data['test'] = {'updated': True}
+                self.interactive_mode._cached_data["test"] = {"updated": True}
                 update_completed.set()
             except Exception:
                 error_occurred.set()
@@ -1153,8 +1285,8 @@ class TestInteractiveModeThreadSafety:
 
         # 更新結果の確認
         assert self.interactive_mode._last_update is not None
-        assert 'test' in self.interactive_mode._cached_data
-        assert self.interactive_mode._cached_data['test']['updated'] is True
+        assert "test" in self.interactive_mode._cached_data
+        assert self.interactive_mode._cached_data["test"]["updated"] is True
 
     def test_graceful_shutdown_with_background_threads(self):
         """バックグラウンドスレッドありでの正常終了テスト（Event同期使用）"""
@@ -1171,7 +1303,9 @@ class TestInteractiveModeThreadSafety:
 
             # 停止シグナルまで動作を継続
             while self.interactive_mode._background_update_running:
-                if shutdown_initiated.wait(timeout=0.01):  # 短いタイムアウトで状態チェック
+                if shutdown_initiated.wait(
+                    timeout=0.01
+                ):  # 短いタイムアウトで状態チェック
                     break
                 # 何らかの処理をシミュレート
                 pass
@@ -1190,7 +1324,9 @@ class TestInteractiveModeThreadSafety:
         self.interactive_mode.stop()
 
         # 正常に停止することを確認
-        assert shutdown_complete.wait(timeout=2.0), "Background thread did not shut down gracefully"
+        assert shutdown_complete.wait(timeout=2.0), (
+            "Background thread did not shut down gracefully"
+        )
         worker_thread.join(timeout=1.0)
 
         # 状態が正しく更新されていることを確認
@@ -1207,7 +1343,7 @@ class TestInteractiveModePerformance:
             watchlist_manager=Mock(),
             stock_fetcher=Mock(),
             trade_manager=Mock(),
-            signal_generator=Mock()
+            signal_generator=Mock(),
         )
 
     def test_command_response_time(self):
@@ -1224,7 +1360,9 @@ class TestInteractiveModePerformance:
             response_time = end_time - start_time
 
             # 応答時間が妥当な範囲内であることを確認（100ms以下）
-            assert response_time < 0.1, f"Command '{command}' took {response_time:.3f}s (too slow)"
+            assert response_time < 0.1, (
+                f"Command '{command}' took {response_time:.3f}s (too slow)"
+            )
             assert result is True
 
     def test_high_frequency_command_execution(self):
@@ -1241,14 +1379,16 @@ class TestInteractiveModePerformance:
 
         # 平均応答時間が妥当であることを確認
         avg_response_time = total_time / 100
-        assert avg_response_time < 0.01, f"Average response time {avg_response_time:.3f}s is too slow"
+        assert avg_response_time < 0.01, (
+            f"Average response time {avg_response_time:.3f}s is too slow"
+        )
 
     def test_memory_efficiency_under_load(self):
         """負荷下でのメモリ効率テスト"""
         import sys
 
         # 実行前のメモリ使用量を記録（概算）
-        initial_refs = sys.gettotalrefcount() if hasattr(sys, 'gettotalrefcount') else 0
+        initial_refs = sys.gettotalrefcount() if hasattr(sys, "gettotalrefcount") else 0
 
         # 大量のコマンド実行
         for i in range(1000):
@@ -1256,9 +1396,11 @@ class TestInteractiveModePerformance:
             self.interactive_mode.handle_command(command)
 
         # 実行後のメモリ使用量を確認
-        final_refs = sys.gettotalrefcount() if hasattr(sys, 'gettotalrefcount') else 0
+        final_refs = sys.gettotalrefcount() if hasattr(sys, "gettotalrefcount") else 0
 
         # メモリリークがないことを確認（デバッグビルドでのみ有効）
-        if hasattr(sys, 'gettotalrefcount'):
+        if hasattr(sys, "gettotalrefcount"):
             ref_increase = final_refs - initial_refs
-            assert ref_increase < 1000, f"Possible memory leak: {ref_increase} new references"
+            assert ref_increase < 1000, (
+                f"Possible memory leak: {ref_increase} new references"
+            )

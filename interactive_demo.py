@@ -16,9 +16,11 @@ from rich.text import Text
 # Windows環境対応
 try:
     from src.day_trade.utils.windows_console_fix import create_safe_live_context
+
     safe_live_context = create_safe_live_context()
 except ImportError:
     from contextlib import contextmanager
+
     from rich.live import Live
 
     @contextmanager
@@ -138,10 +140,10 @@ def demo_rich_interface():
                 live.update(
                     Panel(
                         Align.center(demo_text),
-                    title="Live Update Demo",
-                    border_style="yellow",
+                        title="Live Update Demo",
+                        border_style="yellow",
+                    )
                 )
-            )
 
             time.sleep(0.5)
 

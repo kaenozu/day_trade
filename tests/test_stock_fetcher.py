@@ -347,9 +347,9 @@ class TestStockFetcher:
         # 結果が同じであることを確認
         # timestamp は比較から除外する
         # result.pop('timestamp') を使用してtimestampを削除し、残りの辞書を比較
-        result1.pop('timestamp', None)
-        result2.pop('timestamp', None)
-        result3.pop('timestamp', None)
+        result1.pop("timestamp", None)
+        result2.pop("timestamp", None)
+        result3.pop("timestamp", None)
 
         assert result1 == result2 == result3
 
@@ -401,12 +401,16 @@ class TestStockFetcher:
         # リトライ可能なHTTPエラー (5xx, 408, 429)
         mock_response_500 = Mock()
         mock_response_500.status_code = 500
-        http_error_500 = req_exc.HTTPError("500 Internal Server Error", response=mock_response_500)
+        http_error_500 = req_exc.HTTPError(
+            "500 Internal Server Error", response=mock_response_500
+        )
         assert fetcher._is_retryable_error(http_error_500)
 
         mock_response_408 = Mock()
         mock_response_408.status_code = 408
-        http_error_408 = req_exc.HTTPError("408 Request Timeout", response=mock_response_408)
+        http_error_408 = req_exc.HTTPError(
+            "408 Request Timeout", response=mock_response_408
+        )
         assert fetcher._is_retryable_error(http_error_408)
 
         # リトライ不可能なエラー (その他のExceptionや、リトライ対象外のHTTPエラー)
@@ -414,7 +418,9 @@ class TestStockFetcher:
 
         mock_response_401 = Mock()
         mock_response_401.status_code = 401
-        http_error_401 = req_exc.HTTPError("401 Unauthorized", response=mock_response_401)
+        http_error_401 = req_exc.HTTPError(
+            "401 Unauthorized", response=mock_response_401
+        )
         assert not fetcher._is_retryable_error(http_error_401)
 
     @patch("day_trade.data.stock_fetcher.yf.Ticker")

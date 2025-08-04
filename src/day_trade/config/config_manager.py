@@ -72,15 +72,14 @@ class EnsembleSettings(BaseModel):
     enabled: bool = Field(default=True, description="アンサンブル戦略の有効/無効")
     strategy_type: str = Field(
         default="balanced",
-        description="戦略タイプ（conservative, aggressive, balanced, adaptive）"
+        description="戦略タイプ（conservative, aggressive, balanced, adaptive）",
     )
     voting_type: str = Field(
-        default="soft",
-        description="投票タイプ（soft, hard, weighted）"
+        default="soft", description="投票タイプ（soft, hard, weighted）"
     )
     performance_file_path: str = Field(
         default="data/ensemble_performance.json",
-        description="パフォーマンス履歴ファイルのパス"
+        description="パフォーマンス履歴ファイルのパス",
     )
     strategy_weights: Dict[str, float] = Field(
         default_factory=lambda: {
@@ -90,7 +89,7 @@ class EnsembleSettings(BaseModel):
             "mean_reversion": 0.2,
             "default_integrated": 0.1,
         },
-        description="各戦略の重み"
+        description="各戦略の重み",
     )
     confidence_thresholds: Dict[str, float] = Field(
         default_factory=lambda: {
@@ -99,60 +98,60 @@ class EnsembleSettings(BaseModel):
             "balanced": 45.0,
             "adaptive": 70.0,  # ensemble.pyのデフォルト値（ADAPTIVE時）に合わせる
         },
-        description="各戦略タイプの信頼度閾値"
+        description="各戦略タイプの信頼度閾値",
     )
-    meta_learning_enabled: bool = Field(
-        default=True,
-        description="メタ学習の有効/無効"
-    )
+    meta_learning_enabled: bool = Field(default=True, description="メタ学習の有効/無効")
     adaptive_weights_enabled: bool = Field(
-        default=True,
-        description="適応型重み調整の有効/無効"
+        default=True, description="適応型重み調整の有効/無効"
     )
 
-    @field_validator('strategy_type')
+    @field_validator("strategy_type")
     @classmethod
     def validate_strategy_type(cls, v):
         """戦略タイプのバリデーション"""
-        valid_types = ['conservative', 'aggressive', 'balanced', 'adaptive']
+        valid_types = ["conservative", "aggressive", "balanced", "adaptive"]
         if v not in valid_types:
-            raise ValueError(f'strategy_type must be one of: {valid_types}')
+            raise ValueError(f"strategy_type must be one of: {valid_types}")
         return v
 
-    @field_validator('voting_type')
+    @field_validator("voting_type")
     @classmethod
     def validate_voting_type(cls, v):
         """投票タイプのバリデーション"""
-        valid_types = ['soft', 'hard', 'weighted']
+        valid_types = ["soft", "hard", "weighted"]
         if v not in valid_types:
-            raise ValueError(f'voting_type must be one of: {valid_types}')
+            raise ValueError(f"voting_type must be one of: {valid_types}")
         return v
 
-    @field_validator('strategy_weights')
+    @field_validator("strategy_weights")
     @classmethod
     def validate_strategy_weights(cls, v):
         """戦略重みのバリデーション"""
         # 重みの合計チェック
         total_weight = sum(v.values())
         if not (0.95 <= total_weight <= 1.05):  # 誤差許容範囲
-            raise ValueError(f'Sum of strategy weights must be close to 1.0, got {total_weight}')
+            raise ValueError(
+                f"Sum of strategy weights must be close to 1.0, got {total_weight}"
+            )
 
         # 個別重みの範囲チェック
         for strategy, weight in v.items():
             if not (0.0 <= weight <= 1.0):
-                raise ValueError(f'Weight for {strategy} must be between 0.0 and 1.0, got {weight}')
+                raise ValueError(
+                    f"Weight for {strategy} must be between 0.0 and 1.0, got {weight}"
+                )
 
         return v
 
-    @field_validator('confidence_thresholds')
+    @field_validator("confidence_thresholds")
     @classmethod
     def validate_confidence_thresholds(cls, v):
         """信頼度閾値のバリデーション"""
         for threshold_type, threshold_value in v.items():
             if not (0.0 <= threshold_value <= 100.0):
                 raise ValueError(
-                    f'Confidence threshold for {threshold_type} must be between 0.0 and 100.0, '
-                    f'got {threshold_value}'
+                    f"Confidence threshold for {threshold_type} must be between 0.0 and 100.0, "
+                    f"got {threshold_value}"
                 )
         return v
 
@@ -409,12 +408,16 @@ class ConfigManager:
         return AutoOptimizerSettings(
             enabled=config.get("enabled", True),
             default_max_symbols=config.get("default_max_symbols", 5),
-            default_optimization_depth=config.get("default_optimization_depth", "balanced"),
+            default_optimization_depth=config.get(
+                "default_optimization_depth", "balanced"
+            ),
             data_quality_threshold=config.get("data_quality_threshold", 0.7),
             performance_threshold=config.get("performance_threshold", 0.05),
             risk_tolerance=config.get("risk_tolerance", 0.7),
             fallback_symbols=config.get("fallback_symbols", ["7203", "8306", "9984"]),
-            screening_strategies=config.get("screening_strategies", ["default", "momentum"]),
+            screening_strategies=config.get(
+                "screening_strategies", ["default", "momentum"]
+            ),
             backtest_period_months=config.get("backtest_period_months", 6),
             ml_training_enabled=config.get("ml_training_enabled", False),
         )
@@ -435,10 +438,9 @@ class ConfigManager:
             return False
 
         # 昼休み時間かチェック
-        if market_hours.lunch_start <= current_time_only <= market_hours.lunch_end:
-            return False
-
-        return True
+        return (
+            not market_hours.lunch_start <= current_time_only <= market_hours.lunch_end
+        )
 
     def get_high_priority_symbols(self) -> List[str]:
         """高優先度銘柄のコードリストを取得"""
@@ -513,10 +515,12 @@ if __name__ == "__main__":
             "market_open": config_manager.is_market_open(),
             "technical_indicators_enabled": tech_settings.enabled,
             "alerts_enabled": alert_settings.enabled,
-            "report_formats": report_settings.formats
+            "report_formats": report_settings.formats,
         }
 
         logger.info("設定管理システムテスト完了", **config_info)
 
     except Exception as e:
-        logger.error("設定管理システムテストエラー", error=str(e), error_type=type(e).__name__)
+        logger.error(
+            "設定管理システムテストエラー", error=str(e), error_type=type(e).__name__
+        )

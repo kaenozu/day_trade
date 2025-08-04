@@ -241,7 +241,7 @@ class Trade(BaseModel):
             portfolio[code]["trades"].append(trade)
 
         # 平均価格を計算
-        for code, data in portfolio.items():
+        for _code, data in portfolio.items():
             if data["quantity"] > 0:
                 data["avg_price"] = data["total_cost"] / data["quantity"]
 
