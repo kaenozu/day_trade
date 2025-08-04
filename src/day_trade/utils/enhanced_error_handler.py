@@ -254,95 +254,9 @@ class EnhancedErrorHandler:
     - パフォーマンス最適化
     """
 
-    # friendly_error_handlerから統合されたエラーメッセージマッピング
-    # 注意: 新しいエラーメッセージはi18n_messages.pyのJSONファイルに追加することを推奨
-    BUILTIN_ERROR_MESSAGES = {
-        # ネットワーク関連エラー
-        "NETWORK_CONNECTION_ERROR": {
-            "title": "接続エラー",
-            "message": "インターネット接続を確認してください。",
-            "solutions": [
-                "Wi-Fi または有線LAN接続を確認してください",
-                "ファイアウォールやプロキシ設定を確認してください",
-                "しばらく時間をおいて再度お試しください",
-            ],
-            "emoji": "🌐",
-        },
-        "NETWORK_TIMEOUT_ERROR": {
-            "title": "タイムアウトエラー",
-            "message": "サーバーからの応答がありませんでした。",
-            "solutions": [
-                "インターネット接続が安定しているか確認してください",
-                "時間をおいて再度お試しください",
-                "市場時間中に実行してください",
-            ],
-            "emoji": "⏰",
-        },
-        "API_RATE_LIMIT_ERROR": {
-            "title": "アクセス制限エラー",
-            "message": "データ取得の頻度が制限に達しました。",
-            "solutions": [
-                "しばらく時間をおいて再度お試しください（推奨: 1分程度）",
-                "短時間での連続実行を避けてください",
-                "必要に応じて有料プランへのアップグレードを検討してください",
-            ],
-            "emoji": "⚠️",
-        },
-        # データベース関連エラー
-        "DB_CONNECTION_ERROR": {
-            "title": "データベース接続エラー",
-            "message": "データベースに接続できませんでした。",
-            "solutions": [
-                "アプリケーションを再起動してください",
-                "データベースファイルの権限を確認してください",
-                "ディスク容量を確認してください",
-            ],
-            "emoji": "💾",
-        },
-        "DB_INTEGRITY_ERROR": {
-            "title": "データ整合性エラー",
-            "message": "データベースの整合性に問題があります。",
-            "solutions": [
-                "データベースを初期化してください（daytrade init）",
-                "バックアップから復元してください",
-                "サポートにお問い合わせください",
-            ],
-            "emoji": "🔧",
-        },
-        # 入力検証エラー
-        "VALIDATION_ERROR": {
-            "title": "入力エラー",
-            "message": "入力された情報に問題があります。",
-            "solutions": [
-                "入力形式を確認してください",
-                "有効な値の範囲内で入力してください",
-                "必須項目が入力されているか確認してください",
-            ],
-            "emoji": "✏️",
-        },
-        # 設定エラー
-        "CONFIG_ERROR": {
-            "title": "設定エラー",
-            "message": "アプリケーションの設定に問題があります。",
-            "solutions": [
-                "設定ファイルの形式を確認してください",
-                "設定をデフォルトにリセットしてください（daytrade config reset）",
-                "設定項目の値が正しいか確認してください",
-            ],
-            "emoji": "⚙️",
-        },
-        # 認証エラー
-        "API_AUTH_ERROR": {
-            "title": "認証エラー",
-            "message": "APIの認証に失敗しました。",
-            "solutions": [
-                "APIキーが正しく設定されているか確認してください",
-                "APIキーの有効期限を確認してください",
-                "アカウントがアクティブであることを確認してください",
-            ],
-            "emoji": "🔐",
-        },
-    }
+    # BUILTIN_ERROR_MESSAGESは廃止されました
+    # 全てのエラーメッセージはsrc/day_trade/config/messages.jsonで管理されています
+    # 新しいエラーメッセージを追加する場合は、messages.jsonを編集してください
 
     def __init__(
         self,
@@ -455,13 +369,17 @@ class EnhancedErrorHandler:
             logger.warning(f"I18nMessageHandlerからの取得に失敗: {e}")
             self.stats.record_i18n_fallback()
 
-        # フォールバック: ビルトインメッセージを使用
-        builtin_message = self.BUILTIN_ERROR_MESSAGES.get(error_code)
-        if builtin_message:
-            # ビルトインメッセージも検証
-            validated_builtin = self._validate_message_data(builtin_message)
-            if validated_builtin:
-                return validated_builtin
+        # フォールバック: i18nメッセージハンドラーから直接取得を試行
+        try:
+            # i18nメッセージハンドラーから基本的なメッセージを取得
+            basic_message = self.message_handler.get_message("UNKNOWN_ERROR", context={})
+            if basic_message and isinstance(basic_message, dict):
+                validated_basic = self._validate_message_data(basic_message)
+                if validated_basic:
+                    return validated_basic
+        except Exception as e:
+            logger.warning(f"フォールバック時のメッセージ取得に失敗: {e}")
+            self.stats.record_i18n_fallback()
 
         # 最終フォールバック: デフォルトメッセージ（常に有効）
         return {
