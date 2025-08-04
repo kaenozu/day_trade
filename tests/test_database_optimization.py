@@ -13,6 +13,7 @@ from src.day_trade.models.database import (
     DatabaseConfig,
     DatabaseManager,
 )
+from src.day_trade.models.enums import TradeType
 from src.day_trade.models.stock import PriceData, Stock, Trade
 
 
@@ -520,7 +521,7 @@ class TestDatabaseOptimization:
         trades_data = [
             {
                 "stock_code": "7203",
-                "trade_type": "buy",
+                "trade_type": TradeType.BUY,
                 "quantity": 100,
                 "price": Decimal("1000.00"),
                 "commission": Decimal("100.00"),
@@ -528,7 +529,7 @@ class TestDatabaseOptimization:
             },
             {
                 "stock_code": "7203",
-                "trade_type": "sell",
+                "trade_type": TradeType.SELL,
                 "quantity": 50,
                 "price": Decimal("1100.00"),
                 "commission": Decimal("100.00"),
@@ -536,7 +537,7 @@ class TestDatabaseOptimization:
             },
             {
                 "stock_code": "9984",
-                "trade_type": "buy",
+                "trade_type": TradeType.BUY,
                 "quantity": 200,
                 "price": Decimal("5000.00"),
                 "commission": Decimal("200.00"),

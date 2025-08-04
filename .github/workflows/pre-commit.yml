@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -53,14 +53,92 @@ jobs:
         run: |
           echo "🔍 Running pre-commit hooks..."
           pre-commit run --all-files --show-diff-on-failure
-          # 自動修正された変更をコミット
+
+          # 修正された変更があるかチェック
           if [[ $(git status --porcelain) ]]; then
-            git config user.name github-actions
-            git config user.email github-actions@github.com
+            echo "⚠️ Pre-commit hooks made changes to files"
+            echo "Changes detected:"
+            git status --porcelain
+            git diff --name-only
+
+            # GitHub Actionsではファイル変更を直接プッシュしない
+            # 代わりにアーティファクトとして変更を保存
+            echo "Saving changes as artifact for manual review..."
             git add .
-            git commit --amend --no-edit
-            git push
+            git diff --cached > pre-commit-changes.patch
+
+            # PRの場合はコメントで通知
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "pre_commit_changes=true" >> $GITHUB_ENV
+            fi
+          else
+            echo "✅ No changes made by pre-commit hooks"
+            echo "pre_commit_changes=false" >> $GITHUB_ENV
           fi
+
+      - name: Upload pre-commit changes artifact
+        if: env.pre_commit_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-commit-changes-${{ github.run_number }}
+          path: |
+            pre-commit-changes.patch
+            .pre-commit-config.yaml
+          retention-days: 7
+
+      - name: Comment PR with pre-commit changes
+        if: env.pre_commit_changes == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## ⚠️ Pre-commit Hooks Made Changes
+
+            Pre-commitフックがファイルを自動修正しました。変更内容を確認してコミットしてください。
+
+            ### 📥 変更内容の適用:
+
+            1. **アーティファクトから変更を適用:**
+               \`\`\`bash
+               # GitHubからアーティファクトをダウンロード
+               gh run download ${{ github.run_id }} --name pre-commit-changes-${{ github.run_number }}
+
+               # パッチを適用
+               git apply pre-commit-changes.patch
+               git add .
+               git commit -m "Apply pre-commit fixes"
+               git push
+               \`\`\`
+
+            2. **またはローカルでpre-commitを実行:**
+               \`\`\`bash
+               # pre-commitがインストールされていない場合
+               pip install pre-commit
+               pre-commit install
+
+               # すべてのファイルに対してpre-commitを実行
+               pre-commit run --all-files
+
+               # 変更をコミット・プッシュ
+               git add .
+               git commit -m "Fix pre-commit issues"
+               git push
+               \`\`\`
+
+            ### 📊 含まれるチェック:
+            - **Ruff**: コード品質とフォーマット
+            - **MyPy**: 型チェック
+            - **Bandit**: セキュリティスキャン
+            - **一般的なファイルチェック**: 末尾の空白、改行、YAML形式など
+
+            変更を適用後、このワークフローは自動的に再実行されます。
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
 
       - name: Comment PR with pre-commit results
         if: failure() && github.event_name == 'pull_request'

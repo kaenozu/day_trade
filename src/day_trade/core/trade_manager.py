@@ -504,11 +504,14 @@ class TradeManager:
                         memo = db_trade.memo or ""
 
                         # メモリ内形式に変換
-                        trade_type = (
-                            TradeType.BUY
-                            if trade_type_str.lower() == "buy"
-                            else TradeType.SELL
-                        )
+                        if isinstance(trade_type_str, TradeType):
+                            trade_type = trade_type_str
+                        else:
+                            trade_type = (
+                                TradeType.BUY
+                                if str(trade_type_str).lower() == "buy"
+                                else TradeType.SELL
+                            )
 
                         memory_trade = Trade(
                             id=f"DB_{trade_id}",  # DBから読み込んだことを示すプレフィックス
