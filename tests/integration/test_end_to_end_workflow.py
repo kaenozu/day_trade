@@ -5,7 +5,7 @@
 Issue #177: CI最適化の一環として統合テストの実装を促進。
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -28,9 +28,9 @@ class TestEndToEndWorkflow:
         5. レポート生成
         """
         # 基本的なモジュールインポートテストでカバレッジを向上
+        from src.day_trade.core.config import AppConfig
         from src.day_trade.models.database import DatabaseConfig
         from src.day_trade.utils.exceptions import DataNotFoundError
-        from src.day_trade.core.config import AppConfig
 
         # 基本的なオブジェクト作成テスト
         config = DatabaseConfig.for_testing()
@@ -43,13 +43,13 @@ class TestEndToEndWorkflow:
 
         # 設定クラスの基本動作確認
         app_config = AppConfig()
-        assert hasattr(app_config, 'trading')
-        assert hasattr(app_config, 'display')
-        assert hasattr(app_config, 'api')
+        assert hasattr(app_config, "trading")
+        assert hasattr(app_config, "display")
+        assert hasattr(app_config, "api")
 
         # 追加のカバレッジ向上のため、より多くのモジュールをインポート・テスト
-        from src.day_trade.models.stock import Stock, PriceData
         from src.day_trade.models.base import BaseModel
+        from src.day_trade.models.stock import PriceData, Stock
         from src.day_trade.utils.cache_utils import generate_safe_cache_key
         from src.day_trade.utils.validators import validate_stock_code
 
@@ -60,7 +60,7 @@ class TestEndToEndWorkflow:
 
         # BaseModelの基本動作テスト
         base_model = BaseModel()
-        assert hasattr(base_model, '__tablename__')
+        assert hasattr(base_model, "__tablename__")
 
         # キャッシュユーティリティの基本動作テスト
         cache_key = generate_safe_cache_key("test_key", {"param": "value"})
@@ -73,6 +73,7 @@ class TestEndToEndWorkflow:
 
         # PriceDataモデルテスト（datetimeがある場合のみ）
         from datetime import datetime
+
         try:
             price_data = PriceData(
                 stock_code="TEST",
@@ -81,7 +82,7 @@ class TestEndToEndWorkflow:
                 high=110.0,
                 low=90.0,
                 close=105.0,
-                volume=10000
+                volume=10000,
             )
             assert price_data.stock_code == "TEST"
             assert price_data.close == 105.0
@@ -102,7 +103,7 @@ class TestEndToEndWorkflow:
         4. 並行アクセステスト
         """
         # データベース機能の基本テストでカバレッジを向上
-        from src.day_trade.models.database import DatabaseManager, DatabaseConfig
+        from src.day_trade.models.database import DatabaseConfig, DatabaseManager
         from src.day_trade.models.stock import Stock
 
         # テスト用データベース設定
@@ -118,8 +119,8 @@ class TestEndToEndWorkflow:
         assert test_stock.name == "Test Stock"
 
         # 追加のデータベース関連モジュールのカバレッジ向上
+
         from src.day_trade.utils.formatters import format_currency, format_percentage
-        from datetime import datetime
 
         # Formatter関数の基本動作テスト
         formatted_currency = format_currency(1234.56)
@@ -144,25 +145,28 @@ class TestEndToEndWorkflow:
         4. データ品質検証
         """
         # 外部API関連のモジュールインポートでカバレッジを向上
-        from src.day_trade.data.stock_fetcher import StockFetcher
-        from src.day_trade.utils.exceptions import NetworkError, ValidationError
-        from unittest.mock import Mock
+
         import pandas as pd
 
+        from src.day_trade.data.stock_fetcher import StockFetcher
+        from src.day_trade.utils.exceptions import NetworkError, ValidationError
+
         # モック設定のプレースホルダー
-        mock_data = pd.DataFrame({
-            'Open': [1000.0, 1010.0],
-            'High': [1020.0, 1030.0],
-            'Low': [990.0, 1000.0],
-            'Close': [1010.0, 1020.0],
-            'Volume': [100000, 110000]
-        })
+        mock_data = pd.DataFrame(
+            {
+                "Open": [1000.0, 1010.0],
+                "High": [1020.0, 1030.0],
+                "Low": [990.0, 1000.0],
+                "Close": [1010.0, 1020.0],
+                "Volume": [100000, 110000],
+            }
+        )
         mock_yfinance.return_value = mock_data
 
         # StockFetcherの基本動作テスト
         fetcher = StockFetcher()
-        assert hasattr(fetcher, 'get_historical_data')
-        assert hasattr(fetcher, 'get_current_price')
+        assert hasattr(fetcher, "get_historical_data")
+        assert hasattr(fetcher, "get_current_price")
 
         # 例外クラスの動作確認
         network_error = NetworkError("API接続エラー", "NETWORK_ERROR")
@@ -176,7 +180,7 @@ class TestEndToEndWorkflow:
         # モックを使用した基本的なデータ取得テスト
         assert mock_data is not None
         assert len(mock_data) == 2
-        assert 'Close' in mock_data.columns
+        assert "Close" in mock_data.columns
 
         # 追加のAPIとデータ処理関連モジュールのカバレッジ向上
         from src.day_trade.analysis.indicators import TechnicalIndicators
@@ -188,12 +192,12 @@ class TestEndToEndWorkflow:
 
         # TechnicalIndicatorsの基本動作テスト
         tech_indicators = TechnicalIndicators()
-        assert hasattr(tech_indicators, 'sma')
-        assert hasattr(tech_indicators, 'rsi')
+        assert hasattr(tech_indicators, "sma")
+        assert hasattr(tech_indicators, "rsi")
 
         # 基本的なデータフレーム操作のテスト
-        assert mock_data['Close'].iloc[0] == 1010.0
-        assert mock_data['Volume'].sum() == 210000
+        assert mock_data["Close"].iloc[0] == 1010.0
+        assert mock_data["Volume"].sum() == 210000
 
         assert True, "外部API統合テスト実装予定"
 
@@ -207,19 +211,20 @@ class TestEndToEndWorkflow:
         4. スループット測定
         """
         # パフォーマンス関連のモジュールインポートでカバレッジを向上
-        from src.day_trade.utils.logging_config import (
-            log_performance_metric,
-            PerformanceCriticalLogger,
-            get_performance_logger,
-            LazyLogMessage
-        )
-        from src.day_trade.utils.transaction_manager import (
-            TransactionMonitor,
-            TransactionMetrics,
-            get_transaction_health_report
-        )
         import time
         from datetime import datetime
+
+        from src.day_trade.utils.logging_config import (
+            LazyLogMessage,
+            PerformanceCriticalLogger,
+            get_performance_logger,
+            log_performance_metric,
+        )
+        from src.day_trade.utils.transaction_manager import (
+            TransactionMetrics,
+            TransactionMonitor,
+            get_transaction_health_report,
+        )
 
         # パフォーマンスロガーの基本動作テスト
         perf_logger = get_performance_logger("test_logger")
@@ -231,7 +236,9 @@ class TestEndToEndWorkflow:
         end_time = time.time()
         duration_ms = (end_time - start_time) * 1000
 
-        log_performance_metric("test_metric", duration_ms, "ms", test_context="integration_test")
+        log_performance_metric(
+            "test_metric", duration_ms, "ms", test_context="integration_test"
+        )
 
         # LazyLogMessageの動作確認
         lazy_msg = LazyLogMessage(lambda: "重い処理のログメッセージ")
@@ -245,8 +252,7 @@ class TestEndToEndWorkflow:
 
         # 基本的なメトリクス作成テスト
         metrics = TransactionMetrics(
-            transaction_id=transaction_id,
-            start_time=datetime.now()
+            transaction_id=transaction_id, start_time=datetime.now()
         )
         assert metrics.transaction_id == transaction_id
         assert metrics.duration is None  # 終了時間未設定
@@ -258,9 +264,14 @@ class TestEndToEndWorkflow:
         assert "active_transactions_count" in health_report
 
         # 追加のパフォーマンス・自動化関連モジュールのカバレッジ向上
-        from src.day_trade.analysis.signals import TradingSignal, SignalType, SignalStrength
-        from src.day_trade.utils.progress import simple_progress, ProgressConfig
         from decimal import Decimal
+
+        from src.day_trade.analysis.signals import (
+            SignalStrength,
+            SignalType,
+            TradingSignal,
+        )
+        from src.day_trade.utils.progress import ProgressConfig, simple_progress
 
         # TradingSignalの基本動作テスト
         trading_signal = TradingSignal(
@@ -271,7 +282,7 @@ class TestEndToEndWorkflow:
             conditions_met={"test_condition": True},
             timestamp=datetime.now(),
             price=Decimal("100.0"),
-            symbol="TEST"
+            symbol="TEST",
         )
         assert trading_signal.symbol == "TEST"
         assert trading_signal.signal_type == SignalType.BUY
@@ -280,7 +291,7 @@ class TestEndToEndWorkflow:
         assert callable(simple_progress)
 
         config = ProgressConfig()
-        assert hasattr(config, 'show_spinner')
+        assert hasattr(config, "show_spinner")
 
         # 実際の計算処理をテスト
         test_values = [1.0, 2.0, 3.0, 4.0, 5.0]
