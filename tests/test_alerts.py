@@ -130,6 +130,7 @@ class TestNotificationHandler:
     def test_console_notification(self, caplog):
         """コンソール通知テスト"""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         self.handler._send_console_notification(self.sample_trigger)

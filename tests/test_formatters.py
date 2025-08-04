@@ -59,11 +59,11 @@ class TestBasicFormatters:
         assert format_percentage(10.5, show_sign=False) == "10.50%"
         assert format_percentage(0.0, show_sign=False) == "0.00%"
         assert format_percentage(-1.234, decimal_places=1) == "-1.2%"
-        assert format_percentage(99.999, decimal_places=2) == "+100.00%" # Rounding up
+        assert format_percentage(99.999, decimal_places=2) == "+100.00%"  # Rounding up
 
     def test_format_volume(self):
         """出来高フォーマットテスト"""
-        assert format_volume(1234567890) == "1.2B" # 10億以上の場合
+        assert format_volume(1234567890) == "1.2B"  # 10億以上の場合
         assert format_volume(123456789) == "123.5M"
         assert format_volume(1234567) == "1.2M"
         assert format_volume(1234) == "1.2K"

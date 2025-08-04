@@ -75,25 +75,28 @@ class ConfigManager:
                 self.logger.info(
                     "設定ファイル読み込み成功",
                     config_path=str(self.config_path),
-                    config_size=len(data)
+                    config_size=len(data),
                 )
                 return AppConfig(**data)
             except Exception as e:
-                log_error_with_context(e, {
-                    "operation": "load_config",
-                    "config_path": str(self.config_path),
-                    "error_type": type(e).__name__
-                })
+                log_error_with_context(
+                    e,
+                    {
+                        "operation": "load_config",
+                        "config_path": str(self.config_path),
+                        "error_type": type(e).__name__,
+                    },
+                )
                 self.logger.warning(
                     "設定ファイル読み込みエラー、デフォルト設定を使用",
                     config_path=str(self.config_path),
-                    error=str(e)
+                    error=str(e),
                 )
                 return AppConfig()
         else:
             self.logger.info(
                 "設定ファイルが存在しません、デフォルト設定を使用",
-                config_path=str(self.config_path)
+                config_path=str(self.config_path),
             )
             return AppConfig()
 
@@ -142,7 +145,7 @@ class ConfigManager:
 
         # ネストした辞書を作成
         current = updates
-        for i, k in enumerate(keys[:-1]):
+        for _i, k in enumerate(keys[:-1]):
             current[k] = {}
             current = current[k]
         current[keys[-1]] = value

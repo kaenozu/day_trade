@@ -2,7 +2,6 @@
 テクニカル指標計算エンジンのテスト
 """
 
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -278,12 +277,14 @@ class TestTechnicalIndicators:
     def test_missing_columns(self):
         """必須カラム欠如時のエラーハンドリングテスト"""
         # Close列がないDataFrame
-        df_no_close = pd.DataFrame({
-            "Open": [100, 101, 102],
-            "High": [102, 103, 104],
-            "Low": [99, 100, 101],
-            "Volume": [1000000, 1100000, 1200000],
-        })
+        df_no_close = pd.DataFrame(
+            {
+                "Open": [100, 101, 102],
+                "High": [102, 103, 104],
+                "Low": [99, 100, 101],
+                "Volume": [1000000, 1100000, 1200000],
+            }
+        )
 
         # SMAはCloseカラムがないとエラーまたは空のSeriesを返す
         result = TechnicalIndicators.sma(df_no_close)
@@ -298,16 +299,20 @@ class TestTechnicalIndicators:
     def test_insufficient_data(self):
         """データ不足時のテスト"""
         # 極少データ（5行のみ）
-        small_data = pd.DataFrame({
-            "Close": [100, 101, 99, 102, 98],
-            "High": [101, 102, 100, 103, 99],
-            "Low": [99, 100, 98, 101, 97],
-            "Volume": [1000000] * 5,
-        })
+        small_data = pd.DataFrame(
+            {
+                "Close": [100, 101, 99, 102, 98],
+                "High": [101, 102, 100, 103, 99],
+                "Low": [99, 100, 98, 101, 97],
+                "Volume": [1000000] * 5,
+            }
+        )
 
         # 14日RSIを計算（データ不足でも値は出るが、最初の値はNaN）
         rsi = TechnicalIndicators.rsi(small_data, period=14)
-        assert rsi.iloc[0] is np.nan or pd.isna(rsi.iloc[0])  # 最初の値はNaN（差分がないため）
+        assert rsi.iloc[0] is np.nan or pd.isna(
+            rsi.iloc[0]
+        )  # 最初の値はNaN（差分がないため）
         assert len(rsi) == 5  # データと同じ長さ
 
         # 20日SMAを計算（データ不足）
@@ -317,12 +322,14 @@ class TestTechnicalIndicators:
     def test_rsi_zero_division_handling(self):
         """RSI計算でのゼロ除算ハンドリングテスト"""
         # 全て同じ価格（変動なし）でゼロ除算が発生する可能性
-        constant_data = pd.DataFrame({
-            "Close": [100.0] * 20,
-            "High": [100.5] * 20,
-            "Low": [99.5] * 20,
-            "Volume": [1000000] * 20,
-        })
+        constant_data = pd.DataFrame(
+            {
+                "Close": [100.0] * 20,
+                "High": [100.5] * 20,
+                "Low": [99.5] * 20,
+                "Volume": [1000000] * 20,
+            }
+        )
 
         rsi = TechnicalIndicators.rsi(constant_data, period=14)
         # 変動がない場合、RSIは50またはNaNになるべき
@@ -334,24 +341,28 @@ class TestTechnicalIndicators:
     def test_extreme_values(self):
         """極端な値でのテスト"""
         # 非常に大きな値
-        extreme_data = pd.DataFrame({
-            "Close": [1e6 + i for i in range(20)],
-            "High": [1e6 + i + 0.5 for i in range(20)],
-            "Low": [1e6 + i - 0.5 for i in range(20)],
-            "Volume": [1000000] * 20,
-        })
+        extreme_data = pd.DataFrame(
+            {
+                "Close": [1e6 + i for i in range(20)],
+                "High": [1e6 + i + 0.5 for i in range(20)],
+                "Low": [1e6 + i - 0.5 for i in range(20)],
+                "Volume": [1000000] * 20,
+            }
+        )
 
         # SMA計算が正常に動作するか
         sma = TechnicalIndicators.sma(extreme_data, period=10)
         assert sma.iloc[9:].notna().all()
 
         # 非常に小さな値
-        tiny_data = pd.DataFrame({
-            "Close": [0.00001 + i * 0.000001 for i in range(20)],
-            "High": [0.000011 + i * 0.000001 for i in range(20)],
-            "Low": [0.000009 + i * 0.000001 for i in range(20)],
-            "Volume": [1000] * 20,
-        })
+        tiny_data = pd.DataFrame(
+            {
+                "Close": [0.00001 + i * 0.000001 for i in range(20)],
+                "High": [0.000011 + i * 0.000001 for i in range(20)],
+                "Low": [0.000009 + i * 0.000001 for i in range(20)],
+                "Volume": [1000] * 20,
+            }
+        )
 
         # EMA計算が正常に動作するか
         ema = TechnicalIndicators.ema(tiny_data, period=5)
@@ -359,12 +370,14 @@ class TestTechnicalIndicators:
 
     def test_nan_values_in_data(self):
         """データにNaN値が含まれる場合のテスト"""
-        data_with_nan = pd.DataFrame({
-            "Close": [100, 101, np.nan, 102, 103, 104, np.nan, 105],
-            "High": [101, 102, np.nan, 103, 104, 105, np.nan, 106],
-            "Low": [99, 100, np.nan, 101, 102, 103, np.nan, 104],
-            "Volume": [1000000] * 8,
-        })
+        data_with_nan = pd.DataFrame(
+            {
+                "Close": [100, 101, np.nan, 102, 103, 104, np.nan, 105],
+                "High": [101, 102, np.nan, 103, 104, 105, np.nan, 106],
+                "Low": [99, 100, np.nan, 101, 102, 103, np.nan, 104],
+                "Volume": [1000000] * 8,
+            }
+        )
 
         # SMA計算でNaNの影響を確認
         sma = TechnicalIndicators.sma(data_with_nan, period=3)
@@ -386,14 +399,16 @@ class TestTechnicalIndicators:
         large_price_changes = np.random.randn(365) * 2
         large_close_prices = 100 + np.cumsum(large_price_changes)
 
-        large_data = pd.DataFrame({
-            "Date": large_dates,
-            "Open": large_close_prices + np.random.randn(365) * 0.5,
-            "High": large_close_prices + np.abs(np.random.randn(365)) * 1.5,
-            "Low": large_close_prices - np.abs(np.random.randn(365)) * 1.5,
-            "Close": large_close_prices,
-            "Volume": np.random.randint(1000000, 5000000, 365),
-        })
+        large_data = pd.DataFrame(
+            {
+                "Date": large_dates,
+                "Open": large_close_prices + np.random.randn(365) * 0.5,
+                "High": large_close_prices + np.abs(np.random.randn(365)) * 1.5,
+                "Low": large_close_prices - np.abs(np.random.randn(365)) * 1.5,
+                "Close": large_close_prices,
+                "Volume": np.random.randint(1000000, 5000000, 365),
+            }
+        )
         large_data.set_index("Date", inplace=True)
 
         # パフォーマンス測定
@@ -411,7 +426,10 @@ class TestTechnicalIndicators:
         assert execution_time < 5.0, f"Performance issue: took {execution_time:.2f}s"
 
         # メモリ使用量の簡易チェック（結果が元データより過度に大きくないか）
-        memory_ratio = result.memory_usage(deep=True).sum() / large_data.memory_usage(deep=True).sum()
+        memory_ratio = (
+            result.memory_usage(deep=True).sum()
+            / large_data.memory_usage(deep=True).sum()
+        )
         assert memory_ratio < 10.0, f"Memory usage issue: ratio {memory_ratio:.2f}"
 
     def test_precision_consistency(self, sample_data):
@@ -475,19 +493,14 @@ class TestIndicatorsConfig:
         test_config = {
             "default_parameters": {
                 "sma": {"default_period": 25},
-                "rsi": {"period": 21}
+                "rsi": {"period": 21},
             },
-            "calculate_all_defaults": {
-                "sma_periods": [10, 30],
-                "rsi_period": 21
-            },
-            "performance_settings": {
-                "progress_threshold": 50
-            }
+            "calculate_all_defaults": {"sma_periods": [10, 30], "rsi_period": 21},
+            "performance_settings": {"progress_threshold": 50},
         }
 
         # 一時ファイルに保存
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_config, f)
             temp_path = f.name
 
@@ -517,13 +530,16 @@ class TestImprovedIndicators:
         np.random.seed(42)
         close_prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
 
-        return pd.DataFrame({
-            "Open": close_prices + np.random.randn(100) * 0.1,
-            "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
-            "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
-            "Close": close_prices,
-            "Volume": np.random.randint(1000000, 5000000, 100),
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "Open": close_prices + np.random.randn(100) * 0.1,
+                "High": close_prices + np.abs(np.random.randn(100)) * 0.2,
+                "Low": close_prices - np.abs(np.random.randn(100)) * 0.2,
+                "Close": close_prices,
+                "Volume": np.random.randint(1000000, 5000000, 100),
+            },
+            index=dates,
+        )
 
     def test_sma_with_config_defaults(self, sample_data):
         """設定デフォルト値を使用したSMAテスト"""
@@ -561,12 +577,14 @@ class TestImprovedIndicators:
     def test_rsi_zero_division_handling(self):
         """RSIのゼロ除算対策テスト"""
         # 同じ価格（損失がゼロ）
-        constant_data = pd.DataFrame({
-            "Close": [100.0] * 20,
-            "High": [100.1] * 20,
-            "Low": [99.9] * 20,
-            "Volume": [1000000] * 20,
-        })
+        constant_data = pd.DataFrame(
+            {
+                "Close": [100.0] * 20,
+                "High": [100.1] * 20,
+                "Low": [99.9] * 20,
+                "Volume": [1000000] * 20,
+            }
+        )
         constant_data.index = pd.date_range(start="2023-01-01", periods=20, freq="D")
 
         rsi = TechnicalIndicators.rsi(constant_data)
@@ -597,14 +615,23 @@ class TestImprovedIndicators:
 
         # 期待される指標が含まれている
         expected_indicators = [
-            "SMA_5", "SMA_20", "SMA_60",
-            "EMA_12", "EMA_26",
-            "BB_Upper", "BB_Middle", "BB_Lower",
-            "MACD", "MACD_Signal", "MACD_Histogram",
+            "SMA_5",
+            "SMA_20",
+            "SMA_60",
+            "EMA_12",
+            "EMA_26",
+            "BB_Upper",
+            "BB_Middle",
+            "BB_Lower",
+            "MACD",
+            "MACD_Signal",
+            "MACD_Histogram",
             "RSI",
-            "Stoch_K", "Stoch_D",
-            "Volume_MA", "Volume_Ratio",
-            "ATR"
+            "Stoch_K",
+            "Stoch_D",
+            "Volume_MA",
+            "Volume_Ratio",
+            "ATR",
         ]
 
         for indicator in expected_indicators:
@@ -617,7 +644,7 @@ class TestImprovedIndicators:
             sma_periods=[10, 50],
             ema_periods=[9, 21],
             bb_period=25,
-            rsi_period=21
+            rsi_period=21,
         )
 
         # カスタム設定の指標が含まれている
@@ -646,11 +673,13 @@ class TestImprovedIndicators:
 
     def test_error_handling_missing_columns(self):
         """必須列欠如のエラーハンドリングテスト"""
-        df_no_close = pd.DataFrame({
-            "Open": [100, 101, 102],
-            "High": [102, 103, 104],
-            "Low": [99, 100, 101],
-        })
+        df_no_close = pd.DataFrame(
+            {
+                "Open": [100, 101, 102],
+                "High": [102, 103, 104],
+                "Low": [99, 100, 101],
+            }
+        )
 
         # Close列がない場合のSMA
         sma = TechnicalIndicators.sma(df_no_close)

@@ -27,9 +27,9 @@ class BaseModel(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
 
     @declared_attr
-    def __tablename__(cls):
+    def __tablename__(self):
         """テーブル名を自動生成（クラス名を小文字に）"""
-        return cls.__name__.lower()
+        return self.__name__.lower()
 
     def to_dict(self):
         """モデルを辞書に変換"""

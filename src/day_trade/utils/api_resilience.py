@@ -5,13 +5,12 @@ Issue 185: 外部API通信の耐障害性強化
 高度なリトライ機構、サーキットブレーカー、フェイルオーバー機能を提供
 """
 
-import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -39,36 +38,44 @@ from .logging_config import (
 
 class CircuitState(Enum):
     """サーキットブレーカーの状態"""
-    CLOSED = "closed"        # 正常状態
-    OPEN = "open"           # 遮断状態
-    HALF_OPEN = "half_open" # 半開状態
+
+    CLOSED = "closed"  # 正常状態
+    OPEN = "open"  # 遮断状態
+    HALF_OPEN = "half_open"  # 半開状態
 
 
 @dataclass
 class RetryConfig:
     """リトライ設定"""
+
     max_attempts: int = 3
     base_delay: float = 1.0
     max_delay: float = 60.0
     exponential_base: float = 2.0
     jitter: bool = True
     backoff_factor: float = 1.0
-    status_forcelist: List[int] = field(default_factory=lambda: [429, 500, 502, 503, 504])
-    allowed_methods: List[str] = field(default_factory=lambda: ["GET", "POST", "PUT", "DELETE"])
+    status_forcelist: List[int] = field(
+        default_factory=lambda: [429, 500, 502, 503, 504]
+    )
+    allowed_methods: List[str] = field(
+        default_factory=lambda: ["GET", "POST", "PUT", "DELETE"]
+    )
 
 
 @dataclass
 class CircuitBreakerConfig:
     """サーキットブレーカー設定"""
-    failure_threshold: int = 5      # 失敗閾値
-    success_threshold: int = 3      # 成功閾値（半開状態で）
-    timeout: float = 60.0          # 開状態のタイムアウト（秒）
-    monitor_window: float = 300.0   # 監視ウィンドウ（秒）
+
+    failure_threshold: int = 5  # 失敗閾値
+    success_threshold: int = 3  # 成功閾値（半開状態で）
+    timeout: float = 60.0  # 開状態のタイムアウト（秒）
+    monitor_window: float = 300.0  # 監視ウィンドウ（秒）
 
 
 @dataclass
 class APIEndpoint:
     """APIエンドポイント設定"""
+
     name: str
     base_url: str
     timeout: float = 30.0
@@ -96,8 +103,9 @@ class CircuitBreaker:
             if self._should_attempt_reset():
                 self.state = CircuitState.HALF_OPEN
                 self.success_count = 0
-                self.logger.info("サーキットブレーカーが半開状態に移行",
-                               previous_state="open")
+                self.logger.info(
+                    "サーキットブレーカーが半開状態に移行", previous_state="open"
+                )
                 return True
             return False
         else:  # HALF_OPEN
@@ -110,9 +118,12 @@ class CircuitBreaker:
             if self.success_count >= self.config.success_threshold:
                 self.state = CircuitState.CLOSED
                 self.failure_count = 0
-                self.logger.info("サーキットブレーカーが閉状態に復帰",
-                               success_count=self.success_count)
+                self.logger.info(
+                    "サーキットブレーカーが閉状態に復帰",
+                    success_count=self.success_count,
+                )
         elif self.state == CircuitState.CLOSED:
+            # 成功時は失敗回数をリセット
             self.failure_count = 0
 
     def record_failure(self) -> None:
@@ -123,11 +134,16 @@ class CircuitBreaker:
         if self.state == CircuitState.CLOSED:
             if self.failure_count >= self.config.failure_threshold:
                 self.state = CircuitState.OPEN
-                self.logger.warning("サーキットブレーカーが開状態に移行",
-                                  failure_count=self.failure_count,
-                                  threshold=self.config.failure_threshold)
-                log_security_event("circuit_breaker_opened", "warning",
-                                 failure_count=self.failure_count)
+                self.logger.warning(
+                    "サーキットブレーカーが開状態に移行",
+                    failure_count=self.failure_count,
+                    threshold=self.config.failure_threshold,
+                )
+                log_security_event(
+                    "circuit_breaker_opened",
+                    "warning",
+                    failure_count=self.failure_count,
+                )
         elif self.state == CircuitState.HALF_OPEN:
             self.state = CircuitState.OPEN
             self.logger.warning("サーキットブレーカーが再び開状態に移行")
@@ -136,7 +152,9 @@ class CircuitBreaker:
         """リセットを試行すべきかどうかを判定"""
         if self.last_failure_time is None:
             return True
-        return (datetime.now() - self.last_failure_time).total_seconds() >= self.config.timeout
+        return (
+            datetime.now() - self.last_failure_time
+        ).total_seconds() >= self.config.timeout
 
 
 class ResilientAPIClient:
@@ -148,7 +166,7 @@ class ResilientAPIClient:
         retry_config: Optional[RetryConfig] = None,
         circuit_config: Optional[CircuitBreakerConfig] = None,
         enable_health_check: bool = True,
-        health_check_interval: float = 300.0
+        health_check_interval: float = 300.0,
     ):
         """
         Args:
@@ -191,7 +209,7 @@ class ResilientAPIClient:
             backoff_factor=self.retry_config.base_delay,  # 修正箇所
             status_forcelist=self.retry_config.status_forcelist,
             allowed_methods=self.retry_config.allowed_methods,
-            raise_on_status=True  # HTTPエラーもRequests.exceptions.HTTPErrorとして再発生させる
+            raise_on_status=False,
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -208,9 +226,11 @@ class ResilientAPIClient:
             try:
                 self._check_endpoint_health(endpoint)
             except Exception as e:
-                self.logger.warning(f"エンドポイント {endpoint.name} の初期ヘルスチェックに失敗",
-                                  endpoint=endpoint.name,
-                                  error=str(e))
+                self.logger.warning(
+                    f"エンドポイント {endpoint.name} の初期ヘルスチェックに失敗",
+                    endpoint=endpoint.name,
+                    error=str(e),
+                )
 
     def _check_endpoint_health(self, endpoint: APIEndpoint) -> bool:
         """エンドポイントのヘルスチェック"""
@@ -220,7 +240,7 @@ class ResilientAPIClient:
             start_time = time.time()
             response = self.session.get(
                 health_url,
-                timeout=min(endpoint.timeout, 10.0)  # ヘルスチェックは短いタイムアウト
+                timeout=min(endpoint.timeout, 10.0),  # ヘルスチェックは短いタイムアウト
             )
             response_time = (time.time() - start_time) * 1000
 
@@ -228,23 +248,28 @@ class ResilientAPIClient:
             endpoint.is_active = is_healthy
             self.last_health_check[endpoint.name] = datetime.now()
 
-            log_performance_metric("health_check_time", response_time, "ms",
-                                 endpoint=endpoint.name,
-                                 status_code=response.status_code,
-                                 is_healthy=is_healthy)
+            log_performance_metric(
+                "health_check_time",
+                response_time,
+                "ms",
+                endpoint=endpoint.name,
+                status_code=response.status_code,
+                is_healthy=is_healthy,
+            )
 
             if is_healthy:
                 self.logger.debug(f"ヘルスチェック成功: {endpoint.name}")
                 return True
             else:
-                self.logger.warning(f"ヘルスチェック失敗: {endpoint.name}",
-                                  status_code=response.status_code)
+                self.logger.warning(
+                    f"ヘルスチェック失敗: {endpoint.name}",
+                    status_code=response.status_code,
+                )
                 return False
 
         except Exception as e:
             endpoint.is_active = False
-            self.logger.error(f"ヘルスチェックエラー: {endpoint.name}",
-                            error=str(e))
+            self.logger.error(f"ヘルスチェックエラー: {endpoint.name}", error=str(e))
             return False
 
     def _should_health_check(self, endpoint: APIEndpoint) -> bool:
@@ -256,7 +281,9 @@ class ResilientAPIClient:
         if last_check is None:
             return True
 
-        return (datetime.now() - last_check).total_seconds() >= self.health_check_interval
+        return (
+            datetime.now() - last_check
+        ).total_seconds() >= self.health_check_interval
 
     def _get_available_endpoints(self) -> List[APIEndpoint]:
         """利用可能なエンドポイントを取得"""
@@ -275,20 +302,16 @@ class ResilientAPIClient:
         return available
 
     def _execute_with_retry(
-        self,
-        endpoint: APIEndpoint,
-        method: str,
-        url: str,
-        **kwargs
+        self, endpoint: APIEndpoint, method: str, url: str, **kwargs
     ) -> requests.Response:
-        """リトライ機構付きでリクエストを実行（urllib3のRetryに委任）"""
+        """リトライ機構付きでリクエストを実行 (urllib3のRetryに任せる)"""
         circuit_breaker = self.circuit_breakers[endpoint.name]
 
         try:
             start_time = time.time()
 
             # タイムアウトを設定
-            kwargs.setdefault('timeout', endpoint.timeout)
+            kwargs.setdefault("timeout", endpoint.timeout)
 
             # リクエスト実行 (Retryオブジェクトがリトライを処理)
             response = self.session.request(method, url, **kwargs)
@@ -309,16 +332,25 @@ class ResilientAPIClient:
                 url,
                 response.status_code,
                 response_time=response_time,
-                attempt=retry_count_for_method + 1 # 試行回数 = 実際のリクエスト数
+                attempt=retry_count_for_method + 1  # 試行回数 = 実際のリクエスト数
             )
 
             # 成功判定
-            circuit_breaker.record_success()
-            log_performance_metric("api_response_time", response_time, "ms",
-                                 endpoint=endpoint.name,
-                                 method=method,
-                                 status_code=response.status_code)
-            return response
+            if response.status_code < 400:
+                circuit_breaker.record_success()
+                log_performance_metric(
+                    "api_response_time",
+                    response_time,
+                    "ms",
+                    endpoint=endpoint.name,
+                    method=method,
+                    status_code=response.status_code,
+                )
+                return response
+            else:
+                # HTTPエラーステータスの場合は例外として扱う
+                circuit_breaker.record_failure()
+                self._raise_http_error(response)
 
         except requests.exceptions.HTTPError as http_exc:
             circuit_breaker.record_failure()
@@ -340,7 +372,7 @@ class ResilientAPIClient:
             self.logger.error(f"予期せぬエラー発生: {e}",
                             endpoint=endpoint.name,
                             error=str(e))
-            raise APIError(f"予期せぬAPIエラー: {e}") from e # DayTradeErrorにラップして再発生
+            raise APIError(f"予期せぬAPIエラー: {e}") from e  # DayTradeErrorにラップして再発生
 
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""
@@ -348,13 +380,21 @@ class ResilientAPIClient:
         message = f"HTTP {status_code}: {response.reason}"
 
         if status_code == 400:
-            raise BadRequestError(message, "API_BAD_REQUEST", {"status_code": status_code})
+            raise BadRequestError(
+                message, "API_BAD_REQUEST", {"status_code": status_code}
+            )
         elif status_code in (401, 403):
-            raise AuthenticationError(message, "API_AUTH_ERROR", {"status_code": status_code})
+            raise AuthenticationError(
+                message, "API_AUTH_ERROR", {"status_code": status_code}
+            )
         elif status_code == 404:
-            raise ResourceNotFoundError(message, "API_NOT_FOUND", {"status_code": status_code})
+            raise ResourceNotFoundError(
+                message, "API_NOT_FOUND", {"status_code": status_code}
+            )
         elif status_code == 429:
-            raise RateLimitError(message, "API_RATE_LIMIT", {"status_code": status_code})
+            raise RateLimitError(
+                message, "API_RATE_LIMIT", {"status_code": status_code}
+            )
         elif status_code >= 500:
             raise ServerError(message, "API_SERVER_ERROR", {"status_code": status_code})
         else:
@@ -369,12 +409,7 @@ class ResilientAPIClient:
         else:
             raise NetworkError(f"ネットワークエラー: {exc}", "NETWORK_UNKNOWN")
 
-    def request(
-        self,
-        method: str,
-        path: str,
-        **kwargs
-    ) -> requests.Response:
+    def request(self, method: str, path: str, **kwargs) -> requests.Response:
         """
         耐障害性を持つHTTPリクエスト
 
@@ -394,8 +429,7 @@ class ResilientAPIClient:
         if not available_endpoints:
             log_security_event("all_endpoints_unavailable", "critical")
             raise NetworkError(
-                "利用可能なAPIエンドポイントがありません",
-                "NO_AVAILABLE_ENDPOINTS"
+                "利用可能なAPIエンドポイントがありません", "NO_AVAILABLE_ENDPOINTS"
             )
 
         last_exception = None
@@ -404,39 +438,45 @@ class ResilientAPIClient:
             try:
                 url = f"{endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
 
-                self.logger.debug(f"エンドポイント {endpoint.name} でリクエスト試行",
-                                endpoint=endpoint.name,
-                                method=method,
-                                url=url)
+                self.logger.debug(
+                    f"エンドポイント {endpoint.name} でリクエスト試行",
+                    endpoint=endpoint.name,
+                    method=method,
+                    url=url,
+                )
 
                 response = self._execute_with_retry(endpoint, method, url, **kwargs)
 
                 # 成功
-                log_business_event("api_request_success",
-                                 endpoint=endpoint.name,
-                                 method=method,
-                                 path=path)
+                log_business_event(
+                    "api_request_success",
+                    endpoint=endpoint.name,
+                    method=method,
+                    path=path,
+                )
 
                 return response
 
             except Exception as e:
                 last_exception = e
-                log_error_with_context(e, {
-                    "endpoint": endpoint.name,
-                    "method": method,
-                    "path": path
-                })
+                log_error_with_context(
+                    e, {"endpoint": endpoint.name, "method": method, "path": path}
+                )
 
-                self.logger.warning(f"エンドポイント {endpoint.name} でエラー、次を試行",
-                                  endpoint=endpoint.name,
-                                  error=str(e))
+                self.logger.warning(
+                    f"エンドポイント {endpoint.name} でエラー、次を試行",
+                    endpoint=endpoint.name,
+                    error=str(e),
+                )
                 continue
 
         # すべてのエンドポイントで失敗
-        log_business_event("api_request_failed_all_endpoints",
-                         method=method,
-                         path=path,
-                         available_endpoints=[ep.name for ep in available_endpoints])
+        log_business_event(
+            "api_request_failed_all_endpoints",
+            method=method,
+            path=path,
+            available_endpoints=[ep.name for ep in available_endpoints],
+        )
 
         if last_exception:
             raise last_exception
@@ -461,10 +501,7 @@ class ResilientAPIClient:
 
     def get_status(self) -> Dict[str, Any]:
         """APIクライアントの状態を取得"""
-        status = {
-            "endpoints": [],
-            "overall_health": True
-        }
+        status = {"endpoints": [], "overall_health": True}
 
         for endpoint in self.endpoints:
             circuit_breaker = self.circuit_breakers[endpoint.name]
@@ -474,7 +511,7 @@ class ResilientAPIClient:
                 "is_active": endpoint.is_active,
                 "circuit_state": circuit_breaker.state.value,
                 "failure_count": circuit_breaker.failure_count,
-                "last_health_check": self.last_health_check.get(endpoint.name)
+                "last_health_check": self.last_health_check.get(endpoint.name),
             }
             status["endpoints"].append(endpoint_status)
 
@@ -487,7 +524,7 @@ class ResilientAPIClient:
 def resilient_api_call(
     endpoints: List[APIEndpoint],
     retry_config: Optional[RetryConfig] = None,
-    circuit_config: Optional[CircuitBreakerConfig] = None
+    circuit_config: Optional[CircuitBreakerConfig] = None,
 ):
     """
     関数デコレータ：API呼び出しに耐障害性を追加
@@ -498,6 +535,7 @@ def resilient_api_call(
             # API呼び出し処理
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         client = ResilientAPIClient(endpoints, retry_config, circuit_config)
 
@@ -527,17 +565,12 @@ if __name__ == "__main__":
 
     # リトライ設定例
     retry_config = RetryConfig(
-        max_attempts=3,
-        base_delay=1.0,
-        max_delay=30.0,
-        exponential_base=2.0
+        max_attempts=3, base_delay=1.0, max_delay=30.0, exponential_base=2.0
     )
 
     # サーキットブレーカー設定例
     circuit_config = CircuitBreakerConfig(
-        failure_threshold=5,
-        success_threshold=3,
-        timeout=60.0
+        failure_threshold=5, success_threshold=3, timeout=60.0
     )
 
     # クライアント作成

@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class DependencyManager:
@@ -115,26 +115,30 @@ class DependencyManager:
 
         report_content = f"""# 依存関係管理レポート
 
-**生成日時**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}
+**生成日時**: {datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")}
 
 ## 📊 概要
 
 ### プロジェクト構成
 - **プロジェクトルート**: {self.project_root}
-- **pyproject.toml**: {'✅ 存在' if self.pyproject_path.exists() else '❌ 不存在'}
-- **requirements.txt**: {'✅ 存在' if self.requirements_path.exists() else '❌ 不存在'}
-- **requirements-dev.txt**: {'✅ 存在' if self.requirements_dev_path.exists() else '❌ 不存在'}
+- **pyproject.toml**: {"✅ 存在" if self.pyproject_path.exists() else "❌ 不存在"}
+- **requirements.txt**: {"✅ 存在" if self.requirements_path.exists() else "❌ 不存在"}
+- **requirements-dev.txt**: {"✅ 存在" if self.requirements_dev_path.exists() else "❌ 不存在"}
 
 ## 🔄 古いパッケージ
 
 """
 
         if outdated_packages:
-            report_content += f"**{len(outdated_packages)}個の古いパッケージが見つかりました:**\n\n"
+            report_content += (
+                f"**{len(outdated_packages)}個の古いパッケージが見つかりました:**\n\n"
+            )
             report_content += "| パッケージ | 現在のバージョン | 最新バージョン |\n"
             report_content += "|------------|------------------|----------------|\n"
             for pkg in outdated_packages:
-                report_content += f"| {pkg['name']} | {pkg['version']} | {pkg['latest_version']} |\n"
+                report_content += (
+                    f"| {pkg['name']} | {pkg['version']} | {pkg['latest_version']} |\n"
+                )
         else:
             report_content += "✅ すべてのパッケージが最新です。\n"
 
@@ -216,7 +220,9 @@ pip install --upgrade vulnerable_package
 
         return str(report_path)
 
-    def update_packages(self, packages: Optional[List[str]] = None, dry_run: bool = False) -> bool:
+    def update_packages(
+        self, packages: Optional[List[str]] = None, dry_run: bool = False
+    ) -> bool:
         """パッケージを更新"""
         if packages is None:
             # 古いパッケージを取得
@@ -266,34 +272,32 @@ def main():
     """メイン関数"""
     parser = argparse.ArgumentParser(description="依存関係管理ツール")
     parser.add_argument(
-        "--project-root",
-        type=Path,
-        help="プロジェクトルートディレクトリ"
+        "--project-root", type=Path, help="プロジェクトルートディレクトリ"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # reportコマンド
-    report_parser = subparsers.add_parser("report", help="依存関係レポートを生成")
+    subparsers.add_parser("report", help="依存関係レポートを生成")
 
     # checkコマンド
-    check_parser = subparsers.add_parser("check", help="古いパッケージをチェック")
+    subparsers.add_parser("check", help="古いパッケージをチェック")
 
     # updateコマンド
     update_parser = subparsers.add_parser("update", help="パッケージを更新")
     update_parser.add_argument(
         "--packages",
         nargs="*",
-        help="更新するパッケージ名（省略時は全ての古いパッケージ）"
+        help="更新するパッケージ名（省略時は全ての古いパッケージ）",
     )
     update_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="実際には更新せず、更新予定のパッケージを表示"
+        help="実際には更新せず、更新予定のパッケージを表示",
     )
 
     # syncコマンド
-    sync_parser = subparsers.add_parser("sync", help="requirements.txtを同期")
+    subparsers.add_parser("sync", help="requirements.txtを同期")
 
     args = parser.parse_args()
 
