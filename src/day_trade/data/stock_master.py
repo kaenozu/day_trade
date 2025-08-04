@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import yfinance as yf
 from sqlalchemy import text
