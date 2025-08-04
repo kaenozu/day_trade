@@ -65,7 +65,7 @@ class TestTradeManagerTransactions:
                     session.query(Trade).filter(Trade.stock_code == "7203").first()
                 )
                 assert db_trade is not None
-                assert db_trade.trade_type == "buy"
+                assert db_trade.trade_type == TradeType.BUY
                 assert db_trade.quantity == 100
                 assert db_trade.price == 2500.0
 

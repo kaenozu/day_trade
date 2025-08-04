@@ -145,7 +145,7 @@ class TestTransactionManagement:
                     session.query(Trade).filter(Trade.stock_code == "TEST001").first()
                 )
                 assert trade is not None
-                assert trade.trade_type == "buy"
+                assert trade.trade_type == TradeType.BUY
                 assert trade.quantity == 100
 
     @patch("src.day_trade.core.trade_operations.StockFetcher")
