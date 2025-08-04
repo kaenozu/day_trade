@@ -48,6 +48,27 @@ LIGHTGBM_AVAILABLE = False
 
 
 @dataclass
+class ModelPrediction:
+    """機械学習モデル予測結果"""
+
+    prediction: float
+    confidence: float
+    model_name: str
+    metadata: Dict[str, Any] = None
+
+
+@dataclass
+class ModelPerformance:
+    """機械学習モデルパフォーマンス"""
+
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    metadata: Dict[str, Any] = None
+
+
+@dataclass
 class ModelConfig:
     """機械学習モデル設定"""
 
@@ -629,8 +650,9 @@ def create_default_model_ensemble():
 class MLModelManager:
     """機械学習モデル管理クラス（後方互換性のため）"""
 
-    def __init__(self):
+    def __init__(self, models_dir: Optional[str] = None):
         """MLModelManagerの初期化"""
+        self.models_dir = models_dir
         self.ensemble = create_default_model_ensemble()
         self.is_trained = False
 
