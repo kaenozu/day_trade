@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -231,8 +232,20 @@ def set_cache_config(config: CacheConfig) -> None:
 # 後方互換性のためのプロパティ
 cache_config = get_cache_config()
 
-# グローバルサーキットブレーカーインスタンス
-_cache_circuit_breaker = CacheCircuitBreaker()
+# グローバルサーキットブレーカーインスタンス（遅延初期化）
+_cache_circuit_breaker = None
+
+def get_cache_circuit_breaker() -> 'CacheCircuitBreaker':
+    """
+    キャッシュサーキットブレーカーを取得（遅延初期化・シングルトン）
+
+    Returns:
+        CacheCircuitBreakerインスタンス
+    """
+    global _cache_circuit_breaker
+    if _cache_circuit_breaker is None:
+        _cache_circuit_breaker = CacheCircuitBreaker()
+    return _cache_circuit_breaker
 
 
 class CacheError(Exception):
@@ -473,13 +486,14 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
                     "error_message": str(e),
                     "func_name": func_name,
                     "processing_time": time.time() - start_time,
-                    "circuit_breaker_state": _cache_circuit_breaker.state
+                    "circuit_breaker_state": get_cache_circuit_breaker().state
                 }
             ) from e
 
     # サーキットブレーカーを使用してキー生成を実行
     try:
-        return _cache_circuit_breaker.call(_generate_key_internal)
+        circuit_breaker = get_cache_circuit_breaker()
+        return circuit_breaker.call(_generate_key_internal)
     except CacheCircuitBreakerError:
         # サーキットブレーカーが開いている場合は緊急フォールバック
         logger.error(f"Circuit breaker is open, using emergency fallback for {func_name}")
@@ -518,7 +532,7 @@ def _generate_emergency_cache_key(func_name: str, args: Tuple, kwargs: Dict) -> 
 
 def _normalize_arguments(args: Union[Tuple, Dict, Any], max_depth: int = None, current_depth: int = 0, seen_objects: Optional[set] = None) -> Any:
     """
-    引数を正規化してシリアライズ可能にする（再帰深度制限付き・循環参照検出）
+    引数を正規化してシリアライズ可能にする（再帰深度制限付き・循環参照検出・イテラティブ最適化）
 
     Args:
         args: 正規化する引数
@@ -530,7 +544,7 @@ def _normalize_arguments(args: Union[Tuple, Dict, Any], max_depth: int = None, c
         正規化された引数
 
     Raises:
-        CacheError: 再帰深度制限を超えた場合
+        CacheError: 再帰深度制限を超えた場合や循環参照が深すぎる場合
     """
     # max_depthが指定されていない場合は設定から取得
     if max_depth is None:
@@ -540,25 +554,40 @@ def _normalize_arguments(args: Union[Tuple, Dict, Any], max_depth: int = None, c
     if seen_objects is None:
         seen_objects = set()
 
+    # 深度制限チェック（エラーハンドリング強化）
     if current_depth >= max_depth:
         # パフォーマンス最適化: 警告ログの条件付き出力
         if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
-            logger.warning(f"Recursion depth limit reached ({max_depth}), truncating object")
-        return f"<truncated at depth {max_depth}>"
+            logger.warning(f"Recursion depth limit reached ({max_depth}), truncating object of type {type(args).__name__}")
 
-    # 循環参照の検出（ハッシュ可能なオブジェクトのみ）
+        # 深い構造の場合はより詳細な情報を返す
+        if isinstance(args, (dict, list, tuple)):
+            return f"<truncated {type(args).__name__} with {len(args)} items at depth {max_depth}>"
+        else:
+            return f"<truncated {type(args).__name__} at depth {max_depth}>"
+
+    # 循環参照の検出（より堅牢なエラーハンドリング）
     try:
         obj_id = id(args)
         if obj_id in seen_objects:
-            return f"<circular reference to {type(args).__name__}>"
+            # 循環参照のより詳細な情報を提供
+            return f"<circular reference to {type(args).__name__} at depth {current_depth}>"
 
-        # 複雑なオブジェクトの場合のみseenに追加
+        # 複雑なオブジェクトの場合のみseenに追加（メモリ効率も考慮）
         if isinstance(args, (dict, list, tuple)) and args:
-            seen_objects.add(obj_id)
+            # 循環参照セットのサイズ制限（メモリリーク防止）
+            if len(seen_objects) < CacheConstants.DEFAULT_MAX_RECURSION_DEPTH * 2:
+                seen_objects.add(obj_id)
+            else:
+                # セットが大きくなりすぎた場合は警告
+                if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
+                    logger.warning(f"Circular reference detection set is too large ({len(seen_objects)}), skipping detection for {type(args).__name__}")
 
-    except Exception:
-        # id()の取得に失敗した場合は循環参照チェックをスキップ
-        pass
+    except Exception as e:
+        # id()の取得に失敗した場合はデバッグログに記録
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Failed to get object id for circular reference detection: {e}")
+        # 循環参照チェックをスキップして処理を続行
 
     # Pydanticモデル
     if PYDANTIC_AVAILABLE and isinstance(args, BaseModel):
@@ -576,54 +605,139 @@ def _normalize_arguments(args: Union[Tuple, Dict, Any], max_depth: int = None, c
     elif isinstance(args, Enum):
         return f"<enum {args.__class__.__name__}: {args.value}>"
 
-    # コレクション型
+    # コレクション型（エラーハンドリング強化）
     elif isinstance(args, (tuple, list)):
         try:
-            return [_normalize_arguments(arg, max_depth, current_depth + 1, seen_objects) for arg in args]
-        except Exception:
-            return f"<list/tuple of {len(args)} items>"
+            normalized_items = []
+            for i, arg in enumerate(args):
+                try:
+                    normalized_items.append(_normalize_arguments(arg, max_depth, current_depth + 1, seen_objects))
+                except CacheError:
+                    # CacheErrorは再発生
+                    raise
+                except Exception as e:
+                    # その他のエラーは個別要素のエラーとして処理
+                    normalized_items.append(f"<item_{i}_error: {e})")
+
+                # 巨大なコレクションの処理を制限
+                if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:  # 制限値を再利用
+                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
+                    break
+
+            return normalized_items
+        except CacheError:
+            raise
+        except Exception as e:
+            return f"<list/tuple of {len(args)} items, error: {e}>"
 
     elif isinstance(args, dict):
         try:
-            return {str(k): _normalize_arguments(v, max_depth, current_depth + 1, seen_objects) for k, v in args.items()}
-        except Exception:
-            return f"<dict with {len(args)} keys>"
+            normalized_dict = {}
+            processed_count = 0
+            for k, v in args.items():
+                try:
+                    key_str = str(k)
+                    normalized_dict[key_str] = _normalize_arguments(v, max_depth, current_depth + 1, seen_objects)
+                    processed_count += 1
+
+                    # 巨大な辞書の処理を制限
+                    if processed_count >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
+                        remaining = len(args) - processed_count
+                        if remaining > 0:
+                            normalized_dict["<truncated>"] = f"{remaining} more keys"
+                        break
+
+                except CacheError:
+                    raise
+                except Exception as e:
+                    normalized_dict[f"<key_error_{k}>"] = f"<error: {e}>"
+
+            return normalized_dict
+        except CacheError:
+            raise
+        except Exception as e:
+            return f"<dict with {len(args)} keys, error: {e}>"
 
     elif isinstance(args, set):
         try:
-            return {"__set__": sorted([_normalize_arguments(item, max_depth, current_depth + 1, seen_objects) for item in args])}
-        except Exception:
-            return f"<set of {len(args)} items>"
+            normalized_items = []
+            for i, item in enumerate(args):
+                try:
+                    normalized_items.append(_normalize_arguments(item, max_depth, current_depth + 1, seen_objects))
+                except CacheError:
+                    raise
+                except Exception as e:
+                    normalized_items.append(f"<set_item_error: {e}>")
+
+                # セットサイズの制限
+                if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
+                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
+                    break
+
+            return {"__set__": sorted(normalized_items, key=str)}
+        except CacheError:
+            raise
+        except Exception as e:
+            return f"<set of {len(args)} items, error: {e}>"
 
     # datetime類
     elif hasattr(args, "isoformat"):
         return args.isoformat()
 
-    # オブジェクト
+    # オブジェクト（エラーハンドリング強化）
     elif hasattr(args, "__dict__"):
         try:
-            return _normalize_arguments(args.__dict__, max_depth, current_depth + 1, seen_objects)
-        except Exception:
-            return f"<object: {args.__class__.__name__}>"
+            # __dict__の存在と内容をチェック
+            obj_dict = getattr(args, "__dict__", {})
+            if obj_dict:
+                return _normalize_arguments(obj_dict, max_depth, current_depth + 1, seen_objects)
+            else:
+                return f"<empty_object: {args.__class__.__name__}>"
+        except CacheError:
+            raise
+        except Exception as e:
+            return f"<object_error: {args.__class__.__name__}, {e}>"
 
-    # 関数
+    # 関数（より安全な処理）
     elif callable(args):
-        return getattr(args, "__name__", str(type(args).__name__))
+        try:
+            name = getattr(args, "__name__", None)
+            if name:
+                return f"<callable: {name}>"
+            else:
+                return f"<callable: {type(args).__name__}>"
+        except Exception as e:
+            return f"<callable_error: {e}>"
 
-    # プリミティブ型
+    # プリミティブ型（循環参照クリーンアップ付き）
     else:
-        # 処理完了後、循環参照検出セットからIDを削除
+        # 処理完了後、循環参照検出セットからIDを削除（メモリ効率）
         try:
             if isinstance(args, (dict, list, tuple)) and args:
-                seen_objects.discard(id(args))
-        except Exception:
-            pass
-        return args
+                obj_id = id(args)
+                seen_objects.discard(obj_id)
+        except Exception as e:
+            # クリーンアップに失敗してもエラーにはしない
+            if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Failed to cleanup circular reference detection: {e}")
+
+        # プリミティブ型の値を返す
+        try:
+            # 特殊な値のチェック
+            if args is None:
+                return None
+            # 文字列の場合は長さをチェック
+            elif isinstance(args, str) and len(args) > CacheConstants.DEFAULT_MAX_KEY_LENGTH:
+                return f"<long_string: {len(args)} chars>"
+            else:
+                return args
+        except Exception as e:
+            return f"<primitive_error: {type(args).__name__}, {e}>"
 
 
 def _json_serializer(obj: Any) -> Any:
     """
-    JSON シリアライザーのカスタムハンドラー（堅牢版・Pydantic v2対応・タイムアウト機能付き）
+    JSON シリアライザーのカスタムハンドラー（堅牢版・Pydantic v2対応・シンプルタイムアウト機能付き）
 
     Pydantic、Decimal、Enum、datetime等の主要な型に対応
 
@@ -636,131 +750,120 @@ def _json_serializer(obj: Any) -> Any:
     Raises:
         CacheError: シリアライゼーションが失敗またはタイムアウトした場合
     """
+    start_time = time.time()
+    timeout_seconds = cache_config.serialization_timeout
+
+    def check_timeout():
+        """タイムアウトチェック"""
+        if time.time() - start_time > timeout_seconds:
+            raise CacheTimeoutError(
+                f"Serialization timeout after {timeout_seconds} seconds",
+                timeout_seconds,
+                "json_serialization"
+            )
+
     try:
-        import signal
-        from contextlib import contextmanager
+        # 型安全性を向上させた処理
 
-        @contextmanager
-        def timeout_context(seconds):
-            """タイムアウト付きコンテキスト"""
-            def timeout_handler(signum, frame):
-                raise TimeoutError(f"Serialization timeout after {seconds} seconds")
-
-            # Windowsではsignal.SIGALRMが利用できないため、他の方法を使用
-            import threading
-            import time
-            timeout_occurred = threading.Event()
-
-            def timeout_thread():
-                time.sleep(seconds)
-                timeout_occurred.set()
-
-            timer = threading.Thread(target=timeout_thread, daemon=True)
-            timer.start()
-
+        # Pydanticモデル（v2対応強化）
+        if PYDANTIC_AVAILABLE and isinstance(obj, BaseModel):
+            check_timeout()
             try:
-                yield
-                if timeout_occurred.is_set():
-                    raise TimeoutError(f"Serialization timeout after {seconds} seconds")
-            finally:
-                timeout_occurred.set()
-
-        # タイムアウト設定を取得
-        timeout_seconds = cache_config.serialization_timeout
-
-        with timeout_context(timeout_seconds):
-            # 型安全性を向上させた処理
-
-            # Pydanticモデル（v2対応強化）
-            if PYDANTIC_AVAILABLE and isinstance(obj, BaseModel):
-                try:
-                    # Pydantic v2の場合
-                    if hasattr(obj, 'model_dump'):
-                        return obj.model_dump(mode='json', exclude_unset=False)
-                    # Pydantic v1の場合
-                    elif hasattr(obj, 'dict'):
-                        return obj.dict()
-                    else:
-                        # フォールバック
-                        return {"__pydantic_model__": obj.__class__.__name__, "data": str(obj)}
-                except Exception as e:
-                    logger.warning(f"Pydantic model serialization failed: {e}")
-                    return {"__pydantic_model__": obj.__class__.__name__, "error": str(e)}
-
-            # Decimal型（精度保持）
-            elif isinstance(obj, Decimal):
-                # 特殊値のチェック
-                if obj.is_nan():
-                    return {"__decimal__": "NaN"}
-                elif obj.is_infinite():
-                    return {"__decimal__": "Infinity" if obj > 0 else "-Infinity"}
+                # Pydantic v2の場合
+                if hasattr(obj, 'model_dump'):
+                    return obj.model_dump(mode='json', exclude_unset=False)
+                # Pydantic v1の場合
+                elif hasattr(obj, 'dict'):
+                    return obj.dict()
                 else:
-                    return {"__decimal__": str(obj)}
+                    # フォールバック
+                    return {"__pydantic_model__": obj.__class__.__name__, "data": str(obj)}
+            except Exception as e:
+                logger.warning(f"Pydantic model serialization failed: {e}")
+                return {"__pydantic_model__": obj.__class__.__name__, "error": str(e)}
 
-            # Enum型（より詳細な情報を保持）
-            elif isinstance(obj, Enum):
+        # Decimal型（精度保持）
+        elif isinstance(obj, Decimal):
+            check_timeout()
+            # 特殊値のチェック
+            if obj.is_nan():
+                return {"__decimal__": "NaN"}
+            elif obj.is_infinite():
+                return {"__decimal__": "Infinity" if obj > 0 else "-Infinity"}
+            else:
+                return {"__decimal__": str(obj)}
+
+        # Enum型（より詳細な情報を保持）
+        elif isinstance(obj, Enum):
+            check_timeout()
+            return {
+                "__enum__": obj.__class__.__name__,
+                "__module__": getattr(obj.__class__, '__module__', 'unknown'),
+                "name": obj.name,
+                "value": obj.value
+            }
+
+        # datetime/date/time オブジェクト（タイムゾーン情報保持）
+        elif hasattr(obj, "isoformat"):
+            check_timeout()
+            try:
+                iso_string = obj.isoformat()
                 return {
-                    "__enum__": obj.__class__.__name__,
-                    "__module__": getattr(obj.__class__, '__module__', 'unknown'),
-                    "name": obj.name,
-                    "value": obj.value
+                    "__datetime__": iso_string,
+                    "__type__": obj.__class__.__name__,
+                    "__timezone__": str(getattr(obj, 'tzinfo', None)) if hasattr(obj, 'tzinfo') else None
                 }
+            except Exception:
+                return {"__datetime__": str(obj), "__type__": obj.__class__.__name__}
 
-            # datetime/date/time オブジェクト（タイムゾーン情報保持）
-            elif hasattr(obj, "isoformat"):
-                try:
-                    iso_string = obj.isoformat()
-                    return {
-                        "__datetime__": iso_string,
-                        "__type__": obj.__class__.__name__,
-                        "__timezone__": str(getattr(obj, 'tzinfo', None)) if hasattr(obj, 'tzinfo') else None
-                    }
-                except Exception:
-                    return {"__datetime__": str(obj), "__type__": obj.__class__.__name__}
+        # set型（ソート対応強化）
+        elif isinstance(obj, set):
+            check_timeout()
+            try:
+                # ソート可能な要素のみソート
+                sorted_items = []
+                unsorted_items = []
 
-            # set型（ソート対応強化）
-            elif isinstance(obj, set):
-                try:
-                    # ソート可能な要素のみソート
-                    sorted_items = []
-                    unsorted_items = []
-
-                    for item in obj:
-                        try:
-                            # シリアライズ可能かテスト
-                            _json_serializer(item)
-                            sorted_items.append(item)
-                        except Exception:
-                            unsorted_items.append(str(item))
-
+                for item in obj:
+                    check_timeout()  # セット要素の処理でもタイムアウトチェック
                     try:
-                        sorted_items.sort()
-                    except TypeError:
-                        # ソートできない場合は文字列変換してソート
-                        sorted_items = sorted([str(item) for item in sorted_items])
+                        # シリアライズ可能かテスト（再帰呼び出しを避ける）
+                        json.dumps(item, default=str)
+                        sorted_items.append(item)
+                    except Exception:
+                        unsorted_items.append(str(item))
 
-                    return {"__set__": sorted_items + sorted(unsorted_items)}
-                except Exception:
-                    return {"__set__": [str(item) for item in obj]}
-
-            # frozenset型
-            elif isinstance(obj, frozenset):
                 try:
-                    return {"__frozenset__": _json_serializer(set(obj))["__set__"]}
-                except Exception:
-                    return {"__frozenset__": [str(item) for item in obj]}
+                    sorted_items.sort()
+                except TypeError:
+                    # ソートできない場合は文字列変換してソート
+                    sorted_items = sorted([str(item) for item in sorted_items])
 
-            # bytes型（エンコーディング検出強化）
-            elif isinstance(obj, bytes):
+                return {"__set__": sorted_items + sorted(unsorted_items)}
+            except Exception:
+                return {"__set__": [str(item) for item in obj]}
+
+        # frozenset型
+        elif isinstance(obj, frozenset):
+            check_timeout()
+            try:
+                return {"__frozenset__": _json_serializer(set(obj))["__set__"]}
+            except Exception:
+                return {"__frozenset__": [str(item) for item in obj]}
+
+        # bytes型（エンコーディング検出強化）
+        elif isinstance(obj, bytes):
+            check_timeout()
+            try:
+                # UTF-8を最初に試行
+                return {"__bytes__": obj.decode('utf-8'), "encoding": "utf-8"}
+            except UnicodeDecodeError:
                 try:
-                    # UTF-8を最初に試行
-                    return {"__bytes__": obj.decode('utf-8'), "encoding": "utf-8"}
-                except UnicodeDecodeError:
+                    # 他のエンコーディングを試行
                     try:
-                        # 他のエンコーディングを試行
                         import chardet
                         detected = chardet.detect(obj)
-                        if detected and detected['encoding']:
+                        if detected and detected['encoding'] and detected.get('confidence', 0) > CacheConstants.CHARSET_DETECTION_CONFIDENCE_THRESHOLD:
                             return {
                                 "__bytes__": obj.decode(detected['encoding']),
                                 "encoding": detected['encoding'],
@@ -770,63 +873,68 @@ def _json_serializer(obj: Any) -> Any:
                         pass
                     # フォールバック: hexエンコーディング
                     return {"__bytes__": obj.hex(), "encoding": "hex"}
-
-            # 関数またはメソッド（より詳細な情報）
-            elif callable(obj):
-                return {
-                    "__callable__": getattr(obj, "__name__", repr(obj)),
-                    "__module__": getattr(obj, "__module__", "unknown"),
-                    "__type__": "function" if hasattr(obj, "__name__") else "callable"
-                }
-
-            # オブジェクトに辞書がある場合（再帰深度チェック）
-            elif hasattr(obj, "__dict__"):
-                try:
-                    # __dict__の内容を安全にシリアライズ
-                    safe_dict = {}
-                    for key, value in obj.__dict__.items():
-                        try:
-                            safe_dict[str(key)] = _json_serializer(value)
-                        except Exception as e:
-                            safe_dict[str(key)] = f"<serialization_error: {e}>"
-
-                    return {
-                        "__object__": obj.__class__.__name__,
-                        "__module__": getattr(obj.__class__, '__module__', 'unknown'),
-                        "data": safe_dict
-                    }
-                except Exception as e:
-                    return {
-                        "__object__": obj.__class__.__name__,
-                        "__module__": getattr(obj.__class__, '__module__', 'unknown'),
-                        "error": str(e)
-                    }
-
-            # NumPy配列（オプション対応）
-            elif hasattr(obj, 'tolist') and hasattr(obj, 'dtype'):
-                try:
-                    return {
-                        "__numpy_array__": obj.tolist(),
-                        "dtype": str(obj.dtype),
-                        "shape": obj.shape
-                    }
                 except Exception:
-                    return {"__numpy_array__": str(obj)}
+                    # 最終フォールバック
+                    return {"__bytes__": "<binary_data>", "encoding": "unknown", "size": len(obj)}
 
-            # その他の場合は文字列表現（型情報付き）
-            else:
+        # 関数またはメソッド（より詳細な情報）
+        elif callable(obj):
+            check_timeout()
+            return {
+                "__callable__": getattr(obj, "__name__", repr(obj)),
+                "__module__": getattr(obj, "__module__", "unknown"),
+                "__type__": "function" if hasattr(obj, "__name__") else "callable"
+            }
+
+        # オブジェクトに辞書がある場合（再帰深度チェック）
+        elif hasattr(obj, "__dict__"):
+            check_timeout()
+            try:
+                # __dict__の内容を安全にシリアライズ
+                safe_dict = {}
+                for key, value in obj.__dict__.items():
+                    check_timeout()  # 各要素でもタイムアウトチェック
+                    try:
+                        safe_dict[str(key)] = _json_serializer(value)
+                    except Exception as e:
+                        safe_dict[str(key)] = f"<serialization_error: {e}>"
+
                 return {
-                    "__unknown_type__": obj.__class__.__name__,
+                    "__object__": obj.__class__.__name__,
                     "__module__": getattr(obj.__class__, '__module__', 'unknown'),
-                    "value": str(obj)
+                    "data": safe_dict
+                }
+            except Exception as e:
+                return {
+                    "__object__": obj.__class__.__name__,
+                    "__module__": getattr(obj.__class__, '__module__', 'unknown'),
+                    "error": str(e)
                 }
 
-    except TimeoutError as e:
-        raise CacheError(
-            f"Serialization timeout: {e}",
-            "CACHE_SERIALIZATION_TIMEOUT",
-            {"timeout_seconds": cache_config.serialization_timeout, "object_type": type(obj).__name__}
-        ) from e
+        # NumPy配列（オプション対応）
+        elif hasattr(obj, 'tolist') and hasattr(obj, 'dtype'):
+            check_timeout()
+            try:
+                return {
+                    "__numpy_array__": obj.tolist(),
+                    "dtype": str(obj.dtype),
+                    "shape": obj.shape
+                }
+            except Exception:
+                return {"__numpy_array__": str(obj)}
+
+        # その他の場合は文字列表現（型情報付き）
+        else:
+            check_timeout()
+            return {
+                "__unknown_type__": obj.__class__.__name__,
+                "__module__": getattr(obj.__class__, '__module__', 'unknown'),
+                "value": str(obj)
+            }
+
+    except CacheTimeoutError:
+        # 既にCacheTimeoutErrorの場合はそのまま再発生
+        raise
     except Exception as e:
         # 予期しないエラーのフォールバック
         logger.warning(f"Serialization fallback for {type(obj).__name__}: {e}")
@@ -1186,12 +1294,13 @@ class CacheStats:
         self._safe_lock_operation(add_other_stats)
 
 
-def validate_cache_key(key: str) -> bool:
+def validate_cache_key(key: str, config: Optional['CacheConfig'] = None) -> bool:
     """
     キャッシュキーの妥当性を検証
 
     Args:
         key: 検証するキー
+        config: キャッシュ設定（Noneの場合はデフォルト設定を使用）
 
     Returns:
         キーが有効かどうか
@@ -1199,38 +1308,54 @@ def validate_cache_key(key: str) -> bool:
     if not key or not isinstance(key, str):
         return False
 
+    # 設定を取得
+    config = config or cache_config
+
     # 長すぎるキーを拒否（設定から取得）
-    if len(key) > cache_config.max_key_length:
+    if len(key) > config.max_key_length:
         return False
 
     # 制御文字を含むキーを拒否
     return not any(ord(c) < 32 or ord(c) == 127 for c in key)
 
 
-def sanitize_cache_value(value: Any) -> Any:
+def sanitize_cache_value(value: Any, config: Optional['CacheConfig'] = None) -> Any:
     """
     キャッシュ値のサニタイズ
 
     Args:
         value: サニタイズする値
+        config: キャッシュ設定（Noneの場合はデフォルト設定を使用）
 
     Returns:
         サニタイズされた値
+
+    Raises:
+        CacheError: 値が不正な場合
     """
     # None値はそのまま許可
     if value is None:
         return value
 
-    # 大きすぎるオブジェクトの警告
+    # 設定を取得
+    config = config or cache_config
+
+    # 大きすぎるオブジェクトの警告と制限
     try:
         import sys
 
         size = sys.getsizeof(value)
-        if size > cache_config.max_value_size_bytes:
-            if cache_config.enable_size_warnings and hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
-                logger.warning(f"Large cache value detected: {size} bytes")
-    except Exception:
-        pass  # サイズ取得に失敗した場合は無視
+        if size > config.max_value_size_bytes:
+            if config.enable_size_warnings and hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
+                logger.warning(f"Large cache value detected: {size} bytes (limit: {config.max_value_size_bytes})")
+
+            # 設定によっては大きすぎる値をエラーとして扱う
+            # 現在は警告のみだが、将来的にはCacheErrorを発生させることも可能
+
+    except Exception as e:
+        # サイズ取得に失敗した場合はデバッグログに記録
+        if hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Failed to get cache value size: {e}")
 
     return value
 
