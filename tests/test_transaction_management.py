@@ -8,6 +8,7 @@ import pytest
 
 from src.day_trade.core.trade_operations import TradeOperationError, TradeOperations
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager
+from src.day_trade.models.enums import TradeType
 from src.day_trade.models.stock import Stock, Trade
 
 
