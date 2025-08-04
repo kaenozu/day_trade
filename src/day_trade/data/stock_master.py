@@ -6,24 +6,32 @@
 import logging
 from typing import Dict, List, Optional, Tuple
 
-import yfinance as yf
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..models.database import db_manager
 from ..models.stock import Stock
 from ..models.bulk_operations import AdvancedBulkOperations
+from .stock_fetcher import StockFetcher
+from ..utils.logging_config import get_context_logger
 
-logger = logging.getLogger(__name__)
+logger = get_context_logger(__name__)
 
 
 class StockMasterManager:
-    """銘柄マスタ管理クラス"""
+    """銘柄マスタ管理クラス（改善版）"""
 
-    def __init__(self):
-        """初期化"""
-        self.db_manager = db_manager
-        self.bulk_operations = AdvancedBulkOperations(db_manager)
+    def __init__(self, db_manager=None, stock_fetcher: Optional[StockFetcher] = None):
+        """
+        初期化（依存性注入対応）
+
+        Args:
+            db_manager: データベースマネージャー
+            stock_fetcher: 株価データ取得インスタンス
+        """
+        self.db_manager = db_manager or globals()['db_manager']
+        self.bulk_operations = AdvancedBulkOperations(self.db_manager)
+        self.stock_fetcher = stock_fetcher or StockFetcher()
 
     def add_stock(
         self,
@@ -53,7 +61,7 @@ class StockMasterManager:
                 session, code, name, market, sector, industry
             )
 
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             return self._add_stock_with_session(
                 session, code, name, market, sector, industry
             )
@@ -72,10 +80,9 @@ class StockMasterManager:
             # 既存チェック
             existing = session.query(Stock).filter(Stock.code == code).first()
             if existing:
-                logger.info(f"銘柄は既に存在します: {code} - {name}")
-                # セッションに再アタッチして返す
-                session.expunge(existing)
-                session.add(existing)
+                logger.info(f"銘柄は既に存在します: {code} - {existing.name}")
+                # 属性を事前読み込みしてからreturn
+                _ = existing.id, existing.code, existing.name, existing.market, existing.sector, existing.industry
                 return existing
 
             # 新規作成
@@ -86,8 +93,8 @@ class StockMasterManager:
             session.flush()  # IDを取得
 
             logger.info(f"銘柄を追加しました: {code} - {name}")
-            # セッションから切り離して返す
-            session.expunge(stock)
+            # 属性を事前読み込みしてからreturn
+            _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
             return stock
 
         except Exception as e:
@@ -115,7 +122,7 @@ class StockMasterManager:
         Returns:
             更新されたStockオブジェクト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 stock = session.query(Stock).filter(Stock.code == code).first()
                 if not stock:
@@ -132,9 +139,8 @@ class StockMasterManager:
                 if industry is not None:
                     stock.industry = industry
 
-                # 属性を事前に読み込みしてセッションから切り離し
-                _ = stock.code, stock.name, stock.market, stock.sector, stock.industry
-                session.expunge(stock)
+                # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
+                _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
 
                 logger.info(f"銘柄を更新しました: {code} - {stock.name}")
                 return stock
@@ -143,46 +149,42 @@ class StockMasterManager:
                 logger.error(f"銘柄更新エラー ({code}): {e}")
                 return None
 
-    def get_stock_by_code(self, code: str) -> Optional[Stock]:
+    def get_stock_by_code(self, code: str, detached: bool = False) -> Optional[Stock]:
         """
-        証券コードで銘柄を取得
+        証券コードで銘柄を取得（最適化版）
 
         Args:
             code: 証券コード
+            detached: セッションから切り離すかどうか
 
         Returns:
             Stockオブジェクト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 stock = session.query(Stock).filter(Stock.code == code).first()
                 if stock:
-                    # 必要な属性を事前に読み込み
-                    _ = (
-                        stock.code,
-                        stock.name,
-                        stock.market,
-                        stock.sector,
-                        stock.industry,
-                    )
-                    session.expunge(stock)  # セッションから切り離し
+                    # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
+                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                    logger.debug(f"銘柄取得: {stock.code} - {stock.name}")
                 return stock
             except Exception as e:
                 logger.error(f"銘柄取得エラー ({code}): {e}")
                 return None
 
-    def search_stocks_by_name(self, name_pattern: str, limit: int = 50) -> List[Stock]:
+    def search_stocks_by_name(self, name_pattern: str, limit: int = 50, detached: bool = False) -> List[Stock]:
         """
-        銘柄名で部分一致検索
+        銘柄名で部分一致検索（最適化版）
 
         Args:
             name_pattern: 銘柄名の一部
             limit: 結果の上限数
+            detached: セッションから切り離すかどうか
 
         Returns:
             Stockオブジェクトのリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 # 部分一致検索（大文字小文字区別なし）
                 pattern = f"%{name_pattern}%"
@@ -193,17 +195,11 @@ class StockMasterManager:
                     .all()
                 )
 
-                # 属性を事前に読み込みしてセッションから切り離し
+                # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
                 for stock in stocks:
-                    _ = (
-                        stock.code,
-                        stock.name,
-                        stock.market,
-                        stock.sector,
-                        stock.industry,
-                    )
-                    session.expunge(stock)
+                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
 
+                logger.debug(f"銘柄名検索結果: {len(stocks)}件 (パターン: {name_pattern})")
                 return stocks
 
             except Exception as e:
@@ -221,7 +217,7 @@ class StockMasterManager:
         Returns:
             Stockオブジェクトのリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 stocks = (
                     session.query(Stock)
@@ -230,16 +226,16 @@ class StockMasterManager:
                     .all()
                 )
 
-                # 属性を事前に読み込みしてセッションから切り離し
+                # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
                 for stock in stocks:
                     _ = (
+                        stock.id,
                         stock.code,
                         stock.name,
                         stock.market,
                         stock.sector,
                         stock.industry,
                     )
-                    session.expunge(stock)
 
                 return stocks
 
@@ -258,7 +254,7 @@ class StockMasterManager:
         Returns:
             Stockオブジェクトのリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 stocks = (
                     session.query(Stock)
@@ -267,16 +263,16 @@ class StockMasterManager:
                     .all()
                 )
 
-                # 属性を事前に読み込みしてセッションから切り離し
+                # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
                 for stock in stocks:
                     _ = (
+                        stock.id,
                         stock.code,
                         stock.name,
                         stock.market,
                         stock.sector,
                         stock.industry,
                     )
-                    session.expunge(stock)
 
                 return stocks
 
@@ -307,7 +303,7 @@ class StockMasterManager:
         Returns:
             Stockオブジェクトのリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 query = session.query(Stock)
 
@@ -325,16 +321,16 @@ class StockMasterManager:
 
                 stocks = query.limit(limit).all()
 
-                # 属性を事前に読み込みしてセッションから切り離し
+                # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
                 for stock in stocks:
                     _ = (
+                        stock.id,
                         stock.code,
                         stock.name,
                         stock.market,
                         stock.sector,
                         stock.industry,
                     )
-                    session.expunge(stock)
 
                 return stocks
 
@@ -349,7 +345,7 @@ class StockMasterManager:
         Returns:
             セクター名のリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 result = (
                     session.query(Stock.sector)
@@ -370,7 +366,7 @@ class StockMasterManager:
         Returns:
             業種名のリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 result = (
                     session.query(Stock.industry)
@@ -391,7 +387,7 @@ class StockMasterManager:
         Returns:
             市場区分のリスト
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 result = (
                     session.query(Stock.market)
@@ -412,7 +408,7 @@ class StockMasterManager:
         Returns:
             銘柄数
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 return session.query(Stock).count()
             except Exception as e:
@@ -433,7 +429,7 @@ class StockMasterManager:
         inserted_count = 0
         skipped_count = 0
 
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 # 既存コードのセットを取得（メモリ効率版）
                 existing_codes = set()
@@ -483,7 +479,7 @@ class StockMasterManager:
         """
         updated_count = 0
 
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 # チャンクごとにbulk update実行
                 for i in range(0, len(update_data), chunk_size):
@@ -521,7 +517,7 @@ class StockMasterManager:
         inserted_count = 0
         updated_count = 0
 
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 # SQLiteのINSERT OR REPLACEを使用
                 for i in range(0, len(stock_data), chunk_size):
@@ -581,7 +577,7 @@ class StockMasterManager:
         Returns:
             削除成功フラグ
         """
-        with db_manager.session_scope() as session:
+        with self.db_manager.session_scope() as session:
             try:
                 stock = session.query(Stock).filter(Stock.code == code).first()
                 if not stock:
@@ -598,7 +594,7 @@ class StockMasterManager:
 
     def fetch_and_update_stock_info(self, code: str) -> Optional[Stock]:
         """
-        yfinanceから銘柄情報を取得してマスタを更新
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（最適化版）
 
         Args:
             code: 証券コード
@@ -607,28 +603,25 @@ class StockMasterManager:
             更新されたStockオブジェクト
         """
         try:
-            # yfinance形式のシンボルに変換
-            symbol = f"{code}.T" if "." not in code else code
+            # StockFetcherのget_company_infoメソッドを使用（リトライ、キャッシュの恩恵を受ける）
+            company_info = self.stock_fetcher.get_company_info(code)
 
-            # yfinanceから情報取得
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-
-            if not info or "longName" not in info:
-                logger.warning(f"yfinanceから情報を取得できません: {symbol}")
+            if not company_info:
+                logger.warning(f"StockFetcherから企業情報を取得できません: {code}")
                 return None
 
             # データを整理
-            name = info.get("longName") or info.get("shortName", "")
-            sector = info.get("sector", "")
-            industry = info.get("industry", "")
+            name = company_info.get("name") or ""
+            sector = company_info.get("sector") or ""
+            industry = company_info.get("industry") or ""
 
-            # 市場区分を推定（yfinanceには含まれないため）
-            market = "東証プライム"  # デフォルト
+            # 市場区分を推定（改善版）
+            market = self._estimate_market_segment(code, company_info)
 
             # 既存銘柄を更新または新規作成
             stock = self.get_stock_by_code(code)
             if stock:
+                logger.info(f"銘柄情報を更新: {code} - {name}")
                 return self.update_stock(
                     code=code,
                     name=name,
@@ -637,6 +630,7 @@ class StockMasterManager:
                     industry=industry,
                 )
             else:
+                logger.info(f"新規銘柄を追加: {code} - {name}")
                 return self.add_stock(
                     code=code,
                     name=name,
@@ -648,6 +642,51 @@ class StockMasterManager:
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
+
+    def _estimate_market_segment(self, code: str, company_info: Dict) -> str:
+        """
+        市場区分を推定（堅牢性向上版）
+
+        Args:
+            code: 証券コード
+            company_info: 企業情報
+
+        Returns:
+            推定された市場区分
+        """
+        try:
+            # コードレンジに基づいた推定（簡単なルール）
+            code_num = int(code)
+            market_cap = company_info.get("market_cap")
+
+            # ETFや特殊なコードの判定
+            if 1300 <= code_num <= 1399 or 1500 <= code_num <= 1599:
+                return "ETF"
+            elif 2000 <= code_num <= 2999:
+                return "東証グロース"  # 新興企業が多いレンジ
+            elif code_num >= 9000:
+                return "東証スタンダード"  # 高番台はスタンダードが多い
+
+            # 時価総額に基づいた推定（おおよその基準）
+            if market_cap:
+                if market_cap > 1_000_000_000_000:  # 1兆ドル超
+                    return "東証プライム"
+                elif market_cap > 100_000_000_000:  # 1000億ドル超
+                    return "東証プライム"
+                elif market_cap > 10_000_000_000:   # 100億ドル超
+                    return "東証スタンダード"
+                else:
+                    return "東証グロース"
+
+            # デフォルト（企業サイズが不明な場合）
+            if code_num <= 1999:
+                return "東証プライム"  # 1000番台はプライムが多い
+            else:
+                return "東証スタンダード"  # その他はスタンダードをデフォルト
+
+        except (ValueError, TypeError):
+            # コードが数値でない場合のフォールバック
+            return "東証プライム"
 
     def bulk_add_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> Dict[str, int]:
         """
@@ -793,5 +832,83 @@ class StockMasterManager:
             return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
 
-# グローバルインスタンス
+    def bulk_fetch_and_update_companies(
+        self, codes: List[str], batch_size: int = 50, delay: float = 0.1
+    ) -> Dict[str, int]:
+        """
+        複数銘柄の企業情報を一括取得・更新（StockFetcher経由）
+
+        Args:
+            codes: 銘柄コードのリスト
+            batch_size: バッチサイズ（APIレートリミット対応）
+            delay: バッチ間の遅延（秒）
+
+        Returns:
+            更新結果の統計情報
+        """
+        if not codes:
+            return {"success": 0, "failed": 0, "skipped": 0, "total": 0}
+
+        logger.info(f"企業情報一括取得開始: {len(codes)}銘柄")
+
+        success_count = 0
+        failed_count = 0
+        skipped_count = 0
+        updated_stocks = []
+
+        # バッチ処理でAPIレートリミットを回避
+        for i in range(0, len(codes), batch_size):
+            batch_codes = codes[i:i + batch_size]
+            logger.info(f"バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}")
+
+            for code in batch_codes:
+                try:
+                    stock = self.fetch_and_update_stock_info(code)
+                    if stock:
+                        updated_stocks.append({
+                            "code": stock.code,
+                            "name": stock.name,
+                            "market": stock.market,
+                            "sector": stock.sector,
+                            "industry": stock.industry,
+                        })
+                        success_count += 1
+                    else:
+                        skipped_count += 1
+
+                except Exception as e:
+                    logger.error(f"銘柄情報取得失敗 ({code}): {e}")
+                    failed_count += 1
+
+            # バッチ間の遅延
+            if i + batch_size < len(codes) and delay > 0:
+                import time
+                time.sleep(delay)
+
+        result = {
+            "success": success_count,
+            "failed": failed_count,
+            "skipped": skipped_count,
+            "total": len(codes)
+        }
+
+        logger.info(f"企業情報一括取得完了: {result}")
+        return result
+
+
+# グローバルインスタンス（改善版）
+def create_stock_master_manager(db_manager=None, stock_fetcher=None) -> StockMasterManager:
+    """
+    StockMasterManagerのファクトリー関数（依存性注入対応）
+
+    Args:
+        db_manager: データベースマネージャー
+        stock_fetcher: 株価データ取得インスタンス
+
+    Returns:
+        StockMasterManagerインスタンス
+    """
+    return StockMasterManager(db_manager=db_manager, stock_fetcher=stock_fetcher)
+
+# 後方互換性のためのグローバルインスタンス
 stock_master = StockMasterManager()
