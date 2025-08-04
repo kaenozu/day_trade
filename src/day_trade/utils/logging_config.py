@@ -435,6 +435,77 @@ class PerformanceOptimizedLogging:
             logging.getLogger(logger_name).setLevel(logging.ERROR)
 
 
+# パフォーマンス測定とタイマー
+class PerformanceTimer:
+    """高性能なタイマーコンテキストマネージャー"""
+
+    def __init__(self, logger: Any, operation_name: str, threshold_ms: float = 1000.0):
+        """
+        Args:
+            logger: ロガーインスタンス
+            operation_name: 操作名
+            threshold_ms: ログ出力の閾値（ミリ秒）
+        """
+        self.logger = logger
+        self.operation_name = operation_name
+        self.threshold_ms = threshold_ms
+        self.start_time = None
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time is not None:
+            elapsed_ms = (time.perf_counter() - self.start_time) * 1000
+
+            # 閾値を超えた場合のみログ出力
+            if elapsed_ms >= self.threshold_ms:
+                self.logger.info(
+                    f"Performance: {self.operation_name}",
+                    elapsed_ms=round(elapsed_ms, 2),
+                    threshold_ms=self.threshold_ms
+                )
+
+
+class AggregatedLogger:
+    """集約ログ機能（大量の類似ログを効率的に処理）"""
+
+    def __init__(self, base_logger: Any, flush_interval: int = 60):
+        """
+        Args:
+            base_logger: ベースロガー
+            flush_interval: フラッシュ間隔（秒）
+        """
+        self.base_logger = base_logger
+        self.flush_interval = flush_interval
+        self.counters = {}
+        self.last_flush = time.time()
+
+    def increment_counter(self, counter_name: str, value: int = 1):
+        """カウンターをインクリメント"""
+        self.counters[counter_name] = self.counters.get(counter_name, 0) + value
+
+        # 定期的にフラッシュ
+        current_time = time.time()
+        if current_time - self.last_flush >= self.flush_interval:
+            self.flush()
+
+    def flush(self):
+        """集約されたカウンターをログ出力"""
+        if not self.counters:
+            return
+
+        self.base_logger.info(
+            "Aggregated counters",
+            counters=dict(self.counters),
+            time_window=self.flush_interval
+        )
+
+        self.counters.clear()
+        self.last_flush = time.time()
+
+
 # 条件付きロギング用デコレータ
 def conditional_log(condition_func):
     """条件が満たされた場合のみログを出力するデコレータ"""
