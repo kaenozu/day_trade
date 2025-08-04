@@ -609,3 +609,196 @@ def sanitize_cache_value(value: Any) -> Any:
         pass  # サイズ取得に失敗した場合は無視
 
     return value
+
+
+class TTLCache:
+    """
+    高性能TTL（Time To Live）キャッシュ実装
+    スレッドセーフで効率的な期限管理を提供
+    """
+
+    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+        """
+        Args:
+            max_size: 最大キャッシュサイズ
+            default_ttl: デフォルトTTL（秒）
+        """
+        import time
+        import threading
+        from collections import OrderedDict
+
+        self._cache = OrderedDict()
+        self._timestamps = {}
+        self._ttls = {}
+        self._max_size = max_size
+        self._default_ttl = default_ttl
+        self._lock = threading.RLock()
+        self._stats = CacheStats()
+
+        # パフォーマンス最適化
+        self._time = time.time  # 関数参照をキャッシュ
+        self._cleanup_counter = 0
+        self._cleanup_frequency = 100  # 100回に1回クリーンアップ実行
+
+    def get(self, key: str, default=None):
+        """キャッシュからの値取得（TTLチェック付き）"""
+        with self._lock:
+            if key not in self._cache:
+                self._stats.record_miss()
+                return default
+
+            # TTLチェック（高速化）
+            current_time = self._time()
+            if current_time > self._timestamps[key] + self._ttls[key]:
+                # 期限切れ
+                self._remove_expired_key(key)
+                self._stats.record_miss()
+                return default
+
+            # LRU更新
+            self._cache.move_to_end(key)
+            self._stats.record_hit()
+            return self._cache[key]
+
+    def set(self, key: str, value, ttl: Optional[int] = None):
+        """キャッシュへの値設定"""
+        if ttl is None:
+            ttl = self._default_ttl
+
+        current_time = self._time()
+
+        with self._lock:
+            # 既存エントリの更新
+            if key in self._cache:
+                self._cache[key] = value
+                self._timestamps[key] = current_time
+                self._ttls[key] = ttl
+                self._cache.move_to_end(key)
+            else:
+                # 新規エントリ
+                if len(self._cache) >= self._max_size:
+                    self._evict_lru()
+
+                self._cache[key] = value
+                self._timestamps[key] = current_time
+                self._ttls[key] = ttl
+
+            self._stats.record_set()
+
+            # 定期的なクリーンアップ（パフォーマンス最適化）
+            self._cleanup_counter += 1
+            if self._cleanup_counter >= self._cleanup_frequency:
+                self._cleanup_expired()
+                self._cleanup_counter = 0
+
+    def delete(self, key: str) -> bool:
+        """キャッシュからの削除"""
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
+                del self._timestamps[key]
+                del self._ttls[key]
+                return True
+            return False
+
+    def clear(self):
+        """キャッシュのクリア"""
+        with self._lock:
+            self._cache.clear()
+            self._timestamps.clear()
+            self._ttls.clear()
+            self._cleanup_counter = 0
+
+    def _remove_expired_key(self, key: str):
+        """期限切れキーの削除（内部メソッド）"""
+        del self._cache[key]
+        del self._timestamps[key]
+        del self._ttls[key]
+        self._stats.record_eviction()
+
+    def _evict_lru(self):
+        """LRU方式での古いエントリ削除"""
+        if self._cache:
+            oldest_key = next(iter(self._cache))
+            self._remove_expired_key(oldest_key)
+
+    def _cleanup_expired(self):
+        """期限切れエントリの一括削除"""
+        current_time = self._time()
+        expired_keys = []
+
+        for key, timestamp in self._timestamps.items():
+            if current_time > timestamp + self._ttls[key]:
+                expired_keys.append(key)
+
+        for key in expired_keys:
+            self._remove_expired_key(key)
+
+    def size(self) -> int:
+        """現在のキャッシュサイズ"""
+        with self._lock:
+            return len(self._cache)
+
+    def get_stats(self) -> Dict[str, Union[int, float]]:
+        """キャッシュ統計の取得"""
+        return self._stats.to_dict()
+
+
+class HighPerformanceCache:
+    """
+    超高性能キャッシュ実装
+    最小限のロックと最適化されたデータ構造を使用
+    """
+
+    def __init__(self, max_size: int = 10000):
+        import threading
+        import time
+
+        self._cache = {}
+        self._access_times = {}
+        self._max_size = max_size
+        self._lock = threading.Lock()  # RLockより高速
+        self._time = time.time
+        self._cleanup_threshold = max_size * 0.8  # 80%で自動クリーンアップ
+
+    def get(self, key: str):
+        """超高速get操作"""
+        # ロックなしの高速パス（read-heavy workload最適化）
+        if key in self._cache:
+            current_time = self._time()
+            with self._lock:
+                if key in self._cache:  # double-checked locking
+                    self._access_times[key] = current_time
+                    return self._cache[key]
+        return None
+
+    def set(self, key: str, value):
+        """高速set操作"""
+        current_time = self._time()
+
+        with self._lock:
+            self._cache[key] = value
+            self._access_times[key] = current_time
+
+            # 自動サイズ管理
+            if len(self._cache) > self._cleanup_threshold:
+                self._auto_cleanup()
+
+    def _auto_cleanup(self):
+        """自動クリーンアップ（最も使用されていないエントリを削除）"""
+        if len(self._cache) <= self._max_size * 0.5:
+            return
+
+        # アクセス時間順でソートして古いものを削除
+        sorted_items = sorted(self._access_times.items(), key=lambda x: x[1])
+        remove_count = len(self._cache) - int(self._max_size * 0.7)
+
+        for key, _ in sorted_items[:remove_count]:
+            if key in self._cache:
+                del self._cache[key]
+                del self._access_times[key]
+
+
+# デフォルトキャッシュインスタンス
+default_cache = TTLCache(max_size=5000, default_ttl=600)  # 10分TTL
+high_perf_cache = HighPerformanceCache(max_size=10000)

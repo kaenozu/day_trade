@@ -849,31 +849,40 @@ class BacktestEngine:
                 "バックテスト結果の計算に必要なポートフォリオ価値のデータが不足しています。バックテストが正常に実行されたか確認してください。"
             )
 
-        # データフレーム作成
-        df = pd.DataFrame(self.portfolio_values, columns=["Date", "Value"])
-        df.set_index("Date", inplace=True)
-        df["Value"] = df["Value"].astype(float)
+        # 最適化：NumPy配列で直接計算してDataFrame作成を回避
+        portfolio_dates = np.array([pv[0] for pv in self.portfolio_values])
+        portfolio_values = np.array([float(pv[1]) for pv in self.portfolio_values])
 
-        # 日次リターンの計算
-        daily_returns = df["Value"].pct_change().dropna()
+        # 日次リターンの計算（NumPy版）
+        daily_returns = np.diff(portfolio_values) / portfolio_values[:-1]
+        daily_returns = daily_returns[~np.isnan(daily_returns)]  # NaN除去
 
-        # パフォーマンス指標の計算
-        total_return = (df["Value"].iloc[-1] / float(config.initial_capital)) - 1
+        # パフォーマンス指標の計算（最適化版）
+        initial_capital_float = float(config.initial_capital)
+        total_return = (portfolio_values[-1] / initial_capital_float) - 1
         duration_years = (config.end_date - config.start_date).days / 365.25
         annualized_return = (
             (1 + total_return) ** (1 / duration_years) - 1 if duration_years > 0 else 0
         )
 
-        volatility = daily_returns.std() * np.sqrt(252) if len(daily_returns) > 1 else 0
+        volatility = np.std(daily_returns) * np.sqrt(252) if len(daily_returns) > 1 else 0
         sharpe_ratio = (
             (annualized_return - 0.001) / volatility if volatility > 0 else 0
         )  # リスクフリーレート0.1%
 
-        # 最大ドローダウンの計算
-        cumulative = (1 + daily_returns).cumprod()
-        running_max = cumulative.expanding().max()
-        drawdown = (cumulative - running_max) / running_max
-        max_drawdown = drawdown.min()
+        # 最大ドローダウンの計算（NumPy版）
+        if len(daily_returns) > 0:
+            cumulative = np.cumprod(1 + daily_returns)
+            running_max = np.maximum.accumulate(cumulative)
+            drawdown = (cumulative - running_max) / running_max
+            max_drawdown = np.min(drawdown)
+        else:
+            max_drawdown = 0.0
+
+        # DataFrame作成（結果用のみ）
+        df = pd.DataFrame({"Date": portfolio_dates, "Value": portfolio_values})
+        df.set_index("Date", inplace=True)
+        daily_returns_series = pd.Series(daily_returns, index=portfolio_dates[1:] if len(portfolio_dates) > 1 else [])
 
         # 取引統計の計算（メモリ効率を考慮）
         if self.memory_efficient:
@@ -919,7 +928,7 @@ class BacktestEngine:
             avg_loss=avg_loss,
             profit_factor=profit_factor,
             trades=self.trades,
-            daily_returns=daily_returns,
+            daily_returns=daily_returns_series,
             portfolio_value=df["Value"],
             positions_history=[],  # 簡単化のため空
         )
@@ -936,7 +945,111 @@ class BacktestEngine:
 
         # パフォーマンス測定と最適化されたロギング
         with PerformanceTimer(performance_logger, "trade_statistics_calculation", threshold_ms=50.0):
-            return self._perform_trade_calculation()
+            return self._perform_trade_calculation_optimized()
+
+    def _perform_trade_calculation_optimized(self):
+        """最適化された取引計算処理（完全NumPyベクトル化）"""
+        # 最適化：直接NumPy配列を構築してPandas DataFrame作成を回避
+        num_trades = len(self.trades)
+        indices = np.arange(num_trades)
+        symbols = np.array([trade.symbol for trade in self.trades])
+        actions = np.array([trade.action.value for trade in self.trades])
+        prices = np.array([float(trade.price) for trade in self.trades])
+        quantities = np.array([float(trade.quantity) for trade in self.trades])
+        commissions = np.array([float(trade.commission) for trade in self.trades])
+
+        # 買い・売り注文のマスクを作成
+        buy_mask = actions == TradeType.BUY.value
+        sell_mask = actions == TradeType.SELL.value
+
+        if not np.any(buy_mask) or not np.any(sell_mask):
+            return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
+
+        # 買い・売り注文のインデックス取得
+        buy_indices = indices[buy_mask]
+        sell_indices = indices[sell_mask]
+
+        buy_symbols = symbols[buy_mask]
+        sell_symbols = symbols[sell_mask]
+        buy_prices = prices[buy_mask]
+        sell_prices = prices[sell_mask]
+        buy_commissions = commissions[buy_mask]
+        sell_commissions = commissions[sell_mask]
+        sell_quantities = quantities[sell_mask]
+
+        wins = []
+        losses = []
+        processed_symbols = 0
+
+        # ユニークシンボルを処理
+        unique_symbols = np.unique(symbols)
+
+        for symbol in unique_symbols:
+            # 高速マスク操作でシンボル別データを抽出
+            symbol_buy_mask = buy_symbols == symbol
+            symbol_sell_mask = sell_symbols == symbol
+
+            if not np.any(symbol_buy_mask) or not np.any(symbol_sell_mask):
+                continue
+
+            processed_symbols += 1
+
+            # シンボル別の買い・売り注文データ
+            symbol_buy_indices = buy_indices[symbol_buy_mask]
+            symbol_sell_indices = sell_indices[symbol_sell_mask]
+            symbol_buy_prices = buy_prices[symbol_buy_mask]
+            symbol_sell_prices = sell_prices[symbol_sell_mask]
+            symbol_buy_commissions = buy_commissions[symbol_buy_mask]
+            symbol_sell_commissions = sell_commissions[symbol_sell_mask]
+            symbol_sell_quantities = sell_quantities[symbol_sell_mask]
+
+            # ベクトル化された損益計算
+            for i, sell_idx in enumerate(symbol_sell_indices):
+                # 売り注文より前の買い注文を高速検索
+                valid_buys_mask = symbol_buy_indices < sell_idx
+                if np.any(valid_buys_mask):
+                    # 最新の買い注文を選択（LIFO）
+                    valid_buy_positions = np.where(valid_buys_mask)[0]
+                    last_buy_pos = valid_buy_positions[-1]
+
+                    # ベクトル化された損益計算
+                    buy_price = symbol_buy_prices[last_buy_pos]
+                    sell_price = symbol_sell_prices[i]
+                    quantity = symbol_sell_quantities[i]
+                    total_commission = symbol_buy_commissions[last_buy_pos] + symbol_sell_commissions[i]
+
+                    pnl = (sell_price - buy_price) * quantity - total_commission
+
+                    if pnl > 0:
+                        wins.append(pnl)
+                    else:
+                        losses.append(abs(pnl))
+
+        # 統計計算
+        profitable_trades = len(wins)
+        losing_trades = len(losses)
+        total_trades = profitable_trades + losing_trades
+        win_rate = profitable_trades / total_trades if total_trades > 0 else 0.0
+        avg_win = Decimal(str(np.mean(wins))) if wins else Decimal("0")
+        avg_loss = Decimal(str(np.mean(losses))) if losses else Decimal("0")
+        profit_factor = sum(wins) / sum(losses) if losses else float("inf")
+
+        # ロギング（条件付きで最適化）
+        if hasattr(aggregated_logger, 'increment_counter'):
+            aggregated_logger.increment_counter("processed_symbols", processed_symbols)
+            aggregated_logger.flush()
+
+        return (
+            profitable_trades,
+            losing_trades,
+            wins,
+            losses,
+            total_trades,
+            win_rate,
+            avg_win,
+            avg_loss,
+            profit_factor,
+        )
 
     def _perform_trade_calculation(self):
         """実際の取引計算処理"""
