@@ -245,3 +245,4 @@ These are preserved for reference but no longer execute.
 3. **Platform Testing**: Add Windows/macOS runners
 4. **Deployment**: Implement actual deployment logic
 5. **Notifications**: Add Slack/Teams integration
+# GitHub Actions troubleshooting
