@@ -5,7 +5,6 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_
@@ -13,18 +12,9 @@ from sqlalchemy import and_
 from ..data.stock_fetcher import StockFetcher
 from ..models import Alert, PriceData, Stock, WatchlistItem, db_manager
 from ..utils.logging_config import get_context_logger, log_business_event, log_error_with_context
+from .alerts import AlertType
 
 logger = get_context_logger(__name__)
-
-
-class AlertType(Enum):
-    """アラートタイプ"""
-
-    PRICE_ABOVE = "price_above"  # 価格が閾値を上回る
-    PRICE_BELOW = "price_below"  # 価格が閾値を下回る
-    CHANGE_PERCENT_UP = "change_percent_up"  # 変化率が閾値を上回る
-    CHANGE_PERCENT_DOWN = "change_percent_down"  # 変化率が閾値を下回る
-    VOLUME_SPIKE = "volume_spike"  # 出来高急増
 
 
 @dataclass
@@ -357,7 +347,7 @@ class WatchlistManager:
                     .filter(
                         and_(
                             Alert.stock_code == condition.stock_code,
-                            Alert.alert_type == condition.alert_type.value,
+                            Alert.alert_type == condition.alert_type,
                             Alert.threshold == condition.threshold,
                         )
                     )
@@ -367,14 +357,14 @@ class WatchlistManager:
                 if existing:
                     logger.warning("Alert condition already exists",
                                   stock_code=condition.stock_code,
-                                  alert_type=condition.alert_type.value,
+                                  alert_type=condition.alert_type,
                                   threshold=condition.threshold)
                     return False
 
                 # 新しいアラートを追加
                 alert = Alert(
                     stock_code=condition.stock_code,
-                    alert_type=condition.alert_type.value,
+                    alert_type=condition.alert_type,
                     threshold=condition.threshold,
                     memo=condition.memo,
                     is_active=True,
@@ -383,7 +373,7 @@ class WatchlistManager:
 
                 log_business_event("alert_added",
                                  stock_code=condition.stock_code,
-                                 alert_type=condition.alert_type.value,
+                                 alert_type=condition.alert_type,
                                  threshold=condition.threshold)
                 return True
 
@@ -391,7 +381,7 @@ class WatchlistManager:
             log_error_with_context(e, {
                 "operation": "add_alert",
                 "stock_code": condition.stock_code,
-                "alert_type": condition.alert_type.value
+                "alert_type": condition.alert_type
             })
             return False
 
@@ -416,7 +406,7 @@ class WatchlistManager:
                     .filter(
                         and_(
                             Alert.stock_code == stock_code,
-                            Alert.alert_type == alert_type.value,
+                            Alert.alert_type == alert_type,
                             Alert.threshold == threshold,
                         )
                     )
@@ -427,13 +417,13 @@ class WatchlistManager:
                     session.delete(alert)
                     log_business_event("alert_removed",
                                      stock_code=stock_code,
-                                     alert_type=alert_type.value,
+                                     alert_type=alert_type,
                                      threshold=threshold)
                     return True
                 else:
                     logger.warning("Alert not found for removal",
                                   stock_code=stock_code,
-                                  alert_type=alert_type.value,
+                                  alert_type=alert_type,
                                   threshold=threshold)
                     return False
 
@@ -441,7 +431,7 @@ class WatchlistManager:
             log_error_with_context(e, {
                 "operation": "remove_alert",
                 "stock_code": stock_code,
-                "alert_type": alert_type.value,
+                "alert_type": alert_type,
                 "threshold": threshold
             })
             return False
@@ -618,19 +608,19 @@ class WatchlistManager:
         threshold = alert["threshold"]
 
         try:
-            if alert_type == AlertType.PRICE_ABOVE.value:
+            if alert_type == AlertType.PRICE_ABOVE:
                 return price_data["current_price"] > threshold
 
-            elif alert_type == AlertType.PRICE_BELOW.value:
+            elif alert_type == AlertType.PRICE_BELOW:
                 return price_data["current_price"] < threshold
 
-            elif alert_type == AlertType.CHANGE_PERCENT_UP.value:
+            elif alert_type == AlertType.CHANGE_PERCENT_UP:
                 return price_data.get("change_percent", 0) > threshold
 
-            elif alert_type == AlertType.CHANGE_PERCENT_DOWN.value:
+            elif alert_type == AlertType.CHANGE_PERCENT_DOWN:
                 return price_data.get("change_percent", 0) < threshold
 
-            elif alert_type == AlertType.VOLUME_SPIKE.value:
+            elif alert_type == AlertType.VOLUME_SPIKE:
                 # 出来高が平均の何倍かをチェック（簡易版）
                 volume = price_data.get("volume", 0)
                 # 実際の実装では過去平均出来高と比較すべき

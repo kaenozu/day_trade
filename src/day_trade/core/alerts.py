@@ -27,29 +27,13 @@ except ImportError:
 
 from ..analysis.indicators import TechnicalIndicators
 from ..analysis.patterns import ChartPatternRecognizer
-from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
+from ..models.enums import AlertType
 from ..utils.logging_config import (
     get_context_logger,
 )
 
 logger = get_context_logger(__name__)
-
-
-class AlertType(Enum):
-    """アラートタイプ"""
-
-    PRICE_ABOVE = "price_above"  # 価格上限突破
-    PRICE_BELOW = "price_below"  # 価格下限突破
-    CHANGE_PERCENT_UP = "change_percent_up"  # 上昇率
-    CHANGE_PERCENT_DOWN = "change_percent_down"  # 下落率
-    VOLUME_SPIKE = "volume_spike"  # 出来高急増
-    RSI_OVERBOUGHT = "rsi_overbought"  # RSI買われすぎ
-    RSI_OVERSOLD = "rsi_oversold"  # RSI売られすぎ
-    MACD_SIGNAL = "macd_signal"  # MACDシグナル
-    BOLLINGER_BREAKOUT = "bollinger_breakout"  # ボリンジャーバンド突破
-    PATTERN_DETECTED = "pattern_detected"  # チャートパターン検出
-    CUSTOM_CONDITION = "custom_condition"  # カスタム条件
 
 
 class AlertPriority(Enum):
@@ -276,15 +260,14 @@ class AlertManager:
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
-        watchlist_manager: Optional[WatchlistManager] = None,
     ):
         """
         Args:
             stock_fetcher: 株価データ取得インスタンス
-            watchlist_manager: ウォッチリスト管理インスタンス
         """
+        from ..core.watchlist import WatchlistManager
         self.stock_fetcher = stock_fetcher or StockFetcher()
-        self.watchlist_manager = watchlist_manager
+        self.watchlist_manager = WatchlistManager()
         self.technical_indicators = TechnicalIndicators()
         self.pattern_recognizer = ChartPatternRecognizer()
         self.notification_handler = NotificationHandler()
