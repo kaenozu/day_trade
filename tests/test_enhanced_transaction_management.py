@@ -193,8 +193,8 @@ class TestEnhancedTransactionManager:
 
     def test_transaction_timeout(self):
         """トランザクションタイムアウトのテスト"""
-        with pytest.raises(OperationalError):  # タイムアウトエラーが期待される
-            with self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
+        with pytest.raises(OperationalError), \
+             self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
                 time.sleep(0.2)  # タイムアウトを超過
 
     def test_readonly_transaction(self):
@@ -261,8 +261,8 @@ class TestEnhancedTransactionManager:
             mock_session.close = Mock()
             mock_get_session.return_value = mock_session
 
-            with pytest.raises(RuntimeError):  # Context2 failed例外
-                with self.enhanced_manager.distributed_transaction([context1, context2]):
+            with pytest.raises(RuntimeError), \
+                 self.enhanced_manager.distributed_transaction([context1, context2]):
                     pass
 
         assert "context1" in results
@@ -306,8 +306,8 @@ class TestTransactionPatterns:
 
         def test_operation():
             nonlocal executed_count
-            with db_manager.session_scope() as session:
-                with TransactionPatterns.idempotent_operation(operation_key, session):
+            with db_manager.session_scope() as session, \
+                 TransactionPatterns.idempotent_operation(operation_key, session):
                     executed_count += 1
 
         # 同じ操作を複数回実行
@@ -346,8 +346,8 @@ class TestTransactionPatterns:
             {"id": 3, "name": "record3"}
         ]
 
-        with db_manager.session_scope() as session:
-            with patch.object(session, 'query') as mock_query:
+        with db_manager.session_scope() as session, \
+             patch.object(session, 'query') as mock_query:
                 # 既存レコードなしとして模擬
                 mock_query.return_value.filter_by.return_value.first.return_value = None
                 with patch.object(session, 'add') as mock_add:
@@ -386,8 +386,8 @@ class TestTransactionPatterns:
         # 異常ケース
         compensation_calls.clear()
 
-        with pytest.raises(RuntimeError):
-            with TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
+        with pytest.raises(RuntimeError), \
+             TransactionPatterns.saga_transaction_pattern(compensation_steps) as executed_steps:
                 executed_steps.append(0)
                 executed_steps.append(1)
                 raise RuntimeError("Business error")

@@ -182,8 +182,8 @@ class TestDatabaseManager:
             session.add(stock1)
 
         # 重複エラーが発生することを確認（アプリケーション固有の例外型を指定）
-        with pytest.raises(DatabaseIntegrityError):  # 整合性エラーはDatabaseIntegrityErrorにラップされる
-            with test_db_manager.session_scope() as session:
+        with pytest.raises(DatabaseIntegrityError), \
+             test_db_manager.session_scope() as session:
                 stock2 = Stock(code="7203", name="トヨタ自動車（重複）")
                 session.add(stock2)
 

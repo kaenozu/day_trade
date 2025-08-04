@@ -472,7 +472,7 @@ class AutoOptimizer:
 
             # 結果を統合してランキング
             symbol_scores = {}
-            for strategy, results in screening_results.items():
+            for _strategy, results in screening_results.items():
                 for result in results:
                     symbol = result["symbol"]
                     score = result["score"]
