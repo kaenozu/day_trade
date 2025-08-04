@@ -57,7 +57,7 @@ runs:
         echo "🛡️ Running Safety check for dependency vulnerabilities..."
 
         set +e  # Continue on error
-        safety check --json --output safety-report.json
+        safety check --json --output json > safety-report.json
         safety_exit_code=$?
         set -e
 
