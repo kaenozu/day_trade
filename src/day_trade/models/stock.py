@@ -6,7 +6,7 @@
 - データベース固有オプションの削除（クロスプラットフォーム対応）
 - 責務分離の改善（モデル定義に特化）
 """
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
@@ -33,6 +33,7 @@ class Stock(BaseModel):
     """銘柄マスタ"""
 
     __tablename__ = "stocks"
+    __table_args__ = {'extend_existing': True}
 
     code = Column(String(10), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=False)
@@ -98,6 +99,7 @@ class PriceData(BaseModel):
         Index("idx_price_stock_close", "stock_code", "close"),  # 価格検索用
         Index("idx_price_volume", "volume"),  # 出来高検索用
         Index("idx_price_datetime_desc", "datetime"),  # 時系列ソート用
+        {'extend_existing': True}
     )
 
     @classmethod
@@ -128,7 +130,7 @@ class PriceData(BaseModel):
 
     @classmethod
     def get_price_range(
-        cls, session: Session, stock_code: str, start_date: datetime, end_date: datetime
+        cls, session: Session, stock_code: str, start_date: dt, end_date: dt
     ) -> List["PriceData"]:
         """指定期間の価格データを効率的に取得（時系列順）"""
         return (
@@ -149,7 +151,7 @@ class PriceData(BaseModel):
         volume_threshold: float = 2.0,
         days_back: int = 20,
         limit: int = 100,
-        reference_date: Optional[datetime] = None,
+        reference_date: Optional[dt] = None,
     ) -> List["PriceData"]:
         """
         出来高急増銘柄を効率的に検出（設定可能化対応）
@@ -161,7 +163,7 @@ class PriceData(BaseModel):
             limit: 取得件数制限
             reference_date: 基準日（Noneの場合は現在日時を使用）
         """
-        base_date = reference_date or datetime.now()
+        base_date = reference_date or dt.now()
         cutoff_date = base_date - timedelta(days=days_back)
 
         # 平均出来高を計算するサブクエリ
@@ -209,6 +211,7 @@ class Trade(BaseModel):
         Index("idx_trade_datetime_desc", "trade_datetime"),  # 時系列ソート用
         Index("idx_trade_stock_type", "stock_code", "trade_type"),  # 複合検索用
         Index("idx_trade_price", "price"),  # 価格範囲検索用
+        {'extend_existing': True}
     )
 
     @property
@@ -232,7 +235,7 @@ class Trade(BaseModel):
 
     @classmethod
     def get_portfolio_summary(
-        cls, session: Session, start_date: Optional[datetime] = None
+        cls, session: Session, start_date: Optional[dt] = None
     ) -> Dict[str, Any]:
         """
         ポートフォリオサマリーを効率的に計算
@@ -287,7 +290,7 @@ class Trade(BaseModel):
         cls, session: Session, days: int = 30, limit: int = 100
     ) -> List["Trade"]:
         """最近の取引履歴を効率的に取得"""
-        cutoff_date = datetime.now() - timedelta(days=days)
+        cutoff_date = dt.now() - timedelta(days=days)
         return (
             session.query(cls)
             .filter(cls.trade_datetime >= cutoff_date)
@@ -313,7 +316,7 @@ class Trade(BaseModel):
             quantity=quantity,
             price=price,
             commission=commission,
-            trade_datetime=datetime.now(),
+            trade_datetime=dt.now(),
             memo=memo,
         )
         session.add(trade)
@@ -337,7 +340,7 @@ class Trade(BaseModel):
             quantity=quantity,
             price=price,
             commission=commission,
-            trade_datetime=datetime.now(),
+            trade_datetime=dt.now(),
             memo=memo,
         )
         session.add(trade)
@@ -349,6 +352,7 @@ class WatchlistItem(BaseModel):
     """ウォッチリストアイテム"""
 
     __tablename__ = "watchlist_items"
+    __table_args__ = {'extend_existing': True}
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     group_name = Column(String(50), default="default")
@@ -368,6 +372,7 @@ class Alert(BaseModel):
     """アラート設定"""
 
     __tablename__ = "alerts"
+    __table_args__ = {'extend_existing': True}
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     alert_type = Column(Enum(AlertType), nullable=False)
