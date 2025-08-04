@@ -1,15 +1,20 @@
 """
-銘柄関連のデータベースモデル
+銘柄関連のデータベースモデル（改善版）
+
+改善点:
+- 金融データのFloat → DECIMAL型への変更（計算精度向上）
+- データベース固有オプションの削除（クロスプラットフォーム対応）
+- 責務分離の改善（モデル定義に特化）
 """
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
     Enum,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -17,6 +22,7 @@ from sqlalchemy import (
     desc,
     func,
 )
+from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import Session, relationship
 
 from .base import BaseModel
@@ -76,10 +82,10 @@ class PriceData(BaseModel):
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     datetime = Column(DateTime, nullable=False)
-    open = Column(Float)
-    high = Column(Float)
-    low = Column(Float)
-    close = Column(Float, nullable=False)
+    open = Column(DECIMAL(precision=10, scale=2))
+    high = Column(DECIMAL(precision=10, scale=2))
+    low = Column(DECIMAL(precision=10, scale=2))
+    close = Column(DECIMAL(precision=10, scale=2), nullable=False)
     volume = Column(Integer)
 
     # リレーション
@@ -91,9 +97,7 @@ class PriceData(BaseModel):
         Index("idx_price_datetime", "datetime"),
         Index("idx_price_stock_close", "stock_code", "close"),  # 価格検索用
         Index("idx_price_volume", "volume"),  # 出来高検索用
-        Index(
-            "idx_price_datetime_desc", "datetime", postgresql_using="btree"
-        ),  # 時系列ソート用
+        Index("idx_price_datetime_desc", "datetime"),  # 時系列ソート用
     )
 
     @classmethod
@@ -145,9 +149,20 @@ class PriceData(BaseModel):
         volume_threshold: float = 2.0,
         days_back: int = 20,
         limit: int = 100,
+        reference_date: Optional[datetime] = None,
     ) -> List["PriceData"]:
-        """出来高急増銘柄を効率的に検出"""
-        cutoff_date = datetime.now() - timedelta(days=days_back)
+        """
+        出来高急増銘柄を効率的に検出（設定可能化対応）
+
+        Args:
+            session: データベースセッション
+            volume_threshold: 出来高倍率の閾値
+            days_back: 遡る日数
+            limit: 取得件数制限
+            reference_date: 基準日（Noneの場合は現在日時を使用）
+        """
+        base_date = reference_date or datetime.now()
+        cutoff_date = base_date - timedelta(days=days_back)
 
         # 平均出来高を計算するサブクエリ
         avg_volume_sq = (
@@ -163,7 +178,7 @@ class PriceData(BaseModel):
             .join(avg_volume_sq, cls.stock_code == avg_volume_sq.c.stock_code)
             .filter(
                 cls.volume > avg_volume_sq.c.avg_volume * volume_threshold,
-                cls.datetime >= datetime.now() - timedelta(days=1),
+                cls.datetime >= base_date - timedelta(days=1),
             )
             .order_by(desc(cls.volume))
             .limit(limit)
@@ -179,8 +194,8 @@ class Trade(BaseModel):
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     trade_type = Column(Enum(TradeType), nullable=False)
     quantity = Column(Integer, nullable=False)
-    price = Column(Float, nullable=False)
-    commission = Column(Float, default=0)
+    price = Column(DECIMAL(precision=10, scale=2), nullable=False)
+    commission = Column(DECIMAL(precision=8, scale=2), default=0)
     trade_datetime = Column(DateTime, nullable=False)
     memo = Column(String(500))
 
@@ -191,26 +206,40 @@ class Trade(BaseModel):
     __table_args__ = (
         Index("idx_trade_stock_datetime", "stock_code", "trade_datetime"),
         Index("idx_trade_type", "trade_type"),
-        Index(
-            "idx_trade_datetime_desc", "trade_datetime", postgresql_using="btree"
-        ),  # 時系列ソート用
+        Index("idx_trade_datetime_desc", "trade_datetime"),  # 時系列ソート用
         Index("idx_trade_stock_type", "stock_code", "trade_type"),  # 複合検索用
         Index("idx_trade_price", "price"),  # 価格範囲検索用
     )
 
     @property
-    def total_amount(self):
-        """取引総額（手数料込み）"""
+    def total_amount(self) -> Decimal:
+        """
+        取引総額（手数料込み）
+
+        Returns:
+            Decimal: 取引総額（DECIMAL型で精度を保持）
+        """
+        if not self.price or not self.quantity:
+            return Decimal('0')
+
+        base_amount = Decimal(str(self.price)) * Decimal(str(self.quantity))
+        commission = Decimal(str(self.commission)) if self.commission else Decimal('0')
+
         if self.trade_type == TradeType.BUY:
-            return self.price * self.quantity + self.commission
-        else:  # sell
-            return self.price * self.quantity - self.commission
+            return base_amount + commission
+        else:  # SELL
+            return base_amount - commission
 
     @classmethod
     def get_portfolio_summary(
         cls, session: Session, start_date: Optional[datetime] = None
     ) -> Dict[str, Any]:
-        """ポートフォリオサマリーを効率的に計算"""
+        """
+        ポートフォリオサマリーを効率的に計算
+
+        注意: 複雑なビジネスロジックを含むため、将来的には
+        PortfolioManager または TradeAnalyzer クラスへの移行を推奨
+        """
         query = session.query(cls)
         if start_date:
             query = query.filter(cls.trade_datetime >= start_date)
@@ -342,7 +371,7 @@ class Alert(BaseModel):
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     alert_type = Column(Enum(AlertType), nullable=False)
-    threshold = Column(Float, nullable=False)
+    threshold = Column(DECIMAL(precision=10, scale=2), nullable=False)
     is_active = Column(Boolean, default=True)
     last_triggered = Column(DateTime)
     memo = Column(String(200))
