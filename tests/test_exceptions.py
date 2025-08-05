@@ -15,6 +15,7 @@ from src.day_trade.utils.exceptions import (
     RateLimitError,
     ResourceNotFoundError,
     ServerError,
+    TimeoutError as DayTradeTimeoutError,
     handle_database_exception,
     handle_network_exception,
 )
@@ -345,3 +346,199 @@ class TestNetworkExceptionHandler:
         assert isinstance(result, AuthenticationError)
         assert "unauthorized" in result.message
         assert result.error_code == "API_AUTH_ERROR"
+
+    def test_handle_timeout_error(self):
+        """タイムアウトエラーの処理テスト"""
+        try:
+            from requests.exceptions import Timeout as ReqTimeout
+
+            mock_exc = ReqTimeout("request timeout")
+        except ImportError:
+            import sys
+            from unittest.mock import MagicMock, Mock
+
+            mock_exc = Mock()
+            mock_exc.__class__ = type("Timeout", (Exception,), {})
+            mock_exc.__class__.__module__ = "requests.exceptions"
+            mock_exc.__str__ = lambda: "request timeout"
+            mock_req_exc = MagicMock()
+            mock_req_exc.Timeout = mock_exc.__class__
+            sys.modules["requests.exceptions"] = mock_req_exc
+
+        result = handle_network_exception(mock_exc)
+
+        assert isinstance(result, DayTradeTimeoutError)
+        assert "request timeout" in result.message
+        assert result.error_code == "NETWORK_TIMEOUT_ERROR"
+
+    def test_handle_unknown_http_error(self):
+        """不明なHTTPエラーの処理テスト（その他のステータスコード）"""
+        try:
+            from unittest.mock import Mock
+
+            from requests.exceptions import HTTPError as ReqHTTPError
+
+            mock_exc = ReqHTTPError("unknown http error")
+            mock_response = Mock()
+            mock_response.status_code = 422  # その他のステータスコード
+            mock_exc.response = mock_response
+        except ImportError:
+            import sys
+            from unittest.mock import MagicMock, Mock
+
+            mock_exc = Mock()
+            mock_exc.__class__ = type("HTTPError", (Exception,), {})
+            mock_exc.__class__.__module__ = "requests.exceptions"
+            mock_exc.__str__ = lambda: "unknown http error"
+            mock_response = Mock()
+            mock_response.status_code = 422
+            mock_exc.response = mock_response
+            mock_req_exc = MagicMock()
+            mock_req_exc.HTTPError = mock_exc.__class__
+            sys.modules["requests.exceptions"] = mock_req_exc
+
+        result = handle_network_exception(mock_exc)
+
+        assert isinstance(result, APIError)
+        assert "unknown http error" in result.message
+        assert result.error_code == "API_HTTP_ERROR"
+        assert result.details["status_code"] == 422
+
+    def test_handle_unknown_network_error(self):
+        """不明なネットワークエラーの処理テスト"""
+        try:
+            from requests.exceptions import RequestException
+
+            mock_exc = RequestException("unknown network error")
+        except ImportError:
+            import sys
+            from unittest.mock import MagicMock, Mock
+
+            mock_exc = Mock()
+            mock_exc.__class__ = type("RequestException", (Exception,), {})
+            mock_exc.__class__.__module__ = "requests.exceptions"
+            mock_exc.__str__ = lambda: "unknown network error"
+            mock_req_exc = MagicMock()
+            mock_req_exc.RequestException = mock_exc.__class__
+            sys.modules["requests.exceptions"] = mock_req_exc
+
+        result = handle_network_exception(mock_exc)
+
+        assert isinstance(result, NetworkError)
+        assert "unknown network error" in result.message
+        assert result.error_code == "NETWORK_UNKNOWN_ERROR"
+
+
+class TestDatabaseExceptionHandlerAdditional:
+    """データベース例外ハンドラーの追加テスト"""
+
+    def test_handle_unknown_database_error(self):
+        """不明なデータベースエラーの処理テスト"""
+        try:
+            from sqlalchemy.exc import SQLAlchemyError
+
+            mock_exc = SQLAlchemyError("unknown database error")
+        except ImportError:
+            import sys
+            from unittest.mock import MagicMock, Mock
+
+            mock_exc = Mock()
+            mock_exc.__class__ = type("SQLAlchemyError", (Exception,), {})
+            mock_exc.__class__.__module__ = "sqlalchemy.exc"
+            mock_exc.__str__ = lambda: "unknown database error"
+            mock_sa_exc = MagicMock()
+            mock_sa_exc.SQLAlchemyError = mock_exc.__class__
+            # 既知の例外クラスではないことを確認
+            mock_sa_exc.IntegrityError = type("IntegrityError", (Exception,), {})
+            mock_sa_exc.OperationalError = type("OperationalError", (Exception,), {})
+            mock_sa_exc.DisconnectionError = type("DisconnectionError", (Exception,), {})
+            mock_sa_exc.TimeoutError = type("TimeoutError", (Exception,), {})
+            sys.modules["sqlalchemy.exc"] = mock_sa_exc
+
+        result = handle_database_exception(mock_exc)
+
+        assert isinstance(result, DatabaseError)
+        assert "unknown database error" in result.message
+        assert result.error_code == "DB_UNKNOWN_ERROR"
+
+
+class TestAdditionalExceptionClasses:
+    """追加の例外クラスのテスト"""
+
+    def test_all_exception_classes_instantiation(self):
+        """全ての例外クラスのインスタンス化テスト"""
+        from src.day_trade.utils.exceptions import (
+            AlertError,
+            AnalysisError,
+            BacktestError,
+            CacheError,
+            ConfigurationError,
+            DataError,
+            DataNotFoundError,
+            FileOperationError,
+            IndicatorCalculationError,
+            PatternRecognitionError,
+            PortfolioError,
+            SignalGenerationError,
+            TimeoutError as DayTradeTimeoutError2,
+            TradingError,
+            ValidationError,
+        )
+
+        # 各例外クラスをインスタンス化してテスト
+        exceptions_to_test = [
+            (AlertError, "アラートエラー"),
+            (AnalysisError, "分析エラー"),
+            (BacktestError, "バックテストエラー"),
+            (CacheError, "キャッシュエラー"),
+            (ConfigurationError, "設定エラー"),
+            (DataError, "データエラー"),
+            (DataNotFoundError, "データ未検出エラー"),
+            (FileOperationError, "ファイル操作エラー"),
+            (IndicatorCalculationError, "指標計算エラー"),
+            (PatternRecognitionError, "パターン認識エラー"),
+            (PortfolioError, "ポートフォリオエラー"),
+            (SignalGenerationError, "シグナル生成エラー"),
+            (DayTradeTimeoutError2, "タイムアウトエラー"),
+            (TradingError, "取引エラー"),
+            (ValidationError, "検証エラー"),
+        ]
+
+        for exception_class, message in exceptions_to_test:
+            exc = exception_class(message)
+            assert str(exc) == message
+            assert isinstance(exc, DayTradeError)
+
+    def test_exception_inheritance_hierarchy(self):
+        """例外の継承階層の詳細テスト"""
+        from src.day_trade.utils.exceptions import (
+            AnalysisError,
+            BacktestError,
+            DataError,
+            DataNotFoundError,
+            IndicatorCalculationError,
+            PatternRecognitionError,
+            SignalGenerationError,
+            ValidationError,
+        )
+
+        # データ関連例外の継承
+        data_not_found = DataNotFoundError("データなし")
+        assert isinstance(data_not_found, DataError)
+        assert isinstance(data_not_found, DayTradeError)
+
+        validation_error = ValidationError("検証失敗")
+        assert isinstance(validation_error, DataError)
+        assert isinstance(validation_error, DayTradeError)
+
+        # 分析関連例外の継承
+        analysis_exceptions = [
+            IndicatorCalculationError("指標計算失敗"),
+            PatternRecognitionError("パターン認識失敗"),
+            BacktestError("バックテスト失敗"),
+            SignalGenerationError("シグナル生成失敗"),
+        ]
+
+        for exc in analysis_exceptions:
+            assert isinstance(exc, AnalysisError)
+            assert isinstance(exc, DayTradeError)

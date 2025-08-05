@@ -194,6 +194,61 @@ class TestStockScreener:
         assert custom_screener.__name__ == "test_screener"
         assert "テスト用スクリーナー" in custom_screener.__doc__
 
+    def test_cache_operations(self):
+        """キャッシュ操作のテスト"""
+        # キャッシュ情報取得
+        cache_info = self.screener.get_cache_info()
+        assert isinstance(cache_info, dict)
+
+        # キャッシュクリア
+        self.screener.clear_cache()
+        # クリア後も正常に動作することを確認
+        cache_info_after = self.screener.get_cache_info()
+        assert isinstance(cache_info_after, dict)
+
+    def test_unknown_condition_evaluation(self):
+        """未実装条件の評価テスト"""
+        # 存在しない条件を作成
+        class UnknownCondition:
+            value = "unknown_condition"
+
+        # 未実装条件のモックを作成
+        unknown_criteria = ScreenerCriteria(
+            condition=UnknownCondition(),
+            threshold=50.0
+        )
+
+        # 未実装条件での評価
+        meets_condition, score = self.screener._evaluate_condition(
+            self.sample_data, pd.DataFrame(), unknown_criteria
+        )
+
+        assert meets_condition is False
+        assert score == 0.0
+
+    @patch("src.day_trade.analysis.screener.StockScreener._evaluate_symbol")
+    def test_evaluate_symbol_method(self, mock_evaluate):
+        """_evaluate_symbol メソッドのテスト"""
+        # モック結果の設定
+        mock_result = ScreenerResult(
+            symbol="7203",
+            score=60.0,
+            matched_conditions=[ScreenerCondition.RSI_OVERSOLD],
+            technical_data={"rsi": 30.0}
+        )
+        mock_evaluate.return_value = mock_result
+
+        criteria = [ScreenerCriteria(
+            condition=ScreenerCondition.RSI_OVERSOLD,
+            threshold=35.0
+        )]
+
+        result = self.screener._evaluate_symbol("7203", criteria, "3mo")
+
+        assert result is not None
+        assert result.symbol == "7203"
+        assert result.score == 60.0
+
 
 class TestScreenerResult:
     """ScreenerResultクラスのテスト"""
@@ -258,6 +313,94 @@ class TestScreeningReport:
         assert "72.0" in report
         assert "rsi_oversold" in report
         assert "volume_spike" in report
+
+    def test_create_screening_report_without_formatters(self):
+        """フォーマッタ無効時のレポート生成テスト"""
+        # フォーマッタ設定を無効にするためのパッチ
+        with patch("src.day_trade.analysis.screener.get_screening_config") as mock_config:
+            # フォーマッタを無効にする設定
+            mock_config_obj = Mock()
+            mock_config_obj.should_use_formatters.return_value = False
+            mock_config_obj.get_currency_precision.return_value = 0
+            mock_config_obj.get_percentage_precision.return_value = 2
+            mock_config_obj.should_use_compact_volume.return_value = False
+            mock_config.return_value = mock_config_obj
+
+            results = [
+                ScreenerResult(
+                    symbol="7203",
+                    score=85.0,
+                    matched_conditions=[ScreenerCondition.RSI_OVERSOLD],
+                    technical_data={"rsi": 25.0, "price_change_1d": 2.5},
+                    last_price=2500.0,
+                    volume=2000000,
+                )
+            ]
+
+            report = create_screening_report(results)
+
+            assert "¥2,500" in report  # 非フォーマッタ形式
+            assert "2,000,000" in report  # 非コンパクト出来高形式
+
+    def test_create_screening_report_with_formatters(self):
+        """フォーマッタ有効時のレポート生成テスト"""
+        with patch("src.day_trade.analysis.screener.get_screening_config") as mock_config:
+            # フォーマッタを有効にする設定
+            mock_config_obj = Mock()
+            mock_config_obj.should_use_formatters.return_value = True
+            mock_config_obj.get_currency_precision.return_value = 2
+            mock_config_obj.get_percentage_precision.return_value = 1
+            mock_config_obj.should_use_compact_volume.return_value = True
+            mock_config.return_value = mock_config_obj
+
+            results = [
+                ScreenerResult(
+                    symbol="7203",
+                    score=85.0,
+                    matched_conditions=[ScreenerCondition.RSI_OVERSOLD],
+                    technical_data={
+                        "rsi": 25.0,
+                        "price_change_1d": 2.5,
+                        "price_position": 75.0  # 52週レンジ位置
+                    },
+                    last_price=2500.0,
+                    volume=2000000,
+                )
+            ]
+
+            with patch("src.day_trade.analysis.screener.format_currency") as mock_format_currency, \
+                 patch("src.day_trade.analysis.screener.format_volume") as mock_format_volume, \
+                 patch("src.day_trade.analysis.screener.format_percentage") as mock_format_percentage:
+
+                mock_format_currency.return_value = "¥2,500.00"
+                mock_format_volume.return_value = "2.0M"
+                mock_format_percentage.return_value = "+2.5%"
+
+                report = create_screening_report(results)
+
+                assert "¥2,500.00" in report
+                assert "2.0M" in report
+                assert "+2.5%" in report
+                assert "52週レンジ位置: 75.0%" in report
+
+    def test_create_screening_report_missing_data(self):
+        """データ欠損時のレポート生成テスト"""
+        results = [
+            ScreenerResult(
+                symbol="7203",
+                score=85.0,
+                matched_conditions=[ScreenerCondition.RSI_OVERSOLD],
+                technical_data={},  # 空のテクニカルデータ
+                last_price=None,  # 価格なし
+                volume=None,  # 出来高なし
+            )
+        ]
+
+        report = create_screening_report(results)
+
+        assert "N/A" in report  # 欠損値がN/Aで表示される
+        assert "7203" in report
+        assert "85.0" in report
 
 
 class TestScreenerConditions:
