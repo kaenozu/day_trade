@@ -102,12 +102,40 @@ class ConfigManager:
 
     def save_config(self):
         """設定ファイルを保存"""
-        # ディレクトリが存在しない場合は作成
-        self.config_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            # ディレクトリが存在しない場合は作成
+            self.config_dir.mkdir(parents=True, exist_ok=True)
 
-        # 設定を保存
-        with open(self.config_path, "w", encoding="utf-8") as f:
-            json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
+            # 設定を保存
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
+
+            self.logger.info(
+                "設定ファイル保存成功",
+                config_path=str(self.config_path)
+            )
+
+        except PermissionError as e:
+            self.logger.error(
+                "設定ファイル保存失敗: 権限不足",
+                config_path=str(self.config_path),
+                error=str(e)
+            )
+            raise
+        except OSError as e:
+            self.logger.error(
+                "設定ファイル保存失敗: ディスク容量不足またはIO エラー",
+                config_path=str(self.config_path),
+                error=str(e)
+            )
+            raise
+        except Exception as e:
+            self.logger.error(
+                "設定ファイル保存失敗: 予期せぬエラー",
+                config_path=str(self.config_path),
+                error=str(e)
+            )
+            raise
 
     def update_config(self, updates: Dict[str, Any]):
         """設定を更新"""
@@ -159,15 +187,87 @@ class ConfigManager:
 
     def export_config(self, path: Path):
         """設定をエクスポート"""
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
+        try:
+            # パスの親ディレクトリが存在することを確認
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
+
+            self.logger.info(
+                "設定エクスポート成功",
+                export_path=str(path)
+            )
+
+        except PermissionError as e:
+            self.logger.error(
+                "設定エクスポート失敗: 権限不足",
+                export_path=str(path),
+                error=str(e)
+            )
+            raise
+        except OSError as e:
+            self.logger.error(
+                "設定エクスポート失敗: ディスク容量不足またはIO エラー",
+                export_path=str(path),
+                error=str(e)
+            )
+            raise
+        except Exception as e:
+            self.logger.error(
+                "設定エクスポート失敗: 予期せぬエラー",
+                export_path=str(path),
+                error=str(e)
+            )
+            raise
 
     def import_config(self, path: Path):
         """設定をインポート"""
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        self.config = AppConfig(**data)
-        self.save_config()
+        try:
+            # ファイルの存在確認
+            if not path.exists():
+                raise FileNotFoundError(f"インポートファイルが見つかりません: {path}")
+
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+
+            # データの検証
+            self.config = AppConfig(**data)
+            self.save_config()
+
+            self.logger.info(
+                "設定インポート成功",
+                import_path=str(path)
+            )
+
+        except FileNotFoundError as e:
+            self.logger.error(
+                "設定インポート失敗: ファイルが見つかりません",
+                import_path=str(path),
+                error=str(e)
+            )
+            raise
+        except PermissionError as e:
+            self.logger.error(
+                "設定インポート失敗: 権限不足",
+                import_path=str(path),
+                error=str(e)
+            )
+            raise
+        except json.JSONDecodeError as e:
+            self.logger.error(
+                "設定インポート失敗: JSONフォーマットエラー",
+                import_path=str(path),
+                error=str(e)
+            )
+            raise
+        except Exception as e:
+            self.logger.error(
+                "設定インポート失敗: 予期せぬエラー",
+                import_path=str(path),
+                error=str(e)
+            )
+            raise
 
 
 # グローバル設定インスタンス

@@ -32,6 +32,7 @@ from ..models.enums import AlertType
 from ..utils.logging_config import (
     get_context_logger,
 )
+from .alert_strategies import AlertStrategyFactory
 
 logger = get_context_logger(__name__)
 
@@ -274,6 +275,9 @@ class AlertManager:
         self.pattern_recognizer = ChartPatternRecognizer()
         self.notification_handler = NotificationHandler()
 
+        # アラート評価戦略ファクトリー
+        self.strategy_factory = AlertStrategyFactory(self.technical_indicators)
+
         # アラート管理
         self.alert_conditions: Dict[str, AlertCondition] = {}
         self.alert_history: List[AlertTrigger] = []
@@ -359,7 +363,7 @@ class AlertManager:
                 time.sleep(self.monitoring_interval)
 
     def check_all_alerts(self):
-        """全アラートのチェック"""
+        """全アラートのチェック（バルクデータ取得最適化版）"""
         active_conditions = [
             condition
             for condition in self.alert_conditions.values()
@@ -370,34 +374,117 @@ class AlertManager:
             return
 
         # 銘柄ごとにグループ化
-        symbols_to_check = set(condition.symbol for condition in active_conditions)
+        symbols_to_check = list(set(condition.symbol for condition in active_conditions))
 
-        for symbol in symbols_to_check:
-            try:
-                symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
-                self._check_symbol_alerts(symbol, symbol_conditions)
-            except Exception as e:
-                logger.error(
-                    f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
-                )
-
-    def _check_symbol_alerts(self, symbol: str, conditions: List[AlertCondition]):
-        """特定銘柄のアラートチェック"""
-        # 現在の市場データを取得
         try:
-            current_data = self.stock_fetcher.get_current_price(symbol)
+            # 全銘柄のデータを一括取得（パフォーマンス最適化）
+            bulk_data = self._fetch_bulk_market_data(symbols_to_check)
+
+            for symbol in symbols_to_check:
+                try:
+                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
+                    market_data = bulk_data.get(symbol)
+                    if market_data:
+                        self._check_symbol_alerts_with_data(symbol, symbol_conditions, market_data)
+                    else:
+                        logger.warning(f"銘柄 '{symbol}' の市場データが取得できませんでした")
+                except Exception as e:
+                    logger.error(
+                        f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
+                    )
+        except Exception as e:
+            logger.error(f"バルクデータ取得に失敗、個別取得にフォールバック: {e}")
+            # フォールバック：個別取得
+            for symbol in symbols_to_check:
+                try:
+                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
+                    self._check_symbol_alerts(symbol, symbol_conditions)
+                except Exception as e:
+                    logger.error(
+                        f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
+                    )
+
+    def _fetch_bulk_market_data(self, symbols: List[str]) -> Dict[str, Dict]:
+        """
+        複数銘柄の市場データを一括取得（パフォーマンス最適化）
+
+        Args:
+            symbols: 銘柄コードのリスト
+
+        Returns:
+            銘柄コード: 市場データ の辞書
+        """
+        bulk_data = {}
+
+        # 現在価格データの一括取得を試行
+        bulk_method = getattr(self.stock_fetcher, 'get_bulk_current_prices', None)
+        if bulk_method and callable(bulk_method):
+            try:
+                current_prices = bulk_method(symbols)
+                if current_prices and isinstance(current_prices, dict):
+                    for symbol, price_data in current_prices.items():
+                        bulk_data[symbol] = {
+                            'current_data': price_data,
+                            'historical_data': None  # 遅延読み込み
+                        }
+            except Exception as e:
+                logger.error(f"バルクデータ取得エラー: {e}")
+                # フォールバックして個別取得を実行
+                bulk_data = {}
+
+        # 一括取得が利用できない場合は個別取得
+        if not bulk_data:
+            for symbol in symbols:
+                try:
+                    current_data = self.stock_fetcher.get_current_price(symbol)
+                    if current_data:
+                        bulk_data[symbol] = {
+                            'current_data': current_data,
+                            'historical_data': None
+                        }
+                except Exception as e:
+                    logger.debug(f"個別データ取得失敗 ({symbol}): {e}")
+
+        return bulk_data
+
+    def _check_symbol_alerts_with_data(self, symbol: str, conditions: List[AlertCondition], market_data: Dict):
+        """
+        事前取得された市場データを使用してアラートチェック（最適化版）
+
+        Args:
+            symbol: 銘柄コード
+            conditions: アラート条件のリスト
+            market_data: 事前取得された市場データ
+        """
+        try:
+            current_data = market_data.get('current_data')
             if not current_data:
-                logger.warning(f"価格データ取得失敗: {symbol}")
+                logger.warning(f"価格データが不正: {symbol}")
                 return
 
             current_price = Decimal(str(current_data.get("current_price", 0)))
             volume = current_data.get("volume", 0)
             change_percent = current_data.get("change_percent", 0)
 
-            # 履歴データ（テクニカル指標用）
-            historical_data = self.stock_fetcher.get_historical_data(
-                symbol, period="1mo", interval="1d"
+            # 履歴データが必要な条件があるかチェック
+            needs_historical = any(
+                condition.alert_type in [
+                    AlertType.VOLUME_SPIKE,
+                    AlertType.RSI_OVERBOUGHT,
+                    AlertType.RSI_OVERSOLD,
+                    AlertType.CUSTOM_CONDITION
+                ] for condition in conditions
             )
+
+            historical_data = None
+            if needs_historical:
+                # 遅延読み込み：必要な場合のみ履歴データを取得
+                historical_data = market_data.get('historical_data')
+                if historical_data is None:
+                    historical_data = self.stock_fetcher.get_historical_data(
+                        symbol, period="1mo", interval="1d"
+                    )
+                    market_data['historical_data'] = historical_data  # キャッシュ
 
             for condition in conditions:
                 if self._should_check_condition(condition):
@@ -414,6 +501,27 @@ class AlertManager:
 
         except Exception as e:
             logger.error(
+                f"銘柄 '{symbol}' のアラート評価中にエラーが発生しました。詳細: {e}"
+            )
+
+    def _check_symbol_alerts(self, symbol: str, conditions: List[AlertCondition]):
+        """特定銘柄のアラートチェック（後方互換性用）"""
+        # 現在の市場データを取得
+        try:
+            current_data = self.stock_fetcher.get_current_price(symbol)
+            if not current_data:
+                logger.warning(f"価格データ取得失敗: {symbol}")
+                return
+
+            market_data = {
+                'current_data': current_data,
+                'historical_data': None
+            }
+
+            self._check_symbol_alerts_with_data(symbol, conditions, market_data)
+
+        except Exception as e:
+            logger.error(
                 f"銘柄 '{symbol}' のデータ処理中にエラーが発生しました。アラート条件の評価ができませんでした。詳細: {e}"
             )
 
@@ -425,93 +533,36 @@ class AlertManager:
         change_percent: float,
         historical_data: Optional[Any],
     ) -> Optional[AlertTrigger]:
-        """アラート条件の評価"""
+        """アラート条件の評価（戦略パターン使用）"""
 
         try:
-            current_value = None
-            message = ""
+            # 対応する戦略を取得
+            strategy = self.strategy_factory.get_strategy(condition.alert_type)
+            if not strategy:
+                logger.warning(f"未対応のアラートタイプ: {condition.alert_type}")
+                return None
 
-            if condition.alert_type == AlertType.PRICE_ABOVE:
-                current_value = current_price
-                if self._compare_values(
-                    current_price,
-                    condition.condition_value,
-                    condition.comparison_operator,
-                ):
-                    message = f"価格が {condition.condition_value} を上回りました (現在価格: ¥{current_price:,})"
+            # カスタムパラメーターにシンボルとカスタム関数を追加
+            custom_params = condition.custom_parameters.copy() if condition.custom_parameters else {}
+            custom_params["symbol"] = condition.symbol
+            if condition.custom_function:
+                custom_params["custom_function"] = condition.custom_function
+            if condition.description:
+                custom_params["description"] = condition.description
 
-            elif condition.alert_type == AlertType.PRICE_BELOW:
-                current_value = current_price
-                if self._compare_values(
-                    current_price,
-                    condition.condition_value,
-                    condition.comparison_operator,
-                ):
-                    message = f"価格が {condition.condition_value} を下回りました (現在価格: ¥{current_price:,})"
-
-            elif condition.alert_type == AlertType.CHANGE_PERCENT_UP:
-                current_value = change_percent
-                if change_percent >= float(condition.condition_value):
-                    message = f"上昇率が {condition.condition_value}% を超えました (現在: {change_percent:.2f}%)"
-
-            elif condition.alert_type == AlertType.CHANGE_PERCENT_DOWN:
-                current_value = change_percent
-                if change_percent <= float(condition.condition_value):
-                    message = f"下落率が {abs(float(condition.condition_value))}% を超えました (現在: {change_percent:.2f}%)"
-
-            elif condition.alert_type == AlertType.VOLUME_SPIKE:
-                if historical_data is not None and not historical_data.empty:
-                    avg_volume = (
-                        historical_data["Volume"].rolling(window=20).mean().iloc[-1]
-                    )
-                    volume_ratio = volume / avg_volume if avg_volume > 0 else 1
-                    current_value = volume_ratio
-
-                    if volume_ratio >= float(condition.condition_value):
-                        message = f"出来高急増を検出 (平均の {volume_ratio:.1f}倍: {volume:,})"
-
-            elif condition.alert_type == AlertType.RSI_OVERBOUGHT:
-                if historical_data is not None and not historical_data.empty:
-                    rsi = self.technical_indicators.calculate_rsi(
-                        historical_data["Close"]
-                    )
-                    if not rsi.empty:
-                        current_rsi = rsi.iloc[-1]
-                        current_value = current_rsi
-
-                        if current_rsi >= float(condition.condition_value):
-                            message = f"RSI買われすぎ水準 (RSI: {current_rsi:.1f})"
-
-            elif condition.alert_type == AlertType.RSI_OVERSOLD:
-                if historical_data is not None and not historical_data.empty:
-                    rsi = self.technical_indicators.calculate_rsi(
-                        historical_data["Close"]
-                    )
-                    if not rsi.empty:
-                        current_rsi = rsi.iloc[-1]
-                        current_value = current_rsi
-
-                        if current_rsi <= float(condition.condition_value):
-                            message = f"RSI売られすぎ水準 (RSI: {current_rsi:.1f})"
-
-            elif condition.alert_type == AlertType.CUSTOM_CONDITION:
-                if condition.custom_function:
-                    result = condition.custom_function(
-                        condition.symbol,
-                        current_price,
-                        volume,
-                        change_percent,
-                        historical_data,
-                        condition.custom_parameters,
-                    )
-                    if result:
-                        current_value = "Custom"
-                        message = (
-                            f"カスタム条件が満たされました: {condition.description}"
-                        )
+            # 戦略を実行してアラート条件を評価
+            is_triggered, message, current_value = strategy.evaluate(
+                condition_value=condition.condition_value,
+                current_price=current_price,
+                volume=volume,
+                change_percent=change_percent,
+                historical_data=historical_data,
+                comparison_operator=condition.comparison_operator,
+                custom_parameters=custom_params
+            )
 
             # トリガーを作成
-            if message:
+            if is_triggered and message:
                 return AlertTrigger(
                     alert_id=condition.alert_id,
                     symbol=condition.symbol,
@@ -539,7 +590,7 @@ class AlertManager:
         target: Union[Decimal, float, str],
         operator: str,
     ) -> bool:
-        """値の比較"""
+        """値の比較（後方互換性のため）"""
         try:
             current_val = float(current)
             target_val = float(target)
