@@ -1560,16 +1560,18 @@ class TestSignalConfidenceCalculation:
             signal_type=SignalType.BUY,
             strength=SignalStrength.MEDIUM,
             confidence=0.7,
-            timestamp=pd.Timestamp.now(),
+            reasons=["condition1", "condition2", "condition3"],
             conditions_met={
                 "condition1": True,
                 "condition2": True,
                 "condition3": True
-            }
+            },
+            timestamp=pd.Timestamp.now().to_pydatetime(),
+            price=Decimal("100.0")
         )
 
-        # 市場コンテキストなし
-        confidence = generator._calculate_confidence_score(signal)
+        # 市場コンテキストなしで検証
+        confidence = generator.validate_signal(signal)
 
         # 複数条件でボーナスが適用されることを確認
         assert confidence >= signal.confidence
@@ -1583,8 +1585,10 @@ class TestSignalConfidenceCalculation:
             signal_type=SignalType.BUY,
             strength=SignalStrength.STRONG,
             confidence=0.8,
-            timestamp=pd.Timestamp.now(),
-            conditions_met={"test_condition": True}
+            reasons=["test_condition"],
+            conditions_met={"test_condition": True},
+            timestamp=pd.Timestamp.now().to_pydatetime(),
+            price=Decimal("100.0")
         )
 
         # 上昇トレンドでのBUYシグナル
@@ -1593,7 +1597,7 @@ class TestSignalConfidenceCalculation:
             "trend_direction": "upward"
         }
 
-        confidence = generator._calculate_confidence_score(signal, market_context=market_context)
+        confidence = generator.validate_signal(signal, market_context=market_context)
 
         # トレンドフォローでボーナスが適用されることを確認
         assert isinstance(confidence, float)
@@ -1607,8 +1611,10 @@ class TestSignalConfidenceCalculation:
             signal_type=SignalType.BUY,
             strength=SignalStrength.MEDIUM,
             confidence=0.6,
-            timestamp=pd.Timestamp.now(),
-            conditions_met={"historical_test": True}
+            reasons=["historical_test"],
+            conditions_met={"historical_test": True},
+            timestamp=pd.Timestamp.now().to_pydatetime(),
+            price=Decimal("100.0")
         )
 
         # 簡単な履歴データ
@@ -1617,7 +1623,7 @@ class TestSignalConfidenceCalculation:
             "Strength": ["strong", "medium", "weak"]
         })
 
-        confidence = generator._calculate_confidence_score(
+        confidence = generator.validate_signal(
             signal,
             historical_performance=historical_performance
         )
