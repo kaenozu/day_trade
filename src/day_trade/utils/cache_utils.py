@@ -309,13 +309,12 @@ class CacheCircuitBreaker:
                     self._state = "HALF_OPEN"
                     self._half_open_calls = 0
 
-            elif self._state == "HALF_OPEN":
-                if self._half_open_calls >= self.half_open_max_calls:
-                    raise CacheCircuitBreakerError(
-                        "Circuit breaker HALF_OPEN limit exceeded",
-                        self._state,
-                        self._failure_count
-                    )
+            elif self._state == "HALF_OPEN" and self._half_open_calls >= self.half_open_max_calls:
+                raise CacheCircuitBreakerError(
+                    "Circuit breaker HALF_OPEN limit exceeded",
+                    self._state,
+                    self._failure_count
+                )
 
         try:
             result = func(*args, **kwargs)
@@ -1342,9 +1341,8 @@ def sanitize_cache_value(value: Any, config: Optional['CacheConfig'] = None) -> 
         import sys
 
         size = sys.getsizeof(value)
-        if size > config.max_value_size_bytes:
-            if config.enable_size_warnings and hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
-                logger.warning(f"Large cache value detected: {size} bytes (limit: {config.max_value_size_bytes})")
+        if size > config.max_value_size_bytes and config.enable_size_warnings and hasattr(logger, 'isEnabledFor') and logger.isEnabledFor(logging.WARNING):
+            logger.warning(f"Large cache value detected: {size} bytes (limit: {config.max_value_size_bytes})")
 
             # 設定によっては大きすぎる値をエラーとして扱う
             # 現在は警告のみだが、将来的にはCacheErrorを発生させることも可能

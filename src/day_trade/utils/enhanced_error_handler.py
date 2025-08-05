@@ -349,10 +349,10 @@ class EnhancedErrorHandler:
                     is_valid = False
                     break
                 # 空の値もチェック
-                if expected_type == str and not message_data[key].strip():
+                if expected_type is str and not message_data[key].strip():
                     is_valid = False
                     break
-                if expected_type == list and not message_data[key]:
+                if expected_type is list and not message_data[key]:
                     is_valid = False
                     break
 

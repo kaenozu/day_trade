@@ -1312,9 +1312,8 @@ class TestGenerateSignalsSeriesEdgeCases:
 
         # DataFrameまたはNoneまたはlistが返されることを確認
         assert isinstance(signals, (list, type(None), pd.DataFrame))
-        if signals is not None and hasattr(signals, '__len__'):
-            if isinstance(signals, (pd.DataFrame, list)):
-                assert len(signals) <= len(small_df)
+        if signals is not None and hasattr(signals, '__len__') and isinstance(signals, (pd.DataFrame, list)):
+            assert len(signals) <= len(small_df)
 
     def test_generate_signals_series_empty_dataframe(self):
         """空のDataFrameでの generate_signals_series テスト"""
@@ -1423,10 +1422,8 @@ class TestSignalGenerationLargeDataSeries:
         signals = generator.generate_signals_series(df, lookback_window=30)
 
         # 適切に処理されることを確認
-        if signals is not None and isinstance(signals, (list, pd.DataFrame)):
-            # ウィンドウサイズ分の制限があることを確認
-            if len(signals) > 0:
-                assert len(signals) <= len(df) - 30 + 1
+        if signals is not None and isinstance(signals, (list, pd.DataFrame)) and len(signals) > 0:
+            assert len(signals) <= len(df) - 30 + 1
 
 
 class TestTradingSignalDataClass:
