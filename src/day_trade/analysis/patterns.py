@@ -3,7 +3,7 @@
 価格データからチャートパターンを認識する
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,7 @@ class ChartPatternRecognizer:
                     "Dead_Cross": dead_cross,
                     "Golden_Confidence": golden_confidence.clip(0, 100),
                     "Dead_Confidence": dead_confidence.clip(0, 100),
-                }
+                }, index=df.index # indexを追加
             )
 
         except Exception as e:
@@ -228,7 +228,7 @@ class ChartPatternRecognizer:
                     "Downward_Strength": downward_strength,
                     "Upward_Confidence": upward_confidence,
                     "Downward_Confidence": downward_confidence,
-                }
+                }, index=df.index # indexを追加
             )
 
         except Exception as e:
@@ -326,7 +326,7 @@ class ChartPatternRecognizer:
         support_resistance_window: int = 20,
         breakout_lookback: int = 20,
         trend_window: int = 20,
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         全パターンを検出
 
