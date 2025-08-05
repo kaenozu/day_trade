@@ -452,12 +452,15 @@ class TestDatabaseIntegration:
             id=sample_user.id
         ).first()
 
-        # タイムゾーン情報が保持されている（SQLiteの制限で一時的にスキップ）
-        # assert retrieved_user.created_at.tzinfo == timezone.utc
-        # assert retrieved_user.updated_at.tzinfo == timezone.utc
-        # 代替として日時の存在を確認
-        assert retrieved_user.created_at is not None
-        assert retrieved_user.updated_at is not None
+        # タイムゾーン情報が保持されている（SQLiteの制限を考慮した堅牢な実装）
+        if retrieved_user.created_at.tzinfo is None:
+            # SQLiteの場合は、UTCとして扱われることを確認
+            assert retrieved_user.created_at.replace(tzinfo=timezone.utc) == original_created_at
+            assert retrieved_user.updated_at.replace(tzinfo=timezone.utc) == original_updated_at
+        else:
+            # 他のDBエンジンの場合は、正常にタイムゾーン情報が保持される
+            assert retrieved_user.created_at.tzinfo == timezone.utc
+            assert retrieved_user.updated_at.tzinfo == timezone.utc
 
     def test_decimal_precision(self, test_db_session):
         """Decimal精度の保持テスト"""
