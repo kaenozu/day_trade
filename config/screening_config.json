@@ -1,0 +1,130 @@
+{
+  "default_thresholds": {
+    "rsi_oversold": 30.0,
+    "rsi_overbought": 70.0,
+    "volume_spike": 2.0,
+    "strong_momentum": 0.05,
+    "bollinger_squeeze": 0.02,
+    "price_near_support": 0.03,
+    "price_near_resistance": 0.03
+  },
+  "default_lookback_days": {
+    "rsi_oversold": 20,
+    "rsi_overbought": 20,
+    "macd_bullish": 20,
+    "macd_bearish": 20,
+    "golden_cross": 20,
+    "dead_cross": 20,
+    "volume_spike": 20,
+    "strong_momentum": 20,
+    "bollinger_breakout": 20,
+    "bollinger_squeeze": 20,
+    "price_near_support": 20,
+    "price_near_resistance": 20,
+    "reversal_pattern": 20
+  },
+  "performance_settings": {
+    "max_workers": 5,
+    "cache_size": 100,
+    "data_period": "3mo",
+    "min_data_points": 30
+  },
+  "predefined_screeners": {
+    "growth": {
+      "description": "成長株スクリーナー",
+      "criteria": [
+        {
+          "condition": "strong_momentum",
+          "threshold": 0.1,
+          "weight": 2.0,
+          "description": "強い上昇トレンド"
+        },
+        {
+          "condition": "volume_spike",
+          "threshold": 1.5,
+          "weight": 1.5,
+          "description": "出来高増加"
+        },
+        {
+          "condition": "golden_cross",
+          "threshold": null,
+          "weight": 1.8,
+          "description": "ゴールデンクロス"
+        }
+      ]
+    },
+    "value": {
+      "description": "バリュー株スクリーナー",
+      "criteria": [
+        {
+          "condition": "rsi_oversold",
+          "threshold": 35,
+          "weight": 1.5,
+          "description": "過売り状態"
+        },
+        {
+          "condition": "price_near_support",
+          "threshold": 0.03,
+          "weight": 1.2,
+          "description": "サポートライン付近"
+        }
+      ]
+    },
+    "momentum": {
+      "description": "モメンタム株スクリーナー",
+      "criteria": [
+        {
+          "condition": "strong_momentum",
+          "threshold": 0.05,
+          "weight": 2.0,
+          "description": "モメンタム"
+        },
+        {
+          "condition": "volume_spike",
+          "threshold": 2.0,
+          "weight": 1.8,
+          "description": "出来高急増"
+        },
+        {
+          "condition": "bollinger_breakout",
+          "threshold": null,
+          "weight": 1.5,
+          "description": "ボリンジャーバンド突破"
+        }
+      ]
+    },
+    "reversal": {
+      "description": "反転株スクリーナー",
+      "criteria": [
+        {
+          "condition": "rsi_oversold",
+          "threshold": 30,
+          "weight": 1.8,
+          "description": "RSI過売り"
+        },
+        {
+          "condition": "reversal_pattern",
+          "threshold": null,
+          "weight": 2.0,
+          "description": "反転パターン"
+        },
+        {
+          "condition": "volume_spike",
+          "threshold": 1.5,
+          "weight": 1.3,
+          "description": "出来高増加"
+        }
+      ]
+    }
+  },
+  "52_week_calculation": {
+    "use_actual_52_weeks": true,
+    "fallback_to_available_data": true
+  },
+  "formatting": {
+    "use_formatters": true,
+    "currency_precision": 0,
+    "percentage_precision": 2,
+    "volume_compact": true
+  }
+}

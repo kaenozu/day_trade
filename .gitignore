@@ -147,6 +147,7 @@ day_trade.db
 !pyproject.toml
 !package.json
 !tsconfig.json
+!config/*.json
 .claude/settings.local.json
 
 # Demo and example output files
