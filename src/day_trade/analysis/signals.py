@@ -144,6 +144,41 @@ class SignalRulesConfig:
             "high_volatility_threshold", 0.05
         )
 
+    def get_volume_spike_settings(self) -> Dict[str, float]:
+        """出来高急増設定を取得"""
+        return self.config.get("volume_spike_settings", {
+            "volume_factor": 2.0,
+            "price_change_threshold": 0.02,
+            "confidence_base": 50.0,
+            "confidence_multiplier": 20.0
+        })
+
+    def get_rsi_thresholds(self) -> Dict[str, float]:
+        """RSI閾値を取得"""
+        return self.config.get("rsi_default_thresholds", {
+            "oversold": 30,
+            "overbought": 70
+        })
+
+    def get_macd_settings(self) -> Dict[str, float]:
+        """MACD設定を取得"""
+        return self.config.get("macd_default_settings", {
+            "lookback_period": 2,
+            "default_weight": 1.5
+        })
+
+    def get_pattern_breakout_settings(self) -> Dict[str, float]:
+        """パターンブレイクアウト設定を取得"""
+        return self.config.get("pattern_breakout_settings", {
+            "default_weight": 2.0
+        })
+
+    def get_cross_settings(self) -> Dict[str, float]:
+        """ゴールデン/デッドクロス設定を取得"""
+        return self.config.get("golden_dead_cross_settings", {
+            "default_weight": 2.0
+        })
+
 
 class SignalRule:
     """シグナルルールの基底クラス"""
@@ -510,11 +545,22 @@ class TradingSignalGenerator:
 
     def _load_default_buy_rules(self):
         """デフォルト買いルールを読み込み"""
+        # 設定ファイルからデフォルト値を取得
+        rsi_thresholds = self.config.get_rsi_thresholds()
+        macd_settings = self.config.get_macd_settings()
+        pattern_settings = self.config.get_pattern_breakout_settings()
+        cross_settings = self.config.get_cross_settings()
+
         multiplier = self.config.get_confidence_multiplier("rsi_oversold", 2.0)
         self.buy_rules = [
-            RSIOversoldRule(threshold=30, weight=1.0, confidence_multiplier=multiplier),
+            RSIOversoldRule(
+                threshold=rsi_thresholds["oversold"],
+                weight=1.0,
+                confidence_multiplier=multiplier
+            ),
             MACDCrossoverRule(
-                weight=1.5,
+                lookback=int(macd_settings["lookback_period"]),
+                weight=macd_settings["default_weight"],
                 angle_multiplier=self.config.get_confidence_multiplier(
                     "macd_angle", 20.0
                 ),
@@ -526,19 +572,28 @@ class TradingSignalGenerator:
                     "bollinger_deviation", 10.0
                 ),
             ),
-            PatternBreakoutRule(direction="upward", weight=2.0),
-            GoldenCrossRule(weight=2.0),
+            PatternBreakoutRule(direction="upward", weight=pattern_settings["default_weight"]),
+            GoldenCrossRule(weight=cross_settings["default_weight"]),
         ]
 
     def _load_default_sell_rules(self):
         """デフォルト売りルールを読み込み"""
+        # 設定ファイルからデフォルト値を取得
+        rsi_thresholds = self.config.get_rsi_thresholds()
+        macd_settings = self.config.get_macd_settings()
+        pattern_settings = self.config.get_pattern_breakout_settings()
+        cross_settings = self.config.get_cross_settings()
+
         multiplier = self.config.get_confidence_multiplier("rsi_overbought", 2.0)
         self.sell_rules = [
             RSIOverboughtRule(
-                threshold=70, weight=1.0, confidence_multiplier=multiplier
+                threshold=rsi_thresholds["overbought"],
+                weight=1.0,
+                confidence_multiplier=multiplier
             ),
             MACDDeathCrossRule(
-                weight=1.5,
+                lookback=int(macd_settings["lookback_period"]),
+                weight=macd_settings["default_weight"],
                 angle_multiplier=self.config.get_confidence_multiplier(
                     "macd_angle", 20.0
                 ),
@@ -550,8 +605,8 @@ class TradingSignalGenerator:
                     "bollinger_deviation", 10.0
                 ),
             ),
-            PatternBreakoutRule(direction="downward", weight=2.0),
-            DeadCrossRule(weight=2.0),
+            PatternBreakoutRule(direction="downward", weight=pattern_settings["default_weight"]),
+            DeadCrossRule(weight=cross_settings["default_weight"]),
         ]
 
     def add_buy_rule(self, rule: SignalRule):
@@ -566,6 +621,14 @@ class TradingSignalGenerator:
         """すべてのルールをクリア"""
         self.buy_rules.clear()
         self.sell_rules.clear()
+
+    def get_high_volatility_threshold(self) -> float:
+        """高ボラティリティ判定闾値を取得"""
+        return self.config.get_high_volatility_threshold()
+
+    def get_signal_settings(self) -> Dict[str, Any]:
+        """シグナル生成設定を取得"""
+        return self.config.get_signal_settings()
 
     def generate_signal(
         self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
@@ -1025,17 +1088,25 @@ class VolumeSpikeBuyRule(SignalRule):
 
     def __init__(
         self,
-        volume_factor: float = 2.0,
-        price_change: float = 0.02,
+        volume_factor: Optional[float] = None,
+        price_change: Optional[float] = None,
         weight: float = 1.5,
-        confidence_base: float = 50.0,
-        confidence_multiplier: float = 20.0,
+        confidence_base: Optional[float] = None,
+        confidence_multiplier: Optional[float] = None,
+        config: Optional['SignalRulesConfig'] = None,
     ):
         super().__init__("Volume Spike Buy", weight)
-        self.volume_factor = volume_factor
-        self.price_change = price_change
-        self.confidence_base = confidence_base
-        self.confidence_multiplier = confidence_multiplier
+
+        # 設定ファイルからデフォルト値を取得
+        if config is None:
+            config = SignalRulesConfig()
+
+        volume_settings = config.get_volume_spike_settings()
+
+        self.volume_factor = volume_factor if volume_factor is not None else volume_settings["volume_factor"]
+        self.price_change = price_change if price_change is not None else volume_settings["price_change_threshold"]
+        self.confidence_base = confidence_base if confidence_base is not None else volume_settings["confidence_base"]
+        self.confidence_multiplier = confidence_multiplier if confidence_multiplier is not None else volume_settings["confidence_multiplier"]
 
     def evaluate(
         self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
@@ -1184,33 +1255,3 @@ if __name__ == "__main__":
         )
     else:
         logger.info("時系列シグナル生成結果", result="no_active_signals")
-
-
-# SignalRulesConfigクラスに安全なマージメソッドを追加
-class TradingSignalGeneratorExtended(TradingSignalGenerator):
-    """拡張版シグナル生成器"""
-
-    def _merge_conditions_safely(
-        self, buy_conditions: Dict[str, bool], sell_conditions: Dict[str, bool]
-    ) -> Dict[str, bool]:
-        """コンディションを安全に結合し、同名キーの衝突を警告"""
-        merged = buy_conditions.copy()
-
-        # 衝突チェック
-        overlapping_keys = set(buy_conditions.keys()) & set(sell_conditions.keys())
-        if overlapping_keys:
-            logger.warning(
-                f"買い・売りコンディションで同名キーが検出されました: {overlapping_keys}"
-            )
-            # 売り条件を優先(より安全)
-            for key in overlapping_keys:
-                merged[f"buy_{key}"] = buy_conditions[key]
-                merged[f"sell_{key}"] = sell_conditions[key]
-                del merged[key]
-
-        # 残りの売り条件を追加
-        for key, value in sell_conditions.items():
-            if key not in overlapping_keys:
-                merged[key] = value
-
-        return merged

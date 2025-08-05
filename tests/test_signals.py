@@ -1508,11 +1508,11 @@ class TestLoadRulesFromConfig:
 
 
 class TestTradingSignalGeneratorExtended:
-    """TradingSignalGeneratorExtendedクラスのテスト"""
+    """TradingSignalGeneratorクラスの拡張テスト"""
 
     def test_merge_conditions_safely_basic(self):
         """_merge_conditions_safelyメソッドの基本テスト"""
-        generator = TradingSignalGeneratorExtended()
+        generator = TradingSignalGenerator()
 
         # 重複のない条件をテスト
         buy_conditions = {"rsi_oversold": True, "volume_high": False}
@@ -1528,7 +1528,7 @@ class TestTradingSignalGeneratorExtended:
 
     def test_merge_conditions_safely_with_overlap(self):
         """_merge_conditions_safelyメソッドの重複処理テスト"""
-        generator = TradingSignalGeneratorExtended()
+        generator = TradingSignalGenerator()
 
         # 重複のある条件をテスト
         buy_conditions = {"common_condition": True, "buy_only": False}
