@@ -50,28 +50,28 @@ class ScreeningConfig:
         """デフォルト設定を返す"""
         return {
             "default_thresholds": {
-                "RSI_OVERSOLD": 30.0,
-                "RSI_OVERBOUGHT": 70.0,
-                "VOLUME_SPIKE": 2.0,
-                "STRONG_MOMENTUM": 0.05,
-                "BOLLINGER_SQUEEZE": 0.02,
-                "PRICE_NEAR_SUPPORT": 0.03,
-                "PRICE_NEAR_RESISTANCE": 0.03
+                "rsi_oversold": 30.0,
+                "rsi_overbought": 70.0,
+                "volume_spike": 2.0,
+                "strong_momentum": 0.05,
+                "bollinger_squeeze": 0.02,
+                "price_near_support": 0.03,
+                "price_near_resistance": 0.03
             },
             "default_lookback_days": {
-                "RSI_OVERSOLD": 20,
-                "RSI_OVERBOUGHT": 20,
-                "MACD_BULLISH": 20,
-                "MACD_BEARISH": 20,
-                "GOLDEN_CROSS": 20,
-                "DEAD_CROSS": 20,
-                "VOLUME_SPIKE": 20,
-                "STRONG_MOMENTUM": 20,
-                "BOLLINGER_BREAKOUT": 20,
-                "BOLLINGER_SQUEEZE": 20,
-                "PRICE_NEAR_SUPPORT": 20,
-                "PRICE_NEAR_RESISTANCE": 20,
-                "REVERSAL_PATTERN": 20
+                "rsi_oversold": 20,
+                "rsi_overbought": 20,
+                "macd_bullish": 20,
+                "macd_bearish": 20,
+                "golden_cross": 20,
+                "dead_cross": 20,
+                "volume_spike": 20,
+                "strong_momentum": 20,
+                "bollinger_breakout": 20,
+                "bollinger_squeeze": 20,
+                "price_near_support": 20,
+                "price_near_resistance": 20,
+                "reversal_pattern": 20
             },
             "performance_settings": {
                 "max_workers": 5,
