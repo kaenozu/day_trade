@@ -395,52 +395,43 @@ class ChartPatternRecognizer:
         breakout_data: pd.DataFrame
     ) -> Optional[Dict[str, Any]]:
         """最新のシグナル情報を取得"""
-        if cross_data.empty and breakout_data.empty:
-            return None
+        signals = []
 
-        latest_signal = None
-        max_confidence = 0
-
-        # 最新のクロスシグナルをチェック
+        # 最新のクロスシグナルを収集
         if not cross_data.empty:
             if cross_data["Golden_Cross"].iloc[-1]:
-                confidence = cross_data["Golden_Confidence"].iloc[-1]
-                if confidence > max_confidence:
-                    latest_signal = {
-                        "type": "Golden Cross",
-                        "confidence": confidence,
-                        "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
-                    }
-                    max_confidence = confidence
-            elif cross_data["Dead_Cross"].iloc[-1]:
-                confidence = cross_data["Dead_Confidence"].iloc[-1]
-                if confidence > max_confidence:
-                    latest_signal = {
-                        "type": "Dead Cross",
-                        "confidence": confidence,
-                        "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
-                    }
-                    max_confidence = confidence
+                signals.append({
+                    "type": "Golden Cross",
+                    "confidence": cross_data["Golden_Confidence"].iloc[-1],
+                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
+                })
+            if cross_data["Dead_Cross"].iloc[-1]:
+                signals.append({
+                    "type": "Dead Cross",
+                    "confidence": cross_data["Dead_Confidence"].iloc[-1],
+                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
+                })
 
-        # 最新のブレイクアウトシグナルをチェック
+        # 最新のブレイクアウトシグナルを収集
         if not breakout_data.empty:
-            upward_conf = breakout_data["Upward_Confidence"].iloc[-1]
-            downward_conf = breakout_data["Downward_Confidence"].iloc[-1]
-
-            if upward_conf > max_confidence:
-                latest_signal = {
+            if breakout_data["Upward_Breakout"].iloc[-1]:
+                signals.append({
                     "type": "Upward Breakout",
-                    "confidence": upward_conf,
+                    "confidence": breakout_data["Upward_Confidence"].iloc[-1],
                     "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
-                }
-            elif downward_conf > max_confidence:
-                latest_signal = {
+                })
+            if breakout_data["Downward_Breakout"].iloc[-1]:
+                signals.append({
                     "type": "Downward Breakout",
-                    "confidence": downward_conf,
+                    "confidence": breakout_data["Downward_Confidence"].iloc[-1],
                     "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
-                }
+                })
 
-        return latest_signal
+        if not signals:
+            return None
+
+        # 最も信頼度の高いシグナルを返す
+        return max(signals, key=lambda x: x.get("confidence", 0.0))
 
     @staticmethod
     def _calculate_overall_confidence(

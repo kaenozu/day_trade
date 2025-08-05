@@ -153,7 +153,7 @@ class SignalRule:
         self.weight = weight
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         """
         ルールを評価
@@ -178,7 +178,7 @@ class RSIOversoldRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -209,7 +209,7 @@ class RSIOverboughtRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -237,7 +237,7 @@ class MACDCrossoverRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns or indicators["MACD"].empty or indicators["MACD_Signal"].empty:
             return False, 0.0
@@ -273,7 +273,7 @@ class MACDDeathCrossRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns or indicators["MACD"].empty or indicators["MACD_Signal"].empty:
             return False, 0.0
@@ -317,7 +317,7 @@ class BollingerBandRule(SignalRule):
         self.deviation_multiplier = deviation_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns or indicators["BB_Upper"].empty or indicators["BB_Lower"].empty:
             return False, 0.0
@@ -361,7 +361,7 @@ class PatternBreakoutRule(SignalRule):
         self.direction = direction
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         breakouts = patterns.get("breakouts", pd.DataFrame())
 
@@ -394,7 +394,7 @@ class GoldenCrossRule(SignalRule):
         super().__init__("Golden Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         crosses = patterns.get("crosses", pd.DataFrame())
 
@@ -404,7 +404,8 @@ class GoldenCrossRule(SignalRule):
 
         if "Golden_Cross" in crosses.columns and "Golden_Confidence" in crosses.columns:
             # Look for the most recent golden cross (within last periods from config)
-            config = SignalRulesConfig()
+            if config is None:
+                config = SignalRulesConfig()
             recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
             lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Golden_Cross"].iloc[-lookback_window:]
@@ -423,7 +424,7 @@ class DeadCrossRule(SignalRule):
         super().__init__("Dead Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         crosses = patterns.get("crosses", pd.DataFrame())
 
@@ -433,7 +434,8 @@ class DeadCrossRule(SignalRule):
 
         if "Dead_Cross" in crosses.columns and "Dead_Confidence" in crosses.columns:
             # Look for the most recent dead cross (within last periods from config)
-            config = SignalRulesConfig()
+            if config is None:
+                config = SignalRulesConfig()
             recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
             lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Dead_Cross"].iloc[-lookback_window:]
@@ -600,7 +602,7 @@ class TradingSignalGenerator:
             total_buy_weight = 0
 
             for rule in self.buy_rules:
-                met, confidence = rule.evaluate(df, indicators, patterns)
+                met, confidence = rule.evaluate(df, indicators, patterns, self.config)
                 buy_conditions[rule.name] = met
 
                 if met:
@@ -616,7 +618,7 @@ class TradingSignalGenerator:
             total_sell_weight = 0
 
             for rule in self.sell_rules:
-                met, confidence = rule.evaluate(df, indicators, patterns)
+                met, confidence = rule.evaluate(df, indicators, patterns, self.config)
                 sell_conditions[rule.name] = met
 
                 if met:
@@ -1036,10 +1038,11 @@ class VolumeSpikeBuyRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         # 設定から値を取得
-        config = SignalRulesConfig()
+        if config is None:
+            config = SignalRulesConfig()
         min_data = config.get_min_data_for_generation()
         volume_period = config.get_volume_calculation_period()
 
