@@ -378,10 +378,14 @@ class GoldenCrossRule(SignalRule):
             return False, 0.0
 
         if "Golden_Cross" in crosses.columns and "Golden_Confidence" in crosses.columns:
-            latest_cross = crosses["Golden_Cross"].iloc[-1]
-            confidence = crosses["Golden_Confidence"].iloc[-1]
-            if latest_cross and confidence > 0:
-                return True, confidence
+            # Look for the most recent golden cross (within last 5 periods)
+            lookback_window = min(5, len(crosses))
+            recent_crosses = crosses["Golden_Cross"].iloc[-lookback_window:]
+            recent_confidences = crosses["Golden_Confidence"].iloc[-lookback_window:]
+
+            for i in range(len(recent_crosses) - 1, -1, -1):
+                if recent_crosses.iloc[i] and recent_confidences.iloc[i] > 0:
+                    return True, recent_confidences.iloc[i]
         return False, 0.0
 
 
@@ -401,10 +405,14 @@ class DeadCrossRule(SignalRule):
             return False, 0.0
 
         if "Dead_Cross" in crosses.columns and "Dead_Confidence" in crosses.columns:
-            latest_cross = crosses["Dead_Cross"].iloc[-1]
-            confidence = crosses["Dead_Confidence"].iloc[-1]
-            if latest_cross and confidence > 0:
-                return True, confidence
+            # Look for the most recent dead cross (within last 5 periods)
+            lookback_window = min(5, len(crosses))
+            recent_crosses = crosses["Dead_Cross"].iloc[-lookback_window:]
+            recent_confidences = crosses["Dead_Confidence"].iloc[-lookback_window:]
+
+            for i in range(len(recent_crosses) - 1, -1, -1):
+                if recent_crosses.iloc[i] and recent_confidences.iloc[i] > 0:
+                    return True, recent_confidences.iloc[i]
         return False, 0.0
 
 
