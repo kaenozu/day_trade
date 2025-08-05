@@ -811,19 +811,23 @@ class TradingSignalGenerator:
             base_score = signal.confidence
 
             # 強度による調整係数を設定から取得
+            strength_config = self.config.get("signal_generation_settings", {}).get("strength_multipliers", {})
             strength_multipliers = {
-                SignalStrength.STRONG: 1.2,
-                SignalStrength.MEDIUM: 1.0,
-                SignalStrength.WEAK: 0.8,
+                SignalStrength.STRONG: strength_config.get("strong", 1.2),
+                SignalStrength.MEDIUM: strength_config.get("medium", 1.0),
+                SignalStrength.WEAK: strength_config.get("weak", 0.8),
             }
             base_score *= strength_multipliers.get(signal.strength, 1.0)
 
             # 複数条件の組み合わせによるボーナス
+            validation_config = self.config.get("signal_generation_settings", {}).get("validation_adjustments", {})
+            multi_condition_bonus = validation_config.get("multi_condition_bonus", 1.15)
+
             active_conditions = sum(1 for v in signal.conditions_met.values() if v)
             if active_conditions >= 3:
-                base_score *= 1.15  # より高いボーナス
+                base_score *= multi_condition_bonus
             elif active_conditions >= 2:
-                base_score *= 1.05
+                base_score *= (multi_condition_bonus + 1.0) / 2  # より控えめなボーナス
 
             # 市場環境を考慮した調整
             if market_context:
@@ -832,7 +836,8 @@ class TradingSignalGenerator:
 
                 # 高ボラティリティ時は信頼度を下げる
                 if volatility > 0.05:  # 5%以上の高ボラティリティ
-                    base_score *= 0.9
+                    volatile_penalty = validation_config.get("volatile_market_penalty", 0.85)
+                    base_score *= volatile_penalty
 
                 # トレンドとシグナルの整合性チェック
                 if (
@@ -857,7 +862,8 @@ class TradingSignalGenerator:
                     )
                 ):
                     # トレンドに逆らうシグナルは信頼度を下げる
-                    base_score *= 0.85
+                    trend_penalty = validation_config.get("trend_continuation_penalty", 0.85)
+                    base_score *= trend_penalty
 
             # 過去のパフォーマンスデータによる調整
             if historical_performance is not None and len(historical_performance) > 0:
