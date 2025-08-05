@@ -32,6 +32,98 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+class CommandHandler:
+    """コマンドハンドラーの基底クラス"""
+
+    def __init__(self, cli_instance):
+        self.cli = cli_instance
+
+    def can_handle(self, command: str) -> bool:
+        """このハンドラーがコマンドを処理できるかどうか"""
+        raise NotImplementedError
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        """コマンドを処理（戻り値: 継続するかどうか）"""
+        raise NotImplementedError
+
+
+class ExitCommandHandler(CommandHandler):
+    """終了コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["exit", "quit"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        return False
+
+
+class HelpCommandHandler(CommandHandler):
+    """ヘルプコマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "help"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._show_help()
+        return True
+
+
+class StockCommandHandler(CommandHandler):
+    """株式関連コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["stock", "history", "watch", "validate"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        if command == "stock" and args:
+            self.cli._handle_stock_command(args[0], details="-d" in args)
+        elif command == "history" and args:
+            self.cli._handle_history_command(args[0])
+        elif command == "watch" and args:
+            self.cli._handle_watch_command(args)
+        elif command == "validate" and args:
+            self.cli._handle_validate_command(args)
+        else:
+            console.print(create_warning_panel(f"'{command}' コマンドには引数が必要です"))
+        return True
+
+
+class WatchlistCommandHandler(CommandHandler):
+    """ウォッチリストコマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "watchlist"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._handle_watchlist_command(args)
+        return True
+
+
+class ConfigCommandHandler(CommandHandler):
+    """設定コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "config"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._handle_config_command(args)
+        return True
+
+
+class AnalysisCommandHandler(CommandHandler):
+    """分析関連コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["backtest", "screen"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        if command == "backtest":
+            self.cli._handle_backtest_command()
+        elif command == "screen":
+            self.cli._handle_screen_command(args)
+        return True
+
+
 class EnhancedInteractiveCLI:
     """拡張された対話型CLIクラス"""
 
@@ -75,6 +167,16 @@ class EnhancedInteractiveCLI:
 
         # コマンド補完設定
         self.command_completer = self._create_command_completer()
+
+        # コマンドハンドラーの初期化
+        self.command_handlers = [
+            ExitCommandHandler(self),
+            HelpCommandHandler(self),
+            StockCommandHandler(self),
+            WatchlistCommandHandler(self),
+            ConfigCommandHandler(self),
+            AnalysisCommandHandler(self),
+        ]
 
     @property
     def stock_fetcher(self) -> 'StockFetcher':
@@ -265,35 +367,104 @@ class EnhancedInteractiveCLI:
         args = parts[1:] if len(parts) > 1 else []
 
         try:
-            if cmd in ["exit", "quit"]:
-                return False
-            elif cmd == "help":
-                self._show_help()
-            elif cmd == "stock" and args:
-                self._handle_stock_command(args[0], details="-d" in args)
-            elif cmd == "history" and args:
-                self._handle_history_command(args[0])
-            elif cmd == "watch" and args:
-                self._handle_watch_command(args)
-            elif cmd == "watchlist":
-                self._handle_watchlist_command(args)
-            elif cmd == "config":
-                self._handle_config_command(args)
-            elif cmd == "validate" and args:
-                self._handle_validate_command(args)
-            elif cmd == "backtest":
-                self._handle_backtest_command()
-            elif cmd == "screen":
-                self._handle_screen_command(args)
-            else:
-                console.print(
-                    create_warning_panel(
-                        f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。"
-                    )
+            # 適切なハンドラーを検索
+            for handler in self.command_handlers:
+                if handler.can_handle(cmd):
+                    return handler.handle(cmd, args)
+
+            # 不明なコマンド
+            console.print(
+                create_warning_panel(
+                    f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。"
                 )
+            )
+
         except Exception as e:
             console.print(create_error_panel(f"コマンド実行エラー: {e}"))
             logger.error(f"Command execution error: {e}")
+
+        return True
+
+    def _handle_error(self, error: Exception, context: str = "操作") -> None:
+        """
+        統一的なエラーハンドリング
+
+        Args:
+            error: 例外オブジェクト
+            context: エラーが発生した文脈
+        """
+        error_type = type(error).__name__
+
+        # 一般的なエラーの解決策を提供
+        solutions = []
+
+        if "ConnectionError" in error_type or "timeout" in str(error).lower():
+            solutions = [
+                "インターネット接続を確認してください",
+                "VPNまたはプロキシの設定を確認してください",
+                "少し時間をおいて再試行してください"
+            ]
+        elif "FileNotFoundError" in error_type:
+            solutions = [
+                "ファイルパスが正しいか確認してください",
+                "ファイルが存在するか確認してください",
+                "権限があるか確認してください"
+            ]
+        elif "ImportError" in error_type or "ModuleNotFoundError" in error_type:
+            solutions = [
+                "必要なライブラリがインストールされているか確認してください",
+                "pip install -e .[dev] を実行してください",
+                "仮想環境が正しく有効化されているか確認してください"
+            ]
+        elif "ValueError" in error_type or "TypeError" in error_type:
+            solutions = [
+                "入力データの形式を確認してください",
+                "必要な引数がすべて提供されているか確認してください"
+            ]
+        elif "KeyError" in error_type:
+            solutions = [
+                "設定ファイルに必要なキーが存在するか確認してください",
+                "データが正しく初期化されているか確認してください"
+            ]
+
+        if solutions:
+            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}", solutions=solutions))
+        else:
+            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}"))
+
+        logger.error(f"Error in {context}: {error_type}: {error}")
+
+    def _validate_input(self, value: str, validation_type: str) -> bool:
+        """
+        入力値の検証
+
+        Args:
+            value: 検証する値
+            validation_type: 検証タイプ
+
+        Returns:
+            検証結果
+        """
+        if not value or not value.strip():
+            console.print(create_warning_panel("値が入力されていません"))
+            return False
+
+        if validation_type == "stock_code":
+            if not validate_stock_code(value):
+                console.print(create_warning_panel(f"無効な銘柄コード: {value}"))
+                return False
+        elif validation_type == "numeric":
+            try:
+                float(value)
+            except ValueError:
+                console.print(create_warning_panel(f"数値ではありません: {value}"))
+                return False
+        elif validation_type == "integer":
+            try:
+                int(value)
+            except ValueError:
+                console.print(create_warning_panel(f"整数ではありません: {value}"))
+                return False
 
         return True
 
