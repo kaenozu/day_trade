@@ -275,7 +275,8 @@ class TestTradingSignalGenerator:
     def test_generate_signal_basic(self, generator, sample_data):
         """基本的なシグナル生成のテスト"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         assert signal is not None
@@ -298,7 +299,8 @@ class TestTradingSignalGenerator:
         # RSIを低く設定して買いシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 25
-        patterns = ChartPatternRecognizer.detect_all_patterns(
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(
             sample_data
         )  # patternsを追加
 
@@ -317,7 +319,8 @@ class TestTradingSignalGenerator:
         # RSIを高く設定して売りシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 75
-        patterns = ChartPatternRecognizer.detect_all_patterns(
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(
             sample_data
         )  # patternsを追加
 
@@ -341,7 +344,8 @@ class TestTradingSignalGenerator:
         indicators.loc[indicators.index[-2], "MACD"] = -0.5
         indicators.loc[indicators.index[-1], "MACD"] = 0.5
         indicators.loc[indicators.index[-2:], "MACD_Signal"] = 0
-        patterns = ChartPatternRecognizer.detect_all_patterns(
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(
             sample_data
         )  # patternsを追加
 
@@ -394,7 +398,8 @@ class TestTradingSignalGenerator:
         )  # 3%上昇
 
         test_indicators = TechnicalIndicators.calculate_all(test_data)
-        test_patterns = ChartPatternRecognizer.detect_all_patterns(test_data)
+        test_pattern_recognizer = ChartPatternRecognizer()
+        test_patterns = test_pattern_recognizer.detect_all_patterns(test_data)
 
         # シグナル生成
         signal = generator.generate_signal(test_data, test_indicators, test_patterns)
@@ -426,7 +431,8 @@ class TestTradingSignalGenerator:
     def test_validate_signal(self, generator, sample_data):
         """シグナル検証のテスト"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
@@ -486,7 +492,8 @@ class TestTradingSignalGenerator:
         )
         small_df.set_index("Date", inplace=True)
         small_indicators = TechnicalIndicators.calculate_all(small_df)
-        small_patterns = ChartPatternRecognizer.detect_all_patterns(small_df)
+        small_pattern_recognizer = ChartPatternRecognizer()
+        small_patterns = small_pattern_recognizer.detect_all_patterns(small_df)
 
         signal = generator.generate_signal(small_df, small_indicators, small_patterns)
         assert signal is None
@@ -506,7 +513,8 @@ class TestTradingSignalGenerator:
         indicators.loc[indicators.index[-1], "BB_Lower"] = (
             sample_data["Close"].iloc[-1] + 1
         )
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
@@ -580,7 +588,8 @@ class TestImprovedSignalGeneration:
         """Decimal価格処理テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -595,7 +604,8 @@ class TestImprovedSignalGeneration:
         """datetime タイムスタンプ処理テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -618,7 +628,8 @@ class TestImprovedSignalGeneration:
         indicators = TechnicalIndicators.calculate_all(sample_data)
         # 強いシグナルを作るため複数条件を満たす
         indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
         if signal and signal.signal_type == SignalType.BUY:
@@ -633,7 +644,8 @@ class TestImprovedSignalGeneration:
         """拡張されたシグナル検証テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -953,7 +965,8 @@ class TestAdvancedSignalValidation:
         }, index=dates)
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -987,7 +1000,8 @@ class TestAdvancedSignalValidation:
         }, index=dates)
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -1032,7 +1046,8 @@ class TestAdvancedSignalValidation:
         }, index=dates)
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -1077,7 +1092,8 @@ class TestAdvancedSignalValidation:
         }, index=dates)
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -1349,7 +1365,8 @@ class TestSignalGenerationParameterValidation:
 
         # 空のindicators
         empty_indicators = pd.DataFrame()
-        patterns = ChartPatternRecognizer.detect_all_patterns(df)
+        df_pattern_recognizer = ChartPatternRecognizer()
+        patterns = df_pattern_recognizer.detect_all_patterns(df)
 
         signal = generator.generate_signal(df, empty_indicators, patterns)
 
