@@ -255,6 +255,9 @@ class TestUpdateFromDict:
 
         assert isinstance(sample_user.created_at, datetime)
         assert sample_user.created_at.year == 2023
+        assert sample_user.created_at.month == 1
+        assert sample_user.created_at.day == 1
+        assert sample_user.created_at.hour == 12
         assert sample_user.created_at.tzinfo == timezone.utc
 
     def test_validation_errors(self, sample_user):

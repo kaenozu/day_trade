@@ -618,31 +618,97 @@ class StockMasterManager:
             # 市場区分を推定（改善版）
             market = self._estimate_market_segment(code, company_info)
 
-            # 既存銘柄を更新または新規作成
-            stock = self.get_stock_by_code(code)
-            if stock:
-                logger.info(f"銘柄情報を更新: {code} - {name}")
-                return self.update_stock(
-                    code=code,
-                    name=name,
-                    market=market,
-                    sector=sector,
-                    industry=industry,
-                )
-            else:
-                logger.info(f"新規銘柄を追加: {code} - {name}")
-                return self.add_stock(
-                    code=code,
-                    name=name,
-                    market=market,
-                    sector=sector,
-                    industry=industry,
-                )
+            # 単一のセッションスコープ内で全処理を実行
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄をチェック
+                existing_stock = session.query(Stock).filter(Stock.code == code).first()
+
+                if existing_stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    # 既存銘柄を更新
+                    existing_stock.name = name
+                    existing_stock.market = market
+                    existing_stock.sector = sector
+                    existing_stock.industry = industry
+                    session.flush()
+
+                    # 属性を事前読み込み（セッション内で）
+                    _ = (existing_stock.code, existing_stock.name, existing_stock.market,
+                         existing_stock.sector, existing_stock.industry)
+                    return existing_stock
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    # 新規銘柄を作成
+                    new_stock = Stock(
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry
+                    )
+                    session.add(new_stock)
+                    session.flush()
+
+                    # 属性を事前読み込み（セッション内で）
+                    _ = (new_stock.code, new_stock.name, new_stock.market,
+                         new_stock.sector, new_stock.industry)
+                    return new_stock
 
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
 
+    def fetch_and_update_stock_info_as_dict(self, code: str) -> Optional[Dict]:
+        """
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（辞書返却版）
+
+        Args:
+            code: 証券コード
+
+        Returns:
+            更新されたStockオブジェクトの辞書表現
+        """
+        try:
+            # StockFetcherのget_company_infoメソッドを使用（リトライ、キャッシュの恩恵を受ける）
+            company_info = self.stock_fetcher.get_company_info(code)
+
+            if not company_info:
+                logger.warning(f"StockFetcherから企業情報を取得できません: {code}")
+                return None
+
+            # データを整理
+            name = company_info.get("name") or ""
+            sector = company_info.get("sector") or ""
+            industry = company_info.get("industry") or ""
+
+            # 市場区分を推定（改善版）
+            market = self._estimate_market_segment(code, company_info)
+
+            # セッションスコープ内で更新・作成し、結果を辞書で返却
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄を更新または新規作成
+                stock = session.query(Stock).filter(Stock.code == code).first()
+                if stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    stock.name = name
+                    stock.market = market
+                    stock.sector = sector
+                    stock.industry = industry
+                    session.flush()
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    stock = Stock(
+                        code=code, name=name, market=market, sector=sector, industry=industry
+                    )
+                    session.add(stock)
+                    session.flush()
+
+                # BaseModelのto_dictメソッドを使用して辞書として返却
+                return stock.to_dict()
+
+        except Exception as e:
+            logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
+            return None
     def _estimate_market_segment(self, code: str, company_info: Dict) -> str:
         """
         市場区分を推定（堅牢性向上版）
@@ -863,15 +929,9 @@ class StockMasterManager:
 
             for code in batch_codes:
                 try:
-                    stock = self.fetch_and_update_stock_info(code)
-                    if stock:
-                        # セッション内で辞書変換して、DetachedInstanceErrorを回避
-                        with self.db_manager.session_scope() as session:
-                            # 新しいセッションで再取得
-                            fresh_stock = session.query(Stock).filter(Stock.code == code).first()
-                            if fresh_stock:
-                                stock_dict = fresh_stock.to_dict()
-                                updated_stocks.append(stock_dict)
+                    stock_info = self.fetch_and_update_stock_info_as_dict(code)
+                    if stock_info:
+                        updated_stocks.append(stock_info)
                         success_count += 1
                     else:
                         skipped_count += 1

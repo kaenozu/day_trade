@@ -85,12 +85,20 @@ class BaseModel(Base, TimestampMixin):
     def __init__(self, **kwargs):
         """初期化（タイムスタンプ設定を含む）"""
         super().__init__(**kwargs)
-        # タイムスタンプを明示的に設定
+        # タイムスタンプを明示的に設定（既に値が設定されている場合は上書きしない）
         now_utc = datetime.now(timezone.utc)
-        if not hasattr(self, 'created_at') or self.created_at is None:
-            self.created_at = now_utc
-        if not hasattr(self, 'updated_at') or self.updated_at is None:
-            self.updated_at = now_utc
+
+        # created_atの処理：kwargsで指定されているか、既に値があるかチェック
+        if 'created_at' not in kwargs:
+            # created_atがkwargsにない場合のみデフォルト値を設定
+            if not hasattr(self, 'created_at') or getattr(self, 'created_at', None) is None:
+                self.created_at = now_utc
+
+        # updated_atの処理：kwargsで指定されているか、既に値があるかチェック
+        if 'updated_at' not in kwargs:
+            # updated_atがkwargsにない場合のみデフォルト値を設定
+            if not hasattr(self, 'updated_at') or getattr(self, 'updated_at', None) is None:
+                self.updated_at = now_utc
 
     def to_dict(
         self,
@@ -213,6 +221,7 @@ class BaseModel(Base, TimestampMixin):
         exclude_keys = set(exclude_keys) if exclude_keys is not None else {'id', 'created_at'}
 
         for key, value in data.items():
+            logger.debug(f"Processing key: {key}, value: {value}, in exclude_keys: {key in exclude_keys}")
             if key not in exclude_keys and hasattr(self, key):
                 # カラムが存在する場合のみ更新
                 if hasattr(self.__table__.columns, key):
@@ -228,6 +237,10 @@ class BaseModel(Base, TimestampMixin):
                                     # タイムゾーン情報がない場合はUTCとして扱う
                                     if value.tzinfo is None:
                                         value = value.replace(tzinfo=timezone.utc)
+                                    logger.debug(f"DateTime変換成功: {key} = {value}")
+                                elif not isinstance(value, datetime):
+                                    # datetime以外の場合はスキップするかエラーとする
+                                    logger.warning(f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}")
                             # Decimal型の変換
                             elif hasattr(column.type, 'scale'):
                                 if isinstance(value, (int, float, str)):
@@ -241,6 +254,7 @@ class BaseModel(Base, TimestampMixin):
                     if validate:
                         self._validate_field(key, value, column)
 
+                    # 値を設定
                     setattr(self, key, value)
 
     def _validate_field(self, key: str, value: Any, column) -> None:
