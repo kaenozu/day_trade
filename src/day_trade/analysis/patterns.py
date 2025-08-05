@@ -65,7 +65,7 @@ class ChartPatternRecognizer:
                     "Dead_Cross": dead_cross,
                     "Golden_Confidence": golden_confidence.clip(0, 100),
                     "Dead_Confidence": dead_confidence.clip(0, 100),
-                }
+                }, index=df.index # indexを追加
             )
 
         except Exception as e:
@@ -228,7 +228,7 @@ class ChartPatternRecognizer:
                     "Downward_Strength": downward_strength,
                     "Upward_Confidence": upward_confidence,
                     "Downward_Confidence": downward_confidence,
-                }
+                }, index=df.index # indexを追加
             )
 
         except Exception as e:
