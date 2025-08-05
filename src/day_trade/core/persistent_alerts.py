@@ -1,359 +1,369 @@
 """
-アラート永続化管理
-データベースとメモリ間でのアラート条件・履歴の同期
+永続化対応のアラートマネージャー
+データベースを使用してアラート条件と履歴を永続化
 """
 
+import json
+import logging
+import threading
+import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from .alerts import (
+    AlertCondition, AlertTrigger, AlertManager, NotificationHandler,
+    NotificationMethod, AlertPriority
+)
+from ..models.alerts import AlertConditionModel, AlertTriggerModel, AlertConfigModel
 from ..models.database import db_manager
-from ..models.alerts import PersistentAlertCondition, PersistentAlertTrigger
+from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
-from .alerts import AlertCondition, AlertTrigger
 
 logger = get_context_logger(__name__)
 
 
-class PersistentAlertsManager:
-    """アラート永続化管理クラス"""
+class PersistentAlertManager(AlertManager):
+    """永続化対応アラートマネージャー"""
 
-    def __init__(self, db_manager_instance=None):
+    def __init__(
+        self,
+        stock_fetcher: Optional[StockFetcher] = None,
+        db_manager_instance=None
+    ):
         """
-        初期化
-
         Args:
-            db_manager_instance: データベースマネージャーインスタンス
+            stock_fetcher: 株価データ取得インスタンス
+            db_manager_instance: データベースマネージャー（テスト用）
         """
+        # 親クラスの初期化（メモリベースの初期化）
+        super().__init__(stock_fetcher)
+
+        # データベースマネージャー
         self.db_manager = db_manager_instance or db_manager
 
-    def save_alert_condition(self, condition: AlertCondition) -> bool:
-        """
-        アラート条件をデータベースに保存
+        # データベースの初期化
+        self._ensure_tables()
 
-        Args:
-            condition: 保存するアラート条件
+        # データベースからアラート条件をロード
+        self._load_alert_conditions()
 
-        Returns:
-            bool: 保存成功フラグ
-        """
+        # 設定の読み込み
+        self._load_settings()
+
+    def _ensure_tables(self):
+        """必要なテーブルの作成"""
+        try:
+            # AlertConditionModel, AlertTriggerModel, AlertConfigModelのテーブルを作成
+            self.db_manager.create_tables()
+            logger.info("アラート関連テーブルを確認・作成しました")
+        except Exception as e:
+            logger.error(f"テーブル作成中にエラーが発生しました: {e}")
+
+    def _load_alert_conditions(self):
+        """データベースからアラート条件をロード"""
         try:
             with self.db_manager.session_scope() as session:
-                # 既存の条件をチェック
-                existing = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.alert_id == condition.alert_id
+                conditions = session.query(AlertConditionModel).all()
+
+                # メモリ内の辞書をクリア
+                self.alert_conditions.clear()
+
+                # データベースから読み込み
+                for condition_model in conditions:
+                    condition = condition_model.to_alert_condition()
+                    self.alert_conditions[condition.alert_id] = condition
+
+                logger.info(f"データベースから {len(conditions)} 件のアラート条件をロードしました")
+
+        except Exception as e:
+            logger.error(f"アラート条件のロード中にエラーが発生: {e}")
+
+    def _load_settings(self):
+        """設定をデータベースから読み込み"""
+        try:
+            with self.db_manager.session_scope() as session:
+                # 監視間隔の設定
+                monitoring_interval = AlertConfigModel.get_config(
+                    session, "monitoring_interval", 60
+                )
+                self.monitoring_interval = monitoring_interval
+
+                # デフォルト通知方法
+                default_methods = AlertConfigModel.get_config(
+                    session, "default_notification_methods",
+                    [method.value for method in self.default_notification_methods]
+                )
+                self.default_notification_methods = [
+                    NotificationMethod(method) for method in default_methods
+                ]
+
+                logger.debug("設定をデータベースから読み込みました")
+
+        except Exception as e:
+            logger.error(f"設定の読み込み中にエラーが発生: {e}")
+
+    def add_alert(self, condition: AlertCondition) -> bool:
+        """アラート条件を追加（データベースに永続化）"""
+        try:
+            # 親クラスのバリデーション
+            if not self._validate_condition(condition):
+                logger.error(f"アラート条件の検証に失敗: {condition.alert_id}")
+                return False
+
+            # データベースに保存
+            with self.db_manager.session_scope() as session:
+                # 既存の条件があるかチェック
+                existing = session.query(AlertConditionModel).filter_by(
+                    alert_id=condition.alert_id
                 ).first()
 
                 if existing:
-                    # 既存の条件を更新
-                    self._update_persistent_condition(existing, condition)
-                    logger.info(f"アラート条件更新: {condition.alert_id}")
+                    # 更新
+                    existing.symbol = condition.symbol
+                    existing.alert_type = condition.alert_type.value
+                    existing.condition_value = str(condition.condition_value)
+                    existing.comparison_operator = condition.comparison_operator
+                    existing.is_active = condition.is_active
+                    existing.priority = condition.priority.value
+                    existing.cooldown_minutes = condition.cooldown_minutes
+                    existing.expiry_date = condition.expiry_date
+                    existing.description = condition.description
+                    existing.custom_parameters = condition.custom_parameters
+                    logger.info(f"アラート条件を更新: {condition.alert_id}")
                 else:
-                    # 新規条件を作成
-                    persistent_condition = PersistentAlertCondition.from_alert_condition(condition)
-                    session.add(persistent_condition)
-                    logger.info(f"アラート条件新規作成: {condition.alert_id}")
+                    # 新規作成
+                    condition_model = AlertConditionModel.from_alert_condition(condition)
+                    session.add(condition_model)
+                    logger.info(f"アラート条件を追加: {condition.alert_id}")
 
-                session.commit()
-                return True
+            # メモリ内の辞書も更新
+            self.alert_conditions[condition.alert_id] = condition
+            return True
 
         except Exception as e:
-            logger.error(f"アラート条件保存エラー ({condition.alert_id}): {e}")
+            logger.error(f"アラート条件の保存中にエラーが発生: {e}")
             return False
 
-    def load_alert_conditions(self, active_only: bool = True) -> List[AlertCondition]:
-        """
-        データベースからアラート条件を読み込み
-
-        Args:
-            active_only: アクティブな条件のみ取得するか
-
-        Returns:
-            List[AlertCondition]: アラート条件のリスト
-        """
+    def remove_alert(self, alert_id: str) -> bool:
+        """アラート条件を削除（データベースからも削除）"""
         try:
             with self.db_manager.session_scope() as session:
-                query = session.query(PersistentAlertCondition)
-
-                if active_only:
-                    query = query.filter(
-                        PersistentAlertCondition.is_active == True,
-                        PersistentAlertCondition.is_expired == False
-                    )
-
-                persistent_conditions = query.all()
-
-                # メモリ上のオブジェクトに変換
-                conditions = []
-                for pc in persistent_conditions:
-                    # 期限切れチェック
-                    if pc.expires_at and pc.expires_at <= datetime.now():
-                        pc.is_expired = True
-                        continue
-
-                    condition = pc.to_alert_condition()
-                    conditions.append(condition)
-
-                session.commit()  # 期限切れフラグの更新をコミット
-                logger.info(f"アラート条件読み込み完了: {len(conditions)}件")
-                return conditions
-
-        except Exception as e:
-            logger.error(f"アラート条件読み込みエラー: {e}")
-            return []
-
-    def save_alert_trigger(self, trigger: AlertTrigger) -> bool:
-        """
-        アラートトリガー（履歴）をデータベースに保存
-
-        Args:
-            trigger: 保存するアラートトリガー
-
-        Returns:
-            bool: 保存成功フラグ
-        """
-        try:
-            with self.db_manager.session_scope() as session:
-                persistent_trigger = PersistentAlertTrigger.from_alert_trigger(trigger)
-                session.add(persistent_trigger)
-                session.commit()
-
-                logger.info(f"アラートトリガー保存: {trigger.alert_id} - {trigger.symbol}")
-                return True
-
-        except Exception as e:
-            logger.error(f"アラートトリガー保存エラー ({trigger.alert_id}): {e}")
-            return False
-
-    def load_alert_history(
-        self,
-        symbol: Optional[str] = None,
-        days_back: int = 30,
-        limit: int = 100
-    ) -> List[AlertTrigger]:
-        """
-        アラート履歴をデータベースから読み込み
-
-        Args:
-            symbol: 特定銘柄の履歴のみ取得（Noneで全銘柄）
-            days_back: 遡る日数
-            limit: 取得件数制限
-
-        Returns:
-            List[AlertTrigger]: アラート履歴のリスト
-        """
-        try:
-            with self.db_manager.session_scope() as session:
-                cutoff_date = datetime.now() - timedelta(days=days_back)
-
-                query = session.query(PersistentAlertTrigger).filter(
-                    PersistentAlertTrigger.trigger_time >= cutoff_date
-                )
-
-                if symbol:
-                    query = query.filter(PersistentAlertTrigger.symbol == symbol)
-
-                persistent_triggers = (
-                    query.order_by(PersistentAlertTrigger.trigger_time.desc())
-                    .limit(limit)
-                    .all()
-                )
-
-                # メモリ上のオブジェクトに変換
-                triggers = [pt.to_alert_trigger() for pt in persistent_triggers]
-
-                logger.info(f"アラート履歴読み込み完了: {len(triggers)}件")
-                return triggers
-
-        except Exception as e:
-            logger.error(f"アラート履歴読み込みエラー: {e}")
-            return []
-
-    def delete_alert_condition(self, alert_id: str) -> bool:
-        """
-        アラート条件を削除
-
-        Args:
-            alert_id: 削除するアラートID
-
-        Returns:
-            bool: 削除成功フラグ
-        """
-        try:
-            with self.db_manager.session_scope() as session:
-                condition = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.alert_id == alert_id
+                condition = session.query(AlertConditionModel).filter_by(
+                    alert_id=alert_id
                 ).first()
 
                 if condition:
                     session.delete(condition)
-                    session.commit()
-                    logger.info(f"アラート条件削除: {alert_id}")
+                    # メモリからも削除
+                    if alert_id in self.alert_conditions:
+                        del self.alert_conditions[alert_id]
+                    logger.info(f"アラート条件を削除: {alert_id}")
                     return True
                 else:
                     logger.warning(f"削除対象のアラート条件が見つかりません: {alert_id}")
                     return False
 
         except Exception as e:
-            logger.error(f"アラート条件削除エラー ({alert_id}): {e}")
+            logger.error(f"アラート条件の削除中にエラーが発生: {e}")
             return False
 
-    def deactivate_alert_condition(self, alert_id: str) -> bool:
-        """
-        アラート条件を非アクティブ化
-
-        Args:
-            alert_id: 非アクティブ化するアラートID
-
-        Returns:
-            bool: 非アクティブ化成功フラグ
-        """
+    def _handle_alert_trigger(self, trigger: AlertTrigger):
+        """アラート発火の処理（データベースに永続化）"""
         try:
+            # データベースに保存
             with self.db_manager.session_scope() as session:
-                condition = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.alert_id == alert_id
-                ).first()
+                trigger_model = AlertTriggerModel.from_alert_trigger(trigger)
+                session.add(trigger_model)
 
-                if condition:
-                    condition.is_active = False
-                    session.commit()
-                    logger.info(f"アラート条件非アクティブ化: {alert_id}")
-                    return True
-                else:
-                    logger.warning(f"対象のアラート条件が見つかりません: {alert_id}")
-                    return False
+            # 親クラスの処理（通知送信など）
+            super()._handle_alert_trigger(trigger)
+
+            # 履歴の制限（データベース上でも古い履歴を削除）
+            self._cleanup_old_triggers()
 
         except Exception as e:
-            logger.error(f"アラート条件非アクティブ化エラー ({alert_id}): {e}")
-            return False
+            logger.error(f"アラート発火の処理中にエラーが発生: {e}")
 
-    def cleanup_expired_conditions(self) -> int:
-        """
-        期限切れのアラート条件をクリーンアップ
-
-        Returns:
-            int: クリーンアップした件数
-        """
+    def _cleanup_old_triggers(self, keep_days: int = 30):
+        """古いアラート履歴を削除"""
         try:
+            cutoff_date = datetime.now() - timedelta(days=keep_days)
+
             with self.db_manager.session_scope() as session:
-                now = datetime.now()
+                deleted_count = session.query(AlertTriggerModel).filter(
+                    AlertTriggerModel.trigger_time < cutoff_date
+                ).delete()
 
-                # 期限切れフラグを更新
-                expired_count = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.expires_at <= now,
-                    PersistentAlertCondition.is_expired == False
-                ).update({
-                    PersistentAlertCondition.is_expired: True,
-                    PersistentAlertCondition.is_active: False
-                })
-
-                session.commit()
-                logger.info(f"期限切れアラート条件クリーンアップ: {expired_count}件")
-                return expired_count
+                if deleted_count > 0:
+                    logger.info(f"古いアラート履歴 {deleted_count} 件を削除しました")
 
         except Exception as e:
-            logger.error(f"期限切れアラート条件クリーンアップエラー: {e}")
-            return 0
+            logger.error(f"古いアラート履歴の削除中にエラーが発生: {e}")
 
-    def get_alert_statistics(self) -> Dict[str, int]:
-        """
-        アラート統計情報を取得
-
-        Returns:
-            Dict[str, int]: 統計情報
-        """
+    def get_alert_history(
+        self, symbol: Optional[str] = None, hours: int = 24
+    ) -> List[AlertTrigger]:
+        """アラート履歴を取得（データベースから）"""
         try:
+            cutoff_time = datetime.now() - timedelta(hours=hours)
+
             with self.db_manager.session_scope() as session:
-                stats = {}
+                query = session.query(AlertTriggerModel).filter(
+                    AlertTriggerModel.trigger_time >= cutoff_time
+                )
 
-                # アクティブなアラート条件数
-                stats['active_conditions'] = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.is_active == True,
-                    PersistentAlertCondition.is_expired == False
-                ).count()
+                if symbol:
+                    query = query.filter(AlertTriggerModel.symbol == symbol)
 
-                # 期限切れアラート条件数
-                stats['expired_conditions'] = session.query(PersistentAlertCondition).filter(
-                    PersistentAlertCondition.is_expired == True
-                ).count()
+                trigger_models = query.order_by(
+                    AlertTriggerModel.trigger_time.desc()
+                ).all()
 
-                # 今日のトリガー数
-                from datetime import date
-                today = date.today()
-                stats['todays_triggers'] = session.query(PersistentAlertTrigger).filter(
-                    PersistentAlertTrigger.trigger_time >= datetime.combine(today, datetime.min.time())
-                ).count()
+                # DataclassのAlertTriggerに変換
+                return [model.to_alert_trigger() for model in trigger_models]
 
-                # 総トリガー数
-                stats['total_triggers'] = session.query(PersistentAlertTrigger).count()
+        except Exception as e:
+            logger.error(f"アラート履歴の取得中にエラーが発生: {e}")
+            return []
+
+    def get_alert_statistics(self, days: int = 7) -> Dict:
+        """アラート統計を取得"""
+        try:
+            cutoff_time = datetime.now() - timedelta(days=days)
+
+            with self.db_manager.session_scope() as session:
+                triggers = session.query(AlertTriggerModel).filter(
+                    AlertTriggerModel.trigger_time >= cutoff_time
+                ).all()
+
+                stats = {
+                    "total_triggers": len(triggers),
+                    "by_symbol": {},
+                    "by_type": {},
+                    "by_priority": {},
+                    "by_day": {}
+                }
+
+                for trigger in triggers:
+                    # 銘柄別統計
+                    symbol = trigger.symbol
+                    if symbol not in stats["by_symbol"]:
+                        stats["by_symbol"][symbol] = 0
+                    stats["by_symbol"][symbol] += 1
+
+                    # タイプ別統計
+                    alert_type = trigger.alert_type
+                    if alert_type not in stats["by_type"]:
+                        stats["by_type"][alert_type] = 0
+                    stats["by_type"][alert_type] += 1
+
+                    # 優先度別統計
+                    priority = trigger.priority
+                    if priority not in stats["by_priority"]:
+                        stats["by_priority"][priority] = 0
+                    stats["by_priority"][priority] += 1
+
+                    # 日別統計
+                    day = trigger.trigger_time.date().isoformat()
+                    if day not in stats["by_day"]:
+                        stats["by_day"][day] = 0
+                    stats["by_day"][day] += 1
 
                 return stats
 
         except Exception as e:
-            logger.error(f"アラート統計情報取得エラー: {e}")
+            logger.error(f"アラート統計の取得中にエラーが発生: {e}")
             return {}
 
-    def _update_persistent_condition(self, existing: PersistentAlertCondition, condition: AlertCondition):
-        """既存の永続化条件を更新"""
-        existing.symbol = condition.symbol
-        existing.alert_type = condition.alert_type
-        existing.condition_value = condition.condition_value
-        existing.comparison_operator = condition.comparison_operator
-        existing.priority = condition.priority
-        existing.description = condition.description
-        existing.is_active = condition.is_active
-        existing.expires_at = condition.expires_at
-        existing.custom_parameters = condition.custom_parameters
-        existing.notification_methods = condition.notification_methods
-
-    def sync_conditions_to_memory(self, alert_manager) -> int:
-        """
-        データベースからメモリにアラート条件を同期
-
-        Args:
-            alert_manager: AlertManagerインスタンス
-
-        Returns:
-            int: 同期した条件数
-        """
+    def configure_notifications(self, methods: List[NotificationMethod]):
+        """通知方法の設定（データベースに永続化）"""
         try:
-            conditions = self.load_alert_conditions(active_only=True)
+            super().configure_notifications(methods)
 
-            # メモリ上の条件をクリア
-            alert_manager.alert_conditions.clear()
+            # データベースに設定を保存
+            with self.db_manager.session_scope() as session:
+                AlertConfigModel.set_config(
+                    session,
+                    "default_notification_methods",
+                    [method.value for method in methods],
+                    "デフォルトの通知方法"
+                )
 
-            # データベースから読み込んだ条件を設定
-            for condition in conditions:
-                alert_manager.alert_conditions[condition.alert_id] = condition
-
-            logger.info(f"アラート条件をメモリに同期: {len(conditions)}件")
-            return len(conditions)
+            logger.info(f"通知方法を設定: {[m.value for m in methods]}")
 
         except Exception as e:
-            logger.error(f"アラート条件メモリ同期エラー: {e}")
-            return 0
+            logger.error(f"通知方法の設定中にエラーが発生: {e}")
 
-    def sync_conditions_to_database(self, alert_manager) -> int:
-        """
-        メモリからデータベースにアラート条件を同期
-
-        Args:
-            alert_manager: AlertManagerインスタンス
-
-        Returns:
-            int: 同期した条件数
-        """
+    def set_monitoring_interval(self, seconds: int):
+        """監視間隔の設定（データベースに永続化）"""
         try:
-            success_count = 0
+            self.monitoring_interval = seconds
 
-            for condition in alert_manager.alert_conditions.values():
-                if self.save_alert_condition(condition):
-                    success_count += 1
+            # データベースに設定を保存
+            with self.db_manager.session_scope() as session:
+                AlertConfigModel.set_config(
+                    session,
+                    "monitoring_interval",
+                    seconds,
+                    "アラート監視間隔（秒）"
+                )
 
-            logger.info(f"アラート条件をデータベースに同期: {success_count}件")
-            return success_count
+            logger.info(f"監視間隔を設定: {seconds}秒")
 
         except Exception as e:
-            logger.error(f"アラート条件データベース同期エラー: {e}")
-            return 0
+            logger.error(f"監視間隔の設定中にエラーが発生: {e}")
+
+    def export_all_data(self, filename: str):
+        """すべてのアラートデータをエクスポート"""
+        try:
+            export_data = {
+                "alert_conditions": [],
+                "alert_history": [],
+                "config": {},
+                "export_time": datetime.now().isoformat()
+            }
+
+            with self.db_manager.session_scope() as session:
+                # アラート条件
+                conditions = session.query(AlertConditionModel).all()
+                for condition in conditions:
+                    condition_data = condition.to_dict()
+                    export_data["alert_conditions"].append(condition_data)
+
+                # アラート履歴（最近30日分）
+                cutoff_time = datetime.now() - timedelta(days=30)
+                triggers = session.query(AlertTriggerModel).filter(
+                    AlertTriggerModel.trigger_time >= cutoff_time
+                ).all()
+                for trigger in triggers:
+                    trigger_data = trigger.to_dict()
+                    export_data["alert_history"].append(trigger_data)
+
+                # 設定
+                configs = session.query(AlertConfigModel).all()
+                for config in configs:
+                    export_data["config"][config.config_key] = config.config_value
+
+            # ファイルに保存
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=2, default=str)
+
+            logger.info(f"アラートデータをエクスポート: {filename}")
+
+        except Exception as e:
+            logger.error(f"アラートデータのエクスポート中にエラーが発生: {e}")
+
+
+# ファクトリー関数
+def create_persistent_alert_manager(
+    stock_fetcher: Optional[StockFetcher] = None,
+    db_manager_instance=None
+) -> PersistentAlertManager:
+    """永続化対応アラートマネージャーを作成"""
+    return PersistentAlertManager(
+        stock_fetcher=stock_fetcher,
+        db_manager_instance=db_manager_instance
+    )
