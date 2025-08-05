@@ -608,7 +608,7 @@ class DayTradeOrchestrator:
             try:
                 analysis = analysis_results.get(symbol, {})
                 patterns = pattern_results.get(symbol, {})
-                
+
                 # historicalデータを取得
                 symbol_stock_data = stock_data.get(symbol) if stock_data else None
                 historical_df = symbol_stock_data.get("historical") if symbol_stock_data else pd.DataFrame()

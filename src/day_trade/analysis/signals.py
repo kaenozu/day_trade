@@ -358,7 +358,7 @@ class PatternBreakoutRule(SignalRule):
 
                 if latest_breakout and confidence > 0:
                     return True, confidence
-        
+
         return False, 0.0
 
 
