@@ -3,7 +3,7 @@
 価格データからチャートパターンを認識する
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -328,87 +328,144 @@ class ChartPatternRecognizer:
         trend_window: int = 20,
     ) -> Dict[str, Any]:
         """
-        全パターンを検出
+        全パターンを検出（改善版 - シンプルな構造）
 
         Args:
             df: 価格データのDataFrame
             各種パラメータ
 
         Returns:
-            全パターン検出結果の辞書
+            簡素化されたパターン検出結果の辞書
         """
         try:
             results = {}
 
-            # ゴールデン・デッドクロス
+            # ゴールデン・デッドクロス（DataFrameとして保持）
             cross_data = ChartPatternRecognizer.golden_dead_cross(
                 df, golden_cross_fast, golden_cross_slow
             )
             results["crosses"] = cross_data
 
-            # 最新のクロスシグナル
-            if len(cross_data) > 0:
-                latest_idx = -1
-                if cross_data["Golden_Cross"].iloc[latest_idx]:
-                    results["latest_signal"] = {
-                        "type": "Golden Cross",
-                        "confidence": cross_data["Golden_Confidence"].iloc[latest_idx],
-                    }
-                elif cross_data["Dead_Cross"].iloc[latest_idx]:
-                    results["latest_signal"] = {
-                        "type": "Dead Cross",
-                        "confidence": cross_data["Dead_Confidence"].iloc[latest_idx],
-                    }
-
-            # サポート・レジスタンス
-            levels = ChartPatternRecognizer.support_resistance_levels(
-                df, support_resistance_window
-            )
-            results["levels"] = levels
-
-            # ブレイクアウト
+            # ブレイクアウト（DataFrameとして保持）
             breakout_data = ChartPatternRecognizer.breakout_detection(
                 df, breakout_lookback
             )
             results["breakouts"] = breakout_data
 
-            # トレンドライン
+            # サポート・レジスタンス（辞書として保持）
+            levels = ChartPatternRecognizer.support_resistance_levels(
+                df, support_resistance_window
+            )
+            results["levels"] = levels
+
+            # トレンドライン（辞書として保持）
             trends = ChartPatternRecognizer.trend_line_detection(df, trend_window)
             results["trends"] = trends
 
-            # 総合スコア（各パターンの信頼度を統合）
-            confidence_scores = []
+            # 最新シグナルの簡易情報
+            latest_signal = ChartPatternRecognizer._get_latest_signal(
+                cross_data, breakout_data
+            )
+            results["latest_signal"] = latest_signal
 
-            # クロスシグナルの信頼度
-            if "latest_signal" in results:
-                confidence_scores.append(results["latest_signal"]["confidence"])
-
-            # ブレイクアウトの信頼度
-            if len(breakout_data) > 0:
-                latest_up = breakout_data["Upward_Confidence"].iloc[-1]
-                latest_down = breakout_data["Downward_Confidence"].iloc[-1]
-                if latest_up > 0:
-                    confidence_scores.append(latest_up)
-                if latest_down > 0:
-                    confidence_scores.append(latest_down)
-
-            # トレンドの信頼度（R²値を使用）
-            for _trend_type, trend_info in trends.items():
-                if "r2" in trend_info:
-                    confidence_scores.append(trend_info["r2"] * 100)
-
-            if confidence_scores:
-                results["overall_confidence"] = np.mean(confidence_scores)
-            else:
-                results["overall_confidence"] = 0
+            # 総合信頼度スコア
+            overall_confidence = ChartPatternRecognizer._calculate_overall_confidence(
+                cross_data, breakout_data, trends
+            )
+            results["overall_confidence"] = overall_confidence
 
             return results
 
         except Exception as e:
             logger.error(
-                f"全てのチャートパターンの検出中に予期せぬエラーが発生しました。詳細: {e}"
+                f"チャートパターン検出エラー: {e}"
             )
-            return {}
+            return {
+                "crosses": pd.DataFrame(),
+                "breakouts": pd.DataFrame(),
+                "levels": {},
+                "trends": {},
+                "latest_signal": None,
+                "overall_confidence": 0
+            }
+
+    @staticmethod
+    def _get_latest_signal(
+        cross_data: pd.DataFrame,
+        breakout_data: pd.DataFrame
+    ) -> Optional[Dict[str, Any]]:
+        """最新のシグナル情報を取得"""
+        signals = []
+
+        # 最新のクロスシグナルを収集
+        if not cross_data.empty:
+            if cross_data["Golden_Cross"].iloc[-1]:
+                signals.append({
+                    "type": "Golden Cross",
+                    "confidence": cross_data["Golden_Confidence"].iloc[-1],
+                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
+                })
+            if cross_data["Dead_Cross"].iloc[-1]:
+                signals.append({
+                    "type": "Dead Cross",
+                    "confidence": cross_data["Dead_Confidence"].iloc[-1],
+                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
+                })
+
+        # 最新のブレイクアウトシグナルを収集
+        if not breakout_data.empty:
+            if breakout_data["Upward_Breakout"].iloc[-1]:
+                signals.append({
+                    "type": "Upward Breakout",
+                    "confidence": breakout_data["Upward_Confidence"].iloc[-1],
+                    "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
+                })
+            if breakout_data["Downward_Breakout"].iloc[-1]:
+                signals.append({
+                    "type": "Downward Breakout",
+                    "confidence": breakout_data["Downward_Confidence"].iloc[-1],
+                    "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
+                })
+
+        if not signals:
+            return None
+
+        # 最も信頼度の高いシグナルを返す
+        return max(signals, key=lambda x: x.get("confidence", 0.0))
+
+    @staticmethod
+    def _calculate_overall_confidence(
+        cross_data: pd.DataFrame,
+        breakout_data: pd.DataFrame,
+        trends: Dict[str, Any]
+    ) -> float:
+        """総合信頼度スコアを計算"""
+        confidence_scores = []
+
+        # クロス信頼度
+        if not cross_data.empty:
+            golden_conf = cross_data["Golden_Confidence"].iloc[-1]
+            dead_conf = cross_data["Dead_Confidence"].iloc[-1]
+            if golden_conf > 0:
+                confidence_scores.append(golden_conf)
+            if dead_conf > 0:
+                confidence_scores.append(dead_conf)
+
+        # ブレイクアウト信頼度
+        if not breakout_data.empty:
+            up_conf = breakout_data["Upward_Confidence"].iloc[-1]
+            down_conf = breakout_data["Downward_Confidence"].iloc[-1]
+            if up_conf > 0:
+                confidence_scores.append(up_conf)
+            if down_conf > 0:
+                confidence_scores.append(down_conf)
+
+        # トレンド信頼度（R²値を使用）
+        for trend_info in trends.values():
+            if isinstance(trend_info, dict) and "r2" in trend_info:
+                confidence_scores.append(trend_info["r2"] * 100)
+
+        return np.mean(confidence_scores) if confidence_scores else 0.0
 
 
 # 使用例
