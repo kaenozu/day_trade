@@ -32,13 +32,116 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+class CommandHandler:
+    """コマンドハンドラーの基底クラス"""
+
+    def __init__(self, cli_instance):
+        self.cli = cli_instance
+
+    def can_handle(self, command: str) -> bool:
+        """このハンドラーがコマンドを処理できるかどうか"""
+        raise NotImplementedError
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        """コマンドを処理（戻り値: 継続するかどうか）"""
+        raise NotImplementedError
+
+
+class ExitCommandHandler(CommandHandler):
+    """終了コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["exit", "quit"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        return False
+
+
+class HelpCommandHandler(CommandHandler):
+    """ヘルプコマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "help"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._show_help()
+        return True
+
+
+class StockCommandHandler(CommandHandler):
+    """株式関連コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["stock", "history", "watch", "validate"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        if command == "stock" and args:
+            self.cli._handle_stock_command(args[0], details="-d" in args)
+        elif command == "history" and args:
+            self.cli._handle_history_command(args[0])
+        elif command == "watch" and args:
+            self.cli._handle_watch_command(args)
+        elif command == "validate" and args:
+            self.cli._handle_validate_command(args)
+        else:
+            console.print(create_warning_panel(f"'{command}' コマンドには引数が必要です"))
+        return True
+
+
+class WatchlistCommandHandler(CommandHandler):
+    """ウォッチリストコマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "watchlist"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._handle_watchlist_command(args)
+        return True
+
+
+class ConfigCommandHandler(CommandHandler):
+    """設定コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command == "config"
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        self.cli._handle_config_command(args)
+        return True
+
+
+class AnalysisCommandHandler(CommandHandler):
+    """分析関連コマンドハンドラー"""
+
+    def can_handle(self, command: str) -> bool:
+        return command in ["backtest", "screen"]
+
+    def handle(self, command: str, args: List[str]) -> bool:
+        if command == "backtest":
+            self.cli._handle_backtest_command()
+        elif command == "screen":
+            self.cli._handle_screen_command(args)
+        return True
+
+
 class EnhancedInteractiveCLI:
     """拡張された対話型CLIクラス"""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(
+        self,
+        config_path: Optional[Path] = None,
+        stock_fetcher: Optional['StockFetcher'] = None,
+        watchlist_manager: Optional['WatchlistManager'] = None,
+        orchestrator: Optional['DayTradeOrchestrator'] = None
+    ):
         self.config_path = config_path
         self.history_file = Path.home() / ".daytrade_history"
         self.session_data = {}
+
+        # 依存関係の注入（遅延初期化対応）
+        self._stock_fetcher = stock_fetcher
+        self._watchlist_manager = watchlist_manager
+        self._orchestrator = orchestrator
 
         # 履歴機能
         self.history = FileHistory(str(self.history_file))
@@ -64,6 +167,41 @@ class EnhancedInteractiveCLI:
 
         # コマンド補完設定
         self.command_completer = self._create_command_completer()
+
+        # コマンドハンドラーの初期化
+        self.command_handlers = [
+            ExitCommandHandler(self),
+            HelpCommandHandler(self),
+            StockCommandHandler(self),
+            WatchlistCommandHandler(self),
+            ConfigCommandHandler(self),
+            AnalysisCommandHandler(self),
+        ]
+
+    @property
+    def stock_fetcher(self) -> 'StockFetcher':
+        """StockFetcherインスタンスを取得（遅延初期化）"""
+        if self._stock_fetcher is None:
+            self._stock_fetcher = StockFetcher()
+        return self._stock_fetcher
+
+    @property
+    def watchlist_manager(self) -> 'WatchlistManager':
+        """WatchlistManagerインスタンスを取得（遅延初期化）"""
+        if self._watchlist_manager is None:
+            from ..core.config import config_manager
+            self._watchlist_manager = WatchlistManager(
+                config_manager, None, self.stock_fetcher, None
+            )
+        return self._watchlist_manager
+
+    @property
+    def orchestrator(self) -> 'DayTradeOrchestrator':
+        """DayTradeOrchestratorインスタンスを取得（遅延初期化）"""
+        if self._orchestrator is None:
+            from ..automation.orchestrator import DayTradeOrchestrator
+            self._orchestrator = DayTradeOrchestrator(self.config_path)
+        return self._orchestrator
 
     def _setup_key_bindings(self):
         """カスタムキーバインディングの設定"""
@@ -117,16 +255,11 @@ class EnhancedInteractiveCLI:
 
         # ウォッチリストから銘柄コードを取得
         try:
-            from ..core.config import config_manager
-
-            watchlist_manager = WatchlistManager(
-                config_manager, None, StockFetcher(), None
-            )
-            watchlist_items = watchlist_manager.get_watchlist()
+            watchlist_items = self.watchlist_manager.get_watchlist()
             watchlist_codes = [item.get("stock_code", "") for item in watchlist_items]
             common_codes.extend(watchlist_codes)
         except Exception as e:
-            logger.debug(f"ウォッチリストからの銘柄コード取得に失敗: {e}")
+            logger.warning(f"ウォッチリストからの銘柄コード取得に失敗: {e}")
 
         return list(set(common_codes))  # 重複除去
 
@@ -234,35 +367,104 @@ class EnhancedInteractiveCLI:
         args = parts[1:] if len(parts) > 1 else []
 
         try:
-            if cmd in ["exit", "quit"]:
-                return False
-            elif cmd == "help":
-                self._show_help()
-            elif cmd == "stock" and args:
-                self._handle_stock_command(args[0], details="-d" in args)
-            elif cmd == "history" and args:
-                self._handle_history_command(args[0])
-            elif cmd == "watch" and args:
-                self._handle_watch_command(args)
-            elif cmd == "watchlist":
-                self._handle_watchlist_command(args)
-            elif cmd == "config":
-                self._handle_config_command(args)
-            elif cmd == "validate" and args:
-                self._handle_validate_command(args)
-            elif cmd == "backtest":
-                self._handle_backtest_command()
-            elif cmd == "screen":
-                self._handle_screen_command(args)
-            else:
-                console.print(
-                    create_warning_panel(
-                        f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。"
-                    )
+            # 適切なハンドラーを検索
+            for handler in self.command_handlers:
+                if handler.can_handle(cmd):
+                    return handler.handle(cmd, args)
+
+            # 不明なコマンド
+            console.print(
+                create_warning_panel(
+                    f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。"
                 )
+            )
+
         except Exception as e:
             console.print(create_error_panel(f"コマンド実行エラー: {e}"))
             logger.error(f"Command execution error: {e}")
+
+        return True
+
+    def _handle_error(self, error: Exception, context: str = "操作") -> None:
+        """
+        統一的なエラーハンドリング
+
+        Args:
+            error: 例外オブジェクト
+            context: エラーが発生した文脈
+        """
+        error_type = type(error).__name__
+
+        # 一般的なエラーの解決策を提供
+        solutions = []
+
+        if "ConnectionError" in error_type or "timeout" in str(error).lower():
+            solutions = [
+                "インターネット接続を確認してください",
+                "VPNまたはプロキシの設定を確認してください",
+                "少し時間をおいて再試行してください"
+            ]
+        elif "FileNotFoundError" in error_type:
+            solutions = [
+                "ファイルパスが正しいか確認してください",
+                "ファイルが存在するか確認してください",
+                "権限があるか確認してください"
+            ]
+        elif "ImportError" in error_type or "ModuleNotFoundError" in error_type:
+            solutions = [
+                "必要なライブラリがインストールされているか確認してください",
+                "pip install -e .[dev] を実行してください",
+                "仮想環境が正しく有効化されているか確認してください"
+            ]
+        elif "ValueError" in error_type or "TypeError" in error_type:
+            solutions = [
+                "入力データの形式を確認してください",
+                "必要な引数がすべて提供されているか確認してください"
+            ]
+        elif "KeyError" in error_type:
+            solutions = [
+                "設定ファイルに必要なキーが存在するか確認してください",
+                "データが正しく初期化されているか確認してください"
+            ]
+
+        if solutions:
+            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}", solutions=solutions))
+        else:
+            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}"))
+
+        logger.error(f"Error in {context}: {error_type}: {error}")
+
+    def _validate_input(self, value: str, validation_type: str) -> bool:
+        """
+        入力値の検証
+
+        Args:
+            value: 検証する値
+            validation_type: 検証タイプ
+
+        Returns:
+            検証結果
+        """
+        if not value or not value.strip():
+            console.print(create_warning_panel("値が入力されていません"))
+            return False
+
+        if validation_type == "stock_code":
+            if not validate_stock_code(value):
+                console.print(create_warning_panel(f"無効な銘柄コード: {value}"))
+                return False
+        elif validation_type == "numeric":
+            try:
+                float(value)
+            except ValueError:
+                console.print(create_warning_panel(f"数値ではありません: {value}"))
+                return False
+        elif validation_type == "integer":
+            try:
+                int(value)
+            except ValueError:
+                console.print(create_warning_panel(f"整数ではありません: {value}"))
+                return False
 
         return True
 
@@ -272,7 +474,6 @@ class EnhancedInteractiveCLI:
             console.print(create_error_panel(f"無効な銘柄コード: {code}"))
             return
 
-        fetcher = StockFetcher()
         normalized_codes = normalize_stock_codes([code])
         if not normalized_codes:
             console.print(create_error_panel(f"銘柄コード正規化に失敗: {code}"))
@@ -282,7 +483,7 @@ class EnhancedInteractiveCLI:
         console.print(f"[cyan]銘柄 {code} の情報を取得中...[/cyan]")
 
         try:
-            current = fetcher.get_current_price(code)
+            current = self.stock_fetcher.get_current_price(code)
             if current:
                 console.print(
                     create_success_panel(
@@ -290,7 +491,7 @@ class EnhancedInteractiveCLI:
                     )
                 )
                 if details:
-                    info = fetcher.get_company_info(code)
+                    info = self.stock_fetcher.get_company_info(code)
                     if info:
                         console.print(
                             create_info_panel(f"企業名: {info.get('name', 'N/A')}")
@@ -324,33 +525,236 @@ class EnhancedInteractiveCLI:
 
         subcommand = args[0].lower()
 
-        if subcommand == "list":
-            console.print(create_info_panel("ウォッチリスト一覧（実装予定）"))
-        elif subcommand == "add" and len(args) > 1:
-            console.print(
-                create_success_panel(f"銘柄 {args[1]} をウォッチリストに追加")
-            )
-        elif subcommand == "remove" and len(args) > 1:
-            console.print(
-                create_success_panel(f"銘柄 {args[1]} をウォッチリストから削除")
-            )
+        try:
+            if subcommand == "list":
+                self._show_watchlist()
+            elif subcommand == "add" and len(args) > 1:
+                self._add_to_watchlist(args[1], memo=" ".join(args[2:]) if len(args) > 2 else None)
+            elif subcommand == "remove" and len(args) > 1:
+                self._remove_from_watchlist(args[1])
+            elif subcommand == "clear":
+                self._clear_watchlist()
+            elif subcommand == "memo" and len(args) > 2:
+                self._update_watchlist_memo(args[1], " ".join(args[2:]))
+            else:
+                console.print(create_warning_panel(f"不明なサブコマンドまたは引数不足: {subcommand}"))
+        except Exception as e:
+            console.print(create_error_panel(f"ウォッチリスト操作エラー: {e}"))
+            logger.error(f"Watchlist operation error: {e}")
+
+    def _show_watchlist(self):
+        """ウォッチリスト一覧表示"""
+        items = self.watchlist_manager.get_watchlist()
+        if not items:
+            console.print(create_info_panel("ウォッチリストは空です"))
+            return
+
+        console.print("\n[bold cyan]📋 ウォッチリスト[/bold cyan]")
+        for i, item in enumerate(items, 1):
+            stock_code = item.get("stock_code", "N/A")
+            memo = item.get("memo", "")
+            memo_text = f" - {memo}" if memo else ""
+            console.print(f"{i}. [yellow]{stock_code}[/yellow]{memo_text}")
+
+        console.print(f"\n合計: {len(items)}銘柄")
+
+    def _add_to_watchlist(self, stock_code: str, memo: Optional[str] = None):
+        """ウォッチリストに銘柄を追加"""
+        if not validate_stock_code(stock_code):
+            console.print(create_error_panel(f"無効な銘柄コード: {stock_code}"))
+            return
+
+        normalized_codes = normalize_stock_codes([stock_code])
+        if not normalized_codes:
+            console.print(create_error_panel(f"銘柄コード正規化に失敗: {stock_code}"))
+            return
+
+        stock_code = normalized_codes[0]
+
+        # 既存チェック
+        existing_items = self.watchlist_manager.get_watchlist()
+        if any(item.get("stock_code") == stock_code for item in existing_items):
+            console.print(create_warning_panel(f"銘柄 {stock_code} は既にウォッチリストに存在します"))
+            return
+
+        # 追加実行
+        success = self.watchlist_manager.add_stock(stock_code, memo=memo)
+        if success:
+            memo_text = f" (メモ: {memo})" if memo else ""
+            console.print(create_success_panel(f"銘柄 {stock_code} をウォッチリストに追加しました{memo_text}"))
+            # 補完用銘柄コードリストを更新
+            self.stock_codes = self._load_stock_codes()
+            self.command_completer = self._create_command_completer()
         else:
-            console.print(create_warning_panel(f"不明なサブコマンド: {subcommand}"))
+            console.print(create_error_panel(f"銘柄 {stock_code} の追加に失敗しました"))
+
+    def _remove_from_watchlist(self, stock_code: str):
+        """ウォッチリストから銘柄を削除"""
+        normalized_codes = normalize_stock_codes([stock_code])
+        if normalized_codes:
+            stock_code = normalized_codes[0]
+
+        success = self.watchlist_manager.remove_stock(stock_code)
+        if success:
+            console.print(create_success_panel(f"銘柄 {stock_code} をウォッチリストから削除しました"))
+            # 補完用銘柄コードリストを更新
+            self.stock_codes = self._load_stock_codes()
+            self.command_completer = self._create_command_completer()
+        else:
+            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
+
+    def _clear_watchlist(self):
+        """ウォッチリストをクリア"""
+        from prompt_toolkit.shortcuts import confirm
+        if confirm("ウォッチリストをすべてクリアしますか？"):
+            self.watchlist_manager.clear_watchlist()
+            console.print(create_success_panel("ウォッチリストをクリアしました"))
+            # 補完用銘柄コードリストを更新
+            self.stock_codes = self._load_stock_codes()
+            self.command_completer = self._create_command_completer()
+        else:
+            console.print(create_info_panel("キャンセルしました"))
+
+    def _update_watchlist_memo(self, stock_code: str, memo: str):
+        """ウォッチリストのメモを更新"""
+        normalized_codes = normalize_stock_codes([stock_code])
+        if normalized_codes:
+            stock_code = normalized_codes[0]
+
+        # 既存チェック
+        existing_items = self.watchlist_manager.get_watchlist()
+        if not any(item.get("stock_code") == stock_code for item in existing_items):
+            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
+            return
+
+        # メモ更新（add_stockを使って既存を上書き）
+        success = self.watchlist_manager.add_stock(stock_code, memo=memo)
+        if success:
+            console.print(create_success_panel(f"銘柄 {stock_code} のメモを更新しました: {memo}"))
+        else:
+            console.print(create_error_panel(f"銘柄 {stock_code} のメモ更新に失敗しました"))
 
     def _handle_config_command(self, args: List[str]):
         """config コマンドの処理"""
         self.session_data["mode"] = "config"
 
-        if not args or args[0] == "show":
-            console.print(create_info_panel("設定表示（実装予定）"))
-        elif args[0] == "set" and len(args) >= 3:
-            key, value = args[1], args[2]
-            console.print(create_success_panel(f"設定更新: {key} = {value}"))
-        elif args[0] == "reset":
-            if confirm("設定をリセットしますか？"):
-                console.print(create_success_panel("設定をリセットしました"))
+        try:
+            if not args or args[0] == "show":
+                self._show_config()
+            elif args[0] == "set" and len(args) >= 3:
+                key, value = args[1], args[2]
+                self._set_config(key, value)
+            elif args[0] == "reset":
+                self._reset_config()
+            else:
+                console.print(create_warning_panel("使用法: config [show|set|reset]"))
+        except Exception as e:
+            console.print(create_error_panel(f"設定操作エラー: {e}"))
+            logger.error(f"Config operation error: {e}")
+
+    def _show_config(self):
+        """設定表示"""
+        try:
+            from ..core.config import config_manager
+
+            console.print("\n[bold cyan]⚙️ 現在の設定[/bold cyan]")
+
+            # API設定
+            api_timeout = getattr(config_manager, 'api_timeout', 30)
+            console.print(f"[yellow]API設定[/yellow]")
+            console.print(f"  timeout: {api_timeout}秒")
+
+            # 取引設定
+            commission = getattr(config_manager, 'commission', 0.0)
+            console.print(f"[yellow]取引設定[/yellow]")
+            console.print(f"  commission: {commission}%")
+
+            # 表示設定
+            theme = getattr(config_manager, 'theme', 'dark')
+            console.print(f"[yellow]表示設定[/yellow]")
+            console.print(f"  theme: {theme}")
+
+            # データベース設定
+            db_path = getattr(config_manager, 'database_path', 'day_trade.db')
+            console.print(f"[yellow]データベース設定[/yellow]")
+            console.print(f"  database_path: {db_path}")
+
+        except Exception as e:
+            console.print(create_error_panel(f"設定読み込みエラー: {e}"))
+
+    def _set_config(self, key: str, value: str):
+        """設定更新"""
+        try:
+            from ..core.config import config_manager
+
+            # 設定キーの検証と変換
+            valid_keys = {
+                "api.timeout": ("api_timeout", int),
+                "trading.commission": ("commission", float),
+                "display.theme": ("theme", str),
+                "database.path": ("database_path", str)
+            }
+
+            if key not in valid_keys:
+                console.print(create_error_panel(f"無効な設定キー: {key}"))
+                console.print(create_info_panel(f"有効なキー: {', '.join(valid_keys.keys())}"))
+                return
+
+            attr_name, value_type = valid_keys[key]
+
+            # 値の型変換
+            try:
+                if value_type == int:
+                    converted_value = int(value)
+                elif value_type == float:
+                    converted_value = float(value)
+                else:
+                    converted_value = value
+
+                # テーマの検証
+                if key == "display.theme" and converted_value not in ["dark", "light"]:
+                    console.print(create_error_panel("テーマは 'dark' または 'light' を指定してください"))
+                    return
+
+            except ValueError:
+                console.print(create_error_panel(f"無効な値の型: {value} (期待する型: {value_type.__name__})"))
+                return
+
+            # 設定更新
+            setattr(config_manager, attr_name, converted_value)
+            console.print(create_success_panel(f"設定を更新しました: {key} = {converted_value}"))
+
+            # 設定保存の試行
+            if hasattr(config_manager, 'save'):
+                config_manager.save()
+                console.print(create_info_panel("設定をファイルに保存しました"))
+
+        except Exception as e:
+            console.print(create_error_panel(f"設定更新エラー: {e}"))
+
+    def _reset_config(self):
+        """設定リセット"""
+        from prompt_toolkit.shortcuts import confirm
+
+        if confirm("設定をデフォルト値にリセットしますか？"):
+            try:
+                from ..core.config import config_manager
+
+                # デフォルト値に戻す
+                config_manager.api_timeout = 30
+                config_manager.commission = 0.0
+                config_manager.theme = 'dark'
+                config_manager.database_path = 'day_trade.db'
+
+                if hasattr(config_manager, 'save'):
+                    config_manager.save()
+
+                console.print(create_success_panel("設定をデフォルト値にリセットしました"))
+
+            except Exception as e:
+                console.print(create_error_panel(f"設定リセットエラー: {e}"))
         else:
-            console.print(create_warning_panel("使用法: config [show|set|reset]"))
+            console.print(create_info_panel("キャンセルしました"))
 
     def _handle_validate_command(self, codes: List[str]):
         """validate コマンドの処理"""
@@ -366,8 +770,6 @@ class EnhancedInteractiveCLI:
     def _handle_screen_command(self, args: List[str]):
         """screen コマンドの処理"""
         try:
-            from ..automation.orchestrator import DayTradeOrchestrator
-
             # スクリーナータイプの決定
             screener_type = "default"
             if args and args[0] in ["default", "growth", "value", "momentum"]:
@@ -377,11 +779,8 @@ class EnhancedInteractiveCLI:
                 f"[cyan]{screener_type}スクリーナーで銘柄をスクリーニング中...[/cyan]"
             )
 
-            # オーケストレーターを初期化
-            orchestrator = DayTradeOrchestrator(self.config_path)
-
             # スクリーニング実行
-            results = orchestrator.run_stock_screening(
+            results = self.orchestrator.run_stock_screening(
                 screener_type=screener_type, min_score=0.1, max_results=10
             )
 
