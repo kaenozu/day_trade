@@ -411,13 +411,12 @@ class PatternBreakoutRule(SignalRule):
                 if latest_breakout and confidence > 0:
                     return True, confidence
 
-        elif self.direction == "downward":
-            if "Downward_Breakout" in breakouts.columns and "Downward_Confidence" in breakouts.columns:
-                latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
-                confidence = breakouts["Downward_Confidence"].iloc[-1]
+        elif self.direction == "downward" and "Downward_Breakout" in breakouts.columns and "Downward_Confidence" in breakouts.columns:
+            latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
+            confidence = breakouts["Downward_Confidence"].iloc[-1]
 
-                if latest_breakout and confidence > 0:
-                    return True, confidence
+            if latest_breakout and confidence > 0:
+                return True, confidence
 
         return False, 0.0
 

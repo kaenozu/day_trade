@@ -90,7 +90,6 @@ class EnhancedStockScreener:
 
         logger.info("拡張版スクリーナーを初期化")
 
-    @lru_cache(maxsize=100)
     def _get_default_criteria_for_condition(self, condition: ScreenerCondition) -> ScreenerCriteria:
         """条件のデフォルト基準を取得（キャッシュ付き）"""
         threshold = self.config.get_threshold(condition.value)

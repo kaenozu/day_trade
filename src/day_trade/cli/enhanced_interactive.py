@@ -18,6 +18,7 @@ from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.panel import Panel
 
+from ..automation.orchestrator import DayTradeOrchestrator
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
 from ..utils.formatters import (
@@ -704,9 +705,9 @@ class EnhancedInteractiveCLI:
 
             # 値の型変換
             try:
-                if value_type == int:
+                if value_type is int:
                     converted_value = int(value)
-                elif value_type == float:
+                elif value_type is float:
                     converted_value = float(value)
                 else:
                     converted_value = value

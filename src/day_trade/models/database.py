@@ -83,7 +83,7 @@ class DatabaseConfig:
 
     def _get_config_value(self, key: str, explicit_value, env_key: str, default_value, type_converter=str):
         """設定値を優先順位に従って取得"""
-        if explicit_value is not None and explicit_value != (False if type_converter == bool else 0):
+        if explicit_value is not None and explicit_value != (False if type_converter is bool else 0):
             return explicit_value
 
         if self._config_manager:
@@ -99,14 +99,14 @@ class DatabaseConfig:
                     config_value = None
 
                 if config_value is not None:
-                    return type_converter(config_value) if type_converter != str else config_value
+                    return type_converter(config_value) if type_converter is not str else config_value
             except Exception:
                 pass  # ConfigManagerが利用できない場合は無視
 
         env_value = os.environ.get(env_key)
         if env_value is not None:
             try:
-                if type_converter == bool:
+                if type_converter is bool:
                     return env_value.lower() in ('true', '1', 'yes', 'on')
                 return type_converter(env_value)
             except (ValueError, TypeError):

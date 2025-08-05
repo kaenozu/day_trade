@@ -308,8 +308,6 @@ class AdvancedBulkOperations:
         バッチ処理コンテキストマネージャー
         大量データを効率的に処理するためのヘルパー
         """
-        processed = 0
-        batch_count = 0
 
         class BatchProcessor:
             def __init__(self, db_manager, batch_size, commit_interval, logger):

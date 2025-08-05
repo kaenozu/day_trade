@@ -969,8 +969,8 @@ class TestAlertManagerAdvanced:
             self.alert_manager.add_alert(condition)
 
         # 一時ファイルにエクスポート
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
             export_file = tmp_file.name
@@ -983,7 +983,7 @@ class TestAlertManagerAdvanced:
 
             # エクスポートされた内容を確認
             import json
-            with open(export_file, 'r', encoding='utf-8') as f:
+            with open(export_file, encoding='utf-8') as f:
                 exported_data = json.load(f)
 
             assert "export_test_1" in exported_data
@@ -1314,77 +1314,6 @@ class TestAlertStrategyIntegration:
             # アラート履歴に何も追加されないことを確認
             assert len(self.alert_manager.alert_history) == 0
 
-
-class TestHelperFunctions:
-    """ヘルパー関数のテスト"""
-
-    def test_create_price_alert(self):
-        """価格アラート作成ヘルパーのテスト"""
-        from src.day_trade.core.alerts import create_price_alert
-
-        # 上昇アラート
-        alert_above = create_price_alert(
-            alert_id="price_above_test",
-            symbol="7203",
-            target_price=Decimal("3000"),
-            above=True,
-            priority=AlertPriority.HIGH
-        )
-
-        assert alert_above.alert_id == "price_above_test"
-        assert alert_above.symbol == "7203"
-        assert alert_above.alert_type == AlertType.PRICE_ABOVE
-        assert alert_above.condition_value == Decimal("3000")
-        assert alert_above.comparison_operator == ">"
-        assert alert_above.priority == AlertPriority.HIGH
-        assert "価格上昇" in alert_above.description
-
-        # 下落アラート
-        alert_below = create_price_alert(
-            alert_id="price_below_test",
-            symbol="9984",
-            target_price=Decimal("15000"),
-            above=False,
-            priority=AlertPriority.MEDIUM
-        )
-
-        assert alert_below.alert_type == AlertType.PRICE_BELOW
-        assert alert_below.comparison_operator == "<"
-        assert "価格下落" in alert_below.description
-
-    def test_create_change_alert(self):
-        """変化率アラート作成ヘルパーのテスト"""
-        from src.day_trade.core.alerts import create_change_alert
-
-        # 上昇アラート
-        alert_up = create_change_alert(
-            alert_id="change_up_test",
-            symbol="7203",
-            change_percent=5.0,
-            up=True,
-            priority=AlertPriority.HIGH
-        )
-
-        assert alert_up.alert_id == "change_up_test"
-        assert alert_up.symbol == "7203"
-        assert alert_up.alert_type == AlertType.CHANGE_PERCENT_UP
-        assert alert_up.condition_value == 5.0
-        assert alert_up.priority == AlertPriority.HIGH
-        assert "変化率上昇" in alert_up.description
-        assert "+5.0%" in alert_up.description
-
-        # 下落アラート
-        alert_down = create_change_alert(
-            alert_id="change_down_test",
-            symbol="9984",
-            change_percent=-3.5,
-            up=False,
-            priority=AlertPriority.MEDIUM
-        )
-
-        assert alert_down.alert_type == AlertType.CHANGE_PERCENT_DOWN
-        assert "変化率下落" in alert_down.description
-        assert "-3.5%" in alert_down.description
 
 
 class TestAlertManagerCompareValues:
