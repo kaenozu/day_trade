@@ -443,6 +443,10 @@ class TestDatabaseIntegration:
 
     def test_timezone_persistence(self, test_db_session, sample_user):
         """タイムゾーン情報の永続化テスト"""
+        # 元のタイムスタンプを保存
+        original_created_at = sample_user.created_at
+        original_updated_at = sample_user.updated_at
+
         # データベースに保存
         test_db_session.add(sample_user)
         test_db_session.commit()
