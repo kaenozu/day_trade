@@ -12,19 +12,20 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
-from sqlalchemy import DateTime, Integer, func
+from sqlalchemy import DateTime, Integer
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column
 
 try:
-    from pydantic import BaseModel as PydanticBaseModel, Field, create_model
+    from pydantic import BaseModel as PydanticBaseModel
+    from pydantic import Field, create_model
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
     PydanticBaseModel = None
 
-from .database import Base
 from ..utils.logging_config import get_context_logger
+from .database import Base
 
 logger = get_context_logger(__name__)
 
@@ -75,7 +76,7 @@ class BaseModel(Base, TimestampMixin):
     )
 
     @declared_attr
-    def __tablename__(cls) -> str:
+    def __tablename__(cls) -> str:  # noqa: N805
         """テーブル名を自動生成（クラス名を小文字に）"""
         return cls.__name__.lower()
 
@@ -357,13 +358,13 @@ class BaseModel(Base, TimestampMixin):
     @classmethod
     def _get_python_type_from_column(cls, column) -> Type:
         """カラムからPython型を推定"""
-        from sqlalchemy import String, Integer, Boolean, Float, Text
+        from sqlalchemy import Boolean, Float, Integer, String, Text
         from sqlalchemy.types import DECIMAL
 
         sql_type = column.type
         python_type = Any  # デフォルト
 
-        if isinstance(sql_type, String) or isinstance(sql_type, Text):
+        if isinstance(sql_type, (String, Text)):
             python_type = str
         elif isinstance(sql_type, Integer):
             python_type = int
@@ -483,9 +484,9 @@ class BaseModel(Base, TimestampMixin):
         if hasattr(self, 'id') and self.id is not None:
             key_attrs.append(f"id={self.id}")
         if hasattr(self, 'code') and getattr(self, 'code', None):
-            key_attrs.append(f"code={getattr(self, 'code')!r}")
+            key_attrs.append(f"code={self.code!r}")
         if hasattr(self, 'name') and getattr(self, 'name', None):
-            key_attrs.append(f"name={getattr(self, 'name')!r}")
+            key_attrs.append(f"name={self.name!r}")
 
         attrs_str = ", ".join(key_attrs) if key_attrs else "no_key_attrs"
         return f"{class_name}({attrs_str})"

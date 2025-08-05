@@ -2,17 +2,18 @@
 Signalsモジュールの高度な機能テスト - 未カバー領域対応
 """
 
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import Mock, patch
 
 from src.day_trade.analysis.signals import (
+    SignalStrength,
+    SignalType,
+    TradingSignal,
     TradingSignalGenerator,
     TradingSignalGeneratorExtended,
-    TradingSignal,
-    SignalType,
-    SignalStrength,
 )
 from src.day_trade.config.config_manager import ConfigManager
 

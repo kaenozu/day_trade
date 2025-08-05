@@ -8,23 +8,30 @@ BaseModelクラスの機能テスト（改善版）
 - バリデーション機能
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional
 
-from sqlalchemy import Column, String, Integer, DECIMAL, DateTime, Boolean, create_engine
+import pytest
+from sqlalchemy import (
+    DECIMAL,
+    Boolean,
+    Column,
+    Integer,
+    String,
+    create_engine,
+)
 from sqlalchemy.orm import sessionmaker
 
 # テスト用の依存関係
 try:
-    from pydantic import BaseModel as PydanticBaseModel, Field
+    from pydantic import BaseModel as PydanticBaseModel
+    from pydantic import Field
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
     PydanticBaseModel = None
 
-from src.day_trade.models.base import BaseModel, TimestampMixin
+from src.day_trade.models.base import BaseModel
 from src.day_trade.models.database import Base
 
 

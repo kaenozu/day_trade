@@ -3,14 +3,15 @@
 Issue #134の改善点をテスト
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from typing import Dict, List
+from unittest.mock import Mock
 
-from src.day_trade.data.stock_master import StockMasterManager, create_stock_master_manager
+import pytest
+
 from src.day_trade.data.stock_fetcher import StockFetcher
+from src.day_trade.data.stock_master import (
+    create_stock_master_manager,
+)
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager
-from src.day_trade.models.stock import Stock
 
 
 @pytest.fixture

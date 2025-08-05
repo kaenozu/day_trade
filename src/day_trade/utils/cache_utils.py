@@ -11,7 +11,7 @@ import threading
 import time
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 # オプショナル依存関係のインポート
 try:
@@ -73,7 +73,6 @@ class CacheConfig:
 
     def _load_config(self):
         """設定を読み込み（config_manager優先、環境変数フォールバック）"""
-        import os
 
         # config_managerから取得を試行
         cache_settings = {}
@@ -158,7 +157,7 @@ class CacheConfig:
         env_value = os.getenv(env_key)
         if env_value is not None:
             try:
-                if type_converter == bool:
+                if type_converter is bool:
                     return env_value.lower() in ('true', '1', 'yes', 'on')
                 return type_converter(env_value)
             except (ValueError, TypeError) as e:
@@ -343,9 +342,7 @@ class CacheCircuitBreaker:
             self._failure_count += 1
             self._last_failure_time = time.time()
 
-            if self._failure_count >= self.failure_threshold:
-                self._state = "OPEN"
-            elif self._state == "HALF_OPEN":
+            if self._failure_count >= self.failure_threshold or self._state == "HALF_OPEN":
                 self._state = "OPEN"
 
     @property
@@ -964,7 +961,7 @@ def _generate_fallback_cache_key(func_name: str, args: Tuple, kwargs: Dict) -> s
         kwargs_str = str(sorted(kwargs.items())) if kwargs else ""
 
         # SHA256を使用してより堅牢なハッシュを生成
-        combined_data = f"{func_name}:{args_str}:{kwargs_str}".encode('utf-8')
+        combined_data = f"{func_name}:{args_str}:{kwargs_str}".encode()
         combined_hash = hashlib.sha256(combined_data).hexdigest()
 
         return f"{func_name}:fallback:{combined_hash}"
@@ -1373,8 +1370,8 @@ class TTLCache:
             default_ttl: デフォルトTTL（秒、Noneの場合は設定から取得）
             config: キャッシュ設定（Noneの場合はデフォルト設定を使用）
         """
-        import time
         import threading
+        import time
         from collections import OrderedDict
 
         self._config = config or get_cache_config()

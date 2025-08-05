@@ -3,23 +3,21 @@
 ストラテジーパターンと設定外部化によるリファクタリング版
 """
 
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
-from functools import lru_cache
 
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
-from ..utils.logging_config import get_context_logger
 from ..utils.formatters import format_currency, format_percentage, format_volume
+from ..utils.logging_config import get_context_logger
 from .indicators import TechnicalIndicators
-from .signals import TradingSignalGenerator
+from .screening_config import ScreeningConfig, get_screening_config
 from .screening_strategies import ScreeningStrategyFactory
-from .screening_config import get_screening_config, ScreeningConfig
+from .signals import TradingSignalGenerator
 
 logger = get_context_logger(__name__, component="stock_screener_enhanced")
 
@@ -91,7 +89,6 @@ class EnhancedStockScreener:
 
         logger.info("拡張版スクリーナーを初期化")
 
-    @lru_cache(maxsize=100)
     def _get_default_criteria_for_condition(self, condition: ScreenerCondition) -> ScreenerCriteria:
         """条件のデフォルト基準を取得（キャッシュ付き）"""
         threshold = self.config.get_threshold(condition.value)

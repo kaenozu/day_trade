@@ -3,16 +3,15 @@
 永続化機能を提供
 """
 
-from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.types import TypeDecorator
 
-from .base import BaseModel
-from ..models.enums import AlertType
 from ..core.alerts import AlertPriority
+from ..models.enums import AlertType
+from .base import BaseModel
 
 
 class DecimalType(TypeDecorator):
