@@ -872,7 +872,7 @@ class TradingSignalGenerator:
             base_score = signal.confidence
 
             # 強度による調整係数を設定から取得
-            strength_config = self.config.get("signal_generation_settings", {}).get("strength_multipliers", {})
+            strength_config = self.config.get_signal_settings().get("strength_multipliers", {})
             strength_multipliers = {
                 SignalStrength.STRONG: strength_config.get("strong", 1.2),
                 SignalStrength.MEDIUM: strength_config.get("medium", 1.0),
@@ -881,7 +881,7 @@ class TradingSignalGenerator:
             base_score *= strength_multipliers.get(signal.strength, 1.0)
 
             # 複数条件の組み合わせによるボーナス
-            validation_config = self.config.get("signal_generation_settings", {}).get("validation_adjustments", {})
+            validation_config = self.config.get_signal_settings().get("validation_adjustments", {})
             multi_condition_bonus = validation_config.get("multi_condition_bonus", 1.15)
 
             active_conditions = sum(1 for v in signal.conditions_met.values() if v)
