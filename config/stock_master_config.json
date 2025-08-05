@@ -1,0 +1,65 @@
+{
+  "session_management": {
+    "default_detached": false,
+    "auto_expunge": false,
+    "eager_loading": true,
+    "session_scope_isolation": true
+  },
+  "performance": {
+    "default_bulk_batch_size": 1000,
+    "fetch_batch_size": 50,
+    "fetch_delay_seconds": 0.1,
+    "search_limit_default": 50,
+    "search_limit_max": 1000
+  },
+  "data_fetching": {
+    "enable_retry": true,
+    "retry_attempts": 3,
+    "retry_delay": 1.0,
+    "enable_caching": true,
+    "cache_ttl_seconds": 3600
+  },
+  "market_estimation": {
+    "use_market_cap_estimation": true,
+    "prime_market_cap_threshold": 100000000000,
+    "standard_market_cap_threshold": 10000000000,
+    "default_market_segment": "東証プライム",
+    "etf_code_ranges": [
+      {"start": 1300, "end": 1399},
+      {"start": 1500, "end": 1599}
+    ],
+    "growth_code_ranges": [
+      {"start": 2000, "end": 2999}
+    ]
+  },
+  "validation": {
+    "require_code": true,
+    "require_name": true,
+    "validate_code_format": true,
+    "max_name_length": 255,
+    "allowed_markets": [
+      "東証プライム", "東証スタンダード", "東証グロース", "ETF"
+    ],
+    "allowed_sectors": [
+      "テクノロジー", "金融", "ヘルスケア", "消費財", "エネルギー",
+      "不動産", "素材", "資本財", "通信", "公共サービス"
+    ]
+  },
+  "logging": {
+    "log_bulk_operations": true,
+    "log_performance_metrics": true,
+    "log_cache_operations": false,
+    "detailed_error_logging": true
+  },
+  "optimizations": {
+    "use_query_optimization": true,
+    "enable_connection_pooling": true,
+    "enable_statement_caching": true
+  },
+  "sector_management": {
+    "skip_existing_sector_info": true,
+    "auto_update_on_fetch": false,
+    "sector_cache_ttl_hours": 24,
+    "max_concurrent_updates": 5
+  }
+}

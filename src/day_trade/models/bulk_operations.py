@@ -12,7 +12,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..utils.logging_config import get_context_logger
-from .database import Base, DatabaseManager
+from .base import Base
+from .database import DatabaseManager
 
 logger = get_context_logger(__name__, component="bulk_operations")
 
