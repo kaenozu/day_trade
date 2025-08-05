@@ -120,6 +120,8 @@ class DayTradeOrchestrator:
                 enable_ml_models=True,
                 performance_file=ensemble_settings.performance_file_path,
             )
+            # 初期化時にMLモデルの訓練を実行
+            self.train_ml_models(symbols=self.config_manager.get_symbol_codes())
 
             logger.info(
                 f"アンサンブル戦略を有効化: {strategy_type.value}, 投票方式: {voting_type.value}"
@@ -245,7 +247,14 @@ class DayTradeOrchestrator:
                 with multi_step_progress("デイトレード自動化実行", steps) as progress:
                     if not report_only:
                         # メイン処理実行
-                        self._execute_main_pipeline_with_progress(symbols, progress)
+                        stock_data, analysis_results, pattern_results, signals, alerts = self._execute_main_pipeline(symbols)
+                        # 結果を保存
+                        self.current_report.generated_signals = signals
+                        self.current_report.triggered_alerts = alerts
+
+                        for _ in range(len(steps) - 1): #レポート生成以外のステップを完了
+                            progress.complete_step()
+
                     else:
                         # レポートのみの場合は全ステップをスキップしてレポート生成
                         for _i in range(len(steps) - 1):
@@ -258,7 +267,9 @@ class DayTradeOrchestrator:
                 # 進捗表示なしで実行（従来通り）
                 if not report_only:
                     # メイン処理実行
-                    self._execute_main_pipeline(symbols)
+                    stock_data, analysis_results, pattern_results, signals, alerts = self._execute_main_pipeline(symbols)
+                    self.current_report.generated_signals = signals
+                    self.current_report.triggered_alerts = alerts
 
                 # レポート生成
                 self._generate_reports()
@@ -289,45 +300,43 @@ class DayTradeOrchestrator:
     def _execute_main_pipeline_with_progress(self, symbols: List[str], progress):
         """進捗表示付きメイン処理パイプラインを実行"""
         logger.info("Step 1: 株価データ取得開始")
-        stock_data = self._fetch_stock_data_batch(symbols, show_progress=False) # show_progressをFalseに変更
+        stock_data = self._fetch_stock_data_batch(symbols, show_progress=False)
         progress.complete_step()
 
         logger.info("Step 2: テクニカル分析実行")
         analysis_results = self._run_technical_analysis_batch(
-            stock_data, show_progress=False # show_progressをFalseに変更
+            stock_data, show_progress=False
         )
         progress.complete_step()
 
         logger.info("Step 3: パターン認識実行")
         pattern_results = self._run_pattern_recognition_batch(
-            stock_data, show_progress=False # show_progressをFalseに変更
+            stock_data, show_progress=False
         )
         progress.complete_step()
 
         logger.info("Step 4: シグナル生成実行")
         signals = self._generate_signals_batch(
-            analysis_results, pattern_results, stock_data, show_progress=False # show_progressをFalseに変更
+            analysis_results, pattern_results, stock_data, show_progress=False
         )
         progress.complete_step()
 
         logger.info("Step 5: アンサンブル戦略実行")
-        self._run_ensemble_strategy(signals, stock_data)
+        self._run_ensemble_strategy(signals, stock_data, analysis_results, pattern_results)
         progress.complete_step()
 
         logger.info("Step 6: ポートフォリオ更新")
         self._update_portfolio_data()
         progress.complete_step()
 
-        logger.info("Step 7: アラートチェック実行")
-        alerts = self._check_alerts_batch(stock_data, show_progress=False)
-        progress.complete_step()
+        if self.backtest_engine:
+            logger.info("Step 8: バックテスト実行")
+            self._run_backtest_analysis(symbols)
 
-        # 結果を保存
-        self.current_report.generated_signals = signals
-        self.current_report.triggered_alerts = alerts
+        return stock_data, analysis_results, pattern_results, signals, alerts
 
     def _run_ensemble_strategy(
-        self, signals: List[Dict[str, Any]], stock_data: Dict[str, Any]
+        self, signals: List[Dict[str, Any]], stock_data: Dict[str, Any], analysis_results: Dict[str, Any], pattern_results: Dict[str, Any]
     ):
         """アンサンブル戦略を実行"""
         if not self.ensemble_strategy:
@@ -338,9 +347,19 @@ class DayTradeOrchestrator:
             # シグナルをアンサンブル戦略で統合
             for symbol, data in stock_data.items():
                 if data and data.get("historical") is not None:
+                    historical_df = data["historical"]
+                    analysis = analysis_results.get(symbol, {})
+                    patterns = pattern_results.get(symbol, {})
+
+                    # Convert the analysis dict to a proper indicators DataFrame
+                    indicators_df = self._convert_analysis_to_indicators(analysis, historical_df)
+
+                    if indicators_df.empty:
+                        continue
+
                     # アンサンブル戦略でシグナル生成
                     ensemble_signal_result = self.ensemble_strategy.generate_ensemble_signal(
-                        data["historical"]
+                        historical_df, indicators_df, patterns
                     )
 
                     if ensemble_signal_result:
@@ -387,19 +406,20 @@ class DayTradeOrchestrator:
             analysis_results, pattern_results, stock_data
         )
 
-        logger.info("Step 5: アラートチェック実行")
-        alerts = self._check_alerts_batch(stock_data)
+        logger.info("Step 5: アンサンブル戦略実行")
+        self._run_ensemble_strategy(signals, stock_data, analysis_results, pattern_results)
 
         logger.info("Step 6: ポートフォリオ更新")
         self._update_portfolio_data()
 
+        logger.info("Step 7: アラートチェック実行")
+        alerts = self._check_alerts_batch(stock_data)
+
         if self.backtest_engine:
-            logger.info("Step 7: バックテスト実行")
+            logger.info("Step 8: バックテスト実行")
             self._run_backtest_analysis(symbols)
 
-        # 結果を保存
-        self.current_report.generated_signals = signals
-        self.current_report.triggered_alerts = alerts
+        return stock_data, analysis_results, pattern_results, signals, alerts
 
     def _fetch_stock_data_batch(
         self, symbols: List[str], show_progress: bool = False
@@ -416,7 +436,7 @@ class DayTradeOrchestrator:
 
                 # 履歴データ取得（アンサンブル戦略のため3ヶ月分取得）
                 historical_data = self.stock_fetcher.get_historical_data(
-                    symbol, period="3mo", interval="1d"
+                    symbol, period="5y", interval="1d"
                 )
 
                 execution_time = time.time() - start_time
@@ -611,30 +631,39 @@ class DayTradeOrchestrator:
 
                 # historicalデータを取得
                 symbol_stock_data = stock_data.get(symbol) if stock_data else None
-                historical_df = symbol_stock_data.get("historical") if symbol_stock_data else pd.DataFrame()
+                historical_df = (
+                    symbol_stock_data.get("historical")
+                    if symbol_stock_data
+                    else pd.DataFrame()
+                )
 
                 # analysis辞書をDataFrameに変換
-                indicators_df = self._convert_analysis_to_indicators(analysis, historical_df)
+                indicators_df = self._convert_analysis_to_indicators(
+                    analysis, historical_df
+                )
 
                 if not indicators_df.empty:
                     # 強化アンサンブル戦略が有効な場合は優先使用
                     if self.enhanced_ensemble:
                         enhanced_signals = self._generate_enhanced_ensemble_signals(
-                            symbol, analysis, patterns, symbol_stock_data # analysisの代わりにindicators_dfを渡すべきだが、enhanced_ensemble側で変換されることを考慮しanalysisを維持
+                            symbol, indicators_df, patterns, symbol_stock_data
                         )
                         all_signals.extend(enhanced_signals)
                     elif self.ensemble_strategy:
                         # 従来のアンサンブル戦略
                         # _generate_ensemble_signalsはindicators_dfを期待しているので、ここで渡す
                         ensemble_signals = self._generate_ensemble_signals(
-                            symbol, analysis, patterns, symbol_stock_data
+                            symbol, indicators_df, patterns, symbol_stock_data
                         )
                         all_signals.extend(ensemble_signals)
                     else:
                         # 従来のシグナル生成
                         # _evaluate_trading_signalsはindicators_dfを期待しているので、ここで渡す
                         signals = self._evaluate_trading_signals(
-                            symbol, indicators_df, patterns, settings # analysisの代わりにindicators_dfを渡す
+                            symbol,
+                            indicators_df,
+                            patterns,
+                            settings,  # analysisの代わりにindicators_dfを渡す
                         )
                         all_signals.extend(signals)
 
@@ -736,52 +765,52 @@ class DayTradeOrchestrator:
 
             # 強化アンサンブルシグナル生成
             enhanced_signal = self.enhanced_ensemble.generate_enhanced_signal(
-                price_df, indicators, market_data, PredictionHorizon.SHORT_TERM
+                symbol, price_df, indicators, market_data, PredictionHorizon.SHORT_TERM
             )
 
-            if enhanced_signal and enhanced_signal.signal_type.value != "hold":
-                signal_data = {
-                    "symbol": symbol,
-                    "type": enhanced_signal.signal_type.value.upper(),
-                    "reason": f"Enhanced Ensemble: ML+Rules (confidence: {enhanced_signal.ensemble_confidence:.1f}%)",
-                    "confidence": enhanced_signal.ensemble_confidence / 100.0,
-                    "timestamp": datetime.now(),
-                    "enhanced_details": {
-                        "prediction_horizon": enhanced_signal.prediction_horizon.value,
-                        "price_target": enhanced_signal.price_target,
-                        "uncertainty": enhanced_signal.uncertainty,
-                        "risk_score": enhanced_signal.risk_score,
-                        "market_context": {
-                            "volatility_regime": enhanced_signal.market_context.volatility_regime,
-                            "trend_direction": enhanced_signal.market_context.trend_direction,
-                            "market_sentiment": enhanced_signal.market_context.market_sentiment,
-                        },
-                        "strategy_weights": enhanced_signal.strategy_weights,
-                        "ml_predictions": {
-                            name: {
-                                "prediction": pred.prediction,
-                                "confidence": pred.confidence,
-                                "model_name": pred.model_name,
-                            }
-                            for name, pred in enhanced_signal.ml_predictions.items()
-                        },
-                        "rule_signals": {
-                            name: {
-                                "signal_type": signal.signal_type.value,
-                                "confidence": signal.confidence,
-                                "reasons": signal.reasons[:2],  # 上位2つの理由
-                            }
-                            for name, signal in enhanced_signal.rule_based_signals.items()
-                        },
+            # HOLDシグナルもレポートに含める
+            signal_data = {
+                "symbol": symbol,
+                "type": enhanced_signal.signal_type.value.upper(),
+                "reason": f"Enhanced Ensemble: ML+Rules (confidence: {enhanced_signal.ensemble_confidence:.1f}%)",
+                "confidence": enhanced_signal.ensemble_confidence / 100.0,
+                "timestamp": datetime.now(),
+                "enhanced_details": {
+                    "prediction_horizon": enhanced_signal.prediction_horizon.value,
+                    "price_target": enhanced_signal.price_target,
+                    "uncertainty": enhanced_signal.uncertainty,
+                    "risk_score": enhanced_signal.risk_score,
+                    "market_context": {
+                        "volatility_regime": enhanced_signal.market_context.volatility_regime,
+                        "trend_direction": enhanced_signal.market_context.trend_direction,
+                        "market_sentiment": enhanced_signal.market_context.market_sentiment,
                     },
-                }
-                signals.append(signal_data)
+                    "strategy_weights": enhanced_signal.strategy_weights,
+                    "ml_predictions": {
+                        name: {
+                            "prediction": pred.prediction,
+                            "confidence": pred.confidence,
+                            "model_name": pred.model_name,
+                        }
+                        for name, pred in enhanced_signal.ml_predictions.items()
+                    },
+                    "rule_signals": {
+                        name: {
+                            "signal_type": signal.signal_type.value,
+                            "confidence": signal.confidence,
+                            "reasons": signal.reasons[:2],  # 上位2つの理由
+                        }
+                        for name, signal in enhanced_signal.rule_based_signals.items()
+                    },
+                },
+            }
+            signals.append(signal_data)
 
-                logger.debug(
-                    f"強化アンサンブルシグナル生成 ({symbol}): {signal_data['type']}, "
-                    f"信頼度: {signal_data['confidence']:.2f}, "
-                    f"リスクスコア: {enhanced_signal.risk_score:.1f}"
-                )
+            logger.debug(
+                f"強化アンサンブルシグナル生成 ({symbol}): {signal_data['type']}, "
+                f"信頼度: {signal_data['confidence']:.2f}, "
+                f"リスクスコア: {enhanced_signal.risk_score:.1f}"
+            )
 
             return signals
 
@@ -803,43 +832,22 @@ class DayTradeOrchestrator:
                 all_indicator_series.append(analysis["rsi"].rename("RSI"))
 
             # MACD変換
-            if (
-                "macd" in analysis
-                and isinstance(analysis["macd"], dict)
-                and "MACD" in analysis["macd"]
-                and "Signal" in analysis["macd"]
-            ):
-                if isinstance(analysis["macd"]["MACD"], pd.Series):
-                    all_indicator_series.append(
-                        analysis["macd"]["MACD"].rename("MACD")
-                    )
-                if isinstance(analysis["macd"]["Signal"], pd.Series):
-                    all_indicator_series.append(
-                        analysis["macd"]["Signal"].rename("MACD_Signal")
-                    )
+            if "macd" in analysis and isinstance(analysis["macd"], pd.DataFrame):
+                macd_df = analysis["macd"]
+                if "MACD" in macd_df.columns:
+                    all_indicator_series.append(macd_df["MACD"].rename("MACD"))
+                if "Signal" in macd_df.columns:
+                    all_indicator_series.append(macd_df["Signal"].rename("MACD_Signal"))
 
             # ボリンジャーバンド変換
-            if (
-                "bollinger" in analysis
-                and isinstance(analysis["bollinger"], dict)
-                and "Upper" in analysis["bollinger"]
-                and "Lower" in analysis["bollinger"]
-            ):
-                if isinstance(analysis["bollinger"]["Upper"], pd.Series):
-                    all_indicator_series.append(
-                        analysis["bollinger"]["Upper"].rename("BB_Upper")
-                    )
-                if isinstance(analysis["bollinger"]["Lower"], pd.Series):
-                    all_indicator_series.append(
-                        analysis["bollinger"]["Lower"].rename("BB_Lower")
-                    )
-                if (
-                    "Middle" in analysis["bollinger"]
-                    and isinstance(analysis["bollinger"]["Middle"], pd.Series)
-                ):
-                    all_indicator_series.append(
-                        analysis["bollinger"]["Middle"].rename("BB_Middle")
-                    )
+            if "bollinger" in analysis and isinstance(analysis["bollinger"], pd.DataFrame):
+                bb_df = analysis["bollinger"]
+                if "Upper" in bb_df.columns:
+                    all_indicator_series.append(bb_df["Upper"].rename("BB_Upper"))
+                if "Lower" in bb_df.columns:
+                    all_indicator_series.append(bb_df["Lower"].rename("BB_Lower"))
+                if "Middle" in bb_df.columns:
+                    all_indicator_series.append(bb_df["Middle"].rename("BB_Middle"))
 
             # 移動平均変換 (sma_X)
             for key, value in analysis.items():
@@ -1392,8 +1400,8 @@ class DayTradeOrchestrator:
 
                     # 機械学習モデル訓練
                     success = self.enhanced_ensemble.train_ml_models(
+                        symbol,
                         training_data,
-                        target_column="future_return",
                         retrain_interval_hours=retrain_interval_hours,
                     )
 

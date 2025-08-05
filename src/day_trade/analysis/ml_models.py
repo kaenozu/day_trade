@@ -485,7 +485,7 @@ class MLModelManager:
         logger.info(f"モデルを作成しました: {name} ({model_type})")
         return model
 
-    def train_model(self, name: str, X: pd.DataFrame, y: pd.Series) -> Dict[str, Any]:
+    def train_model(self, name: str, X: pd.DataFrame, y: pd.Series, symbol: Optional[str] = None) -> Dict[str, Any]:
         """
         モデルを訓練
 
@@ -493,42 +493,67 @@ class MLModelManager:
             name: モデル名
             X: 特徴量
             y: ターゲット変数
+            symbol: 銘柄コード (オプション)
 
         Returns:
             訓練結果
         """
-        if name not in self.models:
-            raise ValueError(f"モデルが見つかりません: {name}")
+        model_name = f"{name}_{symbol}" if symbol else name
+        
+        # ベースモデル名（例: "return_predictor"）
+        parts = name.split('_')
+        if len(parts) > 1 and parts[-1].isdigit():
+            base_model_name = '_'.join(parts[:-1])
+        else:
+            base_model_name = name
 
-        return self.models[name].fit(X, y)
+        if base_model_name not in self.model_configs:
+            raise ValueError(f"ベースモデルの設定が見つかりません: {base_model_name}")
 
-    def predict(self, name: str, X: pd.DataFrame) -> np.ndarray:
+        # 銘柄固有のモデルインスタンスを作成
+        if model_name not in self.models:
+            config = self.model_configs[base_model_name]
+            self.models[model_name] = self.create_model(
+                model_name, config
+            )
+
+        return self.models[model_name].fit(X, y)
+
+    def predict(self, name: str, X: pd.DataFrame, symbol: Optional[str] = None) -> np.ndarray:
         """
         予測実行
 
         Args:
             name: モデル名
             X: 特徴量
+            symbol: 銘柄コード (オプション)
 
         Returns:
             予測結果
         """
-        if name not in self.models:
-            raise ValueError(f"モデルが見つかりません: {name}")
+        model_name = f"{name}_{symbol}" if symbol else name
+        if model_name not in self.models:
+            # 銘柄固有モデルがない場合はベースモデルで試行
+            if name in self.models:
+                model_name = name
+            else:
+                raise ValueError(f"モデルが見つかりません: {model_name}")
 
-        return self.models[name].predict(X)
+        return self.models[model_name].predict(X)
 
-    def save_model(self, name: str) -> None:
+    def save_model(self, name: str, symbol: Optional[str] = None) -> None:
         """モデルを保存"""
-        if name not in self.models:
-            raise ValueError(f"モデルが見つかりません: {name}")
+        model_name = f"{name}_{symbol}" if symbol else name
+        if model_name not in self.models:
+            raise ValueError(f"モデルが見つかりません: {model_name}")
 
-        filepath = self.models_dir / f"{name}.joblib"
-        self.models[name].save_model(str(filepath))
+        filepath = self.models_dir / f"{model_name}.joblib"
+        self.models[model_name].save_model(str(filepath))
 
-    def load_model(self, name: str) -> None:
+    def load_model(self, name: str, symbol: Optional[str] = None) -> None:
         """モデルを読み込み"""
-        filepath = self.models_dir / f"{name}.joblib"
+        model_name = f"{name}_{symbol}" if symbol else name
+        filepath = self.models_dir / f"{model_name}.joblib"
         if not filepath.exists():
             raise FileNotFoundError(f"モデルファイルが見つかりません: {filepath}")
 
@@ -537,7 +562,7 @@ class MLModelManager:
         config = model_data["config"]
 
         # モデルインスタンスを作成して読み込み
-        model = self.create_model(name, config)
+        model = self.create_model(model_name, config)
         model.load_model(str(filepath))
 
     def get_model_info(self, name: str) -> Dict[str, Any]:
@@ -568,178 +593,10 @@ class MLModelManager:
         return list(self.models.keys())
 
 
-def create_ensemble_predictions(
-    models: Dict[str, BaseMLModel],
-    X: pd.DataFrame,
-    weights: Optional[Dict[str, float]] = None,
-    method: str = "average",
-) -> np.ndarray:
-    """
-    アンサンブル予測の実行
-
-    Args:
-        models: モデル辞書
-        X: 特徴量
-        weights: モデル重み
-        method: アンサンブル手法（average, weighted_average, voting）
-
-    Returns:
-        アンサンブル予測結果
-    """
-    if not models:
-        raise ValueError("予測用のモデルがありません")
-
-    predictions = {}
-    for name, model in models.items():
-        if model.is_fitted:
-            try:
-                pred = model.predict(X)
-                predictions[name] = pred
-            except Exception as e:
-                logger.warning(f"モデル {name} の予測でエラー: {e}")
-
-    if not predictions:
-        raise ValueError("有効な予測結果がありません")
-
-    # アンサンブル計算
-    pred_values = list(predictions.values())
-
-    if method == "average":
-        ensemble_pred = np.mean(pred_values, axis=0)
-    elif method == "weighted_average" and weights:
-        weighted_preds = []
-        total_weight = 0
-        for name, pred in predictions.items():
-            weight = weights.get(name, 1.0)
-            weighted_preds.append(pred * weight)
-            total_weight += weight
-        ensemble_pred = np.sum(weighted_preds, axis=0) / total_weight
-    elif method == "voting":
-        # 分類タスクでの多数決投票
-        pred_array = np.array(pred_values)
-        ensemble_pred = np.apply_along_axis(
-            lambda x: np.bincount(x.astype(int)).argmax(), axis=0, arr=pred_array
-        )
-    else:
-        ensemble_pred = np.mean(pred_values, axis=0)
-
-    return ensemble_pred
 
 
-# 後方互換性のためのアダプタークラス
-def create_default_model_ensemble():
-    """デフォルトのモデルアンサンブルを作成"""
-
-    # 簡易的なダミー実装を返す
-    class DummyEnsemble:
-        def fit(self, X, y):
-            pass
-
-        def predict(self, X):
-            return []
-
-        def get_model_performances(self):
-            return {}
-
-    return DummyEnsemble()
 
 
-# 後方互換性のためのエイリアス（重複定義を削除）
-
-
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self, models_dir: Optional[str] = None):
-        """MLModelManagerの初期化"""
-        self.models_dir = models_dir
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
-
-
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self):
-        """MLModelManagerの初期化"""
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
-
-
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self):
-        """MLModelManagerの初期化"""
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
-
-
-def evaluate_prediction_accuracy(
-    predictions: List, actual_values: np.ndarray
-) -> Dict[str, float]:
-    """予測精度評価"""
-    if len(predictions) == 0:
-        return {"mse": 0.0, "mae": 0.0, "rmse": 0.0}
-
-    pred_values = np.array(predictions)
-    if pred_values.ndim > 1:
-        pred_values = pred_values.flatten()
-
-    if len(pred_values) != len(actual_values):
-        min_len = min(len(pred_values), len(actual_values))
-        pred_values = pred_values[:min_len]
-        actual_values = actual_values[:min_len]
-
-    mse = np.mean((pred_values - actual_values) ** 2)
-    mae = np.mean(np.abs(pred_values - actual_values))
-
-    return {"mse": float(mse), "mae": float(mae), "rmse": float(np.sqrt(mse))}
 
 
 if __name__ == "__main__":

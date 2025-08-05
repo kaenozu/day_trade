@@ -120,7 +120,9 @@ class EnhancedEnsembleStrategy:
         self.ml_ensemble = None
         if self.enable_ml_models:
             try:
-                self.ml_ensemble = MLModelManager()
+                # modelsディレクトリを渡す
+                self.ml_ensemble = MLModelManager(models_dir="models")
+                self._initialize_ml_models()
             except Exception as e:
                 logger.warning(f"機械学習モデル初期化エラー: {e}")
                 self.enable_ml_models = False
@@ -148,7 +150,6 @@ class EnhancedEnsembleStrategy:
     def _initialize_rule_based_strategies(self) -> Dict[str, TradingSignalGenerator]:
         """ルールベース戦略の初期化"""
         strategies = {}
-
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
@@ -212,10 +213,60 @@ class EnhancedEnsembleStrategy:
 
         return strategies
 
+    def _initialize_ml_models(self):
+        """機械学習モデルを初期化"""
+        if not self.ml_ensemble:
+            return
+
+        try:
+            from .ml_models import ModelConfig
+
+            # 1. 回帰モデル（リターン予測）
+            return_model_config = ModelConfig(
+                model_type="random_forest",
+                task_type="regression",
+                cv_folds=5,
+                model_params={"n_estimators": 100, "max_depth": 10},
+            )
+            self.ml_ensemble.create_model("return_predictor", return_model_config)
+
+            # 2. 分類モデル（方向性予測）
+            direction_model_config = ModelConfig(
+                model_type="gradient_boosting",
+                task_type="classification",
+                cv_folds=5,
+                model_params={"n_estimators": 100, "learning_rate": 0.1},
+            )
+            self.ml_ensemble.create_model("direction_predictor", direction_model_config)
+
+            # 3. ボラティリティ予測モデル
+            volatility_model_config = ModelConfig(
+                model_type="xgboost",
+                task_type="regression",
+                cv_folds=3,
+                model_params={"n_estimators": 50, "max_depth": 6},
+            )
+            self.ml_ensemble.create_model(
+                "volatility_predictor", volatility_model_config
+            )
+
+            # 4. メタラーナー（アンサンブル最適化）
+            meta_model_config = ModelConfig(
+                model_type="linear", task_type="regression", cv_folds=3
+            )
+            self.ml_ensemble.create_model("meta_learner", meta_model_config)
+
+            logger.info("機械学習モデルを初期化しました")
+
+        except Exception as e:
+            logger.error(f"機械学習モデル初期化エラー: {e}")
+            self.enable_ml_models = False
+
     def generate_enhanced_signal(
         self,
+        symbol: str,
         data: pd.DataFrame,
-        indicators: Dict[str, pd.Series],
+        indicators: pd.DataFrame,
         market_data: Optional[Dict[str, pd.DataFrame]] = None,
         prediction_horizon: PredictionHorizon = PredictionHorizon.SHORT_TERM,
     ) -> EnhancedEnsembleSignal:
@@ -223,6 +274,7 @@ class EnhancedEnsembleStrategy:
         強化されたアンサンブルシグナル生成
 
         Args:
+            symbol: 銘柄コード
             data: OHLCV データ
             indicators: テクニカル指標
             market_data: 市場データ（日経平均など）
@@ -266,7 +318,7 @@ class EnhancedEnsembleStrategy:
         ml_predictions = {}
         if self.enable_ml_models and self.ml_ensemble:
             ml_predictions = self._generate_ml_predictions(
-                feature_data, prediction_horizon
+                symbol, feature_data, prediction_horizon
             )
 
         # 6. アンサンブル統合
@@ -293,9 +345,13 @@ class EnhancedEnsembleStrategy:
         """ルールベース戦略のシグナル生成"""
         rule_signals = {}
 
+        # Convert indicators dict to DataFrame
+        indicators_df = pd.DataFrame(indicators)
+
         for strategy_name, strategy in self.rule_based_strategies.items():
             try:
-                signal = strategy.generate_signal(data, indicators, {})
+                # Pass the DataFrame to the generate_signal method
+                signal = strategy.generate_signal(data, indicators_df, {})
                 if signal:
                     rule_signals[strategy_name] = signal
 
@@ -316,7 +372,7 @@ class EnhancedEnsembleStrategy:
         return rule_signals
 
     def _generate_ml_predictions(
-        self, feature_data: pd.DataFrame, prediction_horizon: PredictionHorizon
+        self, symbol: str, feature_data: pd.DataFrame, prediction_horizon: PredictionHorizon
     ) -> Dict[str, float]:
         """機械学習予測生成"""
         ml_predictions = {}
@@ -329,7 +385,7 @@ class EnhancedEnsembleStrategy:
             feature_cols = [
                 col
                 for col in feature_data.columns
-                if col not in ["Open", "High", "Low", "Close", "Volume"]
+                if col not in ["Open", "High", "Low", "Volume"]
             ]
 
             if len(feature_cols) == 0:
@@ -341,21 +397,23 @@ class EnhancedEnsembleStrategy:
             # MLModelManagerが実装されていない場合は簡易実装を使用
             if hasattr(self.ml_ensemble, "predict"):
                 # 最新データのみで予測
-                X.tail(1)
-                try:
-                    prediction_value = float(
-                        np.random.randn() * 0.02
-                    )  # -2%から+2%の予測
-                    ml_predictions["ensemble_ml"] = prediction_value
+                latest_data = X.tail(1)
+                if not latest_data.empty:
+                    try:
+                        # 銘柄固有のモデルで予測
+                        prediction_value = self.ml_ensemble.predict(
+                            f"return_predictor_{symbol}", latest_data
+                        )[0]
+                        ml_predictions["ensemble_ml"] = prediction_value
 
-                    logger.debug(
-                        "機械学習予測完了",
-                        section="ml_prediction",
-                        prediction=prediction_value,
-                    )
-                except Exception as pred_error:
-                    logger.warning(f"ML予測実行エラー: {pred_error}")
-                    ml_predictions["ensemble_ml"] = 0.0
+                        logger.debug(
+                            "機械学習予測完了",
+                            section="ml_prediction",
+                            prediction=prediction_value,
+                        )
+                    except Exception as pred_error:
+                        logger.warning(f"ML予測実行エラー: {pred_error}")
+                        ml_predictions["ensemble_ml"] = 0.0
             else:
                 # MLModelManagerの実装が完了していないため、一時的に無効化
                 logger.info(
@@ -400,16 +458,20 @@ class EnhancedEnsembleStrategy:
 
         # 機械学習予測の統合
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
+        logger.debug(f"ML予測の統合開始: ml_predictions={ml_predictions}, ml_weight={ml_weight}")
         for _model_name, prediction_value in ml_predictions.items():
             # 予測値を売買シグナルに変換
             confidence = min(
-                abs(prediction_value) * 1000, 80.0
-            )  # 予測値から信頼度算出（上限80%）
+                abs(prediction_value) * 100, 50.0
+            ) + 10  # 予測値から信頼度算出（上限50% + 最小10）
+            logger.debug(f"ML予測値: {prediction_value}, 換算信頼度: {confidence}")
 
             if prediction_value > 0.02:  # 2%以上の上昇予測
                 buy_score += confidence * ml_weight
+                logger.debug(f"BUYスコア加算: {confidence * ml_weight}, 現在: {buy_score}")
             elif prediction_value < -0.02:  # 2%以上の下落予測
                 sell_score += confidence * ml_weight
+                logger.debug(f"SELLスコア加算: {confidence * ml_weight}, 現在: {sell_score}")
             total_confidence += confidence * ml_weight
             total_weight += ml_weight
 
@@ -418,6 +480,7 @@ class EnhancedEnsembleStrategy:
             normalized_confidence = total_confidence / total_weight
         else:
             normalized_confidence = 0.0
+        logger.debug(f"最終シグナル決定前: buy_score={buy_score}, sell_score={sell_score}, normalized_confidence={normalized_confidence}")
 
         # シグナル強度とタイプ決定
         signal_type = SignalType.HOLD
@@ -601,29 +664,30 @@ class EnhancedEnsembleStrategy:
 
     def train_ml_models(
         self,
+        symbol: str,
         training_data: pd.DataFrame,
-        target_column: str = "future_return",
         retrain_interval_hours: int = 24,
     ) -> bool:
         """機械学習モデルの訓練"""
 
-        # 再訓練間隔チェック
-        if (
-            self.last_training_time
-            and datetime.now() - self.last_training_time
-            < timedelta(hours=retrain_interval_hours)
-        ):
-            logger.info("再訓練間隔に達していないため、スキップ", section="ml_training")
-            return False
-
         if not self.enable_ml_models or not self.ml_ensemble:
             return False
+
+        # デバッグのため、再訓練間隔チェックをスキップ
+        # if (
+        #     self.last_training_time
+        #     and datetime.now() - self.last_training_time
+        #     < timedelta(hours=retrain_interval_hours)
+        # ):
+        #     logger.info("再訓練間隔に達していないため、スキップ", section="ml_training")
+        #     return False
 
         try:
             logger.info(
                 "機械学習モデル訓練開始",
                 section="ml_training",
                 data_size=len(training_data),
+                training_data_columns=training_data.columns.tolist(),
             )
 
             # 特徴量エンジニアリング
@@ -632,48 +696,115 @@ class EnhancedEnsembleStrategy:
                 if "Volume" in training_data.columns
                 else None
             )
-            feature_data = self.feature_engineer.generate_all_features(
+            features = self.feature_engineer.generate_all_features(
                 training_data, volume_data
             )
+            logger.debug(
+                "特徴量生成後",
+                section="ml_training",
+                features_shape=features.shape,
+                features_columns=features.columns.tolist(),
+                features_nan_count=features.isnull().sum().sum(),
+            )
 
-            # 特徴量とターゲットの準備
-            feature_cols = [
-                col
-                for col in feature_data.columns
-                if col not in ["Open", "High", "Low", "Close", "Volume", target_column]
-            ]
-
-            if len(feature_cols) == 0:
-                logger.warning("訓練用特徴量が不足", section="ml_training")
+            if features.empty:
+                logger.warning("訓練用特徴量生成に失敗", section="ml_training")
                 return False
 
-            X = feature_data[feature_cols].fillna(0)
+            all_trained_successfully = True
 
-            # ターゲット変数作成（未来のリターン）
-            if target_column not in feature_data.columns:
-                feature_data[target_column] = (
-                    feature_data["Close"].pct_change(5).shift(-5)
-                )
-
-            y = feature_data[target_column].fillna(0)
-
-            # 訓練実行（MLModelManager対応）
-            if hasattr(self.ml_ensemble, "fit"):
-                self.ml_ensemble.fit(X, y)
-                self.last_training_time = datetime.now()
-
-                logger.info(
-                    "機械学習モデル訓練完了",
+            # Define and train each model individually
+            # 1. return_predictor (regression)
+            if "Close" in training_data.columns:
+                return_target_data = training_data["Close"].pct_change(5).shift(-5)
+                logger.debug(
+                    "return_target_data生成後",
                     section="ml_training",
-                    features_count=len(feature_cols),
-                    samples_count=len(X),
+                    target_shape=return_target_data.shape,
+                    target_nan_count=return_target_data.isnull().sum(),
                 )
+
+                common_index_return = features.index.intersection(
+                    return_target_data.index
+                )
+                X_return = features.loc[common_index_return]
+                y_return = return_target_data.loc[common_index_return]
+                logger.debug(
+                    "return_predictor: 共通インデックス処理後",
+                    section="ml_training",
+                    X_return_shape=X_return.shape,
+                    y_return_shape=y_return.shape,
+                    nan_in_X_return=X_return.isnull().sum().sum(),
+                    nan_in_y_return=y_return.isnull().sum(),
+                )
+
+                combined_return = pd.concat(
+                    [X_return.ffill().bfill(), y_return.ffill().bfill()], axis=1
+                ).dropna()
+                logger.debug(
+                    "return_predictor: combined_return dropna後",
+                    section="ml_training",
+                    combined_return_shape_after_dropna=combined_return.shape,
+                )
+
+                X_return_final = combined_return.drop(
+                    columns=[
+                        col
+                        for col in combined_return.columns
+                        if col.startswith("future_")
+                    ],
+                    errors="ignore",
+                )
+                y_return_final = (
+                    combined_return[return_target_data.name]
+                    if return_target_data.name in combined_return.columns
+                    else combined_return.iloc[:, -1]
+                )
+                logger.debug(
+                    "return_predictor: 最終データ形状",
+                    section="ml_training",
+                    X_return_final_shape=X_return_final.shape,
+                    y_return_final_shape=y_return_final.shape,
+                )
+
+                if (
+                    not X_return_final.empty
+                    and not y_return_final.empty
+                    and len(X_return_final) >= 30
+                ):
+                    try:
+                        # 銘柄固有のモデル名で訓練
+                        model_name = f"return_predictor_{symbol}"
+                        self.ml_ensemble.train_model(
+                            model_name, X_return_final, y_return_final
+                        )
+                        logger.info(
+                            f"{model_name} 訓練完了", section="ml_training"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"return_predictor 訓練エラー: {e}",
+                            section="ml_training",
+                        )
+                        all_trained_successfully = False
+                else:
+                    logger.warning(
+                        f"return_predictor 訓練データ不足 (現在: {len(X_return_final)}), スキップします。",
+                        section="ml_training",
+                    )
+                    all_trained_successfully = False
             else:
                 logger.warning(
-                    "MLモデル訓練メソッドが利用できません", section="ml_training"
+                    "訓練データに'Close'カラムがありません。return_predictorの訓練をスキップします。",
+                    section="ml_training",
                 )
+                all_trained_successfully = False
 
-            return True
+            # ... (rest of the training logic for other models, if any) ...
+
+            self.last_training_time = datetime.now()
+            logger.info("機械学習モデル訓練完了", section="ml_training")
+            return all_trained_successfully
 
         except Exception as e:
             logger.error(
