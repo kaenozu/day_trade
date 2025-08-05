@@ -112,16 +112,19 @@ class TestDataCache:
 
         assert len(cache._cache) == 2
         assert cache.get("key1") == "value1"  # まだ存在
-        assert cache.get("key2") is None      # 追い出された
+        assert cache.get("key2") is None  # 追い出された
         assert cache.get("key3") == "value3"  # 新しく追加
 
     def test_cache_environment_variables(self):
         """環境変数による設定のテスト"""
-        with patch.dict('os.environ', {
-            'STOCK_CACHE_TTL_SECONDS': '120',
-            'STOCK_CACHE_MAX_SIZE': '500',
-            'STOCK_CACHE_STALE_SECONDS': '300'
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "STOCK_CACHE_TTL_SECONDS": "120",
+                "STOCK_CACHE_MAX_SIZE": "500",
+                "STOCK_CACHE_STALE_SECONDS": "300",
+            },
+        ):
             cache = DataCache()
             assert cache.ttl_seconds == 120
             assert cache.max_size == 500
@@ -566,7 +569,7 @@ class TestStockFetcher:
             price_cache_ttl=30,
             historical_cache_ttl=120,
             retry_count=5,
-            retry_delay=0.5
+            retry_delay=0.5,
         )
 
         assert fetcher.retry_count == 5
@@ -626,20 +629,27 @@ class TestStockFetcher:
         assert fetcher._format_symbol("1234") == "1234.T"
 
         # 既存の市場コード（別市場指定）
-        assert fetcher._format_symbol("7203.T", "O") == "7203.T"  # 既存の市場コードはそのまま
+        assert (
+            fetcher._format_symbol("7203.T", "O") == "7203.T"
+        )  # 既存の市場コードはそのまま
 
     @patch("src.day_trade.data.stock_fetcher.yf.Ticker")
-    def test_get_historical_data_with_different_intervals(self, mock_ticker_class, fetcher):
+    def test_get_historical_data_with_different_intervals(
+        self, mock_ticker_class, fetcher
+    ):
         """様々な間隔でのヒストリカルデータ取得テスト"""
         # モックデータの作成
         dates = pd.date_range(end=datetime.now(), periods=24, freq="h")
-        mock_df = pd.DataFrame({
-            "Open": range(2400, 2424),
-            "High": range(2410, 2434),
-            "Low": range(2390, 2414),
-            "Close": range(2405, 2429),
-            "Volume": [1000000] * 24,
-        }, index=dates)
+        mock_df = pd.DataFrame(
+            {
+                "Open": range(2400, 2424),
+                "High": range(2410, 2434),
+                "Low": range(2390, 2414),
+                "Close": range(2405, 2429),
+                "Volume": [1000000] * 24,
+            },
+            index=dates,
+        )
 
         mock_ticker = Mock()
         mock_ticker.history.return_value = mock_df
@@ -698,7 +708,7 @@ class TestStockFetcher:
     def test_concurrent_access_thread_safety(self, fetcher):
         """並行アクセスでのスレッドセーフティテスト（基本機能確認）"""
         # LRUキャッシュのスレッドセーフ性確認（基本テスト）
-        assert hasattr(fetcher, '_get_ticker')
+        assert hasattr(fetcher, "_get_ticker")
         assert callable(fetcher._get_ticker)
 
         # キャッシュクリア機能の確認
@@ -717,7 +727,7 @@ class TestStockFetcher:
     def test_clear_all_caches_with_data(self, fetcher):
         """データがあるキャッシュのクリアテスト"""
         # キャッシュに何かデータを入れる（モック）
-        with patch.object(fetcher, 'get_current_price') as mock_get_price:
+        with patch.object(fetcher, "get_current_price") as mock_get_price:
             mock_get_price.return_value = {"current_price": 1000.0}
             fetcher.get_current_price("TEST")
 
@@ -740,11 +750,14 @@ class TestStockFetcher:
 
     def test_environment_based_configuration(self):
         """環境変数ベースの設定テスト"""
-        with patch.dict('os.environ', {
-            'STOCK_FETCHER_RETRY_COUNT': '10',
-            'STOCK_FETCHER_RETRY_DELAY': '2.0',
-            'STOCK_FETCHER_CACHE_SIZE': '1000'
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "STOCK_FETCHER_RETRY_COUNT": "10",
+                "STOCK_FETCHER_RETRY_DELAY": "2.0",
+                "STOCK_FETCHER_CACHE_SIZE": "1000",
+            },
+        ):
             # 環境変数から設定を読み込む場合のテスト
             # （実際のStockFetcherが環境変数を読み込む場合）
             fetcher = StockFetcher()
@@ -765,6 +778,7 @@ class TestStockFetcher:
         # デコレータがエラーを適切にハンドリングすることを確認
         # （実装によってはエラーがキャッチされて別の例外に変換される可能性があります）
         from contextlib import suppress
+
         with suppress(ValueError, StockFetcherError):
             test_function_with_error(5)
 
@@ -826,10 +840,7 @@ class TestStockFetcher:
         """企業情報が不十分な場合のテスト"""
         # 情報が少ない（5未満）モックデータ
         mock_ticker = Mock()
-        mock_ticker.info = {
-            "longName": "Test",
-            "sector": "Tech"
-        }  # 2つのフィールドのみ
+        mock_ticker.info = {"longName": "Test", "sector": "Tech"}  # 2つのフィールドのみ
         mock_ticker_class.return_value = mock_ticker
 
         # DataNotFoundErrorが発生することを確認
@@ -869,20 +880,25 @@ class TestStockFetcher:
 
         # モックデータの作成
         dates = pd.date_range("2023-01-01", "2023-01-05", freq="D")
-        mock_df = pd.DataFrame({
-            "Open": [2400, 2410, 2420, 2415, 2425],
-            "High": [2420, 2430, 2440, 2435, 2445],
-            "Low": [2380, 2390, 2400, 2395, 2405],
-            "Close": [2410, 2420, 2415, 2425, 2430],
-            "Volume": [1000000] * 5,
-        }, index=dates)
+        mock_df = pd.DataFrame(
+            {
+                "Open": [2400, 2410, 2420, 2415, 2425],
+                "High": [2420, 2430, 2440, 2435, 2445],
+                "Low": [2380, 2390, 2400, 2395, 2405],
+                "Close": [2410, 2420, 2415, 2425, 2430],
+                "Volume": [1000000] * 5,
+            },
+            index=dates,
+        )
 
         mock_ticker = Mock()
         mock_ticker.history.return_value = mock_df
         mock_ticker_class.return_value = mock_ticker
 
         # 文字列の日付で実行
-        result = fetcher.get_historical_data_range("TEST_RANGE", "2023-01-01", "2023-01-05", "1d")
+        result = fetcher.get_historical_data_range(
+            "TEST_RANGE", "2023-01-01", "2023-01-05", "1d"
+        )
 
         assert result is not None
         assert len(result) == 5
@@ -890,7 +906,9 @@ class TestStockFetcher:
         # datetimeオブジェクトの日付で実行
         start_date = datetime(2023, 1, 1)
         end_date = datetime(2023, 1, 5)
-        result2 = fetcher.get_historical_data_range("TEST_RANGE2", start_date, end_date, "1d")
+        result2 = fetcher.get_historical_data_range(
+            "TEST_RANGE2", start_date, end_date, "1d"
+        )
 
         assert result2 is not None
         assert len(result2) == 5
@@ -899,7 +917,7 @@ class TestStockFetcher:
     def test_get_current_price_debug_logging(self, mock_ticker_class):
         """デバッグロギング有効時のテスト"""
         # デバッグロギングを有効にしたStockFetcherを作成
-        with patch.dict('os.environ', {'STOCK_FETCHER_DEBUG': 'true'}):
+        with patch.dict("os.environ", {"STOCK_FETCHER_DEBUG": "true"}):
             debug_fetcher = StockFetcher()
 
             # モックの設定
@@ -922,7 +940,7 @@ class TestStockFetcher:
 
     def test_auto_cache_tuning_disabled(self):
         """自動キャッシュチューニング無効時のテスト"""
-        with patch.dict('os.environ', {'AUTO_CACHE_TUNING': 'false'}):
+        with patch.dict("os.environ", {"AUTO_CACHE_TUNING": "false"}):
             tuning_disabled_fetcher = StockFetcher()
 
             assert not tuning_disabled_fetcher.auto_cache_tuning_enabled
@@ -958,7 +976,7 @@ class TestStockFetcher:
         network_errors = [
             Exception("connection failed"),
             Exception("network timeout"),
-            Exception("timeout occurred")
+            Exception("timeout occurred"),
         ]
 
         for error in network_errors:
@@ -968,7 +986,7 @@ class TestStockFetcher:
         # 無効なシンボル関連エラー
         symbol_errors = [
             Exception("symbol not found"),
-            Exception("invalid ticker symbol")
+            Exception("invalid ticker symbol"),
         ]
 
         for error in symbol_errors:
@@ -978,7 +996,7 @@ class TestStockFetcher:
         # データ未検出エラー
         data_errors = [
             Exception("no data available"),
-            Exception("empty dataset returned")
+            Exception("empty dataset returned"),
         ]
 
         for error in data_errors:
@@ -1024,7 +1042,7 @@ class TestStockFetcher:
 
         # 未来の日付を終了日に指定（警告が出るが例外は発生しない）
         # fetcherインスタンスのloggerを使用
-        with patch.object(fetcher, 'logger'):
+        with patch.object(fetcher, "logger"):
             fetcher._validate_date_range(past_date, future_date)
             # エラーが発生しないことを確認（警告のみ）
 
@@ -1059,7 +1077,9 @@ class TestStockFetcher:
         http_error_404.response = mock_response
 
         # handle_network_exceptionが呼ばれることを確認
-        with patch('src.day_trade.data.stock_fetcher.handle_network_exception') as mock_handle:
+        with patch(
+            "src.day_trade.data.stock_fetcher.handle_network_exception"
+        ) as mock_handle:
             mock_handle.side_effect = NetworkError("Converted network error")
 
             with pytest.raises(NetworkError):
@@ -1121,13 +1141,16 @@ class TestStockFetcher:
 
         # タイムゾーン付きのデータを作成
         dates = pd.date_range("2023-01-01", "2023-01-03", freq="D", tz=pytz.UTC)
-        mock_df = pd.DataFrame({
-            "Open": [2400, 2410, 2420],
-            "High": [2420, 2430, 2440],
-            "Low": [2380, 2390, 2400],
-            "Close": [2410, 2420, 2430],
-            "Volume": [1000000] * 3,
-        }, index=dates)
+        mock_df = pd.DataFrame(
+            {
+                "Open": [2400, 2410, 2420],
+                "High": [2420, 2430, 2440],
+                "Low": [2380, 2390, 2400],
+                "Close": [2410, 2420, 2430],
+                "Volume": [1000000] * 3,
+            },
+            index=dates,
+        )
 
         mock_ticker = Mock()
         mock_ticker.history.return_value = mock_df

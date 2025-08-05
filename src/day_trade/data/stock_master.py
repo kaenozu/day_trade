@@ -20,7 +20,9 @@ logger = get_context_logger(__name__)
 class StockMasterManager:
     """銘柄マスタ管理クラス（改善版）"""
 
-    def __init__(self, db_manager=None, stock_fetcher: Optional[StockFetcher] = None, config=None):
+    def __init__(
+        self, db_manager=None, stock_fetcher: Optional[StockFetcher] = None, config=None
+    ):
         """
         初期化（依存性注入対応）
 
@@ -31,6 +33,7 @@ class StockMasterManager:
         """
         if db_manager is None:
             from ..models.database import db_manager as default_db_manager
+
             self.db_manager = default_db_manager
         else:
             self.db_manager = db_manager
@@ -87,7 +90,14 @@ class StockMasterManager:
             if existing:
                 logger.info(f"銘柄は既に存在します: {code} - {existing.name}")
                 # 属性を事前読み込みしてからreturn
-                _ = existing.id, existing.code, existing.name, existing.market, existing.sector, existing.industry
+                _ = (
+                    existing.id,
+                    existing.code,
+                    existing.name,
+                    existing.market,
+                    existing.sector,
+                    existing.industry,
+                )
                 return existing
 
             # 新規作成
@@ -99,7 +109,14 @@ class StockMasterManager:
 
             logger.info(f"銘柄を追加しました: {code} - {name}")
             # 属性を事前読み込みしてからreturn
-            _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+            _ = (
+                stock.id,
+                stock.code,
+                stock.name,
+                stock.market,
+                stock.sector,
+                stock.industry,
+            )
             return stock
 
         except Exception as e:
@@ -145,7 +162,14 @@ class StockMasterManager:
                     stock.industry = industry
 
                 # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
-                _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                _ = (
+                    stock.id,
+                    stock.code,
+                    stock.name,
+                    stock.market,
+                    stock.sector,
+                    stock.industry,
+                )
 
                 logger.info(f"銘柄を更新しました: {code} - {stock.name}")
                 return stock
@@ -154,7 +178,9 @@ class StockMasterManager:
                 logger.error(f"銘柄更新エラー ({code}): {e}")
                 return None
 
-    def get_stock_by_code(self, code: str, detached: Optional[bool] = None) -> Optional[Stock]:
+    def get_stock_by_code(
+        self, code: str, detached: Optional[bool] = None
+    ) -> Optional[Stock]:
         """
         証券コードで銘柄を取得（最適化版）
 
@@ -170,7 +196,14 @@ class StockMasterManager:
                 stock = session.query(Stock).filter(Stock.code == code).first()
                 if stock:
                     # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
-                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                    _ = (
+                        stock.id,
+                        stock.code,
+                        stock.name,
+                        stock.market,
+                        stock.sector,
+                        stock.industry,
+                    )
                     logger.debug(f"銘柄取得: {stock.code} - {stock.name}")
                 return stock
             except Exception as e:
@@ -193,13 +226,22 @@ class StockMasterManager:
         """セッション管理の適用"""
         # eager loadingで属性を事前読み込み
         if self.config.should_use_eager_loading():
-            _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+            _ = (
+                stock.id,
+                stock.code,
+                stock.name,
+                stock.market,
+                stock.sector,
+                stock.industry,
+            )
 
         # detachedが指定されている場合はセッションから切り離す
         if detached and self.config.should_auto_expunge():
             session.expunge(stock)
 
-    def search_stocks_by_name(self, name_pattern: str, limit: int = 50, detached: bool = False) -> List[Stock]:
+    def search_stocks_by_name(
+        self, name_pattern: str, limit: int = 50, detached: bool = False
+    ) -> List[Stock]:
         """
         銘柄名で部分一致検索（最適化版）
 
@@ -224,9 +266,18 @@ class StockMasterManager:
 
                 # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
                 for stock in stocks:
-                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                    _ = (
+                        stock.id,
+                        stock.code,
+                        stock.name,
+                        stock.market,
+                        stock.sector,
+                        stock.industry,
+                    )
 
-                logger.debug(f"銘柄名検索結果: {len(stocks)}件 (パターン: {name_pattern})")
+                logger.debug(
+                    f"銘柄名検索結果: {len(stocks)}件 (パターン: {name_pattern})"
+                )
                 return stocks
 
             except Exception as e:
@@ -508,8 +559,13 @@ class StockMasterManager:
                     session.flush()
 
                     # 属性を事前読み込み（セッション内で）
-                    _ = (existing_stock.code, existing_stock.name, existing_stock.market,
-                         existing_stock.sector, existing_stock.industry)
+                    _ = (
+                        existing_stock.code,
+                        existing_stock.name,
+                        existing_stock.market,
+                        existing_stock.sector,
+                        existing_stock.industry,
+                    )
                     return existing_stock
                 else:
                     logger.info(f"新規銘柄を追加: {code} - {name}")
@@ -519,14 +575,19 @@ class StockMasterManager:
                         name=name,
                         market=market,
                         sector=sector,
-                        industry=industry
+                        industry=industry,
                     )
                     session.add(new_stock)
                     session.flush()
 
                     # 属性を事前読み込み（セッション内で）
-                    _ = (new_stock.code, new_stock.name, new_stock.market,
-                         new_stock.sector, new_stock.industry)
+                    _ = (
+                        new_stock.code,
+                        new_stock.name,
+                        new_stock.market,
+                        new_stock.sector,
+                        new_stock.industry,
+                    )
                     return new_stock
 
         except Exception as e:
@@ -573,7 +634,11 @@ class StockMasterManager:
                 else:
                     logger.info(f"新規銘柄を追加: {code} - {name}")
                     stock = Stock(
-                        code=code, name=name, market=market, sector=sector, industry=industry
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry,
                     )
                     session.add(stock)
                     session.flush()
@@ -584,6 +649,7 @@ class StockMasterManager:
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
+
     def _estimate_market_segment(self, code: str, company_info: Dict) -> str:
         """
         市場区分を推定（堅牢性向上版）
@@ -610,9 +676,11 @@ class StockMasterManager:
 
             # 時価総額に基づいた推定（おおよその基準）
             if market_cap:
-                if market_cap > 1_000_000_000_000 or market_cap > 100_000_000_000:  # 1兆ドル超
+                if (
+                    market_cap > 1_000_000_000_000 or market_cap > 100_000_000_000
+                ):  # 1兆ドル超
                     return "東証プライム"
-                elif market_cap > 10_000_000_000:   # 100億ドル超
+                elif market_cap > 10_000_000_000:  # 100億ドル超
                     return "東証スタンダード"
                 else:
                     return "東証グロース"
@@ -627,7 +695,9 @@ class StockMasterManager:
             # コードが数値でない場合のフォールバック
             return "東証プライム"
 
-    def bulk_add_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> Dict[str, int]:
+    def bulk_add_stocks(
+        self, stocks_data: List[dict], batch_size: int = 1000
+    ) -> Dict[str, int]:
         """
         銘柄の一括追加（AdvancedBulkOperations使用・パフォーマンス最適化版）
 
@@ -649,13 +719,15 @@ class StockMasterManager:
                 if not stock_data.get("code") or not stock_data.get("name"):
                     logger.warning(f"無効な銘柄データをスキップ: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": stock_data["code"],
-                    "name": stock_data["name"],
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": stock_data["code"],
+                        "name": stock_data["name"],
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用して一括挿入
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -663,7 +735,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="ignore",  # 重複は無視
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括追加完了: {result}")
@@ -671,7 +743,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括追加エラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def bulk_update_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
@@ -698,13 +775,15 @@ class StockMasterManager:
                 if not code:
                     logger.warning(f"銘柄コードが無効です: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": code,
-                    "name": stock_data.get("name"),
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": code,
+                        "name": stock_data.get("name"),
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用してupsert（挿入または更新）
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -712,7 +791,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="update",  # 重複時は更新
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括更新完了: {result}")
@@ -720,7 +799,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括更新エラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def bulk_upsert_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
@@ -746,13 +830,15 @@ class StockMasterManager:
                 if not code:
                     logger.warning(f"銘柄コードが無効です: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": code,
-                    "name": stock_data.get("name"),
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": code,
+                        "name": stock_data.get("name"),
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用してupsert
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -760,7 +846,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="update",  # 重複時は更新
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括upsert完了: {result}")
@@ -768,8 +854,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括upsertエラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
-
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def fetch_and_update_stock_info_dict(self, code: str) -> Optional[Dict[str, str]]:
         """
@@ -823,7 +913,7 @@ class StockMasterManager:
                         name=name,
                         market=market,
                         sector=sector,
-                        industry=industry
+                        industry=industry,
                     )
                     session.add(new_stock)
                     session.flush()
@@ -867,14 +957,13 @@ class StockMasterManager:
 
         # StockFetcherの一括取得機能を使用（改善版）
         import time
+
         start_time = time.time()
 
         try:
             # 新しい一括取得機能を使用
             bulk_company_data = self.stock_fetcher.bulk_get_company_info(
-                codes=codes,
-                batch_size=batch_size,
-                delay=delay
+                codes=codes, batch_size=batch_size, delay=delay
             )
 
             # 取得結果を処理してデータベース更新用のデータを準備
@@ -883,22 +972,26 @@ class StockMasterManager:
                     if company_info:
                         # 既存のStockレコードを更新または新規作成
                         with self.db_manager.session_scope() as session:
-                            stock = session.query(Stock).filter(Stock.code == code).first()
+                            stock = (
+                                session.query(Stock).filter(Stock.code == code).first()
+                            )
 
                             if stock:
                                 # 既存レコードを更新
-                                stock.name = company_info.get('name', stock.name)
-                                stock.sector = company_info.get('sector', stock.sector)
-                                stock.industry = company_info.get('industry', stock.industry)
+                                stock.name = company_info.get("name", stock.name)
+                                stock.sector = company_info.get("sector", stock.sector)
+                                stock.industry = company_info.get(
+                                    "industry", stock.industry
+                                )
                                 logger.debug(f"銘柄情報更新: {code} - {stock.name}")
                             else:
                                 # 新規レコードを作成
                                 stock = Stock(
                                     code=code,
-                                    name=company_info.get('name', ''),
-                                    market='東証プライム',  # デフォルト値
-                                    sector=company_info.get('sector', ''),
-                                    industry=company_info.get('industry', '')
+                                    name=company_info.get("name", ""),
+                                    market="東証プライム",  # デフォルト値
+                                    sector=company_info.get("sector", ""),
+                                    industry=company_info.get("industry", ""),
                                 )
                                 session.add(stock)
                                 logger.debug(f"新規銘柄登録: {code} - {stock.name}")
@@ -906,13 +999,15 @@ class StockMasterManager:
                             session.commit()
 
                             # 更新されたデータを記録
-                            updated_stocks.append({
-                                'code': stock.code,
-                                'name': stock.name,
-                                'market': stock.market,
-                                'sector': stock.sector,
-                                'industry': stock.industry
-                            })
+                            updated_stocks.append(
+                                {
+                                    "code": stock.code,
+                                    "name": stock.name,
+                                    "market": stock.market,
+                                    "sector": stock.sector,
+                                    "industry": stock.industry,
+                                }
+                            )
                             success_count += 1
                     else:
                         skipped_count += 1
@@ -928,8 +1023,10 @@ class StockMasterManager:
             logger.warning("個別処理にフォールバック")
 
             for i in range(0, len(codes), batch_size):
-                batch_codes = codes[i:i + batch_size]
-                logger.info(f"フォールバック バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}")
+                batch_codes = codes[i : i + batch_size]
+                logger.info(
+                    f"フォールバック バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+                )
 
                 for code in batch_codes:
                     try:
@@ -957,7 +1054,7 @@ class StockMasterManager:
             "skipped": skipped_count,
             "total": len(codes),
             "elapsed_seconds": total_elapsed,
-            "avg_time_per_stock": avg_time_per_stock
+            "avg_time_per_stock": avg_time_per_stock,
         }
 
         logger.info(
@@ -992,8 +1089,10 @@ class StockMasterManager:
 
         # バッチ処理でAPIレートリミットを回避
         for i in range(0, len(codes), batch_size):
-            batch_codes = codes[i:i + batch_size]
-            logger.info(f"セクター情報バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}")
+            batch_codes = codes[i : i + batch_size]
+            logger.info(
+                f"セクター情報バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+            )
 
             with self.db_manager.session_scope() as session:
                 for code in batch_codes:
@@ -1007,7 +1106,9 @@ class StockMasterManager:
 
                         # セクター情報が既に存在する場合はスキップ（オプション）
                         if stock.sector and stock.industry:
-                            logger.debug(f"セクター情報が既に存在: {code} - {stock.sector}")
+                            logger.debug(
+                                f"セクター情報が既に存在: {code} - {stock.sector}"
+                            )
                             skipped_count += 1
                             continue
 
@@ -1020,17 +1121,25 @@ class StockMasterManager:
 
                         # セクター情報を更新
                         updated = False
-                        if company_info.get("sector") and company_info["sector"] != stock.sector:
+                        if (
+                            company_info.get("sector")
+                            and company_info["sector"] != stock.sector
+                        ):
                             stock.sector = company_info["sector"]
                             updated = True
 
-                        if company_info.get("industry") and company_info["industry"] != stock.industry:
+                        if (
+                            company_info.get("industry")
+                            and company_info["industry"] != stock.industry
+                        ):
                             stock.industry = company_info["industry"]
                             updated = True
 
                         if updated:
                             session.flush()
-                            logger.info(f"セクター情報を更新: {code} - {stock.sector}/{stock.industry}")
+                            logger.info(
+                                f"セクター情報を更新: {code} - {stock.sector}/{stock.industry}"
+                            )
                             updated_count += 1
                         else:
                             skipped_count += 1
@@ -1042,13 +1151,14 @@ class StockMasterManager:
             # バッチ間の遅延
             if i + batch_size < len(codes) and delay > 0:
                 import time
+
                 time.sleep(delay)
 
         result = {
             "updated": updated_count,
             "failed": failed_count,
             "skipped": skipped_count,
-            "total": len(codes)
+            "total": len(codes),
         }
 
         logger.info(f"セクター情報一括更新完了: {result}")
@@ -1069,10 +1179,10 @@ class StockMasterManager:
                 stocks = (
                     session.query(Stock)
                     .filter(
-                        (Stock.sector.is_(None)) |
-                        (Stock.sector == "") |
-                        (Stock.industry.is_(None)) |
-                        (Stock.industry == "")
+                        (Stock.sector.is_(None))
+                        | (Stock.sector == "")
+                        | (Stock.industry.is_(None))
+                        | (Stock.industry == "")
                     )
                     .limit(limit)
                     .all()
@@ -1109,12 +1219,14 @@ class StockMasterManager:
         return self.update_sector_information_bulk(
             codes_to_update,
             batch_size=self.config.get_fetch_batch_size(),
-            delay=self.config.get_fetch_delay_seconds()
+            delay=self.config.get_fetch_delay_seconds(),
         )
 
 
 # グローバルインスタンス（改善版）
-def create_stock_master_manager(db_manager=None, stock_fetcher=None) -> StockMasterManager:
+def create_stock_master_manager(
+    db_manager=None, stock_fetcher=None
+) -> StockMasterManager:
     """
     StockMasterManagerのファクトリー関数（依存性注入対応）
 
@@ -1127,12 +1239,15 @@ def create_stock_master_manager(db_manager=None, stock_fetcher=None) -> StockMas
     """
     return StockMasterManager(db_manager=db_manager, stock_fetcher=stock_fetcher)
 
+
 # 後方互換性のためのグローバルインスタンス
 stock_master = StockMasterManager()
 
 
 # Issue #133: セクター情報永続化のユーティリティ関数
-def update_all_sector_information(batch_size: int = 20, max_stocks: int = 1000) -> Dict[str, int]:
+def update_all_sector_information(
+    batch_size: int = 20, max_stocks: int = 1000
+) -> Dict[str, int]:
     """
     全銀柄のセクター情報を更新するユーティリティ関数
 
@@ -1174,10 +1289,7 @@ def get_sector_distribution() -> Dict[str, int]:
             # セクター情報が空の銀柄数を追加
             missing_count = (
                 session.query(func.count(Stock.id))
-                .filter(
-                    (Stock.sector.is_(None)) |
-                    (Stock.sector == "")
-                )
+                .filter((Stock.sector.is_(None)) | (Stock.sector == ""))
                 .scalar()
             )
 

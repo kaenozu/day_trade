@@ -337,7 +337,9 @@ class WatchlistManager:
             return False
 
     # アラート機能（非推奨 - AlertManagerを使用することを推奨）
-    def add_alert(self, stock_code: str, alert_type: AlertType, threshold: float, memo: str = "") -> bool:
+    def add_alert(
+        self, stock_code: str, alert_type: AlertType, threshold: float, memo: str = ""
+    ) -> bool:
         """
         アラート条件を追加（レガシーメソッド）
 
@@ -577,7 +579,7 @@ class WatchlistManager:
         """
         logger.warning(
             "WatchlistManager.check_alerts() is deprecated. Use AlertManager.check_all_alerts() instead.",
-            operation="deprecated_method_usage"
+            operation="deprecated_method_usage",
         )
         notifications = []
 
@@ -1014,10 +1016,11 @@ class WatchlistManager:
             AlertManagerインスタンス
         """
         from .alerts import AlertManager
+
         # StockFetcherインスタンスを共有し、watchlist_managerはNoneにして循環参照を避ける
         return AlertManager(
             stock_fetcher=self.fetcher,
-            watchlist_manager=None  # 循環参照を避ける
+            watchlist_manager=None,  # 循環参照を避ける
         )
 
     def migrate_alerts_to_alert_manager(self) -> bool:
@@ -1041,13 +1044,16 @@ class WatchlistManager:
                     # レガシーアラートをAlertManager形式に変換
                     alert_condition = AlertCondition(
                         alert_id=f"migrated_{alert['id']}",
-                        symbol=alert['stock_code'],
-                        alert_type=alert['alert_type'],
-                        condition_value=Decimal(str(alert['threshold'])),
-                        comparison_operator=">" if "_up" in alert['alert_type'].value or "above" in alert['alert_type'].value else "<",
-                        is_active=alert['is_active'],
+                        symbol=alert["stock_code"],
+                        alert_type=alert["alert_type"],
+                        condition_value=Decimal(str(alert["threshold"])),
+                        comparison_operator=">"
+                        if "_up" in alert["alert_type"].value
+                        or "above" in alert["alert_type"].value
+                        else "<",
+                        is_active=alert["is_active"],
                         priority=AlertPriority.MEDIUM,
-                        description=f"Migrated from WatchlistManager: {alert['memo']}"
+                        description=f"Migrated from WatchlistManager: {alert['memo']}",
                     )
 
                     if alert_manager.add_alert(alert_condition):
@@ -1075,7 +1081,7 @@ class WatchlistManager:
                 "add_alert()": "Use AlertManager.add_alert() with AlertCondition",
                 "check_alerts()": "Use AlertManager.check_all_alerts() or start_monitoring()",
                 "remove_alert()": "Use AlertManager.remove_alert()",
-                "toggle_alert()": "Use AlertManager's alert management"
+                "toggle_alert()": "Use AlertManager's alert management",
             },
             "migration_helper": "Use migrate_alerts_to_alert_manager() to migrate existing alerts",
             "recommended_pattern": """
@@ -1100,5 +1106,5 @@ alert_manager.add_alert(alert_condition)
 
 # Start monitoring
 alert_manager.start_monitoring(interval_seconds=60)
-            """
+            """,
         }

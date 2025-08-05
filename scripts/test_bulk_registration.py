@@ -16,21 +16,20 @@ from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 # ロギング設定
 setup_logging()
 
+
 def test_registration():
     """小規模テスト"""
     stock_master = StockMasterManager()
 
     # テスト用証券コード（有名な銘柄）
-    test_codes = ['7203', '9984', '6758']  # トヨタ、ソフトバンク、ソニー
+    test_codes = ["7203", "9984", "6758"]  # トヨタ、ソフトバンク、ソニー
 
     print("=== 銘柄一括登録テスト ===")
     print(f"テスト対象: {test_codes}")
 
     # 一括取得・更新
     result = stock_master.bulk_fetch_and_update_companies(
-        codes=test_codes,
-        batch_size=3,
-        delay=0.5
+        codes=test_codes, batch_size=3, delay=0.5
     )
 
     print("結果:")
@@ -47,6 +46,7 @@ def test_registration():
             print(f"  {code}: {stock.name} ({stock.market})")
         else:
             print(f"  {code}: 登録失敗")
+
 
 if __name__ == "__main__":
     test_registration()

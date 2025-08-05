@@ -19,6 +19,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 try:
     from pydantic import BaseModel as PydanticBaseModel
     from pydantic import Field, create_model
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
@@ -30,7 +34,11 @@ from .database import Base
 logger = get_context_logger(__name__)
 
 # TypeVar for generic typing
+<<<<<<< HEAD
 T = TypeVar('T', bound='BaseModel')
+=======
+T = TypeVar("T", bound="BaseModel")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
 
 class TimestampMixin:
@@ -40,14 +48,22 @@ class TimestampMixin:
         DateTime(timezone=True),  # タイムゾーン情報を保持
         default=lambda: datetime.now(timezone.utc),  # UTC時刻で保存（callable）
         nullable=False,
+<<<<<<< HEAD
         doc="レコード作成日時（UTC）"
+=======
+        doc="レコード作成日時（UTC）",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),  # タイムゾーン情報を保持
         default=lambda: datetime.now(timezone.utc),  # UTC時刻で保存（callable）
         onupdate=lambda: datetime.now(timezone.utc),  # UTC時刻で更新（callable）
         nullable=False,
+<<<<<<< HEAD
         doc="レコード更新日時（UTC）"
+=======
+        doc="レコード更新日時（UTC）",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     )
 
     def get_created_at_local(self, tz: Optional[timezone] = None) -> datetime:
@@ -69,10 +85,14 @@ class BaseModel(Base, TimestampMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(
+<<<<<<< HEAD
         Integer,
         primary_key=True,
         index=True,
         doc="主キー（自動採番）"
+=======
+        Integer, primary_key=True, index=True, doc="主キー（自動採番）"
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     )
 
     @declared_attr
@@ -90,6 +110,7 @@ class BaseModel(Base, TimestampMixin):
         now_utc = datetime.now(timezone.utc)
 
         # created_atの処理：kwargsで指定されているか、既に値があるかチェック
+<<<<<<< HEAD
         if 'created_at' not in kwargs:
             # created_atがkwargsにない場合のみデフォルト値を設定
             if not hasattr(self, 'created_at') or getattr(self, 'created_at', None) is None:
@@ -99,6 +120,23 @@ class BaseModel(Base, TimestampMixin):
         if 'updated_at' not in kwargs:
             # updated_atがkwargsにない場合のみデフォルト値を設定
             if not hasattr(self, 'updated_at') or getattr(self, 'updated_at', None) is None:
+=======
+        if "created_at" not in kwargs:
+            # created_atがkwargsにない場合のみデフォルト値を設定
+            if (
+                not hasattr(self, "created_at")
+                or getattr(self, "created_at", None) is None
+            ):
+                self.created_at = now_utc
+
+        # updated_atの処理：kwargsで指定されているか、既に値があるかチェック
+        if "updated_at" not in kwargs:
+            # updated_atがkwargsにない場合のみデフォルト値を設定
+            if (
+                not hasattr(self, "updated_at")
+                or getattr(self, "updated_at", None) is None
+            ):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 self.updated_at = now_utc
 
     def to_dict(
@@ -108,7 +146,11 @@ class BaseModel(Base, TimestampMixin):
         exclude_keys: Optional[Union[set, List[str]]] = None,
         include_keys: Optional[Union[set, List[str]]] = None,
         convert_datetime: bool = True,
+<<<<<<< HEAD
         local_timezone: bool = False
+=======
+        local_timezone: bool = False,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> Dict[str, Any]:
         """
         モデルを辞書に変換（拡張版）
@@ -158,7 +200,11 @@ class BaseModel(Base, TimestampMixin):
         if include_relations and relation_depth > 1:
             try:
                 for attr_name in dir(self):
+<<<<<<< HEAD
                     if attr_name.startswith('_') or attr_name in exclude_keys:
+=======
+                    if attr_name.startswith("_") or attr_name in exclude_keys:
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                         continue
                     if include_keys and attr_name not in include_keys:
                         continue
@@ -168,25 +214,43 @@ class BaseModel(Base, TimestampMixin):
                         continue
 
                     # リレーションオブジェクトの場合
+<<<<<<< HEAD
                     if hasattr(attr_value, '__table__'):
+=======
+                    if hasattr(attr_value, "__table__"):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                         result[attr_name] = attr_value.to_dict(
                             include_relations=True,
                             relation_depth=relation_depth - 1,
                             exclude_keys=exclude_keys,
                             convert_datetime=convert_datetime,
+<<<<<<< HEAD
                             local_timezone=local_timezone
                         )
                     # リストの場合（一対多リレーション）
                     elif isinstance(attr_value, list) and attr_value:
                         if hasattr(attr_value[0], '__table__'):
+=======
+                            local_timezone=local_timezone,
+                        )
+                    # リストの場合（一対多リレーション）
+                    elif isinstance(attr_value, list) and attr_value:
+                        if hasattr(attr_value[0], "__table__"):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                             result[attr_name] = [
                                 item.to_dict(
                                     include_relations=True,
                                     relation_depth=relation_depth - 1,
                                     exclude_keys=exclude_keys,
                                     convert_datetime=convert_datetime,
+<<<<<<< HEAD
                                     local_timezone=local_timezone
                                 ) for item in attr_value[:10]  # 最大10件制限
+=======
+                                    local_timezone=local_timezone,
+                                )
+                                for item in attr_value[:10]  # 最大10件制限
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                             ]
             except Exception as e:
                 logger.warning(f"リレーション処理でエラー: {e}")
@@ -197,10 +261,17 @@ class BaseModel(Base, TimestampMixin):
         """安全な辞書変換（後方互換性のため残存）"""
         return self.to_dict(
             include_relations=False,
+<<<<<<< HEAD
             exclude_keys={'password', 'secret', 'token'},
             convert_datetime=True,
             local_timezone=True,
             **kwargs
+=======
+            exclude_keys={"password", "secret", "token"},
+            convert_datetime=True,
+            local_timezone=True,
+            **kwargs,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
     def update_from_dict(
@@ -208,7 +279,11 @@ class BaseModel(Base, TimestampMixin):
         data: Dict[str, Any],
         exclude_keys: Optional[Union[set, List[str]]] = None,
         validate: bool = True,
+<<<<<<< HEAD
         auto_convert: bool = True
+=======
+        auto_convert: bool = True,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> None:
         """
         辞書からモデルを更新（拡張版）
@@ -219,10 +294,21 @@ class BaseModel(Base, TimestampMixin):
             validate: バリデーションを実行するか
             auto_convert: 自動型変換を行うか
         """
+<<<<<<< HEAD
         exclude_keys = set(exclude_keys) if exclude_keys is not None else {'id', 'created_at'}
 
         for key, value in data.items():
             logger.debug(f"Processing key: {key}, value: {value}, in exclude_keys: {key in exclude_keys}")
+=======
+        exclude_keys = (
+            set(exclude_keys) if exclude_keys is not None else {"id", "created_at"}
+        )
+
+        for key, value in data.items():
+            logger.debug(
+                f"Processing key: {key}, value: {value}, in exclude_keys: {key in exclude_keys}"
+            )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             if key not in exclude_keys and hasattr(self, key):
                 # カラムが存在する場合のみ更新
                 if hasattr(self.__table__.columns, key):
@@ -234,16 +320,30 @@ class BaseModel(Base, TimestampMixin):
                             # datetime型の変換
                             if isinstance(column.type, DateTime):
                                 if isinstance(value, str):
+<<<<<<< HEAD
                                     value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+=======
+                                    value = datetime.fromisoformat(
+                                        value.replace("Z", "+00:00")
+                                    )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                                     # タイムゾーン情報がない場合はUTCとして扱う
                                     if value.tzinfo is None:
                                         value = value.replace(tzinfo=timezone.utc)
                                     logger.debug(f"DateTime変換成功: {key} = {value}")
                                 elif not isinstance(value, datetime):
                                     # datetime以外の場合はスキップするかエラーとする
+<<<<<<< HEAD
                                     logger.warning(f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}")
                             # Decimal型の変換
                             elif hasattr(column.type, 'scale'):
+=======
+                                    logger.warning(
+                                        f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}"
+                                    )
+                            # Decimal型の変換
+                            elif hasattr(column.type, "scale"):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                                 if isinstance(value, (int, float, str)):
                                     value = Decimal(str(value))
                         except (ValueError, TypeError) as e:
@@ -265,9 +365,17 @@ class BaseModel(Base, TimestampMixin):
             raise ValueError(f"{key}はNULLにできません")
 
         # 長さ制約チェック（String型）
+<<<<<<< HEAD
         if hasattr(column.type, 'length') and column.type.length:
             if isinstance(value, str) and len(value) > column.type.length:
                 raise ValueError(f"{key}の長さが制限を超えています ({len(value)} > {column.type.length})")
+=======
+        if hasattr(column.type, "length") and column.type.length:
+            if isinstance(value, str) and len(value) > column.type.length:
+                raise ValueError(
+                    f"{key}の長さが制限を超えています ({len(value)} > {column.type.length})"
+                )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # Pydantic連携機能
     @classmethod
@@ -276,7 +384,11 @@ class BaseModel(Base, TimestampMixin):
         name: Optional[str] = None,
         include_relations: bool = False,
         exclude_fields: Optional[Union[set, List[str]]] = None,
+<<<<<<< HEAD
         config_overrides: Optional[Dict[str, Any]] = None
+=======
+        config_overrides: Optional[Dict[str, Any]] = None,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> Optional[Type[PydanticBaseModel]]:
         """
         SQLAlchemyモデルからPydanticモデルを動的に作成
@@ -310,6 +422,7 @@ class BaseModel(Base, TimestampMixin):
             python_type = cls._get_python_type_from_column(column)
 
             # デフォルト値を設定（idやtimestampはオプショナルにする）
+<<<<<<< HEAD
             if column.name in ['id', 'created_at', 'updated_at']:
                 field_info = Field(default=None, description=getattr(column, 'doc', None))
                 if not column.nullable:
@@ -317,6 +430,21 @@ class BaseModel(Base, TimestampMixin):
                     python_type = Optional[python_type.__args__[0] if hasattr(python_type, '__args__') else python_type]
             else:
                 field_info = Field(description=getattr(column, 'doc', None))
+=======
+            if column.name in ["id", "created_at", "updated_at"]:
+                field_info = Field(
+                    default=None, description=getattr(column, "doc", None)
+                )
+                if not column.nullable:
+                    # nullable=Falseでもデフォルト値があるフィールドはOptionalにする
+                    python_type = Optional[
+                        python_type.__args__[0]
+                        if hasattr(python_type, "__args__")
+                        else python_type
+                    ]
+            else:
+                field_info = Field(description=getattr(column, "doc", None))
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
             fields[column.name] = (python_type, field_info)
 
@@ -324,10 +452,17 @@ class BaseModel(Base, TimestampMixin):
         if include_relations:
             try:
                 for attr_name in dir(cls):
+<<<<<<< HEAD
                     if attr_name.startswith('_') or attr_name in exclude_fields:
                         continue
                     attr = getattr(cls, attr_name, None)
                     if hasattr(attr, 'property') and hasattr(attr.property, 'mapper'):
+=======
+                    if attr_name.startswith("_") or attr_name in exclude_fields:
+                        continue
+                    attr = getattr(cls, attr_name, None)
+                    if hasattr(attr, "property") and hasattr(attr.property, "mapper"):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                         # リレーションフィールドの場合はオプショナルとして追加
                         fields[attr_name] = (Optional[Any], Field(default=None))
             except Exception as e:
@@ -345,11 +480,15 @@ class BaseModel(Base, TimestampMixin):
                 setattr(config_dict, key, value)
 
         # Pydanticモデルを作成
+<<<<<<< HEAD
         pydantic_model = create_model(
             model_name,
             __config__=config_dict,
             **fields
         )
+=======
+        pydantic_model = create_model(model_name, __config__=config_dict, **fields)
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
         # キャッシュに保存
         cls._pydantic_model_cache[cache_key] = pydantic_model
@@ -384,9 +523,13 @@ class BaseModel(Base, TimestampMixin):
         return python_type
 
     def to_pydantic(
+<<<<<<< HEAD
         self,
         model_class: Optional[Type[PydanticBaseModel]] = None,
         **kwargs
+=======
+        self, model_class: Optional[Type[PydanticBaseModel]] = None, **kwargs
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> Optional[PydanticBaseModel]:
         """
         SQLAlchemyモデルインスタンスをPydanticモデルに変換
@@ -414,7 +557,11 @@ class BaseModel(Base, TimestampMixin):
         cls: Type[T],
         pydantic_obj: PydanticBaseModel,
         exclude_unset: bool = True,
+<<<<<<< HEAD
         **kwargs
+=======
+        **kwargs,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> T:
         """
         PydanticモデルからSQLAlchemyモデルインスタンスを作成
@@ -440,12 +587,21 @@ class BaseModel(Base, TimestampMixin):
     # ユーティリティメソッド
     def clone(self: T, exclude_keys: Optional[Union[set, List[str]]] = None) -> T:
         """モデルインスタンスのクローンを作成"""
+<<<<<<< HEAD
         exclude_keys = set(exclude_keys) if exclude_keys else {'id', 'created_at', 'updated_at'}
 
         data = self.to_dict(
             include_relations=False,
             exclude_keys=exclude_keys,
             convert_datetime=False
+=======
+        exclude_keys = (
+            set(exclude_keys) if exclude_keys else {"id", "created_at", "updated_at"}
+        )
+
+        data = self.to_dict(
+            include_relations=False, exclude_keys=exclude_keys, convert_datetime=False
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
         return self.__class__(**data)
@@ -481,11 +637,19 @@ class BaseModel(Base, TimestampMixin):
 
         # 主要な属性のみ表示（長すぎる場合を考慮）
         key_attrs = []
+<<<<<<< HEAD
         if hasattr(self, 'id') and self.id is not None:
             key_attrs.append(f"id={self.id}")
         if hasattr(self, 'code') and getattr(self, 'code', None):
             key_attrs.append(f"code={self.code!r}")
         if hasattr(self, 'name') and getattr(self, 'name', None):
+=======
+        if hasattr(self, "id") and self.id is not None:
+            key_attrs.append(f"id={self.id}")
+        if hasattr(self, "code") and getattr(self, "code", None):
+            key_attrs.append(f"code={self.code!r}")
+        if hasattr(self, "name") and getattr(self, "name", None):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             key_attrs.append(f"name={self.name!r}")
 
         attrs_str = ", ".join(key_attrs) if key_attrs else "no_key_attrs"
@@ -501,8 +665,17 @@ class BaseModel(Base, TimestampMixin):
             return self.id == other.id
 
         # 主キーがない場合は主要カラムで比較（タイムスタンプは除外）
+<<<<<<< HEAD
         self_dict = self.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
         other_dict = other.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
+=======
+        self_dict = self.to_dict(
+            convert_datetime=False, exclude_keys={"created_at", "updated_at"}
+        )
+        other_dict = other.to_dict(
+            convert_datetime=False, exclude_keys={"created_at", "updated_at"}
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         return self_dict == other_dict
 
     def __hash__(self) -> int:

@@ -38,14 +38,15 @@ class TestScreeningStrategies:
         assert strategy.condition_name == "RSI_OVERSOLD"
 
         # モックデータの作成
-        df = pd.DataFrame({
-            'Close': [100, 95, 90, 85, 80],
-            'Volume': [1000, 1100, 1200, 1300, 1400]
-        })
+        df = pd.DataFrame(
+            {"Close": [100, 95, 90, 85, 80], "Volume": [1000, 1100, 1200, 1300, 1400]}
+        )
 
-        indicators = pd.DataFrame({
-            'RSI': [50, 40, 30, 25, 20]  # 最後がRSI 20（過売り）
-        })
+        indicators = pd.DataFrame(
+            {
+                "RSI": [50, 40, 30, 25, 20]  # 最後がRSI 20（過売り）
+            }
+        )
 
         # RSI 20で閾値30のテスト
         meets_condition, score = strategy.evaluate(df, indicators, threshold=30.0)
@@ -53,9 +54,7 @@ class TestScreeningStrategies:
         assert score > 0
 
         # RSI 35で閾値30のテスト
-        indicators_high = pd.DataFrame({
-            'RSI': [50, 40, 35, 35, 35]
-        })
+        indicators_high = pd.DataFrame({"RSI": [50, 40, 35, 35, 35]})
         meets_condition, score = strategy.evaluate(df, indicators_high, threshold=30.0)
         assert meets_condition is False
 
@@ -65,15 +64,25 @@ class TestScreeningStrategies:
         assert strategy is not None
 
         # モックデータ（ゴールデンクロス発生）
-        df = pd.DataFrame({
-            'Close': [100, 101, 102, 103, 104],
-            'Volume': [1000, 1100, 1200, 1300, 1400]
-        })
+        df = pd.DataFrame(
+            {
+                "Close": [100, 101, 102, 103, 104],
+                "Volume": [1000, 1100, 1200, 1300, 1400],
+            }
+        )
 
-        indicators = pd.DataFrame({
-            'SMA_20': [99, 100, 100.5, 100.8, 101.2],  # 短期線（前回≤長期線、今回>長期線）
-            'SMA_50': [101, 101, 101, 101, 101]  # 長期線
-        })
+        indicators = pd.DataFrame(
+            {
+                "SMA_20": [
+                    99,
+                    100,
+                    100.5,
+                    100.8,
+                    101.2,
+                ],  # 短期線（前回≤長期線、今回>長期線）
+                "SMA_50": [101, 101, 101, 101, 101],  # 長期線
+            }
+        )
 
         meets_condition, score = strategy.evaluate(df, indicators)
         assert meets_condition is True
@@ -85,12 +94,14 @@ class TestScreeningStrategies:
         assert strategy is not None
 
         # モックデータ（出来高急増）
-        df = pd.DataFrame({
-            'Close': [100] * 21,
-            'Volume': [1000] * 20 + [3000]  # 最後が3倍の出来高
-        })
+        df = pd.DataFrame(
+            {
+                "Close": [100] * 21,
+                "Volume": [1000] * 20 + [3000],  # 最後が3倍の出来高
+            }
+        )
 
-        indicators = pd.DataFrame({'dummy': [0] * 21})
+        indicators = pd.DataFrame({"dummy": [0] * 21})
 
         meets_condition, score = strategy.evaluate(df, indicators, threshold=2.0)
         assert meets_condition is True
@@ -99,10 +110,19 @@ class TestScreeningStrategies:
     def test_all_strategies_available(self):
         """すべての戦略が利用可能かテスト"""
         expected_strategies = [
-            "rsi_oversold", "rsi_overbought", "macd_bullish", "macd_bearish",
-            "golden_cross", "dead_cross", "volume_spike", "strong_momentum",
-            "bollinger_breakout", "bollinger_squeeze", "price_near_support",
-            "price_near_resistance", "reversal_pattern"
+            "rsi_oversold",
+            "rsi_overbought",
+            "macd_bullish",
+            "macd_bearish",
+            "golden_cross",
+            "dead_cross",
+            "volume_spike",
+            "strong_momentum",
+            "bollinger_breakout",
+            "bollinger_squeeze",
+            "price_near_support",
+            "price_near_resistance",
+            "reversal_pattern",
         ]
 
         for strategy_name in expected_strategies:
@@ -116,15 +136,10 @@ class TestScreeningConfig:
     def test_config_loading(self):
         """設定読み込みのテスト"""
         # テンポラリファイルで設定をテスト
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             test_config = {
-                "default_thresholds": {
-                    "RSI_OVERSOLD": 25.0,
-                    "VOLUME_SPIKE": 1.8
-                },
-                "performance_settings": {
-                    "max_workers": 3
-                }
+                "default_thresholds": {"RSI_OVERSOLD": 25.0, "VOLUME_SPIKE": 1.8},
+                "performance_settings": {"max_workers": 3},
             }
             json.dump(test_config, f)
             config_path = Path(f.name)
@@ -188,32 +203,34 @@ class TestEnhancedStockScreener:
         cache_info = self.screener.get_cache_info()
         assert cache_info["cache_size"] == 0
 
-    @patch('src.day_trade.analysis.screener_enhanced.TechnicalIndicators')
+    @patch("src.day_trade.analysis.screener_enhanced.TechnicalIndicators")
     def test_evaluate_symbol_enhanced(self, mock_indicators):
         """個別銘柄評価のテスト"""
         # モックデータの設定（十分なデータポイント数）
-        mock_df = pd.DataFrame({
-            'Close': [100] * 50,  # 50日分のデータ
-            'Volume': [1000] * 50,
-            'High': [105] * 50,
-            'Low': [95] * 50
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Close": [100] * 50,  # 50日分のデータ
+                "Volume": [1000] * 50,
+                "High": [105] * 50,
+                "Low": [95] * 50,
+            }
+        )
 
-        mock_indicators_df = pd.DataFrame({
-            'RSI': [25] * 50,  # RSI過売り（最低データポイント数を満たす）
-            'SMA_20': [100] * 50,
-            'SMA_50': [100] * 50
-        })
+        mock_indicators_df = pd.DataFrame(
+            {
+                "RSI": [25] * 50,  # RSI過売り（最低データポイント数を満たす）
+                "SMA_20": [100] * 50,
+                "SMA_50": [100] * 50,
+            }
+        )
 
         # モックの正しい設定
-        with patch.object(self.screener, '_get_data_with_cache', return_value=mock_df):
+        with patch.object(self.screener, "_get_data_with_cache", return_value=mock_df):
             mock_indicators.calculate_all.return_value = mock_indicators_df
 
             criteria = [
                 ScreenerCriteria(
-                    condition=ScreenerCondition.RSI_OVERSOLD,
-                    threshold=30.0,
-                    weight=1.0
+                    condition=ScreenerCondition.RSI_OVERSOLD, threshold=30.0, weight=1.0
                 )
             ]
 
@@ -226,32 +243,33 @@ class TestEnhancedStockScreener:
             assert result.score > 0
             assert ScreenerCondition.RSI_OVERSOLD in result.matched_conditions
 
-    @patch('src.day_trade.analysis.screener_enhanced.TechnicalIndicators')
+    @patch("src.day_trade.analysis.screener_enhanced.TechnicalIndicators")
     def test_screen_stocks_integration(self, mock_indicators):
         """統合スクリーニングのテスト"""
         # モックデータの設定
-        mock_df = pd.DataFrame({
-            'Close': [100] * 50,
-            'Volume': [1000] * 50,
-            'High': [105] * 50,
-            'Low': [95] * 50
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Close": [100] * 50,
+                "Volume": [1000] * 50,
+                "High": [105] * 50,
+                "Low": [95] * 50,
+            }
+        )
 
-        mock_indicators_df = pd.DataFrame({
-            'RSI': [25] * 50,  # RSI過売り
-            'SMA_20': [100] * 50,
-            'SMA_50': [100] * 50
-        })
+        mock_indicators_df = pd.DataFrame(
+            {
+                "RSI": [25] * 50,  # RSI過売り
+                "SMA_20": [100] * 50,
+                "SMA_50": [100] * 50,
+            }
+        )
 
         self.mock_stock_fetcher.get_historical_data.return_value = mock_df
         mock_indicators.calculate_all.return_value = mock_indicators_df
 
         symbols = ["TEST1", "TEST2"]
         results = self.screener.screen_stocks(
-            symbols=symbols,
-            min_score=0.0,
-            max_results=10,
-            use_cache=False
+            symbols=symbols, min_score=0.0, max_results=10, use_cache=False
         )
 
         # 何らかの結果が返されることを確認
@@ -268,34 +286,36 @@ class TestStockScreenerCompatibility:
 
     def test_initialization_compatibility(self):
         """初期化の後方互換性テスト"""
-        assert hasattr(self.screener, 'stock_fetcher')
-        assert hasattr(self.screener, 'signal_generator')
-        assert hasattr(self.screener, 'default_criteria')
+        assert hasattr(self.screener, "stock_fetcher")
+        assert hasattr(self.screener, "signal_generator")
+        assert hasattr(self.screener, "default_criteria")
 
     def test_screen_stocks_method_exists(self):
         """screen_stocksメソッドの存在確認"""
-        assert hasattr(self.screener, 'screen_stocks')
+        assert hasattr(self.screener, "screen_stocks")
         assert callable(self.screener.screen_stocks)
 
     def test_existing_methods_compatibility(self):
         """既存メソッドの後方互換性確認"""
         # 既存のメソッドが存在することを確認
         methods_to_check = [
-            'create_custom_screener',
-            'get_predefined_screeners',
-            '_evaluate_symbol',
-            '_evaluate_condition',
-            '_summarize_technical_data'
+            "create_custom_screener",
+            "get_predefined_screeners",
+            "_evaluate_symbol",
+            "_evaluate_condition",
+            "_summarize_technical_data",
         ]
 
         for method_name in methods_to_check:
-            assert hasattr(self.screener, method_name), f"メソッド {method_name} が見つかりません"
+            assert hasattr(
+                self.screener, method_name
+            ), f"メソッド {method_name} が見つかりません"
 
     def test_enhanced_features(self):
         """拡張機能の存在確認"""
         # 新機能が追加されていることを確認
-        assert hasattr(self.screener, 'clear_cache')
-        assert hasattr(self.screener, 'get_cache_info')
+        assert hasattr(self.screener, "clear_cache")
+        assert hasattr(self.screener, "get_cache_info")
 
 
 class TestReportGeneration:
@@ -310,26 +330,26 @@ class TestReportGeneration:
             ScreenerResult(
                 symbol="TEST1",
                 score=75.5,
-                matched_conditions=[ScreenerCondition.RSI_OVERSOLD, ScreenerCondition.VOLUME_SPIKE],
+                matched_conditions=[
+                    ScreenerCondition.RSI_OVERSOLD,
+                    ScreenerCondition.VOLUME_SPIKE,
+                ],
                 technical_data={
                     "rsi": 25.3,
                     "price_change_1d": 2.5,
-                    "price_position": 15.8
+                    "price_position": 15.8,
                 },
                 last_price=1250.0,
-                volume=1500000
+                volume=1500000,
             ),
             ScreenerResult(
                 symbol="TEST2",
                 score=60.0,
                 matched_conditions=[ScreenerCondition.GOLDEN_CROSS],
-                technical_data={
-                    "rsi": 45.0,
-                    "price_change_1d": -1.2
-                },
+                technical_data={"rsi": 45.0, "price_change_1d": -1.2},
                 last_price=890.0,
-                volume=800000
-            )
+                volume=800000,
+            ),
         ]
 
         report = create_screening_report(results)

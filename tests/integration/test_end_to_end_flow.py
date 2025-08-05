@@ -7,6 +7,7 @@
 3. 銘柄マスタ → セクター分析 → スクリーニング
 """
 
+<<<<<<< HEAD
 import pytest
 from decimal import Decimal
 from unittest.mock import Mock, patch
@@ -20,6 +21,22 @@ from src.day_trade.analysis.signals import TradingSignalGenerator
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
 from src.day_trade.core.watchlist import WatchlistManager
 from src.day_trade.core.alerts import AlertManager, AlertCondition, AlertPriority
+=======
+from decimal import Decimal
+from unittest.mock import Mock, patch
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from src.day_trade.analysis.patterns import ChartPatternRecognizer
+from src.day_trade.analysis.screener import StockScreener
+from src.day_trade.analysis.signals import TradingSignalGenerator
+from src.day_trade.core.alerts import AlertCondition, AlertManager, AlertPriority
+from src.day_trade.core.watchlist import WatchlistManager
+from src.day_trade.data.stock_fetcher import StockFetcher
+from src.day_trade.data.stock_master import StockMasterManager
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 from src.day_trade.models.enums import AlertType
 
 
@@ -38,6 +55,7 @@ class TestEndToEndIntegration:
         noise = np.random.normal(0, 10, 100)
         prices = base_price + trend + noise
 
+<<<<<<< HEAD
         return pd.DataFrame({
             "Date": dates,
             "Open": prices * 0.995,
@@ -46,6 +64,18 @@ class TestEndToEndIntegration:
             "Close": prices,
             "Volume": np.random.randint(10000, 50000, 100)
         }).set_index("Date")
+=======
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": prices * 0.995,
+                "High": prices * 1.005,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.random.randint(10000, 50000, 100),
+            }
+        ).set_index("Date")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     @pytest.fixture
     def mock_stock_fetcher(self, sample_price_data):
@@ -58,7 +88,11 @@ class TestEndToEndIntegration:
             "change": 50.0,
             "change_percent": 4.76,
             "volume": 25000,
+<<<<<<< HEAD
             "market_cap": 1000000000
+=======
+            "market_cap": 1000000000,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
         # 履歴データをモック
@@ -69,7 +103,11 @@ class TestEndToEndIntegration:
             "name": "テスト株式会社",
             "sector": "テクノロジー",
             "industry": "ソフトウェア",
+<<<<<<< HEAD
             "market_cap": 1000000000
+=======
+            "market_cap": 1000000000,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
         # 複数銘柄リアルタイムデータをモック
@@ -78,19 +116,34 @@ class TestEndToEndIntegration:
                 "current_price": 2800.0,
                 "change": 100.0,
                 "change_percent": 3.7,
+<<<<<<< HEAD
                 "volume": 1000000
+=======
+                "volume": 1000000,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "9984": {
                 "current_price": 9500.0,
                 "change": -200.0,
                 "change_percent": -2.1,
+<<<<<<< HEAD
                 "volume": 500000
             }
+=======
+                "volume": 500000,
+            },
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
         return mock_fetcher
 
+<<<<<<< HEAD
     def test_data_to_signal_generation_flow(self, mock_stock_fetcher, sample_price_data):
+=======
+    def test_data_to_signal_generation_flow(
+        self, mock_stock_fetcher, sample_price_data
+    ):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         """データ取得からシグナル生成までの統合フロー"""
 
         # 1. データ取得
@@ -117,14 +170,22 @@ class TestEndToEndIntegration:
             confidence=0.75,
             conditions_met=buy_conditions,
             timestamp=price_data.index[-1],
+<<<<<<< HEAD
             price=price_data["Close"].iloc[-1]
+=======
+            price=price_data["Close"].iloc[-1],
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
         assert buy_signal is not None
         assert buy_signal.signal_type.value == "BUY"
         assert buy_signal.confidence > 0.5
 
+<<<<<<< HEAD
         print(f"✅ データ→パターン認識→シグナル生成フロー成功")
+=======
+        print("✅ データ→パターン認識→シグナル生成フロー成功")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def test_watchlist_to_alert_integration_flow(self, mock_stock_fetcher):
         """ウォッチリスト→価格監視→アラート発報の統合フロー"""
@@ -133,8 +194,13 @@ class TestEndToEndIntegration:
         watchlist_manager = WatchlistManager()
 
         # テスト用銘柄をウォッチリストに追加
+<<<<<<< HEAD
         with patch.object(watchlist_manager, 'fetcher', mock_stock_fetcher):
             success = watchlist_manager.add_stock("7203", "テスト", "統合テスト用")
+=======
+        with patch.object(watchlist_manager, "fetcher", mock_stock_fetcher):
+            _success = watchlist_manager.add_stock("7203", "テスト", "統合テスト用")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             # データベースエラーは無視（統合テストの焦点は連携）
 
         # 2. AlertManagerとの統合
@@ -148,7 +214,11 @@ class TestEndToEndIntegration:
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=Decimal("2700.0"),
             priority=AlertPriority.HIGH,
+<<<<<<< HEAD
             description="統合テスト用アラート"
+=======
+            description="統合テスト用アラート",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
         # アラート追加
@@ -156,18 +226,33 @@ class TestEndToEndIntegration:
         assert alert_added is True
 
         # 4. アラート条件チェック
+<<<<<<< HEAD
         with patch.object(alert_manager, 'stock_fetcher', mock_stock_fetcher):
+=======
+        with patch.object(alert_manager, "stock_fetcher", mock_stock_fetcher):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             # 現在価格(2800)が条件(2700)を上回っているためアラートが発火するはず
             alerts = alert_manager.get_alerts(symbol="7203")
             assert len(alerts) >= 0  # アラートが設定されていることを確認
 
+<<<<<<< HEAD
         print(f"✅ ウォッチリスト→アラート統合フロー成功")
+=======
+        print("✅ ウォッチリスト→アラート統合フロー成功")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def test_stock_master_to_screening_flow(self, mock_stock_fetcher):
         """銘柄マスタ→セクター分析→スクリーニングの統合フロー"""
 
         # 1. 銘柄マスタ管理
+<<<<<<< HEAD
         with patch('src.day_trade.data.stock_master.StockFetcher', return_value=mock_stock_fetcher):
+=======
+        with patch(
+            "src.day_trade.data.stock_master.StockFetcher",
+            return_value=mock_stock_fetcher,
+        ):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             stock_master = StockMasterManager()
 
             # 2. 銘柄情報更新
@@ -184,11 +269,19 @@ class TestEndToEndIntegration:
             "price_min": 1000.0,
             "price_max": 5000.0,
             "volume_min": 10000,
+<<<<<<< HEAD
             "change_percent_min": 2.0
         }
 
         # モック化されたスクリーニング実行
         with patch.object(screener, 'data_fetcher', mock_stock_fetcher):
+=======
+            "change_percent_min": 2.0,
+        }
+
+        # モック化されたスクリーニング実行
+        with patch.object(screener, "data_fetcher", mock_stock_fetcher):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             # スクリーニング結果の基本的な動作確認
             test_symbols = ["7203", "9984"]
 
@@ -197,12 +290,22 @@ class TestEndToEndIntegration:
                 price_data = mock_stock_fetcher.get_current_price(symbol)
                 if price_data:
                     meets_criteria = (
+<<<<<<< HEAD
                         screening_criteria["price_min"] <= price_data["current_price"] <= screening_criteria["price_max"]
+=======
+                        screening_criteria["price_min"]
+                        <= price_data["current_price"]
+                        <= screening_criteria["price_max"]
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                         and price_data["volume"] >= screening_criteria["volume_min"]
                     )
                     print(f"銘柄 {symbol}: 条件適合 = {meets_criteria}")
 
+<<<<<<< HEAD
         print(f"✅ 銘柄マスタ→スクリーニング統合フロー成功")
+=======
+        print("✅ 銘柄マスタ→スクリーニング統合フロー成功")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def test_full_system_integration(self, mock_stock_fetcher, sample_price_data):
         """システム全体の統合テスト"""
@@ -235,7 +338,14 @@ class TestEndToEndIntegration:
             components_status["alert_management"] = alert_manager is not None
 
             # 6. 銘柄マスタ管理コンポーネント
+<<<<<<< HEAD
             with patch('src.day_trade.data.stock_master.StockFetcher', return_value=mock_stock_fetcher):
+=======
+            with patch(
+                "src.day_trade.data.stock_master.StockFetcher",
+                return_value=mock_stock_fetcher,
+            ):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 stock_master = StockMasterManager()
                 components_status["stock_master"] = stock_master is not None
 
@@ -251,14 +361,26 @@ class TestEndToEndIntegration:
         success_count = sum(components_status.values())
         total_components = len(components_status)
 
+<<<<<<< HEAD
         print(f"📊 システム統合結果: {success_count}/{total_components} コンポーネント正常")
+=======
+        print(
+            f"📊 システム統合結果: {success_count}/{total_components} コンポーネント正常"
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
         for component, status in components_status.items():
             status_icon = "✅" if status else "❌"
             print(f"  {status_icon} {component}")
 
         # 70%以上のコンポーネントが正常であれば成功とする
+<<<<<<< HEAD
         assert success_count >= total_components * 0.7, f"統合テスト失敗: {success_count}/{total_components}コンポーネントのみ正常"
+=======
+        assert (
+            success_count >= total_components * 0.7
+        ), f"統合テスト失敗: {success_count}/{total_components}コンポーネントのみ正常"
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
         print("🎉 フルシステム統合テスト成功")
 
@@ -275,16 +397,28 @@ class TestComponentInteroperability:
         try:
             # パターン認識の設定
             from src.day_trade.analysis.patterns_config import get_patterns_config
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             patterns_config = get_patterns_config()
             config_consistency["patterns"] = patterns_config is not None
 
             # シグナル生成の設定
             from src.day_trade.analysis.signals import SignalRulesConfig
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             signals_config = SignalRulesConfig()
             config_consistency["signals"] = signals_config is not None
 
             # 銘柄マスタの設定
             from src.day_trade.data.stock_master_config import get_stock_master_config
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             stock_master_config = get_stock_master_config()
             config_consistency["stock_master"] = stock_master_config is not None
 
@@ -297,7 +431,13 @@ class TestComponentInteroperability:
 
         print(f"📋 設定整合性: {consistent_configs}/{total_configs} 設定システム正常")
 
+<<<<<<< HEAD
         assert consistent_configs >= total_configs * 0.8, "設定システム間の整合性に問題があります"
+=======
+        assert (
+            consistent_configs >= total_configs * 0.8
+        ), "設定システム間の整合性に問題があります"
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def test_data_flow_consistency(self):
         """データフロー整合性テスト"""
@@ -308,6 +448,7 @@ class TestComponentInteroperability:
         try:
             # DataFrame形式の一貫性
             import pandas as pd
+<<<<<<< HEAD
             test_df = pd.DataFrame({
                 "Date": pd.date_range("2024-01-01", periods=5),
                 "Close": [100, 101, 99, 102, 98]
@@ -318,13 +459,35 @@ class TestComponentInteroperability:
             pattern_recognizer = ChartPatternRecognizer()
             result = pattern_recognizer.golden_dead_cross(test_df)
             data_flow_tests.append(("pattern_dataframe", isinstance(result, pd.DataFrame)))
+=======
+
+            test_df = pd.DataFrame(
+                {
+                    "Date": pd.date_range("2024-01-01", periods=5),
+                    "Close": [100, 101, 99, 102, 98],
+                }
+            ).set_index("Date")
+
+            # パターン認識がDataFrameを正しく処理できるか
+            from src.day_trade.analysis.patterns import ChartPatternRecognizer
+
+            pattern_recognizer = ChartPatternRecognizer()
+            result = pattern_recognizer.golden_dead_cross(test_df)
+            data_flow_tests.append(
+                ("pattern_dataframe", isinstance(result, pd.DataFrame))
+            )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
             # 価格データ形式の整合性
             price_data_format = {
                 "current_price": 1000.0,
                 "change": 50.0,
                 "change_percent": 5.0,
+<<<<<<< HEAD
                 "volume": 10000
+=======
+                "volume": 10000,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             }
 
             # 各コンポーネントが同じ形式を期待しているか

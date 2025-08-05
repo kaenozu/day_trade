@@ -826,57 +826,57 @@ class TestInteractiveModeRealisticData:
         """データ整合性検証テスト"""
         for symbol, data in self.realistic_datasets.items():
             # 基本的なデータ整合性チェック
-            assert data["current_price"] > 0, (
-                f"Current price should be positive for {symbol}"
-            )
+            assert (
+                data["current_price"] > 0
+            ), f"Current price should be positive for {symbol}"
             assert data["volume"] >= 0, f"Volume should be non-negative for {symbol}"
             assert data["high"] >= data["low"], f"High should be >= Low for {symbol}"
-            assert data["high"] >= data["current_price"] >= data["low"], (
-                f"Current price should be within high-low range for {symbol}"
-            )
+            assert (
+                data["high"] >= data["current_price"] >= data["low"]
+            ), f"Current price should be within high-low range for {symbol}"
 
             # 前日終値との関係性チェック
-            assert data["previous_close"] > 0, (
-                f"Previous close should be positive for {symbol}"
-            )
+            assert (
+                data["previous_close"] > 0
+            ), f"Previous close should be positive for {symbol}"
             change_calculated = data["current_price"] - data["previous_close"]
             change_percent_calculated = (
                 change_calculated / data["previous_close"]
             ) * 100
 
             # 変動率の計算精度確認（小数点以下の誤差許容）
-            assert abs(data["change"] - change_calculated) < 1.0, (
-                f"Change calculation mismatch for {symbol}"
-            )
-            assert abs(data["change_percent"] - change_percent_calculated) < 0.1, (
-                f"Change percent calculation mismatch for {symbol}"
-            )
+            assert (
+                abs(data["change"] - change_calculated) < 1.0
+            ), f"Change calculation mismatch for {symbol}"
+            assert (
+                abs(data["change_percent"] - change_percent_calculated) < 0.1
+            ), f"Change percent calculation mismatch for {symbol}"
 
             # 金融指標の妥当性チェック
             if "pe_ratio" in data:
                 assert data["pe_ratio"] > 0, f"PE ratio should be positive for {symbol}"
-                assert data["pe_ratio"] < 1000, (
-                    f"PE ratio should be reasonable for {symbol}"
-                )
+                assert (
+                    data["pe_ratio"] < 1000
+                ), f"PE ratio should be reasonable for {symbol}"
 
             if "dividend_yield" in data:
-                assert 0 <= data["dividend_yield"] <= 20, (
-                    f"Dividend yield should be 0-20% for {symbol}"
-                )
+                assert (
+                    0 <= data["dividend_yield"] <= 20
+                ), f"Dividend yield should be 0-20% for {symbol}"
 
             if "market_cap" in data:
-                assert data["market_cap"] > 0, (
-                    f"Market cap should be positive for {symbol}"
-                )
+                assert (
+                    data["market_cap"] > 0
+                ), f"Market cap should be positive for {symbol}"
 
             if "beta" in data:
                 assert 0 < data["beta"] < 5, f"Beta should be reasonable for {symbol}"
 
             # 52週高値・安値の妥当性チェック
             if "52_week_high" in data and "52_week_low" in data:
-                assert data["52_week_high"] >= data["52_week_low"], (
-                    f"52-week high should be >= low for {symbol}"
-                )
+                assert (
+                    data["52_week_high"] >= data["52_week_low"]
+                ), f"52-week high should be >= low for {symbol}"
                 assert (
                     data["52_week_low"] <= data["current_price"] <= data["52_week_high"]
                 ), f"Current price should be within 52-week range for {symbol}"
@@ -958,9 +958,9 @@ class TestInteractiveModeRealisticData:
                 )
                 # データの内容確認
                 passed_data = mock_display.call_args[0][1]
-                assert passed_data["beta"] > 1.5, (
-                    "High volatility stock should have high beta"
-                )
+                assert (
+                    passed_data["beta"] > 1.5
+                ), "High volatility stock should have high beta"
             except (AssertionError, AttributeError):
                 # モックが期待通りに動作しない場合でも、コマンドが成功していることを確認
                 assert result is True
@@ -982,9 +982,9 @@ class TestInteractiveModeRealisticData:
             # 表示関数が呼ばれた場合のみ詳細検証
             if mock_display.called:
                 passed_data = mock_display.call_args[0][1]
-                assert passed_data["dividend_yield"] > 4.0, (
-                    "Dividend stock should have high dividend yield"
-                )
+                assert (
+                    passed_data["dividend_yield"] > 4.0
+                ), "Dividend stock should have high dividend yield"
                 assert passed_data["beta"] < 1.0, "Stable stock should have low beta"
             else:
                 # 表示関数が呼ばれなかった場合でも、コマンドが成功していることを確認
@@ -1324,9 +1324,9 @@ class TestInteractiveModeThreadSafety:
         self.interactive_mode.stop()
 
         # 正常に停止することを確認
-        assert shutdown_complete.wait(timeout=2.0), (
-            "Background thread did not shut down gracefully"
-        )
+        assert shutdown_complete.wait(
+            timeout=2.0
+        ), "Background thread did not shut down gracefully"
         worker_thread.join(timeout=1.0)
 
         # 状態が正しく更新されていることを確認
@@ -1360,9 +1360,9 @@ class TestInteractiveModePerformance:
             response_time = end_time - start_time
 
             # 応答時間が妥当な範囲内であることを確認（100ms以下）
-            assert response_time < 0.1, (
-                f"Command '{command}' took {response_time:.3f}s (too slow)"
-            )
+            assert (
+                response_time < 0.1
+            ), f"Command '{command}' took {response_time:.3f}s (too slow)"
             assert result is True
 
     def test_high_frequency_command_execution(self):
@@ -1379,9 +1379,9 @@ class TestInteractiveModePerformance:
 
         # 平均応答時間が妥当であることを確認
         avg_response_time = total_time / 100
-        assert avg_response_time < 0.01, (
-            f"Average response time {avg_response_time:.3f}s is too slow"
-        )
+        assert (
+            avg_response_time < 0.01
+        ), f"Average response time {avg_response_time:.3f}s is too slow"
 
     def test_memory_efficiency_under_load(self):
         """負荷下でのメモリ効率テスト"""
@@ -1401,6 +1401,6 @@ class TestInteractiveModePerformance:
         # メモリリークがないことを確認（デバッグビルドでのみ有効）
         if hasattr(sys, "gettotalrefcount"):
             ref_increase = final_refs - initial_refs
-            assert ref_increase < 1000, (
-                f"Possible memory leak: {ref_increase} new references"
-            )
+            assert (
+                ref_increase < 1000
+            ), f"Possible memory leak: {ref_increase} new references"

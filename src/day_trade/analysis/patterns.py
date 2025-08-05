@@ -66,8 +66,12 @@ class ChartPatternRecognizer:
             confidence_multiplier = self.config.get_golden_cross_confidence_multiplier()
             confidence_clip_max = self.config.get_golden_cross_confidence_clip_max()
 
-            golden_confidence = golden_cross * (ma_diff_change.abs() / df[column] * confidence_multiplier)
-            dead_confidence = dead_cross * (ma_diff_change.abs() / df[column] * confidence_multiplier)
+            golden_confidence = golden_cross * (
+                ma_diff_change.abs() / df[column] * confidence_multiplier
+            )
+            dead_confidence = dead_cross * (
+                ma_diff_change.abs() / df[column] * confidence_multiplier
+            )
 
             return pd.DataFrame(
                 {
@@ -77,7 +81,8 @@ class ChartPatternRecognizer:
                     "Dead_Cross": dead_cross,
                     "Golden_Confidence": golden_confidence.clip(0, confidence_clip_max),
                     "Dead_Confidence": dead_confidence.clip(0, confidence_clip_max),
-                }, index=df.index # indexを追加
+                },
+                index=df.index,  # indexを追加
             )
 
         except Exception as e:
@@ -92,14 +97,16 @@ class ChartPatternRecognizer:
             if should_raise:
                 raise
 
-            return pd.DataFrame() if self.config.should_return_empty_on_error() else None
+            return (
+                pd.DataFrame() if self.config.should_return_empty_on_error() else None
+            )
 
     def support_resistance_levels(
         self,
         df: pd.DataFrame,
         window: Optional[int] = None,
         num_levels: Optional[int] = None,
-        column: str = "Close"
+        column: str = "Close",
     ) -> Dict[str, List[float]]:
         """
         サポート・レジスタンスラインの検出
@@ -144,7 +151,9 @@ class ChartPatternRecognizer:
                 upper_bound = q3 + 1.5 * iqr
 
                 # 外れ値を除外
-                filtered_levels = levels[(levels >= lower_bound) & (levels <= upper_bound)]
+                filtered_levels = levels[
+                    (levels >= lower_bound) & (levels <= upper_bound)
+                ]
 
                 if len(filtered_levels) == 0:
                     filtered_levels = levels  # フォールバック
@@ -155,10 +164,14 @@ class ChartPatternRecognizer:
 
                 # 改良されたK-meansクラスタリング
                 # 平均値ではなく中央値を使用して外れ値に強くする
-                indices = np.linspace(0, len(sorted_levels) - 1, num_clusters, dtype=int)
+                indices = np.linspace(
+                    0, len(sorted_levels) - 1, num_clusters, dtype=int
+                )
                 centers = sorted_levels[indices]
 
-                clustering_iterations = self.config.get_support_resistance_clustering_iterations()
+                clustering_iterations = (
+                    self.config.get_support_resistance_clustering_iterations()
+                )
                 for iteration in range(clustering_iterations):
                     clusters = [[] for _ in range(num_clusters)]
 
@@ -177,7 +190,9 @@ class ChartPatternRecognizer:
 
                     # 収束判定
                     if len(new_centers) == num_clusters:
-                        if iteration > 0 and np.allclose(centers, new_centers, rtol=1e-3):
+                        if iteration > 0 and np.allclose(
+                            centers, new_centers, rtol=1e-3
+                        ):
                             break
                         centers = np.array(new_centers)
                     else:
@@ -186,9 +201,14 @@ class ChartPatternRecognizer:
                 # クラスタサイズに基づくフィルタリング
                 min_cluster_size = max(1, len(sorted_levels) // (num_clusters * 3))
                 final_centers = []
-                for i, center in enumerate(centers):
-                    cluster_size = len([level for level in sorted_levels
-                                      if np.abs(level - center) <= np.abs(centers - center).min()])
+                for center in centers:
+                    cluster_size = len(
+                        [
+                            level
+                            for level in sorted_levels
+                            if np.abs(level - center) <= np.abs(centers - center).min()
+                        ]
+                    )
                     if cluster_size >= min_cluster_size:
                         final_centers.append(center)
 
@@ -204,14 +224,20 @@ class ChartPatternRecognizer:
             should_raise = self.config.should_raise_exceptions()
 
             if should_log_detailed:
-                logger.error(f"サポート・レジスタンスレベル検出エラー: {e}", exc_info=True)
+                logger.error(
+                    f"サポート・レジスタンスレベル検出エラー: {e}", exc_info=True
+                )
             else:
                 logger.warning("サポート・レジスタンスレベル検出でエラーが発生しました")
 
             if should_raise:
                 raise
 
-            return {"resistance": [], "support": []} if self.config.should_return_empty_on_error() else None
+            return (
+                {"resistance": [], "support": []}
+                if self.config.should_return_empty_on_error()
+                else None
+            )
 
     def breakout_detection(
         self,
@@ -278,7 +304,9 @@ class ChartPatternRecognizer:
             upward_confidence = np.where(
                 upward_breakout,
                 np.minimum(
-                    (upward_strength * strength_multiplier) * (1 + volume_increase.clip(0, volume_clip_max)), confidence_cap
+                    (upward_strength * strength_multiplier)
+                    * (1 + volume_increase.clip(0, volume_clip_max)),
+                    confidence_cap,
                 ),
                 0,
             )
@@ -286,7 +314,9 @@ class ChartPatternRecognizer:
             downward_confidence = np.where(
                 downward_breakout,
                 np.minimum(
-                    (downward_strength * strength_multiplier) * (1 + volume_increase.clip(0, volume_clip_max)), confidence_cap
+                    (downward_strength * strength_multiplier)
+                    * (1 + volume_increase.clip(0, volume_clip_max)),
+                    confidence_cap,
                 ),
                 0,
             )
@@ -301,7 +331,8 @@ class ChartPatternRecognizer:
                     "Downward_Strength": downward_strength,
                     "Upward_Confidence": upward_confidence,
                     "Downward_Confidence": downward_confidence,
-                }, index=df.index # indexを追加
+                },
+                index=df.index,  # indexを追加
             )
 
         except Exception as e:
@@ -316,13 +347,15 @@ class ChartPatternRecognizer:
             if should_raise:
                 raise
 
-            return pd.DataFrame() if self.config.should_return_empty_on_error() else None
+            return (
+                pd.DataFrame() if self.config.should_return_empty_on_error() else None
+            )
 
     def trend_line_detection(
         self,
         df: pd.DataFrame,
         window: Optional[int] = None,
-        min_touches: Optional[int] = None
+        min_touches: Optional[int] = None,
     ) -> Dict[str, Dict[str, float]]:
         """
         トレンドラインの検出
@@ -356,13 +389,20 @@ class ChartPatternRecognizer:
 
                 # RANSACで外れ値に頑健なトレンドラインを検出
                 try:
-                    ransac_residual_threshold = self.config.get_trend_line_ransac_residual_threshold()
+                    ransac_residual_threshold = (
+                        self.config.get_trend_line_ransac_residual_threshold()
+                    )
                     ransac_max_trials = self.config.get_trend_line_ransac_max_trials()
                     ransac_min_samples = self.config.get_trend_line_ransac_min_samples()
 
                     # min_samplesを整数に変換（比率の場合）
-                    if isinstance(ransac_min_samples, float) and ransac_min_samples < 1.0:
-                        min_samples_count = max(2, int(len(min_idx) * ransac_min_samples))
+                    if (
+                        isinstance(ransac_min_samples, float)
+                        and ransac_min_samples < 1.0
+                    ):
+                        min_samples_count = max(
+                            2, int(len(min_idx) * ransac_min_samples)
+                        )
                     else:
                         min_samples_count = int(ransac_min_samples)
 
@@ -371,7 +411,7 @@ class ChartPatternRecognizer:
                         residual_threshold=ransac_residual_threshold,
                         max_trials=ransac_max_trials,
                         min_samples=min_samples_count,
-                        random_state=42
+                        random_state=42,
                     )
                     ransac.fit(X, y)
 
@@ -381,7 +421,9 @@ class ChartPatternRecognizer:
                     inliers = np.sum(ransac.inlier_mask_)
 
                 except Exception as e:
-                    logger.debug(f"RANSACトレンドライン検出エラー: {e}, 線形回帰にフォールバック")
+                    logger.debug(
+                        f"RANSACトレンドライン検出エラー: {e}, 線形回帰にフォールバック"
+                    )
                     # フォールバック: 線形回帰
                     model = LinearRegression()
                     model.fit(X, y)
@@ -410,13 +452,20 @@ class ChartPatternRecognizer:
 
                 # RANSACで外れ値に頑健なトレンドラインを検出
                 try:
-                    ransac_residual_threshold = self.config.get_trend_line_ransac_residual_threshold()
+                    ransac_residual_threshold = (
+                        self.config.get_trend_line_ransac_residual_threshold()
+                    )
                     ransac_max_trials = self.config.get_trend_line_ransac_max_trials()
                     ransac_min_samples = self.config.get_trend_line_ransac_min_samples()
 
                     # min_samplesを整数に変換（比率の場合）
-                    if isinstance(ransac_min_samples, float) and ransac_min_samples < 1.0:
-                        min_samples_count = max(2, int(len(max_idx) * ransac_min_samples))
+                    if (
+                        isinstance(ransac_min_samples, float)
+                        and ransac_min_samples < 1.0
+                    ):
+                        min_samples_count = max(
+                            2, int(len(max_idx) * ransac_min_samples)
+                        )
                     else:
                         min_samples_count = int(ransac_min_samples)
 
@@ -425,7 +474,7 @@ class ChartPatternRecognizer:
                         residual_threshold=ransac_residual_threshold,
                         max_trials=ransac_max_trials,
                         min_samples=min_samples_count,
-                        random_state=42
+                        random_state=42,
                     )
                     ransac.fit(X, y)
 
@@ -435,7 +484,9 @@ class ChartPatternRecognizer:
                     inliers = np.sum(ransac.inlier_mask_)
 
                 except Exception as e:
-                    logger.debug(f"RANSACトレンドライン検出エラー: {e}, 線形回帰にフォールバック")
+                    logger.debug(
+                        f"RANSACトレンドライン検出エラー: {e}, 線形回帰にフォールバック"
+                    )
                     # フォールバック: 線形回帰
                     model = LinearRegression()
                     model.fit(X, y)
@@ -494,8 +545,11 @@ class ChartPatternRecognizer:
         """
         # パラメータの初期化
         params = self._initialize_detection_params(
-            golden_cross_fast, golden_cross_slow,
-            support_resistance_window, breakout_lookback, trend_window
+            golden_cross_fast,
+            golden_cross_slow,
+            support_resistance_window,
+            breakout_lookback,
+            trend_window,
         )
         try:
             # パターン検出の実行
@@ -519,7 +573,11 @@ class ChartPatternRecognizer:
             if should_raise:
                 raise
 
-            return self._get_empty_results() if self.config.should_return_empty_on_error() else None
+            return (
+                self._get_empty_results()
+                if self.config.should_return_empty_on_error()
+                else None
+            )
 
     def _initialize_detection_params(
         self,
@@ -527,58 +585,68 @@ class ChartPatternRecognizer:
         golden_cross_slow: Optional[int],
         support_resistance_window: Optional[int],
         breakout_lookback: Optional[int],
-        trend_window: Optional[int]
+        trend_window: Optional[int],
     ) -> Dict[str, int]:
         """パターン検出パラメータの初期化"""
         return {
-            "golden_cross_fast": golden_cross_fast or self.config.get_all_patterns_golden_cross_fast(),
-            "golden_cross_slow": golden_cross_slow or self.config.get_all_patterns_golden_cross_slow(),
-            "support_resistance_window": support_resistance_window or self.config.get_all_patterns_support_resistance_window(),
-            "breakout_lookback": breakout_lookback or self.config.get_all_patterns_breakout_lookback(),
-            "trend_window": trend_window or self.config.get_all_patterns_trend_window()
+            "golden_cross_fast": golden_cross_fast
+            or self.config.get_all_patterns_golden_cross_fast(),
+            "golden_cross_slow": golden_cross_slow
+            or self.config.get_all_patterns_golden_cross_slow(),
+            "support_resistance_window": support_resistance_window
+            or self.config.get_all_patterns_support_resistance_window(),
+            "breakout_lookback": breakout_lookback
+            or self.config.get_all_patterns_breakout_lookback(),
+            "trend_window": trend_window or self.config.get_all_patterns_trend_window(),
         }
 
-    def _execute_pattern_detection(self, df: pd.DataFrame, params: Dict[str, int]) -> Dict[str, Any]:
+    def _execute_pattern_detection(
+        self, df: pd.DataFrame, params: Dict[str, int]
+    ) -> Dict[str, Any]:
         """パターン検出の実行"""
         return {
             "crosses": self.golden_dead_cross(
                 df, params["golden_cross_fast"], params["golden_cross_slow"]
             ),
-            "breakouts": self.breakout_detection(
-                df, params["breakout_lookback"]
-            ),
+            "breakouts": self.breakout_detection(df, params["breakout_lookback"]),
             "levels": self.support_resistance_levels(
                 df, params["support_resistance_window"]
             ),
-            "trends": self.trend_line_detection(
-                df, params["trend_window"]
-            )
+            "trends": self.trend_line_detection(df, params["trend_window"]),
         }
 
-    def _analyze_pattern_results(self, pattern_results: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_pattern_results(
+        self, pattern_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """パターン結果の分析"""
         return {
             "latest_signal": self._get_latest_signal(
                 pattern_results["crosses"], pattern_results["breakouts"]
             ),
             "overall_confidence": self._calculate_overall_confidence(
-                pattern_results["crosses"], pattern_results["breakouts"], pattern_results["trends"]
+                pattern_results["crosses"],
+                pattern_results["breakouts"],
+                pattern_results["trends"],
             ),
-            "pattern_summary": self._generate_pattern_summary(pattern_results)
+            "pattern_summary": self._generate_pattern_summary(pattern_results),
         }
 
-    def _build_final_results(self, pattern_results: Dict[str, Any], analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_final_results(
+        self, pattern_results: Dict[str, Any], analysis_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """最終結果の組み立て"""
         final_results = pattern_results.copy()
         final_results.update(analysis_results)
         return final_results
 
-    def _generate_pattern_summary(self, pattern_results: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_pattern_summary(
+        self, pattern_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """パターンの簡易サマリを生成"""
         summary = {
             "total_patterns_detected": 0,
             "strong_signals": [],
-            "weak_signals": []
+            "weak_signals": [],
         }
 
         # クロスパターンのサマリ
@@ -590,9 +658,13 @@ class ChartPatternRecognizer:
             if golden_crosses > 0:
                 max_golden_conf = pattern_results["crosses"]["Golden_Confidence"].max()
                 if max_golden_conf > 70:
-                    summary["strong_signals"].append(f"Golden Cross ({max_golden_conf:.1f})")
+                    summary["strong_signals"].append(
+                        f"Golden Cross ({max_golden_conf:.1f})"
+                    )
                 else:
-                    summary["weak_signals"].append(f"Golden Cross ({max_golden_conf:.1f})")
+                    summary["weak_signals"].append(
+                        f"Golden Cross ({max_golden_conf:.1f})"
+                    )
 
         # ブレイクアウトパターンのサマリ
         if not pattern_results["breakouts"].empty:
@@ -601,8 +673,12 @@ class ChartPatternRecognizer:
             summary["total_patterns_detected"] += upward_breakouts + downward_breakouts
 
         # サポートレジスタンスレベルのサマリ
-        summary["support_levels_count"] = len(pattern_results["levels"].get("support", []))
-        summary["resistance_levels_count"] = len(pattern_results["levels"].get("resistance", []))
+        summary["support_levels_count"] = len(
+            pattern_results["levels"].get("support", [])
+        )
+        summary["resistance_levels_count"] = len(
+            pattern_results["levels"].get("resistance", [])
+        )
 
         # トレンドラインのサマリ
         summary["trend_lines_count"] = len(pattern_results["trends"])
@@ -624,14 +700,12 @@ class ChartPatternRecognizer:
                 "weak_signals": [],
                 "support_levels_count": 0,
                 "resistance_levels_count": 0,
-                "trend_lines_count": 0
-            }
+                "trend_lines_count": 0,
+            },
         }
 
     def _get_latest_signal(
-        self,
-        cross_data: pd.DataFrame,
-        breakout_data: pd.DataFrame
+        self, cross_data: pd.DataFrame, breakout_data: pd.DataFrame
     ) -> Optional[Dict[str, Any]]:
         """最新のシグナル情報を取得"""
         signals = []
@@ -639,32 +713,48 @@ class ChartPatternRecognizer:
         # 最新のクロスシグナルを収集
         if not cross_data.empty:
             if cross_data["Golden_Cross"].iloc[-1]:
-                signals.append({
-                    "type": "Golden Cross",
-                    "confidence": cross_data["Golden_Confidence"].iloc[-1],
-                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
-                })
+                signals.append(
+                    {
+                        "type": "Golden Cross",
+                        "confidence": cross_data["Golden_Confidence"].iloc[-1],
+                        "timestamp": cross_data.index[-1]
+                        if hasattr(cross_data.index, "__getitem__")
+                        else None,
+                    }
+                )
             if cross_data["Dead_Cross"].iloc[-1]:
-                signals.append({
-                    "type": "Dead Cross",
-                    "confidence": cross_data["Dead_Confidence"].iloc[-1],
-                    "timestamp": cross_data.index[-1] if hasattr(cross_data.index, '__getitem__') else None
-                })
+                signals.append(
+                    {
+                        "type": "Dead Cross",
+                        "confidence": cross_data["Dead_Confidence"].iloc[-1],
+                        "timestamp": cross_data.index[-1]
+                        if hasattr(cross_data.index, "__getitem__")
+                        else None,
+                    }
+                )
 
         # 最新のブレイクアウトシグナルを収集
         if not breakout_data.empty:
             if breakout_data["Upward_Breakout"].iloc[-1]:
-                signals.append({
-                    "type": "Upward Breakout",
-                    "confidence": breakout_data["Upward_Confidence"].iloc[-1],
-                    "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
-                })
+                signals.append(
+                    {
+                        "type": "Upward Breakout",
+                        "confidence": breakout_data["Upward_Confidence"].iloc[-1],
+                        "timestamp": breakout_data.index[-1]
+                        if hasattr(breakout_data.index, "__getitem__")
+                        else None,
+                    }
+                )
             if breakout_data["Downward_Breakout"].iloc[-1]:
-                signals.append({
-                    "type": "Downward Breakout",
-                    "confidence": breakout_data["Downward_Confidence"].iloc[-1],
-                    "timestamp": breakout_data.index[-1] if hasattr(breakout_data.index, '__getitem__') else None
-                })
+                signals.append(
+                    {
+                        "type": "Downward Breakout",
+                        "confidence": breakout_data["Downward_Confidence"].iloc[-1],
+                        "timestamp": breakout_data.index[-1]
+                        if hasattr(breakout_data.index, "__getitem__")
+                        else None,
+                    }
+                )
 
         if not signals:
             return None
@@ -676,7 +766,7 @@ class ChartPatternRecognizer:
         self,
         cross_data: pd.DataFrame,
         breakout_data: pd.DataFrame,
-        trends: Dict[str, Any]
+        trends: Dict[str, Any],
     ) -> float:
         """
         改善された総合信頼度スコアを計算
@@ -689,7 +779,7 @@ class ChartPatternRecognizer:
         confidence_components = {
             "cross": self._calculate_cross_confidence(cross_data, weights),
             "breakout": self._calculate_breakout_confidence(breakout_data, weights),
-            "trend": self._calculate_trend_confidence(trends, weights)
+            "trend": self._calculate_trend_confidence(trends, weights),
         }
 
         # 有効なコンポーネントの重みつき平均
@@ -714,50 +804,82 @@ class ChartPatternRecognizer:
 
         return np.clip(overall_confidence, min_conf, max_conf)
 
-    def _calculate_cross_confidence(self, cross_data: pd.DataFrame, weights: Dict[str, float]) -> float:
+    def _calculate_cross_confidence(
+        self, cross_data: pd.DataFrame, weights: Dict[str, float]
+    ) -> float:
         """クロスパターンの信頼度を計算"""
         if cross_data.empty:
             return 0.0
 
         # 最新のシグナルを取得
-        golden_conf = cross_data["Golden_Confidence"].iloc[-1] if len(cross_data) > 0 else 0
+        golden_conf = (
+            cross_data["Golden_Confidence"].iloc[-1] if len(cross_data) > 0 else 0
+        )
         dead_conf = cross_data["Dead_Confidence"].iloc[-1] if len(cross_data) > 0 else 0
 
         # 最近のシグナルを優先し、過去のシグナルも考慮
-        recent_golden = np.nanmax(cross_data["Golden_Confidence"].iloc[-5:]) if len(cross_data) >= 5 else golden_conf
-        recent_dead = np.nanmax(cross_data["Dead_Confidence"].iloc[-5:]) if len(cross_data) >= 5 else dead_conf
+        recent_golden = (
+            np.nanmax(cross_data["Golden_Confidence"].iloc[-5:])
+            if len(cross_data) >= 5
+            else golden_conf
+        )
+        recent_dead = (
+            np.nanmax(cross_data["Dead_Confidence"].iloc[-5:])
+            if len(cross_data) >= 5
+            else dead_conf
+        )
 
         return max(recent_golden, recent_dead)
 
-    def _calculate_breakout_confidence(self, breakout_data: pd.DataFrame, weights: Dict[str, float]) -> float:
+    def _calculate_breakout_confidence(
+        self, breakout_data: pd.DataFrame, weights: Dict[str, float]
+    ) -> float:
         """ブレイクアウトパターンの信頼度を計算"""
         if breakout_data.empty:
             return 0.0
 
         # 最新のシグナルを取得
-        up_conf = breakout_data["Upward_Confidence"].iloc[-1] if len(breakout_data) > 0 else 0
-        down_conf = breakout_data["Downward_Confidence"].iloc[-1] if len(breakout_data) > 0 else 0
+        up_conf = (
+            breakout_data["Upward_Confidence"].iloc[-1] if len(breakout_data) > 0 else 0
+        )
+        down_conf = (
+            breakout_data["Downward_Confidence"].iloc[-1]
+            if len(breakout_data) > 0
+            else 0
+        )
 
         # 最近のシグナルを優先
-        recent_up = np.nanmax(breakout_data["Upward_Confidence"].iloc[-3:]) if len(breakout_data) >= 3 else up_conf
-        recent_down = np.nanmax(breakout_data["Downward_Confidence"].iloc[-3:]) if len(breakout_data) >= 3 else down_conf
+        recent_up = (
+            np.nanmax(breakout_data["Upward_Confidence"].iloc[-3:])
+            if len(breakout_data) >= 3
+            else up_conf
+        )
+        recent_down = (
+            np.nanmax(breakout_data["Downward_Confidence"].iloc[-3:])
+            if len(breakout_data) >= 3
+            else down_conf
+        )
 
         return max(recent_up, recent_down)
 
-    def _calculate_trend_confidence(self, trends: Dict[str, Any], weights: Dict[str, float]) -> float:
+    def _calculate_trend_confidence(
+        self, trends: Dict[str, Any], weights: Dict[str, float]
+    ) -> float:
         """トレンドラインの信頼度を計算"""
         if not trends:
             return 0.0
 
         trend_confidences = []
-        for trend_name, trend_info in trends.items():
+        for _trend_name, trend_info in trends.items():
             if isinstance(trend_info, dict) and "r2" in trend_info:
                 # R²値をパーセントに変換し、inliers数で重みづけ
                 r2_confidence = trend_info["r2"] * 100
                 inliers = trend_info.get("inliers", trend_info.get("touches", 1))
 
                 # inliers数に基づく補正係数
-                inlier_bonus = min(1.0 + (inliers - 3) * 0.1, 1.5) if inliers >= 3 else 0.8
+                inlier_bonus = (
+                    min(1.0 + (inliers - 3) * 0.1, 1.5) if inliers >= 3 else 0.8
+                )
 
                 trend_confidences.append(r2_confidence * inlier_bonus)
 
@@ -766,9 +888,14 @@ class ChartPatternRecognizer:
     def _get_component_weight(self, component: str, weights: Dict[str, float]) -> float:
         """コンポーネントの重みを取得"""
         weight_mapping = {
-            "cross": (weights.get("golden_cross", 0.3) + weights.get("dead_cross", 0.3)) / 2,
-            "breakout": (weights.get("upward_breakout", 0.25) + weights.get("downward_breakout", 0.25)) / 2,
-            "trend": weights.get("trend_r2", 0.2)
+            "cross": (weights.get("golden_cross", 0.3) + weights.get("dead_cross", 0.3))
+            / 2,
+            "breakout": (
+                weights.get("upward_breakout", 0.25)
+                + weights.get("downward_breakout", 0.25)
+            )
+            / 2,
+            "trend": weights.get("trend_r2", 0.2),
         }
         return weight_mapping.get(component, 0.1)
 

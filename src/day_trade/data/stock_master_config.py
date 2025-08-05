@@ -34,7 +34,11 @@ class StockMasterConfig:
         """設定ファイルを読み込み"""
         try:
             if self.config_path.exists():
+<<<<<<< HEAD
                 with open(self.config_path, encoding='utf-8') as f:
+=======
+                with open(self.config_path, encoding="utf-8") as f:
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                     config = json.load(f)
                 logger.info(f"StockMaster設定を読み込み: {self.config_path}")
                 return config
@@ -52,21 +56,33 @@ class StockMasterConfig:
                 "default_detached": False,
                 "auto_expunge": False,
                 "eager_loading": True,
+<<<<<<< HEAD
                 "session_scope_isolation": True
+=======
+                "session_scope_isolation": True,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "performance": {
                 "default_bulk_batch_size": 1000,
                 "fetch_batch_size": 50,
                 "fetch_delay_seconds": 0.1,
                 "search_limit_default": 50,
+<<<<<<< HEAD
                 "search_limit_max": 1000
+=======
+                "search_limit_max": 1000,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "data_fetching": {
                 "enable_retry": True,
                 "retry_attempts": 3,
                 "retry_delay": 1.0,
                 "enable_caching": True,
+<<<<<<< HEAD
                 "cache_ttl_seconds": 3600
+=======
+                "cache_ttl_seconds": 3600,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "market_estimation": {
                 "use_market_cap_estimation": True,
@@ -75,11 +91,17 @@ class StockMasterConfig:
                 "default_market_segment": "東証プライム",
                 "etf_code_ranges": [
                     {"start": 1300, "end": 1399},
+<<<<<<< HEAD
                     {"start": 1500, "end": 1599}
                 ],
                 "growth_code_ranges": [
                     {"start": 2000, "end": 2999}
                 ]
+=======
+                    {"start": 1500, "end": 1599},
+                ],
+                "growth_code_ranges": [{"start": 2000, "end": 2999}],
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "validation": {
                 "require_code": True,
@@ -87,15 +109,28 @@ class StockMasterConfig:
                 "validate_code_format": True,
                 "max_name_length": 255,
                 "allowed_markets": [
+<<<<<<< HEAD
                     "東証プライム", "東証スタンダード", "東証グロース", "ETF"
                 ]
+=======
+                    "東証プライム",
+                    "東証スタンダード",
+                    "東証グロース",
+                    "ETF",
+                ],
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "logging": {
                 "log_bulk_operations": True,
                 "log_performance_metrics": True,
                 "log_cache_operations": False,
+<<<<<<< HEAD
                 "detailed_error_logging": True
             }
+=======
+                "detailed_error_logging": True,
+            },
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
     # セッション管理設定
@@ -109,7 +144,13 @@ class StockMasterConfig:
         return self._config.get("session_management", {}).get("eager_loading", True)
 
     def should_use_session_scope_isolation(self) -> bool:
+<<<<<<< HEAD
         return self._config.get("session_management", {}).get("session_scope_isolation", True)
+=======
+        return self._config.get("session_management", {}).get(
+            "session_scope_isolation", True
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # パフォーマンス設定
     def get_default_bulk_batch_size(self) -> int:
@@ -145,6 +186,7 @@ class StockMasterConfig:
 
     # 市場推定設定
     def should_use_market_cap_estimation(self) -> bool:
+<<<<<<< HEAD
         return self._config.get("market_estimation", {}).get("use_market_cap_estimation", True)
 
     def get_prime_market_cap_threshold(self) -> int:
@@ -166,6 +208,37 @@ class StockMasterConfig:
         return self._config.get("market_estimation", {}).get("growth_code_ranges", [
             {"start": 2000, "end": 2999}
         ])
+=======
+        return self._config.get("market_estimation", {}).get(
+            "use_market_cap_estimation", True
+        )
+
+    def get_prime_market_cap_threshold(self) -> int:
+        return self._config.get("market_estimation", {}).get(
+            "prime_market_cap_threshold", 100_000_000_000
+        )
+
+    def get_standard_market_cap_threshold(self) -> int:
+        return self._config.get("market_estimation", {}).get(
+            "standard_market_cap_threshold", 10_000_000_000
+        )
+
+    def get_default_market_segment(self) -> str:
+        return self._config.get("market_estimation", {}).get(
+            "default_market_segment", "東証プライム"
+        )
+
+    def get_etf_code_ranges(self) -> list:
+        return self._config.get("market_estimation", {}).get(
+            "etf_code_ranges",
+            [{"start": 1300, "end": 1399}, {"start": 1500, "end": 1599}],
+        )
+
+    def get_growth_code_ranges(self) -> list:
+        return self._config.get("market_estimation", {}).get(
+            "growth_code_ranges", [{"start": 2000, "end": 2999}]
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # バリデーション設定
     def should_require_code(self) -> bool:
@@ -181,9 +254,16 @@ class StockMasterConfig:
         return self._config.get("validation", {}).get("max_name_length", 255)
 
     def get_allowed_markets(self) -> list:
+<<<<<<< HEAD
         return self._config.get("validation", {}).get("allowed_markets", [
             "東証プライム", "東証スタンダード", "東証グロース", "ETF"
         ])
+=======
+        return self._config.get("validation", {}).get(
+            "allowed_markets",
+            ["東証プライム", "東証スタンダード", "東証グロース", "ETF"],
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # ログ設定
     def should_log_bulk_operations(self) -> bool:
@@ -200,6 +280,7 @@ class StockMasterConfig:
 
     # セクター管理設定
     def should_skip_existing_sector_info(self) -> bool:
+<<<<<<< HEAD
         return self._config.get("sector_management", {}).get("skip_existing_sector_info", True)
 
     def should_auto_update_on_fetch(self) -> bool:
@@ -216,6 +297,43 @@ class StockMasterConfig:
             "テクノロジー", "金融", "ヘルスケア", "消費財", "エネルギー",
             "不動産", "素材", "資本財", "通信", "公共サービス"
         ])
+=======
+        return self._config.get("sector_management", {}).get(
+            "skip_existing_sector_info", True
+        )
+
+    def should_auto_update_on_fetch(self) -> bool:
+        return self._config.get("sector_management", {}).get(
+            "auto_update_on_fetch", False
+        )
+
+    def get_sector_cache_ttl_hours(self) -> int:
+        return self._config.get("sector_management", {}).get(
+            "sector_cache_ttl_hours", 24
+        )
+
+    def get_max_concurrent_updates(self) -> int:
+        return self._config.get("sector_management", {}).get(
+            "max_concurrent_updates", 5
+        )
+
+    def get_allowed_sectors(self) -> list:
+        return self._config.get("validation", {}).get(
+            "allowed_sectors",
+            [
+                "テクノロジー",
+                "金融",
+                "ヘルスケア",
+                "消費財",
+                "エネルギー",
+                "不動産",
+                "素材",
+                "資本財",
+                "通信",
+                "公共サービス",
+            ],
+        )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # 設定更新・保存
     def update_config(self, new_config: Dict[str, Any]):
@@ -226,7 +344,11 @@ class StockMasterConfig:
         """設定をファイルに保存"""
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
+<<<<<<< HEAD
             with open(self.config_path, 'w', encoding='utf-8') as f:
+=======
+            with open(self.config_path, "w", encoding="utf-8") as f:
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
             logger.info(f"設定を保存: {self.config_path}")
         except Exception as e:

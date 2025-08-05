@@ -25,11 +25,22 @@ from ..utils.logging_config import (
 
 logger = get_context_logger(__name__)
 
+<<<<<<< HEAD
 # SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
 class Base(DeclarativeBase):
     """SQLAlchemy 2.0のモダンなDeclarativeBase"""
     pass
 
+=======
+
+# SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
+class Base(DeclarativeBase):
+    """SQLAlchemy 2.0のモダンなDeclarativeBase"""
+
+    pass
+
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 # テスト用のデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -66,6 +77,7 @@ class DatabaseConfig:
             "database_url", database_url, "DATABASE_URL", "sqlite:///./day_trade.db"
         )
         self.echo = self._get_config_value("echo", echo, "DB_ECHO", False, bool)
+<<<<<<< HEAD
         self.pool_size = self._get_config_value("pool_size", pool_size, "DB_POOL_SIZE", 5, int)
         self.max_overflow = self._get_config_value("max_overflow", max_overflow, "DB_MAX_OVERFLOW", 10, int)
         self.pool_timeout = self._get_config_value("pool_timeout", pool_timeout, "DB_POOL_TIMEOUT", 30, int)
@@ -82,13 +94,61 @@ class DatabaseConfig:
     def _get_config_value(self, key: str, explicit_value, env_key: str, default_value, type_converter=str):
         """設定値を優先順位に従って取得"""
         if explicit_value is not None and explicit_value != (False if type_converter == bool else 0):
+=======
+        self.pool_size = self._get_config_value(
+            "pool_size", pool_size, "DB_POOL_SIZE", 5, int
+        )
+        self.max_overflow = self._get_config_value(
+            "max_overflow", max_overflow, "DB_MAX_OVERFLOW", 10, int
+        )
+        self.pool_timeout = self._get_config_value(
+            "pool_timeout", pool_timeout, "DB_POOL_TIMEOUT", 30, int
+        )
+        self.pool_recycle = self._get_config_value(
+            "pool_recycle", pool_recycle, "DB_POOL_RECYCLE", 3600, int
+        )
+        self.connect_args = connect_args or {"check_same_thread": False}
+
+        # SQLite最適化パラメータ（設定化対応）
+        self.sqlite_cache_size = self._get_config_value(
+            "sqlite_cache_size", None, "DB_SQLITE_CACHE_SIZE", 10000, int
+        )
+        self.sqlite_mmap_size = self._get_config_value(
+            "sqlite_mmap_size", None, "DB_SQLITE_MMAP_SIZE", 268435456, int
+        )  # 256MB
+        self.sqlite_temp_store = self._get_config_value(
+            "sqlite_temp_store", None, "DB_SQLITE_TEMP_STORE", "memory", str
+        )
+        self.sqlite_journal_mode = self._get_config_value(
+            "sqlite_journal_mode", None, "DB_SQLITE_JOURNAL_MODE", "WAL", str
+        )
+        self.sqlite_synchronous = self._get_config_value(
+            "sqlite_synchronous", None, "DB_SQLITE_SYNCHRONOUS", "NORMAL", str
+        )
+
+    def _get_config_value(
+        self, key: str, explicit_value, env_key: str, default_value, type_converter=str
+    ):
+        """設定値を優先順位に従って取得"""
+        if explicit_value is not None and explicit_value != (
+            False if type_converter == bool else 0
+        ):
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             return explicit_value
 
         if self._config_manager:
             try:
                 config_value = self._config_manager.get(f"database.{key}")
                 if config_value is not None:
+<<<<<<< HEAD
                     return type_converter(config_value) if type_converter != str else config_value
+=======
+                    return (
+                        type_converter(config_value)
+                        if type_converter != str
+                        else config_value
+                    )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             except Exception:
                 pass  # ConfigManagerが利用できない場合は無視
 
@@ -96,7 +156,11 @@ class DatabaseConfig:
         if env_value is not None:
             try:
                 if type_converter == bool:
+<<<<<<< HEAD
                     return env_value.lower() in ('true', '1', 'yes', 'on')
+=======
+                    return env_value.lower() in ("true", "1", "yes", "on")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 return type_converter(env_value)
             except (ValueError, TypeError):
                 pass
@@ -205,7 +269,15 @@ class DatabaseManager:
 
             # SQLiteの場合は外部キー制約を有効化
             if self.config.is_sqlite():
+<<<<<<< HEAD
                 event.listen(self.engine, "connect", lambda conn, rec: self._set_sqlite_pragma(conn, rec))
+=======
+                event.listen(
+                    self.engine,
+                    "connect",
+                    lambda conn, rec: self._set_sqlite_pragma(conn, rec),
+                )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
             # セッションファクトリーの作成
             self.session_factory = sessionmaker(bind=self.engine)
@@ -391,7 +463,13 @@ class DatabaseManager:
                 "alembic.ini",
                 "./alembic.ini",
                 os.path.join(os.getcwd(), "alembic.ini"),
+<<<<<<< HEAD
                 os.path.join(os.path.dirname(__file__), "..", "..", "..", "alembic.ini"),
+=======
+                os.path.join(
+                    os.path.dirname(__file__), "..", "..", "..", "alembic.ini"
+                ),
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             ]
 
             config_path = None
@@ -403,13 +481,21 @@ class DatabaseManager:
             if config_path is None:
                 raise DatabaseError(
                     "alembic.ini not found in any of the expected locations",
+<<<<<<< HEAD
                     error_code="ALEMBIC_CONFIG_NOT_FOUND"
+=======
+                    error_code="ALEMBIC_CONFIG_NOT_FOUND",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 )
 
         if not os.path.exists(config_path):
             raise DatabaseError(
                 f"Alembic config file not found: {config_path}",
+<<<<<<< HEAD
                 error_code="ALEMBIC_CONFIG_NOT_FOUND"
+=======
+                error_code="ALEMBIC_CONFIG_NOT_FOUND",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             )
 
         alembic_cfg = Config(config_path)
@@ -533,7 +619,13 @@ class DatabaseManager:
             operation_logger.info("Bulk insert completed successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
+<<<<<<< HEAD
             operation_logger.error("Bulk insert operation failed", error=str(converted_error))
+=======
+            operation_logger.error(
+                "Bulk insert operation failed", error=str(converted_error)
+            )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             raise converted_error from e
 
     def bulk_update(self, model_class, data_list: list, batch_size: int = 1000):
@@ -583,7 +675,13 @@ class DatabaseManager:
             operation_logger.info("Bulk update completed successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
+<<<<<<< HEAD
             operation_logger.error("Bulk update operation failed", error=str(converted_error))
+=======
+            operation_logger.error(
+                "Bulk update operation failed", error=str(converted_error)
+            )
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             raise converted_error from e
 
     def atomic_operation(self, operations: list, retry_count: int = 3):
@@ -666,6 +764,10 @@ class DatabaseManager:
 # 注意: 本番環境では依存性注入の使用を推奨
 _default_db_manager = None
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 def get_default_database_manager(config_manager=None) -> DatabaseManager:
     """
     デフォルトのデータベースマネージャーを取得（依存性注入対応）
@@ -681,6 +783,10 @@ def get_default_database_manager(config_manager=None) -> DatabaseManager:
         _default_db_manager = DatabaseManager(config_manager=config_manager)
     return _default_db_manager
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 def set_default_database_manager(manager: DatabaseManager):
     """
     デフォルトのデータベースマネージャーを設定（テスト用）
@@ -691,6 +797,10 @@ def set_default_database_manager(manager: DatabaseManager):
     global _default_db_manager
     _default_db_manager = manager
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 # 後方互換性のためのグローバルインスタンス
 db_manager = get_default_database_manager()
 
@@ -758,11 +868,19 @@ def _add_enhanced_features():
 
         # 基本統計情報
         stats = {
+<<<<<<< HEAD
             "pool_size": getattr(pool, 'size', lambda: 0)(),
             "checked_in": getattr(pool, 'checkedin', lambda: 0)(),
             "checked_out": getattr(pool, 'checkedout', lambda: 0)(),
             "overflow": getattr(pool, 'overflow', lambda: 0)(),
             "invalid": getattr(pool, 'invalid', lambda: 0)(),
+=======
+            "pool_size": getattr(pool, "size", lambda: 0)(),
+            "checked_in": getattr(pool, "checkedin", lambda: 0)(),
+            "checked_out": getattr(pool, "checkedout", lambda: 0)(),
+            "overflow": getattr(pool, "overflow", lambda: 0)(),
+            "invalid": getattr(pool, "invalid", lambda: 0)(),
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
         # 詳細統計（利用可能な場合）
@@ -853,7 +971,11 @@ def _add_enhanced_features():
         """ファクトリー方式でDatabaseManagerインスタンスを作成"""
         return DatabaseManager(
             config=DatabaseConfig(config_manager=config_manager),
+<<<<<<< HEAD
             config_manager=config_manager
+=======
+            config_manager=config_manager,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
     # メソッドを動的に追加
@@ -863,6 +985,10 @@ def _add_enhanced_features():
     DatabaseManager.performance_monitor = performance_monitor
     DatabaseManager.create_factory = create_factory
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 # 拡張機能を適用
 _add_enhanced_features()
 
@@ -872,5 +998,9 @@ def create_database_manager(config_manager=None) -> DatabaseManager:
     """ConfigManager統合版のDatabaseManagerを作成"""
     return DatabaseManager(
         config=DatabaseConfig(config_manager=config_manager),
+<<<<<<< HEAD
         config_manager=config_manager
+=======
+        config_manager=config_manager,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     )

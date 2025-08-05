@@ -453,7 +453,9 @@ class TestDatabaseExceptionHandlerAdditional:
             # 既知の例外クラスではないことを確認
             mock_sa_exc.IntegrityError = type("IntegrityError", (Exception,), {})
             mock_sa_exc.OperationalError = type("OperationalError", (Exception,), {})
-            mock_sa_exc.DisconnectionError = type("DisconnectionError", (Exception,), {})
+            mock_sa_exc.DisconnectionError = type(
+                "DisconnectionError", (Exception,), {}
+            )
             mock_sa_exc.TimeoutError = type("TimeoutError", (Exception,), {})
             sys.modules["sqlalchemy.exc"] = mock_sa_exc
 

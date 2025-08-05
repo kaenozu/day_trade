@@ -2,10 +2,18 @@
 チャートパターン認識のテスト（リファクタリング版）
 """
 
+<<<<<<< HEAD
 import pytest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+=======
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+import pytest
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
 
@@ -140,14 +148,22 @@ class TestChartPatternRecognizerRefactored:
     def test_trend_line_detection(self, sample_data):
         """トレンドライン検出のテスト"""
         recognizer = ChartPatternRecognizer()
+<<<<<<< HEAD
         trends = recognizer.trend_line_detection(
             sample_data, window=10, min_touches=3
         )
+=======
+        trends = recognizer.trend_line_detection(sample_data, window=10, min_touches=3)
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
         # 結果の検証
         assert isinstance(trends, dict)
         # トレンドが検出された場合の検証
+<<<<<<< HEAD
         for trend_name, trend_info in trends.items():
+=======
+        for _trend_name, trend_info in trends.items():
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             assert isinstance(trend_info, dict)
             assert "slope" in trend_info
             assert "intercept" in trend_info

@@ -8,20 +8,38 @@ Issue #122: 銘柄を一括で追加する機能の実装
 - 冪等性を確保し、エラー耐性を持つ
 """
 
+<<<<<<< HEAD
 import sys
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import logging
+=======
+import logging
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
 # プロジェクトルートをPATHに追加
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+<<<<<<< HEAD
 from src.day_trade.data.stock_master import StockMasterManager
 from src.day_trade.data.stock_fetcher import StockFetcher
 from src.day_trade.utils.logging_config import setup_logging
+=======
+# isortとruffの要件を満たすため、パス設定後のimportは別ブロックとして配置
+if True:  # パス設定後のimportブロック
+    from src.day_trade.data.stock_fetcher import StockFetcher
+    from src.day_trade.data.stock_master import StockMasterManager
+    from src.day_trade.utils.logging_config import setup_logging
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
 # ロギング設定
 setup_logging()
@@ -56,7 +74,11 @@ class BulkStockRegistration:
 
         try:
             df = pd.read_csv(csv_path)
+<<<<<<< HEAD
             stock_codes = df['stock_code'].astype(str).tolist()
+=======
+            stock_codes = df["stock_code"].astype(str).tolist()
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
             logger.info(f"読み込み証券コード数: {len(stock_codes)}")
             logger.info(f"サンプル: {stock_codes[:10]}")
@@ -77,8 +99,13 @@ class BulkStockRegistration:
         logger.info("既存証券コード確認中...")
 
         try:
+<<<<<<< HEAD
             from src.day_trade.models.stock import Stock
             from src.day_trade.models.database import db_manager
+=======
+            from src.day_trade.models.database import db_manager
+            from src.day_trade.models.stock import Stock
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
             existing_codes = set()
 
@@ -119,7 +146,11 @@ class BulkStockRegistration:
         stock_codes: List[str],
         batch_size: int = 50,
         delay: float = 0.1,
+<<<<<<< HEAD
         max_failures: int = 100
+=======
+        max_failures: int = 100,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> Dict[str, Any]:
         """
         銘柄を一括登録
@@ -145,15 +176,23 @@ class BulkStockRegistration:
             "failed": 0,
             "skipped": 0,
             "failed_codes": [],
+<<<<<<< HEAD
             "batches_processed": 0
+=======
+            "batches_processed": 0,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
         try:
             # Issue #126のbulk機能を活用
             result = self.stock_master.bulk_fetch_and_update_companies(
+<<<<<<< HEAD
                 codes=stock_codes,
                 batch_size=batch_size,
                 delay=delay
+=======
+                codes=stock_codes, batch_size=batch_size, delay=delay
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             )
 
             # 結果をマージ
@@ -196,21 +235,33 @@ class BulkStockRegistration:
         report.append(f"スキップ: {results['skipped']:,}")
         report.append(f"成功率: {(results['success'] / results['total'] * 100):.1f}%")
 
+<<<<<<< HEAD
         if results.get('failed_codes'):
             report.append("\n失敗した証券コード:")
             for code in results['failed_codes'][:20]:  # 最初の20件のみ表示
                 report.append(f"  - {code}")
             if len(results['failed_codes']) > 20:
+=======
+        if results.get("failed_codes"):
+            report.append("\n失敗した証券コード:")
+            for code in results["failed_codes"][:20]:  # 最初の20件のみ表示
+                report.append(f"  - {code}")
+            if len(results["failed_codes"]) > 20:
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 report.append(f"  ... 他{len(results['failed_codes']) - 20}件")
 
         report.append("=" * 60)
         return "\n".join(report)
 
     def run_full_registration(
+<<<<<<< HEAD
         self,
         include_existing: bool = False,
         batch_size: int = 50,
         delay: float = 0.1
+=======
+        self, include_existing: bool = False, batch_size: int = 50, delay: float = 0.1
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     ) -> Dict[str, Any]:
         """
         完全な一括登録処理を実行
@@ -244,14 +295,22 @@ class BulkStockRegistration:
                     "success": 0,
                     "failed": 0,
                     "skipped": 0,
+<<<<<<< HEAD
                     "message": "処理対象なし"
+=======
+                    "message": "処理対象なし",
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 }
 
             # 3. 一括登録実行
             results = self.bulk_register_stocks(
+<<<<<<< HEAD
                 target_codes,
                 batch_size=batch_size,
                 delay=delay
+=======
+                target_codes, batch_size=batch_size, delay=delay
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             )
 
             # 4. レポート生成
@@ -271,6 +330,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="銘柄一括登録スクリプト")
     parser.add_argument(
+<<<<<<< HEAD
         "--include-existing",
         action="store_true",
         help="既存銘柄も再処理する"
@@ -291,6 +351,18 @@ def main():
         "--dry-run",
         action="store_true",
         help="実際の登録を行わずに実行計画のみ表示"
+=======
+        "--include-existing", action="store_true", help="既存銘柄も再処理する"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=20, help="バッチサイズ（デフォルト: 20）"
+    )
+    parser.add_argument(
+        "--delay", type=float, default=0.2, help="バッチ間遅延秒数（デフォルト: 0.2）"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="実際の登録を行わずに実行計画のみ表示"
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
     )
 
     args = parser.parse_args()
@@ -307,7 +379,11 @@ def main():
             else:
                 target_codes = registration.filter_new_stock_codes(all_codes)
 
+<<<<<<< HEAD
             logger.info(f"実行計画:")
+=======
+            logger.info("実行計画:")
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             logger.info(f"  対象銘柄数: {len(target_codes)}")
             logger.info(f"  バッチサイズ: {args.batch_size}")
             logger.info(f"  推定バッチ数: {len(target_codes) // args.batch_size + 1}")
@@ -319,7 +395,11 @@ def main():
         results = registration.run_full_registration(
             include_existing=args.include_existing,
             batch_size=args.batch_size,
+<<<<<<< HEAD
             delay=args.delay
+=======
+            delay=args.delay,
+>>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         )
 
         # 成功確認

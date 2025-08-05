@@ -515,6 +515,7 @@ class TestTradeManagerDatabaseIntegration:
         """テストセットアップ"""
         # データベーステーブルを作成
         from src.day_trade.models.database import db_manager
+
         db_manager.create_tables()
         self.manager = TradeManager(load_from_db=True)
 
@@ -523,16 +524,18 @@ class TestTradeManagerDatabaseIntegration:
         # モックを使用してデータベース操作をテスト
         from unittest.mock import MagicMock, patch
 
-        with patch('src.day_trade.core.trade_manager.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_manager.db_manager") as mock_db:
             mock_session = MagicMock()
             mock_db.transaction_scope.return_value.__enter__.return_value = mock_session
-            mock_session.query.return_value.filter.return_value.first.return_value = None
+            mock_session.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             # モック取引を作成
             mock_trade = MagicMock()
             mock_trade.id = 1
 
-            with patch('src.day_trade.models.stock.Trade') as mock_db_trade:
+            with patch("src.day_trade.models.stock.Trade") as mock_db_trade:
                 mock_db_trade.create_buy_trade.return_value = mock_trade
 
                 trade_id = self.manager.add_trade(
@@ -540,7 +543,7 @@ class TestTradeManagerDatabaseIntegration:
                     trade_type=TradeType.BUY,
                     quantity=100,
                     price=Decimal("2500"),
-                    commission=Decimal("250")
+                    commission=Decimal("250"),
                 )
 
                 assert trade_id is not None
@@ -551,7 +554,7 @@ class TestTradeManagerDatabaseIntegration:
         """データベースからの取引読み込みテスト"""
         from unittest.mock import MagicMock, patch
 
-        with patch('src.day_trade.core.trade_manager.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_manager.db_manager") as mock_db:
             mock_session = MagicMock()
             mock_db.transaction_scope.return_value.__enter__.return_value = mock_session
 
@@ -566,7 +569,9 @@ class TestTradeManagerDatabaseIntegration:
             mock_trade.commission = 250.0
             mock_trade.memo = "テスト取引"
 
-            mock_session.query.return_value.order_by.return_value.all.return_value = [mock_trade]
+            mock_session.query.return_value.order_by.return_value.all.return_value = [
+                mock_trade
+            ]
 
             # プライベートメソッドを直接テスト
             self.manager._load_trades_from_db()
@@ -578,7 +583,7 @@ class TestTradeManagerDatabaseIntegration:
         """データベース読み込みエラー処理テスト"""
         from unittest.mock import patch
 
-        with patch('src.day_trade.core.trade_manager.db_manager') as mock_db:
+        with patch("src.day_trade.core.trade_manager.db_manager") as mock_db:
             mock_db.transaction_scope.side_effect = Exception("DB接続エラー")
 
             # エラーが発生してもプログラムが停止しないことを確認
@@ -605,7 +610,7 @@ class TestTradeManagerCSVIntegration:
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("2500"),
-            commission=Decimal("250")
+            commission=Decimal("250"),
         )
 
         self.manager.add_trade(
@@ -613,7 +618,7 @@ class TestTradeManagerCSVIntegration:
             trade_type=TradeType.SELL,
             quantity=50,
             price=Decimal("2600"),
-            commission=Decimal("130")
+            commission=Decimal("130"),
         )
 
     def test_export_to_csv(self):
@@ -621,7 +626,9 @@ class TestTradeManagerCSVIntegration:
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False
+        ) as tmp_file:
             csv_path = tmp_file.name
 
         try:
@@ -632,11 +639,14 @@ class TestTradeManagerCSVIntegration:
             assert os.path.exists(csv_path)
 
             # ファイル内容を確認
-            with open(csv_path, encoding='utf-8') as f:
+            with open(csv_path, encoding="utf-8") as f:
                 content = f.read()
-                assert 'id,symbol,trade_type,quantity,price,timestamp,commission,status,notes' in content
-                assert '7203' in content
-                assert 'buy' in content or 'sell' in content
+                assert (
+                    "id,symbol,trade_type,quantity,price,timestamp,commission,status,notes"
+                    in content
+                )
+                assert "7203" in content
+                assert "buy" in content or "sell" in content
 
         finally:
             # 一時ファイルを削除
@@ -653,7 +663,9 @@ class TestTradeManagerCSVIntegration:
 CSV_1,9984,buy,200,15000,2023-01-15T10:30:00,300,executed,CSVインポートテスト
 CSV_2,9984,sell,100,15500,2023-01-16T14:20:00,150,executed,CSVインポートテスト"""
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as tmp_file:
             tmp_file.write(csv_content)
             csv_path = tmp_file.name
 
@@ -685,7 +697,9 @@ CSV_2,9984,sell,100,15500,2023-01-16T14:20:00,150,executed,CSVインポートテ
         # 無効なCSVファイルを作成
         invalid_csv = "invalid,csv,content\nwithout,proper,headers"
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as tmp_file:
             tmp_file.write(invalid_csv)
             csv_path = tmp_file.name
 
@@ -717,7 +731,7 @@ class TestTradeManagerJSONIntegration:
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("2500"),
-            commission=Decimal("250")
+            commission=Decimal("250"),
         )
 
     def test_export_to_json(self):
@@ -726,7 +740,9 @@ class TestTradeManagerJSONIntegration:
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_file:
             json_path = tmp_file.name
 
         try:
@@ -737,12 +753,12 @@ class TestTradeManagerJSONIntegration:
             assert os.path.exists(json_path)
 
             # JSON内容を確認
-            with open(json_path, encoding='utf-8') as f:
+            with open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
                 assert isinstance(data, list)
                 assert len(data) > 0
-                assert 'symbol' in data[0]
-                assert 'trade_type' in data[0]
+                assert "symbol" in data[0]
+                assert "trade_type" in data[0]
 
         finally:
             if os.path.exists(json_path):
@@ -764,11 +780,13 @@ class TestTradeManagerJSONIntegration:
                 "timestamp": "2023-01-15T10:30:00",
                 "commission": "300",
                 "status": "executed",
-                "notes": "JSONインポートテスト"
+                "notes": "JSONインポートテスト",
             }
         ]
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp_file:
             json.dump(json_data, tmp_file, ensure_ascii=False)
             json_path = tmp_file.name
 
@@ -804,7 +822,7 @@ class TestTradeManagerAnalytics:
             quantity=100,
             price=Decimal("2500"),
             commission=Decimal("250"),
-            timestamp=base_time
+            timestamp=base_time,
         )
 
         self.manager.add_trade(
@@ -813,7 +831,7 @@ class TestTradeManagerAnalytics:
             quantity=50,
             price=Decimal("2600"),
             commission=Decimal("130"),
-            timestamp=base_time.replace(hour=14)
+            timestamp=base_time.replace(hour=14),
         )
 
         # 9984の取引
@@ -823,7 +841,7 @@ class TestTradeManagerAnalytics:
             quantity=200,
             price=Decimal("15000"),
             commission=Decimal("300"),
-            timestamp=base_time.replace(day=16)
+            timestamp=base_time.replace(day=16),
         )
 
     def test_get_performance_by_symbol(self):
@@ -889,7 +907,9 @@ class TestTradeManagerAnalytics:
     def test_calculate_total_return(self):
         """総合リターン計算テスト"""
         # 現在価格を設定
-        self.manager.update_current_prices({"7203": Decimal("2550"), "9984": Decimal("15200")})
+        self.manager.update_current_prices(
+            {"7203": Decimal("2550"), "9984": Decimal("15200")}
+        )
 
         total_return = self.manager.calculate_total_return()
 
@@ -933,7 +953,7 @@ class TestTradeManagerPositionManagement:
             quantity=100,
             average_price=Decimal("0"),
             total_cost=Decimal("0"),
-            current_price=Decimal("2500")
+            current_price=Decimal("2500"),
         )
 
         # ゼロ除算エラーが発生しないことを確認
@@ -947,7 +967,7 @@ class TestTradeManagerPositionManagement:
             quantity=-100,  # ショートポジション
             average_price=Decimal("2500"),
             total_cost=Decimal("-250000"),
-            current_price=Decimal("2400")
+            current_price=Decimal("2400"),
         )
 
         # 負の数量での計算が正しく行われることを確認
@@ -978,7 +998,7 @@ class TestRealizedPnLDataClass:
             pnl=Decimal("9620"),  # (2600-2500)*100 - 250 - 130
             pnl_percent=Decimal("3.85"),
             buy_date=buy_date,
-            sell_date=sell_date
+            sell_date=sell_date,
         )
 
         assert realized_pnl.symbol == "7203"
@@ -1001,7 +1021,7 @@ class TestRealizedPnLDataClass:
             pnl=Decimal("9620"),
             pnl_percent=Decimal("3.85"),
             buy_date=datetime(2023, 1, 15, 10, 0, 0),
-            sell_date=datetime(2023, 1, 16, 14, 0, 0)
+            sell_date=datetime(2023, 1, 16, 14, 0, 0),
         )
 
         result = realized_pnl.to_dict()

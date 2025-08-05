@@ -41,13 +41,13 @@ class TestValidateStockCode:
     def test_invalid_stock_codes(self):
         """無効な証券コード"""
         invalid_codes = [
-            "",              # 空文字
-            "ABC123456789A", # 長すぎる（10文字超）
-            "7203.X",        # 無効な市場コード
-            "7203.TT",       # 無効な市場コード
-            "7203 ",         # スペース含む
-            " 7203",         # 先頭スペース
-            "7203.T.T",      # 複数ドット
+            "",  # 空文字
+            "ABC123456789A",  # 長すぎる（10文字超）
+            "7203.X",  # 無効な市場コード
+            "7203.TT",  # 無効な市場コード
+            "7203 ",  # スペース含む
+            " 7203",  # 先頭スペース
+            "7203.T.T",  # 複数ドット
         ]
         for code in invalid_codes:
             assert validate_stock_code(code) is False
@@ -73,22 +73,34 @@ class TestValidatePeriod:
 
     def test_valid_periods(self):
         """有効な期間"""
-        valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+        valid_periods = [
+            "1d",
+            "5d",
+            "1mo",
+            "3mo",
+            "6mo",
+            "1y",
+            "2y",
+            "5y",
+            "10y",
+            "ytd",
+            "max",
+        ]
         for period in valid_periods:
             assert validate_period(period) is True
 
     def test_invalid_periods(self):
         """無効な期間"""
         invalid_periods = [
-            "",           # 空文字
-            "1D",         # 大文字
-            "1day",       # 異なる形式
-            "1month",     # 異なる形式
-            "7d",         # サポートされていない日数
-            "15y",        # サポートされていない年数
-            "invalid",    # 完全無効
-            "1w",         # 週は期間では無効
-            None,         # None
+            "",  # 空文字
+            "1D",  # 大文字
+            "1day",  # 異なる形式
+            "1month",  # 異なる形式
+            "7d",  # サポートされていない日数
+            "15y",  # サポートされていない年数
+            "invalid",  # 完全無効
+            "1w",  # 週は期間では無効
+            None,  # None
         ]
         for period in invalid_periods:
             if period is not None:
@@ -106,8 +118,19 @@ class TestValidateInterval:
     def test_valid_intervals(self):
         """有効な間隔"""
         valid_intervals = [
-            "1m", "2m", "5m", "15m", "30m", "60m", "90m",
-            "1h", "1d", "5d", "1wk", "1mo", "3mo"
+            "1m",
+            "2m",
+            "5m",
+            "15m",
+            "30m",
+            "60m",
+            "90m",
+            "1h",
+            "1d",
+            "5d",
+            "1wk",
+            "1mo",
+            "3mo",
         ]
         for interval in valid_intervals:
             assert validate_interval(interval) is True
@@ -115,16 +138,16 @@ class TestValidateInterval:
     def test_invalid_intervals(self):
         """無効な間隔"""
         invalid_intervals = [
-            "",           # 空文字
-            "1M",         # 大文字
-            "3m",         # サポートされていない分数
-            "10m",        # サポートされていない分数
-            "2h",         # サポートされていない時間
-            "1day",       # 異なる形式
-            "6mo",        # サポートされていない月数
-            "invalid",    # 完全無効
-            "1y",         # 年は間隔では無効
-            None,         # None
+            "",  # 空文字
+            "1M",  # 大文字
+            "3m",  # サポートされていない分数
+            "10m",  # サポートされていない分数
+            "2h",  # サポートされていない時間
+            "1day",  # 異なる形式
+            "6mo",  # サポートされていない月数
+            "invalid",  # 完全無効
+            "1y",  # 年は間隔では無効
+            None,  # None
         ]
         for interval in invalid_intervals:
             if interval is not None:
@@ -156,7 +179,11 @@ class TestNormalizeStockCodes:
     def test_normalize_with_invalid_codes(self):
         """無効なコードを含む正規化"""
         input_codes = ["7203", "invalid", "AAPL", ""]
-        expected = ["7203.T", "INVALID", "AAPL"]  # 実装では"invalid"も有効として処理される
+        expected = [
+            "7203.T",
+            "INVALID",
+            "AAPL",
+        ]  # 実装では"invalid"も有効として処理される
         result = normalize_stock_codes(input_codes)
         assert result == expected
 
@@ -219,7 +246,7 @@ class TestSuggestStockCodeCorrection:
         """無効なコードに対する提案"""
         # 無効なコードでも部分的に修正可能な場合はNoneを返す（現在の実装）
         assert suggest_stock_code_correction("12345") is None  # 5桁は修正不可
-        assert suggest_stock_code_correction("!@#$") is None   # 特殊文字は修正不可
+        assert suggest_stock_code_correction("!@#$") is None  # 特殊文字は修正不可
 
     def test_suggest_priority_handling(self):
         """複数の修正候補がある場合の優先処理"""
