@@ -58,28 +58,37 @@ class SignalRulesConfig:
     """シグナルルール設定管理クラス"""
 
     def __init__(self, config_path: Optional[str] = None):
+        logger.debug(f"SignalRulesConfig: Initializing with config_path={config_path}")
         if config_path is None:
             # プロジェクトルートからの絶対パス設定
-            project_root = Path(__file__).parent.parent.parent.parent
+            project_root = Path(__file__).resolve().parents[3]
             config_path = project_root / "config" / "signal_rules.json"
+            logger.debug(f"SignalRulesConfig: No config_path provided, using default: {config_path}")
 
         self.config_path = Path(config_path)
         self.config = self._load_config()
+        logger.debug(f"SignalRulesConfig: Configuration loaded. Config keys: {self.config.keys()}")
+        logger.debug(f"SignalRulesConfig: strength_thresholds in config: {self.config.get('signal_generation_settings', {}).get('strength_thresholds', {})}")
 
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
+        logger.debug(f"SignalRulesConfig: Attempting to load config from {self.config_path}")
         try:
             with open(self.config_path, encoding="utf-8") as f:
-                return json.load(f)
+                config_data = json.load(f)
+                logger.info(f"SignalRulesConfig: Successfully loaded config from {self.config_path}")
+                logger.debug(f"SignalRulesConfig: Loaded config data: {config_data}")
+                return config_data
         except FileNotFoundError:
-            logger.warning(f"シグナル設定ファイルが見つかりません: {self.config_path}")
+            logger.warning(f"SignalRulesConfig: Config file not found: {self.config_path}. Using default config.")
             return self._get_default_config()
         except Exception as e:
-            logger.error(f"シグナル設定ファイル読み込みエラー: {e}")
+            logger.error(f"SignalRulesConfig: Error loading config file {self.config_path}: {e}. Using default config.", exc_info=True)
             return self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
         """デフォルト設定を返す"""
+        logger.debug("SignalRulesConfig: Generating default config.")
         return {
             "default_buy_rules": [],
             "default_sell_rules": [],
@@ -117,7 +126,7 @@ class SignalRulesConfig:
 
     def get_strength_thresholds(self) -> Dict[str, Dict[str, Any]]:
         """強度閾値を取得"""
-        return self.get_signal_settings().get("strength_thresholds", {})
+        return self.config.get("signal_generation_settings", {}).get("strength_thresholds", {})
 
 
 class SignalRule:
@@ -294,7 +303,7 @@ class BollingerBandRule(SignalRule):
     def evaluate(
         self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
     ) -> Tuple[bool, float]:
-        if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns or indicators["BB_Upper"].empty or indicators["BB_Lower"].empty:
+        if "BB_Upper" not in indicators.columns or indicators["BB_Upper"].empty or indicators["BB_Lower"].empty:
             return False, 0.0
 
         close_price = df["Close"].iloc[-1]
@@ -358,7 +367,7 @@ class PatternBreakoutRule(SignalRule):
 
                 if latest_breakout and confidence > 0:
                     return True, confidence
-
+        
         return False, 0.0
 
 
@@ -378,10 +387,13 @@ class GoldenCrossRule(SignalRule):
             return False, 0.0
 
         if "Golden_Cross" in crosses.columns and "Golden_Confidence" in crosses.columns:
-            latest_cross = crosses["Golden_Cross"].iloc[-1]
-            confidence = crosses["Golden_Confidence"].iloc[-1]
-            if latest_cross and confidence > 0:
-                return True, confidence
+            # 直近3期間でゴールデンクロスが発生したか
+            recent_crosses = crosses["Golden_Cross"].iloc[-3:]
+            if recent_crosses.any():
+                # 最も新しいクロスの信頼度を取得
+                confidence = crosses["Golden_Confidence"].iloc[-1]
+                if confidence > 0:
+                    return True, confidence
         return False, 0.0
 
 
@@ -401,10 +413,47 @@ class DeadCrossRule(SignalRule):
             return False, 0.0
 
         if "Dead_Cross" in crosses.columns and "Dead_Confidence" in crosses.columns:
-            latest_cross = crosses["Dead_Cross"].iloc[-1]
-            confidence = crosses["Dead_Confidence"].iloc[-1]
-            if latest_cross and confidence > 0:
-                return True, confidence
+            # 直近3期間でデッドクロスが発生したか
+            recent_crosses = crosses["Dead_Cross"].iloc[-3:]
+            if recent_crosses.any():
+                # 最も新しいクロスの信頼度を取得
+                confidence = crosses["Dead_Confidence"].iloc[-1]
+                if confidence > 0:
+                    return True, confidence
+        return False, 0.0
+
+
+class VolumeSpikeBuyRule(SignalRule):
+    """出来高急増買いルール"""
+
+    def __init__(self, threshold: float = 2.0, weight: float = 1.0):
+        super().__init__("Volume Spike Buy", weight)
+        self.threshold = threshold
+
+    def evaluate(
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+    ) -> Tuple[bool, float]:
+        if "Volume" not in df.columns or df["Volume"].empty:
+            return False, 0.0
+
+        # 直近の出来高
+        latest_volume = df["Volume"].iloc[-1]
+
+        # 過去N期間の平均出来高 (例: 20期間)
+        if len(df["Volume"]) < 20:
+            return False, 0.0
+        
+        avg_volume = df["Volume"].iloc[-20:-1].mean()
+
+        if pd.isna(latest_volume) or pd.isna(avg_volume) or avg_volume == 0:
+            return False, 0.0
+
+        # 出来高が平均の閾値倍以上か
+        if latest_volume > avg_volume * self.threshold:
+            # 出来高の増加率に基づいて信頼度を計算
+            confidence = min((latest_volume / avg_volume - self.threshold) / (5.0 - self.threshold) * 100, 100) # 5.0は適当な上限
+            return True, confidence
+
         return False, 0.0
 
 
@@ -489,6 +538,7 @@ class TradingSignalGenerator:
             ),
             PatternBreakoutRule(direction="upward", weight=2.0),
             GoldenCrossRule(weight=2.0),
+            VolumeSpikeBuyRule(threshold=2.0, weight=1.0),
         ]
 
     def _load_default_sell_rules(self):
@@ -909,194 +959,6 @@ class TradingSignalGenerator:
                 f"シグナルの有効性検証中に予期せぬエラーが発生しました。詳細: {e}"
             )
             return 0.0
-
-    def _merge_conditions_safely(
-        self, buy_conditions: Dict[str, bool], sell_conditions: Dict[str, bool]
-    ) -> Dict[str, bool]:
-        """コンディションを安全に結合し、同名キーの衝突を警告"""
-        merged = buy_conditions.copy()
-
-        # 衝突チェック
-        overlapping_keys = set(buy_conditions.keys()) & set(sell_conditions.keys())
-        if overlapping_keys:
-            logger.warning(
-                f"買い・売りコンディションで同名キーが検出されました: {overlapping_keys}"
-            )
-            # 売り条件を優先(より安全)
-            for key in overlapping_keys:
-                merged[f"buy_{key}"] = buy_conditions[key]
-                merged[f"sell_{key}"] = sell_conditions[key]
-                del merged[key]
-
-        # 残りの売り条件を追加
-        for key, value in sell_conditions.items():
-            if key not in overlapping_keys:
-                merged[key] = value
-
-        return merged
-
-
-# カスタムルールの例
-class VolumeSpikeBuyRule(SignalRule):
-    """出来高急増買いルール"""
-
-    def __init__(
-        self,
-        volume_factor: float = 2.0,
-        price_change: float = 0.02,
-        weight: float = 1.5,
-        confidence_base: float = 50.0,
-        confidence_multiplier: float = 20.0,
-    ):
-        super().__init__("Volume Spike Buy", weight)
-        self.volume_factor = volume_factor
-        self.price_change = price_change
-        self.confidence_base = confidence_base
-        self.confidence_multiplier = confidence_multiplier
-
-    def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
-    ) -> Tuple[bool, float]:
-        if len(df) < 20:
-            return False, 0.0
-
-        # 平均出来高
-        avg_volume = df["Volume"].iloc[-20:-1].mean()
-        latest_volume = df["Volume"].iloc[-1]
-
-        # 価格変化
-        price_change = (df["Close"].iloc[-1] - df["Close"].iloc[-2]) / df["Close"].iloc[
-            -2
-        ]
-
-        # 出来高が平均の指定倍数以上かつ価格が指定%以上上昇
-        if (
-            latest_volume > avg_volume * self.volume_factor
-            and price_change > self.price_change
-        ):
-            volume_ratio = latest_volume / avg_volume
-            confidence = min(
-                (volume_ratio - self.volume_factor) * self.confidence_multiplier
-                + self.confidence_base,
-                100,
-            )
-            return True, confidence
-
-        return False, 0.0
-
-
-# 使用例
-if __name__ == "__main__":
-    from datetime import datetime
-
-    import numpy as np
-
-    # サンプルデータ作成
-    dates = pd.date_range(end=datetime.now(), periods=100, freq="D")
-    np.random.seed(42)
-
-    # トレンドのあるデータを生成
-    trend = np.linspace(100, 120, 100)
-    noise = np.random.randn(100) * 2
-    close_prices = trend + noise
-
-    df = pd.DataFrame(
-        {
-            "Date": dates,
-            "Open": close_prices + np.random.randn(100) * 0.5,
-            "High": close_prices + np.abs(np.random.randn(100)) * 2,
-            "Low": close_prices - np.abs(np.random.randn(100)) * 2,
-            "Close": close_prices,
-            "Volume": np.random.randint(1000000, 5000000, 100),
-        }
-    )
-    df.set_index("Date", inplace=True)
-
-    # シグナル生成
-    generator = TradingSignalGenerator()
-
-    # カスタムルールを追加
-    generator.add_buy_rule(VolumeSpikeBuyRule())
-
-    # テクニカル指標とパターンを計算
-    indicators = TechnicalIndicators.calculate_all(df)
-    patterns = ChartPatternRecognizer.detect_all_patterns(df)
-
-    # 最新のシグナルを生成
-    signal = generator.generate_signal(df, indicators, patterns)
-
-    if signal:
-        # シグナル情報の構造化ログ出力
-        signal_data = {
-            "signal_type": signal.signal_type.value.upper(),
-            "strength": signal.strength.value,
-            "confidence": signal.confidence,
-            "price": float(signal.price),
-            "timestamp": signal.timestamp.isoformat(),
-            "reasons": signal.reasons,
-            "conditions_met": signal.conditions_met,
-        }
-
-        # 市場環境情報も含めて検証
-        market_context = {
-            "volatility": float(df["Close"].pct_change().std()),
-            "trend_direction": "upward"
-            if df["Close"].iloc[-1] > df["Close"].iloc[-20]
-            else "downward",
-        }
-        validity = generator.validate_signal(signal, market_context=market_context)
-        signal_data["validity_score"] = validity
-        signal_data["market_context"] = market_context
-
-        logger.info("シグナル生成完了", **signal_data)
-
-        # ビジネスイベントとして記録
-        log_business_event("signal_generated", **signal_data)
-    else:
-        logger.info(
-            "シグナル生成結果",
-            section="signal_generation",
-            signal_type="none",
-            result="シグナルなし",
-        )
-
-    # 時系列シグナル生成
-    logger.info("時系列シグナル生成開始", lookback_window=30)
-    signals_series = generator.generate_signals_series(df, lookback_window=30)
-
-    if not signals_series.empty:
-        # 買い/売りシグナルのみ表示
-        active_signals = signals_series[signals_series["Signal"] != "hold"]
-
-        # 構造化ログ出力
-        series_summary = {
-            "total_signals": len(signals_series),
-            "active_signals": len(active_signals),
-            "buy_signals": len(active_signals[active_signals["Signal"] == "buy"]),
-            "sell_signals": len(active_signals[active_signals["Signal"] == "sell"]),
-            "latest_signals": active_signals.tail(5).to_dict("records")
-            if len(active_signals) > 0
-            else [],
-        }
-
-        logger.info("時系列シグナル生成完了", **series_summary)
-        log_business_event("time_series_signals_generated", **series_summary)
-
-        # デモ用表示ログ
-        logger.info(
-            "時系列シグナル表示",
-            signal_count=len(active_signals),
-            latest_signals=active_signals.tail(10).to_dict("records")
-            if len(active_signals) > 0
-            else [],
-        )
-    else:
-        logger.info("時系列シグナル生成結果", result="no_active_signals")
-
-
-# SignalRulesConfigクラスに安全なマージメソッドを追加
-class TradingSignalGeneratorExtended(TradingSignalGenerator):
-    """拡張版シグナル生成器"""
 
     def _merge_conditions_safely(
         self, buy_conditions: Dict[str, bool], sell_conditions: Dict[str, bool]

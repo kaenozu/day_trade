@@ -1,7 +1,7 @@
 # Technical analysis module
 from .indicators import TechnicalIndicators
 from .patterns import ChartPatternRecognizer
-from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator
+from .signals import SignalStrength, SignalType, TradingSignal, TradingSignalGenerator, VolumeSpikeBuyRule
 
 __all__ = [
     "TechnicalIndicators",
@@ -10,4 +10,5 @@ __all__ = [
     "SignalType",
     "SignalStrength",
     "TradingSignal",
+    "VolumeSpikeBuyRule",
 ]

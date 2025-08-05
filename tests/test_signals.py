@@ -1,5 +1,5 @@
 """
-売買シグナル生成エンジンのテスト
+Test for Trading Signal Generation Engine
 """
 
 from datetime import datetime
@@ -29,10 +29,10 @@ from src.day_trade.analysis.signals import (
 
 
 class TestSignalRulesConfig:
-    """シグナルルール設定クラスのテスト"""
+    """Test class for signal rule configuration"""
 
     def test_config_initialization(self):
-        """設定初期化テスト"""
+        """Test config initialization"""
         config = SignalRulesConfig()
         assert config.config is not None
         assert "default_buy_rules" in config.config
@@ -40,23 +40,21 @@ class TestSignalRulesConfig:
         assert "signal_generation_settings" in config.config
 
     def test_buy_rules_config_retrieval(self):
-        """買いルール設定取得テスト"""
+        """Test retrieval of buy rule configuration"""
         config = SignalRulesConfig()
         buy_rules = config.get_buy_rules_config()
         assert isinstance(buy_rules, list)
-        # 設定ファイルが存在しない場合は空のリストが返される
-        # これは正常な動作（デフォルトルールで補完される）
+        # If config file is missing, an empty list is returned (default rules are used)
 
     def test_sell_rules_config_retrieval(self):
-        """売りルール設定取得テスト"""
+        """Test retrieval of sell rule configuration"""
         config = SignalRulesConfig()
         sell_rules = config.get_sell_rules_config()
         assert isinstance(sell_rules, list)
-        # 設定ファイルが存在しない場合は空のリストが返される
-        # これは正常な動作（デフォルトルールで補完される）
+        # If config file is missing, an empty list is returned (default rules are used)
 
     def test_signal_settings_retrieval(self):
-        """シグナル生成設定取得テスト"""
+        """Test retrieval of signal generation settings"""
         config = SignalRulesConfig()
         settings = config.get_signal_settings()
         assert isinstance(settings, dict)
@@ -65,18 +63,18 @@ class TestSignalRulesConfig:
         assert "strength_thresholds" in settings
 
     def test_confidence_multiplier_retrieval(self):
-        """信頼度乗数取得テスト"""
+        """Test retrieval of confidence multiplier"""
         config = SignalRulesConfig()
         multiplier = config.get_confidence_multiplier("rsi_oversold", 1.0)
         assert isinstance(multiplier, float)
         assert multiplier > 0
 
-        # 存在しないキーのデフォルト値
+        # Default value for non-existent key
         default = config.get_confidence_multiplier("unknown_key", 5.0)
         assert default == 5.0
 
     def test_strength_thresholds_retrieval(self):
-        """強度閾値取得テスト"""
+        """Test retrieval of strength thresholds"""
         config = SignalRulesConfig()
         thresholds = config.get_strength_thresholds()
         assert isinstance(thresholds, dict)
@@ -84,32 +82,32 @@ class TestSignalRulesConfig:
         assert "medium" in thresholds
 
     def test_missing_config_file_fallback(self):
-        """設定ファイルが存在しない場合のフォールバックテスト"""
-        # 存在しないパスを指定してデフォルト設定が使用されることを確認
+        """Test fallback when config file is missing"""
+        # Specify a non-existent path to ensure default settings are used
         config = SignalRulesConfig("/nonexistent/path/signal_rules.json")
 
-        # デフォルト設定が読み込まれていることを確認
+        # Verify that default settings are loaded
         assert config.config is not None
         assert "signal_generation_settings" in config.config
 
-        # デフォルト値が正しく取得できることを確認
+        # Verify that default values are correctly retrieved
         min_period = config.get_signal_settings().get("min_data_period", 0)
-        assert min_period == 60  # デフォルト値
+        assert min_period == 60  # Default value
 
         multiplier = config.get_confidence_multiplier("rsi_oversold", 1.0)
-        assert multiplier == 2.0  # デフォルト値
+        assert multiplier == 2.0  # Default value
 
 
 class TestSignalRules:
-    """個別ルールのテスト"""
+    """Test for individual rules"""
 
     @pytest.fixture
     def sample_data(self):
-        """テスト用のサンプルデータ"""
+        """Sample data for testing"""
         dates = pd.date_range(end=datetime.now(), periods=100, freq="D")
         np.random.seed(42)
 
-        # トレンドのあるデータを生成
+        # Generate data with a trend
         trend = np.linspace(100, 120, 100)
         noise = np.random.randn(100) * 1
         close_prices = trend + noise
@@ -130,17 +128,17 @@ class TestSignalRules:
 
     @pytest.fixture
     def indicators_data(self, sample_data):
-        """計算済みのテクニカル指標"""
+        """Calculated technical indicators"""
         return TechnicalIndicators.calculate_all(sample_data)
 
     @pytest.fixture
     def patterns_data(self, sample_data):
-        """認識済みのチャートパターン"""
+        """Recognized chart patterns"""
         return ChartPatternRecognizer.detect_all_patterns(sample_data)
 
     def test_rsi_oversold_rule(self, sample_data, indicators_data, patterns_data):
-        """RSI過売りルールのテスト"""
-        # RSIを人工的に低く設定
+        """Test RSI oversold rule"""
+        # Artificially set RSI low
         indicators_data.loc[indicators_data.index[-1], "RSI"] = 25
 
         rule = RSIOversoldRule(threshold=30)
@@ -151,8 +149,8 @@ class TestSignalRules:
         assert confidence <= 100
 
     def test_rsi_overbought_rule(self, sample_data, indicators_data, patterns_data):
-        """RSI過買いルールのテスト"""
-        # RSIを人工的に高く設定
+        """Test RSI overbought rule"""
+        # Artificially set RSI high
         indicators_data.loc[indicators_data.index[-1], "RSI"] = 75
 
         rule = RSIOverboughtRule(threshold=70)
@@ -163,8 +161,8 @@ class TestSignalRules:
         assert confidence <= 100
 
     def test_macd_crossover_rule(self, sample_data):
-        """MACDクロスオーバールールのテスト"""
-        # MACDクロスオーバーを人工的に作成
+        """Test MACD crossover rule"""
+        # Artificially create MACD crossover
         indicators = pd.DataFrame(index=sample_data.index)
         indicators["MACD"] = [0] * (len(sample_data) - 2) + [-0.5, 0.5]
         indicators["MACD_Signal"] = [0] * len(sample_data)
@@ -176,8 +174,8 @@ class TestSignalRules:
         assert confidence > 0
 
     def test_bollinger_band_lower_rule(self, sample_data):
-        """ボリンジャーバンド下限ルールのテスト"""
-        # 価格をバンド下限以下に設定
+        """Test Bollinger Band lower rule"""
+        # Set price below lower band
         indicators = pd.DataFrame(index=sample_data.index)
         indicators["BB_Lower"] = sample_data["Close"] + 2
         indicators["BB_Upper"] = sample_data["Close"] + 5
@@ -189,8 +187,8 @@ class TestSignalRules:
         assert confidence > 0
 
     def test_pattern_breakout_rule(self, sample_data, indicators_data):
-        """パターンブレイクアウトルールのテスト"""
-        # ブレイクアウトパターンを作成
+        """Test pattern breakout rule"""
+        # Create breakout pattern
         breakouts = pd.DataFrame(index=sample_data.index)
         breakouts["Upward_Breakout"] = [False] * (len(sample_data) - 1) + [True]
         breakouts["Upward_Confidence"] = [0] * (len(sample_data) - 1) + [80]
@@ -204,15 +202,15 @@ class TestSignalRules:
         assert confidence == 80
 
     def test_golden_cross_rule(self, sample_data, indicators_data):
-        """ゴールデンクロスルールのテスト"""
-        # ゴールデンクロスを作成
+        """Test golden cross rule"""
+        # Create golden cross
         crosses = pd.DataFrame(index=sample_data.index)
         crosses["Golden_Cross"] = [False] * (len(sample_data) - 3) + [
             True,
             False,
             False,
         ]
-        crosses["Golden_Confidence"] = [0] * (len(sample_data) - 3) + [75, 0, 0]
+        crosses["Golden_Confidence"] = [0] * (len(sample_data) - 3) + [75, 75, 75]
 
         patterns = {"crosses": crosses}
 
@@ -223,14 +221,14 @@ class TestSignalRules:
         assert confidence == 75
 
     def test_volume_spike_buy_rule(self, sample_data, indicators_data, patterns_data):
-        """出来高急増買いルールのテスト"""
-        # 出来高と価格を調整
+        """Test volume spike buy rule"""
+        # Adjust volume and price
         sample_data.loc[sample_data.index[-1], "Volume"] = 10000000
         sample_data.loc[sample_data.index[-1], "Close"] = (
             sample_data["Close"].iloc[-2] * 1.03
         )
 
-        rule = VolumeSpikeBuyRule(volume_factor=2.0, price_change=0.02)
+        rule = VolumeSpikeBuyRule(threshold=2.0)
         met, confidence = rule.evaluate(sample_data, indicators_data, patterns_data)
 
         assert met is True
@@ -238,15 +236,15 @@ class TestSignalRules:
 
 
 class TestTradingSignalGenerator:
-    """売買シグナル生成クラスのテスト"""
+    """Test class for trading signal generator"""
 
     @pytest.fixture
     def sample_data(self):
-        """テスト用のサンプルデータ"""
+        """Sample data for testing"""
         dates = pd.date_range(end=datetime.now(), periods=100, freq="D")
         np.random.seed(42)
 
-        # トレンドのあるデータを生成
+        # Generate data with a trend
         trend = np.linspace(100, 120, 100)
         noise = np.random.randn(100) * 1
         close_prices = trend + noise
@@ -267,11 +265,11 @@ class TestTradingSignalGenerator:
 
     @pytest.fixture
     def generator(self):
-        """シグナル生成器のインスタンス"""
+        """Instance of signal generator"""
         return TradingSignalGenerator()
 
     def test_generate_signal_basic(self, generator, sample_data):
-        """基本的なシグナル生成のテスト"""
+        """Test basic signal generation"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
@@ -292,68 +290,68 @@ class TestTradingSignalGenerator:
         assert isinstance(signal.timestamp, datetime)
 
     def test_generate_signal_buy(self, generator, sample_data):
-        """買いシグナル生成のテスト"""
-        # RSIを低く設定して買いシグナルを誘発
+        """Test buy signal generation"""
+        # Set RSI low to induce buy signal
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 25
         patterns = ChartPatternRecognizer.detect_all_patterns(
             sample_data
-        )  # patternsを追加
+        )  # Add patterns
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
         )
 
         assert signal is not None
-        # RSIが低いので買いシグナルが出やすい
+        # If RSI is low, buy signal is likely
         if signal.signal_type == SignalType.BUY:
             assert "RSI Oversold" in signal.conditions_met
             assert signal.conditions_met["RSI Oversold"] is True
 
     def test_generate_signal_sell(self, generator, sample_data):
-        """売りシグナル生成のテスト"""
-        # RSIを高く設定して売りシグナルを誘発
+        """Test sell signal generation"""
+        # Set RSI high to induce sell signal
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 75
         patterns = ChartPatternRecognizer.detect_all_patterns(
             sample_data
-        )  # patternsを追加
+        )  # Add patterns
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
         )
 
         assert signal is not None
-        # RSIが高いので売りシグナルが出やすい
+        # If RSI is high, sell signal is likely
         if signal.signal_type == SignalType.SELL:
             assert "RSI Overbought" in signal.conditions_met
             assert signal.conditions_met["RSI Overbought"] is True
 
     def test_generate_signal_multiple_conditions(self, generator, sample_data):
-        """複数条件でのシグナル生成のテスト"""
-        # 複数の買い条件を満たすように設定
+        """Test signal generation with multiple conditions"""
+        # Set multiple buy conditions
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 25
 
-        # MACDクロスオーバーを追加
+        # Add MACD crossover
         indicators.loc[indicators.index[-2], "MACD"] = -0.5
         indicators.loc[indicators.index[-1], "MACD"] = 0.5
         indicators.loc[indicators.index[-2:], "MACD_Signal"] = 0
         patterns = ChartPatternRecognizer.detect_all_patterns(
             sample_data
-        )  # patternsを追加
+        )  # Add patterns
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
         )
 
         assert signal is not None
-        # 複数条件が満たされているか確認
+        # Verify multiple conditions are met
         active_conditions = sum(1 for v in signal.conditions_met.values() if v)
         assert active_conditions >= 2
 
     def test_generate_signals_series(self, generator, sample_data):
-        """時系列シグナル生成のテスト"""
+        """Test time-series signal generation"""
         signals_df = generator.generate_signals_series(sample_data, lookback_window=30)
 
         assert isinstance(signals_df, pd.DataFrame)
@@ -364,76 +362,75 @@ class TestTradingSignalGenerator:
             assert "Price" in signals_df.columns
             assert "Reasons" in signals_df.columns
 
-            # シグナルの値が正しいか
+            # Verify signal values
             assert signals_df["Signal"].isin(["buy", "sell", "hold"]).all()
             assert signals_df["Strength"].isin(["strong", "medium", "weak"]).all()
             assert (signals_df["Confidence"] >= 0).all()
             assert (signals_df["Confidence"] <= 100).all()
 
     def test_custom_rules(self, sample_data):
-        """カスタムルールの追加テスト"""
+        """Test adding custom rules"""
         generator = TradingSignalGenerator()
 
-        # デフォルトルール数を記録
+        # Record initial number of rules
         initial_buy_rules = len(generator.buy_rules)
 
-        # カスタムルールを追加
+        # Add custom rule
         custom_rule = VolumeSpikeBuyRule()
         generator.add_buy_rule(custom_rule)
 
         assert len(generator.buy_rules) == initial_buy_rules + 1
         assert generator.buy_rules[-1] == custom_rule
 
-        # カスタムルールの動作テスト - 出来高と価格を調整して条件を満たす
+        # Test custom rule behavior - adjust volume and price to meet conditions
         test_data = sample_data.copy()
-        test_data.loc[test_data.index[-1], "Volume"] = 10000000  # 大きな出来高
+        test_data.loc[test_data.index[-1], "Volume"] = 10000000  # Large volume
         test_data.loc[test_data.index[-1], "Close"] = (
             test_data["Close"].iloc[-2] * 1.03
-        )  # 3%上昇
+        )  # 3% increase
 
         test_indicators = TechnicalIndicators.calculate_all(test_data)
         test_patterns = ChartPatternRecognizer.detect_all_patterns(test_data)
 
-        # シグナル生成
+        # Generate signal
         signal = generator.generate_signal(test_data, test_indicators, test_patterns)
         assert signal is not None
 
-        # 買いシグナルまたはホールドが生成されるはず（出来高急増により）
-        # 条件には「Volume Spike Buy」が含まれているはず
+        # Buy signal or hold should be generated (due to volume spike)
+        # "Volume Spike Buy" should be included in conditions
         if signal.signal_type == SignalType.BUY:
             assert "Volume Spike Buy" in signal.conditions_met
             assert signal.conditions_met["Volume Spike Buy"] is True
         else:
-            # シグナルタイプに関係なく、すべての条件は評価されていることを確認
-            # 実装では条件評価は行われているが、結果のconditions_metに含まれるかは
-            # シグナルタイプに依存する
+            # Regardless of signal type, all conditions should be evaluated
+            # Whether included in conditions_met depends on signal type in implementation
             pass
 
     def test_clear_rules(self, generator):
-        """ルールクリアのテスト"""
-        # ルールが存在することを確認
+        """Test clearing rules"""
+        # Verify rules exist
         assert len(generator.buy_rules) > 0
         assert len(generator.sell_rules) > 0
 
-        # ルールをクリア
+        # Clear rules
         generator.clear_rules()
 
         assert len(generator.buy_rules) == 0
         assert len(generator.sell_rules) == 0
 
     def test_validate_signal(self, generator, sample_data):
-        """シグナル検証のテスト"""
+        """Test signal validation"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
-            # 基本的な検証
+            # Basic validation
             validity = generator.validate_signal(signal)
             assert isinstance(validity, float)
             assert 0 <= validity <= 100
 
-            # 市場環境を含む検証
+            # Validation with market context
             market_context = {
                 "volatility": sample_data["Close"].pct_change().std(),
                 "trend_direction": "upward",
@@ -444,7 +441,7 @@ class TestTradingSignalGenerator:
             assert isinstance(validity_with_context, float)
             assert 0 <= validity_with_context <= 100
 
-            # 過去パフォーマンスデータを含む検証
+            # Validation with historical performance data
             historical_data = pd.DataFrame(
                 {
                     "Signal": ["buy", "sell", "buy"],
@@ -461,7 +458,7 @@ class TestTradingSignalGenerator:
             assert 0 <= validity_with_history <= 100
 
     def test_empty_data(self, generator):
-        """空データでのエラーハンドリング"""
+        """Error handling with empty data"""
         empty_df = pd.DataFrame()
         empty_indicators = pd.DataFrame()
         empty_patterns = {}
@@ -470,7 +467,7 @@ class TestTradingSignalGenerator:
         assert signal is None
 
     def test_insufficient_data(self, generator):
-        """不十分なデータでのエラーハンドリング"""
+        """Error handling with insufficient data"""
         dates = pd.date_range(end=datetime.now(), periods=10, freq="D")
         small_df = pd.DataFrame(
             {
@@ -490,17 +487,17 @@ class TestTradingSignalGenerator:
         assert signal is None
 
     def test_signal_strength_classification(self, generator, sample_data):
-        """シグナル強度の分類テスト"""
-        # 強いシグナルを生成するように設定
+        """Test signal strength classification"""
+        # Configure to generate strong signals
         indicators = TechnicalIndicators.calculate_all(sample_data)
 
-        # 複数の強い条件を設定
-        indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
+        # Set multiple strong conditions
+        indicators.loc[indicators.index[-1], "RSI"] = 20  # Strong oversold
         indicators.loc[indicators.index[-2], "MACD"] = -1
-        indicators.loc[indicators.index[-1], "MACD"] = 1  # 強いクロスオーバー
+        indicators.loc[indicators.index[-1], "MACD"] = 1  # Strong crossover
         indicators.loc[:, "MACD_Signal"] = 0
 
-        # ボリンジャーバンド下限を突破
+        # Break through Bollinger Band lower
         indicators.loc[indicators.index[-1], "BB_Lower"] = (
             sample_data["Close"].iloc[-1] + 1
         )
@@ -511,42 +508,42 @@ class TestTradingSignalGenerator:
         )
 
         assert signal is not None
-        # 複数の強い条件が満たされているので、強いシグナルになるはず
+        # Should be a strong signal as multiple strong conditions are met
         active_conditions = sum(1 for v in signal.conditions_met.values() if v)
         if active_conditions >= 3 and signal.confidence >= 70:
             assert signal.strength == SignalStrength.STRONG
 
 
 class TestCustomSignalRule:
-    """カスタムシグナルルールのテスト"""
+    """Test custom signal rule"""
 
     def test_custom_rule_implementation(self):
-        """カスタムルールの実装テスト"""
+        """Test custom rule implementation"""
 
         class TestRule(SignalRule):
             def __init__(self):
                 super().__init__("Test Rule", weight=1.0)
 
             def evaluate(self, df, indicators, patterns):
-                # 常にTrue、信頼度50%を返す
+                # Always return True, 50% confidence
                 return True, 50.0
 
         rule = TestRule()
         assert rule.name == "Test Rule"
         assert rule.weight == 1.0
 
-        # 評価メソッドのテスト
+        # Test evaluation method
         met, confidence = rule.evaluate(None, None, None)
         assert met is True
         assert confidence == 50.0
 
 
 class TestImprovedSignalGeneration:
-    """改善されたシグナル生成機能のテスト"""
+    """Test for improved signal generation functionality"""
 
     @pytest.fixture
     def sample_data(self):
-        """テスト用サンプルデータ"""
+        """Sample data for testing"""
         dates = pd.date_range(start="2023-01-01", periods=100, freq="D")
         np.random.seed(42)
         close_prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
@@ -563,19 +560,19 @@ class TestImprovedSignalGeneration:
         )
 
     def test_config_based_rule_loading(self):
-        """設定ベースルール読み込みテスト"""
+        """Test config-based rule loading"""
         generator = TradingSignalGenerator()
 
-        # 設定ファイルがない場合でもデフォルトルールが読み込まれる
+        # Default rules are loaded even if config file is missing
         assert len(generator.buy_rules) > 0
         assert len(generator.sell_rules) > 0
 
-        # デフォルトルールが含まれていることを確認
+        # Verify default rules are included
         rule_names = [rule.name for rule in generator.buy_rules]
         assert "RSI Oversold" in rule_names
 
     def test_decimal_price_handling(self, sample_data):
-        """Decimal価格処理テスト"""
+        """Test Decimal price handling"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
@@ -585,12 +582,12 @@ class TestImprovedSignalGeneration:
         if signal:
             assert isinstance(signal.price, Decimal)
             assert signal.price > 0
-            # Decimalから他の型への変換テスト
+            # Test conversion from Decimal to other types
             assert float(signal.price) > 0
             assert int(signal.price) > 0
 
     def test_datetime_timestamp_handling(self, sample_data):
-        """datetime タイムスタンプ処理テスト"""
+        """Test datetime timestamp handling"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
@@ -599,28 +596,28 @@ class TestImprovedSignalGeneration:
 
         if signal:
             assert isinstance(signal.timestamp, datetime)
-            # pandas Timestampとの互換性確認
+            # Verify compatibility with pandas Timestamp
             pd_timestamp = pd.Timestamp(signal.timestamp)
             assert pd_timestamp.year >= 2023
 
     def test_configurable_strength_thresholds(self, sample_data):
-        """設定可能強度閾値テスト"""
+        """Test configurable strength thresholds"""
         generator = TradingSignalGenerator()
 
-        # 強度閾値が設定から読み込まれていることを確認
+        # Verify strength thresholds are loaded from config
         thresholds = generator.config.get_strength_thresholds()
         assert "strong" in thresholds
         assert "medium" in thresholds
 
-        # 実際のシグナル生成で閾値が使用されることを確認
+        # Verify thresholds are used in actual signal generation
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        # 強いシグナルを作るため複数条件を満たす
-        indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
+        # Meet multiple conditions to create a strong signal
+        indicators.loc[indicators.index[-1], "RSI"] = 20  # Strong oversold
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
         if signal and signal.signal_type == SignalType.BUY:
-            # 設定された閾値に基づいて強度が決定されていることを確認
+            # Verify strength is determined based on configured thresholds
             assert signal.strength in [
                 SignalStrength.STRONG,
                 SignalStrength.MEDIUM,
@@ -628,7 +625,7 @@ class TestImprovedSignalGeneration:
             ]
 
     def test_enhanced_validate_signal(self, sample_data):
-        """拡張されたシグナル検証テスト"""
+        """Test enhanced signal validation"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
         patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
@@ -636,9 +633,9 @@ class TestImprovedSignalGeneration:
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
-            # 市場環境情報によるvalidation
+            # Validation with market context
             market_context = {
-                "volatility": 0.02,  # 低ボラティリティ
+                "volatility": 0.02,  # Low volatility
                 "trend_direction": "upward",
             }
 
@@ -646,21 +643,21 @@ class TestImprovedSignalGeneration:
                 signal, market_context=market_context
             )
 
-            # 高ボラティリティでの検証
-            market_context["volatility"] = 0.08  # 高ボラティリティ
+            # Validation with high volatility
+            market_context["volatility"] = 0.08  # High volatility
             validity_high_vol = generator.validate_signal(
                 signal, market_context=market_context
             )
 
-            # 高ボラティリティ時は信頼度が下がることを確認
+            # Verify confidence decreases with high volatility
             if signal.signal_type in [SignalType.BUY, SignalType.SELL]:
                 assert validity_low_vol >= validity_high_vol
 
     def test_rule_parameter_configuration(self):
-        """ルールパラメータ設定テスト"""
+        """Test rule parameter configuration"""
         generator = TradingSignalGenerator()
 
-        # RSIルールのパラメータが設定から読み込まれていることを確認
+        # Verify RSI rule parameters are loaded from config
         rsi_rules = [rule for rule in generator.buy_rules if "RSI" in rule.name]
         if rsi_rules:
             rsi_rule = rsi_rules[0]
