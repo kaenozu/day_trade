@@ -584,6 +584,7 @@ class AlertManager:
 
         return None
 
+
     def _compare_values(
         self,
         current: Union[Decimal, float],
