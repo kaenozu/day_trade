@@ -34,11 +34,7 @@ class PatternsConfig:
         """設定ファイルを読み込み"""
         try:
             if self.config_path.exists():
-<<<<<<< HEAD
-                with open(self.config_path, encoding='utf-8') as f:
-=======
                 with open(self.config_path, encoding="utf-8") as f:
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                     config = json.load(f)
                 logger.info(f"チャートパターン設定を読み込み: {self.config_path}")
                 return config
@@ -56,21 +52,13 @@ class PatternsConfig:
                 "default_fast_period": 5,
                 "default_slow_period": 20,
                 "confidence_multiplier": 100,
-<<<<<<< HEAD
-                "confidence_clip_max": 100
-=======
                 "confidence_clip_max": 100,
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "support_resistance": {
                 "default_window": 20,
                 "default_num_levels": 3,
                 "clustering_iterations": 10,
-<<<<<<< HEAD
-                "min_candidates_threshold": 0
-=======
                 "min_candidates_threshold": 0,
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "breakout_detection": {
                 "default_lookback": 20,
@@ -78,28 +66,15 @@ class PatternsConfig:
                 "default_volume_factor": 1.5,
                 "strength_multiplier": 10,
                 "volume_clip_max": 2,
-<<<<<<< HEAD
-                "confidence_cap": 100
-            },
-            "trend_line_detection": {
-                "default_window": 20,
-                "default_min_touches": 3
-            },
-=======
                 "confidence_cap": 100,
             },
             "trend_line_detection": {"default_window": 20, "default_min_touches": 3},
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             "detect_all_patterns": {
                 "default_golden_cross_fast": 5,
                 "default_golden_cross_slow": 20,
                 "default_support_resistance_window": 20,
                 "default_breakout_lookback": 20,
-<<<<<<< HEAD
-                "default_trend_window": 20
-=======
                 "default_trend_window": 20,
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
             },
             "confidence_calculation": {
                 "weights": {
@@ -107,23 +82,14 @@ class PatternsConfig:
                     "dead_cross": 0.3,
                     "upward_breakout": 0.25,
                     "downward_breakout": 0.25,
-<<<<<<< HEAD
-                    "trend_r2": 0.2
-=======
                     "trend_r2": 0.2,
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 }
             },
             "error_handling": {
                 "return_empty_on_error": True,
                 "log_detailed_errors": True,
-<<<<<<< HEAD
-                "raise_exceptions": False
-            }
-=======
                 "raise_exceptions": False,
             },
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
         }
 
     # ゴールデン・デッドクロス設定
@@ -134,13 +100,9 @@ class PatternsConfig:
         return self._config.get("golden_dead_cross", {}).get("default_slow_period", 20)
 
     def get_golden_cross_confidence_multiplier(self) -> int:
-<<<<<<< HEAD
-        return self._config.get("golden_dead_cross", {}).get("confidence_multiplier", 100)
-=======
         return self._config.get("golden_dead_cross", {}).get(
             "confidence_multiplier", 100
         )
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def get_golden_cross_confidence_clip_max(self) -> int:
         return self._config.get("golden_dead_cross", {}).get("confidence_clip_max", 100)
@@ -153,12 +115,6 @@ class PatternsConfig:
         return self._config.get("support_resistance", {}).get("default_num_levels", 3)
 
     def get_support_resistance_clustering_iterations(self) -> int:
-<<<<<<< HEAD
-        return self._config.get("support_resistance", {}).get("clustering_iterations", 10)
-
-    def get_support_resistance_min_candidates_threshold(self) -> int:
-        return self._config.get("support_resistance", {}).get("min_candidates_threshold", 0)
-=======
         return self._config.get("support_resistance", {}).get(
             "clustering_iterations", 10
         )
@@ -167,7 +123,6 @@ class PatternsConfig:
         return self._config.get("support_resistance", {}).get(
             "min_candidates_threshold", 0
         )
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # ブレイクアウト検出設定
     def get_breakout_lookback(self) -> int:
@@ -177,13 +132,9 @@ class PatternsConfig:
         return self._config.get("breakout_detection", {}).get("default_threshold", 0.02)
 
     def get_breakout_volume_factor(self) -> float:
-<<<<<<< HEAD
-        return self._config.get("breakout_detection", {}).get("default_volume_factor", 1.5)
-=======
         return self._config.get("breakout_detection", {}).get(
             "default_volume_factor", 1.5
         )
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     def get_breakout_strength_multiplier(self) -> int:
         return self._config.get("breakout_detection", {}).get("strength_multiplier", 10)
@@ -199,50 +150,6 @@ class PatternsConfig:
         return self._config.get("trend_line_detection", {}).get("default_window", 20)
 
     def get_trend_line_min_touches(self) -> int:
-<<<<<<< HEAD
-        return self._config.get("trend_line_detection", {}).get("default_min_touches", 3)
-
-    def get_trend_line_ransac_residual_threshold(self) -> float:
-        return self._config.get("trend_line_detection", {}).get("ransac_residual_threshold", 0.1)
-
-    def get_trend_line_ransac_max_trials(self) -> int:
-        return self._config.get("trend_line_detection", {}).get("ransac_max_trials", 100)
-
-    def get_trend_line_ransac_min_samples(self) -> float:
-        return self._config.get("trend_line_detection", {}).get("ransac_min_samples", 0.5)
-
-    # detect_all_patterns設定
-    def get_all_patterns_golden_cross_fast(self) -> int:
-        return self._config.get("detect_all_patterns", {}).get("default_golden_cross_fast", 5)
-
-    def get_all_patterns_golden_cross_slow(self) -> int:
-        return self._config.get("detect_all_patterns", {}).get("default_golden_cross_slow", 20)
-
-    def get_all_patterns_support_resistance_window(self) -> int:
-        return self._config.get("detect_all_patterns", {}).get("default_support_resistance_window", 20)
-
-    def get_all_patterns_breakout_lookback(self) -> int:
-        return self._config.get("detect_all_patterns", {}).get("default_breakout_lookback", 20)
-
-    def get_all_patterns_trend_window(self) -> int:
-        return self._config.get("detect_all_patterns", {}).get("default_trend_window", 20)
-
-    # 信頼度計算設定
-    def get_confidence_weights(self) -> Dict[str, float]:
-        return self._config.get("confidence_calculation", {}).get("weights", {
-            "golden_cross": 0.3,
-            "dead_cross": 0.3,
-            "upward_breakout": 0.25,
-            "downward_breakout": 0.25,
-            "trend_r2": 0.2
-        })
-
-    def get_confidence_normalization(self) -> Dict[str, float]:
-        return self._config.get("confidence_calculation", {}).get("normalization", {
-            "min_confidence": 0.0,
-            "max_confidence": 100.0
-        })
-=======
         return self._config.get("trend_line_detection", {}).get(
             "default_min_touches", 3
         )
@@ -305,7 +212,6 @@ class PatternsConfig:
         return self._config.get("confidence_calculation", {}).get(
             "normalization", {"min_confidence": 0.0, "max_confidence": 100.0}
         )
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
 
     # エラー処理設定
     def should_return_empty_on_error(self) -> bool:
@@ -326,11 +232,7 @@ class PatternsConfig:
         """設定をファイルに保存"""
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-<<<<<<< HEAD
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-=======
             with open(self.config_path, "w", encoding="utf-8") as f:
->>>>>>> 5f9b0b2 (fix: 最重要問題である循環importエラーを解決)
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
             logger.info(f"設定を保存: {self.config_path}")
         except Exception as e:
