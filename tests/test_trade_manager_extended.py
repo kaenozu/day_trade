@@ -2,20 +2,21 @@
 TradeManagerの拡張テスト - 未カバー領域のテスト強化
 """
 
+import contextlib
 import json
 import os
 import tempfile
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from src.day_trade.core.trade_manager import (
+    Position,
+    RealizedPnL,
     TradeManager,
     TradeType,
-    Position,
-    RealizedPnL
 )
 
 
@@ -326,7 +327,7 @@ class TestTradeManagerExtended:
         # 無効な年を指定してエラーを発生させる
         invalid_year = "invalid_year"
 
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError)):
             trade_manager.calculate_tax_implications(invalid_year)
 
         # エラーログが出力されることを確認
@@ -392,10 +393,8 @@ class TestTradeManagerExtended:
     def test_load_from_json_error_logging(self, mock_logger, trade_manager):
         """load_from_jsonメソッドのエラーログテスト"""
         # 存在しないファイルでエラーを発生
-        try:
+        with contextlib.suppress(FileNotFoundError):
             trade_manager.load_from_json("nonexistent.json")
-        except FileNotFoundError:
-            pass
 
         # エラーログが出力されていることを確認
         mock_logger.error.assert_called_once()
@@ -404,10 +403,8 @@ class TestTradeManagerExtended:
     def test_save_to_json_error_logging(self, mock_logger, trade_manager):
         """save_to_jsonメソッドのエラーログテスト"""
         # 無効なパス（書き込み権限なし）でエラーを発生
-        try:
+        with contextlib.suppress(OSError, PermissionError):
             trade_manager.save_to_json("/invalid/path/test.json")
-        except (OSError, PermissionError):
-            pass
 
         # エラーログが出力されていることを確認
         mock_logger.error.assert_called_once()
@@ -416,10 +413,8 @@ class TestTradeManagerExtended:
     def test_export_to_csv_error_logging(self, mock_logger, trade_manager):
         """export_to_csvメソッドのエラーログテスト"""
         # 無効なパス（書き込み権限なし）でエラーを発生
-        try:
+        with contextlib.suppress(OSError, PermissionError):
             trade_manager.export_to_csv("/invalid/path/test.csv", "trades")
-        except (OSError, PermissionError):
-            pass
 
         # エラーログが出力されていることを確認
         mock_logger.error.assert_called_once()

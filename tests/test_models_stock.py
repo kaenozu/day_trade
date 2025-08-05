@@ -2,15 +2,16 @@
 models/stock.pyのテスト
 """
 
-import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.day_trade.models.base import BaseModel
-from src.day_trade.models.stock import Stock, PriceData, Trade, WatchlistItem, Alert
-from src.day_trade.models.enums import TradeType, AlertType
+from src.day_trade.models.enums import AlertType, TradeType
+from src.day_trade.models.stock import Alert, PriceData, Stock, Trade, WatchlistItem
 
 
 @pytest.fixture

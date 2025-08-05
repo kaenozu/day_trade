@@ -2,23 +2,30 @@
 Issue #132: コードレビューに基づくアプリケーション改善点のテスト
 """
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import tempfile
 from decimal import Decimal
-from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from src.day_trade.core.alerts import AlertManager, AlertCondition, AlertTrigger, AlertPriority
-from src.day_trade.core.persistent_alerts import PersistentAlertManager
-from src.day_trade.core.config import ConfigManager
-from src.day_trade.core.security_config import SecureConfigManager, EnvironmentConfigLoader
+import pytest
+
 from src.day_trade.core.alert_strategies import (
-    AlertStrategyFactory, PriceAboveStrategy, VolumeSpikeStrategy
+    AlertStrategyFactory,
+)
+from src.day_trade.core.alerts import (
+    AlertCondition,
+    AlertManager,
+    AlertPriority,
+    AlertTrigger,
+)
+from src.day_trade.core.config import ConfigManager
+from src.day_trade.core.persistent_alerts import PersistentAlertManager
+from src.day_trade.core.security_config import (
+    EnvironmentConfigLoader,
+    SecureConfigManager,
 )
 from src.day_trade.models.enums import AlertType
-from src.day_trade.models.alerts import AlertConditionModel, AlertTriggerModel, AlertConfigModel
 
 
 class TestAlertManagerBulkOptimization:
@@ -306,7 +313,7 @@ class TestConfigManagerErrorHandling:
             with open(invalid_json_path, 'w') as f:
                 f.write("invalid json content")
 
-            with pytest.raises(Exception):  # JSONDecodeError
+            with pytest.raises((ValueError, OSError)):
                 config_manager.import_config(invalid_json_path)
 
 

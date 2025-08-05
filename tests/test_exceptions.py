@@ -15,9 +15,11 @@ from src.day_trade.utils.exceptions import (
     RateLimitError,
     ResourceNotFoundError,
     ServerError,
-    TimeoutError as DayTradeTimeoutError,
     handle_database_exception,
     handle_network_exception,
+)
+from src.day_trade.utils.exceptions import (
+    TimeoutError as DayTradeTimeoutError,
 )
 
 
@@ -480,9 +482,11 @@ class TestAdditionalExceptionClasses:
             PatternRecognitionError,
             PortfolioError,
             SignalGenerationError,
-            TimeoutError as DayTradeTimeoutError2,
             TradingError,
             ValidationError,
+        )
+        from src.day_trade.utils.exceptions import (
+            TimeoutError as DayTradeTimeoutError2,
         )
 
         # 各例外クラスをインスタンス化してテスト
