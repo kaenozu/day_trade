@@ -132,7 +132,7 @@ class TestConfigManagerImprovements:
         """設定保存のエラーハンドリングテスト"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test_config.json"
-            manager = ConfigManager(config_dir=Path(temp_dir))
+            manager = ConfigManager(config_path=str(config_path))
 
             # 正常な保存
             manager.save_config()
@@ -141,10 +141,10 @@ class TestConfigManagerImprovements:
     def test_export_import_config(self):
         """設定エクスポート・インポートのテスト"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_dir = Path(temp_dir) / "config"
+            config_path = Path(temp_dir) / "test_config.json"
             export_path = Path(temp_dir) / "exported_config.json"
 
-            manager = ConfigManager(config_dir=config_dir)
+            manager = ConfigManager(config_path=str(config_path))
 
             # 設定を変更
             manager.set("api.timeout", 30)
@@ -154,7 +154,8 @@ class TestConfigManagerImprovements:
             assert export_path.exists()
 
             # 新しいマネージャーでインポート
-            manager2 = ConfigManager(config_dir=config_dir / "imported")
+            import_config_path = Path(temp_dir) / "imported_config.json"
+            manager2 = ConfigManager(config_path=str(import_config_path))
             manager2.import_config(export_path)
 
             # 設定が正しくインポートされたかチェック

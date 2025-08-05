@@ -832,6 +832,76 @@ class StockMasterManager:
             return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
 
+    def fetch_and_update_stock_info_dict(self, code: str) -> Optional[Dict[str, str]]:
+        """
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（辞書返却版）
+
+        Args:
+            code: 証券コード
+
+        Returns:
+            更新された銘柄情報の辞書
+        """
+        try:
+            # StockFetcherのget_company_infoメソッドを使用
+            company_info = self.stock_fetcher.get_company_info(code)
+
+            if not company_info:
+                logger.warning(f"StockFetcherから企業情報を取得できません: {code}")
+                return None
+
+            # データを整理
+            name = company_info.get("name") or ""
+            sector = company_info.get("sector") or ""
+            industry = company_info.get("industry") or ""
+            market = self._estimate_market_segment(code, company_info)
+
+            # 単一セッション内で処理
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄をチェック
+                existing_stock = session.query(Stock).filter(Stock.code == code).first()
+
+                if existing_stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    existing_stock.name = name
+                    existing_stock.market = market
+                    existing_stock.sector = sector
+                    existing_stock.industry = industry
+                    session.flush()
+
+                    # 辞書として返却
+                    return {
+                        "code": existing_stock.code,
+                        "name": existing_stock.name,
+                        "market": existing_stock.market,
+                        "sector": existing_stock.sector,
+                        "industry": existing_stock.industry,
+                    }
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    new_stock = Stock(
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry
+                    )
+                    session.add(new_stock)
+                    session.flush()
+
+                    # 辞書として返却
+                    return {
+                        "code": new_stock.code,
+                        "name": new_stock.name,
+                        "market": new_stock.market,
+                        "sector": new_stock.sector,
+                        "industry": new_stock.industry,
+                    }
+
+        except Exception as e:
+            logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
+            return None
+
     def bulk_fetch_and_update_companies(
         self, codes: List[str], batch_size: int = 50, delay: float = 0.1
     ) -> Dict[str, int]:
@@ -863,15 +933,9 @@ class StockMasterManager:
 
             for code in batch_codes:
                 try:
-                    stock = self.fetch_and_update_stock_info(code)
-                    if stock:
-                        updated_stocks.append({
-                            "code": stock.code,
-                            "name": stock.name,
-                            "market": stock.market,
-                            "sector": stock.sector,
-                            "industry": stock.industry,
-                        })
+                    stock_dict = self.fetch_and_update_stock_info_dict(code)
+                    if stock_dict:
+                        updated_stocks.append(stock_dict)
                         success_count += 1
                     else:
                         skipped_count += 1
