@@ -1,0 +1,162 @@
+{
+  "default_buy_rules": [
+    {
+      "type": "RSIOversoldRule",
+      "parameters": {
+        "threshold": 30,
+        "weight": 1.0,
+        "confidence_multiplier": 2.0
+      }
+    },
+    {
+      "type": "MACDCrossoverRule",
+      "parameters": {
+        "lookback": 2,
+        "weight": 1.5,
+        "angle_multiplier": 20.0
+      }
+    },
+    {
+      "type": "BollingerBandRule",
+      "parameters": {
+        "position": "lower",
+        "weight": 1.0,
+        "deviation_multiplier": 10.0
+      }
+    },
+    {
+      "type": "PatternBreakoutRule",
+      "parameters": {
+        "direction": "upward",
+        "weight": 2.0
+      }
+    },
+    {
+      "type": "GoldenCrossRule",
+      "parameters": {
+        "weight": 2.0
+      }
+    }
+  ],
+  "default_sell_rules": [
+    {
+      "type": "RSIOverboughtRule",
+      "parameters": {
+        "threshold": 70,
+        "weight": 1.0,
+        "confidence_multiplier": 2.0
+      }
+    },
+    {
+      "type": "MACDDeathCrossRule",
+      "parameters": {
+        "lookback": 2,
+        "weight": 1.5,
+        "angle_multiplier": 20.0
+      }
+    },
+    {
+      "type": "BollingerBandRule",
+      "parameters": {
+        "position": "upper",
+        "weight": 1.0,
+        "deviation_multiplier": 10.0
+      }
+    },
+    {
+      "type": "PatternBreakoutRule",
+      "parameters": {
+        "direction": "downward",
+        "weight": 2.0
+      }
+    },
+    {
+      "type": "DeadCrossRule",
+      "parameters": {
+        "weight": 2.0
+      }
+    }
+  ],
+  "signal_generation_settings": {
+    "min_data_period": 60,
+    "min_data_for_generation": 20,
+    "volume_calculation_period": 20,
+    "trend_lookback_period": 20,
+    "signal_freshness": {
+      "warning_hours": 24,
+      "stale_hours": 72
+    },
+    "confidence_multipliers": {
+      "rsi_oversold": 2.0,
+      "rsi_overbought": 2.0,
+      "macd_angle": 20.0,
+      "bollinger_deviation": 10.0
+    },
+    "strength_multipliers": {
+      "strong": 1.2,
+      "medium": 1.0,
+      "weak": 0.8
+    },
+    "recent_signal_lookback": 5,
+    "validation_adjustments": {
+      "volatile_market_penalty": 0.85,
+      "trend_continuation_penalty": 0.8,
+      "multi_condition_bonus": 1.15,
+      "high_volatility_threshold": 0.05,
+      "performance_multipliers": {
+        "base": 0.6,
+        "range": 0.7,
+        "strength_adjustment": {
+          "base": 0.9,
+          "range": 0.2
+        }
+      },
+      "time_multipliers": {
+        "warning": 0.9,
+        "stale": 0.8
+      }
+    },
+    "strength_thresholds": {
+      "strong": {
+        "confidence": 70,
+        "min_active_rules": 3
+      },
+      "medium": {
+        "confidence": 40,
+        "min_active_rules": 2
+      }
+    }
+  },
+  "signal_generation": {
+    "enabled": true,
+    "min_confidence_threshold": 40.0,
+    "max_signals_per_stock": 5,
+    "signal_cooldown_hours": 24
+  },
+  "volume_spike_settings": {
+    "volume_factor": 2.0,
+    "price_change_threshold": 0.02,
+    "confidence_base": 50.0,
+    "confidence_multiplier": 20.0
+  },
+  "rsi_settings": {
+    "oversold_threshold": 30,
+    "overbought_threshold": 70,
+    "period": 14,
+    "confidence_multiplier": 2.0
+  },
+  "macd_settings": {
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9,
+    "lookback_period": 2,
+    "default_weight": 1.5,
+    "angle_multiplier": 20.0
+  },
+  "pattern_breakout_settings": {
+    "default_weight": 2.0
+  },
+  "golden_dead_cross_settings": {
+    "default_weight": 2.0
+  }
+}

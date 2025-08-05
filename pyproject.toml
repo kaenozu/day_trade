@@ -222,13 +222,24 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
+addopts = "-ra -q --strict-markers --strict-config --tb=short"
 testpaths = [
     "tests",
 ]
 python_files = [
     "test_*.py",
     "*_test.py",
+]
+markers = [
+    "integration: marks tests as integration tests (run with --integration)",
+    "slow: marks tests as slow (run with --slow)",
+    "unit: marks tests as unit tests (default)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pandas.*",
+    "ignore:.*Bitwise inversion.*:DeprecationWarning",
+    "ignore:.*R\\^2 score is not well-defined.*:sklearn.exceptions.UndefinedMetricWarning",
+    "ignore:.*Remove `format_exc_info`.*:UserWarning",
 ]
 
 # Coverage configuration

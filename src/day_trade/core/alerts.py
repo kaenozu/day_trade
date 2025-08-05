@@ -263,14 +263,18 @@ class AlertManager:
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
+        watchlist_manager=None,
     ):
         """
         Args:
-            stock_fetcher: 株価データ取得インスタンス
+            stock_fetcher: 株価データ取得インスタンス（DI対応）
+            watchlist_manager: WatchlistManagerインスタンス（統合機能用）
         """
-        from ..core.watchlist import WatchlistManager
         self.stock_fetcher = stock_fetcher or StockFetcher()
-        self.watchlist_manager = WatchlistManager()
+
+        # 循環参照を避けるため、遅延読み込みでWatchlistManagerを取得
+        self._watchlist_manager = watchlist_manager
+
         self.technical_indicators = TechnicalIndicators()
         self.pattern_recognizer = ChartPatternRecognizer()
         self.notification_handler = NotificationHandler()
@@ -290,6 +294,28 @@ class AlertManager:
 
         # 通知設定
         self.default_notification_methods = [NotificationMethod.CONSOLE]
+
+    @property
+    def watchlist_manager(self):
+        """
+        WatchlistManagerインスタンスを遅延取得（循環参照対策）
+
+        Returns:
+            WatchlistManagerインスタンス
+        """
+        if self._watchlist_manager is None:
+            from ..core.watchlist import WatchlistManager
+            self._watchlist_manager = WatchlistManager()
+        return self._watchlist_manager
+
+    def set_watchlist_manager(self, watchlist_manager):
+        """
+        WatchlistManagerインスタンスを設定（DI用）
+
+        Args:
+            watchlist_manager: WatchlistManagerインスタンス
+        """
+        self._watchlist_manager = watchlist_manager
 
     def add_alert(self, condition: AlertCondition) -> bool:
         """アラート条件を追加"""

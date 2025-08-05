@@ -1,4 +1,6 @@
 # Core trading functionality
+from ..models.enums import AlertType
+from .alerts import AlertCondition, AlertManager, AlertPriority
 from .portfolio import (
     PerformanceReport,
     PortfolioAnalyzer,
@@ -13,7 +15,7 @@ from .trade_manager import (
     TradeStatus,
     TradeType,
 )
-from .watchlist import AlertCondition, AlertNotification, AlertType, WatchlistManager
+from .watchlist import AlertNotification, WatchlistManager
 
 __all__ = [
     "TradeManager",
@@ -26,6 +28,8 @@ __all__ = [
     "AlertType",
     "AlertCondition",
     "AlertNotification",
+    "AlertPriority",
+    "AlertManager",
     "PortfolioAnalyzer",
     "PortfolioMetrics",
     "SectorAllocation",

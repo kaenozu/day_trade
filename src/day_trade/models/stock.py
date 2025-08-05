@@ -306,8 +306,8 @@ class Trade(BaseModel):
         session: Session,
         stock_code: str,
         quantity: int,
-        price: float,
-        commission: float = 0,
+        price: Decimal,
+        commission: Decimal = Decimal('0'),
         memo: str = "",
     ) -> "Trade":
         """買い取引を作成"""
@@ -330,8 +330,8 @@ class Trade(BaseModel):
         session: Session,
         stock_code: str,
         quantity: int,
-        price: float,
-        commission: float = 0,
+        price: Decimal,
+        commission: Decimal = Decimal('0'),
         memo: str = "",
     ) -> "Trade":
         """売り取引を作成"""
