@@ -618,36 +618,41 @@ class StockMasterManager:
             # 市場区分を推定（改善版）
             market = self._estimate_market_segment(code, company_info)
 
-            # 既存銘柄を更新または新規作成
-            stock = self.get_stock_by_code(code)
-            if stock:
-                logger.info(f"銘柄情報を更新: {code} - {name}")
-                updated_stock = self.update_stock(
-                    code=code,
-                    name=name,
-                    market=market,
-                    sector=sector,
-                    industry=industry,
-                )
-                # 属性を事前読み込み
-                if updated_stock:
-                    _ = (updated_stock.code, updated_stock.name, updated_stock.market,
-                         updated_stock.sector, updated_stock.industry)
-                return updated_stock
-            else:
-                logger.info(f"新規銘柄を追加: {code} - {name}")
-                new_stock = self.add_stock(
-                    code=code,
-                    name=name,
-                    market=market,
-                    sector=sector,
-                    industry=industry,
-                )
-                # 属性を事前読み込み
-                if new_stock:
+            # 単一のセッションスコープ内で全処理を実行
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄をチェック
+                existing_stock = session.query(Stock).filter(Stock.code == code).first()
+
+                if existing_stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    # 既存銘柄を更新
+                    existing_stock.name = name
+                    existing_stock.market = market
+                    existing_stock.sector = sector
+                    existing_stock.industry = industry
+                    session.flush()
+
+                    # 属性を事前読み込み（セッション内で）
+                    _ = (existing_stock.code, existing_stock.name, existing_stock.market,
+                         existing_stock.sector, existing_stock.industry)
+                    return existing_stock
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    # 新規銘柄を作成
+                    new_stock = Stock(
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry
+                    )
+                    session.add(new_stock)
+                    session.flush()
+
+                    # 属性を事前読み込み（セッション内で）
                     _ = (new_stock.code, new_stock.name, new_stock.market,
                          new_stock.sector, new_stock.industry)
-                return new_stock
+                    return new_stock
 
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
