@@ -764,11 +764,9 @@ class TestStockFetcher:
 
         # デコレータがエラーを適切にハンドリングすることを確認
         # （実装によってはエラーがキャッチされて別の例外に変換される可能性があります）
-        try:
+        from contextlib import suppress
+        with suppress(ValueError, StockFetcherError):
             test_function_with_error(5)
-        except (ValueError, StockFetcherError):
-            # どちらの例外でも許可（実装に依存）
-            pass
 
         # 複数回呼び出してキャッシュが正しく動作することを確認
         call_count = 0  # リセット

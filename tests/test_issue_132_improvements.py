@@ -96,8 +96,8 @@ class TestAlertManagerBulkOptimization:
             "historical_data": None
         }
 
-        with patch.object(self.alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(self.alert_manager, '_handle_alert_trigger') as mock_handle:
+        with patch.object(self.alert_manager, '_should_check_condition', return_value=True), \
+             patch.object(self.alert_manager, '_handle_alert_trigger') as mock_handle:
                 self.alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
 
                 # 履歴データが取得されていないことを確認
@@ -126,8 +126,8 @@ class TestAlertManagerBulkOptimization:
         mock_historical.empty = False
         mock_historical.__getitem__ = Mock(return_value=Mock())
 
-        with patch.object(self.alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(self.alert_manager.stock_fetcher, 'get_historical_data', return_value=mock_historical):
+        with patch.object(self.alert_manager, '_should_check_condition', return_value=True), \
+             patch.object(self.alert_manager.stock_fetcher, 'get_historical_data', return_value=mock_historical):
                 self.alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
 
                 # 履歴データがキャッシュされていることを確認
@@ -287,8 +287,8 @@ class TestConfigManagerErrorHandling:
             config_path = Path(temp_dir) / "config.json"
             config_manager = ConfigManager(config_path)
 
-            with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-                with pytest.raises(PermissionError):
+            with patch("builtins.open", side_effect=PermissionError("Permission denied")), \
+                 pytest.raises(PermissionError):
                     config_manager.save_config()
 
     def test_import_config_file_not_found(self):
@@ -420,8 +420,8 @@ class TestIntegrationScenarios:
             "historical_data": None
         }
 
-        with patch.object(alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(alert_manager, '_handle_alert_trigger') as mock_handle:
+        with patch.object(alert_manager, '_should_check_condition', return_value=True), \
+             patch.object(alert_manager, '_handle_alert_trigger') as mock_handle:
                 alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
 
                 # アラートが発火していることを確認

@@ -26,7 +26,11 @@ class StockMasterManager:
             db_manager: データベースマネージャー
             stock_fetcher: 株価データ取得インスタンス
         """
-        self.db_manager = db_manager or globals()['db_manager']
+        if db_manager is None:
+            from ..models.database import db_manager as default_db_manager
+            self.db_manager = default_db_manager
+        else:
+            self.db_manager = db_manager
         self.bulk_operations = AdvancedBulkOperations(self.db_manager)
         self.stock_fetcher = stock_fetcher or StockFetcher()
 

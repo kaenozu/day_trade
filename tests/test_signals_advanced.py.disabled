@@ -2,6 +2,7 @@
 Signalsモジュールの高度な機能テスト - 未カバー領域対応
 """
 
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -13,7 +14,6 @@ from src.day_trade.analysis.signals import (
     SignalType,
     TradingSignal,
     TradingSignalGenerator,
-    TradingSignalGeneratorExtended,
 )
 from src.day_trade.config.config_manager import ConfigManager
 
@@ -69,17 +69,19 @@ class TestTradingSignalAdvanced:
     @pytest.fixture
     def signal_generator(self, mock_config):
         """TradingSignalGeneratorインスタンス"""
-        return TradingSignalGenerator(mock_config)
+        return TradingSignalGenerator(config_path=None)
 
-    def test_calculate_confidence_score_with_strength_multipliers(self, signal_generator, sample_data):
+    def testvalidate_signal_with_strength_multipliers(self, signal_generator, sample_data):
         """信頼度計算で強度調整係数のテスト"""
         # STRONG信号の作成
         signal = TradingSignal(
             signal_type=SignalType.BUY,
             strength=SignalStrength.STRONG,
-            confidence=0.8,
+            confidence=80.0,
+            reasons=["RSI oversold", "MA crossover", "Volume spike"],
+            conditions_met={"rsi_oversold": True, "ma_crossover": True, "volume_spike": True},
             timestamp=sample_data.index[-1],
-            conditions_met={"rsi_oversold": True, "ma_crossover": True, "volume_spike": True}
+            price=Decimal("100.0")
         )
 
         # market_contextを提供して信頼度計算をテスト
@@ -88,7 +90,7 @@ class TestTradingSignalAdvanced:
             "trend_direction": "upward"
         }
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, market_context=market_context
         )
 
@@ -96,7 +98,7 @@ class TestTradingSignalAdvanced:
         assert confidence > signal.confidence
         assert isinstance(confidence, float)
 
-    def test_calculate_confidence_score_with_weak_signal(self, signal_generator):
+    def testvalidate_signal_with_weak_signal(self, signal_generator):
         """WEAK信号での信頼度計算テスト"""
         signal = TradingSignal(
             signal_type=SignalType.SELL,
@@ -106,13 +108,13 @@ class TestTradingSignalAdvanced:
             conditions_met={"rsi_overbought": True}
         )
 
-        confidence = signal_generator._calculate_confidence_score(signal)
+        confidence = signal_generator.validate_signal(signal)
 
         # WEAK信号は0.8倍される
         expected_base = signal.confidence * 0.8
         assert abs(confidence - expected_base) < 0.1
 
-    def test_calculate_confidence_score_with_volatile_market(self, signal_generator):
+    def testvalidate_signal_with_volatile_market(self, signal_generator):
         """高ボラティリティ市場での信頼度計算テスト"""
         signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -128,14 +130,14 @@ class TestTradingSignalAdvanced:
             "trend_direction": "neutral"
         }
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, market_context=market_context
         )
 
         # 高ボラティリティでペナルティが適用される
         assert confidence < signal.confidence
 
-    def test_calculate_confidence_score_trend_following(self, signal_generator):
+    def testvalidate_signal_trend_following(self, signal_generator):
         """トレンドフォローシグナルの信頼度計算テスト"""
         # 上昇トレンドでのBUYシグナル
         signal = TradingSignal(
@@ -151,14 +153,14 @@ class TestTradingSignalAdvanced:
             "trend_direction": "upward"
         }
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, market_context=market_context
         )
 
         # トレンドフォローで1.1倍のボーナス
         assert confidence > signal.confidence * 1.05
 
-    def test_calculate_confidence_score_trend_reversal_penalty(self, signal_generator):
+    def testvalidate_signal_trend_reversal_penalty(self, signal_generator):
         """トレンド逆張りシグナルのペナルティテスト"""
         # 上昇トレンドでのSELLシグナル（逆張り）
         signal = TradingSignal(
@@ -174,14 +176,14 @@ class TestTradingSignalAdvanced:
             "trend_direction": "upward"
         }
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, market_context=market_context
         )
 
         # トレンド逆張りでペナルティが適用される
         assert confidence < signal.confidence * 0.9
 
-    def test_calculate_confidence_score_with_historical_performance(self, signal_generator):
+    def testvalidate_signal_with_historical_performance(self, signal_generator):
         """過去パフォーマンスデータによる信頼度調整テスト"""
         signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -198,7 +200,7 @@ class TestTradingSignalAdvanced:
             "Strength": ["strong", "medium", "weak", "strong"]
         })
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, historical_performance=historical_performance
         )
 
@@ -206,7 +208,7 @@ class TestTradingSignalAdvanced:
         assert isinstance(confidence, float)
         assert confidence >= 0.0
 
-    def test_calculate_confidence_score_with_historical_performance_no_success_column(self, signal_generator):
+    def testvalidate_signal_with_historical_performance_no_success_column(self, signal_generator):
         """成功カラムなしの履歴データでの信頼度調整テスト"""
         signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -222,7 +224,7 @@ class TestTradingSignalAdvanced:
             "Strength": ["strong", "medium", "weak"]
         })
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, historical_performance=historical_performance
         )
 
@@ -230,7 +232,7 @@ class TestTradingSignalAdvanced:
         assert isinstance(confidence, float)
         assert confidence >= 0.0
 
-    def test_calculate_confidence_score_multi_condition_bonus(self, signal_generator):
+    def testvalidate_signal_multi_condition_bonus(self, signal_generator):
         """複数条件ボーナスのテスト"""
         # 3つの条件を満たすシグナル
         signal_multi = TradingSignal(
@@ -245,7 +247,7 @@ class TestTradingSignalAdvanced:
             }
         )
 
-        confidence_multi = signal_generator._calculate_confidence_score(signal_multi)
+        confidence_multi = signal_generator.validate_signal(signal_multi)
 
         # 2つの条件を満たすシグナル
         signal_two = TradingSignal(
@@ -259,12 +261,12 @@ class TestTradingSignalAdvanced:
             }
         )
 
-        confidence_two = signal_generator._calculate_confidence_score(signal_two)
+        confidence_two = signal_generator.validate_signal(signal_two)
 
         # 3条件の方がボーナスが大きい
         assert confidence_multi > confidence_two
 
-    def test_calculate_confidence_score_empty_historical_performance(self, signal_generator):
+    def testvalidate_signal_empty_historical_performance(self, signal_generator):
         """空の履歴データでの信頼度計算テスト"""
         signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -277,7 +279,7 @@ class TestTradingSignalAdvanced:
         # 空のDataFrame
         empty_performance = pd.DataFrame()
 
-        confidence = signal_generator._calculate_confidence_score(
+        confidence = signal_generator.validate_signal(
             signal, historical_performance=empty_performance
         )
 
@@ -287,7 +289,7 @@ class TestTradingSignalAdvanced:
 
 
 class TestTradingSignalGeneratorExtended:
-    """TradingSignalGeneratorExtendedクラスのテスト"""
+    """TradingSignalGeneratorクラスのテスト"""
 
     @pytest.fixture
     def mock_config(self):
@@ -298,8 +300,8 @@ class TestTradingSignalGeneratorExtended:
 
     @pytest.fixture
     def extended_generator(self, mock_config):
-        """TradingSignalGeneratorExtendedインスタンス"""
-        return TradingSignalGeneratorExtended(mock_config)
+        """TradingSignalGeneratorインスタンス"""
+        return TradingSignalGenerator(config_path=None)
 
     def test_merge_conditions_safely_no_overlap(self, extended_generator):
         """条件結合でキー重複なしのテスト"""
@@ -440,9 +442,14 @@ class TestSignalValidationAdvanced:
         }
         return mock_config
 
-    def test_complex_market_context_validation(self, mock_config, sample_data):
+    @pytest.fixture
+    def signal_generator(self, mock_config):
+        """TradingSignalGeneratorインスタンス"""
+        return TradingSignalGenerator(config_path=None)
+
+    def test_complex_market_context_validation(self, signal_generator, sample_data):
         """複雑な市場環境での検証テスト"""
-        generator = TradingSignalGenerator(mock_config)
+        generator = signal_generator
 
         # 複雑な市場状況を設定
         complex_market_context = {
@@ -466,7 +473,7 @@ class TestSignalValidationAdvanced:
             }
         )
 
-        confidence = generator._calculate_confidence_score(
+        confidence = generator.validate_signal(
             sell_signal, market_context=complex_market_context
         )
 
@@ -474,9 +481,9 @@ class TestSignalValidationAdvanced:
         assert isinstance(confidence, float)
         assert confidence > 0.0
 
-    def test_performance_based_confidence_adjustment(self, mock_config):
+    def test_performance_based_confidence_adjustment(self, signal_generator):
         """パフォーマンスベースの信頼度調整の詳細テスト"""
-        generator = TradingSignalGenerator(mock_config)
+        generator = signal_generator
 
         signal = TradingSignal(
             signal_type=SignalType.BUY,
@@ -493,7 +500,7 @@ class TestSignalValidationAdvanced:
             "Strength": ["strong"] * 5 + ["medium"] * 3 + ["weak"] * 2
         })
 
-        confidence_high = generator._calculate_confidence_score(
+        confidence_high = generator.validate_signal(
             signal, historical_performance=high_success_history
         )
 
@@ -504,7 +511,7 @@ class TestSignalValidationAdvanced:
             "Strength": ["weak"] * 7 + ["medium"] * 2 + ["strong"] * 1
         })
 
-        confidence_low = generator._calculate_confidence_score(
+        confidence_low = generator.validate_signal(
             signal, historical_performance=low_success_history
         )
 

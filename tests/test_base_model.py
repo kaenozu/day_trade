@@ -25,7 +25,6 @@ from sqlalchemy.orm import sessionmaker
 # テスト用の依存関係
 try:
     from pydantic import BaseModel as PydanticBaseModel
-    from pydantic import Field
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
