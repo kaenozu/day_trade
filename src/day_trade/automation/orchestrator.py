@@ -86,6 +86,11 @@ class DayTradeOrchestrator:
         Args:
             config_path: 設定ファイルのパス
         """
+        # 型注釈を事前に定義
+        self.ensemble_strategy: Optional[EnsembleTradingStrategy]
+        self.enhanced_ensemble: Optional[EnhancedEnsembleStrategy]
+        self.stock_screener: Optional[StockScreener]
+
         self.config_manager = ConfigManager(config_path)
         self.execution_settings = self.config_manager.get_execution_settings()
 
@@ -232,14 +237,14 @@ class DayTradeOrchestrator:
             if show_progress:
                 # 進捗表示付きで実行
                 steps = [
-                    ("data_fetch", "株価データ取得", 3.0),
-                    ("technical_analysis", "テクニカル分析", 4.0),
-                    ("pattern_recognition", "パターン認識", 2.0),
-                    ("signal_generation", "シグナル生成", 3.0),
-                    ("ensemble_strategy", "アンサンブル戦略", 2.0),
-                    ("portfolio_update", "ポートフォリオ更新", 1.0),
-                    ("alerts_check", "アラート確認", 1.0),
-                    ("report_generation", "レポート生成", 1.0),
+                    "株価データ取得",
+                    "テクニカル分析",
+                    "パターン認識",
+                    "シグナル生成",
+                    "アンサンブル戦略",
+                    "ポートフォリオ更新",
+                    "アラート確認",
+                    "レポート生成",
                 ]
 
                 with multi_step_progress("デイトレード自動化実行", steps) as progress:
@@ -286,27 +291,36 @@ class DayTradeOrchestrator:
         finally:
             self.is_running = False
 
-    def _execute_main_pipeline_with_progress(self, symbols: List[str], progress):
+    def _execute_main_pipeline_with_progress(
+        self, symbols: List[str], progress: Any
+    ) -> None:
         """進捗表示付きメイン処理パイプラインを実行"""
         logger.info("Step 1: 株価データ取得開始")
-        stock_data = self._fetch_stock_data_batch(symbols, show_progress=False) # show_progressをFalseに変更
+        stock_data = self._fetch_stock_data_batch(
+            symbols, show_progress=False
+        )  # show_progressをFalseに変更
         progress.complete_step()
 
         logger.info("Step 2: テクニカル分析実行")
         analysis_results = self._run_technical_analysis_batch(
-            stock_data, show_progress=False # show_progressをFalseに変更
+            stock_data,
+            show_progress=False,  # show_progressをFalseに変更
         )
         progress.complete_step()
 
         logger.info("Step 3: パターン認識実行")
         pattern_results = self._run_pattern_recognition_batch(
-            stock_data, show_progress=False # show_progressをFalseに変更
+            stock_data,
+            show_progress=False,  # show_progressをFalseに変更
         )
         progress.complete_step()
 
         logger.info("Step 4: シグナル生成実行")
         signals = self._generate_signals_batch(
-            analysis_results, pattern_results, stock_data, show_progress=False # show_progressをFalseに変更
+            analysis_results,
+            pattern_results,
+            stock_data,
+            show_progress=False,  # show_progressをFalseに変更
         )
         progress.complete_step()
 
@@ -323,12 +337,13 @@ class DayTradeOrchestrator:
         progress.complete_step()
 
         # 結果を保存
-        self.current_report.generated_signals = signals
-        self.current_report.triggered_alerts = alerts
+        if self.current_report is not None:
+            self.current_report.generated_signals = signals
+            self.current_report.triggered_alerts = alerts
 
     def _run_ensemble_strategy(
         self, signals: List[Dict[str, Any]], stock_data: Dict[str, Any]
-    ):
+    ) -> None:
         """アンサンブル戦略を実行"""
         if not self.ensemble_strategy:
             logger.info("アンサンブル戦略は設定されていません")
@@ -339,8 +354,10 @@ class DayTradeOrchestrator:
             for symbol, data in stock_data.items():
                 if data and data.get("historical") is not None:
                     # アンサンブル戦略でシグナル生成
-                    ensemble_signal_result = self.ensemble_strategy.generate_ensemble_signal(
-                        data["historical"]
+                    ensemble_signal_result = (
+                        self.ensemble_strategy.generate_ensemble_signal(
+                            data["historical"]
+                        )
                     )
 
                     if ensemble_signal_result:
@@ -351,7 +368,8 @@ class DayTradeOrchestrator:
                                 "symbol": symbol,
                                 "type": ensemble_signal_result.ensemble_signal.signal_type.value.upper(),
                                 "reason": f"Ensemble: {', '.join(ensemble_signal_result.ensemble_signal.reasons[:2])}",
-                                "confidence": ensemble_signal_result.ensemble_confidence / 100.0,
+                                "confidence": ensemble_signal_result.ensemble_confidence
+                                / 100.0,
                                 "timestamp": datetime.now(),
                                 "ensemble_details": {
                                     "strategy_type": self.ensemble_strategy.ensemble_strategy.value,
@@ -362,16 +380,15 @@ class DayTradeOrchestrator:
                                 },
                             }
                         )
-                        logger.debug(
-                            f"アンサンブル戦略シグナル生成: {symbol} (1個)"
-                        )
+                        logger.debug(f"アンサンブル戦略シグナル生成: {symbol} (1個)")
 
         except Exception as e:
             error_msg = f"アンサンブル戦略エラー: {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
 
-    def _execute_main_pipeline(self, symbols: List[str]):
+    def _execute_main_pipeline(self, symbols: List[str]) -> None:
         """メイン処理パイプラインを実行"""
         logger.info("Step 1: 株価データ取得開始")
         stock_data = self._fetch_stock_data_batch(symbols)
@@ -398,8 +415,9 @@ class DayTradeOrchestrator:
             self._run_backtest_analysis(symbols)
 
         # 結果を保存
-        self.current_report.generated_signals = signals
-        self.current_report.triggered_alerts = alerts
+        if self.current_report is not None:
+            self.current_report.generated_signals = signals
+            self.current_report.triggered_alerts = alerts
 
     def _fetch_stock_data_batch(
         self, symbols: List[str], show_progress: bool = False
@@ -442,7 +460,7 @@ class DayTradeOrchestrator:
                     success=False, symbol=symbol, error=error_msg, execution_time=0.0
                 )
 
-                if self.current_report:
+                if self.current_report is not None:
                     self.current_report.execution_results.append(result)
                     self.current_report.failed_symbols += 1
                     self.current_report.errors.append(error_msg)
@@ -520,7 +538,7 @@ class DayTradeOrchestrator:
                 historical = data["historical"]
 
                 # 各種指標を計算
-                indicators = {}
+                indicators: Dict[str, Any] = {}
 
                 # 移動平均
                 settings = self.config_manager.get_technical_indicator_settings()
@@ -541,7 +559,10 @@ class DayTradeOrchestrator:
                     settings.macd_params["slow"],
                     settings.macd_params["signal"],
                 )
-                indicators["macd"] = macd_data
+                if hasattr(macd_data, "iloc"):
+                    indicators["macd"] = macd_data
+                else:
+                    indicators["macd"] = pd.Series(dtype=float)
 
                 # ボリンジャーバンド
                 bb_data = self.technical_indicators.bollinger_bands(
@@ -549,14 +570,18 @@ class DayTradeOrchestrator:
                     settings.bollinger_params["period"],
                     settings.bollinger_params["std_dev"],
                 )
-                indicators["bollinger"] = bb_data
+                if hasattr(bb_data, "iloc"):
+                    indicators["bollinger"] = bb_data
+                else:
+                    indicators["bollinger"] = pd.Series(dtype=float)
 
                 return indicators
 
         except Exception as e:
             error_msg = f"テクニカル分析エラー ({symbol}): {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
 
         return {}
 
@@ -582,7 +607,8 @@ class DayTradeOrchestrator:
             except Exception as e:
                 error_msg = f"パターン認識エラー ({symbol}): {e}"
                 logger.error(error_msg)
-                self.current_report.errors.append(error_msg)
+                if self.current_report is not None:
+                    self.current_report.errors.append(error_msg)
 
         pattern_results[symbol] = patterns
 
@@ -593,7 +619,7 @@ class DayTradeOrchestrator:
         self,
         analysis_results: Dict[str, Dict],
         pattern_results: Dict[str, Dict],
-        stock_data: Dict[str, Any] = None,
+        stock_data: Optional[Dict[str, Any]] = None,
         show_progress: bool = False,
     ) -> List[Dict[str, Any]]:
         """シグナル生成を並列実行"""
@@ -611,16 +637,25 @@ class DayTradeOrchestrator:
 
                 # historicalデータを取得
                 symbol_stock_data = stock_data.get(symbol) if stock_data else None
-                historical_df = symbol_stock_data.get("historical") if symbol_stock_data else pd.DataFrame()
+                historical_df = (
+                    symbol_stock_data.get("historical")
+                    if symbol_stock_data
+                    else pd.DataFrame()
+                )
 
                 # analysis辞書をDataFrameに変換
-                indicators_df = self._convert_analysis_to_indicators(analysis, historical_df)
+                indicators_df = self._convert_analysis_to_indicators(
+                    analysis, historical_df
+                )
 
                 if not indicators_df.empty:
                     # 強化アンサンブル戦略が有効な場合は優先使用
                     if self.enhanced_ensemble:
                         enhanced_signals = self._generate_enhanced_ensemble_signals(
-                            symbol, analysis, patterns, symbol_stock_data # analysisの代わりにindicators_dfを渡すべきだが、enhanced_ensemble側で変換されることを考慮しanalysisを維持
+                            symbol,
+                            indicators_df,
+                            patterns,
+                            symbol_stock_data,
                         )
                         all_signals.extend(enhanced_signals)
                     elif self.ensemble_strategy:
@@ -634,20 +669,28 @@ class DayTradeOrchestrator:
                         # 従来のシグナル生成
                         # _evaluate_trading_signalsはindicators_dfを期待しているので、ここで渡す
                         signals = self._evaluate_trading_signals(
-                            symbol, indicators_df, patterns, settings # analysisの代わりにindicators_dfを渡す
+                            symbol,
+                            indicators_df,
+                            patterns,
+                            settings,  # analysisの代わりにindicators_dfを渡す
                         )
                         all_signals.extend(signals)
 
             except Exception as e:
                 error_msg = f"シグナル生成エラー ({symbol}): {e}"
                 logger.error(error_msg)
-                self.current_report.errors.append(error_msg)
+                if self.current_report is not None:
+                    self.current_report.errors.append(error_msg)
 
         logger.info(f"シグナル生成完了: {len(all_signals)} 個のシグナル")
         return all_signals
 
     def _generate_ensemble_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict, stock_data: Dict = None
+        self,
+        symbol: str,
+        analysis: Dict,
+        patterns: Dict,
+        stock_data: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """アンサンブル戦略によるシグナル生成"""
         signals = []
@@ -674,9 +717,12 @@ class DayTradeOrchestrator:
             indicators_df = self._convert_analysis_to_indicators(analysis, price_df)
 
             # アンサンブルシグナル生成
-            ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
-                price_df, indicators_df, patterns
-            )
+            if self.ensemble_strategy is not None:
+                ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
+                    price_df, indicators_df, patterns
+                )
+            else:
+                ensemble_signal = None
 
             if (
                 ensemble_signal
@@ -689,8 +735,12 @@ class DayTradeOrchestrator:
                     "confidence": ensemble_signal.ensemble_confidence / 100.0,
                     "timestamp": datetime.now(),
                     "ensemble_details": {
-                        "strategy_type": self.ensemble_strategy.ensemble_strategy.value,
-                        "voting_type": self.ensemble_strategy.voting_type.value,
+                        "strategy_type": self.ensemble_strategy.ensemble_strategy.value
+                        if self.ensemble_strategy
+                        else "unknown",
+                        "voting_type": self.ensemble_strategy.voting_type.value
+                        if self.ensemble_strategy
+                        else "unknown",
                         "strategy_weights": ensemble_signal.strategy_weights,
                         "voting_scores": ensemble_signal.voting_scores,
                         "meta_features": ensemble_signal.meta_features,
@@ -709,7 +759,11 @@ class DayTradeOrchestrator:
             return []
 
     def _generate_enhanced_ensemble_signals(
-        self, symbol: str, indicators: pd.DataFrame, patterns: Dict, stock_data: Dict = None
+        self,
+        symbol: str,
+        indicators: pd.DataFrame,
+        patterns: Dict,
+        stock_data: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """強化アンサンブル戦略によるシグナル生成"""
         signals = []
@@ -735,9 +789,18 @@ class DayTradeOrchestrator:
             market_data = None  # 今後の実装で市場データを追加予定
 
             # 強化アンサンブルシグナル生成
-            enhanced_signal = self.enhanced_ensemble.generate_enhanced_signal(
-                price_df, indicators, market_data, PredictionHorizon.SHORT_TERM
-            )
+            if self.enhanced_ensemble is not None:
+                # DataFrameを辞書形式に変換
+                indicators_dict = (
+                    {col: indicators[col] for col in indicators.columns}
+                    if isinstance(indicators, pd.DataFrame)
+                    else indicators
+                )
+                enhanced_signal = self.enhanced_ensemble.generate_enhanced_signal(
+                    price_df, indicators_dict, market_data, PredictionHorizon.SHORT_TERM
+                )
+            else:
+                enhanced_signal = None
 
             if enhanced_signal and enhanced_signal.signal_type.value != "hold":
                 signal_data = {
@@ -759,9 +822,15 @@ class DayTradeOrchestrator:
                         "strategy_weights": enhanced_signal.strategy_weights,
                         "ml_predictions": {
                             name: {
-                                "prediction": pred.prediction,
-                                "confidence": pred.confidence,
-                                "model_name": pred.model_name,
+                                "prediction": getattr(pred, "prediction", pred)
+                                if hasattr(pred, "prediction")
+                                else pred,
+                                "confidence": getattr(pred, "confidence", 0.5)
+                                if hasattr(pred, "confidence")
+                                else 0.5,
+                                "model_name": getattr(pred, "model_name", "unknown")
+                                if hasattr(pred, "model_name")
+                                else "unknown",
                             }
                             for name, pred in enhanced_signal.ml_predictions.items()
                         },
@@ -810,9 +879,7 @@ class DayTradeOrchestrator:
                 and "Signal" in analysis["macd"]
             ):
                 if isinstance(analysis["macd"]["MACD"], pd.Series):
-                    all_indicator_series.append(
-                        analysis["macd"]["MACD"].rename("MACD")
-                    )
+                    all_indicator_series.append(analysis["macd"]["MACD"].rename("MACD"))
                 if isinstance(analysis["macd"]["Signal"], pd.Series):
                     all_indicator_series.append(
                         analysis["macd"]["Signal"].rename("MACD_Signal")
@@ -833,9 +900,8 @@ class DayTradeOrchestrator:
                     all_indicator_series.append(
                         analysis["bollinger"]["Lower"].rename("BB_Lower")
                     )
-                if (
-                    "Middle" in analysis["bollinger"]
-                    and isinstance(analysis["bollinger"]["Middle"], pd.Series)
+                if "Middle" in analysis["bollinger"] and isinstance(
+                    analysis["bollinger"]["Middle"], pd.Series
                 ):
                     all_indicator_series.append(
                         analysis["bollinger"]["Middle"].rename("BB_Middle")
@@ -852,14 +918,10 @@ class DayTradeOrchestrator:
             # すべてのSeriesを一つのDataFrameに結合
             # indexを統一し、不足している値を前方向/後方向で埋める
             indicators_df = (
-                pd.concat(all_indicator_series, axis=1)
-                .reindex(index)
-                .ffill()
-                .bfill()
+                pd.concat(all_indicator_series, axis=1).reindex(index).ffill().bfill()
             )
             # 全てNaNのカラムは削除
             indicators_df.dropna(axis=1, how="all", inplace=True)
-
 
             logger.debug(f"指標DataFrame変換完了: {len(indicators_df.columns)}列")
             return indicators_df
@@ -869,7 +931,7 @@ class DayTradeOrchestrator:
             return pd.DataFrame(index=index)
 
     def _evaluate_trading_signals(
-        self, symbol: str, indicators: pd.DataFrame, patterns: Dict, settings
+        self, symbol: str, indicators: pd.DataFrame, patterns: Dict, settings: Any
     ) -> List[Dict[str, Any]]:
         """個別銘柄のシグナル評価"""
         signals = []
@@ -984,10 +1046,11 @@ class DayTradeOrchestrator:
         except Exception as e:
             error_msg = f"アラートチェックエラー: {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
             return []
 
-    def _update_portfolio_data(self):
+    def _update_portfolio_data(self) -> None:
         """ポートフォリオデータを更新"""
         try:
             # ポートフォリオサマリーを取得
@@ -996,27 +1059,29 @@ class DayTradeOrchestrator:
             # ポートフォリオ分析を実行
             metrics = self.portfolio_analyzer.get_portfolio_metrics()
 
-            self.current_report.portfolio_summary = {
-                "summary": summary,
-                "metrics": {
-                    "total_value": str(metrics.total_value),
-                    "total_cost": str(metrics.total_cost),
-                    "total_pnl": str(metrics.total_pnl),
-                    "total_pnl_percent": str(metrics.total_pnl_percent),
-                    "volatility": metrics.volatility,
-                    "sharpe_ratio": metrics.sharpe_ratio,
-                },
-                "timestamp": datetime.now().isoformat(),
-            }
+            if self.current_report is not None:
+                self.current_report.portfolio_summary = {
+                    "summary": summary,
+                    "metrics": {
+                        "total_value": str(metrics.total_value),
+                        "total_cost": str(metrics.total_cost),
+                        "total_pnl": str(metrics.total_pnl),
+                        "total_pnl_percent": str(metrics.total_pnl_percent),
+                        "volatility": metrics.volatility,
+                        "sharpe_ratio": metrics.sharpe_ratio,
+                    },
+                    "timestamp": datetime.now().isoformat(),
+                }
 
             logger.info("ポートフォリオデータ更新完了")
 
         except Exception as e:
             error_msg = f"ポートフォリオ更新エラー: {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
 
-    def _run_backtest_analysis(self, symbols: List[str]):
+    def _run_backtest_analysis(self, symbols: List[str]) -> None:
         """バックテスト分析を実行"""
         try:
             settings = self.config_manager.get_backtest_settings()
@@ -1024,29 +1089,37 @@ class DayTradeOrchestrator:
             # バックテスト設定を作成
             from decimal import Decimal
 
-            from ..analysis.backtest import BacktestConfig, BacktestMode
+            from ..analysis.backtest import BacktestConfig
 
             config = BacktestConfig(
                 start_date=datetime.now() - timedelta(days=settings.period_days),
                 end_date=datetime.now(),
                 initial_capital=Decimal(str(settings.initial_capital)),
-                mode=BacktestMode.MULTI_SYMBOL,
-                position_size_percent=settings.position_size_percent,
-                max_positions=settings.max_positions,
-                transaction_cost=Decimal("0.001"),
+                commission=Decimal("0.001"),
+                max_position_size=Decimal(str(settings.position_size_percent / 100.0)),
             )
 
             # バックテスト実行
-            result = self.backtest_engine.run_backtest(symbols, config)
-
-            logger.info(f"バックテスト完了: 最終資本 {result.final_capital}")
+            if self.backtest_engine is not None:
+                result = self.backtest_engine.run_backtest(symbols, config)
+                if result is not None:
+                    # 最終資本の値を取得
+                    final_capital = getattr(result, "final_capital", None)
+                    if final_capital is None:
+                        final_capital = getattr(result, "final_value", "不明")
+                    logger.info(f"バックテスト完了: 最終資本 {final_capital}")
+                else:
+                    logger.warning("バックテスト結果が空です")
+            else:
+                logger.warning("バックテストエンジンが初期化されていません")
 
         except Exception as e:
             error_msg = f"バックテストエラー: {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
 
-    def _generate_reports(self):
+    def _generate_reports(self) -> None:
         """レポートを生成"""
         try:
             report_settings = self.config_manager.get_report_settings()
@@ -1078,11 +1151,15 @@ class DayTradeOrchestrator:
         except Exception as e:
             error_msg = f"レポート生成エラー: {e}"
             logger.error(error_msg)
-            self.current_report.errors.append(error_msg)
+            if self.current_report is not None:
+                self.current_report.errors.append(error_msg)
 
-    def _save_json_report(self, report_dir: Path, timestamp: str):
+    def _save_json_report(self, report_dir: Path, timestamp: str) -> None:
         """JSONレポートを保存"""
         import json
+
+        if self.current_report is None:
+            return
 
         report_data = {
             "execution_summary": {
@@ -1136,25 +1213,27 @@ class DayTradeOrchestrator:
                 if self.current_report.portfolio_summary
                 else {}
             ),
-            "errors": self.current_report.errors,
+            "errors": self.current_report.errors
+            if self.current_report is not None
+            else [],
         }
 
         report_path = report_dir / f"daytrade_report_{timestamp}.json"
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report_data, f, ensure_ascii=False, indent=2)
 
-    def _save_csv_report(self, report_dir: Path, timestamp: str):
+    def _save_csv_report(self, report_dir: Path, timestamp: str) -> None:
         """CSVレポートを保存"""
         import pandas as pd
 
         # シグナルCSV
-        if self.current_report.generated_signals:
+        if self.current_report is not None and self.current_report.generated_signals:
             signals_df = pd.DataFrame(self.current_report.generated_signals)
             signals_path = report_dir / f"signals_{timestamp}.csv"
             signals_df.to_csv(signals_path, index=False, encoding="utf-8-sig")
 
         # アラートCSV
-        if self.current_report.triggered_alerts:
+        if self.current_report is not None and self.current_report.triggered_alerts:
             alerts_df = pd.DataFrame(self.current_report.triggered_alerts)
             alerts_path = report_dir / f"alerts_{timestamp}.csv"
             alerts_df.to_csv(alerts_path, index=False, encoding="utf-8-sig")
@@ -1279,8 +1358,11 @@ class DayTradeOrchestrator:
 
         return "\n".join(report_lines)
 
-    def _save_html_report(self, report_dir: Path, timestamp: str):
+    def _save_html_report(self, report_dir: Path, timestamp: str) -> None:
         """HTMLレポートを保存"""
+        if self.current_report is None:
+            return
+
         html_content = f"""
         <!DOCTYPE html>
         <html lang="ja">
@@ -1364,7 +1446,7 @@ class DayTradeOrchestrator:
 
         logger.info(f"機械学習モデル訓練開始: {len(symbols)}銘柄")
 
-        training_results = {
+        training_results: Dict[str, Any] = {
             "success": False,
             "trained_symbols": [],
             "failed_symbols": [],
