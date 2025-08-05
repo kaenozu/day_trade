@@ -660,13 +660,13 @@ class StockMasterManager:
 
     def fetch_and_update_stock_info_as_dict(self, code: str) -> Optional[Dict]:
         """
-        StockFetcherを使用して銘柄情報を取得し、マスタを更新（连書返却版）
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（辞書返却版）
 
         Args:
             code: 証券コード
 
         Returns:
-            更新されたStockオブジェクトの连書表現
+            更新されたStockオブジェクトの辞書表現
         """
         try:
             # StockFetcherのget_company_infoメソッドを使用（リトライ、キャッシュの恩恵を受ける）
@@ -684,7 +684,7 @@ class StockMasterManager:
             # 市場区分を推定（改善版）
             market = self._estimate_market_segment(code, company_info)
 
-            # セッションスコープ内で更新・作成し、結果を连書で返却
+            # セッションスコープ内で更新・作成し、結果を辞書で返却
             with self.db_manager.session_scope() as session:
                 # 既存銘柄を更新または新規作成
                 stock = session.query(Stock).filter(Stock.code == code).first()
@@ -703,13 +703,12 @@ class StockMasterManager:
                     session.add(stock)
                     session.flush()
 
-                # BaseModelのTo_dictメソッドを使用して连書として返却
+                # BaseModelのto_dictメソッドを使用して辞書として返却
                 return stock.to_dict()
 
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
-
     def _estimate_market_segment(self, code: str, company_info: Dict) -> str:
         """
         市場区分を推定（堅牢性向上版）
