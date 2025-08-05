@@ -18,17 +18,10 @@ from ..utils.logging_config import (
     log_error_with_context,
 )
 
+# AlertManager関連のインポートを遅延読み込みで避けて循環参照を防ぐ
+# from .alerts import AlertCondition
+
 logger = get_context_logger(__name__)
-
-
-@dataclass
-class AlertCondition:
-    """アラート条件"""
-
-    stock_code: str
-    alert_type: AlertType
-    threshold: float
-    memo: str = ""
 
 
 @dataclass
@@ -343,13 +336,20 @@ class WatchlistManager:
             )
             return False
 
-    # アラート機能
-    def add_alert(self, condition: AlertCondition) -> bool:
+    # アラート機能（非推奨 - AlertManagerを使用することを推奨）
+    def add_alert(self, stock_code: str, alert_type: AlertType, threshold: float, memo: str = "") -> bool:
         """
-        アラート条件を追加
+        アラート条件を追加（レガシーメソッド）
+
+        Note:
+            このメソッドは下位互換性のために残されています。
+            新しいコードではAlertManagerのadd_alert()を使用してください。
 
         Args:
-            condition: アラート条件
+            stock_code: 証券コード
+            alert_type: アラートタイプ
+            threshold: 閾値
+            memo: メモ
 
         Returns:
             追加に成功した場合True
@@ -361,9 +361,9 @@ class WatchlistManager:
                     session.query(Alert)
                     .filter(
                         and_(
-                            Alert.stock_code == condition.stock_code,
-                            Alert.alert_type == condition.alert_type,
-                            Alert.threshold == condition.threshold,
+                            Alert.stock_code == stock_code,
+                            Alert.alert_type == alert_type,
+                            Alert.threshold == threshold,
                         )
                     )
                     .first()
@@ -372,27 +372,27 @@ class WatchlistManager:
                 if existing:
                     logger.warning(
                         "Alert condition already exists",
-                        stock_code=condition.stock_code,
-                        alert_type=condition.alert_type.value,
-                        threshold=condition.threshold,
+                        stock_code=stock_code,
+                        alert_type=alert_type.value,
+                        threshold=threshold,
                     )
                     return False
 
                 # 新しいアラートを追加
                 alert = Alert(
-                    stock_code=condition.stock_code,
-                    alert_type=condition.alert_type,
-                    threshold=condition.threshold,
-                    memo=condition.memo,
+                    stock_code=stock_code,
+                    alert_type=alert_type,
+                    threshold=threshold,
+                    memo=memo,
                     is_active=True,
                 )
                 session.add(alert)
 
                 log_business_event(
                     "alert_added",
-                    stock_code=condition.stock_code,
-                    alert_type=condition.alert_type.value,
-                    threshold=condition.threshold,
+                    stock_code=stock_code,
+                    alert_type=alert_type.value,
+                    threshold=threshold,
                 )
                 return True
 
@@ -401,8 +401,8 @@ class WatchlistManager:
                 e,
                 {
                     "operation": "add_alert",
-                    "stock_code": condition.stock_code,
-                    "alert_type": condition.alert_type.value,
+                    "stock_code": stock_code,
+                    "alert_type": alert_type.value,
                 },
             )
             return False
@@ -565,11 +565,20 @@ class WatchlistManager:
 
     def check_alerts(self) -> List[AlertNotification]:
         """
-        アラート条件をチェックして通知リストを生成
+        アラート条件をチェックして通知リストを生成（非推奨）
+
+        Note:
+            このメソッドは下位互換性のために残されています。
+            新しいコードではAlertManager.check_all_alerts()を使用してください。
+            AlertManagerはより高度な機能（バルク処理、クールダウン、カスタム条件等）を提供します。
 
         Returns:
             トリガーされたアラートの通知リスト
         """
+        logger.warning(
+            "WatchlistManager.check_alerts() is deprecated. Use AlertManager.check_all_alerts() instead.",
+            operation="deprecated_method_usage"
+        )
         notifications = []
 
         try:
@@ -992,3 +1001,104 @@ class WatchlistManager:
                 e, {"operation": "clear_watchlist", "group_name": group_name}
             )
             return False
+
+    def get_alert_manager(self):
+        """
+        AlertManagerインスタンスを取得（統合ヘルパー、DI対応）
+
+        Note:
+            StockFetcherインスタンスを共有し、循環参照を防ぐため
+            WatchlistManagerを参照させないようにしています。
+
+        Returns:
+            AlertManagerインスタンス
+        """
+        from .alerts import AlertManager
+        # StockFetcherインスタンスを共有し、watchlist_managerはNoneにして循環参照を避ける
+        return AlertManager(
+            stock_fetcher=self.fetcher,
+            watchlist_manager=None  # 循環参照を避ける
+        )
+
+    def migrate_alerts_to_alert_manager(self) -> bool:
+        """
+        既存のアラートをAlertManager形式に移行（ユーティリティ）
+
+        Returns:
+            移行成功フラグ
+        """
+        try:
+            from decimal import Decimal
+
+            from .alerts import AlertCondition, AlertPriority
+
+            alert_manager = self.get_alert_manager()
+            legacy_alerts = self.get_alerts(active_only=False)
+
+            migrated_count = 0
+            for alert in legacy_alerts:
+                try:
+                    # レガシーアラートをAlertManager形式に変換
+                    alert_condition = AlertCondition(
+                        alert_id=f"migrated_{alert['id']}",
+                        symbol=alert['stock_code'],
+                        alert_type=alert['alert_type'],
+                        condition_value=Decimal(str(alert['threshold'])),
+                        comparison_operator=">" if "_up" in alert['alert_type'].value or "above" in alert['alert_type'].value else "<",
+                        is_active=alert['is_active'],
+                        priority=AlertPriority.MEDIUM,
+                        description=f"Migrated from WatchlistManager: {alert['memo']}"
+                    )
+
+                    if alert_manager.add_alert(alert_condition):
+                        migrated_count += 1
+
+                except Exception as e:
+                    logger.error(f"アラート移行エラー (ID: {alert.get('id')}): {e}")
+
+            logger.info(f"アラート移行完了: {migrated_count}/{len(legacy_alerts)}件")
+            return migrated_count > 0
+
+        except Exception as e:
+            logger.error(f"アラート移行エラー: {e}")
+            return False
+
+    def get_recommended_alert_manager_usage(self) -> Dict[str, str]:
+        """
+        AlertManagerの推奨使用方法を返す（ドキュメントヘルパー）
+
+        Returns:
+            推奨使用方法の説明
+        """
+        return {
+            "deprecated_methods": {
+                "add_alert()": "Use AlertManager.add_alert() with AlertCondition",
+                "check_alerts()": "Use AlertManager.check_all_alerts() or start_monitoring()",
+                "remove_alert()": "Use AlertManager.remove_alert()",
+                "toggle_alert()": "Use AlertManager's alert management"
+            },
+            "migration_helper": "Use migrate_alerts_to_alert_manager() to migrate existing alerts",
+            "recommended_pattern": """
+# Recommended usage:
+from day_trade.core.alerts import AlertManager, AlertCondition, AlertPriority
+from day_trade.models.enums import AlertType
+from decimal import Decimal
+
+# Create AlertManager
+alert_manager = watchlist_manager.get_alert_manager()
+
+# Add advanced alert
+alert_condition = AlertCondition(
+    alert_id="unique_alert_id",
+    symbol="7203",
+    alert_type=AlertType.PRICE_ABOVE,
+    condition_value=Decimal("3000"),
+    priority=AlertPriority.HIGH,
+    cooldown_minutes=30
+)
+alert_manager.add_alert(alert_condition)
+
+# Start monitoring
+alert_manager.start_monitoring(interval_seconds=60)
+            """
+        }

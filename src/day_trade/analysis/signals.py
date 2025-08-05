@@ -1065,7 +1065,7 @@ class TradingSignalGenerator:
             sliced_patterns["trends"] = all_patterns.get("trends", {})
 
             # 最新シグナルと総合信頼度はそのまま使用
-            sliced_patterns["latest_signal"] = all_patterns.get("latest_signal", None)
+            sliced_patterns["latest_signal"] = all_patterns.get("latest_signal")
             sliced_patterns["overall_confidence"] = all_patterns.get("overall_confidence", 0)
 
             return sliced_patterns

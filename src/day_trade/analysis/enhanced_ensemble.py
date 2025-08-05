@@ -152,7 +152,7 @@ class EnhancedEnsembleStrategy:
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
-                BollingerBandRule, # BollingerBandBreakoutRuleとBollingerBandMeanReversionRuleをBollingerBandRuleに修正
+                BollingerBandRule,  # BollingerBandBreakoutRuleとBollingerBandMeanReversionRuleをBollingerBandRuleに修正
                 MACDCrossoverRule,
                 MACDDeathCrossRule,
                 RSIOverboughtRule,

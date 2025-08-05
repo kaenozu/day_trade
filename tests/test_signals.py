@@ -137,7 +137,8 @@ class TestSignalRules:
     @pytest.fixture
     def patterns_data(self, sample_data):
         """認識済みのチャートパターン"""
-        return ChartPatternRecognizer.detect_all_patterns(sample_data)
+        recognizer = ChartPatternRecognizer()
+        return recognizer.detect_all_patterns(sample_data)
 
     def test_rsi_oversold_rule(self, sample_data, indicators_data, patterns_data):
         """RSI過売りルールのテスト"""

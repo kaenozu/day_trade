@@ -511,7 +511,7 @@ class TestTradeManagerDatabaseIntegration:
 
     def setup_method(self):
         """テストセットアップ"""
-        self.manager = TradeManager(use_database=True)
+        self.manager = TradeManager(load_from_db=True)
 
     def test_add_trade_with_database(self):
         """データベース連携での取引追加テスト"""

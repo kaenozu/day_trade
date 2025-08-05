@@ -6,7 +6,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from ..utils.logging_config import get_context_logger
 
@@ -35,7 +35,7 @@ class ScreeningConfig:
         """設定ファイルを読み込み"""
         try:
             if self.config_path.exists():
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, encoding='utf-8') as f:
                     config = json.load(f)
                 logger.info(f"スクリーニング設定を読み込み: {self.config_path}")
                 return config

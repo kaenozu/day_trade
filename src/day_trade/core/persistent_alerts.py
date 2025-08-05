@@ -4,23 +4,19 @@
 """
 
 import json
-import logging
-import threading
-import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
-from decimal import Decimal
+from typing import Dict, List, Optional
 
-from sqlalchemy.orm import Session
-
-from .alerts import (
-    AlertCondition, AlertTrigger, AlertManager, NotificationHandler,
-    NotificationMethod, AlertPriority
-)
-from ..models.alerts import AlertConditionModel, AlertTriggerModel, AlertConfigModel
-from ..models.database import db_manager
 from ..data.stock_fetcher import StockFetcher
+from ..models.alerts import AlertConditionModel, AlertConfigModel, AlertTriggerModel
+from ..models.database import db_manager
 from ..utils.logging_config import get_context_logger
+from .alerts import (
+    AlertCondition,
+    AlertManager,
+    AlertTrigger,
+    NotificationMethod,
+)
 
 logger = get_context_logger(__name__)
 

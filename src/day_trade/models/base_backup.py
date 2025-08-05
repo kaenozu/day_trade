@@ -1,10 +1,6 @@
 """
 データベースモデルの基底クラス（SQLAlchemy 2.0対応・改善版）
 
-Issue #120: declarative_base()の定義場所の最適化
-- declarative_base()をmodels/base.pyに移動
-- モジュール間の責務の明確化
-
 改善点:
 - タイムゾーン対応（UTC保存・ローカル表示）
 - Pydantic連携強化
@@ -18,7 +14,7 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from sqlalchemy import DateTime, Integer
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 try:
     from pydantic import BaseModel as PydanticBaseModel
@@ -29,15 +25,9 @@ except ImportError:
     PydanticBaseModel = None
 
 from ..utils.logging_config import get_context_logger
+from .database import Base
 
 logger = get_context_logger(__name__)
-
-# SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
-# Issue #120: declarative_base()をbase.pyに移動
-class Base(DeclarativeBase):
-    """SQLAlchemy 2.0のモダンなDeclarativeBase"""
-    pass
-
 
 # TypeVar for generic typing
 T = TypeVar('T', bound='BaseModel')

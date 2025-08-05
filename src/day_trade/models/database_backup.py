@@ -1,10 +1,6 @@
 """
 データベース基盤モジュール
 SQLAlchemyを使用したデータベース接続とセッション管理
-
-Issue #120: declarative_base()の定義場所の最適化
-- Baseクラスをbase.pyからインポートするように変更
-- database.pyはデータベース接続管理に責務を特化
 """
 
 import os
@@ -14,7 +10,7 @@ from typing import Any, Dict, Generator, Optional
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from alembic import command
@@ -27,10 +23,12 @@ from ..utils.logging_config import (
     log_error_with_context,
 )
 
-# Issue #120: Baseクラスをbase.pyからインポート（責務の明確化）
-from .base import Base
-
 logger = get_context_logger(__name__)
+
+# SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
+class Base(DeclarativeBase):
+    """SQLAlchemy 2.0のモダンなDeclarativeBase"""
+    pass
 
 # テスト用のデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -88,16 +86,7 @@ class DatabaseConfig:
 
         if self._config_manager:
             try:
-                database_settings = self._config_manager.get_database_settings()
-                if key == "database_url":
-                    config_value = database_settings.url
-                elif key == "echo":
-                    # デフォルトでFalse（ログ出力はデフォルトで無効）
-                    config_value = getattr(database_settings, 'echo', False)
-                else:
-                    # その他の設定項目は現在の設定ファイルには含まれていないため、デフォルト値を使用
-                    config_value = None
-
+                config_value = self._config_manager.get(f"database.{key}")
                 if config_value is not None:
                     return type_converter(config_value) if type_converter != str else config_value
             except Exception:
@@ -703,17 +692,7 @@ def set_default_database_manager(manager: DatabaseManager):
     _default_db_manager = manager
 
 # 後方互換性のためのグローバルインスタンス
-# ConfigManagerを使用してデータベース設定を管理
-try:
-    from ..config.config_manager import ConfigManager
-    _config_manager = ConfigManager()
-    db_manager = get_default_database_manager(_config_manager)
-except ImportError:
-    # ConfigManagerが利用できない場合はデフォルト設定で作成
-    db_manager = get_default_database_manager()
-except Exception:
-    # ConfigManagerの初期化に失敗した場合はデフォルト設定で作成
-    db_manager = get_default_database_manager()
+db_manager = get_default_database_manager()
 
 
 # 便利な関数

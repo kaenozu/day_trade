@@ -3,17 +3,17 @@
 大量データの効率的な挿入・更新・削除を提供
 """
 
-import logging
 import time
-from typing import Any, Dict, List, Optional, Type, Union
 from contextlib import contextmanager
+from typing import Any, Dict, List, Optional, Type
 
-from sqlalchemy import text, inspect
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from .database import DatabaseManager, Base
 from ..utils.logging_config import get_context_logger
+from .base import Base
+from .database import DatabaseManager
 
 logger = get_context_logger(__name__, component="bulk_operations")
 
