@@ -11,10 +11,10 @@ import pytest
 
 from src.day_trade.data.stock_fetcher import (
     DataCache,
+    DataNotFoundError,
+    InvalidSymbolError,
     StockFetcher,
     StockFetcherError,
-    InvalidSymbolError,
-    DataNotFoundError,
     cache_with_ttl,
 )
 from src.day_trade.utils.exceptions import NetworkError
@@ -579,29 +579,29 @@ class TestStockFetcher:
 
         # ConnectionErrorはリトライ可能
         conn_error = req_exc.ConnectionError("Network error")
-        assert fetcher._is_retryable_error(conn_error) == True
+        assert fetcher._is_retryable_error(conn_error)
 
         # TimeoutErrorもリトライ可能
         timeout_error = req_exc.Timeout("Request timeout")
-        assert fetcher._is_retryable_error(timeout_error) == True
+        assert fetcher._is_retryable_error(timeout_error)
 
         # HTTPError（500番台）もリトライ可能
         http_error = req_exc.HTTPError("Internal server error")
         mock_response = Mock()
         mock_response.status_code = 500
         http_error.response = mock_response
-        assert fetcher._is_retryable_error(http_error) == True
+        assert fetcher._is_retryable_error(http_error)
 
         # HTTPError（400番台）はリトライ不可
         http_error_400 = req_exc.HTTPError("Bad request")
         mock_response_400 = Mock()
         mock_response_400.status_code = 400
         http_error_400.response = mock_response_400
-        assert fetcher._is_retryable_error(http_error_400) == False
+        assert not fetcher._is_retryable_error(http_error_400)
 
         # 一般的なExceptionはリトライ不可
         general_error = Exception("General error")
-        assert fetcher._is_retryable_error(general_error) == False
+        assert not fetcher._is_retryable_error(general_error)
 
     def test_get_current_price_retry_exhausted(self, fetcher):
         """リトライ統計のテスト"""
@@ -764,11 +764,9 @@ class TestStockFetcher:
 
         # デコレータがエラーを適切にハンドリングすることを確認
         # （実装によってはエラーがキャッチされて別の例外に変換される可能性があります）
-        try:
-            result = test_function_with_error(5)
-        except (ValueError, StockFetcherError):
-            # どちらの例外でも許可（実装に依存）
-            pass
+        from contextlib import suppress
+        with suppress(ValueError, StockFetcherError):
+            test_function_with_error(5)
 
         # 複数回呼び出してキャッシュが正しく動作することを確認
         call_count = 0  # リセット
@@ -920,14 +918,14 @@ class TestStockFetcher:
 
             assert result is not None
             assert result["current_price"] == 2500.0
-            assert debug_fetcher.enable_debug_logging == True
+            assert debug_fetcher.enable_debug_logging
 
     def test_auto_cache_tuning_disabled(self):
         """自動キャッシュチューニング無効時のテスト"""
         with patch.dict('os.environ', {'AUTO_CACHE_TUNING': 'false'}):
             tuning_disabled_fetcher = StockFetcher()
 
-            assert tuning_disabled_fetcher.auto_cache_tuning_enabled == False
+            assert not tuning_disabled_fetcher.auto_cache_tuning_enabled
 
             # _maybe_adjust_cache_settings が何もしないことを確認
             tuning_disabled_fetcher._maybe_adjust_cache_settings()  # エラーが発生しないことを確認
@@ -1026,7 +1024,7 @@ class TestStockFetcher:
 
         # 未来の日付を終了日に指定（警告が出るが例外は発生しない）
         # fetcherインスタンスのloggerを使用
-        with patch.object(fetcher, 'logger') as mock_logger:
+        with patch.object(fetcher, 'logger'):
             fetcher._validate_date_range(past_date, future_date)
             # エラーが発生しないことを確認（警告のみ）
 
@@ -1074,7 +1072,7 @@ class TestStockFetcher:
         # 初期統計
         initial_stats = fetcher.get_retry_stats()
         initial_failures = initial_stats["failed_requests"]
-        initial_error_types = len(initial_stats["errors_by_type"])
+        # initial_error_types = len(initial_stats["errors_by_type"])  # 未使用のため削除
 
         # 異なるタイプのエラーを記録
         fetcher._record_request_failure(ValueError("test error"))

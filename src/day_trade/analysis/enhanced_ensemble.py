@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -152,7 +152,7 @@ class EnhancedEnsembleStrategy:
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
-                BollingerBandRule, # BollingerBandBreakoutRuleとBollingerBandMeanReversionRuleをBollingerBandRuleに修正
+                BollingerBandRule,  # BollingerBandBreakoutRuleとBollingerBandMeanReversionRuleをBollingerBandRuleに修正
                 MACDCrossoverRule,
                 MACDDeathCrossRule,
                 RSIOverboughtRule,

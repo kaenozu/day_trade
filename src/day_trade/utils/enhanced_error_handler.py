@@ -349,10 +349,10 @@ class EnhancedErrorHandler:
                     is_valid = False
                     break
                 # 空の値もチェック
-                if expected_type == str and not message_data[key].strip():
+                if expected_type is str and not message_data[key].strip():
                     is_valid = False
                     break
-                if expected_type == list and not message_data[key]:
+                if expected_type is list and not message_data[key]:
                     is_valid = False
                     break
 
@@ -472,7 +472,7 @@ class EnhancedErrorHandler:
             if not isinstance(value_str, str):
                 return False
 
-            value_lower = value_str.lower()
+            value_str.lower()
 
             # 長いランダム文字列（APIキーなど）
             if len(value_str) > 20 and any(c.isalnum() for c in value_str):
@@ -487,10 +487,7 @@ class EnhancedErrorHandler:
                 return True
 
             # Base64エンコードされた長い文字列
-            if len(value_str) > 50 and value_str.replace('=', '').replace('+', '').replace('/', '').isalnum():
-                return True
-
-            return False
+            return bool(len(value_str) > 50 and value_str.replace('=', '').replace('+', '').replace('/', '').isalnum())
 
         def sanitize_recursive(obj: Any, depth: int = 0) -> Any:
             """再帰的にオブジェクトをサニタイズ（深度制限付き）"""

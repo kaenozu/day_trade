@@ -3,9 +3,9 @@
 機密情報の暗号化と環境変数の活用
 """
 
-import os
 import base64
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -183,7 +183,7 @@ class SecureConfigManager:
                 self.logger.info(f"設定ファイルが存在しません: {self.config_path}")
                 return {}
 
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 encrypted_config = json.load(f)
 
             # 暗号化された情報を復号化

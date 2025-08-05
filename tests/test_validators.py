@@ -2,13 +2,12 @@
 validators.pyのテスト
 """
 
-import pytest
 from src.day_trade.utils.validators import (
-    validate_stock_code,
-    validate_period,
-    validate_interval,
     normalize_stock_codes,
     suggest_stock_code_correction,
+    validate_interval,
+    validate_period,
+    validate_stock_code,
 )
 
 
