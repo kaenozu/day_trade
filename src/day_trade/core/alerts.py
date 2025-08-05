@@ -431,6 +431,7 @@ class AlertManager:
                 logger.error(f"バルクデータ取得エラー: {e}")
                 # フォールバックして個別取得を実行
                 bulk_data = {}
+
         # 一括取得が利用できない場合は個別取得
         if not bulk_data:
             for symbol in symbols:
