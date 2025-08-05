@@ -18,6 +18,7 @@ from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.panel import Panel
 
+from ..automation.orchestrator import DayTradeOrchestrator
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
 from ..utils.formatters import (
@@ -661,22 +662,22 @@ class EnhancedInteractiveCLI:
 
             # API設定
             api_timeout = getattr(config_manager, 'api_timeout', 30)
-            console.print(f"[yellow]API設定[/yellow]")
+            console.print("[yellow]API設定[/yellow]")
             console.print(f"  timeout: {api_timeout}秒")
 
             # 取引設定
             commission = getattr(config_manager, 'commission', 0.0)
-            console.print(f"[yellow]取引設定[/yellow]")
+            console.print("[yellow]取引設定[/yellow]")
             console.print(f"  commission: {commission}%")
 
             # 表示設定
             theme = getattr(config_manager, 'theme', 'dark')
-            console.print(f"[yellow]表示設定[/yellow]")
+            console.print("[yellow]表示設定[/yellow]")
             console.print(f"  theme: {theme}")
 
             # データベース設定
             db_path = getattr(config_manager, 'database_path', 'day_trade.db')
-            console.print(f"[yellow]データベース設定[/yellow]")
+            console.print("[yellow]データベース設定[/yellow]")
             console.print(f"  database_path: {db_path}")
 
         except Exception as e:
@@ -704,9 +705,9 @@ class EnhancedInteractiveCLI:
 
             # 値の型変換
             try:
-                if value_type == int:
+                if value_type is int:
                     converted_value = int(value)
-                elif value_type == float:
+                elif value_type is float:
                     converted_value = float(value)
                 else:
                     converted_value = value

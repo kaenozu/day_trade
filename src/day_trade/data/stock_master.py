@@ -3,17 +3,14 @@
 東証上場銘柄の情報を管理し、検索機能を提供する
 """
 
-import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..models.database import db_manager
-from ..models.stock import Stock
 from ..models.bulk_operations import AdvancedBulkOperations
-from .stock_fetcher import StockFetcher
+from ..models.stock import Stock
 from ..utils.logging_config import get_context_logger
+from .stock_fetcher import StockFetcher
 
 logger = get_context_logger(__name__)
 
@@ -29,7 +26,11 @@ class StockMasterManager:
             db_manager: データベースマネージャー
             stock_fetcher: 株価データ取得インスタンス
         """
-        self.db_manager = db_manager or globals()['db_manager']
+        if db_manager is None:
+            from ..models.database import db_manager as default_db_manager
+            self.db_manager = default_db_manager
+        else:
+            self.db_manager = db_manager
         self.bulk_operations = AdvancedBulkOperations(self.db_manager)
         self.stock_fetcher = stock_fetcher or StockFetcher()
 
@@ -583,9 +584,7 @@ class StockMasterManager:
 
             # 時価総額に基づいた推定（おおよその基準）
             if market_cap:
-                if market_cap > 1_000_000_000_000:  # 1兆ドル超
-                    return "東証プライム"
-                elif market_cap > 100_000_000_000:  # 1000億ドル超
+                if market_cap > 1_000_000_000_000 or market_cap > 100_000_000_000:  # 1兆ドル超
                     return "東証プライム"
                 elif market_cap > 10_000_000_000:   # 100億ドル超
                     return "東証スタンダード"

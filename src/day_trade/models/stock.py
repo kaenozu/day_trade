@@ -6,9 +6,10 @@
 - データベース固有オプションの削除（クロスプラットフォーム対応）
 - 責務分離の改善（モデル定義に特化）
 """
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
+from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -22,8 +23,8 @@ from sqlalchemy import (
     desc,
     func,
 )
-from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import Session, relationship
+from sqlalchemy.types import DECIMAL
 
 from .base import BaseModel
 from .enums import AlertType, TradeType

@@ -411,13 +411,12 @@ class PatternBreakoutRule(SignalRule):
                 if latest_breakout and confidence > 0:
                     return True, confidence
 
-        elif self.direction == "downward":
-            if "Downward_Breakout" in breakouts.columns and "Downward_Confidence" in breakouts.columns:
-                latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
-                confidence = breakouts["Downward_Confidence"].iloc[-1]
+        elif self.direction == "downward" and "Downward_Breakout" in breakouts.columns and "Downward_Confidence" in breakouts.columns:
+            latest_breakout = breakouts["Downward_Breakout"].iloc[-1]
+            confidence = breakouts["Downward_Confidence"].iloc[-1]
 
-                if latest_breakout and confidence > 0:
-                    return True, confidence
+            if latest_breakout and confidence > 0:
+                return True, confidence
 
         return False, 0.0
 
@@ -1065,7 +1064,7 @@ class TradingSignalGenerator:
             sliced_patterns["trends"] = all_patterns.get("trends", {})
 
             # 最新シグナルと総合信頼度はそのまま使用
-            sliced_patterns["latest_signal"] = all_patterns.get("latest_signal", None)
+            sliced_patterns["latest_signal"] = all_patterns.get("latest_signal")
             sliced_patterns["overall_confidence"] = all_patterns.get("overall_confidence", 0)
 
             return sliced_patterns

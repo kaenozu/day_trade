@@ -10,8 +10,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.data.stock_master import StockMasterManager
-from src.day_trade.utils.logging_config import setup_logging
+from src.day_trade.data.stock_master import StockMasterManager  # noqa: E402
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
 # ロギング設定
 setup_logging()

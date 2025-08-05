@@ -10,7 +10,7 @@ from typing import Any, Dict, Generator, Optional
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from alembic import command
@@ -81,21 +81,21 @@ class DatabaseConfig:
 
     def _get_config_value(self, key: str, explicit_value, env_key: str, default_value, type_converter=str):
         """設定値を優先順位に従って取得"""
-        if explicit_value is not None and explicit_value != (False if type_converter == bool else 0):
+        if explicit_value is not None and explicit_value != (False if type_converter is bool else 0):
             return explicit_value
 
         if self._config_manager:
             try:
                 config_value = self._config_manager.get(f"database.{key}")
                 if config_value is not None:
-                    return type_converter(config_value) if type_converter != str else config_value
+                    return type_converter(config_value) if type_converter is not str else config_value
             except Exception:
                 pass  # ConfigManagerが利用できない場合は無視
 
         env_value = os.environ.get(env_key)
         if env_value is not None:
             try:
-                if type_converter == bool:
+                if type_converter is bool:
                     return env_value.lower() in ('true', '1', 'yes', 'on')
                 return type_converter(env_value)
             except (ValueError, TypeError):

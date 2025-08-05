@@ -4,11 +4,11 @@
 
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch
 
 from src.day_trade.analysis.indicators import TechnicalIndicators
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
@@ -832,7 +832,7 @@ class TestSignalGenerationEdgeCases:
         indicators = TechnicalIndicators.calculate_all(df)
 
         # patternsをNoneで渡す
-        signal = generator.generate_signal(df, indicators, None)
+        generator.generate_signal(df, indicators, None)
         # エラーが発生せずに処理されることを確認
         # 結果は条件により異なるため、例外が発生しないことのみを確認
 
@@ -869,11 +869,11 @@ class TestConditionsMerging:
         # 衝突したキーがプレフィックス付きで分離されることを確認
         assert "buy_rsi_signal" in merged
         assert "sell_rsi_signal" in merged
-        assert merged["buy_rsi_signal"] == True
-        assert merged["sell_rsi_signal"] == False
+        assert merged["buy_rsi_signal"]
+        assert not merged["sell_rsi_signal"]
         assert "rsi_signal" not in merged  # 元のキーは削除される
-        assert merged["volume_spike"] == False
-        assert merged["trend_down"] == True
+        assert not merged["volume_spike"]
+        assert merged["trend_down"]
 
 
 class TestPatternSlicing:
@@ -1081,7 +1081,7 @@ class TestAdvancedSignalValidation:
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             # 古いタイムスタンプのシグナルを作成
             stale_signal = TradingSignal(
@@ -1147,8 +1147,8 @@ class TestSignalRulesConfigFileHandling:
 
     def test_config_file_invalid_json(self):
         """無効なJSONファイルの処理テスト"""
-        import tempfile
         import os
+        import tempfile
 
         # 無効なJSONファイルを作成
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
@@ -1242,7 +1242,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_oversold_rule_empty_rsi(self):
@@ -1254,7 +1254,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_oversold_rule_nan_rsi(self):
@@ -1266,7 +1266,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_overbought_rule_no_rsi_column(self):
@@ -1277,7 +1277,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_overbought_rule_nan_rsi(self):
@@ -1288,7 +1288,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
 
@@ -1312,11 +1312,8 @@ class TestGenerateSignalsSeriesEdgeCases:
 
         # DataFrameまたはNoneまたはlistが返されることを確認
         assert isinstance(signals, (list, type(None), pd.DataFrame))
-        if signals is not None and hasattr(signals, '__len__'):
-            if isinstance(signals, pd.DataFrame):
-                assert len(signals) <= len(small_df)
-            elif isinstance(signals, list):
-                assert len(signals) <= len(small_df)
+        if signals is not None and hasattr(signals, '__len__') and isinstance(signals, (pd.DataFrame, list)):
+            assert len(signals) <= len(small_df)
 
     def test_generate_signals_series_empty_dataframe(self):
         """空のDataFrameでの generate_signals_series テスト"""
@@ -1350,7 +1347,7 @@ class TestSignalGenerationParameterValidation:
         empty_indicators = pd.DataFrame()
         patterns = ChartPatternRecognizer.detect_all_patterns(df)
 
-        signal = generator.generate_signal(df, empty_indicators, patterns)
+        generator.generate_signal(df, empty_indicators, patterns)
 
         # エラーが発生せずに処理されることを確認
         # 結果は条件により異なるため、例外が発生しないことを確認するのみ
@@ -1404,9 +1401,8 @@ class TestSignalGenerationLargeDataSeries:
         signals = generator.generate_signals_series(large_df)
 
         # 適切に処理されることを確認
-        if signals is not None:
-            if isinstance(signals, (list, pd.DataFrame)):
-                assert len(signals) <= len(large_df)
+        if signals is not None and isinstance(signals, (list, pd.DataFrame)):
+            assert len(signals) <= len(large_df)
 
     def test_generate_signals_series_with_lookback_window(self):
         """ルックバックウィンドウ設定での系列生成テスト"""
@@ -1426,10 +1422,8 @@ class TestSignalGenerationLargeDataSeries:
         signals = generator.generate_signals_series(df, lookback_window=30)
 
         # 適切に処理されることを確認
-        if signals is not None and isinstance(signals, (list, pd.DataFrame)):
-            # ウィンドウサイズ分の制限があることを確認
-            if len(signals) > 0:
-                assert len(signals) <= len(df) - 30 + 1
+        if signals is not None and isinstance(signals, (list, pd.DataFrame)) and len(signals) > 0:
+            assert len(signals) <= len(df) - 30 + 1
 
 
 class TestTradingSignalDataClass:
@@ -1452,7 +1446,7 @@ class TestTradingSignalDataClass:
         assert signal.strength == SignalStrength.STRONG
         assert signal.confidence == 85.5
         assert len(signal.reasons) == 2
-        assert signal.conditions_met["rsi_oversold"] == True
+        assert signal.conditions_met["rsi_oversold"]
         assert signal.symbol == "7203"
 
     def test_trading_signal_without_optional_fields(self):
