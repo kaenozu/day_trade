@@ -119,6 +119,31 @@ class SignalRulesConfig:
         """強度閾値を取得"""
         return self.get_signal_settings().get("strength_thresholds", {})
 
+    def get_min_data_for_generation(self) -> int:
+        """シグナル生成用最小データ数を取得"""
+        return self.get_signal_settings().get("min_data_for_generation", 20)
+
+    def get_volume_calculation_period(self) -> int:
+        """出来高計算期間を取得"""
+        return self.get_signal_settings().get("volume_calculation_period", 20)
+
+    def get_trend_lookback_period(self) -> int:
+        """トレンド判定期間を取得"""
+        return self.get_signal_settings().get("trend_lookback_period", 20)
+
+    def get_signal_freshness(self) -> Dict[str, int]:
+        """シグナル新鮮度設定を取得"""
+        return self.get_signal_settings().get("signal_freshness", {
+            "warning_hours": 24,
+            "stale_hours": 72
+        })
+
+    def get_high_volatility_threshold(self) -> float:
+        """高ボラティリティ判定閾値を取得"""
+        return self.get_signal_settings().get("validation_adjustments", {}).get(
+            "high_volatility_threshold", 0.05
+        )
+
 
 class SignalRule:
     """シグナルルールの基底クラス"""
@@ -128,7 +153,7 @@ class SignalRule:
         self.weight = weight
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         """
         ルールを評価
@@ -153,7 +178,7 @@ class RSIOversoldRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -184,7 +209,7 @@ class RSIOverboughtRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -212,7 +237,7 @@ class MACDCrossoverRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns or indicators["MACD"].empty or indicators["MACD_Signal"].empty:
             return False, 0.0
@@ -248,7 +273,7 @@ class MACDDeathCrossRule(SignalRule):
         self.angle_multiplier = angle_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns or indicators["MACD"].empty or indicators["MACD_Signal"].empty:
             return False, 0.0
@@ -292,7 +317,7 @@ class BollingerBandRule(SignalRule):
         self.deviation_multiplier = deviation_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns or indicators["BB_Upper"].empty or indicators["BB_Lower"].empty:
             return False, 0.0
@@ -336,7 +361,7 @@ class PatternBreakoutRule(SignalRule):
         self.direction = direction
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         breakouts = patterns.get("breakouts", pd.DataFrame())
 
@@ -369,7 +394,7 @@ class GoldenCrossRule(SignalRule):
         super().__init__("Golden Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         crosses = patterns.get("crosses", pd.DataFrame())
 
@@ -378,8 +403,11 @@ class GoldenCrossRule(SignalRule):
             return False, 0.0
 
         if "Golden_Cross" in crosses.columns and "Golden_Confidence" in crosses.columns:
-            # Look for the most recent golden cross (within last 5 periods)
-            lookback_window = min(5, len(crosses))
+            # Look for the most recent golden cross (within last periods from config)
+            if config is None:
+                config = SignalRulesConfig()
+            recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
+            lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Golden_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Golden_Confidence"].iloc[-lookback_window:]
 
@@ -396,7 +424,7 @@ class DeadCrossRule(SignalRule):
         super().__init__("Dead Cross", weight)
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
         crosses = patterns.get("crosses", pd.DataFrame())
 
@@ -405,8 +433,11 @@ class DeadCrossRule(SignalRule):
             return False, 0.0
 
         if "Dead_Cross" in crosses.columns and "Dead_Confidence" in crosses.columns:
-            # Look for the most recent dead cross (within last 5 periods)
-            lookback_window = min(5, len(crosses))
+            # Look for the most recent dead cross (within last periods from config)
+            if config is None:
+                config = SignalRulesConfig()
+            recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
+            lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Dead_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Dead_Confidence"].iloc[-lookback_window:]
 
@@ -552,8 +583,9 @@ class TradingSignalGenerator:
         """
         try:
             # データの検証
-            if df.empty or len(df) < 20:
-                logger.warning("データが不足しています")
+            min_data = self.config.get_min_data_for_generation()
+            if df.empty or len(df) < min_data:
+                logger.warning(f"データが不足しています（最低{min_data}日分必要）")
                 return None
 
             # patternsがNoneの場合に空の辞書を代入
@@ -570,7 +602,7 @@ class TradingSignalGenerator:
             total_buy_weight = 0
 
             for rule in self.buy_rules:
-                met, confidence = rule.evaluate(df, indicators, patterns)
+                met, confidence = rule.evaluate(df, indicators, patterns, self.config)
                 buy_conditions[rule.name] = met
 
                 if met:
@@ -586,7 +618,7 @@ class TradingSignalGenerator:
             total_sell_weight = 0
 
             for rule in self.sell_rules:
-                met, confidence = rule.evaluate(df, indicators, patterns)
+                met, confidence = rule.evaluate(df, indicators, patterns, self.config)
                 sell_conditions[rule.name] = met
 
                 if met:
@@ -711,49 +743,17 @@ class TradingSignalGenerator:
             all_patterns = ChartPatternRecognizer.detect_all_patterns(df)
 
             for i in range(min_required - 1, len(df)):
-                # 現在のウィンドウのデータと、対応する指標・パターンをスライス
+                # 現在のウィンドウのデータと、対応する指標をスライス
                 window_df = df.iloc[i - lookback_window + 1 : i + 1].copy()
                 current_indicators = all_indicators.iloc[
                     i - lookback_window + 1 : i + 1
                 ].copy()
 
-                # patternsは辞書なので、直接スライスするのではなく、必要な情報だけ抽出して渡す
-                # 現在の設計ではpatternsの各要素も時系列データを持つ可能性があるので注意
-                # ここではpatternsが各時点のシグナル情報ではなく、全体に対するパターン結果を持つと仮定
-                # もしpatternsの要素が時系列データなら、同様にスライスする必要がある
-
-                # たとえば、crossesはDataFrameなので、ilocでスライス
-                current_crosses = (
-                    all_patterns["crosses"].iloc[i - lookback_window + 1 : i + 1].copy()
-                    if "crosses" in all_patterns
-                    and isinstance(all_patterns["crosses"], pd.DataFrame)
-                    else pd.DataFrame()
+                # パターンデータの簡素化されたスライス処理
+                # 改善されたpatterns.pyの構造により、シンプルな処理が可能
+                current_patterns = self._slice_patterns(
+                    all_patterns, i, lookback_window
                 )
-
-                # breakoutesもDataFrame
-                current_breakouts = (
-                    all_patterns["breakouts"]
-                    .iloc[i - lookback_window + 1 : i + 1]
-                    .copy()
-                    if "breakouts" in all_patterns
-                    and isinstance(all_patterns["breakouts"], pd.DataFrame)
-                    else pd.DataFrame()
-                )
-
-                # levels, trends, overall_confidence は単一の結果と仮定
-                current_levels = all_patterns.get("levels", {})
-                current_trends = all_patterns.get("trends", {})
-                current_overall_confidence = all_patterns.get("overall_confidence", 0)
-                current_latest_signal = all_patterns.get("latest_signal", None)
-
-                current_patterns = {
-                    "crosses": current_crosses,
-                    "breakouts": current_breakouts,
-                    "levels": current_levels,
-                    "trends": current_trends,
-                    "overall_confidence": current_overall_confidence,
-                    "latest_signal": current_latest_signal,
-                }
 
                 # シグナルを生成
                 # indicatorsとpatternsを必須引数に変更
@@ -833,7 +833,8 @@ class TradingSignalGenerator:
                 trend_direction = market_context.get("trend_direction", "neutral")
 
                 # 高ボラティリティ時は信頼度を下げる
-                if volatility > 0.05:  # 5%以上の高ボラティリティ
+                high_vol_threshold = self.config.get_high_volatility_threshold()
+                if volatility > high_vol_threshold:
                     volatile_penalty = validation_config.get("volatile_market_penalty", 0.85)
                     base_score *= volatile_penalty
 
@@ -883,8 +884,11 @@ class TradingSignalGenerator:
                             len(strong_signals) / len(same_type_signals) * 0.7 + 0.3
                         )
 
-                    # 成功率による調整(0.6-1.3の範囲)
-                    performance_multiplier = 0.6 + 0.7 * success_rate
+                    # 成功率による調整（設定から取得）
+                    performance_config = validation_config.get("performance_multipliers", {})
+                    multiplier_base = performance_config.get("base", 0.6)
+                    multiplier_range = performance_config.get("range", 0.7)
+                    performance_multiplier = multiplier_base + multiplier_range * success_rate
                     base_score *= performance_multiplier
 
                     # 同じ強度の過去シグナルの成功率も考慮
@@ -896,8 +900,11 @@ class TradingSignalGenerator:
                         and "Success" in historical_performance.columns
                     ):
                         strength_success_rate = same_strength["Success"].mean()
-                        # 強度別成功率による微調整
-                        base_score *= 0.9 + 0.2 * strength_success_rate
+                        # 強度別成功率による微調整（設定から取得）
+                        strength_config = performance_config.get("strength_adjustment", {})
+                        strength_base = strength_config.get("base", 0.9)
+                        strength_range = strength_config.get("range", 0.2)
+                        base_score *= strength_base + strength_range * strength_success_rate
 
             # シグナルの新鮮度(タイムスタンプからの経過時間)による調整
             if hasattr(signal, "timestamp") and signal.timestamp:
@@ -911,10 +918,19 @@ class TradingSignalGenerator:
                 time_diff = (
                     current_time - signal_time
                 ).total_seconds() / 3600  # 時間差
-                if time_diff > 24:  # 24時間以上古い
-                    base_score *= 0.9
-                elif time_diff > 72:  # 72時間以上古い
-                    base_score *= 0.8
+
+                freshness = self.config.get_signal_freshness()
+                warning_hours = freshness.get("warning_hours", 24)
+                stale_hours = freshness.get("stale_hours", 72)
+
+                freshness_multipliers = validation_config.get("time_multipliers", {})
+                warning_multiplier = freshness_multipliers.get("warning", 0.9)
+                stale_multiplier = freshness_multipliers.get("stale", 0.8)
+
+                if time_diff > stale_hours:
+                    base_score *= stale_multiplier
+                elif time_diff > warning_hours:
+                    base_score *= warning_multiplier
 
             return min(max(base_score, 0), 100)  # 0-100の範囲に制限
 
@@ -949,6 +965,59 @@ class TradingSignalGenerator:
 
         return merged
 
+    def _slice_patterns(
+        self, all_patterns: Dict[str, Any], current_index: int, lookback_window: int
+    ) -> Dict[str, Any]:
+        """
+        パターンデータをスライスして現在のウィンドウ用に調整
+        改善されたpatterns.pyの構造により簡素化
+
+        Args:
+            all_patterns: 全パターンデータ
+            current_index: 現在のインデックス
+            lookback_window: ルックバックウィンドウ
+
+        Returns:
+            スライスされたパターンデータ
+        """
+        try:
+            sliced_patterns = {}
+            start_idx = current_index - lookback_window + 1
+            end_idx = current_index + 1
+
+            # DataFrameのスライス処理
+            for key in ["crosses", "breakouts"]:
+                if key in all_patterns and isinstance(all_patterns[key], pd.DataFrame):
+                    df = all_patterns[key]
+                    if not df.empty:
+                        sliced_patterns[key] = df.iloc[start_idx:end_idx].copy()
+                    else:
+                        sliced_patterns[key] = pd.DataFrame()
+                else:
+                    sliced_patterns[key] = pd.DataFrame()
+
+            # 辞書データ（levels, trends）はそのまま使用
+            # これらは全体に対する分析結果なので、時系列でスライスする必要がない
+            sliced_patterns["levels"] = all_patterns.get("levels", {})
+            sliced_patterns["trends"] = all_patterns.get("trends", {})
+
+            # 最新シグナルと総合信頼度はそのまま使用
+            sliced_patterns["latest_signal"] = all_patterns.get("latest_signal", None)
+            sliced_patterns["overall_confidence"] = all_patterns.get("overall_confidence", 0)
+
+            return sliced_patterns
+
+        except Exception as e:
+            logger.debug(f"パターンスライス処理エラー: {e}")
+            return {
+                "crosses": pd.DataFrame(),
+                "breakouts": pd.DataFrame(),
+                "levels": {},
+                "trends": {},
+                "latest_signal": None,
+                "overall_confidence": 0,
+            }
+
 
 # カスタムルールの例
 class VolumeSpikeBuyRule(SignalRule):
@@ -969,13 +1038,19 @@ class VolumeSpikeBuyRule(SignalRule):
         self.confidence_multiplier = confidence_multiplier
 
     def evaluate(
-        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict
+        self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict, config: Optional['SignalRulesConfig'] = None
     ) -> Tuple[bool, float]:
-        if len(df) < 20:
+        # 設定から値を取得
+        if config is None:
+            config = SignalRulesConfig()
+        min_data = config.get_min_data_for_generation()
+        volume_period = config.get_volume_calculation_period()
+
+        if len(df) < min_data:
             return False, 0.0
 
-        # 平均出来高
-        avg_volume = df["Volume"].iloc[-20:-1].mean()
+        # 平均出来高（設定値に基づく期間）
+        avg_volume = df["Volume"].iloc[-volume_period:-1].mean()
         latest_volume = df["Volume"].iloc[-1]
 
         # 価格変化
@@ -1052,10 +1127,13 @@ if __name__ == "__main__":
         }
 
         # 市場環境情報も含めて検証
+        config = SignalRulesConfig()
+        trend_period = config.get_trend_lookback_period()
+
         market_context = {
             "volatility": float(df["Close"].pct_change().std()),
             "trend_direction": "upward"
-            if df["Close"].iloc[-1] > df["Close"].iloc[-20]
+            if df["Close"].iloc[-1] > df["Close"].iloc[-trend_period]
             else "downward",
         }
         validity = generator.validate_signal(signal, market_context=market_context)
