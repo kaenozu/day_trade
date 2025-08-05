@@ -415,158 +415,6 @@ class StockMasterManager:
                 logger.error(f"銘柄数取得エラー: {e}")
                 return 0
 
-    def bulk_insert_stocks(self, stock_data: List[Dict[str, str]], chunk_size: int = 1000) -> Tuple[int, int]:
-        """
-        高性能なbulk insert操作
-
-        Args:
-            stock_data: 銘柄データのリスト [{"code": "1234", "name": "銘柄名", ...}, ...]
-            chunk_size: チャンクサイズ
-
-        Returns:
-            (追加件数, スキップ件数)のタプル
-        """
-        inserted_count = 0
-        skipped_count = 0
-
-        with self.db_manager.session_scope() as session:
-            try:
-                # 既存コードのセットを取得（メモリ効率版）
-                existing_codes = set()
-                for row in session.execute(text("SELECT code FROM stocks")):
-                    existing_codes.add(row[0])
-
-                # 新規データをフィルタリング
-                new_stocks = []
-                for stock_info in stock_data:
-                    if stock_info["code"] not in existing_codes:
-                        new_stocks.append(stock_info)
-                    else:
-                        skipped_count += 1
-
-                # チャンクごとにbulk insert実行
-                for i in range(0, len(new_stocks), chunk_size):
-                    chunk = new_stocks[i:i + chunk_size]
-                    if chunk:
-                        session.bulk_insert_mappings(Stock, chunk)
-                        inserted_count += len(chunk)
-
-                        # 進捗ログ（大量データ対応）
-                        if len(new_stocks) > chunk_size:
-                            progress = min(i + chunk_size, len(new_stocks))
-                            logger.info(f"Bulk insert progress: {progress}/{len(new_stocks)} ({progress/len(new_stocks)*100:.1f}%)")
-
-                session.commit()
-                logger.info(f"Bulk insert完了: 追加={inserted_count}, スキップ={skipped_count}")
-
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Bulk insert エラー: {e}")
-                raise
-
-        return inserted_count, skipped_count
-
-    def bulk_update_stocks(self, update_data: List[Dict[str, str]], chunk_size: int = 1000) -> int:
-        """
-        高性能なbulk update操作
-
-        Args:
-            update_data: 更新データのリスト [{"code": "1234", "name": "新銘柄名", ...}, ...]
-            chunk_size: チャンクサイズ
-
-        Returns:
-            更新件数
-        """
-        updated_count = 0
-
-        with self.db_manager.session_scope() as session:
-            try:
-                # チャンクごとにbulk update実行
-                for i in range(0, len(update_data), chunk_size):
-                    chunk = update_data[i:i + chunk_size]
-                    if chunk:
-                        session.bulk_update_mappings(Stock, chunk)
-                        updated_count += len(chunk)
-
-                        # 進捗ログ（大量データ対応）
-                        if len(update_data) > chunk_size:
-                            progress = min(i + chunk_size, len(update_data))
-                            logger.info(f"Bulk update progress: {progress}/{len(update_data)} ({progress/len(update_data)*100:.1f}%)")
-
-                session.commit()
-                logger.info(f"Bulk update完了: 更新件数={updated_count}")
-
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Bulk update エラー: {e}")
-                raise
-
-        return updated_count
-
-    def bulk_upsert_stocks(self, stock_data: List[Dict[str, str]], chunk_size: int = 1000) -> Tuple[int, int]:
-        """
-        高性能なbulk upsert操作（INSERT ON CONFLICT UPDATE）
-
-        Args:
-            stock_data: 銘柄データのリスト
-            chunk_size: チャンクサイズ
-
-        Returns:
-            (挿入件数, 更新件数)のタプル
-        """
-        inserted_count = 0
-        updated_count = 0
-
-        with self.db_manager.session_scope() as session:
-            try:
-                # SQLiteのINSERT OR REPLACEを使用
-                for i in range(0, len(stock_data), chunk_size):
-                    chunk = stock_data[i:i + chunk_size]
-
-                    # 既存チェック用のコードリスト
-                    codes_in_chunk = [item["code"] for item in chunk]
-                    existing_codes = set()
-
-                    if codes_in_chunk:
-                        placeholders = ",".join([f"'{code}'" for code in codes_in_chunk])
-                        query = text(f"SELECT code FROM stocks WHERE code IN ({placeholders})")
-                        for row in session.execute(query):
-                            existing_codes.add(row[0])
-
-                    # 挿入と更新に分離
-                    inserts = []
-                    updates = []
-
-                    for item in chunk:
-                        if item["code"] in existing_codes:
-                            updates.append(item)
-                        else:
-                            inserts.append(item)
-
-                    # Bulk operations実行
-                    if inserts:
-                        session.bulk_insert_mappings(Stock, inserts)
-                        inserted_count += len(inserts)
-
-                    if updates:
-                        session.bulk_update_mappings(Stock, updates)
-                        updated_count += len(updates)
-
-                    # 進捗ログ
-                    if len(stock_data) > chunk_size:
-                        progress = min(i + chunk_size, len(stock_data))
-                        logger.info(f"Bulk upsert progress: {progress}/{len(stock_data)} ({progress/len(stock_data)*100:.1f}%)")
-
-                session.commit()
-                logger.info(f"Bulk upsert完了: 挿入={inserted_count}, 更新={updated_count}")
-
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Bulk upsert エラー: {e}")
-                raise
-
-        return inserted_count, updated_count
-
     def delete_stock(self, code: str) -> bool:
         """
         銘柄を削除
@@ -897,6 +745,76 @@ class StockMasterManager:
             logger.error(f"銘柄一括upsertエラー: {e}")
             return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
 
+
+    def fetch_and_update_stock_info_dict(self, code: str) -> Optional[Dict[str, str]]:
+        """
+        StockFetcherを使用して銘柄情報を取得し、マスタを更新（辞書返却版）
+
+        Args:
+            code: 証券コード
+
+        Returns:
+            更新された銘柄情報の辞書
+        """
+        try:
+            # StockFetcherのget_company_infoメソッドを使用
+            company_info = self.stock_fetcher.get_company_info(code)
+
+            if not company_info:
+                logger.warning(f"StockFetcherから企業情報を取得できません: {code}")
+                return None
+
+            # データを整理
+            name = company_info.get("name") or ""
+            sector = company_info.get("sector") or ""
+            industry = company_info.get("industry") or ""
+            market = self._estimate_market_segment(code, company_info)
+
+            # 単一セッション内で処理
+            with self.db_manager.session_scope() as session:
+                # 既存銘柄をチェック
+                existing_stock = session.query(Stock).filter(Stock.code == code).first()
+
+                if existing_stock:
+                    logger.info(f"銘柄情報を更新: {code} - {name}")
+                    existing_stock.name = name
+                    existing_stock.market = market
+                    existing_stock.sector = sector
+                    existing_stock.industry = industry
+                    session.flush()
+
+                    # 辞書として返却
+                    return {
+                        "code": existing_stock.code,
+                        "name": existing_stock.name,
+                        "market": existing_stock.market,
+                        "sector": existing_stock.sector,
+                        "industry": existing_stock.industry,
+                    }
+                else:
+                    logger.info(f"新規銘柄を追加: {code} - {name}")
+                    new_stock = Stock(
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry
+                    )
+                    session.add(new_stock)
+                    session.flush()
+
+                    # 辞書として返却
+                    return {
+                        "code": new_stock.code,
+                        "name": new_stock.name,
+                        "market": new_stock.market,
+                        "sector": new_stock.sector,
+                        "industry": new_stock.industry,
+                    }
+
+        except Exception as e:
+            logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
+            return None
 
     def bulk_fetch_and_update_companies(
         self, codes: List[str], batch_size: int = 50, delay: float = 0.1

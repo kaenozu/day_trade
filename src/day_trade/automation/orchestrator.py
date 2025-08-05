@@ -289,24 +289,24 @@ class DayTradeOrchestrator:
     def _execute_main_pipeline_with_progress(self, symbols: List[str], progress):
         """進捗表示付きメイン処理パイプラインを実行"""
         logger.info("Step 1: 株価データ取得開始")
-        stock_data = self._fetch_stock_data_batch(symbols, show_progress=True)
+        stock_data = self._fetch_stock_data_batch(symbols, show_progress=False) # show_progressをFalseに変更
         progress.complete_step()
 
         logger.info("Step 2: テクニカル分析実行")
         analysis_results = self._run_technical_analysis_batch(
-            stock_data, show_progress=True
+            stock_data, show_progress=False # show_progressをFalseに変更
         )
         progress.complete_step()
 
         logger.info("Step 3: パターン認識実行")
         pattern_results = self._run_pattern_recognition_batch(
-            stock_data, show_progress=True
+            stock_data, show_progress=False # show_progressをFalseに変更
         )
         progress.complete_step()
 
         logger.info("Step 4: シグナル生成実行")
         signals = self._generate_signals_batch(
-            analysis_results, pattern_results, stock_data, show_progress=True
+            analysis_results, pattern_results, stock_data, show_progress=False # show_progressをFalseに変更
         )
         progress.complete_step()
 
@@ -319,7 +319,7 @@ class DayTradeOrchestrator:
         progress.complete_step()
 
         logger.info("Step 7: アラートチェック実行")
-        alerts = self._check_alerts_batch(stock_data, show_progress=True)
+        alerts = self._check_alerts_batch(stock_data, show_progress=False)
         progress.complete_step()
 
         # 結果を保存
@@ -339,14 +339,31 @@ class DayTradeOrchestrator:
             for symbol, data in stock_data.items():
                 if data and data.get("historical") is not None:
                     # アンサンブル戦略でシグナル生成
-                    ensemble_signals = self.ensemble_strategy.generate_ensemble_signals(
-                        symbol, data["historical"]
+                    ensemble_signal_result = self.ensemble_strategy.generate_ensemble_signal(
+                        data["historical"]
                     )
 
-                    if ensemble_signals:
-                        signals.extend(ensemble_signals)
+                    if ensemble_signal_result:
+                        # generate_ensemble_signalは単一のEnsembleSignalオブジェクトを返す
+                        # ここでは元の信号リストに追加するために変換する
+                        signals.append(
+                            {
+                                "symbol": symbol,
+                                "type": ensemble_signal_result.ensemble_signal.signal_type.value.upper(),
+                                "reason": f"Ensemble: {', '.join(ensemble_signal_result.ensemble_signal.reasons[:2])}",
+                                "confidence": ensemble_signal_result.ensemble_confidence / 100.0,
+                                "timestamp": datetime.now(),
+                                "ensemble_details": {
+                                    "strategy_type": self.ensemble_strategy.ensemble_strategy.value,
+                                    "voting_type": self.ensemble_strategy.voting_type.value,
+                                    "strategy_weights": ensemble_signal_result.strategy_weights,
+                                    "voting_scores": ensemble_signal_result.voting_scores,
+                                    "meta_features": ensemble_signal_result.meta_features,
+                                },
+                            }
+                        )
                         logger.debug(
-                            f"アンサンブル戦略シグナル生成: {symbol} ({len(ensemble_signals)}個)"
+                            f"アンサンブル戦略シグナル生成: {symbol} (1個)"
                         )
 
         except Exception as e:
@@ -559,26 +576,15 @@ class DayTradeOrchestrator:
                     historical = data["historical"]
 
                     # パターン認識実行
-                    patterns = {}
-
-                    # サポート・レジスタンス検出
-                    support_resistance = (
-                        self.pattern_recognizer.support_resistance_levels(historical)
-                    )
-                    patterns["support_resistance"] = support_resistance
-
-                    # トレンドライン検出
-                    trend_lines = self.pattern_recognizer.trend_line_detection(
-                        historical
-                    )
-                    patterns["trend_lines"] = trend_lines
-
+                    patterns = self.pattern_recognizer.detect_all_patterns(historical)
                     pattern_results[symbol] = patterns
 
             except Exception as e:
                 error_msg = f"パターン認識エラー ({symbol}): {e}"
                 logger.error(error_msg)
                 self.current_report.errors.append(error_msg)
+
+        pattern_results[symbol] = patterns
 
         logger.info(f"パターン認識完了: {len(pattern_results)} 銘柄")
         return pattern_results
@@ -603,29 +609,32 @@ class DayTradeOrchestrator:
                 analysis = analysis_results.get(symbol, {})
                 patterns = pattern_results.get(symbol, {})
 
-                if analysis:
+                # historicalデータを取得
+                symbol_stock_data = stock_data.get(symbol) if stock_data else None
+                historical_df = symbol_stock_data.get("historical") if symbol_stock_data else pd.DataFrame()
+
+                # analysis辞書をDataFrameに変換
+                indicators_df = self._convert_analysis_to_indicators(analysis, historical_df)
+
+                if not indicators_df.empty:
                     # 強化アンサンブル戦略が有効な場合は優先使用
                     if self.enhanced_ensemble:
-                        symbol_stock_data = (
-                            stock_data.get(symbol) if stock_data else None
-                        )
                         enhanced_signals = self._generate_enhanced_ensemble_signals(
-                            symbol, analysis, patterns, symbol_stock_data
+                            symbol, analysis, patterns, symbol_stock_data # analysisの代わりにindicators_dfを渡すべきだが、enhanced_ensemble側で変換されることを考慮しanalysisを維持
                         )
                         all_signals.extend(enhanced_signals)
                     elif self.ensemble_strategy:
                         # 従来のアンサンブル戦略
-                        symbol_stock_data = (
-                            stock_data.get(symbol) if stock_data else None
-                        )
+                        # _generate_ensemble_signalsはindicators_dfを期待しているので、ここで渡す
                         ensemble_signals = self._generate_ensemble_signals(
                             symbol, analysis, patterns, symbol_stock_data
                         )
                         all_signals.extend(ensemble_signals)
                     else:
                         # 従来のシグナル生成
+                        # _evaluate_trading_signalsはindicators_dfを期待しているので、ここで渡す
                         signals = self._evaluate_trading_signals(
-                            symbol, analysis, patterns, settings
+                            symbol, indicators_df, patterns, settings # analysisの代わりにindicators_dfを渡す
                         )
                         all_signals.extend(signals)
 
@@ -661,53 +670,8 @@ class DayTradeOrchestrator:
                 )
                 return []
 
-            # 指標データの変換
-            indicators_df = pd.DataFrame(index=price_df.index)
-
-            if "rsi" in analysis:
-                rsi_data = analysis["rsi"]
-                if hasattr(rsi_data, "iloc") and len(rsi_data) > 0:
-                    # インデックスが一致するように調整
-                    if len(rsi_data) == len(price_df):
-                        indicators_df["RSI"] = rsi_data.values
-                    else:
-                        indicators_df["RSI"] = rsi_data
-
-            if "macd" in analysis:
-                macd_data = analysis["macd"]
-                if (
-                    isinstance(macd_data, dict)
-                    and "MACD" in macd_data
-                    and "Signal" in macd_data
-                ):
-                    macd_values = macd_data["MACD"]
-                    signal_values = macd_data["Signal"]
-                    if (
-                        hasattr(macd_values, "iloc")
-                        and hasattr(signal_values, "iloc")
-                        and len(macd_values) == len(price_df)
-                        and len(signal_values) == len(price_df)
-                    ):
-                        indicators_df["MACD"] = macd_values.values
-                        indicators_df["MACD_Signal"] = signal_values.values
-
-            if "bollinger" in analysis:
-                bb_data = analysis["bollinger"]
-                if (
-                    isinstance(bb_data, dict)
-                    and "Upper" in bb_data
-                    and "Lower" in bb_data
-                ):
-                    upper_values = bb_data["Upper"]
-                    lower_values = bb_data["Lower"]
-                    if (
-                        hasattr(upper_values, "iloc")
-                        and hasattr(lower_values, "iloc")
-                        and len(upper_values) == len(price_df)
-                        and len(lower_values) == len(price_df)
-                    ):
-                        indicators_df["BB_Upper"] = upper_values.values
-                        indicators_df["BB_Lower"] = lower_values.values
+            # analysis辞書からindicators_dfを生成
+            indicators_df = self._convert_analysis_to_indicators(analysis, price_df)
 
             # アンサンブルシグナル生成
             ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
@@ -745,7 +709,7 @@ class DayTradeOrchestrator:
             return []
 
     def _generate_enhanced_ensemble_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict, stock_data: Dict = None
+        self, symbol: str, indicators: pd.DataFrame, patterns: Dict, stock_data: Dict = None
     ) -> List[Dict[str, Any]]:
         """強化アンサンブル戦略によるシグナル生成"""
         signals = []
@@ -766,9 +730,6 @@ class DayTradeOrchestrator:
                     f"データが不足しています ({symbol}): {len(price_df)}日分"
                 )
                 return []
-
-            # 指標データの変換・統合
-            indicators = self._convert_analysis_to_indicators(analysis, price_df)
 
             # 市場データ（利用可能な場合）
             market_data = None  # 今後の実装で市場データを追加予定
@@ -831,89 +792,92 @@ class DayTradeOrchestrator:
 
     def _convert_analysis_to_indicators(
         self, analysis: Dict, price_df: pd.DataFrame
-    ) -> Dict[str, pd.Series]:
-        """分析結果を指標辞書に変換"""
-        indicators = {}
+    ) -> pd.DataFrame:
+        """分析結果を指標DataFrameに変換"""
+        all_indicator_series = []
+        index = price_df.index  # 基準となるインデックス
 
         try:
             # RSI変換
-            if "rsi" in analysis:
-                rsi_data = analysis["rsi"]
-                if hasattr(rsi_data, "iloc") and len(rsi_data) > 0:
-                    if len(rsi_data) == len(price_df):
-                        indicators["rsi"] = rsi_data
-                    else:
-                        # サイズが合わない場合は最新の値を使用
-                        indicators["rsi"] = pd.Series(
-                            [rsi_data.iloc[-1]] * len(price_df), index=price_df.index
-                        )
+            if "rsi" in analysis and isinstance(analysis["rsi"], pd.Series):
+                all_indicator_series.append(analysis["rsi"].rename("RSI"))
 
             # MACD変換
-            if "macd" in analysis:
-                macd_data = analysis["macd"]
-                if (
-                    isinstance(macd_data, dict)
-                    and "MACD" in macd_data
-                    and "Signal" in macd_data
-                ):
-                    macd_values = macd_data["MACD"]
-                    signal_values = macd_data["Signal"]
-                    if (
-                        hasattr(macd_values, "iloc")
-                        and hasattr(signal_values, "iloc")
-                        and len(macd_values) == len(price_df)
-                    ):
-                        indicators["macd"] = macd_values
-                        indicators["macd_signal"] = signal_values
+            if (
+                "macd" in analysis
+                and isinstance(analysis["macd"], dict)
+                and "MACD" in analysis["macd"]
+                and "Signal" in analysis["macd"]
+            ):
+                if isinstance(analysis["macd"]["MACD"], pd.Series):
+                    all_indicator_series.append(
+                        analysis["macd"]["MACD"].rename("MACD")
+                    )
+                if isinstance(analysis["macd"]["Signal"], pd.Series):
+                    all_indicator_series.append(
+                        analysis["macd"]["Signal"].rename("MACD_Signal")
+                    )
 
             # ボリンジャーバンド変換
-            if "bollinger" in analysis:
-                bb_data = analysis["bollinger"]
+            if (
+                "bollinger" in analysis
+                and isinstance(analysis["bollinger"], dict)
+                and "Upper" in analysis["bollinger"]
+                and "Lower" in analysis["bollinger"]
+            ):
+                if isinstance(analysis["bollinger"]["Upper"], pd.Series):
+                    all_indicator_series.append(
+                        analysis["bollinger"]["Upper"].rename("BB_Upper")
+                    )
+                if isinstance(analysis["bollinger"]["Lower"], pd.Series):
+                    all_indicator_series.append(
+                        analysis["bollinger"]["Lower"].rename("BB_Lower")
+                    )
                 if (
-                    isinstance(bb_data, dict)
-                    and "Upper" in bb_data
-                    and "Lower" in bb_data
+                    "Middle" in analysis["bollinger"]
+                    and isinstance(analysis["bollinger"]["Middle"], pd.Series)
                 ):
-                    upper_values = bb_data["Upper"]
-                    lower_values = bb_data["Lower"]
-                    middle_values = bb_data.get("Middle")
+                    all_indicator_series.append(
+                        analysis["bollinger"]["Middle"].rename("BB_Middle")
+                    )
 
-                    if (
-                        hasattr(upper_values, "iloc")
-                        and hasattr(lower_values, "iloc")
-                        and len(upper_values) == len(price_df)
-                    ):
-                        indicators["bb_upper"] = upper_values
-                        indicators["bb_lower"] = lower_values
-                        if middle_values is not None and hasattr(middle_values, "iloc"):
-                            indicators["bb_middle"] = middle_values
-
-            # 移動平均変換
+            # 移動平均変換 (sma_X)
             for key, value in analysis.items():
-                if (
-                    key.startswith("sma_")
-                    and hasattr(value, "iloc")
-                    and len(value) == len(price_df)
-                ):
-                    indicators[key] = value
+                if key.startswith("sma_") and isinstance(value, pd.Series):
+                    all_indicator_series.append(value.rename(key.upper()))
 
-            logger.debug(f"指標変換完了: {len(indicators)}個の指標")
+            if not all_indicator_series:
+                return pd.DataFrame(index=index)
+
+            # すべてのSeriesを一つのDataFrameに結合
+            # indexを統一し、不足している値を前方向/後方向で埋める
+            indicators_df = (
+                pd.concat(all_indicator_series, axis=1)
+                .reindex(index)
+                .ffill()
+                .bfill()
+            )
+            # 全てNaNのカラムは削除
+            indicators_df.dropna(axis=1, how="all", inplace=True)
+
+
+            logger.debug(f"指標DataFrame変換完了: {len(indicators_df.columns)}列")
+            return indicators_df
 
         except Exception as e:
-            logger.error(f"指標変換エラー: {e}")
-
-        return indicators
+            logger.error(f"指標DataFrame変換エラー: {e}")
+            return pd.DataFrame(index=index)
 
     def _evaluate_trading_signals(
-        self, symbol: str, analysis: Dict, patterns: Dict, settings
+        self, symbol: str, indicators: pd.DataFrame, patterns: Dict, settings
     ) -> List[Dict[str, Any]]:
         """個別銘柄のシグナル評価"""
         signals = []
 
         try:
             # RSIシグナル
-            if "rsi" in analysis:
-                rsi_values = analysis["rsi"]
+            if "RSI" in indicators.columns:
+                rsi_values = indicators["RSI"]
                 if not rsi_values.empty:
                     current_rsi = rsi_values.iloc[-1]
 
@@ -941,9 +905,9 @@ class DayTradeOrchestrator:
                         )
 
             # 移動平均クロスオーバー
-            if "sma_5" in analysis and "sma_20" in analysis:
-                sma_5 = analysis["sma_5"]
-                sma_20 = analysis["sma_20"]
+            if "SMA_5" in indicators.columns and "SMA_20" in indicators.columns:
+                sma_5 = indicators["SMA_5"]
+                sma_20 = indicators["SMA_20"]
 
                 if len(sma_5) >= 2 and len(sma_20) >= 2:
                     if (

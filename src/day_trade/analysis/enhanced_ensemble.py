@@ -152,8 +152,7 @@ class EnhancedEnsembleStrategy:
         # 既存のensemble.pyから戦略を移植・拡張
         try:
             from .signals import (
-                BollingerBandBreakoutRule,
-                BollingerBandMeanReversionRule,
+                BollingerBandRule, # BollingerBandBreakoutRuleとBollingerBandMeanReversionRuleをBollingerBandRuleに修正
                 MACDCrossoverRule,
                 MACDDeathCrossRule,
                 RSIOverboughtRule,
@@ -170,15 +169,14 @@ class EnhancedEnsembleStrategy:
                 RSIOverboughtRule,
                 RSIOversoldRule,
             )
-
-            # ダミークラス定義
-            class BollingerBandBreakoutRule:
-                def __init__(self, weight=1.0):
+            # ダミーのBollingerBandRuleを定義
+            class BollingerBandRule:
+                def __init__(self, position="lower", weight=1.0):
+                    self.position = position
                     self.weight = weight
-
-            class BollingerBandMeanReversionRule:
-                def __init__(self, weight=1.0):
-                    self.weight = weight
+                def evaluate(self, df: pd.DataFrame, indicators: pd.DataFrame, patterns: Dict) -> Tuple[bool, float]:
+                    # ダミーの実装
+                    return False, 0.0
 
         # 1. 保守的戦略
         conservative = TradingSignalGenerator(config_path=None)
@@ -193,9 +191,9 @@ class EnhancedEnsembleStrategy:
         aggressive = TradingSignalGenerator(config_path=None)
         aggressive.clear_rules()
         aggressive.add_buy_rule(RSIOversoldRule(threshold=35, weight=2.0))
-        aggressive.add_buy_rule(BollingerBandBreakoutRule(weight=1.5))
+        aggressive.add_buy_rule(BollingerBandRule(position="lower", weight=1.5)) # BollingerBandBreakoutRuleをBollingerBandRuleに変更
         aggressive.add_sell_rule(RSIOverboughtRule(threshold=65, weight=2.0))
-        aggressive.add_sell_rule(BollingerBandMeanReversionRule(weight=1.5))
+        aggressive.add_sell_rule(BollingerBandRule(position="upper", weight=1.5)) # BollingerBandMeanReversionRuleをBollingerBandRuleに変更
         strategies["aggressive"] = aggressive
 
         # 3. トレンドフォロー戦略
@@ -208,7 +206,7 @@ class EnhancedEnsembleStrategy:
         # 4. 平均回帰戦略
         mean_reversion = TradingSignalGenerator(config_path=None)
         mean_reversion.clear_rules()
-        mean_reversion.add_buy_rule(BollingerBandMeanReversionRule(weight=2.0))
+        mean_reversion.add_buy_rule(BollingerBandRule(position="lower", weight=2.0)) # BollingerBandMeanReversionRuleをBollingerBandRuleに変更
         mean_reversion.add_sell_rule(RSIOverboughtRule(threshold=70, weight=1.5))
         strategies["mean_reversion"] = mean_reversion
 
