@@ -210,7 +210,7 @@ class BaseModel(Base, TimestampMixin):
             validate: バリデーションを実行するか
             auto_convert: 自動型変換を行うか
         """
-        exclude_keys = set(exclude_keys) if exclude_keys else {'id', 'created_at'}
+        exclude_keys = set(exclude_keys) if exclude_keys is not None else {'id', 'created_at'}
 
         for key, value in data.items():
             if key not in exclude_keys and hasattr(self, key):
@@ -485,8 +485,10 @@ class BaseModel(Base, TimestampMixin):
         if self.id is not None and other.id is not None:
             return self.id == other.id
 
-        # 主キーがない場合は全カラムで比較
-        return self.to_dict(convert_datetime=False) == other.to_dict(convert_datetime=False)
+        # 主キーがない場合は主要カラムで比較（タイムスタンプは除外）
+        self_dict = self.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
+        other_dict = other.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
+        return self_dict == other_dict
 
     def __hash__(self) -> int:
         """ハッシュ値（主キーベース）"""

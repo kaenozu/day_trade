@@ -865,13 +865,13 @@ class StockMasterManager:
                 try:
                     stock = self.fetch_and_update_stock_info(code)
                     if stock:
-                        updated_stocks.append({
-                            "code": stock.code,
-                            "name": stock.name,
-                            "market": stock.market,
-                            "sector": stock.sector,
-                            "industry": stock.industry,
-                        })
+                        # セッション内で辞書変換して、DetachedInstanceErrorを回避
+                        with self.db_manager.session_scope() as session:
+                            # 新しいセッションで再取得
+                            fresh_stock = session.query(Stock).filter(Stock.code == code).first()
+                            if fresh_stock:
+                                stock_dict = fresh_stock.to_dict()
+                                updated_stocks.append(stock_dict)
                         success_count += 1
                     else:
                         skipped_count += 1
