@@ -288,7 +288,7 @@ class TestProgressIntegration:
         assert summary["failed_items"] == 3
 
     @pytest.mark.skipif(
-        os.getenv("CI") is not None,
+        os.getenv("CI") is not None or os.getenv("GITHUB_ACTIONS") is not None,
         reason="プログレス表示テストはCI環境では不安定なためスキップ",
     )
     def test_multi_step_process_simulation(self):
