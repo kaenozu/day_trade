@@ -1406,6 +1406,169 @@ class StockFetcher:
 
         return results
 
+    def bulk_get_current_prices_optimized(
+        self, codes: List[str], batch_size: int = 50, delay: float = 0.1
+    ) -> Dict[str, Optional[Dict]]:
+        """
+        最適化された複数銘柄の現在価格一括取得（yf.download使用）
+
+        Args:
+            codes: 銘柄コードのリスト
+            batch_size: 一回の処理で取得する銘柄数
+            delay: バッチ間の遅延（秒）
+
+        Returns:
+            {銘柄コード: 価格情報辞書} の辞書
+        """
+        if not codes:
+            return {}
+
+        results = {}
+        start_time = time.time()
+
+        # バッチごとに処理
+        for i in range(0, len(codes), batch_size):
+            batch_codes = codes[i : i + batch_size]
+            batch_start = time.time()
+
+            try:
+                # yfinance.downloadを使用した真の一括取得
+                symbols = [f"{code}.T" for code in batch_codes]
+
+                # 過去2日分のデータを一括取得（最新価格と前日価格を取得するため）
+                data = yf.download(
+                    symbols,
+                    period="2d",
+                    interval="1d",
+                    group_by="ticker",
+                    auto_adjust=True,
+                    prepost=True,
+                    threads=True,  # 並列処理を有効化
+                    progress=False,
+                )
+
+                # 各銘柄の価格情報を処理
+                for code in batch_codes:
+                    try:
+                        symbol = f"{code}.T"
+
+                        # データが複数銘柄の場合
+                        if len(batch_codes) > 1:
+                            if (
+                                hasattr(data.columns, "levels")
+                                and symbol in data.columns.levels[0]
+                            ):
+                                ticker_data = data[symbol]
+                            else:
+                                results[code] = None
+                                continue
+                        else:
+                            # 単一銘柄の場合
+                            ticker_data = data
+
+                        # 最新の価格データを取得
+                        if not ticker_data.empty and "Close" in ticker_data.columns:
+                            # 最新の取引日のデータ
+                            latest_data = (
+                                ticker_data.dropna().iloc[-1]
+                                if not ticker_data.dropna().empty
+                                else None
+                            )
+
+                            if latest_data is not None:
+                                current_price = float(latest_data["Close"])
+
+                                # 前日価格を計算（変化率算出用）
+                                previous_price = current_price  # デフォルト
+                                change = 0.0
+                                change_percent = 0.0
+
+                                clean_data = ticker_data.dropna()
+                                if len(clean_data) >= 2:
+                                    previous_data = clean_data.iloc[-2]
+                                    previous_price = float(previous_data["Close"])
+                                    change = current_price - previous_price
+                                    change_percent = (
+                                        (change / previous_price * 100)
+                                        if previous_price != 0
+                                        else 0.0
+                                    )
+
+                                # 結果を構築
+                                results[code] = {
+                                    "current_price": current_price,
+                                    "change": change,
+                                    "change_percent": change_percent,
+                                    "volume": int(latest_data.get("Volume", 0)),
+                                    "high": float(
+                                        latest_data.get("High", current_price)
+                                    ),
+                                    "low": float(latest_data.get("Low", current_price)),
+                                    "open": float(
+                                        latest_data.get("Open", current_price)
+                                    ),
+                                    "previous_close": previous_price,
+                                    "timestamp": latest_data.name.isoformat()
+                                    if hasattr(latest_data.name, "isoformat")
+                                    else None,
+                                }
+                            else:
+                                results[code] = None
+                        else:
+                            results[code] = None
+
+                    except Exception as e:
+                        self.logger.warning(f"個別処理エラー {code}: {e}")
+                        results[code] = None
+
+                batch_elapsed = time.time() - batch_start
+                log_performance_metric(
+                    "bulk_current_price_optimized_batch",
+                    {
+                        "batch_size": len(batch_codes),
+                        "batch_index": i // batch_size,
+                        "elapsed_ms": batch_elapsed * 1000,
+                        "codes_processed": len(batch_codes),
+                    },
+                )
+
+                # レート制限対応の遅延
+                if delay > 0 and i + batch_size < len(codes):
+                    time.sleep(delay)
+
+            except Exception as e:
+                self.logger.error(
+                    f"最適化バッチ処理エラー (codes {i}-{i+batch_size-1}): {e}"
+                )
+                # フォールバック: 既存のバルク取得メソッドを使用
+                for code in batch_codes:
+                    try:
+                        results[code] = self.get_current_price(code)
+                    except Exception:
+                        results[code] = None
+
+        total_elapsed = time.time() - start_time
+        successful_count = sum(1 for result in results.values() if result is not None)
+
+        log_performance_metric(
+            "bulk_current_price_optimized_complete",
+            {
+                "total_codes": len(codes),
+                "successful_count": successful_count,
+                "failure_count": len(codes) - successful_count,
+                "success_rate": successful_count / len(codes) if codes else 0,
+                "total_elapsed_ms": total_elapsed * 1000,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
+                if codes
+                else 0,
+            },
+        )
+
+        print(
+            f"最適化一括価格取得完了: {successful_count}/{len(codes)}件成功 ({total_elapsed:.2f}秒)"
+        )
+        return results
+
 
 # 使用例
 if __name__ == "__main__":
