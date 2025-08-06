@@ -4,11 +4,13 @@
 """
 
 import logging
-import random
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# セキュリティ強化：安全な乱数生成
+from ..utils.security_helpers import SecurityHelpers
 
 # 拡張インタラクティブ機能のインポート
 try:
@@ -197,10 +199,10 @@ def run_interactive_backtest():
             # 短いデモバックテスト
             for day in range(30):
                 current_date = config.start_date + timedelta(days=day)
-                current_value = int(
-                    config.initial_capital * (1 + random.gauss(0.1, 0.2))
-                )
-                trades_count = random.randint(0, day + 1)
+                # セキュリティ強化：安全な乱数生成を使用
+                random_factor = SecurityHelpers.secure_random_float(-0.1, 0.3)
+                current_value = int(config.initial_capital * (1 + random_factor))
+                trades_count = SecurityHelpers.secure_random_int(0, day + 1)
 
                 live.update(
                     create_progress_layout(current_date, current_value, trades_count)

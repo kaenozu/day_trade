@@ -5,6 +5,7 @@
 インデックス最適化、クエリ最適化、バッチ処理、コネクションプール管理。
 """
 
+import string
 import time
 import warnings
 from contextlib import contextmanager
@@ -15,8 +16,9 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..utils.logging_config import get_context_logger, log_performance_metric
+from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from ..utils.security_helpers import SecurityHelpers
 from .database import DatabaseConfig, DatabaseManager
 
 warnings.filterwarnings("ignore")
@@ -373,15 +375,12 @@ class OptimizedDatabaseManager(DatabaseManager):
         self.query_metrics.append(metrics)
 
         # ログ記録
-        log_performance_metric(
-            metric_name="optimized_query_execution",
-            value=execution_time,
-            unit="seconds",
-            additional_data={
-                "rows_affected": rows_affected,
-                "cache_hit": cache_hit,
-                "query_hash": metrics.query_hash,
-            },
+        logger.info(
+            "Optimized query execution completed",
+            execution_time=execution_time,
+            rows_affected=rows_affected,
+            cache_hit=cache_hit,
+            query_hash=metrics.query_hash,
         )
 
         return result
@@ -470,8 +469,19 @@ class OptimizedDatabaseManager(DatabaseManager):
         columns = list(data.keys())
         placeholders = [f":{col}" for col in columns]
 
+        # セキュリティ強化：安全なテーブル名を使用
+        safe_table_name = SecurityHelpers.safe_table_name(table_name)
+        safe_columns = [
+            SecurityHelpers.validate_input_string(
+                col,
+                max_length=64,
+                allowed_chars=string.ascii_letters + string.digits + "_",
+            )
+            for col in columns
+        ]
+
         sql = f"""
-        INSERT INTO {table_name} ({", ".join(columns)})
+        INSERT INTO {safe_table_name} ({", ".join(safe_columns)})
         VALUES ({", ".join(placeholders)})
         """
 
@@ -556,10 +566,11 @@ class OptimizedDatabaseManager(DatabaseManager):
         plan_analysis = {"sample_queries": [], "optimization_opportunities": []}
 
         try:
-            # サンプルクエリのプラン分析
+            # サンプルクエリのプラン分析 - セキュリティ強化版
+            safe_table_name = SecurityHelpers.safe_table_name(table_name)
             sample_queries = [
-                f"SELECT * FROM {table_name} LIMIT 10",
-                f"SELECT COUNT(*) FROM {table_name}",
+                f"SELECT * FROM {safe_table_name} LIMIT 10",
+                f"SELECT COUNT(*) FROM {safe_table_name}",
             ]
 
             for query in sample_queries:

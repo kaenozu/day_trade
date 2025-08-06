@@ -11,8 +11,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List
 
+from sqlalchemy import text
+
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
+from ..utils.security_helpers import SecurityHelpers
 from .optimized_database import OptimizationConfig, OptimizedDatabaseManager
 
 warnings.filterwarnings("ignore")
@@ -555,8 +558,12 @@ class DatabaseOptimizationStrategies:
 
         for partition_table in partition_tables:
             try:
-                # 分割テーブル作成（元テーブル構造をコピー）
-                create_sql = f"CREATE TABLE IF NOT EXISTS {partition_table} AS SELECT * FROM {table_name} WHERE 1=0"
+                # 分割テーブル作成（元テーブル構造をコピー）- セキュリティ強化版
+                safe_partition_table = SecurityHelpers.safe_table_name(partition_table)
+                safe_table_name = SecurityHelpers.safe_table_name(table_name)
+                create_sql = text(
+                    f"CREATE TABLE IF NOT EXISTS {safe_partition_table} AS SELECT * FROM {safe_table_name} WHERE 1=0"
+                )
                 self.db_manager.execute_optimized_query(create_sql, use_cache=False)
                 results["partitions_created"] += 1
 
@@ -590,7 +597,12 @@ class DatabaseOptimizationStrategies:
 
         for partition_table in partition_tables:
             try:
-                create_sql = f"CREATE TABLE IF NOT EXISTS {partition_table} AS SELECT * FROM {table_name} WHERE 1=0"
+                # セキュリティ強化：安全なテーブル名を使用
+                safe_partition_table = SecurityHelpers.safe_table_name(partition_table)
+                safe_table_name = SecurityHelpers.safe_table_name(table_name)
+                create_sql = text(
+                    f"CREATE TABLE IF NOT EXISTS {safe_partition_table} AS SELECT * FROM {safe_table_name} WHERE 1=0"
+                )
                 self.db_manager.execute_optimized_query(create_sql, use_cache=False)
                 results["partitions_created"] += 1
 

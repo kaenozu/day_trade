@@ -15,6 +15,8 @@ from typing import Any, Dict, Generator
 import structlog
 from structlog.types import Processor
 
+from .security_helpers import SecurityHelpers
+
 
 class LoggingConfig:
     """ロギング設定管理クラス"""
@@ -278,9 +280,8 @@ class PerformanceCriticalLogger:
         if not self._is_enabled(logging.INFO):
             return
 
-        import random
-
-        if random.random() < sample_rate:
+        # セキュリティ強化：安全な乱数生成を使用
+        if SecurityHelpers.secure_random_float(0.0, 1.0) < sample_rate:
             self.logger.info(f"[SAMPLED] {message}", sample_rate=sample_rate, **kwargs)
 
     def performance_summary(
