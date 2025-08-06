@@ -294,11 +294,11 @@ class EnsembleTradingStrategy:
             }
         elif self.ensemble_strategy == EnsembleStrategy.BALANCED:
             return {
-                "conservative_rsi": 0.1,
-                "aggressive_momentum": 0.4,
-                "trend_following": 0.4,
-                "mean_reversion": 0.1,
-                "default_integrated": 0.0,
+                "conservative_rsi": 0.2,
+                "aggressive_momentum": 0.25,
+                "trend_following": 0.25,
+                "mean_reversion": 0.2,
+                "default_integrated": 0.1,
             }
         elif self.ensemble_strategy == EnsembleStrategy.ML_OPTIMIZED:
             # 機械学習に重きを置いた設定
@@ -314,7 +314,13 @@ class EnsembleTradingStrategy:
             return {name: 0.2 for name in self.strategies}
         else:  # ADAPTIVE
             # 初期は均等、パフォーマンスに基づいて動的調整
-            return {name: 0.2 for name in self.strategies}
+            return {
+                "conservative_rsi": 0.2,
+                "aggressive_momentum": 0.25,
+                "trend_following": 0.25,
+                "mean_reversion": 0.2,
+                "default_integrated": 0.1,
+            }
 
     def _load_performance_history(self):
         """パフォーマンス履歴をロード"""
