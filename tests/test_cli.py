@@ -35,10 +35,14 @@ class TestCli(unittest.TestCase):
             print_summary(report)
 
             # 期待される出力（一部）
-            expected_output = "  1. 7203 - HOLD (Enhanced Ensemble (Risk: 30.0)) [信頼度: 0.29]"
+            expected_output = (
+                "  1. 7203 - HOLD (Enhanced Ensemble (Risk: 30.0)) [信頼度: 0.29]"
+            )
 
             # 出力結果を文字列として結合
-            printed_text = "\n".join([call.args[0] for call in mock_print.call_args_list])
+            printed_text = "\n".join(
+                [call.args[0] for call in mock_print.call_args_list]
+            )
 
             # 期待される出力が、実際の出力に含まれているか確認
             self.assertIn(expected_output, printed_text)

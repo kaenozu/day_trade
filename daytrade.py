@@ -216,13 +216,13 @@ def print_summary(report):
     if report.generated_signals:
         print("\n[シグナル] 生成されたシグナル:")
         for i, signal in enumerate(report.generated_signals[:5], 1):  # 上位5件
-            reason = signal.get('reason', 'N/A')
-            confidence = signal.get('confidence', 0.0)
-            
+            reason = signal.get("reason", "N/A")
+            confidence = signal.get("confidence", 0.0)
+
             # enhanced_details が存在する場合、より詳細な情報を表示
-            if 'enhanced_details' in signal:
-                details = signal['enhanced_details']
-                risk_score = details.get('risk_score', 'N/A')
+            if "enhanced_details" in signal:
+                details = signal["enhanced_details"]
+                risk_score = details.get("risk_score", "N/A")
                 reason = f"Enhanced Ensemble (Risk: {risk_score:.1f})"
 
             print(
@@ -256,7 +256,6 @@ def print_summary(report):
             print(f"  ... 他{len(report.errors) - 3}件")
 
     print("=" * 50)
-
 
 
 def main():

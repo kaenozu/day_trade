@@ -31,11 +31,11 @@
    if not stock_data or "historical" not in stock_data or stock_data["historical"] is None:
        logger.warning(f"アンサンブルシグナル生成のための履歴データがありません ({symbol})")
        return []
-   
+
    historical_df = stock_data["historical"]
 
    # ...
-   
+
    ensemble_signal = self.ensemble_strategy.generate_ensemble_signal(
        historical_df, indicators_df, patterns
    )
