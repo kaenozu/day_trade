@@ -222,7 +222,7 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --tb=short"
+addopts = "-ra -q --strict-markers --strict-config --tb=short --cov=src --cov-fail-under=70 --cov-branch"
 testpaths = [
     "tests",
 ]
@@ -305,10 +305,10 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# カバレッジの最小しきい値設定
-# 現在約60%、未テストモジュール除外後のコア機能中心
-# Issue #117対応完了、段階的向上を目標
-fail_under = 55
+# カバレッジの最小しきい値設定 - Issue #129対応
+# 段階的向上: 55% → 65% → 70%を目標
+# CI/CD改善により70%に更新
+fail_under = 70
 
 [tool.coverage.html]
 # HTMLレポート生成設定

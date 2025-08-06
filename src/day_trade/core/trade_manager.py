@@ -13,8 +13,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from ..models.database import db_manager
+from ..models.enums import TradeType
 from ..models.stock import Stock
 from ..models.stock import Trade as DBTrade
+from ..utils.enhanced_error_handler import (
+    get_default_error_handler,
+)
 from ..utils.logging_config import (
     get_context_logger,
     log_business_event,
@@ -22,13 +26,7 @@ from ..utils.logging_config import (
 )
 
 logger = get_context_logger(__name__)
-
-
-class TradeType(Enum):
-    """取引タイプ"""
-
-    BUY = "buy"
-    SELL = "sell"
+error_handler = get_default_error_handler()
 
 
 class TradeStatus(Enum):
@@ -507,9 +505,10 @@ class TradeManager:
                         if isinstance(trade_type_str, TradeType):
                             trade_type = trade_type_str
                         else:
+                            trade_type_str_upper = str(trade_type_str).upper()
                             trade_type = (
                                 TradeType.BUY
-                                if str(trade_type_str).lower() == "buy"
+                                if trade_type_str_upper in ["BUY", "buy"]
                                 else TradeType.SELL
                             )
 

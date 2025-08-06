@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 from ..data.stock_fetcher import StockFetcher
 from ..models.database import db_manager
+from ..models.enums import TradeType
 from ..models.stock import Stock, Trade
 from ..utils.logging_config import (
     get_context_logger,
@@ -149,7 +150,7 @@ class TradeOperations:
                 # ビジネスイベントログ
                 log_business_event(
                     "trade_completed",
-                    trade_type="buy",
+                    trade_type="BUY",
                     stock_code=stock_code,
                     stock_name=stock.name,
                     quantity=quantity,
@@ -231,12 +232,18 @@ class TradeOperations:
                 # 実際の本格的な実装では、ポジションテーブルから保有数量を確認
                 buy_trades = (
                     session.query(Trade)
-                    .filter(Trade.stock_code == stock_code, Trade.trade_type == "buy")
+                    .filter(
+                        Trade.stock_code == stock_code,
+                        Trade.trade_type == TradeType.BUY,
+                    )
                     .all()
                 )
                 sell_trades = (
                     session.query(Trade)
-                    .filter(Trade.stock_code == stock_code, Trade.trade_type == "sell")
+                    .filter(
+                        Trade.stock_code == stock_code,
+                        Trade.trade_type == TradeType.SELL,
+                    )
                     .all()
                 )
 
@@ -291,7 +298,7 @@ class TradeOperations:
                     "trade_id": trade.id,
                     "stock_code": stock_code,
                     "stock_name": stock.name,
-                    "trade_type": "sell",
+                    "trade_type": "SELL",
                     "quantity": quantity,
                     "price": price,
                     "commission": commission,
@@ -305,7 +312,7 @@ class TradeOperations:
                 # ビジネスイベントログ
                 log_business_event(
                     "trade_completed",
-                    trade_type="sell",
+                    trade_type="SELL",
                     stock_code=stock_code,
                     stock_name=stock.name,
                     quantity=quantity,
