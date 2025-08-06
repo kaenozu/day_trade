@@ -35,6 +35,11 @@ def get_stock_master_config() -> Dict[str, Any]:
             "validate_company_name": True,
             "skip_invalid_records": True,
         },
+        "limits": {
+            "max_stock_count": None,  # None = 制限なし、整数 = 最大銘柄数
+            "default_search_limit": 50,
+            "max_search_limit": 1000,
+        },
     }
 
     # 設定ファイルからの読み込みを試行
@@ -170,6 +175,12 @@ class StockMasterConfig:
                 "log_performance_metrics": True,
                 "log_cache_operations": False,
                 "detailed_error_logging": True,
+            },
+            "limits": {
+                "max_stock_count": None,  # None = 制限なし、整数 = 最大銘柄数
+                "default_search_limit": 50,
+                "max_search_limit": 1000,
+                "test_mode_limit": 100,  # テストモード用制限
             },
         }
 

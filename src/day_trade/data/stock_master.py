@@ -257,10 +257,11 @@ class StockMasterManager:
             try:
                 # 部分一致検索（大文字小文字区別なし）
                 pattern = f"%{name_pattern}%"
+                effective_limit = self._apply_stock_limit(limit)
                 stocks = (
                     session.query(Stock)
                     .filter(Stock.name.ilike(pattern))
-                    .limit(limit)
+                    .limit(effective_limit)
                     .all()
                 )
 
@@ -297,10 +298,11 @@ class StockMasterManager:
         """
         with self.db_manager.session_scope() as session:
             try:
+                effective_limit = self._apply_stock_limit(limit)
                 stocks = (
                     session.query(Stock)
                     .filter(Stock.sector == sector)
-                    .limit(limit)
+                    .limit(effective_limit)
                     .all()
                 )
 
@@ -334,10 +336,11 @@ class StockMasterManager:
         """
         with self.db_manager.session_scope() as session:
             try:
+                effective_limit = self._apply_stock_limit(limit)
                 stocks = (
                     session.query(Stock)
                     .filter(Stock.industry == industry)
-                    .limit(limit)
+                    .limit(effective_limit)
                     .all()
                 )
 
@@ -397,7 +400,9 @@ class StockMasterManager:
                 if industry:
                     query = query.filter(Stock.industry == industry)
 
-                stocks = query.limit(limit).all()
+                # 銘柄制限設定を適用
+                effective_limit = self._apply_stock_limit(limit)
+                stocks = query.limit(effective_limit).all()
 
                 # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
                 for stock in stocks:
@@ -1221,6 +1226,76 @@ class StockMasterManager:
             batch_size=self.config.get_fetch_batch_size(),
             delay=self.config.get_fetch_delay_seconds(),
         )
+
+    def _apply_stock_limit(self, requested_limit: int) -> int:
+        """
+        設定に基づいて銘柄数制限を適用
+
+        Args:
+            requested_limit: 要求された制限数
+
+        Returns:
+            適用する実際の制限数
+        """
+        # 設定から最大銘柄数制限を取得
+        limits_config = self.config.get("limits", {})
+        max_stock_count = limits_config.get("max_stock_count")
+        max_search_limit = limits_config.get("max_search_limit", 1000)
+
+        # テストモード判定（環境変数またはconfig）
+        import os
+
+        is_test_mode = (
+            os.getenv("TEST_MODE", "false").lower() == "true"
+            or os.getenv("PYTEST_CURRENT_TEST") is not None
+        )
+
+        if is_test_mode:
+            test_limit = limits_config.get("test_mode_limit", 100)
+            effective_limit = min(requested_limit, test_limit)
+            logger.info(
+                f"テストモード: 銘柄数制限を適用 {requested_limit} -> {effective_limit}"
+            )
+            return effective_limit
+
+        # 通常モードでの制限適用
+        effective_limit = min(requested_limit, max_search_limit)
+
+        if max_stock_count is not None:
+            effective_limit = min(effective_limit, max_stock_count)
+            if effective_limit < requested_limit:
+                logger.info(
+                    f"銘柄数制限を適用: {requested_limit} -> {effective_limit} "
+                    f"(max_stock_count: {max_stock_count})"
+                )
+
+        return effective_limit
+
+    def set_stock_limit(self, limit: Optional[int]) -> None:
+        """
+        動的に銘柄数制限を設定
+
+        Args:
+            limit: 設定する制限数（Noneで制限解除）
+        """
+        if "limits" not in self.config:
+            self.config["limits"] = {}
+
+        self.config["limits"]["max_stock_count"] = limit
+
+        if limit is None:
+            logger.info("銘柄数制限を解除しました")
+        else:
+            logger.info(f"銘柄数制限を設定しました: {limit}")
+
+    def get_stock_limit(self) -> Optional[int]:
+        """
+        現在の銘柄数制限を取得
+
+        Returns:
+            現在の制限数（Noneは制限なし）
+        """
+        return self.config.get("limits", {}).get("max_stock_count")
 
 
 # グローバルインスタンス（改善版）
