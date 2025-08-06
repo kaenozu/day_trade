@@ -47,6 +47,13 @@ class ChartPatternRecognizer:
         if slow_period is None:
             slow_period = self.config.get_golden_cross_slow_period()
         try:
+            # 列の存在確認
+            if column not in df.columns:
+                logger.error(
+                    f"指定された列が存在しません: {column}、利用可能な列: {list(df.columns)}"
+                )
+                return pd.DataFrame()
+
             # 移動平均を計算
             fast_ma = df[column].rolling(window=fast_period).mean()
             slow_ma = df[column].rolling(window=slow_period).mean()
@@ -125,6 +132,13 @@ class ChartPatternRecognizer:
         if num_levels is None:
             num_levels = self.config.get_support_resistance_num_levels()
         try:
+            # 列の存在確認
+            if column not in df.columns:
+                logger.error(
+                    f"指定された列が存在しません: {column}、利用可能な列: {list(df.columns)}"
+                )
+                return {"resistance": [], "support": []}
+
             prices = df[column].values
 
             # 極大値と極小値を検出
@@ -265,6 +279,15 @@ class ChartPatternRecognizer:
         if volume_factor is None:
             volume_factor = self.config.get_breakout_volume_factor()
         try:
+            # 列の存在確認
+            required_columns = ["High", "Low", "Close", "Volume"]
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(
+                    f"必要な列が存在しません: {missing_columns}、利用可能な列: {list(df.columns)}"
+                )
+                return pd.DataFrame()
+
             # ローリング最高値・最安値
             rolling_high = df["High"].rolling(window=lookback).max()
             rolling_low = df["Low"].rolling(window=lookback).min()
@@ -373,6 +396,15 @@ class ChartPatternRecognizer:
         if min_touches is None:
             min_touches = self.config.get_trend_line_min_touches()
         try:
+            # 列の存在確認
+            required_columns = ["High", "Low"]
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(
+                    f"必要な列が存在しません: {missing_columns}、利用可能な列: {list(df.columns)}"
+                )
+                return {}
+
             prices_high = df["High"].values
             prices_low = df["Low"].values
 
@@ -799,8 +831,13 @@ class ChartPatternRecognizer:
         overall_confidence = weighted_sum / total_weight
 
         # 範囲制限と正規化
-        min_conf = normalization.get("min_confidence", 0.0)
-        max_conf = normalization.get("max_confidence", 100.0)
+        if isinstance(normalization, dict):
+            min_conf = normalization.get("min_confidence", 0.0)
+            max_conf = normalization.get("max_confidence", 100.0)
+        else:
+            # normalizationが数値の場合
+            min_conf = 0.0
+            max_conf = float(normalization) if normalization else 100.0
 
         return np.clip(overall_confidence, min_conf, max_conf)
 
