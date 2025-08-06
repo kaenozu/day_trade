@@ -23,7 +23,6 @@ jobs:
   realtime-gemini-analysis:
     runs-on: ubuntu-latest
     name: 📡 Realtime System Analysis
-    if: secrets.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Checkout
@@ -194,7 +193,6 @@ jobs:
   websocket-integration-test:
     runs-on: ubuntu-latest
     name: 🔗 WebSocket Integration Test
-    if: secrets.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Checkout

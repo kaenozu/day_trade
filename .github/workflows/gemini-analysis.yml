@@ -29,7 +29,7 @@ jobs:
   gemini-code-analysis:
     runs-on: ubuntu-latest
     name: 🧠 Gemini AI Analysis
-    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && secrets.GEMINI_API_KEY != ''
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: 📥 Checkout code
@@ -251,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     name: 📊 Aggregate Analysis Results
     needs: [gemini-code-analysis]
-    if: always() && secrets.GEMINI_API_KEY != ''
+    if: always()
 
     steps:
       - name: 📥 Download analysis artifacts

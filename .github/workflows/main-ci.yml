@@ -288,7 +288,7 @@ jobs:
   gemini-analysis:
     runs-on: ubuntu-latest
     needs: setup
-    if: github.event_name == 'pull_request' && needs.setup.outputs.python == 'true' && secrets.GEMINI_API_KEY != ''
+    if: github.event_name == 'pull_request' && needs.setup.outputs.python == 'true'
     name: 🧠 Gemini AI Analysis
     continue-on-error: true  # 分析失敗してもCI全体は継続
     steps:
