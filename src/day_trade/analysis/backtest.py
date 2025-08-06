@@ -24,6 +24,9 @@ from ..analysis.signals import (
 )
 from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
+from ..utils.enhanced_error_handler import (
+    get_default_error_handler,
+)
 from ..utils.logging_config import (
     AggregatedLogger,
     PerformanceTimer,
@@ -40,6 +43,7 @@ from .patterns import ChartPatternRecognizer
 logger = get_context_logger(__name__, component="backtest")
 performance_logger = get_performance_logger(__name__)
 aggregated_logger = AggregatedLogger(logger)
+error_handler = get_default_error_handler()
 
 
 class BacktestMode(Enum):

@@ -16,6 +16,9 @@ from ..models.database import db_manager
 from ..models.enums import TradeType
 from ..models.stock import Stock
 from ..models.stock import Trade as DBTrade
+from ..utils.enhanced_error_handler import (
+    get_default_error_handler,
+)
 from ..utils.logging_config import (
     get_context_logger,
     log_business_event,
@@ -23,6 +26,7 @@ from ..utils.logging_config import (
 )
 
 logger = get_context_logger(__name__)
+error_handler = get_default_error_handler()
 
 
 class TradeStatus(Enum):
