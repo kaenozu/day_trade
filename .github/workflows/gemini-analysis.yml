@@ -245,7 +245,7 @@ jobs:
     runs-on: ubuntu-latest
     name: 📊 Aggregate Analysis Results
     needs: [gemini-code-analysis]
-    if: always()
+    if: always() && vars.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Download analysis artifacts
