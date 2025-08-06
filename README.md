@@ -201,8 +201,8 @@ day_trade/
 │   ├── structured_logging.md        # ログ管理
 │   └── transaction_management.md    # トランザクション管理
 ├── config/                          # 設定ファイル
-│   ├── settings.json                # アプリケーション設定
-│   ├── indicators_config.json       # テクニカル指標設定
+│   ├── settings.json                # アプリケーション全般設定
+│   ├── indicators_config.json       # テクニカル指標パラメータ
 │   ├── signal_rules.json            # シグナル生成ルール
 │   └── test_settings.json           # テスト環境設定
 ├── scripts/                         # 運用・開発スクリプト
@@ -350,7 +350,7 @@ LOG_LEVEL=DEBUG python -m day_trade.cli.main
 #### データベース操作
 ```bash
 # データベース初期化
-python -m day_trade.models.database --init
+python -m day_trade.models.database --reset
 
 # マイグレーション実行
 alembic upgrade head
@@ -486,8 +486,8 @@ win_rate: 64.2%
 │ • Portfolio     │ • Ensemble      │ • Orchestrator              │
 │ • TradeManager  │ • Indicators    │ • Scheduler                 │
 │ • Watchlist     │ • Patterns      │ • Report Generator          │
-│ • Alerts        │ • Signals       │ • Auto Screening            │
-│ • Config        │ • Backtest      │ • Notification System       │
+│ • Alerts        │ • Backtest      │ • Auto Screening            │
+│ • Config        │ • Signals       │ • Notification System       │
 └─────────────────┴─────────────────┴─────────────────────────────┘
 ```
 
@@ -685,3 +685,7 @@ win_rate: 64.2%
 **⚠️ 免責事項**: このソフトウェアは教育・研究目的で提供されています。投資判断は自己責任で行ってください。開発者は投資結果に対する責任を負いません。
 
 **📈 Happy Trading!** 質問や提案があれば、お気軽にIssueを作成してください。
+## 最新の更新履歴
+
+- マージコンフリクトの解消と新機能の統合
+  - 影響ファイル: `src/day_trade/analysis/enhanced_ensemble.py`, `src/day_trade/analysis/patterns.py`, `src/day_trade/analysis/signals.py`, `src/day_trade/automation/orchestrator.py`
