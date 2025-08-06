@@ -284,6 +284,96 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+  # 🧠 Gemini AI分析（PR時のみ）
+  gemini-analysis:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event_name == 'pull_request' && needs.setup.outputs.python == 'true'
+    name: 🧠 Gemini AI Analysis
+    continue-on-error: true  # 分析失敗してもCI全体は継続
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            *.py
+            src/**/*.py
+            tests/**/*.py
+
+      - name: 🧠 Run Gemini CLI
+        uses: google-github-actions/run-gemini-cli@v0.1.3
+        if: steps.changed-files.outputs.any_changed == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          model: 'gemini-1.5-flash'  # 軽量モデルでコスト効率化
+          temperature: 0.2
+          max_tokens: 4096
+          prompt: |
+            As a senior Python developer specializing in financial applications,
+            review these code changes for:
+
+            1. **Critical Issues**: Security vulnerabilities, logic errors
+            2. **Performance**: Optimization opportunities for real-time trading
+            3. **Best Practices**: Code quality and maintainability
+            4. **Trading Logic**: Financial calculation accuracy
+
+            Focus on actionable, specific feedback. Limit to top 3 most important issues.
+
+            Changed files: ${{ steps.changed-files.outputs.all_changed_files }}
+
+          files: ${{ steps.changed-files.outputs.all_changed_files }}
+          output_file: 'gemini-analysis.md'
+
+      - name: 💬 Post analysis comment
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            let analysis = '';
+
+            try {
+              analysis = fs.readFileSync('gemini-analysis.md', 'utf8');
+            } catch (error) {
+              analysis = '🧠 **Gemini Analysis**: Analysis could not be completed.';
+            }
+
+            // Truncate if too long
+            if (analysis.length > 60000) {
+              analysis = analysis.substring(0, 60000) + '\n\n...(truncated)';
+            }
+
+            const comment = `## 🧠 Gemini AI Code Review
+
+            ${analysis}
+
+            ---
+            *AI-generated analysis • Review suggestions are advisory only*`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: 📤 Upload analysis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-analysis-${{ github.run_number }}
+          path: 'gemini-analysis.md'
+          retention-days: 14
+          if-no-files-found: ignore
+
   # 🔧 環境設定検証
   config-validation:
     runs-on: ubuntu-latest
