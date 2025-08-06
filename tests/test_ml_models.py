@@ -36,7 +36,7 @@ class TestMLModelManager(unittest.TestCase):
         self.assertEqual(len(predictions), 100)
 
         # 別の銘柄「8306」のモデルは訓練されていないことを確認
-                predictions = self.manager.predict("return_predictor", self.X)
+        predictions = self.manager.predict("return_predictor", self.X)
 
     def test_save_load_symbol_specific_model(self):
         """銘柄固有モデルの保存と読み込みをテスト"""
