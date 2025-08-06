@@ -25,12 +25,12 @@ from ..analysis.signals import (
 from ..core.trade_manager import TradeType
 from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import (
+    AggregatedLogger,
+    PerformanceTimer,
     get_context_logger,
     get_performance_logger,
     log_business_event,
     log_performance_metric,
-    PerformanceTimer,
-    AggregatedLogger,
 )
 from ..utils.progress import ProgressType, multi_step_progress, progress_context
 from .ensemble import EnsembleTradingStrategy
@@ -865,7 +865,9 @@ class BacktestEngine:
             (1 + total_return) ** (1 / duration_years) - 1 if duration_years > 0 else 0
         )
 
-        volatility = np.std(daily_returns) * np.sqrt(252) if len(daily_returns) > 1 else 0
+        volatility = (
+            np.std(daily_returns) * np.sqrt(252) if len(daily_returns) > 1 else 0
+        )
         sharpe_ratio = (
             (annualized_return - 0.001) / volatility if volatility > 0 else 0
         )  # リスクフリーレート0.1%
@@ -882,7 +884,9 @@ class BacktestEngine:
         # DataFrame作成（結果用のみ）
         df = pd.DataFrame({"Date": portfolio_dates, "Value": portfolio_values})
         df.set_index("Date", inplace=True)
-        daily_returns_series = pd.Series(daily_returns, index=portfolio_dates[1:] if len(portfolio_dates) > 1 else [])
+        daily_returns_series = pd.Series(
+            daily_returns, index=portfolio_dates[1:] if len(portfolio_dates) > 1 else []
+        )
 
         # 取引統計の計算（メモリ効率を考慮）
         if self.memory_efficient:
@@ -944,7 +948,9 @@ class BacktestEngine:
             return 0, 0, [], [], 0, 0.0, Decimal("0"), Decimal("0"), float("inf")
 
         # パフォーマンス測定と最適化されたロギング
-        with PerformanceTimer(performance_logger, "trade_statistics_calculation", threshold_ms=50.0):
+        with PerformanceTimer(
+            performance_logger, "trade_statistics_calculation", threshold_ms=50.0
+        ):
             return self._perform_trade_calculation_optimized()
 
     def _perform_trade_calculation_optimized(self):
@@ -1016,7 +1022,10 @@ class BacktestEngine:
                     buy_price = symbol_buy_prices[last_buy_pos]
                     sell_price = symbol_sell_prices[i]
                     quantity = symbol_sell_quantities[i]
-                    total_commission = symbol_buy_commissions[last_buy_pos] + symbol_sell_commissions[i]
+                    total_commission = (
+                        symbol_buy_commissions[last_buy_pos]
+                        + symbol_sell_commissions[i]
+                    )
 
                     pnl = (sell_price - buy_price) * quantity - total_commission
 
@@ -1035,7 +1044,7 @@ class BacktestEngine:
         profit_factor = sum(wins) / sum(losses) if losses else float("inf")
 
         # ロギング（条件付きで最適化）
-        if hasattr(aggregated_logger, 'increment_counter'):
+        if hasattr(aggregated_logger, "increment_counter"):
             aggregated_logger.increment_counter("processed_symbols", processed_symbols)
             aggregated_logger.flush()
 
@@ -1113,7 +1122,9 @@ class BacktestEngine:
             # searchsortedを使用してO(log n)でマッチング
             for i, sell_idx in enumerate(sell_indices):
                 # 売り注文より前の買い注文のインデックスを取得
-                valid_buy_positions = np.searchsorted(buy_indices, sell_idx, side='left')
+                valid_buy_positions = np.searchsorted(
+                    buy_indices, sell_idx, side="left"
+                )
 
                 if valid_buy_positions > 0:
                     # 最も最近の買い注文を選択（LIFO）
@@ -1121,8 +1132,7 @@ class BacktestEngine:
 
                     # 損益計算（ベクトル化）
                     pnl = (
-                        (sell_prices[i] - buy_prices[buy_position])
-                        * sell_quantities[i]
+                        (sell_prices[i] - buy_prices[buy_position]) * sell_quantities[i]
                         - sell_commissions[i]
                         - buy_commissions[buy_position]
                     )
@@ -1987,7 +1997,6 @@ class BacktestEngine:
             avg_loss,
             profit_factor,
         )
-
 
 
 # 使用例とデフォルト戦略

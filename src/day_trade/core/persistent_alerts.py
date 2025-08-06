@@ -4,23 +4,19 @@
 """
 
 import json
-import logging
-import threading
-import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
-from decimal import Decimal
+from typing import Dict, List, Optional
 
-from sqlalchemy.orm import Session
-
-from .alerts import (
-    AlertCondition, AlertTrigger, AlertManager, NotificationHandler,
-    NotificationMethod, AlertPriority
-)
-from ..models.alerts import AlertConditionModel, AlertTriggerModel, AlertConfigModel
-from ..models.database import db_manager
 from ..data.stock_fetcher import StockFetcher
+from ..models.alerts import AlertConditionModel, AlertConfigModel, AlertTriggerModel
+from ..models.database import db_manager
 from ..utils.logging_config import get_context_logger
+from .alerts import (
+    AlertCondition,
+    AlertManager,
+    AlertTrigger,
+    NotificationMethod,
+)
 
 logger = get_context_logger(__name__)
 
@@ -29,9 +25,7 @@ class PersistentAlertManager(AlertManager):
     """永続化対応アラートマネージャー"""
 
     def __init__(
-        self,
-        stock_fetcher: Optional[StockFetcher] = None,
-        db_manager_instance=None
+        self, stock_fetcher: Optional[StockFetcher] = None, db_manager_instance=None
     ):
         """
         Args:
@@ -76,7 +70,9 @@ class PersistentAlertManager(AlertManager):
                     condition = condition_model.to_alert_condition()
                     self.alert_conditions[condition.alert_id] = condition
 
-                logger.info(f"データベースから {len(conditions)} 件のアラート条件をロードしました")
+                logger.info(
+                    f"データベースから {len(conditions)} 件のアラート条件をロードしました"
+                )
 
         except Exception as e:
             logger.error(f"アラート条件のロード中にエラーが発生: {e}")
@@ -93,8 +89,9 @@ class PersistentAlertManager(AlertManager):
 
                 # デフォルト通知方法
                 default_methods = AlertConfigModel.get_config(
-                    session, "default_notification_methods",
-                    [method.value for method in self.default_notification_methods]
+                    session,
+                    "default_notification_methods",
+                    [method.value for method in self.default_notification_methods],
                 )
                 self.default_notification_methods = [
                     NotificationMethod(method) for method in default_methods
@@ -116,9 +113,11 @@ class PersistentAlertManager(AlertManager):
             # データベースに保存
             with self.db_manager.session_scope() as session:
                 # 既存の条件があるかチェック
-                existing = session.query(AlertConditionModel).filter_by(
-                    alert_id=condition.alert_id
-                ).first()
+                existing = (
+                    session.query(AlertConditionModel)
+                    .filter_by(alert_id=condition.alert_id)
+                    .first()
+                )
 
                 if existing:
                     # 更新
@@ -135,7 +134,9 @@ class PersistentAlertManager(AlertManager):
                     logger.info(f"アラート条件を更新: {condition.alert_id}")
                 else:
                     # 新規作成
-                    condition_model = AlertConditionModel.from_alert_condition(condition)
+                    condition_model = AlertConditionModel.from_alert_condition(
+                        condition
+                    )
                     session.add(condition_model)
                     logger.info(f"アラート条件を追加: {condition.alert_id}")
 
@@ -151,9 +152,11 @@ class PersistentAlertManager(AlertManager):
         """アラート条件を削除（データベースからも削除）"""
         try:
             with self.db_manager.session_scope() as session:
-                condition = session.query(AlertConditionModel).filter_by(
-                    alert_id=alert_id
-                ).first()
+                condition = (
+                    session.query(AlertConditionModel)
+                    .filter_by(alert_id=alert_id)
+                    .first()
+                )
 
                 if condition:
                     session.delete(condition)
@@ -163,7 +166,9 @@ class PersistentAlertManager(AlertManager):
                     logger.info(f"アラート条件を削除: {alert_id}")
                     return True
                 else:
-                    logger.warning(f"削除対象のアラート条件が見つかりません: {alert_id}")
+                    logger.warning(
+                        f"削除対象のアラート条件が見つかりません: {alert_id}"
+                    )
                     return False
 
         except Exception as e:
@@ -193,9 +198,11 @@ class PersistentAlertManager(AlertManager):
             cutoff_date = datetime.now() - timedelta(days=keep_days)
 
             with self.db_manager.session_scope() as session:
-                deleted_count = session.query(AlertTriggerModel).filter(
-                    AlertTriggerModel.trigger_time < cutoff_date
-                ).delete()
+                deleted_count = (
+                    session.query(AlertTriggerModel)
+                    .filter(AlertTriggerModel.trigger_time < cutoff_date)
+                    .delete()
+                )
 
                 if deleted_count > 0:
                     logger.info(f"古いアラート履歴 {deleted_count} 件を削除しました")
@@ -235,16 +242,18 @@ class PersistentAlertManager(AlertManager):
             cutoff_time = datetime.now() - timedelta(days=days)
 
             with self.db_manager.session_scope() as session:
-                triggers = session.query(AlertTriggerModel).filter(
-                    AlertTriggerModel.trigger_time >= cutoff_time
-                ).all()
+                triggers = (
+                    session.query(AlertTriggerModel)
+                    .filter(AlertTriggerModel.trigger_time >= cutoff_time)
+                    .all()
+                )
 
                 stats = {
                     "total_triggers": len(triggers),
                     "by_symbol": {},
                     "by_type": {},
                     "by_priority": {},
-                    "by_day": {}
+                    "by_day": {},
                 }
 
                 for trigger in triggers:
@@ -289,7 +298,7 @@ class PersistentAlertManager(AlertManager):
                     session,
                     "default_notification_methods",
                     [method.value for method in methods],
-                    "デフォルトの通知方法"
+                    "デフォルトの通知方法",
                 )
 
             logger.info(f"通知方法を設定: {[m.value for m in methods]}")
@@ -305,10 +314,7 @@ class PersistentAlertManager(AlertManager):
             # データベースに設定を保存
             with self.db_manager.session_scope() as session:
                 AlertConfigModel.set_config(
-                    session,
-                    "monitoring_interval",
-                    seconds,
-                    "アラート監視間隔（秒）"
+                    session, "monitoring_interval", seconds, "アラート監視間隔（秒）"
                 )
 
             logger.info(f"監視間隔を設定: {seconds}秒")
@@ -323,7 +329,7 @@ class PersistentAlertManager(AlertManager):
                 "alert_conditions": [],
                 "alert_history": [],
                 "config": {},
-                "export_time": datetime.now().isoformat()
+                "export_time": datetime.now().isoformat(),
             }
 
             with self.db_manager.session_scope() as session:
@@ -335,9 +341,11 @@ class PersistentAlertManager(AlertManager):
 
                 # アラート履歴（最近30日分）
                 cutoff_time = datetime.now() - timedelta(days=30)
-                triggers = session.query(AlertTriggerModel).filter(
-                    AlertTriggerModel.trigger_time >= cutoff_time
-                ).all()
+                triggers = (
+                    session.query(AlertTriggerModel)
+                    .filter(AlertTriggerModel.trigger_time >= cutoff_time)
+                    .all()
+                )
                 for trigger in triggers:
                     trigger_data = trigger.to_dict()
                     export_data["alert_history"].append(trigger_data)
@@ -359,11 +367,9 @@ class PersistentAlertManager(AlertManager):
 
 # ファクトリー関数
 def create_persistent_alert_manager(
-    stock_fetcher: Optional[StockFetcher] = None,
-    db_manager_instance=None
+    stock_fetcher: Optional[StockFetcher] = None, db_manager_instance=None
 ) -> PersistentAlertManager:
     """永続化対応アラートマネージャーを作成"""
     return PersistentAlertManager(
-        stock_fetcher=stock_fetcher,
-        db_manager_instance=db_manager_instance
+        stock_fetcher=stock_fetcher, db_manager_instance=db_manager_instance
     )

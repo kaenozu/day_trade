@@ -209,7 +209,7 @@ class ResilientAPIClient:
             backoff_factor=self.retry_config.base_delay,  # 修正箇所
             status_forcelist=self.retry_config.status_forcelist,
             allowed_methods=self.retry_config.allowed_methods,
-            raise_on_status=True  # HTTPエラーもRequests.exceptions.HTTPErrorとして再発生させる
+            raise_on_status=True,  # HTTPエラーもRequests.exceptions.HTTPErrorとして再発生させる
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -322,9 +322,13 @@ class ResilientAPIClient:
             # response.raw.retries は requests 内部の Retry オブジェクト
             # _retry_counts はリトライ回数を保持する辞書
             retry_count_for_method = 0
-            if hasattr(response.raw, 'retries') and hasattr(response.raw.retries, '_retry_counts'):
+            if hasattr(response.raw, "retries") and hasattr(
+                response.raw.retries, "_retry_counts"
+            ):
                 # _retry_counts は {method.lower(): count} の形式
-                retry_count_for_method = response.raw.retries._retry_counts.get(method.lower(), 0)
+                retry_count_for_method = response.raw.retries._retry_counts.get(
+                    method.lower(), 0
+                )
 
             log_api_call(
                 endpoint.name,
@@ -332,7 +336,7 @@ class ResilientAPIClient:
                 url,
                 response.status_code,
                 response_time=response_time,
-                attempt=retry_count_for_method + 1  # 試行回数 = 実際のリクエスト数
+                attempt=retry_count_for_method + 1,  # 試行回数 = 実際のリクエスト数
             )
 
             # 成功判定
@@ -354,25 +358,31 @@ class ResilientAPIClient:
 
         except requests.exceptions.HTTPError as http_exc:
             circuit_breaker.record_failure()
-            self.logger.error(f"HTTPエラー発生: {http_exc.response.status_code}",
-                            endpoint=endpoint.name,
-                            error=str(http_exc))
+            self.logger.error(
+                f"HTTPエラー発生: {http_exc.response.status_code}",
+                endpoint=endpoint.name,
+                error=str(http_exc),
+            )
             self._raise_http_error(http_exc.response)
 
         except requests.exceptions.RequestException as req_exc:
             circuit_breaker.record_failure()
-            self.logger.error(f"リクエストエラー発生: {req_exc}",
-                            endpoint=endpoint.name,
-                            error=str(req_exc))
+            self.logger.error(
+                f"リクエストエラー発生: {req_exc}",
+                endpoint=endpoint.name,
+                error=str(req_exc),
+            )
             self._raise_network_error(req_exc)
 
         except Exception as e:
             # 予期せぬエラー
             circuit_breaker.record_failure()
-            self.logger.error(f"予期せぬエラー発生: {e}",
-                            endpoint=endpoint.name,
-                            error=str(e))
-            raise APIError(f"予期せぬAPIエラー: {e}") from e  # DayTradeErrorにラップして再発生
+            self.logger.error(
+                f"予期せぬエラー発生: {e}", endpoint=endpoint.name, error=str(e)
+            )
+            raise APIError(
+                f"予期せぬAPIエラー: {e}"
+            ) from e  # DayTradeErrorにラップして再発生
 
     def _raise_http_error(self, response: requests.Response) -> None:
         """HTTPエラーを適切な例外に変換"""

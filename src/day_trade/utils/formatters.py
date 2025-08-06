@@ -3,7 +3,7 @@
 高度なCLI表示機能とASCIIチャート描画
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import pandas as pd
 from rich import box
@@ -264,7 +264,10 @@ def create_watchlist_table(watchlist_data: dict) -> Table:
 
 
 def create_error_panel(
-    message: str, title: str = "エラー", solutions: list = None, show_emoji: bool = True
+    message: str,
+    title: str = "エラー",
+    solutions: Optional[List[str]] = None,
+    show_emoji: bool = True,
 ) -> Panel:
     """
     ユーザーフレンドリーなエラーパネルを作成
@@ -561,7 +564,7 @@ def create_comparison_table(
         table.add_column(key, justify="right")
 
     # 共通キーを取得
-    all_keys = set()
+    all_keys: Set[str] = set()
     for item_data in data.values():
         all_keys.update(item_data.keys())
 
@@ -834,3 +837,192 @@ def create_status_indicator(status: str, label: str = "Status") -> Text:
     text.append(status.title(), style=color)
 
     return text
+
+
+# ========== CLI統一フォーマット関数 ==========
+
+
+def create_cli_header(title: str, subtitle: str = None) -> Panel:
+    """
+    CLI用統一ヘッダーを作成
+
+    Args:
+        title: メインタイトル
+        subtitle: サブタイトル（オプション）
+
+    Returns:
+        ヘッダーパネル
+    """
+    content = Text()
+    content.append(title, style="bold cyan")
+
+    if subtitle:
+        content.append("\n")
+        content.append(subtitle, style="dim")
+
+    return Panel(Align.center(content), border_style="cyan", padding=(1, 2))
+
+
+def create_cli_section(title: str, content: str, style: str = "white") -> Panel:
+    """
+    CLI用セクションパネルを作成
+
+    Args:
+        title: セクションタイトル
+        content: セクション内容
+        style: テキストスタイル
+
+    Returns:
+        セクションパネル
+    """
+    return Panel(
+        Text(content, style=style),
+        title=f"[bold]{title}[/bold]",
+        border_style="blue",
+        padding=(0, 1),
+    )
+
+
+def create_cli_command_help(commands: Dict[str, str]) -> Table:
+    """
+    CLI用コマンドヘルプテーブルを作成
+
+    Args:
+        commands: コマンド辞書（コマンド: 説明）
+
+    Returns:
+        コマンドヘルプテーブル
+    """
+    table = Table(title="利用可能なコマンド", box=box.ROUNDED)
+    table.add_column("コマンド", style="cyan", no_wrap=True)
+    table.add_column("説明", style="white")
+
+    for command, description in commands.items():
+        table.add_row(command, description)
+
+    return table
+
+
+def create_cli_status_bar(status_items: Dict[str, str]) -> Text:
+    """
+    CLI用ステータスバーを作成
+
+    Args:
+        status_items: ステータス項目（ラベル: 値）
+
+    Returns:
+        ステータスバーテキスト
+    """
+    text = Text()
+
+    for i, (label, value) in enumerate(status_items.items()):
+        if i > 0:
+            text.append(" | ", style="dim")
+
+        text.append(f"{label}: ", style="yellow")
+        text.append(value, style="white")
+
+    return text
+
+
+def create_cli_list_item(
+    index: int, title: str, description: str = None, status: str = None
+) -> Text:
+    """
+    CLI用リストアイテムを作成
+
+    Args:
+        index: インデックス番号
+        title: アイテムタイトル
+        description: アイテム説明（オプション）
+        status: ステータス（オプション）
+
+    Returns:
+        リストアイテムテキスト
+    """
+    text = Text()
+
+    # インデックス
+    text.append(f"{index:2d}. ", style="dim")
+
+    # タイトル
+    text.append(title, style="bold white")
+
+    # ステータス
+    if status:
+        text.append(f" [{status}]", style="green" if status == "OK" else "red")
+
+    # 説明
+    if description:
+        text.append(f" - {description}", style="dim")
+
+    return text
+
+
+def create_cli_confirmation_panel(message: str, default: bool = False) -> Panel:
+    """
+    CLI用確認パネルを作成
+
+    Args:
+        message: 確認メッセージ
+        default: デフォルト値
+
+    Returns:
+        確認パネル
+    """
+    default_text = "Y/n" if default else "y/N"
+    content = f"{message}\n\n[bold yellow]続行しますか？ [{default_text}][/bold yellow]"
+
+    return Panel(
+        Text(content, style="white"),
+        title="[bold yellow]確認[/bold yellow]",
+        border_style="yellow",
+        padding=(1, 2),
+    )
+
+
+def create_cli_loading_indicator(message: str = "処理中...") -> Text:
+    """
+    CLI用ローディング指標を作成
+
+    Args:
+        message: ローディングメッセージ
+
+    Returns:
+        ローディング指標テキスト
+    """
+    text = Text()
+    text.append("⏳ ", style="yellow")
+    text.append(message, style="white")
+
+    return text
+
+
+def format_cli_table_data(
+    headers: List[str], rows: List[List[str]], title: str = None
+) -> Table:
+    """
+    CLI用テーブルデータをフォーマット
+
+    Args:
+        headers: ヘッダー行
+        rows: データ行のリスト
+        title: テーブルタイトル（オプション）
+
+    Returns:
+        フォーマット済みテーブル
+    """
+    table = Table(title=title, box=box.ROUNDED)
+
+    # ヘッダーを追加
+    for i, header in enumerate(headers):
+        style = "cyan" if i == 0 else "white"
+        table.add_column(header, style=style)
+
+    # データ行を追加
+    for row in rows:
+        # 行の長さをヘッダーに合わせる
+        padded_row = row[: len(headers)] + [""] * (len(headers) - len(row))
+        table.add_row(*padded_row)
+
+    return table

@@ -6,10 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.day_trade.core.watchlist import (
-    AlertCondition,
-    WatchlistManager,
-)
+from src.day_trade.core.alerts import AlertCondition
+from src.day_trade.core.watchlist import WatchlistManager
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager
 from src.day_trade.models.enums import AlertType
 from src.day_trade.models.stock import Alert, Stock, WatchlistItem
@@ -174,14 +172,24 @@ class TestAlertFunctionality:
             stock = Stock(code="7203", name="トヨタ自動車")
             session.add(stock)
 
-        condition = AlertCondition(
-            stock_code="7203",
+        # AlertConditionの新しい形式を使用
+        from decimal import Decimal
+
+        from src.day_trade.core.alerts import AlertPriority
+
+        _condition = AlertCondition(
+            alert_id="test_alert_7203",
+            symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            threshold=3000.0,
-            memo="高値警戒",
+            condition_value=Decimal("3000.0"),
+            priority=AlertPriority.MEDIUM,
+            description="高値警戒",
         )
 
-        result = watchlist_manager.add_alert(condition)
+        # WatchlistManagerの新しいadd_alertメソッドを使用
+        result = watchlist_manager.add_alert(
+            "7203", AlertType.PRICE_ABOVE, 3000.0, "高値警戒"
+        )
         assert result is True
 
     def test_remove_alert_success(self, watchlist_manager, test_db):

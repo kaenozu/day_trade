@@ -304,12 +304,14 @@ class PerformanceCriticalLogger:
         if not self._is_enabled(level):
             return
 
-        self._log_buffer.append({
-            'level': level,
-            'message': message,
-            'timestamp': time.time(),
-            'kwargs': kwargs
-        })
+        self._log_buffer.append(
+            {
+                "level": level,
+                "message": message,
+                "timestamp": time.time(),
+                "kwargs": kwargs,
+            }
+        )
 
         # バッファが満杯になったら一括出力
         if len(self._log_buffer) >= self._buffer_size:
@@ -323,7 +325,7 @@ class PerformanceCriticalLogger:
         # レベル別に集約
         level_counts = {}
         for log_entry in self._log_buffer:
-            level = log_entry['level']
+            level = log_entry["level"]
             level_counts[level] = level_counts.get(level, 0) + 1
 
         # 集約結果をログ出力
@@ -331,7 +333,8 @@ class PerformanceCriticalLogger:
             "Buffered logs flushed",
             buffer_size=len(self._log_buffer),
             level_counts=level_counts,
-            time_span=self._log_buffer[-1]['timestamp'] - self._log_buffer[0]['timestamp']
+            time_span=self._log_buffer[-1]["timestamp"]
+            - self._log_buffer[0]["timestamp"],
         )
 
         # バッファをクリア
@@ -339,7 +342,7 @@ class PerformanceCriticalLogger:
 
     def __del__(self):
         """デストラクタでバッファの残りを出力"""
-        if hasattr(self, '_log_buffer') and self._log_buffer:
+        if hasattr(self, "_log_buffer") and self._log_buffer:
             self.flush_buffer()
 
 
@@ -435,85 +438,17 @@ class PerformanceOptimizedLogging:
             logging.getLogger(logger_name).setLevel(logging.ERROR)
 
 
-# パフォーマンス測定とタイマー
-class PerformanceTimer:
-    """高性能なタイマーコンテキストマネージャー"""
-
-    def __init__(self, logger: Any, operation_name: str, threshold_ms: float = 1000.0):
-        """
-        Args:
-            logger: ロガーインスタンス
-            operation_name: 操作名
-            threshold_ms: ログ出力の閾値（ミリ秒）
-        """
-        self.logger = logger
-        self.operation_name = operation_name
-        self.threshold_ms = threshold_ms
-        self.start_time = None
-
-    def __enter__(self):
-        self.start_time = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.start_time is not None:
-            elapsed_ms = (time.perf_counter() - self.start_time) * 1000
-
-            # 閾値を超えた場合のみログ出力
-            if elapsed_ms >= self.threshold_ms:
-                self.logger.info(
-                    f"Performance: {self.operation_name}",
-                    elapsed_ms=round(elapsed_ms, 2),
-                    threshold_ms=self.threshold_ms
-                )
-
-
-class AggregatedLogger:
-    """集約ログ機能（大量の類似ログを効率的に処理）"""
-
-    def __init__(self, base_logger: Any, flush_interval: int = 60):
-        """
-        Args:
-            base_logger: ベースロガー
-            flush_interval: フラッシュ間隔（秒）
-        """
-        self.base_logger = base_logger
-        self.flush_interval = flush_interval
-        self.counters = {}
-        self.last_flush = time.time()
-
-    def increment_counter(self, counter_name: str, value: int = 1):
-        """カウンターをインクリメント"""
-        self.counters[counter_name] = self.counters.get(counter_name, 0) + value
-
-        # 定期的にフラッシュ
-        current_time = time.time()
-        if current_time - self.last_flush >= self.flush_interval:
-            self.flush()
-
-    def flush(self):
-        """集約されたカウンターをログ出力"""
-        if not self.counters:
-            return
-
-        self.base_logger.info(
-            "Aggregated counters",
-            counters=dict(self.counters),
-            time_window=self.flush_interval
-        )
-
-        self.counters.clear()
-        self.last_flush = time.time()
-
-
 # 条件付きロギング用デコレータ
 def conditional_log(condition_func):
     """条件が満たされた場合のみログを出力するデコレータ"""
+
     def decorator(log_func):
         def wrapper(*args, **kwargs):
             if condition_func():
                 return log_func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -547,7 +482,7 @@ class PerformanceTimer:
                     "Slow operation detected",
                     operation=self.operation,
                     elapsed_ms=elapsed_ms,
-                    threshold_ms=self.threshold_ms
+                    threshold_ms=self.threshold_ms,
                 )
 
 
@@ -592,17 +527,17 @@ class AggregatedLogger:
             for key, values in self.metrics.items():
                 if values:
                     metric_stats[key] = {
-                        'count': len(values),
-                        'avg': sum(values) / len(values),
-                        'min': min(values),
-                        'max': max(values)
+                        "count": len(values),
+                        "avg": sum(values) / len(values),
+                        "min": min(values),
+                        "max": max(values),
                     }
 
             self.logger.info(
                 "Aggregated metrics",
                 counters=self.counters,
                 metrics=metric_stats,
-                flush_interval=self.flush_interval
+                flush_interval=self.flush_interval,
             )
 
             # データをクリア
@@ -626,5 +561,5 @@ def log_security_event(event_type: str, severity: str = "info", **kwargs) -> Non
         event_type=event_type,
         severity=severity,
         timestamp=time.time(),
-        **{k: v for k, v in kwargs.items() if k in ['user_id', 'ip_address', 'action']}
+        **{k: v for k, v in kwargs.items() if k in ["user_id", "ip_address", "action"]},
     )

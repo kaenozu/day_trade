@@ -3,14 +3,15 @@
 Issue #134の改善点をテスト
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from typing import Dict, List
+from unittest.mock import Mock
 
-from src.day_trade.data.stock_master import StockMasterManager, create_stock_master_manager
+import pytest
+
 from src.day_trade.data.stock_fetcher import StockFetcher
+from src.day_trade.data.stock_master import (
+    create_stock_master_manager,
+)
 from src.day_trade.models.database import DatabaseConfig, DatabaseManager
-from src.day_trade.models.stock import Stock
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ def mock_stock_fetcher():
         "name": "テスト会社",
         "sector": "テストセクター",
         "industry": "テスト業界",
-        "market_cap": 50000000000  # 500億ドル
+        "market_cap": 50000000000,  # 500億ドル
     }
     return fetcher
 
@@ -58,7 +59,9 @@ class TestStockMasterManagerEnhanced:
         result = stock_master_enhanced.fetch_and_update_stock_info("1234")
 
         # StockFetcherのget_company_infoが呼ばれたことを確認
-        stock_master_enhanced.stock_fetcher.get_company_info.assert_called_once_with("1234")
+        stock_master_enhanced.stock_fetcher.get_company_info.assert_called_once_with(
+            "1234"
+        )
 
         # 結果の検証（存在確認のみ）
         assert result is not None
@@ -75,11 +78,15 @@ class TestStockMasterManagerEnhanced:
 
         # 時価総額に基づく推定
         company_info_large = {"market_cap": 200_000_000_000}  # 2000億ドル
-        result = stock_master_enhanced._estimate_market_segment("7203", company_info_large)
+        result = stock_master_enhanced._estimate_market_segment(
+            "7203", company_info_large
+        )
         assert result == "東証プライム"
 
         company_info_small = {"market_cap": 5_000_000_000}  # 50億ドル
-        result = stock_master_enhanced._estimate_market_segment("2345", company_info_small)
+        result = stock_master_enhanced._estimate_market_segment(
+            "2345", company_info_small
+        )
         assert result == "東証グロース"
 
         # コードレンジによる推定
@@ -128,7 +135,7 @@ class TestStockMasterManagerEnhanced:
             "name": "一括テスト会社",
             "sector": "一括テストセクター",
             "industry": "一括テスト業界",
-            "market_cap": 30000000000
+            "market_cap": 30000000000,
         }
 
         # 一括取得実行
@@ -173,7 +180,9 @@ class TestStockMasterManagerEnhanced:
         assert result is None
 
         # StockFetcherが例外を発生させる場合
-        stock_master_enhanced.stock_fetcher.get_company_info.side_effect = Exception("API Error")
+        stock_master_enhanced.stock_fetcher.get_company_info.side_effect = Exception(
+            "API Error"
+        )
 
         result = stock_master_enhanced.fetch_and_update_stock_info("ERROR")
         assert result is None

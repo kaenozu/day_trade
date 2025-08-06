@@ -2,23 +2,30 @@
 Issue #132: コードレビューに基づくアプリケーション改善点のテスト
 """
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import tempfile
 from decimal import Decimal
-from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from src.day_trade.core.alerts import AlertManager, AlertCondition, AlertTrigger, AlertPriority
-from src.day_trade.core.persistent_alerts import PersistentAlertManager
-from src.day_trade.core.config import ConfigManager
-from src.day_trade.core.security_config import SecureConfigManager, EnvironmentConfigLoader
+import pytest
+
 from src.day_trade.core.alert_strategies import (
-    AlertStrategyFactory, PriceAboveStrategy, VolumeSpikeStrategy
+    AlertStrategyFactory,
+)
+from src.day_trade.core.alerts import (
+    AlertCondition,
+    AlertManager,
+    AlertPriority,
+    AlertTrigger,
+)
+from src.day_trade.core.config import ConfigManager
+from src.day_trade.core.persistent_alerts import PersistentAlertManager
+from src.day_trade.core.security_config import (
+    EnvironmentConfigLoader,
+    SecureConfigManager,
 )
 from src.day_trade.models.enums import AlertType
-from src.day_trade.models.alerts import AlertConditionModel, AlertTriggerModel, AlertConfigModel
 
 
 class TestAlertManagerBulkOptimization:
@@ -32,10 +39,20 @@ class TestAlertManagerBulkOptimization:
     def test_fetch_bulk_market_data_with_bulk_support(self):
         """バルクデータ取得（StockFetcherがbulk対応）のテスト"""
         # StockFetcherがbulk対応の場合
-        self.mock_stock_fetcher.get_bulk_current_prices = Mock(return_value={
-            "7203": {"current_price": 2800, "volume": 1000000, "change_percent": 2.5},
-            "9984": {"current_price": 9500, "volume": 500000, "change_percent": -1.2},
-        })
+        self.mock_stock_fetcher.get_bulk_current_prices = Mock(
+            return_value={
+                "7203": {
+                    "current_price": 2800,
+                    "volume": 1000000,
+                    "change_percent": 2.5,
+                },
+                "9984": {
+                    "current_price": 9500,
+                    "volume": 500000,
+                    "change_percent": -1.2,
+                },
+            }
+        )
 
         symbols = ["7203", "9984"]
         result = self.alert_manager._fetch_bulk_market_data(symbols)
@@ -50,6 +67,7 @@ class TestAlertManagerBulkOptimization:
 
     def test_fetch_bulk_market_data_fallback_to_individual(self):
         """バルクデータ取得のフォールバック（個別取得）のテスト"""
+
         # StockFetcherがbulk非対応の場合
         def mock_get_current_price(symbol):
             if symbol == "7203":
@@ -59,10 +77,12 @@ class TestAlertManagerBulkOptimization:
             return None
 
         # bulk対応メソッドが存在しないことを明示的に設定
-        if hasattr(self.mock_stock_fetcher, 'get_bulk_current_prices'):
-            delattr(self.mock_stock_fetcher, 'get_bulk_current_prices')
+        if hasattr(self.mock_stock_fetcher, "get_bulk_current_prices"):
+            delattr(self.mock_stock_fetcher, "get_bulk_current_prices")
 
-        self.mock_stock_fetcher.get_current_price = Mock(side_effect=mock_get_current_price)
+        self.mock_stock_fetcher.get_current_price = Mock(
+            side_effect=mock_get_current_price
+        )
 
         symbols = ["7203", "9984"]
         result = self.alert_manager._fetch_bulk_market_data(symbols)
@@ -81,23 +101,30 @@ class TestAlertManagerBulkOptimization:
             alert_id="test_price",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
 
         market_data = {
-            "current_data": {"current_price": 2800, "volume": 1000000, "change_percent": 2.5},
-            "historical_data": None
+            "current_data": {
+                "current_price": 2800,
+                "volume": 1000000,
+                "change_percent": 2.5,
+            },
+            "historical_data": None,
         }
 
-        with patch.object(self.alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(self.alert_manager, '_handle_alert_trigger') as mock_handle:
-                self.alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
+        with patch.object(
+            self.alert_manager, "_should_check_condition", return_value=True
+        ), patch.object(self.alert_manager, "_handle_alert_trigger") as mock_handle:
+            self.alert_manager._check_symbol_alerts_with_data(
+                "7203", [condition], market_data
+            )
 
-                # 履歴データが取得されていないことを確認
-                assert market_data["historical_data"] is None
+            # 履歴データが取得されていないことを確認
+            assert market_data["historical_data"] is None
 
-                # アラートが発火していることを確認
-                mock_handle.assert_called_once()
+            # アラートが発火していることを確認
+            mock_handle.assert_called_once()
 
     def test_check_symbol_alerts_with_data_historical_loading_when_needed(self):
         """必要時の履歴データ読み込みのテスト"""
@@ -106,12 +133,16 @@ class TestAlertManagerBulkOptimization:
             alert_id="test_volume",
             symbol="7203",
             alert_type=AlertType.VOLUME_SPIKE,
-            condition_value=2.0
+            condition_value=2.0,
         )
 
         market_data = {
-            "current_data": {"current_price": 2800, "volume": 2000000, "change_percent": 2.5},
-            "historical_data": None
+            "current_data": {
+                "current_price": 2800,
+                "volume": 2000000,
+                "change_percent": 2.5,
+            },
+            "historical_data": None,
         }
 
         # モック履歴データ
@@ -119,12 +150,19 @@ class TestAlertManagerBulkOptimization:
         mock_historical.empty = False
         mock_historical.__getitem__ = Mock(return_value=Mock())
 
-        with patch.object(self.alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(self.alert_manager.stock_fetcher, 'get_historical_data', return_value=mock_historical):
-                self.alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
+        with patch.object(
+            self.alert_manager, "_should_check_condition", return_value=True
+        ), patch.object(
+            self.alert_manager.stock_fetcher,
+            "get_historical_data",
+            return_value=mock_historical,
+        ):
+            self.alert_manager._check_symbol_alerts_with_data(
+                "7203", [condition], market_data
+            )
 
-                # 履歴データがキャッシュされていることを確認
-                assert market_data["historical_data"] is not None
+            # 履歴データがキャッシュされていることを確認
+            assert market_data["historical_data"] is not None
 
 
 class TestAlertStrategies:
@@ -145,7 +183,7 @@ class TestAlertStrategies:
             current_price=Decimal("2800"),
             volume=1000000,
             change_percent=2.5,
-            historical_data=None
+            historical_data=None,
         )
 
         assert is_triggered is True
@@ -177,7 +215,7 @@ class TestAlertStrategies:
             current_price=Decimal("2800"),
             volume=2000000,
             change_percent=2.5,
-            historical_data=mock_historical
+            historical_data=mock_historical,
         )
 
         assert is_triggered is True
@@ -205,7 +243,7 @@ class TestAlertStrategies:
             volume=1000000,
             change_percent=2.5,
             historical_data=mock_historical,
-            custom_parameters={"rsi_period": 21}  # カスタム期間
+            custom_parameters={"rsi_period": 21},  # カスタム期間
         )
 
         assert is_triggered is True
@@ -227,7 +265,7 @@ class TestPersistentAlertManager:
         self.mock_stock_fetcher = Mock()
         self.persistent_manager = PersistentAlertManager(
             stock_fetcher=self.mock_stock_fetcher,
-            db_manager_instance=self.mock_db_manager
+            db_manager_instance=self.mock_db_manager,
         )
 
     def test_add_alert_persistence(self):
@@ -236,16 +274,22 @@ class TestPersistentAlertManager:
             alert_id="test_alert",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("3000")
+            condition_value=Decimal("3000"),
         )
 
         # モックセッション
         mock_session = Mock()
         mock_session.query.return_value.filter_by.return_value.first.return_value = None
-        self.mock_db_manager.session_scope.return_value.__enter__ = Mock(return_value=mock_session)
-        self.mock_db_manager.session_scope.return_value.__exit__ = Mock(return_value=None)
+        self.mock_db_manager.session_scope.return_value.__enter__ = Mock(
+            return_value=mock_session
+        )
+        self.mock_db_manager.session_scope.return_value.__exit__ = Mock(
+            return_value=None
+        )
 
-        with patch.object(self.persistent_manager, '_validate_condition', return_value=True):
+        with patch.object(
+            self.persistent_manager, "_validate_condition", return_value=True
+        ):
             result = self.persistent_manager.add_alert(condition)
 
             assert result is True
@@ -260,10 +304,16 @@ class TestPersistentAlertManager:
 
         mock_session = Mock()
         mock_query = mock_session.query.return_value
-        mock_query.filter.return_value.filter.return_value.order_by.return_value.all.return_value = [mock_trigger_model]
+        mock_query.filter.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            mock_trigger_model
+        ]
 
-        self.mock_db_manager.session_scope.return_value.__enter__ = Mock(return_value=mock_session)
-        self.mock_db_manager.session_scope.return_value.__exit__ = Mock(return_value=None)
+        self.mock_db_manager.session_scope.return_value.__enter__ = Mock(
+            return_value=mock_session
+        )
+        self.mock_db_manager.session_scope.return_value.__exit__ = Mock(
+            return_value=None
+        )
 
         history = self.persistent_manager.get_alert_history(symbol="7203", hours=24)
 
@@ -280,9 +330,10 @@ class TestConfigManagerErrorHandling:
             config_path = Path(temp_dir) / "config.json"
             config_manager = ConfigManager(config_path)
 
-            with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-                with pytest.raises(PermissionError):
-                    config_manager.save_config()
+            with patch(
+                "builtins.open", side_effect=PermissionError("Permission denied")
+            ), pytest.raises(PermissionError):
+                config_manager.save_config()
 
     def test_import_config_file_not_found(self):
         """設定インポート時のファイル未存在エラー"""
@@ -303,10 +354,10 @@ class TestConfigManagerErrorHandling:
 
             # 不正なJSONファイルを作成
             invalid_json_path = Path(temp_dir) / "invalid.json"
-            with open(invalid_json_path, 'w') as f:
+            with open(invalid_json_path, "w") as f:
                 f.write("invalid json content")
 
-            with pytest.raises(Exception):  # JSONDecodeError
+            with pytest.raises((ValueError, OSError)):
                 config_manager.import_config(invalid_json_path)
 
 
@@ -327,15 +378,21 @@ class TestSecureConfigManager:
         assert secure_config._is_sensitive_key("smtp_password") is True
         assert secure_config._is_sensitive_key("normal_setting") is False
 
-    @patch.dict(os.environ, {'DAYTRADE_API_TIMEOUT': '60', 'DAYTRADE_LOG_LEVEL': 'DEBUG'})
+    @patch.dict(
+        os.environ, {"DAYTRADE_API_TIMEOUT": "60", "DAYTRADE_LOG_LEVEL": "DEBUG"}
+    )
     def test_environment_variable_priority(self):
         """環境変数の優先度テスト"""
         secure_config = SecureConfigManager(self.config_path)
         config_data = {"api_timeout": 30, "log_level": "INFO"}
 
         # 環境変数が優先されることを確認
-        api_timeout = secure_config.get_from_env_or_config("api_timeout", config_data, 15)
-        log_level = secure_config.get_from_env_or_config("log_level", config_data, "WARNING")
+        api_timeout = secure_config.get_from_env_or_config(
+            "api_timeout", config_data, 15
+        )
+        log_level = secure_config.get_from_env_or_config(
+            "log_level", config_data, "WARNING"
+        )
 
         assert api_timeout == 60  # 環境変数の値
         assert log_level == "DEBUG"  # 環境変数の値
@@ -348,7 +405,7 @@ class TestSecureConfigManager:
         insecure_config = {
             "api_key": "plain_text_api_key",  # プレーンテキストの機密情報
             "password": "123",  # 短いパスワード
-            "normal_setting": "value"
+            "normal_setting": "value",
         }
 
         warnings = secure_config.validate_config_security(insecure_config)
@@ -361,31 +418,37 @@ class TestSecureConfigManager:
 class TestEnvironmentConfigLoader:
     """環境変数設定読み込みのテスト"""
 
-    @patch.dict(os.environ, {
-        'DAYTRADE_DATABASE_URL': 'postgresql://test',
-        'DAYTRADE_DATABASE_POOL_SIZE': '15',
-        'DAYTRADE_API_TIMEOUT': '45'
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "DAYTRADE_DATABASE_URL": "postgresql://test",
+            "DAYTRADE_DATABASE_POOL_SIZE": "15",
+            "DAYTRADE_API_TIMEOUT": "45",
+        },
+    )
     def test_load_database_config(self):
         """データベース設定の読み込みテスト"""
         config = EnvironmentConfigLoader.load_database_config()
 
-        assert config['database_url'] == 'postgresql://test'
-        assert config['database_pool_size'] == 15
-        assert config['database_max_overflow'] == 20  # デフォルト値
+        assert config["database_url"] == "postgresql://test"
+        assert config["database_pool_size"] == 15
+        assert config["database_max_overflow"] == 20  # デフォルト値
 
-    @patch.dict(os.environ, {
-        'DAYTRADE_SMTP_SERVER': 'smtp.test.com',
-        'DAYTRADE_SMTP_PORT': '465',
-        'DAYTRADE_SMTP_TO_EMAILS': 'test1@example.com,test2@example.com'
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "DAYTRADE_SMTP_SERVER": "smtp.test.com",
+            "DAYTRADE_SMTP_PORT": "465",
+            "DAYTRADE_SMTP_TO_EMAILS": "test1@example.com,test2@example.com",
+        },
+    )
     def test_load_smtp_config(self):
         """SMTP設定の読み込みテスト"""
         config = EnvironmentConfigLoader.load_smtp_config()
 
-        assert config['smtp_server'] == 'smtp.test.com'
-        assert config['smtp_port'] == 465
-        assert config['smtp_to_emails'] == ['test1@example.com', 'test2@example.com']
+        assert config["smtp_server"] == "smtp.test.com"
+        assert config["smtp_port"] == 465
+        assert config["smtp_to_emails"] == ["test1@example.com", "test2@example.com"]
 
 
 class TestIntegrationScenarios:
@@ -402,30 +465,37 @@ class TestIntegrationScenarios:
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=Decimal("2500"),
-            priority=AlertPriority.HIGH
+            priority=AlertPriority.HIGH,
         )
 
         alert_manager.add_alert(condition)
 
         # 市場データを設定
         market_data = {
-            "current_data": {"current_price": 2800, "volume": 1000000, "change_percent": 2.5},
-            "historical_data": None
+            "current_data": {
+                "current_price": 2800,
+                "volume": 1000000,
+                "change_percent": 2.5,
+            },
+            "historical_data": None,
         }
 
-        with patch.object(alert_manager, '_should_check_condition', return_value=True):
-            with patch.object(alert_manager, '_handle_alert_trigger') as mock_handle:
-                alert_manager._check_symbol_alerts_with_data("7203", [condition], market_data)
+        with patch.object(
+            alert_manager, "_should_check_condition", return_value=True
+        ), patch.object(alert_manager, "_handle_alert_trigger") as mock_handle:
+            alert_manager._check_symbol_alerts_with_data(
+                "7203", [condition], market_data
+            )
 
-                # アラートが発火していることを確認
-                mock_handle.assert_called_once()
+            # アラートが発火していることを確認
+            mock_handle.assert_called_once()
 
-                # 発火されたトリガーの内容を確認
-                triggered_alert = mock_handle.call_args[0][0]
-                assert triggered_alert.alert_id == "integration_test"
-                assert triggered_alert.symbol == "7203"
-                assert triggered_alert.alert_type == AlertType.PRICE_ABOVE
-                assert "上回りました" in triggered_alert.message
+            # 発火されたトリガーの内容を確認
+            triggered_alert = mock_handle.call_args[0][0]
+            assert triggered_alert.alert_id == "integration_test"
+            assert triggered_alert.symbol == "7203"
+            assert triggered_alert.alert_type == AlertType.PRICE_ABOVE
+            assert "上回りました" in triggered_alert.message
 
 
 if __name__ == "__main__":
