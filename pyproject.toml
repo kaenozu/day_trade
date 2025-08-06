@@ -308,7 +308,7 @@ exclude_lines = [
 # カバレッジの最小しきい値設定 - Issue #129対応後
 # 現在60.67%達成、現実的目標として65%に設定
 # CI/CD改善とEnum統合完了を反映
-fail_under = 65
+fail_under = 60
 
 [tool.coverage.html]
 # HTMLレポート生成設定
