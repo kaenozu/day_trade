@@ -173,10 +173,10 @@ class EnsembleTradingStrategy:
             RSIOversoldRule,
         )
 
-        conservative_strategy.add_buy_rule(RSIOversoldRule(threshold=20, weight=2.0))
-        conservative_strategy.add_buy_rule(MACDCrossoverRule(weight=1.5))
-        conservative_strategy.add_sell_rule(RSIOverboughtRule(threshold=80, weight=2.0))
-        conservative_strategy.add_sell_rule(MACDDeathCrossRule(weight=1.5))
+        conservative_strategy.add_buy_rule(RSIOversoldRule(threshold=30, weight=1.5))
+        conservative_strategy.add_buy_rule(MACDCrossoverRule(weight=2.0))
+        conservative_strategy.add_sell_rule(RSIOverboughtRule(threshold=70, weight=1.5))
+        conservative_strategy.add_sell_rule(MACDDeathCrossRule(weight=2.0))
         strategies["conservative_rsi"] = conservative_strategy
 
         # 2. 積極的モメンタム戦略
@@ -184,14 +184,14 @@ class EnsembleTradingStrategy:
         momentum_strategy.clear_rules()
         from .signals import BollingerBandRule, PatternBreakoutRule, VolumeSpikeBuyRule
 
-        momentum_strategy.add_buy_rule(BollingerBandRule(position="lower", weight=1.5))
+        momentum_strategy.add_buy_rule(BollingerBandRule(position="lower", weight=2.0))
         momentum_strategy.add_buy_rule(
-            PatternBreakoutRule(direction="upward", weight=2.5)
+            PatternBreakoutRule(direction="upward", weight=2.0)
         )
-        momentum_strategy.add_buy_rule(VolumeSpikeBuyRule(weight=2.0))
-        momentum_strategy.add_sell_rule(BollingerBandRule(position="upper", weight=1.5))
+        momentum_strategy.add_buy_rule(VolumeSpikeBuyRule(weight=1.5))
+        momentum_strategy.add_sell_rule(BollingerBandRule(position="upper", weight=2.0))
         momentum_strategy.add_sell_rule(
-            PatternBreakoutRule(direction="downward", weight=2.5)
+            PatternBreakoutRule(direction="downward", weight=2.0)
         )
         strategies["aggressive_momentum"] = momentum_strategy
 
@@ -200,24 +200,24 @@ class EnsembleTradingStrategy:
         trend_strategy.clear_rules()
         from .signals import DeadCrossRule, GoldenCrossRule
 
-        trend_strategy.add_buy_rule(GoldenCrossRule(weight=3.0))
-        trend_strategy.add_buy_rule(MACDCrossoverRule(weight=2.0))
-        trend_strategy.add_sell_rule(DeadCrossRule(weight=3.0))
-        trend_strategy.add_sell_rule(MACDDeathCrossRule(weight=2.0))
+        trend_strategy.add_buy_rule(GoldenCrossRule(weight=2.5))
+        trend_strategy.add_buy_rule(MACDCrossoverRule(weight=1.5))
+        trend_strategy.add_sell_rule(DeadCrossRule(weight=2.5))
+        trend_strategy.add_sell_rule(MACDDeathCrossRule(weight=1.5))
         strategies["trend_following"] = trend_strategy
 
         # 4. 平均回帰戦略
         mean_reversion_strategy = TradingSignalGenerator()
         mean_reversion_strategy.clear_rules()
-        mean_reversion_strategy.add_buy_rule(RSIOversoldRule(threshold=30, weight=2.0))
+        mean_reversion_strategy.add_buy_rule(RSIOversoldRule(threshold=35, weight=2.5))
         mean_reversion_strategy.add_buy_rule(
-            BollingerBandRule(position="lower", weight=2.5)
+            BollingerBandRule(position="lower", weight=2.0)
         )
         mean_reversion_strategy.add_sell_rule(
-            RSIOverboughtRule(threshold=70, weight=2.0)
+            RSIOverboughtRule(threshold=65, weight=2.5)
         )
         mean_reversion_strategy.add_sell_rule(
-            BollingerBandRule(position="upper", weight=2.5)
+            BollingerBandRule(position="upper", weight=2.0)
         )
         strategies["mean_reversion"] = mean_reversion_strategy
 
@@ -314,7 +314,13 @@ class EnsembleTradingStrategy:
             return {name: 0.2 for name in self.strategies}
         else:  # ADAPTIVE
             # 初期は均等、パフォーマンスに基づいて動的調整
-            return {name: 0.2 for name in self.strategies}
+            return {
+                "conservative_rsi": 0.2,
+                "aggressive_momentum": 0.25,
+                "trend_following": 0.25,
+                "mean_reversion": 0.2,
+                "default_integrated": 0.1,
+            }
 
     def _load_performance_history(self):
         """パフォーマンス履歴をロード"""
@@ -399,6 +405,9 @@ class EnsembleTradingStrategy:
             EnsembleSignal or None
         """
         try:
+            if isinstance(indicators, dict):
+                indicators = pd.DataFrame(indicators)
+
             # 各戦略からシグナルを取得
             strategy_signals = []
             for strategy_name, strategy in self.strategies.items():

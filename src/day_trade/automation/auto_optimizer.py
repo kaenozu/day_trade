@@ -7,7 +7,7 @@
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -15,7 +15,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..analysis.screener import StockScreener
-from ..automation.orchestrator import DayTradeOrchestrator
+
+if TYPE_CHECKING:
+    from ..automation.orchestrator import DayTradeOrchestrator
 from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
 from ..utils.progress import multi_step_progress

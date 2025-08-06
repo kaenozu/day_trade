@@ -62,11 +62,11 @@ class TestEnsembleConfig:
                     "voting_type": "soft",
                     "performance_file_path": "test_performance.json",
                     "strategy_weights": {
-                        "conservative_rsi": 0.3,
-                        "aggressive_momentum": 0.2,
-                        "trend_following": 0.2,
-                        "mean_reversion": 0.2,
-                        "default_integrated": 0.1,
+                        "conservative_rsi": 0.1,
+                        "aggressive_momentum": 0.4,
+                        "trend_following": 0.4,
+                        "mean_reversion": 0.1,
+                        "default_integrated": 0.0,
                     },
                     "confidence_thresholds": {
                         "conservative": 65.0,
@@ -152,8 +152,8 @@ class TestEnsembleConfig:
         assert ensemble_settings.adaptive_weights_enabled is False
 
         # 戦略重みのテスト
-        assert ensemble_settings.strategy_weights["conservative_rsi"] == 0.3
-        assert ensemble_settings.strategy_weights["aggressive_momentum"] == 0.2
+        assert ensemble_settings.strategy_weights["conservative_rsi"] == 0.1
+        assert ensemble_settings.strategy_weights["aggressive_momentum"] == 0.4
 
         # 信頼度閾値のテスト
         assert ensemble_settings.confidence_thresholds["conservative"] == 65.0
