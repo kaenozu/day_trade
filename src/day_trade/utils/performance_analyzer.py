@@ -18,7 +18,15 @@ from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-import psutil
+
+# Conditional import for psutil
+try:
+    import psutil
+
+    HAS_PSUTIL = True
+except ImportError:
+    psutil = None
+    HAS_PSUTIL = False
 
 from ..utils.logging_config import get_context_logger, log_performance_metric
 
@@ -73,9 +81,15 @@ class PerformanceProfiler:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             start_time = time.time()
-            process = psutil.Process()
-            initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-            process.cpu_percent()
+
+            # Initialize monitoring variables with fallback
+            if HAS_PSUTIL:
+                process = psutil.Process()
+                initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+                process.cpu_percent()
+            else:
+                process = None
+                initial_memory = 0.0
 
             # プロファイラ開始
             profiler = cProfile.Profile()
@@ -90,9 +104,14 @@ class PerformanceProfiler:
                 # メトリクス計算
                 end_time = time.time()
                 execution_time = end_time - start_time
-                final_memory = process.memory_info().rss / 1024 / 1024
-                memory_usage = final_memory - initial_memory
-                cpu_usage = process.cpu_percent()
+
+                if HAS_PSUTIL and process:
+                    final_memory = process.memory_info().rss / 1024 / 1024
+                    memory_usage = final_memory - initial_memory
+                    cpu_usage = process.cpu_percent()
+                else:
+                    memory_usage = 0.0
+                    cpu_usage = 0.0
 
                 # プロファイリング結果解析
                 s = io.StringIO()
@@ -246,6 +265,22 @@ class SystemPerformanceMonitor:
 
     def _collect_system_metrics(self) -> Dict[str, Any]:
         """システムメトリクス収集"""
+        if not HAS_PSUTIL:
+            return {
+                "timestamp": datetime.now(),
+                "cpu_percent": 0.0,
+                "process_cpu_percent": 0.0,
+                "memory_total": 0,
+                "memory_available": 0,
+                "memory_percent": 0.0,
+                "process_memory_rss": 0,
+                "process_memory_vms": 0,
+                "disk_read_bytes": 0,
+                "disk_write_bytes": 0,
+                "network_bytes_sent": 0,
+                "network_bytes_recv": 0,
+            }
+
         process = psutil.Process()
 
         # CPU使用率

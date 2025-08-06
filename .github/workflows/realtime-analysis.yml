@@ -23,7 +23,6 @@ jobs:
   realtime-gemini-analysis:
     runs-on: ubuntu-latest
     name: 📡 Realtime System Analysis
-    if: vars.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Checkout
@@ -44,6 +43,8 @@ jobs:
 
       - name: 🧠 Analyze Realtime Trading Components
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-pro'
           temperature: 0.1
@@ -103,6 +104,8 @@ jobs:
 
       - name: 🔍 Performance Bottleneck Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-flash'
           temperature: 0.0
@@ -190,7 +193,6 @@ jobs:
   websocket-integration-test:
     runs-on: ubuntu-latest
     name: 🔗 WebSocket Integration Test
-    if: vars.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Checkout
@@ -214,6 +216,8 @@ jobs:
 
       - name: 🧠 Analyze Test Results
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-flash'
           temperature: 0.1
