@@ -179,7 +179,7 @@ jobs:
   security-analysis:
     runs-on: ubuntu-latest
     name: 🔐 Security-Focused Analysis
-    if: contains(github.event.pull_request.labels.*.name, 'security') || github.event.inputs.analysis_type == 'security'
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'security')) || github.event.inputs.analysis_type == 'security'
 
     steps:
       - name: 📥 Checkout code
@@ -214,7 +214,7 @@ jobs:
   performance-analysis:
     runs-on: ubuntu-latest
     name: ⚡ Performance-Focused Analysis
-    if: contains(github.event.pull_request.labels.*.name, 'performance') || github.event.inputs.analysis_type == 'performance'
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'performance')) || github.event.inputs.analysis_type == 'performance'
 
     steps:
       - name: 📥 Checkout code
