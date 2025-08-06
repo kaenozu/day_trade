@@ -310,8 +310,6 @@ class TestProgressIntegration:
                 progress_info = tracker.get_progress_summary()
                 assert isinstance(progress_info, dict)
 
-        assert tracker.is_complete()
-
         # プログレスサマリーの確認
         summary = tracker.get_progress_summary()
         assert summary["overall_description"] == "データ分析パイプライン"

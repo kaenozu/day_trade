@@ -300,7 +300,7 @@ def progress_context(
 
         class DummyUpdater:
             def __init__(self):
-                self.completed = False # 新しい属性を追加
+                self.completed = False  # 新しい属性を追加
 
             def update(self, advance: int = 1, description: Optional[str] = None):
                 pass
@@ -309,12 +309,12 @@ def progress_context(
                 pass
 
             def complete(self):
-                self.completed = True # completed を True に設定
+                self.completed = True  # completed を True に設定
 
             def set_description(self, description: str):
                 pass
 
-            def is_complete(self) -> bool: # is_complete メソッドを追加
+            def is_complete(self) -> bool:  # is_complete メソッドを追加
                 return self.completed
 
         yield DummyUpdater()
@@ -477,10 +477,16 @@ class MultiStepProgressTracker:
 
                     def add_task(self, description, total=None):
                         task_id = len(self.tasks) + 1
-                        self.tasks[task_id] = {"description": description, "total": total, "completed": 0}
+                        self.tasks[task_id] = {
+                            "description": description,
+                            "total": total,
+                            "completed": 0,
+                        }
                         return task_id
 
-                    def update(self, task_id, advance=0, description=None, completed=None):
+                    def update(
+                        self, task_id, advance=0, description=None, completed=None
+                    ):
                         if task_id in self.tasks:
                             self.tasks[task_id]["completed"] += advance
                             if description:
@@ -505,7 +511,9 @@ class MultiStepProgressTracker:
                 else:
                     initial_description = self.overall_description
 
-                self.task_id = self.progress.add_task(initial_description, total=len(self.steps))
+                self.task_id = self.progress.add_task(
+                    initial_description, total=len(self.steps)
+                )
                 return self
             else:
                 # 通常のProgress作成システムを使用
@@ -636,7 +644,9 @@ class MultiStepProgressTracker:
             if os.environ.get("PYTEST_CURRENT_TEST"):
                 # テスト環境では progress オブジェクトの具体的な型チェックは行わず、
                 # 単にオブジェクトが存在することを確認する
-                return self.progress is not None # task_id は add_task で設定されるので、progress のみチェック
+                return (
+                    self.progress is not None
+                )  # task_id は add_task で設定されるので、progress のみチェック
             return (
                 self.progress is not None
                 and self.task_id is not None
