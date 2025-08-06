@@ -2,6 +2,7 @@
 取引記録管理機能のテスト
 """
 
+import contextlib
 import json
 import os
 import tempfile
@@ -587,10 +588,8 @@ class TestTradeManagerDatabaseIntegration:
             mock_db.transaction_scope.side_effect = Exception("DB接続エラー")
 
             # エラーが発生してもプログラムが停止しないことを確認
-            try:
+            with contextlib.suppress(Exception):
                 self.manager._load_trades_from_db()
-            except Exception:
-                pass  # エラーが発生することを期待
 
             # 既存のメモリ内データは保持される
             assert isinstance(self.manager.trades, list)

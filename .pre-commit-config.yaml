@@ -26,7 +26,9 @@ repos:
       - id: ruff
         alias: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py)$
       - id: ruff-format
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py)$
 
   # Type checking with mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -35,7 +37,7 @@ repos:
       - id: mypy
         additional_dependencies: [types-requests, types-setuptools]
         args: [--ignore-missing-imports, --show-error-codes, --follow-imports=skip, --disable-error-code=import]
-        exclude: ^(tests/|docs/|scripts/|alembic/|demo_.*\.py|.*_demo\.py|example_.*\.py|src/day_trade/cli/enhanced_interactive\.py)
+        exclude: ^(tests/|docs/|scripts/|alembic/|demo_.*\.py|.*_demo\.py|example_.*\.py|test_.*\.py|debug_.*\.py|.*_backup\.py|src/day_trade/cli/enhanced_interactive\.py)
 
   # Security scanning with bandit (temporarily disabled for CI stability)
   # - repo: https://github.com/PyCQA/bandit

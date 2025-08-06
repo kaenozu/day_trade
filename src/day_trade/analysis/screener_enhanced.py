@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from functools import lru_cache
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
