@@ -20,7 +20,12 @@ from decimal import Decimal  # noqa: E402
 
 from src.day_trade.models.database import Base, db_manager  # noqa: E402
 from src.day_trade.models.enums import AlertType  # noqa: E402
-from src.day_trade.models.stock import Alert, PriceData, Stock, WatchlistItem  # noqa: E402
+from src.day_trade.models.stock import (  # noqa: E402
+    Alert,
+    PriceData,
+    Stock,
+    WatchlistItem,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
