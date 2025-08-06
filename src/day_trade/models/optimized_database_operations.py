@@ -615,11 +615,10 @@ if __name__ == "__main__":
     from datetime import datetime
 
     from sqlalchemy import Column, DateTime, Integer, String, create_engine
-    from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.orm import sessionmaker
 
-    # テスト用のモデル定義
-    Base = declarative_base()
+    # Issue #120: Baseクラスをbase.pyからインポート
+    from .base import Base
 
     class TestStock(Base):
         __tablename__ = "test_stocks"
