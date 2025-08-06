@@ -44,7 +44,7 @@ class PerformanceIntegrationTest:
                 f"   結果: 成功 {result_existing.get('updated', 0)}/{result_existing.get('total', 0)}件"
             )
             print(f"   実行時間: {elapsed_existing:.2f}秒")
-            print(f"   平均: {elapsed_existing/len(self.test_codes):.2f}秒/件\n")
+            print(f"   平均: {elapsed_existing / len(self.test_codes):.2f}秒/件\n")
 
         except Exception as e:
             elapsed_existing = time.time() - start_time
@@ -73,7 +73,7 @@ class PerformanceIntegrationTest:
                 f"   結果: 成功 {result_optimized.get('updated', 0)}/{result_optimized.get('total', 0)}件"
             )
             print(f"   実行時間: {elapsed_optimized:.2f}秒")
-            print(f"   平均: {elapsed_optimized/len(self.test_codes):.2f}秒/件\n")
+            print(f"   平均: {elapsed_optimized / len(self.test_codes):.2f}秒/件\n")
 
         except Exception as e:
             elapsed_optimized = time.time() - start_time
@@ -88,10 +88,10 @@ class PerformanceIntegrationTest:
         # 3. 比較結果表示
         print("=== 性能比較結果 ===")
         print(
-            f"既存実装:     {elapsed_existing:.2f}秒 ({elapsed_existing/len(self.test_codes):.2f}秒/件)"
+            f"既存実装:     {elapsed_existing:.2f}秒 ({elapsed_existing / len(self.test_codes):.2f}秒/件)"
         )
         print(
-            f"最適化実装:   {elapsed_optimized:.2f}秒 ({elapsed_optimized/len(self.test_codes):.2f}秒/件)"
+            f"最適化実装:   {elapsed_optimized:.2f}秒 ({elapsed_optimized / len(self.test_codes):.2f}秒/件)"
         )
 
         if elapsed_existing > 0 and elapsed_optimized > 0:
@@ -185,8 +185,8 @@ class PerformanceIntegrationTest:
                 f"   結果: 成功 {result.get('updated', 0)}/{result.get('total', 0)}件"
             )
             print(f"   実行時間: {elapsed:.2f}秒")
-            print(f"   平均: {elapsed/len(large_test_codes):.2f}秒/件")
-            print(f"   スループット: {len(large_test_codes)/elapsed:.1f}件/秒")
+            print(f"   平均: {elapsed / len(large_test_codes):.2f}秒/件")
+            print(f"   スループット: {len(large_test_codes) / elapsed:.1f}件/秒")
 
             return {
                 "codes_count": len(large_test_codes),

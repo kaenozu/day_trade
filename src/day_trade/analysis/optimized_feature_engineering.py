@@ -548,9 +548,9 @@ class OptimizedAdvancedFeatureEngineer:
                 relative_perf = stock_returns - market_returns.reindex(
                     stock_returns.index, fill_value=0
                 )
-                feature_data[
-                    f"relative_performance_{market_name}"
-                ] = relative_perf.rolling(10).mean()
+                feature_data[f"relative_performance_{market_name}"] = (
+                    relative_perf.rolling(10).mean()
+                )
 
         return feature_data
 

@@ -6,6 +6,7 @@
 - データベース固有オプションの削除（クロスプラットフォーム対応）
 - 責務分離の改善（モデル定義に特化）
 """
+
 from datetime import datetime as dt
 from datetime import timedelta
 from decimal import Decimal

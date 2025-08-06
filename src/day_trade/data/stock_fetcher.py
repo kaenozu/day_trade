@@ -183,9 +183,9 @@ class DataCache:
 
         # ヒット率が低い場合の提案
         if stats["hit_rate"] < 0.5:
-            recommendations[
-                "ttl_increase"
-            ] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+            recommendations["ttl_increase"] = (
+                "TTLを延長してキャッシュヒット率を向上させることを検討"
+            )
 
         # 退避回数が多い場合の提案
         if stats["eviction_count"] > stats["hit_count"] * 0.1:
@@ -193,15 +193,15 @@ class DataCache:
 
         # キャッシュ使用率が低い場合の提案
         if stats["cache_utilization"] < 0.3:
-            recommendations[
-                "size_decrease"
-            ] = "キャッシュサイズを減少させてメモリ効率を向上"
+            recommendations["size_decrease"] = (
+                "キャッシュサイズを減少させてメモリ効率を向上"
+            )
 
         # stale hitが多い場合の提案
         if stats["stale_hit_rate"] > 0.2:
-            recommendations[
-                "stale_period_adjust"
-            ] = "stale-while-revalidate期間の調整を検討"
+            recommendations["stale_period_adjust"] = (
+                "stale-while-revalidate期間の調整を検討"
+            )
 
         return {"current_stats": stats, "recommendations": recommendations}
 
@@ -1247,7 +1247,7 @@ class StockFetcher:
                     time.sleep(delay)
 
             except Exception as e:
-                print(f"エラー: バッチ処理エラー (codes {i}-{i+batch_size-1}): {e}")
+                print(f"エラー: バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}")
                 # バッチ失敗時は個別に処理
                 for code in batch_codes:
                     try:
@@ -1374,7 +1374,9 @@ class StockFetcher:
                     time.sleep(delay)
 
             except Exception as e:
-                print(f"エラー: 価格バッチ処理エラー (codes {i}-{i+batch_size-1}): {e}")
+                print(
+                    f"エラー: 価格バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}"
+                )
                 # バッチ失敗時は個別に処理
                 for code in batch_codes:
                     try:
@@ -1538,7 +1540,7 @@ class StockFetcher:
 
             except Exception as e:
                 self.logger.error(
-                    f"最適化バッチ処理エラー (codes {i}-{i+batch_size-1}): {e}"
+                    f"最適化バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}"
                 )
                 # フォールバック: 既存のバルク取得メソッドを使用
                 for code in batch_codes:

@@ -26,6 +26,7 @@ except ImportError:
     PydanticBaseModel = None
 
 from ..utils.logging_config import get_context_logger
+
 # Issue #120: Baseクラスをbase.pyからインポート
 from .base import Base
 

@@ -50,7 +50,7 @@ logging.basicConfig(
         logging.StreamHandler(),
         logging.FileHandler(
             log_dir
-            / f'bulk_registration_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+            / f"bulk_registration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         ),
     ],
 )
@@ -600,7 +600,7 @@ def main():
 
             # サンプル表示
             for i, stock in enumerate(stock_data_list[:5]):
-                logger.info(f"サンプル {i+1}: {stock}")
+                logger.info(f"サンプル {i + 1}: {stock}")
 
             if len(stock_data_list) > 5:
                 logger.info(f"... 他 {len(stock_data_list) - 5} 件")

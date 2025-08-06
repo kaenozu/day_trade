@@ -1030,7 +1030,7 @@ class StockMasterManager:
             for i in range(0, len(codes), batch_size):
                 batch_codes = codes[i : i + batch_size]
                 logger.info(
-                    f"フォールバック バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+                    f"フォールバック バッチ処理: {i // batch_size + 1}/{(len(codes) + batch_size - 1) // batch_size}"
                 )
 
                 for code in batch_codes:
@@ -1096,7 +1096,7 @@ class StockMasterManager:
         for i in range(0, len(codes), batch_size):
             batch_codes = codes[i : i + batch_size]
             logger.info(
-                f"セクター情報バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+                f"セクター情報バッチ処理: {i // batch_size + 1}/{(len(codes) + batch_size - 1) // batch_size}"
             )
 
             with self.db_manager.session_scope() as session:
@@ -1479,7 +1479,7 @@ def get_sector_distribution() -> Dict[str, int]:
             logger.info(
                 f"最適化一括価格更新完了: "
                 f"成功{result['updated']}/{result['total']}件 "
-                f"({total_elapsed:.2f}秒, {result['updated']/total_elapsed:.1f}件/秒)"
+                f"({total_elapsed:.2f}秒, {result['updated'] / total_elapsed:.1f}件/秒)"
             )
 
             return result

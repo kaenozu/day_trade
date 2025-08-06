@@ -90,9 +90,9 @@ class MLIntegrationTester:
             # 6. オーケストレーター統合テスト
             logger.info("テスト6: オーケストレーター統合", section="integration_test")
             orchestrator_result = self._test_orchestrator_integration(symbols)
-            test_report["test_results"][
-                "orchestrator_integration"
-            ] = orchestrator_result
+            test_report["test_results"]["orchestrator_integration"] = (
+                orchestrator_result
+            )
 
             # 結果判定
             successful_tests = sum(

@@ -99,9 +99,9 @@ def assert_performance_within_limits(execution_time, max_time=30.0):
 
     実行時間が許容範囲内であることを確認
     """
-    assert (
-        execution_time <= max_time
-    ), f"実行時間 {execution_time}秒 が制限 {max_time}秒 を超過"
+    assert execution_time <= max_time, (
+        f"実行時間 {execution_time}秒 が制限 {max_time}秒 を超過"
+    )
 
 
 # pytest実行時のオプション設定

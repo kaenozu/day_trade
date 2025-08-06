@@ -307,9 +307,9 @@ class TestStockScreenerCompatibility:
         ]
 
         for method_name in methods_to_check:
-            assert hasattr(
-                self.screener, method_name
-            ), f"メソッド {method_name} が見つかりません"
+            assert hasattr(self.screener, method_name), (
+                f"メソッド {method_name} が見つかりません"
+            )
 
     def test_enhanced_features(self):
         """拡張機能の存在確認"""
