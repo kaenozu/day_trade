@@ -799,8 +799,12 @@ class ChartPatternRecognizer:
         overall_confidence = weighted_sum / total_weight
 
         # 範囲制限と正規化
-        min_conf = normalization.get("min_confidence", 0.0)
-        max_conf = normalization.get("max_confidence", 100.0)
+        if isinstance(normalization, dict):
+            min_conf = normalization.get("min_confidence", 0.0)
+            max_conf = normalization.get("max_confidence", 100.0)
+        else:
+            min_conf = 0.0
+            max_conf = float(normalization) if normalization else 100.0
 
         return np.clip(overall_confidence, min_conf, max_conf)
 
