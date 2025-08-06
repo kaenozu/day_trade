@@ -240,9 +240,9 @@ class TestPredictionOrchestrator:
         """リスク要因特定テスト"""
         # 低流動性データを作成
         low_liquidity_data = sample_data.copy()
-        low_liquidity_data.iloc[-1, low_liquidity_data.columns.get_loc("Volume")] = (
-            100000  # 平均より大幅に少ない
-        )
+        low_liquidity_data.iloc[
+            -1, low_liquidity_data.columns.get_loc("Volume")
+        ] = 100000  # 平均より大幅に少ない
 
         mock_signal = TradingSignal(
             signal_type=SignalType.HOLD,

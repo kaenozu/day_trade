@@ -273,9 +273,9 @@ class TestEndToEndIntegration:
             print(f"  {status_icon} {component}")
 
         # 70%以上のコンポーネントが正常であれば成功とする
-        assert success_count >= total_components * 0.7, (
-            f"統合テスト失敗: {success_count}/{total_components}コンポーネントのみ正常"
-        )
+        assert (
+            success_count >= total_components * 0.7
+        ), f"統合テスト失敗: {success_count}/{total_components}コンポーネントのみ正常"
 
         print("🎉 フルシステム統合テスト成功")
 
@@ -317,9 +317,9 @@ class TestComponentInteroperability:
 
         print(f"📋 設定整合性: {consistent_configs}/{total_configs} 設定システム正常")
 
-        assert consistent_configs >= total_configs * 0.8, (
-            "設定システム間の整合性に問題があります"
-        )
+        assert (
+            consistent_configs >= total_configs * 0.8
+        ), "設定システム間の整合性に問題があります"
 
     def test_data_flow_consistency(self):
         """データフロー整合性テスト"""

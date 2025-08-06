@@ -570,9 +570,9 @@ class TestEnsembleConfig:
         expected_strategies = list(settings.strategy_weights.keys())
 
         # 戦略名の一致確認
-        assert set(actual_strategies) == set(expected_strategies), (
-            f"Strategy names mismatch: expected {expected_strategies}, got {actual_strategies}"
-        )
+        assert (
+            set(actual_strategies) == set(expected_strategies)
+        ), f"Strategy names mismatch: expected {expected_strategies}, got {actual_strategies}"
 
         # 各戦略に重みが設定されていることを確認
         for strategy_name in actual_strategies:

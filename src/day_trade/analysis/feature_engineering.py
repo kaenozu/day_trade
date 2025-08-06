@@ -340,9 +340,9 @@ class AdvancedFeatureEngineer:
                 # 市場との相関
                 for window in [20, 50]:
                     correlation = returns.rolling(window).corr(market_returns)
-                    features[f"market_correlation_{market_name}_{window}d"] = (
-                        correlation
-                    )
+                    features[
+                        f"market_correlation_{market_name}_{window}d"
+                    ] = correlation
 
                 # 市場に対するベータ
                 for window in [20, 50]:
@@ -355,9 +355,9 @@ class AdvancedFeatureEngineer:
                 # 相対パフォーマンス
                 relative_performance = returns - market_returns
                 features[f"relative_performance_{market_name}"] = relative_performance
-                features[f"relative_performance_{market_name}_ma_20d"] = (
-                    relative_performance.rolling(20).mean()
-                )
+                features[
+                    f"relative_performance_{market_name}_ma_20d"
+                ] = relative_performance.rolling(20).mean()
 
         return features
 

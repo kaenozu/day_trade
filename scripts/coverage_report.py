@@ -88,9 +88,9 @@ def parse_coverage_xml(xml_file: Path) -> Dict[str, Any]:
                     }
                     class_data["lines"].append(line_data)
 
-                coverage_data["packages"][package_name]["classes"][class_name] = (
-                    class_data
-                )
+                coverage_data["packages"][package_name]["classes"][
+                    class_name
+                ] = class_data
                 coverage_data["classes"][class_name] = class_data
 
         return coverage_data

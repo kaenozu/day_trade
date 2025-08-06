@@ -110,17 +110,17 @@ class TestPosition:
 
         # 市場価値の確認
         expected_market_value = position.quantity * position.current_price
-        assert position.market_value == expected_market_value, (
-            f"Market value calculation: {position.market_value} == {expected_market_value}"
-        )
+        assert (
+            position.market_value == expected_market_value
+        ), f"Market value calculation: {position.market_value} == {expected_market_value}"
 
         # 未実現損益の確認
         expected_unrealized_pnl = (
             position.current_price - position.average_price
         ) * position.quantity
-        assert position.unrealized_pnl == expected_unrealized_pnl, (
-            f"Unrealized PnL calculation: {position.unrealized_pnl} == {expected_unrealized_pnl}"
-        )
+        assert (
+            position.unrealized_pnl == expected_unrealized_pnl
+        ), f"Unrealized PnL calculation: {position.unrealized_pnl} == {expected_unrealized_pnl}"
 
         # 未実現損益パーセンテージの確認（プロパティが存在する場合）
         if hasattr(position, "unrealized_pnl_percent"):
@@ -606,9 +606,9 @@ class TestBacktestEngine:
         actual_trend = (end_price - start_price) / start_price
 
         # 約15%のトレンドが生成されているか確認（ボラティリティによる誤差を考慮）
-        assert 0.10 <= actual_trend <= 0.20, (
-            f"Trend should be around 15%, got {actual_trend:.2%}"
-        )
+        assert (
+            0.10 <= actual_trend <= 0.20
+        ), f"Trend should be around 15%, got {actual_trend:.2%}"
 
         # 高ボラティリティデータのテスト
         volatile_data = self._generate_volatile_data(
@@ -641,9 +641,9 @@ class TestBacktestEngine:
         crash_magnitude = (crash_low - pre_crash_price) / pre_crash_price
 
         # 下落が発生していることを確認
-        assert crash_magnitude < -0.15, (
-            f"Crash should cause significant drop, got {crash_magnitude:.2%}"
-        )
+        assert (
+            crash_magnitude < -0.15
+        ), f"Crash should cause significant drop, got {crash_magnitude:.2%}"
 
         print("Dynamic data generation utilities test passed:")
         print(f"  Realistic data: {len(realistic_data)} days")
@@ -706,9 +706,9 @@ class TestBacktestEngine:
 
         # 上昇トレンド下では利益が期待される
         assert isinstance(result, BacktestResult), "Should return BacktestResult"
-        assert float(result.total_return) > 0, (
-            f"Should have positive return in bullish scenario, got {result.total_return}"
-        )
+        assert (
+            float(result.total_return) > 0
+        ), f"Should have positive return in bullish scenario, got {result.total_return}"
 
         # シナリオ2: 高ボラティリティ環境
         volatile_data = self._generate_volatile_data(
@@ -730,12 +730,12 @@ class TestBacktestEngine:
         )
 
         # 取引しない場合、リターンは手数料分のマイナスのみ
-        assert abs(float(result_volatile.total_return)) < 0.01, (
-            "Conservative strategy should have minimal return"
-        )
-        assert result_volatile.total_trades == 0, (
-            "Conservative strategy should make no trades"
-        )
+        assert (
+            abs(float(result_volatile.total_return)) < 0.01
+        ), "Conservative strategy should have minimal return"
+        assert (
+            result_volatile.total_trades == 0
+        ), "Conservative strategy should make no trades"
 
         # シナリオ3: クラッシュシナリオ
         crash_data = self._generate_crisis_scenario_data(
@@ -826,9 +826,9 @@ class TestBacktestEngine:
         single_day_data = self._generate_realistic_market_data(dates=single_date)
 
         assert len(single_day_data) == 1, "Should handle single day"
-        assert single_day_data.iloc[0]["High"] >= single_day_data.iloc[0]["Close"], (
-            "OHLC relationship should hold"
-        )
+        assert (
+            single_day_data.iloc[0]["High"] >= single_day_data.iloc[0]["Close"]
+        ), "OHLC relationship should hold"
 
         # 極端なパラメータ
         dates = pd.date_range("2023-01-01", "2023-01-05", freq="D")
@@ -939,33 +939,33 @@ class TestBacktestEngine:
 
         # 基本統計の確認
         assert total_trades == 2, f"Should have 2 completed trades, got {total_trades}"
-        assert profitable_trades == 1, (
-            f"Should have 1 profitable trade, got {profitable_trades}"
-        )
+        assert (
+            profitable_trades == 1
+        ), f"Should have 1 profitable trade, got {profitable_trades}"
         assert losing_trades == 1, f"Should have 1 losing trade, got {losing_trades}"
 
         # Decimal精度の確認
-        assert isinstance(avg_win, Decimal), (
-            f"Average win should be Decimal, got {type(avg_win)}"
-        )
-        assert isinstance(avg_loss, Decimal), (
-            f"Average loss should be Decimal, got {type(avg_loss)}"
-        )
+        assert isinstance(
+            avg_win, Decimal
+        ), f"Average win should be Decimal, got {type(avg_win)}"
+        assert isinstance(
+            avg_loss, Decimal
+        ), f"Average loss should be Decimal, got {type(avg_loss)}"
 
         # 精密計算結果の検証（小数点以下も含めて）
         if profitable_trades > 0:
             # トヨタの取引が利益のはず
             expected_win = abs(expected_toyota_pnl)
-            assert abs(avg_win - expected_win) < Decimal("0.01"), (
-                f"Average win {avg_win} should be close to {expected_win}"
-            )
+            assert abs(avg_win - expected_win) < Decimal(
+                "0.01"
+            ), f"Average win {avg_win} should be close to {expected_win}"
 
         if losing_trades > 0:
             # ソフトバンクの取引が損失のはず
             expected_loss = abs(expected_softbank_pnl)
-            assert abs(avg_loss - expected_loss) < Decimal("0.01"), (
-                f"Average loss {avg_loss} should be close to {expected_loss}"
-            )
+            assert abs(avg_loss - expected_loss) < Decimal(
+                "0.01"
+            ), f"Average loss {avg_loss} should be close to {expected_loss}"
 
         print("Decimal precision test passed:")
         print(f"  Expected Toyota P&L: {expected_toyota_pnl}")
@@ -1027,14 +1027,14 @@ class TestBacktestEngine:
 
         if expected_tiny_pnl > 0:
             assert profitable_trades == 1, "Should detect tiny profit"
-            assert abs(avg_win - expected_tiny_pnl) < Decimal("0.0001"), (
-                "Should calculate tiny profit accurately"
-            )
+            assert abs(avg_win - expected_tiny_pnl) < Decimal(
+                "0.0001"
+            ), "Should calculate tiny profit accurately"
         else:
             assert losing_trades == 1, "Should detect tiny loss"
-            assert abs(avg_loss - abs(expected_tiny_pnl)) < Decimal("0.0001"), (
-                "Should calculate tiny loss accurately"
-            )
+            assert abs(avg_loss - abs(expected_tiny_pnl)) < Decimal(
+                "0.0001"
+            ), "Should calculate tiny loss accurately"
 
         # エッジケース2: 大きな数値での精度
         self.engine.trades = [
@@ -1082,14 +1082,14 @@ class TestBacktestEngine:
 
         if large_pnl > 0:
             assert profitable_trades == 1, "Should detect large profit"
-            assert abs(avg_win - large_pnl) < Decimal("1"), (
-                "Should calculate large profit accurately"
-            )
+            assert abs(avg_win - large_pnl) < Decimal(
+                "1"
+            ), "Should calculate large profit accurately"
         else:
             assert losing_trades == 1, "Should detect large loss"
-            assert abs(avg_loss - abs(large_pnl)) < Decimal("1"), (
-                "Should calculate large loss accurately"
-            )
+            assert abs(avg_loss - abs(large_pnl)) < Decimal(
+                "1"
+            ), "Should calculate large loss accurately"
 
         print("Decimal edge cases test passed:")
         print(f"  Tiny P&L: {expected_tiny_pnl}")
@@ -1159,9 +1159,9 @@ class TestBacktestEngine:
         if expected_pnl > 0:
             assert profitable_trades == 1, "Should detect profit from float conversion"
             # Float精度の制限により、多少の誤差は許容
-            assert abs(avg_win - expected_pnl) < Decimal("0.001"), (
-                f"Float conversion should maintain reasonable precision: {avg_win} vs {expected_pnl}"
-            )
+            assert (
+                abs(avg_win - expected_pnl) < Decimal("0.001")
+            ), f"Float conversion should maintain reasonable precision: {avg_win} vs {expected_pnl}"
 
         print("Decimal conversion from float test passed:")
         print(f"  Buy price (Decimal): {decimal_price_buy}")
@@ -1194,26 +1194,26 @@ class TestBacktestEngine:
         pnl_separate = proceeds - cost
 
         # すべての計算方法で同じ結果になることを確認
-        assert pnl_direct == pnl_step, (
-            f"Direct and step calculations should match: {pnl_direct} vs {pnl_step}"
-        )
-        assert pnl_direct == pnl_separate, (
-            f"Direct and separate calculations should match: {pnl_direct} vs {pnl_separate}"
-        )
-        assert pnl_step == pnl_separate, (
-            f"Step and separate calculations should match: {pnl_step} vs {pnl_separate}"
-        )
+        assert (
+            pnl_direct == pnl_step
+        ), f"Direct and step calculations should match: {pnl_direct} vs {pnl_step}"
+        assert (
+            pnl_direct == pnl_separate
+        ), f"Direct and separate calculations should match: {pnl_direct} vs {pnl_separate}"
+        assert (
+            pnl_step == pnl_separate
+        ), f"Step and separate calculations should match: {pnl_step} vs {pnl_separate}"
 
         # 結果がDecimal型であることを確認
-        assert isinstance(pnl_direct, Decimal), (
-            f"Result should be Decimal, got {type(pnl_direct)}"
-        )
-        assert isinstance(pnl_step, Decimal), (
-            f"Result should be Decimal, got {type(pnl_step)}"
-        )
-        assert isinstance(pnl_separate, Decimal), (
-            f"Result should be Decimal, got {type(pnl_separate)}"
-        )
+        assert isinstance(
+            pnl_direct, Decimal
+        ), f"Result should be Decimal, got {type(pnl_direct)}"
+        assert isinstance(
+            pnl_step, Decimal
+        ), f"Result should be Decimal, got {type(pnl_step)}"
+        assert isinstance(
+            pnl_separate, Decimal
+        ), f"Result should be Decimal, got {type(pnl_separate)}"
 
         print("Decimal arithmetic consistency test passed:")
         print(f"  All calculation methods produced: {pnl_direct}")
@@ -1290,9 +1290,9 @@ class TestBacktestEngine:
         parallel_time = time.time() - start_time
 
         # 結果の検証
-        assert len(historical_data) == len(symbols), (
-            f"Expected {len(symbols)} datasets, got {len(historical_data)}"
-        )
+        assert len(historical_data) == len(
+            symbols
+        ), f"Expected {len(symbols)} datasets, got {len(historical_data)}"
 
         for symbol in symbols:
             assert symbol in historical_data, f"Missing data for symbol {symbol}"
@@ -1343,21 +1343,21 @@ class TestBacktestEngine:
         try:
             historical_data = self.engine._fetch_historical_data(symbols, config)
             # エラーがあっても有効な銘柄のデータは取得されることを確認
-            assert len(historical_data) <= len(symbols), (
-                "Should not have more data than valid symbols"
-            )
+            assert len(historical_data) <= len(
+                symbols
+            ), "Should not have more data than valid symbols"
             # 有効な銘柄のデータは取得されていることを確認
             valid_symbols = [s for s in symbols if s != "INVALID"]
             for symbol in valid_symbols:
                 if symbol in historical_data:
-                    assert not historical_data[symbol].empty, (
-                        f"Valid symbol {symbol} should have data"
-                    )
+                    assert not historical_data[
+                        symbol
+                    ].empty, f"Valid symbol {symbol} should have data"
         except Exception as e:
             # エラーが適切に処理されることを確認
-            assert "INVALID" in str(e) or "Invalid symbol" in str(e), (
-                f"Error should mention invalid symbol: {e}"
-            )
+            assert "INVALID" in str(e) or "Invalid symbol" in str(
+                e
+            ), f"Error should mention invalid symbol: {e}"
 
         print("Error handling test completed successfully")
 
@@ -1372,12 +1372,12 @@ class TestBacktestEngine:
         symbols = []
         historical_data = self.engine._fetch_historical_data(symbols, config)
 
-        assert len(historical_data) == 0, (
-            "Empty symbols should return empty historical data"
-        )
-        assert isinstance(historical_data, dict), (
-            "Should return dictionary even for empty symbols"
-        )
+        assert (
+            len(historical_data) == 0
+        ), "Empty symbols should return empty historical data"
+        assert isinstance(
+            historical_data, dict
+        ), "Should return dictionary even for empty symbols"
 
     def test_fetch_historical_data_large_dataset(self):
         """大量銘柄での履歴データ取得テスト（ThreadPoolExecutor効果確認）"""
@@ -1400,21 +1400,21 @@ class TestBacktestEngine:
         large_dataset_time = time.time() - start_time
 
         # 結果の検証
-        assert len(historical_data) == len(symbols), (
-            f"Expected {len(symbols)} datasets, got {len(historical_data)}"
-        )
+        assert len(historical_data) == len(
+            symbols
+        ), f"Expected {len(symbols)} datasets, got {len(historical_data)}"
 
         # すべての銘柄でデータが取得されていることを確認
         for symbol in symbols:
             assert symbol in historical_data, f"Missing data for symbol {symbol}"
-            assert isinstance(historical_data[symbol], pd.DataFrame), (
-                f"Data should be DataFrame for {symbol}"
-            )
+            assert isinstance(
+                historical_data[symbol], pd.DataFrame
+            ), f"Data should be DataFrame for {symbol}"
 
         # パフォーマンスの確認（20銘柄でも合理的な時間内に完了）
-        assert large_dataset_time < 10.0, (
-            f"Large dataset fetch should complete within 10 seconds, took {large_dataset_time:.3f}s"
-        )
+        assert (
+            large_dataset_time < 10.0
+        ), f"Large dataset fetch should complete within 10 seconds, took {large_dataset_time:.3f}s"
 
         print(
             f"Large dataset ({len(symbols)} symbols) fetch time: {large_dataset_time:.3f}s"
@@ -1479,9 +1479,9 @@ class TestBacktestEngine:
 
         # 並行実行でも期待回数の呼び出しが行われることを確認
         expected_total_calls = len(engines) * len(symbols)
-        assert call_count["value"] == expected_total_calls, (
-            f"Expected {expected_total_calls} calls, got {call_count['value']}"
-        )
+        assert (
+            call_count["value"] == expected_total_calls
+        ), f"Expected {expected_total_calls} calls, got {call_count['value']}"
 
         print(
             f"Concurrent safety test passed with {len(engines)} engines and {len(symbols)} symbols"
@@ -1592,19 +1592,19 @@ class TestBacktestEngine:
         expected_slippage_price = price * (1 + config.slippage)
         trade.quantity * expected_slippage_price * config.commission
 
-        assert trade.price >= price, (
-            f"Trade price should include slippage: {trade.price} >= {price}"
-        )
-        assert trade.commission > 0, (
-            f"Commission should be positive: {trade.commission}"
-        )
+        assert (
+            trade.price >= price
+        ), f"Trade price should include slippage: {trade.price} >= {price}"
+        assert (
+            trade.commission > 0
+        ), f"Commission should be positive: {trade.commission}"
 
         # 資金減少の確認（スリッページと手数料込み）
         total_cost = trade.quantity * trade.price + trade.commission
         expected_remaining = initial_capital - total_cost
-        assert abs(self.engine.current_capital - expected_remaining) < Decimal("1"), (
-            "Capital calculation mismatch"
-        )
+        assert abs(self.engine.current_capital - expected_remaining) < Decimal(
+            "1"
+        ), "Capital calculation mismatch"
 
         # 2回目の購入（ポジション追加）
         self.engine._execute_buy_order(symbol, price * Decimal("1.1"), date, config)
@@ -1622,9 +1622,9 @@ class TestBacktestEngine:
         expected_avg_price = (
             trade1.quantity * trade1.price + trade2.quantity * trade2.price
         ) / position.quantity
-        assert abs(position.average_price - expected_avg_price) < Decimal("0.01"), (
-            "Average price calculation error"
-        )
+        assert abs(position.average_price - expected_avg_price) < Decimal(
+            "0.01"
+        ), "Average price calculation error"
 
     def test_execute_buy_order_insufficient_funds(self):
         """買い注文実行テスト（資金不足）"""
@@ -1647,15 +1647,15 @@ class TestBacktestEngine:
         self.engine._execute_buy_order(symbol, price, date, config)
 
         # 購入が実行されないことを確認
-        assert len(self.engine.positions) == initial_positions, (
-            "No position should be created with insufficient funds"
-        )
-        assert len(self.engine.trades) == initial_trades, (
-            "No trade should be recorded with insufficient funds"
-        )
-        assert self.engine.current_capital == initial_capital, (
-            "Capital should remain unchanged"
-        )
+        assert (
+            len(self.engine.positions) == initial_positions
+        ), "No position should be created with insufficient funds"
+        assert (
+            len(self.engine.trades) == initial_trades
+        ), "No trade should be recorded with insufficient funds"
+        assert (
+            self.engine.current_capital == initial_capital
+        ), "Capital should remain unchanged"
 
     def test_execute_sell_order(self):
         """売り注文実行テスト（基本機能）"""
@@ -1733,24 +1733,24 @@ class TestBacktestEngine:
         trade = self.engine.trades[0]
         sell_price * (1 - config.slippage)  # 売りなのでマイナス
 
-        assert trade.price <= sell_price, (
-            f"Sell price should include negative slippage: {trade.price} <= {sell_price}"
-        )
-        assert trade.commission > 0, (
-            f"Commission should be positive: {trade.commission}"
-        )
-        assert trade.quantity == original_quantity, (
-            f"Should sell entire position: {trade.quantity} == {original_quantity}"
-        )
+        assert (
+            trade.price <= sell_price
+        ), f"Sell price should include negative slippage: {trade.price} <= {sell_price}"
+        assert (
+            trade.commission > 0
+        ), f"Commission should be positive: {trade.commission}"
+        assert (
+            trade.quantity == original_quantity
+        ), f"Should sell entire position: {trade.quantity} == {original_quantity}"
 
         # 利益計算の確認
         gross_proceeds = trade.quantity * trade.price
         net_proceeds = gross_proceeds - trade.commission
         expected_capital = initial_capital + net_proceeds
 
-        assert abs(self.engine.current_capital - expected_capital) < Decimal("1"), (
-            "Capital calculation mismatch"
-        )
+        assert abs(self.engine.current_capital - expected_capital) < Decimal(
+            "1"
+        ), "Capital calculation mismatch"
 
         # 実現損益の確認
         cost_basis = trade.quantity * original_avg_price
@@ -1792,9 +1792,9 @@ class TestBacktestEngine:
         # 売却後の状態確認
         trade = self.engine.trades[0]
         assert trade.action == TradeType.SELL
-        assert trade.quantity <= original_quantity, (
-            f"Sell quantity should not exceed original: {trade.quantity} <= {original_quantity}"
-        )
+        assert (
+            trade.quantity <= original_quantity
+        ), f"Sell quantity should not exceed original: {trade.quantity} <= {original_quantity}"
 
     def test_execute_sell_order_no_position(self):
         """売り注文実行テスト（ポジションなし）"""
@@ -1817,12 +1817,12 @@ class TestBacktestEngine:
         self.engine._execute_sell_order(symbol, price, date, config)
 
         # 何も実行されないことを確認
-        assert len(self.engine.trades) == initial_trades, (
-            "No trade should be executed without position"
-        )
-        assert self.engine.current_capital == initial_capital, (
-            "Capital should remain unchanged"
-        )
+        assert (
+            len(self.engine.trades) == initial_trades
+        ), "No trade should be executed without position"
+        assert (
+            self.engine.current_capital == initial_capital
+        ), "Capital should remain unchanged"
         assert symbol not in self.engine.positions, "No position should be created"
 
     def test_calculate_total_portfolio_value(self):
@@ -1970,9 +1970,9 @@ class TestBacktestEngine:
         result = self.engine.run_backtest(symbols, config, test_strategy)
 
         # 結果の詳細検証
-        assert isinstance(result, BacktestResult), (
-            "Result should be BacktestResult instance"
-        )
+        assert isinstance(
+            result, BacktestResult
+        ), "Result should be BacktestResult instance"
 
         # 基本的な結果の存在確認
         assert result.config == config, "Config should be preserved in result"
@@ -1981,92 +1981,92 @@ class TestBacktestEngine:
         assert result.duration_days > 0, "Duration should be positive"
 
         # パフォーマンス指標の検証
-        assert isinstance(result.total_return, Decimal), (
-            "Total return should be Decimal"
-        )
-        assert isinstance(result.annualized_return, Decimal), (
-            "Annualized return should be Decimal"
-        )
-        assert isinstance(result.volatility, (int, float)), (
-            "Volatility should be numeric"
-        )
-        assert isinstance(result.sharpe_ratio, (int, float)), (
-            "Sharpe ratio should be numeric"
-        )
-        assert isinstance(result.max_drawdown, (int, float)), (
-            "Max drawdown should be numeric"
-        )
+        assert isinstance(
+            result.total_return, Decimal
+        ), "Total return should be Decimal"
+        assert isinstance(
+            result.annualized_return, Decimal
+        ), "Annualized return should be Decimal"
+        assert isinstance(
+            result.volatility, (int, float)
+        ), "Volatility should be numeric"
+        assert isinstance(
+            result.sharpe_ratio, (int, float)
+        ), "Sharpe ratio should be numeric"
+        assert isinstance(
+            result.max_drawdown, (int, float)
+        ), "Max drawdown should be numeric"
 
         # パフォーマンス指標の妥当性確認
-        assert -1 <= result.total_return <= 1, (
-            f"Total return should be reasonable: {result.total_return}"
-        )
-        assert result.volatility >= 0, (
-            f"Volatility should be non-negative: {result.volatility}"
-        )
-        assert result.max_drawdown <= 0, (
-            f"Max drawdown should be non-positive: {result.max_drawdown}"
-        )
+        assert (
+            -1 <= result.total_return <= 1
+        ), f"Total return should be reasonable: {result.total_return}"
+        assert (
+            result.volatility >= 0
+        ), f"Volatility should be non-negative: {result.volatility}"
+        assert (
+            result.max_drawdown <= 0
+        ), f"Max drawdown should be non-positive: {result.max_drawdown}"
 
         # 取引関連の検証
         assert isinstance(result.total_trades, int), "Total trades should be integer"
         assert result.total_trades >= 0, "Total trades should be non-negative"
-        assert result.profitable_trades + result.losing_trades <= result.total_trades, (
-            "Profitable + losing trades should not exceed total"
-        )
+        assert (
+            result.profitable_trades + result.losing_trades <= result.total_trades
+        ), "Profitable + losing trades should not exceed total"
 
         if result.total_trades > 0:
-            assert isinstance(result.win_rate, (int, float)), (
-                "Win rate should be numeric"
-            )
-            assert 0 <= result.win_rate <= 1, (
-                f"Win rate should be between 0 and 1: {result.win_rate}"
-            )
-            assert len(result.trades) == result.total_trades, (
-                "Trades list length should match total_trades"
-            )
+            assert isinstance(
+                result.win_rate, (int, float)
+            ), "Win rate should be numeric"
+            assert (
+                0 <= result.win_rate <= 1
+            ), f"Win rate should be between 0 and 1: {result.win_rate}"
+            assert (
+                len(result.trades) == result.total_trades
+            ), "Trades list length should match total_trades"
 
             # 個別取引の検証
             for trade in result.trades:
                 assert isinstance(trade, Trade), "Each trade should be Trade instance"
-                assert trade.symbol in symbols, (
-                    f"Trade symbol should be in test symbols: {trade.symbol}"
-                )
+                assert (
+                    trade.symbol in symbols
+                ), f"Trade symbol should be in test symbols: {trade.symbol}"
                 assert trade.action in [
                     TradeType.BUY,
                     TradeType.SELL,
                 ], f"Trade action should be valid: {trade.action}"
-                assert trade.quantity > 0, (
-                    f"Trade quantity should be positive: {trade.quantity}"
-                )
-                assert isinstance(trade.price, Decimal), (
-                    f"Trade price should be Decimal: {type(trade.price)}"
-                )
-                assert isinstance(trade.commission, Decimal), (
-                    f"Trade commission should be Decimal: {type(trade.commission)}"
-                )
+                assert (
+                    trade.quantity > 0
+                ), f"Trade quantity should be positive: {trade.quantity}"
+                assert isinstance(
+                    trade.price, Decimal
+                ), f"Trade price should be Decimal: {type(trade.price)}"
+                assert isinstance(
+                    trade.commission, Decimal
+                ), f"Trade commission should be Decimal: {type(trade.commission)}"
 
         # ポートフォリオ履歴の検証
-        assert isinstance(result.portfolio_value, pd.Series), (
-            "Portfolio value should be pandas Series"
-        )
+        assert isinstance(
+            result.portfolio_value, pd.Series
+        ), "Portfolio value should be pandas Series"
         assert len(result.portfolio_value) > 0, "Portfolio value should not be empty"
-        assert result.portfolio_value.iloc[0] == float(config.initial_capital), (
-            "Initial portfolio value should match initial capital"
-        )
+        assert result.portfolio_value.iloc[0] == float(
+            config.initial_capital
+        ), "Initial portfolio value should match initial capital"
 
         # 日次リターンの検証
-        assert isinstance(result.daily_returns, pd.Series), (
-            "Daily returns should be pandas Series"
-        )
-        assert len(result.daily_returns) >= 0, (
-            "Daily returns should not be negative length"
-        )
+        assert isinstance(
+            result.daily_returns, pd.Series
+        ), "Daily returns should be pandas Series"
+        assert (
+            len(result.daily_returns) >= 0
+        ), "Daily returns should not be negative length"
 
         # ポジション履歴の検証
-        assert isinstance(result.positions_history, list), (
-            "Positions history should be list"
-        )
+        assert isinstance(
+            result.positions_history, list
+        ), "Positions history should be list"
 
         print("Backtest completed successfully:")
         print(f"  Total Return: {result.total_return}")
@@ -2148,15 +2148,15 @@ class TestBacktestEngine:
         result = self.engine._calculate_results(config)
 
         # 基本結果の検証
-        assert isinstance(result, BacktestResult), (
-            "Result should be BacktestResult instance"
-        )
+        assert isinstance(
+            result, BacktestResult
+        ), "Result should be BacktestResult instance"
         assert result.config == config, "Config should be preserved"
 
         # 期間の検証
-        assert result.duration_days == 30, (
-            f"Duration should be 30 days, got {result.duration_days}"
-        )
+        assert (
+            result.duration_days == 30
+        ), f"Duration should be 30 days, got {result.duration_days}"
 
         # リターンの検証（約10%上昇を期待）
         expected_return_range = (0.05, 0.15)  # 5%-15%の範囲
@@ -2164,41 +2164,39 @@ class TestBacktestEngine:
             expected_return_range[0]
             <= float(result.total_return)
             <= expected_return_range[1]
-        ), (
-            f"Total return {result.total_return} should be in range {expected_return_range}"
-        )
+        ), f"Total return {result.total_return} should be in range {expected_return_range}"
 
         # 年率リターンの検証
-        assert isinstance(result.annualized_return, Decimal), (
-            "Annualized return should be Decimal"
-        )
-        assert float(result.annualized_return) > 0, (
-            "Annualized return should be positive"
-        )
+        assert isinstance(
+            result.annualized_return, Decimal
+        ), "Annualized return should be Decimal"
+        assert (
+            float(result.annualized_return) > 0
+        ), "Annualized return should be positive"
 
         # パフォーマンス指標の検証
-        assert result.volatility >= 0, (
-            f"Volatility should be non-negative: {result.volatility}"
-        )
-        assert isinstance(result.sharpe_ratio, (int, float)), (
-            f"Sharpe ratio should be numeric: {type(result.sharpe_ratio)}"
-        )
-        assert result.max_drawdown <= 0, (
-            f"Max drawdown should be non-positive: {result.max_drawdown}"
-        )
+        assert (
+            result.volatility >= 0
+        ), f"Volatility should be non-negative: {result.volatility}"
+        assert isinstance(
+            result.sharpe_ratio, (int, float)
+        ), f"Sharpe ratio should be numeric: {type(result.sharpe_ratio)}"
+        assert (
+            result.max_drawdown <= 0
+        ), f"Max drawdown should be non-positive: {result.max_drawdown}"
 
         # 取引統計の検証
-        assert result.total_trades == 2, (
-            f"Should have 2 completed trades (buy-sell pairs), got {result.total_trades}"
-        )
-        assert result.profitable_trades + result.losing_trades == result.total_trades, (
-            "Profitable + losing trades should equal total trades"
-        )
+        assert (
+            result.total_trades == 2
+        ), f"Should have 2 completed trades (buy-sell pairs), got {result.total_trades}"
+        assert (
+            result.profitable_trades + result.losing_trades == result.total_trades
+        ), "Profitable + losing trades should equal total trades"
 
         # 勝率の検証
-        assert 0 <= result.win_rate <= 1, (
-            f"Win rate should be between 0 and 1: {result.win_rate}"
-        )
+        assert (
+            0 <= result.win_rate <= 1
+        ), f"Win rate should be between 0 and 1: {result.win_rate}"
 
         # 実現損益の詳細検証
         # トヨタ: (2700 - 2500) * 100 - 250 - 270 = 20000 - 520 = 19480（利益）
@@ -2209,37 +2207,37 @@ class TestBacktestEngine:
         if result.profitable_trades > 0:
             assert isinstance(result.avg_win, Decimal), "Average win should be Decimal"
             # 許容誤差内での検証
-            assert abs(result.avg_win - expected_avg_win) < Decimal("100"), (
-                f"Average win {result.avg_win} should be close to {expected_avg_win}"
-            )
+            assert abs(result.avg_win - expected_avg_win) < Decimal(
+                "100"
+            ), f"Average win {result.avg_win} should be close to {expected_avg_win}"
 
         if result.losing_trades > 0:
-            assert isinstance(result.avg_loss, Decimal), (
-                "Average loss should be Decimal"
-            )
-            assert abs(result.avg_loss - expected_avg_loss) < Decimal("100"), (
-                f"Average loss {result.avg_loss} should be close to {expected_avg_loss}"
-            )
+            assert isinstance(
+                result.avg_loss, Decimal
+            ), "Average loss should be Decimal"
+            assert abs(result.avg_loss - expected_avg_loss) < Decimal(
+                "100"
+            ), f"Average loss {result.avg_loss} should be close to {expected_avg_loss}"
 
         # プロフィットファクターの検証
         if result.losing_trades > 0:
             expected_profit_factor = float(expected_avg_win) / float(expected_avg_loss)
-            assert abs(result.profit_factor - expected_profit_factor) < 0.1, (
-                f"Profit factor {result.profit_factor} should be close to {expected_profit_factor}"
-            )
+            assert (
+                abs(result.profit_factor - expected_profit_factor) < 0.1
+            ), f"Profit factor {result.profit_factor} should be close to {expected_profit_factor}"
 
         # 時系列データの検証
-        assert isinstance(result.daily_returns, pd.Series), (
-            "Daily returns should be pandas Series"
-        )
+        assert isinstance(
+            result.daily_returns, pd.Series
+        ), "Daily returns should be pandas Series"
         assert len(result.daily_returns) > 0, "Daily returns should not be empty"
 
-        assert isinstance(result.portfolio_value, pd.Series), (
-            "Portfolio value should be pandas Series"
-        )
-        assert len(result.portfolio_value) == len(portfolio_values), (
-            "Portfolio value should match input data"
-        )
+        assert isinstance(
+            result.portfolio_value, pd.Series
+        ), "Portfolio value should be pandas Series"
+        assert len(result.portfolio_value) == len(
+            portfolio_values
+        ), "Portfolio value should match input data"
 
         print("Calculate results test passed:")
         print(f"  Total Return: {result.total_return}")
@@ -2335,9 +2333,9 @@ class TestBacktestEngine:
 
         # 基本統計の検証
         assert total_trades == 3, f"Should have 3 completed trades, got {total_trades}"
-        assert profitable_trades + losing_trades == total_trades, (
-            f"Profitable ({profitable_trades}) + losing ({losing_trades}) should equal total ({total_trades})"
-        )
+        assert (
+            profitable_trades + losing_trades == total_trades
+        ), f"Profitable ({profitable_trades}) + losing ({losing_trades}) should equal total ({total_trades})"
 
         # 期待される計算結果
         # トヨタ取引1: (2700 - 2500) * 100 - 250 - 270 = 19480（利益）
@@ -2347,57 +2345,57 @@ class TestBacktestEngine:
         expected_wins = [19480, 24475]  # 2つの利益取引
         expected_losses = [41080]  # 1つの損失取引
 
-        assert profitable_trades == 2, (
-            f"Should have 2 profitable trades, got {profitable_trades}"
-        )
+        assert (
+            profitable_trades == 2
+        ), f"Should have 2 profitable trades, got {profitable_trades}"
         assert losing_trades == 1, f"Should have 1 losing trade, got {losing_trades}"
 
         # 勝率の検証
         expected_win_rate = 2 / 3
-        assert abs(win_rate - expected_win_rate) < 0.01, (
-            f"Win rate {win_rate} should be close to {expected_win_rate}"
-        )
+        assert (
+            abs(win_rate - expected_win_rate) < 0.01
+        ), f"Win rate {win_rate} should be close to {expected_win_rate}"
 
         # 平均利益・損失の検証
         expected_avg_win = Decimal(str(np.mean(expected_wins)))
         expected_avg_loss = Decimal(str(np.mean(expected_losses)))
 
-        assert abs(avg_win - expected_avg_win) < Decimal("1"), (
-            f"Average win {avg_win} should be close to {expected_avg_win}"
-        )
-        assert abs(avg_loss - expected_avg_loss) < Decimal("1"), (
-            f"Average loss {avg_loss} should be close to {expected_avg_loss}"
-        )
+        assert abs(avg_win - expected_avg_win) < Decimal(
+            "1"
+        ), f"Average win {avg_win} should be close to {expected_avg_win}"
+        assert abs(avg_loss - expected_avg_loss) < Decimal(
+            "1"
+        ), f"Average loss {avg_loss} should be close to {expected_avg_loss}"
 
         # プロフィットファクターの検証
         expected_profit_factor = float(avg_win * profitable_trades) / float(
             avg_loss * losing_trades
         )
-        assert abs(profit_factor - expected_profit_factor) < 0.01, (
-            f"Profit factor {profit_factor} should be close to {expected_profit_factor}"
-        )
+        assert (
+            abs(profit_factor - expected_profit_factor) < 0.01
+        ), f"Profit factor {profit_factor} should be close to {expected_profit_factor}"
 
         # 詳細利益・損失配列の検証
-        assert len(wins) == profitable_trades, (
-            f"Wins array length {len(wins)} should match profitable trades {profitable_trades}"
-        )
-        assert len(losses) == losing_trades, (
-            f"Losses array length {len(losses)} should match losing trades {losing_trades}"
-        )
+        assert (
+            len(wins) == profitable_trades
+        ), f"Wins array length {len(wins)} should match profitable trades {profitable_trades}"
+        assert (
+            len(losses) == losing_trades
+        ), f"Losses array length {len(losses)} should match losing trades {losing_trades}"
 
         # 個別利益の確認（順序は問わない）
         sorted_wins = sorted(wins)
         sorted_expected_wins = sorted(expected_wins)
         for actual, expected in zip(sorted_wins, sorted_expected_wins):
-            assert abs(actual - expected) < 1, (
-                f"Win {actual} should be close to {expected}"
-            )
+            assert (
+                abs(actual - expected) < 1
+            ), f"Win {actual} should be close to {expected}"
 
         # 個別損失の確認
         for actual, expected in zip(losses, expected_losses):
-            assert abs(actual - expected) < 1, (
-                f"Loss {actual} should be close to {expected}"
-            )
+            assert (
+                abs(actual - expected) < 1
+            ), f"Loss {actual} should be close to {expected}"
 
         print("Trade statistics vectorized test passed:")
         print(f"  Total Trades: {total_trades}")
@@ -2432,15 +2430,15 @@ class TestBacktestEngine:
         ) = result
 
         assert total == 0, "No trades should result in 0 total trades"
-        assert profitable == 0 and losing == 0, (
-            "No trades should result in 0 profitable and losing trades"
-        )
+        assert (
+            profitable == 0 and losing == 0
+        ), "No trades should result in 0 profitable and losing trades"
         assert win_rate == 0.0, "No trades should result in 0 win rate"
         assert avg_win == Decimal("0"), "No trades should result in 0 average win"
         assert avg_loss == Decimal("0"), "No trades should result in 0 average loss"
-        assert profit_factor == float("inf"), (
-            "No trades should result in infinite profit factor"
-        )
+        assert profit_factor == float(
+            "inf"
+        ), "No trades should result in infinite profit factor"
 
         # ケース2: 買いのみ（売りなし）
         self.engine.trades = [
@@ -2531,15 +2529,15 @@ class TestBacktestEngine:
         ) = result
 
         assert total == 1, "Should have 1 completed trade"
-        assert profitable == 1 and losing == 0, (
-            "Should have 1 profitable and 0 losing trades"
-        )
+        assert (
+            profitable == 1 and losing == 0
+        ), "Should have 1 profitable and 0 losing trades"
         assert win_rate == 1.0, "Win rate should be 100%"
         assert avg_win > Decimal("0"), "Average win should be positive"
         assert avg_loss == Decimal("0"), "Average loss should be 0"
-        assert profit_factor == float("inf"), (
-            "Profit factor should be infinite with no losses"
-        )
+        assert profit_factor == float(
+            "inf"
+        ), "Profit factor should be infinite with no losses"
 
         # ケース5: 損失のみの取引
         self.engine.trades = [
@@ -2576,9 +2574,9 @@ class TestBacktestEngine:
         ) = result
 
         assert total == 1, "Should have 1 completed trade"
-        assert profitable == 0 and losing == 1, (
-            "Should have 0 profitable and 1 losing trade"
-        )
+        assert (
+            profitable == 0 and losing == 1
+        ), "Should have 0 profitable and 1 losing trade"
         assert win_rate == 0.0, "Win rate should be 0%"
         assert avg_win == Decimal("0"), "Average win should be 0"
         assert avg_loss > Decimal("0"), "Average loss should be positive"
@@ -3118,12 +3116,12 @@ class TestAdvancedBacktestScenarios:
         assert isinstance(result, BacktestResult)
         assert result.total_return < 0, "Should have negative return in crash scenario"
         # より現実的なドローダウン期待値に調整
-        assert result.max_drawdown < -0.1, (
-            f"Max drawdown should be significant: {result.max_drawdown}"
-        )
-        assert result.volatility > 0.02, (
-            f"Volatility should be high: {result.volatility}"
-        )
+        assert (
+            result.max_drawdown < -0.1
+        ), f"Max drawdown should be significant: {result.max_drawdown}"
+        assert (
+            result.volatility > 0.02
+        ), f"Volatility should be high: {result.volatility}"
         # トレード数の確認を緩和（戦略によってはトレードが発生しない場合もある）
         assert len(result.trades) >= 0, "Trades count should be non-negative"
 
@@ -3211,9 +3209,9 @@ class TestAdvancedBacktestScenarios:
         # 高頻度取引の結果検証
         assert isinstance(result, BacktestResult)
         # トレード数の期待値を現実的に調整（短期間での取引は少ない可能性がある）
-        assert result.total_trades >= 0, (
-            f"Should have non-negative trades: {result.total_trades}"
-        )
+        assert (
+            result.total_trades >= 0
+        ), f"Should have non-negative trades: {result.total_trades}"
 
         # 手数料の影響をテスト
         if result.total_trades > 0:
@@ -3335,9 +3333,9 @@ class TestAdvancedBacktestScenarios:
 
         # 複数銘柄での取引が発生していることを確認
         traded_symbols = set(trade.symbol for trade in result.trades)
-        assert len(traded_symbols) > 1, (
-            f"Should trade multiple symbols: {traded_symbols}"
-        )
+        assert (
+            len(traded_symbols) > 1
+        ), f"Should trade multiple symbols: {traded_symbols}"
 
         # 各銘柄の取引数を確認
         symbol_trade_counts = {}
@@ -3353,9 +3351,9 @@ class TestAdvancedBacktestScenarios:
 
         # リスク分散効果の簡易検証
         if len(traded_symbols) >= 2:
-            assert result.volatility < 0.5, (
-                f"Diversification should reduce volatility: {result.volatility}"
-            )
+            assert (
+                result.volatility < 0.5
+            ), f"Diversification should reduce volatility: {result.volatility}"
 
     def test_performance_calculation_edge_cases(self):
         """パフォーマンス計算エッジケーステスト"""
@@ -3440,9 +3438,9 @@ class TestAdvancedBacktestScenarios:
         # プロフィットファクター計算の検証
         if avg_loss > 0:
             expected_profit_factor = float(avg_win) / float(avg_loss)
-            assert abs(profit_factor - expected_profit_factor) < 0.01, (
-                f"Profit factor calculation error: {profit_factor} vs {expected_profit_factor}"
-            )
+            assert (
+                abs(profit_factor - expected_profit_factor) < 0.01
+            ), f"Profit factor calculation error: {profit_factor} vs {expected_profit_factor}"
 
         print("Edge case test results:")
         print(f"  Balanced scenario profit factor: {profit_factor}")
