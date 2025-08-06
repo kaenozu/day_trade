@@ -52,7 +52,7 @@ class TestMLModelManager(unittest.TestCase):
         new_manager.load_model("return_predictor")
 
         # 読み込んだモデルで予測
-        predictions = new_manager.predict("return_predictor", self.X, symbol="7203")
+        predictions = new_manager.predict("return_predictor", self.X)
         self.assertEqual(len(predictions), 100)
 
 
