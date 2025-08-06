@@ -876,7 +876,8 @@ class TradingSignalGenerator:
             # 全期間の指標とパターンを事前に計算
             # これにより、ループ内での再計算を避ける
             all_indicators = TechnicalIndicators.calculate_all(df)
-            all_patterns = ChartPatternRecognizer.detect_all_patterns(df)
+            pattern_recognizer = ChartPatternRecognizer()
+            all_patterns = pattern_recognizer.detect_all_patterns(df)
 
             for i in range(min_required - 1, len(df)):
                 # 現在のウィンドウのデータと、対応する指標をスライス
@@ -1291,7 +1292,8 @@ if __name__ == "__main__":
 
     # テクニカル指標とパターンを計算
     indicators = TechnicalIndicators.calculate_all(df)
-    patterns = ChartPatternRecognizer.detect_all_patterns(df)
+    pattern_recognizer = ChartPatternRecognizer()
+    patterns = pattern_recognizer.detect_all_patterns(df)
 
     # 最新のシグナルを生成
     signal = generator.generate_signal(df, indicators, patterns)
