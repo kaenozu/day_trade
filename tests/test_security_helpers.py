@@ -354,7 +354,7 @@ class TestSecurityHelpers:
         token = SecurityHelpers.generate_csrf_token()
         assert isinstance(token, str)
         assert len(token) > 0
-        
+
         # トークンの一意性確認
         token2 = SecurityHelpers.generate_csrf_token()
         assert token != token2
@@ -369,7 +369,9 @@ class TestSecurityHelpers:
         """有効なCSRFトークン検証のテスト"""
         original_token = SecurityHelpers.generate_csrf_token()
         # 同じトークンでの検証
-        assert SecurityHelpers.validate_csrf_token(original_token, original_token) is True
+        assert (
+            SecurityHelpers.validate_csrf_token(original_token, original_token) is True
+        )
 
     def test_validate_csrf_token_invalid(self):
         """無効なCSRFトークン検証のテスト"""
@@ -389,11 +391,11 @@ class TestSecurityHelpers:
         """カスタムソルトでの機密データハッシュ化テスト"""
         data = "sensitive_data"
         salt = "custom_salt_123"
-        
+
         hashed = SecurityHelpers.hash_sensitive_data(data, salt)
         assert hashed != data
         assert len(hashed) == 64  # SHA-256は64文字のhex文字列
-        
+
         # 同じデータ・ソルトで同じハッシュが生成される
         hashed2 = SecurityHelpers.hash_sensitive_data(data, salt)
         assert hashed == hashed2
@@ -403,10 +405,10 @@ class TestSecurityHelpers:
         data = "sensitive_data"
         salt1 = "salt1"
         salt2 = "salt2"
-        
+
         hash1 = SecurityHelpers.hash_sensitive_data(data, salt1)
         hash2 = SecurityHelpers.hash_sensitive_data(data, salt2)
-        
+
         # 異なるソルトでは異なるハッシュが生成される
         assert hash1 != hash2
 
@@ -414,7 +416,7 @@ class TestSecurityHelpers:
         """電話番号を含むログメッセージのサニタイズテスト"""
         message_with_phone = "Contact customer at 090-1234-5678"
         result = SecurityHelpers.sanitize_log_message(message_with_phone)
-        
+
         # 電話番号がマスクされていることを確認
         assert "090-1234-5678" not in result
         assert "[PHONE_MASKED]" in result
@@ -423,7 +425,7 @@ class TestSecurityHelpers:
         """ハッシュ値を含むログメッセージのサニタイズテスト"""
         message_with_hash = "Session ID: a1b2c3d4e5f6789012345678901234567890abcd"
         result = SecurityHelpers.sanitize_log_message(message_with_hash)
-        
+
         # ハッシュ値がマスクされていることを確認
         assert "a1b2c3d4e5f6789012345678901234567890abcd" not in result
         assert "[HASH_MASKED]" in result
@@ -432,13 +434,13 @@ class TestSecurityHelpers:
         """入力検証のエッジケーステスト"""
         # None入力
         assert SecurityHelpers.validate_input(None, "username") is False
-        
+
         # 整数入力（文字列以外）
         assert SecurityHelpers.validate_input(123, "username") is False
-        
+
         # 空文字列
         assert SecurityHelpers.validate_input("", "username") is False
-        
+
         # 非常に長い文字列（ユーザー名として）
         long_username = "a" * 100
         assert SecurityHelpers.validate_input(long_username, "username") is False
@@ -448,7 +450,7 @@ class TestSecurityHelpers:
         # 一般的なタイプ（デフォルト）
         safe_input = "normal text without malicious content"
         assert SecurityHelpers.validate_input(safe_input) is True
-        
+
         # 特殊文字を含むが安全な入力
         safe_special = "Hello, World! 123 @#$%"
         assert SecurityHelpers.validate_input(safe_special) is True
@@ -456,19 +458,19 @@ class TestSecurityHelpers:
     def test_all_security_methods_exist(self):
         """すべてのセキュリティメソッドが存在することを確認"""
         methods = [
-            'safe_table_name',
-            'safe_column_name', 
-            'secure_random_float',
-            'secure_random_int',
-            'secure_random_string',
-            'sanitize_log_message',
-            'validate_input',
-            'hash_sensitive_data',
-            'secure_compare',
-            'generate_csrf_token',
-            'validate_csrf_token'
+            "safe_table_name",
+            "safe_column_name",
+            "secure_random_float",
+            "secure_random_int",
+            "secure_random_string",
+            "sanitize_log_message",
+            "validate_input",
+            "hash_sensitive_data",
+            "secure_compare",
+            "generate_csrf_token",
+            "validate_csrf_token",
         ]
-        
+
         for method_name in methods:
             assert hasattr(SecurityHelpers, method_name)
             method = getattr(SecurityHelpers, method_name)
