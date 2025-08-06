@@ -741,24 +741,23 @@ class EnhancedEnsembleStrategy:
                 combined_return = pd.concat(
                     [X_return.ffill().bfill(), y_return.ffill().bfill()], axis=1
                 ).dropna()
-                logger.debug(
-                    "return_predictor: combined_return dropna後",
-                    section="ml_training",
-                    combined_return_shape_after_dropna=combined_return.shape,
-                )
 
-                X_return_final = combined_return.drop(
-                    columns=[
-                        col
-                        for col in combined_return.columns
-                        if col.startswith("future_")
-                    ],
-                    errors="ignore",
-                )
+                # ターゲット変数Yを確定
                 y_return_final = (
                     combined_return[return_target_data.name]
                     if return_target_data.name in combined_return.columns
                     else combined_return.iloc[:, -1]
+                )
+
+                # 特徴量Xを確定 (ターゲット変数をXから除外)
+                cols_to_drop = [
+                    col
+                    for col in combined_return.columns
+                    if col.startswith("future_") or col == y_return_final.name
+                ]
+                X_return_final = combined_return.drop(
+                    columns=cols_to_drop,
+                    errors="ignore",
                 )
                 logger.debug(
                     "return_predictor: 最終データ形状",

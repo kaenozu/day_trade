@@ -788,9 +788,9 @@ class DayTradeOrchestrator:
                     "strategy_weights": enhanced_signal.strategy_weights,
                     "ml_predictions": {
                         name: {
-                            "prediction": pred.prediction,
-                            "confidence": pred.confidence,
-                            "model_name": pred.model_name,
+                            "prediction": pred,
+                            "confidence": 0.0, # 仮の値、後でenhanced_ensemble.pyで信頼度を返すように修正する
+                            "model_name": name,
                         }
                         for name, pred in enhanced_signal.ml_predictions.items()
                     },
