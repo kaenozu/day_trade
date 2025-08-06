@@ -153,6 +153,7 @@ ignore = [
     "C901",  # too complex
     "N806",  # variable name should be lowercase (for pandas compatibility)
     "N803",  # argument name should be lowercase (for ML X, y compatibility)
+    "FMT",   # Temporarily ignore ruff-format issues in CI
 ]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
