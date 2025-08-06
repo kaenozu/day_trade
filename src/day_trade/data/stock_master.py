@@ -3,17 +3,16 @@
 東証上場銘柄の情報を管理し、検索機能を提供する
 """
 
-import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..models.bulk_operations import AdvancedBulkOperations
 from ..models.database import db_manager
 from ..models.stock import Stock
-from ..models.bulk_operations import AdvancedBulkOperations
-from .stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
+from .stock_fetcher import StockFetcher
+from .stock_master_config import get_stock_master_config
 
 logger = get_context_logger(__name__)
 
@@ -21,17 +20,26 @@ logger = get_context_logger(__name__)
 class StockMasterManager:
     """銘柄マスタ管理クラス（改善版）"""
 
-    def __init__(self, db_manager=None, stock_fetcher: Optional[StockFetcher] = None):
+    def __init__(
+        self, db_manager=None, stock_fetcher: Optional[StockFetcher] = None, config=None
+    ):
         """
         初期化（依存性注入対応）
 
         Args:
             db_manager: データベースマネージャー
             stock_fetcher: 株価データ取得インスタンス
+            config: 設定インスタンス
         """
-        self.db_manager = db_manager or globals()['db_manager']
+        if db_manager is None:
+            from ..models.database import db_manager as default_db_manager
+
+            self.db_manager = default_db_manager
+        else:
+            self.db_manager = db_manager
         self.bulk_operations = AdvancedBulkOperations(self.db_manager)
         self.stock_fetcher = stock_fetcher or StockFetcher()
+        self.config = config or get_stock_master_config()
 
     def add_stock(
         self,
@@ -82,7 +90,14 @@ class StockMasterManager:
             if existing:
                 logger.info(f"銘柄は既に存在します: {code} - {existing.name}")
                 # 属性を事前読み込みしてからreturn
-                _ = existing.id, existing.code, existing.name, existing.market, existing.sector, existing.industry
+                _ = (
+                    existing.id,
+                    existing.code,
+                    existing.name,
+                    existing.market,
+                    existing.sector,
+                    existing.industry,
+                )
                 return existing
 
             # 新規作成
@@ -94,7 +109,14 @@ class StockMasterManager:
 
             logger.info(f"銘柄を追加しました: {code} - {name}")
             # 属性を事前読み込みしてからreturn
-            _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+            _ = (
+                stock.id,
+                stock.code,
+                stock.name,
+                stock.market,
+                stock.sector,
+                stock.industry,
+            )
             return stock
 
         except Exception as e:
@@ -140,7 +162,14 @@ class StockMasterManager:
                     stock.industry = industry
 
                 # 属性を事前に読み込み（セッションスコープ内で遅延読み込み解決）
-                _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                _ = (
+                    stock.id,
+                    stock.code,
+                    stock.name,
+                    stock.market,
+                    stock.sector,
+                    stock.industry,
+                )
 
                 logger.info(f"銘柄を更新しました: {code} - {stock.name}")
                 return stock
@@ -149,7 +178,9 @@ class StockMasterManager:
                 logger.error(f"銘柄更新エラー ({code}): {e}")
                 return None
 
-    def get_stock_by_code(self, code: str, detached: bool = False) -> Optional[Stock]:
+    def get_stock_by_code(
+        self, code: str, detached: Optional[bool] = None
+    ) -> Optional[Stock]:
         """
         証券コードで銘柄を取得（最適化版）
 
@@ -165,20 +196,58 @@ class StockMasterManager:
                 stock = session.query(Stock).filter(Stock.code == code).first()
                 if stock:
                     # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
-                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                    _ = (
+                        stock.id,
+                        stock.code,
+                        stock.name,
+                        stock.market,
+                        stock.sector,
+                        stock.industry,
+                    )
                     logger.debug(f"銘柄取得: {stock.code} - {stock.name}")
                 return stock
             except Exception as e:
                 logger.error(f"銘柄取得エラー ({code}): {e}")
                 return None
 
-    def search_stocks_by_name(self, name_pattern: str, limit: int = 50, detached: bool = False) -> List[Stock]:
+    def _validate_stock_data(self, code: str, name: str = None) -> bool:
+        """銀柄データのバリデーション"""
+        if self.config.should_require_code() and not code:
+            return False
+        if self.config.should_require_name() and not name:
+            return False
+        if self.config.should_validate_code_format() and not code.isdigit():
+            return False
+        if name and len(name) > self.config.get_max_name_length():
+            return False
+        return True
+
+    def _apply_session_management(self, stock: Stock, session, detached: bool):
+        """セッション管理の適用"""
+        # eager loadingで属性を事前読み込み
+        if self.config.should_use_eager_loading():
+            _ = (
+                stock.id,
+                stock.code,
+                stock.name,
+                stock.market,
+                stock.sector,
+                stock.industry,
+            )
+
+        # detachedが指定されている場合はセッションから切り離す
+        if detached and self.config.should_auto_expunge():
+            session.expunge(stock)
+
+    def search_stocks_by_name(
+        self, name_pattern: str, limit: int = 50, detached: bool = False
+    ) -> List[Stock]:
         """
         銘柄名で部分一致検索（最適化版）
 
         Args:
             name_pattern: 銘柄名の一部
-            limit: 結果の上限数
+            limit: 結果の上限数（設定上限あり）
             detached: セッションから切り離すかどうか
 
         Returns:
@@ -197,9 +266,18 @@ class StockMasterManager:
 
                 # セッションスコープを抜ける前に属性をアクセスして遅延読み込みを解決
                 for stock in stocks:
-                    _ = stock.id, stock.code, stock.name, stock.market, stock.sector, stock.industry
+                    _ = (
+                        stock.id,
+                        stock.code,
+                        stock.name,
+                        stock.market,
+                        stock.sector,
+                        stock.industry,
+                    )
 
-                logger.debug(f"銘柄名検索結果: {len(stocks)}件 (パターン: {name_pattern})")
+                logger.debug(
+                    f"銘柄名検索結果: {len(stocks)}件 (パターン: {name_pattern})"
+                )
                 return stocks
 
             except Exception as e:
@@ -481,8 +559,13 @@ class StockMasterManager:
                     session.flush()
 
                     # 属性を事前読み込み（セッション内で）
-                    _ = (existing_stock.code, existing_stock.name, existing_stock.market,
-                         existing_stock.sector, existing_stock.industry)
+                    _ = (
+                        existing_stock.code,
+                        existing_stock.name,
+                        existing_stock.market,
+                        existing_stock.sector,
+                        existing_stock.industry,
+                    )
                     return existing_stock
                 else:
                     logger.info(f"新規銘柄を追加: {code} - {name}")
@@ -492,14 +575,19 @@ class StockMasterManager:
                         name=name,
                         market=market,
                         sector=sector,
-                        industry=industry
+                        industry=industry,
                     )
                     session.add(new_stock)
                     session.flush()
 
                     # 属性を事前読み込み（セッション内で）
-                    _ = (new_stock.code, new_stock.name, new_stock.market,
-                         new_stock.sector, new_stock.industry)
+                    _ = (
+                        new_stock.code,
+                        new_stock.name,
+                        new_stock.market,
+                        new_stock.sector,
+                        new_stock.industry,
+                    )
                     return new_stock
 
         except Exception as e:
@@ -546,7 +634,11 @@ class StockMasterManager:
                 else:
                     logger.info(f"新規銘柄を追加: {code} - {name}")
                     stock = Stock(
-                        code=code, name=name, market=market, sector=sector, industry=industry
+                        code=code,
+                        name=name,
+                        market=market,
+                        sector=sector,
+                        industry=industry,
                     )
                     session.add(stock)
                     session.flush()
@@ -557,6 +649,7 @@ class StockMasterManager:
         except Exception as e:
             logger.error(f"銘柄情報取得・更新エラー ({code}): {e}")
             return None
+
     def _estimate_market_segment(self, code: str, company_info: Dict) -> str:
         """
         市場区分を推定（堅牢性向上版）
@@ -583,11 +676,11 @@ class StockMasterManager:
 
             # 時価総額に基づいた推定（おおよその基準）
             if market_cap:
-                if market_cap > 1_000_000_000_000:  # 1兆ドル超
+                if (
+                    market_cap > 1_000_000_000_000 or market_cap > 100_000_000_000
+                ):  # 1兆ドル超
                     return "東証プライム"
-                elif market_cap > 100_000_000_000:  # 1000億ドル超
-                    return "東証プライム"
-                elif market_cap > 10_000_000_000:   # 100億ドル超
+                elif market_cap > 10_000_000_000:  # 100億ドル超
                     return "東証スタンダード"
                 else:
                     return "東証グロース"
@@ -602,7 +695,9 @@ class StockMasterManager:
             # コードが数値でない場合のフォールバック
             return "東証プライム"
 
-    def bulk_add_stocks(self, stocks_data: List[dict], batch_size: int = 1000) -> Dict[str, int]:
+    def bulk_add_stocks(
+        self, stocks_data: List[dict], batch_size: int = 1000
+    ) -> Dict[str, int]:
         """
         銘柄の一括追加（AdvancedBulkOperations使用・パフォーマンス最適化版）
 
@@ -624,13 +719,15 @@ class StockMasterManager:
                 if not stock_data.get("code") or not stock_data.get("name"):
                     logger.warning(f"無効な銘柄データをスキップ: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": stock_data["code"],
-                    "name": stock_data["name"],
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": stock_data["code"],
+                        "name": stock_data["name"],
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用して一括挿入
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -638,7 +735,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="ignore",  # 重複は無視
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括追加完了: {result}")
@@ -646,7 +743,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括追加エラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def bulk_update_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
@@ -673,13 +775,15 @@ class StockMasterManager:
                 if not code:
                     logger.warning(f"銘柄コードが無効です: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": code,
-                    "name": stock_data.get("name"),
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": code,
+                        "name": stock_data.get("name"),
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用してupsert（挿入または更新）
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -687,7 +791,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="update",  # 重複時は更新
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括更新完了: {result}")
@@ -695,7 +799,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括更新エラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def bulk_upsert_stocks(
         self, stocks_data: List[dict], batch_size: int = 1000
@@ -721,13 +830,15 @@ class StockMasterManager:
                 if not code:
                     logger.warning(f"銘柄コードが無効です: {stock_data}")
                     continue
-                validated_data.append({
-                    "code": code,
-                    "name": stock_data.get("name"),
-                    "market": stock_data.get("market"),
-                    "sector": stock_data.get("sector"),
-                    "industry": stock_data.get("industry"),
-                })
+                validated_data.append(
+                    {
+                        "code": code,
+                        "name": stock_data.get("name"),
+                        "market": stock_data.get("market"),
+                        "sector": stock_data.get("sector"),
+                        "industry": stock_data.get("industry"),
+                    }
+                )
 
             # AdvancedBulkOperationsを使用してupsert
             result = self.bulk_operations.bulk_insert_with_conflict_resolution(
@@ -735,7 +846,7 @@ class StockMasterManager:
                 validated_data,
                 conflict_strategy="update",  # 重複時は更新
                 chunk_size=batch_size,
-                unique_columns=["code"]
+                unique_columns=["code"],
             )
 
             logger.info(f"銘柄一括upsert完了: {result}")
@@ -743,8 +854,12 @@ class StockMasterManager:
 
         except Exception as e:
             logger.error(f"銘柄一括upsertエラー: {e}")
-            return {"inserted": 0, "updated": 0, "skipped": 0, "errors": len(stocks_data)}
-
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": len(stocks_data),
+            }
 
     def fetch_and_update_stock_info_dict(self, code: str) -> Optional[Dict[str, str]]:
         """
@@ -798,7 +913,7 @@ class StockMasterManager:
                         name=name,
                         market=market,
                         sector=sector,
-                        industry=industry
+                        industry=industry,
                     )
                     session.add(new_stock)
                     session.flush()
@@ -840,42 +955,278 @@ class StockMasterManager:
         skipped_count = 0
         updated_stocks = []
 
-        # バッチ処理でAPIレートリミットを回避
-        for i in range(0, len(codes), batch_size):
-            batch_codes = codes[i:i + batch_size]
-            logger.info(f"バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}")
+        # StockFetcherの一括取得機能を使用（改善版）
+        import time
 
-            for code in batch_codes:
+        start_time = time.time()
+
+        try:
+            # 新しい一括取得機能を使用
+            bulk_company_data = self.stock_fetcher.bulk_get_company_info(
+                codes=codes, batch_size=batch_size, delay=delay
+            )
+
+            # 取得結果を処理してデータベース更新用のデータを準備
+            for code, company_info in bulk_company_data.items():
                 try:
-                    stock_info = self.fetch_and_update_stock_info_as_dict(code)
-                    if stock_info:
-                        updated_stocks.append(stock_info)
-                        success_count += 1
+                    if company_info:
+                        # 既存のStockレコードを更新または新規作成
+                        with self.db_manager.session_scope() as session:
+                            stock = (
+                                session.query(Stock).filter(Stock.code == code).first()
+                            )
+
+                            if stock:
+                                # 既存レコードを更新
+                                stock.name = company_info.get("name", stock.name)
+                                stock.sector = company_info.get("sector", stock.sector)
+                                stock.industry = company_info.get(
+                                    "industry", stock.industry
+                                )
+                                logger.debug(f"銘柄情報更新: {code} - {stock.name}")
+                            else:
+                                # 新規レコードを作成
+                                stock = Stock(
+                                    code=code,
+                                    name=company_info.get("name", ""),
+                                    market="東証プライム",  # デフォルト値
+                                    sector=company_info.get("sector", ""),
+                                    industry=company_info.get("industry", ""),
+                                )
+                                session.add(stock)
+                                logger.debug(f"新規銘柄登録: {code} - {stock.name}")
+
+                            session.commit()
+
+                            # 更新されたデータを記録
+                            updated_stocks.append(
+                                {
+                                    "code": stock.code,
+                                    "name": stock.name,
+                                    "market": stock.market,
+                                    "sector": stock.sector,
+                                    "industry": stock.industry,
+                                }
+                            )
+                            success_count += 1
                     else:
                         skipped_count += 1
+                        logger.warning(f"企業情報が取得できませんでした: {code}")
 
                 except Exception as e:
-                    logger.error(f"銘柄情報取得失敗 ({code}): {e}")
                     failed_count += 1
+                    logger.error(f"銘柄情報処理エラー ({code}): {e}")
 
-            # バッチ間の遅延
-            if i + batch_size < len(codes) and delay > 0:
-                import time
-                time.sleep(delay)
+        except Exception as e:
+            logger.error(f"一括企業情報取得エラー: {e}")
+            # フォールバック: 従来の個別処理
+            logger.warning("個別処理にフォールバック")
+
+            for i in range(0, len(codes), batch_size):
+                batch_codes = codes[i : i + batch_size]
+                logger.info(
+                    f"フォールバック バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+                )
+
+                for code in batch_codes:
+                    try:
+                        stock_info = self.fetch_and_update_stock_info_as_dict(code)
+                        if stock_info:
+                            updated_stocks.append(stock_info)
+                            success_count += 1
+                        else:
+                            skipped_count += 1
+
+                    except Exception as e:
+                        logger.error(f"銘柄情報取得失敗 ({code}): {e}")
+                        failed_count += 1
+
+                # バッチ間の遅延
+                if i + batch_size < len(codes) and delay > 0:
+                    time.sleep(delay)
+
+        total_elapsed = time.time() - start_time
+        avg_time_per_stock = total_elapsed / len(codes) if codes else 0
 
         result = {
             "success": success_count,
             "failed": failed_count,
             "skipped": skipped_count,
-            "total": len(codes)
+            "total": len(codes),
+            "elapsed_seconds": total_elapsed,
+            "avg_time_per_stock": avg_time_per_stock,
         }
 
-        logger.info(f"企業情報一括取得完了: {result}")
+        logger.info(
+            f"企業情報一括取得完了: 成功={success_count}, 失敗={failed_count}, "
+            f"スキップ={skipped_count}, 合計={len(codes)} "
+            f"({total_elapsed:.2f}秒, 平均{avg_time_per_stock:.3f}秒/銘柄)"
+        )
         return result
+
+    def update_sector_information_bulk(
+        self, codes: List[str], batch_size: int = 20, delay: float = 0.1
+    ) -> Dict[str, int]:
+        """
+        複数銀柄のセクター情報を一括更新（Issue #133対応）
+
+        Args:
+            codes: 銀柄コードのリスト
+            batch_size: バッチサイズ（APIレートリミット対応）
+            delay: バッチ間の遅延（秒）
+
+        Returns:
+            更新結果の統計情報
+        """
+        if not codes:
+            return {"updated": 0, "failed": 0, "skipped": 0, "total": 0}
+
+        logger.info(f"セクター情報一括更新開始: {len(codes)}銀柄")
+
+        updated_count = 0
+        failed_count = 0
+        skipped_count = 0
+
+        # バッチ処理でAPIレートリミットを回避
+        for i in range(0, len(codes), batch_size):
+            batch_codes = codes[i : i + batch_size]
+            logger.info(
+                f"セクター情報バッチ処理: {i//batch_size + 1}/{(len(codes) + batch_size - 1)//batch_size}"
+            )
+
+            with self.db_manager.session_scope() as session:
+                for code in batch_codes:
+                    try:
+                        # 現在の銀柄情報を取得
+                        stock = session.query(Stock).filter(Stock.code == code).first()
+                        if not stock:
+                            logger.warning(f"銀柄が見つかりません: {code}")
+                            skipped_count += 1
+                            continue
+
+                        # セクター情報が既に存在する場合はスキップ（オプション）
+                        if stock.sector and stock.industry:
+                            logger.debug(
+                                f"セクター情報が既に存在: {code} - {stock.sector}"
+                            )
+                            skipped_count += 1
+                            continue
+
+                        # StockFetcherから企業情報を取得
+                        company_info = self.stock_fetcher.get_company_info(code)
+                        if not company_info:
+                            logger.warning(f"企業情報を取得できません: {code}")
+                            failed_count += 1
+                            continue
+
+                        # セクター情報を更新
+                        updated = False
+                        if (
+                            company_info.get("sector")
+                            and company_info["sector"] != stock.sector
+                        ):
+                            stock.sector = company_info["sector"]
+                            updated = True
+
+                        if (
+                            company_info.get("industry")
+                            and company_info["industry"] != stock.industry
+                        ):
+                            stock.industry = company_info["industry"]
+                            updated = True
+
+                        if updated:
+                            session.flush()
+                            logger.info(
+                                f"セクター情報を更新: {code} - {stock.sector}/{stock.industry}"
+                            )
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+
+                    except Exception as e:
+                        logger.error(f"セクター情報更新エラー ({code}): {e}")
+                        failed_count += 1
+
+            # バッチ間の遅延
+            if i + batch_size < len(codes) and delay > 0:
+                import time
+
+                time.sleep(delay)
+
+        result = {
+            "updated": updated_count,
+            "failed": failed_count,
+            "skipped": skipped_count,
+            "total": len(codes),
+        }
+
+        logger.info(f"セクター情報一括更新完了: {result}")
+        return result
+
+    def get_stocks_without_sector_info(self, limit: int = 1000) -> List[str]:
+        """
+        セクター情報が空の銀柄コードを取得
+
+        Args:
+            limit: 結果の上限数
+
+        Returns:
+            セクター情報が空の銀柄コードのリスト
+        """
+        with self.db_manager.session_scope() as session:
+            try:
+                stocks = (
+                    session.query(Stock)
+                    .filter(
+                        (Stock.sector.is_(None))
+                        | (Stock.sector == "")
+                        | (Stock.industry.is_(None))
+                        | (Stock.industry == "")
+                    )
+                    .limit(limit)
+                    .all()
+                )
+
+                codes = [stock.code for stock in stocks]
+                logger.info(f"セクター情報が空の銀柄: {len(codes)}件")
+                return codes
+
+            except Exception as e:
+                logger.error(f"セクター情報の空銀柄取得エラー: {e}")
+                return []
+
+    def auto_update_missing_sector_info(self, max_stocks: int = 100) -> Dict[str, int]:
+        """
+        セクター情報が空の銀柄を自動的に更新（ユーティリティ）
+
+        Args:
+            max_stocks: 一度に処理する銀柄の上限数
+
+        Returns:
+            更新結果の統計情報
+        """
+        logger.info(f"セクター情報の自動更新を開始: 上限{max_stocks}銀柄")
+
+        # セクター情報が空の銀柄を取得
+        codes_to_update = self.get_stocks_without_sector_info(limit=max_stocks)
+
+        if not codes_to_update:
+            logger.info("セクター情報の更新が必要な銀柄はありません")
+            return {"updated": 0, "failed": 0, "skipped": 0, "total": 0}
+
+        # 一括更新を実行
+        return self.update_sector_information_bulk(
+            codes_to_update,
+            batch_size=self.config.get_fetch_batch_size(),
+            delay=self.config.get_fetch_delay_seconds(),
+        )
 
 
 # グローバルインスタンス（改善版）
-def create_stock_master_manager(db_manager=None, stock_fetcher=None) -> StockMasterManager:
+def create_stock_master_manager(
+    db_manager=None, stock_fetcher=None
+) -> StockMasterManager:
     """
     StockMasterManagerのファクトリー関数（依存性注入対応）
 
@@ -888,5 +1239,65 @@ def create_stock_master_manager(db_manager=None, stock_fetcher=None) -> StockMas
     """
     return StockMasterManager(db_manager=db_manager, stock_fetcher=stock_fetcher)
 
+
 # 後方互換性のためのグローバルインスタンス
 stock_master = StockMasterManager()
+
+
+# Issue #133: セクター情報永続化のユーティリティ関数
+def update_all_sector_information(
+    batch_size: int = 20, max_stocks: int = 1000
+) -> Dict[str, int]:
+    """
+    全銀柄のセクター情報を更新するユーティリティ関数
+
+    Args:
+        batch_size: バッチサイズ
+        max_stocks: 一度に処理する銀柄の上限数
+
+    Returns:
+        更新結果の統計情報
+    """
+    return stock_master.auto_update_missing_sector_info(max_stocks=max_stocks)
+
+
+def get_sector_distribution() -> Dict[str, int]:
+    """
+    セクター別銀柄数の分布を取得
+
+    Returns:
+        セクター名: 銀柄数 の辞書
+    """
+    from sqlalchemy import func
+
+    from ..models.stock import Stock
+
+    try:
+        with db_manager.session_scope() as session:
+            # セクター別の銀柄数を集計
+            results = (
+                session.query(Stock.sector, func.count(Stock.id))
+                .filter(Stock.sector.isnot(None))
+                .filter(Stock.sector != "")
+                .group_by(Stock.sector)
+                .order_by(func.count(Stock.id).desc())
+                .all()
+            )
+
+            distribution = {sector: count for sector, count in results}
+
+            # セクター情報が空の銀柄数を追加
+            missing_count = (
+                session.query(func.count(Stock.id))
+                .filter((Stock.sector.is_(None)) | (Stock.sector == ""))
+                .scalar()
+            )
+
+            if missing_count > 0:
+                distribution["(セクター情報なし)"] = missing_count
+
+            return distribution
+
+    except Exception as e:
+        logger.error(f"セクター分布取得エラー: {e}")
+        return {}

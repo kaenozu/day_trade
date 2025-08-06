@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
 
 import pandas as pd
 
@@ -23,7 +23,7 @@ class ScreeningStrategy(ABC):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         """
         スクリーニング条件を評価
@@ -60,7 +60,7 @@ class RSIOversoldStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 30.0,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             if "RSI" not in indicators.columns:
@@ -90,7 +90,7 @@ class RSIOverboughtStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 70.0,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             if "RSI" not in indicators.columns:
@@ -98,7 +98,9 @@ class RSIOverboughtStrategy(ScreeningStrategy):
 
             rsi = indicators["RSI"].iloc[-1]
             if pd.notna(rsi) and rsi >= threshold:
-                score = (rsi - threshold) / (100 - threshold) * 100  # RSIが高いほど高スコア
+                score = (
+                    (rsi - threshold) / (100 - threshold) * 100
+                )  # RSIが高いほど高スコア
                 return True, min(score, 100)
 
         except Exception as e:
@@ -120,10 +122,13 @@ class MACDBullishStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
+            if (
+                "MACD" not in indicators.columns
+                or "MACD_Signal" not in indicators.columns
+            ):
                 return False, 0.0
 
             macd = indicators["MACD"].iloc[-2:]
@@ -160,10 +165,13 @@ class MACDBearishStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
+            if (
+                "MACD" not in indicators.columns
+                or "MACD_Signal" not in indicators.columns
+            ):
                 return False, 0.0
 
             macd = indicators["MACD"].iloc[-2:]
@@ -200,7 +208,7 @@ class GoldenCrossStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             if "SMA_20" not in indicators.columns or "SMA_50" not in indicators.columns:
@@ -242,7 +250,7 @@ class DeadCrossStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             if "SMA_20" not in indicators.columns or "SMA_50" not in indicators.columns:
@@ -284,7 +292,7 @@ class VolumeSpikeStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 2.0,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             recent_volume = df["Volume"].iloc[-1]
@@ -314,7 +322,7 @@ class StrongMomentumStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 0.05,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             if len(df) >= lookback_days:
@@ -345,10 +353,13 @@ class BollingerBreakoutStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns:
+            if (
+                "BB_Upper" not in indicators.columns
+                or "BB_Lower" not in indicators.columns
+            ):
                 return False, 0.0
 
             current_price = df["Close"].iloc[-1]
@@ -386,10 +397,13 @@ class BollingerSqueezeStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 0.02,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns:
+            if (
+                "BB_Upper" not in indicators.columns
+                or "BB_Lower" not in indicators.columns
+            ):
                 return False, 0.0
 
             bb_upper = indicators["BB_Upper"].iloc[-1]
@@ -423,7 +437,7 @@ class PriceNearSupportStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 0.03,  # 3%以内
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             current_price = df["Close"].iloc[-1]
@@ -457,7 +471,7 @@ class PriceNearResistanceStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = 0.03,  # 3%以内
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             current_price = df["Close"].iloc[-1]
@@ -465,7 +479,9 @@ class PriceNearResistanceStrategy(ScreeningStrategy):
             recent_highs = df["High"].iloc[-lookback_days:].nlargest(3)
             resistance_level = recent_highs.mean()
 
-            distance_to_resistance = abs(current_price - resistance_level) / resistance_level
+            distance_to_resistance = (
+                abs(current_price - resistance_level) / resistance_level
+            )
 
             if distance_to_resistance <= threshold:
                 # レジスタンスに近いほど高スコア
@@ -491,7 +507,7 @@ class ReversalPatternStrategy(ScreeningStrategy):
         indicators: pd.DataFrame,
         threshold: float = None,
         lookback_days: int = 20,
-        **kwargs
+        **kwargs,
     ) -> Tuple[bool, float]:
         try:
             # 簡単な反転パターンの検出
@@ -504,7 +520,9 @@ class ReversalPatternStrategy(ScreeningStrategy):
 
             if len(rsi_values) >= 5 and len(price_values) >= 5:
                 # RSIが底を打って上昇し、価格も底を打って上昇
-                rsi_trend = rsi_values.iloc[-1] > rsi_values.iloc[-3] > rsi_values.iloc[-5]
+                rsi_trend = (
+                    rsi_values.iloc[-1] > rsi_values.iloc[-3] > rsi_values.iloc[-5]
+                )
                 price_low = price_values.min()
                 current_price = price_values.iloc[-1]
 

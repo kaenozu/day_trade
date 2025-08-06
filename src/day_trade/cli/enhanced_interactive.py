@@ -18,6 +18,7 @@ from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.panel import Panel
 
+from ..automation.orchestrator import DayTradeOrchestrator
 from ..core.watchlist import WatchlistManager
 from ..data.stock_fetcher import StockFetcher
 from ..utils.formatters import (
@@ -84,7 +85,9 @@ class StockCommandHandler(CommandHandler):
         elif command == "validate" and args:
             self.cli._handle_validate_command(args)
         else:
-            console.print(create_warning_panel(f"'{command}' コマンドには引数が必要です"))
+            console.print(
+                create_warning_panel(f"'{command}' コマンドには引数が必要です")
+            )
         return True
 
 
@@ -130,9 +133,9 @@ class EnhancedInteractiveCLI:
     def __init__(
         self,
         config_path: Optional[Path] = None,
-        stock_fetcher: Optional['StockFetcher'] = None,
-        watchlist_manager: Optional['WatchlistManager'] = None,
-        orchestrator: Optional['DayTradeOrchestrator'] = None
+        stock_fetcher: Optional["StockFetcher"] = None,
+        watchlist_manager: Optional["WatchlistManager"] = None,
+        orchestrator: Optional["DayTradeOrchestrator"] = None,
     ):
         self.config_path = config_path
         self.history_file = Path.home() / ".daytrade_history"
@@ -179,27 +182,29 @@ class EnhancedInteractiveCLI:
         ]
 
     @property
-    def stock_fetcher(self) -> 'StockFetcher':
+    def stock_fetcher(self) -> "StockFetcher":
         """StockFetcherインスタンスを取得（遅延初期化）"""
         if self._stock_fetcher is None:
             self._stock_fetcher = StockFetcher()
         return self._stock_fetcher
 
     @property
-    def watchlist_manager(self) -> 'WatchlistManager':
+    def watchlist_manager(self) -> "WatchlistManager":
         """WatchlistManagerインスタンスを取得（遅延初期化）"""
         if self._watchlist_manager is None:
             from ..core.config import config_manager
+
             self._watchlist_manager = WatchlistManager(
                 config_manager, None, self.stock_fetcher, None
             )
         return self._watchlist_manager
 
     @property
-    def orchestrator(self) -> 'DayTradeOrchestrator':
+    def orchestrator(self) -> "DayTradeOrchestrator":
         """DayTradeOrchestratorインスタンスを取得（遅延初期化）"""
         if self._orchestrator is None:
             from ..automation.orchestrator import DayTradeOrchestrator
+
             self._orchestrator = DayTradeOrchestrator(self.config_path)
         return self._orchestrator
 
@@ -402,35 +407,41 @@ class EnhancedInteractiveCLI:
             solutions = [
                 "インターネット接続を確認してください",
                 "VPNまたはプロキシの設定を確認してください",
-                "少し時間をおいて再試行してください"
+                "少し時間をおいて再試行してください",
             ]
         elif "FileNotFoundError" in error_type:
             solutions = [
                 "ファイルパスが正しいか確認してください",
                 "ファイルが存在するか確認してください",
-                "権限があるか確認してください"
+                "権限があるか確認してください",
             ]
         elif "ImportError" in error_type or "ModuleNotFoundError" in error_type:
             solutions = [
                 "必要なライブラリがインストールされているか確認してください",
                 "pip install -e .[dev] を実行してください",
-                "仮想環境が正しく有効化されているか確認してください"
+                "仮想環境が正しく有効化されているか確認してください",
             ]
         elif "ValueError" in error_type or "TypeError" in error_type:
             solutions = [
                 "入力データの形式を確認してください",
-                "必要な引数がすべて提供されているか確認してください"
+                "必要な引数がすべて提供されているか確認してください",
             ]
         elif "KeyError" in error_type:
             solutions = [
                 "設定ファイルに必要なキーが存在するか確認してください",
-                "データが正しく初期化されているか確認してください"
+                "データが正しく初期化されているか確認してください",
             ]
 
         if solutions:
-            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}", solutions=solutions))
+            console.print(
+                create_error_panel(
+                    f"{context}中にエラーが発生しました: {error}", solutions=solutions
+                )
+            )
         else:
-            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}"))
+            console.print(
+                create_error_panel(f"{context}中にエラーが発生しました: {error}")
+            )
 
         logger.error(f"Error in {context}: {error_type}: {error}")
 
@@ -529,7 +540,9 @@ class EnhancedInteractiveCLI:
             if subcommand == "list":
                 self._show_watchlist()
             elif subcommand == "add" and len(args) > 1:
-                self._add_to_watchlist(args[1], memo=" ".join(args[2:]) if len(args) > 2 else None)
+                self._add_to_watchlist(
+                    args[1], memo=" ".join(args[2:]) if len(args) > 2 else None
+                )
             elif subcommand == "remove" and len(args) > 1:
                 self._remove_from_watchlist(args[1])
             elif subcommand == "clear":
@@ -537,7 +550,11 @@ class EnhancedInteractiveCLI:
             elif subcommand == "memo" and len(args) > 2:
                 self._update_watchlist_memo(args[1], " ".join(args[2:]))
             else:
-                console.print(create_warning_panel(f"不明なサブコマンドまたは引数不足: {subcommand}"))
+                console.print(
+                    create_warning_panel(
+                        f"不明なサブコマンドまたは引数不足: {subcommand}"
+                    )
+                )
         except Exception as e:
             console.print(create_error_panel(f"ウォッチリスト操作エラー: {e}"))
             logger.error(f"Watchlist operation error: {e}")
@@ -574,14 +591,22 @@ class EnhancedInteractiveCLI:
         # 既存チェック
         existing_items = self.watchlist_manager.get_watchlist()
         if any(item.get("stock_code") == stock_code for item in existing_items):
-            console.print(create_warning_panel(f"銘柄 {stock_code} は既にウォッチリストに存在します"))
+            console.print(
+                create_warning_panel(
+                    f"銘柄 {stock_code} は既にウォッチリストに存在します"
+                )
+            )
             return
 
         # 追加実行
         success = self.watchlist_manager.add_stock(stock_code, memo=memo)
         if success:
             memo_text = f" (メモ: {memo})" if memo else ""
-            console.print(create_success_panel(f"銘柄 {stock_code} をウォッチリストに追加しました{memo_text}"))
+            console.print(
+                create_success_panel(
+                    f"銘柄 {stock_code} をウォッチリストに追加しました{memo_text}"
+                )
+            )
             # 補完用銘柄コードリストを更新
             self.stock_codes = self._load_stock_codes()
             self.command_completer = self._create_command_completer()
@@ -596,16 +621,25 @@ class EnhancedInteractiveCLI:
 
         success = self.watchlist_manager.remove_stock(stock_code)
         if success:
-            console.print(create_success_panel(f"銘柄 {stock_code} をウォッチリストから削除しました"))
+            console.print(
+                create_success_panel(
+                    f"銘柄 {stock_code} をウォッチリストから削除しました"
+                )
+            )
             # 補完用銘柄コードリストを更新
             self.stock_codes = self._load_stock_codes()
             self.command_completer = self._create_command_completer()
         else:
-            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
+            console.print(
+                create_warning_panel(
+                    f"銘柄 {stock_code} はウォッチリストに存在しません"
+                )
+            )
 
     def _clear_watchlist(self):
         """ウォッチリストをクリア"""
         from prompt_toolkit.shortcuts import confirm
+
         if confirm("ウォッチリストをすべてクリアしますか？"):
             self.watchlist_manager.clear_watchlist()
             console.print(create_success_panel("ウォッチリストをクリアしました"))
@@ -624,15 +658,23 @@ class EnhancedInteractiveCLI:
         # 既存チェック
         existing_items = self.watchlist_manager.get_watchlist()
         if not any(item.get("stock_code") == stock_code for item in existing_items):
-            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
+            console.print(
+                create_warning_panel(
+                    f"銘柄 {stock_code} はウォッチリストに存在しません"
+                )
+            )
             return
 
         # メモ更新（add_stockを使って既存を上書き）
         success = self.watchlist_manager.add_stock(stock_code, memo=memo)
         if success:
-            console.print(create_success_panel(f"銘柄 {stock_code} のメモを更新しました: {memo}"))
+            console.print(
+                create_success_panel(f"銘柄 {stock_code} のメモを更新しました: {memo}")
+            )
         else:
-            console.print(create_error_panel(f"銘柄 {stock_code} のメモ更新に失敗しました"))
+            console.print(
+                create_error_panel(f"銘柄 {stock_code} のメモ更新に失敗しました")
+            )
 
     def _handle_config_command(self, args: List[str]):
         """config コマンドの処理"""
@@ -660,23 +702,23 @@ class EnhancedInteractiveCLI:
             console.print("\n[bold cyan]⚙️ 現在の設定[/bold cyan]")
 
             # API設定
-            api_timeout = getattr(config_manager, 'api_timeout', 30)
-            console.print(f"[yellow]API設定[/yellow]")
+            api_timeout = getattr(config_manager, "api_timeout", 30)
+            console.print("[yellow]API設定[/yellow]")
             console.print(f"  timeout: {api_timeout}秒")
 
             # 取引設定
-            commission = getattr(config_manager, 'commission', 0.0)
-            console.print(f"[yellow]取引設定[/yellow]")
+            commission = getattr(config_manager, "commission", 0.0)
+            console.print("[yellow]取引設定[/yellow]")
             console.print(f"  commission: {commission}%")
 
             # 表示設定
-            theme = getattr(config_manager, 'theme', 'dark')
-            console.print(f"[yellow]表示設定[/yellow]")
+            theme = getattr(config_manager, "theme", "dark")
+            console.print("[yellow]表示設定[/yellow]")
             console.print(f"  theme: {theme}")
 
             # データベース設定
-            db_path = getattr(config_manager, 'database_path', 'day_trade.db')
-            console.print(f"[yellow]データベース設定[/yellow]")
+            db_path = getattr(config_manager, "database_path", "day_trade.db")
+            console.print("[yellow]データベース設定[/yellow]")
             console.print(f"  database_path: {db_path}")
 
         except Exception as e:
@@ -692,40 +734,52 @@ class EnhancedInteractiveCLI:
                 "api.timeout": ("api_timeout", int),
                 "trading.commission": ("commission", float),
                 "display.theme": ("theme", str),
-                "database.path": ("database_path", str)
+                "database.path": ("database_path", str),
             }
 
             if key not in valid_keys:
                 console.print(create_error_panel(f"無効な設定キー: {key}"))
-                console.print(create_info_panel(f"有効なキー: {', '.join(valid_keys.keys())}"))
+                console.print(
+                    create_info_panel(f"有効なキー: {', '.join(valid_keys.keys())}")
+                )
                 return
 
             attr_name, value_type = valid_keys[key]
 
             # 値の型変換
             try:
-                if value_type == int:
+                if value_type is int:
                     converted_value = int(value)
-                elif value_type == float:
+                elif value_type is float:
                     converted_value = float(value)
                 else:
                     converted_value = value
 
                 # テーマの検証
                 if key == "display.theme" and converted_value not in ["dark", "light"]:
-                    console.print(create_error_panel("テーマは 'dark' または 'light' を指定してください"))
+                    console.print(
+                        create_error_panel(
+                            "テーマは 'dark' または 'light' を指定してください"
+                        )
+                    )
                     return
 
             except ValueError:
-                console.print(create_error_panel(f"無効な値の型: {value} (期待する型: {value_type.__name__})"))
+                console.print(
+                    create_error_panel(
+                        f"無効な値の型: {value} (期待する型: {value_type.__name__})"
+                    )
+                )
                 return
 
             # 設定更新
             setattr(config_manager, attr_name, converted_value)
-            console.print(create_success_panel(f"設定を更新しました: {key} = {converted_value}"))
+            console.print(
+                create_success_panel(f"設定を更新しました: {key} = {converted_value}")
+            )
 
             # 設定保存の試行
-            if hasattr(config_manager, 'save'):
+            if hasattr(config_manager, "save"):
                 config_manager.save()
                 console.print(create_info_panel("設定をファイルに保存しました"))
 
@@ -743,13 +797,15 @@ class EnhancedInteractiveCLI:
                 # デフォルト値に戻す
                 config_manager.api_timeout = 30
                 config_manager.commission = 0.0
-                config_manager.theme = 'dark'
-                config_manager.database_path = 'day_trade.db'
+                config_manager.theme = "dark"
+                config_manager.database_path = "day_trade.db"
 
-                if hasattr(config_manager, 'save'):
+                if hasattr(config_manager, "save"):
                     config_manager.save()
 
-                console.print(create_success_panel("設定をデフォルト値にリセットしました"))
+                console.print(
+                    create_success_panel("設定をデフォルト値にリセットしました")
+                )
 
             except Exception as e:
                 console.print(create_error_panel(f"設定リセットエラー: {e}"))

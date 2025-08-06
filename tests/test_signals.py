@@ -4,11 +4,11 @@
 
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch
 
 from src.day_trade.analysis.indicators import TechnicalIndicators
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
@@ -137,7 +137,8 @@ class TestSignalRules:
     @pytest.fixture
     def patterns_data(self, sample_data):
         """認識済みのチャートパターン"""
-        return ChartPatternRecognizer.detect_all_patterns(sample_data)
+        recognizer = ChartPatternRecognizer()
+        return recognizer.detect_all_patterns(sample_data)
 
     def test_rsi_oversold_rule(self, sample_data, indicators_data, patterns_data):
         """RSI過売りルールのテスト"""
@@ -274,7 +275,8 @@ class TestTradingSignalGenerator:
     def test_generate_signal_basic(self, generator, sample_data):
         """基本的なシグナル生成のテスト"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         assert signal is not None
@@ -297,9 +299,8 @@ class TestTradingSignalGenerator:
         # RSIを低く設定して買いシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 25
-        patterns = ChartPatternRecognizer.detect_all_patterns(
-            sample_data
-        )  # patternsを追加
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)  # patternsを追加
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
@@ -316,9 +317,8 @@ class TestTradingSignalGenerator:
         # RSIを高く設定して売りシグナルを誘発
         indicators = TechnicalIndicators.calculate_all(sample_data)
         indicators.loc[indicators.index[-1], "RSI"] = 75
-        patterns = ChartPatternRecognizer.detect_all_patterns(
-            sample_data
-        )  # patternsを追加
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)  # patternsを追加
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
@@ -340,9 +340,8 @@ class TestTradingSignalGenerator:
         indicators.loc[indicators.index[-2], "MACD"] = -0.5
         indicators.loc[indicators.index[-1], "MACD"] = 0.5
         indicators.loc[indicators.index[-2:], "MACD_Signal"] = 0
-        patterns = ChartPatternRecognizer.detect_all_patterns(
-            sample_data
-        )  # patternsを追加
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)  # patternsを追加
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
@@ -393,7 +392,8 @@ class TestTradingSignalGenerator:
         )  # 3%上昇
 
         test_indicators = TechnicalIndicators.calculate_all(test_data)
-        test_patterns = ChartPatternRecognizer.detect_all_patterns(test_data)
+        test_pattern_recognizer = ChartPatternRecognizer()
+        test_patterns = test_pattern_recognizer.detect_all_patterns(test_data)
 
         # シグナル生成
         signal = generator.generate_signal(test_data, test_indicators, test_patterns)
@@ -425,7 +425,8 @@ class TestTradingSignalGenerator:
     def test_validate_signal(self, generator, sample_data):
         """シグナル検証のテスト"""
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
@@ -485,7 +486,8 @@ class TestTradingSignalGenerator:
         )
         small_df.set_index("Date", inplace=True)
         small_indicators = TechnicalIndicators.calculate_all(small_df)
-        small_patterns = ChartPatternRecognizer.detect_all_patterns(small_df)
+        small_pattern_recognizer = ChartPatternRecognizer()
+        small_patterns = small_pattern_recognizer.detect_all_patterns(small_df)
 
         signal = generator.generate_signal(small_df, small_indicators, small_patterns)
         assert signal is None
@@ -505,7 +507,8 @@ class TestTradingSignalGenerator:
         indicators.loc[indicators.index[-1], "BB_Lower"] = (
             sample_data["Close"].iloc[-1] + 1
         )
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(
             sample_data, indicators=indicators, patterns=patterns
@@ -579,7 +582,8 @@ class TestImprovedSignalGeneration:
         """Decimal価格処理テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -594,7 +598,8 @@ class TestImprovedSignalGeneration:
         """datetime タイムスタンプ処理テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -617,7 +622,8 @@ class TestImprovedSignalGeneration:
         indicators = TechnicalIndicators.calculate_all(sample_data)
         # 強いシグナルを作るため複数条件を満たす
         indicators.loc[indicators.index[-1], "RSI"] = 20  # 強い過売り
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
         if signal and signal.signal_type == SignalType.BUY:
@@ -632,7 +638,8 @@ class TestImprovedSignalGeneration:
         """拡張されたシグナル検証テスト"""
         generator = TradingSignalGenerator()
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -681,7 +688,7 @@ class TestSignalRuleCreation:
         # RSIOversoldRuleの作成設定
         rule_config = {
             "type": "RSIOversoldRule",
-            "parameters": {"threshold": 25, "weight": 1.5}
+            "parameters": {"threshold": 25, "weight": 1.5},
         }
 
         rule = generator._create_rule_from_config(rule_config)
@@ -695,10 +702,7 @@ class TestSignalRuleCreation:
         generator = TradingSignalGenerator()
 
         # 存在しないルールタイプ
-        rule_config = {
-            "type": "InvalidRule",
-            "parameters": {"threshold": 30}
-        }
+        rule_config = {"type": "InvalidRule", "parameters": {"threshold": 30}}
 
         rule = generator._create_rule_from_config(rule_config)
         assert rule is None
@@ -710,7 +714,7 @@ class TestSignalRuleCreation:
         # 無効なパラメータによる例外
         rule_config = {
             "type": "RSIOversoldRule",
-            "parameters": {"invalid_param": "invalid"}
+            "parameters": {"invalid_param": "invalid"},
         }
 
         rule = generator._create_rule_from_config(rule_config)
@@ -790,13 +794,15 @@ class TestSignalGenerationEdgeCases:
         generator = TradingSignalGenerator()
 
         # 少量データ（5行のみ）
-        small_df = pd.DataFrame({
-            "Open": [100, 101, 102, 103, 104],
-            "High": [101, 102, 103, 104, 105],
-            "Low": [99, 100, 101, 102, 103],
-            "Close": [100.5, 101.5, 102.5, 103.5, 104.5],
-            "Volume": [1000, 1100, 1200, 1300, 1400]
-        })
+        small_df = pd.DataFrame(
+            {
+                "Open": [100, 101, 102, 103, 104],
+                "High": [101, 102, 103, 104, 105],
+                "Low": [99, 100, 101, 102, 103],
+                "Close": [100.5, 101.5, 102.5, 103.5, 104.5],
+                "Volume": [1000, 1100, 1200, 1300, 1400],
+            }
+        )
 
         indicators = pd.DataFrame()
         patterns = {}
@@ -820,19 +826,22 @@ class TestSignalGenerationEdgeCases:
         generator = TradingSignalGenerator()
 
         # 充分なサイズのデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        df = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        df = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         indicators = TechnicalIndicators.calculate_all(df)
 
         # patternsをNoneで渡す
-        signal = generator.generate_signal(df, indicators, None)
+        generator.generate_signal(df, indicators, None)
         # エラーが発生せずに処理されることを確認
         # 結果は条件により異なるため、例外が発生しないことのみを確認
 
@@ -853,7 +862,7 @@ class TestConditionsMerging:
             "rsi_oversold": True,
             "macd_buy": False,
             "rsi_overbought": False,
-            "macd_sell": True
+            "macd_sell": True,
         }
         assert merged == expected
 
@@ -869,11 +878,11 @@ class TestConditionsMerging:
         # 衝突したキーがプレフィックス付きで分離されることを確認
         assert "buy_rsi_signal" in merged
         assert "sell_rsi_signal" in merged
-        assert merged["buy_rsi_signal"] == True
-        assert merged["sell_rsi_signal"] == False
+        assert merged["buy_rsi_signal"]
+        assert not merged["sell_rsi_signal"]
         assert "rsi_signal" not in merged  # 元のキーは削除される
-        assert merged["volume_spike"] == False
-        assert merged["trend_down"] == True
+        assert not merged["volume_spike"]
+        assert merged["trend_down"]
 
 
 class TestPatternSlicing:
@@ -884,25 +893,31 @@ class TestPatternSlicing:
         generator = TradingSignalGenerator()
 
         # テスト用のパターンデータを作成
-        crosses_df = pd.DataFrame({
-            "golden_cross": [False, False, True, False, False],
-            "death_cross": [False, True, False, False, True]
-        })
+        crosses_df = pd.DataFrame(
+            {
+                "golden_cross": [False, False, True, False, False],
+                "death_cross": [False, True, False, False, True],
+            }
+        )
 
-        breakouts_df = pd.DataFrame({
-            "resistance_break": [False, False, False, True, False],
-            "support_break": [True, False, False, False, False]
-        })
+        breakouts_df = pd.DataFrame(
+            {
+                "resistance_break": [False, False, False, True, False],
+                "support_break": [True, False, False, False, False],
+            }
+        )
 
         all_patterns = {
             "crosses": crosses_df,
             "breakouts": breakouts_df,
             "levels": {"support": [100, 105], "resistance": [110, 115]},
-            "trends": {"direction": "upward"}
+            "trends": {"direction": "upward"},
         }
 
         # インデックス2、ウィンドウ3でスライス
-        sliced = generator._slice_patterns(all_patterns, current_index=2, lookback_window=3)
+        sliced = generator._slice_patterns(
+            all_patterns, current_index=2, lookback_window=3
+        )
 
         # スライスされたDataFrameの確認
         assert "crosses" in sliced
@@ -922,10 +937,12 @@ class TestPatternSlicing:
             "crosses": pd.DataFrame(),  # 空のDataFrame
             "breakouts": pd.DataFrame(),
             "levels": {},
-            "trends": {}
+            "trends": {},
         }
 
-        sliced = generator._slice_patterns(all_patterns, current_index=5, lookback_window=3)
+        sliced = generator._slice_patterns(
+            all_patterns, current_index=5, lookback_window=3
+        )
 
         # 空のDataFrameが返されることを確認
         assert isinstance(sliced["crosses"], pd.DataFrame)
@@ -942,31 +959,36 @@ class TestAdvancedSignalValidation:
         generator = TradingSignalGenerator()
 
         # サンプルデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        sample_data = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        sample_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
             # モック過去パフォーマンスデータ
-            historical_performance = pd.DataFrame({
-                "Signal": ["buy", "sell", "buy", "sell"],
-                "Strength": ["strong", "medium", "weak", "strong"],
-                "Success": [True, False, True, True]
-            })
+            historical_performance = pd.DataFrame(
+                {
+                    "Signal": ["buy", "sell", "buy", "sell"],
+                    "Strength": ["strong", "medium", "weak", "strong"],
+                    "Success": [True, False, True, True],
+                }
+            )
 
             validity_score = generator.validate_signal(
-                signal,
-                historical_performance=historical_performance
+                signal, historical_performance=historical_performance
             )
 
             assert 0 <= validity_score <= 100
@@ -976,17 +998,21 @@ class TestAdvancedSignalValidation:
         generator = TradingSignalGenerator()
 
         # サンプルデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        sample_data = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        sample_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
@@ -994,23 +1020,21 @@ class TestAdvancedSignalValidation:
             # 高ボラティリティ市場環境
             high_vol_context = {
                 "volatility": 0.08,  # 高ボラティリティ（8%）
-                "trend_direction": "neutral"
+                "trend_direction": "neutral",
             }
 
             validity_high_vol = generator.validate_signal(
-                signal,
-                market_context=high_vol_context
+                signal, market_context=high_vol_context
             )
 
             # 低ボラティリティとの比較
             low_vol_context = {
                 "volatility": 0.02,  # 低ボラティリティ（2%）
-                "trend_direction": "neutral"
+                "trend_direction": "neutral",
             }
 
             validity_low_vol = generator.validate_signal(
-                signal,
-                market_context=low_vol_context
+                signal, market_context=low_vol_context
             )
 
             # 高ボラティリティ時は信頼度が下がることを確認
@@ -1021,41 +1045,37 @@ class TestAdvancedSignalValidation:
         generator = TradingSignalGenerator()
 
         # サンプルデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        sample_data = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        sample_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal and signal.signal_type == SignalType.BUY:
             # 上昇トレンドでのBUYシグナル（トレンドフォロー）
-            uptrend_context = {
-                "volatility": 0.03,
-                "trend_direction": "upward"
-            }
+            uptrend_context = {"volatility": 0.03, "trend_direction": "upward"}
 
             validity_uptrend = generator.validate_signal(
-                signal,
-                market_context=uptrend_context
+                signal, market_context=uptrend_context
             )
 
             # 下降トレンドでのBUYシグナル（逆張り）
-            downtrend_context = {
-                "volatility": 0.03,
-                "trend_direction": "downward"
-            }
+            downtrend_context = {"volatility": 0.03, "trend_direction": "downward"}
 
             validity_downtrend = generator.validate_signal(
-                signal,
-                market_context=downtrend_context
+                signal, market_context=downtrend_context
             )
 
             # トレンドフォローの方が信頼度が高いことを確認
@@ -1066,22 +1086,26 @@ class TestAdvancedSignalValidation:
         generator = TradingSignalGenerator()
 
         # サンプルデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        sample_data = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        sample_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         indicators = TechnicalIndicators.calculate_all(sample_data)
-        patterns = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        pattern_recognizer = ChartPatternRecognizer()
+        patterns = pattern_recognizer.detect_all_patterns(sample_data)
 
         signal = generator.generate_signal(sample_data, indicators, patterns)
 
         if signal:
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             # 古いタイムスタンプのシグナルを作成
             stale_signal = TradingSignal(
@@ -1092,7 +1116,7 @@ class TestAdvancedSignalValidation:
                 conditions_met=signal.conditions_met,
                 timestamp=datetime.now(timezone.utc) - timedelta(hours=80),  # 80時間前
                 price=signal.price,
-                symbol=signal.symbol
+                symbol=signal.symbol,
             )
 
             validity_stale = generator.validate_signal(stale_signal)
@@ -1113,19 +1137,18 @@ class TestAdvancedSignalValidation:
             reasons=["test"],
             conditions_met={"test": True},
             timestamp=datetime.now(),
-            price=Decimal("100.0")
+            price=Decimal("100.0"),
         )
 
         # 不正な市場環境データ
         invalid_context = {
             "volatility": "invalid",  # 数値でない
-            "trend_direction": None
+            "trend_direction": None,
         }
 
         # 例外が発生してもゼロが返されることを確認
         validity = generator.validate_signal(
-            invalid_signal,
-            market_context=invalid_context
+            invalid_signal, market_context=invalid_context
         )
 
         assert validity == 0.0
@@ -1147,11 +1170,13 @@ class TestSignalRulesConfigFileHandling:
 
     def test_config_file_invalid_json(self):
         """無効なJSONファイルの処理テスト"""
-        import tempfile
         import os
+        import tempfile
 
         # 無効なJSONファイルを作成
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_file:
             tmp_file.write("{ invalid json content")
             invalid_config_path = tmp_file.name
 
@@ -1242,7 +1267,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_oversold_rule_empty_rsi(self):
@@ -1254,7 +1279,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_oversold_rule_nan_rsi(self):
@@ -1266,7 +1291,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_overbought_rule_no_rsi_column(self):
@@ -1277,7 +1302,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
     def test_rsi_overbought_rule_nan_rsi(self):
@@ -1288,7 +1313,7 @@ class TestRSIRulesEdgeCases:
 
         is_triggered, confidence = rule.evaluate(pd.DataFrame(), indicators, {})
 
-        assert is_triggered == False
+        assert not is_triggered
         assert confidence == 0.0
 
 
@@ -1300,23 +1325,26 @@ class TestGenerateSignalsSeriesEdgeCases:
         generator = TradingSignalGenerator()
 
         # 10行のデータ（最低20行必要）
-        small_df = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 10),
-            "High": np.random.uniform(105, 115, 10),
-            "Low": np.random.uniform(95, 105, 10),
-            "Close": np.random.uniform(100, 110, 10),
-            "Volume": np.random.randint(1000, 5000, 10)
-        })
+        small_df = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 10),
+                "High": np.random.uniform(105, 115, 10),
+                "Low": np.random.uniform(95, 105, 10),
+                "Close": np.random.uniform(100, 110, 10),
+                "Volume": np.random.randint(1000, 5000, 10),
+            }
+        )
 
         signals = generator.generate_signals_series(small_df)
 
         # DataFrameまたはNoneまたはlistが返されることを確認
         assert isinstance(signals, (list, type(None), pd.DataFrame))
-        if signals is not None and hasattr(signals, '__len__'):
-            if isinstance(signals, pd.DataFrame):
-                assert len(signals) <= len(small_df)
-            elif isinstance(signals, list):
-                assert len(signals) <= len(small_df)
+        if (
+            signals is not None
+            and hasattr(signals, "__len__")
+            and isinstance(signals, (pd.DataFrame, list))
+        ):
+            assert len(signals) <= len(small_df)
 
     def test_generate_signals_series_empty_dataframe(self):
         """空のDataFrameでの generate_signals_series テスト"""
@@ -1337,20 +1365,24 @@ class TestSignalGenerationParameterValidation:
         generator = TradingSignalGenerator()
 
         # 十分なサイズのデータを作成
-        dates = pd.date_range(start='2023-01-01', periods=50)
-        df = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 50),
-            "High": np.random.uniform(105, 115, 50),
-            "Low": np.random.uniform(95, 105, 50),
-            "Close": np.random.uniform(100, 110, 50),
-            "Volume": np.random.randint(1000, 5000, 50)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=50)
+        df = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 50),
+                "High": np.random.uniform(105, 115, 50),
+                "Low": np.random.uniform(95, 105, 50),
+                "Close": np.random.uniform(100, 110, 50),
+                "Volume": np.random.randint(1000, 5000, 50),
+            },
+            index=dates,
+        )
 
         # 空のindicators
         empty_indicators = pd.DataFrame()
-        patterns = ChartPatternRecognizer.detect_all_patterns(df)
+        df_pattern_recognizer = ChartPatternRecognizer()
+        patterns = df_pattern_recognizer.detect_all_patterns(df)
 
-        signal = generator.generate_signal(df, empty_indicators, patterns)
+        generator.generate_signal(df, empty_indicators, patterns)
 
         # エラーが発生せずに処理されることを確認
         # 結果は条件により異なるため、例外が発生しないことを確認するのみ
@@ -1360,19 +1392,20 @@ class TestSignalGenerationParameterValidation:
         generator = TradingSignalGenerator()
 
         # 異なる長さのDataFrameを作成
-        df = pd.DataFrame({
-            "Open": [100, 101, 102],
-            "High": [101, 102, 103],
-            "Low": [99, 100, 101],
-            "Close": [100.5, 101.5, 102.5],
-            "Volume": [1000, 1100, 1200]
-        })
+        df = pd.DataFrame(
+            {
+                "Open": [100, 101, 102],
+                "High": [101, 102, 103],
+                "Low": [99, 100, 101],
+                "Close": [100.5, 101.5, 102.5],
+                "Volume": [1000, 1100, 1200],
+            }
+        )
 
         # 長さが一致しないindicators（50行）
-        indicators = pd.DataFrame({
-            "RSI": np.random.uniform(30, 70, 50),
-            "MACD": np.random.uniform(-1, 1, 50)
-        })
+        indicators = pd.DataFrame(
+            {"RSI": np.random.uniform(30, 70, 50), "MACD": np.random.uniform(-1, 1, 50)}
+        )
 
         patterns = {}
 
@@ -1391,45 +1424,52 @@ class TestSignalGenerationLargeDataSeries:
         generator = TradingSignalGenerator()
 
         # 200日分のデータ
-        dates = pd.date_range(start='2023-01-01', periods=200)
-        large_df = pd.DataFrame({
-            "Open": np.random.uniform(90, 120, 200),
-            "High": np.random.uniform(95, 125, 200),
-            "Low": np.random.uniform(85, 115, 200),
-            "Close": np.random.uniform(90, 120, 200),
-            "Volume": np.random.randint(1000, 10000, 200)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=200)
+        large_df = pd.DataFrame(
+            {
+                "Open": np.random.uniform(90, 120, 200),
+                "High": np.random.uniform(95, 125, 200),
+                "Low": np.random.uniform(85, 115, 200),
+                "Close": np.random.uniform(90, 120, 200),
+                "Volume": np.random.randint(1000, 10000, 200),
+            },
+            index=dates,
+        )
 
         # 系列生成を実行
         signals = generator.generate_signals_series(large_df)
 
         # 適切に処理されることを確認
-        if signals is not None:
-            if isinstance(signals, (list, pd.DataFrame)):
-                assert len(signals) <= len(large_df)
+        if signals is not None and isinstance(signals, (list, pd.DataFrame)):
+            assert len(signals) <= len(large_df)
 
     def test_generate_signals_series_with_lookback_window(self):
         """ルックバックウィンドウ設定での系列生成テスト"""
         generator = TradingSignalGenerator()
 
         # 100日分のデータ
-        dates = pd.date_range(start='2023-01-01', periods=100)
-        df = pd.DataFrame({
-            "Open": np.random.uniform(100, 110, 100),
-            "High": np.random.uniform(105, 115, 100),
-            "Low": np.random.uniform(95, 105, 100),
-            "Close": np.random.uniform(100, 110, 100),
-            "Volume": np.random.randint(1000, 5000, 100)
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100)
+        df = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 110, 100),
+                "High": np.random.uniform(105, 115, 100),
+                "Low": np.random.uniform(95, 105, 100),
+                "Close": np.random.uniform(100, 110, 100),
+                "Volume": np.random.randint(1000, 5000, 100),
+            },
+            index=dates,
+        )
 
         # ルックバックウィンドウを指定して系列生成
         signals = generator.generate_signals_series(df, lookback_window=30)
 
         # 適切に処理されることを確認
-        if signals is not None and isinstance(signals, (list, pd.DataFrame)):
-            # ウィンドウサイズ分の制限があることを確認
-            if len(signals) > 0:
-                assert len(signals) <= len(df) - 30 + 1
+        if (
+            signals is not None
+            and isinstance(signals, (list, pd.DataFrame))
+            and len(signals) > 0
+        ):
+            assert len(signals) <= len(df) - 30 + 1
 
 
 class TestTradingSignalDataClass:
@@ -1445,14 +1485,14 @@ class TestTradingSignalDataClass:
             conditions_met={"rsi_oversold": True, "macd_bullish": True},
             timestamp=datetime.now(),
             price=Decimal("2500.0"),
-            symbol="7203"
+            symbol="7203",
         )
 
         assert signal.signal_type == SignalType.BUY
         assert signal.strength == SignalStrength.STRONG
         assert signal.confidence == 85.5
         assert len(signal.reasons) == 2
-        assert signal.conditions_met["rsi_oversold"] == True
+        assert signal.conditions_met["rsi_oversold"]
         assert signal.symbol == "7203"
 
     def test_trading_signal_without_optional_fields(self):
@@ -1464,7 +1504,7 @@ class TestTradingSignalDataClass:
             reasons=["高値警戒"],
             conditions_met={"price_high": True},
             timestamp=datetime.now(),
-            price=Decimal("15000.0")
+            price=Decimal("15000.0"),
             # symbolは省略（デフォルトNone）
         )
 
@@ -1534,7 +1574,7 @@ class TestTradingSignalGeneratorExtended:
         buy_conditions = {"common_condition": True, "buy_only": False}
         sell_conditions = {"common_condition": False, "sell_only": True}
 
-        with patch('src.day_trade.analysis.signals.logger') as mock_logger:
+        with patch("src.day_trade.analysis.signals.logger") as mock_logger:
             merged = generator._merge_conditions_safely(buy_conditions, sell_conditions)
 
             # 警告ログが出力されることを確認
@@ -1561,13 +1601,9 @@ class TestSignalConfidenceCalculation:
             strength=SignalStrength.MEDIUM,
             confidence=0.7,
             reasons=["condition1", "condition2", "condition3"],
-            conditions_met={
-                "condition1": True,
-                "condition2": True,
-                "condition3": True
-            },
+            conditions_met={"condition1": True, "condition2": True, "condition3": True},
             timestamp=pd.Timestamp.now().to_pydatetime(),
-            price=Decimal("100.0")
+            price=Decimal("100.0"),
         )
 
         # 市場コンテキストなしで検証
@@ -1588,14 +1624,11 @@ class TestSignalConfidenceCalculation:
             reasons=["test_condition"],
             conditions_met={"test_condition": True},
             timestamp=pd.Timestamp.now().to_pydatetime(),
-            price=Decimal("100.0")
+            price=Decimal("100.0"),
         )
 
         # 上昇トレンドでのBUYシグナル
-        market_context = {
-            "volatility": 0.01,
-            "trend_direction": "upward"
-        }
+        market_context = {"volatility": 0.01, "trend_direction": "upward"}
 
         confidence = generator.validate_signal(signal, market_context=market_context)
 
@@ -1614,18 +1647,16 @@ class TestSignalConfidenceCalculation:
             reasons=["historical_test"],
             conditions_met={"historical_test": True},
             timestamp=pd.Timestamp.now().to_pydatetime(),
-            price=Decimal("100.0")
+            price=Decimal("100.0"),
         )
 
         # 簡単な履歴データ
-        historical_performance = pd.DataFrame({
-            "Signal": ["buy", "buy", "sell"],
-            "Strength": ["strong", "medium", "weak"]
-        })
+        historical_performance = pd.DataFrame(
+            {"Signal": ["buy", "buy", "sell"], "Strength": ["strong", "medium", "weak"]}
+        )
 
         confidence = generator.validate_signal(
-            signal,
-            historical_performance=historical_performance
+            signal, historical_performance=historical_performance
         )
 
         # 履歴データによる調整が適用されることを確認

@@ -1,6 +1,10 @@
 """
 データベースモデルの基底クラス（SQLAlchemy 2.0対応・改善版）
 
+Issue #120: declarative_base()の定義場所の最適化
+- declarative_base()をmodels/base.pyに移動
+- モジュール間の責務の明確化
+
 改善点:
 - タイムゾーン対応（UTC保存・ローカル表示）
 - Pydantic連携強化
@@ -12,24 +16,34 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
-from sqlalchemy import DateTime, Integer, func
+from sqlalchemy import DateTime, Integer
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 try:
-    from pydantic import BaseModel as PydanticBaseModel, Field, create_model
+    from pydantic import BaseModel as PydanticBaseModel
+    from pydantic import Field, create_model
+
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
     PydanticBaseModel = None
 
-from .database import Base
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
+# SQLAlchemy 2.0のモダンなDeclarativeBaseクラス
+# Issue #120: declarative_base()をbase.pyに移動
+class Base(DeclarativeBase):
+    """SQLAlchemy 2.0のモダンなDeclarativeBase"""
+
+    pass
+
+
 # TypeVar for generic typing
-T = TypeVar('T', bound='BaseModel')
+T = TypeVar("T", bound="BaseModel")
 
 
 class TimestampMixin:
@@ -39,14 +53,14 @@ class TimestampMixin:
         DateTime(timezone=True),  # タイムゾーン情報を保持
         default=lambda: datetime.now(timezone.utc),  # UTC時刻で保存（callable）
         nullable=False,
-        doc="レコード作成日時（UTC）"
+        doc="レコード作成日時（UTC）",
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),  # タイムゾーン情報を保持
         default=lambda: datetime.now(timezone.utc),  # UTC時刻で保存（callable）
         onupdate=lambda: datetime.now(timezone.utc),  # UTC時刻で更新（callable）
         nullable=False,
-        doc="レコード更新日時（UTC）"
+        doc="レコード更新日時（UTC）",
     )
 
     def get_created_at_local(self, tz: Optional[timezone] = None) -> datetime:
@@ -68,14 +82,11 @@ class BaseModel(Base, TimestampMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        index=True,
-        doc="主キー（自動採番）"
+        Integer, primary_key=True, index=True, doc="主キー（自動採番）"
     )
 
     @declared_attr
-    def __tablename__(cls) -> str:
+    def __tablename__(cls) -> str:  # noqa: N805
         """テーブル名を自動生成（クラス名を小文字に）"""
         return cls.__name__.lower()
 
@@ -89,16 +100,16 @@ class BaseModel(Base, TimestampMixin):
         now_utc = datetime.now(timezone.utc)
 
         # created_atの処理：kwargsで指定されているか、既に値があるかチェック
-        if 'created_at' not in kwargs:
-            # created_atがkwargsにない場合のみデフォルト値を設定
-            if not hasattr(self, 'created_at') or getattr(self, 'created_at', None) is None:
-                self.created_at = now_utc
+        if "created_at" not in kwargs and (
+            not hasattr(self, "created_at") or getattr(self, "created_at", None) is None
+        ):
+            self.created_at = now_utc
 
         # updated_atの処理：kwargsで指定されているか、既に値があるかチェック
-        if 'updated_at' not in kwargs:
-            # updated_atがkwargsにない場合のみデフォルト値を設定
-            if not hasattr(self, 'updated_at') or getattr(self, 'updated_at', None) is None:
-                self.updated_at = now_utc
+        if "updated_at" not in kwargs and (
+            not hasattr(self, "updated_at") or getattr(self, "updated_at", None) is None
+        ):
+            self.updated_at = now_utc
 
     def to_dict(
         self,
@@ -107,7 +118,7 @@ class BaseModel(Base, TimestampMixin):
         exclude_keys: Optional[Union[set, List[str]]] = None,
         include_keys: Optional[Union[set, List[str]]] = None,
         convert_datetime: bool = True,
-        local_timezone: bool = False
+        local_timezone: bool = False,
     ) -> Dict[str, Any]:
         """
         モデルを辞書に変換（拡張版）
@@ -157,7 +168,7 @@ class BaseModel(Base, TimestampMixin):
         if include_relations and relation_depth > 1:
             try:
                 for attr_name in dir(self):
-                    if attr_name.startswith('_') or attr_name in exclude_keys:
+                    if attr_name.startswith("_") or attr_name in exclude_keys:
                         continue
                     if include_keys and attr_name not in include_keys:
                         continue
@@ -167,26 +178,30 @@ class BaseModel(Base, TimestampMixin):
                         continue
 
                     # リレーションオブジェクトの場合
-                    if hasattr(attr_value, '__table__'):
+                    if hasattr(attr_value, "__table__"):
                         result[attr_name] = attr_value.to_dict(
                             include_relations=True,
                             relation_depth=relation_depth - 1,
                             exclude_keys=exclude_keys,
                             convert_datetime=convert_datetime,
-                            local_timezone=local_timezone
+                            local_timezone=local_timezone,
                         )
                     # リストの場合（一対多リレーション）
-                    elif isinstance(attr_value, list) and attr_value:
-                        if hasattr(attr_value[0], '__table__'):
-                            result[attr_name] = [
-                                item.to_dict(
-                                    include_relations=True,
-                                    relation_depth=relation_depth - 1,
-                                    exclude_keys=exclude_keys,
-                                    convert_datetime=convert_datetime,
-                                    local_timezone=local_timezone
-                                ) for item in attr_value[:10]  # 最大10件制限
-                            ]
+                    elif (
+                        isinstance(attr_value, list)
+                        and attr_value
+                        and hasattr(attr_value[0], "__table__")
+                    ):
+                        result[attr_name] = [
+                            item.to_dict(
+                                include_relations=True,
+                                relation_depth=relation_depth - 1,
+                                exclude_keys=exclude_keys,
+                                convert_datetime=convert_datetime,
+                                local_timezone=local_timezone,
+                            )
+                            for item in attr_value[:10]  # 最大10件制限
+                        ]
             except Exception as e:
                 logger.warning(f"リレーション処理でエラー: {e}")
 
@@ -196,10 +211,10 @@ class BaseModel(Base, TimestampMixin):
         """安全な辞書変換（後方互換性のため残存）"""
         return self.to_dict(
             include_relations=False,
-            exclude_keys={'password', 'secret', 'token'},
+            exclude_keys={"password", "secret", "token"},
             convert_datetime=True,
             local_timezone=True,
-            **kwargs
+            **kwargs,
         )
 
     def update_from_dict(
@@ -207,7 +222,7 @@ class BaseModel(Base, TimestampMixin):
         data: Dict[str, Any],
         exclude_keys: Optional[Union[set, List[str]]] = None,
         validate: bool = True,
-        auto_convert: bool = True
+        auto_convert: bool = True,
     ) -> None:
         """
         辞書からモデルを更新（拡張版）
@@ -218,44 +233,55 @@ class BaseModel(Base, TimestampMixin):
             validate: バリデーションを実行するか
             auto_convert: 自動型変換を行うか
         """
-        exclude_keys = set(exclude_keys) if exclude_keys is not None else {'id', 'created_at'}
+        exclude_keys = (
+            set(exclude_keys) if exclude_keys is not None else {"id", "created_at"}
+        )
 
         for key, value in data.items():
-            logger.debug(f"Processing key: {key}, value: {value}, in exclude_keys: {key in exclude_keys}")
-            if key not in exclude_keys and hasattr(self, key):
-                # カラムが存在する場合のみ更新
-                if hasattr(self.__table__.columns, key):
-                    column = self.__table__.columns[key]
+            logger.debug(
+                f"Processing key: {key}, value: {value}, in exclude_keys: {key in exclude_keys}"
+            )
+            if (
+                key not in exclude_keys
+                and hasattr(self, key)
+                and hasattr(self.__table__.columns, key)
+            ):
+                column = self.__table__.columns[key]
 
-                    # 自動型変換
-                    if auto_convert and value is not None:
-                        try:
-                            # datetime型の変換
-                            if isinstance(column.type, DateTime):
-                                if isinstance(value, str):
-                                    value = datetime.fromisoformat(value.replace('Z', '+00:00'))
-                                    # タイムゾーン情報がない場合はUTCとして扱う
-                                    if value.tzinfo is None:
-                                        value = value.replace(tzinfo=timezone.utc)
-                                    logger.debug(f"DateTime変換成功: {key} = {value}")
-                                elif not isinstance(value, datetime):
-                                    # datetime以外の場合はスキップするかエラーとする
-                                    logger.warning(f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}")
-                            # Decimal型の変換
-                            elif hasattr(column.type, 'scale'):
-                                if isinstance(value, (int, float, str)):
-                                    value = Decimal(str(value))
-                        except (ValueError, TypeError) as e:
-                            if validate:
-                                raise ValueError(f"{key}の値変換に失敗: {e}")
-                            logger.warning(f"値変換警告 {key}: {e}")
+                # 自動型変換
+                if auto_convert and value is not None:
+                    try:
+                        # datetime型の変換
+                        if isinstance(column.type, DateTime):
+                            if isinstance(value, str):
+                                value = datetime.fromisoformat(
+                                    value.replace("Z", "+00:00")
+                                )
+                                # タイムゾーン情報がない場合はUTCとして扱う
+                                if value.tzinfo is None:
+                                    value = value.replace(tzinfo=timezone.utc)
+                                logger.debug(f"DateTime変換成功: {key} = {value}")
+                            elif not isinstance(value, datetime):
+                                # datetime以外の場合はスキップするかエラーとする
+                                logger.warning(
+                                    f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}"
+                                )
+                        # Decimal型の変換
+                        elif hasattr(column.type, "scale") and isinstance(
+                            value, (int, float, str)
+                        ):
+                            value = Decimal(str(value))
+                    except (ValueError, TypeError) as e:
+                        if validate:
+                            raise ValueError(f"{key}の値変換に失敗: {e}") from e
+                        logger.warning(f"値変換警告 {key}: {e}")
 
-                    # バリデーション
-                    if validate:
-                        self._validate_field(key, value, column)
+                # バリデーション
+                if validate:
+                    self._validate_field(key, value, column)
 
-                    # 値を設定
-                    setattr(self, key, value)
+                # 値を設定
+                setattr(self, key, value)
 
     def _validate_field(self, key: str, value: Any, column) -> None:
         """フィールドバリデーション"""
@@ -264,9 +290,15 @@ class BaseModel(Base, TimestampMixin):
             raise ValueError(f"{key}はNULLにできません")
 
         # 長さ制約チェック（String型）
-        if hasattr(column.type, 'length') and column.type.length:
-            if isinstance(value, str) and len(value) > column.type.length:
-                raise ValueError(f"{key}の長さが制限を超えています ({len(value)} > {column.type.length})")
+        if (
+            hasattr(column.type, "length")
+            and column.type.length
+            and isinstance(value, str)
+            and len(value) > column.type.length
+        ):
+            raise ValueError(
+                f"{key}の長さが制限を超えています ({len(value)} > {column.type.length})"
+            )
 
     # Pydantic連携機能
     @classmethod
@@ -275,7 +307,7 @@ class BaseModel(Base, TimestampMixin):
         name: Optional[str] = None,
         include_relations: bool = False,
         exclude_fields: Optional[Union[set, List[str]]] = None,
-        config_overrides: Optional[Dict[str, Any]] = None
+        config_overrides: Optional[Dict[str, Any]] = None,
     ) -> Optional[Type[PydanticBaseModel]]:
         """
         SQLAlchemyモデルからPydanticモデルを動的に作成
@@ -309,13 +341,19 @@ class BaseModel(Base, TimestampMixin):
             python_type = cls._get_python_type_from_column(column)
 
             # デフォルト値を設定（idやtimestampはオプショナルにする）
-            if column.name in ['id', 'created_at', 'updated_at']:
-                field_info = Field(default=None, description=getattr(column, 'doc', None))
+            if column.name in ["id", "created_at", "updated_at"]:
+                field_info = Field(
+                    default=None, description=getattr(column, "doc", None)
+                )
                 if not column.nullable:
                     # nullable=Falseでもデフォルト値があるフィールドはOptionalにする
-                    python_type = Optional[python_type.__args__[0] if hasattr(python_type, '__args__') else python_type]
+                    python_type = Optional[
+                        python_type.__args__[0]
+                        if hasattr(python_type, "__args__")
+                        else python_type
+                    ]
             else:
-                field_info = Field(description=getattr(column, 'doc', None))
+                field_info = Field(description=getattr(column, "doc", None))
 
             fields[column.name] = (python_type, field_info)
 
@@ -323,10 +361,10 @@ class BaseModel(Base, TimestampMixin):
         if include_relations:
             try:
                 for attr_name in dir(cls):
-                    if attr_name.startswith('_') or attr_name in exclude_fields:
+                    if attr_name.startswith("_") or attr_name in exclude_fields:
                         continue
                     attr = getattr(cls, attr_name, None)
-                    if hasattr(attr, 'property') and hasattr(attr.property, 'mapper'):
+                    if hasattr(attr, "property") and hasattr(attr.property, "mapper"):
                         # リレーションフィールドの場合はオプショナルとして追加
                         fields[attr_name] = (Optional[Any], Field(default=None))
             except Exception as e:
@@ -344,11 +382,7 @@ class BaseModel(Base, TimestampMixin):
                 setattr(config_dict, key, value)
 
         # Pydanticモデルを作成
-        pydantic_model = create_model(
-            model_name,
-            __config__=config_dict,
-            **fields
-        )
+        pydantic_model = create_model(model_name, __config__=config_dict, **fields)
 
         # キャッシュに保存
         cls._pydantic_model_cache[cache_key] = pydantic_model
@@ -357,13 +391,13 @@ class BaseModel(Base, TimestampMixin):
     @classmethod
     def _get_python_type_from_column(cls, column) -> Type:
         """カラムからPython型を推定"""
-        from sqlalchemy import String, Integer, Boolean, Float, Text
+        from sqlalchemy import Boolean, Float, Integer, String, Text
         from sqlalchemy.types import DECIMAL
 
         sql_type = column.type
         python_type = Any  # デフォルト
 
-        if isinstance(sql_type, String) or isinstance(sql_type, Text):
+        if isinstance(sql_type, (String, Text)):
             python_type = str
         elif isinstance(sql_type, Integer):
             python_type = int
@@ -383,9 +417,7 @@ class BaseModel(Base, TimestampMixin):
         return python_type
 
     def to_pydantic(
-        self,
-        model_class: Optional[Type[PydanticBaseModel]] = None,
-        **kwargs
+        self, model_class: Optional[Type[PydanticBaseModel]] = None, **kwargs
     ) -> Optional[PydanticBaseModel]:
         """
         SQLAlchemyモデルインスタンスをPydanticモデルに変換
@@ -413,7 +445,7 @@ class BaseModel(Base, TimestampMixin):
         cls: Type[T],
         pydantic_obj: PydanticBaseModel,
         exclude_unset: bool = True,
-        **kwargs
+        **kwargs,
     ) -> T:
         """
         PydanticモデルからSQLAlchemyモデルインスタンスを作成
@@ -439,12 +471,12 @@ class BaseModel(Base, TimestampMixin):
     # ユーティリティメソッド
     def clone(self: T, exclude_keys: Optional[Union[set, List[str]]] = None) -> T:
         """モデルインスタンスのクローンを作成"""
-        exclude_keys = set(exclude_keys) if exclude_keys else {'id', 'created_at', 'updated_at'}
+        exclude_keys = (
+            set(exclude_keys) if exclude_keys else {"id", "created_at", "updated_at"}
+        )
 
         data = self.to_dict(
-            include_relations=False,
-            exclude_keys=exclude_keys,
-            convert_datetime=False
+            include_relations=False, exclude_keys=exclude_keys, convert_datetime=False
         )
 
         return self.__class__(**data)
@@ -480,12 +512,12 @@ class BaseModel(Base, TimestampMixin):
 
         # 主要な属性のみ表示（長すぎる場合を考慮）
         key_attrs = []
-        if hasattr(self, 'id') and self.id is not None:
+        if hasattr(self, "id") and self.id is not None:
             key_attrs.append(f"id={self.id}")
-        if hasattr(self, 'code') and getattr(self, 'code', None):
-            key_attrs.append(f"code={getattr(self, 'code')!r}")
-        if hasattr(self, 'name') and getattr(self, 'name', None):
-            key_attrs.append(f"name={getattr(self, 'name')!r}")
+        if hasattr(self, "code") and getattr(self, "code", None):
+            key_attrs.append(f"code={self.code!r}")
+        if hasattr(self, "name") and getattr(self, "name", None):
+            key_attrs.append(f"name={self.name!r}")
 
         attrs_str = ", ".join(key_attrs) if key_attrs else "no_key_attrs"
         return f"{class_name}({attrs_str})"
@@ -500,8 +532,12 @@ class BaseModel(Base, TimestampMixin):
             return self.id == other.id
 
         # 主キーがない場合は主要カラムで比較（タイムスタンプは除外）
-        self_dict = self.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
-        other_dict = other.to_dict(convert_datetime=False, exclude_keys={'created_at', 'updated_at'})
+        self_dict = self.to_dict(
+            convert_datetime=False, exclude_keys={"created_at", "updated_at"}
+        )
+        other_dict = other.to_dict(
+            convert_datetime=False, exclude_keys={"created_at", "updated_at"}
+        )
         return self_dict == other_dict
 
     def __hash__(self) -> int:

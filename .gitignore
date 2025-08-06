@@ -147,6 +147,7 @@ day_trade.db
 !pyproject.toml
 !package.json
 !tsconfig.json
+!config/*.json
 .claude/settings.local.json
 
 # Demo and example output files
@@ -157,3 +158,4 @@ example_usage.py
 portfolio_demo.py
 simple_usage.py
 USAGE_GUIDE.md
+trigger CI

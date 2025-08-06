@@ -3,6 +3,7 @@
 売買注文の実行とポートフォリオ更新をアトミックに処理
 """
 
+from decimal import Decimal
 from typing import Dict, Optional
 
 from ..data.stock_fetcher import StockFetcher
@@ -36,8 +37,8 @@ class TradeOperations:
         self,
         stock_code: str,
         quantity: int,
-        price: Optional[float] = None,
-        commission: float = 0,
+        price: Optional[Decimal] = None,
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> Dict[str, any]:
         """
@@ -109,8 +110,9 @@ class TradeOperations:
                         raise TradeOperationError(
                             f"現在価格を取得できません: {stock_code}"
                         )
-                    price = current_data["price"]
-                    operation_logger.info("現在価格を取得", current_price=price)
+                    # StockFetcherから取得した価格をDecimal型に変換
+                    price = Decimal(str(current_data["price"]))
+                    operation_logger.info("現在価格を取得", current_price=float(price))
 
                 # 3. 買い取引記録の作成
                 trade = Trade.create_buy_trade(
@@ -183,8 +185,8 @@ class TradeOperations:
         self,
         stock_code: str,
         quantity: int,
-        price: Optional[float] = None,
-        commission: float = 0,
+        price: Optional[Decimal] = None,
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> Dict[str, any]:
         """
@@ -265,7 +267,8 @@ class TradeOperations:
                         raise TradeOperationError(
                             f"現在価格を取得できません: {stock_code}"
                         )
-                    price = current_data["price"]
+                    # StockFetcherから取得した価格をDecimal型に変換
+                    price = Decimal(str(current_data["price"]))
 
                 # 4. 売り取引記録の作成
                 trade = Trade.create_sell_trade(

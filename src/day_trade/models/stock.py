@@ -6,9 +6,10 @@
 - データベース固有オプションの削除（クロスプラットフォーム対応）
 - 責務分離の改善（モデル定義に特化）
 """
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
+from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -22,8 +23,8 @@ from sqlalchemy import (
     desc,
     func,
 )
-from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import Session, relationship
+from sqlalchemy.types import DECIMAL
 
 from .base import BaseModel
 from .enums import AlertType, TradeType
@@ -33,7 +34,7 @@ class Stock(BaseModel):
     """銘柄マスタ"""
 
     __tablename__ = "stocks"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
     code = Column(String(10), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=False)
@@ -99,7 +100,7 @@ class PriceData(BaseModel):
         Index("idx_price_stock_close", "stock_code", "close"),  # 価格検索用
         Index("idx_price_volume", "volume"),  # 出来高検索用
         Index("idx_price_datetime_desc", "datetime"),  # 時系列ソート用
-        {'extend_existing': True}
+        {"extend_existing": True},
     )
 
     @classmethod
@@ -211,7 +212,7 @@ class Trade(BaseModel):
         Index("idx_trade_datetime_desc", "trade_datetime"),  # 時系列ソート用
         Index("idx_trade_stock_type", "stock_code", "trade_type"),  # 複合検索用
         Index("idx_trade_price", "price"),  # 価格範囲検索用
-        {'extend_existing': True}
+        {"extend_existing": True},
     )
 
     @property
@@ -223,10 +224,10 @@ class Trade(BaseModel):
             Decimal: 取引総額（DECIMAL型で精度を保持）
         """
         if not self.price or not self.quantity:
-            return Decimal('0')
+            return Decimal("0")
 
         base_amount = Decimal(str(self.price)) * Decimal(str(self.quantity))
-        commission = Decimal(str(self.commission)) if self.commission else Decimal('0')
+        commission = Decimal(str(self.commission)) if self.commission else Decimal("0")
 
         if self.trade_type == TradeType.BUY:
             return base_amount + commission
@@ -305,8 +306,8 @@ class Trade(BaseModel):
         session: Session,
         stock_code: str,
         quantity: int,
-        price: float,
-        commission: float = 0,
+        price: Decimal,
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> "Trade":
         """買い取引を作成"""
@@ -329,8 +330,8 @@ class Trade(BaseModel):
         session: Session,
         stock_code: str,
         quantity: int,
-        price: float,
-        commission: float = 0,
+        price: Decimal,
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> "Trade":
         """売り取引を作成"""
@@ -352,7 +353,7 @@ class WatchlistItem(BaseModel):
     """ウォッチリストアイテム"""
 
     __tablename__ = "watchlist_items"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     group_name = Column(String(50), default="default")
@@ -372,7 +373,7 @@ class Alert(BaseModel):
     """アラート設定"""
 
     __tablename__ = "alerts"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
     stock_code = Column(String(10), ForeignKey("stocks.code"), nullable=False)
     alert_type = Column(Enum(AlertType), nullable=False)

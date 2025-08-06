@@ -11,7 +11,6 @@
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
@@ -19,13 +18,12 @@ from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
-from ..utils.logging_config import get_context_logger
 from ..utils.formatters import format_currency, format_percentage, format_volume
-from .indicators import TechnicalIndicators
-from .signals import TradingSignalGenerator
-from .screening_strategies import ScreeningStrategyFactory
-from .screening_config import get_screening_config, ScreeningConfig
+from ..utils.logging_config import get_context_logger
 from .screener_enhanced import EnhancedStockScreener
+from .screening_config import get_screening_config
+from .screening_strategies import ScreeningStrategyFactory
+from .signals import TradingSignalGenerator
 
 logger = get_context_logger(__name__, component="stock_screener")
 
@@ -127,7 +125,7 @@ class StockScreener:
             min_score=min_score,
             max_results=max_results,
             period=period,
-            use_cache=True
+            use_cache=True,
         )
 
     def _evaluate_symbol(
@@ -161,7 +159,7 @@ class StockScreener:
             df=df,
             indicators=indicators,
             threshold=criterion.threshold,
-            lookback_days=criterion.lookback_days
+            lookback_days=criterion.lookback_days,
         )
 
     def _summarize_technical_data(
@@ -172,7 +170,9 @@ class StockScreener:
 
         実際の処理は拡張版スクリーナーに委譲
         """
-        return self._enhanced_screener._summarize_technical_data_enhanced(df, indicators)
+        return self._enhanced_screener._summarize_technical_data_enhanced(
+            df, indicators
+        )
 
     def create_custom_screener(
         self, name: str, criteria: List[ScreenerCriteria], description: str = ""
@@ -180,7 +180,9 @@ class StockScreener:
         """
         カスタムスクリーナーを作成
         """
-        return self._enhanced_screener.create_custom_screener(name, criteria, description)
+        return self._enhanced_screener.create_custom_screener(
+            name, criteria, description
+        )
 
     def get_predefined_screeners(self) -> Dict[str, Callable]:
         """
@@ -222,7 +224,9 @@ def create_screening_report(results: List[ScreenerResult]) -> str:
     for i, result in enumerate(results, 1):
         # 基本情報の表示（formatters活用）
         if use_formatters and result.last_price:
-            price_str = format_currency(result.last_price, decimal_places=currency_precision)
+            price_str = format_currency(
+                result.last_price, decimal_places=currency_precision
+            )
         else:
             price_str = f"¥{result.last_price:,.0f}" if result.last_price else "N/A"
 
@@ -249,7 +253,9 @@ def create_screening_report(results: List[ScreenerResult]) -> str:
             if "price_change_1d" in result.technical_data:
                 change = result.technical_data["price_change_1d"]
                 if use_formatters:
-                    change_str = format_percentage(change, decimal_places=percentage_precision)
+                    change_str = format_percentage(
+                        change, decimal_places=percentage_precision
+                    )
                 else:
                     change_str = f"{change:+.2f}%"
                 report_lines.append(f"   1日変化率: {change_str}")
@@ -311,7 +317,9 @@ if __name__ == "__main__":
 
         # 成長株スクリーナーのテスト（設定ファイルで定義されている場合）
         if "growth" in predefined_screeners:
-            growth_results = predefined_screeners["growth"](symbols, min_score=0.5, max_results=5)
+            growth_results = predefined_screeners["growth"](
+                symbols, min_score=0.5, max_results=5
+            )
             logger.info(f"成長株スクリーナー結果: {len(growth_results)}銘柄")
 
     except Exception as e:

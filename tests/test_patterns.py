@@ -15,6 +15,11 @@ class TestChartPatternRecognizer:
     """ChartPatternRecognizerクラスのテスト"""
 
     @pytest.fixture
+    def pattern_recognizer(self):
+        """ChartPatternRecognizerインスタンス"""
+        return ChartPatternRecognizer()
+
+    @pytest.fixture
     def sample_data(self):
         """テスト用のサンプルデータ"""
         dates = pd.date_range(end=datetime.now(), periods=100, freq="D")
@@ -76,7 +81,8 @@ class TestChartPatternRecognizer:
 
     def test_golden_dead_cross(self, crossover_data):
         """ゴールデンクロス・デッドクロス検出のテスト"""
-        result = ChartPatternRecognizer.golden_dead_cross(
+        recognizer = ChartPatternRecognizer()
+        result = recognizer.golden_dead_cross(
             crossover_data, fast_period=5, slow_period=10
         )
 
@@ -103,7 +109,8 @@ class TestChartPatternRecognizer:
 
     def test_support_resistance_levels(self, sample_data):
         """サポート・レジスタンスレベル検出のテスト"""
-        levels = ChartPatternRecognizer.support_resistance_levels(
+        recognizer = ChartPatternRecognizer()
+        levels = recognizer.support_resistance_levels(
             sample_data, window=10, num_levels=3
         )
 
@@ -120,7 +127,7 @@ class TestChartPatternRecognizer:
         if levels["resistance"] and levels["support"]:
             assert max(levels["resistance"]) > min(levels["support"])
 
-    def test_breakout_detection(self, sample_data):
+    def test_breakout_detection(self, pattern_recognizer, sample_data):
         """ブレイクアウト検出のテスト"""
         # ブレイクアウト用のデータを作成
         breakout_data = sample_data.copy()
@@ -133,7 +140,7 @@ class TestChartPatternRecognizer:
             10000000,
         ]
 
-        result = ChartPatternRecognizer.breakout_detection(
+        result = pattern_recognizer.breakout_detection(
             breakout_data, lookback=20, volume_factor=1.5
         )
 
@@ -152,9 +159,9 @@ class TestChartPatternRecognizer:
         assert (result["Upward_Confidence"] >= 0).all()
         assert (result["Downward_Confidence"] >= 0).all()
 
-    def test_trend_line_detection(self, sample_data):
+    def test_trend_line_detection(self, pattern_recognizer, sample_data):
         """トレンドライン検出のテスト"""
-        trends = ChartPatternRecognizer.trend_line_detection(
+        trends = pattern_recognizer.trend_line_detection(
             sample_data, window=10, min_touches=3
         )
 
@@ -177,9 +184,9 @@ class TestChartPatternRecognizer:
             # R²値の範囲
             assert 0 <= support["r2"] <= 1
 
-    def test_detect_all_patterns(self, sample_data):
+    def test_detect_all_patterns(self, pattern_recognizer, sample_data):
         """全パターン検出のテスト"""
-        results = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        results = pattern_recognizer.detect_all_patterns(sample_data)
 
         # 結果の検証
         assert isinstance(results, dict)
@@ -192,29 +199,29 @@ class TestChartPatternRecognizer:
         # 総合信頼度の範囲
         assert 0 <= results["overall_confidence"] <= 100
 
-    def test_empty_dataframe(self):
+    def test_empty_dataframe(self, pattern_recognizer):
         """空のDataFrameでのエラーハンドリング"""
         empty_df = pd.DataFrame()
 
         # ゴールデンクロス
-        crosses = ChartPatternRecognizer.golden_dead_cross(empty_df)
+        crosses = pattern_recognizer.golden_dead_cross(empty_df)
         assert isinstance(crosses, pd.DataFrame)
         assert len(crosses) == 0
 
         # サポート・レジスタンス
-        levels = ChartPatternRecognizer.support_resistance_levels(empty_df)
+        levels = pattern_recognizer.support_resistance_levels(empty_df)
         assert levels == {"resistance": [], "support": []}
 
         # ブレイクアウト
-        breakouts = ChartPatternRecognizer.breakout_detection(empty_df)
+        breakouts = pattern_recognizer.breakout_detection(empty_df)
         assert isinstance(breakouts, pd.DataFrame)
         assert len(breakouts) == 0
 
         # トレンドライン
-        trends = ChartPatternRecognizer.trend_line_detection(empty_df)
+        trends = pattern_recognizer.trend_line_detection(empty_df)
         assert trends == {}
 
-    def test_confidence_scores(self, sample_data):
+    def test_confidence_scores(self, pattern_recognizer, sample_data):
         """信頼度スコアの妥当性テスト"""
         # 強いトレンドデータを作成
         strong_trend_data = sample_data.copy()
@@ -225,21 +232,21 @@ class TestChartPatternRecognizer:
         weak_trend_data["Close"] = 100 + np.random.randn(len(weak_trend_data)) * 5
 
         # 強いトレンドの検出
-        strong_results = ChartPatternRecognizer.detect_all_patterns(strong_trend_data)
+        strong_results = pattern_recognizer.detect_all_patterns(strong_trend_data)
 
         # 弱いトレンドの検出
-        weak_results = ChartPatternRecognizer.detect_all_patterns(weak_trend_data)
+        weak_results = pattern_recognizer.detect_all_patterns(weak_trend_data)
 
         # 強いトレンドの方が高い信頼度を持つはず
         # （必ずしも常に成立するわけではないが、一般的な傾向として）
         assert strong_results["overall_confidence"] >= 0
         assert weak_results["overall_confidence"] >= 0
 
-    def test_pattern_consistency(self, sample_data):
+    def test_pattern_consistency(self, pattern_recognizer, sample_data):
         """パターン検出の一貫性テスト"""
         # 同じデータで複数回実行
-        results1 = ChartPatternRecognizer.detect_all_patterns(sample_data)
-        results2 = ChartPatternRecognizer.detect_all_patterns(sample_data)
+        results1 = pattern_recognizer.detect_all_patterns(sample_data)
+        results2 = pattern_recognizer.detect_all_patterns(sample_data)
 
         # 結果が一致することを確認
         assert results1["overall_confidence"] == results2["overall_confidence"]
@@ -250,13 +257,13 @@ class TestChartPatternRecognizer:
         )
         assert len(results1["levels"]["support"]) == len(results2["levels"]["support"])
 
-    def test_custom_parameters(self, sample_data):
+    def test_custom_parameters(self, pattern_recognizer, sample_data):
         """カスタムパラメータでの動作テスト"""
         # 異なるパラメータで実行
-        results1 = ChartPatternRecognizer.golden_dead_cross(
+        results1 = pattern_recognizer.golden_dead_cross(
             sample_data, fast_period=5, slow_period=20
         )
-        results2 = ChartPatternRecognizer.golden_dead_cross(
+        results2 = pattern_recognizer.golden_dead_cross(
             sample_data, fast_period=10, slow_period=30
         )
 

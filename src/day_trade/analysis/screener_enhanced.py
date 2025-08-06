@@ -3,23 +3,21 @@
 ストラテジーパターンと設定外部化によるリファクタリング版
 """
 
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
-from functools import lru_cache
 
 import pandas as pd
 
 from ..data.stock_fetcher import StockFetcher
-from ..utils.logging_config import get_context_logger
 from ..utils.formatters import format_currency, format_percentage, format_volume
+from ..utils.logging_config import get_context_logger
 from .indicators import TechnicalIndicators
-from .signals import TradingSignalGenerator
+from .screening_config import ScreeningConfig, get_screening_config
 from .screening_strategies import ScreeningStrategyFactory
-from .screening_config import get_screening_config, ScreeningConfig
+from .signals import TradingSignalGenerator
 
 logger = get_context_logger(__name__, component="stock_screener_enhanced")
 
@@ -73,7 +71,7 @@ class EnhancedStockScreener:
     def __init__(
         self,
         stock_fetcher: Optional[StockFetcher] = None,
-        config: Optional[ScreeningConfig] = None
+        config: Optional[ScreeningConfig] = None,
     ):
         """
         Args:
@@ -91,8 +89,9 @@ class EnhancedStockScreener:
 
         logger.info("拡張版スクリーナーを初期化")
 
-    @lru_cache(maxsize=100)
-    def _get_default_criteria_for_condition(self, condition: ScreenerCondition) -> ScreenerCriteria:
+    def _get_default_criteria_for_condition(
+        self, condition: ScreenerCondition
+    ) -> ScreenerCriteria:
         """条件のデフォルト基準を取得（キャッシュ付き）"""
         threshold = self.config.get_threshold(condition.value)
         lookback_days = self.config.get_lookback_days(condition.value)
@@ -102,7 +101,7 @@ class EnhancedStockScreener:
             threshold=threshold,
             lookback_days=lookback_days,
             weight=1.0,
-            description=f"{condition.value}条件"
+            description=f"{condition.value}条件",
         )
 
     def get_default_criteria(self) -> List[ScreenerCriteria]:
@@ -162,7 +161,9 @@ class EnhancedStockScreener:
         if period is None:
             period = self.config.get_data_period()
 
-        logger.info(f"拡張版スクリーニング開始: {len(symbols)}銘柄, {len(criteria)}条件")
+        logger.info(
+            f"拡張版スクリーニング開始: {len(symbols)}銘柄, {len(criteria)}条件"
+        )
 
         results = []
         max_workers = self.config.get_max_workers()
@@ -175,11 +176,7 @@ class EnhancedStockScreener:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_symbol = {
                 executor.submit(
-                    self._evaluate_symbol_enhanced,
-                    symbol,
-                    criteria,
-                    period,
-                    use_cache
+                    self._evaluate_symbol_enhanced, symbol, criteria, period, use_cache
                 ): symbol
                 for symbol in symbols
             }
@@ -209,7 +206,7 @@ class EnhancedStockScreener:
         logger.debug(f"データ事前読み込み開始: {len(symbols)}銘柄")
 
         # バルク取得可能な場合は実装
-        bulk_method = getattr(self.stock_fetcher, 'get_bulk_historical_data', None)
+        bulk_method = getattr(self.stock_fetcher, "get_bulk_historical_data", None)
         if bulk_method and callable(bulk_method):
             try:
                 bulk_data = bulk_method(symbols, period=period, interval="1d")
@@ -231,13 +228,17 @@ class EnhancedStockScreener:
             cache_key = f"{symbol}_{period}"
 
             # キャッシュが有効かチェック
-            if (cache_key in self._data_cache and
-                cache_key in self._cache_timestamps and
-                current_time - self._cache_timestamps[cache_key] < cache_expiry):
+            if (
+                cache_key in self._data_cache
+                and cache_key in self._cache_timestamps
+                and current_time - self._cache_timestamps[cache_key] < cache_expiry
+            ):
                 continue
 
             try:
-                data = self.stock_fetcher.get_historical_data(symbol, period=period, interval="1d")
+                data = self.stock_fetcher.get_historical_data(
+                    symbol, period=period, interval="1d"
+                )
                 if data is not None and not data.empty:
                     self._data_cache[cache_key] = data
                     self._cache_timestamps[cache_key] = current_time
@@ -249,7 +250,7 @@ class EnhancedStockScreener:
         symbol: str,
         criteria: List[ScreenerCriteria],
         period: str,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> Optional[ScreenerResult]:
         """
         個別銘柄の評価（拡張版）
@@ -289,7 +290,7 @@ class EnhancedStockScreener:
                     df=df,
                     indicators=indicators,
                     threshold=criterion.threshold,
-                    lookback_days=criterion.lookback_days
+                    lookback_days=criterion.lookback_days,
                 )
 
                 if meets_condition:
@@ -325,7 +326,9 @@ class EnhancedStockScreener:
             logger.error(f"銘柄 {symbol} の評価中にエラー: {e}")
             return None
 
-    def _get_data_with_cache(self, symbol: str, period: str, use_cache: bool) -> Optional[pd.DataFrame]:
+    def _get_data_with_cache(
+        self, symbol: str, period: str, use_cache: bool
+    ) -> Optional[pd.DataFrame]:
         """キャッシュを使用したデータ取得"""
         cache_key = f"{symbol}_{period}"
 
@@ -336,7 +339,9 @@ class EnhancedStockScreener:
 
         # キャッシュにない場合は取得
         try:
-            df = self.stock_fetcher.get_historical_data(symbol, period=period, interval="1d")
+            df = self.stock_fetcher.get_historical_data(
+                symbol, period=period, interval="1d"
+            )
             if df is not None and not df.empty:
                 if use_cache:
                     self._data_cache[cache_key] = df
@@ -356,7 +361,8 @@ class EnhancedStockScreener:
         """古いキャッシュエントリを削除"""
         current_time = datetime.now()
         expired_keys = [
-            key for key, timestamp in self._cache_timestamps.items()
+            key
+            for key, timestamp in self._cache_timestamps.items()
             if current_time - timestamp > timedelta(hours=2)
         ]
 
@@ -390,11 +396,11 @@ class EnhancedStockScreener:
                 weeks_52_ago = datetime.now() - timedelta(weeks=52)
                 try:
                     # インデックスがDatetimeIndexの場合
-                    if hasattr(df.index, 'to_pydatetime'):
+                    if hasattr(df.index, "to_pydatetime"):
                         df_52w = df[df.index >= weeks_52_ago]
                     else:
                         # フォールバック：利用可能なデータを使用
-                        df_52w = df.iloc[-min(252, len(df)):]  # 約1年分
+                        df_52w = df.iloc[-min(252, len(df)) :]  # 約1年分
 
                     if len(df_52w) > 0:
                         high_52w = float(df_52w["High"].max())
@@ -539,14 +545,17 @@ class EnhancedStockScreener:
         return {
             "cache_size": len(self._data_cache),
             "max_cache_size": self.config.get_cache_size(),
-            "oldest_entry": min(self._cache_timestamps.values()) if self._cache_timestamps else None,
-            "newest_entry": max(self._cache_timestamps.values()) if self._cache_timestamps else None,
+            "oldest_entry": min(self._cache_timestamps.values())
+            if self._cache_timestamps
+            else None,
+            "newest_entry": max(self._cache_timestamps.values())
+            if self._cache_timestamps
+            else None,
         }
 
 
 def create_enhanced_screening_report(
-    results: List[ScreenerResult],
-    config: Optional[ScreeningConfig] = None
+    results: List[ScreenerResult], config: Optional[ScreeningConfig] = None
 ) -> str:
     """
     スクリーニング結果の拡張レポート生成（フォーマッター活用）
@@ -576,13 +585,17 @@ def create_enhanced_screening_report(
         price_str = (
             format_currency(result.last_price, decimal_places=currency_precision)
             if use_formatters and result.last_price
-            else f"¥{result.last_price:,.0f}" if result.last_price else "N/A"
+            else f"¥{result.last_price:,.0f}"
+            if result.last_price
+            else "N/A"
         )
 
         volume_str = (
             format_volume(result.volume)
             if use_formatters and volume_compact and result.volume
-            else f"{result.volume:,}" if result.volume else "N/A"
+            else f"{result.volume:,}"
+            if result.volume
+            else "N/A"
         )
 
         report_lines.extend(

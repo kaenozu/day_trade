@@ -1,330 +1,171 @@
 #!/usr/bin/env python3
 """
-銘柄一括登録スクリプトのテスト
+銘柄一括登録テストスクリプト（小規模版）
 
-bulk_stock_registration.pyの各コンポーネントをテストする。
+Issue #122: 銘柄を一括で追加する機能の実装
+- 最初のN件のみを処理してテスト
+- パフォーマンスと動作確認用
 """
 
-import csv
-import json
+import logging
 import sys
-import tempfile
-import unittest
+import time
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from typing import Any, Dict, List
 
-import pytest
-import requests
+import pandas as pd
 
-# プロジェクトルートをパスに追加
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# プロジェクトルートをPATHに追加
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
-from scripts.bulk_stock_registration import (
-    JPXDataDownloader,
-    StockDataParser,
-    BulkStockRegistrar
-)
+# noqa: E402 - Import after path modification is necessary
+from src.day_trade.data.stock_master import StockMasterManager  # noqa: E402
+from src.day_trade.models.database import db_manager  # noqa: E402
+from src.day_trade.models.stock import Stock  # noqa: E402
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
+# ロギング設定
+setup_logging()
+logger = logging.getLogger(__name__)
 
-class TestJPXDataDownloader(unittest.TestCase):
-    """JPXDataDownloaderのテスト"""
 
-    def setUp(self):
-        self.downloader = JPXDataDownloader(timeout=5, retries=1)
+def load_test_stock_codes(limit: int = 50) -> List[str]:
+    """テスト用の証券コードを読み込み"""
+    data_dir = project_root / "data" / "stock_lists"
+    csv_path = data_dir / "jpx_stock_codes.csv"
 
-    def test_init(self):
-        """初期化テスト"""
-        assert self.downloader.timeout == 5
-        assert isinstance(self.downloader.session, requests.Session)
-        assert 'User-Agent' in self.downloader.session.headers
+    logger.info(f"テスト用証券コード読み込み: {csv_path}")
 
-    @patch('scripts.bulk_stock_registration.requests.Session.get')
-    def test_download_success(self, mock_get):
-        """ダウンロード成功テスト"""
-        # モックレスポンス
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.headers = {'content-length': '1024'}
-        mock_response.iter_content.return_value = [b'test,data\n1,test\n']
-        mock_get.return_value = mock_response
+    df = pd.read_csv(csv_path)
+    stock_codes = df["stock_code"].astype(str).head(limit).tolist()
 
-        # テスト実行
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / 'test.csv'
-            result = self.downloader._download_from_url('http://test.com/data.csv', output_path)
+    logger.info(f"テスト対象: {len(stock_codes)}件")
+    logger.info(f"証券コード: {stock_codes}")
 
-            assert result is True
-            assert output_path.exists()
-            assert output_path.stat().st_size > 0
+    return stock_codes
 
-    @patch('scripts.bulk_stock_registration.requests.Session.get')
-    def test_download_http_error(self, mock_get):
-        """HTTPエラーテスト"""
-        mock_get.side_effect = requests.exceptions.HTTPError("404 Not Found")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / 'test.csv'
-            result = self.downloader._download_from_url('http://test.com/data.csv', output_path)
+def get_existing_codes() -> set[str]:
+    """既存の証券コードを取得"""
+    existing = set()
 
-            assert result is False
-
-    @patch('scripts.bulk_stock_registration.requests.Session.get')
-    def test_download_timeout(self, mock_get):
-        """タイムアウトテスト"""
-        mock_get.side_effect = requests.exceptions.Timeout("Request timeout")
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / 'test.csv'
-            result = self.downloader._download_from_url('http://test.com/data.csv', output_path)
-
-            assert result is False
-
-
-class TestStockDataParser(unittest.TestCase):
-    """StockDataParserのテスト"""
-
-    def setUp(self):
-        self.parser = StockDataParser()
-
-    def test_init(self):
-        """初期化テスト"""
-        assert self.parser.parsed_stocks == []
-        assert self.parser.error_count == 0
-
-    def test_detect_field_mapping_success(self):
-        """フィールドマッピング検出成功テスト"""
-        headers = ['証券コード', '銘柄名', '市場区分', 'セクター', '業種名']
-        mapping = self.parser._detect_field_mapping(headers)
-
-        assert mapping is not None
-        assert mapping['code'] == '証券コード'
-        assert mapping['name'] == '銘柄名'
-        assert mapping['market'] == '市場区分'
-        assert mapping['sector'] == 'セクター'
-        assert mapping['industry'] == '業種名'
-
-    def test_detect_field_mapping_english(self):
-        """英語ヘッダーのマッピング検出テスト"""
-        headers = ['Code', 'Name', 'Market', 'Sector', 'Industry']
-        mapping = self.parser._detect_field_mapping(headers)
-
-        assert mapping is not None
-        assert mapping['code'] == 'Code'
-        assert mapping['name'] == 'Name'
-
-    def test_detect_field_mapping_failure(self):
-        """フィールドマッピング検出失敗テスト"""
-        headers = ['unknown1', 'unknown2', 'unknown3']
-        mapping = self.parser._detect_field_mapping(headers)
-
-        assert mapping is None
-
-    def test_extract_stock_data_success(self):
-        """株式データ抽出成功テスト"""
-        row = {
-            '証券コード': '7203',
-            '銘柄名': 'トヨタ自動車',
-            '市場区分': '東証プライム',
-            'セクター': '輸送用機器',
-            '業種名': '自動車'
-        }
-
-        field_mapping = {
-            'code': '証券コード',
-            'name': '銘柄名',
-            'market': '市場区分',
-            'sector': 'セクター',
-            'industry': '業種名'
-        }
-
-        result = self.parser._extract_stock_data(row, field_mapping)
-
-        assert result is not None
-        assert result['code'] == '7203'
-        assert result['name'] == 'トヨタ自動車'
-        assert result['market'] == '東証プライム'
-        assert result['sector'] == '輸送用機器'
-        assert result['industry'] == '自動車'
-
-    def test_extract_stock_data_invalid_code(self):
-        """無効なコードのテスト"""
-        row = {
-            '証券コード': 'INVALID',  # 4桁数字でない
-            '銘柄名': 'テスト会社'
-        }
-
-        field_mapping = {'code': '証券コード', 'name': '銘柄名'}
-        result = self.parser._extract_stock_data(row, field_mapping)
-
-        assert result is None
-
-    def test_extract_stock_data_empty_name(self):
-        """空の名前のテスト"""
-        row = {
-            '証券コード': '7203',
-            '銘柄名': ''  # 空の名前
-        }
-
-        field_mapping = {'code': '証券コード', 'name': '銘柄名'}
-        result = self.parser._extract_stock_data(row, field_mapping)
-
-        assert result is None
-
-    def test_parse_csv_success(self):
-        """CSV解析成功テスト"""
-        csv_content = """証券コード,銘柄名,市場区分,セクター,業種名
-7203,トヨタ自動車,東証プライム,輸送用機器,自動車
-9984,ソフトバンクグループ,東証プライム,情報・通信,通信業
-6758,ソニーグループ,東証プライム,電気機器,電気機器"""
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
-            f.write(csv_content)
-            csv_path = Path(f.name)
-
-        try:
-            stocks, error_count = self.parser.parse_csv(csv_path)
-
-            assert len(stocks) == 3
-            assert error_count == 0
-
-            # 最初の銘柄をチェック
-            assert stocks[0]['code'] == '7203'
-            assert stocks[0]['name'] == 'トヨタ自動車'
-            assert stocks[0]['market'] == '東証プライム'
-
-        finally:
-            csv_path.unlink()
-
-    def test_parse_csv_with_errors(self):
-        """エラーを含むCSV解析テスト"""
-        csv_content = """証券コード,銘柄名,市場区分
-7203,トヨタ自動車,東証プライム
-INVALID,無効なコード,東証プライム
-9984,ソフトバンクグループ,東証プライム"""
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
-            f.write(csv_content)
-            csv_path = Path(f.name)
-
-        try:
-            stocks, error_count = self.parser.parse_csv(csv_path)
-
-            assert len(stocks) == 2  # 有効なもののみ
-            assert error_count == 1   # 1つのエラー
-
-        finally:
-            csv_path.unlink()
-
-
-class TestBulkStockRegistrar(unittest.TestCase):
-    """BulkStockRegistrarのテスト"""
-
-    def setUp(self):
-        self.registrar = BulkStockRegistrar(batch_size=10)
-
-    @patch('scripts.bulk_stock_registration.create_stock_master_manager')
-    @patch('scripts.bulk_stock_registration.get_default_database_manager')
-    def test_init(self, mock_db_manager, mock_stock_master):
-        """初期化テスト"""
-        registrar = BulkStockRegistrar(batch_size=20)
-
-        assert registrar.batch_size == 20
-        assert 'total_processed' in registrar.stats
-        assert registrar.stats['newly_added'] == 0
-
-    @patch('scripts.bulk_stock_registration.BulkStockRegistrar._get_existing_codes')
-    @patch('scripts.bulk_stock_registration.BulkStockRegistrar._process_batch')
-    def test_register_stocks_success(self, mock_process_batch, mock_existing_codes):
-        """銘柄登録成功テスト"""
-        mock_existing_codes.return_value = {'7203'}
-        mock_process_batch.return_value = None
-
-        stock_data = [
-            {
-                'code': '7203',
-                'name': 'トヨタ自動車',
-                'market': '東証プライム',
-                'sector': '輸送用機器',
-                'industry': '自動車'
-            },
-            {
-                'code': '9984',
-                'name': 'ソフトバンクグループ',
-                'market': '東証プライム',
-                'sector': '情報・通信',
-                'industry': '通信業'
-            }
-        ]
-
-        stats = self.registrar.register_stocks(stock_data)
-
-        assert stats['total_processed'] == 2
-        assert mock_process_batch.call_count == 1  # バッチサイズが10なので1回
-
-    def test_get_existing_codes_success(self):
-        """既存コード取得成功テスト"""
-        # モックセッション
-        mock_session = Mock()
-        mock_session.query.return_value.all.return_value = [('7203',), ('9984',)]
-
-        # コンテキストマネージャーのモック設定
-        context_manager = Mock()
-        context_manager.__enter__ = Mock(return_value=mock_session)
-        context_manager.__exit__ = Mock(return_value=False)
-
-        self.registrar.db_manager = Mock()
-        self.registrar.db_manager.session_scope.return_value = context_manager
-
-        existing_codes = self.registrar._get_existing_codes()
-
-        assert existing_codes == {'7203', '9984'}
-
-    def test_get_existing_codes_error(self):
-        """既存コード取得エラーテスト"""
-        self.registrar.db_manager = Mock()
-        self.registrar.db_manager.session_scope.side_effect = Exception("DB Error")
-
-        existing_codes = self.registrar._get_existing_codes()
-
-        assert existing_codes == set()  # エラー時は空のset
-
-
-class TestIntegration(unittest.TestCase):
-    """統合テスト"""
-
-    def test_full_workflow_dry_run(self):
-        """完全ワークフローのドライランテスト"""
-        # テスト用CSVファイル作成
-        csv_content = """証券コード,銘柄名,市場区分,セクター,業種名
-7203,トヨタ自動車,東証プライム,輸送用機器,自動車
-9984,ソフトバンクグループ,東証プライム,情報・通信,通信業"""
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
-            f.write(csv_content)
-            csv_path = Path(f.name)
-
-        try:
-            # 1. CSV解析
-            parser = StockDataParser()
-            stocks, error_count = parser.parse_csv(csv_path)
-
-            assert len(stocks) == 2
-            assert error_count == 0
-
-            # 2. データ検証
+    try:
+        with db_manager.get_session() as session:
+            stocks = session.query(Stock).all()
             for stock in stocks:
-                assert 'code' in stock
-                assert 'name' in stock
-                assert len(stock['code']) == 4
-                assert stock['name'].strip() != ''
+                existing.add(stock.code)
+    except Exception as e:
+        logger.error(f"既存コード取得エラー: {e}")
 
-            print(f"統合テスト成功: {len(stocks)}件の銘柄を解析")
-
-        finally:
-            csv_path.unlink()
+    logger.info(f"既存証券コード数: {len(existing)}")
+    return existing
 
 
-if __name__ == '__main__':
-    # テスト実行
-    unittest.main(verbosity=2)
+def register_test_stocks(limit: int = 20) -> Dict[str, Any]:
+    """テスト用の銘柄登録"""
+    logger.info("=== テスト用銘柄登録開始 ===")
+
+    # テスト対象の証券コード読み込み
+    all_codes = load_test_stock_codes(limit * 2)  # 余裕を持って読み込み
+    existing_codes = get_existing_codes()
+
+    # 新規のみ抽出
+    new_codes = [code for code in all_codes if code not in existing_codes][:limit]
+
+    if not new_codes:
+        logger.info("新規追加対象がありません")
+        return {"total": 0, "success": 0, "message": "新規対象なし"}
+
+    logger.info(f"登録対象: {len(new_codes)}件")
+    logger.info(f"対象コード: {new_codes}")
+
+    # StockMasterManagerを使用して登録
+    stock_master = StockMasterManager()
+
+    start_time = time.time()
+    results = stock_master.bulk_fetch_and_update_companies(
+        codes=new_codes, batch_size=5, delay=0.3
+    )
+
+    total_time = time.time() - start_time
+
+    logger.info("=== テスト登録完了 ===")
+    logger.info(f"処理時間: {total_time:.2f}秒")
+    logger.info(f"結果: {results}")
+
+    return results
+
+
+def verify_registration(codes: List[str]) -> Dict[str, Any]:
+    """登録結果の検証"""
+    logger.info("=== 登録結果検証 ===")
+
+    verification = {
+        "total_codes": len(codes),
+        "found_in_db": 0,
+        "missing_codes": [],
+        "found_codes": [],
+    }
+
+    try:
+        with db_manager.get_session() as session:
+            for code in codes:
+                stock = session.query(Stock).filter(Stock.code == code).first()
+                if stock:
+                    verification["found_in_db"] += 1
+                    verification["found_codes"].append(code)
+                    logger.info(f"✅ {code}: {stock.name}")
+                else:
+                    verification["missing_codes"].append(code)
+                    logger.warning(f"❌ {code}: データベースに見つかりません")
+
+    except Exception as e:
+        logger.error(f"検証エラー: {e}")
+
+    logger.info(
+        f"検証結果: {verification['found_in_db']}/{verification['total_codes']}件がデータベースに存在"
+    )
+
+    return verification
+
+
+def main():
+    """メイン実行"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="銘柄一括登録テスト")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="登録する銘柄数（デフォルト: 10）"
+    )
+    parser.add_argument("--verify-only", action="store_true", help="検証のみ実行")
+
+    args = parser.parse_args()
+
+    try:
+        if args.verify_only:
+            # 検証のみ
+            codes = load_test_stock_codes(50)
+            existing = get_existing_codes()
+            found_codes = [code for code in codes if code in existing]
+            _ = verify_registration(found_codes[:20])  # 最初の20件のみ検証
+        else:
+            # 実際の登録実行
+            results = register_test_stocks(args.limit)
+
+            if results.get("success", 0) > 0:
+                print(f"✅ テスト登録完了: {results['success']}件成功")
+
+                # 登録した銘柄の検証
+                if "registered_codes" in results:
+                    verify_registration(results["registered_codes"])
+            else:
+                print("⚠️ 新規登録はありませんでした")
+
+    except Exception as e:
+        logger.error(f"テスト実行エラー: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

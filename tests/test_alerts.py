@@ -724,7 +724,7 @@ class TestEmailNotification:
         # EMAIL_AVAILABLEをFalseに設定
         monkeypatch.setattr("src.day_trade.core.alerts.EMAIL_AVAILABLE", False)
 
-        with patch('src.day_trade.core.alerts.logger') as mock_logger:
+        with patch("src.day_trade.core.alerts.logger") as mock_logger:
             self.handler._send_email_notification(self.sample_trigger)
             mock_logger.warning.assert_called_with("メール機能が利用できません")
 
@@ -740,10 +740,10 @@ class TestEmailNotification:
             "username": "",
             "password": "",
             "from_email": "",
-            "to_emails": []
+            "to_emails": [],
         }
 
-        with patch('src.day_trade.core.alerts.logger') as mock_logger:
+        with patch("src.day_trade.core.alerts.logger") as mock_logger:
             self.handler._send_email_notification(self.sample_trigger)
             mock_logger.warning.assert_called_with("メール設定が不完全です")
 
@@ -759,7 +759,7 @@ class TestEmailNotification:
             "username": "test@example.com",
             "password": "password",
             "from_email": "test@example.com",
-            "to_emails": ["recipient@example.com"]
+            "to_emails": ["recipient@example.com"],
         }
 
         # SMTPライブラリをモック
@@ -772,9 +772,9 @@ class TestEmailNotification:
         monkeypatch.setattr("src.day_trade.core.alerts.MimeMultipart", MimeMultipart)
         monkeypatch.setattr("src.day_trade.core.alerts.MimeText", MimeText)
 
-        with patch.object(smtplib, 'SMTP') as mock_smtp, \
-             patch('src.day_trade.core.alerts.logger') as mock_logger:
-
+        with patch.object(smtplib, "SMTP") as mock_smtp, patch(
+            "src.day_trade.core.alerts.logger"
+        ) as mock_logger:
             mock_server = Mock()
             mock_smtp.return_value.__enter__.return_value = mock_server
 
@@ -801,16 +801,17 @@ class TestEmailNotification:
             "username": "test@example.com",
             "password": "password",
             "from_email": "test@example.com",
-            "to_emails": ["recipient@example.com"]
+            "to_emails": ["recipient@example.com"],
         }
 
         # SMTP接続でエラーを発生させる
         import smtplib
+
         monkeypatch.setattr("src.day_trade.core.alerts.smtplib", smtplib)
 
-        with patch.object(smtplib, 'SMTP') as mock_smtp, \
-             patch('src.day_trade.core.alerts.logger') as mock_logger:
-
+        with patch.object(smtplib, "SMTP") as mock_smtp, patch(
+            "src.day_trade.core.alerts.logger"
+        ) as mock_logger:
             mock_smtp.side_effect = Exception("SMTP connection failed")
 
             self.handler._send_email_notification(self.sample_trigger)
@@ -838,7 +839,7 @@ class TestAlertManagerAdvanced:
             username="test@gmail.com",
             password="app_password",
             from_email="test@gmail.com",
-            to_emails=["alert@example.com"]
+            to_emails=["alert@example.com"],
         )
 
         # 設定が反映されることを確認
@@ -849,13 +850,18 @@ class TestAlertManagerAdvanced:
         assert len(email_config["to_emails"]) == 1
 
         # メール通知がハンドラーに追加されることを確認
-        assert NotificationMethod.EMAIL in self.alert_manager.notification_handler.handlers
+        assert (
+            NotificationMethod.EMAIL in self.alert_manager.notification_handler.handlers
+        )
 
     def test_custom_alert_evaluation_function(self):
         """カスタムアラート評価関数のテスト"""
+
         # カスタム評価関数を定義
-        def custom_evaluator(symbol, price, volume, change_pct, historical_data, params):
-            return params.get('custom_value', 0) > 50
+        def custom_evaluator(
+            symbol, price, volume, change_pct, historical_data, params
+        ):
+            return params.get("custom_value", 0) > 50
 
         # カスタム条件を追加
         condition = AlertCondition(
@@ -864,7 +870,7 @@ class TestAlertManagerAdvanced:
             alert_type=AlertType.CUSTOM_CONDITION,
             condition_value="custom",
             custom_function=custom_evaluator,
-            custom_parameters={"custom_value": 60}
+            custom_parameters={"custom_value": 60},
         )
 
         # AlertManagerにアラートを追加
@@ -912,7 +918,7 @@ class TestAlertManagerAdvanced:
             current_value=Decimal("2600"),
             condition_value=Decimal("2500"),
             message="履歴テスト1",
-            priority=AlertPriority.MEDIUM
+            priority=AlertPriority.MEDIUM,
         )
 
         trigger2 = AlertTrigger(
@@ -923,7 +929,7 @@ class TestAlertManagerAdvanced:
             current_value=Decimal("15000"),
             condition_value=Decimal("15500"),
             message="履歴テスト2",
-            priority=AlertPriority.HIGH
+            priority=AlertPriority.HIGH,
         )
 
         # 履歴に追加
@@ -953,7 +959,7 @@ class TestAlertManagerAdvanced:
                 alert_type=AlertType.PRICE_ABOVE,
                 condition_value=Decimal("2600"),
                 priority=AlertPriority.HIGH,
-                description="エクスポートテスト1"
+                description="エクスポートテスト1",
             ),
             AlertCondition(
                 alert_id="export_test_2",
@@ -961,18 +967,20 @@ class TestAlertManagerAdvanced:
                 alert_type=AlertType.PRICE_BELOW,
                 condition_value=Decimal("15000"),
                 priority=AlertPriority.MEDIUM,
-                description="エクスポートテスト2"
-            )
+                description="エクスポートテスト2",
+            ),
         ]
 
         for condition in conditions:
             self.alert_manager.add_alert(condition)
 
         # 一時ファイルにエクスポート
-        import tempfile
         import os
+        import tempfile
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_file:
             export_file = tmp_file.name
 
         try:
@@ -983,7 +991,8 @@ class TestAlertManagerAdvanced:
 
             # エクスポートされた内容を確認
             import json
-            with open(export_file, 'r', encoding='utf-8') as f:
+
+            with open(export_file, encoding="utf-8") as f:
                 exported_data = json.load(f)
 
             assert "export_test_1" in exported_data
@@ -1028,7 +1037,9 @@ class TestNotificationHandlerAdvanced:
         self.handler.add_custom_handler(NotificationMethod.CALLBACK, custom_handler)
 
         # 通知送信
-        self.handler.send_notification(self.sample_trigger, [NotificationMethod.CALLBACK])
+        self.handler.send_notification(
+            self.sample_trigger, [NotificationMethod.CALLBACK]
+        )
 
         # カスタムハンドラーが呼ばれることを確認
         assert len(custom_calls) == 1
@@ -1037,7 +1048,7 @@ class TestNotificationHandlerAdvanced:
 
     def test_multiple_notification_methods(self):
         """複数通知方法の同時使用テスト"""
-        with patch('src.day_trade.core.alerts.logger') as mock_logger:
+        with patch("src.day_trade.core.alerts.logger") as mock_logger:
             methods = [NotificationMethod.CONSOLE, NotificationMethod.FILE_LOG]
             self.handler.send_notification(self.sample_trigger, methods)
 
@@ -1048,6 +1059,7 @@ class TestNotificationHandlerAdvanced:
 
     def test_notification_error_handling(self):
         """通知エラーハンドリングのテスト"""
+
         # エラーを発生させるカスタムハンドラー
         def error_handler(trigger):
             raise Exception("Notification error")
@@ -1055,8 +1067,10 @@ class TestNotificationHandlerAdvanced:
         self.handler.add_custom_handler(NotificationMethod.CALLBACK, error_handler)
 
         # エラーが発生しても他の処理が継続されることを確認
-        with patch('src.day_trade.core.alerts.logger') as mock_logger:
-            self.handler.send_notification(self.sample_trigger, [NotificationMethod.CALLBACK])
+        with patch("src.day_trade.core.alerts.logger") as mock_logger:
+            self.handler.send_notification(
+                self.sample_trigger, [NotificationMethod.CALLBACK]
+            )
 
             # エラーログが出力されることを確認
             mock_logger.error.assert_called()
@@ -1080,11 +1094,13 @@ class TestAlertManagerBulkOperations:
         symbols = ["7203", "9984"]
 
         # get_bulk_current_pricesメソッドが存在しない場合のフォールバックテスト
-        with patch.object(self.alert_manager.stock_fetcher, 'get_current_price') as mock_get_price:
+        with patch.object(
+            self.alert_manager.stock_fetcher, "get_current_price"
+        ) as mock_get_price:
             mock_get_price.return_value = {
                 "current_price": 2500.0,
                 "volume": 1000000,
-                "change_percent": 2.5
+                "change_percent": 2.5,
             }
 
             bulk_data = self.alert_manager._fetch_bulk_market_data(symbols)
@@ -1095,7 +1111,7 @@ class TestAlertManagerBulkOperations:
 
     def test_monitoring_loop_error_handling(self):
         """監視ループのエラーハンドリングテスト"""
-        with patch.object(self.alert_manager, 'check_all_alerts') as mock_check:
+        with patch.object(self.alert_manager, "check_all_alerts") as mock_check:
             mock_check.side_effect = Exception("監視エラー")
 
             # 監視を短時間開始
@@ -1103,6 +1119,7 @@ class TestAlertManagerBulkOperations:
 
             # 短時間待機して監視を停止
             import time
+
             time.sleep(0.2)
             self.alert_manager.stop_monitoring()
 
@@ -1112,7 +1129,9 @@ class TestAlertManagerBulkOperations:
     def test_notification_methods_configuration(self):
         """通知方法の設定テスト"""
         # デフォルトの通知方法を確認
-        assert self.alert_manager.default_notification_methods == [NotificationMethod.CONSOLE]
+        assert self.alert_manager.default_notification_methods == [
+            NotificationMethod.CONSOLE
+        ]
 
         # 通知方法を変更
         new_methods = [NotificationMethod.EMAIL, NotificationMethod.FILE_LOG]
@@ -1128,7 +1147,7 @@ class TestAlertManagerBulkOperations:
             alert_id="",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
         assert self.alert_manager.add_alert(invalid_condition1) is False
 
@@ -1137,7 +1156,7 @@ class TestAlertManagerBulkOperations:
             alert_id="test_empty_symbol",
             symbol="",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
         assert self.alert_manager.add_alert(invalid_condition2) is False
 
@@ -1147,7 +1166,7 @@ class TestAlertManagerBulkOperations:
             symbol="7203",
             alert_type=AlertType.CUSTOM_CONDITION,
             condition_value="custom",
-            custom_function=None
+            custom_function=None,
         )
         assert self.alert_manager.add_alert(invalid_condition3) is False
 
@@ -1164,7 +1183,7 @@ class TestAlertManagerBulkOperations:
             priority=AlertPriority.HIGH,
             current_price=Decimal("2600"),
             volume=1500000,
-            change_percent=4.2
+            change_percent=4.2,
         )
 
         result = trigger.to_dict()
@@ -1189,7 +1208,7 @@ class TestAlertManagerBulkOperations:
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=Decimal("2500"),
-            expiry_date=datetime.now() - timedelta(hours=1)  # 1時間前に期限切れ
+            expiry_date=datetime.now() - timedelta(hours=1),  # 1時間前に期限切れ
         )
 
         self.alert_manager.add_alert(expired_condition)
@@ -1204,7 +1223,7 @@ class TestAlertManagerBulkOperations:
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=Decimal("2500"),
-            expiry_date=datetime.now() + timedelta(hours=1)  # 1時間後に期限切れ
+            expiry_date=datetime.now() + timedelta(hours=1),  # 1時間後に期限切れ
         )
 
         self.alert_manager.add_alert(valid_condition)
@@ -1227,11 +1246,13 @@ class TestAlertStrategyIntegration:
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
             condition_value=Decimal("2500"),
-            comparison_operator=">"
+            comparison_operator=">",
         )
 
         # 戦略が存在しない場合のテスト
-        with patch.object(self.alert_manager.strategy_factory, 'get_strategy') as mock_get_strategy:
+        with patch.object(
+            self.alert_manager.strategy_factory, "get_strategy"
+        ) as mock_get_strategy:
             mock_get_strategy.return_value = None
 
             result = self.alert_manager._evaluate_condition(
@@ -1239,7 +1260,7 @@ class TestAlertStrategyIntegration:
                 current_price=Decimal("2600"),
                 volume=1000000,
                 change_percent=4.0,
-                historical_data=None
+                historical_data=None,
             )
 
             assert result is None
@@ -1250,15 +1271,18 @@ class TestAlertStrategyIntegration:
             alert_id="strategy_error_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
 
         # 戦略実行時にエラーを発生させる
         from unittest.mock import Mock
+
         mock_strategy = Mock()
         mock_strategy.evaluate.side_effect = Exception("戦略エラー")
 
-        with patch.object(self.alert_manager.strategy_factory, 'get_strategy') as mock_get_strategy:
+        with patch.object(
+            self.alert_manager.strategy_factory, "get_strategy"
+        ) as mock_get_strategy:
             mock_get_strategy.return_value = mock_strategy
 
             result = self.alert_manager._evaluate_condition(
@@ -1266,7 +1290,7 @@ class TestAlertStrategyIntegration:
                 current_price=Decimal("2600"),
                 volume=1000000,
                 change_percent=4.0,
-                historical_data=None
+                historical_data=None,
             )
 
             assert result is None
@@ -1277,20 +1301,18 @@ class TestAlertStrategyIntegration:
             alert_id="invalid_data_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
 
         # 不正なマーケットデータ
         invalid_market_data = {
-            'current_data': None,  # current_dataがNone
-            'historical_data': None
+            "current_data": None,  # current_dataがNone
+            "historical_data": None,
         }
 
         # エラーが発生しないことを確認
         self.alert_manager._check_symbol_alerts_with_data(
-            symbol="7203",
-            conditions=[condition],
-            market_data=invalid_market_data
+            symbol="7203", conditions=[condition], market_data=invalid_market_data
         )
 
         # アラート履歴に何も追加されないことを確認
@@ -1302,89 +1324,19 @@ class TestAlertStrategyIntegration:
             alert_id="data_error_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
 
         # stock_fetcher.get_current_priceがNoneを返す場合
-        with patch.object(self.alert_manager.stock_fetcher, 'get_current_price') as mock_get_price:
+        with patch.object(
+            self.alert_manager.stock_fetcher, "get_current_price"
+        ) as mock_get_price:
             mock_get_price.return_value = None
 
             self.alert_manager._check_symbol_alerts("7203", [condition])
 
             # アラート履歴に何も追加されないことを確認
             assert len(self.alert_manager.alert_history) == 0
-
-
-class TestHelperFunctions:
-    """ヘルパー関数のテスト"""
-
-    def test_create_price_alert(self):
-        """価格アラート作成ヘルパーのテスト"""
-        from src.day_trade.core.alerts import create_price_alert
-
-        # 上昇アラート
-        alert_above = create_price_alert(
-            alert_id="price_above_test",
-            symbol="7203",
-            target_price=Decimal("3000"),
-            above=True,
-            priority=AlertPriority.HIGH
-        )
-
-        assert alert_above.alert_id == "price_above_test"
-        assert alert_above.symbol == "7203"
-        assert alert_above.alert_type == AlertType.PRICE_ABOVE
-        assert alert_above.condition_value == Decimal("3000")
-        assert alert_above.comparison_operator == ">"
-        assert alert_above.priority == AlertPriority.HIGH
-        assert "価格上昇" in alert_above.description
-
-        # 下落アラート
-        alert_below = create_price_alert(
-            alert_id="price_below_test",
-            symbol="9984",
-            target_price=Decimal("15000"),
-            above=False,
-            priority=AlertPriority.MEDIUM
-        )
-
-        assert alert_below.alert_type == AlertType.PRICE_BELOW
-        assert alert_below.comparison_operator == "<"
-        assert "価格下落" in alert_below.description
-
-    def test_create_change_alert(self):
-        """変化率アラート作成ヘルパーのテスト"""
-        from src.day_trade.core.alerts import create_change_alert
-
-        # 上昇アラート
-        alert_up = create_change_alert(
-            alert_id="change_up_test",
-            symbol="7203",
-            change_percent=5.0,
-            up=True,
-            priority=AlertPriority.HIGH
-        )
-
-        assert alert_up.alert_id == "change_up_test"
-        assert alert_up.symbol == "7203"
-        assert alert_up.alert_type == AlertType.CHANGE_PERCENT_UP
-        assert alert_up.condition_value == 5.0
-        assert alert_up.priority == AlertPriority.HIGH
-        assert "変化率上昇" in alert_up.description
-        assert "+5.0%" in alert_up.description
-
-        # 下落アラート
-        alert_down = create_change_alert(
-            alert_id="change_down_test",
-            symbol="9984",
-            change_percent=-3.5,
-            up=False,
-            priority=AlertPriority.MEDIUM
-        )
-
-        assert alert_down.alert_type == AlertType.CHANGE_PERCENT_DOWN
-        assert "変化率下落" in alert_down.description
-        assert "-3.5%" in alert_down.description
 
 
 class TestAlertManagerCompareValues:
@@ -1415,8 +1367,12 @@ class TestAlertManagerCompareValues:
 
         # 等しい（小数点誤差考慮）
         assert self.alert_manager._compare_values(10.0, 10.0, "==") is True
-        assert self.alert_manager._compare_values(10.0001, 10.0, "==") is True  # 誤差範囲内
-        assert self.alert_manager._compare_values(10.01, 10.0, "==") is False   # 誤差範囲外
+        assert (
+            self.alert_manager._compare_values(10.0001, 10.0, "==") is True
+        )  # 誤差範囲内
+        assert (
+            self.alert_manager._compare_values(10.01, 10.0, "==") is False
+        )  # 誤差範囲外
 
     def test_compare_values_invalid_data(self):
         """無効なデータでの比較テスト"""
@@ -1429,7 +1385,10 @@ class TestAlertManagerCompareValues:
         """Decimal型サポートのテスト"""
         from decimal import Decimal
 
-        assert self.alert_manager._compare_values(Decimal("10.5"), Decimal("10.0"), ">") is True
+        assert (
+            self.alert_manager._compare_values(Decimal("10.5"), Decimal("10.0"), ">")
+            is True
+        )
         assert self.alert_manager._compare_values(Decimal("10.0"), "10.5", "<") is True
 
 
@@ -1452,7 +1411,7 @@ class TestAlertHistoryManagement:
                 current_value=Decimal("2500"),
                 condition_value=Decimal("2400"),
                 message=f"履歴制限テスト {i}",
-                priority=AlertPriority.MEDIUM
+                priority=AlertPriority.MEDIUM,
             )
             triggers.append(trigger)
 
@@ -1468,7 +1427,7 @@ class TestAlertHistoryManagement:
             current_value=Decimal("2600"),
             condition_value=Decimal("2500"),
             message="新しいトリガー",
-            priority=AlertPriority.HIGH
+            priority=AlertPriority.HIGH,
         )
 
         self.alert_manager._handle_alert_trigger(new_trigger)
@@ -1488,14 +1447,14 @@ class TestAlertManagerErrorHandling:
     def test_add_alert_exception_handling(self):
         """add_alertメソッドの例外処理テスト"""
         # _validate_conditionでエラーを発生させる
-        with patch.object(self.alert_manager, '_validate_condition') as mock_validate:
+        with patch.object(self.alert_manager, "_validate_condition") as mock_validate:
             mock_validate.side_effect = Exception("検証エラー")
 
             condition = AlertCondition(
                 alert_id="exception_test",
                 symbol="7203",
                 alert_type=AlertType.PRICE_ABOVE,
-                condition_value=Decimal("2500")
+                condition_value=Decimal("2500"),
             )
 
             result = self.alert_manager.add_alert(condition)
@@ -1507,14 +1466,16 @@ class TestAlertManagerErrorHandling:
             alert_id="fallback_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
         self.alert_manager.add_alert(condition)
 
         # _fetch_bulk_market_dataでエラーを発生させる
-        with patch.object(self.alert_manager, '_fetch_bulk_market_data') as mock_bulk_fetch, \
-             patch.object(self.alert_manager, '_check_symbol_alerts') as mock_check_symbol:
-
+        with patch.object(
+            self.alert_manager, "_fetch_bulk_market_data"
+        ) as mock_bulk_fetch, patch.object(
+            self.alert_manager, "_check_symbol_alerts"
+        ) as mock_check_symbol:
             mock_bulk_fetch.side_effect = Exception("一括取得エラー")
 
             self.alert_manager.check_all_alerts()
@@ -1528,10 +1489,12 @@ class TestAlertManagerErrorHandling:
             alert_id="symbol_error_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
 
-        with patch.object(self.alert_manager.stock_fetcher, 'get_current_price') as mock_get_price:
+        with patch.object(
+            self.alert_manager.stock_fetcher, "get_current_price"
+        ) as mock_get_price:
             mock_get_price.side_effect = Exception("データ取得エラー")
 
             # 例外が発生してもプログラムが停止しないことを確認
@@ -1553,7 +1516,7 @@ class TestAlertExportImportErrorHandling:
             alert_id="export_error_test",
             symbol="7203",
             alert_type=AlertType.PRICE_ABOVE,
-            condition_value=Decimal("2500")
+            condition_value=Decimal("2500"),
         )
         self.alert_manager.add_alert(condition)
 

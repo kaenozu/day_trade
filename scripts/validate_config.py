@@ -1,616 +1,421 @@
 #!/usr/bin/env python3
 """
-設定ファイル検証スクリプト
+環境設定検証スクリプト
 
-銘柄一括登録機能で使用される設定ファイルの整合性と正当性を検証する。
-
-機能:
-- 設定ファイルの構文チェック
-- 必須パラメータの存在確認
-- 設定値の妥当性検証
-- 環境依存設定の確認
-- 推奨設定の提案
-
-Usage:
-    python scripts/validate_config.py
-    python scripts/validate_config.py --config config/custom.json
-    python scripts/validate_config.py --fix-errors
+CI/CD環境で設定ファイルや環境変数の整合性を検証する。
+デプロイ時の設定ミスによる障害を事前に防止する。
 """
 
-import argparse
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
 
-# プロジェクトルートをパスに追加
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from src.day_trade.data.stock_master_config import get_stock_master_config
-from src.day_trade.analysis.patterns_config import get_patterns_config
-
-# ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# プロジェクトルートを設定
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class ConfigValidator:
-    """設定ファイル検証器"""
+    """設定検証クラス"""
 
     def __init__(self):
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
-        self.suggestions: List[str] = []
+        self.errors = []
+        self.warnings = []
+        self.config_files = []
 
-    def validate_stock_master_config(self) -> Dict[str, Any]:
-        """銘柄マスタ設定を検証"""
-        logger.info("銘柄マスタ設定検証開始")
+    def validate_all(self) -> bool:
+        """全ての設定を検証"""
+
+        logger.info("🔍 環境設定検証開始")
+
+        # 1. 設定ファイルの存在確認
+        self._check_config_files_exist()
+
+        # 2. 設定ファイルの構文確認
+        self._validate_config_syntax()
+
+        # 3. 必須設定項目の確認
+        self._validate_required_settings()
+
+        # 4. 設定値の整合性確認
+        self._validate_setting_consistency()
+
+        # 5. 環境変数の確認
+        self._validate_environment_variables()
+
+        # 6. パッケージ設定の確認
+        self._validate_package_config()
+
+        # 結果レポート
+        self._generate_report()
+
+        return len(self.errors) == 0
+
+    def _check_config_files_exist(self):
+        """設定ファイルの存在確認"""
+
+        logger.info("📁 設定ファイル存在確認")
+
+        required_configs = [
+            "config/signal_rules.json",
+            "config/patterns_config.json",
+            "config/stock_master_config.json",
+            "pyproject.toml",
+        ]
+
+        optional_configs = [".env", ".env.example", "config/screening_config.json"]
+
+        # 必須設定ファイル
+        for config_path in required_configs:
+            full_path = PROJECT_ROOT / config_path
+            if full_path.exists():
+                self.config_files.append(full_path)
+                logger.info(f"  ✅ {config_path}")
+            else:
+                self.errors.append(f"必須設定ファイルが見つかりません: {config_path}")
+                logger.error(f"  ❌ {config_path}")
+
+        # オプション設定ファイル
+        for config_path in optional_configs:
+            full_path = PROJECT_ROOT / config_path
+            if full_path.exists():
+                self.config_files.append(full_path)
+                logger.info(f"  📄 {config_path} (オプション)")
+            else:
+                self.warnings.append(f"オプション設定ファイルなし: {config_path}")
+
+    def _validate_config_syntax(self):
+        """設定ファイルの構文確認"""
+
+        logger.info("📝 設定ファイル構文確認")
+
+        for config_file in self.config_files:
+            try:
+                if config_file.suffix == ".json":
+                    with open(config_file, encoding="utf-8") as f:
+                        json.load(f)
+                    logger.info(f"  ✅ {config_file.name} JSON構文正常")
+
+                elif config_file.name == "pyproject.toml":
+                    import toml
+
+                    with open(config_file, encoding="utf-8") as f:
+                        toml.load(f)
+                    logger.info(f"  ✅ {config_file.name} TOML構文正常")
+
+            except json.JSONDecodeError as e:
+                error_msg = f"JSON構文エラー in {config_file.name}: {e}"
+                self.errors.append(error_msg)
+                logger.error(f"  ❌ {error_msg}")
+
+            except Exception as e:
+                error_msg = f"設定ファイル読み込みエラー in {config_file.name}: {e}"
+                self.errors.append(error_msg)
+                logger.error(f"  ❌ {error_msg}")
+
+    def _validate_required_settings(self):
+        """必須設定項目の確認"""
+
+        logger.info("🔧 必須設定項目確認")
+
+        # signal_rules.json の必須項目
+        self._validate_signal_rules_config()
+
+        # patterns_config.json の必須項目
+        self._validate_patterns_config()
+
+        # stock_master_config.json の必須項目
+        self._validate_stock_master_config()
+
+        # pyproject.toml の必須項目
+        self._validate_pyproject_config()
+
+    def _validate_signal_rules_config(self):
+        """シグナルルール設定の確認"""
+
+        config_path = PROJECT_ROOT / "config/signal_rules.json"
+        if not config_path.exists():
+            return
 
         try:
-            config = get_stock_master_config()
-            validation_result = {
-                "status": "success",
-                "config": config,
-                "issues": []
-            }
+            with open(config_path, encoding="utf-8") as f:
+                config = json.load(f)
 
-            # 必須セクションの確認
             required_sections = [
-                "session_management",
-                "performance",
-                "validation"
+                "signal_generation",
+                "volume_spike_settings",
+                "rsi_settings",
+                "macd_settings",
             ]
 
             for section in required_sections:
                 if section not in config:
-                    error_msg = f"必須セクション '{section}' が見つかりません"
-                    self.errors.append(error_msg)
-                    validation_result["issues"].append({"type": "error", "message": error_msg})
+                    self.errors.append(
+                        f"signal_rules.json: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
-                    logger.info(f"✅ セクション '{section}' 確認済み")
-
-            # パフォーマンス設定の検証
-            if "performance" in config:
-                self._validate_performance_config(config["performance"], validation_result)
-
-            # セッション管理設定の検証
-            if "session_management" in config:
-                self._validate_session_config(config["session_management"], validation_result)
-
-            # バリデーション設定の確認
-            if "validation" in config:
-                self._validate_validation_config(config["validation"], validation_result)
-
-            return validation_result
+                    logger.info(f"  ✅ signal_rules.json: {section}")
 
         except Exception as e:
-            error_msg = f"銘柄マスタ設定読み込みエラー: {e}"
-            logger.error(error_msg)
-            self.errors.append(error_msg)
+            self.errors.append(f"signal_rules.json 検証エラー: {e}")
 
-            return {
-                "status": "error",
-                "error": error_msg,
-                "issues": [{"type": "error", "message": error_msg}]
-            }
+    def _validate_patterns_config(self):
+        """パターン設定の確認"""
 
-    def _validate_performance_config(self, perf_config: Dict[str, Any], result: Dict[str, Any]):
-        """パフォーマンス設定を検証"""
-        required_keys = [
-            "default_bulk_batch_size",
-            "fetch_batch_size",
-            "max_concurrent_requests"
-        ]
-
-        for key in required_keys:
-            if key not in perf_config:
-                error_msg = f"performance.{key} が設定されていません"
-                self.errors.append(error_msg)
-                result["issues"].append({"type": "error", "message": error_msg})
-            else:
-                value = perf_config[key]
-
-                # 値の範囲チェック
-                if key == "default_bulk_batch_size":
-                    if not isinstance(value, int) or value <= 0 or value > 10000:
-                        warning_msg = f"bulk_batch_size ({value}) は1-10000の範囲で設定することを推奨します"
-                        self.warnings.append(warning_msg)
-                        result["issues"].append({"type": "warning", "message": warning_msg})
-
-                elif key == "fetch_batch_size":
-                    if not isinstance(value, int) or value <= 0 or value > 1000:
-                        warning_msg = f"fetch_batch_size ({value}) は1-1000の範囲で設定することを推奨します"
-                        self.warnings.append(warning_msg)
-                        result["issues"].append({"type": "warning", "message": warning_msg})
-
-                elif key == "max_concurrent_requests":
-                    if not isinstance(value, int) or value <= 0 or value > 50:
-                        warning_msg = f"max_concurrent_requests ({value}) は1-50の範囲で設定することを推奨します"
-                        self.warnings.append(warning_msg)
-                        result["issues"].append({"type": "warning", "message": warning_msg})
-
-    def _validate_session_config(self, session_config: Dict[str, Any], result: Dict[str, Any]):
-        """セッション設定を検証"""
-        recommended_keys = [
-            "request_timeout",
-            "connection_timeout",
-            "retry_count"
-        ]
-
-        for key in recommended_keys:
-            if key not in session_config:
-                suggestion_msg = f"session_management.{key} の設定を推奨します"
-                self.suggestions.append(suggestion_msg)
-                result["issues"].append({"type": "suggestion", "message": suggestion_msg})
-            else:
-                value = session_config[key]
-
-                # タイムアウト値の妥当性チェック
-                if "timeout" in key:
-                    if not isinstance(value, (int, float)) or value <= 0 or value > 300:
-                        warning_msg = f"{key} ({value}) は1-300秒の範囲で設定することを推奨します"
-                        self.warnings.append(warning_msg)
-                        result["issues"].append({"type": "warning", "message": warning_msg})
-
-                elif key == "retry_count":
-                    if not isinstance(value, int) or value < 0 or value > 10:
-                        warning_msg = f"retry_count ({value}) は0-10の範囲で設定することを推奨します"
-                        self.warnings.append(warning_msg)
-                        result["issues"].append({"type": "warning", "message": warning_msg})
-
-    def _validate_validation_config(self, validation_config: Dict[str, Any], result: Dict[str, Any]):
-        """バリデーション設定を検証"""
-        recommended_settings = {
-            "validate_symbol_format": True,
-            "validate_company_name": True,
-            "skip_invalid_records": True
-        }
-
-        for key, recommended_value in recommended_settings.items():
-            if key not in validation_config:
-                suggestion_msg = f"validation.{key} の設定を推奨します（推奨値: {recommended_value}）"
-                self.suggestions.append(suggestion_msg)
-                result["issues"].append({"type": "suggestion", "message": suggestion_msg})
-            else:
-                value = validation_config[key]
-                if not isinstance(value, bool):
-                    warning_msg = f"validation.{key} はboolean値である必要があります（現在の値: {value}）"
-                    self.warnings.append(warning_msg)
-                    result["issues"].append({"type": "warning", "message": warning_msg})
-
-    def validate_patterns_config(self) -> Dict[str, Any]:
-        """パターン設定を検証"""
-        logger.info("パターン設定検証開始")
+        config_path = PROJECT_ROOT / "config/patterns_config.json"
+        if not config_path.exists():
+            return
 
         try:
-            config = get_patterns_config()
-            validation_result = {
-                "status": "success",
-                "config": config,
-                "issues": []
-            }
+            with open(config_path, encoding="utf-8") as f:
+                config = json.load(f)
 
-            # 必須パターン設定の確認
-            required_patterns = [
+            required_sections = [
                 "golden_dead_cross",
                 "support_resistance",
-                "breakout_detection"
+                "breakout_detection",
+                "trend_line_detection",
             ]
 
-            for pattern in required_patterns:
-                if pattern not in config:
-                    error_msg = f"必須パターン設定 '{pattern}' が見つかりません"
-                    self.errors.append(error_msg)
-                    validation_result["issues"].append({"type": "error", "message": error_msg})
-                else:
-                    logger.info(f"✅ パターン設定 '{pattern}' 確認済み")
-
-                    # パターン固有の検証
-                    self._validate_pattern_specific_config(
-                        pattern, config[pattern], validation_result
+            for section in required_sections:
+                if section not in config:
+                    self.errors.append(
+                        f"patterns_config.json: 必須セクション '{section}' が見つかりません"
                     )
-
-            return validation_result
+                else:
+                    logger.info(f"  ✅ patterns_config.json: {section}")
 
         except Exception as e:
-            error_msg = f"パターン設定読み込みエラー: {e}"
-            logger.error(error_msg)
-            self.errors.append(error_msg)
+            self.errors.append(f"patterns_config.json 検証エラー: {e}")
 
-            return {
-                "status": "error",
-                "error": error_msg,
-                "issues": [{"type": "error", "message": error_msg}]
-            }
+    def _validate_stock_master_config(self):
+        """銘柄マスタ設定の確認"""
 
-    def _validate_pattern_specific_config(
-        self, pattern_name: str, pattern_config: Dict[str, Any], result: Dict[str, Any]
-    ):
-        """パターン固有の設定検証"""
+        config_path = PROJECT_ROOT / "config/stock_master_config.json"
+        if not config_path.exists():
+            return
 
-        if pattern_name == "golden_dead_cross":
-            required_params = ["fast_period", "slow_period", "confidence_threshold"]
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                config = json.load(f)
 
-            for param in required_params:
-                if param not in pattern_config:
-                    error_msg = f"{pattern_name}.{param} が設定されていません"
-                    self.errors.append(error_msg)
-                    result["issues"].append({"type": "error", "message": error_msg})
+            required_sections = ["session_management", "performance", "validation"]
+
+            for section in required_sections:
+                if section not in config:
+                    self.errors.append(
+                        f"stock_master_config.json: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
-                    value = pattern_config[param]
+                    logger.info(f"  ✅ stock_master_config.json: {section}")
 
-                    if param in ["fast_period", "slow_period"]:
-                        if not isinstance(value, int) or value <= 0 or value > 200:
-                            warning_msg = f"{pattern_name}.{param} ({value}) は1-200の範囲が推奨されます"
-                            self.warnings.append(warning_msg)
-                            result["issues"].append({"type": "warning", "message": warning_msg})
+        except Exception as e:
+            self.errors.append(f"stock_master_config.json 検証エラー: {e}")
 
-                    elif param == "confidence_threshold":
-                        if not isinstance(value, (int, float)) or value < 0 or value > 100:
-                            warning_msg = f"{pattern_name}.{param} ({value}) は0-100の範囲が推奨されます"
-                            self.warnings.append(warning_msg)
-                            result["issues"].append({"type": "warning", "message": warning_msg})
+    def _validate_pyproject_config(self):
+        """pyproject.toml設定の確認"""
 
-        elif pattern_name == "support_resistance":
-            if "window_size" in pattern_config:
-                window_size = pattern_config["window_size"]
-                if not isinstance(window_size, int) or window_size <= 0 or window_size > 100:
-                    warning_msg = f"{pattern_name}.window_size ({window_size}) は1-100の範囲が推奨されます"
-                    self.warnings.append(warning_msg)
-                    result["issues"].append({"type": "warning", "message": warning_msg})
+        config_path = PROJECT_ROOT / "pyproject.toml"
+        if not config_path.exists():
+            return
 
-    def validate_environment_settings(self) -> Dict[str, Any]:
-        """環境設定を検証"""
-        logger.info("環境設定検証開始")
+        try:
+            import toml
 
-        validation_result = {
-            "status": "success",
-            "environment_variables": {},
-            "issues": []
-        }
+            with open(config_path, encoding="utf-8") as f:
+                config = toml.load(f)
 
-        # 重要な環境変数をチェック
-        important_env_vars = [
+            # 必須セクション
+            required_sections = ["project", "build-system"]
+            for section in required_sections:
+                if section not in config:
+                    self.errors.append(
+                        f"pyproject.toml: 必須セクション '{section}' が見つかりません"
+                    )
+                else:
+                    logger.info(f"  ✅ pyproject.toml: {section}")
+
+            # プロジェクト情報
+            if "project" in config:
+                project = config["project"]
+                required_fields = ["name", "version", "dependencies"]
+                for field in required_fields:
+                    if field not in project:
+                        self.errors.append(
+                            f"pyproject.toml[project]: 必須フィールド '{field}' が見つかりません"
+                        )
+                    else:
+                        logger.info(f"  ✅ pyproject.toml[project]: {field}")
+
+        except Exception as e:
+            self.errors.append(f"pyproject.toml 検証エラー: {e}")
+
+    def _validate_setting_consistency(self):
+        """設定値の整合性確認"""
+
+        logger.info("🔄 設定整合性確認")
+
+        # バッチサイズの整合性チェック
+        try:
+            # stock_master_config のバッチサイズ
+            stock_config_path = PROJECT_ROOT / "config/stock_master_config.json"
+            if stock_config_path.exists():
+                with open(stock_config_path, encoding="utf-8") as f:
+                    stock_config = json.load(f)
+
+                batch_size = stock_config.get("performance", {}).get(
+                    "default_bulk_batch_size", 1000
+                )
+                fetch_batch = stock_config.get("performance", {}).get(
+                    "fetch_batch_size", 50
+                )
+
+                if batch_size < fetch_batch:
+                    self.warnings.append(
+                        "stock_master_config: バルクバッチサイズがフェッチバッチサイズより小さいです"
+                    )
+
+                if batch_size > 10000:
+                    self.warnings.append(
+                        "stock_master_config: バルクバッチサイズが大きすぎる可能性があります"
+                    )
+
+                logger.info(
+                    f"  ✅ バッチサイズ設定: bulk={batch_size}, fetch={fetch_batch}"
+                )
+
+        except Exception as e:
+            self.warnings.append(f"設定整合性チェックエラー: {e}")
+
+    def _validate_environment_variables(self):
+        """環境変数の確認"""
+
+        logger.info("🌍 環境変数確認")
+
+        # オプションの環境変数（本番環境で必要になる可能性があるもの）
+        optional_env_vars = [
             "DATABASE_URL",
+            "API_KEY",
+            "CACHE_REDIS_URL",
             "LOG_LEVEL",
-            "CACHE_ENABLED",
-            "MAX_WORKERS"
+            "ENVIRONMENT",
         ]
 
-        for env_var in important_env_vars:
-            value = os.getenv(env_var)
-            validation_result["environment_variables"][env_var] = value
-
-            if value is None:
-                suggestion_msg = f"環境変数 {env_var} が設定されていません（オプション）"
-                self.suggestions.append(suggestion_msg)
-                validation_result["issues"].append({"type": "suggestion", "message": suggestion_msg})
+        for var in optional_env_vars:
+            value = os.getenv(var)
+            if value:
+                # 機密情報は値を隠す
+                display_value = (
+                    "***"
+                    if any(
+                        secret in var.lower()
+                        for secret in ["key", "token", "password", "secret"]
+                    )
+                    else value
+                )
+                logger.info(f"  📄 {var}={display_value}")
             else:
-                logger.info(f"✅ 環境変数 {env_var}={value}")
+                logger.info(f"  ➖ {var} (未設定)")
 
-                # 値の妥当性チェック
-                if env_var == "LOG_LEVEL":
-                    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-                    if value.upper() not in valid_levels:
-                        warning_msg = f"LOG_LEVEL ({value}) は {valid_levels} のいずれかが推奨されます"
-                        self.warnings.append(warning_msg)
-                        validation_result["issues"].append({"type": "warning", "message": warning_msg})
+        # 必須環境変数（現在はなし、将来的に追加可能）
+        required_env_vars = []
 
-                elif env_var == "MAX_WORKERS":
-                    try:
-                        workers = int(value)
-                        if workers <= 0 or workers > 50:
-                            warning_msg = f"MAX_WORKERS ({workers}) は1-50の範囲が推奨されます"
-                            self.warnings.append(warning_msg)
-                            validation_result["issues"].append({"type": "warning", "message": warning_msg})
-                    except ValueError:
-                        error_msg = f"MAX_WORKERS ({value}) は整数である必要があります"
-                        self.errors.append(error_msg)
-                        validation_result["issues"].append({"type": "error", "message": error_msg})
+        for var in required_env_vars:
+            if not os.getenv(var):
+                self.errors.append(f"必須環境変数が設定されていません: {var}")
 
-        return validation_result
+    def _validate_package_config(self):
+        """パッケージ設定の確認"""
 
-    def validate_file_permissions(self) -> Dict[str, Any]:
-        """ファイル権限を検証"""
-        logger.info("ファイル権限検証開始")
+        logger.info("📦 パッケージ設定確認")
 
-        validation_result = {
-            "status": "success",
-            "permissions": {},
-            "issues": []
-        }
-
-        # 重要なディレクトリ/ファイルの権限をチェック
-        paths_to_check = [
-            PROJECT_ROOT / "config",
-            PROJECT_ROOT / "data",
-            PROJECT_ROOT / "logs",
-            PROJECT_ROOT / "scripts"
+        # requirements.txt の存在確認
+        req_files = [
+            "requirements.txt",
+            "requirements-dev.txt",
+            "requirements-test.txt",
         ]
 
-        for path in paths_to_check:
-            if not path.exists():
-                warning_msg = f"パス {path} が存在しません"
-                self.warnings.append(warning_msg)
-                validation_result["issues"].append({"type": "warning", "message": warning_msg})
-                validation_result["permissions"][str(path)] = "存在しない"
+        for req_file in req_files:
+            req_path = PROJECT_ROOT / req_file
+            if req_path.exists():
+                try:
+                    with open(req_path, encoding="utf-8") as f:
+                        lines = f.readlines()
+
+                    # 空行やコメント行を除く
+                    packages = [
+                        line.strip()
+                        for line in lines
+                        if line.strip() and not line.strip().startswith("#")
+                    ]
+                    logger.info(f"  ✅ {req_file}: {len(packages)}パッケージ")
+
+                except Exception as e:
+                    self.warnings.append(f"{req_file}読み込みエラー: {e}")
             else:
-                # 読み込み権限チェック
-                readable = os.access(path, os.R_OK)
-                writable = os.access(path, os.W_OK)
+                logger.info(f"  ➖ {req_file} (未使用)")
 
-                permissions = []
-                if readable:
-                    permissions.append("R")
-                if writable:
-                    permissions.append("W")
+    def _generate_report(self):
+        """検証結果レポート生成"""
 
-                permission_str = "".join(permissions) if permissions else "なし"
-                validation_result["permissions"][str(path)] = permission_str
+        logger.info("📊 設定検証結果レポート")
 
-                logger.info(f"✅ {path}: {permission_str}")
+        _ = len(self.errors) + len(self.warnings)  # total_issues is unused
 
-                # ディレクトリの場合、書き込み権限が必要
-                if path.is_dir() and not writable:
-                    warning_msg = f"ディレクトリ {path} に書き込み権限がありません"
-                    self.warnings.append(warning_msg)
-                    validation_result["issues"].append({"type": "warning", "message": warning_msg})
-
-        return validation_result
-
-    def generate_comprehensive_report(self) -> Dict[str, Any]:
-        """包括的な検証レポートを生成"""
-        logger.info("包括的検証レポート生成開始")
-
-        report = {
-            "validation_timestamp": str(pd.Timestamp.now()) if 'pd' in globals() else str(datetime.now()),
-            "summary": {
-                "total_errors": len(self.errors),
-                "total_warnings": len(self.warnings),
-                "total_suggestions": len(self.suggestions)
-            },
-            "validations": {}
-        }
-
-        # 各検証を実行
-        validations = [
-            ("stock_master_config", self.validate_stock_master_config),
-            ("patterns_config", self.validate_patterns_config),
-            ("environment_settings", self.validate_environment_settings),
-            ("file_permissions", self.validate_file_permissions)
-        ]
-
-        for validation_name, validation_func in validations:
-            try:
-                result = validation_func()
-                report["validations"][validation_name] = result
-
-            except Exception as e:
-                error_msg = f"{validation_name} 検証中にエラー: {e}"
-                logger.error(error_msg)
-                report["validations"][validation_name] = {
-                    "status": "error",
-                    "error": error_msg
-                }
-
-        # 全体的な問題点をまとめ
-        report["issues_summary"] = {
-            "errors": self.errors,
-            "warnings": self.warnings,
-            "suggestions": self.suggestions
-        }
-
-        # 総合評価
         if len(self.errors) == 0:
-            if len(self.warnings) == 0:
-                report["overall_status"] = "excellent"
-                report["overall_message"] = "設定は完璧です"
-            elif len(self.warnings) <= 2:
-                report["overall_status"] = "good"
-                report["overall_message"] = "設定は良好です（軽微な警告があります）"
-            else:
-                report["overall_status"] = "fair"
-                report["overall_message"] = "設定は使用可能ですが、改善の余地があります"
+            logger.info("🎉 環境設定検証成功")
         else:
-            report["overall_status"] = "poor"
-            report["overall_message"] = "設定にエラーがあります。修正が必要です"
+            logger.error(f"❌ 環境設定検証失敗: {len(self.errors)}個のエラー")
 
-        return report
+        if len(self.warnings) > 0:
+            logger.warning(f"⚠️ 警告: {len(self.warnings)}件")
 
-    def fix_common_issues(self) -> List[str]:
-        """一般的な問題を自動修正"""
-        logger.info("一般的な問題の自動修正開始")
+        # エラー詳細
+        if self.errors:
+            logger.error("🚨 エラー詳細:")
+            for i, error in enumerate(self.errors, 1):
+                logger.error(f"  {i}. {error}")
 
-        fixed_issues = []
+        # 警告詳細
+        if self.warnings:
+            logger.warning("⚠️ 警告詳細:")
+            for i, warning in enumerate(self.warnings, 1):
+                logger.warning(f"  {i}. {warning}")
 
-        # ディレクトリの作成
-        directories_to_create = [
-            PROJECT_ROOT / "config",
-            PROJECT_ROOT / "data",
-            PROJECT_ROOT / "logs"
-        ]
-
-        for directory in directories_to_create:
-            if not directory.exists():
-                try:
-                    directory.mkdir(parents=True, exist_ok=True)
-                    fixed_msg = f"ディレクトリを作成しました: {directory}"
-                    logger.info(fixed_msg)
-                    fixed_issues.append(fixed_msg)
-
-                except Exception as e:
-                    logger.error(f"ディレクトリ作成失敗 {directory}: {e}")
-
-        # デフォルト設定ファイルの作成
-        default_configs = [
-            {
-                "path": PROJECT_ROOT / "config" / "stock_master_config.json",
-                "content": {
-                    "session_management": {
-                        "request_timeout": 30,
-                        "connection_timeout": 10,
-                        "retry_count": 3
-                    },
-                    "performance": {
-                        "default_bulk_batch_size": 100,
-                        "fetch_batch_size": 50,
-                        "max_concurrent_requests": 5
-                    },
-                    "validation": {
-                        "validate_symbol_format": True,
-                        "validate_company_name": True,
-                        "skip_invalid_records": True
-                    }
-                }
-            },
-            {
-                "path": PROJECT_ROOT / "config" / "patterns_config.json",
-                "content": {
-                    "golden_dead_cross": {
-                        "fast_period": 5,
-                        "slow_period": 25,
-                        "confidence_threshold": 70
-                    },
-                    "support_resistance": {
-                        "window_size": 20,
-                        "strength_threshold": 3
-                    },
-                    "breakout_detection": {
-                        "volume_factor": 1.5,
-                        "price_change_threshold": 2.0
-                    }
-                }
-            }
-        ]
-
-        for config_info in default_configs:
-            config_path = config_info["path"]
-            config_content = config_info["content"]
-
-            if not config_path.exists():
-                try:
-                    with open(config_path, 'w', encoding='utf-8') as f:
-                        json.dump(config_content, f, ensure_ascii=False, indent=2)
-
-                    fixed_msg = f"デフォルト設定ファイルを作成しました: {config_path}"
-                    logger.info(fixed_msg)
-                    fixed_issues.append(fixed_msg)
-
-                except Exception as e:
-                    logger.error(f"設定ファイル作成失敗 {config_path}: {e}")
-
-        return fixed_issues
+        # サマリー
+        logger.info("📋 検証サマリー:")
+        logger.info(f"  - 設定ファイル数: {len(self.config_files)}")
+        logger.info(f"  - エラー: {len(self.errors)}")
+        logger.info(f"  - 警告: {len(self.warnings)}")
 
 
 def main():
-    """メイン処理"""
-    parser = argparse.ArgumentParser(
-        description="設定ファイル検証スクリプト",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-使用例:
-    python scripts/validate_config.py
-    python scripts/validate_config.py --fix-errors
-    python scripts/validate_config.py --output-report validation_report.json
-        """
-    )
+    """メイン実行関数"""
 
-    parser.add_argument(
-        '--fix-errors',
-        action='store_true',
-        help='一般的な問題を自動修正'
-    )
+    validator = ConfigValidator()
+    success = validator.validate_all()
 
-    parser.add_argument(
-        '--output-report',
-        type=str,
-        help='検証レポートをJSONファイルに出力'
-    )
-
-    parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='詳細なログを出力'
-    )
-
-    args = parser.parse_args()
-
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    try:
-        logger.info("=== 設定ファイル検証開始 ===")
-
-        validator = ConfigValidator()
-
-        # 自動修正
-        if args.fix_errors:
-            fixed_issues = validator.fix_common_issues()
-            if fixed_issues:
-                logger.info("自動修正結果:")
-                for issue in fixed_issues:
-                    logger.info(f"  ✅ {issue}")
-            else:
-                logger.info("自動修正できる問題はありませんでした")
-
-        # 包括的検証
-        report = validator.generate_comprehensive_report()
-
-        # 結果表示
-        logger.info("=== 検証結果サマリー ===")
-        logger.info(f"総合評価: {report['overall_status'].upper()}")
-        logger.info(f"メッセージ: {report['overall_message']}")
-        logger.info(f"エラー: {report['summary']['total_errors']}件")
-        logger.info(f"警告: {report['summary']['total_warnings']}件")
-        logger.info(f"提案: {report['summary']['total_suggestions']}件")
-
-        # 詳細な問題点表示
-        issues_summary = report['issues_summary']
-
-        if issues_summary['errors']:
-            logger.error("🚨 エラー:")
-            for error in issues_summary['errors']:
-                logger.error(f"  - {error}")
-
-        if issues_summary['warnings']:
-            logger.warning("⚠️ 警告:")
-            for warning in issues_summary['warnings']:
-                logger.warning(f"  - {warning}")
-
-        if issues_summary['suggestions']:
-            logger.info("💡 改善提案:")
-            for suggestion in issues_summary['suggestions']:
-                logger.info(f"  - {suggestion}")
-
-        # レポートファイル出力
-        if args.output_report:
-            with open(args.output_report, 'w', encoding='utf-8') as f:
-                json.dump(report, f, ensure_ascii=False, indent=2)
-
-            logger.info(f"詳細レポートを出力しました: {args.output_report}")
-
-        logger.info("=== 設定ファイル検証完了 ===")
-
-        # 終了コード（エラーがある場合は1）
-        return 1 if report['summary']['total_errors'] > 0 else 0
-
-    except KeyboardInterrupt:
-        logger.info("検証が中断されました")
-        return 1
-
-    except Exception as e:
-        logger.error(f"予期しないエラー: {e}", exc_info=True)
-        return 1
+    if success:
+        logger.info("✅ 全ての環境設定検証が成功しました")
+        sys.exit(0)
+    else:
+        logger.error("❌ 環境設定検証でエラーが発生しました")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    # datetime が必要な場合
-    from datetime import datetime
+    # toml パッケージが必要な場合はインストール
+    try:
+        import toml  # noqa: F401
+    except ImportError:
+        logger.warning(
+            "tomlパッケージがインストールされていません。pip install toml を実行してください。"
+        )
+        sys.exit(1)
 
-    exit(main())
+    main()

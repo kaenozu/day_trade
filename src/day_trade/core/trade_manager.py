@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..models.database import db_manager
 from ..models.stock import Stock
@@ -228,7 +228,7 @@ class TradeManager:
             symbol=symbol,
             trade_type=trade_type.value,
             quantity=quantity,
-            price=float(price),
+            price=str(price),
             persist_to_db=persist_to_db,
         )
 
@@ -278,8 +278,8 @@ class TradeManager:
                             session=session,
                             stock_code=symbol,
                             quantity=quantity,
-                            price=float(price),
-                            commission=float(commission),
+                            price=price,
+                            commission=commission,
                             memo=notes,
                         )
                         if trade_type == TradeType.BUY
@@ -287,8 +287,8 @@ class TradeManager:
                             session=session,
                             stock_code=symbol,
                             quantity=quantity,
-                            price=float(price),
-                            commission=float(commission),
+                            price=price,
+                            commission=commission,
                             memo=notes,
                         )
                     )
@@ -307,8 +307,8 @@ class TradeManager:
                         symbol=symbol,
                         trade_type=trade_type.value,
                         quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
+                        price=str(price),
+                        commission=str(commission),
                         persisted=True,
                     )
 
@@ -328,8 +328,8 @@ class TradeManager:
                     symbol=symbol,
                     trade_type=trade_type.value,
                     quantity=quantity,
-                    price=float(price),
-                    commission=float(commission),
+                    price=str(price),
+                    commission=str(commission),
                     persisted=False,
                 )
 
@@ -345,14 +345,14 @@ class TradeManager:
                     "symbol": symbol,
                     "trade_type": trade_type.value,
                     "quantity": quantity,
-                    "price": float(price),
+                    "price": str(price),
                     "persist_to_db": persist_to_db,
                 },
             )
             operation_logger.error("取引追加失敗", error=str(e))
             raise
 
-    def _update_position(self, trade: Trade):
+    def _update_position(self, trade: Trade) -> None:
         """ポジションを更新"""
         symbol = trade.symbol
 
@@ -464,7 +464,7 @@ class TradeManager:
             return min(trade.timestamp for trade in buy_trades)
         return datetime.now()
 
-    def _load_trades_from_db(self):
+    def _load_trades_from_db(self) -> None:
         """データベースから取引履歴を読み込み（トランザクション保護版）"""
         load_logger = self.logger.bind(operation="load_trades_from_db")
         load_logger.info("データベースから取引履歴読み込み開始")
@@ -556,7 +556,7 @@ class TradeManager:
             load_logger.error("データベース読み込み失敗", error=str(e))
             raise
 
-    def sync_with_db(self):
+    def sync_with_db(self) -> None:
         """データベースとの同期を実行（原子性保証版）"""
         sync_logger = self.logger.bind(operation="sync_with_db")
         sync_logger.info("データベース同期開始")
@@ -670,15 +670,15 @@ class TradeManager:
                                 session=session,
                                 stock_code=symbol,
                                 quantity=quantity,
-                                price=float(price),
-                                commission=float(commission),
+                                price=price,
+                                commission=commission,
                                 memo=notes,
                             ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
                                 session=session,
                                 stock_code=symbol,
                                 quantity=quantity,
-                                price=float(price),
-                                commission=float(commission),
+                                price=price,
+                                commission=commission,
                                 memo=notes,
                             )
 
@@ -788,7 +788,7 @@ class TradeManager:
             )
             raise
 
-    def clear_all_data(self, persist_to_db: bool = True):
+    def clear_all_data(self, persist_to_db: bool = True) -> None:
         """
         すべての取引データを削除（トランザクション保護）
 
@@ -866,7 +866,7 @@ class TradeManager:
         """全ポジション情報を取得"""
         return self.positions.copy()
 
-    def update_current_prices(self, prices: Dict[str, Decimal]):
+    def update_current_prices(self, prices: Dict[str, Decimal]) -> None:
         """現在価格を更新"""
         for symbol, price in prices.items():
             if symbol in self.positions:
@@ -910,7 +910,7 @@ class TradeManager:
             ),
         }
 
-    def export_to_csv(self, filepath: str, data_type: str = "trades"):
+    def export_to_csv(self, filepath: str, data_type: str = "trades") -> None:
         """
         CSVファイルにエクスポート
 
@@ -977,7 +977,7 @@ class TradeManager:
             )
             raise
 
-    def save_to_json(self, filepath: str):
+    def save_to_json(self, filepath: str) -> None:
         """JSON形式で保存"""
         try:
             data = {
@@ -1004,7 +1004,7 @@ class TradeManager:
             )
             raise
 
-    def load_from_json(self, filepath: str):
+    def load_from_json(self, filepath: str) -> None:
         """JSON形式から読み込み"""
         try:
             with open(filepath, encoding="utf-8") as f:
@@ -1069,7 +1069,7 @@ class TradeManager:
         current_market_price: Optional[Decimal] = None,
         notes: str = "",
         persist_to_db: bool = True,
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         株式買い注文を実行（完全なトランザクション保護）
 
@@ -1095,7 +1095,7 @@ class TradeManager:
             operation="buy_stock",
             symbol=symbol,
             quantity=quantity,
-            price=float(price),
+            price=str(price),
             persist_to_db=persist_to_db,
         )
 
@@ -1142,8 +1142,8 @@ class TradeManager:
                         session=session,
                         stock_code=symbol,
                         quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
+                        price=price,
+                        commission=commission,
                         memo=notes,
                     )
 
@@ -1178,8 +1178,8 @@ class TradeManager:
                         trade_id=trade_id,
                         symbol=symbol,
                         quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
+                        price=str(price),
+                        commission=str(commission),
                         old_position=old_position.to_dict() if old_position else None,
                         new_position=new_position.to_dict() if new_position else None,
                         persisted=True,
@@ -1189,7 +1189,7 @@ class TradeManager:
                         "株式買い注文完了（DB永続化）",
                         trade_id=trade_id,
                         db_trade_id=db_trade.id,
-                        commission=float(commission),
+                        commission=str(commission),
                     )
             else:
                 # メモリ内のみの処理
@@ -1219,8 +1219,8 @@ class TradeManager:
                     trade_id=trade_id,
                     symbol=symbol,
                     quantity=quantity,
-                    price=float(price),
-                    commission=float(commission),
+                    price=str(price),
+                    commission=str(commission),
                     old_position=old_position.to_dict() if old_position else None,
                     new_position=new_position.to_dict() if new_position else None,
                     persisted=False,
@@ -1229,7 +1229,7 @@ class TradeManager:
                 buy_logger.info(
                     "株式買い注文完了（メモリのみ）",
                     trade_id=trade_id,
-                    commission=float(commission),
+                    commission=str(commission),
                 )
 
             # 結果データ作成
@@ -1238,13 +1238,13 @@ class TradeManager:
                 "trade_id": trade_id,
                 "symbol": symbol,
                 "quantity": quantity,
-                "price": float(price),
-                "commission": float(commission),
+                "price": str(price),
+                "commission": str(commission),
                 "timestamp": timestamp.isoformat(),
                 "position": self.positions[symbol].to_dict()
                 if symbol in self.positions
                 else None,
-                "total_cost": float(price * quantity + commission),
+                "total_cost": str(price * quantity + commission),
             }
 
             return result
@@ -1261,7 +1261,7 @@ class TradeManager:
                     "operation": "buy_stock",
                     "symbol": symbol,
                     "quantity": quantity,
-                    "price": float(price),
+                    "price": str(price),
                     "persist_to_db": persist_to_db,
                 },
             )
@@ -1276,7 +1276,7 @@ class TradeManager:
         current_market_price: Optional[Decimal] = None,
         notes: str = "",
         persist_to_db: bool = True,
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         株式売り注文を実行（完全なトランザクション保護）
 
@@ -1302,7 +1302,7 @@ class TradeManager:
             operation="sell_stock",
             symbol=symbol,
             quantity=quantity,
-            price=float(price),
+            price=str(price),
             persist_to_db=persist_to_db,
         )
 
@@ -1346,8 +1346,8 @@ class TradeManager:
                         session=session,
                         stock_code=symbol,
                         quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
+                        price=price,
+                        commission=commission,
                         memo=notes,
                     )
 
@@ -1388,8 +1388,8 @@ class TradeManager:
                         trade_id=trade_id,
                         symbol=symbol,
                         quantity=quantity,
-                        price=float(price),
-                        commission=float(commission),
+                        price=str(price),
+                        commission=str(commission),
                         old_position=old_position.to_dict(),
                         new_position=new_position.to_dict() if new_position else None,
                         realized_pnl=new_realized_pnl.to_dict()
@@ -1402,8 +1402,10 @@ class TradeManager:
                         "株式売り注文完了（DB永続化）",
                         trade_id=trade_id,
                         db_trade_id=db_trade.id,
-                        commission=float(commission),
-                        realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None,
+                        commission=str(commission),
+                        realized_pnl=str(new_realized_pnl.pnl)
+                        if new_realized_pnl
+                        else None,
                     )
             else:
                 # メモリ内のみの処理
@@ -1439,8 +1441,8 @@ class TradeManager:
                     trade_id=trade_id,
                     symbol=symbol,
                     quantity=quantity,
-                    price=float(price),
-                    commission=float(commission),
+                    price=str(price),
+                    commission=str(commission),
                     old_position=old_position.to_dict(),
                     new_position=new_position.to_dict() if new_position else None,
                     realized_pnl=new_realized_pnl.to_dict()
@@ -1452,8 +1454,10 @@ class TradeManager:
                 sell_logger.info(
                     "株式売り注文完了（メモリのみ）",
                     trade_id=trade_id,
-                    commission=float(commission),
-                    realized_pnl=new_realized_pnl.pnl if new_realized_pnl else None,
+                    commission=str(commission),
+                    realized_pnl=str(new_realized_pnl.pnl)
+                    if new_realized_pnl
+                    else None,
                 )
 
             # 結果データ作成
@@ -1462,15 +1466,15 @@ class TradeManager:
                 "trade_id": trade_id,
                 "symbol": symbol,
                 "quantity": quantity,
-                "price": float(price),
-                "commission": float(commission),
+                "price": str(price),
+                "commission": str(commission),
                 "timestamp": timestamp.isoformat(),
                 "position": new_position.to_dict() if new_position else None,
                 "position_closed": new_position is None,
                 "realized_pnl": new_realized_pnl.to_dict()
                 if new_realized_pnl
                 else None,
-                "gross_proceeds": float(price * quantity - commission),
+                "gross_proceeds": str(price * quantity - commission),
             }
 
             return result
@@ -1488,7 +1492,7 @@ class TradeManager:
                     "operation": "sell_stock",
                     "symbol": symbol,
                     "quantity": quantity,
-                    "price": float(price),
+                    "price": str(price),
                     "persist_to_db": persist_to_db,
                 },
             )
@@ -1496,8 +1500,8 @@ class TradeManager:
             raise
 
     def execute_trade_order(
-        self, trade_order: Dict[str, any], persist_to_db: bool = True
-    ) -> Dict[str, any]:
+        self, trade_order: Dict[str, Any], persist_to_db: bool = True
+    ) -> Dict[str, Any]:
         """
         取引注文を実行（買い/売りを統一インターフェースで処理）
 
@@ -1516,7 +1520,7 @@ class TradeManager:
         Returns:
             取引結果辞書
         """
-        action = trade_order.get("action", "").lower()
+        action = str(trade_order.get("action", "")).lower()
 
         if action == "buy":
             return self.buy_stock(
@@ -1617,12 +1621,12 @@ if __name__ == "__main__":
             section="position_info",
             symbol=position.symbol,
             quantity=position.quantity,
-            average_price=float(position.average_price),
-            total_cost=float(position.total_cost),
-            current_price=float(position.current_price),
-            market_value=float(position.market_value),
-            unrealized_pnl=float(position.unrealized_pnl),
-            unrealized_pnl_percent=float(position.unrealized_pnl_percent),
+            average_price=str(position.average_price),
+            total_cost=str(position.total_cost),
+            current_price=str(position.current_price),
+            market_value=str(position.market_value),
+            unrealized_pnl=str(position.unrealized_pnl),
+            unrealized_pnl_percent=str(position.unrealized_pnl_percent),
         )
 
     # 一部売却
@@ -1640,10 +1644,10 @@ if __name__ == "__main__":
                 section="realized_pnl_detail",
                 symbol=pnl.symbol,
                 quantity=pnl.quantity,
-                buy_price=float(pnl.buy_price),
-                sell_price=float(pnl.sell_price),
-                pnl=float(pnl.pnl),
-                pnl_percent=float(pnl.pnl_percent),
+                buy_price=str(pnl.buy_price),
+                sell_price=str(pnl.sell_price),
+                pnl=str(pnl.pnl),
+                pnl_percent=str(pnl.pnl_percent),
             )
 
     # ポートフォリオサマリー

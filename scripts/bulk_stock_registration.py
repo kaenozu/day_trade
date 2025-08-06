@@ -20,13 +20,11 @@ Usage:
 import argparse
 import csv
 import logging
-import os
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
-from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -36,22 +34,25 @@ from urllib3.util.retry import Retry
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.day_trade.data.stock_master import StockMasterManager, create_stock_master_manager
-from src.day_trade.models.database import get_default_database_manager
-from src.day_trade.models.stock import Stock
-from src.day_trade.utils.logging_config import get_context_logger
+from src.day_trade.data.stock_master import create_stock_master_manager  # noqa: E402
+from src.day_trade.models.database import get_default_database_manager  # noqa: E402
+from src.day_trade.models.stock import Stock  # noqa: E402
+from src.day_trade.utils.logging_config import get_context_logger  # noqa: E402
 
 # ログ設定
-log_dir = PROJECT_ROOT / 'logs'
+log_dir = PROJECT_ROOT / "logs"
 log_dir.mkdir(exist_ok=True)  # logsディレクトリがない場合は作成
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(log_dir / f'bulk_registration_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
-    ]
+        logging.FileHandler(
+            log_dir
+            / f'bulk_registration_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+        ),
+    ],
 )
 logger = get_context_logger(__name__)
 
@@ -88,9 +89,11 @@ class JPXDataDownloader:
         self.session.mount("https://", adapter)
 
         # User-Agentを設定
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        )
 
     def download_csv(self, output_path: Optional[Path] = None) -> Optional[Path]:
         """
@@ -103,7 +106,11 @@ class JPXDataDownloader:
             ダウンロードしたファイルのパス（失敗時はNone）
         """
         if output_path is None:
-            output_path = PROJECT_ROOT / "data" / f"jpx_stocks_{datetime.now().strftime('%Y%m%d')}.csv"
+            output_path = (
+                PROJECT_ROOT
+                / "data"
+                / f"jpx_stocks_{datetime.now().strftime('%Y%m%d')}.csv"
+            )
 
         # ディレクトリを作成
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,7 +119,9 @@ class JPXDataDownloader:
         success = self._download_from_url(self.JPX_LISTED_STOCKS_URL, output_path)
 
         if not success:
-            logger.warning(f"メインURL {self.JPX_LISTED_STOCKS_URL} からのダウンロードに失敗、代替URLを試行")
+            logger.warning(
+                f"メインURL {self.JPX_LISTED_STOCKS_URL} からのダウンロードに失敗、代替URLを試行"
+            )
 
             # 代替URLを試行
             for alt_url in self.ALTERNATIVE_URLS:
@@ -146,13 +155,13 @@ class JPXDataDownloader:
             response.raise_for_status()
 
             # ファイルサイズチェック
-            content_length = response.headers.get('content-length')
+            content_length = response.headers.get("content-length")
             if content_length:
                 file_size = int(content_length)
                 logger.info(f"ファイルサイズ: {file_size / 1024 / 1024:.2f} MB")
 
             # ファイル保存
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
@@ -195,21 +204,23 @@ class StockDataParser:
 
         try:
             # エンコーディング検出を試行
-            encodings = ['utf-8', 'shift_jis', 'cp932', 'utf-8-sig']
+            encodings = ["utf-8", "shift_jis", "cp932", "utf-8-sig"]
 
             for encoding in encodings:
                 try:
-                    with open(csv_path, 'r', encoding=encoding) as f:
-                        content = f.read()
+                    with open(csv_path, encoding=encoding) as f:
+                        f.read()  # エンコーディング確認のみ
                         logger.info(f"エンコーディング {encoding} で読み込み成功")
                         break
                 except UnicodeDecodeError:
                     continue
             else:
-                raise ValueError("サポートされているエンコーディングでファイルを読み込めませんでした")
+                raise ValueError(
+                    "サポートされているエンコーディングでファイルを読み込めませんでした"
+                )
 
             # CSV解析
-            with open(csv_path, 'r', encoding=encoding) as f:
+            with open(csv_path, encoding=encoding) as f:
                 # CSV方言を検出
                 sample = f.read(1024)
                 f.seek(0)
@@ -239,7 +250,9 @@ class StockDataParser:
                             self.parsed_stocks.append(stock_data)
                         else:
                             self.error_count += 1
-                            logger.debug(f"無効なデータをスキップ (行 {row_count + 1}): {row}")
+                            logger.debug(
+                                f"無効なデータをスキップ (行 {row_count + 1}): {row}"
+                            )
 
                         row_count += 1
 
@@ -254,7 +267,9 @@ class StockDataParser:
                             logger.error("エラーが多すぎるため処理を中断します")
                             break
 
-            logger.info(f"CSV解析完了: {len(self.parsed_stocks)}件の銘柄を抽出、{self.error_count}件のエラー")
+            logger.info(
+                f"CSV解析完了: {len(self.parsed_stocks)}件の銘柄を抽出、{self.error_count}件のエラー"
+            )
             return self.parsed_stocks, self.error_count
 
         except Exception as e:
@@ -273,22 +288,19 @@ class StockDataParser:
         """
         # 可能性のあるフィールド名パターン
         field_patterns = {
-            'code': ['コード', 'code', '証券コード', '銘柄コード', '銘柄CODE', 'Code'],
-            'name': ['銘柄名', 'name', '名称', '会社名', '銘柄', 'Name'],
-            'market': ['市場', 'market', '市場区分', 'Market', 'Section'],
-            'sector': ['セクター', 'sector', '業種', '33業種', 'Sector'],
-            'industry': ['業種名', 'industry', '業種区分', 'Industry']
+            "code": ["コード", "code", "証券コード", "銘柄コード", "銘柄CODE", "Code"],
+            "name": ["銘柄名", "name", "名称", "会社名", "銘柄", "Name"],
+            "market": ["市場", "market", "市場区分", "Market", "Section"],
+            "sector": ["セクター", "sector", "業種", "33業種", "Sector"],
+            "industry": ["業種名", "industry", "業種区分", "Industry"],
         }
 
         mapping = {}
 
-        # 大文字小文字を無視してマッチング
-        headers_lower = [h.lower() if h else '' for h in headers]
-
         for field, patterns in field_patterns.items():
             found = False
             for pattern in patterns:
-                for i, header in enumerate(headers):
+                for header in headers:
                     if header and pattern.lower() in header.lower():
                         mapping[field] = header
                         found = True
@@ -297,14 +309,18 @@ class StockDataParser:
                     break
 
         # 最低限必要なフィールド（コード、名称）があるかチェック
-        if 'code' in mapping and 'name' in mapping:
+        if "code" in mapping and "name" in mapping:
             logger.info(f"フィールドマッピング検出: {mapping}")
             return mapping
         else:
-            logger.error(f"必須フィールドが見つかりません。検出されたマッピング: {mapping}")
+            logger.error(
+                f"必須フィールドが見つかりません。検出されたマッピング: {mapping}"
+            )
             return None
 
-    def _extract_stock_data(self, row: Dict[str, str], field_mapping: Dict[str, str]) -> Optional[Dict[str, str]]:
+    def _extract_stock_data(
+        self, row: Dict[str, str], field_mapping: Dict[str, str]
+    ) -> Optional[Dict[str, str]]:
         """
         CSVの1行から銘柄データを抽出
 
@@ -317,8 +333,8 @@ class StockDataParser:
         """
         try:
             # 必須フィールドを抽出
-            code = row.get(field_mapping['code'], '').strip()
-            name = row.get(field_mapping['name'], '').strip()
+            code = row.get(field_mapping["code"], "").strip()
+            name = row.get(field_mapping["name"], "").strip()
 
             # コードの検証
             if not code or not code.isdigit() or len(code) != 4:
@@ -329,16 +345,16 @@ class StockDataParser:
                 return None
 
             # オプションフィールドを抽出
-            market = row.get(field_mapping.get('market', ''), '').strip()
-            sector = row.get(field_mapping.get('sector', ''), '').strip()
-            industry = row.get(field_mapping.get('industry', ''), '').strip()
+            market = row.get(field_mapping.get("market", ""), "").strip()
+            sector = row.get(field_mapping.get("sector", ""), "").strip()
+            industry = row.get(field_mapping.get("industry", ""), "").strip()
 
             return {
-                'code': code,
-                'name': name,
-                'market': market if market else '未分類',
-                'sector': sector if sector else '未分類',
-                'industry': industry if industry else '未分類'
+                "code": code,
+                "name": name,
+                "market": market if market else "未分類",
+                "sector": sector if sector else "未分類",
+                "industry": industry if industry else "未分類",
             }
 
         except Exception as e:
@@ -359,12 +375,12 @@ class BulkStockRegistrar:
         self.db_manager = get_default_database_manager()
 
         self.stats = {
-            'total_processed': 0,
-            'newly_added': 0,
-            'updated': 0,
-            'skipped': 0,
-            'errors': 0,
-            'start_time': time.time()
+            "total_processed": 0,
+            "newly_added": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": 0,
+            "start_time": time.time(),
         }
 
     def register_stocks(self, stock_data_list: List[Dict[str, str]]) -> Dict[str, int]:
@@ -386,26 +402,32 @@ class BulkStockRegistrar:
 
             # バッチ処理
             for i in range(0, len(stock_data_list), self.batch_size):
-                batch = stock_data_list[i:i + self.batch_size]
+                batch = stock_data_list[i : i + self.batch_size]
                 batch_number = i // self.batch_size + 1
-                total_batches = (len(stock_data_list) + self.batch_size - 1) // self.batch_size
+                total_batches = (
+                    len(stock_data_list) + self.batch_size - 1
+                ) // self.batch_size
 
-                logger.info(f"バッチ {batch_number}/{total_batches} 処理中... ({len(batch)}件)")
+                logger.info(
+                    f"バッチ {batch_number}/{total_batches} 処理中... ({len(batch)}件)"
+                )
 
                 self._process_batch(batch, existing_codes)
 
                 # 進捗表示
                 processed = min(i + self.batch_size, len(stock_data_list))
                 progress = (processed / len(stock_data_list)) * 100
-                logger.info(f"進捗: {progress:.1f}% ({processed}/{len(stock_data_list)})")
+                logger.info(
+                    f"進捗: {progress:.1f}% ({processed}/{len(stock_data_list)})"
+                )
 
         except Exception as e:
             logger.error(f"一括登録処理エラー: {e}")
-            self.stats['errors'] += 1
+            self.stats["errors"] += 1
 
         # 統計情報を更新
-        self.stats['total_processed'] = len(stock_data_list)
-        elapsed_time = time.time() - self.stats['start_time']
+        self.stats["total_processed"] = len(stock_data_list)
+        elapsed_time = time.time() - self.stats["start_time"]
 
         logger.info("=== 銘柄一括登録完了 ===")
         logger.info(f"処理時間: {elapsed_time:.2f}秒")
@@ -435,15 +457,19 @@ class BulkStockRegistrar:
                     try:
                         self._process_single_stock(session, stock_data, existing_codes)
                     except Exception as e:
-                        logger.error(f"銘柄処理エラー {stock_data.get('code', 'UNKNOWN')}: {e}")
-                        self.stats['errors'] += 1
+                        logger.error(
+                            f"銘柄処理エラー {stock_data.get('code', 'UNKNOWN')}: {e}"
+                        )
+                        self.stats["errors"] += 1
         except Exception as e:
             logger.error(f"バッチ処理エラー: {e}")
-            self.stats['errors'] += len(batch)
+            self.stats["errors"] += len(batch)
 
-    def _process_single_stock(self, session, stock_data: Dict[str, str], existing_codes: Set[str]):
+    def _process_single_stock(
+        self, session, stock_data: Dict[str, str], existing_codes: Set[str]
+    ):
         """単一銘柄の処理"""
-        code = stock_data['code']
+        code = stock_data["code"]
 
         if code in existing_codes:
             # 既存銘柄の更新
@@ -452,41 +478,41 @@ class BulkStockRegistrar:
                 updated = False
 
                 # データが異なる場合のみ更新
-                if stock.name != stock_data['name']:
-                    stock.name = stock_data['name']
+                if stock.name != stock_data["name"]:
+                    stock.name = stock_data["name"]
                     updated = True
 
-                if stock.market != stock_data['market']:
-                    stock.market = stock_data['market']
+                if stock.market != stock_data["market"]:
+                    stock.market = stock_data["market"]
                     updated = True
 
-                if stock.sector != stock_data['sector']:
-                    stock.sector = stock_data['sector']
+                if stock.sector != stock_data["sector"]:
+                    stock.sector = stock_data["sector"]
                     updated = True
 
-                if stock.industry != stock_data['industry']:
-                    stock.industry = stock_data['industry']
+                if stock.industry != stock_data["industry"]:
+                    stock.industry = stock_data["industry"]
                     updated = True
 
                 if updated:
-                    self.stats['updated'] += 1
+                    self.stats["updated"] += 1
                     logger.debug(f"銘柄更新: {code} - {stock_data['name']}")
                 else:
-                    self.stats['skipped'] += 1
+                    self.stats["skipped"] += 1
             else:
-                self.stats['skipped'] += 1
+                self.stats["skipped"] += 1
         else:
             # 新規銘柄の追加
             new_stock = Stock(
                 code=code,
-                name=stock_data['name'],
-                market=stock_data['market'],
-                sector=stock_data['sector'],
-                industry=stock_data['industry']
+                name=stock_data["name"],
+                market=stock_data["market"],
+                sector=stock_data["sector"],
+                industry=stock_data["industry"],
             )
             session.add(new_stock)
             existing_codes.add(code)  # 重複チェック用に追加
-            self.stats['newly_added'] += 1
+            self.stats["newly_added"] += 1
             logger.debug(f"新規銘柄追加: {code} - {stock_data['name']}")
 
 
@@ -500,39 +526,36 @@ def main():
     python scripts/bulk_stock_registration.py
     python scripts/bulk_stock_registration.py --csv-path data/stocks.csv
     python scripts/bulk_stock_registration.py --batch-size 100 --skip-download
-        """
+        """,
     )
 
     parser.add_argument(
-        '--csv-path',
+        "--csv-path",
         type=str,
-        help='使用するCSVファイルパス（指定しない場合は自動ダウンロード）'
+        help="使用するCSVファイルパス（指定しない場合は自動ダウンロード）",
     )
 
     parser.add_argument(
-        '--batch-size',
-        type=int,
-        default=50,
-        help='バッチサイズ（デフォルト: 50）'
+        "--batch-size", type=int, default=50, help="バッチサイズ（デフォルト: 50）"
     )
 
     parser.add_argument(
-        '--skip-download',
-        action='store_true',
-        help='ダウンロードをスキップして既存CSVファイルを使用'
+        "--skip-download",
+        action="store_true",
+        help="ダウンロードをスキップして既存CSVファイルを使用",
     )
 
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='テスト実行（実際のデータベース更新は行わない）'
+        "--dry-run",
+        action="store_true",
+        help="テスト実行（実際のデータベース更新は行わない）",
     )
 
     args = parser.parse_args()
 
     try:
         # ログディレクトリ作成
-        (PROJECT_ROOT / 'logs').mkdir(exist_ok=True)
+        (PROJECT_ROOT / "logs").mkdir(exist_ok=True)
 
         logger.info("=== 銘柄一括登録処理開始 ===")
 
@@ -587,7 +610,7 @@ def main():
             stats = registrar.register_stocks(stock_data_list)
 
             # 成功率チェック
-            if stats['errors'] > stats['total_processed'] * 0.1:  # エラー率10%以上
+            if stats["errors"] > stats["total_processed"] * 0.1:  # エラー率10%以上
                 logger.warning("エラー率が高いため、データ品質を確認してください")
 
         logger.info("=== 処理完了 ===")

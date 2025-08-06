@@ -6,7 +6,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from ..utils.logging_config import get_context_logger
 
@@ -35,7 +35,7 @@ class ScreeningConfig:
         """設定ファイルを読み込み"""
         try:
             if self.config_path.exists():
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, encoding="utf-8") as f:
                     config = json.load(f)
                 logger.info(f"スクリーニング設定を読み込み: {self.config_path}")
                 return config
@@ -56,7 +56,7 @@ class ScreeningConfig:
                 "strong_momentum": 0.05,
                 "bollinger_squeeze": 0.02,
                 "price_near_support": 0.03,
-                "price_near_resistance": 0.03
+                "price_near_resistance": 0.03,
             },
             "default_lookback_days": {
                 "rsi_oversold": 20,
@@ -71,25 +71,25 @@ class ScreeningConfig:
                 "bollinger_squeeze": 20,
                 "price_near_support": 20,
                 "price_near_resistance": 20,
-                "reversal_pattern": 20
+                "reversal_pattern": 20,
             },
             "performance_settings": {
                 "max_workers": 5,
                 "cache_size": 100,
                 "data_period": "3mo",
-                "min_data_points": 30
+                "min_data_points": 30,
             },
             "predefined_screeners": {},
             "52_week_calculation": {
                 "use_actual_52_weeks": True,
-                "fallback_to_available_data": True
+                "fallback_to_available_data": True,
             },
             "formatting": {
                 "use_formatters": True,
                 "currency_precision": 0,
                 "percentage_precision": 2,
-                "volume_compact": True
-            }
+                "volume_compact": True,
+            },
         }
 
     def get_threshold(self, condition: str, default: float = None) -> float:
@@ -114,11 +114,15 @@ class ScreeningConfig:
 
     def should_use_actual_52_weeks(self) -> bool:
         """実際の52週間で計算するかどうか"""
-        return self._config.get("52_week_calculation", {}).get("use_actual_52_weeks", True)
+        return self._config.get("52_week_calculation", {}).get(
+            "use_actual_52_weeks", True
+        )
 
     def should_fallback_to_available_data(self) -> bool:
         """利用可能データにフォールバックするかどうか"""
-        return self._config.get("52_week_calculation", {}).get("fallback_to_available_data", True)
+        return self._config.get("52_week_calculation", {}).get(
+            "fallback_to_available_data", True
+        )
 
     def should_use_formatters(self) -> bool:
         """フォーマッターを使用するかどうか"""
@@ -144,7 +148,7 @@ class ScreeningConfig:
         """設定をファイルに保存"""
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
             logger.info(f"設定を保存: {self.config_path}")
         except Exception as e:

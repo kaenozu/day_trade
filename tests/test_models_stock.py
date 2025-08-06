@@ -2,15 +2,16 @@
 models/stock.pyのテスト
 """
 
-import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.day_trade.models.base import BaseModel
-from src.day_trade.models.stock import Stock, PriceData, Trade, WatchlistItem, Alert
-from src.day_trade.models.enums import TradeType, AlertType
+from src.day_trade.models.enums import AlertType, TradeType
+from src.day_trade.models.stock import Alert, PriceData, Stock, Trade, WatchlistItem
 
 
 @pytest.fixture
@@ -32,7 +33,7 @@ def sample_stock(session):
         name="トヨタ自動車",
         market="東証プライム",
         sector="輸送用機器",
-        industry="自動車"
+        industry="自動車",
     )
     session.add(stock)
     session.commit()
@@ -53,7 +54,7 @@ def sample_price_data(session, sample_stock):
             high=Decimal("1010.00") + i,
             low=Decimal("990.00") + i,
             close=Decimal("1005.00") + i,
-            volume=100000 + i * 1000
+            volume=100000 + i * 1000,
         )
         price_data.append(data)
         session.add(data)
@@ -72,7 +73,7 @@ class TestStock:
             name="トヨタ自動車",
             market="東証プライム",
             sector="輸送用機器",
-            industry="自動車"
+            industry="自動車",
         )
         session.add(stock)
         session.commit()
@@ -92,7 +93,7 @@ class TestStock:
             name="三菱UFJフィナンシャル・グループ",
             market="東証プライム",
             sector="銀行業",
-            industry="銀行"
+            industry="銀行",
         )
         session.add(stock2)
         session.commit()
@@ -131,9 +132,7 @@ class TestStock:
         # 複数の銘柄を作成（名前に共通文字列を含む）
         for i in range(15):
             stock = Stock(
-                code=f"000{i:02d}",
-                name=f"テスト銘柄{i}",
-                market="東証プライム"
+                code=f"000{i:02d}", name=f"テスト銘柄{i}", market="東証プライム"
             )
             session.add(stock)
         session.commit()
@@ -159,7 +158,7 @@ class TestPriceData:
             high=Decimal("1010.00"),
             low=Decimal("990.00"),
             close=Decimal("1005.00"),
-            volume=100000
+            volume=100000,
         )
         session.add(price_data)
         session.commit()
@@ -180,7 +179,7 @@ class TestPriceData:
             stock_code="8306",
             datetime=datetime(2024, 1, 5),
             close=Decimal("800.00"),
-            volume=50000
+            volume=50000,
         )
         session.add(price2)
         session.commit()
@@ -191,7 +190,9 @@ class TestPriceData:
         assert len(latest_prices) == 2
         assert "7203" in latest_prices
         assert "8306" in latest_prices
-        assert latest_prices["7203"].close == Decimal("1014.00")  # 最新（9日目のデータ）
+        assert latest_prices["7203"].close == Decimal(
+            "1014.00"
+        )  # 最新（9日目のデータ）
         assert latest_prices["8306"].close == Decimal("800.00")
 
     def test_get_price_range(self, session, sample_price_data):
@@ -204,7 +205,7 @@ class TestPriceData:
         assert len(price_range) == 5  # 3日〜7日の5日分
         # 時系列順にソートされているかチェック
         for i in range(1, len(price_range)):
-            assert price_range[i].datetime > price_range[i-1].datetime
+            assert price_range[i].datetime > price_range[i - 1].datetime
 
     def test_get_volume_spike_candidates(self, session, sample_price_data):
         """出来高急増検出のテスト"""
@@ -214,7 +215,7 @@ class TestPriceData:
             stock_code="7203",
             datetime=base_date,
             close=Decimal("1020.00"),
-            volume=500000  # 通常の5倍の出来高
+            volume=500000,  # 通常の5倍の出来高
         )
         session.add(spike_data)
 
@@ -224,7 +225,7 @@ class TestPriceData:
                 stock_code="7203",
                 datetime=base_date - timedelta(days=i),
                 close=Decimal("1000.00"),
-                volume=100000  # 通常の出来高
+                volume=100000,  # 通常の出来高
             )
             session.add(normal_data)
 
@@ -232,10 +233,7 @@ class TestPriceData:
 
         # 出来高急増銘柄を検索
         spike_candidates = PriceData.get_volume_spike_candidates(
-            session,
-            volume_threshold=2.0,
-            days_back=30,
-            reference_date=base_date
+            session, volume_threshold=2.0, days_back=30, reference_date=base_date
         )
 
         assert len(spike_candidates) >= 1
@@ -247,10 +245,7 @@ class TestPriceData:
         reference_date = datetime(2024, 1, 15)
 
         spike_candidates = PriceData.get_volume_spike_candidates(
-            session,
-            volume_threshold=2.0,
-            days_back=20,
-            reference_date=reference_date
+            session, volume_threshold=2.0, days_back=20, reference_date=reference_date
         )
 
         # 基準日以前のデータのみが対象になることを確認
@@ -269,7 +264,7 @@ class TestTrade:
             quantity=100,
             price=Decimal("1000.00"),
             commission=Decimal("500.00"),
-            trade_datetime=datetime.now()
+            trade_datetime=datetime.now(),
         )
         session.add(trade)
         session.commit()
@@ -288,7 +283,7 @@ class TestTrade:
             quantity=100,
             price=Decimal("1000.00"),
             commission=Decimal("500.00"),
-            trade_datetime=datetime.now()
+            trade_datetime=datetime.now(),
         )
 
         expected_total = Decimal("1000.00") * 100 + Decimal("500.00")  # 100,500
@@ -302,7 +297,7 @@ class TestTrade:
             quantity=100,
             price=Decimal("1000.00"),
             commission=Decimal("500.00"),
-            trade_datetime=datetime.now()
+            trade_datetime=datetime.now(),
         )
 
         expected_total = Decimal("1000.00") * 100 - Decimal("500.00")  # 99,500
@@ -316,7 +311,7 @@ class TestTrade:
             quantity=100,
             price=Decimal("1000.00"),
             commission=None,
-            trade_datetime=datetime.now()
+            trade_datetime=datetime.now(),
         )
 
         expected_total = Decimal("1000.00") * 100  # 100,000
@@ -329,10 +324,10 @@ class TestTrade:
             trade_type=TradeType.BUY,
             quantity=0,
             price=None,
-            trade_datetime=datetime.now()
+            trade_datetime=datetime.now(),
         )
 
-        assert trade.total_amount == Decimal('0')
+        assert trade.total_amount == Decimal("0")
 
     def test_create_buy_trade(self, session, sample_stock):
         """買い取引作成ヘルパーのテスト"""
@@ -342,7 +337,7 @@ class TestTrade:
             quantity=100,
             price=1000.0,
             commission=500.0,
-            memo="テスト買い"
+            memo="テスト買い",
         )
 
         assert trade.trade_type == TradeType.BUY
@@ -360,7 +355,7 @@ class TestTrade:
             quantity=100,
             price=1100.0,
             commission=500.0,
-            memo="テスト売り"
+            memo="テスト売り",
         )
 
         assert trade.trade_type == TradeType.SELL
@@ -371,9 +366,7 @@ class TestTrade:
     def test_get_recent_trades(self, session, sample_stock):
         """最近の取引履歴取得のテスト"""
         # 新しい取引を作成
-        recent_trade = Trade.create_buy_trade(
-            session, sample_stock.code, 100, 1000.0
-        )
+        recent_trade = Trade.create_buy_trade(session, sample_stock.code, 100, 1000.0)
 
         # 古い取引を作成
         old_trade = Trade(
@@ -381,7 +374,7 @@ class TestTrade:
             trade_type=TradeType.SELL,
             quantity=50,
             price=Decimal("900.00"),
-            trade_datetime=datetime.now() - timedelta(days=60)
+            trade_datetime=datetime.now() - timedelta(days=60),
         )
         session.add(old_trade)
         session.commit()
@@ -427,7 +420,7 @@ class TestTrade:
             trade_type=TradeType.BUY,
             quantity=100,
             price=Decimal("800.00"),
-            trade_datetime=datetime.now() - timedelta(days=60)
+            trade_datetime=datetime.now() - timedelta(days=60),
         )
         session.add(old_trade)
 
@@ -448,9 +441,7 @@ class TestWatchlistItem:
     def test_watchlist_item_creation(self, session, sample_stock):
         """ウォッチリストアイテム作成のテスト"""
         item = WatchlistItem(
-            stock_code=sample_stock.code,
-            group_name="お気に入り",
-            memo="良い銘柄"
+            stock_code=sample_stock.code, group_name="お気に入り", memo="良い銘柄"
         )
         session.add(item)
         session.commit()
@@ -478,7 +469,7 @@ class TestAlert:
             stock_code=sample_stock.code,
             alert_type=AlertType.PRICE_ABOVE,
             threshold=Decimal("1500.000"),
-            memo="高値アラート"
+            memo="高値アラート",
         )
         session.add(alert)
         session.commit()
@@ -495,7 +486,7 @@ class TestAlert:
         alert = Alert(
             stock_code=sample_stock.code,
             alert_type=AlertType.PRICE_BELOW,
-            threshold=Decimal("800.000")
+            threshold=Decimal("800.000"),
         )
         session.add(alert)
         session.commit()
@@ -506,7 +497,9 @@ class TestAlert:
 class TestRelationships:
     """リレーションシップのテスト"""
 
-    def test_stock_price_data_relationship(self, session, sample_stock, sample_price_data):
+    def test_stock_price_data_relationship(
+        self, session, sample_stock, sample_price_data
+    ):
         """銘柄-価格データのリレーションシップテスト"""
         # 銘柄から価格データにアクセス
         assert len(sample_stock.price_data) == 10
@@ -547,7 +540,7 @@ class TestRelationships:
         alert = Alert(
             stock_code=sample_stock.code,
             alert_type=AlertType.PRICE_ABOVE,
-            threshold=Decimal("1500.000")
+            threshold=Decimal("1500.000"),
         )
         session.add(alert)
         session.commit()

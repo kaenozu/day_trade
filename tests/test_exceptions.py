@@ -15,9 +15,11 @@ from src.day_trade.utils.exceptions import (
     RateLimitError,
     ResourceNotFoundError,
     ServerError,
-    TimeoutError as DayTradeTimeoutError,
     handle_database_exception,
     handle_network_exception,
+)
+from src.day_trade.utils.exceptions import (
+    TimeoutError as DayTradeTimeoutError,
 )
 
 
@@ -451,7 +453,9 @@ class TestDatabaseExceptionHandlerAdditional:
             # 既知の例外クラスではないことを確認
             mock_sa_exc.IntegrityError = type("IntegrityError", (Exception,), {})
             mock_sa_exc.OperationalError = type("OperationalError", (Exception,), {})
-            mock_sa_exc.DisconnectionError = type("DisconnectionError", (Exception,), {})
+            mock_sa_exc.DisconnectionError = type(
+                "DisconnectionError", (Exception,), {}
+            )
             mock_sa_exc.TimeoutError = type("TimeoutError", (Exception,), {})
             sys.modules["sqlalchemy.exc"] = mock_sa_exc
 
@@ -480,9 +484,11 @@ class TestAdditionalExceptionClasses:
             PatternRecognitionError,
             PortfolioError,
             SignalGenerationError,
-            TimeoutError as DayTradeTimeoutError2,
             TradingError,
             ValidationError,
+        )
+        from src.day_trade.utils.exceptions import (
+            TimeoutError as DayTradeTimeoutError2,
         )
 
         # 各例外クラスをインスタンス化してテスト

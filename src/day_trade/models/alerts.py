@@ -3,20 +3,20 @@
 永続化機能を提供
 """
 
-from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.types import TypeDecorator
 
-from .base import BaseModel
-from ..models.enums import AlertType
 from ..core.alerts import AlertPriority
+from ..models.enums import AlertType
+from .base import BaseModel
 
 
 class DecimalType(TypeDecorator):
     """Decimal型をデータベースに格納するためのカスタム型"""
+
     impl = String
     cache_ok = True
 
@@ -33,6 +33,7 @@ class DecimalType(TypeDecorator):
 
 class AlertConditionModel(BaseModel):
     """アラート条件のデータベースモデル"""
+
     __tablename__ = "alert_conditions"
 
     alert_id = Column(String(100), unique=True, nullable=False, index=True)
@@ -66,7 +67,7 @@ class AlertConditionModel(BaseModel):
             cooldown_minutes=self.cooldown_minutes,
             expiry_date=self.expiry_date,
             description=self.description or "",
-            custom_parameters=self.custom_parameters or {}
+            custom_parameters=self.custom_parameters or {},
         )
 
     @classmethod
@@ -83,12 +84,13 @@ class AlertConditionModel(BaseModel):
             cooldown_minutes=condition.cooldown_minutes,
             expiry_date=condition.expiry_date,
             description=condition.description,
-            custom_parameters=condition.custom_parameters
+            custom_parameters=condition.custom_parameters,
         )
 
 
 class AlertTriggerModel(BaseModel):
     """アラート発火記録のデータベースモデル"""
+
     __tablename__ = "alert_triggers"
 
     alert_id = Column(String(100), nullable=False, index=True)
@@ -120,7 +122,7 @@ class AlertTriggerModel(BaseModel):
             priority=AlertPriority(self.priority),
             current_price=self.current_price,
             volume=self.volume,
-            change_percent=float(self.change_percent) if self.change_percent else None
+            change_percent=float(self.change_percent) if self.change_percent else None,
         )
 
     @classmethod
@@ -137,12 +139,15 @@ class AlertTriggerModel(BaseModel):
             priority=trigger.priority.value,
             current_price=trigger.current_price,
             volume=trigger.volume,
-            change_percent=str(trigger.change_percent) if trigger.change_percent is not None else None
+            change_percent=str(trigger.change_percent)
+            if trigger.change_percent is not None
+            else None,
         )
 
 
 class AlertConfigModel(BaseModel):
     """アラート設定のデータベースモデル"""
+
     __tablename__ = "alert_configs"
 
     config_key = Column(String(100), unique=True, nullable=False)
@@ -163,10 +168,6 @@ class AlertConfigModel(BaseModel):
             config.config_value = value
             config.description = description
         else:
-            config = cls(
-                config_key=key,
-                config_value=value,
-                description=description
-            )
+            config = cls(config_key=key, config_value=value, description=description)
             session.add(config)
         session.commit()

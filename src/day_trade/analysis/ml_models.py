@@ -647,77 +647,7 @@ def create_default_model_ensemble():
 # 後方互換性のためのエイリアス（重複定義を削除）
 
 
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self, models_dir: Optional[str] = None):
-        """MLModelManagerの初期化"""
-        self.models_dir = models_dir
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
-
-
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self):
-        """MLModelManagerの初期化"""
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
-
-
-class MLModelManager:
-    """機械学習モデル管理クラス（後方互換性のため）"""
-
-    def __init__(self):
-        """MLModelManagerの初期化"""
-        self.ensemble = create_default_model_ensemble()
-        self.is_trained = False
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        """モデル訓練"""
-        self.ensemble.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: pd.DataFrame) -> List[ModelPrediction]:
-        """予測実行"""
-        if not self.is_trained:
-            raise ValueError("モデルが訓練されていません")
-        return self.ensemble.predict(X)
-
-    def get_performance(self) -> Dict[str, ModelPerformance]:
-        """パフォーマンス取得"""
-        return self.ensemble.get_model_performances()
+# MLModelManager は既に 441行目で定義済み
 
 
 def evaluate_prediction_accuracy(
