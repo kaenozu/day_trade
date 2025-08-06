@@ -29,7 +29,7 @@ jobs:
   gemini-code-analysis:
     runs-on: ubuntu-latest
     name: 🧠 Gemini AI Analysis
-    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && vars.GEMINI_API_KEY != ''
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && secrets.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Checkout code
@@ -72,6 +72,8 @@ jobs:
 
       - name: 🧠 Run Gemini CLI Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           # Gemini CLI configuration
           model: 'gemini-1.5-pro'
@@ -185,6 +187,8 @@ jobs:
 
       - name: 🔐 Run Security Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-pro'
           temperature: 0.0  # More deterministic for security analysis
@@ -218,6 +222,8 @@ jobs:
 
       - name: ⚡ Run Performance Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-pro'
           temperature: 0.1
@@ -245,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     name: 📊 Aggregate Analysis Results
     needs: [gemini-code-analysis]
-    if: always() && vars.GEMINI_API_KEY != ''
+    if: always() && secrets.GEMINI_API_KEY != ''
 
     steps:
       - name: 📥 Download analysis artifacts
