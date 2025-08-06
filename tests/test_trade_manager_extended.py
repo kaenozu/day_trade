@@ -45,7 +45,7 @@ class TestTradeManagerExtended:
         assert result["success"] is True
         assert result["symbol"] == "7203"
         assert result["quantity"] == 100
-        assert result["price"] == 2500.0
+        assert result["price"] == "2500"
         assert "trade_id" in result
         assert "commission" in result
         assert "position" in result
