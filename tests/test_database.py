@@ -473,3 +473,98 @@ class TestDatabaseFunctions:
         # クリーンアップ
         db1.drop_tables()
         db2.drop_tables()
+
+
+class TestConfigManagerIntegration:
+    """ConfigManagerとDatabaseManagerの統合テスト（Issue #119）"""
+
+    @pytest.fixture
+    def config_manager(self):
+        """テスト用のConfigManager"""
+        try:
+            from src.day_trade.config.config_manager import ConfigManager
+
+            return ConfigManager()
+        except Exception:
+            pytest.skip("ConfigManagerが利用できないため、統合テストをスキップ")
+
+    def test_database_config_with_config_manager(self, config_manager):
+        """ConfigManagerを使用したDatabaseConfig作成テスト"""
+        # ConfigManagerありのDatabaseConfig作成
+        db_config = DatabaseConfig(config_manager=config_manager)
+
+        # ConfigManagerの設定が適用されていることを確認
+        database_settings = config_manager.get_database_settings()
+        assert db_config.database_url == database_settings.url
+
+        # SQLiteであることを確認（テスト環境の設定）
+        assert db_config.is_sqlite()
+
+    def test_database_manager_with_config_manager(self, config_manager):
+        """ConfigManagerを使用したDatabaseManager作成テスト"""
+        # ConfigManagerありのDatabaseManager作成
+        db_manager = DatabaseManager(config_manager=config_manager)
+
+        # 正常に初期化されていることを確認
+        assert db_manager.config is not None
+        assert db_manager.engine is not None
+        assert db_manager.session_factory is not None
+
+        # ヘルスチェックが成功することを確認
+        health = db_manager.health_check()
+        assert health["status"] == "healthy"
+
+    def test_environment_variable_priority(self, config_manager, monkeypatch):
+        """環境変数の優先度テスト"""
+        test_db_url = "sqlite:///test_priority.db"
+
+        # 環境変数を設定
+        monkeypatch.setenv("DATABASE_URL", test_db_url)
+
+        # DatabaseConfigを作成
+        db_config = DatabaseConfig(config_manager=config_manager)
+
+        # 環境変数が優先されることを確認
+        assert db_config.database_url == test_db_url
+
+    def test_explicit_parameter_priority(self, config_manager):
+        """明示的パラメータの優先度テスト"""
+        explicit_url = "sqlite:///explicit_test.db"
+
+        # 明示的にパラメータを指定
+        db_config = DatabaseConfig(
+            database_url=explicit_url, config_manager=config_manager
+        )
+
+        # 明示的パラメータが最優先されることを確認
+        assert db_config.database_url == explicit_url
+
+    def test_config_manager_fallback(self):
+        """ConfigManagerが利用できない場合のフォールバック動作テスト"""
+        # ConfigManagerなしでDatabaseConfigを作成
+        db_config = DatabaseConfig()
+
+        # デフォルト値が使用されることを確認
+        assert db_config.database_url == "sqlite:///./day_trade.db"
+        assert db_config.echo is False
+        assert db_config.pool_size == 5
+
+    def test_backward_compatibility(self, config_manager):
+        """後方互換性テスト"""
+        # 従来の方法（ConfigManagerなし）
+        legacy_config = DatabaseConfig()
+        legacy_manager = DatabaseManager(legacy_config)
+
+        # 新しい方法（ConfigManagerあり）
+        new_config = DatabaseConfig(config_manager=config_manager)
+        new_manager = DatabaseManager(new_config, config_manager=config_manager)
+
+        # 両方とも正常に動作することを確認
+        legacy_health = legacy_manager.health_check()
+        new_health = new_manager.health_check()
+
+        assert legacy_health["status"] == "healthy"
+        assert new_health["status"] == "healthy"
+
+        # 異なる設定を使用していることを確認
+        assert legacy_config.database_url != new_config.database_url

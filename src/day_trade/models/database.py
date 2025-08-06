@@ -102,12 +102,24 @@ class DatabaseConfig:
     def _get_config_value(
         self, key: str, explicit_value, env_key: str, default_value, type_converter=str
     ):
-        """設定値を優先順位に従って取得"""
+        """設定値を優先順位に従って取得（優先度: 明示的引数 > 環境変数 > ConfigManager > デフォルト値）"""
+        # 1. 明示的な引数（最優先）
         if explicit_value is not None and explicit_value != (
             False if type_converter is bool else 0
         ):
             return explicit_value
 
+        # 2. 環境変数（ConfigManagerより優先）
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            try:
+                if type_converter is bool:
+                    return env_value.lower() in ("true", "1", "yes", "on")
+                return type_converter(env_value)
+            except (ValueError, TypeError):
+                pass
+
+        # 3. ConfigManagerからの設定値
         if self._config_manager:
             try:
                 database_settings = self._config_manager.get_database_settings()
@@ -129,15 +141,7 @@ class DatabaseConfig:
             except Exception:
                 pass  # ConfigManagerが利用できない場合は無視
 
-        env_value = os.environ.get(env_key)
-        if env_value is not None:
-            try:
-                if type_converter is bool:
-                    return env_value.lower() in ("true", "1", "yes", "on")
-                return type_converter(env_value)
-            except (ValueError, TypeError):
-                pass
-
+        # 4. デフォルト値（最低優先度）
         return default_value
 
     @classmethod
