@@ -162,14 +162,20 @@ jobs:
         run: |
           if [ "${{ matrix.test-type }}" = "integration" ]; then
             if [ -d "tests/integration" ] && [ "$(ls -A tests/integration)" ]; then
-              pytest tests/integration/ -v --tb=short
+              pytest tests/integration/ -v --tb=short --integration
             else
               echo "Integration tests directory not found, running basic import test"
               python -c "import day_trade; from day_trade.data.stock_fetcher import StockFetcher; print('Import test passed')"
             fi
           else
-            pytest tests/ --ignore=tests/integration/ -v --tb=short ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=term-missing' || '' }}
+            pytest tests/ --ignore=tests/integration/ -v --tb=short ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=json --cov-report=term-missing --cov-branch --cov-fail-under=70' || '' }}
           fi
+
+      - name: 🔍 Check diff coverage
+        if: matrix.coverage == true && github.event_name == 'pull_request'
+        run: |
+          echo "🔍 新規コードのカバレッジ検証..."
+          python scripts/check_diff_coverage.py --base-ref origin/${{ github.base_ref }} --min-coverage 80.0 --critical-coverage 90.0
 
       - name: 📊 Upload coverage to Codecov
         if: matrix.coverage == true

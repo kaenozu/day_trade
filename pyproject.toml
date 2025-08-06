@@ -222,7 +222,7 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --tb=short"
+addopts = "-ra -q --strict-markers --strict-config --tb=short --cov=src --cov-fail-under=70 --cov-branch"
 testpaths = [
     "tests",
 ]
@@ -305,10 +305,10 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# カバレッジの最小しきい値設定
-# 現在60.67%を達成、現実的な目標値に設定
-# Issue #118 Enum統合完了、テスト品質向上済み
-fail_under = 60
+# カバレッジの最小しきい値設定 - Issue #129対応後
+# 現在60.67%達成、現実的目標として65%に設定
+# CI/CD改善とEnum統合完了を反映
+fail_under = 65
 
 [tool.coverage.html]
 # HTMLレポート生成設定

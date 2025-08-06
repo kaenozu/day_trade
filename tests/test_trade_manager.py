@@ -61,7 +61,7 @@ class TestTrade:
 
         assert trade_dict["id"] == "T001"
         assert trade_dict["symbol"] == "7203"
-        assert trade_dict["trade_type"] == "buy"
+        assert trade_dict["trade_type"] == "BUY"
         assert trade_dict["quantity"] == 100
         assert trade_dict["price"] == "2500"
         assert trade_dict["timestamp"] == timestamp.isoformat()
@@ -72,7 +72,7 @@ class TestTrade:
         trade_dict = {
             "id": "T001",
             "symbol": "7203",
-            "trade_type": "buy",
+            "trade_type": "BUY",
             "quantity": 100,
             "price": "2500",
             "timestamp": timestamp.isoformat(),
@@ -563,7 +563,7 @@ class TestTradeManagerDatabaseIntegration:
             mock_trade = MagicMock()
             mock_trade.id = 1
             mock_trade.stock_code = "7203"
-            mock_trade.trade_type = "buy"
+            mock_trade.trade_type = "BUY"
             mock_trade.quantity = 100
             mock_trade.price = 2500.0
             mock_trade.trade_datetime = datetime.now()
@@ -645,7 +645,7 @@ class TestTradeManagerCSVIntegration:
                     in content
                 )
                 assert "7203" in content
-                assert "buy" in content or "sell" in content
+                assert "BUY" in content or "SELL" in content
 
         finally:
             # 一時ファイルを削除
@@ -773,7 +773,7 @@ class TestTradeManagerJSONIntegration:
             {
                 "id": "JSON_1",
                 "symbol": "9984",
-                "trade_type": "buy",
+                "trade_type": "BUY",
                 "quantity": 200,
                 "price": "15000",
                 "timestamp": "2023-01-15T10:30:00",
