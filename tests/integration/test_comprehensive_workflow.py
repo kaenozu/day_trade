@@ -148,7 +148,7 @@ class TestComprehensiveWorkflow:
         """ポートフォリオ管理フローの統合テスト"""
 
         # 1. 取引マネージャーの初期化
-        trade_manager = TradeManager(test_db_manager)
+        trade_manager = TradeManager()
 
         # 2. 銘柄データの準備
         with test_db_manager.session_scope() as session:
@@ -259,8 +259,8 @@ class TestComprehensiveWorkflow:
 
         # 1. データベースエラーのシミュレーション
         with pytest.raises(ValidationError):
-            trade_manager = TradeManager(test_db_manager)
-            trade_manager.execute_trade(
+            trade_manager = TradeManager()
+            trade_manager.add_trade(
                 symbol="INVALID",  # 存在しない銘柄
                 trade_type=TradeType.BUY,
                 quantity=0,  # 無効な数量
@@ -386,7 +386,7 @@ class TestComprehensiveWorkflow:
         """エンドツーエンド取引シミュレーション"""
 
         # 1. 初期設定
-        trade_manager = TradeManager(test_db_manager)
+        trade_manager = TradeManager()
         alert_manager = AlertManager(test_db_manager, mock_stock_fetcher)
         signal_generator = TradingSignalGenerator(config_path=None)
 
