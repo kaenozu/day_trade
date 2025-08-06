@@ -268,19 +268,17 @@ class SystemPerformanceMonitor:
         if not HAS_PSUTIL:
             return {
                 "timestamp": datetime.now(),
-                "cpu_percent": 0.0,
-                "process_cpu_percent": 0.0,
-                "memory_total": 0,
-                "memory_available": 0,
+                "cpu_percent_system": 0.0,
+                "cpu_percent_process": 0.0,
                 "memory_percent": 0.0,
-                "process_memory_rss": 0,
-                "process_memory_vms": 0,
-                "disk_read_bytes": 0,
-                "disk_write_bytes": 0,
-                "network_bytes_sent": 0,
-                "network_bytes_recv": 0,
+                "memory_available_gb": 0.0,
+                "process_memory_rss_mb": 0.0,
+                "process_memory_vms_mb": 0.0,
+                "disk_read_mb": 0.0,
+                "disk_write_mb": 0.0,
+                "network_sent_mb": 0.0,
+                "network_recv_mb": 0.0,
             }
-
         process = psutil.Process()
 
         # CPU使用率
