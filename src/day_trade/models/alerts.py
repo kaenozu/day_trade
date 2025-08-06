@@ -6,7 +6,7 @@
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Enum, Integer, String, Text
 from sqlalchemy.types import TypeDecorator
 
 from ..core.alerts import AlertPriority
@@ -38,11 +38,11 @@ class AlertConditionModel(BaseModel):
 
     alert_id = Column(String(100), unique=True, nullable=False, index=True)
     symbol = Column(String(20), nullable=False, index=True)
-    alert_type = Column(String(50), nullable=False)
+    alert_type = Column(Enum(AlertType), nullable=False)
     condition_value = Column(String(50), nullable=False)  # Decimal, float, str対応
     comparison_operator = Column(String(10), default=">")
     is_active = Column(Boolean, default=True, index=True)
-    priority = Column(String(20), default="medium")
+    priority = Column(Enum(AlertPriority), default=AlertPriority.MEDIUM)
 
     # オプション設定
     cooldown_minutes = Column(Integer, default=60)
@@ -59,11 +59,11 @@ class AlertConditionModel(BaseModel):
         return AlertCondition(
             alert_id=self.alert_id,
             symbol=self.symbol,
-            alert_type=AlertType(self.alert_type),
+            alert_type=self.alert_type,
             condition_value=self.condition_value,
             comparison_operator=self.comparison_operator,
             is_active=self.is_active,
-            priority=AlertPriority(self.priority),
+            priority=self.priority,
             cooldown_minutes=self.cooldown_minutes,
             expiry_date=self.expiry_date,
             description=self.description or "",
@@ -76,11 +76,11 @@ class AlertConditionModel(BaseModel):
         return cls(
             alert_id=condition.alert_id,
             symbol=condition.symbol,
-            alert_type=condition.alert_type.value,
+            alert_type=condition.alert_type,
             condition_value=str(condition.condition_value),
             comparison_operator=condition.comparison_operator,
             is_active=condition.is_active,
-            priority=condition.priority.value,
+            priority=condition.priority,
             cooldown_minutes=condition.cooldown_minutes,
             expiry_date=condition.expiry_date,
             description=condition.description,
@@ -96,11 +96,11 @@ class AlertTriggerModel(BaseModel):
     alert_id = Column(String(100), nullable=False, index=True)
     symbol = Column(String(20), nullable=False, index=True)
     trigger_time = Column(DateTime(timezone=True), nullable=False, index=True)
-    alert_type = Column(String(50), nullable=False)
+    alert_type = Column(Enum(AlertType), nullable=False)
     current_value = Column(String(50), nullable=False)
     condition_value = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
-    priority = Column(String(20), nullable=False)
+    priority = Column(Enum(AlertPriority), nullable=False)
 
     # 市場データ
     current_price = Column(DecimalType, nullable=True)
@@ -115,11 +115,11 @@ class AlertTriggerModel(BaseModel):
             alert_id=self.alert_id,
             symbol=self.symbol,
             trigger_time=self.trigger_time,
-            alert_type=AlertType(self.alert_type),
+            alert_type=self.alert_type,
             current_value=self.current_value,
             condition_value=self.condition_value,
             message=self.message,
-            priority=AlertPriority(self.priority),
+            priority=self.priority,
             current_price=self.current_price,
             volume=self.volume,
             change_percent=float(self.change_percent) if self.change_percent else None,
@@ -132,11 +132,11 @@ class AlertTriggerModel(BaseModel):
             alert_id=trigger.alert_id,
             symbol=trigger.symbol,
             trigger_time=trigger.trigger_time,
-            alert_type=trigger.alert_type.value,
+            alert_type=trigger.alert_type,
             current_value=str(trigger.current_value),
             condition_value=str(trigger.condition_value),
             message=trigger.message,
-            priority=trigger.priority.value,
+            priority=trigger.priority,
             current_price=trigger.current_price,
             volume=trigger.volume,
             change_percent=str(trigger.change_percent)

@@ -136,6 +136,48 @@ def signal_generator():
 
 
 @pytest.fixture
+def mock_yfinance():
+    """yfinanceのモック化（外部依存削除）"""
+    with pytest.MonkeyPatch().context() as mp:
+        import sys
+        from unittest.mock import MagicMock, Mock
+
+        # yfinanceモジュール全体をモック
+        mock_yfinance_module = Mock()
+
+        # yf.download()のモック
+        mock_download = MagicMock()
+        mock_download.return_value = sample_stock_data()  # フィクスチャから取得
+        mock_yfinance_module.download = mock_download
+
+        # yf.Ticker()のモック
+        mock_ticker_class = Mock()
+        mock_ticker_instance = Mock()
+
+        # ticker.info のモック
+        mock_ticker_instance.info = {
+            "longName": "Mock Company Inc.",
+            "sector": "Technology",
+            "industry": "Software",
+            "marketCap": 1000000000,
+            "regularMarketPrice": 100.50,
+            "regularMarketChange": 2.25,
+            "regularMarketChangePercent": 0.0229,
+        }
+
+        # ticker.history()のモック
+        mock_ticker_instance.history.return_value = sample_stock_data()
+
+        mock_ticker_class.return_value = mock_ticker_instance
+        mock_yfinance_module.Ticker = mock_ticker_class
+
+        # sys.modulesに登録してimportを置き換え
+        mp.setitem(sys.modules, "yfinance", mock_yfinance_module)
+
+        yield mock_yfinance_module
+
+
+@pytest.fixture
 def temp_database():
     """テスト用一時データベース"""
     # 一時ファイルを作成
