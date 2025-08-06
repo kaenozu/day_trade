@@ -11,7 +11,7 @@ from scipy.signal import argrelextrema
 from sklearn.linear_model import LinearRegression, RANSACRegressor
 
 from ..utils.logging_config import get_context_logger
-from .patterns_config import get_patterns_config
+from .patterns_config import get_patterns_config_class
 
 logger = get_context_logger(__name__, component="chart_patterns")
 
@@ -21,7 +21,7 @@ class ChartPatternRecognizer:
 
     def __init__(self):
         """初期化"""
-        self.config = get_patterns_config()
+        self.config = get_patterns_config_class()
 
     def golden_dead_cross(
         self,

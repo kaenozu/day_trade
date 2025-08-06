@@ -1,4 +1,7 @@
 """
+銘柄マスタ関連の設定
+
+銘柄一括登録機能で使用される設定値を定義する。
 StockMasterManager設定管理
 パフォーマンス設定と動作設定の外部化
 """
@@ -7,7 +10,94 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from ..utils.logging_config import get_context_logger
+
+def get_stock_master_config() -> Dict[str, Any]:
+    """
+    銘柄マスタ設定を取得
+
+    Returns:
+        設定辞書
+    """
+    # デフォルト設定
+    default_config = {
+        "session_management": {
+            "request_timeout": 30,
+            "connection_timeout": 10,
+            "retry_count": 3,
+        },
+        "performance": {
+            "default_bulk_batch_size": 100,
+            "fetch_batch_size": 50,
+            "max_concurrent_requests": 5,
+        },
+        "validation": {
+            "validate_symbol_format": True,
+            "validate_company_name": True,
+            "skip_invalid_records": True,
+        },
+        "limits": {
+            "max_stock_count": None,  # None = 制限なし、整数 = 最大銘柄数
+            "default_search_limit": 50,
+            "max_search_limit": 1000,
+        },
+    }
+
+    # 設定ファイルからの読み込みを試行
+    config_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "config"
+        / "stock_master_config.json"
+    )
+
+    if config_path.exists():
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                file_config = json.load(f)
+                # デフォルト設定にファイル設定をマージ
+                _merge_config(default_config, file_config)
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"設定ファイル読み込みエラー: {e}、デフォルト設定を使用")
+
+    return default_config
+
+
+def _merge_config(base: Dict[str, Any], overlay: Dict[str, Any]) -> None:
+    """
+    設定辞書をマージ
+
+    Args:
+        base: ベース設定（更新される）
+        overlay: オーバーレイ設定
+    """
+    for key, value in overlay.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _merge_config(base[key], value)
+        else:
+            base[key] = value
+
+
+def save_stock_master_config(config: Dict[str, Any]) -> None:
+    """
+    銘柄マスタ設定を保存
+
+    Args:
+        config: 設定辞書
+    """
+    config_dir = Path(__file__).parent.parent.parent.parent / "config"
+    config_dir.mkdir(exist_ok=True)
+
+    config_path = config_dir / "stock_master_config.json"
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+
+# Issue #122互換性のために、関数ベースのインターフェースを保持
+# mainブランチのクラスベース実装もインポートして利用可能にする
+from ..utils.logging_config import get_context_logger  # noqa: E402
 
 logger = get_context_logger(__name__)
 
@@ -53,37 +143,26 @@ class StockMasterConfig:
                 "auto_expunge": False,
                 "eager_loading": True,
                 "session_scope_isolation": True,
+                "request_timeout": 30,
+                "connection_timeout": 10,
+                "retry_count": 3,
             },
             "performance": {
-                "default_bulk_batch_size": 1000,
+                "default_bulk_batch_size": 100,  # Issue #122デフォルト
                 "fetch_batch_size": 50,
                 "fetch_delay_seconds": 0.1,
                 "search_limit_default": 50,
                 "search_limit_max": 1000,
-            },
-            "data_fetching": {
-                "enable_retry": True,
-                "retry_attempts": 3,
-                "retry_delay": 1.0,
-                "enable_caching": True,
-                "cache_ttl_seconds": 3600,
-            },
-            "market_estimation": {
-                "use_market_cap_estimation": True,
-                "prime_market_cap_threshold": 100_000_000_000,  # 1000億ドル
-                "standard_market_cap_threshold": 10_000_000_000,  # 100億ドル
-                "default_market_segment": "東証プライム",
-                "etf_code_ranges": [
-                    {"start": 1300, "end": 1399},
-                    {"start": 1500, "end": 1599},
-                ],
-                "growth_code_ranges": [{"start": 2000, "end": 2999}],
+                "max_concurrent_requests": 5,
             },
             "validation": {
                 "require_code": True,
                 "require_name": True,
                 "validate_code_format": True,
                 "max_name_length": 255,
+                "validate_symbol_format": True,
+                "validate_company_name": True,
+                "skip_invalid_records": True,
                 "allowed_markets": [
                     "東証プライム",
                     "東証スタンダード",
@@ -97,190 +176,27 @@ class StockMasterConfig:
                 "log_cache_operations": False,
                 "detailed_error_logging": True,
             },
+            "limits": {
+                "max_stock_count": None,  # None = 制限なし、整数 = 最大銘柄数
+                "default_search_limit": 50,
+                "max_search_limit": 1000,
+                "test_mode_limit": 100,  # テストモード用制限
+            },
         }
 
-    # セッション管理設定
-    def get_default_detached(self) -> bool:
-        return self._config.get("session_management", {}).get("default_detached", False)
-
-    def should_auto_expunge(self) -> bool:
-        return self._config.get("session_management", {}).get("auto_expunge", False)
-
-    def should_use_eager_loading(self) -> bool:
-        return self._config.get("session_management", {}).get("eager_loading", True)
-
-    def should_use_session_scope_isolation(self) -> bool:
-        return self._config.get("session_management", {}).get(
-            "session_scope_isolation", True
-        )
-
-    # パフォーマンス設定
-    def get_default_bulk_batch_size(self) -> int:
-        return self._config.get("performance", {}).get("default_bulk_batch_size", 1000)
-
-    def get_fetch_batch_size(self) -> int:
-        return self._config.get("performance", {}).get("fetch_batch_size", 50)
-
-    def get_fetch_delay_seconds(self) -> float:
-        return self._config.get("performance", {}).get("fetch_delay_seconds", 0.1)
-
-    def get_search_limit_default(self) -> int:
-        return self._config.get("performance", {}).get("search_limit_default", 50)
-
-    def get_search_limit_max(self) -> int:
-        return self._config.get("performance", {}).get("search_limit_max", 1000)
-
-    # データ取得設定
-    def should_enable_retry(self) -> bool:
-        return self._config.get("data_fetching", {}).get("enable_retry", True)
-
-    def get_retry_attempts(self) -> int:
-        return self._config.get("data_fetching", {}).get("retry_attempts", 3)
-
-    def get_retry_delay(self) -> float:
-        return self._config.get("data_fetching", {}).get("retry_delay", 1.0)
-
-    def should_enable_caching(self) -> bool:
-        return self._config.get("data_fetching", {}).get("enable_caching", True)
-
-    def get_cache_ttl_seconds(self) -> int:
-        return self._config.get("data_fetching", {}).get("cache_ttl_seconds", 3600)
-
-    # 市場推定設定
-    def should_use_market_cap_estimation(self) -> bool:
-        return self._config.get("market_estimation", {}).get(
-            "use_market_cap_estimation", True
-        )
-
-    def get_prime_market_cap_threshold(self) -> int:
-        return self._config.get("market_estimation", {}).get(
-            "prime_market_cap_threshold", 100_000_000_000
-        )
-
-    def get_standard_market_cap_threshold(self) -> int:
-        return self._config.get("market_estimation", {}).get(
-            "standard_market_cap_threshold", 10_000_000_000
-        )
-
-    def get_default_market_segment(self) -> str:
-        return self._config.get("market_estimation", {}).get(
-            "default_market_segment", "東証プライム"
-        )
-
-    def get_etf_code_ranges(self) -> list:
-        return self._config.get("market_estimation", {}).get(
-            "etf_code_ranges",
-            [{"start": 1300, "end": 1399}, {"start": 1500, "end": 1599}],
-        )
-
-    def get_growth_code_ranges(self) -> list:
-        return self._config.get("market_estimation", {}).get(
-            "growth_code_ranges", [{"start": 2000, "end": 2999}]
-        )
-
-    # バリデーション設定
-    def should_require_code(self) -> bool:
-        return self._config.get("validation", {}).get("require_code", True)
-
-    def should_require_name(self) -> bool:
-        return self._config.get("validation", {}).get("require_name", True)
-
-    def should_validate_code_format(self) -> bool:
-        return self._config.get("validation", {}).get("validate_code_format", True)
-
-    def get_max_name_length(self) -> int:
-        return self._config.get("validation", {}).get("max_name_length", 255)
-
-    def get_allowed_markets(self) -> list:
-        return self._config.get("validation", {}).get(
-            "allowed_markets",
-            ["東証プライム", "東証スタンダード", "東証グロース", "ETF"],
-        )
-
-    # ログ設定
-    def should_log_bulk_operations(self) -> bool:
-        return self._config.get("logging", {}).get("log_bulk_operations", True)
-
-    def should_log_performance_metrics(self) -> bool:
-        return self._config.get("logging", {}).get("log_performance_metrics", True)
-
-    def should_log_cache_operations(self) -> bool:
-        return self._config.get("logging", {}).get("log_cache_operations", False)
-
-    def should_use_detailed_error_logging(self) -> bool:
-        return self._config.get("logging", {}).get("detailed_error_logging", True)
-
-    # セクター管理設定
-    def should_skip_existing_sector_info(self) -> bool:
-        return self._config.get("sector_management", {}).get(
-            "skip_existing_sector_info", True
-        )
-
-    def should_auto_update_on_fetch(self) -> bool:
-        return self._config.get("sector_management", {}).get(
-            "auto_update_on_fetch", False
-        )
-
-    def get_sector_cache_ttl_hours(self) -> int:
-        return self._config.get("sector_management", {}).get(
-            "sector_cache_ttl_hours", 24
-        )
-
-    def get_max_concurrent_updates(self) -> int:
-        return self._config.get("sector_management", {}).get(
-            "max_concurrent_updates", 5
-        )
-
-    def get_allowed_sectors(self) -> list:
-        return self._config.get("validation", {}).get(
-            "allowed_sectors",
-            [
-                "テクノロジー",
-                "金融",
-                "ヘルスケア",
-                "消費財",
-                "エネルギー",
-                "不動産",
-                "素材",
-                "資本財",
-                "通信",
-                "公共サービス",
-            ],
-        )
-
-    # 設定更新・保存
-    def update_config(self, new_config: Dict[str, Any]):
-        """設定を更新"""
-        self._config.update(new_config)
-
-    def save_config(self):
-        """設定をファイルに保存"""
-        try:
-            self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, ensure_ascii=False, indent=2)
-            logger.info(f"設定を保存: {self.config_path}")
-        except Exception as e:
-            logger.error(f"設定保存エラー: {e}")
-
+    # Issue #122互換メソッド（従来の関数ベースconfig用）
     def get_config_dict(self) -> Dict[str, Any]:
-        """設定辞書を取得（デバッグ用）"""
+        """設定辞書を取得（Issue #122互換）"""
         return self._config.copy()
 
 
 # グローバル設定インスタンス
-_global_config = None
+_global_config_class = None
 
 
-def get_stock_master_config() -> StockMasterConfig:
-    """グローバル設定インスタンスを取得"""
-    global _global_config
-    if _global_config is None:
-        _global_config = StockMasterConfig()
-    return _global_config
-
-
-def set_stock_master_config(config: StockMasterConfig):
-    """グローバル設定インスタンスを設定"""
-    global _global_config
-    _global_config = config
+def get_stock_master_config_class() -> StockMasterConfig:
+    """グローバル設定クラスインスタンスを取得"""
+    global _global_config_class
+    if _global_config_class is None:
+        _global_config_class = StockMasterConfig()
+    return _global_config_class
