@@ -29,7 +29,7 @@ jobs:
   gemini-code-analysis:
     runs-on: ubuntu-latest
     name: 🧠 Gemini AI Analysis
-    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && vars.GEMINI_API_KEY != ''
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: 📥 Checkout code
@@ -72,6 +72,8 @@ jobs:
 
       - name: 🧠 Run Gemini CLI Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           # Gemini CLI configuration
           model: 'gemini-1.5-pro'
@@ -177,7 +179,7 @@ jobs:
   security-analysis:
     runs-on: ubuntu-latest
     name: 🔐 Security-Focused Analysis
-    if: contains(github.event.pull_request.labels.*.name, 'security') || github.event.inputs.analysis_type == 'security'
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'security')) || github.event.inputs.analysis_type == 'security'
 
     steps:
       - name: 📥 Checkout code
@@ -185,6 +187,8 @@ jobs:
 
       - name: 🔐 Run Security Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-pro'
           temperature: 0.0  # More deterministic for security analysis
@@ -210,7 +214,7 @@ jobs:
   performance-analysis:
     runs-on: ubuntu-latest
     name: ⚡ Performance-Focused Analysis
-    if: contains(github.event.pull_request.labels.*.name, 'performance') || github.event.inputs.analysis_type == 'performance'
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'performance')) || github.event.inputs.analysis_type == 'performance'
 
     steps:
       - name: 📥 Checkout code
@@ -218,6 +222,8 @@ jobs:
 
       - name: ⚡ Run Performance Analysis
         uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           model: 'gemini-1.5-pro'
           temperature: 0.1
@@ -245,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     name: 📊 Aggregate Analysis Results
     needs: [gemini-code-analysis]
-    if: always() && vars.GEMINI_API_KEY != ''
+    if: always()
 
     steps:
       - name: 📥 Download analysis artifacts
