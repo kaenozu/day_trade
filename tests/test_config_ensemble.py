@@ -62,11 +62,11 @@ class TestEnsembleConfig:
                     "voting_type": "soft",
                     "performance_file_path": "test_performance.json",
                     "strategy_weights": {
-                        "conservative_rsi": 0.3,
-                        "aggressive_momentum": 0.2,
-                        "trend_following": 0.2,
-                        "mean_reversion": 0.2,
-                        "default_integrated": 0.1,
+                        "conservative_rsi": 0.1,
+                        "aggressive_momentum": 0.4,
+                        "trend_following": 0.4,
+                        "mean_reversion": 0.1,
+                        "default_integrated": 0.0,
                     },
                     "confidence_thresholds": {
                         "conservative": 65.0,

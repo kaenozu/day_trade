@@ -32,7 +32,7 @@ class TestMLModelManager(unittest.TestCase):
         self.manager.train_model("return_predictor", self.X, self.y)
 
         # 銘柄「7203」のモデルで予測
-        predictions = self.manager.predict("return_predictor", self.X, symbol="7203")
+        predictions = self.manager.predict("return_predictor", self.X)
         self.assertEqual(len(predictions), 100)
 
         # 別の銘柄「8306」のモデルは訓練されていないことを確認
@@ -46,7 +46,7 @@ class TestMLModelManager(unittest.TestCase):
 
         # 銘柄「7203」のモデルを訓練して保存
         self.manager.train_model("return_predictor", self.X, self.y)
-        self.manager.save_model("return_predictor", symbol="7203")
+        self.manager.save_model("return_predictor")
 
         # 新しいマネージャーでモデルを読み込み
         new_manager = MLModelManager(models_dir=str(self.models_dir))
