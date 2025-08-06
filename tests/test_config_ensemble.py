@@ -256,10 +256,10 @@ class TestEnsembleConfig:
             # デフォルト重みの確認
             expected_weights = {
                 "conservative_rsi": 0.2,
-                "aggressive_momentum": 0.25,
-                "trend_following": 0.25,
+                "aggressive_momentum": 0.2,
+                "trend_following": 0.2,
                 "mean_reversion": 0.2,
-                "default_integrated": 0.1,
+                "default_integrated": 0.2,
             }
             assert ensemble_settings.strategy_weights == expected_weights
 
