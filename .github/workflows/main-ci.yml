@@ -162,7 +162,7 @@ jobs:
         run: |
           if [ "${{ matrix.test-type }}" = "integration" ]; then
             if [ -d "tests/integration" ] && [ "$(ls -A tests/integration)" ]; then
-              pytest tests/integration/ -v --tb=short
+              pytest tests/integration/ -v --tb=short --integration
             else
               echo "Integration tests directory not found, running basic import test"
               python -c "import day_trade; from day_trade.data.stock_fetcher import StockFetcher; print('Import test passed')"

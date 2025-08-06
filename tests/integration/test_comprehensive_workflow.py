@@ -102,19 +102,19 @@ class TestComprehensiveWorkflow:
         indicators = TechnicalIndicators()
 
         # SMA計算
-        sma_20 = indicators.sma(historical_data["Close"], period=20)
+        sma_20 = indicators.sma(historical_data, period=20, column="Close")
         assert sma_20 is not None
         assert len(sma_20) == len(historical_data)
 
         # RSI計算
-        rsi = indicators.rsi(historical_data["Close"], period=14)
+        rsi = indicators.rsi(historical_data, period=14, column="Close")
         assert rsi is not None
         assert len(rsi) == len(historical_data)
 
         # MACD計算
-        macd, signal = indicators.macd(historical_data["Close"])
-        assert macd is not None
-        assert signal is not None
+        macd_result = indicators.macd(historical_data, column="Close")
+        assert macd_result is not None
+        assert isinstance(macd_result, pd.DataFrame)
 
         # 3. データ品質検証
         assert historical_data["High"].min() >= historical_data["Low"].min()
