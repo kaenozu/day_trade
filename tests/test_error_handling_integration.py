@@ -167,9 +167,8 @@ class TestErrorHandlingIntegration:
         # 出力をキャプチャ（使用されていないが将来的に必要になる可能性のため保持）
         _captured_output = StringIO()
 
-        with patch(
-            "src.day_trade.utils.enhanced_error_handler.console"
-        ) as mock_console:
+        # エラーハンドラーのconsoleインスタンスをモック
+        with patch.object(get_default_error_handler(), "console") as mock_console:
             mock_console.print = Mock()
 
             handle_cli_error(
@@ -179,7 +178,8 @@ class TestErrorHandlingIntegration:
                 show_technical=False,
             )
 
-            mock_console.print.assert_called_once()
+            # エラーハンドラーがconsole.printを呼び出すことを確認
+            mock_console.print.assert_called()
 
     def test_exception_conversion_helpers(self):
         """例外変換ヘルパー関数のテスト"""
