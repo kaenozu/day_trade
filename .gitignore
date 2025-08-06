@@ -93,7 +93,6 @@ celerybeat-schedule
 env/
 venv/
 ENV/
-env.bak/
 venv.bak/
 
 # Spyder project settings
@@ -123,11 +122,14 @@ dmypy.json
 # Database files
 *.db
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # Log files
 *.log
 
 # Temporary files
+files
 *.tmp
 *.temp
 
