@@ -26,6 +26,7 @@ from ..utils.logging_config import (
     log_database_operation,
     log_error_with_context,
 )
+from ..utils.performance_config import get_performance_config
 
 # Issue #120: Baseクラスをbase.pyからインポート（責務の明確化）
 from .base import Base
@@ -49,6 +50,7 @@ class DatabaseConfig:
         pool_recycle: int = 3600,
         connect_args: Optional[Dict[str, Any]] = None,
         config_manager=None,
+        use_performance_config: bool = True,
     ):
         """
         Args:
@@ -60,8 +62,33 @@ class DatabaseConfig:
             pool_recycle: 接続リサイクル時間（秒）
             connect_args: 接続引数
             config_manager: ConfigManagerインスタンス（依存性注入）
+            use_performance_config: パフォーマンス設定を使用するか
         """
         self._config_manager = config_manager
+        self._use_performance_config = use_performance_config
+
+        # パフォーマンス設定の統合
+        if use_performance_config:
+            try:
+                perf_config = get_performance_config()
+                # パフォーマンス設定からデフォルト値を取得
+                if pool_size == 5:  # デフォルト値の場合のみ上書き
+                    pool_size = perf_config.database.pool_size
+                if max_overflow == 10:
+                    max_overflow = perf_config.database.max_overflow
+                if pool_timeout == 30:
+                    pool_timeout = perf_config.database.pool_timeout
+                if pool_recycle == 3600:
+                    pool_recycle = perf_config.database.pool_recycle
+
+                logger.debug(
+                    "パフォーマンス設定を統合",
+                    pool_size=pool_size,
+                    max_overflow=max_overflow,
+                    optimization_level=perf_config.optimization_level,
+                )
+            except Exception as e:
+                logger.warning(f"パフォーマンス設定の統合に失敗: {e}")
 
         # 設定の優先順位: 引数 > config_manager > 環境変数 > デフォルト
         self.database_url = self._get_config_value(
@@ -921,6 +948,22 @@ def _add_enhanced_features():
             config_manager=config_manager,
         )
 
+    def create_performance_optimized_factory(self, config_manager=None):
+        """パフォーマンス最適化されたDatabaseManagerを作成"""
+        try:
+            from .performance_database import PerformanceOptimizedDatabaseManager
+
+            config = DatabaseConfig(
+                config_manager=config_manager, use_performance_config=True
+            )
+
+            return PerformanceOptimizedDatabaseManager(config)
+        except ImportError:
+            logger.warning(
+                "パフォーマンス最適化モジュールが利用できません。通常版を使用します。"
+            )
+            return self.create_factory(config_manager)
+
     # メソッドを動的に追加
     DatabaseManager.get_connection_pool_stats = get_connection_pool_stats
     DatabaseManager.health_check = health_check
@@ -934,8 +977,33 @@ _add_enhanced_features()
 
 
 # 依存性注入用のファクトリー関数
-def create_database_manager(config_manager=None) -> DatabaseManager:
-    """ConfigManager統合版のDatabaseManagerを作成"""
+def create_database_manager(
+    config_manager=None, use_performance_optimization: bool = True
+) -> DatabaseManager:
+    """
+    ConfigManager統合版のDatabaseManagerを作成
+
+    Args:
+        config_manager: ConfigManagerインスタンス
+        use_performance_optimization: パフォーマンス最適化版を使用するか
+
+    Returns:
+        DatabaseManager: 作成されたデータベースマネージャー
+    """
+    if use_performance_optimization:
+        try:
+            from .performance_database import PerformanceOptimizedDatabaseManager
+
+            config = DatabaseConfig(
+                config_manager=config_manager, use_performance_config=True
+            )
+
+            return PerformanceOptimizedDatabaseManager(config)
+        except ImportError:
+            logger.warning(
+                "パフォーマンス最適化モジュールが利用できません。通常版を使用します。"
+            )
+
     return DatabaseManager(
         config=DatabaseConfig(config_manager=config_manager),
         config_manager=config_manager,

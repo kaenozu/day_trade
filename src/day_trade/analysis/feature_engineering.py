@@ -1,6 +1,7 @@
 """
 高度な特徴量エンジニアリング
 テクニカル指標の複合化、市場全体特徴量、時系列特有の特徴量を生成
+Phase 2: パフォーマンス最適化対応
 """
 
 from dataclasses import dataclass
@@ -12,6 +13,12 @@ from scipy import stats
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from ..utils.logging_config import get_context_logger
+from ..utils.optimized_pandas import (
+    chunked_processing,
+    get_optimized_processor,
+    optimize_dataframe_dtypes,
+    vectorized_technical_indicators,
+)
 
 logger = get_context_logger(__name__, component="feature_engineering")
 
@@ -64,7 +71,7 @@ class AdvancedFeatureEngineer:
         market_data: Optional[Dict[str, pd.DataFrame]] = None,
     ) -> pd.DataFrame:
         """
-        全ての高度な特徴量を生成
+        全ての高度な特徴量を生成（パフォーマンス最適化版）
 
         Args:
             price_data: 価格データ（OHLCV）
@@ -74,52 +81,92 @@ class AdvancedFeatureEngineer:
         Returns:
             生成された特徴量DataFrame
         """
-        logger.info("高度な特徴量生成を開始")
+        logger.info(
+            "高度な特徴量生成を開始（最適化版）",
+            input_rows=len(price_data),
+            input_cols=len(price_data.columns),
+        )
+
+        # データ型最適化
+        optimized_price_data = optimize_dataframe_dtypes(price_data, aggressive=False)
+
+        # 高速化されたテクニカル指標計算
+        processor = get_optimized_processor()
+        optimized_price_data = processor.optimize_for_computation(optimized_price_data)
+
+        # ベクトル化されたテクニカル指標を先に計算
+        vectorized_features = vectorized_technical_indicators(
+            optimized_price_data,
+            price_col="Close" if "Close" in optimized_price_data.columns else "close",
+            volume_col="Volume"
+            if "Volume" in optimized_price_data.columns
+            else volume_data.name
+            if volume_data is not None
+            else None,
+        )
 
         features = pd.DataFrame(index=price_data.index)
 
         try:
-            # 1. 基本価格特徴量
-            basic_features = self._generate_basic_features(price_data)
+            # 1. 基本価格特徴量（最適化済みデータ使用）
+            basic_features = self._generate_basic_features(optimized_price_data)
             features = pd.concat([features, basic_features], axis=1)
+
+            # ベクトル化されたテクニカル指標を統合
+            technical_cols = [
+                col
+                for col in vectorized_features.columns
+                if col not in optimized_price_data.columns
+            ]
+            if technical_cols:
+                features = pd.concat(
+                    [features, vectorized_features[technical_cols]], axis=1
+                )
 
             # 2. 複合テクニカル特徴量
             if self.config.enable_cross_features:
-                cross_features = self._generate_cross_features(price_data)
+                cross_features = self._generate_cross_features(optimized_price_data)
                 features = pd.concat([features, cross_features], axis=1)
 
             # 3. 統計的特徴量
             if self.config.enable_statistical_features:
-                stat_features = self._generate_statistical_features(price_data)
+                stat_features = self._generate_statistical_features(
+                    optimized_price_data
+                )
                 features = pd.concat([features, stat_features], axis=1)
 
             # 4. 市場レジーム特徴量
             if self.config.enable_regime_features:
-                regime_features = self._generate_regime_features(price_data)
+                regime_features = self._generate_regime_features(optimized_price_data)
                 features = pd.concat([features, regime_features], axis=1)
 
-            # 5. 出来高特徴量
+            # 5. 出来高特徴量（最適化済みデータ使用）
             if volume_data is not None:
                 volume_features = self._generate_volume_features(
-                    price_data, volume_data
+                    optimized_price_data, volume_data
                 )
                 features = pd.concat([features, volume_features], axis=1)
 
             # 6. 市場全体特徴量
             if market_data:
                 market_features = self._generate_market_features(
-                    price_data, market_data
+                    optimized_price_data, market_data
                 )
                 features = pd.concat([features, market_features], axis=1)
 
-            # 7. 時系列ラグ特徴量
-            lag_features = self._generate_lag_features(price_data)
+            # 7. 時系列ラグ特徴量（最適化済みデータ使用）
+            lag_features = self._generate_lag_features(optimized_price_data)
             features = pd.concat([features, lag_features], axis=1)
 
-            # 8. 外れ値除去と正規化
-            features = self._preprocess_features(features)
+            # 8. 外れ値除去と正規化（最適化版）
+            features = self._preprocess_features_optimized(features)
 
-            logger.info(f"特徴量生成完了: {len(features.columns)}個の特徴量")
+            logger.info(
+                "特徴量生成完了（最適化版）",
+                total_features=len(features.columns),
+                output_rows=len(features),
+                memory_usage_mb=features.memory_usage(deep=True).sum() / 1024**2,
+            )
             return features
 
         except Exception as e:
@@ -469,6 +516,85 @@ class AdvancedFeatureEngineer:
 
         logger.info(f"特徴量選択完了: {len(selected_features)}個の特徴量を選択")
         return selected_features
+
+    def _preprocess_features_optimized(self, features: pd.DataFrame) -> pd.DataFrame:
+        """
+        特徴量の前処理（最適化版）
+
+        Args:
+            features: 前処理対象の特徴量DataFrame
+
+        Returns:
+            前処理済み特徴量DataFrame
+        """
+        logger.debug("特徴量前処理を開始（最適化版）")
+
+        # データ型最適化
+        features = optimize_dataframe_dtypes(features, aggressive=False)
+
+        # 無限値とNaNの処理（ベクトル化）
+        features = features.replace([np.inf, -np.inf], np.nan)
+
+        # 数値列のみを処理
+        numeric_cols = features.select_dtypes(include=[np.number]).columns
+
+        # 外れ値の処理（ベクトル化）
+        for col in numeric_cols:
+            if features[col].notna().sum() > 0:  # 有効なデータがある場合のみ
+                # IQRベースの外れ値検出
+                Q1 = features[col].quantile(0.25)
+                Q3 = features[col].quantile(0.75)
+                IQR = Q3 - Q1
+
+                # 外れ値の境界
+                lower_bound = Q1 - self.config.outlier_threshold * IQR
+                upper_bound = Q3 + self.config.outlier_threshold * IQR
+
+                # 外れ値をクリッピング
+                features[col] = features[col].clip(lower_bound, upper_bound)
+
+        # 欠損値の補完（前方補完＋後方補完）
+        features = features.ffill().bfill()
+
+        # 残存する欠損値は0で補完
+        features = features.fillna(0)
+
+        # スケーリング
+        if self.scaler is not None and len(numeric_cols) > 0:
+            try:
+                features[numeric_cols] = self.scaler.fit_transform(
+                    features[numeric_cols]
+                )
+            except Exception as e:
+                logger.warning(f"スケーリングに失敗: {e}")
+
+        logger.debug(
+            "特徴量前処理完了（最適化版）",
+            processed_features=len(features.columns),
+            final_memory_mb=features.memory_usage(deep=True).sum() / 1024**2,
+        )
+
+        return features
+
+    @chunked_processing()
+    def generate_features_chunked(
+        self,
+        price_data: pd.DataFrame,
+        volume_data: Optional[pd.Series] = None,
+        market_data: Optional[Dict[str, pd.DataFrame]] = None,
+    ) -> pd.DataFrame:
+        """
+        チャンク処理による特徴量生成（大量データ対応）
+
+        Args:
+            price_data: 価格データ（OHLCV）
+            volume_data: 出来高データ
+            market_data: 市場全体データ
+
+        Returns:
+            生成された特徴量DataFrame
+        """
+        return self.generate_all_features(price_data, volume_data, market_data)
 
 
 def create_target_variables(

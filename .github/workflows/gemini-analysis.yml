@@ -1,0 +1,280 @@
+name: 🧠 Gemini AI Code Analysis
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      analysis_type:
+        description: 'Type of analysis to run'
+        required: false
+        default: 'comprehensive'
+        type: choice
+        options:
+          - 'comprehensive'
+          - 'security'
+          - 'performance'
+          - 'code_quality'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  gemini-code-analysis:
+    runs-on: ubuntu-latest
+    name: 🧠 Gemini AI Analysis
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: 🔍 Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            *.py
+            src/**/*.py
+            tests/**/*.py
+            *.yml
+            *.yaml
+            requirements*.txt
+            pyproject.toml
+
+      - name: 🧠 Run Gemini CLI Analysis
+        uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          # Gemini CLI configuration
+          model: 'gemini-1.5-pro'
+          temperature: 0.1
+          max_tokens: 8192
+
+          # Analysis configuration
+          prompt: |
+            You are an expert code reviewer for a Python day trading application.
+            Please analyze the following code changes and provide:
+
+            1. **Security Analysis**: Identify potential security vulnerabilities
+            2. **Performance Analysis**: Suggest performance optimizations
+            3. **Code Quality**: Review code structure, patterns, and best practices
+            4. **Trading Logic**: Validate financial calculations and trading logic
+            5. **Risk Assessment**: Identify potential trading risks or edge cases
+
+            Focus on:
+            - SQL injection prevention
+            - Data validation and sanitization
+            - Real-time data handling efficiency
+            - Error handling robustness
+            - Memory usage optimization
+            - Threading/async safety
+
+            Changed files to analyze:
+            ${{ steps.changed-files.outputs.all_changed_files }}
+
+            Provide actionable recommendations with specific code suggestions.
+
+          files: ${{ steps.changed-files.outputs.all_changed_files }}
+
+          # Output configuration
+          output_format: 'markdown'
+          include_line_numbers: true
+          context_lines: 5
+
+      - name: 📝 Create analysis report
+        if: always()
+        run: |
+          echo "# 🧠 Gemini AI Code Analysis Report" > gemini-analysis.md
+          echo "" >> gemini-analysis.md
+          echo "**Analysis Date:** $(date)" >> gemini-analysis.md
+          echo "**PR Number:** #${{ github.event.pull_request.number }}" >> gemini-analysis.md
+          echo "**Branch:** ${{ github.head_ref }}" >> gemini-analysis.md
+          echo "" >> gemini-analysis.md
+
+          if [ -f gemini_output.md ]; then
+            cat gemini_output.md >> gemini-analysis.md
+          else
+            echo "⚠️ Gemini analysis output not found" >> gemini-analysis.md
+          fi
+
+          # Add summary statistics
+          echo "" >> gemini-analysis.md
+          echo "## 📊 Analysis Summary" >> gemini-analysis.md
+          echo "- **Files analyzed:** $(echo '${{ steps.changed-files.outputs.all_changed_files }}' | wc -w)" >> gemini-analysis.md
+          echo "- **Lines changed:** ${{ steps.changed-files.outputs.all_changed_files_count }}" >> gemini-analysis.md
+
+      - name: 📤 Upload analysis report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gemini-analysis-report
+          path: gemini-analysis.md
+          retention-days: 30
+
+      - name: 💬 Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let reportContent = '';
+
+            try {
+              reportContent = fs.readFileSync('gemini-analysis.md', 'utf8');
+            } catch (error) {
+              reportContent = `
+              # 🧠 Gemini AI Analysis Report
+
+              ⚠️ **Analysis Failed**
+
+              The Gemini AI analysis could not be completed. Please check the workflow logs for details.
+
+              **Error:** ${error.message}
+              `;
+            }
+
+            // Truncate if too long for GitHub comment
+            if (reportContent.length > 65000) {
+              reportContent = reportContent.substring(0, 65000) + '\n\n... (truncated)';
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: reportContent
+            });
+
+  # セキュリティ特化分析
+  security-analysis:
+    runs-on: ubuntu-latest
+    name: 🔐 Security-Focused Analysis
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'security')) || github.event.inputs.analysis_type == 'security'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Run Security Analysis
+        uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          model: 'gemini-1.5-pro'
+          temperature: 0.0  # More deterministic for security analysis
+          prompt: |
+            Perform a comprehensive security analysis of this Python trading application.
+
+            Focus specifically on:
+            1. SQL injection vulnerabilities
+            2. Input validation weaknesses
+            3. Authentication and authorization flaws
+            4. Data encryption and secure storage
+            5. API security best practices
+            6. Trading-specific security risks (price manipulation, unauthorized trades)
+            7. Logging security (sensitive data exposure)
+            8. WebSocket security in real-time trading
+
+            Provide specific remediation steps and code examples.
+
+          files: "**/*.py"
+          include_security_scan: true
+
+  # パフォーマンス特化分析
+  performance-analysis:
+    runs-on: ubuntu-latest
+    name: ⚡ Performance-Focused Analysis
+    if: (github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'performance')) || github.event.inputs.analysis_type == 'performance'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚡ Run Performance Analysis
+        uses: google-github-actions/run-gemini-cli@v0.1.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          model: 'gemini-1.5-pro'
+          temperature: 0.1
+          prompt: |
+            Analyze the performance characteristics of this day trading application.
+
+            Focus on:
+            1. Real-time data processing efficiency
+            2. Database query optimization
+            3. Memory usage patterns and potential leaks
+            4. Async/await usage and concurrency
+            5. WebSocket performance and latency
+            6. Trading algorithm computational complexity
+            7. Caching strategies
+            8. Pandas and NumPy optimization opportunities
+
+            Provide specific optimization recommendations with code examples.
+            Identify potential bottlenecks in high-frequency trading scenarios.
+
+          files: "**/*.py"
+          include_performance_metrics: true
+
+  # 統合結果の集約
+  aggregate-results:
+    runs-on: ubuntu-latest
+    name: 📊 Aggregate Analysis Results
+    needs: [gemini-code-analysis]
+    if: always()
+
+    steps:
+      - name: 📥 Download analysis artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: gemini-analysis-report
+          path: ./reports
+
+      - name: 📋 Create comprehensive report
+        run: |
+          echo "# 🧠 Comprehensive Gemini AI Analysis" > final-report.md
+          echo "" >> final-report.md
+          echo "**Generated:** $(date)" >> final-report.md
+          echo "**Repository:** ${{ github.repository }}" >> final-report.md
+          echo "**PR:** #${{ github.event.pull_request.number }}" >> final-report.md
+          echo "" >> final-report.md
+
+          # Combine all analysis reports
+          find ./reports -name "*.md" -exec cat {} \; >> final-report.md
+
+      - name: 📤 Upload final report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-gemini-analysis
+          path: final-report.md
+          retention-days: 90
