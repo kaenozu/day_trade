@@ -481,11 +481,11 @@ class TestEnsembleConfig:
         # デフォルト重みの同期確認
         # ensemble.pyの_initialize_weightsで定義されている値と比較
         expected_balanced_weights = {
-            "conservative_rsi": 0.2,
-            "aggressive_momentum": 0.25,
-            "trend_following": 0.25,
-            "mean_reversion": 0.2,
-            "default_integrated": 0.1,
+            "conservative_rsi": 0.1,
+            "aggressive_momentum": 0.4,
+            "trend_following": 0.4,
+            "mean_reversion": 0.1,
+            "default_integrated": 0.0,
         }
         assert settings.strategy_weights == expected_balanced_weights
 

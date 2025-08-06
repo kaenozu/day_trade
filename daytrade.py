@@ -206,7 +206,10 @@ def print_summary(report):
     print("\n" + "=" * 50)
     print("[実行サマリー]")
     print("=" * 50)
-    print(f"実行時間: {execution_time:.2f}秒")
+    if isinstance(execution_time, (int, float)):
+        print(f"実行時間: {execution_time:.2f}秒")
+    else:
+        print(f"実行時間: {execution_time}秒")
     print(f"対象銘柄: {report.total_symbols}銘柄")
     print(f"成功: {report.successful_symbols}銘柄")
     print(f"失敗: {report.failed_symbols}銘柄")

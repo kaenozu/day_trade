@@ -1197,7 +1197,7 @@ class EnsembleTradingStrategy:
         elif self.ensemble_strategy == EnsembleStrategy.AGGRESSIVE:
             return 30.0
         elif self.ensemble_strategy == EnsembleStrategy.BALANCED:
-            return 10.0
+            return 45.0
         elif self.ensemble_strategy == EnsembleStrategy.ML_OPTIMIZED:
             return 35.0  # ML使用時は閾値を低く
         elif self.ensemble_strategy == EnsembleStrategy.REGIME_ADAPTIVE:
