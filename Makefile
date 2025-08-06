@@ -1,5 +1,5 @@
 # Day Trade Development Automation
-.PHONY: help install dev test lint format clean build docker-build docker-up docker-down ci
+.PHONY: help install dev test lint format clean docker-build docker-up docker-down ci clean-db
 
 # デフォルトターゲット
 help: ## Show this help message
@@ -34,20 +34,25 @@ pre-commit: ## Run pre-commit hooks
 	@echo "🪝 Running pre-commit hooks..."
 	pre-commit run --all-files
 
+# データベースクリーンアップ
+clean-db: ## Clean up database files
+	@echo "🧹 Cleaning up database files..."
+	-del day_trade.db day_trade.db-shm day_trade.db-wal 2>NUL || true
+
 # テスト
-test: ## Run tests
+test: clean-db ## Run tests
 	@echo "🧪 Running tests..."
 	pytest tests/ -v --cov=src/day_trade --cov-report=html --cov-report=term
 
-test-fast: ## Run tests (fast, no coverage)
+test-fast: clean-db ## Run tests (fast, no coverage)
 	@echo "⚡ Running fast tests..."
 	pytest tests/ -x --tb=short
 
-test-unit: ## Run unit tests only
+test-unit: clean-db ## Run unit tests only
 	@echo "🧪 Running unit tests..."
 	pytest tests/ -v --ignore=tests/integration/
 
-test-integration: ## Run integration tests only
+test-integration: clean-db ## Run integration tests only
 	@echo "🔗 Running integration tests..."
 	pytest tests/integration/ -v
 
@@ -74,17 +79,21 @@ docker-build: ## Build Docker images
 	@echo "🐳 Building Docker images..."
 	docker-compose build
 
+
 docker-up: ## Start Docker services
 	@echo "🚀 Starting Docker services..."
 	docker-compose up -d
+
 
 docker-down: ## Stop Docker services
 	@echo "🛑 Stopping Docker services..."
 	docker-compose down
 
+
 docker-test: ## Run tests in Docker
 	@echo "🧪 Running tests in Docker..."
 	docker-compose run --rm test
+
 
 docker-quality: ## Run quality checks in Docker
 	@echo "🔍 Running quality checks in Docker..."
@@ -153,28 +162,34 @@ deps-update: ## Update dependencies
 	python scripts/dependency_manager.py update --dry-run
 	pre-commit autoupdate
 
+
 deps-check: ## Check for security vulnerabilities
 	@echo "🔒 Checking dependencies for vulnerabilities..."
 	python scripts/dependency_manager.py check
 	safety check || echo "Safety not installed"
 	pip-audit || echo "pip-audit not installed"
 
+
 deps-report: ## Generate dependency report
 	@echo "📊 Generating dependency report..."
 	python scripts/dependency_manager.py report
+
 
 deps-sync: ## Sync requirements files
 	@echo "🔄 Syncing requirements files..."
 	python scripts/dependency_manager.py sync
 
+
 deps-unused: ## Check for unused dependencies
 	@echo "🔍 Checking for unused dependencies..."
 	deptry . --extend-exclude "tests" --ignore-notebooks || echo "deptry not installed"
+
 
 deps-validate: ## Validate dependency configuration
 	@echo "✅ Validating dependency configuration..."
 	pip check
 	pip-check-reqs . || echo "pip-check-reqs not installed"
+
 
 deps-audit: ## Comprehensive dependency audit
 	@echo "🔒 Running comprehensive dependency audit..."
