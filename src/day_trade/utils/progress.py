@@ -71,9 +71,9 @@ if os.environ.get("PYTEST_CURRENT_TEST"):
 else:
     # Windows環境での文字エンコーディング問題を回避
     try:
-        console = Console(force_terminal=True, legacy_windows=False, encoding="utf-8")
+        console = Console(force_terminal=True, legacy_windows=False)
     except Exception:
-        console = Console(force_terminal=False, encoding="utf-8")
+        console = Console(force_terminal=False)
 
 
 # 型定義の追加
