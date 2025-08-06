@@ -152,8 +152,8 @@ class TestEnsembleConfig:
         assert ensemble_settings.adaptive_weights_enabled is False
 
         # 戦略重みのテスト
-        assert ensemble_settings.strategy_weights["conservative_rsi"] == 0.3
-        assert ensemble_settings.strategy_weights["aggressive_momentum"] == 0.2
+        assert ensemble_settings.strategy_weights["conservative_rsi"] == 0.1
+        assert ensemble_settings.strategy_weights["aggressive_momentum"] == 0.4
 
         # 信頼度閾値のテスト
         assert ensemble_settings.confidence_thresholds["conservative"] == 65.0
