@@ -184,6 +184,156 @@ class PatternsConfig:
         """設定辞書を取得（Issue #122互換）"""
         return self._config.copy()
 
+    # patterns.pyで使用されるメソッド群
+    def get_golden_cross_fast_period(self) -> int:
+        """ゴールデンクロス短期移動平均期間を取得"""
+        return self._config.get("golden_dead_cross", {}).get("fast_period", 5)
+
+    def get_golden_cross_slow_period(self) -> int:
+        """ゴールデンクロス長期移動平均期間を取得"""
+        return self._config.get("golden_dead_cross", {}).get("slow_period", 25)
+
+    def get_all_patterns_golden_cross_fast(self) -> int:
+        """全パターン検出用ゴールデンクロス短期期間を取得"""
+        return self._config.get("detect_all_patterns", {}).get(
+            "default_golden_cross_fast", 5
+        )
+
+    def get_all_patterns_golden_cross_slow(self) -> int:
+        """全パターン検出用ゴールデンクロス長期期間を取得"""
+        return self._config.get("detect_all_patterns", {}).get(
+            "default_golden_cross_slow", 20
+        )
+
+    def get_all_patterns_support_resistance_window(self) -> int:
+        """全パターン検出用サポートレジスタンス期間を取得"""
+        return self._config.get("detect_all_patterns", {}).get(
+            "default_support_resistance_window", 20
+        )
+
+    def get_all_patterns_breakout_lookback(self) -> int:
+        """全パターン検出用ブレイクアウト期間を取得"""
+        return self._config.get("detect_all_patterns", {}).get(
+            "default_breakout_lookback", 20
+        )
+
+    def get_all_patterns_trend_window(self) -> int:
+        """全パターン検出用トレンド期間を取得"""
+        return self._config.get("detect_all_patterns", {}).get(
+            "default_trend_window", 20
+        )
+
+    # ゴールデンクロス関連メソッド
+    def get_golden_cross_confidence_multiplier(self) -> float:
+        """ゴールデンクロス信頼度倍率を取得"""
+        return float(
+            self._config.get("golden_dead_cross", {}).get("confidence_multiplier", 100)
+        )
+
+    def get_golden_cross_confidence_clip_max(self) -> int:
+        """ゴールデンクロス信頼度上限を取得"""
+        return self._config.get("golden_dead_cross", {}).get("confidence_clip_max", 100)
+
+    # サポートレジスタンス関連メソッド
+    def get_support_resistance_window(self) -> int:
+        """サポートレジスタンスウィンドウサイズを取得"""
+        return self._config.get("support_resistance", {}).get("window_size", 20)
+
+    def get_support_resistance_num_levels(self) -> int:
+        """サポートレジスタンスレベル数を取得"""
+        return self._config.get("support_resistance", {}).get("default_num_levels", 3)
+
+    def get_support_resistance_clustering_iterations(self) -> int:
+        """サポートレジスタンスクラスタリング反復回数を取得"""
+        return self._config.get("support_resistance", {}).get(
+            "clustering_iterations", 10
+        )
+
+    # ブレイクアウト関連メソッド
+    def get_breakout_lookback(self) -> int:
+        """ブレイクアウト期間を取得"""
+        return self._config.get("breakout_detection", {}).get("default_lookback", 20)
+
+    def get_breakout_threshold(self) -> float:
+        """ブレイクアウト閾値を取得"""
+        return float(
+            self._config.get("breakout_detection", {}).get("default_threshold", 0.02)
+        )
+
+    def get_breakout_volume_factor(self) -> float:
+        """ブレイクアウトボリューム係数を取得"""
+        return float(
+            self._config.get("breakout_detection", {}).get("default_volume_factor", 1.5)
+        )
+
+    def get_breakout_strength_multiplier(self) -> float:
+        """ブレイクアウト強度倍率を取得"""
+        return float(
+            self._config.get("breakout_detection", {}).get("strength_multiplier", 10)
+        )
+
+    def get_breakout_volume_clip_max(self) -> int:
+        """ブレイクアウトボリューム上限を取得"""
+        return self._config.get("breakout_detection", {}).get("volume_clip_max", 2)
+
+    def get_breakout_confidence_cap(self) -> int:
+        """ブレイクアウト信頼度上限を取得"""
+        return self._config.get("breakout_detection", {}).get("confidence_cap", 100)
+
+    # トレンドライン関連メソッド
+    def get_trend_line_window(self) -> int:
+        """トレンドラインウィンドウサイズを取得"""
+        return self._config.get("trend_line_detection", {}).get("default_window", 20)
+
+    def get_trend_line_min_touches(self) -> int:
+        """トレンドライン最小接触数を取得"""
+        return self._config.get("trend_line_detection", {}).get(
+            "default_min_touches", 3
+        )
+
+    def get_trend_line_ransac_residual_threshold(self) -> float:
+        """トレンドラインRANSAC残差閾値を取得"""
+        return 0.01
+
+    def get_trend_line_ransac_max_trials(self) -> int:
+        """トレンドラインRANSAC最大試行回数を取得"""
+        return 100
+
+    def get_trend_line_ransac_min_samples(self) -> int:
+        """トレンドラインRANSAC最小サンプル数を取得"""
+        return 2
+
+    # エラーハンドリング関連メソッド
+    def should_log_detailed_errors(self) -> bool:
+        """詳細エラーログ出力フラグを取得"""
+        return self._config.get("error_handling", {}).get("log_detailed_errors", True)
+
+    def should_raise_exceptions(self) -> bool:
+        """例外発生フラグを取得"""
+        return self._config.get("error_handling", {}).get("raise_exceptions", False)
+
+    def should_return_empty_on_error(self) -> bool:
+        """エラー時空を返すフラグを取得"""
+        return self._config.get("error_handling", {}).get("return_empty_on_error", True)
+
+    # 信頼度計算関連メソッド
+    def get_confidence_weights(self) -> Dict[str, float]:
+        """信頼度重みを取得"""
+        return self._config.get("confidence_calculation", {}).get(
+            "weights",
+            {
+                "golden_cross": 0.3,
+                "dead_cross": 0.3,
+                "upward_breakout": 0.25,
+                "downward_breakout": 0.25,
+                "trend_r2": 0.2,
+            },
+        )
+
+    def get_confidence_normalization(self) -> float:
+        """信頼度正規化係数を取得"""
+        return 100.0
+
 
 # グローバル設定インスタンス
 _global_config_class = None
