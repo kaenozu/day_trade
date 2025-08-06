@@ -173,17 +173,15 @@ class TestEndToEndIntegration:
         """銘柄マスタ→セクター分析→スクリーニングの統合フロー"""
 
         # 1. 銘柄マスタ管理
-        with patch(
-            "src.day_trade.data.stock_master.StockFetcher",
-            return_value=mock_stock_fetcher,
-        ):
-            stock_master = StockMasterManager()
+        # StockMasterManagerの内部StockFetcherをモック化
+        stock_master = StockMasterManager()
+        stock_master.stock_fetcher = mock_stock_fetcher
 
-            # 2. 銘柄情報更新
-            stock_info = stock_master.fetch_and_update_stock_info_as_dict("7203")
-            if stock_info:  # データベースエラーがなければ
-                assert stock_info["name"] == "テスト株式会社"
-                assert stock_info["sector"] == "テクノロジー"
+        # 2. 銘柄情報更新
+        stock_info = stock_master.fetch_and_update_stock_info_as_dict("7203")
+        if stock_info:  # データベースエラーがなければ
+            assert stock_info["name"] == "テスト株式会社"
+            assert stock_info["sector"] == "テクノロジー"
 
         # 3. スクリーニング
         StockScreener(stock_fetcher=mock_stock_fetcher)
@@ -244,12 +242,9 @@ class TestEndToEndIntegration:
             components_status["alert_management"] = alert_manager is not None
 
             # 6. 銘柄マスタ管理コンポーネント
-            with patch(
-                "src.day_trade.data.stock_master.StockFetcher",
-                return_value=mock_stock_fetcher,
-            ):
-                stock_master = StockMasterManager()
-                components_status["stock_master"] = stock_master is not None
+            stock_master = StockMasterManager()
+            stock_master.stock_fetcher = mock_stock_fetcher
+            components_status["stock_master"] = stock_master is not None
 
             # 7. スクリーニングコンポーネント
             screener = StockScreener(stock_fetcher=mock_stock_fetcher)
