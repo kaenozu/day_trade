@@ -1301,3 +1301,114 @@ def get_sector_distribution() -> Dict[str, int]:
     except Exception as e:
         logger.error(f"セクター分布取得エラー: {e}")
         return {}
+
+    def bulk_fetch_and_update_prices_optimized(
+        self, codes: List[str], batch_size: int = 50, delay: float = 0.1
+    ) -> Dict[str, int]:
+        """
+        最適化された一括価格取得・更新（bulk_get_current_prices_optimized使用）
+
+        Args:
+            codes: 銘柄コードのリスト
+            batch_size: バッチサイズ（APIレートリミット対応）
+            delay: バッチ間の遅延（秒）
+
+        Returns:
+            処理結果統計
+        """
+        if not codes:
+            return {"total": 0, "updated": 0, "failed": 0}
+
+        logger.info(f"最適化一括価格更新開始: {len(codes)}件 (batch_size={batch_size})")
+        import time as time_module
+        from datetime import datetime as dt
+
+        start_time = time_module.time()
+
+        # 制限適用
+        effective_limit = self._apply_stock_limit(len(codes))
+        if effective_limit < len(codes):
+            codes = codes[:effective_limit]
+            logger.info(f"銘柄制限を適用: {len(codes)}件に制限")
+
+        try:
+            # 最適化されたバルク価格取得
+            price_data = self.fetcher.bulk_get_current_prices_optimized(
+                codes, batch_size=batch_size, delay=delay
+            )
+
+            # データベース更新用のデータを準備
+            update_data = []
+            for code, data in price_data.items():
+                if data is not None:
+                    update_data.append(
+                        {
+                            "code": code,
+                            "current_price": data.get("current_price"),
+                            "change": data.get("change"),
+                            "change_percent": data.get("change_percent"),
+                            "volume": data.get("volume"),
+                            "high": data.get("high"),
+                            "low": data.get("low"),
+                            "open_price": data.get("open"),
+                            "previous_close": data.get("previous_close"),
+                            "last_updated": dt.now(),
+                        }
+                    )
+
+            # SQLAlchemyバルク更新
+            result = {"total": len(codes), "updated": 0, "failed": 0}
+
+            with self.db_manager.session_scope() as session:
+                try:
+                    # バルクアップデート実行
+                    for update_info in update_data:
+                        code = update_info["code"]
+
+                        # 既存株式レコードを取得
+                        stock = session.query(Stock).filter_by(code=code).first()
+                        if stock:
+                            # 価格情報を更新
+                            if update_info.get("current_price") is not None:
+                                stock.current_price = update_info["current_price"]
+                            if update_info.get("change") is not None:
+                                stock.change = update_info["change"]
+                            if update_info.get("change_percent") is not None:
+                                stock.change_percent = update_info["change_percent"]
+                            if update_info.get("volume") is not None:
+                                stock.volume = update_info["volume"]
+                            if update_info.get("high") is not None:
+                                stock.high = update_info["high"]
+                            if update_info.get("low") is not None:
+                                stock.low = update_info["low"]
+                            if update_info.get("open_price") is not None:
+                                stock.open_price = update_info["open_price"]
+                            if update_info.get("previous_close") is not None:
+                                stock.previous_close = update_info["previous_close"]
+
+                            stock.last_updated = update_info["last_updated"]
+                            result["updated"] += 1
+                        else:
+                            result["failed"] += 1
+
+                    session.commit()
+
+                except Exception as e:
+                    logger.error(f"データベース更新エラー: {e}")
+                    session.rollback()
+                    result["failed"] = len(codes)
+                    result["updated"] = 0
+
+            total_elapsed = time_module.time() - start_time
+
+            logger.info(
+                f"最適化一括価格更新完了: "
+                f"成功{result['updated']}/{result['total']}件 "
+                f"({total_elapsed:.2f}秒, {result['updated']/total_elapsed:.1f}件/秒)"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"最適化一括価格更新エラー: {e}")
+            return {"total": len(codes), "updated": 0, "failed": len(codes)}
