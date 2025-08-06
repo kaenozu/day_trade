@@ -162,7 +162,7 @@ class TestComprehensiveWorkflow:
             session.commit()
 
         # 3. 買い注文の実行
-        buy_trade = trade_manager.execute_trade(
+        buy_trade_id = trade_manager.add_trade(
             symbol="7203",
             trade_type=TradeType.BUY,
             quantity=100,
@@ -170,7 +170,11 @@ class TestComprehensiveWorkflow:
             notes="統合テスト買い注文",
         )
 
-        assert buy_trade is not None
+        assert buy_trade_id is not None
+        # 取引履歴から確認
+        trades = trade_manager.get_trade_history("7203")
+        assert len(trades) > 0
+        buy_trade = trades[-1]  # 最新の取引
         assert buy_trade.symbol == "7203"
         assert buy_trade.trade_type == TradeType.BUY
         assert buy_trade.quantity == 100
@@ -181,7 +185,7 @@ class TestComprehensiveWorkflow:
         assert positions["7203"].quantity == 100
 
         # 5. 売り注文の実行
-        sell_trade = trade_manager.execute_trade(
+        sell_trade_id = trade_manager.add_trade(
             symbol="7203",
             trade_type=TradeType.SELL,
             quantity=50,
@@ -189,7 +193,10 @@ class TestComprehensiveWorkflow:
             notes="統合テスト売り注文",
         )
 
-        assert sell_trade is not None
+        assert sell_trade_id is not None
+        # 売り取引も履歴から確認
+        trades = trade_manager.get_trade_history("7203")
+        sell_trade = trades[-1]  # 最新の取引（売り）
         assert sell_trade.trade_type == TradeType.SELL
 
         # 6. 最終ポジション確認
