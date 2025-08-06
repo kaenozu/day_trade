@@ -1,181 +1,246 @@
 """
-セキュリティヘルパー関数 - セキュリティ強化プロジェクト対応
+セキュリティヘルパーユーティリティ
 
-SQLインジェクション対策、安全な乱数生成、
-その他のセキュリティ機能を提供する。
+SQLインジェクション防止、セキュアな乱数生成、入力検証、
+ログメッセージのサニタイズなど、包括的なセキュリティ機能を提供。
+
+Phase 1: セキュリティ強化プロジェクト対応
 """
 
+import hashlib
+import hmac
+import re
 import secrets
 import string
-from typing import Any, Optional
+from typing import Optional
 
-from sqlalchemy import text
-from sqlalchemy.sql import quoted_name
+from sqlalchemy.sql.elements import quoted_name
 
 
 class SecurityHelpers:
-    """セキュリティ関連のヘルパー関数を提供するクラス"""
+    """セキュリティ関連のヘルパー機能を提供するクラス"""
 
     @staticmethod
     def safe_table_name(table_name: str) -> quoted_name:
         """
-        安全なテーブル名を作成する（SQLインジェクション対策）
+        SQLインジェクション攻撃を防ぐ安全なテーブル名の生成
 
         Args:
             table_name: テーブル名
 
         Returns:
-            quoted_name: 安全にクォートされたテーブル名
+            quoted_name: SQLAlchemyの安全なテーブル名オブジェクト
         """
-        # テーブル名の妥当性チェック
-        if not isinstance(table_name, str):
-            raise ValueError("テーブル名は文字列である必要があります")
-
-        # 危険な文字のチェック
-        forbidden_chars = [";", "--", "/*", "*/", "\\", "'", '"']
-        if any(char in table_name for char in forbidden_chars):
-            raise ValueError("テーブル名に危険な文字が含まれています")
-
-        # 英数字とアンダースコアのみ許可
-        if not table_name.replace("_", "").isalnum():
-            raise ValueError("テーブル名は英数字とアンダースコアのみ使用できます")
-
-        return quoted_name(table_name, True)
+        # SQLAlchemyのquoted_nameを使用してSQLインジェクションを防止
+        return quoted_name(table_name, quote=True)
 
     @staticmethod
-    def safe_sql_text(sql_template: str, **params: Any) -> text:
+    def safe_column_name(column_name: str) -> quoted_name:
         """
-        安全なSQLテキストを作成する（パラメータ化クエリ）
+        SQLインジェクション攻撃を防ぐ安全なカラム名の生成
 
         Args:
-            sql_template: SQLテンプレート（名前付きパラメータを使用）
-            **params: パラメータ
+            column_name: カラム名
 
         Returns:
-            text: 安全なSQLテキスト
-
-        Example:
-            safe_sql_text("SELECT * FROM :table_name WHERE id = :id",
-                         table_name="users", id=123)
+            quoted_name: SQLAlchemyの安全なカラム名オブジェクト
         """
-        return text(sql_template).params(**params)
-
-    @staticmethod
-    def generate_secure_token(length: int = 32) -> str:
-        """
-        暗号学的に安全なトークンを生成する
-
-        Args:
-            length: トークン長（デフォルト: 32文字）
-
-        Returns:
-            str: 安全に生成されたトークン
-        """
-        if length <= 0:
-            raise ValueError("トークン長は正の整数である必要があります")
-
-        # 英数字からなる安全なトークンを生成
-        alphabet = string.ascii_letters + string.digits
-        return "".join(secrets.choice(alphabet) for _ in range(length))
+        return quoted_name(column_name, quote=True)
 
     @staticmethod
     def secure_random_float(min_val: float = 0.0, max_val: float = 1.0) -> float:
         """
-        暗号学的に安全な浮動小数点乱数を生成する
-
-        Args:
-            min_val: 最小値（デフォルト: 0.0）
-            max_val: 最大値（デフォルト: 1.0）
-
-        Returns:
-            float: 安全に生成された浮動小数点数
-        """
-        if min_val >= max_val:
-            raise ValueError("最小値は最大値より小さい必要があります")
-
-        # secrets.randbits()を使用して安全な乱数を生成
-        random_bits = secrets.randbits(32)
-        normalized = random_bits / (2**32)  # 0.0-1.0に正規化
-
-        # 指定範囲にスケール
-        return min_val + normalized * (max_val - min_val)
-
-    @staticmethod
-    def secure_random_int(min_val: int, max_val: int) -> int:
-        """
-        暗号学的に安全な整数乱数を生成する
+        暗号学的に安全な浮動小数点乱数を生成
 
         Args:
             min_val: 最小値
-            max_val: 最大値（含む）
+            max_val: 最大値
 
         Returns:
-            int: 安全に生成された整数
+            float: セキュアな乱数
         """
-        if min_val > max_val:
-            raise ValueError("最小値は最大値以下である必要があります")
+        # cryptographically secure random number generator
+        random_bytes = secrets.randbits(32)
+        # 0.0 to 1.0 の範囲に正規化
+        normalized = random_bytes / (2**32 - 1)
+        # 指定範囲にスケール
+        return min_val + (normalized * (max_val - min_val))
 
+    @staticmethod
+    def secure_random_int(min_val: int = 0, max_val: int = 100) -> int:
+        """
+        暗号学的に安全な整数乱数を生成
+
+        Args:
+            min_val: 最小値
+            max_val: 最大値
+
+        Returns:
+            int: セキュアな乱数
+        """
         return secrets.randbelow(max_val - min_val + 1) + min_val
+
+    @staticmethod
+    def secure_random_string(length: int = 32) -> str:
+        """
+        暗号学的に安全なランダム文字列を生成
+
+        Args:
+            length: 文字列の長さ
+
+        Returns:
+            str: セキュアなランダム文字列
+        """
+        alphabet = string.ascii_letters + string.digits
+        return "".join(secrets.choice(alphabet) for _ in range(length))
 
     @staticmethod
     def sanitize_log_message(message: str) -> str:
         """
-        ログメッセージをサニタイズする（機密情報の漏洩防止）
+        ログメッセージから機密情報を除去
 
         Args:
-            message: 元のメッセージ
+            message: 元のログメッセージ
 
         Returns:
             str: サニタイズされたメッセージ
         """
-        if not isinstance(message, str):
-            return str(message)
-
-        # 機密情報パターンをマスク
-        sensitive_patterns = [
-            (r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "[CARD-MASKED]"),
-            (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL-MASKED]"),
-            (r"\bpassword\s*[:=]\s*[^\s]+", "password=[MASKED]"),
-            (r"\bapi[_-]?key\s*[:=]\s*[^\s]+", "api_key=[MASKED]"),
-            (r"\btoken\s*[:=]\s*[^\s]+", "token=[MASKED]"),
-            (r"\bsecret\s*[:=]\s*[^\s]+", "secret=[MASKED]"),
+        # 機密情報のパターンを定義
+        patterns = [
+            # パスワード
+            (r"password[:\s=]+[^\s,;]+", "password: ***"),
+            (r"pwd[:\s=]+[^\s,;]+", "pwd: ***"),
+            # APIキー・トークン
+            (r"api[_\s]?key[:\s=]+[^\s,;]+", "api_key: ***"),
+            (r"key[:\s=]+sk-[^\s,;]+", "key: ***"),
+            (r"token[:\s=]+[^\s,;]+", "token: ***"),
+            (r"bearer[:\s=]+[^\s,;]+", "bearer: ***"),
+            # JWT トークン
+            (r"eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*", "[JWT_TOKEN]"),
+            # メールアドレス
+            (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL_MASKED]"),
+            # クレジットカード番号
+            (r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "[CARD_MASKED]"),
+            # 電話番号
+            (r"\b\d{3}-?\d{4}-?\d{4}\b", "[PHONE_MASKED]"),
+            # セッションID・ハッシュ値
+            (r"\b[a-fA-F0-9]{32,}\b", "[HASH_MASKED]"),
         ]
 
-        import re
-
         sanitized = message
-        for pattern, replacement in sensitive_patterns:
+        for pattern, replacement in patterns:
             sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
 
         return sanitized
 
     @staticmethod
-    def validate_input_string(
-        input_str: str,
-        max_length: Optional[int] = None,
-        allowed_chars: Optional[str] = None,
-    ) -> str:
+    def validate_input(input_value: str, input_type: str = "general") -> bool:
         """
-        入力文字列の妥当性を検証する
+        入力値の検証（SQLインジェクション、XSS等の攻撃検出）
 
         Args:
-            input_str: 入力文字列
-            max_length: 最大長（オプション）
-            allowed_chars: 許可文字セット（オプション）
+            input_value: 検証する入力値
+            input_type: 入力タイプ（username, email, numeric等）
 
         Returns:
-            str: 検証済み文字列
-
-        Raises:
-            ValueError: 妥当性検証に失敗した場合
+            bool: 安全な入力の場合True
         """
-        if not isinstance(input_str, str):
-            raise ValueError("入力は文字列である必要があります")
+        if not isinstance(input_value, str):
+            return False
 
-        if max_length is not None and len(input_str) > max_length:
-            raise ValueError(f"入力文字列が最大長{max_length}を超えています")
+        # 基本的な悪意のあるパターンをチェック
+        malicious_patterns = [
+            # SQLインジェクション
+            r"(\';|\";|\/\*|\*\/|xp_|sp_)",
+            r"(union\s+select|drop\s+table|insert\s+into)",
+            r"(delete\s+from|update\s+.*set)",
+            r"(or\s+1\s*=\s*1|and\s+1\s*=\s*1)",
+            # XSS
+            r"<script[^>]*>.*?</script>",
+            r"javascript:",
+            r"on\w+\s*=",
+            r"<iframe[^>]*>.*?</iframe>",
+        ]
 
-        if allowed_chars is not None and not all(c in allowed_chars for c in input_str):
-            raise ValueError("許可されていない文字が含まれています")
+        for pattern in malicious_patterns:
+            if re.search(pattern, input_value, re.IGNORECASE):
+                return False
 
-        return input_str
+        # 入力タイプ別の追加検証
+        if input_type == "username":
+            # ユーザー名：英数字、アンダースコア、ハイフンのみ
+            return re.match(r"^[a-zA-Z0-9_-]{3,50}$", input_value) is not None
+
+        elif input_type == "email":
+            # 基本的なメール形式チェック（連続ドットを禁止）
+            if ".." in input_value:
+                return False
+            email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+            return re.match(email_pattern, input_value) is not None
+
+        elif input_type == "numeric":
+            # 数値のみ
+            try:
+                float(input_value)
+                return True
+            except ValueError:
+                return False
+
+        return True
+
+    @staticmethod
+    def hash_sensitive_data(data: str, salt: Optional[str] = None) -> str:
+        """
+        機密データのハッシュ化
+
+        Args:
+            data: ハッシュ化するデータ
+            salt: ソルト（指定しない場合は固定ソルトを使用）
+
+        Returns:
+            str: ハッシュ化されたデータ
+        """
+        if salt is None:
+            # テスト用に固定ソルトを使用（実際の運用では動的ソルトを推奨）
+            salt = "default_salt_for_testing"
+
+        # SHA-256でハッシュ化
+        return hashlib.sha256((data + salt).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def secure_compare(a: str, b: str) -> bool:
+        """
+        タイミング攻撃耐性のある文字列比較
+
+        Args:
+            a: 比較する文字列1
+            b: 比較する文字列2
+
+        Returns:
+            bool: 同じ文字列の場合True
+        """
+        return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+    @staticmethod
+    def generate_csrf_token() -> str:
+        """
+        CSRF攻撃防止用のトークンを生成
+
+        Returns:
+            str: CSRFトークン
+        """
+        return secrets.token_urlsafe(32)
+
+    @staticmethod
+    def validate_csrf_token(token: str, expected_token: str) -> bool:
+        """
+        CSRFトークンの検証
+
+        Args:
+            token: 受信したトークン
+            expected_token: 期待されるトークン
+
+        Returns:
+            bool: 有効なトークンの場合True
+        """
+        return SecurityHelpers.secure_compare(token, expected_token)
