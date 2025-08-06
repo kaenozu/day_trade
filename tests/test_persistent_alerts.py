@@ -112,7 +112,7 @@ class TestPersistentAlertManager:
             )
             assert db_condition is not None
             assert db_condition.symbol == "7203"
-            assert db_condition.alert_type == AlertType.PRICE_ABOVE.value
+            assert db_condition.alert_type == AlertType.PRICE_ABOVE
 
     def test_remove_alert_condition_persistence(self, persistent_alert_manager):
         """アラート条件削除の永続化テスト"""

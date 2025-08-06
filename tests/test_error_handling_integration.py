@@ -183,32 +183,23 @@ class TestErrorHandlingIntegration:
 
     def test_exception_conversion_helpers(self):
         """例外変換ヘルパー関数のテスト"""
-        # SQLAlchemy例外の変換テスト（モック使用）
-        with patch("sqlalchemy.exc.IntegrityError") as mock_integrity_error:
-            mock_exc = Mock(spec=mock_integrity_error)
-            mock_exc.__str__ = Mock(return_value="integrity constraint violation")
+        # SQLAlchemy例外の変換テスト（実際の例外を使用）
+        from sqlalchemy.exc import IntegrityError
 
-            # handle_database_exception をモックなしで呼び出し
-            from sqlalchemy.exc import IntegrityError
+        real_exc = IntegrityError("test", "test", "test")
+        converted = handle_database_exception(real_exc)
 
-            real_exc = IntegrityError("test", "test", "test")
-            converted = handle_database_exception(real_exc)
+        assert isinstance(converted, DatabaseError)
+        assert "データ整合性エラー" in converted.message
 
-            assert isinstance(converted, DatabaseError)
-            assert "データ整合性エラー" in converted.message
+        # requests例外の変換テスト（実際の例外を使用）
+        from requests.exceptions import ConnectionError
 
-        # requests例外の変換テスト（モック使用）
-        with patch("requests.exceptions.ConnectionError") as mock_conn_error:
-            mock_exc = Mock(spec=mock_conn_error)
-            mock_exc.__str__ = Mock(return_value="connection failed")
+        real_exc = ConnectionError("connection failed")
+        converted = handle_network_exception(real_exc)
 
-            from requests.exceptions import ConnectionError
-
-            real_exc = ConnectionError("connection failed")
-            converted = handle_network_exception(real_exc)
-
-            assert isinstance(converted, NetworkError)
-            assert "ネットワーク接続エラー" in converted.message
+        assert isinstance(converted, NetworkError)
+        assert "ネットワーク接続エラー" in converted.message
 
     def test_performance_stats_collection(self):
         """パフォーマンス統計収集テスト"""
