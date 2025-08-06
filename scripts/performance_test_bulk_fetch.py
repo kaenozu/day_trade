@@ -6,19 +6,19 @@ Issue #126の改善効果を測定するため、
 従来の個別取得と新しい一括取得のパフォーマンスを比較する。
 """
 
-import time
-import sys
-from pathlib import Path
-from typing import List, Dict, Any
 import logging
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, List
 
 # プロジェクトルートをPATHに追加
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.data.stock_master import StockMasterManager
-from src.day_trade.utils.logging_config import setup_logging
+from src.day_trade.data.stock_fetcher import StockFetcher  # noqa: E402
+from src.day_trade.data.stock_master import StockMasterManager  # noqa: E402
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
 # ロギング設定
 setup_logging()
@@ -43,7 +43,7 @@ class BulkFetchPerformanceTest:
             "8035",  # 東京エレクトロン
             "9984",  # ソフトバンクグループ
             "4502",  # 武田薬品工業
-            "4568"   # 第一三共
+            "4568",  # 第一三共
         ]
 
     def test_individual_fetch(self, codes: List[str]) -> Dict[str, Any]:
@@ -75,7 +75,7 @@ class BulkFetchPerformanceTest:
             "successful_codes": success_count,
             "total_time": total_time,
             "avg_time_per_code": avg_time,
-            "success_rate": success_count / len(codes) if codes else 0
+            "success_rate": success_count / len(codes) if codes else 0,
         }
 
         logger.info(f"個別取得完了: {performance_data}")
@@ -83,7 +83,9 @@ class BulkFetchPerformanceTest:
 
     def test_bulk_fetch(self, codes: List[str], batch_size: int = 50) -> Dict[str, Any]:
         """一括取得のパフォーマンステスト"""
-        logger.info(f"一括取得テスト開始: {len(codes)}銘柄 (バッチサイズ: {batch_size})")
+        logger.info(
+            f"一括取得テスト開始: {len(codes)}銘柄 (バッチサイズ: {batch_size})"
+        )
 
         start_time = time.time()
 
@@ -91,7 +93,7 @@ class BulkFetchPerformanceTest:
             results = self.stock_fetcher.bulk_get_company_info(
                 codes=codes,
                 batch_size=batch_size,
-                delay=0.05  # テスト用の短い遅延
+                delay=0.05,  # テスト用の短い遅延
             )
             success_count = sum(1 for result in results.values() if result is not None)
         except Exception as e:
@@ -109,7 +111,7 @@ class BulkFetchPerformanceTest:
             "total_time": total_time,
             "avg_time_per_code": avg_time,
             "success_rate": success_count / len(codes) if codes else 0,
-            "batch_size": batch_size
+            "batch_size": batch_size,
         }
 
         logger.info(f"一括取得完了: {performance_data}")
@@ -139,15 +141,19 @@ class BulkFetchPerformanceTest:
             "successful_codes": success_count,
             "total_time": total_time,
             "avg_time_per_code": avg_time,
-            "success_rate": success_count / len(codes) if codes else 0
+            "success_rate": success_count / len(codes) if codes else 0,
         }
 
         logger.info(f"マスタ個別更新完了: {performance_data}")
         return performance_data
 
-    def test_master_bulk_update(self, codes: List[str], batch_size: int = 50) -> Dict[str, Any]:
+    def test_master_bulk_update(
+        self, codes: List[str], batch_size: int = 50
+    ) -> Dict[str, Any]:
         """マスタ一括更新のパフォーマンステスト"""
-        logger.info(f"マスタ一括更新テスト開始: {len(codes)}銘柄 (バッチサイズ: {batch_size})")
+        logger.info(
+            f"マスタ一括更新テスト開始: {len(codes)}銘柄 (バッチサイズ: {batch_size})"
+        )
 
         start_time = time.time()
 
@@ -155,11 +161,16 @@ class BulkFetchPerformanceTest:
             result = self.stock_master.bulk_fetch_and_update_companies(
                 codes=codes,
                 batch_size=batch_size,
-                delay=0.05  # テスト用の短い遅延
+                delay=0.05,  # テスト用の短い遅延
             )
         except Exception as e:
             logger.error(f"マスタ一括更新エラー: {e}")
-            result = {"success": 0, "failed": len(codes), "skipped": 0, "total": len(codes)}
+            result = {
+                "success": 0,
+                "failed": len(codes),
+                "skipped": 0,
+                "total": len(codes),
+            }
 
         total_time = time.time() - start_time
         avg_time = total_time / len(codes) if codes else 0
@@ -172,8 +183,10 @@ class BulkFetchPerformanceTest:
             "skipped_codes": result["skipped"],
             "total_time": total_time,
             "avg_time_per_code": avg_time,
-            "success_rate": result["success"] / result["total"] if result["total"] else 0,
-            "batch_size": batch_size
+            "success_rate": result["success"] / result["total"]
+            if result["total"]
+            else 0,
+            "batch_size": batch_size,
         }
 
         logger.info(f"マスタ一括更新完了: {performance_data}")
@@ -208,7 +221,7 @@ class BulkFetchPerformanceTest:
             results["master_individual"] = {
                 "method": "master_individual",
                 "status": "skipped",
-                "reason": "database_load_consideration"
+                "reason": "database_load_consideration",
             }
 
             # 4. StockMaster一括更新テスト（軽量版）
@@ -217,7 +230,7 @@ class BulkFetchPerformanceTest:
             results["master_bulk"] = {
                 "method": "master_bulk",
                 "status": "skipped",
-                "reason": "database_load_consideration"
+                "reason": "database_load_consideration",
             }
 
         except Exception as e:
@@ -235,8 +248,11 @@ class BulkFetchPerformanceTest:
         logger.info("=" * 60)
 
         # 有効な結果のみを分析
-        valid_results = {k: v for k, v in results.items()
-                        if isinstance(v, dict) and "total_time" in v}
+        valid_results = {
+            k: v
+            for k, v in results.items()
+            if isinstance(v, dict) and "total_time" in v
+        }
 
         if len(valid_results) < 2:
             logger.warning("比較に十分な結果が得られませんでした")
@@ -244,10 +260,12 @@ class BulkFetchPerformanceTest:
 
         # パフォーマンス比較
         for method_name, data in valid_results.items():
-            logger.info(f"{method_name.upper()}: "
-                       f"{data['total_time']:.2f}秒 "
-                       f"({data['avg_time_per_code']:.3f}秒/銘柄) "
-                       f"成功率: {data['success_rate']:.1%}")
+            logger.info(
+                f"{method_name.upper()}: "
+                f"{data['total_time']:.2f}秒 "
+                f"({data['avg_time_per_code']:.3f}秒/銘柄) "
+                f"成功率: {data['success_rate']:.1%}"
+            )
 
         # 改善効果の計算
         if "fetcher_individual" in valid_results and "fetcher_bulk" in valid_results:
@@ -256,7 +274,7 @@ class BulkFetchPerformanceTest:
 
             if individual_time > 0:
                 improvement = (individual_time - bulk_time) / individual_time * 100
-                speedup = individual_time / bulk_time if bulk_time > 0 else float('inf')
+                speedup = individual_time / bulk_time if bulk_time > 0 else float("inf")
 
                 logger.info("=" * 40)
                 logger.info("StockFetcher改善効果:")

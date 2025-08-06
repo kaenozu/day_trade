@@ -7,21 +7,23 @@ Issue #122: 銘柄を一括で追加する機能の実装
 - パフォーマンスと動作確認用
 """
 
+import logging
 import sys
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import pandas as pd
-import logging
 
 # プロジェクトルートをPATHに追加
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.data.stock_master import StockMasterManager
-from src.day_trade.models.stock import Stock
-from src.day_trade.models.database import db_manager
-from src.day_trade.utils.logging_config import setup_logging
+# noqa: E402 - Import after path modification is necessary
+from src.day_trade.data.stock_master import StockMasterManager  # noqa: E402
+from src.day_trade.models.database import db_manager  # noqa: E402
+from src.day_trade.models.stock import Stock  # noqa: E402
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
 # ロギング設定
 setup_logging()
@@ -36,7 +38,7 @@ def load_test_stock_codes(limit: int = 50) -> List[str]:
     logger.info(f"テスト用証券コード読み込み: {csv_path}")
 
     df = pd.read_csv(csv_path)
-    stock_codes = df['stock_code'].astype(str).head(limit).tolist()
+    stock_codes = df["stock_code"].astype(str).head(limit).tolist()
 
     logger.info(f"テスト対象: {len(stock_codes)}件")
     logger.info(f"証券コード: {stock_codes}")
@@ -83,9 +85,7 @@ def register_test_stocks(limit: int = 20) -> Dict[str, Any]:
 
     start_time = time.time()
     results = stock_master.bulk_fetch_and_update_companies(
-        codes=new_codes,
-        batch_size=5,
-        delay=0.3
+        codes=new_codes, batch_size=5, delay=0.3
     )
 
     total_time = time.time() - start_time
@@ -105,7 +105,7 @@ def verify_registration(codes: List[str]) -> Dict[str, Any]:
         "total_codes": len(codes),
         "found_in_db": 0,
         "missing_codes": [],
-        "found_codes": []
+        "found_codes": [],
     }
 
     try:
@@ -123,7 +123,9 @@ def verify_registration(codes: List[str]) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"検証エラー: {e}")
 
-    logger.info(f"検証結果: {verification['found_in_db']}/{verification['total_codes']}件がデータベースに存在")
+    logger.info(
+        f"検証結果: {verification['found_in_db']}/{verification['total_codes']}件がデータベースに存在"
+    )
 
     return verification
 
@@ -133,7 +135,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="銘柄一括登録テスト")
-    parser.add_argument("--limit", type=int, default=10, help="登録する銘柄数（デフォルト: 10）")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="登録する銘柄数（デフォルト: 10）"
+    )
     parser.add_argument("--verify-only", action="store_true", help="検証のみ実行")
 
     args = parser.parse_args()
@@ -144,7 +148,7 @@ def main():
             codes = load_test_stock_codes(50)
             existing = get_existing_codes()
             found_codes = [code for code in codes if code in existing]
-            verify_result = verify_registration(found_codes[:20])  # 最初の20件のみ検証
+            _ = verify_registration(found_codes[:20])  # 最初の20件のみ検証
         else:
             # 実際の登録実行
             results = register_test_stocks(args.limit)

@@ -90,7 +90,9 @@ class TestDataCacheOptimization:
         # 高staleヒット率の場合の期間調整提案があることを確認
         recommendations = optimization["recommendations"]
         assert "stale_period_adjust" in recommendations
-        assert "stale-while-revalidate期間の調整" in recommendations["stale_period_adjust"]
+        assert (
+            "stale-while-revalidate期間の調整" in recommendations["stale_period_adjust"]
+        )
 
     def test_auto_tune_cache_insufficient_data(self):
         """データ不足時の自動調整テスト"""
@@ -224,27 +226,29 @@ class TestStockFetcherOptimization:
     @pytest.fixture
     def mock_yfinance(self):
         """yfinanceのモック"""
-        with patch('src.day_trade.data.stock_fetcher.yf') as mock_yf:
+        with patch("src.day_trade.data.stock_fetcher.yf") as mock_yf:
             mock_ticker = Mock()
             mock_yf.Ticker.return_value = mock_ticker
 
             # ダミーの履歴データ
-            mock_history = pd.DataFrame({
-                'Open': [100, 101, 102],
-                'High': [101, 102, 103],
-                'Low': [99, 100, 101],
-                'Close': [100.5, 101.5, 102.5],
-                'Volume': [1000, 1100, 1200]
-            })
+            mock_history = pd.DataFrame(
+                {
+                    "Open": [100, 101, 102],
+                    "High": [101, 102, 103],
+                    "Low": [99, 100, 101],
+                    "Close": [100.5, 101.5, 102.5],
+                    "Volume": [1000, 1100, 1200],
+                }
+            )
             mock_ticker.history.return_value = mock_history
 
             # ダミーの情報データ
             mock_ticker.info = {
-                'longName': 'Test Company',
-                'sector': 'Technology',
-                'industry': 'Software',
-                'marketCap': 1000000000,
-                'regularMarketPrice': 102.5
+                "longName": "Test Company",
+                "sector": "Technology",
+                "industry": "Software",
+                "marketCap": 1000000000,
+                "regularMarketPrice": 102.5,
             }
 
             yield mock_yf

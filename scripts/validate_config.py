@@ -7,11 +7,10 @@ CI/CD環境で設定ファイルや環境変数の整合性を検証する。
 """
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,14 +64,10 @@ class ConfigValidator:
             "config/signal_rules.json",
             "config/patterns_config.json",
             "config/stock_master_config.json",
-            "pyproject.toml"
+            "pyproject.toml",
         ]
 
-        optional_configs = [
-            ".env",
-            ".env.example",
-            "config/screening_config.json"
-        ]
+        optional_configs = [".env", ".env.example", "config/screening_config.json"]
 
         # 必須設定ファイル
         for config_path in required_configs:
@@ -100,14 +95,15 @@ class ConfigValidator:
 
         for config_file in self.config_files:
             try:
-                if config_file.suffix == '.json':
-                    with open(config_file, 'r', encoding='utf-8') as f:
+                if config_file.suffix == ".json":
+                    with open(config_file, encoding="utf-8") as f:
                         json.load(f)
                     logger.info(f"  ✅ {config_file.name} JSON構文正常")
 
-                elif config_file.name == 'pyproject.toml':
+                elif config_file.name == "pyproject.toml":
                     import toml
-                    with open(config_file, 'r', encoding='utf-8') as f:
+
+                    with open(config_file, encoding="utf-8") as f:
                         toml.load(f)
                     logger.info(f"  ✅ {config_file.name} TOML構文正常")
 
@@ -146,19 +142,21 @@ class ConfigValidator:
             return
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
 
             required_sections = [
-                'signal_generation',
-                'volume_spike_settings',
-                'rsi_settings',
-                'macd_settings'
+                "signal_generation",
+                "volume_spike_settings",
+                "rsi_settings",
+                "macd_settings",
             ]
 
             for section in required_sections:
                 if section not in config:
-                    self.errors.append(f"signal_rules.json: 必須セクション '{section}' が見つかりません")
+                    self.errors.append(
+                        f"signal_rules.json: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
                     logger.info(f"  ✅ signal_rules.json: {section}")
 
@@ -173,19 +171,21 @@ class ConfigValidator:
             return
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
 
             required_sections = [
-                'golden_dead_cross',
-                'support_resistance',
-                'breakout_detection',
-                'trend_line_detection'
+                "golden_dead_cross",
+                "support_resistance",
+                "breakout_detection",
+                "trend_line_detection",
             ]
 
             for section in required_sections:
                 if section not in config:
-                    self.errors.append(f"patterns_config.json: 必須セクション '{section}' が見つかりません")
+                    self.errors.append(
+                        f"patterns_config.json: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
                     logger.info(f"  ✅ patterns_config.json: {section}")
 
@@ -200,18 +200,16 @@ class ConfigValidator:
             return
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
 
-            required_sections = [
-                'session_management',
-                'performance',
-                'validation'
-            ]
+            required_sections = ["session_management", "performance", "validation"]
 
             for section in required_sections:
                 if section not in config:
-                    self.errors.append(f"stock_master_config.json: 必須セクション '{section}' が見つかりません")
+                    self.errors.append(
+                        f"stock_master_config.json: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
                     logger.info(f"  ✅ stock_master_config.json: {section}")
 
@@ -227,24 +225,29 @@ class ConfigValidator:
 
         try:
             import toml
-            with open(config_path, 'r', encoding='utf-8') as f:
+
+            with open(config_path, encoding="utf-8") as f:
                 config = toml.load(f)
 
             # 必須セクション
-            required_sections = ['project', 'build-system']
+            required_sections = ["project", "build-system"]
             for section in required_sections:
                 if section not in config:
-                    self.errors.append(f"pyproject.toml: 必須セクション '{section}' が見つかりません")
+                    self.errors.append(
+                        f"pyproject.toml: 必須セクション '{section}' が見つかりません"
+                    )
                 else:
                     logger.info(f"  ✅ pyproject.toml: {section}")
 
             # プロジェクト情報
-            if 'project' in config:
-                project = config['project']
-                required_fields = ['name', 'version', 'dependencies']
+            if "project" in config:
+                project = config["project"]
+                required_fields = ["name", "version", "dependencies"]
                 for field in required_fields:
                     if field not in project:
-                        self.errors.append(f"pyproject.toml[project]: 必須フィールド '{field}' が見つかりません")
+                        self.errors.append(
+                            f"pyproject.toml[project]: 必須フィールド '{field}' が見つかりません"
+                        )
                     else:
                         logger.info(f"  ✅ pyproject.toml[project]: {field}")
 
@@ -261,19 +264,29 @@ class ConfigValidator:
             # stock_master_config のバッチサイズ
             stock_config_path = PROJECT_ROOT / "config/stock_master_config.json"
             if stock_config_path.exists():
-                with open(stock_config_path, 'r', encoding='utf-8') as f:
+                with open(stock_config_path, encoding="utf-8") as f:
                     stock_config = json.load(f)
 
-                batch_size = stock_config.get('performance', {}).get('default_bulk_batch_size', 1000)
-                fetch_batch = stock_config.get('performance', {}).get('fetch_batch_size', 50)
+                batch_size = stock_config.get("performance", {}).get(
+                    "default_bulk_batch_size", 1000
+                )
+                fetch_batch = stock_config.get("performance", {}).get(
+                    "fetch_batch_size", 50
+                )
 
                 if batch_size < fetch_batch:
-                    self.warnings.append("stock_master_config: バルクバッチサイズがフェッチバッチサイズより小さいです")
+                    self.warnings.append(
+                        "stock_master_config: バルクバッチサイズがフェッチバッチサイズより小さいです"
+                    )
 
                 if batch_size > 10000:
-                    self.warnings.append("stock_master_config: バルクバッチサイズが大きすぎる可能性があります")
+                    self.warnings.append(
+                        "stock_master_config: バルクバッチサイズが大きすぎる可能性があります"
+                    )
 
-                logger.info(f"  ✅ バッチサイズ設定: bulk={batch_size}, fetch={fetch_batch}")
+                logger.info(
+                    f"  ✅ バッチサイズ設定: bulk={batch_size}, fetch={fetch_batch}"
+                )
 
         except Exception as e:
             self.warnings.append(f"設定整合性チェックエラー: {e}")
@@ -285,18 +298,25 @@ class ConfigValidator:
 
         # オプションの環境変数（本番環境で必要になる可能性があるもの）
         optional_env_vars = [
-            'DATABASE_URL',
-            'API_KEY',
-            'CACHE_REDIS_URL',
-            'LOG_LEVEL',
-            'ENVIRONMENT'
+            "DATABASE_URL",
+            "API_KEY",
+            "CACHE_REDIS_URL",
+            "LOG_LEVEL",
+            "ENVIRONMENT",
         ]
 
         for var in optional_env_vars:
             value = os.getenv(var)
             if value:
                 # 機密情報は値を隠す
-                display_value = "***" if any(secret in var.lower() for secret in ['key', 'token', 'password', 'secret']) else value
+                display_value = (
+                    "***"
+                    if any(
+                        secret in var.lower()
+                        for secret in ["key", "token", "password", "secret"]
+                    )
+                    else value
+                )
                 logger.info(f"  📄 {var}={display_value}")
             else:
                 logger.info(f"  ➖ {var} (未設定)")
@@ -317,18 +337,22 @@ class ConfigValidator:
         req_files = [
             "requirements.txt",
             "requirements-dev.txt",
-            "requirements-test.txt"
+            "requirements-test.txt",
         ]
 
         for req_file in req_files:
             req_path = PROJECT_ROOT / req_file
             if req_path.exists():
                 try:
-                    with open(req_path, 'r', encoding='utf-8') as f:
+                    with open(req_path, encoding="utf-8") as f:
                         lines = f.readlines()
 
                     # 空行やコメント行を除く
-                    packages = [line.strip() for line in lines if line.strip() and not line.strip().startswith('#')]
+                    packages = [
+                        line.strip()
+                        for line in lines
+                        if line.strip() and not line.strip().startswith("#")
+                    ]
                     logger.info(f"  ✅ {req_file}: {len(packages)}パッケージ")
 
                 except Exception as e:
@@ -341,7 +365,7 @@ class ConfigValidator:
 
         logger.info("📊 設定検証結果レポート")
 
-        total_issues = len(self.errors) + len(self.warnings)
+        _ = len(self.errors) + len(self.warnings)  # total_issues is unused
 
         if len(self.errors) == 0:
             logger.info("🎉 環境設定検証成功")
@@ -364,7 +388,7 @@ class ConfigValidator:
                 logger.warning(f"  {i}. {warning}")
 
         # サマリー
-        logger.info(f"📋 検証サマリー:")
+        logger.info("📋 検証サマリー:")
         logger.info(f"  - 設定ファイル数: {len(self.config_files)}")
         logger.info(f"  - エラー: {len(self.errors)}")
         logger.info(f"  - 警告: {len(self.warnings)}")
@@ -387,9 +411,11 @@ def main():
 if __name__ == "__main__":
     # toml パッケージが必要な場合はインストール
     try:
-        import toml
+        import toml  # noqa: F401
     except ImportError:
-        logger.warning("tomlパッケージがインストールされていません。pip install toml を実行してください。")
+        logger.warning(
+            "tomlパッケージがインストールされていません。pip install toml を実行してください。"
+        )
         sys.exit(1)
 
     main()

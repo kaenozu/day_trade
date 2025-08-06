@@ -19,18 +19,22 @@ print(f"\nRSI_OVERSOLD戦略: {strategy}")
 
 if strategy:
     # テストデータ
-    df = pd.DataFrame({
-        'Close': [100] * 50,
-        'Volume': [1000] * 50,
-        'High': [105] * 50,
-        'Low': [95] * 50
-    })
+    df = pd.DataFrame(
+        {
+            "Close": [100] * 50,
+            "Volume": [1000] * 50,
+            "High": [105] * 50,
+            "Low": [95] * 50,
+        }
+    )
 
-    indicators = pd.DataFrame({
-        'RSI': [25] * 50,  # RSI過売り
-        'SMA_20': [100] * 50,
-        'SMA_50': [100] * 50
-    })
+    indicators = pd.DataFrame(
+        {
+            "RSI": [25] * 50,  # RSI過売り
+            "SMA_20": [100] * 50,
+            "SMA_50": [100] * 50,
+        }
+    )
 
     meets_condition, score = strategy.evaluate(df, indicators, threshold=30.0)
     print(f"条件満足: {meets_condition}, スコア: {score}")

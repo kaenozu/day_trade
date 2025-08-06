@@ -39,13 +39,13 @@ class TestTradeManagerExtended:
             quantity=100,
             price=Decimal("2500"),
             notes="テスト購入",
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         assert result["success"] is True
         assert result["symbol"] == "7203"
         assert result["quantity"] == 100
-        assert result["price"] == 2500.0
+        assert result["price"] == "2500"
         assert "trade_id" in result
         assert "commission" in result
         assert "position" in result
@@ -62,7 +62,7 @@ class TestTradeManagerExtended:
             quantity=100,
             price=Decimal("2500"),
             current_market_price=Decimal("2550"),
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         assert result["success"] is True
@@ -73,46 +73,31 @@ class TestTradeManagerExtended:
         """buy_stockメソッドの無効数量テスト"""
         with pytest.raises(ValueError, match="購入数量は正数である必要があります"):
             trade_manager.buy_stock(
-                symbol="7203",
-                quantity=0,
-                price=Decimal("2500"),
-                persist_to_db=False
+                symbol="7203", quantity=0, price=Decimal("2500"), persist_to_db=False
             )
 
         with pytest.raises(ValueError, match="購入数量は正数である必要があります"):
             trade_manager.buy_stock(
-                symbol="7203",
-                quantity=-100,
-                price=Decimal("2500"),
-                persist_to_db=False
+                symbol="7203", quantity=-100, price=Decimal("2500"), persist_to_db=False
             )
 
     def test_buy_stock_invalid_price(self, trade_manager):
         """buy_stockメソッドの無効価格テスト"""
         with pytest.raises(ValueError, match="購入価格は正数である必要があります"):
             trade_manager.buy_stock(
-                symbol="7203",
-                quantity=100,
-                price=Decimal("0"),
-                persist_to_db=False
+                symbol="7203", quantity=100, price=Decimal("0"), persist_to_db=False
             )
 
         with pytest.raises(ValueError, match="購入価格は正数である必要があります"):
             trade_manager.buy_stock(
-                symbol="7203",
-                quantity=100,
-                price=Decimal("-2500"),
-                persist_to_db=False
+                symbol="7203", quantity=100, price=Decimal("-2500"), persist_to_db=False
             )
 
     def test_sell_stock_basic(self, trade_manager):
         """sell_stockメソッドの基本テスト"""
         # 先に買いポジションを作成
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
 
         # 売却実行
@@ -121,7 +106,7 @@ class TestTradeManagerExtended:
             quantity=50,
             price=Decimal("2600"),
             notes="テスト売却",
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         assert result["success"] is True
@@ -139,18 +124,12 @@ class TestTradeManagerExtended:
         """sell_stockメソッドの完全売却テスト"""
         # 先に買いポジションを作成
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
 
         # 完全売却実行
         result = trade_manager.sell_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2600"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2600"), persist_to_db=False
         )
 
         assert result["success"] is True
@@ -164,39 +143,27 @@ class TestTradeManagerExtended:
         """sell_stockメソッドの無効数量テスト"""
         with pytest.raises(ValueError, match="売却数量は正数である必要があります"):
             trade_manager.sell_stock(
-                symbol="7203",
-                quantity=0,
-                price=Decimal("2500"),
-                persist_to_db=False
+                symbol="7203", quantity=0, price=Decimal("2500"), persist_to_db=False
             )
 
     def test_sell_stock_no_position(self, trade_manager):
         """sell_stockメソッドのポジション未保有テスト"""
         with pytest.raises(ValueError, match="ポジションが存在しません"):
             trade_manager.sell_stock(
-                symbol="7203",
-                quantity=100,
-                price=Decimal("2500"),
-                persist_to_db=False
+                symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
             )
 
     def test_sell_stock_insufficient_quantity(self, trade_manager):
         """sell_stockメソッドの保有数量不足テスト"""
         # 先に100株購入
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
 
         # 150株売却を試行（数量不足）
         with pytest.raises(ValueError, match="売却数量.*が保有数量.*を超過しています"):
             trade_manager.sell_stock(
-                symbol="7203",
-                quantity=150,
-                price=Decimal("2600"),
-                persist_to_db=False
+                symbol="7203", quantity=150, price=Decimal("2600"), persist_to_db=False
             )
 
     def test_execute_trade_order_buy(self, trade_manager):
@@ -206,7 +173,7 @@ class TestTradeManagerExtended:
             "symbol": "7203",
             "quantity": 100,
             "price": Decimal("2500"),
-            "notes": "統一インターフェーステスト"
+            "notes": "統一インターフェーステスト",
         }
 
         result = trade_manager.execute_trade_order(trade_order, persist_to_db=False)
@@ -219,10 +186,7 @@ class TestTradeManagerExtended:
         """execute_trade_orderメソッドの売り注文テスト"""
         # 先に買いポジション作成
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
 
         trade_order = {
@@ -231,7 +195,7 @@ class TestTradeManagerExtended:
             "quantity": 50,
             "price": Decimal("2600"),
             "current_market_price": Decimal("2580"),
-            "notes": "統一インターフェーステスト"
+            "notes": "統一インターフェーステスト",
         }
 
         result = trade_manager.execute_trade_order(trade_order, persist_to_db=False)
@@ -246,7 +210,7 @@ class TestTradeManagerExtended:
             "action": "invalid",
             "symbol": "7203",
             "quantity": 100,
-            "price": Decimal("2500")
+            "price": Decimal("2500"),
         }
 
         with pytest.raises(ValueError, match="無効な取引アクション"):
@@ -258,16 +222,10 @@ class TestTradeManagerExtended:
 
         # 利益の出る取引を実行
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
         trade_manager.sell_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2700"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2700"), persist_to_db=False
         )
 
         tax_info = trade_manager.calculate_tax_implications(current_year)
@@ -286,16 +244,10 @@ class TestTradeManagerExtended:
 
         # 損失の出る取引を実行
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
         trade_manager.sell_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2300"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2300"), persist_to_db=False
         )
 
         tax_info = trade_manager.calculate_tax_implications(current_year)
@@ -321,8 +273,10 @@ class TestTradeManagerExtended:
         assert Decimal(tax_info["net_gain"]) == 0
         assert Decimal(tax_info["tax_due"]) == 0
 
-    @patch('src.day_trade.core.trade_manager.logger')
-    def test_calculate_tax_implications_error_handling(self, mock_logger, trade_manager):
+    @patch("src.day_trade.core.trade_manager.logger")
+    def test_calculate_tax_implications_error_handling(
+        self, mock_logger, trade_manager
+    ):
         """税務計算のエラー処理テスト"""
         # 無効な年を指定してエラーを発生させる
         invalid_year = "invalid_year"
@@ -337,20 +291,16 @@ class TestTradeManagerExtended:
         """load_from_jsonメソッドの基本テスト"""
         # 先にデータを作成
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
         trade_manager.sell_stock(
-            symbol="7203",
-            quantity=50,
-            price=Decimal("2600"),
-            persist_to_db=False
+            symbol="7203", quantity=50, price=Decimal("2600"), persist_to_db=False
         )
 
         # JSONに保存
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp_file:
             json_path = tmp_file.name
 
         try:
@@ -378,7 +328,9 @@ class TestTradeManagerExtended:
             trade_manager.load_from_json("nonexistent.json")
 
         # 無効なJSONファイル
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp_file:
             tmp_file.write("invalid json content")
             invalid_json_path = tmp_file.name
 
@@ -389,7 +341,7 @@ class TestTradeManagerExtended:
             if os.path.exists(invalid_json_path):
                 os.unlink(invalid_json_path)
 
-    @patch('src.day_trade.core.trade_manager.logger')
+    @patch("src.day_trade.core.trade_manager.logger")
     def test_load_from_json_error_logging(self, mock_logger, trade_manager):
         """load_from_jsonメソッドのエラーログテスト"""
         # 存在しないファイルでエラーを発生
@@ -399,7 +351,7 @@ class TestTradeManagerExtended:
         # エラーログが出力されていることを確認
         mock_logger.error.assert_called_once()
 
-    @patch('src.day_trade.core.trade_manager.logger')
+    @patch("src.day_trade.core.trade_manager.logger")
     def test_save_to_json_error_logging(self, mock_logger, trade_manager):
         """save_to_jsonメソッドのエラーログテスト"""
         # 無効なパス（書き込み権限なし）でエラーを発生
@@ -409,7 +361,7 @@ class TestTradeManagerExtended:
         # エラーログが出力されていることを確認
         mock_logger.error.assert_called_once()
 
-    @patch('src.day_trade.core.trade_manager.logger')
+    @patch("src.day_trade.core.trade_manager.logger")
     def test_export_to_csv_error_logging(self, mock_logger, trade_manager):
         """export_to_csvメソッドのエラーログテスト"""
         # 無効なパス（書き込み権限なし）でエラーを発生
@@ -426,7 +378,7 @@ class TestTradeManagerExtended:
             quantity=100,
             average_price=Decimal("2500.123456"),
             total_cost=Decimal("250012.3456"),
-            current_price=Decimal("2600.789012")
+            current_price=Decimal("2600.789012"),
         )
 
         result = position.to_dict()
@@ -435,7 +387,7 @@ class TestTradeManagerExtended:
         assert "unrealized_pnl_percent" in result
         # 小数点以下2桁に丸められていることを確認
         percent_str = result["unrealized_pnl_percent"]
-        decimal_places = len(percent_str.split('.')[-1]) if '.' in percent_str else 0
+        decimal_places = len(percent_str.split(".")[-1]) if "." in percent_str else 0
         assert decimal_places <= 2
 
     def test_realized_pnl_to_dict_quantize(self, trade_manager):
@@ -450,14 +402,14 @@ class TestTradeManagerExtended:
             pnl=Decimal("9769.785"),
             pnl_percent=Decimal("3.90791234"),
             buy_date=datetime.now(),
-            sell_date=datetime.now()
+            sell_date=datetime.now(),
         )
 
         result = realized_pnl.to_dict()
 
         # quantizeが正しく適用されていることを確認
         percent_str = result["pnl_percent"]
-        decimal_places = len(percent_str.split('.')[-1]) if '.' in percent_str else 0
+        decimal_places = len(percent_str.split(".")[-1]) if "." in percent_str else 0
         assert decimal_places <= 2
 
     def test_database_error_rollback_buy_stock(self, trade_manager):
@@ -467,7 +419,7 @@ class TestTradeManagerExtended:
         initial_positions = trade_manager.positions.copy()
 
         # データベースエラーをシミュレート
-        with patch('src.day_trade.core.trade_manager.db_manager') as mock_db_manager:
+        with patch("src.day_trade.core.trade_manager.db_manager") as mock_db_manager:
             mock_db_manager.transaction_scope.side_effect = Exception("DB Error")
 
             with pytest.raises(Exception, match="DB Error"):
@@ -475,7 +427,7 @@ class TestTradeManagerExtended:
                     symbol="7203",
                     quantity=100,
                     price=Decimal("2500"),
-                    persist_to_db=True
+                    persist_to_db=True,
                 )
 
             # メモリ内データが復元されていることを確認
@@ -486,10 +438,7 @@ class TestTradeManagerExtended:
         """sell_stockでのデータベースエラー時のロールバックテスト"""
         # 先に買いポジションを作成
         trade_manager.buy_stock(
-            symbol="7203",
-            quantity=100,
-            price=Decimal("2500"),
-            persist_to_db=False
+            symbol="7203", quantity=100, price=Decimal("2500"), persist_to_db=False
         )
 
         initial_trades = trade_manager.trades.copy()
@@ -497,7 +446,7 @@ class TestTradeManagerExtended:
         initial_realized_pnl = trade_manager.realized_pnl.copy()
 
         # データベースエラーをシミュレート
-        with patch('src.day_trade.core.trade_manager.db_manager') as mock_db_manager:
+        with patch("src.day_trade.core.trade_manager.db_manager") as mock_db_manager:
             mock_db_manager.transaction_scope.side_effect = Exception("DB Error")
 
             with pytest.raises(Exception, match="DB Error"):
@@ -505,7 +454,7 @@ class TestTradeManagerExtended:
                     symbol="7203",
                     quantity=50,
                     price=Decimal("2600"),
-                    persist_to_db=True
+                    persist_to_db=True,
                 )
 
             # メモリ内データが復元されていることを確認
@@ -532,7 +481,7 @@ class TestTradeManagerExtended:
             quantity=100,
             price=Decimal("2500"),
             timestamp=base_time,
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         trade_manager.add_trade(
@@ -541,7 +490,7 @@ class TestTradeManagerExtended:
             quantity=50,
             price=Decimal("2450"),
             timestamp=base_time.replace(hour=14),
-            persist_to_db=False
+            persist_to_db=False,
         )
 
         earliest_date = trade_manager._get_earliest_buy_date("7203")

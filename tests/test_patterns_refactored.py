@@ -2,10 +2,11 @@
 チャートパターン認識のテスト（リファクタリング版）
 """
 
-import pytest
-import pandas as pd
+from datetime import datetime
+
 import numpy as np
-from datetime import datetime, timedelta
+import pandas as pd
+import pytest
 
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
 
@@ -140,14 +141,12 @@ class TestChartPatternRecognizerRefactored:
     def test_trend_line_detection(self, sample_data):
         """トレンドライン検出のテスト"""
         recognizer = ChartPatternRecognizer()
-        trends = recognizer.trend_line_detection(
-            sample_data, window=10, min_touches=3
-        )
+        trends = recognizer.trend_line_detection(sample_data, window=10, min_touches=3)
 
         # 結果の検証
         assert isinstance(trends, dict)
         # トレンドが検出された場合の検証
-        for trend_name, trend_info in trends.items():
+        for _, trend_info in trends.items():  # trend_name is unused
             assert isinstance(trend_info, dict)
             assert "slope" in trend_info
             assert "intercept" in trend_info

@@ -10,7 +10,7 @@ Issue 183: テストカバレッジの計測と可視化
 import json
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ElementTree
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -36,7 +36,7 @@ def run_command(command: List[str], cwd: Optional[str] = None) -> tuple[int, str
 def parse_coverage_xml(xml_file: Path) -> Dict[str, Any]:
     """coverage.xml ファイルを解析してカバレッジデータを抽出"""
     try:
-        tree = ET.parse(xml_file)
+        tree = ElementTree.parse(xml_file)
         root = tree.getroot()
 
         coverage_data = {
@@ -88,14 +88,14 @@ def parse_coverage_xml(xml_file: Path) -> Dict[str, Any]:
                     }
                     class_data["lines"].append(line_data)
 
-                coverage_data["packages"][package_name]["classes"][class_name] = (
-                    class_data
-                )
+                coverage_data["packages"][package_name]["classes"][
+                    class_name
+                ] = class_data
                 coverage_data["classes"][class_name] = class_data
 
         return coverage_data
 
-    except ET.ParseError as e:
+    except ElementTree.ParseError as e:
         print(f"XMLパースエラー: {e}")
         return {}
     except Exception as e:

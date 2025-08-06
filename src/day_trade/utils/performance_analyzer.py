@@ -500,9 +500,9 @@ class PerformanceOptimizer:
                 try:
                     result = self._apply_optimization(bottleneck)
                     optimization_results["applied_optimizations"].append(result)
-                    optimization_results["total_estimated_improvement"] += (
-                        bottleneck.estimated_improvement
-                    )
+                    optimization_results[
+                        "total_estimated_improvement"
+                    ] += bottleneck.estimated_improvement
 
                 except Exception as e:
                     error_msg = f"最適化適用エラー ({bottleneck.component}): {e}"

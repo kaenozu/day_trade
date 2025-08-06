@@ -8,20 +8,22 @@ Issue #122: 銘柄を一括で追加する機能の実装
 - 冪等性を確保し、エラー耐性を持つ
 """
 
+import logging
 import sys
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
-import logging
 
 # プロジェクトルートをPATHに追加
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.data.stock_master import StockMasterManager
-from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.utils.logging_config import setup_logging
+# noqa: E402 - Import after path modification is necessary
+from src.day_trade.data.stock_fetcher import StockFetcher  # noqa: E402
+from src.day_trade.data.stock_master import StockMasterManager  # noqa: E402
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
 # ロギング設定
 setup_logging()
@@ -56,7 +58,7 @@ class BulkStockRegistration:
 
         try:
             df = pd.read_csv(csv_path)
-            stock_codes = df['stock_code'].astype(str).tolist()
+            stock_codes = df["stock_code"].astype(str).tolist()
 
             logger.info(f"読み込み証券コード数: {len(stock_codes)}")
             logger.info(f"サンプル: {stock_codes[:10]}")
@@ -77,8 +79,8 @@ class BulkStockRegistration:
         logger.info("既存証券コード確認中...")
 
         try:
-            from src.day_trade.models.stock import Stock
             from src.day_trade.models.database import db_manager
+            from src.day_trade.models.stock import Stock
 
             existing_codes = set()
 
@@ -119,7 +121,7 @@ class BulkStockRegistration:
         stock_codes: List[str],
         batch_size: int = 50,
         delay: float = 0.1,
-        max_failures: int = 100
+        max_failures: int = 100,
     ) -> Dict[str, Any]:
         """
         銘柄を一括登録
@@ -145,15 +147,13 @@ class BulkStockRegistration:
             "failed": 0,
             "skipped": 0,
             "failed_codes": [],
-            "batches_processed": 0
+            "batches_processed": 0,
         }
 
         try:
             # Issue #126のbulk機能を活用
             result = self.stock_master.bulk_fetch_and_update_companies(
-                codes=stock_codes,
-                batch_size=batch_size,
-                delay=delay
+                codes=stock_codes, batch_size=batch_size, delay=delay
             )
 
             # 結果をマージ
@@ -196,21 +196,18 @@ class BulkStockRegistration:
         report.append(f"スキップ: {results['skipped']:,}")
         report.append(f"成功率: {(results['success'] / results['total'] * 100):.1f}%")
 
-        if results.get('failed_codes'):
+        if results.get("failed_codes"):
             report.append("\n失敗した証券コード:")
-            for code in results['failed_codes'][:20]:  # 最初の20件のみ表示
+            for code in results["failed_codes"][:20]:  # 最初の20件のみ表示
                 report.append(f"  - {code}")
-            if len(results['failed_codes']) > 20:
+            if len(results["failed_codes"]) > 20:
                 report.append(f"  ... 他{len(results['failed_codes']) - 20}件")
 
         report.append("=" * 60)
         return "\n".join(report)
 
     def run_full_registration(
-        self,
-        include_existing: bool = False,
-        batch_size: int = 50,
-        delay: float = 0.1
+        self, include_existing: bool = False, batch_size: int = 50, delay: float = 0.1
     ) -> Dict[str, Any]:
         """
         完全な一括登録処理を実行
@@ -244,14 +241,12 @@ class BulkStockRegistration:
                     "success": 0,
                     "failed": 0,
                     "skipped": 0,
-                    "message": "処理対象なし"
+                    "message": "処理対象なし",
                 }
 
             # 3. 一括登録実行
             results = self.bulk_register_stocks(
-                target_codes,
-                batch_size=batch_size,
-                delay=delay
+                target_codes, batch_size=batch_size, delay=delay
             )
 
             # 4. レポート生成
@@ -271,26 +266,16 @@ def main():
 
     parser = argparse.ArgumentParser(description="銘柄一括登録スクリプト")
     parser.add_argument(
-        "--include-existing",
-        action="store_true",
-        help="既存銘柄も再処理する"
+        "--include-existing", action="store_true", help="既存銘柄も再処理する"
     )
     parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=20,
-        help="バッチサイズ（デフォルト: 20）"
+        "--batch-size", type=int, default=20, help="バッチサイズ（デフォルト: 20）"
     )
     parser.add_argument(
-        "--delay",
-        type=float,
-        default=0.2,
-        help="バッチ間遅延秒数（デフォルト: 0.2）"
+        "--delay", type=float, default=0.2, help="バッチ間遅延秒数（デフォルト: 0.2）"
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="実際の登録を行わずに実行計画のみ表示"
+        "--dry-run", action="store_true", help="実際の登録を行わずに実行計画のみ表示"
     )
 
     args = parser.parse_args()
@@ -307,7 +292,7 @@ def main():
             else:
                 target_codes = registration.filter_new_stock_codes(all_codes)
 
-            logger.info(f"実行計画:")
+            logger.info("実行計画:")
             logger.info(f"  対象銘柄数: {len(target_codes)}")
             logger.info(f"  バッチサイズ: {args.batch_size}")
             logger.info(f"  推定バッチ数: {len(target_codes) // args.batch_size + 1}")
@@ -319,7 +304,7 @@ def main():
         results = registration.run_full_registration(
             include_existing=args.include_existing,
             batch_size=args.batch_size,
-            delay=args.delay
+            delay=args.delay,
         )
 
         # 成功確認

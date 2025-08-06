@@ -650,8 +650,6 @@ def create_default_model_ensemble():
 # MLModelManager は既に 441行目で定義済み
 
 
-
-
 def evaluate_prediction_accuracy(
     predictions: List, actual_values: np.ndarray
 ) -> Dict[str, float]:

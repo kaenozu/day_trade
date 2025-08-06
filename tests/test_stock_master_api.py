@@ -49,7 +49,7 @@ def sample_stocks():
 class TestStockMasterAPI:
     """StockMasterManagerのAPIテストクラス（モック化版）"""
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_add_stock(self, mock_db_manager):
         """銘柄追加のテスト（モック化）"""
         # モックセットアップ
@@ -87,7 +87,7 @@ class TestStockMasterAPI:
         assert stock.sector == "輸送用機器"
         assert stock.industry == "自動車"
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_add_duplicate_stock(self, mock_db_manager):
         """重複銘柄追加のテスト（モック化）"""
         # モックセットアップ
@@ -110,7 +110,7 @@ class TestStockMasterAPI:
         assert stock2 is not None
         assert stock1.name == "トヨタ自動車"  # 元の名前が保持される
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_get_stock_by_code(self, mock_db_manager):
         """証券コードによる銘柄取得のテスト（モック化）"""
         # モックセットアップ
@@ -136,7 +136,7 @@ class TestStockMasterAPI:
             stock = stock_master.get_stock_by_code("9999")
             assert stock is None
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_search_stocks_by_name(self, mock_db_manager):
         """銘柄名検索のテスト（モック化）"""
         # モックセットアップ
@@ -161,7 +161,7 @@ class TestStockMasterAPI:
         assert "ソニーグループ" in names
         assert "ソフトバンクグループ" in names
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_search_stocks_by_sector(self, mock_db_manager):
         """セクター検索のテスト（モック化）"""
         # モックセットアップ
@@ -180,7 +180,7 @@ class TestStockMasterAPI:
         assert len(results) == 1
         assert results[0].name == "ソニーグループ"
 
-    @patch.object(stock_master, 'db_manager')
+    @patch.object(stock_master, "db_manager")
     def test_search_stocks_by_industry(self, mock_db_manager):
         """業種検索のテスト（モック化）"""
         # モックセットアップ

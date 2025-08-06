@@ -9,7 +9,7 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Any, Dict
 from unittest.mock import Mock
 
 import numpy as np
@@ -18,7 +18,6 @@ import pytest
 
 from src.day_trade.analysis.patterns import ChartPatternRecognizer
 from src.day_trade.analysis.signals import TradingSignalGenerator
-from src.day_trade.analysis.indicators import TechnicalIndicators
 from src.day_trade.core.trade_manager import TradeManager
 from src.day_trade.data.stock_fetcher import StockFetcher
 
@@ -54,30 +53,36 @@ def crossover_stock_data():
     dates = pd.date_range(end=datetime.now(), periods=50, freq="D")
 
     # 明確なクロスオーバーパターンを作成
-    fast_trend = np.concatenate([
-        np.linspace(100, 95, 20),   # 下降
-        np.linspace(95, 105, 15),   # 上昇（ゴールデンクロス）
-        np.linspace(105, 98, 15),   # 下降（デッドクロス）
-    ])
+    fast_trend = np.concatenate(
+        [
+            np.linspace(100, 95, 20),  # 下降
+            np.linspace(95, 105, 15),  # 上昇（ゴールデンクロス）
+            np.linspace(105, 98, 15),  # 下降（デッドクロス）
+        ]
+    )
 
-    slow_trend = np.concatenate([
-        np.linspace(102, 100, 20),  # 緩やかな下降
-        np.linspace(100, 102, 15),  # 緩やかな上昇
-        np.linspace(102, 100, 15),  # 緩やかな下降
-    ])
+    slow_trend = np.concatenate(
+        [
+            np.linspace(102, 100, 20),  # 緩やかな下降
+            np.linspace(100, 102, 15),  # 緩やかな上昇
+            np.linspace(102, 100, 15),  # 緩やかな下降
+        ]
+    )
 
     # ノイズを追加
     fast_prices = fast_trend + np.random.randn(50) * 0.5
-    slow_prices = slow_trend + np.random.randn(50) * 0.3
+    _ = slow_trend + np.random.randn(50) * 0.3  # slow_prices is unused
 
-    df = pd.DataFrame({
-        "Date": dates,
-        "Open": fast_prices + np.random.randn(50) * 0.2,
-        "High": fast_prices + np.abs(np.random.randn(50)) * 0.8,
-        "Low": fast_prices - np.abs(np.random.randn(50)) * 0.8,
-        "Close": fast_prices,
-        "Volume": np.random.randint(2000000, 8000000, 50),
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "Open": fast_prices + np.random.randn(50) * 0.2,
+            "High": fast_prices + np.abs(np.random.randn(50)) * 0.8,
+            "Low": fast_prices - np.abs(np.random.randn(50)) * 0.8,
+            "Close": fast_prices,
+            "Volume": np.random.randint(2000000, 8000000, 50),
+        }
+    )
     df.set_index("Date", inplace=True)
     return df
 
@@ -99,7 +104,7 @@ def mock_stock_fetcher():
         "change": 50.0,
         "change_percent": 4.76,
         "volume": 25000,
-        "market_cap": 1000000000
+        "market_cap": 1000000000,
     }
 
     # 企業情報をモック
@@ -107,7 +112,7 @@ def mock_stock_fetcher():
         "name": "テスト株式会社",
         "sector": "テクノロジー",
         "industry": "ソフトウェア",
-        "market_cap": 1000000000
+        "market_cap": 1000000000,
     }
 
     return mock_fetcher
@@ -134,7 +139,7 @@ def signal_generator():
 def temp_database():
     """テスト用一時データベース"""
     # 一時ファイルを作成
-    temp_fd, temp_path = tempfile.mkstemp(suffix='.db')
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".db")
     os.close(temp_fd)
 
     # 環境変数でテスト用DBを指定
@@ -163,7 +168,7 @@ def sample_trades_data():
             "quantity": 100,
             "price": Decimal("2800.00"),
             "timestamp": datetime.now() - timedelta(days=10),
-            "commission": Decimal("2.80")
+            "commission": Decimal("2.80"),
         },
         {
             "symbol": "7203",
@@ -171,7 +176,7 @@ def sample_trades_data():
             "quantity": 100,
             "price": Decimal("2900.00"),
             "timestamp": datetime.now() - timedelta(days=5),
-            "commission": Decimal("2.90")
+            "commission": Decimal("2.90"),
         },
         {
             "symbol": "9984",
@@ -179,8 +184,8 @@ def sample_trades_data():
             "quantity": 50,
             "price": Decimal("9500.00"),
             "timestamp": datetime.now() - timedelta(days=8),
-            "commission": Decimal("4.75")
-        }
+            "commission": Decimal("4.75"),
+        },
     ]
 
 
@@ -189,9 +194,7 @@ class TestHelpers:
 
     @staticmethod
     def create_price_data_with_pattern(
-        pattern_type: str,
-        periods: int = 100,
-        base_price: float = 100.0
+        pattern_type: str, periods: int = 100, base_price: float = 100.0
     ) -> pd.DataFrame:
         """特定のパターンを持つ価格データを生成"""
         dates = pd.date_range(end=datetime.now(), periods=periods, freq="D")
@@ -201,21 +204,26 @@ class TestHelpers:
         elif pattern_type == "downtrend":
             trend = np.linspace(base_price, base_price * 0.7, periods)
         elif pattern_type == "sideways":
-            trend = np.full(periods, base_price) + np.sin(np.linspace(0, 4*np.pi, periods)) * 2
+            trend = (
+                np.full(periods, base_price)
+                + np.sin(np.linspace(0, 4 * np.pi, periods)) * 2
+            )
         else:
             trend = np.full(periods, base_price)
 
         noise = np.random.randn(periods) * (base_price * 0.02)
         close_prices = trend + noise
 
-        return pd.DataFrame({
-            "Date": dates,
-            "Open": close_prices + np.random.randn(periods) * 0.5,
-            "High": close_prices + np.abs(np.random.randn(periods)) * 1.5,
-            "Low": close_prices - np.abs(np.random.randn(periods)) * 1.5,
-            "Close": close_prices,
-            "Volume": np.random.randint(1000000, 5000000, periods),
-        }).set_index("Date")
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": close_prices + np.random.randn(periods) * 0.5,
+                "High": close_prices + np.abs(np.random.randn(periods)) * 1.5,
+                "Low": close_prices - np.abs(np.random.randn(periods)) * 1.5,
+                "Close": close_prices,
+                "Volume": np.random.randint(1000000, 5000000, periods),
+            }
+        ).set_index("Date")
 
     @staticmethod
     def assert_signal_structure(signal_data: Dict[str, Any]):
@@ -229,7 +237,9 @@ class TestHelpers:
         assert signal_data["strength"] in ["WEAK", "MEDIUM", "STRONG"]
 
     @staticmethod
-    def assert_pattern_result_structure(pattern_result: pd.DataFrame, expected_columns: list):
+    def assert_pattern_result_structure(
+        pattern_result: pd.DataFrame, expected_columns: list
+    ):
         """パターン認識結果の構造をアサート"""
         assert isinstance(pattern_result, pd.DataFrame)
         for col in expected_columns:
@@ -245,7 +255,9 @@ def configure_warnings():
 
     # Pandas関連の警告を無視
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="pandas")
-    warnings.filterwarnings("ignore", message=".*Bitwise inversion.*", category=DeprecationWarning)
+    warnings.filterwarnings(
+        "ignore", message=".*Bitwise inversion.*", category=DeprecationWarning
+    )
     warnings.filterwarnings("ignore", message=".*R\\^2 score is not well-defined.*")
     warnings.filterwarnings("ignore", message=".*Remove `format_exc_info`.*")
 
@@ -254,8 +266,7 @@ def configure_warnings():
 def pytest_configure(config):
     """pytest設定"""
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (run with --integration)"
+        "markers",
+        "integration: marks tests as integration tests (run with --integration)",
     )
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (run with --slow)"
-    )
+    config.addinivalue_line("markers", "slow: marks tests as slow (run with --slow)")

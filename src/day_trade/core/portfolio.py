@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -151,7 +151,9 @@ class PortfolioAnalyzer:
     def get_sector_allocation(self) -> List[SectorAllocation]:
         """セクター別配分を取得"""
         positions = self.trade_manager.get_all_positions()
-        sector_data = defaultdict(lambda: {"value": Decimal("0"), "positions": 0})
+        sector_data: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"value": Decimal("0"), "positions": 0}
+        )
 
         total_value = Decimal("0")
 
@@ -338,7 +340,7 @@ class PortfolioAnalyzer:
             if not realized_pnl:
                 return None
 
-            wins = sum(1 for pnl in realized_pnl if pnl.realized_pnl > 0)
+            wins = sum(1 for pnl in realized_pnl if pnl.pnl > 0)
             total = len(realized_pnl)
 
             return wins / total if total > 0 else None
@@ -393,7 +395,7 @@ class PortfolioAnalyzer:
             return None
 
         try:
-            sector_values = defaultdict(Decimal)
+            sector_values: Dict[str, Decimal] = defaultdict(Decimal)
             total_value = Decimal("0")
 
             for symbol, position in positions.items():
@@ -434,7 +436,7 @@ class PortfolioAnalyzer:
             report = self.generate_performance_report()
 
             # メトリクス情報
-            metrics_data = {"metric": [], "value": []}
+            metrics_data: Dict[str, List[str]] = {"metric": [], "value": []}
 
             metrics_dict = asdict(report.metrics)
             for key, value in metrics_dict.items():
@@ -487,7 +489,7 @@ class PortfolioAnalyzer:
             report_dict = report.to_dict()
 
             # Decimalを文字列に変換
-            def decimal_converter(obj):
+            def decimal_converter(obj: Any) -> str:
                 if isinstance(obj, Decimal):
                     return str(obj)
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
@@ -548,11 +550,11 @@ if __name__ == "__main__":
     logger.info(
         "ポートフォリオメトリクス",
         section="portfolio_metrics",
-        total_value=float(metrics.total_value),
-        total_pnl=float(metrics.total_pnl),
-        total_pnl_percent=float(metrics.total_pnl_percent),
-        volatility=float(metrics.volatility) if metrics.volatility else None,
-        sharpe_ratio=float(metrics.sharpe_ratio) if metrics.sharpe_ratio else None,
+        total_value=str(metrics.total_value),
+        total_pnl=str(metrics.total_pnl),
+        total_pnl_percent=str(metrics.total_pnl_percent),
+        volatility=str(metrics.volatility) if metrics.volatility else None,
+        sharpe_ratio=str(metrics.sharpe_ratio) if metrics.sharpe_ratio else None,
     )
 
     # セクター配分
@@ -562,8 +564,8 @@ if __name__ == "__main__":
             "セクター配分",
             section="sector_allocation",
             sector=alloc.sector,
-            percentage=float(alloc.percentage),
-            value=float(alloc.value),
+            percentage=str(alloc.percentage),
+            value=str(alloc.value),
         )
 
     # パフォーマンスランキング
@@ -575,7 +577,7 @@ if __name__ == "__main__":
             "パフォーマンス上位",
             section="performance_ranking_top",
             symbol=symbol,
-            pnl_percent=float(pnl_pct),
+            pnl_percent=str(pnl_pct),
         )
 
     for symbol, pnl_pct in worst:
@@ -583,5 +585,5 @@ if __name__ == "__main__":
             "パフォーマンス下位",
             section="performance_ranking_worst",
             symbol=symbol,
-            pnl_percent=float(pnl_pct),
+            pnl_percent=str(pnl_pct),
         )

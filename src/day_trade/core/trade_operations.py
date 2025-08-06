@@ -38,7 +38,7 @@ class TradeOperations:
         stock_code: str,
         quantity: int,
         price: Optional[Decimal] = None,
-        commission: Decimal = Decimal('0'),
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> Dict[str, any]:
         """
@@ -186,7 +186,7 @@ class TradeOperations:
         stock_code: str,
         quantity: int,
         price: Optional[Decimal] = None,
-        commission: Decimal = Decimal('0'),
+        commission: Decimal = Decimal("0"),
         memo: str = "",
     ) -> Dict[str, any]:
         """

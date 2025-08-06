@@ -3,7 +3,7 @@
 高度なCLI表示機能とASCIIチャート描画
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import pandas as pd
 from rich import box
@@ -264,7 +264,10 @@ def create_watchlist_table(watchlist_data: dict) -> Table:
 
 
 def create_error_panel(
-    message: str, title: str = "エラー", solutions: list = None, show_emoji: bool = True
+    message: str,
+    title: str = "エラー",
+    solutions: Optional[List[str]] = None,
+    show_emoji: bool = True,
 ) -> Panel:
     """
     ユーザーフレンドリーなエラーパネルを作成
@@ -561,7 +564,7 @@ def create_comparison_table(
         table.add_column(key, justify="right")
 
     # 共通キーを取得
-    all_keys = set()
+    all_keys: Set[str] = set()
     for item_data in data.values():
         all_keys.update(item_data.keys())
 
@@ -857,11 +860,7 @@ def create_cli_header(title: str, subtitle: str = None) -> Panel:
         content.append("\n")
         content.append(subtitle, style="dim")
 
-    return Panel(
-        Align.center(content),
-        border_style="cyan",
-        padding=(1, 2)
-    )
+    return Panel(Align.center(content), border_style="cyan", padding=(1, 2))
 
 
 def create_cli_section(title: str, content: str, style: str = "white") -> Panel:
@@ -880,7 +879,7 @@ def create_cli_section(title: str, content: str, style: str = "white") -> Panel:
         Text(content, style=style),
         title=f"[bold]{title}[/bold]",
         border_style="blue",
-        padding=(0, 1)
+        padding=(0, 1),
     )
 
 
@@ -927,10 +926,7 @@ def create_cli_status_bar(status_items: Dict[str, str]) -> Text:
 
 
 def create_cli_list_item(
-    index: int,
-    title: str,
-    description: str = None,
-    status: str = None
+    index: int, title: str, description: str = None, status: str = None
 ) -> Text:
     """
     CLI用リストアイテムを作成
@@ -981,7 +977,7 @@ def create_cli_confirmation_panel(message: str, default: bool = False) -> Panel:
         Text(content, style="white"),
         title="[bold yellow]確認[/bold yellow]",
         border_style="yellow",
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
 
@@ -1003,9 +999,7 @@ def create_cli_loading_indicator(message: str = "処理中...") -> Text:
 
 
 def format_cli_table_data(
-    headers: List[str],
-    rows: List[List[str]],
-    title: str = None
+    headers: List[str], rows: List[List[str]], title: str = None
 ) -> Table:
     """
     CLI用テーブルデータをフォーマット
@@ -1028,7 +1022,7 @@ def format_cli_table_data(
     # データ行を追加
     for row in rows:
         # 行の長さをヘッダーに合わせる
-        padded_row = row[:len(headers)] + [""] * (len(headers) - len(row))
+        padded_row = row[: len(headers)] + [""] * (len(headers) - len(row))
         table.add_row(*padded_row)
 
     return table

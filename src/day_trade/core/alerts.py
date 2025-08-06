@@ -305,6 +305,7 @@ class AlertManager:
         """
         if self._watchlist_manager is None:
             from ..core.watchlist import WatchlistManager
+
             self._watchlist_manager = WatchlistManager()
         return self._watchlist_manager
 
@@ -400,7 +401,9 @@ class AlertManager:
             return
 
         # 銘柄ごとにグループ化
-        symbols_to_check = list(set(condition.symbol for condition in active_conditions))
+        symbols_to_check = list(
+            set(condition.symbol for condition in active_conditions)
+        )
 
         try:
             # 全銘柄のデータを一括取得（パフォーマンス最適化）
@@ -408,12 +411,18 @@ class AlertManager:
 
             for symbol in symbols_to_check:
                 try:
-                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
+                    symbol_conditions = [
+                        c for c in active_conditions if c.symbol == symbol
+                    ]
                     market_data = bulk_data.get(symbol)
                     if market_data:
-                        self._check_symbol_alerts_with_data(symbol, symbol_conditions, market_data)
+                        self._check_symbol_alerts_with_data(
+                            symbol, symbol_conditions, market_data
+                        )
                     else:
-                        logger.warning(f"銘柄 '{symbol}' の市場データが取得できませんでした")
+                        logger.warning(
+                            f"銘柄 '{symbol}' の市場データが取得できませんでした"
+                        )
                 except Exception as e:
                     logger.error(
                         f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
@@ -423,7 +432,9 @@ class AlertManager:
             # フォールバック：個別取得
             for symbol in symbols_to_check:
                 try:
-                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
+                    symbol_conditions = [
+                        c for c in active_conditions if c.symbol == symbol
+                    ]
                     self._check_symbol_alerts(symbol, symbol_conditions)
                 except Exception as e:
                     logger.error(
@@ -443,15 +454,15 @@ class AlertManager:
         bulk_data = {}
 
         # 現在価格データの一括取得を試行
-        bulk_method = getattr(self.stock_fetcher, 'get_bulk_current_prices', None)
+        bulk_method = getattr(self.stock_fetcher, "get_bulk_current_prices", None)
         if bulk_method and callable(bulk_method):
             try:
                 current_prices = bulk_method(symbols)
                 if current_prices and isinstance(current_prices, dict):
                     for symbol, price_data in current_prices.items():
                         bulk_data[symbol] = {
-                            'current_data': price_data,
-                            'historical_data': None  # 遅延読み込み
+                            "current_data": price_data,
+                            "historical_data": None,  # 遅延読み込み
                         }
             except Exception as e:
                 logger.error(f"バルクデータ取得エラー: {e}")
@@ -465,15 +476,17 @@ class AlertManager:
                     current_data = self.stock_fetcher.get_current_price(symbol)
                     if current_data:
                         bulk_data[symbol] = {
-                            'current_data': current_data,
-                            'historical_data': None
+                            "current_data": current_data,
+                            "historical_data": None,
                         }
                 except Exception as e:
                     logger.debug(f"個別データ取得失敗 ({symbol}): {e}")
 
         return bulk_data
 
-    def _check_symbol_alerts_with_data(self, symbol: str, conditions: List[AlertCondition], market_data: Dict):
+    def _check_symbol_alerts_with_data(
+        self, symbol: str, conditions: List[AlertCondition], market_data: Dict
+    ):
         """
         事前取得された市場データを使用してアラートチェック（最適化版）
 
@@ -483,7 +496,7 @@ class AlertManager:
             market_data: 事前取得された市場データ
         """
         try:
-            current_data = market_data.get('current_data')
+            current_data = market_data.get("current_data")
             if not current_data:
                 logger.warning(f"価格データが不正: {symbol}")
                 return
@@ -494,23 +507,25 @@ class AlertManager:
 
             # 履歴データが必要な条件があるかチェック
             needs_historical = any(
-                condition.alert_type in [
+                condition.alert_type
+                in [
                     AlertType.VOLUME_SPIKE,
                     AlertType.RSI_OVERBOUGHT,
                     AlertType.RSI_OVERSOLD,
-                    AlertType.CUSTOM_CONDITION
-                ] for condition in conditions
+                    AlertType.CUSTOM_CONDITION,
+                ]
+                for condition in conditions
             )
 
             historical_data = None
             if needs_historical:
                 # 遅延読み込み：必要な場合のみ履歴データを取得
-                historical_data = market_data.get('historical_data')
+                historical_data = market_data.get("historical_data")
                 if historical_data is None:
                     historical_data = self.stock_fetcher.get_historical_data(
                         symbol, period="1mo", interval="1d"
                     )
-                    market_data['historical_data'] = historical_data  # キャッシュ
+                    market_data["historical_data"] = historical_data  # キャッシュ
 
             for condition in conditions:
                 if self._should_check_condition(condition):
@@ -539,10 +554,7 @@ class AlertManager:
                 logger.warning(f"価格データ取得失敗: {symbol}")
                 return
 
-            market_data = {
-                'current_data': current_data,
-                'historical_data': None
-            }
+            market_data = {"current_data": current_data, "historical_data": None}
 
             self._check_symbol_alerts_with_data(symbol, conditions, market_data)
 
@@ -569,7 +581,11 @@ class AlertManager:
                 return None
 
             # カスタムパラメーターにシンボルとカスタム関数を追加
-            custom_params = condition.custom_parameters.copy() if condition.custom_parameters else {}
+            custom_params = (
+                condition.custom_parameters.copy()
+                if condition.custom_parameters
+                else {}
+            )
             custom_params["symbol"] = condition.symbol
             if condition.custom_function:
                 custom_params["custom_function"] = condition.custom_function
@@ -584,7 +600,7 @@ class AlertManager:
                 change_percent=change_percent,
                 historical_data=historical_data,
                 comparison_operator=condition.comparison_operator,
-                custom_parameters=custom_params
+                custom_parameters=custom_params,
             )
 
             # トリガーを作成
@@ -609,7 +625,6 @@ class AlertManager:
             )
 
         return None
-
 
     def _compare_values(
         self,

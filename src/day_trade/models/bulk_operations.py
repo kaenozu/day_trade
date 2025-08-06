@@ -21,7 +21,13 @@ logger = get_context_logger(__name__, component="bulk_operations")
 class BulkOperationError(Exception):
     """バルク操作固有のエラー"""
 
-    def __init__(self, message: str, operation: str, affected_records: int = 0, details: Optional[Dict] = None):
+    def __init__(
+        self,
+        message: str,
+        operation: str,
+        affected_records: int = 0,
+        details: Optional[Dict] = None,
+    ):
         super().__init__(message)
         self.operation = operation
         self.affected_records = affected_records
@@ -45,7 +51,7 @@ class AdvancedBulkOperations:
         data: List[Dict[str, Any]],
         conflict_strategy: str = "ignore",
         chunk_size: int = 1000,
-        unique_columns: Optional[List[str]] = None
+        unique_columns: Optional[List[str]] = None,
     ) -> Dict[str, int]:
         """
         競合解決付きバルク挿入
@@ -67,20 +73,27 @@ class AdvancedBulkOperations:
         table_name = model_class.__tablename__
 
         import time
+
         start_time = time.perf_counter()
         try:
             with self.db_manager.session_scope() as session:
-                    if conflict_strategy == "ignore":
-                        stats = self._bulk_insert_ignore(session, model_class, data, chunk_size)
-                    elif conflict_strategy == "update":
-                        stats = self._bulk_upsert(session, model_class, data, chunk_size, unique_columns)
-                    elif conflict_strategy == "error":
-                        stats = self._bulk_insert_strict(session, model_class, data, chunk_size)
-                    else:
-                        raise BulkOperationError(
-                            f"Unknown conflict strategy: {conflict_strategy}",
-                            "bulk_insert_with_conflict_resolution"
-                        )
+                if conflict_strategy == "ignore":
+                    stats = self._bulk_insert_ignore(
+                        session, model_class, data, chunk_size
+                    )
+                elif conflict_strategy == "update":
+                    stats = self._bulk_upsert(
+                        session, model_class, data, chunk_size, unique_columns
+                    )
+                elif conflict_strategy == "error":
+                    stats = self._bulk_insert_strict(
+                        session, model_class, data, chunk_size
+                    )
+                else:
+                    raise BulkOperationError(
+                        f"Unknown conflict strategy: {conflict_strategy}",
+                        "bulk_insert_with_conflict_resolution",
+                    )
 
             elapsed_time = time.perf_counter() - start_time
             self.logger.info(
@@ -88,7 +101,7 @@ class AdvancedBulkOperations:
                 table=table_name,
                 strategy=conflict_strategy,
                 elapsed_ms=round(elapsed_time * 1000, 2),
-                **stats
+                **stats,
             )
 
         except Exception as e:
@@ -96,12 +109,12 @@ class AdvancedBulkOperations:
                 "Bulk insert with conflict resolution failed",
                 table=table_name,
                 strategy=conflict_strategy,
-                error=str(e)
+                error=str(e),
             )
             raise BulkOperationError(
                 f"Bulk insert failed: {str(e)}",
                 "bulk_insert_with_conflict_resolution",
-                details={"table": table_name, "strategy": conflict_strategy}
+                details={"table": table_name, "strategy": conflict_strategy},
             ) from e
 
         return stats
@@ -111,13 +124,13 @@ class AdvancedBulkOperations:
         session: Session,
         model_class: Type[Base],
         data: List[Dict],
-        chunk_size: int
+        chunk_size: int,
     ) -> Dict[str, int]:
         """競合を無視するバルク挿入"""
         stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
 
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
+            chunk = data[i : i + chunk_size]
             try:
                 session.bulk_insert_mappings(model_class, chunk)
                 stats["inserted"] += len(chunk)
@@ -140,7 +153,7 @@ class AdvancedBulkOperations:
         model_class: Type[Base],
         data: List[Dict],
         chunk_size: int,
-        unique_columns: Optional[List[str]]
+        unique_columns: Optional[List[str]],
     ) -> Dict[str, int]:
         """アップサート（挿入または更新）"""
         stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
@@ -150,10 +163,12 @@ class AdvancedBulkOperations:
             unique_columns = [pk.name for pk in inspect(model_class).primary_key]
 
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
+            chunk = data[i : i + chunk_size]
 
             # 既存レコードを特定
-            existing_keys = self._get_existing_keys(session, model_class, chunk, unique_columns)
+            existing_keys = self._get_existing_keys(
+                session, model_class, chunk, unique_columns
+            )
 
             inserts = []
             updates = []
@@ -190,13 +205,13 @@ class AdvancedBulkOperations:
         session: Session,
         model_class: Type[Base],
         data: List[Dict],
-        chunk_size: int
+        chunk_size: int,
     ) -> Dict[str, int]:
         """厳密なバルク挿入（競合時はエラー）"""
         stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
 
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
+            chunk = data[i : i + chunk_size]
             session.bulk_insert_mappings(model_class, chunk)
             stats["inserted"] += len(chunk)
 
@@ -207,17 +222,14 @@ class AdvancedBulkOperations:
         session: Session,
         model_class: Type[Base],
         data: List[Dict],
-        unique_columns: List[str]
+        unique_columns: List[str],
     ) -> set:
         """既存キーを効率的に取得"""
         if not data or not unique_columns:
             return set()
 
         # IN句を使って既存キーを一括取得
-        key_values = [
-            tuple(item.get(col) for col in unique_columns)
-            for item in data
-        ]
+        key_values = [tuple(item.get(col) for col in unique_columns) for item in data]
 
         # クエリを構築
         columns = [getattr(model_class, col) for col in unique_columns]
@@ -231,6 +243,7 @@ class AdvancedBulkOperations:
         else:
             # 複数カラムの場合（tuple inを使用）
             from sqlalchemy import tuple_
+
             valid_tuples = [kv for kv in key_values if all(v is not None for v in kv)]
             if valid_tuples:
                 query = query.filter(tuple_(*columns).in_(valid_tuples))
@@ -242,7 +255,7 @@ class AdvancedBulkOperations:
         model_class: Type[Base],
         conditions: Dict[str, Any],
         chunk_size: int = 1000,
-        dry_run: bool = False
+        dry_run: bool = False,
     ) -> Dict[str, int]:
         """
         条件付きバルク削除
@@ -284,7 +297,7 @@ class AdvancedBulkOperations:
                     table=table_name,
                     deleted=deleted_count,
                     elapsed_ms=round(elapsed_time * 1000, 2),
-                    conditions=conditions
+                    conditions=conditions,
                 )
 
                 return {"deleted": deleted_count}
@@ -294,12 +307,12 @@ class AdvancedBulkOperations:
                 "Bulk delete failed",
                 table=table_name,
                 conditions=conditions,
-                error=str(e)
+                error=str(e),
             )
             raise BulkOperationError(
                 f"Bulk delete failed: {str(e)}",
                 "bulk_delete_with_conditions",
-                details={"table": table_name, "conditions": conditions}
+                details={"table": table_name, "conditions": conditions},
             ) from e
 
     @contextmanager
@@ -336,7 +349,7 @@ class AdvancedBulkOperations:
                         self.logger.debug(
                             "Intermediate commit",
                             processed=self.processed,
-                            batch_count=self.batch_count
+                            batch_count=self.batch_count,
                         )
 
                 except Exception as e:
@@ -352,7 +365,7 @@ class AdvancedBulkOperations:
                             self.logger.info(
                                 "Batch processing completed",
                                 total_processed=self.processed,
-                                total_batches=self.batch_count
+                                total_batches=self.batch_count,
                             )
                         else:
                             self.session.rollback()
@@ -363,10 +376,13 @@ class AdvancedBulkOperations:
 
 
 # 便利な関数
-def create_bulk_operations(db_manager: Optional[DatabaseManager] = None) -> AdvancedBulkOperations:
+def create_bulk_operations(
+    db_manager: Optional[DatabaseManager] = None,
+) -> AdvancedBulkOperations:
     """AdvancedBulkOperationsインスタンスを作成"""
     if db_manager is None:
         from .database import db_manager as default_db_manager
+
         db_manager = default_db_manager
 
     return AdvancedBulkOperations(db_manager)

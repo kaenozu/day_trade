@@ -7,18 +7,19 @@ Issue #122: 銘柄を一括で追加する機能の実装
 - 証券コードを抽出してCSV形式で保存
 """
 
-import requests
-import pandas as pd
+import logging
 import sys
 from pathlib import Path
 from typing import List, Optional
-import logging
+
+import pandas as pd
+import requests
 
 # プロジェクトルートをPATHに追加
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.utils.logging_config import setup_logging
+from src.day_trade.utils.logging_config import setup_logging  # noqa: E402
 
 # ロギング設定
 setup_logging()
@@ -52,14 +53,14 @@ class JPXStockListDownloader:
         try:
             # HTTPヘッダーを設定（JPXサイトのアクセス制限対応）
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
 
             response = requests.get(self.jpx_url, headers=headers, timeout=30)
             response.raise_for_status()
 
             # ファイルに保存
-            with open(save_path, 'wb') as f:
+            with open(save_path, "wb") as f:
                 f.write(response.content)
 
             logger.info(f"ダウンロード完了: {save_path}")
@@ -105,8 +106,14 @@ class JPXStockListDownloader:
 
             # 一般的な証券コード列名のパターン
             code_column_patterns = [
-                'コード', 'code', '証券コード', '銘柄コード',
-                'Code', 'Stock Code', '証券コード', 'ticker'
+                "コード",
+                "code",
+                "証券コード",
+                "銘柄コード",
+                "Code",
+                "Stock Code",
+                "証券コード",
+                "ticker",
             ]
 
             code_column = None
@@ -119,7 +126,9 @@ class JPXStockListDownloader:
             if code_column is None:
                 # 最初の列を証券コードと仮定
                 code_column = df.columns[0]
-                logger.warning(f"証券コード列が特定できないため、最初の列を使用: {code_column}")
+                logger.warning(
+                    f"証券コード列が特定できないため、最初の列を使用: {code_column}"
+                )
             else:
                 logger.info(f"証券コード列を特定: {code_column}")
 
@@ -141,7 +150,9 @@ class JPXStockListDownloader:
             logger.error(f"証券コード抽出エラー: {e}")
             raise
 
-    def save_stock_codes_csv(self, stock_codes: List[str], csv_path: Optional[Path] = None) -> Path:
+    def save_stock_codes_csv(
+        self, stock_codes: List[str], csv_path: Optional[Path] = None
+    ) -> Path:
         """
         証券コードをCSVファイルに保存
 
@@ -159,14 +170,16 @@ class JPXStockListDownloader:
 
         try:
             # DataFrameを作成
-            df = pd.DataFrame({
-                'stock_code': stock_codes,
-                'source': 'JPX',
-                'download_date': pd.Timestamp.now().strftime('%Y-%m-%d')
-            })
+            df = pd.DataFrame(
+                {
+                    "stock_code": stock_codes,
+                    "source": "JPX",
+                    "download_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+                }
+            )
 
             # CSV保存
-            df.to_csv(csv_path, index=False, encoding='utf-8')
+            df.to_csv(csv_path, index=False, encoding="utf-8")
 
             logger.info(f"CSV保存完了: {len(stock_codes)}件の証券コード")
 
@@ -212,7 +225,7 @@ def main():
         downloader = JPXStockListDownloader()
         csv_path, stock_codes = downloader.process_jpx_stock_list()
 
-        print(f"✅ 処理完了")
+        print("✅ 処理完了")
         print(f"📁 CSV出力: {csv_path}")
         print(f"📊 抽出銘柄数: {len(stock_codes)}")
         print(f"📋 サンプル証券コード: {stock_codes[:10]}")
