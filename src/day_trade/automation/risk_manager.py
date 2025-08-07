@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import contextlib
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -195,10 +196,8 @@ class RiskManager:
         self._stop_monitoring = True
         if self._monitoring_task:
             self._monitoring_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
             self._monitoring_task = None
 
         logger.info("リスク監視を停止しました")
@@ -637,7 +636,7 @@ class RiskManager:
         total = Decimal("0")
 
         # 既存ポジション
-        for symbol, position in portfolio.get("positions", {}).items():
+        for _symbol, position in portfolio.get("positions", {}).items():
             quantity = position.get("quantity", 0)
             price = position.get("current_price", Decimal("0"))
             total += abs(quantity) * price

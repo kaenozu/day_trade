@@ -115,7 +115,7 @@ class MarketAnalysisSystem:
             if market_data:
                 # 価格変動の分析
                 price_changes = []
-                for symbol, data in market_data.items():
+                for _symbol, data in market_data.items():
                     if isinstance(data, dict) and "price_change_pct" in data:
                         price_changes.append(data["price_change_pct"])
 
@@ -508,7 +508,6 @@ class ManualTradingSupport:
         """市場状況判定"""
         try:
             price_change_pct = data.get("price_change_pct", 0)
-            volume = data.get("volume", 0)
 
             if abs(price_change_pct) > 3.0:
                 return "高ボラティリティ"

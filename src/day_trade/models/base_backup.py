@@ -76,9 +76,9 @@ class BaseModel(Base, TimestampMixin):
     )
 
     @declared_attr  # type: ignore
-    def __tablename__(cls) -> str:
+    def __tablename__(self) -> str:
         """テーブル名を自動生成（クラス名を小文字に）"""
-        return cls.__name__.lower()
+        return self.__name__.lower()
 
     # キャッシュ用クラス変数
     _pydantic_model_cache: Dict[str, Type[PydanticBaseModel]] = {}
@@ -383,7 +383,7 @@ class BaseModel(Base, TimestampMixin):
         sql_type = column.type
         python_type = Any  # デフォルト
 
-        if isinstance(sql_type, String) or isinstance(sql_type, Text):
+        if isinstance(sql_type, (String, Text)):
             python_type = str
         elif isinstance(sql_type, Integer):
             python_type = int

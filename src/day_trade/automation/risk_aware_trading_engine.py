@@ -367,8 +367,8 @@ class MarketAnalysisEngine(EnhancedTradingEngine):
             basic_risk = self._comprehensive_risk_check()
 
             # RiskManagerによる追加チェック（ダミーデータで）
-            portfolio_summary = self.portfolio_manager.get_portfolio_summary()
-            positions = {
+            self.portfolio_manager.get_portfolio_summary()
+            {
                 symbol: {
                     "quantity": position.quantity,
                     "average_price": position.average_price,
@@ -486,20 +486,23 @@ class MarketAnalysisEngine(EnhancedTradingEngine):
         try:
             logger.critical(f"【重要アラート】{alert.message}")
 
-            if alert.symbol and "ストップロス" in alert.message:
-                if alert.symbol in self.market_data:
-                    current_price = self.market_data[alert.symbol].price
-                    position = self.portfolio_manager.get_position(alert.symbol)
+            if (
+                alert.symbol
+                and "ストップロス" in alert.message
+                and alert.symbol in self.market_data
+            ):
+                current_price = self.market_data[alert.symbol].price
+                position = self.portfolio_manager.get_position(alert.symbol)
 
-                    if position and not position.is_flat():
-                        logger.critical(
-                            f"【手動対応必要】ストップロス到達: {alert.symbol} @{current_price} "
-                            f"現在数量:{position.quantity}株 "
-                            f"※自動決済は無効化されています - 手動で確認してください"
-                        )
+                if position and not position.is_flat():
+                    logger.critical(
+                        f"【手動対応必要】ストップロス到達: {alert.symbol} @{current_price} "
+                        f"現在数量:{position.quantity}株 "
+                        f"※自動決済は無効化されています - 手動で確認してください"
+                    )
 
-                        # 統計のみ更新
-                        self.analysis_stats["alerts_generated"] += 1
+                    # 統計のみ更新
+                    self.analysis_stats["alerts_generated"] += 1
 
         except Exception as e:
             logger.error(f"アラート処理エラー: {e}")

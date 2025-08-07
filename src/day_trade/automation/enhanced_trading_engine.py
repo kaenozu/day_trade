@@ -417,7 +417,7 @@ class EnhancedTradingEngine:
         """ポジションサイズ計算"""
         try:
             # 現在のポートフォリオ状況を取得
-            portfolio_summary = self.portfolio_manager.get_portfolio_summary()
+            self.portfolio_manager.get_portfolio_summary()
             current_price = self.market_data[symbol].price
 
             # 信頼度に基づく基本サイズ

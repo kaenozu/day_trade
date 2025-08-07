@@ -147,13 +147,7 @@ class Order:
             else:
                 return current_price >= self.price
 
-        elif self.order_type == OrderType.STOP:
-            if self.side == TradeType.BUY:
-                return current_price >= self.stop_price
-            else:
-                return current_price <= self.stop_price
-
-        elif self.order_type == OrderType.STOP_LIMIT:
+        elif self.order_type in [OrderType.STOP, OrderType.STOP_LIMIT]:
             if self.side == TradeType.BUY:
                 return current_price >= self.stop_price
             else:
@@ -402,15 +396,17 @@ class AdvancedOrderManager:
                 return False
 
             # 価格チェック
-            if order.order_type in [OrderType.LIMIT, OrderType.STOP_LIMIT]:
-                if not order.price or order.price <= 0:
-                    logger.error("指値価格が無効です")
-                    return False
+            if order.order_type in [OrderType.LIMIT, OrderType.STOP_LIMIT] and (
+                not order.price or order.price <= 0
+            ):
+                logger.error("指値価格が無効です")
+                return False
 
-            if order.order_type in [OrderType.STOP, OrderType.STOP_LIMIT]:
-                if not order.stop_price or order.stop_price <= 0:
-                    logger.error("ストップ価格が無効です")
-                    return False
+            if order.order_type in [OrderType.STOP, OrderType.STOP_LIMIT] and (
+                not order.stop_price or order.stop_price <= 0
+            ):
+                logger.error("ストップ価格が無効です")
+                return False
 
             return True
 
