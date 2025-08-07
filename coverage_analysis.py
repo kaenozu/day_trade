@@ -233,16 +233,12 @@ def generate_coverage_report():
 
         if estimated_coverage >= 80:
             quality = "EXCELLENT"
-            color = "green"
         elif estimated_coverage >= 60:
             quality = "GOOD"
-            color = "yellow"
         elif estimated_coverage >= 40:
             quality = "FAIR"
-            color = "orange"
         else:
             quality = "NEEDS IMPROVEMENT"
-            color = "red"  # Color for future use
 
         print(f"Coverage Quality: {quality}")
 
