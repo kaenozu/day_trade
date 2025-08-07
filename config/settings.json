@@ -8,62 +8,387 @@
       {
         "code": "7203",
         "name": "トヨタ自動車",
-        "group": "主力株",
-        "priority": "high"
+        "group": "自動車",
+        "priority": "high",
+        "sector": "Transportation"
       },
       {
         "code": "8306",
         "name": "三菱UFJ銀行",
-        "group": "銀行株",
-        "priority": "medium"
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
       },
       {
         "code": "9984",
         "name": "ソフトバンクグループ",
-        "group": "テック株",
-        "priority": "high"
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
       },
       {
         "code": "6758",
         "name": "ソニー",
-        "group": "テック株",
-        "priority": "medium"
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
       },
       {
         "code": "4689",
         "name": "Z Holdings",
-        "group": "テック株",
-        "priority": "low"
+        "group": "テクノロジー",
+        "priority": "medium",
+        "sector": "Technology"
       },
       {
         "code": "9434",
         "name": "ソフトバンク",
-        "group": "通信株",
-        "priority": "medium"
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
       },
       {
         "code": "8001",
         "name": "伊藤忠商事",
-        "group": "商社株",
-        "priority": "medium"
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
       },
       {
         "code": "7267",
         "name": "ホンダ",
-        "group": "自動車株",
-        "priority": "medium"
+        "group": "自動車",
+        "priority": "high",
+        "sector": "Transportation"
       },
       {
         "code": "6861",
         "name": "キーエンス",
         "group": "精密機器",
-        "priority": "high"
+        "priority": "high",
+        "sector": "Industrial"
       },
       {
         "code": "2914",
         "name": "JT",
         "group": "食品・たばこ",
-        "priority": "low"
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "4755",
+        "name": "楽天グループ",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "3659",
+        "name": "ネクソン",
+        "group": "ゲーム",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "9613",
+        "name": "エヌ・ティ・ティ・データ",
+        "group": "IT・システム",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "2432",
+        "name": "DeNA",
+        "group": "ゲーム",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "4385",
+        "name": "メルカリ",
+        "group": "マーケットプレイス",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "9437",
+        "name": "NTTドコモ",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
+      },
+      {
+        "code": "4704",
+        "name": "トレンドマイクロ",
+        "group": "セキュリティ",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "4751",
+        "name": "サイバーエージェント",
+        "group": "インターネット",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "8058",
+        "name": "三菱商事",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "8411",
+        "name": "みずほフィナンシャルグループ",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8766",
+        "name": "東京海上",
+        "group": "保険",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8316",
+        "name": "三井住友フィナンシャルグループ",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8031",
+        "name": "三井物産",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "8053",
+        "name": "住友商事",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "7751",
+        "name": "キヤノン",
+        "group": "精密機器",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6981",
+        "name": "村田製作所",
+        "group": "電子部品",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "5401",
+        "name": "新日鉄住金",
+        "group": "鉄鋼",
+        "priority": "medium",
+        "sector": "Materials"
+      },
+      {
+        "code": "7011",
+        "name": "三菱重工業",
+        "group": "重工業",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6503",
+        "name": "三菱電機",
+        "group": "電機",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6954",
+        "name": "ファナック",
+        "group": "工作機械",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "7974",
+        "name": "任天堂",
+        "group": "ゲーム",
+        "priority": "high",
+        "sector": "Consumer"
+      },
+      {
+        "code": "6367",
+        "name": "ダイキン工業",
+        "group": "空調",
+        "priority": "medium",
+        "sector": "Industrial"
+      },
+      {
+        "code": "4502",
+        "name": "武田薬品工業",
+        "group": "製薬",
+        "priority": "high",
+        "sector": "Healthcare"
+      },
+      {
+        "code": "3382",
+        "name": "セブン&アイ・ホールディングス",
+        "group": "小売",
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "2801",
+        "name": "キッコーマン",
+        "group": "食品",
+        "priority": "low",
+        "sector": "Consumer"
+      },
+      {
+        "code": "2502",
+        "name": "アサヒグループホールディングス",
+        "group": "飲料",
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "4523",
+        "name": "エーザイ",
+        "group": "製薬",
+        "priority": "high",
+        "sector": "Healthcare"
+      },
+      {
+        "code": "9983",
+        "name": "ファーストリテイリング",
+        "group": "アパレル",
+        "priority": "high",
+        "sector": "Consumer"
+      },
+      {
+        "code": "9101",
+        "name": "日本郵船",
+        "group": "海運",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "9201",
+        "name": "日本航空",
+        "group": "航空",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "9202",
+        "name": "ANA",
+        "group": "航空",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "5020",
+        "name": "ENEOS",
+        "group": "エネルギー",
+        "priority": "medium",
+        "sector": "Energy"
+      },
+      {
+        "code": "9501",
+        "name": "東京電力",
+        "group": "電力",
+        "priority": "low",
+        "sector": "Utilities"
+      },
+      {
+        "code": "9502",
+        "name": "中部電力",
+        "group": "電力",
+        "priority": "low",
+        "sector": "Utilities"
+      },
+      {
+        "code": "8802",
+        "name": "三菱地所",
+        "group": "不動産",
+        "priority": "medium",
+        "sector": "RealEstate"
+      },
+      {
+        "code": "1801",
+        "name": "大成建設",
+        "group": "建設",
+        "priority": "medium",
+        "sector": "Construction"
+      },
+      {
+        "code": "1803",
+        "name": "清水建設",
+        "group": "建設",
+        "priority": "medium",
+        "sector": "Construction"
+      },
+      {
+        "code": "8604",
+        "name": "野村ホールディングス",
+        "group": "証券",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "7182",
+        "name": "ゆうちょ銀行",
+        "group": "金融",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "4005",
+        "name": "住友化学",
+        "group": "化学",
+        "priority": "medium",
+        "sector": "Materials"
+      },
+      {
+        "code": "4061",
+        "name": "デンカ",
+        "group": "化学",
+        "priority": "low",
+        "sector": "Materials"
+      },
+      {
+        "code": "8795",
+        "name": "T&Dホールディングス",
+        "group": "保険",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "9432",
+        "name": "NTT",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
+      },
+      {
+        "code": "4777",
+        "name": "ガーラ",
+        "group": "ゲーム",
+        "priority": "low",
+        "sector": "Technology"
+      },
+      {
+        "code": "3776",
+        "name": "ブロードバンドタワー",
+        "group": "インフラ",
+        "priority": "low",
+        "sector": "Technology"
       }
     ],
     "update_interval_minutes": 1,
