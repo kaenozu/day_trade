@@ -352,8 +352,8 @@ class TestComprehensiveWorkflow:
         # 2. 基本的な処理時間測定のシミュレーション
         start_time = time.time()
 
-        # 3. 処理の実行（シミュレーション）
-        time.sleep(0.01)  # 10ms の処理をシミュレート
+        # 3. 処理の実行（モック環境では即座に完了）
+        # time.sleepは自動的にモック化されているため、実際の待機は発生しない
 
         # 4. 測定終了
         duration = time.time() - start_time

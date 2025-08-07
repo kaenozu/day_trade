@@ -232,7 +232,7 @@ class TestEndToEndWorkflow:
 
         # パフォーマンスメトリクスログのテスト
         start_time = time.time()
-        time.sleep(0.001)  # 1ms待機
+        pass  # 待機はモック化により無効化
         end_time = time.time()
         duration_ms = (end_time - start_time) * 1000
 

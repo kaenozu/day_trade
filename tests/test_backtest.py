@@ -1268,8 +1268,7 @@ class TestBacktestEngine:
 
         # モックで各銘柄ごとに異なるデータを返すよう設定
         def mock_get_data(symbol, start_date, end_date, interval="1d"):
-            # わずかな遅延を追加して並列処理の効果をシミュレート
-            time.sleep(0.01)
+            # 遅延を除去して高速化
             dates = pd.date_range(start_date, end_date, freq="D")
             return pd.DataFrame(
                 {

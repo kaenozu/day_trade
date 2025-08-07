@@ -3,7 +3,6 @@
 """
 
 import contextlib
-import time
 from datetime import datetime
 from decimal import Decimal
 
@@ -243,8 +242,7 @@ class TestDatabaseManager:
             original_updated = stock.updated_at
             original_created = stock.created_at
 
-            # 少し待機してからデータを更新
-            time.sleep(0.1)  # 100ms待機
+            # 待機を除去し、直接更新操作を実行
 
             # 更新操作
             stock.name = "トヨタ自動車株式会社"

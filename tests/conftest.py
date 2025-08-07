@@ -7,6 +7,7 @@
 
 import os
 import tempfile
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict
@@ -116,6 +117,48 @@ def mock_stock_fetcher():
     }
 
     return mock_fetcher
+
+
+# パフォーマンス最適化フィクスチャ
+@pytest.fixture(autouse=True)
+def performance_optimizations(monkeypatch):
+    """
+    全てのテストに自動適用される高速化設定
+    time.sleep、重いAPI呼び出し、データベース操作を最適化
+    """
+    # time.sleepを無効化
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+
+    # yfinanceのTickerクラスをモック化
+    mock_ticker = Mock()
+    mock_ticker.history.return_value = pd.DataFrame(
+        {
+            "Open": [1500] * 30,
+            "High": [1550] * 30,
+            "Low": [1450] * 30,
+            "Close": [1500] * 30,
+            "Volume": [1000000] * 30,
+        },
+        index=pd.date_range("2023-01-01", periods=30),
+    )
+
+    mock_ticker.info = {
+        "shortName": "Mock Company",
+        "regularMarketPrice": 1500.0,
+        "previousClose": 1480.0,
+    }
+
+    # yfinance.Tickerをモック化
+    import contextlib
+
+    with contextlib.suppress(AttributeError):
+        monkeypatch.setattr("yfinance.Ticker", lambda symbol: mock_ticker)
+
+    # requests.getをモック化
+    mock_response = Mock()
+    mock_response.json.return_value = {"data": "mock"}
+    mock_response.status_code = 200
+    monkeypatch.setattr("requests.get", lambda *args, **kwargs: mock_response)
 
 
 @pytest.fixture

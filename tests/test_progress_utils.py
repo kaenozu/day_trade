@@ -4,7 +4,6 @@ progress.pyの基本テスト - Issue #127対応
 """
 
 import os
-import time
 
 import pytest
 
@@ -266,7 +265,6 @@ class TestProgressIntegration:
             # バッチ処理のシミュレーション
             for i in range(15):
                 # 成功ケース
-                time.sleep(0.001)
                 tracker.update_success(f"アイテム{i}")
 
             # 失敗ケース
@@ -299,7 +297,7 @@ class TestProgressIntegration:
 
         with MultiStepProgressTracker(steps, "データ分析パイプライン") as tracker:
             for i, _ in enumerate(steps):
-                time.sleep(0.001)  # 処理時間をシミュレート
+                pass  # 処理時間のシミュレートを除去
 
                 if i < len(steps) - 1:
                     tracker.next_step()

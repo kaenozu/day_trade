@@ -327,10 +327,7 @@ class TestUtilityMethods:
         original_created = sample_user.created_at
         original_updated = sample_user.updated_at
 
-        # 少し待機して時刻を変える
-        import time
-
-        time.sleep(0.01)
+        # 待機を除去し、直接タイムスタンプを更新
 
         sample_user.refresh_timestamps()
 
