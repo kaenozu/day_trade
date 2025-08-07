@@ -1,24 +1,33 @@
-# Day Trade - 投資分析支援システム
+# Day Trade - 分析専用投資学習システム
 
 [![CI/CD Pipeline](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/optimized-ci.yml)
 [![Pre-commit Checks](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/pre-commit.yml)
 [![Conflict Detection](https://github.com/kaenozu/day_trade/actions/workflows/conflict-detection.yml/badge.svg)](https://github.com/kaenozu/day_trade/actions/workflows/conflict-detection.yml)
 [![codecov](https://codecov.io/gh/kaenozu/day_trade/branch/main/graph/badge.svg)](https://codecov.io/gh/kaenozu/day_trade)
-[![Test Coverage](https://img.shields.io/badge/coverage-37.5%25-orange.svg)](https://github.com/kaenozu/day_trade/tree/main/reports/coverage)
+[![Test Coverage](https://img.shields.io/badge/coverage-45%25-yellow.svg)](https://github.com/kaenozu/day_trade/tree/main/reports/coverage)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Safe Mode](https://img.shields.io/badge/Safe%20Mode-ENABLED-green.svg)](https://github.com/kaenozu/day_trade/blob/main/src/day_trade/config/trading_mode_config.py)
 
-**高度な投資分析・手動取引支援システム**
+**🔒 完全セーフモード - 教育・分析・研究専用システム**
 
-## ⚠️ 重要な変更通知
+## 🔒 システム安全保証
 
-**このシステムは自動取引機能を完全に無効化しています。**
+**このシステムは100%安全な分析専用システムです。**
 
-- ✅ **安全な分析専用システム** - 実際の取引は一切実行されません
-- ✅ **教育・学習目的に最適** - 投資理論とプログラミングの学習
-- ✅ **手動取引支援** - 分析情報の提供と意思決定支援
-- ❌ **自動取引なし** - 注文実行機能は完全に無効化済み
+### ✅ 有効化されている機能
+- 📊 **市場データ分析** - リアルタイム株価・指標分析
+- 🎯 **投資シグナル生成** - テクニカル分析による推奨情報
+- 📈 **トレンド分析** - 相関・ボラティリティ・パターン分析  
+- 📋 **レポート生成** - 包括的な分析レポートとエクスポート
+- 🌐 **分析ダッシュボード** - リアルタイム分析結果表示
+- 🎓 **教育機能** - 投資理論の学習支援とインサイト提供
+
+### ❌ 完全無効化されている機能
+- 🚫 **自動取引実行** - 注文送信機能は完全に削除済み
+- 🚫 **注文API接続** - 取引所への接続は完全遮断
+- 🚫 **実資金の移動** - 資金に関する操作は一切なし
 
 ## 🎯 プロジェクトの目的
 
@@ -94,38 +103,79 @@ pip install -r requirements-dev.txt
 
 ## 🏃 使用方法
 
-### 1. 安全設定確認
+### 1. 🔒 安全設定確認（必須）
 ```bash
-# システム設定の確認
+# システム安全設定の確認
 python -c "from src.day_trade.config.trading_mode_config import log_current_configuration; log_current_configuration()"
 ```
 
-### 2. 分析システムテスト
+### 2. 🧪 包括的システムテスト
 ```bash
-# 基本動作テスト
-python test_analysis_system.py
+# 分析専用システム全機能テスト
+python test_coverage_analysis_system.py
+
+# ダッシュボード機能テスト  
+python test_dashboard_basic.py
 ```
 
-### 3. 統合分析システム起動
+### 3. 🌐 分析専用ダッシュボード起動（推奨）
+```bash
+# Webダッシュボード起動
+python run_analysis_dashboard.py
+
+# ブラウザでアクセス
+# http://localhost:8000
+```
+
+**ダッシュボード機能:**
+- リアルタイム市場分析表示
+- シグナル生成・解説
+- 分析レポート自動生成
+- 教育インサイト提供
+- 完全セーフモード保証
+
+### 4. 💻 プログラマティック利用
+
+#### 分析専用エンジン
 ```python
 import asyncio
-from src.day_trade.core.integrated_analysis_system import IntegratedAnalysisSystem
+from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
 
 async def main():
-    # 監視したい銘柄を指定
+    # 監視銘柄指定
     symbols = ["7203", "6758", "9984"]  # トヨタ、ソニー、ソフトバンク
 
-    # システム初期化
-    system = IntegratedAnalysisSystem(symbols)
+    # 分析専用エンジン初期化
+    engine = AnalysisOnlyEngine(symbols, update_interval=30.0)
 
-    # 包括的分析開始（30秒間隔）
-    await system.start_comprehensive_analysis(analysis_interval=30.0)
+    # 分析開始
+    await engine.start()
+
+    # 分析結果取得
+    market_summary = engine.get_market_summary()
+    print("市場サマリー:", market_summary)
 
 # 実行
 asyncio.run(main())
 ```
 
-### 4. 個別分析実行
+#### 強化レポートシステム
+```python
+from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
+
+# レポートマネージャー初期化  
+manager = EnhancedReportManager()
+
+# 詳細市場レポート生成
+symbols = ["7203", "6758"]
+report = manager.generate_detailed_market_report(symbols)
+
+# 教育インサイト生成
+insights = manager.generate_educational_insights(symbols)
+print("学習用インサイト:", insights)
+```
+
+### 5. 🔧 個別コンポーネント利用
 ```python
 from src.day_trade.analysis.market_analysis_system import MarketAnalysisSystem
 
@@ -149,20 +199,24 @@ print(analysis_result)
 ### 核心モジュール
 ```
 src/day_trade/
-├── config/                 # 設定管理（安全性確保）
-│   └── trading_mode_config.py  # セーフモード設定
-├── core/                   # コアシステム
-│   └── integrated_analysis_system.py  # 統合分析システム
-├── analysis/               # 分析エンジン
-│   ├── market_analysis_system.py      # 市場分析
-│   └── signals.py                     # シグナル生成
-├── automation/             # 分析エンジン（旧：自動取引）
-│   ├── risk_aware_trading_engine.py   # 分析エンジン
-│   └── advanced_order_manager.py      # 注文分析（無効化済み）
-├── data/                   # データ管理
-│   └── stock_fetcher.py    # 株価データ取得
-└── utils/                  # ユーティリティ
-    └── logging_config.py   # ログ設定
+├── 🔒 config/                        # 安全設定管理
+│   └── trading_mode_config.py        # セーフモード強制設定
+├── 🎯 automation/                    # 分析専用エンジン
+│   ├── analysis_only_engine.py       # メイン分析エンジン
+│   ├── trading_engine.py             # 分析モード取引エンジン
+│   └── risk_manager.py               # リスク分析システム
+├── 📊 analysis/                      # 高度分析システム
+│   ├── enhanced_report_manager.py    # 強化レポート生成
+│   ├── market_analysis_system.py     # 市場分析
+│   └── signals.py                    # シグナル生成・解析
+├── 🌐 dashboard/                     # 分析ダッシュボード
+│   └── analysis_dashboard_server.py  # FastAPI + WebSocketサーバー
+├── 💾 data/                          # データ管理
+│   └── stock_fetcher.py              # 株価データ取得
+├── 🎓 core/                          # 統合システム
+│   └── integrated_analysis_system.py # 包括的分析統合
+└── 🛠️ utils/                         # ユーティリティ
+    └── logging_config.py             # ログ設定
 ```
 
 ### 安全性機能

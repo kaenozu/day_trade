@@ -34,9 +34,39 @@
         "name": "Z Holdings",
         "group": "テック株",
         "priority": "low"
+      },
+      {
+        "code": "9434",
+        "name": "ソフトバンク",
+        "group": "通信株",
+        "priority": "medium"
+      },
+      {
+        "code": "8001",
+        "name": "伊藤忠商事",
+        "group": "商社株",
+        "priority": "medium"
+      },
+      {
+        "code": "7267",
+        "name": "ホンダ",
+        "group": "自動車株",
+        "priority": "medium"
+      },
+      {
+        "code": "6861",
+        "name": "キーエンス",
+        "group": "精密機器",
+        "priority": "high"
+      },
+      {
+        "code": "2914",
+        "name": "JT",
+        "group": "食品・たばこ",
+        "priority": "low"
       }
     ],
-    "update_interval_minutes": 5,
+    "update_interval_minutes": 1,
     "market_hours": {
       "start": "09:00",
       "end": "15:00",
@@ -137,7 +167,7 @@
     "formats": ["json", "csv", "html"],
     "daily_report": {
       "enabled": true,
-      "include_charts": false,
+      "include_charts": true,
       "include_signals": true,
       "include_portfolio": true
     },

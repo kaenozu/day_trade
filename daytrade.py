@@ -7,7 +7,10 @@ DayTrade全自動化メインスクリプト
 import argparse
 import logging
 import re
+import signal
+import subprocess
 import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -21,18 +24,37 @@ try:
 except ImportError:
     pass  # Windows環境修正ユーティリティが無い場合はスキップ
 
+from src.day_trade.analysis.educational_analysis import EducationalMarketAnalyzer
 from src.day_trade.automation.orchestrator import DayTradeOrchestrator  # Moved to top
 from src.day_trade.config.config_manager import ConfigManager  # Moved to top
+from src.day_trade.config.trading_mode_config import (
+    is_safe_mode,
+)
 
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
+
+# グローバル変数
+running = True
+orchestrator = None
 
 
 class CLIValidationError(Exception):
     """CLI引数検証エラー"""
 
     pass
+
+
+def signal_handler(signum, frame):
+    """Ctrl+C ハンドラ"""
+    global running, orchestrator
+    print("\n\n[中断] システムを安全に停止しています...")
+    running = False
+    if orchestrator:
+        orchestrator.cleanup()
+    print("[完了] システムが正常に停止されました")
+    sys.exit(0)
 
 
 def validate_symbols(symbols_str: str) -> List[str]:
@@ -261,18 +283,113 @@ def print_summary(report):
     print("=" * 50)
 
 
+def run_watch_mode(symbols, interval_minutes):
+    """継続監視モード"""
+    global running, orchestrator
+
+    try:
+        print(f"[監視] 継続監視モードを開始します（{interval_minutes}分間隔）")
+        print("  Ctrl+C で停止できます")
+
+        orchestrator = DayTradeOrchestrator()
+        iteration = 0
+
+        while running:
+            iteration += 1
+            start_time = time.time()
+
+            print(
+                f"\n[監視 #{iteration}] {datetime.now().strftime('%H:%M:%S')} - 分析開始"
+            )
+
+            try:
+                # 分析実行
+                report = orchestrator.run_full_automation(symbols=symbols)
+
+                # 簡潔な結果表示
+                print(
+                    f"  [OK] 成功:{report.successful_symbols} 失敗:{report.failed_symbols} "
+                    f"シグナル:{len(report.generated_signals)} "
+                    f"({(report.end_time - report.start_time).total_seconds():.1f}秒)"
+                )
+
+                # 重要なアラートがあれば表示
+                if report.triggered_alerts:
+                    for alert in report.triggered_alerts[:3]:  # 上位3件
+                        if alert.get("severity") == "high":
+                            print(f"  [WARN] {alert['symbol']}: {alert['message']}")
+
+            except Exception as e:
+                print(f"  [ERROR] 分析エラー: {e}")
+                # logger.error(f"監視モード分析エラー: {e}")
+
+            # 待機時間計算
+            elapsed = time.time() - start_time
+            sleep_time = max(0, (interval_minutes * 60) - elapsed)
+
+            if sleep_time > 0 and running:
+                print(f"  [WAIT] 次回分析まで {sleep_time/60:.1f}分待機...")
+                time.sleep(sleep_time)
+
+    except KeyboardInterrupt:
+        print("\n[中断] 監視モードが中断されました")
+    finally:
+        if orchestrator:
+            orchestrator.cleanup()
+
+
+def run_dashboard_mode():
+    """ダッシュボードモード"""
+    try:
+        print("[ダッシュボード] サーバーを起動します...")
+        print("  URL: http://localhost:8000")
+        print("  Ctrl+C で停止できます")
+
+        # ダッシュボードサーバー起動
+        result = subprocess.run(
+            [sys.executable, "run_analysis_dashboard.py"], cwd=project_root
+        )
+
+        if result.returncode != 0:
+            print("[ERROR] ダッシュボード起動エラー")
+
+    except KeyboardInterrupt:
+        print("\n[中断] ダッシュボードが停止されました")
+    except Exception as e:
+        print(f"[ERROR] ダッシュボードエラー: {e}")
+
+
+def print_startup_banner():
+    """起動バナー表示"""
+    print("=" * 70)
+    print("    DayTrade 分析システム - 統合版")
+    print("    [SECURE] 完全セーフモード - 分析・情報提供専用")
+    print("=" * 70)
+    print(f"開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"セーフモード: {'[OK] 有効' if is_safe_mode() else '[ERROR] 無効'}")
+    print("-" * 70)
+
+
 def main():
     """メイン関数"""
+    # シグナルハンドラ設定
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     parser = argparse.ArgumentParser(
-        description="DayTrade全自動化システム",
+        description="DayTrade統合分析システム",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
-  python daytrade.py                          # 全自動実行
-  python daytrade.py --symbols 7203,8306     # 特定銘柄のみ
+  python daytrade.py                          # 基本分析（教育レポート+MLスコア付き）
+  python daytrade.py --symbols 7203,8306     # 特定銘柄の教育分析+MLスコア
+  python daytrade.py --no-educational         # 教育レポートなしの簡単分析
+  python daytrade.py --quiet                  # 最小限の出力
+  python daytrade.py --watch                  # 継続監視（5分間隔）
+  python daytrade.py --watch --interval 3     # 継続監視（3分間隔）
+  python daytrade.py --dash                   # ダッシュボード起動
   python daytrade.py --report-only            # レポート生成のみ
-  python daytrade.py --config custom.json    # カスタム設定ファイル
-  python daytrade.py --log-level DEBUG       # デバッグモード
+  python daytrade.py --interactive            # インタラクティブモード
         """,
     )
 
@@ -310,9 +427,53 @@ def main():
         help="拡張インタラクティブモードで開始（オートコンプリート、履歴機能付き）",
     )
 
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="継続監視モード",
+    )
+
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=5,
+        help="監視間隔（分、デフォルト:5）",
+    )
+
+    parser.add_argument(
+        "--dash",
+        action="store_true",
+        help="ダッシュボードモード",
+    )
+
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="簡潔出力",
+    )
+
+    parser.add_argument(
+        "--no-educational",
+        action="store_true",
+        help="教育的技術指標レポート（MLスコア含む）を無効化",
+    )
+
     args = parser.parse_args()
 
+    # セーフモード確認
+    if not is_safe_mode():
+        print("[ERROR] セーフモードが無効です")
+        print("   このシステムは分析専用として設計されています")
+        sys.exit(1)
+
     try:
+        # ダッシュボードモードの処理
+        if args.dash:
+            if not args.quiet:
+                print_startup_banner()
+            run_dashboard_mode()
+            return 0
+
         # インタラクティブモードの処理
         if args.interactive:
             # ログ設定（バリデート済みレベルを使用）
@@ -406,27 +567,38 @@ def main():
             if not symbols:
                 symbols = config_manager.get_symbol_codes()
 
-            print("[設定] 設定情報:")
-            print(f"   設定ファイル: {config_manager.config_path}")
-            print(f"   対象銘柄数: {len(symbols)}")
-            print(f"   銘柄コード: {', '.join(symbols)}")
-            print(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
+            if not args.quiet:
+                print("[設定] 設定情報:")
+                print(f"   設定ファイル: {config_manager.config_path}")
+                print(f"   対象銘柄数: {len(symbols)}")
+                print(f"   銘柄コード: {', '.join(symbols)}")
+                print(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
-            # 市場時間チェック
-            if config_manager.is_market_open():
-                print("   [オープン] 市場オープン中")
-            else:
-                print("   [クローズ] 市場クローズ中")
+                # 市場時間チェック
+                if config_manager.is_market_open():
+                    print("   [オープン] 市場オープン中")
+                else:
+                    print("   [クローズ] 市場クローズ中")
 
         except Exception as e:
             logger.error(f"設定読み込みエラー: {e}")
             return 1
 
+        # 監視モードの処理
+        if args.watch:
+            if not args.quiet:
+                print_startup_banner()
+                print(f"対象銘柄: {symbols}")
+            run_watch_mode(symbols, args.interval)
+            return 0
+
         # 実行確認
         if not args.report_only:
-            print(f"\n {len(symbols)}銘柄の自動分析を開始します...")
+            if not args.quiet:
+                print(f"\n {len(symbols)}銘柄の自動分析を開始します...")
         else:
-            print("\n[レポート] レポート生成を開始します...")
+            if not args.quiet:
+                print("\n[レポート] レポート生成を開始します...")
 
         # オーケストレーター初期化・実行
         orchestrator = DayTradeOrchestrator(config_path)
@@ -442,6 +614,137 @@ def main():
 
         # 結果表示
         print_summary(report)
+
+        # 教育的分析の表示（デフォルト有効、機械学習含む）
+        if not args.quiet and not args.no_educational:
+            analyzer = EducationalMarketAnalyzer()
+            all_results = []
+
+            # 全銘柄の分析実行
+            for symbol in symbols:
+                try:
+                    educational_result = analyzer.analyze_symbol_educational(symbol)
+                    all_results.append(educational_result)
+                except Exception as e:
+                    print(f"分析エラー {symbol}: {e}")
+
+            # 詳細レポート（最初の3銘柄のみ）
+            print("\n" + "=" * 80)
+            print("【詳細技術指標レポート】（上位3銘柄）")
+            print("=" * 80)
+
+            for result in all_results[:3]:
+                try:
+                    educational_report = analyzer.format_educational_report(result)
+                    print(educational_report)
+                except Exception as e:
+                    print(f"詳細レポートエラー {result.symbol}: {e}")
+
+            # 全銘柄MLスコア一覧表（最後に表示）
+            if all_results:
+                print("\n" + "=" * 100)
+                print("【全銘柄 機械学習スコア一覧表】（教育・研究目的）")
+                print("=" * 100)
+                print("※機械学習スコアは教育・研究目的の技術情報です")
+                print("=" * 100)
+
+                # 総合スコアでソート
+                scored_results = []
+                for result in all_results:
+                    if result.ml_technical_scores:
+                        # 各スコアを取得
+                        trend_score = next(
+                            (
+                                s
+                                for s in result.ml_technical_scores
+                                if "トレンド" in s.score_name
+                            ),
+                            None,
+                        )
+                        volatility_score = next(
+                            (
+                                s
+                                for s in result.ml_technical_scores
+                                if "変動予測" in s.score_name
+                            ),
+                            None,
+                        )
+                        pattern_score = next(
+                            (
+                                s
+                                for s in result.ml_technical_scores
+                                if "パターン" in s.score_name
+                            ),
+                            None,
+                        )
+
+                        trend_val = trend_score.score_value if trend_score else 0
+                        volatility_val = (
+                            volatility_score.score_value if volatility_score else 0
+                        )
+                        pattern_val = pattern_score.score_value if pattern_score else 0
+
+                        # 総合判定
+                        avg_score = (trend_val + volatility_val + pattern_val) / 3
+                        overall = (
+                            "強い上昇"
+                            if avg_score >= 70
+                            else "上昇傾向"
+                            if avg_score >= 55
+                            else "中立"
+                            if avg_score >= 45
+                            else "下降傾向"
+                            if avg_score >= 30
+                            else "弱い"
+                        )
+
+                        scored_results.append(
+                            {
+                                "result": result,
+                                "trend_val": trend_val,
+                                "volatility_val": volatility_val,
+                                "pattern_val": pattern_val,
+                                "avg_score": avg_score,
+                                "overall": overall,
+                            }
+                        )
+
+                # 総合スコア順でソート（降順）
+                scored_results.sort(key=lambda x: x["avg_score"], reverse=True)
+
+                print(
+                    f"{'ランク':<4} {'銘柄':<8} {'会社名':<12} {'価格':<8} {'トレンド':<8} {'変動予測':<8} {'パターン':<8} {'総合':<6} {'判定':<10}"
+                )
+                print("-" * 110)
+
+                for i, scored_result in enumerate(scored_results, 1):
+                    result = scored_result["result"]
+                    trend_val = scored_result["trend_val"]
+                    volatility_val = scored_result["volatility_val"]
+                    pattern_val = scored_result["pattern_val"]
+                    avg_score = scored_result["avg_score"]
+                    overall = scored_result["overall"]
+
+                    rank_symbol = (
+                        "🥇"
+                        if i == 1
+                        else "🥈"
+                        if i == 2
+                        else "🥉"
+                        if i == 3
+                        else f"{i:2d}"
+                    )
+
+                    print(
+                        f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
+                    )
+
+                print("-" * 110)
+                print("※数値は0-100のスコア、総合スコア順でランキング表示")
+                print(
+                    "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
+                )
+                print("=" * 100)
 
         # 成功/失敗判定
         if report.failed_symbols == 0 and not report.errors:
