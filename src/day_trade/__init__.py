@@ -12,9 +12,14 @@ def _setup_application_logging():
         from .utils.logging_config import setup_logging
 
         setup_logging()
-    except ImportError:
-        # ロギング設定が利用できない場合は警告なしで継続
-        pass
+    except (ImportError, SyntaxError, UnicodeDecodeError):
+        # ロギング設定が利用できない場合は基本ログ設定で継続
+        import logging
+
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
 
 
 # アプリケーション初期化時にロギングを設定
