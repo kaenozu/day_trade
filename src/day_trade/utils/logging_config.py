@@ -80,3 +80,105 @@ def log_error_with_context(error: Exception, context: Dict[str, Any]):
     """
     logger = logging.getLogger(__name__)
     logger.error(f"Error occurred: {error}. Context: {context}", exc_info=True)
+
+
+def log_database_operation(operation: str, duration: float = 0.0, **kwargs) -> None:
+    """
+    データベース操作ログ出力
+
+    Args:
+        operation: 操作名
+        duration: 実行時間
+        **kwargs: 追加情報
+    """
+    logger = get_context_logger(__name__, component="database")
+
+    log_data = {"operation": operation, "duration": duration, **kwargs}
+
+    if duration > 1.0:
+        logger.warning(f"Slow database operation: {operation}", extra=log_data)
+    else:
+        logger.debug(f"Database operation: {operation}", extra=log_data)
+
+
+def log_business_event(event: str, details: Dict[str, Any] = None) -> None:
+    """
+    ビジネスイベントログ出力
+
+    Args:
+        event: イベント名
+        details: イベント詳細
+    """
+    logger = get_context_logger(__name__, component="business")
+
+    log_data = {"event": event, "details": details or {}}
+
+    logger.info(f"Business event: {event}", extra=log_data)
+
+
+def get_performance_logger(name: str = None) -> logging.Logger:
+    """
+    パフォーマンス測定用ロガーを取得
+
+    Args:
+        name: ロガー名
+
+    Returns:
+        パフォーマンス用ロガー
+    """
+    logger_name = f"{name}.performance" if name else "performance"
+    return get_context_logger(logger_name, component="performance")
+
+
+def log_api_call(
+    endpoint: str,
+    method: str = "GET",
+    duration: float = 0.0,
+    status_code: int = None,
+    **kwargs,
+) -> None:
+    """
+    API呼び出しログ出力
+
+    Args:
+        endpoint: APIエンドポイント
+        method: HTTPメソッド
+        duration: 実行時間
+        status_code: HTTPステータスコード
+        **kwargs: 追加情報
+    """
+    logger = get_context_logger(__name__, component="api")
+
+    log_data = {
+        "endpoint": endpoint,
+        "method": method,
+        "duration": duration,
+        "status_code": status_code,
+        **kwargs,
+    }
+
+    if status_code and status_code >= 400:
+        logger.error(f"API call failed: {method} {endpoint}", extra=log_data)
+    elif duration > 2.0:
+        logger.warning(f"Slow API call: {method} {endpoint}", extra=log_data)
+    else:
+        logger.debug(f"API call: {method} {endpoint}", extra=log_data)
+
+
+def log_performance_metric(
+    metric_name: str, value: float, unit: str = "", **kwargs
+) -> None:
+    """
+    パフォーマンスメトリクスログ出力
+
+    Args:
+        metric_name: メトリクス名
+        value: 測定値
+        unit: 単位
+        **kwargs: 追加情報
+    """
+    logger = get_performance_logger(__name__)
+
+    log_data = {"metric_name": metric_name, "value": value, "unit": unit, **kwargs}
+
+    logger.info(f"Performance metric: {metric_name}={value}{unit}", extra=log_data)

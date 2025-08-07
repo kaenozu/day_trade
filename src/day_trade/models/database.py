@@ -284,8 +284,10 @@ class DatabaseManager:
 
             logger.info(
                 "Database engine initialized",
-                database_url=self.config.database_url,
-                database_type=self._get_database_type(),
+                extra={
+                    "database_url": self.config.database_url,
+                    "database_type": self._get_database_type(),
+                },
             )
 
         except Exception as e:
