@@ -897,7 +897,7 @@ class EnhancedErrorHandler:
         if self.config.log_technical_details:
             logger.error("User-facing error occurred", exc_info=True, extra=log_data)
         else:
-            logger.error("User-facing error occurred", extra=log_data)
+            logger.error("User-facing error occurred", extra={"extra": log_data})
 
     def display_and_log_error(
         self,

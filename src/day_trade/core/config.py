@@ -96,7 +96,7 @@ class ConfigManager:
         else:
             self.logger.info(
                 "設定ファイルが存在しません、デフォルト設定を使用",
-                config_path=str(self.config_path),
+                extra={"config_path": str(self.config_path)},
             )
             return AppConfig()
 

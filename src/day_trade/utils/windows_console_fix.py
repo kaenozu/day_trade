@@ -54,16 +54,20 @@ def setup_windows_console():
 
         logger.info(
             "Windows コンソール環境を初期化しました",
-            platform="win32",
-            encoding="utf-8",
-            ansi_enabled=True,
+            extra={
+                "platform": "win32",
+                "encoding": "utf-8",
+                "ansi_enabled": True,
+            },
         )
 
     except Exception as e:
         logger.warning(
             "Windows コンソール初期化で警告",
-            error=str(e),
-            fallback="デフォルト設定で継続",
+            extra={
+                "error": str(e),
+                "fallback": "デフォルト設定で継続",
+            },
         )
 
 

@@ -330,9 +330,9 @@ class UnifiedErrorHandler:
                 exc_info=True,
             )
         elif context.severity == ErrorSeverity.MEDIUM:
-            logger.warning(f"Warning in {context.component}", extra=log_data)
+            logger.warning(f"Warning in {context.component}", extra={log_data})
         else:
-            logger.info(f"Info: {context.component}", extra=log_data)
+            logger.info(f"Info: {context.component}", extra={log_data})
 
     def attempt_recovery(
         self,

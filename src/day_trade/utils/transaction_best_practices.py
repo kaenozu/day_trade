@@ -64,7 +64,7 @@ class TransactionPatterns:
             operation_logger.info("冪等操作完了")
 
         except Exception as e:
-            operation_logger.error("冪等操作失敗", error=str(e))
+            operation_logger.error("冪等操作失敗", extra={"error": str(e)})
             raise
 
     @staticmethod
@@ -127,11 +127,13 @@ class TransactionPatterns:
                 return False
 
             session.flush()
-            update_logger.info("楽観的ロック更新成功", new_version=current_version + 1)
+            update_logger.info(
+                "楽観的ロック更新成功", extra={"new_version": current_version + 1}
+            )
             return True
 
         except Exception as e:
-            update_logger.error("楽観的ロック更新失敗", error=str(e))
+            update_logger.error("楽観的ロック更新失敗", extra={"error": str(e)})
             raise
 
     @staticmethod
@@ -210,7 +212,7 @@ class TransactionPatterns:
             )
 
         except Exception as e:
-            batch_logger.error("バッチアップサート失敗", error=str(e))
+            batch_logger.error("バッチアップサート失敗", extra={"error": str(e)})
             raise
 
     @staticmethod
@@ -227,7 +229,8 @@ class TransactionPatterns:
 
         try:
             saga_logger.info(
-                "Sagaトランザクション開始", steps_count=len(compensation_steps)
+                "Sagaトランザクション開始",
+                extra={"steps_count": len(compensation_steps)},
             )
 
             # 前進フェーズは呼び出し元で実行
@@ -236,14 +239,16 @@ class TransactionPatterns:
             saga_logger.info("Sagaトランザクション正常完了")
 
         except Exception as e:
-            saga_logger.error("Sagaトランザクション失敗、補償処理開始", error=str(e))
+            saga_logger.error(
+                "Sagaトランザクション失敗、補償処理開始", extra={"error": str(e)}
+            )
 
             # 補償フェーズ（実行済みステップを逆順で取り消し）
             for step_index in reversed(executed_steps):
                 try:
                     if step_index < len(compensation_steps):
                         compensation_steps[step_index]()
-                        saga_logger.info("補償処理完了", step=step_index)
+                        saga_logger.info("補償処理完了", extra={"step": step_index})
                 except Exception as compensation_error:
                     saga_logger.error(
                         "補償処理失敗", step=step_index, error=str(compensation_error)
@@ -509,7 +514,7 @@ if __name__ == "__main__":
             record_id=1,
             update_data={"name": "updated_name", "version": 1},
         )
-        logger.info("楽観的ロック更新結果", success=success)
+        logger.info("楽観的ロック更新結果", extra={"success": success})
 
     # 3. Sagaパターンの例
     def compensation_step_1():
@@ -534,6 +539,6 @@ if __name__ == "__main__":
             # raise Exception("Business logic error")
 
     except Exception as e:
-        logger.info("Sagaパターンテスト完了", error=str(e))
+        logger.info("Sagaパターンテスト完了", extra={"error": str(e)})
 
     logger.info("トランザクションベストプラクティス例実行完了")

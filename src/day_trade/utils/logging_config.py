@@ -11,6 +11,46 @@ import sys
 from typing import Any, Dict
 
 
+class ContextLogger:
+    """コンテキスト付きロガー"""
+
+    def __init__(self, logger: logging.Logger, context: Dict[str, Any] = None):
+        self.logger = logger
+        self.context = context or {}
+
+    def bind(self, **kwargs) -> "ContextLogger":
+        """コンテキストを追加したロガーを作成"""
+        new_context = {**self.context, **kwargs}
+        return ContextLogger(self.logger, new_context)
+
+    def _log_with_context(self, level: int, msg: str, *args, **kwargs):
+        """コンテキスト付きでログ出力"""
+        extra = kwargs.get("extra", {})
+        extra.update(self.context)
+        kwargs["extra"] = extra
+        self.logger.log(level, msg, *args, **kwargs)
+
+    def info(self, msg: str, *args, **kwargs):
+        """インフォログ出力"""
+        self._log_with_context(logging.INFO, msg, *args, **kwargs)
+
+    def warning(self, msg: str, *args, **kwargs):
+        """警告ログ出力"""
+        self._log_with_context(logging.WARNING, msg, *args, **kwargs)
+
+    def error(self, msg: str, *args, **kwargs):
+        """エラーログ出力"""
+        self._log_with_context(logging.ERROR, msg, *args, **kwargs)
+
+    def debug(self, msg: str, *args, **kwargs):
+        """デバッグログ出力"""
+        self._log_with_context(logging.DEBUG, msg, *args, **kwargs)
+
+    def critical(self, msg: str, *args, **kwargs):
+        """クリティカルログ出力"""
+        self._log_with_context(logging.CRITICAL, msg, *args, **kwargs)
+
+
 class LoggingConfig:
     """ロギング設定管理クラス"""
 
@@ -44,6 +84,29 @@ class LoggingConfig:
 
         self.is_configured = True
 
+    def _get_processors(self) -> list:
+        """環境に応じたログプロセッサを取得"""
+        environment = os.getenv("ENVIRONMENT", "development")
+
+        if environment == "production":
+            # 本番環境ではJSONRenderer（モック）
+            return [MockJSONRenderer()]
+        else:
+            # 開発環境ではConsoleRenderer（モック）
+            return [MockConsoleRenderer()]
+
+
+class MockJSONRenderer:
+    """JSONレンダラーのモック"""
+
+    pass
+
+
+class MockConsoleRenderer:
+    """コンソールレンダラーのモック"""
+
+    pass
+
 
 # グローバルロギング設定インスタンス
 _logging_config = LoggingConfig()
@@ -54,20 +117,35 @@ def setup_logging():
     _logging_config.configure_logging()
 
 
-def get_context_logger(name: str, component: str = None) -> logging.Logger:
+def get_logger(name: str) -> logging.Logger:
+    """
+    標準ロガーを取得
+
+    Args:
+        name: ロガー名
+
+    Returns:
+        設定済みロガー
+    """
+    return logging.getLogger(name)
+
+
+def get_context_logger(name: str, component: str = None, **kwargs) -> ContextLogger:
     """
     コンテキスト付きロガーを取得
 
     Args:
         name: ロガー名
         component: コンポーネント名
+        **kwargs: コンテキスト情報
 
     Returns:
-        設定済みロガー
+        設定済みContextLogger
     """
     logger_name = f"{name}.{component}" if component else name
+    logger = logging.getLogger(logger_name)
 
-    return logging.getLogger(logger_name)
+    return ContextLogger(logger, kwargs)
 
 
 def log_error_with_context(error: Exception, context: Dict[str, Any]):

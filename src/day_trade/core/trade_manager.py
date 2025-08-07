@@ -231,7 +231,7 @@ class TradeManager:
             "persist_to_db": persist_to_db,
         }
 
-        logger.info("取引追加処理開始", extra=context_info)
+        logger.info("取引追加処理開始", extra={context_info})
 
         try:
             if timestamp is None:
@@ -260,7 +260,9 @@ class TradeManager:
                     # 1. 銘柄マスタの存在確認・作成
                     stock = session.query(Stock).filter(Stock.code == symbol).first()
                     if not stock:
-                        logger.info("銘柄マスタに未登録、新規作成", extra=context_info)
+                        logger.info(
+                            "銘柄マスタに未登録、新規作成", extra={context_info}
+                        )
                         stock = Stock(
                             code=symbol,
                             name=symbol,  # 名前が不明な場合はコードを使用
@@ -541,7 +543,7 @@ class TradeManager:
 
                     load_logger.info(
                         "データベース読み込み完了",
-                        loaded_trades=len(db_trades),
+                        extra={"loaded_trades": len(db_trades)},
                         trade_counter=self._trade_counter,
                     )
 
@@ -553,7 +555,7 @@ class TradeManager:
                     self._trade_counter = counter_backup
                     load_logger.error(
                         "読み込み処理失敗、メモリ内データを復元",
-                        error=str(restore_error),
+                        extra={"error": str(restore_error)},
                     )
                     raise restore_error
 
@@ -594,7 +596,7 @@ class TradeManager:
 
             log_error_with_context(e, {"operation": "sync_with_db"})
             sync_logger.error(
-                "データベース同期失敗、メモリ内データを復元", error=str(e)
+                "データベース同期失敗、メモリ内データを復元", extra={"error": str(e)}
             )
             raise
 
@@ -726,7 +728,8 @@ class TradeManager:
                     )
 
                     batch_logger.info(
-                        "一括取引追加完了（DB永続化）", trade_count=len(trade_ids)
+                        "一括取引追加完了（DB永続化）",
+                        extra={"trade_count": len(trade_ids)},
                     )
 
             else:
@@ -768,7 +771,8 @@ class TradeManager:
                 )
 
                 batch_logger.info(
-                    "一括取引追加完了（メモリのみ）", trade_count=len(trade_ids)
+                    "一括取引追加完了（メモリのみ）",
+                    extra={"trade_count": len(trade_ids)},
                 )
 
             return trade_ids
@@ -790,7 +794,7 @@ class TradeManager:
                 },
             )
             batch_logger.error(
-                "一括取引追加失敗、すべての変更をロールバック", error=str(e)
+                "一括取引追加失敗、すべての変更をロールバック", extra={"error": str(e)}
             )
             raise
 
@@ -822,7 +826,8 @@ class TradeManager:
                     # データベースの取引データを削除
                     deleted_count = session.query(DBTrade).delete()
                     clear_logger.info(
-                        "データベース取引データ削除", deleted_count=deleted_count
+                        "データベース取引データ削除",
+                        extra={"deleted_count": deleted_count},
                     )
 
                     # メモリ内データクリア
@@ -1653,13 +1658,15 @@ if __name__ == "__main__":
         for pnl in realized_pnl:
             logger.info(
                 "実現損益詳細",
-                section="realized_pnl_detail",
-                symbol=pnl.symbol,
-                quantity=pnl.quantity,
-                buy_price=str(pnl.buy_price),
-                sell_price=str(pnl.sell_price),
-                pnl=str(pnl.pnl),
-                pnl_percent=str(pnl.pnl_percent),
+                extra={
+                    "section": "realized_pnl_detail",
+                    "symbol": pnl.symbol,
+                    "quantity": pnl.quantity,
+                    "buy_price": str(pnl.buy_price),
+                    "sell_price": str(pnl.sell_price),
+                    "pnl": str(pnl.pnl),
+                    "pnl_percent": str(pnl.pnl_percent),
+                },
             )
 
     # ポートフォリオサマリー

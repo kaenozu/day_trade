@@ -156,7 +156,8 @@ class PerformanceProfiler:
             except Exception as e:
                 profiler.disable()
                 logger.error(
-                    f"プロファイリング中にエラー: {func.__name__}", error=str(e)
+                    f"プロファイリング中にエラー: {func.__name__}",
+                    extra={"error": str(e)},
                 )
                 raise
 
@@ -233,7 +234,9 @@ class SystemPerformanceMonitor:
         )
         self.monitoring_thread.start()
 
-        logger.info("システムパフォーマンス監視開始", section="system_monitoring")
+        logger.info(
+            "システムパフォーマンス監視開始", extra={"section": "system_monitoring"}
+        )
 
     def stop_monitoring(self):
         """監視停止"""
@@ -241,7 +244,9 @@ class SystemPerformanceMonitor:
         if self.monitoring_thread:
             self.monitoring_thread.join(timeout=5)
 
-        logger.info("システムパフォーマンス監視停止", section="system_monitoring")
+        logger.info(
+            "システムパフォーマンス監視停止", extra={"section": "system_monitoring"}
+        )
 
     def _monitor_loop(self):
         """監視ループ"""
@@ -260,7 +265,7 @@ class SystemPerformanceMonitor:
                 time.sleep(self.monitoring_interval)
 
             except Exception as e:
-                logger.error("システム監視エラー", error=str(e))
+                logger.error("システム監視エラー", extra={"error": str(e)})
                 time.sleep(self.monitoring_interval)
 
     def _collect_system_metrics(self) -> Dict[str, Any]:
@@ -604,7 +609,7 @@ if __name__ == "__main__":
         return df.sum().sum()
 
     # パフォーマンス分析デモ
-    logger.info("パフォーマンス分析デモ開始", section="demo")
+    logger.info("パフォーマンス分析デモ開始", extra={"section": "demo"})
 
     # システム監視開始
     monitor = SystemPerformanceMonitor(monitoring_interval=0.5)

@@ -471,7 +471,7 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.revision(alembic_cfg, autogenerate=True, message=message)
-            logger.info("Migration created", message=message)
+            logger.info("Migration created", extra={"message": message})
         except Exception as e:
             converted_error = handle_database_exception(e)
             log_error_with_context(
@@ -484,7 +484,7 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.upgrade(alembic_cfg, revision)
-            logger.info("Database upgraded", revision=revision)
+            logger.info("Database upgraded", extra={"revision": revision})
         except Exception as e:
             converted_error = handle_database_exception(e)
             log_error_with_context(
@@ -497,7 +497,7 @@ class DatabaseManager:
         try:
             alembic_cfg = self.get_alembic_config()
             command.downgrade(alembic_cfg, revision)
-            logger.info("Database downgraded", revision=revision)
+            logger.info("Database downgraded", extra={"revision": revision})
         except Exception as e:
             converted_error = handle_database_exception(e)
             log_error_with_context(
@@ -569,7 +569,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             operation_logger.error(
-                "Bulk insert operation failed", error=str(converted_error)
+                "Bulk insert operation failed", extra={"error": str(converted_error)}
             )
             raise converted_error from e
 
@@ -621,7 +621,7 @@ class DatabaseManager:
         except Exception as e:
             converted_error = handle_database_exception(e)
             operation_logger.error(
-                "Bulk update operation failed", error=str(converted_error)
+                "Bulk update operation failed", extra={"error": str(converted_error)}
             )
             raise converted_error from e
 
@@ -654,7 +654,7 @@ class DatabaseManager:
                 operation(session)
                 # 各操作後に中間状態をflush（デバッグ時などに有用）
                 session.flush()
-                operation_logger.debug("Operation completed", step=i + 1)
+                operation_logger.debug("Operation completed", extra={"step": i + 1})
 
         operation_logger.info("Atomic operation completed")
 
@@ -677,7 +677,7 @@ class DatabaseManager:
         with self.engine.connect() as connection:
             result = connection.execute(query, params or {})
             results = result.fetchall()
-            operation_logger.info("Query executed", result_count=len(results))
+            operation_logger.info("Query executed", extra={"result_count": len(results)})
             return results
 
     def optimize_database(self):

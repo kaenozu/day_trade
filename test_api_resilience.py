@@ -471,7 +471,7 @@ if __name__ == "__main__":
             logger.info(f"テスト成功: {test_name}")
         except Exception as e:
             print(f"✗ {test_name}: エラー - {e}")
-            logger.error(f"テスト失敗: {test_name}", error=str(e))
+            logger.error(f"テスト失敗: {test_name}", extra={"error": str(e)})
             failed += 1
 
         print()  # 空行でテスト間を区切り
@@ -489,4 +489,4 @@ if __name__ == "__main__":
         logger.info("すべてのAPI耐障害性テストが成功")
     else:
         print("✗ 一部のテストが失敗しました")
-        logger.warning("一部のAPI耐障害性テストが失敗", failed_count=failed)
+        logger.warning("一部のAPI耐障害性テストが失敗", extra={"failed_count": failed})

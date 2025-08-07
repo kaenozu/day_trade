@@ -51,14 +51,15 @@ class OptimizedDatabaseOperations:
             self.session.commit()
             execution_time = time.perf_counter() - start_time
             self.logger.info(
-                f"バルク操作成功: {operation_name}", execution_time=execution_time
+                f"バルク操作成功: {operation_name}",
+                extra={"execution_time": execution_time},
             )
         except Exception as e:
             self.session.rollback()
             execution_time = time.perf_counter() - start_time
             self.logger.error(
                 f"バルク操作失敗: {operation_name}",
-                error=str(e),
+                extra={"error": str(e)},
                 execution_time=execution_time,
             )
             raise
@@ -100,7 +101,7 @@ class OptimizedDatabaseOperations:
 
                         self.logger.debug(
                             "チャンク挿入完了",
-                            chunk_size=len(chunk),
+                            extra={"chunk_size": len(chunk)},
                             total_processed=total_processed,
                         )
 
@@ -108,7 +109,7 @@ class OptimizedDatabaseOperations:
                         # 重複データなどの整合性エラーの場合、個別処理
                         self.logger.warning(
                             "チャンク挿入で整合性エラー、個別処理に切り替え",
-                            error=str(e),
+                            extra={"error": str(e)},
                         )
 
                         individual_result = self._handle_individual_inserts(
@@ -185,12 +186,14 @@ class OptimizedDatabaseOperations:
 
                         self.logger.debug(
                             "チャンク更新完了",
-                            chunk_size=len(chunk),
+                            extra={"chunk_size": len(chunk)},
                             total_processed=total_processed,
                         )
 
                     except Exception as e:
-                        self.logger.warning("チャンク更新エラー", error=str(e))
+                        self.logger.warning(
+                            "チャンク更新エラー", extra={"error": str(e)}
+                        )
                         failed_records.extend(chunk)
 
             execution_time = time.perf_counter() - start_time
@@ -270,7 +273,7 @@ class OptimizedDatabaseOperations:
 
                     self.logger.debug(
                         "チャンクアップサート完了",
-                        chunk_size=len(chunk),
+                        extra={"chunk_size": len(chunk)},
                         total_processed=total_processed,
                     )
 
@@ -339,7 +342,7 @@ class OptimizedDatabaseOperations:
 
                         self.logger.debug(
                             "チャンク削除完了",
-                            chunk_size=len(chunk),
+                            extra={"chunk_size": len(chunk)},
                             deleted_count=deleted_count,
                             total_processed=total_processed,
                         )

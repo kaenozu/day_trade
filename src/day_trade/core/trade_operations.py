@@ -391,7 +391,7 @@ class TradeOperations:
                 if errors:
                     batch_logger.error(
                         "バッチ操作でエラー発生、ロールバック実行",
-                        error_count=len(errors),
+                        extra={"error_count": len(errors)},
                     )
                     raise TradeOperationError(f"バッチ操作中にエラーが発生: {errors}")
 
@@ -400,7 +400,7 @@ class TradeOperations:
 
             batch_logger.info(
                 "バッチ取引操作完了",
-                successful_operations=len(results),
+                extra={"successful_operations": len(results)},
                 error_count=len(errors),
             )
 

@@ -1666,7 +1666,10 @@ if __name__ == "__main__":
         )
 
         if report.errors:
-            logger.error("Errors occurred during automation test", errors=report.errors)
+            logger.error(
+                "Errors occurred during automation test",
+                extra={"errors": report.errors},
+            )
 
         logger.info("テスト完了")
 

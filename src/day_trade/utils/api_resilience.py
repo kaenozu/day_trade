@@ -104,7 +104,8 @@ class CircuitBreaker:
                 self.state = CircuitState.HALF_OPEN
                 self.success_count = 0
                 self.logger.info(
-                    "サーキットブレーカーが半開状態に移行", previous_state="open"
+                    "サーキットブレーカーが半開状態に移行",
+                    extra={"previous_state": "open"},
                 )
                 return True
             return False
@@ -269,7 +270,9 @@ class ResilientAPIClient:
 
         except Exception as e:
             endpoint.is_active = False
-            self.logger.error(f"ヘルスチェックエラー: {endpoint.name}", error=str(e))
+            self.logger.error(
+                f"ヘルスチェックエラー: {endpoint.name}", extra={"error": str(e)}
+            )
             return False
 
     def _should_health_check(self, endpoint: APIEndpoint) -> bool:

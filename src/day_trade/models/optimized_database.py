@@ -256,11 +256,14 @@ class OptimizedDatabaseManager(DatabaseManager):
             if self.optimization_config.auto_create_indexes:
                 self._create_performance_indexes()
 
-            logger.info("インデックス最適化初期化完了", section="index_optimization")
+            logger.info(
+                "インデックス最適化初期化完了", extra={"section": "index_optimization"}
+            )
 
         except Exception as e:
             logger.warning(
-                f"インデックス最適化初期化エラー: {e}", section="index_optimization"
+                f"インデックス最適化初期化エラー: {e}",
+                extra={"section": "index_optimization"},
             )
 
     def _create_performance_indexes(self):
@@ -291,12 +294,14 @@ class OptimizedDatabaseManager(DatabaseManager):
                         session.commit()
 
                         logger.debug(
-                            f"インデックス作成: {index_sql}", section="index_creation"
+                            f"インデックス作成: {index_sql}",
+                            extra={"section": "index_creation"},
                         )
 
                     except Exception as e:
                         logger.debug(
-                            f"インデックス作成スキップ: {e}", section="index_creation"
+                            f"インデックス作成スキップ: {e}",
+                            extra={"section": "index_creation"},
                         )
                         session.rollback()
 
@@ -515,7 +520,7 @@ class OptimizedDatabaseManager(DatabaseManager):
 
         except Exception as e:
             error_msg = f"テーブル最適化エラー: {e}"
-            logger.error(error_msg, section="table_optimization")
+            logger.error(error_msg, extra={"section": "table_optimization"})
             optimization_results["errors"].append(error_msg)
 
         return optimization_results
@@ -546,7 +551,9 @@ class OptimizedDatabaseManager(DatabaseManager):
             ]
 
         except Exception as e:
-            logger.warning(f"インデックス分析エラー: {e}", section="index_analysis")
+            logger.warning(
+                f"インデックス分析エラー: {e}", extra={"section": "index_analysis"}
+            )
 
         return index_analysis
 
@@ -573,7 +580,7 @@ class OptimizedDatabaseManager(DatabaseManager):
 
         except Exception as e:
             logger.warning(
-                f"クエリプラン分析エラー: {e}", section="query_plan_analysis"
+                f"クエリプラン分析エラー: {e}", extra={"section": "query_plan_analysis"}
             )
 
         return plan_analysis
@@ -671,7 +678,7 @@ class OptimizedDatabaseManager(DatabaseManager):
 
         except Exception as e:
             error_msg = f"真空最適化エラー: {e}"
-            logger.error(error_msg, section="vacuum_optimization")
+            logger.error(error_msg, extra={"section": "vacuum_optimization"})
             optimization_results["errors"].append(error_msg)
 
         return optimization_results
@@ -716,7 +723,7 @@ class OptimizedDatabaseManager(DatabaseManager):
 
 # 使用例とデモ
 if __name__ == "__main__":
-    logger.info("最適化データベース管理システムデモ開始", section="demo")
+    logger.info("最適化データベース管理システムデモ開始", extra={"section": "demo"})
 
     try:
         # 最適化設定
@@ -755,7 +762,7 @@ if __name__ == "__main__":
         )
 
     except Exception as e:
-        logger.error(f"デモ実行エラー: {e}", section="demo")
+        logger.error(f"デモ実行エラー: {e}", extra={"section": "demo"})
 
     finally:
         # リソースクリーンアップ

@@ -670,28 +670,35 @@ if __name__ == "__main__":
     # テクニカル指標計算
     ti = TechnicalIndicators()
 
-    logger.info("SMA（20日）計算", period=20)
+    logger.info("SMA（20日）計算", extra={"period": 20})
     sma20 = ti.sma(df, period=20)
     logger.info(
-        "SMA計算結果", last_values=sma20.tail().to_dict(), calculation_period=20
+        "SMA計算結果",
+        extra={"last_values": sma20.tail().to_dict(), "calculation_period": 20},
     )
 
-    logger.info("RSI（14日）計算", period=14)
+    logger.info("RSI（14日）計算", extra={"period": 14})
     rsi = ti.rsi(df, period=14)
-    logger.info("RSI計算結果", last_values=rsi.tail().to_dict(), calculation_period=14)
+    logger.info(
+        "RSI計算結果",
+        extra={"last_values": rsi.tail().to_dict(), "calculation_period": 14},
+    )
 
     logger.info("MACD計算")
     macd = ti.macd(df)
     logger.info(
-        "MACD計算結果", columns=macd.columns.tolist(), sample_data=macd.tail().to_dict()
+        "MACD計算結果",
+        extra={"columns": macd.columns.tolist(), "sample_data": macd.tail().to_dict()},
     )
 
     logger.info("全指標計算実行")
     all_indicators = ti.calculate_all(df)
     logger.info(
         "全指標計算完了",
-        total_columns=len(all_indicators.columns),
-        available_indicators=all_indicators.columns.tolist(),
-        data_rows=len(all_indicators),
-        operation="calculate_all_indicators",
+        extra={
+            "total_columns": len(all_indicators.columns),
+            "available_indicators": all_indicators.columns.tolist(),
+            "data_rows": len(all_indicators),
+            "operation": "calculate_all_indicators",
+        },
     )

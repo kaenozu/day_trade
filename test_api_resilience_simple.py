@@ -181,7 +181,7 @@ def run_all_tests():
         except Exception as e:
             failed += 1
             print(f"ERROR {test_name}: {e}")
-            logger.error(f"テスト失敗: {test_name}", error=str(e))
+            logger.error(f"テスト失敗: {test_name}", extra={"error": str(e)})
 
         print()
 
@@ -195,7 +195,7 @@ def run_all_tests():
         return True
     else:
         print("一部のテストが失敗しました")
-        logger.warning("一部のAPI耐障害性テストが失敗", failed_count=failed)
+        logger.warning("一部のAPI耐障害性テストが失敗", extra={"failed_count": failed})
         return False
 
 
