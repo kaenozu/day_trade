@@ -110,7 +110,9 @@ class ConfigManager:
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
 
-            self.logger.info("設定ファイル保存成功", config_path=str(self.config_path))
+            self.logger.info(
+                "設定ファイル保存成功", extra={"config_path": str(self.config_path)}
+            )
 
         except PermissionError as e:
             self.logger.error(
@@ -191,7 +193,7 @@ class ConfigManager:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
 
-            self.logger.info("設定エクスポート成功", export_path=str(path))
+            self.logger.info("設定エクスポート成功", extra={"export_path": str(path)})
 
         except PermissionError as e:
             self.logger.error(
@@ -227,7 +229,7 @@ class ConfigManager:
             self.config = AppConfig(**data)
             self.save_config()
 
-            self.logger.info("設定インポート成功", import_path=str(path))
+            self.logger.info("設定インポート成功", extra={"import_path": str(path)})
 
         except FileNotFoundError as e:
             self.logger.error(

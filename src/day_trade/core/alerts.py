@@ -179,13 +179,15 @@ class NotificationHandler:
         """コンソール通知"""
         logger.warning(
             "Alert triggered - Console notification",
-            symbol=trigger.symbol,
-            alert_type=trigger.alert_type.value,
-            priority=trigger.priority.value,
-            trigger_time=trigger.trigger_time.isoformat(),
-            alert_message=trigger.message,
-            current_price=trigger.current_price,
-            notification_type="console",
+            extra={
+                "symbol": trigger.symbol,
+                "alert_type": trigger.alert_type.value,
+                "priority": trigger.priority.value,
+                "trigger_time": trigger.trigger_time.isoformat(),
+                "alert_message": trigger.message,
+                "current_price": trigger.current_price,
+                "notification_type": "console",
+            },
         )
 
     def _send_file_log_notification(self, trigger: AlertTrigger):
@@ -871,7 +873,7 @@ if __name__ == "__main__":
         )
 
     # 監視開始（デモ用に短時間）
-    logger.info("アラート監視開始", interval_seconds=30)
+    logger.info("アラート監視開始", extra={"interval_seconds": 30})
     alert_manager.start_monitoring(interval_seconds=30)
 
     try:

@@ -608,7 +608,7 @@ class OptimizedDayTradeOrchestrator:
             return data
 
         except Exception as e:
-            logger.warning(f"データ取得エラー: {symbol}", error=str(e))
+            logger.warning(f"データ取得エラー: {symbol}", extra={"error": str(e)})
             return None
 
     def _calculate_indicators_optimized(
@@ -652,7 +652,7 @@ class OptimizedDayTradeOrchestrator:
                 self.feature_cache[cache_key] = indicators
 
         except Exception as e:
-            logger.warning(f"指標計算エラー: {symbol}", error=str(e))
+            logger.warning(f"指標計算エラー: {symbol}", extra={"error": str(e)})
             indicators = {
                 "sma_20": pd.Series(dtype=float),
                 "sma_50": pd.Series(dtype=float),
@@ -707,7 +707,7 @@ class OptimizedDayTradeOrchestrator:
                     )
 
         except Exception as e:
-            logger.warning(f"シグナル生成エラー: {symbol}", error=str(e))
+            logger.warning(f"シグナル生成エラー: {symbol}", extra={"error": str(e)})
 
         return signals
 
@@ -740,7 +740,7 @@ class OptimizedDayTradeOrchestrator:
                         }
 
         except Exception as e:
-            logger.debug("ML予測エラー", error=str(e))
+            logger.debug("ML予測エラー", extra={"error": str(e)})
 
         return ml_predictions
 
@@ -784,7 +784,7 @@ class OptimizedDayTradeOrchestrator:
         try:
             return self.portfolio_analyzer.get_current_analysis()
         except Exception as e:
-            logger.warning("ポートフォリオ分析エラー", error=str(e))
+            logger.warning("ポートフォリオ分析エラー", extra={"error": str(e)})
             return {"error": str(e)}
 
     def _monitor_memory_usage(self):
@@ -823,7 +823,7 @@ class OptimizedDayTradeOrchestrator:
         # ガベージコレクション
         gc.collect()
 
-        logger.debug("メモリクリーンアップ実行", section="memory_management")
+        logger.debug("メモリクリーンアップ実行", extra={"section": "memory_management"})
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス統計サマリー"""
@@ -865,7 +865,7 @@ class OptimizedDayTradeOrchestrator:
 
 # 使用例とデモ
 if __name__ == "__main__":
-    logger.info("最適化済みオーケストレーターデモ開始", section="demo")
+    logger.info("最適化済みオーケストレーターデモ開始", extra={"section": "demo"})
 
     try:
         # 最適化済みオーケストレーター作成
@@ -895,7 +895,7 @@ if __name__ == "__main__":
         )
 
     except Exception as e:
-        logger.error(f"デモ実行エラー: {e}", section="demo")
+        logger.error(f"デモ実行エラー: {e}", extra={"section": "demo"})
 
     finally:
         # リソースクリーンアップ

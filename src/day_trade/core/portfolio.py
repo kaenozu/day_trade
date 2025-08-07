@@ -508,7 +508,9 @@ class PortfolioAnalyzer:
                     default=decimal_converter,
                 )
 
-            logger.info("Portfolio report exported to JSON", output_file=output_file)
+            logger.info(
+                "Portfolio report exported to JSON", extra={"output_file": output_file}
+            )
 
         except Exception as e:
             log_error_with_context(
@@ -571,7 +573,9 @@ if __name__ == "__main__":
     # パフォーマンスランキング
     top, worst = analyzer.get_performance_rankings(3)
 
-    logger.info("パフォーマンスランキング開始", section="performance_ranking")
+    logger.info(
+        "パフォーマンスランキング開始", extra={"section": "performance_ranking"}
+    )
     for symbol, pnl_pct in top:
         logger.info(
             "パフォーマンス上位",

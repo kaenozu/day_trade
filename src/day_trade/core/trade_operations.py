@@ -107,7 +107,9 @@ class TradeOperations:
                         )
                     # StockFetcherから取得した価格をDecimal型に変換
                     price = Decimal(str(current_data["price"]))
-                    operation_logger.info("現在価格を取得", current_price=float(price))
+                    operation_logger.info(
+                        "現在価格を取得", extra={"current_price": float(price)}
+                    )
 
                 # 3. 買い取引記録の作成
                 trade = Trade.create_buy_trade(
@@ -173,7 +175,7 @@ class TradeOperations:
                     "commission": commission,
                 },
             )
-            operation_logger.error("買い注文処理失敗", error=str(e))
+            operation_logger.error("買い注文処理失敗", extra={"error": str(e)})
             raise TradeOperationError(f"買い注文処理エラー ({stock_code}): {e}") from e
 
     def sell_stock(
@@ -331,7 +333,7 @@ class TradeOperations:
                     "commission": commission,
                 },
             )
-            operation_logger.error("売り注文処理失敗", error=str(e))
+            operation_logger.error("売り注文処理失敗", extra={"error": str(e)})
             raise TradeOperationError(f"売り注文処理エラー ({stock_code}): {e}") from e
 
     def batch_trade_operations(self, operations: list) -> Dict[str, any]:
@@ -353,7 +355,9 @@ class TradeOperations:
         """
         batch_logger = self.logger
 
-        batch_logger.info("バッチ取引操作開始", operations_count=len(operations))
+        batch_logger.info(
+            "バッチ取引操作開始", extra={"operations_count": len(operations)}
+        )
 
         try:
             results = []
@@ -416,7 +420,7 @@ class TradeOperations:
                     "total_operations": len(operations),
                 },
             )
-            batch_logger.error("バッチ取引操作失敗", error=str(e))
+            batch_logger.error("バッチ取引操作失敗", extra={"error": str(e)})
             return {
                 "success": False,
                 "total_operations": len(operations),

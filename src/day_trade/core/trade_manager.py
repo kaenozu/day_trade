@@ -221,16 +221,17 @@ class TradeManager:
         Returns:
             取引ID
         """
-        operation_logger = logger.bind(
-            operation="add_trade",
-            symbol=symbol,
-            trade_type=trade_type.value,
-            quantity=quantity,
-            price=str(price),
-            persist_to_db=persist_to_db,
-        )
+        # コンテキスト情報をログに含める
+        context_info = {
+            "operation": "add_trade",
+            "symbol": symbol,
+            "trade_type": trade_type.value,
+            "quantity": quantity,
+            "price": str(price),
+            "persist_to_db": persist_to_db,
+        }
 
-        operation_logger.info("取引追加処理開始")
+        logger.info("取引追加処理開始", extra=context_info)
 
         try:
             if timestamp is None:
@@ -259,7 +260,7 @@ class TradeManager:
                     # 1. 銘柄マスタの存在確認・作成
                     stock = session.query(Stock).filter(Stock.code == symbol).first()
                     if not stock:
-                        operation_logger.info("銘柄マスタに未登録、新規作成")
+                        logger.info("銘柄マスタに未登録、新規作成", extra=context_info)
                         stock = Stock(
                             code=symbol,
                             name=symbol,  # 名前が不明な場合はコードを使用
@@ -310,10 +311,13 @@ class TradeManager:
                         persisted=True,
                     )
 
-                    operation_logger.info(
+                    logger.info(
                         "取引追加完了（DB永続化）",
-                        trade_id=trade_id,
-                        db_trade_id=db_trade.id,
+                        extra={
+                            **context_info,
+                            "trade_id": trade_id,
+                            "db_trade_id": db_trade.id,
+                        },
                     )
             else:
                 # メモリ内のみの処理（後方互換性）
@@ -331,7 +335,10 @@ class TradeManager:
                     persisted=False,
                 )
 
-                operation_logger.info("取引追加完了（メモリのみ）", trade_id=trade_id)
+                logger.info(
+                    "取引追加完了（メモリのみ）",
+                    extra={**context_info, "trade_id": trade_id},
+                )
 
             return trade_id
 
@@ -347,7 +354,7 @@ class TradeManager:
                     "persist_to_db": persist_to_db,
                 },
             )
-            operation_logger.error("取引追加失敗", error=str(e))
+            logger.error("取引追加失敗", extra={**context_info, "error": str(e)})
             raise
 
     def _update_position(self, trade: Trade) -> None:
@@ -475,7 +482,7 @@ class TradeManager:
                     session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
                 )
 
-                load_logger.info("DB取引データ取得", count=len(db_trades))
+                load_logger.info("DB取引データ取得", extra={"count": len(db_trades)})
 
                 # メモリ内データ構造を一旦クリア（原子性保証）
                 trades_backup = self.trades.copy()
@@ -552,7 +559,7 @@ class TradeManager:
 
         except Exception as e:
             log_error_with_context(e, {"operation": "load_trades_from_db"})
-            load_logger.error("データベース読み込み失敗", error=str(e))
+            load_logger.error("データベース読み込み失敗", extra={"error": str(e)})
             raise
 
     def sync_with_db(self) -> None:
@@ -854,7 +861,9 @@ class TradeManager:
             log_error_with_context(
                 e, {"operation": "clear_all_data", "persist_to_db": persist_to_db}
             )
-            clear_logger.error("全データ削除失敗、メモリ内データを復元", error=str(e))
+            clear_logger.error(
+                "全データ削除失敗、メモリ内データを復元", extra={"error": str(e)}
+            )
             raise
 
     def get_position(self, symbol: str) -> Optional[Position]:
@@ -1264,7 +1273,9 @@ class TradeManager:
                     "persist_to_db": persist_to_db,
                 },
             )
-            buy_logger.error("株式買い注文失敗、変更をロールバック", error=str(e))
+            buy_logger.error(
+                "株式買い注文失敗、変更をロールバック", extra={"error": str(e)}
+            )
             raise
 
     def sell_stock(
@@ -1495,7 +1506,9 @@ class TradeManager:
                     "persist_to_db": persist_to_db,
                 },
             )
-            sell_logger.error("株式売り注文失敗、変更をロールバック", error=str(e))
+            sell_logger.error(
+                "株式売り注文失敗、変更をロールバック", extra={"error": str(e)}
+            )
             raise
 
     def execute_trade_order(
@@ -1636,7 +1649,7 @@ if __name__ == "__main__":
     # 実現損益表示
     realized_pnl = tm.get_realized_pnl_history("7203")
     if realized_pnl:
-        logger.info("実現損益表示開始", section="realized_pnl")
+        logger.info("実現損益表示開始", extra={"section": "realized_pnl"})
         for pnl in realized_pnl:
             logger.info(
                 "実現損益詳細",
@@ -1651,14 +1664,15 @@ if __name__ == "__main__":
 
     # ポートフォリオサマリー
     summary = tm.get_portfolio_summary()
-    logger.info("ポートフォリオサマリー", section="portfolio_summary", **summary)
+    extra_data = {"section": "portfolio_summary", **summary}
+    logger.info("ポートフォリオサマリー", extra=extra_data)
 
     # CSV出力例
-    logger.info("CSV出力開始", section="csv_export")
+    logger.info("CSV出力開始", extra={"section": "csv_export"})
     try:
         tm.export_to_csv("trades.csv", "trades")
         tm.export_to_csv("positions.csv", "positions")
         tm.export_to_csv("realized_pnl.csv", "realized_pnl")
-        logger.info("CSV出力完了", section="csv_export", status="success")
+        logger.info("CSV出力完了", extra={"section": "csv_export", "status": "success"})
     except Exception as e:
         log_error_with_context(e, {"section": "csv_export", "operation": "export_csv"})

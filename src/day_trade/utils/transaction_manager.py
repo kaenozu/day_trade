@@ -458,7 +458,9 @@ class EnhancedTransactionManager:
             複数のトランザクション処理を調整する簡易版
         """
         transaction_id = str(uuid4())
-        logger.info("分散トランザクション開始", transaction_id=transaction_id)
+        logger.info(
+            "分散トランザクション開始", extra={"transaction_id": transaction_id}
+        )
 
         sessions = []
         prepared_transactions = []
@@ -497,7 +499,9 @@ class EnhancedTransactionManager:
                 status="success",
             )
 
-            logger.info("分散トランザクション完了", transaction_id=transaction_id)
+            logger.info(
+                "分散トランザクション完了", extra={"transaction_id": transaction_id}
+            )
             yield  # コンテキストマネージャーとして使用するためのyield
 
         except Exception as e:

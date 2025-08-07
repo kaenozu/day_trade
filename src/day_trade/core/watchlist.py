@@ -556,7 +556,9 @@ class WatchlistManager:
                     )
                     return True
                 else:
-                    logger.warning("Alert not found for toggle", alert_id=alert_id)
+                    logger.warning(
+                        "Alert not found for toggle", extra={"alert_id": alert_id}
+                    )
                     return False
 
         except Exception as e:
@@ -785,7 +787,9 @@ class WatchlistManager:
             watchlist_data = self.get_watchlist_with_prices(group_name)
 
             if not watchlist_data:
-                logger.warning("No data available for export", group_name=group_name)
+                logger.warning(
+                    "No data available for export", extra={"group_name": group_name}
+                )
                 return False
 
             # DataFrameに変換
