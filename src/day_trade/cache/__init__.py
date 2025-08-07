@@ -22,16 +22,30 @@ Phase 5: パフォーマンス最適化の一環として、
 
 # 主要クラスとインターフェースをエクスポート
 from .config import CacheConfig, CacheConstants, get_cache_config
-from .core import BaseCacheManager, CacheInterface
+from .core import BaseCacheManager, CacheEntry, CacheInterface
+from .core import CacheStats as CoreCacheStats
 from .errors import (
     CacheCircuitBreaker,
     CacheCircuitBreakerError,
     CacheError,
     CacheTimeoutError,
+    get_cache_circuit_breaker,
 )
 from .key_generator import CacheKeyGenerator, generate_safe_cache_key
-from .memory_cache import HighPerformanceCache, MemoryCache, TTLCache
-from .stats import CacheMetrics, CacheStats
+from .memory_cache import (
+    HighPerformanceCache,
+    MemoryCache,
+    TTLCache,
+    get_default_high_perf_cache,
+    get_default_memory_cache,
+    get_default_ttl_cache,
+)
+from .stats import (
+    CacheMetrics,
+    CacheStats,
+    CacheStatsCollector,
+    get_global_stats_collector,
+)
 
 # 後方互換性のためのエイリアス
 generate_cache_key = generate_safe_cache_key
@@ -42,17 +56,25 @@ __all__ = [
     # 主要インターフェース
     "CacheInterface",
     "BaseCacheManager",
+    "CacheEntry",
     # キャッシュ実装
     "MemoryCache",
     "TTLCache",
     "HighPerformanceCache",
+    # デフォルトインスタンス
+    "get_default_memory_cache",
+    "get_default_ttl_cache",
+    "get_default_high_perf_cache",
     # ユーティリティ
     "generate_safe_cache_key",
     "generate_cache_key",  # 後方互換性
     "CacheKeyGenerator",
     # 統計・メトリクス
     "CacheStats",
+    "CoreCacheStats",
     "CacheMetrics",
+    "CacheStatsCollector",
+    "get_global_stats_collector",
     # 設定
     "CacheConfig",
     "CacheConstants",
@@ -62,4 +84,5 @@ __all__ = [
     "CacheCircuitBreakerError",
     "CacheTimeoutError",
     "CacheCircuitBreaker",
+    "get_cache_circuit_breaker",
 ]
