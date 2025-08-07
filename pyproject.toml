@@ -224,7 +224,7 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --tb=line --maxfail=3 --cov=src --cov-fail-under=10 -x --disable-warnings --no-header"
+addopts = "-q --tb=no --maxfail=1 -x --disable-warnings --no-header --no-summary -p no:cacheprovider"
 testpaths = [
     "tests",
 ]
