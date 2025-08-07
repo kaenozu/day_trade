@@ -1,10 +1,11 @@
 """
 市場分析エンジンコア実装（旧：自動取引エンジン）
 
-【重要】自動取引機能は無効化済み
+【重要】自動取引機能は完全無効化済み
 リアルタイム市場データを処理し、分析情報を提供するエンジン
 
-※ 実際の取引実行は行いません
+※ 実際の取引実行は一切行いません（セーフモード）
+※ 分析・情報提供・手動取引支援のみ
 """
 
 import asyncio
@@ -17,6 +18,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..analysis.signals import TradingSignal, TradingSignalGenerator
+from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.trade_manager import Trade, TradeManager, TradeType
 from ..data.stock_fetcher import StockFetcher
 from ..utils.enhanced_error_handler import get_default_error_handler
@@ -36,7 +38,7 @@ class EngineStatus(Enum):
 
 
 class OrderType(Enum):
-    """注文タイプ"""
+    """注文タイプ（分析用のみ）"""
 
     MARKET = "market"  # 成行
     LIMIT = "limit"  # 指値
@@ -46,7 +48,7 @@ class OrderType(Enum):
 
 @dataclass
 class RiskParameters:
-    """リスク管理パラメータ"""
+    """リスク管理パラメータ（分析用のみ）"""
 
     max_position_size: Decimal = Decimal("1000000")  # 最大ポジションサイズ
     max_daily_loss: Decimal = Decimal("50000")  # 1日最大損失
@@ -69,7 +71,7 @@ class MarketData:
 
 @dataclass
 class OrderRequest:
-    """注文リクエスト"""
+    """注文リクエスト（分析用のみ - 実際の注文は実行されない）"""
 
     symbol: str
     order_type: OrderType
@@ -86,14 +88,16 @@ class OrderRequest:
 
 class TradingEngine:
     """
-    自動取引エンジンコア
+    市場分析エンジンコア（旧：自動取引エンジン）
+
+    【重要】自動取引機能は完全無効化
 
     主要機能:
     1. リアルタイム市場データ処理
     2. シグナル生成と評価
-    3. 自動注文実行
-    4. リスク管理
-    5. ポジション監視
+    3. 分析情報提供（取引実行なし）
+    4. 手動取引支援
+    5. ポジション監視（情報提供のみ）
     """
 
     def __init__(
@@ -116,12 +120,12 @@ class TradingEngine:
         self.status = EngineStatus.STOPPED
         self.market_data: Dict[str, MarketData] = {}
         self.active_positions: Dict[str, List[Trade]] = {}
-        self.pending_orders: List[OrderRequest] = []
+        self.pending_orders: List[OrderRequest] = []  # 分析用のみ
 
         # パフォーマンス監視
         self.execution_stats = {
-            "orders_executed": 0,
             "signals_generated": 0,
+            "analysis_completed": 0,
             "avg_execution_time": 0.0,
             "last_update": None,
         }
@@ -130,15 +134,23 @@ class TradingEngine:
         self.executor = ThreadPoolExecutor(max_workers=4)
         self._stop_event = asyncio.Event()
 
-        logger.info(f"TradingEngine初期化完了 - 監視銘柄: {len(symbols)}")
+        # 安全設定の確認
+        self.trading_config = get_current_trading_config()
+        if not is_safe_mode():
+            raise ValueError("安全設定が無効です。自動取引は許可されていません")
+
+        logger.info(f"MarketAnalysisEngine初期化完了 - 監視銘柄: {len(symbols)}")
+        logger.info("セーフモード: 有効 - 自動取引は完全に無効化されています")
+        logger.info("※ 分析・情報提供・手動取引支援のみ実行します")
 
     async def start(self) -> None:
-        """取引エンジン開始"""
+        """市場分析エンジン開始"""
         if self.status == EngineStatus.RUNNING:
-            logger.warning("取引エンジンは既に実行中です")
+            logger.warning("市場分析エンジンは既に実行中です")
             return
 
-        logger.info("取引エンジンを開始します...")
+        logger.info("市場分析エンジンを開始します（セーフモード）...")
+        logger.info("※ 自動取引は完全に無効化されています")
         self.status = EngineStatus.RUNNING
         self._stop_event.clear()
 
@@ -146,29 +158,29 @@ class TradingEngine:
         await self._main_loop()
 
     async def stop(self) -> None:
-        """取引エンジン停止"""
-        logger.info("取引エンジン停止要求受信")
+        """市場分析エンジン停止"""
+        logger.info("市場分析エンジン停止要求受信")
         self.status = EngineStatus.STOPPED
         self._stop_event.set()
 
-        # 保留中の注文をキャンセル
+        # 保留中の分析要求をクリア
         self.pending_orders.clear()
-        logger.info("取引エンジンが停止しました")
+        logger.info("市場分析エンジンが停止しました")
 
     async def pause(self) -> None:
-        """取引エンジン一時停止"""
+        """市場分析エンジン一時停止"""
         if self.status == EngineStatus.RUNNING:
             self.status = EngineStatus.PAUSED
-            logger.info("取引エンジンを一時停止しました")
+            logger.info("市場分析エンジンを一時停止しました")
 
     async def resume(self) -> None:
-        """取引エンジン再開"""
+        """市場分析エンジン再開"""
         if self.status == EngineStatus.PAUSED:
             self.status = EngineStatus.RUNNING
-            logger.info("取引エンジンを再開しました")
+            logger.info("市場分析エンジンを再開しました")
 
     async def _main_loop(self) -> None:
-        """メインループ - エンジンの中核処理"""
+        """メインループ - エンジンの中核処理（分析のみ）"""
         try:
             while not self._stop_event.is_set() and self.status != EngineStatus.STOPPED:
                 if self.status == EngineStatus.PAUSED:
@@ -183,15 +195,13 @@ class TradingEngine:
                 # 2. シグナル生成
                 signals = await self._generate_signals()
 
-                # 3. リスク管理チェック
-                if self._check_risk_constraints():
-                    # 4. 注文生成・実行
-                    await self._process_signals(signals)
+                # 3. シグナル分析（取引実行なし）
+                await self._analyze_signals(signals)
 
-                # 5. ポジション監視
+                # 4. ポジション分析（情報提供のみ）
                 await self._monitor_positions()
 
-                # 6. パフォーマンス更新
+                # 5. パフォーマンス更新
                 self._update_performance_stats(time.time() - loop_start)
 
                 # インターバル調整
@@ -199,7 +209,7 @@ class TradingEngine:
 
         except Exception as e:
             self.status = EngineStatus.ERROR
-            logger.error(f"取引エンジンでエラーが発生: {e}")
+            logger.error(f"市場分析エンジンでエラーが発生: {e}")
             error_handler.handle_error(e, context={"engine_status": self.status.value})
 
     async def _update_market_data(self) -> None:
@@ -233,7 +243,7 @@ class TradingEngine:
             logger.error(f"市場データ更新エラー: {e}")
 
     async def _generate_signals(self) -> List[Tuple[str, TradingSignal]]:
-        """シグナル生成"""
+        """シグナル生成（分析のみ）"""
         signals = []
 
         try:
@@ -259,193 +269,97 @@ class TradingEngine:
 
         return signals
 
-    def _check_risk_constraints(self) -> bool:
-        """リスク制約チェック"""
-        try:
-            # 1. 最大ポジション数チェック
-            total_positions = sum(
-                len(positions) for positions in self.active_positions.values()
-            )
-            if total_positions >= self.risk_params.max_open_positions:
-                logger.warning(f"最大ポジション数に到達: {total_positions}")
-                return False
-
-            # 2. 日次損失チェック
-            daily_pnl = self._calculate_daily_pnl()
-            if daily_pnl <= -self.risk_params.max_daily_loss:
-                logger.warning(f"日次最大損失に到達: {daily_pnl}")
-                return False
-
-            return True
-
-        except Exception as e:
-            logger.error(f"リスク制約チェックエラー: {e}")
-            return False
-
-    async def _process_signals(self, signals: List[Tuple[str, TradingSignal]]) -> None:
-        """シグナルを処理して注文を生成・実行"""
+    async def _analyze_signals(self, signals: List[Tuple[str, TradingSignal]]) -> None:
+        """シグナル分析（取引実行なし）"""
         for symbol, signal in signals:
             try:
-                # シグナルが十分強い場合のみ注文を生成
+                # シグナル分析のみ実行（取引実行は一切行わない）
                 if signal.confidence >= 70.0 and signal.strength.value in [
                     "strong",
                     "medium",
                 ]:
-                    order_request = self._create_order_from_signal(symbol, signal)
-                    if order_request:
-                        await self._execute_order(order_request)
+                    self._log_signal_analysis(symbol, signal)
+                    self.execution_stats["analysis_completed"] += 1
 
             except Exception as e:
-                logger.error(f"シグナル処理エラー - {symbol}: {e}")
+                logger.error(f"シグナル分析エラー - {symbol}: {e}")
 
-    def _create_order_from_signal(
-        self, symbol: str, signal: TradingSignal
-    ) -> Optional[OrderRequest]:
-        """シグナルから注文リクエストを生成"""
+    def _log_signal_analysis(self, symbol: str, signal: TradingSignal) -> None:
+        """シグナル分析結果をログ出力（取引提案のみ）"""
         try:
-            if symbol not in self.market_data:
-                return None
-
-            current_price = self.market_data[symbol].price
-
-            # ポジションサイズ計算 (簡単な固定サイズ)
-            base_quantity = 100
-            quantity = int(base_quantity * (signal.confidence / 100.0))
-
-            # 注文タイプとトレードタイプを決定
-            trade_type = (
-                TradeType.BUY if signal.signal_type.value == "buy" else TradeType.SELL
-            )
-            order_type = OrderType.MARKET  # シンプルに成行注文
-
-            return OrderRequest(
-                symbol=symbol,
-                order_type=order_type,
-                trade_type=trade_type,
-                quantity=quantity,
-                price=current_price,
-            )
-
-        except Exception as e:
-            logger.error(f"注文生成エラー - {symbol}: {e}")
-            return None
-
-    async def _execute_order(self, order_request: OrderRequest) -> None:
-        """注文実行"""
-        try:
-            execution_start = time.time()
-
-            # Trade オブジェクトを作成
-            trade = Trade(
-                id=f"trade_{int(time.time()*1000)}",
-                symbol=order_request.symbol,
-                trade_type=order_request.trade_type,
-                quantity=order_request.quantity,
-                price=order_request.price or Decimal("0"),
-                timestamp=order_request.timestamp,
-                commission=Decimal("0"),
-                status="executed",
-            )
-
-            # TradeManager を使用して取引を記録
-            self.trade_manager.add_trade(trade)
-
-            # アクティブポジション管理
-            if order_request.symbol not in self.active_positions:
-                self.active_positions[order_request.symbol] = []
-            self.active_positions[order_request.symbol].append(trade)
-
-            execution_time = time.time() - execution_start
-            self.execution_stats["orders_executed"] += 1
-
+            action = "買い推奨" if signal.signal_type.value == "buy" else "売り推奨"
             logger.info(
-                f"注文実行完了 - {order_request.symbol}: "
-                f"{order_request.trade_type.value} {order_request.quantity}株 "
-                f"@{order_request.price} (実行時間: {execution_time*1000:.1f}ms)"
+                f"【分析結果】取引提案 - {symbol}: {action} "
+                f"(信頼度: {signal.confidence:.1f}%, 強度: {signal.strength.value})"
             )
-
+            logger.info(
+                f"  理由: {signal.reasoning if hasattr(signal, 'reasoning') else '分析結果による'}"
+            )
+            logger.info("  ※ 注意: これは分析情報であり、実際の取引実行は行いません")
+            logger.info("  ※ 手動で取引を実行する場合は、十分な検討を行ってください")
         except Exception as e:
-            logger.error(f"注文実行エラー: {e}")
-            error_handler.handle_error(e, context={"order": order_request})
+            logger.error(f"シグナル分析ログエラー - {symbol}: {e}")
 
     async def _monitor_positions(self) -> None:
-        """ポジション監視 - ストップロスや利益確定の処理"""
+        """ポジション分析 - 情報提供のみ（実際の売買は実行しない）"""
         try:
             for symbol, positions in self.active_positions.items():
                 if symbol in self.market_data:
                     current_price = self.market_data[symbol].price
 
-                    for position in positions[:]:  # コピーを作って安全にイテレート
-                        await self._check_position_exit(symbol, position, current_price)
+                    for position in positions[:]:
+                        self._analyze_position_status(symbol, position, current_price)
 
         except Exception as e:
-            logger.error(f"ポジション監視エラー: {e}")
+            logger.error(f"ポジション分析エラー: {e}")
 
-    async def _check_position_exit(
+    def _analyze_position_status(
         self, symbol: str, position: Trade, current_price: Decimal
     ) -> None:
-        """個別ポジションの利確/損切り判定"""
+        """個別ポジションの分析（情報提供のみ）"""
         try:
             entry_price = position.price
             pnl_ratio = (current_price - entry_price) / entry_price
+            pnl_amount = (current_price - entry_price) * position.quantity
 
-            # 買いポジションの場合
+            # 買いポジションの分析
             if position.trade_type == TradeType.BUY:
-                # 利益確定チェック
                 if pnl_ratio >= self.risk_params.take_profit_ratio:
-                    await self._close_position(symbol, position, "利益確定")
-                # 損切りチェック
+                    logger.info(
+                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {pnl_ratio*100:.2f}% (+{pnl_amount:.0f}円)"
+                    )
                 elif pnl_ratio <= -self.risk_params.stop_loss_ratio:
-                    await self._close_position(symbol, position, "損切り")
+                    logger.info(
+                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio*100:.2f}% ({pnl_amount:.0f}円)"
+                    )
+                else:
+                    logger.info(
+                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio*100:.2f}% ({pnl_amount:+.0f}円)"
+                    )
 
-            # 売りポジションの場合
+            # 売りポジションの分析
             elif position.trade_type == TradeType.SELL:
-                # 利益確定チェック (売りの場合は価格下落で利益)
                 if pnl_ratio <= -self.risk_params.take_profit_ratio:
-                    await self._close_position(symbol, position, "利益確定")
-                # 損切りチェック
+                    logger.info(
+                        f"【分析】{symbol}: 利益確定推奨 - 利益率 {abs(pnl_ratio)*100:.2f}% (+{abs(pnl_amount):.0f}円)"
+                    )
                 elif pnl_ratio >= self.risk_params.stop_loss_ratio:
-                    await self._close_position(symbol, position, "損切り")
+                    logger.info(
+                        f"【分析】{symbol}: 損切り推奨 - 損失率 {pnl_ratio*100:.2f}% ({pnl_amount:.0f}円)"
+                    )
+                else:
+                    logger.info(
+                        f"【分析】{symbol}: ホールド推奨 - 損益率 {pnl_ratio*100:.2f}% ({pnl_amount:+.0f}円)"
+                    )
+
+            logger.info("  ※ 注意: これは分析情報であり、実際の取引実行は行いません")
+            logger.info("  ※ 手動で取引を実行する場合は、十分な検討を行ってください")
 
         except Exception as e:
-            logger.error(f"ポジション出口判定エラー: {e}")
-
-    async def _close_position(self, symbol: str, position: Trade, reason: str) -> None:
-        """ポジションクローズ"""
-        try:
-            current_price = self.market_data[symbol].price
-
-            # 反対売買の注文を生成
-            close_trade_type = (
-                TradeType.SELL
-                if position.trade_type == TradeType.BUY
-                else TradeType.BUY
-            )
-
-            close_order = OrderRequest(
-                symbol=symbol,
-                order_type=OrderType.MARKET,
-                trade_type=close_trade_type,
-                quantity=position.quantity,
-                price=current_price,
-            )
-
-            await self._execute_order(close_order)
-
-            # アクティブポジションから削除
-            if (
-                symbol in self.active_positions
-                and position in self.active_positions[symbol]
-            ):
-                self.active_positions[symbol].remove(position)
-
-            logger.info(f"ポジションクローズ - {symbol}: {reason} @{current_price}")
-
-        except Exception as e:
-            logger.error(f"ポジションクローズエラー: {e}")
+            logger.error(f"ポジション分析エラー: {e}")
 
     def _calculate_daily_pnl(self) -> Decimal:
-        """日次損益計算"""
+        """日次損益計算（分析用）"""
         try:
             # 簡略化された実装 - 実際はより詳細な計算が必要
             daily_trades = [
@@ -495,8 +409,10 @@ class TradingEngine:
             "status": self.status.value,
             "monitored_symbols": len(self.symbols),
             "active_positions": sum(len(pos) for pos in self.active_positions.values()),
-            "pending_orders": len(self.pending_orders),
+            "pending_analysis": len(self.pending_orders),
             "daily_pnl": float(self._calculate_daily_pnl()),
+            "safe_mode": is_safe_mode(),
+            "trading_disabled": not self.trading_config.enable_automatic_trading,
             "execution_stats": self.execution_stats.copy(),
             "market_data_age": {
                 symbol: (datetime.now() - data.timestamp).total_seconds()
@@ -505,13 +421,55 @@ class TradingEngine:
         }
 
     def emergency_stop(self) -> None:
-        """緊急停止 - 全ポジションクローズと取引停止"""
-        logger.critical("緊急停止が実行されました")
+        """緊急停止 - 分析エンジン停止（取引実行機能なし）"""
+        logger.critical("緊急停止が実行されました（分析エンジンのみ停止）")
         self.status = EngineStatus.STOPPED
         self._stop_event.set()
 
-        # 保留中の注文をキャンセル
+        # 保留中の分析要求をクリア（実際の取引は発生していない）
         self.pending_orders.clear()
 
-        # TODO: 将来的には全ポジションの強制決済も実装
-        logger.critical("緊急停止完了")
+        logger.critical("緊急停止完了 - 市場分析エンジンが停止されました")
+        logger.critical(
+            "※ 注意: 実際の取引ポジションがある場合は手動で確認・対処してください"
+        )
+
+    def add_manual_trade(self, trade: Trade) -> None:
+        """手動取引の追加（分析用）"""
+        try:
+            logger.info(
+                f"手動取引を記録します: {trade.symbol} {trade.trade_type.value} {trade.quantity}株"
+            )
+
+            # TradeManager に記録
+            self.trade_manager.add_trade(trade)
+
+            # アクティブポジションに追加
+            if trade.symbol not in self.active_positions:
+                self.active_positions[trade.symbol] = []
+            self.active_positions[trade.symbol].append(trade)
+
+            logger.info("手動取引の記録が完了しました")
+            logger.info("※ 今後のポジション分析に含まれます")
+
+        except Exception as e:
+            logger.error(f"手動取引記録エラー: {e}")
+
+    def get_trading_suggestions(self, symbol: str) -> List[str]:
+        """取引提案の取得（情報提供のみ）"""
+        suggestions = []
+        try:
+            if symbol in self.market_data:
+                current_price = self.market_data[symbol].price
+
+                # 基本的な分析情報を提供
+                suggestions.append(f"現在価格: {current_price}円")
+                suggestions.append("※ これは分析情報です")
+                suggestions.append("※ 実際の取引は手動で慎重に行ってください")
+                suggestions.append("※ 自動取引は完全に無効化されています")
+
+        except Exception as e:
+            logger.error(f"取引提案取得エラー - {symbol}: {e}")
+            suggestions.append("分析情報の取得に失敗しました")
+
+        return suggestions
