@@ -146,7 +146,7 @@ class TestRiskManager:
         current_portfolio = {"positions": {}}
 
         # 制限内の注文（5回まで）
-        for i in range(5):
+        for _ in range(5):
             approved, reason = risk_manager.validate_order(
                 symbol="7203",
                 trade_type=TradeType.BUY,
@@ -562,7 +562,7 @@ class TestIntegrationScenarios:
         }
 
         # 連続損失により緊急停止判定
-        emergency_reason = rm.check_emergency_conditions(portfolio)
+        _ = rm.check_emergency_conditions(portfolio)  # Used for test coverage
         # 注意: 現在の実装では連続損失による緊急停止判定はないため、Noneが返される
         # 実装が完全になれば、この部分でEmergencyReason.LOSS_LIMITが返される
 
