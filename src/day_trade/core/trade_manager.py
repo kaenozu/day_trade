@@ -231,7 +231,7 @@ class TradeManager:
             "persist_to_db": persist_to_db,
         }
 
-        logger.info("取引追加処理開始", extra={context_info})
+        logger.info("取引追加処理開始", extra=context_info)
 
         try:
             if timestamp is None:
@@ -260,9 +260,7 @@ class TradeManager:
                     # 1. 銘柄マスタの存在確認・作成
                     stock = session.query(Stock).filter(Stock.code == symbol).first()
                     if not stock:
-                        logger.info(
-                            "銘柄マスタに未登録、新規作成", extra={context_info}
-                        )
+                        logger.info("銘柄マスタに未登録、新規作成", extra=context_info)
                         stock = Stock(
                             code=symbol,
                             name=symbol,  # 名前が不明な場合はコードを使用
