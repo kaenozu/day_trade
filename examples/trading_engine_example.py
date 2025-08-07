@@ -9,10 +9,10 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+from day_trade.automation.trading_engine import RiskParameters, TradingEngine
+
 # プロジェクトのルートディレクトリをパスに追加
 sys.path.append(str(Path(__file__).parent.parent / "src"))
-
-from day_trade.automation.trading_engine import RiskParameters, TradingEngine
 
 
 async def basic_trading_example():

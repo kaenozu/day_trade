@@ -188,7 +188,7 @@ def with_fallback(fallback_func: Callable[..., T], exceptions: tuple = (Exceptio
                     return fallback_func(*args, **kwargs)
                 except Exception as fallback_error:
                     logger.error(f"フォールバック関数も失敗: {fallback_error}")
-                    raise e  # 元の例外を再発生
+                    raise e from fallback_error  # 元の例外を再発生
 
         return wrapper
 

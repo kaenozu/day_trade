@@ -392,7 +392,7 @@ class EnhancedReportManager:
             buy_count = 0
             sell_count = 0
 
-            for symbol, analysis in analyses.items():
+            for _, analysis in analyses.items():
                 if analysis.signal:
                     signal_stats["total_signals"] += 1
                     confidences.append(analysis.signal.confidence)

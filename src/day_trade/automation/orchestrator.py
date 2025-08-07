@@ -111,8 +111,8 @@ class DayTradeOrchestrator:
 
                     if not report_only:
                         # 市場データ取得と分析実行
-                        status = engine.get_status()
-                        summary = engine.get_market_summary()
+                        _ = engine.get_status()  # Status check for engine health
+                        _ = engine.get_market_summary()  # Market data for analysis
 
                         # サンプルシグナル生成（分析専用）
                         signal = {

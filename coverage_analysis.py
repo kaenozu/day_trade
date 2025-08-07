@@ -242,7 +242,7 @@ def generate_coverage_report():
             color = "orange"
         else:
             quality = "NEEDS IMPROVEMENT"
-            color = "red"
+            color = "red"  # Color for future use
 
         print(f"Coverage Quality: {quality}")
 
