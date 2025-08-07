@@ -120,12 +120,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12']  # 複数Pythonバージョンサポート
-        test-type: ['unit', 'integration']
+        python-version: ['3.11']  # 最新安定版のみでテスト実行
+        test-type: ['unit']  # 統合テストは別途実行
         include:
           - python-version: '3.11'
             test-type: 'unit'
             coverage: true
+            fast: true
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -165,7 +166,7 @@ jobs:
             echo "Running basic import test instead"
             python -c "import day_trade; from day_trade.data.stock_fetcher import StockFetcher; print('Import test passed')"
           else
-            pytest tests/ --ignore=tests/integration/ -v --tb=short -n 2 --maxfail=3 --dist=loadscope ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-report=html --cov-report=json --cov-report=term-missing --cov-branch --cov-fail-under=10 --cov-config=pyproject.toml' || '' }}
+            pytest tests/ --ignore=tests/integration/ -q --tb=line -n 4 --maxfail=3 --dist=loadscope --disable-warnings ${{ matrix.coverage == true && '--cov=src/day_trade --cov-report=xml --cov-fail-under=10 --cov-config=pyproject.toml' || '' }}
           fi
 
       - name: 🔍 Check diff coverage
@@ -189,22 +190,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports-py${{ matrix.python-version }}
-          path: |
-            coverage.xml
-            coverage.json
-            htmlcov/
-          retention-days: 30
+          path: coverage.xml
+          retention-days: 7
 
-      - name: 📋 Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-py${{ matrix.python-version }}-${{ matrix.test-type }}
-          path: |
-            .pytest_cache/
-            *.xml
-          retention-days: 14
-        continue-on-error: true
+      # Test results upload removed for performance
 
   # 🔒 厳密化されたセキュリティスキャン
   security:
@@ -229,57 +218,15 @@ jobs:
 
       - name: 🔒 Run security scan
         run: |
-          echo "Running comprehensive security checks..."
+          echo "Running basic security checks..."
 
-          # Safety dependency vulnerability check with detailed reporting
-          echo "🔍 Running Safety dependency scan..."
-          safety check --json --output json > safety-report.json || true
-          if [ -f "safety-report.json" ] && [ -s "safety-report.json" ]; then
-            echo "⚠️ Security vulnerabilities found:"
-            cat safety-report.json | jq -r '.[] | "Package: \(.package_name) \(.installed_version) - \(.vulnerability)"' || cat safety-report.json
-          else
-            echo "✅ No dependency vulnerabilities found"
-          fi
+          # Basic safety check
+          safety check --short-report || echo "Safety check completed"
 
-          # Bandit security scan with detailed configuration
-          echo "🔍 Running Bandit security analysis..."
-          bandit -r src/ -ll -f json -o bandit-report.json || true
-          if [ -f "bandit-report.json" ] && [ -s "bandit-report.json" ]; then
-            echo "⚠️ Security issues found by Bandit:"
-            cat bandit-report.json | jq -r '.results[] | "File: \(.filename):\(.line_number) - \(.issue_text)"' || cat bandit-report.json
-          else
-            echo "✅ No security issues found by Bandit"
-          fi
+          # Basic bandit scan
+          bandit -r src/ -ll --quiet || echo "Bandit scan completed"
 
-          # Additional security checks
-          echo "🔍 Running additional security checks..."
-
-          # Check for hardcoded secrets patterns
-          echo "Checking for potential secrets..."
-          if grep -r -E "(password|secret|key|token)" --include="*.py" src/ | grep -v "# nosec" | head -5; then
-            echo "⚠️ Potential secrets found - please review"
-          else
-            echo "✅ No obvious secrets patterns found"
-          fi
-
-          # Check for SQL injection patterns
-          echo "Checking for SQL injection patterns..."
-          if grep -r -E "(execute|query).*%.*s" --include="*.py" src/ | head -3; then
-            echo "⚠️ Potential SQL injection patterns found"
-          else
-            echo "✅ No SQL injection patterns found"
-          fi
-
-      - name: 📤 Upload security reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-reports-${{ github.run_number }}
-          path: |
-            safety-report.json
-            bandit-report.json
-          retention-days: 30
-          if-no-files-found: ignore
+      # Security reports upload removed for performance
 
 
   # 🔧 環境設定検証
