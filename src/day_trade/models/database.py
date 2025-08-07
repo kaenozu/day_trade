@@ -588,7 +588,8 @@ class DatabaseManager:
                         session.flush()
                         log_database_operation(
                             "bulk_insert_batch",
-                            model_class.__table__.name,
+                            duration=0.0,
+                            table_name=str(model_class.__table__.name),
                             batch_number=batch_number,
                             batch_size=len(batch),
                         )

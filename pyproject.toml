@@ -248,6 +248,8 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["src"]
 branch = true
+parallel = true
+concurrency = ["thread", "multiprocessing"]
 omit = [
     "*/tests/*",
     "*/test_*.py",

@@ -27,8 +27,16 @@ class ContextLogger:
         """コンテキスト付きでログ出力"""
         extra = kwargs.get("extra", {})
         extra.update(self.context)
-        kwargs["extra"] = extra
-        self.logger.log(level, msg, *args, **kwargs)
+
+        # Loggerが認識しないキーワード引数を除去
+        logger_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in ["extra", "exc_info", "stack_info", "stacklevel"]
+        }
+        logger_kwargs["extra"] = extra
+
+        self.logger.log(level, msg, *args, **logger_kwargs)
 
     def info(self, msg: str, *args, **kwargs):
         """インフォログ出力"""
@@ -171,9 +179,15 @@ def log_database_operation(operation: str, duration: float = 0.0, **kwargs) -> N
     """
     logger = get_context_logger(__name__, component="database")
 
-    log_data = {"operation": operation, "duration": duration, **kwargs}
+    # durationが数値でない場合は0.0にフォールバック
+    try:
+        duration_float = float(duration)
+    except (ValueError, TypeError):
+        duration_float = 0.0
 
-    if duration > 1.0:
+    log_data = {"operation": operation, "duration": duration_float, **kwargs}
+
+    if duration_float > 1.0:
         logger.warning(f"Slow database operation: {operation}", extra=log_data)
     else:
         logger.debug(f"Database operation: {operation}", extra=log_data)
