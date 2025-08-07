@@ -68,8 +68,10 @@ class UnifiedStockScreener:
 
         logger.info(
             "統合スクリーナーを初期化",
-            caching_enabled=enable_caching,
-            parallel_processing=parallel_processing,
+            extra={
+                "caching_enabled": enable_caching,
+                "parallel_processing": parallel_processing,
+            },
         )
 
     def screen_stocks(

@@ -62,13 +62,7 @@ class TradeOperations:
             TradeOperationError: 取引処理に失敗した場合
         """
         # ログコンテキストを設定
-        operation_logger = self.logger.bind(
-            operation="buy_stock",
-            stock_code=stock_code,
-            quantity=quantity,
-            price=price,
-            commission=commission,
-        )
+        operation_logger = self.logger
 
         operation_logger.info("買い注文処理を開始")
 
@@ -210,13 +204,7 @@ class TradeOperations:
             TradeOperationError: 取引処理に失敗した場合
         """
         # ログコンテキストを設定
-        operation_logger = self.logger.bind(
-            operation="sell_stock",
-            stock_code=stock_code,
-            quantity=quantity,
-            price=price,
-            commission=commission,
-        )
+        operation_logger = self.logger
 
         operation_logger.info("売り注文処理を開始")
 
@@ -363,9 +351,7 @@ class TradeOperations:
             ]
             result = trade_ops.batch_trade_operations(operations)
         """
-        batch_logger = self.logger.bind(
-            operation="batch_trade_operations", total_operations=len(operations)
-        )
+        batch_logger = self.logger
 
         batch_logger.info("バッチ取引操作開始", operations_count=len(operations))
 

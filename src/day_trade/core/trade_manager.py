@@ -464,7 +464,7 @@ class TradeManager:
 
     def _load_trades_from_db(self) -> None:
         """データベースから取引履歴を読み込み（トランザクション保護版）"""
-        load_logger = self.logger.bind(operation="load_trades_from_db")
+        load_logger = self.logger
         load_logger.info("データベースから取引履歴読み込み開始")
 
         try:
@@ -557,7 +557,7 @@ class TradeManager:
 
     def sync_with_db(self) -> None:
         """データベースとの同期を実行（原子性保証版）"""
-        sync_logger = self.logger.bind(operation="sync_with_db")
+        sync_logger = self.logger
         sync_logger.info("データベース同期開始")
 
         # 現在のメモリ内データをバックアップ

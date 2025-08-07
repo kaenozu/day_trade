@@ -43,7 +43,7 @@ class AdvancedBulkOperations:
             db_manager: DatabaseManagerインスタンス
         """
         self.db_manager = db_manager
-        self.logger = logger.bind(component="bulk_operations")
+        self.logger = logger
 
     def bulk_insert_with_conflict_resolution(
         self,

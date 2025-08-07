@@ -139,10 +139,12 @@ class EnhancedEnsembleStrategy:
 
         logger.info(
             "強化アンサンブル戦略初期化完了",
-            section="ensemble_init",
-            enable_ml=self.enable_ml_models,
-            prediction_horizons=[h.value for h in self.prediction_horizons],
-            strategies_count=len(self.rule_based_strategies),
+            extra={
+                "section": "ensemble_init",
+                "enable_ml": self.enable_ml_models,
+                "prediction_horizons": [h.value for h in self.prediction_horizons],
+                "strategies_count": len(self.rule_based_strategies),
+            },
         )
 
     def _initialize_rule_based_strategies(self) -> Dict[str, TradingSignalGenerator]:

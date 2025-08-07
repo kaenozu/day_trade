@@ -522,11 +522,13 @@ class StockFetcher:
 
         self.logger.info(
             "StockFetcher初期化完了",
-            cache_size=cache_size,
-            price_cache_ttl=price_cache_ttl,
-            historical_cache_ttl=historical_cache_ttl,
-            retry_count=retry_count,
-            auto_cache_tuning=self.auto_cache_tuning_enabled,
+            extra={
+                "cache_size": cache_size,
+                "price_cache_ttl": price_cache_ttl,
+                "historical_cache_ttl": historical_cache_ttl,
+                "retry_count": retry_count,
+                "auto_cache_tuning": self.auto_cache_tuning_enabled,
+            },
         )
 
     def _create_ticker(self, symbol: str) -> yf.Ticker:
@@ -761,9 +763,7 @@ class StockFetcher:
         """
 
         def _get_price():
-            price_logger = self.logger.bind(
-                operation="get_current_price", stock_code=code
-            )
+            price_logger = self.logger
             price_logger.info("現在価格取得開始")
 
             start_time = time.time()

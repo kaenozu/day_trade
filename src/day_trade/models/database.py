@@ -574,12 +574,7 @@ class DatabaseManager:
         if not data_list:
             return
 
-        operation_logger = logger.bind(
-            operation="bulk_insert",
-            model_class=model_class.__name__,
-            total_records=len(data_list),
-            batch_size=batch_size,
-        )
+        operation_logger = logger
         operation_logger.info("Starting bulk insert")
 
         try:
@@ -626,12 +621,7 @@ class DatabaseManager:
         if not data_list:
             return
 
-        operation_logger = logger.bind(
-            operation="bulk_update",
-            model_class=model_class.__name__,
-            total_records=len(data_list),
-            batch_size=batch_size,
-        )
+        operation_logger = logger
         operation_logger.info("Starting bulk update")
 
         try:
@@ -683,11 +673,7 @@ class DatabaseManager:
 
             db_manager.atomic_operation([operation1, operation2])
         """
-        operation_logger = logger.bind(
-            operation="atomic_operation",
-            operation_count=len(operations),
-            retry_count=retry_count,
-        )
+        operation_logger = logger
         operation_logger.info("Starting atomic operation")
 
         with self.transaction_scope(retry_count=retry_count) as session:
@@ -710,9 +696,7 @@ class DatabaseManager:
         Returns:
             クエリ結果
         """
-        operation_logger = logger.bind(
-            operation="execute_query", query_length=len(query), has_params=bool(params)
-        )
+        operation_logger = logger
         operation_logger.info("Executing raw SQL query")
 
         with self.engine.connect() as connection:
@@ -725,9 +709,7 @@ class DatabaseManager:
         """
         データベースの最適化を実行
         """
-        operation_logger = logger.bind(
-            operation="optimize_database", database_type=self._get_database_type()
-        )
+        operation_logger = logger
         operation_logger.info("Starting database optimization")
 
         if "sqlite" in self.config.database_url:
