@@ -224,7 +224,7 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --tb=short --cov=src --cov-fail-under=10 --cov-branch"
+addopts = "-ra -q --strict-markers --strict-config --tb=short --maxfail=5 --cov=src --cov-fail-under=10 --cov-branch -x --durations=10"
 testpaths = [
     "tests",
 ]

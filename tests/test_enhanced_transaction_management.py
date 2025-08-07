@@ -193,8 +193,8 @@ class TestEnhancedTransactionManager:
         """トランザクションタイムアウトのテスト"""
         with pytest.raises(
             OperationalError
-        ), self.enhanced_manager.enhanced_transaction(timeout_seconds=0.1):
-            time.sleep(0.2)  # タイムアウトを超過
+        ), self.enhanced_manager.enhanced_transaction(timeout_seconds=0.05):
+            time.sleep(0.1)  # タイムアウトを超過（短縮版）
 
     def test_readonly_transaction(self):
         """読み取り専用トランザクションのテスト"""

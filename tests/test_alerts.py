@@ -573,8 +573,8 @@ class TestAlertManager:
         self.alert_manager.stop_monitoring()
         assert self.alert_manager.monitoring_active is False
 
-        # スレッドが終了するまで待つ
-        time.sleep(1.2)
+        # スレッドが終了するまで待つ（短縮版）
+        time.sleep(0.1)
         assert not self.alert_manager.monitoring_thread.is_alive()
 
 

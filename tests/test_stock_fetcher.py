@@ -48,7 +48,7 @@ class TestDataCache:
         # 時間を進めてから取得（無効）
         import time
 
-        time.sleep(1.1)
+        time.sleep(1.1)  # TTL期限切れまで待機
         result = cache.get("test_key")
         assert result is None
 
@@ -77,7 +77,7 @@ class TestDataCache:
         assert result == "test_value"
 
         # TTL期限切れまで待機
-        time.sleep(1.1)
+        time.sleep(1.1)  # TTL期限切れまで待機
 
         # 通常の取得（期限切れなのでNone）
         result = cache.get("test_key", allow_stale=False)
@@ -85,7 +85,7 @@ class TestDataCache:
 
         # キャッシュにデータを再設定（上記でNoneを返した際にキーが削除されるため）
         cache.set("test_key", "test_value")
-        time.sleep(1.1)  # TTL期限切れまで待機
+        time.sleep(1.1)  # TTL期限切れまで待機  # TTL期限切れまで待機
 
         # stale許可で取得（まだstale期間内なので取得可能）
         result = cache.get("test_key", allow_stale=True)
