@@ -19,8 +19,10 @@ scikit-learn>=1.3.0
 sqlalchemy>=2.0.0
 alembic>=1.13.0
 
-# Real-time data (only websockets used)
+# Real-time data and web interface
 websockets>=11.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
 
 # Utilities
 python-dotenv>=1.0.0
