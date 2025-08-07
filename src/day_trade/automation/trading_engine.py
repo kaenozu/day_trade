@@ -1,6 +1,10 @@
 """
-自動取引エンジンコア実装
-リアルタイム市場データを処理し、自動で取引を実行するメインエンジン
+市場分析エンジンコア実装（旧：自動取引エンジン）
+
+【重要】自動取引機能は無効化済み
+リアルタイム市場データを処理し、分析情報を提供するエンジン
+
+※ 実際の取引実行は行いません
 """
 
 import asyncio
@@ -429,7 +433,10 @@ class TradingEngine:
             await self._execute_order(close_order)
 
             # アクティブポジションから削除
-            if symbol in self.active_positions and position in self.active_positions[symbol]:
+            if (
+                symbol in self.active_positions
+                and position in self.active_positions[symbol]
+            ):
                 self.active_positions[symbol].remove(position)
 
             logger.info(f"ポジションクローズ - {symbol}: {reason} @{current_price}")

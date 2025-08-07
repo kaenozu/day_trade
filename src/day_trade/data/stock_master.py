@@ -218,9 +218,7 @@ class StockMasterManager:
             return False
         if self.config.should_validate_code_format() and not code.isdigit():
             return False
-        if name and len(name) > self.config.get_max_name_length():
-            return False
-        return True
+        return not (name and len(name) > self.config.get_max_name_length())
 
     def _apply_session_management(self, stock: Stock, session, detached: bool):
         """セッション管理の適用"""
