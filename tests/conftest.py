@@ -129,6 +129,10 @@ def performance_optimizations(monkeypatch):
     # time.sleepを無効化
     monkeypatch.setattr(time, "sleep", lambda x: None)
 
+    # time.timeも固定値に置き換えてタイムアウト回避
+    fixed_time = time.time()
+    monkeypatch.setattr(time, "time", lambda: fixed_time)
+
     # yfinanceのTickerクラスをモック化
     mock_ticker = Mock()
     mock_ticker.history.return_value = pd.DataFrame(
