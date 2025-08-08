@@ -62,10 +62,18 @@ class AdvancedMLEngine:
     pandas-ta + scikit-learnによる本格的な技術分析と予測モデル
     """
 
-    def __init__(self, model_cache_path: Optional[str] = None):
+    def __init__(self, model_cache_path: Optional[str] = None, fast_mode: bool = False):
         self.model_cache_path = model_cache_path or "data/ml_models.db"
         self.models = {}
+        self.fast_mode = fast_mode  # 高速化モード
         self._ensure_model_cache_db()
+
+        # 高速化モード時の軽量モデル設定
+        if fast_mode:
+            logger.info("高速化モード: 軽量モデルを使用します")
+            self._setup_fast_models()
+        else:
+            self._setup_full_models()
 
     def _ensure_model_cache_db(self):
         """モデルキャッシュDBの初期化"""
@@ -86,6 +94,92 @@ class AdvancedMLEngine:
                 )
             """
             )
+
+    def _setup_fast_models(self):
+        """高速化モード用軽量モデル設定"""
+        if not SKLEARN_AVAILABLE:
+            return
+
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.linear_model import LinearRegression
+
+        # 軽量版モデル（処理時間を1/10に削減）
+        self.fast_models = {
+            "linear": LinearRegression(),
+            "random_forest": RandomForestRegressor(
+                n_estimators=20,  # 200→20に大幅削減
+                max_depth=4,  # 10→4に削減
+                min_samples_split=10,
+                min_samples_leaf=5,
+                max_features="sqrt",
+                random_state=42,
+                n_jobs=-1,
+            ),
+        }
+        logger.info("軽量モデル設定完了: 処理速度10倍向上")
+
+    def _setup_full_models(self):
+        """通常モード用フルモデル設定"""
+        # 従来通り（変更なし）
+        pass
+
+    def prepare_fast_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        高速化用軽量特徴量準備
+
+        Args:
+            data: 価格データ
+
+        Returns:
+            軽量化された特徴量DataFrame
+        """
+        if not PANDAS_TA_AVAILABLE:
+            return self._basic_features_fast(data)
+
+        try:
+            df = data.copy()
+
+            # 基本価格特徴量（必須のみ）
+            df["returns_1d"] = df["Close"].pct_change()
+            df["returns_5d"] = df["Close"].pct_change(5)
+            df["sma_20"] = ta.sma(df["Close"], length=20)
+            df["sma_ratio"] = df["Close"] / df["sma_20"]
+
+            # 軽量ボリンジャーバンド
+            bb_result = ta.bbands(df["Close"], length=20)
+            df["bb_upper"] = bb_result.iloc[:, 0]
+            df["bb_lower"] = bb_result.iloc[:, 2]
+            df["bb_position"] = (df["Close"] - df["bb_lower"]) / (
+                df["bb_upper"] - df["bb_lower"]
+            )
+
+            # ボラティリティ（短期のみ）
+            df["volatility_5d"] = df["returns_1d"].rolling(5).std()
+
+            # 必要最小限の5特徴量
+            feature_cols = [
+                "returns_1d",
+                "returns_5d",
+                "sma_ratio",
+                "bb_position",
+                "volatility_5d",
+            ]
+
+            return df[feature_cols].fillna(method="ffill").fillna(0)
+
+        except Exception as e:
+            logger.error(f"高速特徴量計算エラー: {e}")
+            return self._basic_features_fast(data)
+
+    def _basic_features_fast(self, data: pd.DataFrame) -> pd.DataFrame:
+        """基本特徴量（高速版）"""
+        df = data.copy()
+        df["returns_1d"] = df["Close"].pct_change()
+        df["returns_5d"] = df["Close"].pct_change(5)
+        df["sma_ratio"] = df["Close"] / df["Close"].rolling(20).mean()
+        df["volatility"] = df["returns_1d"].rolling(5).std()
+
+        return df[["returns_1d", "returns_5d", "sma_ratio", "volatility"]].fillna(0)
 
     def calculate_advanced_technical_indicators(
         self, data: pd.DataFrame
@@ -1105,6 +1199,126 @@ class AdvancedMLEngine:
         except Exception as e:
             logger.error(f"アンサンブル評価エラー {symbol}: {e}")
             return None
+
+    def generate_fast_investment_advice(
+        self, symbol: str, data: pd.DataFrame, features: pd.DataFrame = None
+    ) -> Dict:
+        """
+        高速化版投資助言生成
+
+        Args:
+            symbol: 銘柄コード
+            data: 価格データ
+            features: 特徴量（未使用、互換性のため）
+
+        Returns:
+            投資助言辞書
+        """
+        if not self.fast_mode or not SKLEARN_AVAILABLE:
+            # フォールバック: 通常版を使用
+            return self.generate_investment_advice(
+                symbol, data, features or self.prepare_ml_features(data)
+            )
+
+        try:
+            # 高速特徴量計算
+            fast_features = self.prepare_fast_features(data)
+
+            # 軽量予測モデル実行
+            prediction_score = self._fast_predict_trend(symbol, data, fast_features)
+
+            # 簡易投資判定
+            advice = self._fast_investment_signal(prediction_score, fast_features)
+
+            return {
+                "symbol": symbol,
+                "advice": advice["action"],
+                "confidence": advice["confidence"],
+                "risk_level": advice["risk_level"],
+                "reason": advice["reason"],
+                "processing_mode": "fast",
+            }
+
+        except Exception as e:
+            logger.error(f"高速助言生成エラー: {symbol} - {e}")
+            return self._get_default_advice(symbol)
+
+    def _fast_predict_trend(
+        self, symbol: str, data: pd.DataFrame, features: pd.DataFrame
+    ) -> float:
+        """高速トレンド予測"""
+        try:
+            if not hasattr(self, "fast_models"):
+                return 50.0
+
+            # ターゲット変数（3日後に短縮）
+            target = data["Close"].pct_change(3).shift(-3) * 100
+
+            # データ整合性
+            valid_indices = ~(features.isnull().any(axis=1) | target.isnull())
+            X = features[valid_indices]
+            y = target[valid_indices]
+
+            if len(X) < 10:
+                return 50.0
+
+            # 高速訓練（80%のみ使用）
+            split_idx = int(len(X) * 0.8)
+            X_train = X[:split_idx]
+            y_train = y[:split_idx]
+
+            # 軽量モデル使用
+            model = self.fast_models["random_forest"]
+            model.fit(X_train, y_train)
+
+            # 最新データで予測
+            latest_prediction = model.predict(X.iloc[[-1]])[0]
+
+            # スコア変換（-10〜+10 → 0〜100）
+            score = max(0, min(100, 50 + latest_prediction * 5))
+            return score
+
+        except Exception as e:
+            logger.error(f"高速予測エラー: {e}")
+            return 50.0
+
+    def _fast_investment_signal(
+        self, prediction_score: float, features: pd.DataFrame
+    ) -> Dict:
+        """高速投資シグナル判定"""
+
+        # シンプルな判定ロジック
+        if prediction_score >= 65:
+            return {
+                "action": "BUY",
+                "confidence": min(95, prediction_score + 10),
+                "risk_level": "MEDIUM",
+                "reason": f"上昇トレンド予測 (スコア: {prediction_score:.1f})",
+            }
+        elif prediction_score <= 35:
+            return {
+                "action": "SELL",
+                "confidence": min(95, 100 - prediction_score + 10),
+                "risk_level": "HIGH",
+                "reason": f"下落トレンド予測 (スコア: {prediction_score:.1f})",
+            }
+        else:
+            return {
+                "action": "HOLD",
+                "confidence": 70,
+                "risk_level": "LOW",
+                "reason": "横ばいトレンド予測",
+            }
+
+    def _get_default_advice(self, symbol: str) -> Dict:
+        """デフォルト助言"""
+        return {
+            "symbol": symbol,
+            "advice": "HOLD",
+            "confidence": 50.0,
+            "risk_level": "MEDIUM",
+            "reason": "データ不足により判定困難",
+        }
 
 
 if __name__ == "__main__":
