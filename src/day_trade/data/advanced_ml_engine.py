@@ -639,6 +639,222 @@ class AdvancedMLEngine:
             }
         return None
 
+    def generate_investment_advice(
+        self, symbol: str, data: pd.DataFrame, features: pd.DataFrame
+    ) -> Dict:
+        """
+        機械学習に基づく投資助言生成
+
+        Args:
+            symbol: 銘柄コード
+            data: 価格データ
+            features: 特徴量データ
+
+        Returns:
+            Dict: 投資助言情報
+        """
+        try:
+            # MLスコア取得
+            trend_score, vol_score, pattern_score = self.predict_advanced_scores(
+                symbol, data, features
+            )
+
+            # 現在価格情報
+            current_price = data["Close"].iloc[-1] if not data.empty else 0
+            price_change = (
+                (
+                    (current_price - data["Close"].iloc[-2])
+                    / data["Close"].iloc[-2]
+                    * 100
+                )
+                if len(data) >= 2
+                else 0
+            )
+
+            # 投資助言判定
+            advice = self._calculate_investment_signal(
+                trend_score, vol_score, pattern_score, features
+            )
+
+            # 信頼度算出
+            confidence = self._calculate_confidence(
+                trend_score, vol_score, pattern_score, symbol
+            )
+
+            # リスク評価
+            risk_level = self._calculate_risk_level(vol_score, features)
+
+            return {
+                "symbol": symbol,
+                "advice": advice["action"],  # "BUY", "SELL", "HOLD"
+                "confidence": confidence,  # 0-100
+                "risk_level": risk_level,  # "LOW", "MEDIUM", "HIGH"
+                "reason": advice["reason"],
+                "scores": {
+                    "trend": trend_score,
+                    "volatility": vol_score,
+                    "pattern": pattern_score,
+                },
+                "market_data": {
+                    "current_price": current_price,
+                    "price_change_pct": round(price_change, 2),
+                },
+                "timestamp": datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(f"投資助言生成エラー: {e}")
+            return self._get_default_advice(symbol)
+
+    def _calculate_investment_signal(
+        self,
+        trend_score: float,
+        vol_score: float,
+        pattern_score: float,
+        features: pd.DataFrame,
+    ) -> Dict:
+        """投資シグナル計算"""
+        try:
+            # 総合スコア算出（重み付き平均）
+            composite_score = (
+                trend_score * 0.4  # トレンドを重視
+                + pattern_score * 0.35  # パターンも重要
+                + vol_score * 0.25  # ボラティリティは参考
+            )
+
+            # RSI情報の考慮
+            rsi = features["rsi"].iloc[-1] if "rsi" in features.columns else 50
+
+            # MACD情報の考慮
+            macd_signal = 0
+            if "macd" in features.columns and "macd_signal" in features.columns:
+                macd = features["macd"].iloc[-1]
+                macd_sig = features["macd_signal"].iloc[-1]
+                macd_signal = 1 if macd > macd_sig else -1
+
+            # 投資判定ロジック
+            if composite_score >= 70:
+                if rsi < 80:  # オーバーボート回避
+                    return {
+                        "action": "BUY",
+                        "reason": f"強いトレンド・パターン (スコア: {composite_score:.1f})",
+                    }
+                else:
+                    return {
+                        "action": "HOLD",
+                        "reason": f"高スコアだがRSIオーバーボート ({rsi:.1f})",
+                    }
+
+            elif composite_score <= 30:
+                if rsi > 20:  # オーバーソールド回避
+                    return {
+                        "action": "SELL",
+                        "reason": f"弱いトレンド・パターン (スコア: {composite_score:.1f})",
+                    }
+                else:
+                    return {
+                        "action": "HOLD",
+                        "reason": f"低スコアだがRSIオーバーソールド ({rsi:.1f})",
+                    }
+
+            elif composite_score >= 60 and macd_signal > 0:
+                return {
+                    "action": "BUY",
+                    "reason": f"良好スコア+MACDゴールデンクロス (スコア: {composite_score:.1f})",
+                }
+
+            elif composite_score <= 40 and macd_signal < 0:
+                return {
+                    "action": "SELL",
+                    "reason": f"低調スコア+MACDデッドクロス (スコア: {composite_score:.1f})",
+                }
+
+            else:
+                return {
+                    "action": "HOLD",
+                    "reason": f"中立的な市況 (スコア: {composite_score:.1f})",
+                }
+
+        except Exception as e:
+            logger.error(f"投資シグナル計算エラー: {e}")
+            return {"action": "HOLD", "reason": "計算エラーのため保留"}
+
+    def _calculate_confidence(
+        self, trend_score: float, vol_score: float, pattern_score: float, symbol: str
+    ) -> float:
+        """信頼度計算"""
+        try:
+            # スコアの一貫性をチェック
+            scores = [trend_score, vol_score, pattern_score]
+            score_std = np.std(scores)
+
+            # 一貫性が高いほど信頼度UP
+            consistency = max(0, 100 - score_std * 2)
+
+            # 極端なスコア（0付近、100付近）は信頼度DOWN
+            extremity_penalty = 0
+            for score in scores:
+                if score < 10 or score > 90:
+                    extremity_penalty += 10
+
+            # モデル性能による調整
+            model_bonus = 0
+            if symbol in self.models and self.models[symbol]:
+                # R²スコアの平均で判定
+                r2_scores = [m.get("r2_score", 0) for m in self.models[symbol].values()]
+                avg_r2 = np.mean(r2_scores) if r2_scores else 0
+                model_bonus = max(0, avg_r2 * 20)  # 最大20ポイント
+
+            confidence = consistency + model_bonus - extremity_penalty
+            return max(0, min(100, confidence))
+
+        except Exception as e:
+            logger.error(f"信頼度計算エラー: {e}")
+            return 50.0
+
+    def _calculate_risk_level(self, vol_score: float, features: pd.DataFrame) -> str:
+        """リスクレベル計算"""
+        try:
+            risk_factors = []
+
+            # ボラティリティリスク
+            if vol_score > 80:
+                risk_factors.append("高ボラティリティ")
+            elif vol_score < 20:
+                risk_factors.append("低ボラティリティ")
+
+            # RSIリスク
+            if "rsi" in features.columns:
+                rsi = features["rsi"].iloc[-1]
+                if rsi > 80:
+                    risk_factors.append("オーバーボート")
+                elif rsi < 20:
+                    risk_factors.append("オーバーソールド")
+
+            # リスクレベル判定
+            if len(risk_factors) >= 2:
+                return "HIGH"
+            elif len(risk_factors) == 1:
+                return "MEDIUM"
+            else:
+                return "LOW"
+
+        except Exception:
+            return "MEDIUM"
+
+    def _get_default_advice(self, symbol: str) -> Dict:
+        """デフォルト助言"""
+        return {
+            "symbol": symbol,
+            "advice": "HOLD",
+            "confidence": 50.0,
+            "risk_level": "MEDIUM",
+            "reason": "データ不足のため保留",
+            "scores": {"trend": 50.0, "volatility": 50.0, "pattern": 50.0},
+            "market_data": {"current_price": 0, "price_change_pct": 0},
+            "timestamp": datetime.now().isoformat(),
+        }
+
     def tune_hyperparameters(
         self, symbol: str, data: pd.DataFrame, features: pd.DataFrame
     ) -> Optional[Dict]:
