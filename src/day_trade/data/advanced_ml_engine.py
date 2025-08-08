@@ -7,6 +7,7 @@ pandas-ta + scikit-learnを使用したより本格的な技術分析と機械�
 
 import sqlite3
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -1207,3 +1208,114 @@ if __name__ == "__main__":
 
     else:
         print("データ取得に失敗しました")
+
+
+class ParallelMLEngine:
+    """
+    並列ML処理エンジン
+
+    複数銘柄のML分析を並列実行してパフォーマンス向上
+    """
+
+    def __init__(self, max_workers: int = 4):
+        self.max_workers = max_workers
+        self.ml_engine = AdvancedMLEngine()
+
+    def analyze_multiple_symbols_parallel(
+        self,
+        stock_data_dict: Dict[str, pd.DataFrame],
+        max_workers: Optional[int] = None,
+    ) -> Dict[str, Dict]:
+        """
+        複数銘柄のML分析を並列実行
+
+        Args:
+            stock_data_dict: {symbol: DataFrame} の辞書
+            max_workers: 並列ワーカー数（None時はデフォルト使用）
+
+        Returns:
+            Dict[symbol, analysis_result]: 分析結果辞書
+        """
+        workers = max_workers or self.max_workers
+        results = {}
+
+        logger.info(f"並列ML分析開始: {len(stock_data_dict)}銘柄 (workers={workers})")
+
+        def analyze_single_symbol(symbol_data_tuple):
+            """単一銘柄の分析を実行"""
+            symbol, data = symbol_data_tuple
+            try:
+                if data.empty:
+                    return symbol, self.ml_engine._get_default_advice(symbol)
+
+                # 特徴量準備
+                features = self.ml_engine.prepare_ml_features(data)
+
+                # ML予測実行
+                (
+                    trend_score,
+                    vol_score,
+                    pattern_score,
+                ) = self.ml_engine.predict_advanced_scores(symbol, data, features)
+
+                # 投資助言生成
+                advice = self.ml_engine.generate_investment_advice(
+                    symbol, data, features
+                )
+
+                return symbol, advice
+
+            except Exception as e:
+                logger.error(f"並列ML分析エラー ({symbol}): {e}")
+                return symbol, self.ml_engine._get_default_advice(symbol)
+
+        # 並列実行
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            # タスク投入
+            future_to_symbol = {
+                executor.submit(analyze_single_symbol, item): item[0]
+                for item in stock_data_dict.items()
+            }
+
+            # 結果収集
+            completed_count = 0
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    result_symbol, analysis_result = future.result(
+                        timeout=30
+                    )  # 30秒タイムアウト
+                    results[result_symbol] = analysis_result
+                    completed_count += 1
+
+                    if completed_count % 10 == 0:  # 10銘柄ごとに進捗表示
+                        logger.info(
+                            f"並列ML分析進捗: {completed_count}/{len(stock_data_dict)}"
+                        )
+
+                except Exception as e:
+                    logger.error(f"並列処理結果取得エラー ({symbol}): {e}")
+                    results[symbol] = self.ml_engine._get_default_advice(symbol)
+
+        logger.info(f"並列ML分析完了: {len(results)}/{len(stock_data_dict)}銘柄")
+        return results
+
+    def batch_analyze_with_timing(
+        self, stock_data_dict: Dict[str, pd.DataFrame]
+    ) -> Tuple[Dict[str, Dict], float]:
+        """
+        タイミング測定付きバッチ分析
+
+        Returns:
+            Tuple[results, execution_time]: 分析結果と実行時間
+        """
+        import time
+
+        start_time = time.time()
+        results = self.analyze_multiple_symbols_parallel(stock_data_dict)
+        execution_time = time.time() - start_time
+
+        logger.info(f"バッチML分析完了: {execution_time:.2f}秒 ({len(results)}銘柄)")
+        logger.info(f"平均処理時間: {execution_time/len(results):.3f}秒/銘柄")
+
+        return results, execution_time
