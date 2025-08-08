@@ -116,7 +116,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: [setup, code-quality]
-    if: needs.setup.outputs.python == 'true' || needs.setup.outputs.tests == 'true'
+    if: needs.setup.outputs.python == 'true' || needs.setup.outputs.tests == 'true' || needs.setup.outputs.config == 'true'
     name: 🧪 Tests
     strategy:
       fail-fast: false
