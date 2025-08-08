@@ -10,11 +10,8 @@ import asyncio
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
-import pytest
+from unittest.mock import MagicMock, patch
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -24,9 +21,9 @@ sys.path.insert(0, str(project_root))
 from src.day_trade.config.trading_mode_config import (
     TradingMode,
     TradingModeConfig,
-    is_safe_mode,
     get_current_trading_config,
-    log_current_configuration
+    is_safe_mode,
+    log_current_configuration,
 )
 
 
@@ -119,7 +116,10 @@ class TestAnalysisOnlyEngine:
         mock_stock_fetcher.return_value = MagicMock()
         mock_signal_gen.return_value = MagicMock()
 
-        from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine, AnalysisStatus
+        from src.day_trade.automation.analysis_only_engine import (
+            AnalysisOnlyEngine,
+            AnalysisStatus,
+        )
 
         # Test basic initialization
         engine = AnalysisOnlyEngine(['7203', '8306'], update_interval=60.0)
@@ -157,7 +157,10 @@ class TestAnalysisOnlyEngine:
         mock_stock_fetcher.return_value = MagicMock()
         mock_signal_gen.return_value = MagicMock()
 
-        from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine, AnalysisStatus
+        from src.day_trade.automation.analysis_only_engine import (
+            AnalysisOnlyEngine,
+            AnalysisStatus,
+        )
 
         engine = AnalysisOnlyEngine(['7203'], update_interval=10.0)
 
@@ -176,7 +179,7 @@ class TestAnalysisOnlyEngine:
         assert isinstance(summary, dict)
 
         # Test get_latest_analysis
-        analysis = engine.get_latest_analysis('7203')
+        engine.get_latest_analysis('7203')
         # Can be None if no analysis performed
 
         # Test get_all_analyses
@@ -257,7 +260,7 @@ class TestEnhancedReportManager:
 
         # Test with custom analysis engine
         custom_engine = MagicMock()
-        manager2 = EnhancedReportManager(analysis_engine=custom_engine)
+        EnhancedReportManager(analysis_engine=custom_engine)
 
         print("[OK] EnhancedReportManager initialization: tested")
 
@@ -302,7 +305,7 @@ class TestEnhancedReportManager:
                 try:
                     method = getattr(manager, method_name)
                     with patch.object(manager, method_name, return_value=True):
-                        result = method({'data': 'test'}, 'test_file')
+                        method({'data': 'test'}, 'test_file')
                         print(f"[OK] {method_name}: mocked and tested")
                 except Exception as e:
                     print(f"[INFO] {method_name}: {e}")
@@ -389,7 +392,9 @@ class TestIntegratedAnalysisSystem:
         mock_signal_gen.return_value = MagicMock()
         mock_report_manager.return_value = MagicMock()
 
-        from src.day_trade.core.integrated_analysis_system import IntegratedAnalysisSystem
+        from src.day_trade.core.integrated_analysis_system import (
+            IntegratedAnalysisSystem,
+        )
 
         # Test initialization
         symbols = ['7203', '6758', '9984']
@@ -471,9 +476,9 @@ class TestAnalysisDashboardServer:
         # Test dashboard routes if available
         try:
             from src.day_trade.dashboard.analysis_dashboard_server import (
-                get_market_status,
                 get_analysis_data,
-                websocket_endpoint
+                get_market_status,
+                websocket_endpoint,
             )
 
             # Mock route functions
@@ -509,10 +514,12 @@ class TestErrorHandlingAndEdgeCases:
         # Test unsafe configuration attempts
         with patch('src.day_trade.config.trading_mode_config.is_safe_mode', return_value=False):
             try:
-                from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+                from src.day_trade.automation.analysis_only_engine import (
+                    AnalysisOnlyEngine,
+                )
                 # This should raise an error
                 try:
-                    engine = AnalysisOnlyEngine(['7203'])
+                    AnalysisOnlyEngine(['7203'])
                     print("[WARNING] AnalysisOnlyEngine: should have failed in unsafe mode")
                 except ValueError as e:
                     if "safe" in str(e).lower():
@@ -530,7 +537,10 @@ class TestErrorHandlingAndEdgeCases:
         print("=== Testing Empty and Invalid Inputs ===")
 
         # Test TradingModeConfig with invalid modes
-        from src.day_trade.config.trading_mode_config import TradingModeConfig, TradingMode
+        from src.day_trade.config.trading_mode_config import (
+            TradingMode,
+            TradingModeConfig,
+        )
 
         try:
             # Test with all valid modes
@@ -544,11 +554,13 @@ class TestErrorHandlingAndEdgeCases:
         # Test empty symbol lists
         try:
             with patch('src.day_trade.data.stock_fetcher.StockFetcher'):
-                from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+                from src.day_trade.automation.analysis_only_engine import (
+                    AnalysisOnlyEngine,
+                )
 
                 # Test empty symbols list
                 try:
-                    engine = AnalysisOnlyEngine([], update_interval=60.0)
+                    AnalysisOnlyEngine([], update_interval=60.0)
                     print("[INFO] AnalysisOnlyEngine: accepts empty symbol list")
                 except Exception as e:
                     print(f"[OK] AnalysisOnlyEngine: properly rejects empty symbols: {e}")

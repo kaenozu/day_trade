@@ -820,19 +820,24 @@ class StockFetcher:
                     "timestamp": datetime.now(),
                 }
 
-                # パフォーマンス最適化: サンプリングログの有効化判定
+                # パフォーマンス最適化: サンプリングログ（簡易版）
                 if (
                     hasattr(self.performance_logger, "logger")
                     and hasattr(self.performance_logger.logger, "isEnabledFor")
                     and self.performance_logger.logger.isEnabledFor(logging.INFO)
                 ):
-                    self.performance_logger.info_sampled(
-                        "現在価格取得完了",
-                        sample_rate=0.1,  # 10%のログのみ出力
-                        current_price=current_price,
-                        change_percent=change_percent,
-                        elapsed_ms=elapsed_time,
-                    )
+                    # 10%の確率でログ出力（サンプリング）
+                    import random
+
+                    if random.random() < 0.1:
+                        self.performance_logger.info(
+                            "現在価格取得完了",
+                            extra={
+                                "current_price": current_price,
+                                "change_percent": change_percent,
+                                "elapsed_ms": elapsed_time,
+                            },
+                        )
 
                 return result
 
