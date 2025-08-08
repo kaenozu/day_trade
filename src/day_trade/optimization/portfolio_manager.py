@@ -514,9 +514,7 @@ class PortfolioManager:
         """ポートフォリオパフォーマンス分析"""
         try:
             returns_data = self._calculate_returns_data(price_data)
-            available_symbols = [
-                s for s in holdings if s in returns_data.columns
-            ]
+            available_symbols = [s for s in holdings if s in returns_data.columns]
 
             if len(available_symbols) < 2:
                 return {"error": "パフォーマンス分析に十分なデータがありません"}
