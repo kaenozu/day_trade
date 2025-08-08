@@ -19,6 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..utils.logging_config import get_context_logger
+from .custom_reports import CustomReportManager
+from .educational_system import EducationalSystem
+from .interactive_charts import InteractiveChartManager
 
 logger = get_context_logger(__name__)
 
@@ -44,6 +47,9 @@ if os.path.exists(static_dir):
 
 # グローバル変数
 analysis_engine: Optional[AnalysisOnlyEngine] = None
+chart_manager: Optional[InteractiveChartManager] = None
+report_manager: Optional[CustomReportManager] = None
+educational_system: Optional[EducationalSystem] = None
 connected_clients: Dict[str, WebSocket] = {}
 
 
@@ -83,7 +89,7 @@ manager = ConnectionManager()
 @app.on_event("startup")
 async def startup_event():
     """サーバー起動時の初期化"""
-    global analysis_engine
+    global analysis_engine, chart_manager, report_manager, educational_system
 
     # セーフモード確認
     if not is_safe_mode():
@@ -96,6 +102,18 @@ async def startup_event():
     # 分析エンジンの初期化
     test_symbols = ["7203", "8306", "9984", "6758", "4689"]  # サンプル銘柄
     analysis_engine = AnalysisOnlyEngine(test_symbols, update_interval=10.0)
+
+    # インタラクティブチャートマネージャーの初期化
+    chart_manager = InteractiveChartManager()
+    logger.info("インタラクティブチャート機能を有効化しました")
+
+    # カスタムレポートマネージャーの初期化
+    report_manager = CustomReportManager()
+    logger.info("カスタムレポート機能を有効化しました")
+
+    # 教育システムの初期化
+    educational_system = EducationalSystem()
+    logger.info("教育・学習支援機能を有効化しました")
 
     logger.info("分析専用ダッシュボードサーバー起動完了")
 
@@ -410,6 +428,658 @@ async def get_monitored_symbols():
         "count": len(analysis_engine.symbols),
         "status": analysis_engine.status.value,
     }
+
+
+# === インタラクティブチャートAPI ===
+
+
+@app.post("/api/charts/price")
+async def create_price_chart(request: dict):
+    """価格チャート作成"""
+    global chart_manager, analysis_engine
+
+    if not chart_manager or not analysis_engine:
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
+
+    try:
+        # サンプルデータ（実際の実装では分析エンジンからデータ取得）
+        import numpy as np
+        import pandas as pd
+
+        symbols = request.get("symbols", ["7203.T"])
+        chart_type = request.get("chartType", "candlestick")
+        indicators = request.get("indicators", [])
+        show_volume = request.get("showVolume", True)
+
+        # モックデータ生成（実データに置き換え可能）
+        dates = pd.date_range(start="2024-01-01", end="2024-12-31", freq="D")
+        data = {}
+
+        for symbol in symbols:
+            base_price = 2000 + hash(symbol) % 1000
+            prices = base_price + np.cumsum(np.random.normal(0, 20, len(dates)))
+
+            data[symbol] = pd.DataFrame(
+                {
+                    "Open": prices + np.random.normal(0, 10, len(dates)),
+                    "High": prices + np.abs(np.random.normal(10, 5, len(dates))),
+                    "Low": prices - np.abs(np.random.normal(10, 5, len(dates))),
+                    "Close": prices,
+                    "Volume": np.random.randint(1000000, 10000000, len(dates)),
+                },
+                index=dates,
+            )
+
+        chart_data = chart_manager.create_price_chart(
+            data=data,
+            symbols=symbols,
+            chart_type=chart_type,
+            show_volume=show_volume,
+            indicators=indicators,
+        )
+
+        return chart_data
+
+    except Exception as e:
+        logger.error(f"価格チャート作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/charts/performance")
+async def create_performance_chart(request: dict):
+    """パフォーマンスチャート作成"""
+    global chart_manager
+
+    if not chart_manager:
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
+
+    try:
+        symbols = request.get("symbols", ["7203.T"])
+
+        # モックパフォーマンスデータ
+        import numpy as np
+        import pandas as pd
+
+        dates = pd.date_range(start="2024-01-01", end="2024-12-31", freq="D")
+        performance_data = {}
+
+        for symbol in symbols:
+            # ランダムリターンデータ生成
+            returns = np.random.normal(0.001, 0.02, len(dates))
+            performance_data[f"{symbol} 戦略"] = returns.tolist()
+
+        # ベンチマークデータ
+        benchmark = {"TOPIX": np.random.normal(0.0005, 0.018, len(dates)).tolist()}
+
+        chart_data = chart_manager.create_performance_chart(
+            performance_data=performance_data,
+            dates=dates.to_pydatetime().tolist(),
+            benchmark=benchmark,
+            cumulative=True,
+        )
+
+        return chart_data
+
+    except Exception as e:
+        logger.error(f"パフォーマンスチャート作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/analysis/risk")
+async def get_risk_analysis(request: dict):
+    """リスク分析データ取得"""
+    try:
+        symbols = request.get("symbols", ["7203.T"])
+
+        # モックリスクデータ
+        risk_data = {}
+
+        for symbol in symbols:
+            base_return = 0.08 + (hash(symbol) % 20 - 10) / 100
+            base_vol = 0.15 + (hash(symbol) % 10) / 100
+
+            risk_data[f"{symbol} 戦略"] = {
+                "return": base_return,
+                "volatility": base_vol,
+                "sharpe_ratio": base_return / base_vol,
+                "max_drawdown": -0.05 - (hash(symbol) % 10) / 100,
+                "sortino_ratio": (base_return / base_vol) * 1.2,
+            }
+
+        return risk_data
+
+    except Exception as e:
+        logger.error(f"リスク分析データ取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/charts/risk-scatter")
+async def create_risk_scatter_chart(risk_data: dict):
+    """リスク散布図チャート作成"""
+    global chart_manager
+
+    if not chart_manager:
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
+
+    try:
+        chart_data = chart_manager.create_risk_analysis_chart(
+            risk_data=risk_data, chart_type="scatter"
+        )
+        return chart_data
+
+    except Exception as e:
+        logger.error(f"リスク散布図作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/charts/risk-radar")
+async def create_risk_radar_chart(risk_data: dict):
+    """リスクレーダーチャート作成"""
+    global chart_manager
+
+    if not chart_manager:
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
+
+    try:
+        chart_data = chart_manager.create_risk_analysis_chart(
+            risk_data=risk_data, chart_type="radar"
+        )
+        return chart_data
+
+    except Exception as e:
+        logger.error(f"リスクレーダーチャート作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/charts/market-overview")
+async def get_market_overview():
+    """市場概要ダッシュボード取得"""
+    global chart_manager
+
+    if not chart_manager:
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
+
+    try:
+        # モック市場データ
+        import numpy as np
+        import pandas as pd
+
+        market_data = {
+            "sector_performance": {
+                "テクノロジー": 0.15,
+                "金融": 0.08,
+                "ヘルスケア": 0.12,
+                "消費財": 0.06,
+                "エネルギー": -0.03,
+            },
+            "volume_trend": {
+                "dates": pd.date_range(start="2024-12-01", end="2024-12-31", freq="D")
+                .strftime("%Y-%m-%d")
+                .tolist(),
+                "volumes": np.random.randint(1000000, 5000000, 31).tolist(),
+            },
+            "price_distribution": np.random.normal(2500, 500, 1000).tolist(),
+            "correlation_matrix": {
+                "symbols": ["7203.T", "8306.T", "9984.T"],
+                "values": [[1.0, 0.3, 0.1], [0.3, 1.0, 0.6], [0.1, 0.6, 1.0]],
+            },
+        }
+
+        chart_data = chart_manager.create_market_overview_dashboard(
+            market_data=market_data, layout="grid"
+        )
+
+        return chart_data
+
+    except Exception as e:
+        logger.error(f"市場概要ダッシュボード作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"ダッシュボード作成エラー: {str(e)}"
+        ) from e
+
+
+# === 強化ダッシュボードページ ===
+
+
+@app.get("/enhanced", response_class=HTMLResponse)
+async def enhanced_dashboard():
+    """強化版ダッシュボードページ"""
+    template_path = "src/day_trade/dashboard/templates/enhanced_dashboard.html"
+
+    try:
+        with open(template_path, encoding="utf-8") as f:
+            content = f.read()
+        return HTMLResponse(content=content)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>強化版ダッシュボード</h1><p>テンプレートファイルが見つかりません</p>",
+            status_code=404,
+        )
+
+
+# === カスタムレポートAPI ===
+
+
+@app.post("/api/reports/create")
+async def create_custom_report(request: dict):
+    """カスタムレポート作成"""
+    global report_manager, analysis_engine
+
+    if not report_manager:
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
+
+    try:
+        template = request.get("template", "standard")
+        custom_metrics = request.get("metrics", [])
+        title = request.get("title")
+
+        # サンプルデータ（実際の実装では分析エンジンからデータ取得）
+        import numpy as np
+
+        sample_data = {
+            "portfolio_returns": np.random.normal(0.001, 0.02, 252).tolist(),
+            "benchmark_returns": np.random.normal(0.0008, 0.018, 252).tolist(),
+            "symbols": ["7203.T", "8306.T", "9984.T", "6758.T", "6861.T"],
+            "sector_weights": {
+                "technology": 0.35,
+                "finance": 0.25,
+                "healthcare": 0.20,
+                "consumer": 0.15,
+                "energy": 0.05,
+            },
+        }
+
+        report_result = report_manager.create_custom_report(
+            data=sample_data,
+            template=template,
+            custom_metrics=custom_metrics,
+            title=title,
+        )
+
+        return report_result
+
+    except Exception as e:
+        logger.error(f"カスタムレポート作成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/reports/export")
+async def export_report(request: dict):
+    """レポートエクスポート"""
+    global report_manager
+
+    if not report_manager:
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
+
+    try:
+        report_data = request.get("report_data")
+        export_format = request.get("format", "json")  # json, excel, pdf
+        filename = request.get("filename")
+
+        if not report_data:
+            raise HTTPException(
+                status_code=400, detail="レポートデータが提供されていません"
+            )
+
+        if export_format == "json":
+            filepath = report_manager.export_to_json(report_data, filename)
+        elif export_format == "excel":
+            filepath = report_manager.export_to_excel(report_data, filename)
+        elif export_format == "pdf":
+            try:
+                filepath = report_manager.export_to_pdf(report_data, filename)
+            except ImportError as import_error:
+                raise HTTPException(
+                    status_code=501, detail="PDFエクスポートライブラリが利用できません"
+                ) from import_error
+        else:
+            raise HTTPException(
+                status_code=400, detail="サポートされていないエクスポート形式"
+            )
+
+        return {
+            "success": True,
+            "filepath": filepath,
+            "format": export_format,
+            "message": f"{export_format.upper()}ファイルが正常にエクスポートされました",
+        }
+
+    except Exception as e:
+        logger.error(f"レポートエクスポートエラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/reports/templates")
+async def get_report_templates():
+    """利用可能レポートテンプレート一覧取得"""
+    global report_manager
+
+    if not report_manager:
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
+
+    try:
+        templates = report_manager.get_available_templates()
+        return {"success": True, "templates": templates}
+
+    except Exception as e:
+        logger.error(f"テンプレート取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/reports/metrics")
+async def get_available_metrics():
+    """利用可能指標一覧取得"""
+    global report_manager
+
+    if not report_manager:
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
+
+    try:
+        metrics = report_manager.get_available_metrics()
+        return {"success": True, "metrics": metrics}
+
+    except Exception as e:
+        logger.error(f"指標取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/reports/schedule")
+async def schedule_periodic_report(request: dict):
+    """定期レポートスケジュール設定"""
+    global report_manager
+
+    if not report_manager:
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
+
+    try:
+        template = request.get("template", "standard")
+        frequency = request.get("frequency", "monthly")  # daily, weekly, monthly
+        recipients = request.get("recipients", [])
+
+        if frequency not in ["daily", "weekly", "monthly"]:
+            raise HTTPException(status_code=400, detail="無効な頻度が指定されました")
+
+        schedule_result = report_manager.schedule_periodic_report(
+            template=template, frequency=frequency, recipients=recipients
+        )
+
+        return schedule_result
+
+    except Exception as e:
+        logger.error(f"定期レポートスケジュール設定エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+# === 教育システムAPI ===
+
+
+@app.get("/api/education/glossary/{term}")
+async def get_term_explanation(term: str):
+    """用語解説取得"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        explanation = educational_system.get_term_explanation(term)
+        if explanation:
+            return {"success": True, "explanation": explanation}
+        else:
+            return {"success": False, "message": "該当する用語が見つかりませんでした"}
+
+    except Exception as e:
+        logger.error(f"用語解説取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/education/glossary")
+async def search_glossary(query: str = "", category: str = None):
+    """用語集検索"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        if query:
+            results = educational_system.search_glossary(query, category)
+        else:
+            # 全カテゴリ取得
+            categories = educational_system.get_categories()
+            return {"success": True, "categories": categories}
+
+        return {"success": True, "results": results, "count": len(results)}
+
+    except Exception as e:
+        logger.error(f"用語集検索エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/education/strategies/{strategy}")
+async def get_strategy_guide(strategy: str):
+    """投資戦略ガイド取得"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        guide = educational_system.get_strategy_guide(strategy)
+        if guide:
+            return {"success": True, "guide": guide}
+        else:
+            return {
+                "success": False,
+                "message": "該当する戦略ガイドが見つかりませんでした",
+            }
+
+    except Exception as e:
+        logger.error(f"戦略ガイド取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/education/case-studies/{case}")
+async def get_case_study(case: str):
+    """過去事例分析取得"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        study = educational_system.get_case_study(case)
+        if study:
+            return {"success": True, "case_study": study}
+        else:
+            return {
+                "success": False,
+                "message": "該当する事例分析が見つかりませんでした",
+            }
+
+    except Exception as e:
+        logger.error(f"事例分析取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/education/learning/{module}")
+async def get_learning_module(module: str):
+    """学習モジュール取得"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        learning_module = educational_system.get_learning_module(module)
+        if learning_module:
+            return {"success": True, "module": learning_module}
+        else:
+            return {
+                "success": False,
+                "message": "該当する学習モジュールが見つかりませんでした",
+            }
+
+    except Exception as e:
+        logger.error(f"学習モジュール取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"学習モジュール取得エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/education/quiz")
+async def generate_quiz(request: dict):
+    """クイズ問題生成"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        topic = request.get("topic")
+        difficulty = request.get("difficulty")
+        count = request.get("count", 5)
+
+        if count > 20:
+            raise HTTPException(
+                status_code=400, detail="問題数は20問以下にしてください"
+            )
+
+        questions = educational_system.get_quiz_questions(
+            topic=topic, difficulty=difficulty, count=count
+        )
+
+        return {
+            "success": True,
+            "questions": questions,
+            "count": len(questions),
+            "settings": {"topic": topic, "difficulty": difficulty, "count": count},
+        }
+
+    except Exception as e:
+        logger.error(f"クイズ生成エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.get("/api/education/progress/{user_id}")
+async def get_learning_progress(user_id: str):
+    """学習進捗取得"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        progress = educational_system.get_learning_progress(user_id)
+        recommendations = educational_system.get_recommendations(user_id)
+
+        return {
+            "success": True,
+            "progress": progress,
+            "recommendations": recommendations,
+            "user_id": user_id,
+        }
+
+    except Exception as e:
+        logger.error(f"学習進捗取得エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
+
+
+@app.post("/api/education/progress/{user_id}")
+async def update_learning_progress(user_id: str, request: dict):
+    """学習進捗更新"""
+    global educational_system
+
+    if not educational_system:
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
+
+    try:
+        module = request.get("module")
+        quiz_score = request.get("quiz_score")
+        study_time = request.get("study_time")
+
+        progress = educational_system.update_learning_progress(
+            user_id=user_id,
+            module=module,
+            quiz_score=quiz_score,
+            study_time=study_time,
+        )
+
+        return {"success": True, "progress": progress, "user_id": user_id}
+
+    except Exception as e:
+        logger.error(f"学習進捗更新エラー: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 if __name__ == "__main__":

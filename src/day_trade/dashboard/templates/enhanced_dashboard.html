@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>強化版分析ダッシュボード - Day Trade System</title>
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .chart-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .control-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-safe { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-danger { background-color: #dc3545; }
+
+        .btn-chart-type {
+            margin: 5px;
+            border-radius: 20px;
+            padding: 8px 16px;
+        }
+
+        .btn-chart-type.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+
+        .chart-loading {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                margin-bottom: 20px;
+            }
+
+            .metric-card {
+                margin-bottom: 15px;
+            }
+
+            .sidebar {
+                position: relative;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-chart-line"></i> 強化版分析ダッシュボード</h1>
+                    <p class="mb-0">
+                        <span class="status-indicator status-safe"></span>
+                        セーフモード有効 - 分析専用システム
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span id="lastUpdate" class="small">最終更新: --</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-3">
+                <div class="sidebar">
+                    <div class="sidebar-title">
+                        <i class="fas fa-cogs"></i> コントロール
+                    </div>
+
+                    <!-- Symbol Selection -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>銘柄選択</strong></label>
+                        <select id="symbolSelect" class="form-select" multiple>
+                            <option value="7203.T">7203 - トヨタ自動車</option>
+                            <option value="6758.T">6758 - ソニーグループ</option>
+                            <option value="9984.T">9984 - ソフトバンクG</option>
+                            <option value="8306.T">8306 - 三菱UFJ</option>
+                            <option value="6861.T">6861 - キーエンス</option>
+                        </select>
+                        <small class="text-muted">複数選択可能</small>
+                    </div>
+
+                    <!-- Chart Type Selection -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>チャートタイプ</strong></label>
+                        <div>
+                            <button class="btn btn-outline-primary btn-chart-type active" data-chart-type="candlestick">
+                                <i class="fas fa-chart-bar"></i> ローソク足
+                            </button>
+                            <button class="btn btn-outline-primary btn-chart-type" data-chart-type="line">
+                                <i class="fas fa-chart-line"></i> ライン
+                            </button>
+                            <button class="btn btn-outline-primary btn-chart-type" data-chart-type="ohlc">
+                                <i class="fas fa-chart-area"></i> OHLC
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Technical Indicators -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>テクニカル指標</strong></label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sma20" value="sma_20">
+                            <label class="form-check-label" for="sma20">SMA20</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sma50" value="sma_50">
+                            <label class="form-check-label" for="sma50">SMA50</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="bollinger" value="bollinger">
+                            <label class="form-check-label" for="bollinger">ボリンジャーバンド</label>
+                        </div>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>オプション</strong></label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showVolume" checked>
+                            <label class="form-check-label" for="showVolume">出来高表示</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoUpdate">
+                            <label class="form-check-label" for="autoUpdate">自動更新</label>
+                        </div>
+                    </div>
+
+                    <!-- Update Button -->
+                    <button id="updateCharts" class="btn btn-primary w-100 mb-3">
+                        <i class="fas fa-sync-alt"></i> チャート更新
+                    </button>
+
+                    <!-- Export Button -->
+                    <button id="exportData" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-download"></i> データエクスポート
+                    </button>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="metric-card">
+                            <div class="metric-value" id="totalReturn">--</div>
+                            <div class="metric-label">累積リターン</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="metric-card">
+                            <div class="metric-value" id="sharpeRatio">--</div>
+                            <div class="metric-label">シャープレシオ</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="metric-card">
+                            <div class="metric-value" id="maxDrawdown">--</div>
+                            <div class="metric-label">最大ドローダウン</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-lg-9">
+                <!-- Price Chart -->
+                <div class="chart-container">
+                    <div class="chart-title">
+                        <i class="fas fa-chart-candlestick"></i> 価格チャート
+                    </div>
+                    <div id="priceChart" class="chart-loading">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin fa-2x"></i>
+                            <div class="mt-2">チャート読み込み中...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Chart -->
+                <div class="chart-container">
+                    <div class="chart-title">
+                        <i class="fas fa-chart-line"></i> パフォーマンス比較
+                    </div>
+                    <div id="performanceChart" class="chart-loading">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin fa-2x"></i>
+                            <div class="mt-2">チャート読み込み中...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Analysis -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-scatter-chart"></i> リスク・リターン分析
+                            </div>
+                            <div id="riskScatterChart" class="chart-loading">
+                                <div class="loading-spinner">
+                                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                    <div class="mt-2">チャート読み込み中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-radar-chart"></i> リスク指標レーダー
+                            </div>
+                            <div id="riskRadarChart" class="chart-loading">
+                                <div class="loading-spinner">
+                                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                    <div class="mt-2">チャート読み込み中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Overview -->
+                <div class="chart-container">
+                    <div class="chart-title">
+                        <i class="fas fa-globe"></i> 市場概要ダッシュボード
+                    </div>
+                    <div id="marketOverview" class="chart-loading">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin fa-2x"></i>
+                            <div class="mt-2">ダッシュボード読み込み中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        class EnhancedDashboard {
+            constructor() {
+                this.currentSettings = {
+                    symbols: ['7203.T'],
+                    chartType: 'candlestick',
+                    indicators: [],
+                    showVolume: true,
+                    autoUpdate: false
+                };
+
+                this.autoUpdateInterval = null;
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.loadInitialData();
+                console.log('Enhanced Dashboard initialized');
+            }
+
+            bindEvents() {
+                // Chart type buttons
+                document.querySelectorAll('.btn-chart-type').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.btn-chart-type').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.currentSettings.chartType = e.target.dataset.chartType;
+                        this.updateCharts();
+                    });
+                });
+
+                // Update button
+                document.getElementById('updateCharts').addEventListener('click', () => {
+                    this.updateCharts();
+                });
+
+                // Export button
+                document.getElementById('exportData').addEventListener('click', () => {
+                    this.exportData();
+                });
+
+                // Auto update checkbox
+                document.getElementById('autoUpdate').addEventListener('change', (e) => {
+                    this.currentSettings.autoUpdate = e.target.checked;
+                    this.toggleAutoUpdate();
+                });
+
+                // Symbol selection
+                document.getElementById('symbolSelect').addEventListener('change', (e) => {
+                    this.currentSettings.symbols = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                });
+
+                // Technical indicators
+                document.querySelectorAll('input[type="checkbox"][value^="sma"], input[type="checkbox"][value="bollinger"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', () => {
+                        this.updateIndicators();
+                    });
+                });
+
+                // Show volume
+                document.getElementById('showVolume').addEventListener('change', (e) => {
+                    this.currentSettings.showVolume = e.target.checked;
+                });
+            }
+
+            updateIndicators() {
+                this.currentSettings.indicators = Array.from(
+                    document.querySelectorAll('input[type="checkbox"][value^="sma"]:checked, input[type="checkbox"][value="bollinger"]:checked')
+                ).map(cb => cb.value);
+            }
+
+            async loadInitialData() {
+                await this.updateCharts();
+                this.updateLastUpdateTime();
+            }
+
+            async updateCharts() {
+                try {
+                    this.showLoading();
+
+                    // Update settings from UI
+                    this.updateIndicators();
+
+                    // Load charts in parallel
+                    const [priceChart, performanceChart, riskData, marketData] = await Promise.all([
+                        this.fetchPriceChart(),
+                        this.fetchPerformanceChart(),
+                        this.fetchRiskData(),
+                        this.fetchMarketData()
+                    ]);
+
+                    // Render charts
+                    if (priceChart) this.renderChart('priceChart', priceChart);
+                    if (performanceChart) this.renderChart('performanceChart', performanceChart);
+                    if (riskData) {
+                        this.renderChart('riskScatterChart', await this.createRiskScatter(riskData));
+                        this.renderChart('riskRadarChart', await this.createRiskRadar(riskData));
+                    }
+                    if (marketData) this.renderChart('marketOverview', marketData);
+
+                    // Update metrics
+                    this.updateMetrics();
+                    this.updateLastUpdateTime();
+
+                    this.hideLoading();
+                    console.log('Charts updated successfully');
+
+                } catch (error) {
+                    console.error('Error updating charts:', error);
+                    this.showError('チャートの更新中にエラーが発生しました');
+                    this.hideLoading();
+                }
+            }
+
+            async fetchPriceChart() {
+                const response = await fetch('/api/charts/price', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.currentSettings)
+                });
+
+                if (!response.ok) throw new Error('Price chart fetch failed');
+                return await response.json();
+            }
+
+            async fetchPerformanceChart() {
+                const response = await fetch('/api/charts/performance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbols: this.currentSettings.symbols })
+                });
+
+                if (!response.ok) throw new Error('Performance chart fetch failed');
+                return await response.json();
+            }
+
+            async fetchRiskData() {
+                const response = await fetch('/api/analysis/risk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbols: this.currentSettings.symbols })
+                });
+
+                if (!response.ok) throw new Error('Risk data fetch failed');
+                return await response.json();
+            }
+
+            async fetchMarketData() {
+                const response = await fetch('/api/charts/market-overview');
+                if (!response.ok) throw new Error('Market data fetch failed');
+                return await response.json();
+            }
+
+            async createRiskScatter(riskData) {
+                const response = await fetch('/api/charts/risk-scatter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(riskData)
+                });
+
+                if (!response.ok) throw new Error('Risk scatter chart creation failed');
+                return await response.json();
+            }
+
+            async createRiskRadar(riskData) {
+                const response = await fetch('/api/charts/risk-radar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(riskData)
+                });
+
+                if (!response.ok) throw new Error('Risk radar chart creation failed');
+                return await response.json();
+            }
+
+            renderChart(elementId, chartData) {
+                const element = document.getElementById(elementId);
+                if (!element) return;
+
+                try {
+                    const config = {
+                        displayModeBar: true,
+                        displaylogo: false,
+                        modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'],
+                        responsive: true,
+                        ...chartData.config
+                    };
+
+                    if (chartData.chart) {
+                        const plotData = JSON.parse(chartData.chart);
+                        Plotly.newPlot(elementId, plotData.data, plotData.layout, config);
+                    } else if (chartData.dashboard) {
+                        const plotData = JSON.parse(chartData.dashboard);
+                        Plotly.newPlot(elementId, plotData.data, plotData.layout, config);
+                    }
+
+                } catch (error) {
+                    console.error(`Error rendering chart ${elementId}:`, error);
+                    element.innerHTML = '<div class="alert alert-danger">チャートの表示でエラーが発生しました</div>';
+                }
+            }
+
+            updateMetrics() {
+                // Mock data for metrics - in real implementation, fetch from API
+                document.getElementById('totalReturn').textContent = '+12.3%';
+                document.getElementById('sharpeRatio').textContent = '1.42';
+                document.getElementById('maxDrawdown').textContent = '-8.1%';
+            }
+
+            showLoading() {
+                document.querySelectorAll('.chart-loading .loading-spinner').forEach(spinner => {
+                    spinner.style.display = 'block';
+                });
+            }
+
+            hideLoading() {
+                document.querySelectorAll('.chart-loading .loading-spinner').forEach(spinner => {
+                    spinner.style.display = 'none';
+                });
+            }
+
+            showError(message) {
+                // Show error notification
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+                alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                alert.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alert);
+
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            }
+
+            toggleAutoUpdate() {
+                if (this.currentSettings.autoUpdate) {
+                    this.autoUpdateInterval = setInterval(() => {
+                        this.updateCharts();
+                    }, 30000); // 30秒間隔
+                    console.log('Auto-update enabled');
+                } else {
+                    if (this.autoUpdateInterval) {
+                        clearInterval(this.autoUpdateInterval);
+                        this.autoUpdateInterval = null;
+                    }
+                    console.log('Auto-update disabled');
+                }
+            }
+
+            updateLastUpdateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('ja-JP');
+                document.getElementById('lastUpdate').textContent = `最終更新: ${timeString}`;
+            }
+
+            exportData() {
+                // Export functionality
+                const exportData = {
+                    settings: this.currentSettings,
+                    timestamp: new Date().toISOString(),
+                    charts: ['price', 'performance', 'risk', 'market']
+                };
+
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                    type: 'application/json'
+                });
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `dashboard_export_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('Data exported');
+            }
+        }
+
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new EnhancedDashboard();
+        });
+
+        // Handle resize events for responsive charts
+        window.addEventListener('resize', () => {
+            const chartElements = ['priceChart', 'performanceChart', 'riskScatterChart', 'riskRadarChart', 'marketOverview'];
+            chartElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element && Plotly) {
+                    Plotly.Plots.resize(element);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
