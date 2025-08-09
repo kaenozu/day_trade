@@ -13,6 +13,7 @@ import sys
 import time
 import traceback
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import List
 
@@ -35,26 +36,10 @@ from src.day_trade.config.trading_mode_config import (
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# グローバル変数
-running = True
-orchestrator = None
-
-
 class CLIValidationError(Exception):
     """CLI引数検証エラー"""
 
     pass
-
-
-def signal_handler(signum, frame):
-    """Ctrl+C ハンドラ"""
-    global running, orchestrator
-    print("\n\n[中断] システムを安全に停止しています...")
-    running = False
-    if orchestrator:
-        orchestrator.cleanup()
-    print("[完了] システムが正常に停止されました")
-    sys.exit(0)
 
 
 def validate_symbols(symbols_str: str) -> List[str]:
@@ -301,18 +286,16 @@ def print_summary(report):
     print("=" * 50)
 
 
-def run_watch_mode(symbols, interval_minutes):
+def run_watch_mode(symbols, interval_minutes, orchestrator_instance: DayTradeOrchestrator):
     """継続監視モード"""
-    global running, orchestrator
 
     try:
         print(f"[監視] 継続監視モードを開始します（{interval_minutes}分間隔）")
         print("  Ctrl+C で停止できます")
 
-        orchestrator = DayTradeOrchestrator()
         iteration = 0
 
-        while running:
+        while True:
             iteration += 1
             start_time = time.time()
 
@@ -322,7 +305,7 @@ def run_watch_mode(symbols, interval_minutes):
 
             try:
                 # 分析実行
-                report = orchestrator.run_full_automation(symbols=symbols)
+                report = orchestrator_instance.run_full_automation(symbols=symbols)
 
                 # 簡潔な結果表示
                 print(
@@ -345,15 +328,14 @@ def run_watch_mode(symbols, interval_minutes):
             elapsed = time.time() - start_time
             sleep_time = max(0, (interval_minutes * 60) - elapsed)
 
-            if sleep_time > 0 and running:
+            if sleep_time > 0:
                 print(f"  [WAIT] 次回分析まで {sleep_time/60:.1f}分待機...")
                 time.sleep(sleep_time)
 
     except KeyboardInterrupt:
         print("\n[中断] 監視モードが中断されました")
     finally:
-        if orchestrator:
-            orchestrator.cleanup()
+        orchestrator_instance.cleanup()
 
 
 def run_dashboard_mode():
@@ -390,9 +372,18 @@ def print_startup_banner():
 
 def main():
     """メイン関数"""
-    # シグナルハンドラ設定
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    def _signal_handler(signum, frame, orchestrator_instance: DayTradeOrchestrator):
+        print("\n\n[中断] システムを安全に停止しています...")
+        if orchestrator_instance:
+            orchestrator_instance.cleanup()
+        print("[完了] システムが正常に停止されました")
+        sys.exit(0)
+
+    # orchestratorは後で初期化するため、初期はNoneを渡す。実際のハンドラはpartialで渡す
+    current_orchestrator = None
+    # シグナルハンドラ設定 (partialでorchestratorインスタンスを後でバインド)
+    signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=None))
+    signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=None))
 
     parser = argparse.ArgumentParser(
         description="DayTrade統合分析システム",
@@ -619,7 +610,7 @@ def main():
             if not args.quiet:
                 print_startup_banner()
                 print(f"対象銘柄: {symbols}")
-            run_watch_mode(symbols, validated_interval)
+            run_watch_mode(symbols, validated_interval, orchestrator)
             return 0
 
         # 実行確認
@@ -634,6 +625,9 @@ def main():
 
         # オーケストレーター初期化・実行
         orchestrator = DayTradeOrchestrator(config_path)
+        # シグナルハンドラに実際のorchestratorインスタンスをバインド
+        signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator))
+        signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator))
 
         start_time = datetime.now()
         print(f"開始時刻: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
