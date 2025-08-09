@@ -221,6 +221,12 @@ class RSIOversoldRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
+        if config is None:
+            config = SignalRulesConfig()
+
+        threshold = config.get_rsi_thresholds().get("oversold", self.threshold)
+        confidence_multiplier = config.get_confidence_multiplier("rsi_oversold", self.confidence_multiplier)
+
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
 
@@ -228,10 +234,10 @@ class RSIOversoldRule(SignalRule):
         if pd.isna(latest_rsi):
             return False, 0.0
 
-        if latest_rsi < self.threshold:
+        if latest_rsi < threshold:
             # RSIが低いほど信頼度が高い
-            confidence = (self.threshold - latest_rsi) / self.threshold * 100
-            return True, min(confidence * self.confidence_multiplier, 100)
+            confidence = (threshold - latest_rsi) / threshold * 100
+            return True, min(confidence * confidence_multiplier, 100)
 
         return False, 0.0
 
@@ -256,6 +262,12 @@ class RSIOverboughtRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
+        if config is None:
+            config = SignalRulesConfig()
+
+        threshold = config.get_rsi_thresholds().get("overbought", self.threshold)
+        confidence_multiplier = config.get_confidence_multiplier("rsi_overbought", self.confidence_multiplier)
+
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
 
@@ -263,10 +275,10 @@ class RSIOverboughtRule(SignalRule):
         if pd.isna(latest_rsi):
             return False, 0.0
 
-        if latest_rsi > self.threshold:
+        if latest_rsi > threshold:
             # RSIが高いほど信頼度が高い
-            confidence = (latest_rsi - self.threshold) / (100 - self.threshold) * 100
-            return True, min(confidence * self.confidence_multiplier, 100)
+            confidence = (latest_rsi - threshold) / (100 - threshold) * 100
+            return True, min(confidence * confidence_multiplier, 100)
 
         return False, 0.0
 
@@ -288,6 +300,12 @@ class MACDCrossoverRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
+        if config is None:
+            config = SignalRulesConfig()
+
+        lookback = config.get_macd_settings().get("lookback_period", self.lookback)
+        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+
         if (
             "MACD" not in indicators.columns
             or "MACD_Signal" not in indicators.columns
@@ -296,10 +314,10 @@ class MACDCrossoverRule(SignalRule):
         ):
             return False, 0.0
 
-        macd = indicators["MACD"].iloc[-self.lookback :]
-        signal = indicators["MACD_Signal"].iloc[-self.lookback :]
+        macd = indicators["MACD"].iloc[-lookback:]
+        signal = indicators["MACD_Signal"].iloc[-lookback:]
 
-        if len(macd) < self.lookback or macd.isna().any() or signal.isna().any():
+        if len(macd) < lookback or macd.isna().any() or signal.isna().any():
             return False, 0.0
 
         # ゴールデンクロスをチェック
@@ -310,7 +328,7 @@ class MACDCrossoverRule(SignalRule):
         if crossed_above:
             # クロスの角度から信頼度を計算
             angle = abs(macd.iloc[-1] - signal.iloc[-1]) / df["Close"].iloc[-1] * 100
-            confidence = min(angle * self.angle_multiplier, 100)
+            confidence = min(angle * angle_multiplier, 100)
             return True, confidence
 
         return False, 0.0
@@ -333,6 +351,12 @@ class MACDDeathCrossRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
+        if config is None:
+            config = SignalRulesConfig()
+
+        lookback = config.get_macd_settings().get("lookback_period", self.lookback)
+        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+
         if (
             "MACD" not in indicators.columns
             or "MACD_Signal" not in indicators.columns
@@ -341,10 +365,10 @@ class MACDDeathCrossRule(SignalRule):
         ):
             return False, 0.0
 
-        macd = indicators["MACD"].iloc[-self.lookback :]
-        signal = indicators["MACD_Signal"].iloc[-self.lookback :]
+        macd = indicators["MACD"].iloc[-lookback:]
+        signal = indicators["MACD_Signal"].iloc[-lookback:]
 
-        if len(macd) < self.lookback or macd.isna().any() or signal.isna().any():
+        if len(macd) < lookback or macd.isna().any() or signal.isna().any():
             return False, 0.0
 
         # デスクロスをチェック
@@ -355,7 +379,7 @@ class MACDDeathCrossRule(SignalRule):
         if crossed_below:
             # クロスの角度から信頼度を計算
             angle = abs(signal.iloc[-1] - macd.iloc[-1]) / df["Close"].iloc[-1] * 100
-            confidence = min(angle * self.angle_multiplier, 100)
+            confidence = min(angle * angle_multiplier, 100)
             return True, confidence
 
         return False, 0.0
@@ -386,6 +410,11 @@ class BollingerBandRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
+        if config is None:
+            config = SignalRulesConfig()
+
+        deviation_multiplier = config.get_confidence_multiplier("bollinger_deviation", self.deviation_multiplier)
+
         if (
             "BB_Upper" not in indicators.columns
             or "BB_Lower" not in indicators.columns
@@ -404,7 +433,7 @@ class BollingerBandRule(SignalRule):
             if close_price <= bb_lower:
                 # バンドからの乖離率を信頼度に
                 deviation = (bb_lower - close_price) / close_price * 100
-                confidence = min(deviation * self.deviation_multiplier, 100)
+                confidence = min(deviation * deviation_multiplier, 100)
                 return True, confidence
 
         elif self.position == "upper":
@@ -415,7 +444,7 @@ class BollingerBandRule(SignalRule):
             if close_price >= bb_upper:
                 # バンドからの乖離率を信頼度に
                 deviation = (close_price - bb_upper) / close_price * 100
-                confidence = min(deviation * self.deviation_multiplier, 100)
+                confidence = min(deviation * deviation_multiplier, 100)
                 return True, confidence
 
         return False, 0.0
@@ -1223,9 +1252,15 @@ class VolumeSpikeBuyRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        # 設定から値を取得
         if config is None:
             config = SignalRulesConfig()
+
+        volume_settings = config.get_volume_spike_settings()
+        volume_factor = volume_settings["volume_factor"]
+        price_change_threshold = volume_settings["price_change_threshold"]
+        confidence_base = volume_settings["confidence_base"]
+        confidence_multiplier = volume_settings["confidence_multiplier"]
+
         min_data = config.get_min_data_for_generation()
         volume_period = config.get_volume_calculation_period()
 
@@ -1243,13 +1278,13 @@ class VolumeSpikeBuyRule(SignalRule):
 
         # 出来高が平均の指定倍数以上かつ価格が指定%以上上昇
         if (
-            latest_volume > avg_volume * self.volume_factor
-            and price_change > self.price_change
+            latest_volume > avg_volume * volume_factor
+            and price_change > price_change_threshold
         ):
             volume_ratio = latest_volume / avg_volume
             confidence = min(
-                (volume_ratio - self.volume_factor) * self.confidence_multiplier
-                + self.confidence_base,
+                (volume_ratio - volume_factor) * confidence_multiplier
+                + confidence_base,
                 100,
             )
             return True, confidence
