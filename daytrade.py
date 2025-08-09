@@ -210,6 +210,24 @@ def setup_logging(log_level: str = "INFO"):
         )
 
 
+def validate_interval(interval: int) -> int:
+    """
+    監視間隔（分）をバリデート
+
+    Args:
+        interval: 監視間隔（分）
+
+    Returns:
+        バリデート済み監視間隔
+
+    Raises:
+        CLIValidationError: バリデーションエラー
+    """
+    if interval <= 0:
+        raise CLIValidationError("監視間隔は正の整数である必要があります。")
+    return interval
+
+
 def print_banner():
     """バナーを表示"""
     banner = """
@@ -427,23 +445,26 @@ def main():
         help="拡張インタラクティブモードで開始（オートコンプリート、履歴機能付き）",
     )
 
-    parser.add_argument(
+    # 排他的な引数グループ
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument(
         "--watch",
         action="store_true",
-        help="継続監視モード",
+        help="継続監視モードを開始します。--interval で監視間隔（分）を指定できます（デフォルト: 5分）。",
+    )
+
+    group.add_argument(
+        "--dash",
+        action="store_true",
+        help="分析ダッシュボードを起動します。",
     )
 
     parser.add_argument(
         "--interval",
         type=int,
         default=5,
-        help="監視間隔（分、デフォルト:5）",
-    )
-
-    parser.add_argument(
-        "--dash",
-        action="store_true",
-        help="ダッシュボードモード",
+        help="--watch 使用時の監視間隔（分、デフォルト: 5）。正の整数である必要があります。",
     )
 
     parser.add_argument(
@@ -510,6 +531,7 @@ def main():
         validated_symbols = None
         validated_config_path = None
         validated_log_level = args.log_level
+        validated_interval = args.interval
 
         # ログレベルのバリデーション
         try:
@@ -517,6 +539,14 @@ def main():
         except CLIValidationError as e:
             print(f"❌ エラー: {e}", file=sys.stderr)
             return 1
+
+        # 監視間隔のバリデーション
+        if args.watch: # --watch が指定された場合のみバリデーション
+            try:
+                validated_interval = validate_interval(args.interval)
+            except CLIValidationError as e:
+                print(f"❌ エラー: {e}", file=sys.stderr)
+                return 1
 
         # 銘柄コードのバリデーション
         if args.symbols:
@@ -589,7 +619,7 @@ def main():
             if not args.quiet:
                 print_startup_banner()
                 print(f"対象銘柄: {symbols}")
-            run_watch_mode(symbols, args.interval)
+            run_watch_mode(symbols, validated_interval)
             return 0
 
         # 実行確認
