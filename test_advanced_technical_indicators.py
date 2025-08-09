@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 高度テクニカル指標システムテスト
 Issue #315: 高度テクニカル指標・ML機能拡張
@@ -11,8 +10,9 @@ import asyncio
 import sys
 import traceback
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,7 +22,9 @@ async def test_bollinger_bands_optimized():
     print("\n=== Bollinger Bands最適化分析テスト ===")
 
     try:
-        from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
+        from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+            AdvancedTechnicalIndicatorsOptimized,
+        )
 
         # テストデータ生成
         dates = pd.date_range(start='2024-01-01', periods=100)
@@ -71,7 +73,9 @@ async def test_ichimoku_cloud_optimized():
     print("\n=== Ichimoku Cloud最適化分析テスト ===")
 
     try:
-        from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
+        from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+            AdvancedTechnicalIndicatorsOptimized,
+        )
 
         # テストデータ生成（一目用に長期データ）
         dates = pd.date_range(start='2024-01-01', periods=150)
@@ -131,7 +135,9 @@ async def test_batch_analysis():
     print("\n=== バッチ分析テスト ===")
 
     try:
-        from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
+        from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+            AdvancedTechnicalIndicatorsOptimized,
+        )
 
         # 複数銘柄のテストデータ生成
         symbols = ["TEST1", "TEST2", "TEST3"]
@@ -195,7 +201,9 @@ async def test_performance_stats():
     print("\n=== パフォーマンス統計テスト ===")
 
     try:
-        from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
+        from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+            AdvancedTechnicalIndicatorsOptimized,
+        )
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
@@ -241,7 +249,9 @@ async def test_cache_functionality():
     print("\n=== キャッシュ機能テスト ===")
 
     try:
-        from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
+        from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+            AdvancedTechnicalIndicatorsOptimized,
+        )
 
         # テストデータ
         dates = pd.date_range(start='2024-01-01', periods=100)

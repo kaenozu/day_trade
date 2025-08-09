@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 最終システム統合テスト
 全コンポーネント統合動作検証
@@ -12,10 +11,10 @@
 """
 
 import asyncio
-import time
 import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -26,22 +25,27 @@ sys.path.append(str(Path(__file__).parent / "src"))
 
 try:
     # 核心システム
-    from src.day_trade.topix.topix500_analysis_system import TOPIX500AnalysisSystem
-    from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
-    from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
-    from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
-    from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+    from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+        AdvancedTechnicalIndicatorsOptimized,
+    )
+    from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+        MultiTimeframeAnalysisOptimized,
+    )
 
     # データ管理
     from src.day_trade.data.advanced_parallel_ml_engine import AdvancedParallelMLEngine
-    from src.day_trade.utils.unified_cache_manager import UnifiedCacheManager
-    from src.day_trade.utils.performance_monitor import PerformanceMonitor
+    from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
+    from src.day_trade.risk.volatility_prediction_system import (
+        VolatilityPredictionSystem,
+    )
+    from src.day_trade.topix.topix500_analysis_system import TOPIX500AnalysisSystem
 
     # 可視化・アラート (オプション)
     # from src.day_trade.core.alerts import AlertsManager
     # from src.day_trade.dashboard.dashboard_core import DashboardCore
-
     from src.day_trade.utils.logging_config import get_context_logger
+    from src.day_trade.utils.performance_monitor import PerformanceMonitor
+    from src.day_trade.utils.unified_cache_manager import UnifiedCacheManager
 except ImportError as e:
     print(f"インポートエラー: {e}")
     sys.exit(1)
@@ -324,7 +328,7 @@ async def test_performance_monitoring() -> Dict[str, Any]:
             'test_name': 'パフォーマンス監視',
             'success': True,
             'processing_time': processing_time,
-            'details': f"監視システム正常動作、メトリクス取得成功"
+            'details': "監視システム正常動作、メトリクス取得成功"
         }
 
     except Exception as e:
@@ -346,7 +350,7 @@ async def main():
     print("=" * 80)
 
     # テストデータ生成
-    print(f"\nテストデータ生成中...")
+    print("\nテストデータ生成中...")
     test_data = generate_comprehensive_test_data()
     print(f"OK テストデータ生成完了: {len(test_data)}銘柄")
 
@@ -354,32 +358,32 @@ async def main():
     tests = []
 
     # 1. TOPIX500システムテスト
-    print(f"\n1. TOPIX500システムテスト実行中...")
+    print("\n1. TOPIX500システムテスト実行中...")
     topix500_result = await test_topix500_system(test_data)
     tests.append(topix500_result)
 
     # 2. 高度テクニカル指標テスト
-    print(f"\n2. 高度テクニカル指標テスト実行中...")
+    print("\n2. 高度テクニカル指標テスト実行中...")
     technical_result = await test_advanced_technical_indicators(test_data)
     tests.append(technical_result)
 
     # 3. ML予測システムテスト
-    print(f"\n3. ML予測システムテスト実行中...")
+    print("\n3. ML予測システムテスト実行中...")
     ml_result = await test_ml_models_system(test_data)
     tests.append(ml_result)
 
     # 4. 統合キャッシュテスト
-    print(f"\n4. 統合キャッシュシステムテスト実行中...")
+    print("\n4. 統合キャッシュシステムテスト実行中...")
     cache_result = await test_cache_system()
     tests.append(cache_result)
 
     # 5. パフォーマンス監視テスト
-    print(f"\n5. パフォーマンス監視システムテスト実行中...")
+    print("\n5. パフォーマンス監視システムテスト実行中...")
     monitor_result = await test_performance_monitoring()
     tests.append(monitor_result)
 
     # 結果集計
-    print(f"\n" + "=" * 80)
+    print("\n" + "=" * 80)
     print("統合テスト結果")
     print("=" * 80)
 
@@ -402,21 +406,21 @@ async def main():
 
     # 総合結果
     success_rate = successful_tests / len(tests)
-    print(f"総合結果:")
+    print("総合結果:")
     print(f"  成功テスト: {successful_tests}/{len(tests)} ({success_rate:.1%})")
     print(f"  総処理時間: {total_processing_time:.2f}秒")
 
     if success_rate >= 0.8:
-        print(f"  判定: OK システム統合成功")
-        print(f"  ステータス: 実用化準備完了")
+        print("  判定: OK システム統合成功")
+        print("  ステータス: 実用化準備完了")
     elif success_rate >= 0.6:
-        print(f"  判定: PARTIAL 部分的成功")
-        print(f"  ステータス: 一部調整が必要")
+        print("  判定: PARTIAL 部分的成功")
+        print("  ステータス: 一部調整が必要")
     else:
-        print(f"  判定: NG システム統合失敗")
-        print(f"  ステータス: 追加修正が必要")
+        print("  判定: NG システム統合失敗")
+        print("  ステータス: 追加修正が必要")
 
-    print(f"\nOK 最終システム統合テスト完了")
+    print("\nOK 最終システム統合テスト完了")
 
     return success_rate >= 0.8
 

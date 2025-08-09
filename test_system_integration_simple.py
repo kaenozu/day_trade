@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 システム統合テスト（簡易版）
 Issue統合最適化システムの動作確認
@@ -18,23 +17,18 @@ def test_basic_imports():
 
     try:
         # Issue #325: ML最適化エンジン
-        from src.day_trade.data.optimized_ml_engine import OptimizedMLEngine
         print("[OK] OptimizedMLEngine import success")
 
         # Issue #324: 統合キャッシュシステム
-        from src.day_trade.utils.unified_cache_manager import UnifiedCacheManager
         print("[OK] UnifiedCacheManager import success")
 
         # Issue #323: 並列処理エンジン
-        from src.day_trade.data.advanced_parallel_ml_engine import AdvancedParallelMLEngine
         print("[OK] AdvancedParallelMLEngine import success")
 
         # Issue #322: 多角的データマネージャー
-        from src.day_trade.data.multi_source_data_manager import MultiSourceDataManager
         print("[OK] MultiSourceDataManager import success")
 
         # データ品質管理
-        from src.day_trade.utils.data_quality_manager import DataQualityManager
         print("[OK] DataQualityManager import success")
 
         return True
@@ -49,9 +43,10 @@ def test_optimized_ml_engine():
     print("\n=== ML最適化エンジンテスト ===")
 
     try:
-        from src.day_trade.data.optimized_ml_engine import OptimizedMLEngine
-        import pandas as pd
         import numpy as np
+        import pandas as pd
+
+        from src.day_trade.data.optimized_ml_engine import OptimizedMLEngine
 
         # テストデータ生成
         dates = pd.date_range(start='2024-01-01', periods=50)
@@ -113,9 +108,10 @@ def test_data_quality_manager():
     print("\n=== データ品質管理テスト ===")
 
     try:
-        from src.day_trade.utils.data_quality_manager import DataQualityManager
-        import pandas as pd
         import numpy as np
+        import pandas as pd
+
+        from src.day_trade.utils.data_quality_manager import DataQualityManager
 
         # データ品質管理初期化
         quality_manager = DataQualityManager(

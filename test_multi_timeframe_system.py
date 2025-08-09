@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 マルチタイムフレーム分析システムテスト
 Issue #315 Phase 2: マルチタイムフレーム分析実装
@@ -11,8 +10,9 @@ import asyncio
 import sys
 import traceback
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,7 +22,9 @@ async def test_multi_timeframe_initialization():
     print("\n=== マルチタイムフレーム分析システム初期化テスト ===")
 
     try:
-        from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
+        from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+            MultiTimeframeAnalysisOptimized,
+        )
 
         # システム初期化
         analyzer = MultiTimeframeAnalysisOptimized(
@@ -60,7 +62,9 @@ async def test_single_symbol_analysis():
     print("\n=== 単一銘柄マルチタイムフレーム分析テスト ===")
 
     try:
-        from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
+        from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+            MultiTimeframeAnalysisOptimized,
+        )
 
         # 長期間テストデータ生成
         dates = pd.date_range(start='2023-01-01', periods=300, freq='D')
@@ -141,7 +145,9 @@ async def test_batch_multi_timeframe_analysis():
     print("\n=== バッチマルチタイムフレーム分析テスト ===")
 
     try:
-        from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
+        from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+            MultiTimeframeAnalysisOptimized,
+        )
 
         # 複数銘柄のテストデータ生成
         symbols = ["TEST_A", "TEST_B", "TEST_C"]
@@ -218,7 +224,8 @@ async def test_trend_consistency_analysis():
 
     try:
         from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
-            MultiTimeframeAnalysisOptimized, MultiTimeframeSignal
+            MultiTimeframeAnalysisOptimized,
+            MultiTimeframeSignal,
         )
 
         # システム初期化
@@ -274,7 +281,9 @@ async def test_weighted_signal_generation():
 
     try:
         from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
-            MultiTimeframeAnalysisOptimized, MultiTimeframeSignal, TrendConsistency
+            MultiTimeframeAnalysisOptimized,
+            MultiTimeframeSignal,
+            TrendConsistency,
         )
 
         # システム初期化
@@ -343,7 +352,9 @@ async def test_performance_optimization():
     print("\n=== パフォーマンス最適化テスト ===")
 
     try:
-        from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
+        from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+            MultiTimeframeAnalysisOptimized,
+        )
 
         # テストデータ
         dates = pd.date_range(start='2023-01-01', periods=200, freq='D')

@@ -214,6 +214,21 @@ class AutoOptimizerSettings(BaseModel):
     ml_training_enabled: bool = Field(False)
 
 
+class ErrorHandlingSettings(BaseModel):
+    """エラーハンドリング設定"""
+
+    debug_mode: bool = Field(False)
+    enable_sanitization: bool = Field(True)
+    enable_rich_display: bool = Field(True)
+    log_technical_details: bool = Field(True)
+    max_context_items: int = Field(10)
+    max_solution_items: int = Field(5)
+    console_width: int = Field(120)
+    panel_padding: Tuple[int, int] = Field((1, 2))
+    lock_timeout_seconds: float = Field(1.0)
+    enable_performance_logging: bool = Field(True)
+
+
 class ConfigManager:
     """設定管理クラス"""
 
@@ -336,6 +351,11 @@ class ConfigManager:
         # Pydanticモデルのバリデーションを利用
         return AutoOptimizerSettings(**config_data)
 
+    def get_error_handler_settings(self) -> ErrorHandlingSettings:
+        """エラーハンドリング設定を取得"""
+        config_data = self.config.get("error_handling", {})
+        return ErrorHandlingSettings(**config_data)
+
     def is_market_open(self, current_time: Optional[datetime] = None) -> bool:
         """市場営業時間かどうかを判定"""
         if current_time is None:
@@ -379,6 +399,8 @@ class ConfigManager:
             self.config["execution"] = self.get_execution_settings().model_dump()
             self.config["database"] = self.get_database_settings().model_dump()
             self.config["auto_optimizer"] = self.get_auto_optimizer_settings().model_dump()
+            # エラーハンドリング設定の追加
+            self.config["error_handling"] = self.get_error_handler_settings().model_dump()
 
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)

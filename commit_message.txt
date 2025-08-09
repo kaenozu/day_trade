@@ -1,0 +1,9 @@
+Refactor: DayTradeOrchestratorでPortfolioManagerを利用
+
+`DayTradeOrchestrator`がポートフォリオサマリーを取得する際に、新しく分離された`PortfolioManager`クラスを利用するように変更しました。
+
+- `DayTradeOrchestrator.__init__`で`DatabaseManager`を取得するようにしました。
+- `DayTradeOrchestrator.run_full_automation`内で、データベースセッションを用いて`PortfolioManager`をインスタンス化し、ポートフォリオサマリーを計算するようにしました。
+- これにより、`DayTradeOrchestrator`内のダミーのポートフォリオサマリー生成ロジックを実際のビジネスロジックに置き換え、責務の分離をさらに進めました。
+
+Fixes #350

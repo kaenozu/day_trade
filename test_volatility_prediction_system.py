@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Volatility Prediction System テスト
 Issue #315 Phase 4: ボラティリティ予測システム実装テスト
@@ -11,8 +10,9 @@ import asyncio
 import sys
 import traceback
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,7 +22,9 @@ async def test_volatility_system_initialization():
     print("\n=== Volatility Prediction System初期化テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
@@ -61,7 +63,9 @@ async def test_garch_volatility_prediction():
     print("\n=== GARCH ボラティリティ予測テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # 長期テストデータ生成（GARCH用に100日以上）
         dates = pd.date_range(start='2024-01-01', periods=150, freq='D')
@@ -139,7 +143,9 @@ async def test_vix_risk_assessment():
     print("\n=== VIX リスク評価テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # テストデータ生成
         dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -213,7 +219,9 @@ async def test_dynamic_risk_metrics():
     print("\n=== 動的リスク指標テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem, GARCHVolatilityResult, VIXRiskAssessment
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # テストデータ生成
         dates = pd.date_range(start='2024-01-01', periods=120, freq='D')
@@ -296,7 +304,9 @@ async def test_integrated_volatility_forecast():
     print("\n=== 統合ボラティリティ予測テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # 総合的なテストデータ（長期間・複雑なパターン）
         dates = pd.date_range(start='2024-01-01', periods=180, freq='D')
@@ -392,7 +402,9 @@ async def test_batch_volatility_analysis():
     print("\n=== バッチボラティリティ分析テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # 複数銘柄データ
         symbols = ["STOCK_A", "STOCK_B", "STOCK_C"]
@@ -480,7 +492,9 @@ async def test_performance_monitoring():
     print("\n=== パフォーマンス監視テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # システム初期化
         volatility_system = VolatilityPredictionSystem(
@@ -538,7 +552,9 @@ async def test_risk_scenario_analysis():
     print("\n=== リスクシナリオ分析テスト ===")
 
     try:
-        from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+        from src.day_trade.risk.volatility_prediction_system import (
+            VolatilityPredictionSystem,
+        )
 
         # 極端なリスクシナリオデータ生成
         scenarios = {
@@ -603,7 +619,7 @@ async def test_risk_scenario_analysis():
         # ポジションサイズが適切に段階的に減少することを確認
         assert position_sizes[0] >= position_sizes[1] >= position_sizes[2], "Position sizes should decrease with risk level"
 
-        print(f"\n[VALIDATION] Risk ranking verification:")
+        print("\n[VALIDATION] Risk ranking verification:")
         for i, (scenario, data) in enumerate(scenario_results.items()):
             print(f"  {i+1}. {scenario}: Risk={data['result'].integrated_risk_score:.3f}, Pos={data['result'].recommended_position_size:.1%}")
 

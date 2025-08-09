@@ -3,8 +3,8 @@
 実際のコード実行によるカバレッジ測定
 """
 
-import time
 import asyncio
+
 from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
 
 
@@ -57,9 +57,14 @@ async def test_analysis_engine_async():
 
 def test_market_analysis_data_classes():
     """データクラステスト"""
-    from src.day_trade.automation.analysis_only_engine import MarketAnalysis, AnalysisReport, AnalysisStatus
     from datetime import datetime
     from decimal import Decimal
+
+    from src.day_trade.automation.analysis_only_engine import (
+        AnalysisReport,
+        AnalysisStatus,
+        MarketAnalysis,
+    )
 
     print("=== データクラステスト ===")
 

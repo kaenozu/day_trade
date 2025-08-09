@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Advanced ML Models System テスト
 Issue #315 Phase 3: Advanced ML models実装テスト
@@ -11,8 +10,9 @@ import asyncio
 import sys
 import traceback
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -322,7 +322,7 @@ async def test_batch_advanced_ml():
             enable_parallel=False,  # テスト用に単体実行
             ensemble_models=3
         )
-        print(f"[OK] Batch ML system initialization success")
+        print("[OK] Batch ML system initialization success")
 
         # バッチ処理実行
         batch_results = {}

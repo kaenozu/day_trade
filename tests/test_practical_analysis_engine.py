@@ -3,10 +3,10 @@
 モックを使わずに実際の動作をテストします
 """
 
-import pytest
-import asyncio
 from datetime import datetime
 from decimal import Decimal
+
+import pytest
 
 from src.day_trade.automation.analysis_only_engine import (
     AnalysisOnlyEngine,

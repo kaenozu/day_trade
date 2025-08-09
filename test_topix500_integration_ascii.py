@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 TOPIX500統合テストスイート（ASCII安全版）
 Issue #314: TOPIX500全銘柄対応
@@ -9,14 +8,14 @@ Issue #314: TOPIX500全銘柄対応
 
 import gc
 import logging
-import psutil
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
-import sys
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import psutil
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -143,7 +142,7 @@ def test_integration_performance(target_symbols: int = 50):
             success = False
             issues.append(f"Success rate too low: {processed_count}/{len(test_symbols)}")
 
-        print(f"\nIntegration Performance Test Results:")
+        print("\nIntegration Performance Test Results:")
         print(f"  Processed symbols: {processed_count}/{len(test_symbols)}")
         print(f"  Total processing time: {total_time:.1f}sec (target: 20sec)")
         print(f"  Memory increase: {memory_increase:.1f}MB (target: <1024MB)")
@@ -217,7 +216,7 @@ def test_system_scalability():
                   f"{throughput:.1f} symbols/sec")
 
         # スケーラビリティ分析
-        print(f"\nScalability Analysis:")
+        print("\nScalability Analysis:")
         print("Symbols | Time(s) | Memory(MB) | Throughput(sym/s) | Mem/Symbol(MB)")
         print("-" * 70)
 
@@ -381,7 +380,7 @@ def main():
     # 統計サマリー
     if 'performance' in test_results and test_results['performance']['success']:
         perf_result = test_results['performance']['result']
-        print(f"\nKey Performance Metrics:")
+        print("\nKey Performance Metrics:")
         print(f"  Processing Time: {perf_result.get('total_time', 0):.1f} seconds")
         print(f"  Throughput: {perf_result.get('throughput', 0):.1f} symbols/second")
         print(f"  Memory Usage: {perf_result.get('memory_increase', 0):.1f} MB")

@@ -5,12 +5,12 @@
 """
 
 from datetime import datetime as dt
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from ..models.stock import Trade
 from ..models.enums import TradeType
+from ..models.stock import Trade
 
 
 class PortfolioManager:

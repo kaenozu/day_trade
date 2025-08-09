@@ -9,8 +9,6 @@
 """
 
 import gc
-import platform
-import psutil
 import threading
 import time
 from collections import defaultdict, deque
@@ -19,7 +17,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
-from .exceptions import AnalysisError
+import psutil
+
 from .logging_config import get_context_logger
 
 logger = get_context_logger(__name__)

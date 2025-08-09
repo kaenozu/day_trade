@@ -1226,7 +1226,7 @@ class TOPIX500AnalysisSystem:
         sector_groups = {}
 
         # セクター別銘柄グループ化
-        for symbol in stock_data.keys():
+        for symbol in stock_data:
             # 簡易セクター分類（銘柄コード先頭2桁ベース）
             if symbol.startswith(("72", "79")):
                 sector = "Automotive/Banks"

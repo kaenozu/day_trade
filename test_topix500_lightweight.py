@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 TOPIX500分析システム 軽量テスト版
 Issue #314: 性能最適化テスト
@@ -8,8 +7,8 @@ Issue #314: 性能最適化テスト
 """
 
 import asyncio
-import time
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -21,8 +20,8 @@ sys.path.append(str(Path(__file__).parent / "src"))
 
 try:
     from src.day_trade.topix.topix500_analysis_system import (
+        PerformanceMetrics,
         TOPIX500AnalysisSystem,
-        PerformanceMetrics
     )
     from src.day_trade.utils.logging_config import get_context_logger
 except ImportError as e:
@@ -135,7 +134,7 @@ async def test_lightweight_system():
         # パフォーマンスメトリクス確認
         metrics = result['performance_metrics']
         if isinstance(metrics, PerformanceMetrics):
-            print(f"\n性能統計:")
+            print("\n性能統計:")
             print(f"  - スループット: {metrics.throughput_symbols_per_second:.1f}銘柄/秒")
             print(f"  - 平均処理時間/銘柄: {metrics.avg_time_per_symbol_ms:.1f}ms")
             print(f"  - メモリ使用量: {metrics.peak_memory_mb:.1f}MB")
