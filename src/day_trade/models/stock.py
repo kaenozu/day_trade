@@ -236,58 +236,6 @@ class Trade(BaseModel):
             return base_amount - commission
 
     @classmethod
-    def get_portfolio_summary(
-        cls, session: Session, start_date: Optional[dt] = None
-    ) -> Dict[str, Any]:
-        """
-        ポートフォリオサマリーを効率的に計算
-
-        注意: 複雑なビジネスロジックを含むため、将来的には
-        PortfolioManager または TradeAnalyzer クラスへの移行を推奨
-        """
-        query = session.query(cls)
-        if start_date:
-            query = query.filter(cls.trade_datetime >= start_date)
-
-        trades = query.all()
-
-        portfolio = {}
-        total_cost = 0
-        total_proceeds = 0
-
-        for trade in trades:
-            code = trade.stock_code
-            if code not in portfolio:
-                portfolio[code] = {
-                    "quantity": 0,
-                    "total_cost": 0,
-                    "avg_price": 0,
-                    "trades": [],
-                }
-
-            if trade.trade_type == TradeType.BUY:
-                portfolio[code]["quantity"] += trade.quantity
-                portfolio[code]["total_cost"] += trade.total_amount
-                total_cost += trade.total_amount
-            else:  # sell
-                portfolio[code]["quantity"] -= trade.quantity
-                total_proceeds += trade.total_amount
-
-            portfolio[code]["trades"].append(trade)
-
-        # 平均価格を計算
-        for _code, data in portfolio.items():
-            if data["quantity"] > 0:
-                data["avg_price"] = data["total_cost"] / data["quantity"]
-
-        return {
-            "portfolio": portfolio,
-            "total_cost": total_cost,
-            "total_proceeds": total_proceeds,
-            "net_position": total_proceeds - total_cost,
-        }
-
-    @classmethod
     def get_recent_trades(
         cls, session: Session, days: int = 30, limit: int = 100
     ) -> List["Trade"]:
