@@ -9,7 +9,6 @@ Issue #324: Cache Strategy Optimization
 import gzip
 import hashlib
 import json
-import logging
 import pickle
 import sqlite3
 import threading
@@ -27,6 +26,7 @@ import psutil
 try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
+    import logging
     logging.basicConfig(level=logging.INFO)
 
     def get_context_logger(name):

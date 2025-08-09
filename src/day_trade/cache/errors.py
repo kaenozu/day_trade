@@ -10,8 +10,9 @@ import time
 from enum import Enum
 from typing import Optional
 
-from .config import get_cache_config
 from src.day_trade.utils.logging_config import get_logger
+
+from .config import get_cache_config
 
 logger = get_logger(__name__)
 

@@ -18,7 +18,7 @@
       "sma_periods": [5, 25, 75],
       "ema_periods": [12, 26]
     },
-    
+
     "pattern_recognition": {
       "enabled": true,
       "patterns": [
@@ -30,7 +30,7 @@
       ],
       "confidence_threshold": 0.6
     },
-    
+
     "signal_generation": {
       "trend_weight": 0.4,
       "momentum_weight": 0.3,
@@ -38,7 +38,7 @@
       "pattern_weight": 0.1,
       "min_confidence": 0.65
     },
-    
+
     "ensemble": {
       "strategy_weights": {
         "trend_following": 0.35,

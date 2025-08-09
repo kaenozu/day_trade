@@ -7,7 +7,6 @@ Issue #322: ML Data Shortage Problem Resolution
 """
 
 import asyncio
-import logging
 import time
 import warnings
 from abc import ABC, abstractmethod

@@ -7,7 +7,6 @@ Issue #322: ML Data Shortage Problem Resolution - Data Quality Component
 """
 
 import asyncio
-import logging
 import statistics
 import time
 import warnings

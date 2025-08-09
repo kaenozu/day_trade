@@ -13,7 +13,6 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from rich.console import Console
-from src.day_trade.utils.logging_config import get_logger
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -24,6 +23,8 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+
+from src.day_trade.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 

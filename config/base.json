@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "name": "DayTrade Auto Settings",
   "description": "全自動デイトレード基本設定ファイル",
-  
+
   "market_hours": {
     "pre_market": "08:00",
     "market_open": "09:00",

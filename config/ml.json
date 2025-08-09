@@ -27,7 +27,7 @@
         "weights": [0.4, 0.3, 0.3]
       }
     },
-    
+
     "features": {
       "technical_indicators": true,
       "price_features": true,
@@ -35,14 +35,14 @@
       "pattern_features": true,
       "sentiment_features": false
     },
-    
+
     "training": {
       "lookback_days": 252,
       "validation_split": 0.2,
       "test_split": 0.1,
       "cross_validation_folds": 5
     },
-    
+
     "prediction": {
       "horizon_days": 5,
       "confidence_interval": 0.95,

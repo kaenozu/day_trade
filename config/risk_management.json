@@ -6,31 +6,31 @@
       "min_cash_reserve": 5.0,
       "sector_max_percent": 30.0
     },
-    
+
     "stop_loss": {
       "default_percent": 2.0,
       "trailing_stop": true,
       "trailing_percent": 1.5,
       "max_loss_per_day": 5.0
     },
-    
+
     "take_profit": {
       "default_percent": 4.0,
       "partial_profit_levels": [2.0, 3.0],
       "partial_profit_sizes": [0.3, 0.5]
     },
-    
+
     "volatility_limits": {
       "max_daily_volatility": 3.0,
       "volatility_lookback_days": 20,
       "high_volatility_threshold": 2.5
     },
-    
+
     "correlation_limits": {
       "max_correlation": 0.8,
       "correlation_lookback_days": 60
     },
-    
+
     "drawdown_limits": {
       "max_drawdown_percent": 10.0,
       "consecutive_loss_limit": 3,

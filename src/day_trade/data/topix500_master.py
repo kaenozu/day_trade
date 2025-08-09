@@ -14,9 +14,10 @@ from typing import Dict, List, Optional
 try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
-    import logging
 
     def get_context_logger(name):
+        import logging
+
         return logging.getLogger(name)
 
 
