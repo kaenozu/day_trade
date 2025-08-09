@@ -6,13 +6,12 @@
 
 import traceback
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Type
 
 from .exceptions import (
     AnalysisError,
     APIError,
     DataError,
-    DatabaseError,
     DayTradeError,
     handle_database_exception,
     handle_network_exception,

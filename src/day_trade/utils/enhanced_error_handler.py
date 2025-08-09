@@ -59,92 +59,47 @@ class EnhancedErrorHandlerConfig:
 
     def _load_config(self):
         """設定を読み込み（config_manager優先、環境変数フォールバック）"""
-        import os
-
         # config_managerから取得を試行
         error_handler_settings = {}
         if self.config_manager:
             try:
-                error_handler_settings = getattr(
-                    self.config_manager, "error_handler_settings", {}
-                )
-            except Exception:
+                # ConfigManagerからエラーハンドラー設定を取得
+                # ConfigManagerがPydanticモデルになったので、get_error_handler_settings()を呼び出す形に
+                error_handler_settings = self.config_manager.get_error_handler_settings().model_dump() # model_dump()でdictに変換
+                logger.info("Error handler settings loaded from ConfigManager")
+            except AttributeError: # config_managerに該当メソッドがない場合など
                 logger.warning(
-                    "Failed to load error handler settings from config_manager, using defaults"
+                    "ConfigManager does not have get_error_handler_settings, using defaults"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load error handler settings from ConfigManager: {e}, using defaults"
                 )
 
-        # 設定値の決定（優先度: config_manager > 環境変数 > デフォルト）
-        self.debug_mode = self._parse_bool(
-            error_handler_settings.get("debug_mode"),
-            os.getenv("ERROR_HANDLER_DEBUG_MODE"),
-            self._defaults["debug_mode"],
-        )
-
-        self.enable_sanitization = self._parse_bool(
-            error_handler_settings.get("enable_sanitization"),
-            os.getenv("ERROR_HANDLER_ENABLE_SANITIZATION"),
-            self._defaults["enable_sanitization"],
-        )
-
-        self.enable_rich_display = self._parse_bool(
-            error_handler_settings.get("enable_rich_display"),
-            os.getenv("ERROR_HANDLER_ENABLE_RICH_DISPLAY"),
-            self._defaults["enable_rich_display"],
-        )
-
-        self.log_technical_details = self._parse_bool(
-            error_handler_settings.get("log_technical_details"),
-            os.getenv("ERROR_HANDLER_LOG_TECHNICAL_DETAILS"),
-            self._defaults["log_technical_details"],
-        )
-
-        self.max_context_items = int(
-            error_handler_settings.get("max_context_items")
-            or os.getenv("ERROR_HANDLER_MAX_CONTEXT_ITEMS")
-            or self._defaults["max_context_items"]
-        )
-
-        self.max_solution_items = int(
-            error_handler_settings.get("max_solution_items")
-            or os.getenv("ERROR_HANDLER_MAX_SOLUTION_ITEMS")
-            or self._defaults["max_solution_items"]
-        )
-
-        self.console_width = int(
-            error_handler_settings.get("console_width")
-            or os.getenv("ERROR_HANDLER_CONSOLE_WIDTH")
-            or self._defaults["console_width"]
-        )
-
-        self.lock_timeout_seconds = float(
-            error_handler_settings.get("lock_timeout_seconds")
-            or os.getenv("ERROR_HANDLER_LOCK_TIMEOUT_SECONDS")
-            or self._defaults["lock_timeout_seconds"]
-        )
-
-        self.enable_performance_logging = self._parse_bool(
-            error_handler_settings.get("enable_performance_logging"),
-            os.getenv("ERROR_HANDLER_ENABLE_PERFORMANCE_LOGGING"),
-            self._defaults["enable_performance_logging"],
-        )
+        # 設定値の決定（優先度: config_managerからの値 > デフォルト）
+        # 環境変数からの読み込みはConfigManagerで一元管理されるためここでは不要
+        self.debug_mode = error_handler_settings.get("debug_mode", self._defaults["debug_mode"])
+        self.enable_sanitization = error_handler_settings.get("enable_sanitization", self._defaults["enable_sanitization"])
+        self.enable_rich_display = error_handler_settings.get("enable_rich_display", self._defaults["enable_rich_display"])
+        self.log_technical_details = error_handler_settings.get("log_technical_details", self._defaults["log_technical_details"])
+        self.max_context_items = error_handler_settings.get("max_context_items", self._defaults["max_context_items"])
+        self.max_solution_items = error_handler_settings.get("max_solution_items", self._defaults["max_solution_items"])
+        self.console_width = error_handler_settings.get("console_width", self._defaults["console_width"])
+        self.lock_timeout_seconds = error_handler_settings.get("lock_timeout_seconds", self._defaults["lock_timeout_seconds"])
+        self.enable_performance_logging = error_handler_settings.get("enable_performance_logging", self._defaults["enable_performance_logging"])
 
         # パネル設定
         panel_padding = error_handler_settings.get("panel_padding")
-        if (
-            panel_padding
-            and isinstance(panel_padding, (list, tuple))
-            and len(panel_padding) == 2
-        ):
+        if panel_padding and isinstance(panel_padding, (list, tuple)) and len(panel_padding) == 2:
             self.panel_padding = tuple(panel_padding)
         else:
             self.panel_padding = self._defaults["panel_padding"]
 
     def _parse_bool(self, config_value, env_value, default_value):
         """設定値をbooleanに変換"""
+        # ConfigManagerから直接bool値が来ることを想定。環境変数からの変換ロジックは不要になる
         if config_value is not None:
             return bool(config_value)
-        if env_value is not None:
-            return env_value.lower() in ("true", "1", "yes", "on")
         return default_value
 
     def reload(self):
@@ -192,7 +147,6 @@ class ErrorHandlerStats:
                             logger.error(
                                 f"Failed to release ErrorHandlerStats lock: {release_error}"
                             )
-            else:
                 if logger.isEnabledFor(logging.WARNING):
                     logger.warning(
                         f"ErrorHandlerStats lock timeout ({self._lock_timeout}s)"
@@ -891,7 +845,6 @@ class EnhancedErrorHandler:
                 log_data["error_details"] = self.sanitizer.sanitize_context(
                     error_details
                 )
-            else:
                 log_data["error_details"] = error_details
 
         if self.config.log_technical_details:

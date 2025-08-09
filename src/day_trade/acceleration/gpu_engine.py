@@ -630,6 +630,14 @@ class GPUAccelerationEngine:
         }
 
 
+@dataclass
+class GPUAcceleratedResult:
+    """GPU加速実行結果"""
+    indicators: Dict[str, Any]
+    computation_result: GPUComputeResult
+    strategy_name: str
+
+
 # Strategy Pattern への統合
 @optimization_strategy("technical_indicators", OptimizationLevel.GPU_ACCELERATED)
 class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):

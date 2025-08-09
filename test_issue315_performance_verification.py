@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #315 性能検証テスト
 高度テクニカル指標・ML機能拡張の成功条件検証
@@ -12,10 +11,10 @@ Issue #315 性能検証テスト
 """
 
 import asyncio
-import time
 import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -25,10 +24,16 @@ sys.path.append(str(Path(__file__).parent))
 sys.path.append(str(Path(__file__).parent / "src"))
 
 try:
-    from src.day_trade.analysis.advanced_technical_indicators_optimized import AdvancedTechnicalIndicatorsOptimized
-    from src.day_trade.analysis.multi_timeframe_analysis_optimized import MultiTimeframeAnalysisOptimized
+    from src.day_trade.analysis.advanced_technical_indicators_optimized import (
+        AdvancedTechnicalIndicatorsOptimized,
+    )
+    from src.day_trade.analysis.multi_timeframe_analysis_optimized import (
+        MultiTimeframeAnalysisOptimized,
+    )
     from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
-    from src.day_trade.risk.volatility_prediction_system import VolatilityPredictionSystem
+    from src.day_trade.risk.volatility_prediction_system import (
+        VolatilityPredictionSystem,
+    )
     from src.day_trade.utils.logging_config import get_context_logger
     from src.day_trade.utils.performance_monitor import PerformanceMonitor
 except ImportError as e:
@@ -296,21 +301,21 @@ async def main():
     print(f"\nテストデータ生成: {len(test_symbols)}銘柄、252日分")
 
     test_data = generate_test_data(test_symbols)
-    print(f"OK データ生成完了")
+    print("OK データ生成完了")
 
     # ベースライン指標
     baseline = calculate_baseline_metrics(test_data)
-    print(f"\nベースライン指標（統合前）:")
+    print("\nベースライン指標（統合前）:")
     print(f"  予測精度: {baseline['prediction_accuracy']:.1%}")
     print(f"  シャープレシオ: {baseline['sharpe_ratio']:.2f}")
     print(f"  最大ドローダウン: {baseline['max_drawdown']:.1%}")
     print(f"  処理時間: {baseline['processing_time']:.1f}秒")
 
     # 統合システム性能測定
-    print(f"\n統合システム性能測定実行中...")
+    print("\n統合システム性能測定実行中...")
     integrated_metrics = await test_integrated_system_performance(test_data)
 
-    print(f"\n統合システム結果:")
+    print("\n統合システム結果:")
     print(f"  予測精度: {integrated_metrics['prediction_accuracy']:.1%}")
     print(f"  シャープレシオ: {integrated_metrics['sharpe_ratio']:.2f}")
     print(f"  最大ドローダウン: {integrated_metrics['max_drawdown']:.1%}")
@@ -319,7 +324,7 @@ async def main():
     print(f"  平均信頼度: {integrated_metrics['average_confidence']:.1%}")
 
     # 成功条件検証
-    print(f"\nOK 成功条件検証:")
+    print("\nOK 成功条件検証:")
 
     # 1. 予測精度15%向上
     accuracy_improvement = (integrated_metrics['prediction_accuracy'] - baseline['prediction_accuracy']) / baseline['prediction_accuracy']
@@ -345,20 +350,20 @@ async def main():
     targets_met = [accuracy_target_met, sharpe_target_met, drawdown_target_met, time_target_met]
     success_rate = sum(targets_met) / len(targets_met)
 
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  達成条件: {sum(targets_met)}/{len(targets_met)} ({success_rate:.1%})")
 
     if success_rate >= 0.75:
-        print(f"  判定: OK Issue #315 成功条件達成")
-        print(f"  ステータス: 完了準備完了")
+        print("  判定: OK Issue #315 成功条件達成")
+        print("  ステータス: 完了準備完了")
     elif success_rate >= 0.5:
-        print(f"  判定: PARTIAL 部分的達成")
-        print(f"  ステータス: 追加最適化推奨")
+        print("  判定: PARTIAL 部分的達成")
+        print("  ステータス: 追加最適化推奨")
     else:
-        print(f"  判定: NG 成功条件未達成")
-        print(f"  ステータス: 追加開発必要")
+        print("  判定: NG 成功条件未達成")
+        print("  ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #315性能検証完了")
+    print("\nOK Issue #315性能検証完了")
     return success_rate >= 0.75
 
 

@@ -18,6 +18,7 @@ import pandas as pd
 # プロジェクト内モジュール
 from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
+from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
 from ..data.advanced_ml_engine import AdvancedMLEngine, ModelConfig, create_advanced_ml_engine
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest, DataResponse
@@ -127,6 +128,7 @@ class NextGenAIOrchestrator:
         # コアコンポーネント初期化
         self.stock_fetcher = StockFetcher()
         self.analysis_engines: Dict[str, AnalysisOnlyEngine] = {}
+        self.db_manager = get_default_database_manager() # DatabaseManagerを取得
 
         # 高度AIコンポーネント初期化
         if self.config.enable_ml_engine:
@@ -196,13 +198,34 @@ class NextGenAIOrchestrator:
         successful_symbols = 0
         failed_symbols = 0
         errors = []
+        actual_portfolio_summary = None
 
         try:
+            # ポートフォリオ情報取得
+            try:
+                from ..database.database import get_default_database_manager
+                db_manager = get_default_database_manager()
+                with db_manager.session_scope() as session:
+                    portfolio_manager = PortfolioManager(session)
+                    actual_portfolio_summary = portfolio_manager.get_portfolio_summary()
+            except ImportError:
+                logger.warning("Database manager not available, skipping portfolio summary")
+                actual_portfolio_summary = None
+
             # 高度バッチデータ取得
             if self.batch_fetcher:
                 batch_results = self._execute_batch_data_collection(symbols)
             else:
                 batch_results = {}
+
+            # 分析エンジン初期化
+            for symbol in symbols:
+                try:
+                    # 分析エンジン作成
+                    if symbol not in self.analysis_engines:
+                        self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
+                except Exception as e:
+                    logger.warning(f"Failed to create analysis engine for {symbol}: {e}")
 
             # 並列AI分析実行
             if CONCURRENT_AVAILABLE and len(symbols) > 1:
@@ -225,8 +248,11 @@ class NextGenAIOrchestrator:
                     failed_symbols += 1
                     errors.extend(result["errors"])
 
-            # ポートフォリオ最適化分析
-            portfolio_summary = self._generate_portfolio_analysis(ai_analysis_results)
+            # ポートフォリオ分析統合
+            if actual_portfolio_summary:
+                portfolio_summary = actual_portfolio_summary
+            else:
+                portfolio_summary = self._generate_portfolio_analysis(ai_analysis_results)
 
             # システムヘルス分析
             system_health = self._analyze_system_health()

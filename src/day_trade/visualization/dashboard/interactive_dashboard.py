@@ -4,6 +4,7 @@
 Plotlyを使用したインタラクティブな分析ダッシュボード作成
 """
 
+import numpy as np
 from typing import Dict, List, Optional, Any, Union
 import pandas as pd
 from datetime import datetime

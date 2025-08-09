@@ -12,25 +12,24 @@ Issue #321: 実際の市場データを使用した包括的システム検証
 
 import asyncio
 import contextlib
-import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 # プロジェクトルートを追加
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
 # 必要なインポート
+from src.day_trade.analysis.signals import TradingSignalGenerator
+from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
 from src.day_trade.config.trading_mode_config import (
     get_current_trading_config,
     is_safe_mode,
 )
-from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
 from src.day_trade.data.stock_fetcher import StockFetcher
-from src.day_trade.analysis.signals import TradingSignalGenerator
 from src.day_trade.utils.performance_monitor import PerformanceMonitor
 
 
@@ -483,7 +482,7 @@ ERRORS AND WARNINGS
         else:
             report_content += "No errors encountered during validation.\n"
 
-        report_content += f"""
+        report_content += """
 
 RECOMMENDATIONS
 ================================================================================
@@ -511,7 +510,7 @@ RECOMMENDATIONS
         for rec in recommendations:
             report_content += rec + "\n"
 
-        report_content += f"""
+        report_content += """
 
 CONCLUSION
 ================================================================================

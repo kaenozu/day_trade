@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #318: 監視・アラートシステム統合テスト
 
@@ -11,11 +10,11 @@ Issue #318: 監視・アラートシステム統合テスト
 """
 
 import asyncio
+import logging
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Any
-import logging
+from typing import Any, Dict
 
 # プロジェクトパスを追加
 sys.path.append(str(Path(__file__).parent))
@@ -503,11 +502,11 @@ async def main():
 
     # 総合評価
     success_rate = successful_tests / total_tests
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  成功テスト: {successful_tests}/{total_tests} ({success_rate:.1%})")
 
     # Issue #318成功条件評価
-    print(f"\nIssue #318 成功条件検証:")
+    print("\nIssue #318 成功条件検証:")
 
     # システム稼働率 (Phase 1)
     health_result = next((r for r in test_results if 'healthy_components' in r), None)
@@ -517,7 +516,7 @@ async def main():
         print(f"  1. システム稼働率95%以上: {health_rate:.1%} {'OK' if health_target_met else 'NG'}")
     else:
         health_target_met = False
-        print(f"  1. システム稼働率95%以上: データなし NG")
+        print("  1. システム稼働率95%以上: データなし NG")
 
     # パフォーマンス監視 (Phase 2)
     perf_result = next((r for r in test_results if 'performance_metrics' in r), None)
@@ -527,7 +526,7 @@ async def main():
         print(f"  2. パフォーマンス監視70%スコア: {perf_score:.3f} {'OK' if perf_target_met else 'NG'}")
     else:
         perf_target_met = False
-        print(f"  2. パフォーマンス監視70%スコア: データなし NG")
+        print("  2. パフォーマンス監視70%スコア: データなし NG")
 
     # データ品質監視 (Phase 3)
     quality_result = next((r for r in test_results if 'quality_metrics' in r), None)
@@ -537,7 +536,7 @@ async def main():
         print(f"  3. データ品質85%スコア: {quality_score:.3f} {'OK' if quality_target_met else 'NG'}")
     else:
         quality_target_met = False
-        print(f"  3. データ品質85%スコア: データなし NG")
+        print("  3. データ品質85%スコア: データなし NG")
 
     # 投資機会検出 (Phase 4)
     opp_result = next((r for r in test_results if 'investment_opportunities' in r), None)
@@ -548,7 +547,7 @@ async def main():
         print(f"  4. 投資機会検出機能: {opp_count}件検出, 信頼度{avg_confidence:.3f} {'OK' if opp_target_met else 'NG'}")
     else:
         opp_target_met = False
-        print(f"  4. 投資機会検出機能: データなし NG")
+        print("  4. 投資機会検出機能: データなし NG")
 
     # 最終判定
     targets_met = [health_target_met, perf_target_met, quality_target_met, opp_target_met]
@@ -557,16 +556,16 @@ async def main():
     print(f"\nIssue #318 達成条件: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})")
 
     if issue_success_rate >= 0.75:
-        print(f"判定: OK Issue #318 監視・アラートシステム実装成功")
-        print(f"ステータス: 中優先課題完了")
+        print("判定: OK Issue #318 監視・アラートシステム実装成功")
+        print("ステータス: 中優先課題完了")
     elif issue_success_rate >= 0.5:
-        print(f"判定: PARTIAL 部分的成功")
-        print(f"ステータス: 追加最適化推奨")
+        print("判定: PARTIAL 部分的成功")
+        print("ステータス: 追加最適化推奨")
     else:
-        print(f"判定: NG 成功条件未達成")
-        print(f"ステータス: 追加開発必要")
+        print("判定: NG 成功条件未達成")
+        print("ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #318 監視・アラートシステム統合テスト完了")
+    print("\nOK Issue #318 監視・アラートシステム統合テスト完了")
 
     return issue_success_rate >= 0.75
 

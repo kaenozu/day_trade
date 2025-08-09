@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #331: API・外部統合システム統合テスト
 
@@ -10,11 +9,11 @@ Issue #331: API・外部統合システム統合テスト
 """
 
 import asyncio
+import logging
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Any
-import logging
+from typing import Any, Dict
 
 # プロジェクトパスを追加
 sys.path.append(str(Path(__file__).parent))
@@ -437,11 +436,11 @@ async def main():
 
     # 成功率
     success_rate = successful_tests / total_tests
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  成功テスト: {successful_tests}/{total_tests} ({success_rate:.1%})")
 
     # Issue #331成功条件評価
-    print(f"\nIssue #331 成功条件検証:")
+    print("\nIssue #331 成功条件検証:")
 
     # RESTful APIクライアント成功率 (Phase 1)
     rest_result = next((r for r in test_results if 'request_stats' in r), None)
@@ -451,7 +450,7 @@ async def main():
         print(f"  1. RESTful API成功率85%以上: {rest_success_rate:.1f}% {'OK' if rest_target_met else 'NG'}")
     else:
         rest_target_met = False
-        print(f"  1. RESTful API成功率85%以上: データなし NG")
+        print("  1. RESTful API成功率85%以上: データなし NG")
 
     # WebSocketストリーミング品質 (Phase 2)
     ws_result = next((r for r in test_results if 'streaming_quality' in r), None)
@@ -462,7 +461,7 @@ async def main():
         print(f"  2. WebSocket品質95%以上: データ完全性{data_completeness:.1f}% {'OK' if ws_target_met else 'NG'}")
     else:
         ws_target_met = False
-        print(f"  2. WebSocket品質95%以上: データなし NG")
+        print("  2. WebSocket品質95%以上: データなし NG")
 
     # API統合管理品質 (Phase 3)
     integration_result = next((r for r in test_results if 'quality_assessment' in r), None)
@@ -473,7 +472,7 @@ async def main():
         print(f"  3. 統合品質80%以上: 品質スコア{overall_quality:.3f} キャッシュヒット率{cache_hit_rate:.1f}% {'OK' if integration_target_met else 'NG'}")
     else:
         integration_target_met = False
-        print(f"  3. 統合品質80%以上: データなし NG")
+        print("  3. 統合品質80%以上: データなし NG")
 
     # エンドツーエンド統合 (E2E)
     e2e_result = next((r for r in test_results if 'api_scores' in r), None)
@@ -484,7 +483,7 @@ async def main():
         print(f"  4. エンドツーエンド統合85%以上: 統合スコア{overall_integration_score:.3f} 稼働率{system_uptime:.1f}% {'OK' if e2e_target_met else 'NG'}")
     else:
         e2e_target_met = False
-        print(f"  4. エンドツーエンド統合85%以上: データなし NG")
+        print("  4. エンドツーエンド統合85%以上: データなし NG")
 
     # 最終判定
     targets_met = [rest_target_met, ws_target_met, integration_target_met, e2e_target_met]
@@ -493,16 +492,16 @@ async def main():
     print(f"\nIssue #331 達成条件: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})")
 
     if issue_success_rate >= 0.75:
-        print(f"判定: OK Issue #331 API・外部統合システム実装成功")
-        print(f"ステータス: 次世代APIアクセス基盤完成")
+        print("判定: OK Issue #331 API・外部統合システム実装成功")
+        print("ステータス: 次世代APIアクセス基盤完成")
     elif issue_success_rate >= 0.5:
-        print(f"判定: PARTIAL 部分的成功")
-        print(f"ステータス: 追加最適化推奨")
+        print("判定: PARTIAL 部分的成功")
+        print("ステータス: 追加最適化推奨")
     else:
-        print(f"判定: NG 成功条件未達成")
-        print(f"ステータス: 追加開発必要")
+        print("判定: NG 成功条件未達成")
+        print("ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #331 API・外部統合システム統合テスト完了")
+    print("\nOK Issue #331 API・外部統合システム統合テスト完了")
 
     return issue_success_rate >= 0.75
 

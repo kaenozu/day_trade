@@ -886,7 +886,7 @@ class AdvancedMLModels:
             return {}
 
         importance = 1.0 / len(all_features)
-        return {feature: importance for feature in all_features.keys()}
+        return {feature: importance for feature in all_features}
 
     async def _calculate_model_score(
         self, model, X_test: np.ndarray, y_test: np.ndarray
@@ -1016,7 +1016,7 @@ class AdvancedMLModels:
         if total_score == 0:
             # 均等重み
             weight = 1.0 / len(models)
-            weights = {name: weight for name in models.keys()}
+            weights = {name: weight for name in models}
         else:
             weights = {
                 name: score / total_score for name, score in model_scores.items()

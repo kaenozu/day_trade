@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #317 高速データ管理システム簡易テスト
 
@@ -7,12 +6,11 @@ Issue #317 高速データ管理システム簡易テスト
 """
 
 import asyncio
-import time
-import json
 import gzip
 import hashlib
+import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -426,11 +424,11 @@ async def main():
 
     # 成功率
     success_rate = successful_tests / total_tests
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  成功テスト: {successful_tests}/{total_tests} ({success_rate:.1%})")
 
     # Issue #317成功条件評価
-    print(f"\nIssue #317 成功条件検証:")
+    print("\nIssue #317 成功条件検証:")
 
     # 性能メトリクス取得
     perf_metrics = performance_result.get('performance_metrics', {}) if performance_result['success'] else {}
@@ -468,16 +466,16 @@ async def main():
     print(f"\nIssue #317達成度: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})")
 
     if issue_success_rate >= 0.75:
-        print(f"判定: OK Issue #317 高速データ管理システム実装成功")
-        print(f"ステータス: 中優先課題完了")
+        print("判定: OK Issue #317 高速データ管理システム実装成功")
+        print("ステータス: 中優先課題完了")
     elif issue_success_rate >= 0.5:
-        print(f"判定: PARTIAL 部分的成功")
-        print(f"ステータス: 追加最適化推奨")
+        print("判定: PARTIAL 部分的成功")
+        print("ステータス: 追加最適化推奨")
     else:
-        print(f"判定: NG 目標未達成")
-        print(f"ステータス: 追加開発必要")
+        print("判定: NG 目標未達成")
+        print("ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #317 高速データ管理システムテスト完了")
+    print("\nOK Issue #317 高速データ管理システムテスト完了")
 
     return issue_success_rate >= 0.75
 

@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 
 # Add project root to path
 project_root = Path(__file__).parent

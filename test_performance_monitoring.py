@@ -6,6 +6,7 @@ AnalysisOnlyEngine の新しいパフォーマンス監視機能を検証しま�
 
 import asyncio
 import time
+
 from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
 from src.day_trade.utils.enhanced_performance_monitor import get_performance_monitor
 
@@ -61,7 +62,7 @@ async def test_analysis_engine_with_monitoring():
     # パフォーマンスサマリー確認
     summary = monitor.get_performance_summary(hours=1)
     if summary['total_processes'] > 0:
-        print(f"パフォーマンス監視データ収集: OK")
+        print("パフォーマンス監視データ収集: OK")
         print(f"監視済みプロセス: {summary['total_processes']}個")
     else:
         print("パフォーマンス監視データ収集: データなし（正常）")

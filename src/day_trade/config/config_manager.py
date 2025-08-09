@@ -4,10 +4,9 @@
 """
 
 import json
-from dataclasses import dataclass
 from datetime import datetime, time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,8 +15,7 @@ from ..utils.logging_config import get_context_logger
 logger = get_context_logger(__name__, component="config_manager")
 
 
-@dataclass
-class WatchlistSymbol:
+class WatchlistSymbol(BaseModel):
     """監視銘柄情報"""
 
     code: str
@@ -26,8 +24,7 @@ class WatchlistSymbol:
     priority: str
 
 
-@dataclass
-class MarketHours:
+class MarketHours(BaseModel):
     """市場営業時間"""
 
     start: time
@@ -36,8 +33,7 @@ class MarketHours:
     lunch_end: time
 
 
-@dataclass
-class TechnicalIndicatorSettings:
+class TechnicalIndicatorSettings(BaseModel):
     """テクニカル指標設定"""
 
     enabled: bool
@@ -48,16 +44,14 @@ class TechnicalIndicatorSettings:
     bollinger_params: Dict[str, Any]
 
 
-@dataclass
-class PatternRecognitionSettings:
+class PatternRecognitionSettings(BaseModel):
     """パターン認識設定"""
 
     enabled: bool
     patterns: List[str]
 
 
-@dataclass
-class SignalGenerationSettings:
+class SignalGenerationSettings(BaseModel):
     """シグナル生成設定"""
 
     enabled: bool
@@ -155,8 +149,7 @@ class EnsembleSettings(BaseModel):
         return v
 
 
-@dataclass
-class AlertSettings:
+class AlertSettings(BaseModel):
     """アラート設定"""
 
     enabled: bool
@@ -166,8 +159,7 @@ class AlertSettings:
     notification_methods: List[str]
 
 
-@dataclass
-class BacktestSettings:
+class BacktestSettings(BaseModel):
     """バックテスト設定"""
 
     enabled: bool
@@ -179,8 +171,7 @@ class BacktestSettings:
     take_profit_percent: float
 
 
-@dataclass
-class ReportSettings:
+class ReportSettings(BaseModel):
     """レポート設定"""
 
     enabled: bool
@@ -190,8 +181,7 @@ class ReportSettings:
     weekly_summary: Dict[str, Any]
 
 
-@dataclass
-class ExecutionSettings:
+class ExecutionSettings(BaseModel):
     """実行設定"""
 
     max_concurrent_requests: int
@@ -201,8 +191,7 @@ class ExecutionSettings:
     log_level: str
 
 
-@dataclass
-class DatabaseSettings:
+class DatabaseSettings(BaseModel):
     """データベース設定"""
 
     url: str
@@ -210,20 +199,34 @@ class DatabaseSettings:
     backup_interval_hours: int
 
 
-@dataclass
-class AutoOptimizerSettings:
+class AutoOptimizerSettings(BaseModel):
     """全自動最適化設定"""
 
-    enabled: bool
-    default_max_symbols: int
-    default_optimization_depth: str
-    data_quality_threshold: float
-    performance_threshold: float
-    risk_tolerance: float
-    fallback_symbols: List[str]
-    screening_strategies: List[str]
-    backtest_period_months: int
-    ml_training_enabled: bool
+    enabled: bool = Field(True)
+    default_max_symbols: int = Field(5)
+    default_optimization_depth: str = Field("balanced")
+    data_quality_threshold: float = Field(0.7)
+    performance_threshold: float = Field(0.05)
+    risk_tolerance: float = Field(0.7)
+    fallback_symbols: List[str] = Field(default_factory=lambda: ["7203", "8306", "9984"])
+    screening_strategies: List[str] = Field(default_factory=lambda: ["default", "momentum"])
+    backtest_period_months: int = Field(6)
+    ml_training_enabled: bool = Field(False)
+
+
+class ErrorHandlingSettings(BaseModel):
+    """エラーハンドリング設定"""
+
+    debug_mode: bool = Field(False)
+    enable_sanitization: bool = Field(True)
+    enable_rich_display: bool = Field(True)
+    log_technical_details: bool = Field(True)
+    max_context_items: int = Field(10)
+    max_solution_items: int = Field(5)
+    console_width: int = Field(120)
+    panel_padding: Tuple[int, int] = Field((1, 2))
+    lock_timeout_seconds: float = Field(1.0)
+    enable_performance_logging: bool = Field(True)
 
 
 class ConfigManager:
@@ -284,17 +287,8 @@ class ConfigManager:
 
     def get_watchlist_symbols(self) -> List[WatchlistSymbol]:
         """監視銘柄リストを取得"""
-        symbols = []
-        for symbol_data in self.config["watchlist"]["symbols"]:
-            symbols.append(
-                WatchlistSymbol(
-                    code=symbol_data["code"],
-                    name=symbol_data["name"],
-                    group=symbol_data["group"],
-                    priority=symbol_data["priority"],
-                )
-            )
-        return symbols
+        # Pydanticモデルのバリデーションを利用
+        return [WatchlistSymbol(**symbol_data) for symbol_data in self.config["watchlist"]["symbols"]]
 
     def get_symbol_codes(self) -> List[str]:
         """銘柄コードのリストを取得"""
@@ -302,124 +296,65 @@ class ConfigManager:
 
     def get_market_hours(self) -> MarketHours:
         """市場営業時間を取得"""
-        hours_config = self.config["watchlist"]["market_hours"]
-        return MarketHours(
-            start=time.fromisoformat(hours_config["start"]),
-            end=time.fromisoformat(hours_config["end"]),
-            lunch_start=time.fromisoformat(hours_config["lunch_start"]),
-            lunch_end=time.fromisoformat(hours_config["lunch_end"]),
-        )
+        # Pydanticモデルのバリデーションを利用
+        return MarketHours(**self.config["watchlist"]["market_hours"])
 
     def get_technical_indicator_settings(self) -> TechnicalIndicatorSettings:
         """テクニカル指標設定を取得"""
-        config = self.config["analysis"]["technical_indicators"]
-        return TechnicalIndicatorSettings(
-            enabled=config["enabled"],
-            sma_periods=config["sma_periods"],
-            ema_periods=config["ema_periods"],
-            rsi_period=config["rsi_period"],
-            macd_params=config["macd_params"],
-            bollinger_params=config["bollinger_params"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return TechnicalIndicatorSettings(**self.config["analysis"]["technical_indicators"])
 
     def get_pattern_recognition_settings(self) -> PatternRecognitionSettings:
         """パターン認識設定を取得"""
-        config = self.config["analysis"]["pattern_recognition"]
-        return PatternRecognitionSettings(
-            enabled=config["enabled"], patterns=config["patterns"]
-        )
+        # Pydanticモデルのバリデーションを利用
+        return PatternRecognitionSettings(**self.config["analysis"]["pattern_recognition"])
 
     def get_signal_generation_settings(self) -> SignalGenerationSettings:
         """シグナル生成設定を取得"""
-        config = self.config["analysis"]["signal_generation"]
-        return SignalGenerationSettings(
-            enabled=config["enabled"],
-            strategies=config["strategies"],
-            confidence_threshold=config["confidence_threshold"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return SignalGenerationSettings(**self.config["analysis"]["signal_generation"])
 
     def get_ensemble_settings(self) -> EnsembleSettings:
         """アンサンブル戦略設定を取得"""
-        config = self.config["analysis"].get("ensemble", {})
-
+        config_data = self.config["analysis"].get("ensemble", {})
         # Pydanticモデルを使用してバリデーション付きで作成
-        # デフォルト値はモデル側で定義されているため、configの値のみを渡す
-        return EnsembleSettings(**config)
+        return EnsembleSettings(**config_data)
 
     def get_alert_settings(self) -> AlertSettings:
         """アラート設定を取得"""
-        config = self.config["alerts"]
-        return AlertSettings(
-            enabled=config["enabled"],
-            price_alerts=config["price_alerts"],
-            volume_alerts=config["volume_alerts"],
-            technical_alerts=config["technical_alerts"],
-            notification_methods=config["notification_methods"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return AlertSettings(**self.config["alerts"])
 
     def get_backtest_settings(self) -> BacktestSettings:
         """バックテスト設定を取得"""
-        config = self.config["backtest"]
-        return BacktestSettings(
-            enabled=config["enabled"],
-            period_days=config["period_days"],
-            initial_capital=config["initial_capital"],
-            position_size_percent=config["position_size_percent"],
-            max_positions=config["max_positions"],
-            stop_loss_percent=config["stop_loss_percent"],
-            take_profit_percent=config["take_profit_percent"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return BacktestSettings(**self.config["backtest"])
 
     def get_report_settings(self) -> ReportSettings:
         """レポート設定を取得"""
-        config = self.config["reports"]
-        return ReportSettings(
-            enabled=config["enabled"],
-            output_directory=config["output_directory"],
-            formats=config["formats"],
-            daily_report=config["daily_report"],
-            weekly_summary=config["weekly_summary"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return ReportSettings(**self.config["reports"])
 
     def get_execution_settings(self) -> ExecutionSettings:
         """実行設定を取得"""
-        config = self.config["execution"]
-        return ExecutionSettings(
-            max_concurrent_requests=config["max_concurrent_requests"],
-            timeout_seconds=config["timeout_seconds"],
-            retry_attempts=config["retry_attempts"],
-            error_tolerance=config["error_tolerance"],
-            log_level=config["log_level"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return ExecutionSettings(**self.config["execution"])
 
     def get_database_settings(self) -> DatabaseSettings:
         """データベース設定を取得"""
-        config = self.config["database"]
-        return DatabaseSettings(
-            url=config["url"],
-            backup_enabled=config["backup_enabled"],
-            backup_interval_hours=config["backup_interval_hours"],
-        )
+        # Pydanticモデルのバリデーションを利用
+        return DatabaseSettings(**self.config["database"])
 
     def get_auto_optimizer_settings(self) -> AutoOptimizerSettings:
         """全自動最適化設定を取得"""
-        config = self.config.get("auto_optimizer", {})
-        return AutoOptimizerSettings(
-            enabled=config.get("enabled", True),
-            default_max_symbols=config.get("default_max_symbols", 5),
-            default_optimization_depth=config.get(
-                "default_optimization_depth", "balanced"
-            ),
-            data_quality_threshold=config.get("data_quality_threshold", 0.7),
-            performance_threshold=config.get("performance_threshold", 0.05),
-            risk_tolerance=config.get("risk_tolerance", 0.7),
-            fallback_symbols=config.get("fallback_symbols", ["7203", "8306", "9984"]),
-            screening_strategies=config.get(
-                "screening_strategies", ["default", "momentum"]
-            ),
-            backtest_period_months=config.get("backtest_period_months", 6),
-            ml_training_enabled=config.get("ml_training_enabled", False),
-        )
+        config_data = self.config.get("auto_optimizer", {})
+        # Pydanticモデルのバリデーションを利用
+        return AutoOptimizerSettings(**config_data)
+
+    def get_error_handler_settings(self) -> ErrorHandlingSettings:
+        """エラーハンドリング設定を取得"""
+        config_data = self.config.get("error_handling", {})
+        return ErrorHandlingSettings(**config_data)
 
     def is_market_open(self, current_time: Optional[datetime] = None) -> bool:
         """市場営業時間かどうかを判定"""
@@ -449,6 +384,24 @@ class ConfigManager:
     def save_config(self):
         """設定ファイルを保存"""
         try:
+            # 各Pydanticモデルの現在の状態をself.configに反映
+            self.config["watchlist"]["symbols"] = [
+                s.model_dump() for s in self.get_watchlist_symbols()
+            ]
+            self.config["watchlist"]["market_hours"] = self.get_market_hours().model_dump()
+            self.config["analysis"]["technical_indicators"] = self.get_technical_indicator_settings().model_dump()
+            self.config["analysis"]["pattern_recognition"] = self.get_pattern_recognition_settings().model_dump()
+            self.config["analysis"]["signal_generation"] = self.get_signal_generation_settings().model_dump()
+            self.config["analysis"]["ensemble"] = self.get_ensemble_settings().model_dump()
+            self.config["alerts"] = self.get_alert_settings().model_dump()
+            self.config["backtest"] = self.get_backtest_settings().model_dump()
+            self.config["reports"] = self.get_report_settings().model_dump()
+            self.config["execution"] = self.get_execution_settings().model_dump()
+            self.config["database"] = self.get_database_settings().model_dump()
+            self.config["auto_optimizer"] = self.get_auto_optimizer_settings().model_dump()
+            # エラーハンドリング設定の追加
+            self.config["error_handling"] = self.get_error_handler_settings().model_dump()
+
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             logger.info(f"設定ファイルを保存しました: {self.config_path}")
@@ -460,35 +413,40 @@ class ConfigManager:
 
     def update_symbol_priority(self, symbol_code: str, priority: str):
         """銘柄の優先度を更新"""
-        for symbol in self.config["watchlist"]["symbols"]:
-            if symbol["code"] == symbol_code:
-                symbol["priority"] = priority
+        watchlist_symbols = self.get_watchlist_symbols()  # Pydanticモデルのリストを取得
+        found = False
+        for symbol in watchlist_symbols:
+            if symbol.code == symbol_code:
+                symbol.priority = priority
+                found = True
                 break
-        else:
-            raise ValueError(
-                f"ウォッチリストに銘柄コード '{symbol_code}' が見つかりません。"
-            )
+        if not found:
+            raise ValueError(f"ウォッチリストに銘柄コード '{symbol_code}' が見つかりません。")
+        # 更新したリストをConfigManagerの内部辞書に反映（save_configでまとめて行うためここでは不要）
+        # self.config["watchlist"]["symbols"] = [s.model_dump() for s in watchlist_symbols]
 
     def add_symbol(self, code: str, name: str, group: str, priority: str = "medium"):
         """新しい銘柄を追加"""
-        new_symbol = {"code": code, "name": name, "group": group, "priority": priority}
-        self.config["watchlist"]["symbols"].append(new_symbol)
+        new_symbol = WatchlistSymbol(code=code, name=name, group=group, priority=priority)
+        # Pydanticモデルのリストに追加（save_configでまとめて反映）
+        watchlist_symbols = self.get_watchlist_symbols()
+        watchlist_symbols.append(new_symbol)
+        # self.config["watchlist"]["symbols"] = [s.model_dump() for s in watchlist_symbols]
         logger.info(f"新しい銘柄を追加しました: {code} ({name})")
 
     def remove_symbol(self, symbol_code: str):
         """銘柄を削除"""
-        original_count = len(self.config["watchlist"]["symbols"])
-        self.config["watchlist"]["symbols"] = [
-            symbol
-            for symbol in self.config["watchlist"]["symbols"]
-            if symbol["code"] != symbol_code
-        ]
+        watchlist_symbols = self.get_watchlist_symbols()  # Pydanticモデルのリストを取得
+        original_count = len(watchlist_symbols)
+        # フィルターして新しいリストを作成
+        updated_symbols = [s for s in watchlist_symbols if s.code != symbol_code]
 
-        if len(self.config["watchlist"]["symbols"]) == original_count:
+        if len(updated_symbols) == original_count:
             raise ValueError(
                 f"ウォッチリストに銘柄コード '{symbol_code}' が見つからなかったため、削除できませんでした。"
             )
-
+        # 更新したリストをConfigManagerの内部辞書に反映（save_configでまとめて行うためここでは不要）
+        # self.config["watchlist"]["symbols"] = [s.model_dump() for s in updated_symbols]
         logger.info(f"銘柄を削除しました: {symbol_code}")
 
 
@@ -518,6 +476,40 @@ if __name__ == "__main__":
         }
 
         logger.info("設定管理システムテスト完了", **config_info)
+
+        # 銘柄の追加・更新・削除のテスト
+        logger.info("""
+--- 銘柄操作テスト ---""")
+        initial_symbols = config_manager.get_symbol_codes()
+        logger.info(f"初期銘柄数: {len(initial_symbols)}")
+
+        test_code = "TEST"
+        test_name = "テスト銘柄"
+        test_group = "TestGroup"
+
+        try:
+            config_manager.add_symbol(test_code, test_name, test_group, "high")
+            config_manager.save_config()
+            updated_symbols = config_manager.get_symbol_codes()
+            logger.info(f"追加後の銘柄数: {len(updated_symbols)}")
+            logger.info(f"追加された銘柄: {test_code}")
+
+            config_manager.update_symbol_priority(test_code, "low")
+            config_manager.save_config()
+            updated_symbol = next(s for s in config_manager.get_watchlist_symbols() if s.code == test_code)
+            logger.info(f"{test_code}の優先度を更新: {updated_symbol.priority}")
+
+            config_manager.remove_symbol(test_code)
+            config_manager.save_config()
+            final_symbols = config_manager.get_symbol_codes()
+            logger.info(f"削除後の銘柄数: {len(final_symbols)}")
+            assert test_code not in final_symbols
+
+            logger.info("銘柄操作テスト成功")
+
+        except Exception as e:
+            logger.error(f"銘柄操作テストエラー: {e}")
+
 
     except Exception as e:
         logger.error(
