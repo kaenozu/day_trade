@@ -447,13 +447,14 @@ def main():
         if report.failed_symbols == 0 and not report.errors:
             print("\n[完了] 全自動化処理が正常に完了しました！")
             return 0
-        elif report.successful_symbols > 0:
-            print(
-                f"\n[エラー]  部分的に成功しました ({report.successful_symbols}/{report.total_symbols})"
-            )
-            return 0
-        else:
-            print("\n[失敗] 処理に失敗しました")
+        else: # 何らかの失敗またはエラーがある場合
+            if report.successful_symbols > 0:
+                print(
+                    f"\n[警告]  一部の処理が失敗しました ({report.successful_symbols}/{report.total_symbols} 成功)"
+                )
+            else:
+                print("\n[失敗] 処理に失敗しました")
+            return 1 # 部分的または全体的な失敗の場合、1を返す\n[失敗] 処理に失敗しました")
             return 1
 
     except KeyboardInterrupt:
