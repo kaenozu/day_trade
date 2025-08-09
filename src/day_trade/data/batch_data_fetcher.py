@@ -106,19 +106,23 @@ class AdvancedBatchDataFetcher:
                  kafka_config: Dict[str, Any] = None,
                  redis_config: Dict[str, Any] = None):
 
-        self.data_manager = RealMarketDataManager()
-        self.max_workers = max_workers
+        # CI環境でのメモリ最適化
+        import os
+        self.ci_mode = os.getenv("CI", "false").lower() == "true"
 
-        # Kafka設定
-        self.enable_kafka = enable_kafka and KAFKA_AVAILABLE
+        self.data_manager = RealMarketDataManager()
+        self.max_workers = max_workers if not self.ci_mode else min(max_workers, 2)  # CI時は2並列まで
+
+        # Kafka設定（CI時は無効化）
+        self.enable_kafka = enable_kafka and KAFKA_AVAILABLE and not self.ci_mode
         self.kafka_config = kafka_config or {
             'bootstrap_servers': 'localhost:9092',
             'topic_prefix': 'market_data'
         }
         self.kafka_producer = None
 
-        # Redis設定
-        self.enable_redis = enable_redis and REDIS_AVAILABLE
+        # Redis設定（CI時は無効化）
+        self.enable_redis = enable_redis and REDIS_AVAILABLE and not self.ci_mode
         self.redis_config = redis_config or {
             'host': 'localhost',
             'port': 6379,

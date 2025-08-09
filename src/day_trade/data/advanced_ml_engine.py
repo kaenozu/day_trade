@@ -219,11 +219,22 @@ class AdvancedMLEngine:
     """Advanced ML Engine - 次世代AI予測システム"""
 
     def __init__(self, config: Optional[ModelConfig] = None, optimization_config: Optional[OptimizationConfig] = None):
+        import os
+        self.ci_mode = os.getenv("CI", "false").lower() == "true"
+
         self.config = config or ModelConfig()
         self.optimization_config = optimization_config or OptimizationConfig()
 
+        # CI環境では軽量設定
+        if self.ci_mode:
+            self.config.sequence_length = min(self.config.sequence_length, 100)
+            self.config.num_features = min(self.config.num_features, 10)
+            self.config.batch_size = min(self.config.batch_size, 8)
+            self.config.use_gpu = False
+            logger.info("CI軽量モード: パラメータを削減")
+
         # デバイス設定
-        if PYTORCH_AVAILABLE and self.config.use_gpu and torch.cuda.is_available():
+        if PYTORCH_AVAILABLE and self.config.use_gpu and torch.cuda.is_available() and not self.ci_mode:
             self.device = torch.device("cuda")
             logger.info(f"GPU使用: {torch.cuda.get_device_name()}")
         else:
