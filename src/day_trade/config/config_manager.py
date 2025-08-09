@@ -456,8 +456,8 @@ if __name__ == "__main__":
         logger.info("設定管理システムテスト完了", **config_info)
 
         # 銘柄の追加・更新・削除のテスト
-        logger.info("
---- 銘柄操作テスト ---")
+        logger.info("""
+--- 銘柄操作テスト ---""")
         initial_symbols = config_manager.get_symbol_codes()
         logger.info(f"初期銘柄数: {len(initial_symbols)}")
 
