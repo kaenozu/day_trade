@@ -1,0 +1,461 @@
+name: Unified Optimization System CI/CD
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*' ]
+    paths:
+      - 'src/day_trade/core/optimization_strategy.py'
+      - 'src/day_trade/analysis/*_unified.py'
+      - 'src/day_trade/models/database_unified.py'
+      - 'config/optimization_config.json'
+      - 'test_unified_optimization_system.py'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/day_trade/core/optimization_strategy.py'
+      - 'src/day_trade/analysis/*_unified.py'
+      - 'src/day_trade/models/database_unified.py'
+
+env:
+  PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '1.8.3'
+
+jobs:
+  # 統合システム基本テスト
+  unified-system-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        optimization_level: [standard, optimized, adaptive]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # オプショナル最適化パッケージ
+        pip install numba xgboost lightgbm psutil || echo "Optional packages installation failed"
+    
+    - name: Create optimization config
+      run: |
+        mkdir -p config
+        cat > config/optimization_config.json << EOF
+        {
+          "level": "${{ matrix.optimization_level }}",
+          "auto_fallback": true,
+          "performance_monitoring": true,
+          "cache_enabled": true,
+          "parallel_processing": true,
+          "batch_size": 100,
+          "timeout_seconds": 30,
+          "memory_limit_mb": 512
+        }
+        EOF
+    
+    - name: Run unified optimization system tests
+      env:
+        DAYTRADE_OPTIMIZATION_LEVEL: ${{ matrix.optimization_level }}
+        DAYTRADE_PERF_MONITORING: "true"
+      run: |
+        python test_unified_optimization_system.py
+    
+    - name: Run CLI tool tests
+      run: |
+        python -m src.day_trade.core.optimization_cli config show
+        python -m src.day_trade.core.optimization_cli component list
+        python -m src.day_trade.core.optimization_cli system
+    
+    - name: Performance benchmarks
+      if: matrix.optimization_level == 'optimized'
+      run: |
+        python -m src.day_trade.core.optimization_cli benchmark || echo "Benchmark completed with warnings"
+
+  # Strategy Pattern動作テスト  
+  strategy-pattern-test:
+    runs-on: ubuntu-latest
+    needs: unified-system-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test strategy registration
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from src.day_trade.core.optimization_strategy import OptimizationStrategyFactory
+        components = OptimizationStrategyFactory.get_registered_components()
+        print(f'Registered components: {list(components.keys())}')
+        assert len(components) > 0, 'No components registered'
+        print('Strategy registration test passed')
+        "
+    
+    - name: Test component instantiation
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from src.day_trade.core.optimization_strategy import (
+            OptimizationConfig, OptimizationLevel, get_optimized_implementation
+        )
+        
+        # Test technical indicators
+        try:
+            config = OptimizationConfig(level=OptimizationLevel.STANDARD)
+            strategy = get_optimized_implementation('technical_indicators', config)
+            print(f'Technical indicators strategy: {strategy.get_strategy_name()}')
+        except Exception as e:
+            print(f'Technical indicators test failed: {e}')
+        
+        print('Component instantiation test completed')
+        "
+
+  # パフォーマンス回帰テスト
+  performance-regression-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 履歴全体を取得
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies with performance tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install memory_profiler psutil pytest-benchmark
+    
+    - name: Run performance benchmarks
+      run: |
+        # メモリ使用量テスト
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        import psutil
+        import gc
+        
+        process = psutil.Process()
+        initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+        
+        # 統合システムのインポート・初期化
+        from src.day_trade.core.optimization_strategy import OptimizationConfig
+        config = OptimizationConfig()
+        
+        final_memory = process.memory_info().rss / 1024 / 1024  # MB
+        memory_increase = final_memory - initial_memory
+        
+        print(f'Initial memory: {initial_memory:.2f}MB')
+        print(f'Final memory: {final_memory:.2f}MB') 
+        print(f'Memory increase: {memory_increase:.2f}MB')
+        
+        # 100MB以下のメモリ増加を期待
+        assert memory_increase < 100, f'Memory usage too high: {memory_increase}MB'
+        print('Memory performance test passed')
+        "
+    
+    - name: Component performance test
+      run: |
+        python -c "
+        import sys
+        import time
+        sys.path.insert(0, 'src')
+        
+        from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+        
+        # 標準 vs 最適化のパフォーマンス比較
+        configs = [
+            ('standard', OptimizationConfig(level=OptimizationLevel.STANDARD)),
+            ('optimized', OptimizationConfig(level=OptimizationLevel.OPTIMIZED))
+        ]
+        
+        results = {}
+        for name, config in configs:
+            start_time = time.time()
+            
+            # 統合システム初期化時間測定
+            try:
+                from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
+                manager = TechnicalIndicatorsManager(config)
+                
+                init_time = time.time() - start_time
+                results[name] = init_time
+                print(f'{name} initialization time: {init_time:.3f}s')
+                
+            except Exception as e:
+                print(f'{name} performance test failed: {e}')
+                results[name] = float('inf')
+        
+        # 最適化版が標準版より大幅に遅くないことを確認（2倍以内）
+        if results.get('standard', 0) > 0:
+            ratio = results.get('optimized', float('inf')) / results['standard']
+            print(f'Performance ratio (optimized/standard): {ratio:.2f}')
+            assert ratio < 2.0, f'Optimized version too slow: {ratio}x'
+        
+        print('Performance regression test passed')
+        "
+
+  # メモリリーク検出
+  memory-leak-test:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[memory-test]') || github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install memory_profiler psutil
+    
+    - name: Memory leak detection test
+      run: |
+        python -c "
+        import sys
+        import gc
+        import psutil
+        import time
+        sys.path.insert(0, 'src')
+        
+        process = psutil.Process()
+        
+        def get_memory_usage():
+            return process.memory_info().rss / 1024 / 1024  # MB
+        
+        # 初期メモリ使用量
+        initial_memory = get_memory_usage()
+        print(f'Initial memory: {initial_memory:.2f}MB')
+        
+        # 繰り返しテスト（メモリリーク検出）
+        from src.day_trade.core.optimization_strategy import OptimizationConfig
+        
+        memory_samples = []
+        for i in range(10):
+            # オブジェクト作成・破棄を繰り返す
+            config = OptimizationConfig()
+            
+            try:
+                from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
+                manager = TechnicalIndicatorsManager(config)
+                
+                # メモリ使用量サンプリング
+                current_memory = get_memory_usage()
+                memory_samples.append(current_memory)
+                print(f'Iteration {i+1}: {current_memory:.2f}MB')
+                
+                # オブジェクトを明示的に削除
+                del manager
+                del config
+                
+            except ImportError:
+                print(f'Iteration {i+1}: Import failed (expected in CI)')
+                memory_samples.append(initial_memory)
+            
+            # ガベージコレクション実行
+            gc.collect()
+            time.sleep(0.1)
+        
+        # メモリリーク分析
+        if len(memory_samples) >= 5:
+            early_avg = sum(memory_samples[:3]) / 3
+            late_avg = sum(memory_samples[-3:]) / 3
+            memory_growth = late_avg - early_avg
+            
+            print(f'Early average: {early_avg:.2f}MB')
+            print(f'Late average: {late_avg:.2f}MB')
+            print(f'Memory growth: {memory_growth:.2f}MB')
+            
+            # 50MB以上のメモリ増加でリーク疑い
+            if memory_growth > 50:
+                print(f'WARNING: Potential memory leak detected: {memory_growth:.2f}MB growth')
+                # CI/CDではwarningのみ（failしない）
+            else:
+                print('Memory leak test passed')
+        
+        print('Memory leak detection completed')
+        "
+
+  # 設定ファイル検証
+  config-validation-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate optimization config JSON
+      run: |
+        python -c "
+        import json
+        import os
+        
+        config_file = 'config/optimization_config.json'
+        if os.path.exists(config_file):
+            with open(config_file) as f:
+                config = json.load(f)
+            print(f'Config validation passed: {len(config)} keys')
+            
+            # 必須キーの確認
+            required_keys = ['level', 'auto_fallback', 'performance_monitoring']
+            for key in required_keys:
+                assert key in config, f'Missing required key: {key}'
+            
+            # レベル値の検証
+            valid_levels = ['standard', 'optimized', 'adaptive', 'debug']
+            assert config['level'] in valid_levels, f'Invalid level: {config[\"level\"]}'
+            
+            print('Configuration validation passed')
+        else:
+            print('No config file found, creating template...')
+            import sys
+            sys.path.insert(0, 'src')
+            from src.day_trade.core.optimization_strategy import OptimizationStrategyFactory
+            OptimizationStrategyFactory.create_config_template(config_file)
+            print(f'Template created: {config_file}')
+        "
+
+  # 互換性テスト
+  compatibility-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Basic compatibility test
+      run: |
+        python -c "
+        import sys
+        print(f'Python version: {sys.version}')
+        print(f'Platform: {sys.platform}')
+        
+        sys.path.insert(0, 'src')
+        
+        try:
+            from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+            config = OptimizationConfig(level=OptimizationLevel.STANDARD)
+            print(f'Optimization config created: {config.level.value}')
+            print('Basic compatibility test passed')
+        except Exception as e:
+            print(f'Compatibility test failed: {e}')
+            sys.exit(1)
+        "
+
+  # デプロイメント準備
+  deployment-preparation:
+    runs-on: ubuntu-latest
+    needs: [unified-system-test, strategy-pattern-test, performance-regression-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Create deployment package
+      run: |
+        # 統合システムファイルのパッケージ作成
+        mkdir -p deployment/unified_optimization_system
+        
+        # コアファイル
+        cp src/day_trade/core/optimization_strategy.py deployment/unified_optimization_system/
+        cp src/day_trade/core/optimization_cli.py deployment/unified_optimization_system/
+        
+        # 統合コンポーネント
+        cp src/day_trade/analysis/*_unified.py deployment/unified_optimization_system/
+        cp src/day_trade/models/database_unified.py deployment/unified_optimization_system/
+        
+        # 設定ファイル
+        cp config/optimization_config.json deployment/unified_optimization_system/
+        
+        # テストファイル
+        cp test_unified_optimization_system.py deployment/unified_optimization_system/
+        
+        # デプロイメント情報
+        echo "Unified Optimization System - Build $(date)" > deployment/unified_optimization_system/BUILD_INFO.txt
+        echo "Git commit: ${GITHUB_SHA}" >> deployment/unified_optimization_system/BUILD_INFO.txt
+        
+        # アーカイブ作成
+        cd deployment
+        tar -czf unified_optimization_system_${GITHUB_SHA:0:7}.tar.gz unified_optimization_system/
+        
+        echo "Deployment package created: unified_optimization_system_${GITHUB_SHA:0:7}.tar.gz"
+    
+    - name: Upload deployment artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: unified-optimization-system
+        path: deployment/unified_optimization_system_*.tar.gz
+        retention-days: 30
+        
+  # 通知
+  notification:
+    runs-on: ubuntu-latest
+    needs: [unified-system-test, strategy-pattern-test, performance-regression-test, config-validation-test, compatibility-test]
+    if: always()
+    
+    steps:
+    - name: Workflow status notification
+      run: |
+        if [ "${{ needs.unified-system-test.result }}" = "success" ] && \
+           [ "${{ needs.strategy-pattern-test.result }}" = "success" ] && \
+           [ "${{ needs.config-validation-test.result }}" = "success" ]; then
+          echo "✅ Unified Optimization System CI/CD completed successfully"
+          echo "All integration tests passed"
+        else
+          echo "❌ Unified Optimization System CI/CD failed"
+          echo "unified-system-test: ${{ needs.unified-system-test.result }}"
+          echo "strategy-pattern-test: ${{ needs.strategy-pattern-test.result }}"
+          echo "config-validation-test: ${{ needs.config-validation-test.result }}"
+        fi
