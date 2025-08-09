@@ -1,12 +1,7 @@
 # Core trading functionality
 from ..models.enums import AlertType
 from .alerts import AlertCondition, AlertManager, AlertPriority
-from .portfolio import (
-    PerformanceReport,
-    PortfolioAnalyzer,
-    PortfolioMetrics,
-    SectorAllocation,
-)
+from .portfolio import PortfolioManager # PortfolioManagerのみをインポート
 from .trade_manager import (
     Position,
     RealizedPnL,
@@ -51,4 +46,5 @@ __all__ = [
     "OptimizationStrategyFactory",
     "optimization_strategy",
     "get_optimized_implementation",
+    "PortfolioManager",
 ]
