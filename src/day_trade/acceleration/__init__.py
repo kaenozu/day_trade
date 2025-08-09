@@ -14,7 +14,7 @@ from .gpu_engine import (
 
 __all__ = [
     'GPUAccelerationEngine',
-    'GPUBackend', 
+    'GPUBackend',
     'GPUDeviceInfo',
     'GPUComputeResult',
     'GPUAcceleratedTechnicalIndicators',

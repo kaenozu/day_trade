@@ -10,6 +10,6 @@ from .report_exporter import ReportExporter
 
 __all__ = [
     "PortfolioAnalyzer",
-    "TaxCalculator", 
+    "TaxCalculator",
     "ReportExporter",
 ]

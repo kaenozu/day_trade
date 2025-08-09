@@ -7,7 +7,7 @@
   "batch_size": 1000,
   "timeout_seconds": 60,
   "memory_limit_mb": 1024,
-  
+
   "component_specific": {
     "technical_indicators": {
       "level": "optimized",
@@ -36,7 +36,7 @@
       "bulk_optimization_threshold": 200
     }
   },
-  
+
   "system_thresholds": {
     "memory_usage_warning": 70,
     "memory_usage_critical": 85,
@@ -48,7 +48,7 @@
       "error_rate_over": 0.10
     }
   },
-  
+
   "monitoring": {
     "enable_detailed_logging": false,
     "log_performance_metrics": true,
@@ -58,12 +58,12 @@
       "cache_hit_rate_below": 0.6
     }
   },
-  
+
   "_comments": {
     "level": "standard, optimized, adaptive, debug",
     "auto_fallback": "エラー時に他の実装に自動フォールバック",
     "performance_monitoring": "パフォーマンス監視機能の有効化",
-    "cache_enabled": "キャッシュ機能の有効化", 
+    "cache_enabled": "キャッシュ機能の有効化",
     "parallel_processing": "並列処理の有効化",
     "batch_size": "バッチ処理のサイズ",
     "timeout_seconds": "処理タイムアウト時間",

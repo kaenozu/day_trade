@@ -137,7 +137,7 @@ def adaptive_cache(
 ) -> Callable:
     """
     適応的キャッシュデコレータ
-    
+
     使用パターンに基づいて自動的にキャッシュ設定を調整
 
     Args:
@@ -156,10 +156,10 @@ def adaptive_cache(
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             nonlocal auto_tune_counter
-            
+
             try:
                 cache_key = generate_safe_cache_key(func.__name__, *args, **kwargs)
-                
+
                 if not validate_cache_key(cache_key):
                     logger.warning(f"無効なキャッシュキー: {func.__name__}")
                     return func(*args, **kwargs)
@@ -169,13 +169,13 @@ def adaptive_cache(
                 if cached_result is not None:
                     stats.record_hit()
                     auto_tune_counter += 1
-                    
+
                     # 定期的な自動調整
                     if auto_tune_counter % auto_tune_threshold == 0:
                         tune_result = cache.auto_tune_cache_settings()
                         if tune_result["adjusted"]:
                             logger.info(f"キャッシュ自動調整: {tune_result['adjustments']}")
-                    
+
                     return cached_result
 
                 # キャッシュミス - 関数実行
@@ -215,7 +215,7 @@ def smart_cache(
 ) -> Callable:
     """
     スマートキャッシュデコレータ
-    
+
     エラー処理とフォールバック機能を強化
 
     Args:
@@ -236,7 +236,7 @@ def smart_cache(
         def wrapper(*args, **kwargs) -> Any:
             try:
                 cache_key = generate_safe_cache_key(func.__name__, *args, **kwargs)
-                
+
                 if not validate_cache_key(cache_key):
                     return func(*args, **kwargs)
 
@@ -256,22 +256,22 @@ def smart_cache(
                 try:
                     stats.record_miss()
                     result = func(*args, **kwargs)
-                    
+
                     if result is not None:
                         sanitized_result = sanitize_cache_value(result)
                         main_cache.set(cache_key, sanitized_result)
                         stats.record_set()
-                        
+
                         # エラーキャッシュから削除（成功したため）
                         if error_cache.get(cache_key) is not None:
                             error_cache._remove_key(cache_key)
-                    
+
                     return result
 
                 except (APIError, NetworkError, DataError) as api_error:
                     # エラーをキャッシュして短期間スキップ
                     error_cache.set(cache_key, api_error)
-                    
+
                     # フォールバック試行
                     if enable_fallback:
                         stale_result = main_cache.get(cache_key, allow_stale=True)
@@ -279,7 +279,7 @@ def smart_cache(
                             logger.warning(f"フォールバック使用: {func.__name__}")
                             stats.record_fallback()
                             return stale_result
-                    
+
                     raise api_error
 
             except Exception as e:
@@ -306,7 +306,7 @@ def memory_efficient_cache(
 ) -> Callable:
     """
     メモリ効率重視キャッシュデコレータ
-    
+
     メモリ使用量を監視し、必要に応じて圧縮を実行
 
     Args:
@@ -320,11 +320,11 @@ def memory_efficient_cache(
     import sys
     import pickle
     import gzip
-    
+
     # 動的サイズ計算（概算）
     estimated_entry_size = 512  # バイト
     max_size = (max_memory_mb * 1024 * 1024) // estimated_entry_size
-    
+
     cache = DataCache(ttl_seconds, max_size, ttl_seconds)
     stats = CacheStats()
 
@@ -333,7 +333,7 @@ def memory_efficient_cache(
         def wrapper(*args, **kwargs) -> Any:
             try:
                 cache_key = generate_safe_cache_key(func.__name__, *args, **kwargs)
-                
+
                 # キャッシュ取得と解凍
                 cached_result = cache.get(cache_key)
                 if cached_result is not None:
@@ -359,7 +359,7 @@ def memory_efficient_cache(
                     try:
                         serialized = pickle.dumps(result)
                         data_size = len(serialized)
-                        
+
                         # 圧縮判定
                         if data_size > compression_threshold:
                             compressed_data = gzip.compress(serialized)
@@ -378,7 +378,7 @@ def memory_efficient_cache(
 
                         cache.set(cache_key, cached_data)
                         stats.record_set()
-                        
+
                     except Exception as e:
                         logger.warning(f"キャッシュ保存エラー: {e}")
 

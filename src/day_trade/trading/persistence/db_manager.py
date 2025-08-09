@@ -46,7 +46,7 @@ class TradeDatabaseManager:
         try:
             with self.db.get_session() as session:
                 query = session.query(DBTrade)
-                
+
                 if symbol:
                     # 特定銘柄のみ
                     stock = session.query(Stock).filter_by(symbol=symbol).first()
@@ -57,7 +57,7 @@ class TradeDatabaseManager:
                         return []
 
                 db_trades = query.order_by(DBTrade.timestamp.desc()).all()
-                
+
                 trades = []
                 for db_trade in db_trades:
                     # Stock情報取得
@@ -132,7 +132,7 @@ class TradeDatabaseManager:
         except SQLAlchemyError as e:
             log_error_with_context(
                 f"DB取引保存エラー",
-                e, 
+                e,
                 {"trade_id": trade.id, "symbol": trade.symbol}
             )
             return False
@@ -281,7 +281,7 @@ class TradeDatabaseManager:
                 # 基本統計
                 total_trades = session.query(DBTrade).count()
                 total_stocks = session.query(Stock).count()
-                
+
                 # 取引タイプ別件数
                 buy_count = session.query(DBTrade).filter_by(trade_type=TradeType.BUY.value).count()
                 sell_count = session.query(DBTrade).filter_by(trade_type=TradeType.SELL.value).count()
@@ -322,7 +322,7 @@ class TradeDatabaseManager:
         try:
             # 全取引データ取得
             all_trades = self.load_trades_from_db()
-            
+
             # JSON形式でエクスポート
             import json
             backup_data = {
@@ -354,7 +354,7 @@ class TradeDatabaseManager:
         """
         try:
             import json
-            
+
             with open(backup_path, 'r', encoding='utf-8') as f:
                 backup_data = json.load(f)
 

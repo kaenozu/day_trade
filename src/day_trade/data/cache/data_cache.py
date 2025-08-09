@@ -341,7 +341,7 @@ class DataCache:
         """指定されたキーが期限切れかどうかを確認"""
         if key not in self._cache:
             return True
-        
+
         _, timestamp = self._cache[key]
         age = time.time() - timestamp
         return age >= self.ttl_seconds
@@ -350,7 +350,7 @@ class DataCache:
         """指定されたキーの経過時間を秒で取得"""
         if key not in self._cache:
             return None
-        
+
         _, timestamp = self._cache[key]
         return time.time() - timestamp
 
@@ -358,16 +358,16 @@ class DataCache:
         """期限切れエントリを一括削除"""
         current_time = time.time()
         expired_keys = []
-        
+
         for key, (_, timestamp) in self._cache.items():
             age = current_time - timestamp
             if age >= self.ttl_seconds + self.stale_while_revalidate:
                 expired_keys.append(key)
-        
+
         for key in expired_keys:
             self._remove_key(key)
-        
+
         if expired_keys:
             logger.debug(f"期限切れエントリ削除: {len(expired_keys)}件")
-        
+
         return len(expired_keys)

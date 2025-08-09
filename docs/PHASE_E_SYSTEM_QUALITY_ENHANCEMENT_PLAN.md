@@ -101,13 +101,13 @@ app = Celery('daytrade_distributed')
 ```python
 class EnhancedErrorHandler:
     """改善されたエラーハンドリングシステム"""
-    
+
     def __init__(self):
         self.error_messages = {
             'ja': "エラーが発生しました",
             'en': "An error occurred"
         }
-    
+
     def handle_error(self, error, context, language='ja'):
         """多言語対応エラー処理"""
         pass
@@ -124,14 +124,14 @@ class EnhancedErrorHandler:
 ```python
 class SecurityManager:
     """セキュリティ管理システム"""
-    
+
     def __init__(self):
         self.auth_enabled = True
-    
+
     def authenticate_request(self, request):
         """API認証"""
         pass
-    
+
     def audit_log(self, action, user, timestamp):
         """監査ログ"""
         pass
@@ -158,10 +158,10 @@ jobs:
     steps:
       - name: Extended Coverage Test
         run: pytest --cov=src --cov-fail-under=95
-      
+
       - name: Performance Regression Test
         run: python test_performance_regression.py
-      
+
       - name: Security Audit
         run: bandit -r src/
 ```

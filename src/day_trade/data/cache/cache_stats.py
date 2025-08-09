@@ -96,26 +96,26 @@ class CachePerformanceMonitor:
         self.window_size = window_size
         self.sample_interval = sample_interval
         self._lock = threading.Lock()
-        
+
         # 時系列データ
         self.performance_history: List[Dict[str, Any]] = []
         self.function_stats: Dict[str, CacheStats] = defaultdict(CacheStats)
-        
+
         # アラート設定
         self.alert_thresholds = {
             "hit_rate_min": 0.5,
             "error_rate_max": 0.05,
             "response_time_max": 5.0,
         }
-        
+
         self.alerts: List[Dict[str, Any]] = []
-        
+
         logger.info(f"パフォーマンス監視初期化: ウィンドウ={window_size}s, 間隔={sample_interval}s")
 
     def record_function_call(
-        self, 
-        function_name: str, 
-        cache_hit: bool, 
+        self,
+        function_name: str,
+        cache_hit: bool,
         response_time: float,
         error: Optional[Exception] = None
     ) -> None:
@@ -130,12 +130,12 @@ class CachePerformanceMonitor:
         """
         with self._lock:
             stats = self.function_stats[function_name]
-            
+
             if cache_hit:
                 stats.record_hit()
             else:
                 stats.record_miss()
-            
+
             if error:
                 stats.record_error()
 
@@ -147,13 +147,13 @@ class CachePerformanceMonitor:
                 "response_time": response_time,
                 "error": str(error) if error else None,
             }
-            
+
             self.performance_history.append(performance_point)
-            
+
             # ウィンドウサイズ制限
             cutoff_time = datetime.now() - timedelta(seconds=self.window_size)
             self.performance_history = [
-                p for p in self.performance_history 
+                p for p in self.performance_history
                 if p["timestamp"] > cutoff_time
             ]
 
@@ -169,13 +169,13 @@ class CachePerformanceMonitor:
         """
         with self._lock:
             stats = self.function_stats[function_name].to_dict()
-            
+
             # 最近のパフォーマンスデータ
             recent_calls = [
                 p for p in self.performance_history
                 if p["function"] == function_name
             ]
-            
+
             if recent_calls:
                 response_times = [p["response_time"] for p in recent_calls]
                 stats.update({
@@ -199,7 +199,7 @@ class CachePerformanceMonitor:
         with self._lock:
             # 全関数の統計を集計
             total_stats = CacheStats()
-            
+
             for stats in self.function_stats.values():
                 total_stats.hits += stats.hits
                 total_stats.misses += stats.misses
@@ -208,12 +208,12 @@ class CachePerformanceMonitor:
                 total_stats.errors += stats.errors
 
             overall_stats = total_stats.to_dict()
-            
+
             # 追加の全体統計
             if self.performance_history:
                 response_times = [p["response_time"] for p in self.performance_history]
                 cache_hits = [p for p in self.performance_history if p["cache_hit"]]
-                
+
                 overall_stats.update({
                     "total_functions": len(self.function_stats),
                     "recent_calls": len(self.performance_history),
@@ -237,7 +237,7 @@ class CachePerformanceMonitor:
         """
         with self._lock:
             function_performances = []
-            
+
             for func_name, stats in self.function_stats.items():
                 perf = self.get_function_performance(func_name)
                 perf["function_name"] = func_name
@@ -264,7 +264,7 @@ class CachePerformanceMonitor:
 
         with self._lock:
             overall_perf = self.get_overall_performance()
-            
+
             # ヒット率アラート
             if overall_perf.get("hit_rate", 0) < self.alert_thresholds["hit_rate_min"]:
                 new_alerts.append({
@@ -297,11 +297,11 @@ class CachePerformanceMonitor:
 
             # 新しいアラートを追加
             self.alerts.extend(new_alerts)
-            
+
             # 古いアラートを削除（24時間以上前）
             cutoff_time = current_time - timedelta(hours=24)
             self.alerts = [
-                alert for alert in self.alerts 
+                alert for alert in self.alerts
                 if alert["timestamp"] > cutoff_time
             ]
 
@@ -333,7 +333,7 @@ class CachePerformanceMonitor:
             # 時間軸での分析
             time_buckets = defaultdict(list)
             bucket_size = duration_minutes // 10  # 10個のバケットに分割
-            
+
             for point in recent_history:
                 minutes_ago = (datetime.now() - point["timestamp"]).total_seconds() / 60
                 bucket_index = int(minutes_ago // bucket_size)
@@ -343,14 +343,14 @@ class CachePerformanceMonitor:
             # トレンド計算
             hit_rates = []
             response_times = []
-            
+
             for i in range(10):
                 bucket_data = time_buckets.get(i, [])
                 if bucket_data:
                     hits = sum(1 for p in bucket_data if p["cache_hit"])
                     hit_rate = hits / len(bucket_data)
                     avg_response = sum(p["response_time"] for p in bucket_data) / len(bucket_data)
-                    
+
                     hit_rates.append(hit_rate)
                     response_times.append(avg_response)
 
@@ -369,13 +369,13 @@ class CachePerformanceMonitor:
         """値の配列からトレンドを計算"""
         if len(values) < 3:
             return "insufficient_data"
-        
+
         # 単純な線形回帰的なトレンド判定
         first_half = sum(values[:len(values)//2]) / (len(values)//2)
         second_half = sum(values[len(values)//2:]) / (len(values) - len(values)//2)
-        
+
         change_rate = (second_half - first_half) / first_half if first_half != 0 else 0
-        
+
         if change_rate > 0.1:
             return "increasing"
         elif change_rate < -0.1:
@@ -388,14 +388,14 @@ class CachePerformanceMonitor:
         overall_perf = self.get_overall_performance()
         top_functions = self.get_top_functions(5)
         trend_analysis = self.get_performance_trend()
-        
+
         report_lines = []
         report_lines.append("=" * 60)
         report_lines.append("キャッシュパフォーマンスレポート")
         report_lines.append("=" * 60)
         report_lines.append(f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
         report_lines.append("")
-        
+
         # 全体統計
         report_lines.append("【全体統計】")
         report_lines.append(f"総リクエスト数: {overall_perf.get('total_requests', 0):,}")
@@ -404,7 +404,7 @@ class CachePerformanceMonitor:
         report_lines.append(f"平均応答時間: {overall_perf.get('avg_response_time', 0):.3f}s")
         report_lines.append(f"アクティブアラート: {overall_perf.get('active_alerts', 0)}件")
         report_lines.append("")
-        
+
         # トップ関数
         if top_functions:
             report_lines.append("【最もよく使用される関数】")
@@ -415,7 +415,7 @@ class CachePerformanceMonitor:
                     f"ヒット率: {func['hit_rate']:.2%}"
                 )
             report_lines.append("")
-        
+
         # トレンド分析
         if trend_analysis["data_points"] > 0:
             report_lines.append("【トレンド分析】")
@@ -423,7 +423,7 @@ class CachePerformanceMonitor:
             report_lines.append(f"ヒット率トレンド: {trend_analysis['hit_rate_trend']}")
             report_lines.append(f"応答時間トレンド: {trend_analysis['response_time_trend']}")
             report_lines.append("")
-        
+
         # アクティブアラート
         recent_alerts = [a for a in self.alerts if (datetime.now() - a["timestamp"]).total_seconds() < 3600]
         if recent_alerts:
@@ -433,10 +433,10 @@ class CachePerformanceMonitor:
                     f"- {alert['message']} "
                     f"({alert['timestamp'].strftime('%H:%M:%S')})"
                 )
-        
+
         report_lines.append("")
         report_lines.append("=" * 60)
-        
+
         return "\n".join(report_lines)
 
     def reset_stats(self, function_name: Optional[str] = None) -> None:
@@ -478,6 +478,6 @@ class CachePerformanceMonitor:
                     for p in self.performance_history
                 ],
             }
-            
+
             logger.info(f"パフォーマンスデータエクスポート完了: {len(export_data)}項目")
             return export_data

@@ -39,19 +39,19 @@ rm src/day_trade/analysis/multi_timeframe_analysis_optimized.py
 # tests/integration/test_unified_optimization_system_comprehensive.py
 class UnifiedOptimizationSystemTest:
     """統合最適化システム包括テスト"""
-    
+
     def test_technical_indicators_all_levels(self):
         """全最適化レベルでのテクニカル指標テスト"""
-        
+
     def test_feature_engineering_parallel(self):
         """並列特徴量エンジニアリングテスト"""
-        
+
     def test_ml_models_caching(self):
         """MLモデル キャッシュ機能テスト"""
-        
+
     def test_multi_timeframe_analysis(self):
         """マルチタイムフレーム分析テスト"""
-        
+
     def test_database_optimization(self):
         """データベース最適化テスト"""
 ```
@@ -62,15 +62,15 @@ class UnifiedOptimizationSystemTest:
 # tests/performance/test_performance_comprehensive.py
 class PerformanceTestSuite:
     """包括的パフォーマンステスト"""
-    
+
     @pytest.mark.benchmark
     def test_technical_indicators_performance(self):
         """テクニカル指標パフォーマンス"""
-        
+
     @pytest.mark.memory
     def test_memory_usage_optimization(self):
         """メモリ使用量最適化テスト"""
-        
+
     @pytest.mark.parallel
     def test_parallel_processing_scaling(self):
         """並列処理スケーリングテスト"""
@@ -87,14 +87,14 @@ from ..core.optimization_strategy import optimization_strategy, OptimizationLeve
 @optimization_strategy("analysis_manager", OptimizationLevel.STANDARD)
 class StandardAnalysisManager(OptimizationStrategy):
     """標準統合分析管理"""
-    
+
     def execute(self, data, analysis_types, **kwargs):
         return self._run_standard_analysis(data, analysis_types, **kwargs)
 
-@optimization_strategy("analysis_manager", OptimizationLevel.OPTIMIZED) 
+@optimization_strategy("analysis_manager", OptimizationLevel.OPTIMIZED)
 class OptimizedAnalysisManager(OptimizationStrategy):
     """最適化統合分析管理"""
-    
+
     def execute(self, data, analysis_types, **kwargs):
         return self._run_optimized_analysis(data, analysis_types, **kwargs)
 ```

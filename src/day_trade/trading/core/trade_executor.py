@@ -41,7 +41,7 @@ class TradeExecutor:
         self.risk_calculator = risk_calculator
         self.trades: List[Trade] = []
         self.trade_history: Dict[str, List[Trade]] = {}  # 銘柄別取引履歴
-        
+
         logger.info("取引実行エンジン初期化完了")
 
     def add_trade(
@@ -100,7 +100,7 @@ class TradeExecutor:
 
             # 取引記録を追加
             self.trades.append(trade)
-            
+
             # 銘柄別履歴に追加
             if symbol not in self.trade_history:
                 self.trade_history[symbol] = []
@@ -238,7 +238,7 @@ class TradeExecutor:
             取引記録（失敗時はNone）
         """
         required_fields = ["symbol", "trade_type", "quantity", "price"]
-        
+
         # 必須フィールド検証
         for field in required_fields:
             if field not in order_data:
@@ -349,7 +349,7 @@ class TradeExecutor:
         cleared_count = len(self.trades)
         self.trades.clear()
         self.trade_history.clear()
-        
+
         logger.info(f"取引履歴クリア完了: {cleared_count}件")
 
     def _generate_trade_id(self) -> str:

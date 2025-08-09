@@ -10,6 +10,6 @@ from .data_cleaner import DataCleaner
 
 __all__ = [
     "TradeDatabaseManager",
-    "TradeBatchProcessor", 
+    "TradeBatchProcessor",
     "DataCleaner",
 ]

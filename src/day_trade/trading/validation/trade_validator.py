@@ -17,7 +17,7 @@ logger = get_context_logger(__name__)
 
 class ValidationRule:
     """検証ルールクラス"""
-    
+
     def __init__(self, name: str, description: str, severity: str = "error"):
         self.name = name
         self.description = description
@@ -189,7 +189,7 @@ class TradeValidator:
     def _validate_trade_type_valid(self, trade: Trade) -> Tuple[bool, str]:
         """取引タイプ有効性検証"""
         valid_types = [TradeType.BUY, TradeType.SELL]
-        
+
         if trade.trade_type not in valid_types:
             return False, f"無効な取引タイプ: {trade.trade_type}"
 
@@ -218,7 +218,7 @@ class TradeValidator:
     def _validate_weekend_trading(self, trade: Trade) -> Tuple[bool, str]:
         """週末取引チェック"""
         weekday = trade.timestamp.weekday()
-        
+
         # 土曜日(5)、日曜日(6)
         if weekday in [5, 6]:
             return False, f"週末の取引です: {trade.timestamp.strftime('%Y/%m/%d (%A)')}"
@@ -434,14 +434,14 @@ class TradeValidator:
             report_lines.append("【推奨アクション】")
             if validation_results.get("invalid_trades", 0) > 0:
                 report_lines.append("- 無効な取引データの修正または除外を検討")
-            
+
             if validation_results.get("trades_with_warnings", 0) > 0:
                 report_lines.append("- 警告のある取引データの詳細確認を推奨")
 
             error_types = summary.get("error_types", {})
             if "unit_share_compliance" in error_types:
                 report_lines.append("- 単元株制に準拠しない取引の確認")
-            
+
             if "weekend_trading_check" in error_types:
                 report_lines.append("- 週末取引の取引日確認")
 
@@ -497,18 +497,18 @@ class TradeValidator:
         # スコア計算（有効率 - 警告ペナルティ）
         success_rate = valid_trades / total_trades
         warning_penalty = (trades_with_warnings / total_trades) * 0.1  # 10%ペナルティ
-        
+
         quality_score = max(0, (success_rate - warning_penalty) * 100)
-        
+
         return round(quality_score, 2)
 
     def _identify_most_critical_issue(self, validation_results: Dict[str, Any]) -> str:
         """最重要問題特定"""
         summary = validation_results.get("summary", {})
         most_common_errors = summary.get("most_common_errors", [])
-        
+
         if most_common_errors:
             most_common_error, count = most_common_errors[0]
             return f"{most_common_error} ({count}件)"
-        
+
         return "問題なし"

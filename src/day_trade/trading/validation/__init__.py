@@ -10,6 +10,6 @@ from .id_generator import IDGenerator
 
 __all__ = [
     "TradeValidator",
-    "ComplianceChecker", 
+    "ComplianceChecker",
     "IDGenerator",
 ]

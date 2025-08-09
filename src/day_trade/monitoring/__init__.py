@@ -26,7 +26,7 @@ from .log_analysis_system import (
 
 __all__ = [
     'AdvancedMonitoringSystem',
-    'AlertLevel', 
+    'AlertLevel',
     'MetricType',
     'MetricsCollector',
     'AlertManager',

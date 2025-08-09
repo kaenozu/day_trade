@@ -26,12 +26,12 @@ class ComplianceLevel(Enum):
 
 class ComplianceRule:
     """コンプライアンスルール"""
-    
+
     def __init__(
-        self, 
-        rule_id: str, 
-        name: str, 
-        description: str, 
+        self,
+        rule_id: str,
+        name: str,
+        description: str,
         level: ComplianceLevel,
         enabled: bool = True
     ):
@@ -69,53 +69,53 @@ class ComplianceChecker:
         self.max_daily_trade_value = max_daily_trade_value
         self.max_position_concentration = max_position_concentration
         self.insider_trading_blackout_days = insider_trading_blackout_days
-        
+
         self.compliance_rules = self._initialize_compliance_rules()
         self.blacklisted_symbols: Set[str] = set()
         self.restricted_periods: List[Dict] = []
-        
+
         logger.info("コンプライアンスチェッカー初期化完了")
 
     def _initialize_compliance_rules(self) -> List[ComplianceRule]:
         """コンプライアンスルール初期化"""
         return [
             ComplianceRule(
-                "single_trade_limit", "単一取引限度額", 
+                "single_trade_limit", "単一取引限度額",
                 "単一取引の上限金額チェック", ComplianceLevel.HIGH
             ),
             ComplianceRule(
-                "daily_trade_limit", "日次取引限度額", 
+                "daily_trade_limit", "日次取引限度額",
                 "1日の取引上限金額チェック", ComplianceLevel.HIGH
             ),
             ComplianceRule(
-                "position_concentration", "ポジション集中度", 
+                "position_concentration", "ポジション集中度",
                 "特定銘柄への集中投資制限", ComplianceLevel.MEDIUM
             ),
             ComplianceRule(
-                "blacklist_check", "ブラックリスト銘柄", 
+                "blacklist_check", "ブラックリスト銘柄",
                 "取引禁止銘柄チェック", ComplianceLevel.CRITICAL
             ),
             ComplianceRule(
-                "trading_hours", "取引時間", 
+                "trading_hours", "取引時間",
                 "市場取引時間内チェック", ComplianceLevel.MEDIUM
             ),
             ComplianceRule(
-                "wash_sale", "ウォッシュセール", 
+                "wash_sale", "ウォッシュセール",
                 "短期売買往復取引チェック", ComplianceLevel.LOW
             ),
             ComplianceRule(
-                "insider_trading", "インサイダー取引", 
+                "insider_trading", "インサイダー取引",
                 "決算発表前後の取引制限", ComplianceLevel.CRITICAL
             ),
             ComplianceRule(
-                "settlement_period", "決済期間", 
+                "settlement_period", "決済期間",
                 "決済可能期間内チェック", ComplianceLevel.HIGH
             ),
         ]
 
     def check_trade_compliance(
-        self, 
-        trade: Trade, 
+        self,
+        trade: Trade,
         existing_trades: List[Trade] = None,
         portfolio_value: Optional[Decimal] = None,
     ) -> Dict[str, Any]:
@@ -160,7 +160,7 @@ class ComplianceChecker:
             # 結果分類
             for rule_id, (is_compliant, message, level) in checks.items():
                 rule = next((r for r in self.compliance_rules if r.rule_id == rule_id), None)
-                
+
                 if not rule or not rule.enabled:
                     continue
 
@@ -216,46 +216,46 @@ class ComplianceChecker:
     def _check_single_trade_limit(self, trade: Trade) -> tuple:
         """単一取引限度額チェック"""
         trade_value = trade.price * Decimal(trade.quantity)
-        
+
         if trade_value > self.max_single_trade_value:
             return (
-                False, 
+                False,
                 f"単一取引限度額超過: {trade_value:,.0f}円 > {self.max_single_trade_value:,.0f}円",
                 ComplianceLevel.HIGH
             )
-        
+
         return (True, "単一取引限度額OK", ComplianceLevel.HIGH)
 
     def _check_daily_trade_limit(self, trade: Trade, existing_trades: List[Trade]) -> tuple:
         """日次取引限度額チェック"""
         trade_date = trade.timestamp.date()
-        
+
         # 同日の取引を集計
         daily_trades = [
-            t for t in existing_trades 
+            t for t in existing_trades
             if t.timestamp.date() == trade_date
         ]
-        
+
         daily_total = sum(
             t.price * Decimal(t.quantity) for t in daily_trades
         )
-        
+
         # 今回の取引を追加
         trade_value = trade.price * Decimal(trade.quantity)
         daily_total += trade_value
-        
+
         if daily_total > self.max_daily_trade_value:
             return (
                 False,
                 f"日次取引限度額超過: {daily_total:,.0f}円 > {self.max_daily_trade_value:,.0f}円",
                 ComplianceLevel.HIGH
             )
-        
+
         return (True, "日次取引限度額OK", ComplianceLevel.HIGH)
 
     def _check_position_concentration(
-        self, 
-        trade: Trade, 
+        self,
+        trade: Trade,
         existing_trades: List[Trade],
         portfolio_value: Optional[Decimal],
     ) -> tuple:
@@ -265,12 +265,12 @@ class ComplianceChecker:
 
         # 銘柄別ポジション計算
         symbol_positions = {}
-        
+
         for t in existing_trades:
             symbol = t.symbol
             if symbol not in symbol_positions:
                 symbol_positions[symbol] = Decimal("0")
-            
+
             if t.trade_type == TradeType.BUY:
                 symbol_positions[symbol] += t.price * Decimal(t.quantity)
             elif t.trade_type == TradeType.SELL:
@@ -280,7 +280,7 @@ class ComplianceChecker:
         symbol = trade.symbol
         if symbol not in symbol_positions:
             symbol_positions[symbol] = Decimal("0")
-        
+
         if trade.trade_type == TradeType.BUY:
             symbol_positions[symbol] += trade.price * Decimal(trade.quantity)
         elif trade.trade_type == TradeType.SELL:
@@ -289,14 +289,14 @@ class ComplianceChecker:
         # 集中度計算
         position_value = symbol_positions.get(symbol, Decimal("0"))
         concentration_percentage = (position_value / portfolio_value) * 100
-        
+
         if concentration_percentage > self.max_position_concentration:
             return (
                 False,
                 f"ポジション集中度超過: {symbol} {concentration_percentage:.1f}% > {self.max_position_concentration}%",
                 ComplianceLevel.MEDIUM
             )
-        
+
         return (True, "ポジション集中度OK", ComplianceLevel.MEDIUM)
 
     def _check_blacklist(self, trade: Trade) -> tuple:
@@ -307,31 +307,31 @@ class ComplianceChecker:
                 f"ブラックリスト銘柄: {trade.symbol}",
                 ComplianceLevel.CRITICAL
             )
-        
+
         return (True, "ブラックリストチェックOK", ComplianceLevel.CRITICAL)
 
     def _check_trading_hours(self, trade: Trade) -> tuple:
         """取引時間チェック"""
         trade_time = trade.timestamp.time()
-        
+
         # 日本株式市場の取引時間（9:00-11:30, 12:30-15:00）
         morning_start = datetime.strptime("09:00", "%H:%M").time()
         morning_end = datetime.strptime("11:30", "%H:%M").time()
         afternoon_start = datetime.strptime("12:30", "%H:%M").time()
         afternoon_end = datetime.strptime("15:00", "%H:%M").time()
-        
+
         is_trading_hours = (
             (morning_start <= trade_time <= morning_end) or
             (afternoon_start <= trade_time <= afternoon_end)
         )
-        
+
         if not is_trading_hours:
             return (
                 False,
                 f"取引時間外: {trade_time.strftime('%H:%M')}",
                 ComplianceLevel.MEDIUM
             )
-        
+
         return (True, "取引時間OK", ComplianceLevel.MEDIUM)
 
     def _check_wash_sale(self, trade: Trade, existing_trades: List[Trade]) -> tuple:
@@ -339,50 +339,50 @@ class ComplianceChecker:
         if trade.trade_type == TradeType.SELL:
             # 売却から30日以内の同銘柄買い戻しチェック
             cutoff_date = trade.timestamp - timedelta(days=30)
-            
+
             recent_buys = [
                 t for t in existing_trades
-                if (t.symbol == trade.symbol and 
-                    t.trade_type == TradeType.BUY and 
+                if (t.symbol == trade.symbol and
+                    t.trade_type == TradeType.BUY and
                     t.timestamp >= cutoff_date and
                     t.timestamp < trade.timestamp)
             ]
-            
+
             if recent_buys:
                 return (
                     False,
                     f"ウォッシュセール懸念: {trade.symbol} 30日以内に{len(recent_buys)}回購入",
                     ComplianceLevel.LOW
                 )
-        
+
         elif trade.trade_type == TradeType.BUY:
             # 購入から30日以内の同銘柄売却後の買い戻しチェック
             cutoff_date = trade.timestamp - timedelta(days=30)
-            
+
             recent_sells = [
                 t for t in existing_trades
-                if (t.symbol == trade.symbol and 
-                    t.trade_type == TradeType.SELL and 
+                if (t.symbol == trade.symbol and
+                    t.trade_type == TradeType.SELL and
                     t.timestamp >= cutoff_date and
                     t.timestamp < trade.timestamp)
             ]
-            
+
             if recent_sells:
                 return (
                     False,
                     f"ウォッシュセール懸念: {trade.symbol} 30日以内に{len(recent_sells)}回売却後の買い戻し",
                     ComplianceLevel.LOW
                 )
-        
+
         return (True, "ウォッシュセールチェックOK", ComplianceLevel.LOW)
 
     def _check_insider_trading(self, trade: Trade) -> tuple:
         """インサイダー取引チェック"""
         # 決算発表期間の制限（簡易版）
         # 実際の実装では決算カレンダーAPIを使用
-        
+
         trade_date = trade.timestamp.date()
-        
+
         # 制限期間チェック
         for restriction in self.restricted_periods:
             if (restriction["symbol"] == trade.symbol and
@@ -392,7 +392,7 @@ class ComplianceChecker:
                     f"制限期間内取引: {trade.symbol} ({restriction['reason']})",
                     ComplianceLevel.CRITICAL
                 )
-        
+
         return (True, "インサイダー取引チェックOK", ComplianceLevel.CRITICAL)
 
     def _check_settlement_period(self, trade: Trade) -> tuple:
@@ -400,23 +400,23 @@ class ComplianceChecker:
         # T+2決済ルール（取引日から2営業日以内）
         current_date = datetime.now().date()
         trade_date = trade.timestamp.date()
-        
+
         # 決済期限計算（簡易版：土日を除く）
         settlement_date = trade_date
         business_days = 0
-        
+
         while business_days < 2:
             settlement_date += timedelta(days=1)
             if settlement_date.weekday() < 5:  # 月-金
                 business_days += 1
-        
+
         if current_date > settlement_date:
             return (
                 False,
                 f"決済期限超過: 取引日{trade_date}, 期限{settlement_date}",
                 ComplianceLevel.HIGH
             )
-        
+
         return (True, "決済期間OK", ComplianceLevel.HIGH)
 
     def add_blacklisted_symbol(self, symbol: str, reason: str = "") -> None:
@@ -430,9 +430,9 @@ class ComplianceChecker:
         logger.info(f"ブラックリスト削除: {symbol}")
 
     def add_restricted_period(
-        self, 
-        symbol: str, 
-        start_date: datetime.date, 
+        self,
+        symbol: str,
+        start_date: datetime.date,
         end_date: datetime.date,
         reason: str = "決算発表期間"
     ) -> None:
@@ -443,12 +443,12 @@ class ComplianceChecker:
             "end_date": end_date,
             "reason": reason,
         }
-        
+
         self.restricted_periods.append(restriction)
         logger.info(f"制限期間追加: {symbol} {start_date} - {end_date} ({reason})")
 
     def get_compliance_summary(
-        self, 
+        self,
         compliance_results: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
@@ -463,15 +463,15 @@ class ComplianceChecker:
         try:
             total_checks = len(compliance_results)
             compliant_trades = sum(1 for r in compliance_results if r["overall_compliant"])
-            
+
             violation_count = 0
             warning_count = 0
             violation_types = {}
-            
+
             for result in compliance_results:
                 violation_count += len(result.get("violations", []))
                 warning_count += len(result.get("warnings", []))
-                
+
                 # 違反種別集計
                 for violation in result.get("violations", []):
                     rule_id = violation.get("rule_id", "unknown")
@@ -500,18 +500,18 @@ class ComplianceChecker:
             return {}
 
     def _assess_overall_risk_level(
-        self, 
-        compliant_trades: int, 
-        total_trades: int, 
+        self,
+        compliant_trades: int,
+        total_trades: int,
         violation_count: int
     ) -> str:
         """全体リスクレベル評価"""
         if total_trades == 0:
             return "不明"
-        
+
         compliance_rate = compliant_trades / total_trades
         violation_rate = violation_count / total_trades
-        
+
         if compliance_rate >= 0.95 and violation_rate < 0.05:
             return "低"
         elif compliance_rate >= 0.90 and violation_rate < 0.10:
@@ -522,7 +522,7 @@ class ComplianceChecker:
             return "重大"
 
     def generate_compliance_report(
-        self, 
+        self,
         compliance_results: List[Dict[str, Any]]
     ) -> str:
         """
@@ -536,7 +536,7 @@ class ComplianceChecker:
         """
         try:
             summary = self.get_compliance_summary(compliance_results)
-            
+
             report_lines = []
             report_lines.append("=" * 60)
             report_lines.append("コンプライアンスチェックレポート")
@@ -567,7 +567,7 @@ class ComplianceChecker:
             # 推奨アクション
             report_lines.append("【推奨アクション】")
             risk_level = summary.get("risk_level", "不明")
-            
+
             if risk_level in ["重大", "高"]:
                 report_lines.append("- 緊急対応：違反取引の詳細調査と修正措置")
                 report_lines.append("- コンプライアンス体制の見直し")

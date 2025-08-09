@@ -149,7 +149,7 @@ OptimizationStrategyFactory.get_strategy(
   "auto_fallback": true,
   "component_specific": {
     "technical_indicators": {"level": "optimized"},
-    "feature_engineering": {"level": "optimized"}, 
+    "feature_engineering": {"level": "optimized"},
     "database": {"level": "optimized"}
   },
   "system_thresholds": {

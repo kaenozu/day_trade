@@ -39,7 +39,7 @@ class BulkFetcher:
         self.max_workers = max_workers
         self.batch_size = batch_size
         self.rate_limit_delay = rate_limit_delay
-        
+
         # 統計情報
         self.bulk_stats = {
             "total_requests": 0,
@@ -50,14 +50,14 @@ class BulkFetcher:
             "average_batch_time": 0.0,
             "last_request_time": None,
         }
-        
+
         logger.info(
             f"BulkFetcher初期化完了: workers={max_workers}, "
             f"batch_size={batch_size}, delay={rate_limit_delay}s"
         )
 
     def bulk_get_current_prices(
-        self, 
+        self,
         codes: List[str],
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Dict[str, Dict[str, float]]:
@@ -72,36 +72,36 @@ class BulkFetcher:
             銘柄別価格データ辞書
         """
         start_time = time.time()
-        
+
         try:
             self.bulk_stats["total_requests"] += 1
             self.bulk_stats["total_symbols"] += len(codes)
-            
+
             results = {}
-            
+
             # バッチに分割
             batches = [codes[i:i + self.batch_size] for i in range(0, len(codes), self.batch_size)]
             processed_count = 0
-            
+
             logger.info(f"価格一括取得開始: {len(codes)}銘柄を{len(batches)}バッチで処理")
-            
+
             for batch_idx, batch in enumerate(batches):
                 batch_start_time = time.time()
-                
+
                 # バッチ内並列処理
                 batch_results = self._process_price_batch(batch)
                 results.update(batch_results)
-                
+
                 processed_count += len(batch)
-                
+
                 # 進捗通知
                 if progress_callback:
                     progress_callback(processed_count, len(codes))
-                
+
                 # レート制限対応
                 if batch_idx < len(batches) - 1:  # 最後のバッチ以外
                     time.sleep(self.rate_limit_delay)
-                
+
                 batch_time = time.time() - batch_start_time
                 logger.debug(f"バッチ{batch_idx + 1}/{len(batches)}完了: {len(batch)}銘柄, {batch_time:.2f}秒")
 
@@ -109,7 +109,7 @@ class BulkFetcher:
             self.bulk_stats["successful_symbols"] += len([r for r in results.values() if r])
             self.bulk_stats["successful_requests"] += 1
             self.bulk_stats["last_request_time"] = datetime.now().isoformat()
-            
+
             total_time = time.time() - start_time
             self.bulk_stats["average_batch_time"] = (
                 (self.bulk_stats["average_batch_time"] * (self.bulk_stats["successful_requests"] - 1) + total_time)
@@ -117,7 +117,7 @@ class BulkFetcher:
             )
 
             successful_count = len([r for r in results.values() if r])
-            
+
             log_performance_metric(
                 "bulk_current_prices",
                 {
@@ -143,14 +143,14 @@ class BulkFetcher:
     def _process_price_batch(self, batch: List[str]) -> Dict[str, Dict[str, float]]:
         """価格データバッチ処理"""
         results = {}
-        
+
         with ThreadPoolExecutor(max_workers=min(self.max_workers, len(batch))) as executor:
             # 並列タスク投入
             future_to_code = {
                 executor.submit(self.base_fetcher.get_current_price, code): code
                 for code in batch
             }
-            
+
             # 結果収集
             for future in as_completed(future_to_code):
                 code = future_to_code[future]
@@ -164,7 +164,7 @@ class BulkFetcher:
         return results
 
     def bulk_get_company_info(
-        self, 
+        self,
         codes: List[str],
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Dict[str, Dict[str, Any]]:
@@ -179,7 +179,7 @@ class BulkFetcher:
             銘柄別企業情報辞書
         """
         start_time = time.time()
-        
+
         try:
             results = {}
             batches = [codes[i:i + self.batch_size] for i in range(0, len(codes), self.batch_size)]
@@ -190,12 +190,12 @@ class BulkFetcher:
             for batch_idx, batch in enumerate(batches):
                 batch_results = self._process_company_info_batch(batch)
                 results.update(batch_results)
-                
+
                 processed_count += len(batch)
-                
+
                 if progress_callback:
                     progress_callback(processed_count, len(codes))
-                
+
                 # より長い遅延（企業情報取得はより重い処理のため）
                 if batch_idx < len(batches) - 1:
                     time.sleep(self.rate_limit_delay * 2)
@@ -226,14 +226,14 @@ class BulkFetcher:
     def _process_company_info_batch(self, batch: List[str]) -> Dict[str, Dict[str, Any]]:
         """企業情報バッチ処理"""
         results = {}
-        
+
         with ThreadPoolExecutor(max_workers=min(self.max_workers // 2, len(batch))) as executor:
             # 企業情報取得は重い処理なので並列数を抑制
             future_to_code = {
                 executor.submit(self.base_fetcher.get_company_info, code): code
                 for code in batch
             }
-            
+
             for future in as_completed(future_to_code):
                 code = future_to_code[future]
                 try:
@@ -246,7 +246,7 @@ class BulkFetcher:
         return results
 
     def bulk_get_current_prices_optimized(
-        self, 
+        self,
         codes: List[str],
         chunk_size: int = 20,
         max_concurrent_chunks: int = 5
@@ -263,12 +263,12 @@ class BulkFetcher:
             銘柄別価格データ辞書
         """
         start_time = time.time()
-        
+
         try:
             # チャンクに分割
             chunks = [codes[i:i + chunk_size] for i in range(0, len(codes), chunk_size)]
             results = {}
-            
+
             logger.info(
                 f"最適化価格取得開始: {len(codes)}銘柄を{len(chunks)}チャンク"
                 f"（サイズ{chunk_size}、同時{max_concurrent_chunks}）で処理"
@@ -289,7 +289,7 @@ class BulkFetcher:
             async def run_all_chunks():
                 tasks = [process_chunk_async(chunk) for chunk in chunks]
                 chunk_results = await asyncio.gather(*tasks, return_exceptions=True)
-                
+
                 for chunk_result in chunk_results:
                     if isinstance(chunk_result, dict):
                         results.update(chunk_result)
@@ -339,20 +339,20 @@ class BulkFetcher:
     def get_bulk_stats(self) -> Dict[str, Any]:
         """バルク処理統計を取得"""
         stats = self.bulk_stats.copy()
-        
+
         # 追加の計算済み統計
         if stats["total_symbols"] > 0:
             stats["symbol_success_rate"] = stats["successful_symbols"] / stats["total_symbols"]
-        
+
         if stats["total_requests"] > 0:
             stats["request_success_rate"] = stats["successful_requests"] / stats["total_requests"]
-        
+
         stats["configuration"] = {
             "max_workers": self.max_workers,
             "batch_size": self.batch_size,
             "rate_limit_delay": self.rate_limit_delay,
         }
-        
+
         return stats
 
     def reset_bulk_stats(self) -> None:
@@ -390,13 +390,13 @@ class BulkFetcher:
                 optimal_batch_size = min(100, target_symbols // 10)
                 optimal_workers = min(20, self.max_workers * 2)
                 optimal_delay = max(0.05, self.rate_limit_delay * 0.5)
-                
+
             elif target_symbols > 100:
                 # 中量銘柄の場合
                 optimal_batch_size = min(50, target_symbols // 5)
                 optimal_workers = min(15, int(self.max_workers * 1.5))
                 optimal_delay = self.rate_limit_delay
-                
+
             elif target_symbols < 20:
                 # 少量銘柄の場合
                 optimal_batch_size = target_symbols
@@ -405,8 +405,8 @@ class BulkFetcher:
 
             # 予想処理時間を計算
             estimated_time = (
-                (target_symbols / optimal_batch_size) * 
-                (optimal_batch_size / optimal_workers) * 
+                (target_symbols / optimal_batch_size) *
+                (optimal_batch_size / optimal_workers) *
                 (1.0 + optimal_delay)
             )
 
@@ -431,12 +431,12 @@ class BulkFetcher:
                 recommendations["recommendations"].append(
                     f"バッチサイズを{self.batch_size}から{optimal_batch_size}に変更"
                 )
-            
+
             if optimal_workers != self.max_workers:
                 recommendations["recommendations"].append(
                     f"最大ワーカー数を{self.max_workers}から{optimal_workers}に変更"
                 )
-            
+
             if abs(optimal_delay - self.rate_limit_delay) > 0.01:
                 recommendations["recommendations"].append(
                     f"レート制限遅延を{self.rate_limit_delay}sから{optimal_delay}sに変更"
@@ -452,13 +452,13 @@ class BulkFetcher:
         """最適化されたバッチ設定を適用"""
         try:
             optimal_settings = settings.get("optimal_settings", {})
-            
+
             if "batch_size" in optimal_settings:
                 self.batch_size = optimal_settings["batch_size"]
-                
+
             if "max_workers" in optimal_settings:
                 self.max_workers = optimal_settings["max_workers"]
-                
+
             if "rate_limit_delay" in optimal_settings:
                 self.rate_limit_delay = optimal_settings["rate_limit_delay"]
 
@@ -475,7 +475,7 @@ class BulkFetcher:
         try:
             stats = self.get_bulk_stats()
             base_health = self.base_fetcher.health_check()
-            
+
             # バルク固有の健康評価
             bulk_health_score = 100
             bulk_issues = []

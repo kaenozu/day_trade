@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   daytrade-app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
@@ -40,7 +40,7 @@ services:
 
   cache:
     image: memcached:alpine
-    
+
     ports:
       - "6379:6379"
     restart: unless-stopped

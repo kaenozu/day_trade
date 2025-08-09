@@ -27,7 +27,7 @@ class DeploymentEnvironment(Enum):
 class ServiceTier(Enum):
     """サービスレベル"""
     BASIC = "basic"
-    STANDARD = "standard"  
+    STANDARD = "standard"
     PREMIUM = "premium"
     ENTERPRISE = "enterprise"
 
@@ -118,7 +118,7 @@ class DeploymentConfig:
     version: str
     deployment_id: str
     timestamp: datetime
-    
+
     # コンポーネント設定
     database: DatabaseConfig
     cache: CacheConfig
@@ -126,7 +126,7 @@ class DeploymentConfig:
     monitoring: MonitoringConfig
     security: SecurityConfig
     performance: PerformanceConfig
-    
+
     # 環境変数
     required_env_vars: List[str]
     optional_env_vars: List[str]
@@ -134,15 +134,15 @@ class DeploymentConfig:
 
 class ProductionDeploymentManager:
     """本番デプロイメント管理"""
-    
+
     def __init__(self):
         self.config_templates = self._initialize_config_templates()
-        
+
         print("=" * 80)
         print("[DEPLOYMENT] Day Trade 本番環境デプロイメント設定")
         print("Phase G: 本番運用最適化フェーズ")
         print("=" * 80)
-    
+
     def _initialize_config_templates(self) -> Dict[str, Dict[str, Any]]:
         """設定テンプレート初期化"""
         return {
@@ -193,17 +193,17 @@ class ProductionDeploymentManager:
                 }
             }
         }
-    
+
     def create_deployment_config(
-        self, 
+        self,
         environment: DeploymentEnvironment,
         service_tier: ServiceTier = ServiceTier.STANDARD
     ) -> DeploymentConfig:
         """デプロイメント設定作成"""
-        
+
         print(f"[CONFIG] {environment.value} 環境設定作成中...")
         print(f"サービスレベル: {service_tier.value}")
-        
+
         # データベース設定
         db_template = self.config_templates["database"][environment.value]
         database_config = DatabaseConfig(
@@ -215,7 +215,7 @@ class ProductionDeploymentManager:
             ssl_enabled=environment != DeploymentEnvironment.DEVELOPMENT,
             connection_pool_size=db_template["connection_pool_size"]
         )
-        
+
         # キャッシュ設定
         cache_config = CacheConfig(
             backend="redis" if environment == DeploymentEnvironment.PRODUCTION else "memory",
@@ -225,7 +225,7 @@ class ProductionDeploymentManager:
             ttl_seconds=3600 if environment == DeploymentEnvironment.PRODUCTION else 1800,
             max_memory_mb=2048 if environment == DeploymentEnvironment.PRODUCTION else 512
         )
-        
+
         # API設定
         api_template = self.config_templates["api"][environment.value]
         api_config = ApiConfig(
@@ -240,7 +240,7 @@ class ProductionDeploymentManager:
             ssl_cert_path="/etc/ssl/certs/daytrade.crt" if environment == DeploymentEnvironment.PRODUCTION else None,
             ssl_key_path="/etc/ssl/private/daytrade.key" if environment == DeploymentEnvironment.PRODUCTION else None
         )
-        
+
         # 監視設定
         monitoring_config = MonitoringConfig(
             enabled=True,
@@ -251,7 +251,7 @@ class ProductionDeploymentManager:
             jaeger_endpoint="http://jaeger:14268/api/traces" if environment == DeploymentEnvironment.PRODUCTION else None,
             error_reporting_dsn=f"SENTRY_DSN_{environment.value.upper()}" if environment != DeploymentEnvironment.DEVELOPMENT else None
         )
-        
+
         # セキュリティ設定
         security_config = SecurityConfig(
             jwt_secret_env_var=f"JWT_SECRET_{environment.value.upper()}",
@@ -262,7 +262,7 @@ class ProductionDeploymentManager:
             session_timeout_minutes=60 if environment == DeploymentEnvironment.PRODUCTION else 120,
             password_policy=self._get_password_policy(environment)
         )
-        
+
         # パフォーマンス設定
         performance_config = PerformanceConfig(
             optimization_level="gpu_accelerated" if environment == DeploymentEnvironment.PRODUCTION else "optimized",
@@ -274,7 +274,7 @@ class ProductionDeploymentManager:
             connection_pooling=True,
             query_caching=environment != DeploymentEnvironment.DEVELOPMENT
         )
-        
+
         # 統合設定
         config = DeploymentConfig(
             environment=environment,
@@ -291,9 +291,9 @@ class ProductionDeploymentManager:
             required_env_vars=self._get_required_env_vars(environment),
             optional_env_vars=self._get_optional_env_vars(environment)
         )
-        
+
         return config
-    
+
     def _get_cors_origins(self, environment: DeploymentEnvironment) -> List[str]:
         """CORS オリジン設定"""
         cors_map = {
@@ -303,7 +303,7 @@ class ProductionDeploymentManager:
             DeploymentEnvironment.TEST: ["http://test.local"]
         }
         return cors_map.get(environment, ["*"])
-    
+
     def _get_allowed_hosts(self, environment: DeploymentEnvironment) -> List[str]:
         """許可ホスト設定"""
         hosts_map = {
@@ -313,7 +313,7 @@ class ProductionDeploymentManager:
             DeploymentEnvironment.TEST: ["test.local", "test-api.local"]
         }
         return hosts_map.get(environment, ["localhost"])
-    
+
     def _get_password_policy(self, environment: DeploymentEnvironment) -> Dict[str, Any]:
         """パスワードポリシー"""
         if environment == DeploymentEnvironment.PRODUCTION:
@@ -334,7 +334,7 @@ class ProductionDeploymentManager:
                 "require_special_chars": False,
                 "max_age_days": 365
             }
-    
+
     def _get_required_env_vars(self, environment: DeploymentEnvironment) -> List[str]:
         """必須環境変数"""
         base_vars = [
@@ -343,7 +343,7 @@ class ProductionDeploymentManager:
             f"API_KEY_{environment.value.upper()}",
             f"ENCRYPTION_KEY_{environment.value.upper()}"
         ]
-        
+
         if environment == DeploymentEnvironment.PRODUCTION:
             base_vars.extend([
                 f"REDIS_PASSWORD_{environment.value.upper()}",
@@ -351,14 +351,14 @@ class ProductionDeploymentManager:
                 "SSL_CERT_PATH",
                 "SSL_KEY_PATH"
             ])
-        
+
         return base_vars
-    
+
     def _get_optional_env_vars(self, environment: DeploymentEnvironment) -> List[str]:
         """オプション環境変数"""
         return [
             "ALPHA_VANTAGE_API_KEY",
-            "QUANDL_API_KEY", 
+            "QUANDL_API_KEY",
             "YAHOO_FINANCE_API_KEY",
             "SMTP_SERVER",
             "SMTP_USERNAME",
@@ -366,80 +366,80 @@ class ProductionDeploymentManager:
             "SLACK_WEBHOOK_URL",
             "DISCORD_WEBHOOK_URL"
         ]
-    
+
     def _get_version(self) -> str:
         """バージョン取得"""
         try:
             # Git からバージョン情報を取得
             import subprocess
             result = subprocess.run(
-                ["git", "describe", "--tags", "--abbrev=0"], 
+                ["git", "describe", "--tags", "--abbrev=0"],
                 capture_output=True, text=True
             )
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception:
             pass
-        
+
         return "1.0.0"
-    
+
     def _generate_deployment_id(self) -> str:
         """デプロイメントID生成"""
         import uuid
         return str(uuid.uuid4())[:8]
-    
+
     def save_config_files(self, config: DeploymentConfig, output_dir: str = "deployment"):
         """設定ファイル保存"""
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True)
-        
+
         env_name = config.environment.value
-        
+
         print(f"[SAVE] {env_name} 環境設定ファイル作成中...")
-        
+
         # JSON設定ファイル
         json_config = asdict(config)
         json_config['timestamp'] = config.timestamp.isoformat()
         json_config['environment'] = config.environment.value
         json_config['service_tier'] = config.service_tier.value
-        
+
         json_file = output_path / f"config_{env_name}.json"
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(json_config, f, indent=2, ensure_ascii=False)
-        
+
         # YAML設定ファイル
         yaml_file = output_path / f"config_{env_name}.yaml"
         with open(yaml_file, 'w', encoding='utf-8') as f:
             yaml.dump(json_config, f, default_flow_style=False, allow_unicode=True)
-        
+
         # 環境変数テンプレート
         env_file = output_path / f".env.{env_name}"
         self._create_env_template(config, env_file)
-        
+
         # Docker Compose
         docker_file = output_path / f"docker-compose.{env_name}.yml"
         self._create_docker_compose(config, docker_file)
-        
+
         # Kubernetes マニフェスト
         if config.environment == DeploymentEnvironment.PRODUCTION:
             k8s_dir = output_path / "k8s"
             k8s_dir.mkdir(exist_ok=True)
             self._create_kubernetes_manifests(config, k8s_dir)
-        
+
         # Nginx設定
         nginx_file = output_path / f"nginx_{env_name}.conf"
         self._create_nginx_config(config, nginx_file)
-        
+
         print(f"[OK] 設定ファイル保存完了:")
         print(f"  - {json_file}")
         print(f"  - {yaml_file}")
         print(f"  - {env_file}")
         print(f"  - {docker_file}")
         print(f"  - {nginx_file}")
-        
+
         if config.environment == DeploymentEnvironment.PRODUCTION:
             print(f"  - {k8s_dir}/ (Kubernetes manifests)")
-    
+
     def _create_env_template(self, config: DeploymentConfig, output_file: Path):
         """環境変数テンプレート作成"""
         env_content = f"""# Day Trade {config.environment.value.upper()} Environment Variables
@@ -488,14 +488,14 @@ QUANDL_API_KEY=your_quandl_key_here
 
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(env_content)
-    
+
     def _create_docker_compose(self, config: DeploymentConfig, output_file: Path):
         """Docker Compose設定作成"""
         compose_content = f"""version: '3.8'
 
 services:
   daytrade-app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
@@ -583,7 +583,7 @@ volumes:
 
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(compose_content)
-    
+
     def _create_nginx_config(self, config: DeploymentConfig, output_file: Path):
         """Nginx設定作成"""
         nginx_content = f"""events {{
@@ -601,10 +601,10 @@ http {{
     server {{
         listen 80;
         server_name {' '.join(config.security.allowed_hosts)};
-        
+
         # Redirect HTTP to HTTPS in production
         {'return 301 https://$server_name$request_uri;' if config.environment == DeploymentEnvironment.PRODUCTION else ''}
-        
+
         location / {{
             limit_req zone=api burst=20 nodelay;
             proxy_pass http://daytrade_backend;
@@ -634,13 +634,13 @@ http {{
     server {{
         listen 443 ssl http2;
         server_name {' '.join(config.security.allowed_hosts)};
-        
+
         ssl_certificate {config.api.ssl_cert_path};
         ssl_certificate_key {config.api.ssl_key_path};
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_ciphers ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS;
         ssl_prefer_server_ciphers off;
-        
+
         location / {{
             limit_req zone=api burst=20 nodelay;
             proxy_pass http://daytrade_backend;
@@ -657,7 +657,7 @@ http {{
 
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(nginx_content)
-    
+
     def _create_kubernetes_manifests(self, config: DeploymentConfig, output_dir: Path):
         """Kubernetes マニフェスト作成"""
         # Deployment
@@ -742,13 +742,13 @@ data:
         # Save manifests
         with open(output_dir / "deployment.yaml", 'w') as f:
             f.write(deployment_manifest)
-        
+
         with open(output_dir / "service.yaml", 'w') as f:
             f.write(service_manifest)
-        
+
         with open(output_dir / "secrets.yaml", 'w') as f:
             f.write(secrets_manifest)
-    
+
     def validate_config(self, config: DeploymentConfig) -> Dict[str, List[str]]:
         """設定検証"""
         issues = {
@@ -756,78 +756,78 @@ data:
             'warnings': [],
             'info': []
         }
-        
+
         # 必須環境変数チェック
         for env_var in config.required_env_vars:
             if not os.getenv(env_var):
                 issues['errors'].append(f"必須環境変数が未設定: {env_var}")
-        
+
         # セキュリティチェック
         if config.environment == DeploymentEnvironment.PRODUCTION:
             if not config.api.ssl_cert_path:
                 issues['errors'].append("本番環境ではSSL証明書が必要です")
-            
+
             if not config.security.csrf_protection:
                 issues['warnings'].append("CSRF保護が無効になっています")
-            
+
             if config.security.session_timeout_minutes > 120:
                 issues['warnings'].append("セッションタイムアウトが長すぎます")
-        
+
         # パフォーマンス設定チェック
         if not config.performance.cache_enabled:
             issues['warnings'].append("キャッシュが無効になっています")
-        
+
         if config.api.workers > 16:
             issues['warnings'].append("ワーカー数が多すぎる可能性があります")
-        
+
         # データベース設定チェック
         if config.database.connection_pool_size < 5:
             issues['warnings'].append("データベース接続プールサイズが小さすぎます")
-        
+
         issues['info'].append(f"設定環境: {config.environment.value}")
         issues['info'].append(f"サービスレベル: {config.service_tier.value}")
         issues['info'].append(f"API ワーカー数: {config.api.workers}")
-        
+
         return issues
 
 
 def main():
     """メイン実行"""
     manager = ProductionDeploymentManager()
-    
+
     print("\n[CREATE] 全環境のデプロイメント設定作成中...")
-    
+
     environments = [
         DeploymentEnvironment.DEVELOPMENT,
         DeploymentEnvironment.STAGING,
         DeploymentEnvironment.PRODUCTION
     ]
-    
+
     for env in environments:
         try:
             service_tier = ServiceTier.ENTERPRISE if env == DeploymentEnvironment.PRODUCTION else ServiceTier.STANDARD
-            
+
             config = manager.create_deployment_config(env, service_tier)
             manager.save_config_files(config)
-            
+
             # 設定検証
             issues = manager.validate_config(config)
-            
+
             if issues['errors']:
                 print(f"\n[ERROR] {env.value} 環境の設定エラー:")
                 for error in issues['errors']:
                     print(f"  - {error}")
-            
+
             if issues['warnings']:
                 print(f"\n[WARNING] {env.value} 環境の設定警告:")
                 for warning in issues['warnings']:
                     print(f"  - {warning}")
-            
+
             print(f"\n[OK] {env.value} 環境設定完了")
-            
+
         except Exception as e:
             print(f"\n[ERROR] {env.value} 環境設定エラー: {e}")
-    
+
     print("\n" + "=" * 80)
     print("[COMPLETE] 本番環境デプロイメント設定完了")
     print("=" * 80)

@@ -18,7 +18,7 @@ logger = get_context_logger(__name__)
 class StockFetcher:
     """
     統合株価データ取得クラス（リファクタリング版）
-    
+
     全ての株価データ取得機能を統合した包括的なインターフェース
     """
 
@@ -52,7 +52,7 @@ class StockFetcher:
             retry_count=retry_count,
             retry_delay=retry_delay,
         )
-        
+
         self.bulk_fetcher = BulkFetcher(
             base_fetcher=self.yfinance_fetcher,
             max_workers=max_workers,
@@ -82,7 +82,7 @@ class StockFetcher:
         )
 
     # ========== 単一銘柄データ取得 ==========
-    
+
     def get_current_price(self, code: str) -> Optional[Dict[str, float]]:
         """
         現在価格取得
@@ -95,22 +95,22 @@ class StockFetcher:
         """
         try:
             result = self.yfinance_fetcher.get_current_price(code)
-            
+
             # パフォーマンス監視
             if self.performance_monitor:
                 self.performance_monitor.record_function_call(
-                    "get_current_price", 
+                    "get_current_price",
                     cache_hit=(result is not None),
                     response_time=0.0  # 実際の実装では応答時間を測定
                 )
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"現在価格取得エラー: {code} - {e}")
             if self.performance_monitor:
                 self.performance_monitor.record_function_call(
-                    "get_current_price", 
+                    "get_current_price",
                     cache_hit=False,
                     response_time=0.0,
                     error=e
@@ -159,7 +159,7 @@ class StockFetcher:
         return self.yfinance_fetcher.get_realtime_data(codes)
 
     def bulk_get_current_prices(
-        self, 
+        self,
         codes: List[str],
         progress_callback: Optional[Callable[[int, int], None]] = None,
         use_optimization: bool = True,
@@ -181,7 +181,7 @@ class StockFetcher:
             return self.bulk_fetcher.bulk_get_current_prices(codes, progress_callback)
 
     def bulk_get_company_info(
-        self, 
+        self,
         codes: List[str],
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Dict[str, Dict[str, Any]]:
@@ -200,14 +200,14 @@ class StockFetcher:
         try:
             yfinance_report = self.yfinance_fetcher.get_cache_performance_report()
             bulk_stats = self.bulk_fetcher.get_bulk_stats()
-            
+
             report = {
                 "yfinance_cache_performance": yfinance_report,
                 "bulk_processing_stats": bulk_stats,
                 "system_configuration": self.configuration,
                 "report_timestamp": datetime.now().isoformat(),
             }
-            
+
             # パフォーマンス監視データを追加
             if self.performance_monitor:
                 report["performance_monitoring"] = {
@@ -217,7 +217,7 @@ class StockFetcher:
                 }
 
             return report
-            
+
         except Exception as e:
             logger.error(f"パフォーマンスレポート取得エラー: {e}")
             return {"error": str(e)}
@@ -236,7 +236,7 @@ class StockFetcher:
             # バルク処理設定の最適化（平均的な処理量を想定）
             avg_symbols = 100  # 平均処理銘柄数の想定
             bulk_optimization = self.bulk_fetcher.optimize_batch_settings(avg_symbols)
-            
+
             if bulk_optimization.get("recommendations"):
                 recommendations.extend(bulk_optimization["recommendations"])
                 # 最適化設定を自動適用
@@ -265,7 +265,7 @@ class StockFetcher:
         try:
             yf_health = self.yfinance_fetcher.health_check()
             bulk_health = self.bulk_fetcher.health_check()
-            
+
             # 統合ヘルススコア計算
             overall_score = (yf_health["score"] + bulk_health["score"]) / 2
             all_issues = yf_health["issues"] + bulk_health["issues"]
@@ -343,7 +343,7 @@ class StockFetcher:
         try:
             self.yfinance_fetcher.reset_stats()
             self.bulk_fetcher.reset_bulk_stats()
-            
+
             if self.performance_monitor:
                 self.performance_monitor.reset_stats()
 
