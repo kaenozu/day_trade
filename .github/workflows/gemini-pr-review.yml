@@ -24,7 +24,7 @@ jobs:
       - name: Run Gemini CLI for PR Review
         uses: google-github-actions/run-gemini-cli@main
         with:
-          api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
             以下のプルリクエストの変更内容をコードレビューしてください。
             特に以下の点に注意してレビューをお願いします。
@@ -37,6 +37,3 @@ jobs:
             - プロジェクトのコーディング規約（例: PEP 8）に準拠しているか
             - `daytrade.py` には重要なロジックが含まれているため、変更があった場合は特に注意深くレビューしてください。
             変更されたファイルリスト: ${{ steps.changed-files.outputs.all_changed_files }}
-          output_format: "pr_review_comment"
-          pull_request_number: ${{ github.event.pull_request.number }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
