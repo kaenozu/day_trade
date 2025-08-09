@@ -594,13 +594,13 @@ def main():
 
         # 実行確認
         if not args.report_only:
-        # 実行確認
-        if not args.report_only:
-            if not args.quiet:
-                logger.info(f" {len(symbols)}銘柄の自動分析を開始します...")
-        else:
-            if not args.quiet:
-                logger.info("\n[レポート] レポート生成を開始します...")
+            # 実行確認
+            if not args.report_only:
+                if not args.quiet:
+                    logger.info(f" {len(symbols)}銘柄の自動分析を開始します...")
+            else:
+                if not args.quiet:
+                    logger.info("\n[レポート] レポート生成を開始します...")
 
         # オーケストレーター初期化・実行
         orchestrator = DayTradeOrchestrator(config_path)
