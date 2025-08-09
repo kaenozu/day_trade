@@ -21,9 +21,18 @@ from ..config.trading_mode_config import get_current_trading_config, is_safe_mod
 from ..data.stock_fetcher import StockFetcher
 from ..utils.enhanced_error_handler import get_default_error_handler
 from ..utils.logging_config import get_context_logger
+from ..utils.exception_handler import ExceptionContext, log_exception
+from ..utils.exceptions import (
+    AnalysisError,
+    DataError,
+    NetworkError,
+    ValidationError,
+)
+from ..utils.enhanced_performance_monitor import get_performance_monitor
 
 logger = get_context_logger(__name__)
 error_handler = get_default_error_handler()
+performance_monitor = get_performance_monitor()
 
 
 class AnalysisStatus(Enum):
@@ -124,6 +133,10 @@ class AnalysisOnlyEngine:
         logger.info("※ 完全にセーフモード - 分析・情報提供のみ実行します")
         logger.info("※ 自動取引機能は一切含まれていません")
 
+        # システム監視開始
+        performance_monitor.start_system_monitoring(interval=30.0)
+        logger.info("パフォーマンス監視システムを開始しました")
+
     async def start(self) -> None:
         """分析エンジン開始"""
         if self.status == AnalysisStatus.RUNNING:
@@ -145,6 +158,11 @@ class AnalysisOnlyEngine:
         logger.info("分析エンジン停止要求受信")
         self.status = AnalysisStatus.STOPPED
         self._stop_event.set()
+
+        # システム監視停止
+        performance_monitor.stop_system_monitoring()
+        logger.info("パフォーマンス監視システムを停止しました")
+
         logger.info("分析エンジンが停止しました")
 
     async def pause(self) -> None:
@@ -171,9 +189,12 @@ class AnalysisOnlyEngine:
 
                 analysis_start = time.time()
 
+                context = ExceptionContext("AnalysisEngine", "analysis_cycle")
+
                 try:
-                    # 市場データ分析の実行
-                    await self._perform_market_analysis()
+                    # 市場データ分析の実行（パフォーマンス監視付き）
+                    with performance_monitor.monitor("analysis_cycle", "analysis"):
+                        await self._perform_market_analysis()
 
                     # レポート生成
                     report = self._generate_analysis_report(
@@ -189,17 +210,56 @@ class AnalysisOnlyEngine:
                         f"({report.analysis_time_ms:.1f}ms)"
                     )
 
-                except Exception as e:
+                except (DataError, NetworkError) as e:
+                    # 回復可能なエラー - 統計更新してログ出力、処理継続
                     self._update_statistics(time.time() - analysis_start, success=False)
-                    logger.error(f"分析処理中にエラーが発生: {e}")
+                    log_exception(logger, e, {
+                        "component": "AnalysisEngine",
+                        "operation": "analysis_cycle",
+                        "cycle_time": time.time() - analysis_start
+                    }, level="warning")
+
+                except AnalysisError as e:
+                    # 分析エラー - 統計更新してログ出力、処理継続
+                    self._update_statistics(time.time() - analysis_start, success=False)
+                    log_exception(logger, e, {
+                        "component": "AnalysisEngine",
+                        "operation": "analysis_cycle"
+                    })
+
+                except Exception as e:
+                    # 予期しないエラー - AnalysisErrorに変換
+                    self._update_statistics(time.time() - analysis_start, success=False)
+                    analysis_error = context.handle(e)
+                    log_exception(logger, analysis_error, {
+                        "component": "AnalysisEngine",
+                        "operation": "analysis_cycle"
+                    })
 
                 # インターバル待機
                 await asyncio.sleep(self.update_interval)
 
-        except Exception as e:
+        except AnalysisError as e:
+            # 分析関連の重大エラー
             self.status = AnalysisStatus.ERROR
-            logger.error(f"分析エンジンでエラーが発生: {e}")
+            log_exception(logger, e, {
+                "component": "AnalysisEngine",
+                "operation": "main_loop",
+                "engine_status": self.status.value
+            })
             error_handler.handle_error(e, context={"engine_status": self.status.value})
+
+        except Exception as e:
+            # 予期しない重大エラー
+            self.status = AnalysisStatus.ERROR
+            main_context = ExceptionContext("AnalysisEngine", "main_loop")
+            critical_error = main_context.handle(e)
+            log_exception(logger, critical_error, {
+                "component": "AnalysisEngine",
+                "operation": "main_loop",
+                "engine_status": self.status.value
+            }, level="critical")
+            error_handler.handle_error(critical_error, context={"engine_status": self.status.value})
 
     async def _perform_market_analysis(self) -> None:
         """市場データ分析の実行"""
@@ -207,10 +267,11 @@ class AnalysisOnlyEngine:
 
         for symbol in self.symbols:
             try:
-                # 現在価格取得
-                current_data = await asyncio.get_event_loop().run_in_executor(
-                    None, self.stock_fetcher.get_current_price, symbol
-                )
+                # 現在価格取得（パフォーマンス監視付き）
+                with performance_monitor.monitor(f"price_fetch_{symbol}", "data_fetch"):
+                    current_data = await asyncio.get_event_loop().run_in_executor(
+                        None, self.stock_fetcher.get_current_price, symbol
+                    )
 
                 if not current_data:
                     logger.warning(f"価格データ取得失敗: {symbol}")
@@ -218,35 +279,38 @@ class AnalysisOnlyEngine:
 
                 current_price = Decimal(str(current_data["current_price"]))
 
-                # 履歴データ取得
-                historical_data = await asyncio.get_event_loop().run_in_executor(
-                    None, self.stock_fetcher.get_historical_data, symbol, "30d"
-                )
+                # 履歴データ取得（パフォーマンス監視付き）
+                with performance_monitor.monitor(f"historical_data_{symbol}", "data_fetch"):
+                    historical_data = await asyncio.get_event_loop().run_in_executor(
+                        None, self.stock_fetcher.get_historical_data, symbol, "30d"
+                    )
 
-                # シグナル生成
+                # シグナル生成（パフォーマンス監視付き）
                 signal = None
                 if historical_data is not None and not historical_data.empty:
-                    signal = self.signal_generator.generate_signal(historical_data)
+                    with performance_monitor.monitor(f"signal_generation_{symbol}", "ml_analysis"):
+                        signal = self.signal_generator.generate_signal(historical_data)
 
-                # 分析結果作成
-                analysis = MarketAnalysis(
-                    symbol=symbol,
-                    current_price=current_price,
-                    analysis_timestamp=datetime.now(),
-                    signal=signal,
-                    volatility=self._calculate_volatility(historical_data)
-                    if historical_data is not None
-                    else None,
-                    volume_trend=self._analyze_volume_trend(historical_data)
-                    if historical_data is not None
-                    else None,
-                    price_trend=self._analyze_price_trend(historical_data)
-                    if historical_data is not None
-                    else None,
-                    recommendations=self._generate_recommendations(
-                        symbol, current_price, signal
-                    ),
-                )
+                # 分析結果作成（パフォーマンス監視付き）
+                with performance_monitor.monitor(f"analysis_creation_{symbol}", "analysis"):
+                    analysis = MarketAnalysis(
+                        symbol=symbol,
+                        current_price=current_price,
+                        analysis_timestamp=datetime.now(),
+                        signal=signal,
+                        volatility=self._calculate_volatility(historical_data)
+                        if historical_data is not None
+                        else None,
+                        volume_trend=self._analyze_volume_trend(historical_data)
+                        if historical_data is not None
+                        else None,
+                        price_trend=self._analyze_price_trend(historical_data)
+                        if historical_data is not None
+                        else None,
+                        recommendations=self._generate_recommendations(
+                            symbol, current_price, signal
+                        ),
+                    )
 
                 self.market_analyses[symbol] = analysis
                 successful_analyses += 1
@@ -258,8 +322,28 @@ class AnalysisOnlyEngine:
                         f"(信頼度: {signal.confidence:.1f}%)"
                     )
 
+            except (KeyError, ValueError) as e:
+                # データ形式エラー - 特定銘柄のみスキップ
+                data_error = DataError(
+                    message=f"銘柄データ処理エラー: {symbol}",
+                    error_code="SYMBOL_DATA_ERROR",
+                    details={"symbol": symbol, "original_error": str(e)}
+                )
+                log_exception(logger, data_error, {
+                    "component": "AnalysisEngine",
+                    "operation": "symbol_analysis",
+                    "symbol": symbol
+                }, level="warning")
+
             except Exception as e:
-                logger.warning(f"銘柄分析エラー - {symbol}: {e}")
+                # 予期しないエラー - 銘柄をスキップして継続
+                symbol_context = ExceptionContext("AnalysisEngine", f"symbol_analysis_{symbol}")
+                symbol_error = symbol_context.handle(e)
+                log_exception(logger, symbol_error, {
+                    "component": "AnalysisEngine",
+                    "operation": "symbol_analysis",
+                    "symbol": symbol
+                }, level="warning")
 
         logger.info(f"市場分析完了 - {successful_analyses}/{len(self.symbols)}銘柄")
 
@@ -273,8 +357,19 @@ class AnalysisOnlyEngine:
             if len(returns) > 0:
                 return float(returns.std() * (252**0.5))  # 年率ボラティリティ
             return None
+        except (KeyError, AttributeError) as e:
+            # データ構造エラー - 予期されるエラー
+            logger.debug(f"ボラティリティ計算: データ構造不正 - {e}")
+            return None
         except Exception as e:
-            logger.warning(f"ボラティリティ計算エラー: {e}")
+            # 予期しないエラー
+            calc_context = ExceptionContext("AnalysisEngine", "volatility_calculation")
+            calc_error = calc_context.handle(e)
+            log_exception(logger, calc_error, {
+                "component": "AnalysisEngine",
+                "operation": "volatility_calculation",
+                "data_type": type(data).__name__ if data is not None else "None"
+            }, level="warning")
             return None
 
     def _analyze_volume_trend(self, data) -> Optional[str]:
@@ -292,8 +387,16 @@ class AnalysisOnlyEngine:
                 return "減少"
             else:
                 return "安定"
+        except (KeyError, AttributeError) as e:
+            logger.debug(f"出来高トレンド分析: データ構造不正 - {e}")
+            return None
         except Exception as e:
-            logger.warning(f"出来高トレンド分析エラー: {e}")
+            volume_context = ExceptionContext("AnalysisEngine", "volume_trend_analysis")
+            volume_error = volume_context.handle(e)
+            log_exception(logger, volume_error, {
+                "component": "AnalysisEngine",
+                "operation": "volume_trend_analysis"
+            }, level="warning")
             return None
 
     def _analyze_price_trend(self, data) -> Optional[str]:
@@ -312,8 +415,16 @@ class AnalysisOnlyEngine:
                 return "下降"
             else:
                 return "横ばい"
+        except (KeyError, AttributeError, IndexError) as e:
+            logger.debug(f"価格トレンド分析: データ構造不正 - {e}")
+            return None
         except Exception as e:
-            logger.warning(f"価格トレンド分析エラー: {e}")
+            price_context = ExceptionContext("AnalysisEngine", "price_trend_analysis")
+            price_error = price_context.handle(e)
+            log_exception(logger, price_error, {
+                "component": "AnalysisEngine",
+                "operation": "price_trend_analysis"
+            }, level="warning")
             return None
 
     def _generate_recommendations(
@@ -347,8 +458,25 @@ class AnalysisOnlyEngine:
             recommendations.append("※ 投資判断は自己責任で行ってください")
             recommendations.append("※ 自動取引は実行されません")
 
+        except (AttributeError, ValueError) as e:
+            # シグナル関連のデータエラー - デフォルト推奨事項を返す
+            logger.debug(f"推奨事項生成: シグナルデータ不正 - {symbol}: {e}")
+            recommendations = [
+                f"現在価格: {price:,.0f}円",
+                "シグナル: データ不足",
+                "※ これは分析情報です",
+                "※ 投資判断は自己責任で行ってください",
+                "※ 自動取引は実行されません"
+            ]
         except Exception as e:
-            logger.error(f"推奨事項生成エラー - {symbol}: {e}")
+            # 予期しないエラー
+            rec_context = ExceptionContext("AnalysisEngine", f"recommendations_{symbol}")
+            rec_error = rec_context.handle(e)
+            log_exception(logger, rec_error, {
+                "component": "AnalysisEngine",
+                "operation": "recommendations_generation",
+                "symbol": symbol
+            })
             recommendations = ["分析情報の生成に失敗しました"]
 
         return recommendations
