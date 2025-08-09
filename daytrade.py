@@ -370,21 +370,7 @@ def print_startup_banner():
     print("-" * 70)
 
 
-def main():
-    """メイン関数"""
-    def _signal_handler(signum, frame, orchestrator_instance: DayTradeOrchestrator):
-        print("\n\n[中断] システムを安全に停止しています...")
-        if orchestrator_instance:
-            orchestrator_instance.cleanup()
-        print("[完了] システムが正常に停止されました")
-        sys.exit(0)
-
-    # orchestratorは後で初期化するため、初期はNoneを渡す。実際のハンドラはpartialで渡す
-    current_orchestrator = None
-    # シグナルハンドラ設定 (partialでorchestratorインスタンスを後でバインド)
-    signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=None))
-    signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=None))
-
+def _parse_and_validate_args():
     parser = argparse.ArgumentParser(
         description="DayTrade統合分析システム",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -479,45 +465,6 @@ def main():
         sys.exit(1)
 
     try:
-        # ダッシュボードモードの処理
-        if args.dash:
-            if not args.quiet:
-                print_startup_banner()
-            run_dashboard_mode()
-            return 0
-
-        # インタラクティブモードの処理
-        if args.interactive:
-            # ログ設定（バリデート済みレベルを使用）
-            setup_logging(args.log_level)
-
-            # バナー表示
-            if not args.no_banner:
-                print_banner()
-
-            try:
-                from src.day_trade.cli.enhanced_interactive import (
-                    run_enhanced_interactive,
-                )
-
-                config_path = args.config
-                print("[インタラクティブ] 拡張インタラクティブモードを開始します...")
-                print("• オートコンプリート機能")
-                print("• コマンド履歴")
-                print("• 色分け表示")
-                print("• カスタムキーバインディング")
-                print()
-                run_enhanced_interactive(config_path)
-                return 0
-            except ImportError:
-                print("❌ エラー: 拡張インタラクティブモードは利用できません。")
-                print("prompt_toolkit>=3.0.0 をインストールしてください。")
-                print("コマンド: pip install prompt_toolkit>=3.0.0")
-                return 1
-            except Exception as e:
-                print(f"❌ インタラクティブモードエラー: {e}")
-                return 1
-
         # 引数バリデーション
         validated_symbols = None
         validated_config_path = None
@@ -529,15 +476,15 @@ def main():
             validated_log_level = validate_log_level(args.log_level)
         except CLIValidationError as e:
             print(f"❌ エラー: {e}", file=sys.stderr)
-            return 1
+            sys.exit(1)
 
         # 監視間隔のバリデーション
-        if args.watch: # --watch が指定された場合のみバリデーション
+        if args.watch:  # --watch が指定された場合のみバリデーション
             try:
                 validated_interval = validate_interval(args.interval)
             except CLIValidationError as e:
                 print(f"❌ エラー: {e}", file=sys.stderr)
-                return 1
+                sys.exit(1)
 
         # 銘柄コードのバリデーション
         if args.symbols:
@@ -546,7 +493,7 @@ def main():
                 print(f"✅ 銘柄コード検証完了: {len(validated_symbols)}銘柄")
             except CLIValidationError as e:
                 print(f"❌ エラー: {e}", file=sys.stderr)
-                return 1
+                sys.exit(1)
 
         # 設定ファイルのバリデーション
         if args.config:
@@ -555,34 +502,426 @@ def main():
                 print(f"✅ 設定ファイル検証完了: {validated_config_path}")
             except CLIValidationError as e:
                 print(f"❌ エラー: {e}", file=sys.stderr)
-                return 1
-
+                sys.exit(1)
+        return args, validated_symbols, validated_config_path, validated_log_level, validated_interval
     except Exception as e:
         print(f"❌ 予期しないバリデーションエラー: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def _run_dashboard_mode(args):
+    if not args.quiet:
+        print_startup_banner()
+    run_dashboard_mode()
+    return 0
+
+def _run_interactive_mode(args):
+    # ログ設定（バリデート済みレベルを使用）
+    setup_logging(args.log_level)
+
+    # バナー表示
+    if not args.no_banner:
+        print_banner()
+
+    try:
+        from src.day_trade.cli.enhanced_interactive import (
+            run_enhanced_interactive,
+        )
+
+        config_path = args.config
+        print("[インタラクティブ] 拡張インタラクティブモードを開始します...")
+        print("• オートコンプリート機能")
+        print("• コマンド履歴")
+        print("• 色分け表示")
+        print("• カスタムキーバインディング")
+        print()
+        run_enhanced_interactive(config_path)
+        return 0
+    except ImportError:
+        print("❌ エラー: 拡張インタラクティブモードは利用できません。")
+        print("prompt_toolkit>=3.0.0 をインストールしてください。")
+        print("コマンド: pip install prompt_toolkit>=3.0.0")
         return 1
+    except Exception as e:
+        print(f"❌ インタラクティブモードエラー: {e}")
+        return 1
+
+def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestrator, _signal_handler):
+    logger = logging.getLogger(__name__)
+
+    # バナー表示
+    if not args.no_banner:
+        print_banner()
+
+    # 引数処理（バリデート済みの値を使用）
+    symbols = validated_symbols
+    config_path = str(validated_config_path) if validated_config_path else None
+
+    if symbols:
+        logger.info(f"指定銘柄: {symbols}")
+
+    # 追加のバリデーション情報をログに記録
+    logger.debug(f"バリデーション完了 - 銘柄数: {len(symbols) if symbols else 0}")
+    if config_path:
+        logger.debug(f"設定ファイル: {config_path}")
+
+    # 設定の表示
+    try:
+        config_manager = ConfigManager(config_path)
+        if not symbols:
+            symbols = config_manager.get_symbol_codes()
+
+        if not args.quiet:
+            logger.info("[設定] 設定情報:")
+            logger.info(f"   設定ファイル: {config_manager.config_path}")
+            logger.info(f"   対象銘柄数: {len(symbols)}")
+            logger.info(f"   銘柄コード: {', '.join(symbols)}")
+            logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
+
+            # 市場時間チェック
+            if config_manager.is_market_open():
+                logger.info("   [オープン] 市場オープン中")
+            else:
+                logger.info("   [クローズ] 市場クローズ中")
+
+    except Exception as e:
+        logger.error(f"設定読み込みエラー: {e}")
+        return 1
+
+    # 実行確認
+    if not args.report_only:
+        # 実行確認
+        if not args.report_only:
+            if not args.quiet:
+                logger.info(f" {len(symbols)}銘柄の自動分析を開始します...")
+        else:
+            if not args.quiet:
+                logger.info("\n[レポート] レポート生成を開始します...")
+
+    # オーケストレーター初期化・実行
+    orchestrator_instance = DayTradeOrchestrator(config_path)
+    # シグナルハンドラに実際のorchestratorインスタンスをバインド
+    signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator_instance))
+    signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator_instance))
+
+    start_time = datetime.now()
+    print(f"開始時刻: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print("-" * 50)
+
+    # メイン処理実行
+    report = orchestrator_instance.run_full_automation(
+        symbols=symbols, report_only=args.report_only
+    )
+
+    # 結果表示
+    print_summary(report)
+
+    # 教育的分析の表示（デフォルト有効、機械学習含む）
+    if not args.quiet and not args.no_educational:
+        analyzer = EducationalMarketAnalyzer()
+        all_results = []
+
+        # 全銘柄の分析実行
+        for symbol in symbols:
+            try:
+                educational_result = analyzer.analyze_symbol_educational(symbol)
+                all_results.append(educational_result)
+            except Exception as e:
+                print(f"分析エラー {symbol}: {e}")
+
+        # 詳細レポート（最初の3銘柄のみ）
+        print("\n" + "=" * 80)
+        print("【詳細技術指標レポート】（上位3銘柄）")
+        print("=" * 80)
+
+        for result in all_results[:3]:
+            try:
+                educational_report = analyzer.format_educational_report(result)
+                print(educational_report)
+            except Exception as e:
+                print(f"詳細レポートエラー {result.symbol}: {e}")
+
+        # 全銘柄MLスコア一覧表（最後に表示）
+        if all_results:
+            print("\n" + "=" * 100)
+            print("【全銘柄 機械学習スコア一覧表】（教育・研究目的）")
+            print("=" * 100)
+            print("※機械学習スコアは教育・研究目的の技術情報です")
+            print("=" * 100)
+
+            # 総合スコアでソート
+            scored_results = []
+            for result in all_results:
+                if result.ml_technical_scores:
+                    # 各スコアを取得
+                    trend_score = next(
+                        (
+                            s
+                            for s in result.ml_technical_scores
+                            if "トレンド" in s.score_name
+                        ),
+                        None,
+                    )
+                    volatility_score = next(
+                        (
+                            s
+                            for s in result.ml_technical_scores
+                            if "変動予測" in s.score_name
+                        ),
+                        None,
+                    )
+                    pattern_score = next(
+                        (
+                            s
+                            for s in result.ml_technical_scores
+                            if "パターン" in s.score_name
+                        ),
+                        None,
+                    )
+
+                    trend_val = trend_score.score_value if trend_score else 0
+                    volatility_val = (
+                        volatility_score.score_value if volatility_score else 0
+                    )
+                    pattern_val = pattern_score.score_value if pattern_score else 0
+
+                    # 総合判定
+                    avg_score = (trend_val + volatility_val + pattern_val) / 3
+                    overall = (
+                        "強い上昇"
+                        if avg_score >= 70
+                        else "上昇傾向"
+                        if avg_score >= 55
+                        else "中立"
+                        if avg_score >= 45
+                        else "下降傾向"
+                        if avg_score >= 30
+                        else "弱い"
+                    )
+
+                    scored_results.append(
+                        {
+                            "result": result,
+                            "trend_val": trend_val,
+                            "volatility_val": volatility_val,
+                            "pattern_val": pattern_val,
+                            "avg_score": avg_score,
+                            "overall": overall,
+                        }
+                    )
+
+            # 総合スコア順でソート（降順）
+            scored_results.sort(key=lambda x: x["avg_score"], reverse=True)
+
+            print(
+                f"{'ランク':<4} {'銘柄':<8} {'会社名':<12} {'価格':<8} {'トレンド':<8} {'変動予測':<8} {'パターン':<8} {'総合':<6} {'判定':<10}"
+            )
+            print("-" * 110)
+
+            for i, scored_result in enumerate(scored_results, 1):
+                result = scored_result["result"]
+                trend_val = scored_result["trend_val"]
+                volatility_val = scored_result["volatility_val"]
+                pattern_val = scored_result["pattern_val"]
+                avg_score = scored_result["avg_score"]
+                overall = scored_result["overall"]
+
+                rank_symbol = (
+                    "🥇"
+                    if i == 1
+                    else "🥈"
+                    if i == 2
+                    else "🥉"
+                    if i == 3
+                    else f"{i:2d}"
+                )
+
+                print(
+                    f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
+                )
+
+            print("-" * 110)
+            print("※数値は0-100のスコア、総合スコア順でランキング表示")
+            print(
+                "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
+            )
+            print("=" * 100)
+
+    # 成功/失敗判定
+    if report.failed_symbols == 0 and not report.errors:
+        print("\n[完了] 全自動化処理が正常に完了しました！")
+        return 0
+    else:  # 何らかの失敗またはエラーがある場合
+        if report.successful_symbols > 0:
+            print(
+                f"\n[警告]  一部の処理が失敗しました ({report.successful_symbols}/{report.total_symbols} 成功)"
+            )
+        else:
+            print("\n[失敗] 処理に失敗しました")
+        return 1  # 部分的または全体的な失敗の場合、1を返す
+
+def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results):
+    # 詳細レポート（最初の3銘柄のみ）
+    print("\n" + "=" * 80)
+    print("【詳細技術指標レポート】（上位3銘柄）")
+    print("=" * 80)
+
+    for result in all_results[:3]:
+        try:
+            educational_report = analyzer.format_educational_report(result)
+            print(educational_report)
+        except Exception as e:
+            print(f"詳細レポートエラー {result.symbol}: {e}")
+
+    # 全銘柄MLスコア一覧表（最後に表示）
+    if all_results:
+        print("\n" + "=" * 100)
+        print("【全銘柄 機械学習スコア一覧表】（教育・研究目的）")
+        print("=" * 100)
+        print("※機械学習スコアは教育・研究目的の技術情報です")
+        print("=" * 100)
+
+        # 総合スコアでソート
+        scored_results = []
+        for result in all_results:
+            if result.ml_technical_scores:
+                # 各スコアを取得
+                trend_score = next(
+                    (
+                        s
+                        for s in result.ml_technical_scores
+                        if "トレンド" in s.score_name
+                    ),
+                    None,
+                )
+                volatility_score = next(
+                    (
+                        s
+                        for s in result.ml_technical_scores
+                        if "変動予測" in s.score_name
+                    ),
+                    None,
+                )
+                pattern_score = next(
+                    (
+                        s
+                        for s in result.ml_technical_scores
+                        if "パターン" in s.score_name
+                    ),
+                    None,
+                )
+
+                trend_val = trend_score.score_value if trend_score else 0
+                volatility_val = (
+                    volatility_score.score_value if volatility_score else 0
+                )
+                pattern_val = pattern_score.score_value if pattern_score else 0
+
+                # 総合判定
+                avg_score = (trend_val + volatility_val + pattern_val) / 3
+                overall = (
+                    "強い上昇"
+                    if avg_score >= 70
+                    else "上昇傾向"
+                    if avg_score >= 55
+                    else "中立"
+                    if avg_score >= 45
+                    else "下降傾向"
+                    if avg_score >= 30
+                    else "弱い"
+                )
+
+                scored_results.append(
+                    {
+                        "result": result,
+                        "trend_val": trend_val,
+                        "volatility_val": volatility_val,
+                        "pattern_val": pattern_val,
+                        "avg_score": avg_score,
+                        "overall": overall,
+                    }
+                )
+
+        # 総合スコア順でソート（降順）
+        scored_results.sort(key=lambda x: x["avg_score"], reverse=True)
+
+        print(
+            f"{'ランク':<4} {'銘柄':<8} {'会社名':<12} {'価格':<8} {'トレンド':<8} {'変動予測':<8} {'パターン':<8} {'総合':<6} {'判定':<10}"
+        )
+        print("-" * 110)
+
+        for i, scored_result in enumerate(scored_results, 1):
+            result = scored_result["result"]
+            trend_val = scored_result["trend_val"]
+            volatility_val = scored_result["volatility_val"]
+            pattern_val = scored_result["pattern_val"]
+            avg_score = scored_result["avg_score"]
+            overall = scored_result["overall"]
+
+            rank_symbol = (
+                "🥇"
+                if i == 1
+                else "🥈"
+                if i == 2
+                else "🥉"
+                if i == 3
+                else f"{i:2d}"
+            )
+
+            print(
+                f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
+            )
+
+        print("-" * 110)
+        print("※数値は0-100のスコア、総合スコア順でランキング表示")
+        print(
+            "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
+        )
+        print("=" * 100)
+
+    return 0
+
+def main():
+    """メイン関数"""
+    def _signal_handler(signum, frame, orchestrator_instance: DayTradeOrchestrator):
+        print("\n\n[中断] システムを安全に停止しています...")
+        if orchestrator_instance:
+            orchestrator_instance.cleanup()
+        print("[完了] システムが正常に停止されました")
+        sys.exit(0)
+
+    # シグナルハンドラ設定 (partialでorchestratorインスタンスを後でバインド)
+    signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=None))
+    signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=None))
+
+    args, validated_symbols, validated_config_path, validated_log_level, validated_interval = _parse_and_validate_args()
 
     # ログ設定（バリデート済みレベルを使用）
     setup_logging(validated_log_level)
     logger = logging.getLogger(__name__)
 
     try:
-        # バナー表示
-        if not args.no_banner:
-            print_banner()
+        # ダッシュボードモードの処理
+        if args.dash:
+            return _run_dashboard_mode(args)
 
-        # 引数処理（バリデート済みの値を使用）
+        # インタラクティブモードの処理
+        if args.interactive:
+            return _run_interactive_mode(args)
+
+        # 以下は通常の分析または監視モードの処理
+        # オーケストレーター初期化
+        orchestrator = DayTradeOrchestrator(
+            str(validated_config_path) if validated_config_path else None
+        )
+
+        # シグナルハンドラに実際のorchestratorインスタンスをバインド
+        signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator))
+        signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator))
+
+        # 設定の表示とシンボル取得
         symbols = validated_symbols
         config_path = str(validated_config_path) if validated_config_path else None
 
-        if symbols:
-            logger.info(f"指定銘柄: {symbols}")
-
-        # 追加のバリデーション情報をログに記録
-        logger.debug(f"バリデーション完了 - 銘柄数: {len(symbols) if symbols else 0}")
-        if config_path:
-            logger.debug(f"設定ファイル: {config_path}")
-
-        # 設定の表示
         try:
             config_manager = ConfigManager(config_path)
             if not symbols:
@@ -613,178 +952,8 @@ def main():
             run_watch_mode(symbols, validated_interval, orchestrator)
             return 0
 
-        # 実行確認
-        if not args.report_only:
-            # 実行確認
-            if not args.report_only:
-                if not args.quiet:
-                    logger.info(f" {len(symbols)}銘柄の自動分析を開始します...")
-            else:
-                if not args.quiet:
-                    logger.info("\n[レポート] レポート生成を開始します...")
-
-        # オーケストレーター初期化・実行
-        orchestrator = DayTradeOrchestrator(config_path)
-        # シグナルハンドラに実際のorchestratorインスタンスをバインド
-        signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator))
-        signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator))
-
-        start_time = datetime.now()
-        print(f"開始時刻: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print("-" * 50)
-
-        # メイン処理実行
-        report = orchestrator.run_full_automation(
-            symbols=symbols, report_only=args.report_only
-        )
-
-        # 結果表示
-        print_summary(report)
-
-        # 教育的分析の表示（デフォルト有効、機械学習含む）
-        if not args.quiet and not args.no_educational:
-            analyzer = EducationalMarketAnalyzer()
-            all_results = []
-
-            # 全銘柄の分析実行
-            for symbol in symbols:
-                try:
-                    educational_result = analyzer.analyze_symbol_educational(symbol)
-                    all_results.append(educational_result)
-                except Exception as e:
-                    print(f"分析エラー {symbol}: {e}")
-
-            # 詳細レポート（最初の3銘柄のみ）
-            print("\n" + "=" * 80)
-            print("【詳細技術指標レポート】（上位3銘柄）")
-            print("=" * 80)
-
-            for result in all_results[:3]:
-                try:
-                    educational_report = analyzer.format_educational_report(result)
-                    print(educational_report)
-                except Exception as e:
-                    print(f"詳細レポートエラー {result.symbol}: {e}")
-
-            # 全銘柄MLスコア一覧表（最後に表示）
-            if all_results:
-                print("\n" + "=" * 100)
-                print("【全銘柄 機械学習スコア一覧表】（教育・研究目的）")
-                print("=" * 100)
-                print("※機械学習スコアは教育・研究目的の技術情報です")
-                print("=" * 100)
-
-                # 総合スコアでソート
-                scored_results = []
-                for result in all_results:
-                    if result.ml_technical_scores:
-                        # 各スコアを取得
-                        trend_score = next(
-                            (
-                                s
-                                for s in result.ml_technical_scores
-                                if "トレンド" in s.score_name
-                            ),
-                            None,
-                        )
-                        volatility_score = next(
-                            (
-                                s
-                                for s in result.ml_technical_scores
-                                if "変動予測" in s.score_name
-                            ),
-                            None,
-                        )
-                        pattern_score = next(
-                            (
-                                s
-                                for s in result.ml_technical_scores
-                                if "パターン" in s.score_name
-                            ),
-                            None,
-                        )
-
-                        trend_val = trend_score.score_value if trend_score else 0
-                        volatility_val = (
-                            volatility_score.score_value if volatility_score else 0
-                        )
-                        pattern_val = pattern_score.score_value if pattern_score else 0
-
-                        # 総合判定
-                        avg_score = (trend_val + volatility_val + pattern_val) / 3
-                        overall = (
-                            "強い上昇"
-                            if avg_score >= 70
-                            else "上昇傾向"
-                            if avg_score >= 55
-                            else "中立"
-                            if avg_score >= 45
-                            else "下降傾向"
-                            if avg_score >= 30
-                            else "弱い"
-                        )
-
-                        scored_results.append(
-                            {
-                                "result": result,
-                                "trend_val": trend_val,
-                                "volatility_val": volatility_val,
-                                "pattern_val": pattern_val,
-                                "avg_score": avg_score,
-                                "overall": overall,
-                            }
-                        )
-
-                # 総合スコア順でソート（降順）
-                scored_results.sort(key=lambda x: x["avg_score"], reverse=True)
-
-                print(
-                    f"{'ランク':<4} {'銘柄':<8} {'会社名':<12} {'価格':<8} {'トレンド':<8} {'変動予測':<8} {'パターン':<8} {'総合':<6} {'判定':<10}"
-                )
-                print("-" * 110)
-
-                for i, scored_result in enumerate(scored_results, 1):
-                    result = scored_result["result"]
-                    trend_val = scored_result["trend_val"]
-                    volatility_val = scored_result["volatility_val"]
-                    pattern_val = scored_result["pattern_val"]
-                    avg_score = scored_result["avg_score"]
-                    overall = scored_result["overall"]
-
-                    rank_symbol = (
-                        "🥇"
-                        if i == 1
-                        else "🥈"
-                        if i == 2
-                        else "🥉"
-                        if i == 3
-                        else f"{i:2d}"
-                    )
-
-                    print(
-                        f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
-                    )
-
-                print("-" * 110)
-                print("※数値は0-100のスコア、総合スコア順でランキング表示")
-                print(
-                    "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
-                )
-                print("=" * 100)
-
-        # 成功/失敗判定
-        if report.failed_symbols == 0 and not report.errors:
-            print("\n[完了] 全自動化処理が正常に完了しました！")
-            return 0
-        else: # 何らかの失敗またはエラーがある場合
-            if report.successful_symbols > 0:
-                print(
-                    f"\n[警告]  一部の処理が失敗しました ({report.successful_symbols}/{report.total_symbols} 成功)"
-                )
-            else:
-                print("\n[失敗] 処理に失敗しました")
-            return 1 # 部分的または全体的な失敗の場合、1を返す\n[失敗] 処理に失敗しました")
-            return 1
+        # 通常分析モードの実行
+        return _run_analysis_mode(args, symbols, validated_config_path, orchestrator, _signal_handler)
 
     except KeyboardInterrupt:
         logger.info("ユーザーによって中断されました")
