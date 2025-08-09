@@ -1,0 +1,50 @@
+{
+  "alerts": {
+    "price_alerts": {
+      "enabled": true,
+      "threshold_percent": 2.0,
+      "volume_spike_multiplier": 3.0
+    },
+
+    "technical_alerts": {
+      "enabled": true,
+      "rsi_oversold": 25,
+      "rsi_overbought": 75,
+      "bollinger_band_squeeze": true
+    },
+
+    "risk_alerts": {
+      "enabled": true,
+      "max_drawdown_warning": 5.0,
+      "position_size_warning": 4.0,
+      "correlation_warning": 0.7
+    },
+
+    "system_alerts": {
+      "enabled": true,
+      "data_delay_minutes": 5,
+      "api_error_threshold": 3,
+      "memory_usage_percent": 80
+    }
+  },
+
+  "monitoring": {
+    "performance_tracking": {
+      "enabled": true,
+      "benchmark": "NIKKEI225",
+      "reporting_frequency": "daily"
+    },
+
+    "system_health": {
+      "enabled": true,
+      "check_interval_seconds": 60,
+      "metrics_retention_days": 30
+    },
+
+    "data_quality": {
+      "enabled": true,
+      "completeness_threshold": 95.0,
+      "timeliness_threshold_minutes": 2
+    }
+  }
+}

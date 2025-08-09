@@ -13,6 +13,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
+from src.day_trade.utils.logging_config import get_logger
+
 from .config import CacheConstants, get_cache_config
 from .errors import CacheError, CacheTimeoutError, get_cache_circuit_breaker
 
@@ -25,7 +27,7 @@ except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:

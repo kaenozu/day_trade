@@ -8,7 +8,10 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.config.trading_mode_config import is_safe_mode, get_current_trading_config
+from src.day_trade.config.trading_mode_config import (
+    get_current_trading_config,
+    is_safe_mode,
+)
 
 
 def test_basic_configuration():

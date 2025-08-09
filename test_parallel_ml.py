@@ -13,8 +13,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
-from day_trade.data.batch_data_fetcher import BatchDataFetcher
 from day_trade.data.advanced_ml_engine import AdvancedMLEngine, ParallelMLEngine
+from day_trade.data.batch_data_fetcher import BatchDataFetcher
 
 
 def test_parallel_ml_performance():

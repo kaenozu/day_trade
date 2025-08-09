@@ -1,0 +1,316 @@
+{
+  "version": "1.0.0",
+  "name": "DayTrade Development Settings",
+  "description": "開発環境用デイトレーディングシステム設定",
+  "environment": "development",
+
+  "watchlist": {
+    "symbols": [
+      {
+        "code": "7203",
+        "name": "トヨタ自動車",
+        "group": "自動車",
+        "priority": "high",
+        "sector": "Transportation",
+        "weight": 0.20
+      },
+      {
+        "code": "9984",
+        "name": "ソフトバンクグループ",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology",
+        "weight": 0.20
+      },
+      {
+        "code": "6758",
+        "name": "ソニー",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology",
+        "weight": 0.15
+      },
+      {
+        "code": "8306",
+        "name": "三菱UFJ銀行",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial",
+        "weight": 0.15
+      },
+      {
+        "code": "9432",
+        "name": "NTT",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom",
+        "weight": 0.15
+      },
+      {
+        "code": "6861",
+        "name": "キーエンス",
+        "group": "精密機器",
+        "priority": "high",
+        "sector": "Industrial",
+        "weight": 0.15
+      }
+    ],
+    "update_interval_minutes": 0.1,
+    "market_hours": {
+      "start": "09:00",
+      "end": "15:00",
+      "lunch_start": "11:30",
+      "lunch_end": "12:30",
+      "timezone": "Asia/Tokyo"
+    },
+    "max_symbols": 20,
+    "rebalance_interval_hours": 1
+  },
+
+  "system": {
+    "performance": {
+      "ml_analysis_target_seconds": 5.0,
+      "batch_size": 10,
+      "max_concurrent_requests": 2,
+      "memory_limit_mb": 1024,
+      "cpu_limit_percent": 70
+    },
+    "logging": {
+      "level": "DEBUG",
+      "output_directory": "logs/development",
+      "max_file_size_mb": 10,
+      "backup_count": 3,
+      "structured_logging": true,
+      "log_to_console": true,
+      "log_to_file": true,
+      "correlation_tracking": true
+    },
+    "monitoring": {
+      "enabled": true,
+      "interval_seconds": 10,
+      "alert_thresholds": {
+        "execution_time_seconds": 10.0,
+        "memory_usage_percent": 90,
+        "cpu_usage_percent": 95,
+        "error_rate_percent": 10.0
+      },
+      "dashboard_enabled": true,
+      "metrics_retention_days": 7
+    },
+    "fault_tolerance": {
+      "enabled": true,
+      "data_sources": {
+        "primary": "mock_data",
+        "backup": "yahoo_finance",
+        "tertiary": "alpha_vantage"
+      },
+      "graceful_degradation": {
+        "max_level": 3,
+        "auto_escalation": true,
+        "recovery_threshold_minutes": 2
+      },
+      "circuit_breaker": {
+        "failure_threshold": 3,
+        "reset_timeout_seconds": 30,
+        "half_open_max_calls": 2
+      },
+      "auto_recovery": {
+        "enabled": true,
+        "interval_seconds": 15,
+        "max_attempts": 5
+      }
+    }
+  },
+
+  "security": {
+    "api_keys": {
+      "storage": "environment_variables",
+      "encryption": false,
+      "rotation_days": 365
+    },
+    "access_control": {
+      "enabled": false,
+      "allowed_ips": ["127.0.0.1", "localhost"],
+      "rate_limiting": {
+        "requests_per_minute": 120,
+        "burst_size": 20
+      }
+    },
+    "data_protection": {
+      "encryption_at_rest": false,
+      "encryption_in_transit": false,
+      "sensitive_data_masking": false
+    }
+  },
+
+  "daytrading": {
+    "enabled": true,
+    "strategy": "development_test",
+    "volatility_threshold": 5.0,
+    "volume_threshold_multiplier": 3.0,
+    "price_change_alert": 5.0,
+    "risk_management": {
+      "max_position_per_stock": 20.0,
+      "max_total_exposure": 100.0,
+      "stop_loss_percentage": 5.0,
+      "profit_taking_percentage": 10.0,
+      "max_daily_trades": 50,
+      "max_daily_loss": -50.0,
+      "position_sizing": "equal_weight"
+    },
+    "trading_hours_only": false,
+    "paper_trading": true
+  },
+
+  "analysis": {
+    "ml_engine": {
+      "enabled": true,
+      "model_type": "random_forest",
+      "feature_engineering": true,
+      "auto_retrain": true,
+      "prediction_confidence_threshold": 0.5
+    },
+    "technical_indicators": {
+      "enabled": true,
+      "sma_periods": [5, 13, 25],
+      "ema_periods": [9, 21],
+      "rsi_period": 9,
+      "macd_params": {
+        "fast": 8,
+        "slow": 17,
+        "signal": 6
+      },
+      "bollinger_params": {
+        "period": 15,
+        "std_dev": 1.8
+      }
+    },
+    "ensemble": {
+      "enabled": true,
+      "strategy_type": "balanced",
+      "voting_type": "soft",
+      "performance_file_path": "data/development/ensemble_performance.json",
+      "strategy_weights": {
+        "conservative_rsi": 0.2,
+        "aggressive_momentum": 0.25,
+        "trend_following": 0.25,
+        "mean_reversion": 0.2,
+        "default_integrated": 0.1
+      },
+      "confidence_thresholds": {
+        "conservative": 60.0,
+        "balanced": 45.0,
+        "aggressive": 30.0
+      },
+      "meta_learning_enabled": true,
+      "adaptive_weights_enabled": true
+    }
+  },
+
+  "portfolio": {
+    "optimization": {
+      "method": "equal_risk_contribution",
+      "risk_aversion": 2.0,
+      "max_weight_per_stock": 0.50,
+      "min_weight_per_stock": 0.05,
+      "rebalance_frequency": "hourly",
+      "transaction_costs": 0.0,
+      "constraints": {
+        "sector_max_weight": 0.60,
+        "min_diversification": 3,
+        "max_turnover": 1.0
+      }
+    }
+  },
+
+  "alerts": {
+    "enabled": true,
+    "channels": ["console", "file_log"],
+    "price_alerts": {
+      "enabled": true,
+      "threshold_percent": 3.0
+    },
+    "volume_alerts": {
+      "enabled": true,
+      "volume_spike_ratio": 3.0
+    },
+    "technical_alerts": {
+      "enabled": true,
+      "rsi_overbought": 75,
+      "rsi_oversold": 25
+    },
+    "system_alerts": {
+      "enabled": true,
+      "error_threshold": 5,
+      "performance_degradation": true,
+      "resource_usage": true
+    }
+  },
+
+  "data": {
+    "storage": {
+      "database_url": "sqlite:///data/development/trading.db",
+      "backup_enabled": false,
+      "backup_interval_hours": 24,
+      "backup_retention_days": 7,
+      "compression_enabled": false
+    },
+    "cache": {
+      "enabled": true,
+      "ttl_seconds": 60,
+      "max_size_mb": 64,
+      "redis_url": null
+    },
+    "real_time": {
+      "enabled": false,
+      "buffer_size": 100,
+      "flush_interval_seconds": 30,
+      "data_validation": false
+    }
+  },
+
+  "reports": {
+    "enabled": true,
+    "output_directory": "reports/development",
+    "formats": ["json", "csv", "html"],
+    "daily_report": {
+      "enabled": true,
+      "generate_time": "16:00",
+      "include_charts": true,
+      "include_signals": true,
+      "include_portfolio": true,
+      "include_performance": true
+    },
+    "weekly_summary": {
+      "enabled": false,
+      "generate_on_friday": false,
+      "detailed_analysis": false
+    },
+    "monthly_report": {
+      "enabled": false,
+      "comprehensive_analysis": false,
+      "performance_attribution": false
+    }
+  },
+
+  "backtest": {
+    "enabled": true,
+    "period_days": 30,
+    "initial_capital": 1000000,
+    "position_size_percent": 10,
+    "max_positions": 5,
+    "commission_rate": 0.0,
+    "slippage_model": "none"
+  },
+
+  "deployment": {
+    "auto_start": false,
+    "restart_policy": "no",
+    "health_check_interval": 300,
+    "graceful_shutdown_timeout": 10,
+    "resource_limits": {
+      "max_memory_gb": 2,
+      "max_cpu_cores": 1
+    }
+  }
+}

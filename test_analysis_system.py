@@ -11,13 +11,13 @@ from pathlib import Path
 # パス追加
 sys.path.append(str(Path(__file__).parent / "src"))
 
+from day_trade.analysis.market_analysis_system import MarketAnalysisSystem
+from day_trade.automation.risk_aware_trading_engine import MarketAnalysisEngine
 from day_trade.config.trading_mode_config import (
     get_current_trading_config,
     is_safe_mode,
-    log_current_configuration
+    log_current_configuration,
 )
-from day_trade.analysis.market_analysis_system import MarketAnalysisSystem
-from day_trade.automation.risk_aware_trading_engine import MarketAnalysisEngine
 
 
 def test_safety_configuration():
@@ -59,11 +59,11 @@ def test_market_analysis_system():
     try:
         # 1. システム初期化
         analysis_system = MarketAnalysisSystem(symbols)
-        print(f"[OK] 市場分析システム初期化成功")
+        print("[OK] 市場分析システム初期化成功")
 
         # 2. 分析サマリー取得
         summary = analysis_system.get_analysis_summary()
-        print(f"[OK] 分析サマリー取得成功")
+        print("[OK] 分析サマリー取得成功")
         print(f"  - システム名: {summary['system_info']['system_name']}")
         print(f"  - モード: {summary['system_info']['mode']}")
         print(f"  - セーフモード: {summary['system_info']['safe_mode']}")
@@ -87,11 +87,11 @@ async def test_analysis_engine():
             symbols=symbols,
             emergency_stop_enabled=False
         )
-        print(f"[OK] 分析エンジン初期化成功")
+        print("[OK] 分析エンジン初期化成功")
 
         # 2. ステータス確認
         status = engine.get_comprehensive_status()
-        print(f"[OK] ステータス取得成功")
+        print("[OK] ステータス取得成功")
         print(f"  - エンジンタイプ: {status['engine_type']}")
         print(f"  - セーフモード: {status['safe_mode']}")
         print(f"  - 自動取引: {status['automatic_trading']}")
@@ -114,8 +114,8 @@ async def test_analysis_engine():
         except asyncio.TimeoutError:
             start_task.cancel()
 
-        print(f"  - 短時間実行完了")
-        print(f"[OK] 分析エンジンテスト合格")
+        print("  - 短時間実行完了")
+        print("[OK] 分析エンジンテスト合格")
 
     except Exception as e:
         print(f"[FAIL] 分析エンジンテスト失敗: {e}")
@@ -136,11 +136,11 @@ def test_system_integration():
 
         # システム初期化
         integrated_system = IntegratedAnalysisSystem(symbols)
-        print(f"[OK] 統合分析システム初期化成功")
+        print("[OK] 統合分析システム初期化成功")
 
         # システム状態確認
         status = integrated_system.get_system_status()
-        print(f"[OK] システム状態取得成功")
+        print("[OK] システム状態取得成功")
         print(f"  - システム名: {status['system_info']['name']}")
         print(f"  - セーフモード: {status['system_info']['safe_mode']}")
         print(f"  - 自動取引: {status['system_info']['automatic_trading']}")

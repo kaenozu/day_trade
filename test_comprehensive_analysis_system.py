@@ -5,7 +5,6 @@
 セーフモード動作とテストカバレッジを確保します
 """
 
-import asyncio
 import sys
 import tempfile
 import time
@@ -17,10 +16,15 @@ from unittest.mock import MagicMock, patch
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine, AnalysisStatus
+from src.day_trade.automation.analysis_only_engine import (
+    AnalysisOnlyEngine,
+    AnalysisStatus,
+)
 from src.day_trade.automation.trading_engine import TradingEngine
-from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
-from src.day_trade.config.trading_mode_config import is_safe_mode, get_current_trading_config
+from src.day_trade.config.trading_mode_config import (
+    get_current_trading_config,
+    is_safe_mode,
+)
 
 
 class TestAnalysisOnlyEngine:
@@ -166,7 +170,9 @@ class TestEnhancedReportManager:
         }
 
         try:
-            from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
+            from src.day_trade.analysis.enhanced_report_manager import (
+                EnhancedReportManager,
+            )
 
             manager = EnhancedReportManager()
 
@@ -190,7 +196,9 @@ class TestEnhancedReportManager:
         print("\n=== エクスポート機能 テスト ===")
 
         try:
-            from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
+            from src.day_trade.analysis.enhanced_report_manager import (
+                EnhancedReportManager,
+            )
 
             manager = EnhancedReportManager()
 
@@ -229,7 +237,7 @@ class TestSystemIntegration:
 
         # AnalysisOnlyEngine
         try:
-            engine = AnalysisOnlyEngine(["7203"], update_interval=60.0)
+            AnalysisOnlyEngine(["7203"], update_interval=60.0)
             components_working.append("AnalysisOnlyEngine")
         except Exception as e:
             print(f"⚠️ AnalysisOnlyEngine 初期化エラー: {e}")
@@ -237,7 +245,7 @@ class TestSystemIntegration:
         # TradingEngine（分析モード）
         try:
             with patch('src.day_trade.config.trading_mode_config.is_safe_mode', return_value=True):
-                trading_engine = TradingEngine(["7203"], max_investment_per_stock=1000000)
+                TradingEngine(["7203"], max_investment_per_stock=1000000)
                 components_working.append("TradingEngine")
         except Exception as e:
             if "安全設定" in str(e):
@@ -247,8 +255,10 @@ class TestSystemIntegration:
 
         # レポートマネージャー
         try:
-            from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
-            report_manager = EnhancedReportManager()
+            from src.day_trade.analysis.enhanced_report_manager import (
+                EnhancedReportManager,
+            )
+            EnhancedReportManager()
             components_working.append("EnhancedReportManager")
         except Exception as e:
             print(f"⚠️ EnhancedReportManager 初期化エラー: {e}")

@@ -8,7 +8,6 @@ Daytrade.py 分析専用モードテスト
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 # プロジェクトルートを追加
 project_root = Path(__file__).parent
@@ -43,7 +42,11 @@ class TestDaytradeAnalysisCompatibility:
 
         try:
             # daytrade.pyから検証関数をインポート
-            from daytrade import validate_symbols, validate_log_level, CLIValidationError
+            from daytrade import (
+                CLIValidationError,
+                validate_log_level,
+                validate_symbols,
+            )
 
             # 銘柄検証テスト
             valid_symbols = validate_symbols("7203,8306,9984")
@@ -53,7 +56,7 @@ class TestDaytradeAnalysisCompatibility:
             # 無効な銘柄コードテスト
             try:
                 validate_symbols("INVALID")
-                assert False, "無効な銘柄で例外が発生しませんでした"
+                raise AssertionError("無効な銘柄で例外が発生しませんでした")
             except CLIValidationError:
                 print("[OK] 無効銘柄検証: 正常にエラー検出")
 
@@ -88,7 +91,7 @@ class TestDaytradeAnalysisCompatibility:
         print("\n=== 設定ファイル検証テスト ===")
 
         try:
-            from daytrade import validate_config_file, CLIValidationError
+            from daytrade import CLIValidationError, validate_config_file
 
             # 一時的な有効な設定ファイルを作成
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -104,7 +107,7 @@ class TestDaytradeAnalysisCompatibility:
                 # 存在しないファイルテスト
                 try:
                     validate_config_file("nonexistent.json")
-                    assert False, "存在しないファイルでエラーが発生しませんでした"
+                    raise AssertionError("存在しないファイルでエラーが発生しませんでした")
                 except CLIValidationError:
                     print("[OK] 存在しないファイル検証: 正常にエラー検出")
 
@@ -128,22 +131,23 @@ class TestAlternativeRecommendations:
         # 分析専用エンジンの可用性テスト
         try:
             from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
-            engine = AnalysisOnlyEngine(["7203"], update_interval=60.0)
+            AnalysisOnlyEngine(["7203"], update_interval=60.0)
             print("[OK] AnalysisOnlyEngine: 利用可能")
         except Exception as e:
             print(f"[WARNING] AnalysisOnlyEngine: {e}")
 
         # ダッシュボードサーバーの可用性テスト
         try:
-            from src.day_trade.dashboard.analysis_dashboard_server import app
             print("[OK] AnalysisDashboardServer: 利用可能")
         except Exception as e:
             print(f"[WARNING] AnalysisDashboardServer: {e}")
 
         # レポートマネージャーの可用性テスト
         try:
-            from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
-            manager = EnhancedReportManager()
+            from src.day_trade.analysis.enhanced_report_manager import (
+                EnhancedReportManager,
+            )
+            EnhancedReportManager()
             print("[OK] EnhancedReportManager: 利用可能")
         except Exception as e:
             print(f"[WARNING] EnhancedReportManager: {e}")

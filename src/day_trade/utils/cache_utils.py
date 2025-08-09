@@ -13,6 +13,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple, Union
 
+from .logging_config import get_logger
+
 # オプショナル依存関係のインポート
 try:
     from pydantic import BaseModel
@@ -22,7 +24,7 @@ except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # キャッシュ設定の定数

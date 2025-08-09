@@ -1,0 +1,52 @@
+{
+  "machine_learning": {
+    "models": {
+      "lstm": {
+        "enabled": true,
+        "sequence_length": 60,
+        "layers": [50, 50],
+        "dropout": 0.2,
+        "epochs": 100,
+        "batch_size": 32
+      },
+      "random_forest": {
+        "enabled": true,
+        "n_estimators": 100,
+        "max_depth": 10,
+        "min_samples_split": 5
+      },
+      "svm": {
+        "enabled": true,
+        "kernel": "rbf",
+        "C": 1.0,
+        "gamma": "scale"
+      },
+      "ensemble": {
+        "enabled": true,
+        "voting": "soft",
+        "weights": [0.4, 0.3, 0.3]
+      }
+    },
+
+    "features": {
+      "technical_indicators": true,
+      "price_features": true,
+      "volume_features": true,
+      "pattern_features": true,
+      "sentiment_features": false
+    },
+
+    "training": {
+      "lookback_days": 252,
+      "validation_split": 0.2,
+      "test_split": 0.1,
+      "cross_validation_folds": 5
+    },
+
+    "prediction": {
+      "horizon_days": 5,
+      "confidence_interval": 0.95,
+      "min_prediction_confidence": 0.6
+    }
+  }
+}

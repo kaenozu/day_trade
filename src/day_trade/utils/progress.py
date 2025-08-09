@@ -4,7 +4,6 @@ Rich ライブラリを使用した美しい進捗表示機能を提供
 """
 
 import builtins
-import logging
 import os
 import platform
 import time
@@ -25,7 +24,9 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-logger = logging.getLogger(__name__)
+from src.day_trade.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # テスト環境ではプログレス表示を無効化
 if os.environ.get("PYTEST_CURRENT_TEST"):
