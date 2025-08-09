@@ -209,7 +209,7 @@ extend-exclude = '''
 minversion = "7.0"
 addopts = "-q --tb=no --maxfail=1 -x --disable-warnings --no-header --no-summary -p no:cacheprovider"
 testpaths = [
-    "tests",
+    "tests"
 ]
 python_files = [
     "test_*.py",

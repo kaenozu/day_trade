@@ -1,0 +1,88 @@
+api:
+  cors_origins:
+  - https://daytrade.com
+  - https://www.daytrade.com
+  host: 0.0.0.0
+  max_requests_per_worker: 1000
+  port: 443
+  rate_limit_per_minute: 10000
+  ssl_cert_path: /etc/ssl/certs/daytrade.crt
+  ssl_key_path: /etc/ssl/private/daytrade.key
+  threads_per_worker: 16
+  timeout_seconds: 30
+  workers: 8
+cache:
+  backend: redis
+  eviction_policy: allkeys-lru
+  host: redis-cluster.internal
+  max_memory_mb: 2048
+  password_env_var: REDIS_PASSWORD_PRODUCTION
+  port: 6379
+  ttl_seconds: 3600
+database:
+  connection_pool_size: 50
+  connection_timeout: 30
+  database: daytrade_prod
+  host: prod-db-cluster.internal
+  password_env_var: DB_PASSWORD_PRODUCTION
+  port: 5432
+  query_timeout: 60
+  ssl_enabled: true
+  username: prod_user
+deployment_id: bcefcc72
+environment: production
+monitoring:
+  enabled: true
+  error_reporting_dsn: SENTRY_DSN_PRODUCTION
+  jaeger_endpoint: http://jaeger:14268/api/traces
+  log_format: json
+  log_level: INFO
+  metrics_endpoint: /metrics
+  prometheus_port: 9090
+optional_env_vars:
+- ALPHA_VANTAGE_API_KEY
+- QUANDL_API_KEY
+- YAHOO_FINANCE_API_KEY
+- SMTP_SERVER
+- SMTP_USERNAME
+- SMTP_PASSWORD
+- SLACK_WEBHOOK_URL
+- DISCORD_WEBHOOK_URL
+performance:
+  async_processing: true
+  batch_size: 64
+  cache_enabled: true
+  connection_pooling: true
+  gpu_enabled: true
+  optimization_level: gpu_accelerated
+  pytorch_enabled: true
+  query_caching: true
+required_env_vars:
+- DB_PASSWORD_PRODUCTION
+- JWT_SECRET_PRODUCTION
+- API_KEY_PRODUCTION
+- ENCRYPTION_KEY_PRODUCTION
+- REDIS_PASSWORD_PRODUCTION
+- SENTRY_DSN_PRODUCTION
+- SSL_CERT_PATH
+- SSL_KEY_PATH
+security:
+  allowed_hosts:
+  - daytrade.com
+  - api.daytrade.com
+  - www.daytrade.com
+  api_key_env_var: API_KEY_PRODUCTION
+  csrf_protection: true
+  encryption_key_env_var: ENCRYPTION_KEY_PRODUCTION
+  jwt_secret_env_var: JWT_SECRET_PRODUCTION
+  password_policy:
+    max_age_days: 90
+    min_length: 12
+    require_digits: true
+    require_lowercase: true
+    require_special_chars: true
+    require_uppercase: true
+  session_timeout_minutes: 60
+service_tier: enterprise
+timestamp: '2025-08-09T15:55:37.409411'
+version: 1.0.0

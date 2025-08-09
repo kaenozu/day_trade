@@ -1,0 +1,75 @@
+{
+  "level": "adaptive",
+  "auto_fallback": true,
+  "performance_monitoring": true,
+  "cache_enabled": true,
+  "parallel_processing": true,
+  "batch_size": 1000,
+  "timeout_seconds": 60,
+  "memory_limit_mb": 1024,
+  
+  "component_specific": {
+    "technical_indicators": {
+      "level": "optimized",
+      "enable_numba": true,
+      "enable_ml_enhancement": true,
+      "cache_ttl_seconds": 300
+    },
+    "feature_engineering": {
+      "level": "optimized",
+      "enable_parallel": true,
+      "chunk_size": 10000,
+      "max_workers": 6
+    },
+    "database": {
+      "level": "optimized",
+      "query_cache_size": 2000,
+      "query_cache_ttl_minutes": 60,
+      "bulk_insert_threshold": 500,
+      "batch_size": 2000
+    },
+    "stock_fetcher": {
+      "level": "optimized",
+      "price_cache_ttl": 30,
+      "historical_cache_ttl": 600,
+      "max_workers": 15,
+      "bulk_optimization_threshold": 200
+    }
+  },
+  
+  "system_thresholds": {
+    "memory_usage_warning": 70,
+    "memory_usage_critical": 85,
+    "cpu_usage_warning": 70,
+    "cpu_usage_critical": 85,
+    "auto_fallback_triggers": {
+      "memory_over": 90,
+      "cpu_over": 90,
+      "error_rate_over": 0.10
+    }
+  },
+  
+  "monitoring": {
+    "enable_detailed_logging": false,
+    "log_performance_metrics": true,
+    "alert_thresholds": {
+      "slow_operation_seconds": 10,
+      "high_memory_usage_mb": 800,
+      "cache_hit_rate_below": 0.6
+    }
+  },
+  
+  "_comments": {
+    "level": "standard, optimized, adaptive, debug",
+    "auto_fallback": "エラー時に他の実装に自動フォールバック",
+    "performance_monitoring": "パフォーマンス監視機能の有効化",
+    "cache_enabled": "キャッシュ機能の有効化", 
+    "parallel_processing": "並列処理の有効化",
+    "batch_size": "バッチ処理のサイズ",
+    "timeout_seconds": "処理タイムアウト時間",
+    "memory_limit_mb": "メモリ使用量制限",
+    "component_specific": "コンポーネント固有の設定",
+    "system_thresholds": "システムリソース監視閾値",
+    "monitoring": "監視・アラート設定"
+  }
+}

@@ -12,6 +12,16 @@ from .trade_manager import (
 )
 from .watchlist import AlertNotification, WatchlistManager
 
+# Strategy Pattern統合システム
+from .optimization_strategy import (
+    OptimizationLevel,
+    OptimizationConfig,
+    OptimizationStrategy,
+    OptimizationStrategyFactory,
+    optimization_strategy,
+    get_optimized_implementation
+)
+
 __all__ = [
     "TradeManager",
     "Trade",
@@ -25,5 +35,16 @@ __all__ = [
     "AlertNotification",
     "AlertPriority",
     "AlertManager",
-    "PortfolioManager", # __all__からも削除し、PortfolioManagerを追加
+    "PortfolioAnalyzer",
+    "PortfolioMetrics",
+    "SectorAllocation",
+    "PerformanceReport",
+    # Strategy Pattern統合システム
+    "OptimizationLevel",
+    "OptimizationConfig", 
+    "OptimizationStrategy",
+    "OptimizationStrategyFactory",
+    "optimization_strategy",
+    "get_optimized_implementation",
+    "PortfolioManager",
 ]

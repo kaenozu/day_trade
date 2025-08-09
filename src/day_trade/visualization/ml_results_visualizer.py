@@ -639,9 +639,9 @@ class MLResultsVisualizer:
                     signal_text = f"""
 統合シグナル
 
-アクション: {signal.get('action', 'HOLD')}
-強度: {signal.get('strength', 'WEAK')}
-シグナルスコア: {signal.get('signal_score', 0):.1f}
+アクション: {signal.get("action", "HOLD")}
+強度: {signal.get("strength", "WEAK")}
+シグナルスコア: {signal.get("signal_score", 0):.1f}
                     """.strip()
 
                     ax_integrated.text(
@@ -1395,7 +1395,7 @@ class MLResultsVisualizer:
 
             with open(save_path, "w", encoding="utf-8") as f:
                 f.write("機械学習統合分析レポート\n")
-                f.write(f"{'='*50}\n\n")
+                f.write(f"{'=' * 50}\n\n")
                 f.write(f"銘柄: {symbol}\n")
                 f.write(f"生成日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
@@ -1426,7 +1426,7 @@ class MLResultsVisualizer:
                     current_metrics = vol_results.get("current_metrics", {})
                     if current_metrics:
                         f.write(
-                            f"現在の実現ボラティリティ: {current_metrics.get('realized_volatility', 0)*100:.1f}%\n"
+                            f"現在の実現ボラティリティ: {current_metrics.get('realized_volatility', 0) * 100:.1f}%\n"
                         )
                         f.write(
                             f"VIX風指標: {current_metrics.get('vix_like_indicator', 0):.1f}\n"
@@ -1770,7 +1770,7 @@ if __name__ == "__main__":
                 for line in lines[:15]:  # 最初の15行表示
                     print(f"   {line.rstrip()}")
                 if len(lines) > 15:
-                    print(f"   ... (残り{len(lines)-15}行)")
+                    print(f"   ... (残り{len(lines) - 15}行)")
         else:
             print("❌ 分析レポート生成失敗")
 
