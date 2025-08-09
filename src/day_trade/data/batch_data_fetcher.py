@@ -16,24 +16,30 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# オプショナル高度ライブラリ
+# オプショナル高度ライブラリ（遅延インポート - メモリ効率化）
+KAFKA_AVAILABLE = False
 try:
-    from kafka import KafkaProducer, KafkaConsumer
-    KAFKA_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("kafka") is not None:
+        KAFKA_AVAILABLE = True
 except ImportError:
-    KAFKA_AVAILABLE = False
+    pass
 
+REDIS_AVAILABLE = False
 try:
-    import redis
-    REDIS_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("redis") is not None:
+        REDIS_AVAILABLE = True
 except ImportError:
-    REDIS_AVAILABLE = False
+    pass
 
+CONFLUENT_KAFKA_AVAILABLE = False
 try:
-    from confluent_kafka import Producer, Consumer, KafkaError
-    CONFLUENT_KAFKA_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("confluent_kafka") is not None:
+        CONFLUENT_KAFKA_AVAILABLE = True
 except ImportError:
-    CONFLUENT_KAFKA_AVAILABLE = False
+    pass
 
 from ..utils.logging_config import get_context_logger
 from .real_market_data import RealMarketDataManager
@@ -135,6 +141,7 @@ class AdvancedBatchDataFetcher:
         # Kafka初期化
         if self.enable_kafka:
             try:
+                from kafka import KafkaProducer  # 遅延インポート
                 self.kafka_producer = KafkaProducer(
                     bootstrap_servers=self.kafka_config['bootstrap_servers'],
                     value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
@@ -148,6 +155,7 @@ class AdvancedBatchDataFetcher:
         # Redis初期化
         if self.enable_redis:
             try:
+                import redis  # 遅延インポート
                 self.redis_client = redis.Redis(**self.redis_config, decode_responses=True)
                 self.redis_client.ping()
                 logger.info("Redis接続初期化完了")

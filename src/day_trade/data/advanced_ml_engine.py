@@ -17,29 +17,32 @@ from pathlib import Path
 import pickle
 import json
 
-# 深層学習フレームワーク（段階的インポート）
+# 深層学習フレームワーク（遅延インポート - メモリ効率化）
+PYTORCH_AVAILABLE = False
 try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    from torch.utils.data import DataLoader, TensorDataset
-    PYTORCH_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("torch") is not None:
+        PYTORCH_AVAILABLE = True
 except ImportError:
-    PYTORCH_AVAILABLE = False
+    pass
 
+# Transformers（遅延インポート）
+TRANSFORMERS_AVAILABLE = False
 try:
-    from transformers import AutoTokenizer, AutoModel
-    TRANSFORMERS_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("transformers") is not None:
+        TRANSFORMERS_AVAILABLE = True
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
+    pass
 
-# オプショナルライブラリ
+# オプショナルライブラリ（遅延インポート）
+MLFLOW_AVAILABLE = False
 try:
-    import mlflow
-    import mlflow.pytorch
-    MLFLOW_AVAILABLE = True
+    import importlib.util
+    if importlib.util.find_spec("mlflow") is not None:
+        MLFLOW_AVAILABLE = True
 except ImportError:
-    MLFLOW_AVAILABLE = False
+    pass
 
 # プロジェクト内モジュール
 from ..utils.logging_config import get_context_logger
