@@ -17,7 +17,7 @@ from .security_hardening_system import (
 __all__ = [
     'SecurityHardeningSystem',
     'ThreatLevel',
-    'AttackType', 
+    'AttackType',
     'SecurityEvent',
     'ThreatAlert',
     'SecurityRule',

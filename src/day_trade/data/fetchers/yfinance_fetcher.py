@@ -42,7 +42,7 @@ class YFinanceFetcher(BaseFetcher):
             retry_delay: リトライ間隔（秒）
         """
         super().__init__(cache_size, retry_count, retry_delay)
-        
+
         self.price_cache_ttl = price_cache_ttl
         self.historical_cache_ttl = historical_cache_ttl
 
@@ -61,7 +61,7 @@ class YFinanceFetcher(BaseFetcher):
     def _fetch_data(self, symbol: str, **kwargs) -> Any:
         """基底クラスの抽象メソッド実装"""
         data_type = kwargs.get('data_type', 'current_price')
-        
+
         if data_type == 'current_price':
             return self._get_current_price_raw(symbol)
         elif data_type == 'historical':
@@ -125,14 +125,14 @@ class YFinanceFetcher(BaseFetcher):
                     return f"{code}.T"
                 else:
                     return f"{code}.{market.upper()}"
-            
+
             # 既に適切な形式の場合はそのまま返す
             if "." in code:
                 return code
-            
+
             # その他の場合はそのまま返す（米国株等）
             return code
-            
+
         except Exception as e:
             logger.error(f"銘柄コード形式変換エラー: {code} - {e}")
             return code
@@ -151,9 +151,9 @@ class YFinanceFetcher(BaseFetcher):
         try:
             self._validate_symbol(code)
             symbol = self._format_symbol(code)
-            
+
             return self._retry_on_error(self._get_current_price_raw, symbol)
-            
+
         except Exception as e:
             logger.error(f"現在価格取得エラー: {code} - {e}")
             return None
@@ -162,10 +162,10 @@ class YFinanceFetcher(BaseFetcher):
         """現在価格の実際の取得処理"""
         with log_api_call("yfinance_current_price", symbol):
             ticker = self._get_ticker(symbol)
-            
+
             # 高速な情報取得
             info = ticker.fast_info
-            
+
             if not info:
                 raise DataNotFoundError(
                     message=f"価格データが見つかりません: {symbol}",
@@ -191,7 +191,7 @@ class YFinanceFetcher(BaseFetcher):
                 result["price_change_percent"] = (price_change / result["previous_close"]) * 100
 
             log_performance_metric(
-                "current_price_success", 
+                "current_price_success",
                 {"symbol": symbol, "price": result["current_price"]}
             )
 
@@ -219,14 +219,14 @@ class YFinanceFetcher(BaseFetcher):
             self._validate_symbol(code)
             self._validate_period_interval(period, interval)
             symbol = self._format_symbol(code)
-            
+
             return self._retry_on_error(
-                self._get_historical_data_raw, 
-                symbol, 
-                period=period, 
+                self._get_historical_data_raw,
+                symbol,
+                period=period,
                 interval=interval
             )
-            
+
         except Exception as e:
             logger.error(f"履歴データ取得エラー: {code} - {e}")
             return None
@@ -261,17 +261,17 @@ class YFinanceFetcher(BaseFetcher):
                 )
 
     def _get_historical_data_raw(
-        self, 
-        symbol: str, 
-        period: str = "1mo", 
+        self,
+        symbol: str,
+        period: str = "1mo",
         interval: str = "1d"
     ) -> pd.DataFrame:
         """履歴データの実際の取得処理"""
         with log_api_call("yfinance_historical", symbol):
             ticker = self._get_ticker(symbol)
-            
+
             df = ticker.history(period=period, interval=interval)
-            
+
             if df.empty:
                 raise DataNotFoundError(
                     message=f"履歴データが見つかりません: {symbol}",
@@ -281,20 +281,20 @@ class YFinanceFetcher(BaseFetcher):
 
             # データフレームのクリーンアップ
             df = df.dropna()
-            
+
             # カラム名を日本語に変換
             column_mapping = {
                 "Open": "始値",
-                "High": "高値", 
+                "High": "高値",
                 "Low": "安値",
                 "Close": "終値",
                 "Volume": "出来高",
                 "Dividends": "配当",
                 "Stock Splits": "株式分割",
             }
-            
+
             df = df.rename(columns=column_mapping)
-            
+
             # メタデータを追加
             df.attrs = {
                 "symbol": symbol,
@@ -335,7 +335,7 @@ class YFinanceFetcher(BaseFetcher):
             self._validate_symbol(code)
             self._validate_date_range(start_date, end_date)
             symbol = self._format_symbol(code)
-            
+
             return self._retry_on_error(
                 self._get_historical_data_range_raw,
                 symbol,
@@ -343,24 +343,24 @@ class YFinanceFetcher(BaseFetcher):
                 end_date=end_date,
                 interval=interval
             )
-            
+
         except Exception as e:
             logger.error(f"日付範囲履歴データ取得エラー: {code} - {e}")
             return None
 
     def _get_historical_data_range_raw(
-        self, 
-        symbol: str, 
-        start_date: str, 
-        end_date: str, 
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
         interval: str = "1d"
     ) -> pd.DataFrame:
         """日付範囲指定履歴データの実際の取得処理"""
         with log_api_call("yfinance_historical_range", symbol):
             ticker = self._get_ticker(symbol)
-            
+
             df = ticker.history(start=start_date, end=end_date, interval=interval)
-            
+
             if df.empty:
                 raise DataNotFoundError(
                     message=f"指定期間の履歴データが見つかりません: {symbol}",
@@ -370,19 +370,19 @@ class YFinanceFetcher(BaseFetcher):
 
             # データ処理
             df = df.dropna()
-            
+
             column_mapping = {
                 "Open": "始値",
                 "High": "高値",
-                "Low": "安値", 
+                "Low": "安値",
                 "Close": "終値",
                 "Volume": "出来高",
                 "Dividends": "配当",
                 "Stock Splits": "株式分割",
             }
-            
+
             df = df.rename(columns=column_mapping)
-            
+
             df.attrs = {
                 "symbol": symbol,
                 "start_date": start_date,
@@ -408,9 +408,9 @@ class YFinanceFetcher(BaseFetcher):
         try:
             self._validate_symbol(code)
             symbol = self._format_symbol(code)
-            
+
             return self._retry_on_error(self._get_company_info_raw, symbol)
-            
+
         except Exception as e:
             logger.error(f"企業情報取得エラー: {code} - {e}")
             return None
@@ -419,9 +419,9 @@ class YFinanceFetcher(BaseFetcher):
         """企業情報の実際の取得処理"""
         with log_api_call("yfinance_company_info", symbol):
             ticker = self._get_ticker(symbol)
-            
+
             info = ticker.info
-            
+
             if not info:
                 raise DataNotFoundError(
                     message=f"企業情報が見つかりません: {symbol}",
@@ -469,7 +469,7 @@ class YFinanceFetcher(BaseFetcher):
             銘柄別価格データ辞書
         """
         results = {}
-        
+
         for code in codes:
             try:
                 price_data = self.get_current_price(code)
@@ -478,7 +478,7 @@ class YFinanceFetcher(BaseFetcher):
                 else:
                     logger.warning(f"リアルタイムデータ取得失敗: {code}")
                     results[code] = {}
-                    
+
             except Exception as e:
                 logger.error(f"リアルタイムデータ取得エラー: {code} - {e}")
                 results[code] = {}
@@ -496,12 +496,12 @@ class YFinanceFetcher(BaseFetcher):
 
             return {
                 "current_price_cache": current_price_stats,
-                "historical_data_cache": historical_stats, 
+                "historical_data_cache": historical_stats,
                 "company_info_cache": company_info_stats,
                 "lru_cache_info": self.get_cache_info(),
                 "overall_performance": self.get_performance_summary(),
             }
-            
+
         except Exception as e:
             logger.error(f"キャッシュパフォーマンスレポート取得エラー: {e}")
             return {"error": str(e)}
@@ -512,18 +512,18 @@ class YFinanceFetcher(BaseFetcher):
             # デコレータキャッシュをクリア
             if hasattr(self.get_current_price, 'clear_cache'):
                 self.get_current_price.clear_cache()
-            
+
             if hasattr(self.get_historical_data, 'clear_cache'):
                 self.get_historical_data.clear_cache()
-            
+
             if hasattr(self.get_company_info, 'clear_cache'):
                 self.get_company_info.clear_cache()
-            
+
             # LRUキャッシュをクリア
             self.clear_cache()
-            
+
             logger.info("全キャッシュクリア完了")
-            
+
         except Exception as e:
             logger.error(f"キャッシュクリアエラー: {e}")
 
@@ -568,7 +568,7 @@ class YFinanceFetcher(BaseFetcher):
                 "performance_report": performance_report,
                 "analysis_timestamp": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"キャッシュ最適化分析エラー: {e}")
             return {"error": str(e), "recommendations": []}

@@ -524,31 +524,31 @@ def calculate_technical_indicators(
 # 戦略の自動登録（ダミー戦略でテスト用）
 try:
     from ..core.optimization_strategy import OptimizationStrategyFactory, OptimizationLevel
-    
+
     class DummyTechnicalIndicatorsStrategy(OptimizationStrategy):
         """テクニカル指標ダミー戦略（テスト用）"""
-        
+
         def execute(self, *args, **kwargs):
             """ダミー実行メソッド"""
             return f"Executed with {self.config.level.value} optimization"
-        
+
         def get_strategy_name(self) -> str:
             return f"DummyTechnicalIndicators-{self.config.level.value}"
-    
+
     # 戦略登録
     OptimizationStrategyFactory.register_strategy(
-        "technical_indicators", 
-        OptimizationLevel.STANDARD, 
+        "technical_indicators",
+        OptimizationLevel.STANDARD,
         DummyTechnicalIndicatorsStrategy
     )
     OptimizationStrategyFactory.register_strategy(
-        "technical_indicators", 
-        OptimizationLevel.OPTIMIZED, 
+        "technical_indicators",
+        OptimizationLevel.OPTIMIZED,
         DummyTechnicalIndicatorsStrategy
     )
-    
+
     logger.info("テクニカル指標戦略の自動登録完了")
-    
+
 except Exception as e:
     logger.warning(f"戦略自動登録失敗: {e}")
     pass

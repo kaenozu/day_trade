@@ -29,7 +29,7 @@ class IDGenerator:
         self._sequence_counters: Dict[str, int] = {}
         self._used_ids: Set[str] = set()
         self._startup_time = int(time.time())
-        
+
         logger.info("ID生成機初期化完了")
 
     def generate_trade_id(self, symbol: Optional[str] = None) -> str:
@@ -46,28 +46,28 @@ class IDGenerator:
             with self._lock:
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 microseconds = datetime.now().strftime("%f")[:3]  # ミリ秒
-                
+
                 # シーケンス番号
                 sequence = self._get_next_sequence("trade")
-                
+
                 # ランダム部分
                 random_part = str(uuid.uuid4())[:8]
-                
+
                 # 基本ID構築
                 base_id = f"TRD_{timestamp}{microseconds}_{sequence:04d}_{random_part}"
-                
+
                 # 銘柄コードがある場合は追加
                 if symbol:
                     base_id = f"{base_id}_{symbol}"
-                
+
                 # 重複チェックと調整
                 final_id = self._ensure_unique_id(base_id, "TRD")
-                
+
                 self._used_ids.add(final_id)
                 logger.debug(f"取引ID生成: {final_id}")
-                
+
                 return final_id
-                
+
         except Exception as e:
             logger.error(f"取引ID生成エラー: {e}")
             # フォールバック：タイムスタンプベース
@@ -88,15 +88,15 @@ class IDGenerator:
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 sequence = self._get_next_sequence("order")
                 random_part = str(uuid.uuid4())[:6]
-                
+
                 base_id = f"ORD_{order_type}_{timestamp}_{sequence:04d}_{random_part}"
                 final_id = self._ensure_unique_id(base_id, "ORD")
-                
+
                 self._used_ids.add(final_id)
                 logger.debug(f"注文ID生成: {final_id}")
-                
+
                 return final_id
-                
+
         except Exception as e:
             logger.error(f"注文ID生成エラー: {e}")
             return f"ORD_{order_type}_{int(time.time() * 1000)}_{str(uuid.uuid4())[:6]}"
@@ -115,18 +115,18 @@ class IDGenerator:
             with self._lock:
                 date_str = datetime.now().strftime("%Y%m%d")
                 sequence = self._get_next_sequence(f"position_{symbol}")
-                
+
                 # 銘柄コードハッシュ（短縮）
                 symbol_hash = hashlib.md5(symbol.encode()).hexdigest()[:6]
-                
+
                 base_id = f"POS_{symbol}_{date_str}_{sequence:03d}_{symbol_hash}"
                 final_id = self._ensure_unique_id(base_id, "POS")
-                
+
                 self._used_ids.add(final_id)
                 logger.debug(f"ポジションID生成: {final_id}")
-                
+
                 return final_id
-                
+
         except Exception as e:
             logger.error(f"ポジションID生成エラー: {e}")
             return f"POS_{symbol}_{int(time.time())}_{str(uuid.uuid4())[:6]}"
@@ -145,15 +145,15 @@ class IDGenerator:
             with self._lock:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 sequence = self._get_next_sequence("report")
-                
+
                 base_id = f"{report_type}_{timestamp}_{sequence:04d}"
                 final_id = self._ensure_unique_id(base_id, report_type)
-                
+
                 self._used_ids.add(final_id)
                 logger.debug(f"レポートID生成: {final_id}")
-                
+
                 return final_id
-                
+
         except Exception as e:
             logger.error(f"レポートID生成エラー: {e}")
             return f"{report_type}_{int(time.time())}_{str(uuid.uuid4())[:8]}"
@@ -173,15 +173,15 @@ class IDGenerator:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 sequence = self._get_next_sequence("batch")
                 process_id = str(uuid.uuid4())[:8]
-                
+
                 base_id = f"{batch_type}_{timestamp}_{sequence:04d}_{process_id}"
                 final_id = self._ensure_unique_id(base_id, batch_type)
-                
+
                 self._used_ids.add(final_id)
                 logger.debug(f"バッチID生成: {final_id}")
-                
+
                 return final_id
-                
+
         except Exception as e:
             logger.error(f"バッチID生成エラー: {e}")
             return f"{batch_type}_{int(time.time())}_{str(uuid.uuid4())[:8]}"
@@ -221,17 +221,17 @@ class IDGenerator:
         try:
             # タイムスタンプベース数値
             timestamp_ms = int(time.time() * 1000)
-            
+
             # 指定桁数に調整
             numeric_part = str(timestamp_ms)[-digits:]
             if len(numeric_part) < digits:
                 numeric_part = numeric_part.zfill(digits)
-            
+
             final_id = f"{prefix}{numeric_part}" if prefix else numeric_part
-            
+
             logger.debug(f"数値ID生成: {final_id}")
             return final_id
-            
+
         except Exception as e:
             logger.error(f"数値ID生成エラー: {e}")
             return f"{prefix}{'9' * digits}"
@@ -251,7 +251,7 @@ class IDGenerator:
         try:
             # タイムスタンプを追加してユニーク性を確保
             unique_data = f"{data}_{time.time()}_{uuid.uuid4()}"
-            
+
             if algorithm.lower() == "md5":
                 hash_obj = hashlib.md5(unique_data.encode())
             elif algorithm.lower() == "sha1":
@@ -260,12 +260,12 @@ class IDGenerator:
                 hash_obj = hashlib.sha256(unique_data.encode())
             else:
                 hash_obj = hashlib.md5(unique_data.encode())
-            
+
             hash_id = hash_obj.hexdigest()[:length].upper()
-            
+
             logger.debug(f"ハッシュID生成: {hash_id}")
             return hash_id
-            
+
         except Exception as e:
             logger.error(f"ハッシュID生成エラー: {e}")
             return str(uuid.uuid4())[:length].upper()
@@ -274,20 +274,20 @@ class IDGenerator:
         """次のシーケンス番号取得"""
         if sequence_type not in self._sequence_counters:
             self._sequence_counters[sequence_type] = 0
-        
+
         self._sequence_counters[sequence_type] += 1
-        
+
         # オーバーフロー対策
         if self._sequence_counters[sequence_type] > 9999:
             self._sequence_counters[sequence_type] = 1
-        
+
         return self._sequence_counters[sequence_type]
 
     def _ensure_unique_id(self, base_id: str, prefix: str) -> str:
         """ID重複回避"""
         if base_id not in self._used_ids:
             return base_id
-        
+
         # 重複がある場合、追加サフィックスで調整
         counter = 1
         while True:
@@ -296,7 +296,7 @@ class IDGenerator:
                 logger.debug(f"ID重複回避: {base_id} -> {candidate_id}")
                 return candidate_id
             counter += 1
-            
+
             # 無限ループ対策
             if counter > 999:
                 unique_suffix = str(uuid.uuid4())[:8]
@@ -425,7 +425,7 @@ class IDGenerator:
 
                 # 古いIDをクリア（実際の実装では使用頻度や時刻ベースで）
                 ids_to_remove = len(self._used_ids) - max_ids
-                
+
                 # セット操作でランダムに削除（簡易実装）
                 ids_list = list(self._used_ids)
                 for _ in range(ids_to_remove):

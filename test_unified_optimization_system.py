@@ -399,7 +399,7 @@ if __name__ == "__main__":
         if not OPTIMIZATION_STRATEGY_AVAILABLE:
             print("WARNING: optimization_strategy not available. Skipping tests.")
             sys.exit(0)
-        
+
         success = run_integration_test()
         sys.exit(0 if success else 1)
     except Exception as e:

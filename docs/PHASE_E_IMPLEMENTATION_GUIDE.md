@@ -48,11 +48,11 @@ try:
     process_data()
 except Exception as e:
     error_context = error_handler.handle_error(
-        e, 
+        e,
         {'component': 'analysis', 'operation': 'data_processing'},
         auto_recovery=True
     )
-    
+
     # ユーザー向けエラー情報
     user_error = error_handler.get_user_friendly_error(error_context)
 ```

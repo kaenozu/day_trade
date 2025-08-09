@@ -99,7 +99,6 @@ class LoggingConfig:
             # Structlogの設定
             processors = [
                 structlog.stdlib.add_logger_name,
-                structlog.stdlib.add_logger_oid, # Python 3.12+ の場合
                 structlog.stdlib.add_log_level,
                 structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
                 structlog.processors.StackInfoRenderer(),
@@ -112,6 +111,10 @@ class LoggingConfig:
                     }
                 ),
             ]
+
+            # Python 3.12+ でのみ add_logger_oid を使用
+            if hasattr(structlog.stdlib, 'add_logger_oid'):
+                processors.insert(1, structlog.stdlib.add_logger_oid)
 
             if self.log_format == "json":
                 processors.append(structlog.processors.JSONRenderer())
@@ -252,4 +255,3 @@ def log_performance_metric(
     log_data = {"metric_name": metric_name, "value": value, "unit": unit, **kwargs}
 
     logger.info(f"Performance metric: {metric_name}={value}{unit}", extra=log_data)
-

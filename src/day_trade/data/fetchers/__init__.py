@@ -5,7 +5,7 @@
 """
 
 from .base_fetcher import BaseFetcher
-from .yfinance_fetcher import YFinanceFetcher  
+from .yfinance_fetcher import YFinanceFetcher
 from .bulk_fetcher import BulkFetcher
 
 __all__ = [

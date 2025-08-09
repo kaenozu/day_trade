@@ -37,6 +37,7 @@ class OptimizationConfig:
     batch_size: int = 100              # バッチサイズ
     timeout_seconds: int = 30          # タイムアウト（秒）
     memory_limit_mb: int = 512         # メモリ制限（MB）
+    ci_test_mode: bool = False         # CI テストモード（軽量化）
 
     @classmethod
     def from_env(cls) -> "OptimizationConfig":
@@ -57,6 +58,7 @@ class OptimizationConfig:
             batch_size=int(os.getenv("DAYTRADE_BATCH_SIZE", "100")),
             timeout_seconds=int(os.getenv("DAYTRADE_TIMEOUT", "30")),
             memory_limit_mb=int(os.getenv("DAYTRADE_MEMORY_LIMIT", "512")),
+            ci_test_mode=os.getenv("CI", "false").lower() == "true",  # CI環境自動検出
         )
 
     @classmethod

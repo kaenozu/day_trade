@@ -467,26 +467,26 @@ mypy src/
 #### 例: 関数定義
 ```python
 def calculate_moving_average(
-    data: pd.DataFrame, 
+    data: pd.DataFrame,
     window: int = 20,
     column: str = "close"
 ) -> pd.Series:
     """移動平均を計算します.
-    
+
     Args:
         data: 株価データフレーム
         window: 移動平均期間
         column: 計算対象カラム名
-    
+
     Returns:
         移動平均のシリーズ
-        
+
     Raises:
         ValueError: windowが負の値の場合
     """
     if window <= 0:
         raise ValueError("window must be positive")
-    
+
     return data[column].rolling(window=window).mean()
 ```
 
@@ -502,14 +502,14 @@ class TestTechnicalIndicators:
         """正常入力でのSMA計算テスト"""
         data = pd.Series([1, 2, 3, 4, 5])
         result = calculate_sma(data, window=3)
-        
+
         expected = pd.Series([NaN, NaN, 2.0, 3.0, 4.0])
         pd.testing.assert_series_equal(result, expected)
-    
+
     def test_calculate_sma_invalid_window(self):
         """無効なwindow値のテスト"""
         data = pd.Series([1, 2, 3])
-        
+
         with pytest.raises(ValueError):
             calculate_sma(data, window=-1)
 ```
@@ -525,7 +525,7 @@ def test_function_performance():
         lambda: calculate_complex_indicator(large_dataset),
         number=100
     )
-    
+
     # 100回実行で10秒以内であること
     assert execution_time < 10.0
 ```
@@ -541,34 +541,34 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-    
+
     - name: Run tests
       run: |
         pytest tests/ --cov=src/
-    
+
     - name: Code quality check
       run: |
         black --check src/
         flake8 src/
         mypy src/
-    
+
     - name: Security scan
       run: |
         bandit -r src/
-    
+
     - name: Performance test
       run: |
         python optimized_performance_test_suite.py

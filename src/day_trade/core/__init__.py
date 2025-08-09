@@ -41,7 +41,7 @@ __all__ = [
     "PerformanceReport",
     # Strategy Pattern統合システム
     "OptimizationLevel",
-    "OptimizationConfig", 
+    "OptimizationConfig",
     "OptimizationStrategy",
     "OptimizationStrategyFactory",
     "optimization_strategy",

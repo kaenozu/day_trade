@@ -143,7 +143,7 @@ class ReportExporter:
     def _export_to_json(self, data: Dict[str, Any], filename: str) -> str:
         """JSON形式出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             # Decimal型をstrに変換するカスタムエンコーダー
             def decimal_encoder(obj):
@@ -153,10 +153,10 @@ class ReportExporter:
 
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2, default=decimal_encoder)
-            
+
             logger.info(f"JSON出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"JSON出力エラー: {e}")
             return ""
@@ -164,21 +164,21 @@ class ReportExporter:
     def _export_portfolio_to_csv(self, report_data: Dict[str, Any], filename: str) -> str:
         """ポートフォリオCSV出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
-                
+
                 # ヘッダー情報
                 writer.writerow(["ポートフォリオレポート"])
                 writer.writerow(["生成日時", datetime.now().strftime("%Y/%m/%d %H:%M")])
                 writer.writerow([])
-                
+
                 # パフォーマンスメトリクス
                 performance = report_data.get("performance_metrics", {})
                 writer.writerow(["パフォーマンス指標"])
                 writer.writerow(["項目", "値", "単位"])
-                
+
                 perf_items = [
                     ("総投資額", "total_investment", "円"),
                     ("実現損益", "realized_pnl", "円"),
@@ -189,18 +189,18 @@ class ReportExporter:
                     ("シャープレシオ", "sharpe_ratio", ""),
                     ("最大ドローダウン", "max_drawdown_percentage", "%"),
                 ]
-                
+
                 for label, key, unit in perf_items:
                     value = performance.get(key, "N/A")
                     writer.writerow([label, value, unit])
-                
+
                 writer.writerow([])
-                
+
                 # リスク指標
                 risk_metrics = report_data.get("risk_metrics", {})
                 writer.writerow(["リスク指標"])
                 writer.writerow(["項目", "値", "単位"])
-                
+
                 risk_items = [
                     ("ポートフォリオ価値", "portfolio_value", "円"),
                     ("VaR(95%)", "value_at_risk_95", "円"),
@@ -208,14 +208,14 @@ class ReportExporter:
                     ("ポートフォリオベータ", "portfolio_beta", ""),
                     ("年率ボラティリティ", "annualized_volatility", "%"),
                 ]
-                
+
                 for label, key, unit in risk_items:
                     value = risk_metrics.get(key, "N/A")
                     writer.writerow([label, value, unit])
-            
+
             logger.info(f"ポートフォリオCSV出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"ポートフォリオCSV出力エラー: {e}")
             return ""
@@ -223,23 +223,23 @@ class ReportExporter:
     def _export_tax_to_csv(self, tax_data: Dict[str, Any], filename: str) -> str:
         """税務CSV出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
-                
+
                 # 基本情報
                 report_info = tax_data.get("report_info", {})
                 writer.writerow(["確定申告用データ"])
                 writer.writerow(["対象年度", report_info.get("target_year", "N/A")])
                 writer.writerow(["作成日時", report_info.get("generation_date", "N/A")])
                 writer.writerow([])
-                
+
                 # 税務サマリー
                 tax_summary = tax_data.get("tax_summary", {})
                 writer.writerow(["税務サマリー"])
                 writer.writerow(["項目", "金額(円)"])
-                
+
                 tax_items = [
                     ("総購入額", "total_buy_amount"),
                     ("総売却額", "total_sell_amount"),
@@ -252,19 +252,19 @@ class ReportExporter:
                     ("税額合計", "total_tax"),
                     ("繰越損失", "loss_carryover"),
                 ]
-                
+
                 for label, key in tax_items:
                     value = tax_summary.get(key, "N/A")
                     writer.writerow([label, value])
-                
+
                 writer.writerow([])
-                
+
                 # 銘柄別明細
                 stock_details = tax_data.get("stock_details", [])
                 if stock_details:
                     writer.writerow(["銘柄別損益明細"])
                     writer.writerow(["銘柄", "購入回数", "売却回数", "購入額", "売却額", "実現損益", "手数料"])
-                    
+
                     for stock in stock_details:
                         writer.writerow([
                             stock["symbol"],
@@ -275,10 +275,10 @@ class ReportExporter:
                             stock["realized_pnl"],
                             stock["total_fees"],
                         ])
-            
+
             logger.info(f"税務CSV出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"税務CSV出力エラー: {e}")
             return ""
@@ -286,20 +286,20 @@ class ReportExporter:
     def _export_transactions_to_csv(self, transactions: List[Dict], filename: str) -> str:
         """取引明細CSV出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             if not transactions:
                 logger.warning("取引データが空です")
                 return ""
-            
+
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 # ヘッダー作成
                 headers = list(transactions[0].keys())
                 writer = csv.DictWriter(csvfile, fieldnames=headers)
-                
+
                 # ヘッダー行出力
                 writer.writeheader()
-                
+
                 # データ出力
                 for transaction in transactions:
                     # Decimal型を文字列に変換
@@ -310,10 +310,10 @@ class ReportExporter:
                         else:
                             row[key] = value
                     writer.writerow(row)
-            
+
             logger.info(f"取引明細CSV出力完了: {file_path} ({len(transactions)}件)")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"取引明細CSV出力エラー: {e}")
             return ""
@@ -321,16 +321,16 @@ class ReportExporter:
     def _export_portfolio_to_html(self, report_data: Dict[str, Any], filename: str) -> str:
         """ポートフォリオHTML出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             html_content = self._generate_portfolio_html(report_data)
-            
+
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            
+
             logger.info(f"ポートフォリオHTML出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"ポートフォリオHTML出力エラー: {e}")
             return ""
@@ -340,7 +340,7 @@ class ReportExporter:
         performance = report_data.get("performance_metrics", {})
         risk_metrics = report_data.get("risk_metrics", {})
         efficiency = report_data.get("efficiency_metrics", {})
-        
+
         html = f"""
         <!DOCTYPE html>
         <html lang="ja">
@@ -366,7 +366,7 @@ class ReportExporter:
                 <h1>ポートフォリオレポート</h1>
                 <p>生成日時: {datetime.now().strftime('%Y年%m月%d日 %H:%M')}</p>
             </div>
-            
+
             <div class="section">
                 <h2>パフォーマンス指標</h2>
                 <div class="metrics-grid">
@@ -390,7 +390,7 @@ class ReportExporter:
                     </div>
                 </div>
             </div>
-            
+
             <div class="section">
                 <h2>詳細指標</h2>
                 <table>
@@ -402,29 +402,29 @@ class ReportExporter:
                     <tr><td>ポートフォリオベータ</td><td>{risk_metrics.get('portfolio_beta', 'N/A')}</td><td>-</td></tr>
                 </table>
             </div>
-            
+
             <div class="section">
                 <p><small>このレポートは自動生成されました。投資判断は自己責任で行ってください。</small></p>
             </div>
         </body>
         </html>
         """
-        
+
         return html
 
     def _export_tax_to_html(self, tax_data: Dict[str, Any], filename: str) -> str:
         """税務HTML出力"""
         file_path = self.output_dir / filename
-        
+
         try:
             html_content = self._generate_tax_html(tax_data)
-            
+
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            
+
             logger.info(f"税務HTML出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"税務HTML出力エラー: {e}")
             return ""
@@ -434,7 +434,7 @@ class ReportExporter:
         report_info = tax_data.get("report_info", {})
         tax_summary = tax_data.get("tax_summary", {})
         stock_details = tax_data.get("stock_details", [])
-        
+
         # 銘柄別テーブル生成
         stock_table_rows = ""
         for stock in stock_details:
@@ -450,7 +450,7 @@ class ReportExporter:
                 <td>{stock['total_fees']:,}</td>
             </tr>
             """
-        
+
         html = f"""
         <!DOCTYPE html>
         <html lang="ja">
@@ -477,7 +477,7 @@ class ReportExporter:
                 <p>対象年度: {report_info.get('target_year', 'N/A')}年</p>
                 <p>作成日時: {report_info.get('generation_date', 'N/A')}</p>
             </div>
-            
+
             <div class="section important">
                 <h2>重要な税務情報</h2>
                 <div class="summary-grid">
@@ -495,7 +495,7 @@ class ReportExporter:
                     </div>
                 </div>
             </div>
-            
+
             <div class="section">
                 <h2>税務サマリー詳細</h2>
                 <table>
@@ -509,7 +509,7 @@ class ReportExporter:
                     <tr><td>復興特別所得税</td><td>{tax_summary.get('special_reconstruction_tax', 'N/A'):,}円</td></tr>
                 </table>
             </div>
-            
+
             <div class="section">
                 <h2>銘柄別損益明細</h2>
                 <table>
@@ -525,14 +525,14 @@ class ReportExporter:
                     {stock_table_rows}
                 </table>
             </div>
-            
+
             <div class="section">
                 <p><small>このデータは確定申告の参考用です。正式な申告前に税理士等にご相談ください。</small></p>
             </div>
         </body>
         </html>
         """
-        
+
         return html
 
     def _export_transactions_to_excel(self, transactions: List[Dict], filename: str) -> str:
@@ -544,14 +544,14 @@ class ReportExporter:
         except ImportError:
             logger.error("Excel出力にはopenpyxlが必要です")
             return ""
-        
+
         file_path = self.output_dir / filename
-        
+
         try:
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "取引明細"
-            
+
             # ヘッダースタイル設定
             header_font = Font(bold=True)
             header_alignment = Alignment(horizontal='center')
@@ -561,7 +561,7 @@ class ReportExporter:
                 top=Side(style='thin'),
                 bottom=Side(style='thin')
             )
-            
+
             # ヘッダー行
             if transactions:
                 headers = list(transactions[0].keys())
@@ -570,17 +570,17 @@ class ReportExporter:
                     cell.font = header_font
                     cell.alignment = header_alignment
                     cell.border = border
-                
+
                 # データ行
                 for row, transaction in enumerate(transactions, 2):
                     for col, (key, value) in enumerate(transaction.items(), 1):
                         cell = ws.cell(row=row, column=col, value=str(value))
                         cell.border = border
-                        
+
                         # 数値の場合は右寄せ
                         if isinstance(value, (int, float, Decimal)):
                             cell.alignment = Alignment(horizontal='right')
-            
+
             # 列幅自動調整
             for column in ws.columns:
                 max_length = 0
@@ -593,11 +593,11 @@ class ReportExporter:
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width
-            
+
             wb.save(file_path)
             logger.info(f"Excel出力完了: {file_path}")
             return str(file_path)
-            
+
         except Exception as e:
             logger.error(f"Excel出力エラー: {e}")
             return ""
@@ -623,9 +623,9 @@ class ReportExporter:
         """
         if formats is None:
             formats = ["json", "csv", "html"]
-        
+
         output_files = []
-        
+
         for format_type in formats:
             try:
                 if data_type == "portfolio":
@@ -637,13 +637,13 @@ class ReportExporter:
                 else:
                     logger.error(f"未知のデータタイプ: {data_type}")
                     continue
-                
+
                 if file_path:
                     output_files.append(file_path)
-                    
+
             except Exception as e:
                 logger.error(f"{format_type}形式出力エラー: {e}")
-        
+
         logger.info(f"複数形式出力完了: {len(output_files)}ファイル")
         return output_files
 
@@ -664,7 +664,7 @@ class ReportExporter:
         try:
             cutoff_date = datetime.now() - timedelta(days=days_old)
             deleted_count = 0
-            
+
             for file_path in self.output_dir.glob("*"):
                 if file_path.is_file():
                     file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
@@ -672,10 +672,10 @@ class ReportExporter:
                         file_path.unlink()
                         deleted_count += 1
                         logger.debug(f"古いレポート削除: {file_path}")
-            
+
             logger.info(f"古いレポートクリーンアップ完了: {deleted_count}ファイル削除")
             return deleted_count
-            
+
         except Exception as e:
             logger.error(f"レポートクリーンアップエラー: {e}")
             return 0

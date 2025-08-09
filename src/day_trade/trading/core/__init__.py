@@ -12,7 +12,7 @@ from .types import Trade, Position, RealizedPnL, TradeStatus
 __all__ = [
     "TradeExecutor",
     "PositionManager",
-    "RiskCalculator", 
+    "RiskCalculator",
     "Trade",
     "Position",
     "RealizedPnL",

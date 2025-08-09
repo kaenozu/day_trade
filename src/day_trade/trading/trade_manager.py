@@ -157,11 +157,11 @@ class TradeManager:
                 if self.enable_compliance:
                     existing_trades = self.trade_executor.get_trade_history()
                     portfolio_value = self._calculate_portfolio_value()
-                    
+
                     compliance_result = self.compliance_checker.check_trade_compliance(
                         temp_trade, existing_trades, portfolio_value
                     )
-                    
+
                     if not compliance_result["overall_compliant"]:
                         logger.error(f"コンプライアンス違反: {symbol} - {compliance_result['violations']}")
                         return None
@@ -279,38 +279,38 @@ class TradeManager:
                 # ポートフォリオレポート
                 positions = self.position_manager.get_all_positions()
                 trades = self.trade_executor.get_trade_history()
-                
+
                 report_data = self.portfolio_analyzer.generate_performance_report(
                     trades, positions, period_days
                 )
-                
+
                 file_paths = self.report_exporter.export_multiple_formats(
                     report_data, "portfolio", f"portfolio_{period_days}days", formats
                 )
-                
+
                 generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
 
             elif report_type == "tax":
                 # 税務レポート
                 trades = self.trade_executor.get_trade_history()
                 current_year = datetime.now().year
-                
+
                 tax_data = self.tax_calculator.generate_tax_report_data(trades, current_year)
-                
+
                 file_paths = self.report_exporter.export_multiple_formats(
                     tax_data, "tax", f"tax_report_{current_year}", formats
                 )
-                
+
                 generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
 
             elif report_type == "performance":
                 # パフォーマンスレポート
                 status = self.get_portfolio_status()
-                
+
                 file_paths = self.report_exporter.export_multiple_formats(
                     status, "portfolio", f"performance_{period_days}days", formats
                 )
-                
+
                 generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
 
             else:
@@ -341,10 +341,10 @@ class TradeManager:
         try:
             # データ検証
             validation_result = self.trade_validator.validate_trade_batch(trades)
-            
+
             # シーケンス検証
             sequence_result = self.trade_validator.validate_trade_sequence(trades)
-            
+
             # 統合結果
             combined_result = {
                 "batch_validation": validation_result,
@@ -375,7 +375,7 @@ class TradeManager:
         try:
             # DBから取引データ読み込み
             db_trades = self.db_manager.load_trades_from_db()
-            
+
             if not db_trades:
                 logger.info("同期対象データなし")
                 return {"synced_trades": 0}
@@ -419,21 +419,21 @@ class TradeManager:
 
         try:
             trades = self.trade_executor.get_trade_history()
-            
+
             if not trades:
                 return {"message": "クリーンアップ対象データなし"}
 
             # データクリーニング実行
             cleaning_result = self.data_cleaner.clean_trades_data(trades)
-            
+
             # クリーン済みデータで更新
             if cleaning_result.get("cleaned_trades"):
                 cleaned_trades = cleaning_result["cleaned_trades"]
-                
+
                 # 取引履歴を更新
                 self.trade_executor.trades = cleaned_trades
                 self.trade_executor.trade_history.clear()
-                
+
                 # ポジションを再計算
                 self.position_manager.clear_all_positions()
                 for trade in cleaned_trades:

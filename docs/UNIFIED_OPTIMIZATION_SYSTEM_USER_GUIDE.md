@@ -63,7 +63,7 @@ python -m src.day_trade.core.optimization_cli component list
 
 ```python
 from src.day_trade.core import (
-    OptimizationConfig, 
+    OptimizationConfig,
     OptimizationLevel,
     get_optimized_implementation
 )
@@ -106,14 +106,14 @@ for indicator, result in results.items():
 
 ```python
 from src.day_trade.analysis.feature_engineering_unified import (
-    FeatureEngineeringManager, 
+    FeatureEngineeringManager,
     FeatureConfig
 )
 
 # 特徴量設定
 feature_config = FeatureConfig(
     lookback_periods=[5, 10, 20, 50],
-    volatility_windows=[10, 20, 50], 
+    volatility_windows=[10, 20, 50],
     momentum_periods=[5, 10, 20],
     enable_parallel=True,
     max_workers=4
@@ -192,7 +192,7 @@ for tf_name, tf_result in result.timeframe_results.items():
   "batch_size": 1000,
   "timeout_seconds": 60,
   "memory_limit_mb": 1024,
-  
+
   "component_specific": {
     "technical_indicators": {
       "level": "optimized",
@@ -200,7 +200,7 @@ for tf_name, tf_result in result.timeframe_results.items():
       "cache_ttl_seconds": 300
     },
     "feature_engineering": {
-      "level": "optimized", 
+      "level": "optimized",
       "chunk_size": 10000,
       "max_workers": 6
     },
@@ -210,7 +210,7 @@ for tf_name, tf_result in result.timeframe_results.items():
       "cache_size": 2000
     }
   },
-  
+
   "system_thresholds": {
     "auto_fallback_triggers": {
       "memory_over": 90,
@@ -320,15 +320,15 @@ def monitor_system_resources():
     while True:
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        
+
         print(f"CPU: {cpu_percent}%, Memory: {memory.percent}%")
-        
+
         # アラート閾値チェック
         if cpu_percent > 90:
             print("⚠️  高CPU使用率検出")
         if memory.percent > 85:
             print("⚠️  高メモリ使用率検出")
-        
+
         time.sleep(10)
 
 # バックグラウンド実行
@@ -469,7 +469,7 @@ python -m src.day_trade.core.optimization_cli benchmark
 ## FAQ
 
 ### Q: どの最適化レベルを選ぶべきですか？
-A: 
+A:
 - **開発・テスト**: Standard
 - **本番・高負荷**: Optimized  
 - **環境変動大**: Adaptive
@@ -503,7 +503,7 @@ from src.day_trade.core.optimization_strategy import optimization_strategy, Opti
 class MyComponent(OptimizationStrategy):
     def get_strategy_name(self) -> str:
         return "カスタムコンポーネント"
-    
+
     def execute(self, *args, **kwargs):
         # 実装
         pass

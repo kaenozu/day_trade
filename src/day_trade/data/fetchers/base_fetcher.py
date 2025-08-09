@@ -264,7 +264,7 @@ class BaseFetcher(ABC):
         """ヘルスチェック"""
         try:
             stats = self.get_retry_stats()
-            
+
             # 健康状態の評価
             health_score = 100
             issues = []

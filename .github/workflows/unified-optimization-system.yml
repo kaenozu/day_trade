@@ -119,12 +119,12 @@ jobs:
             print('Technical indicators imported successfully')
         except Exception as e:
             print(f'Technical indicators import warning: {e}')
-        
+
         from src.day_trade.core.optimization_strategy import OptimizationStrategyFactory
         components = OptimizationStrategyFactory.get_registered_components()
         print(f'Registered components: {list(components.keys())}')
         print(f'Number of components: {len(components)}')
-        
+
         if len(components) == 0:
             print('WARNING: No components registered, but continuing test')
         else:
@@ -138,14 +138,14 @@ jobs:
         python -c "
         import sys
         sys.path.insert(0, 'src')
-        
+
         # Import modules to trigger auto-registration
         try:
             from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
             print('Technical indicators imported successfully')
         except Exception as e:
             print(f'Technical indicators import warning: {e}')
-        
+
         from src.day_trade.core.optimization_strategy import (
             OptimizationConfig, OptimizationLevel, get_optimized_implementation, OptimizationStrategyFactory
         )
@@ -153,7 +153,7 @@ jobs:
         # Check registered components
         components = OptimizationStrategyFactory.get_registered_components()
         print(f'Available components: {list(components.keys())}')
-        
+
         # Test technical indicators if available
         if 'technical_indicators' in components:
             try:

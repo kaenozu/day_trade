@@ -31,7 +31,15 @@ from ..utils.performance_config import get_performance_config
 # Issue #120: Baseクラスをbase.pyからインポート（責務の明確化）
 from .base import Base
 
+# Global Trading Engine モデル追加
+from .forex_models import ForexPrice
+from .crypto_models import CryptoPrice
+from .global_models import GlobalMarketData
+
 logger = get_context_logger(__name__)
+
+# グローバルデータベースマネージャー（シングルトン）
+_global_db_manager: Optional['DatabaseManager'] = None
 
 # テスト用のデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -995,3 +1003,21 @@ def create_database_manager(
         config=DatabaseConfig(config_manager=config_manager),
         config_manager=config_manager,
     )
+
+# Global Trading Engine用のグローバル関数
+def get_global_db_manager() -> DatabaseManager:
+    """グローバルデータベースマネージャー取得"""
+    global _global_db_manager
+    if _global_db_manager is None:
+        _global_db_manager = create_database_manager()
+    return _global_db_manager
+
+def get_session() -> Session:
+    """データベースセッション取得（グローバル）"""
+    return get_global_db_manager().get_session()
+
+def init_global_database():
+    """グローバルデータベース初期化"""
+    db_manager = get_global_db_manager()
+    db_manager.create_all_tables()
+    logger.info("Global database initialized for Global Trading Engine")

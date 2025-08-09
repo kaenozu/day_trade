@@ -59,7 +59,7 @@ class ErrorContext:
 
 class MultiLanguageErrorMessages:
     """多言語エラーメッセージ"""
-    
+
     def __init__(self):
         self.messages = {
             'ja': {
@@ -125,7 +125,7 @@ class MultiLanguageErrorMessages:
                 }
             }
         }
-    
+
     def get_message(self, category: ErrorCategory, error_type: str, language: str = 'ja') -> str:
         """エラーメッセージ取得"""
         try:
@@ -137,7 +137,7 @@ class MultiLanguageErrorMessages:
 
 class AutoRecoveryManager:
     """自動復旧管理"""
-    
+
     def __init__(self):
         self.recovery_strategies = {
             ErrorCategory.DATA_ERROR: self._recover_data_error,
@@ -145,7 +145,7 @@ class AutoRecoveryManager:
             ErrorCategory.COMPUTATION_ERROR: self._recover_computation_error,
             ErrorCategory.CONFIGURATION_ERROR: self._recover_config_error,
         }
-    
+
     def attempt_recovery(self, error_context: ErrorContext, **kwargs) -> bool:
         """復旧試行"""
         if error_context.category in self.recovery_strategies:
@@ -155,7 +155,7 @@ class AutoRecoveryManager:
                 logger.error(f"自動復旧失敗: {e}")
                 return False
         return False
-    
+
     def _recover_data_error(self, error_context: ErrorContext, **kwargs) -> bool:
         """データエラー復旧"""
         if 'missing_data' in error_context.technical_details.lower():
@@ -163,28 +163,28 @@ class AutoRecoveryManager:
             if 'fallback_data' in kwargs:
                 logger.info("代替データを使用して復旧試行")
                 return True
-            
+
             # データ補間試行
             if 'enable_interpolation' in kwargs:
                 logger.info("データ補間による復旧試行")
                 return True
-        
+
         return False
-    
+
     def _recover_network_error(self, error_context: ErrorContext, **kwargs) -> bool:
         """ネットワークエラー復旧"""
         if 'timeout' in error_context.technical_details.lower():
             # タイムアウト延長
             retry_count = kwargs.get('retry_count', 0)
             max_retries = kwargs.get('max_retries', 3)
-            
+
             if retry_count < max_retries:
                 logger.info(f"ネットワーク再試行 ({retry_count + 1}/{max_retries})")
                 time.sleep(min(2 ** retry_count, 10))  # 指数バックオフ
                 return True
-        
+
         return False
-    
+
     def _recover_computation_error(self, error_context: ErrorContext, **kwargs) -> bool:
         """計算エラー復旧"""
         if 'memory' in error_context.technical_details.lower():
@@ -192,16 +192,16 @@ class AutoRecoveryManager:
             if 'reduce_batch_size' in kwargs:
                 logger.info("バッチサイズを縮小して復旧試行")
                 return True
-            
+
             # キャッシュクリア
             if 'clear_cache' in kwargs:
                 logger.info("キャッシュをクリアして復旧試行")
                 import gc
                 gc.collect()
                 return True
-        
+
         return False
-    
+
     def _recover_config_error(self, error_context: ErrorContext, **kwargs) -> bool:
         """設定エラー復旧"""
         if 'missing_config' in error_context.technical_details.lower():
@@ -209,16 +209,16 @@ class AutoRecoveryManager:
             if 'create_default_config' in kwargs:
                 logger.info("デフォルト設定を作成して復旧試行")
                 return True
-        
+
         return False
 
 
 class ErrorAnalyzer:
     """エラー分析・診断"""
-    
+
     def __init__(self):
         self.error_patterns = self._load_error_patterns()
-    
+
     def _load_error_patterns(self) -> Dict[str, Any]:
         """エラーパターン読み込み"""
         return {
@@ -244,18 +244,18 @@ class ErrorAnalyzer:
                 ],
             }
         }
-    
+
     def analyze_error(self, exception: Exception, context: Dict[str, Any]) -> ErrorContext:
         """エラー分析"""
         error_message = str(exception)
         error_type = type(exception).__name__
-        
+
         # エラーカテゴリとタイプの特定
         category, error_subtype = self._classify_error(error_message, error_type)
-        
+
         # 重要度判定
         severity = self._determine_severity(exception, category, context)
-        
+
         # エラーコンテキスト生成
         error_context = ErrorContext(
             error_id=self._generate_error_id(),
@@ -269,25 +269,25 @@ class ErrorAnalyzer:
             user_impact=self._assess_user_impact(category, severity),
             suggested_actions=self._generate_suggestions(category, error_subtype)
         )
-        
+
         return error_context
-    
+
     def _classify_error(self, error_message: str, error_type: str) -> tuple:
         """エラー分類"""
         for category_name, category_info in self.error_patterns.items():
             for pattern in category_info['patterns']:
                 if pattern['keyword'].lower() in error_message.lower() or pattern['keyword'] in error_type:
                     return pattern['category'], pattern['type']
-        
+
         # デフォルト分類
         return ErrorCategory.SYSTEM_ERROR, 'unknown_error'
-    
+
     def _determine_severity(self, exception: Exception, category: ErrorCategory, context: Dict[str, Any]) -> ErrorSeverity:
         """重要度判定"""
         # 致命的エラー
         if isinstance(exception, (SystemError, MemoryError)):
             return ErrorSeverity.CRITICAL
-        
+
         # カテゴリ別重要度
         severity_mapping = {
             ErrorCategory.DATA_ERROR: ErrorSeverity.MEDIUM,
@@ -297,18 +297,18 @@ class ErrorAnalyzer:
             ErrorCategory.SYSTEM_ERROR: ErrorSeverity.CRITICAL,
             ErrorCategory.USER_INPUT_ERROR: ErrorSeverity.LOW,
         }
-        
+
         return severity_mapping.get(category, ErrorSeverity.MEDIUM)
-    
+
     def _generate_error_id(self) -> str:
         """エラーID生成"""
         import uuid
         return f"ERR_{uuid.uuid4().hex[:8]}"
-    
+
     def _get_technical_details(self, exception: Exception) -> str:
         """技術的詳細取得"""
         return traceback.format_exc()
-    
+
     def _assess_user_impact(self, category: ErrorCategory, severity: ErrorSeverity) -> str:
         """ユーザー影響評価"""
         impact_matrix = {
@@ -318,9 +318,9 @@ class ErrorAnalyzer:
             (ErrorCategory.COMPUTATION_ERROR, ErrorSeverity.HIGH): "計算処理が停止しました",
             (ErrorCategory.SYSTEM_ERROR, ErrorSeverity.CRITICAL): "システムが利用できません",
         }
-        
+
         return impact_matrix.get((category, severity), "システムに影響が生じています")
-    
+
     def _generate_suggestions(self, category: ErrorCategory, error_type: str) -> List[str]:
         """改善提案生成"""
         suggestions_db = {
@@ -345,32 +345,32 @@ class ErrorAnalyzer:
                 "バッチ処理サイズを小さくしてください"
             ]
         }
-        
+
         if category in suggestions_db:
             if isinstance(suggestions_db[category], dict):
                 return suggestions_db[category].get(error_type, ["専門家にお問い合わせください"])
             else:
                 return suggestions_db[category]
-        
+
         return ["エラーの詳細をサポートにお問い合わせください"]
 
 
 class EnhancedErrorHandler:
     """強化エラーハンドリングシステム"""
-    
+
     def __init__(self, config: Optional[OptimizationConfig] = None, language: str = 'ja'):
         self.config = config or OptimizationConfig()
         self.language = language
-        
+
         self.message_manager = MultiLanguageErrorMessages()
         self.recovery_manager = AutoRecoveryManager()
         self.analyzer = ErrorAnalyzer()
-        
+
         # エラー履歴
         self.error_history: List[ErrorContext] = []
-        
+
         logger.info(f"強化エラーハンドリングシステム初期化完了 (言語: {language})")
-    
+
     def handle_error(
         self,
         exception: Exception,
@@ -381,7 +381,7 @@ class EnhancedErrorHandler:
         """エラー処理"""
         # エラー分析
         error_context = self.analyzer.analyze_error(exception, context)
-        
+
         # 多言語メッセージ取得
         if hasattr(error_context, 'error_subtype'):
             localized_message = self.message_manager.get_message(
@@ -390,7 +390,7 @@ class EnhancedErrorHandler:
                 self.language
             )
             error_context.error_message = localized_message
-        
+
         # 自動復旧試行
         if auto_recovery and error_context.severity != ErrorSeverity.CRITICAL:
             logger.info(f"自動復旧試行: {error_context.error_id}")
@@ -398,15 +398,15 @@ class EnhancedErrorHandler:
             error_context.recovery_successful = self.recovery_manager.attempt_recovery(
                 error_context, **recovery_kwargs
             )
-        
+
         # エラー履歴記録
         self.error_history.append(error_context)
-        
+
         # ログ出力
         self._log_error(error_context)
-        
+
         return error_context
-    
+
     def _log_error(self, error_context: ErrorContext):
         """エラーログ出力"""
         log_level_mapping = {
@@ -415,21 +415,21 @@ class EnhancedErrorHandler:
             ErrorSeverity.HIGH: logging.ERROR,
             ErrorSeverity.CRITICAL: logging.CRITICAL,
         }
-        
+
         log_level = log_level_mapping.get(error_context.severity, logging.ERROR)
-        
-        logger.log(log_level, 
+
+        logger.log(log_level,
             f"エラー発生 [{error_context.error_id}]: "
             f"{error_context.component}.{error_context.operation} - "
             f"{error_context.error_message}"
         )
-        
+
         if error_context.auto_recovery_attempted:
             if error_context.recovery_successful:
                 logger.info(f"自動復旧成功 [{error_context.error_id}]")
             else:
                 logger.warning(f"自動復旧失敗 [{error_context.error_id}]")
-    
+
     def get_user_friendly_error(self, error_context: ErrorContext) -> Dict[str, Any]:
         """ユーザー向けエラー情報"""
         return {
@@ -442,32 +442,32 @@ class EnhancedErrorHandler:
             'recovery_successful': error_context.recovery_successful,
             'timestamp': error_context.timestamp.isoformat()
         }
-    
+
     def get_error_statistics(self) -> Dict[str, Any]:
         """エラー統計取得"""
         if not self.error_history:
             return {'total_errors': 0}
-        
+
         total_errors = len(self.error_history)
         severity_counts = {}
         category_counts = {}
         recovery_success_rate = 0
-        
+
         for error_context in self.error_history:
             # 重要度別集計
             severity = error_context.severity.value
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
-            
+
             # カテゴリ別集計
             category = error_context.category.value
             category_counts[category] = category_counts.get(category, 0) + 1
-        
+
         # 自動復旧成功率
         recovery_attempts = sum(1 for ec in self.error_history if ec.auto_recovery_attempted)
         if recovery_attempts > 0:
             recovery_successes = sum(1 for ec in self.error_history if ec.recovery_successful)
             recovery_success_rate = recovery_successes / recovery_attempts
-        
+
         return {
             'total_errors': total_errors,
             'severity_distribution': severity_counts,
@@ -504,13 +504,13 @@ def handle_error_gracefully(
                     'function': func.__name__
                 }
                 error_context = error_handler.handle_error(e, context)
-                
+
                 # 復旧成功時は処理継続、失敗時は例外再発生
                 if error_context.recovery_successful:
                     logger.info(f"エラー復旧により処理継続: {operation_name}")
                     return func(*args, **kwargs)  # 復旧後再試行
                 else:
                     raise e  # 元の例外を再発生
-        
+
         return wrapper
     return decorator

@@ -14,7 +14,7 @@ from .realtime_prediction_api import (
 
 __all__ = [
     'RealtimePredictionAPI',
-    'PredictionRequest', 
+    'PredictionRequest',
     'PredictionResponse'
 ]
 
