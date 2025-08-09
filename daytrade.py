@@ -223,7 +223,7 @@ def validate_interval(interval: int) -> int:
     Raises:
         CLIValidationError: バリデーションエラー
     """
-    if not isinstance(interval, int) or interval <= 0:
+    if interval <= 0:
         raise CLIValidationError("監視間隔は正の整数である必要があります。")
     return interval
 
