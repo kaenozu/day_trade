@@ -11,6 +11,7 @@ Issue #331: API・外部統合システム - Phase 1
 """
 
 import asyncio
+import hashlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -758,7 +759,7 @@ class ExternalAPIClient:
                 "high": [base_price * random.uniform(1.01, 1.05)],
                 "low": [base_price * random.uniform(0.95, 0.99)],
                 "close": [base_price * random.uniform(0.99, 1.03)],
-                "volume": [random.randint(100000, 5000000)],
+                "volume": [random.randint(100000, 500000)],
                 "symbol": [symbol],
             }
         )

@@ -27,6 +27,27 @@ try:
     import logging
     logger = logging.getLogger(__name__)
 
+    from src.day_trade.database.high_speed_time_series_db import (
+        TimeSeriesConfig,
+        HighSpeedTimeSeriesDB,
+    )
+    from src.day_trade.data.data_compression_archive_system import (
+        CompressionConfig,
+        CompressionAlgorithm,
+        DataCompressionArchiveSystem,
+        DataLifecycleStage,
+    )
+    from src.day_trade.data.incremental_update_system import (
+        IncrementalConfig,
+        IncrementalUpdateSystem,
+    )
+    from src.day_trade.api.api_integration_manager import DataSource
+    from src.day_trade.data.backup_disaster_recovery_system import (
+        BackupConfig,
+        BackupDisasterRecoverySystem,
+        BackupType,
+    )
+
     # Issue #317実装システム（簡易版）
     print("Issue #317高速データ管理システムの簡易テスト実行")
 

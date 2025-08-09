@@ -445,6 +445,7 @@ class TransformerModel(BaseDeepLearningModel):
         patience_counter = 0
         
         # 訓練ループ
+        epoch = 0
         for epoch in range(self.config.epochs):
             # 訓練フェーズ
             self.model.train()
@@ -509,6 +510,7 @@ class TransformerModel(BaseDeepLearningModel):
         # 簡易訓練ループ
         best_loss = float('inf')
         
+        epoch = 0
         for epoch in range(min(self.config.epochs, 20)):  # 簡易版は20エポックまで
             # フォワードパス（簡易Multi-Head Attention）
             train_pred = self._numpy_forward_pass(X_train)
@@ -800,6 +802,7 @@ class LSTMModel(BaseDeepLearningModel):
         best_val_loss = float('inf')
         patience_counter = 0
         
+        epoch = 0
         for epoch in range(self.config.epochs):
             self.model.train()
             train_loss = 0.0
@@ -857,6 +860,7 @@ class LSTMModel(BaseDeepLearningModel):
         
         best_loss = float('inf')
         
+        epoch = 0
         for epoch in range(min(self.config.epochs, 30)):
             train_pred = self._numpy_lstm_forward(X_train)
             val_pred = self._numpy_lstm_forward(X_val)
@@ -1002,42 +1006,6 @@ class DeepLearningModelManager:
         logger.info(f"{model_type.value}モデル訓練完了: 精度{training_result.validation_accuracy:.3f}")
         
         return training_result
-    
-    def predict_ensemble(self, data: pd.DataFrame) -> PredictionResult:
-        """アンサンブル予測"""
-        if not self.models:
-            raise ValueError("訓練済みモデルがありません")
-        
-        predictions = []
-        confidences = []
-        model_names = []
-        
-        # 各モデルで予測
-        for model_name, model in self.models.items():
-            X, _ = model.prepare_data(data)
-            result = model.predict(X)
-            
-            predictions.append(result.predictions)
-            confidences.append(result.confidence)
-            model_names.append(model_name)
-        
-        # アンサンブル統合
-        if len(predictions) == 1:
-            ensemble_pred = predictions[0]
-            ensemble_conf = confidences[0]
-        else:
-            # 重み付き平均
-            weights = np.array([0.6, 0.4])[:len(predictions)]  # Transformer重視
-            weights = weights / weights.sum()
-            
-            ensemble_pred = np.average(predictions, axis=0, weights=weights)
-            ensemble_conf = np.average(confidences, axis=0, weights=weights)
-        
-        return PredictionResult(
-            predictions=ensemble_pred,
-            confidence=ensemble_conf,
-            model_used=f"Ensemble({'+'.join(model_names)})"
-        )
     
     def register_model(self, name: str, model: BaseDeepLearningModel):
         """モデル登録"""
