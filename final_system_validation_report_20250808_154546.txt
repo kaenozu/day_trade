@@ -1,0 +1,31 @@
+================================================================================
+実データでの最終動作確認テスト - 統合レポート
+================================================================================
+テスト実行日時: 2025-08-08 15:45:42
+総実行時間: 0:00:04.124690
+テスト対象銘柄: 7203.T, 8306.T, 9984.T, 6758.T, 9432.T
+
+【個別テスト結果】
+  [NG] Core System
+    エラー: name 'DayTrade' is not defined
+  [NG] Ml Performance
+    エラー: name 'AdvancedMLEngine' is not defined
+  [NG] Real Data Integration
+    エラー: name 'StockFetcher' is not defined
+  [NG] Dashboard Integration
+    エラー: name 'ProductionDashboard' is not defined
+  [OK] Performance Stress
+    タスク成功率: 100.0%
+    最終メモリ使用率: 69.4%
+  [NG] Error Handling
+    エラー: name 'StockFetcher' is not defined
+
+【総合評価】
+成功率: 1/6 (16.7%)
+総合ステータス: 不合格
+推奨事項: システムの大幅な見直しが必要です。
+
+【システム情報】
+Python バージョン: 3.12.10
+メモリ総量: 13.9GB
+CPU コア数: 8

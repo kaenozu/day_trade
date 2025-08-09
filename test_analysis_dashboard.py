@@ -11,9 +11,13 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.day_trade.dashboard.analysis_dashboard_server import app
-from src.day_trade.config.trading_mode_config import is_safe_mode, get_current_trading_config
 from fastapi.testclient import TestClient
+
+from src.day_trade.config.trading_mode_config import (
+    get_current_trading_config,
+    is_safe_mode,
+)
+from src.day_trade.dashboard.analysis_dashboard_server import app
 
 
 def test_safe_mode_configuration():

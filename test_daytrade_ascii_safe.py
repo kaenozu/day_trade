@@ -8,7 +8,6 @@ so this test only tests analysis-related functionality safely.
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -44,7 +43,11 @@ class TestDaytradeAnalysisCompatibility:
 
         try:
             # Import validation functions from daytrade.py
-            from daytrade import validate_symbols, validate_log_level, CLIValidationError
+            from daytrade import (
+                CLIValidationError,
+                validate_log_level,
+                validate_symbols,
+            )
 
             # Symbol validation test
             valid_symbols = validate_symbols("7203,8306,9984")
@@ -54,7 +57,7 @@ class TestDaytradeAnalysisCompatibility:
             # Invalid symbol code test
             try:
                 validate_symbols("INVALID")
-                assert False, "Exception not raised for invalid symbol"
+                raise AssertionError("Exception not raised for invalid symbol")
             except CLIValidationError:
                 print("[OK] Invalid symbol validation: error detection working")
 
@@ -91,7 +94,7 @@ class TestDaytradeAnalysisCompatibility:
         print("=== Configuration File Validation Test ===")
 
         try:
-            from daytrade import validate_config_file, CLIValidationError
+            from daytrade import CLIValidationError, validate_config_file
 
             # Create temporary valid config file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -107,7 +110,7 @@ class TestDaytradeAnalysisCompatibility:
                 # Non-existent file test
                 try:
                     validate_config_file("nonexistent.json")
-                    assert False, "Exception not raised for non-existent file"
+                    raise AssertionError("Exception not raised for non-existent file")
                 except CLIValidationError:
                     print("[OK] Non-existent file validation: error detection working")
 
@@ -132,22 +135,23 @@ class TestAlternativeRecommendations:
         # Analysis-only engine availability test
         try:
             from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
-            engine = AnalysisOnlyEngine(["7203"], update_interval=60.0)
+            AnalysisOnlyEngine(["7203"], update_interval=60.0)
             print("[OK] AnalysisOnlyEngine: available")
         except Exception as e:
             print(f"[WARNING] AnalysisOnlyEngine: {e}")
 
         # Dashboard server availability test
         try:
-            from src.day_trade.dashboard.analysis_dashboard_server import app
             print("[OK] AnalysisDashboardServer: available")
         except Exception as e:
             print(f"[WARNING] AnalysisDashboardServer: {e}")
 
         # Report manager availability test
         try:
-            from src.day_trade.analysis.enhanced_report_manager import EnhancedReportManager
-            manager = EnhancedReportManager()
+            from src.day_trade.analysis.enhanced_report_manager import (
+                EnhancedReportManager,
+            )
+            EnhancedReportManager()
             print("[OK] EnhancedReportManager: available")
         except Exception as e:
             print(f"[WARNING] EnhancedReportManager: {e}")

@@ -5,11 +5,12 @@
 他のキャッシュ実装の基盤となります。
 """
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-logger = logging.getLogger(__name__)
+from src.day_trade.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 K = TypeVar("K")  # Key type
 V = TypeVar("V")  # Value type

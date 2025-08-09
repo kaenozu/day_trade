@@ -15,12 +15,14 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+import contextlib
+
+from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+from src.day_trade.automation.trading_engine import TradingEngine
 from src.day_trade.config.trading_mode_config import (
     get_current_trading_config,
     is_safe_mode,
 )
-from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
-from src.day_trade.automation.trading_engine import TradingEngine
 
 
 def test_safe_mode_configuration():
@@ -102,7 +104,7 @@ def test_analysis_only_engine():
         assert status['trading_disabled'], "Trading functionality is enabled"
 
         recommendations = engine.get_symbol_recommendations("7203")
-        print(f"\n7203 recommendations:")
+        print("\n7203 recommendations:")
         for rec in recommendations[:3]:  # First 3 only
             print(f"  - {rec}")
 
@@ -139,7 +141,7 @@ async def test_analysis_engine_operation():
 
         latest_report = engine.get_latest_report()
         if latest_report:
-            print(f"Latest report:")
+            print("Latest report:")
             print(f"  - Analyzed symbols: {latest_report.analyzed_symbols}")
             print(f"  - Strong signals: {latest_report.strong_signals}")
             print(f"  - Market sentiment: {latest_report.market_sentiment}")
@@ -152,10 +154,8 @@ async def test_analysis_engine_operation():
 
         if not start_task.done():
             start_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await start_task
-            except asyncio.CancelledError:
-                pass
 
     except Exception as e:
         print(f"\n[FAIL] Analysis engine operation test: ERROR - {e}")

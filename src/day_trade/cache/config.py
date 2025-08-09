@@ -5,12 +5,13 @@
 元のcache_utils.pyから設定関連機能を分離。
 """
 
-import logging
 import os
 import threading
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+from src.day_trade.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class CacheConstants:

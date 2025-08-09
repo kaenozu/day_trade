@@ -16,13 +16,15 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+import contextlib
+
+from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+from src.day_trade.automation.trading_engine import TradingEngine
 from src.day_trade.config.trading_mode_config import (
     get_current_trading_config,
     is_safe_mode,
     log_current_configuration,
 )
-from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
-from src.day_trade.automation.trading_engine import TradingEngine
 
 
 def test_safe_mode_configuration():
@@ -113,7 +115,7 @@ def test_analysis_only_engine():
 
         # 推奨事項テスト
         recommendations = engine.get_symbol_recommendations("7203")
-        print(f"\n7203の推奨事項:")
+        print("\n7203の推奨事項:")
         for rec in recommendations:
             print(f"  - {rec}")
 
@@ -155,7 +157,7 @@ async def test_analysis_engine_operation():
         # レポート確認
         latest_report = engine.get_latest_report()
         if latest_report:
-            print(f"最新レポート:")
+            print("最新レポート:")
             print(f"  - 分析銘柄数: {latest_report.analyzed_symbols}")
             print(f"  - 強いシグナル: {latest_report.strong_signals}")
             print(f"  - 市場センチメント: {latest_report.market_sentiment}")
@@ -170,10 +172,8 @@ async def test_analysis_engine_operation():
         # タスクをキャンセル
         if not start_task.done():
             start_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await start_task
-            except asyncio.CancelledError:
-                pass
 
     except Exception as e:
         print(f"\n✗ 分析エンジン動作テスト: エラー - {e}")

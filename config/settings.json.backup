@@ -1,0 +1,759 @@
+{
+  "version": "1.0.0",
+  "name": "DayTrade Auto Settings",
+  "description": "全自動デイトレード設定ファイル",
+
+  "watchlist": {
+    "symbols": [
+      {
+        "code": "7203",
+        "name": "トヨタ自動車",
+        "group": "自動車",
+        "priority": "high",
+        "sector": "Transportation"
+      },
+      {
+        "code": "8306",
+        "name": "三菱UFJ銀行",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "9984",
+        "name": "ソフトバンクグループ",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "6758",
+        "name": "ソニー",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "4689",
+        "name": "Z Holdings",
+        "group": "テクノロジー",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "9434",
+        "name": "ソフトバンク",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
+      },
+      {
+        "code": "8001",
+        "name": "伊藤忠商事",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "7267",
+        "name": "ホンダ",
+        "group": "自動車",
+        "priority": "high",
+        "sector": "Transportation"
+      },
+      {
+        "code": "6861",
+        "name": "キーエンス",
+        "group": "精密機器",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "2914",
+        "name": "JT",
+        "group": "食品・たばこ",
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "4755",
+        "name": "楽天グループ",
+        "group": "テクノロジー",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "3659",
+        "name": "ネクソン",
+        "group": "ゲーム",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "9613",
+        "name": "エヌ・ティ・ティ・データ",
+        "group": "IT・システム",
+        "priority": "high",
+        "sector": "Technology"
+      },
+      {
+        "code": "2432",
+        "name": "DeNA",
+        "group": "ゲーム",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "4385",
+        "name": "メルカリ",
+        "group": "マーケットプレイス",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "9437",
+        "name": "NTTドコモ",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
+      },
+      {
+        "code": "4704",
+        "name": "トレンドマイクロ",
+        "group": "セキュリティ",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "4751",
+        "name": "サイバーエージェント",
+        "group": "インターネット",
+        "priority": "medium",
+        "sector": "Technology"
+      },
+      {
+        "code": "8058",
+        "name": "三菱商事",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "8411",
+        "name": "みずほフィナンシャルグループ",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8766",
+        "name": "東京海上",
+        "group": "保険",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8316",
+        "name": "三井住友フィナンシャルグループ",
+        "group": "金融",
+        "priority": "high",
+        "sector": "Financial"
+      },
+      {
+        "code": "8031",
+        "name": "三井物産",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "8053",
+        "name": "住友商事",
+        "group": "商社",
+        "priority": "high",
+        "sector": "Trading"
+      },
+      {
+        "code": "7751",
+        "name": "キヤノン",
+        "group": "精密機器",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6981",
+        "name": "村田製作所",
+        "group": "電子部品",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "5401",
+        "name": "新日鉄住金",
+        "group": "鉄鋼",
+        "priority": "medium",
+        "sector": "Materials"
+      },
+      {
+        "code": "7011",
+        "name": "三菱重工業",
+        "group": "重工業",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6503",
+        "name": "三菱電機",
+        "group": "電機",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "6954",
+        "name": "ファナック",
+        "group": "工作機械",
+        "priority": "high",
+        "sector": "Industrial"
+      },
+      {
+        "code": "7974",
+        "name": "任天堂",
+        "group": "ゲーム",
+        "priority": "high",
+        "sector": "Consumer"
+      },
+      {
+        "code": "6367",
+        "name": "ダイキン工業",
+        "group": "空調",
+        "priority": "medium",
+        "sector": "Industrial"
+      },
+      {
+        "code": "4502",
+        "name": "武田薬品工業",
+        "group": "製薬",
+        "priority": "high",
+        "sector": "Healthcare"
+      },
+      {
+        "code": "3382",
+        "name": "セブン&アイ・ホールディングス",
+        "group": "小売",
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "2801",
+        "name": "キッコーマン",
+        "group": "食品",
+        "priority": "low",
+        "sector": "Consumer"
+      },
+      {
+        "code": "2502",
+        "name": "アサヒグループホールディングス",
+        "group": "飲料",
+        "priority": "medium",
+        "sector": "Consumer"
+      },
+      {
+        "code": "4523",
+        "name": "エーザイ",
+        "group": "製薬",
+        "priority": "high",
+        "sector": "Healthcare"
+      },
+      {
+        "code": "9983",
+        "name": "ファーストリテイリング",
+        "group": "アパレル",
+        "priority": "high",
+        "sector": "Consumer"
+      },
+      {
+        "code": "9101",
+        "name": "日本郵船",
+        "group": "海運",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "9201",
+        "name": "日本航空",
+        "group": "航空",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "9202",
+        "name": "ANA",
+        "group": "航空",
+        "priority": "medium",
+        "sector": "Transportation"
+      },
+      {
+        "code": "5020",
+        "name": "ENEOS",
+        "group": "エネルギー",
+        "priority": "medium",
+        "sector": "Energy"
+      },
+      {
+        "code": "9501",
+        "name": "東京電力",
+        "group": "電力",
+        "priority": "low",
+        "sector": "Utilities"
+      },
+      {
+        "code": "9502",
+        "name": "中部電力",
+        "group": "電力",
+        "priority": "low",
+        "sector": "Utilities"
+      },
+      {
+        "code": "8802",
+        "name": "三菱地所",
+        "group": "不動産",
+        "priority": "medium",
+        "sector": "RealEstate"
+      },
+      {
+        "code": "1801",
+        "name": "大成建設",
+        "group": "建設",
+        "priority": "medium",
+        "sector": "Construction"
+      },
+      {
+        "code": "1803",
+        "name": "清水建設",
+        "group": "建設",
+        "priority": "medium",
+        "sector": "Construction"
+      },
+      {
+        "code": "8604",
+        "name": "野村ホールディングス",
+        "group": "証券",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "7182",
+        "name": "ゆうちょ銀行",
+        "group": "金融",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "4005",
+        "name": "住友化学",
+        "group": "化学",
+        "priority": "medium",
+        "sector": "Materials"
+      },
+      {
+        "code": "4061",
+        "name": "デンカ",
+        "group": "化学",
+        "priority": "low",
+        "sector": "Materials"
+      },
+      {
+        "code": "8795",
+        "name": "T&Dホールディングス",
+        "group": "保険",
+        "priority": "medium",
+        "sector": "Financial"
+      },
+      {
+        "code": "9432",
+        "name": "NTT",
+        "group": "通信",
+        "priority": "high",
+        "sector": "Telecom"
+      },
+      {
+        "code": "4777",
+        "name": "ガーラ",
+        "group": "ゲーム",
+        "priority": "low",
+        "sector": "Technology"
+      },
+      {
+        "code": "3776",
+        "name": "ブロードバンドタワー",
+        "group": "インフラ",
+        "priority": "low",
+        "sector": "Technology"
+      },
+      {
+        "code": "4478",
+        "name": "リンクバル",
+        "group": "マッチングアプリ",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4485",
+        "name": "JTOWER",
+        "group": "インフラシェアリング",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4490",
+        "name": "ビザスク",
+        "group": "ナレッジプラットフォーム",
+        "priority": "medium",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "3900",
+        "name": "クラウドワークス",
+        "group": "クラウドソーシング",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "3774",
+        "name": "インターネットイニシアティブ",
+        "group": "インターネット",
+        "priority": "medium",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4382",
+        "name": "HEROZ",
+        "group": "AI・将棋",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4386",
+        "name": "SIG",
+        "group": "システムインテグレーション",
+        "priority": "medium",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4475",
+        "name": "HENNGE",
+        "group": "クラウドセキュリティ",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4421",
+        "name": "DigiCert",
+        "group": "デジタル認証",
+        "priority": "medium",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "3655",
+        "name": "ブレインパッド",
+        "group": "データ分析",
+        "priority": "high",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "3844",
+        "name": "コムチュア",
+        "group": "システム開発",
+        "priority": "medium",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4833",
+        "name": "ぐるなび",
+        "group": "グルメ情報",
+        "priority": "low",
+        "sector": "DayTrading"
+      },
+      {
+        "code": "4563",
+        "name": "アンジェス",
+        "group": "遺伝子治療薬",
+        "priority": "high",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4592",
+        "name": "サンバイオ",
+        "group": "再生細胞薬",
+        "priority": "high",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4564",
+        "name": "オンコセラピー",
+        "group": "がん治療薬",
+        "priority": "high",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4588",
+        "name": "オンコリスバイオファーマ",
+        "group": "がん治療",
+        "priority": "medium",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4596",
+        "name": "窪田製薬",
+        "group": "眼科治療薬",
+        "priority": "medium",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4591",
+        "name": "リボミック",
+        "group": "アプタマー創薬",
+        "priority": "medium",
+        "sector": "BioTech"
+      },
+      {
+        "code": "4565",
+        "name": "そーせいグループ",
+        "group": "GPCR創薬",
+        "priority": "high",
+        "sector": "BioTech"
+      },
+      {
+        "code": "7707",
+        "name": "プレシジョン・システム・サイエンス",
+        "group": "バイオテック機器",
+        "priority": "medium",
+        "sector": "BioTech"
+      },
+      {
+        "code": "3692",
+        "name": "FFRI",
+        "group": "サイバーセキュリティ",
+        "priority": "high",
+        "sector": "Gaming"
+      },
+      {
+        "code": "3656",
+        "name": "KLab",
+        "group": "モバイルゲーム",
+        "priority": "medium",
+        "sector": "Gaming"
+      },
+      {
+        "code": "3760",
+        "name": "ケイブ",
+        "group": "ゲーム開発",
+        "priority": "low",
+        "sector": "Gaming"
+      },
+      {
+        "code": "9449",
+        "name": "GMOインターネット",
+        "group": "インターネット",
+        "priority": "high",
+        "sector": "Gaming"
+      },
+      {
+        "code": "4726",
+        "name": "ソフトバンク・テクノロジー",
+        "group": "IT・システム",
+        "priority": "medium",
+        "sector": "Gaming"
+      },
+      {
+        "code": "7779",
+        "name": "CYBERDYNE",
+        "group": "ロボットスーツ",
+        "priority": "high",
+        "sector": "FutureTech"
+      },
+      {
+        "code": "6178",
+        "name": "日本郵政",
+        "group": "物流・フィンテック",
+        "priority": "medium",
+        "sector": "FutureTech"
+      },
+      {
+        "code": "4847",
+        "name": "インテリジェント ウェイブ",
+        "group": "AI・セキュリティ",
+        "priority": "medium",
+        "sector": "FutureTech"
+      },
+      {
+        "code": "4598",
+        "name": "Delta-Fly Pharma",
+        "group": "創薬",
+        "priority": "medium",
+        "sector": "FutureTech"
+      },
+      {
+        "code": "4880",
+        "name": "セルソース",
+        "group": "再生医療",
+        "priority": "high",
+        "sector": "FutureTech"
+      }
+    ],
+    "update_interval_minutes": 0.5,
+    "market_hours": {
+      "start": "09:00",
+      "end": "15:00",
+      "lunch_start": "11:30",
+      "lunch_end": "12:30"
+    }
+  },
+
+  "daytrading": {
+    "enabled": true,
+    "volatility_threshold": 3.0,
+    "volume_threshold_multiplier": 2.0,
+    "price_change_alert": 2.5,
+    "sectors": {
+      "DayTrading": {
+        "priority": "high",
+        "description": "高ボラティリティ・新興テック株"
+      },
+      "BioTech": {
+        "priority": "high",
+        "description": "バイオ・医薬品開発株"
+      },
+      "Gaming": {
+        "priority": "medium",
+        "description": "ゲーム・エンタメ関連株"
+      },
+      "FutureTech": {
+        "priority": "medium",
+        "description": "先端技術・未来産業株"
+      }
+    },
+    "risk_management": {
+      "max_position_per_stock": 10.0,
+      "stop_loss_percentage": 3.0,
+      "profit_taking_percentage": 5.0,
+      "max_daily_trades": 20
+    }
+  },
+
+  "analysis": {
+    "technical_indicators": {
+      "enabled": true,
+      "sma_periods": [5, 13, 25],
+      "ema_periods": [9, 21],
+      "rsi_period": 9,
+      "macd_params": {
+        "fast": 8,
+        "slow": 17,
+        "signal": 6
+      },
+      "bollinger_params": {
+        "period": 15,
+        "std_dev": 1.8
+      }
+    },
+    "pattern_recognition": {
+      "enabled": true,
+      "patterns": [
+        "support_resistance",
+        "trend_lines",
+        "breakout_patterns",
+        "reversal_patterns"
+      ]
+    },
+    "signal_generation": {
+      "enabled": true,
+      "strategies": [
+        "sma_crossover",
+        "rsi_divergence",
+        "macd_signal",
+        "bollinger_breakout"
+      ],
+      "confidence_threshold": 0.6
+    },
+    "ensemble": {
+      "enabled": true,
+      "strategy_type": "balanced",
+      "voting_type": "soft",
+      "performance_file_path": "data/ensemble_performance.json",
+      "strategy_weights": {
+        "conservative_rsi": 0.2,
+        "aggressive_momentum": 0.25,
+        "trend_following": 0.25,
+        "mean_reversion": 0.2,
+        "default_integrated": 0.1
+      },
+      "confidence_thresholds": {
+        "conservative": 60.0,
+        "aggressive": 30.0,
+        "balanced": 45.0,
+        "adaptive": 40.0
+      },
+      "meta_learning_enabled": true,
+      "adaptive_weights_enabled": true
+    }
+  },
+
+  "alerts": {
+    "enabled": true,
+    "price_alerts": {
+      "enabled": true,
+      "threshold_percent": 2.0
+    },
+    "volume_alerts": {
+      "enabled": true,
+      "volume_spike_ratio": 2.0
+    },
+    "technical_alerts": {
+      "enabled": true,
+      "rsi_overbought": 70,
+      "rsi_oversold": 30
+    },
+    "notification_methods": ["console", "file_log"]
+  },
+
+  "backtest": {
+    "enabled": false,
+    "period_days": 30,
+    "initial_capital": 1000000,
+    "position_size_percent": 10,
+    "max_positions": 5,
+    "stop_loss_percent": -5.0,
+    "take_profit_percent": 10.0
+  },
+
+  "reports": {
+    "enabled": true,
+    "output_directory": "reports",
+    "formats": ["json", "csv", "html"],
+    "daily_report": {
+      "enabled": true,
+      "include_charts": true,
+      "include_signals": true,
+      "include_portfolio": true
+    },
+    "weekly_summary": {
+      "enabled": true,
+      "generate_on_friday": true
+    }
+  },
+
+  "execution": {
+    "max_concurrent_requests": 5,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "error_tolerance": "continue",
+    "log_level": "INFO"
+  },
+
+  "database": {
+    "url": "sqlite:///data/trading.db",
+    "backup_enabled": true,
+    "backup_interval_hours": 24
+  }
+}

@@ -13,9 +13,9 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
-from day_trade.data.ultra_fast_ml_engine import UltraFastMLEngine
-from day_trade.data.batch_data_fetcher import BatchDataFetcher
 from day_trade.config.config_manager import ConfigManager
+from day_trade.data.batch_data_fetcher import BatchDataFetcher
+from day_trade.data.ultra_fast_ml_engine import UltraFastMLEngine
 
 
 def test_ultra_fast_performance():
@@ -25,7 +25,7 @@ def test_ultra_fast_performance():
 
     try:
         # 設定読み込み
-        config = ConfigManager()
+        ConfigManager()
 
         # テスト銘柄（多めに設定）
         test_symbols = [
@@ -81,7 +81,7 @@ def test_ultra_fast_performance():
         estimated_85_time = avg_time * 85
         throughput = len(successful_data) / total_time
 
-        print(f"\n=== 超高速処理結果 ===")
+        print("\n=== 超高速処理結果 ===")
         print(f"処理銘柄数: {len(successful_data)}")
         print(f"総処理時間: {total_time:.2f}秒")
         print(f"平均処理時間: {avg_time:.4f}秒/銘柄")
@@ -91,7 +91,7 @@ def test_ultra_fast_performance():
 
         # キャッシュ効果分析
         cache_info = ultra_engine.get_cache_info()
-        print(f"\n=== キャッシュ効果 ===")
+        print("\n=== キャッシュ効果 ===")
         print(f"訓練済みモデル: {cache_info['trained_models']}個")
         print(f"特徴量キャッシュ: {cache_info['feature_cache']}個")
         print(f"メモリ使用量: {cache_info['memory_usage_kb']:.1f}KB")
@@ -106,14 +106,14 @@ def test_ultra_fast_performance():
 
         avg_confidence = confidence_sum / len(results) if results else 0
 
-        print(f"\n=== 助言分析 ===")
+        print("\n=== 助言分析 ===")
         for advice, count in advice_dist.items():
             pct = count / len(results) * 100 if results else 0
             print(f"{advice}: {count}銘柄 ({pct:.1f}%)")
         print(f"平均信頼度: {avg_confidence:.1f}%")
 
         # 詳細結果（上位10銘柄）
-        print(f"\n=== 詳細結果（上位10銘柄） ===")
+        print("\n=== 詳細結果（上位10銘柄） ===")
         print(f"{'Symbol':>6} | {'Advice':>5} | {'Conf':>4} | {'Reason':>15}")
         print("-" * 40)
 
@@ -146,7 +146,7 @@ def stress_test_85_symbols():
 
     try:
         # 実際の85銘柄のサブセットでテスト
-        config = ConfigManager()
+        ConfigManager()
 
         # 実際の85銘柄リストを作成
         all_symbols = [
@@ -198,7 +198,7 @@ def stress_test_85_symbols():
         start_time = time.time()
 
         # バッチ処理実行
-        batch_results = ultra_engine.batch_ultra_fast_analysis(successful_data)
+        ultra_engine.batch_ultra_fast_analysis(successful_data)
 
         batch_time = time.time() - start_time
 
@@ -206,7 +206,7 @@ def stress_test_85_symbols():
         scale_factor = 85 / len(successful_data) if successful_data else 1
         estimated_85_time = batch_time * scale_factor
 
-        print(f"\n=== ストレステスト結果 ===")
+        print("\n=== ストレステスト結果 ===")
         print(f"実測銘柄数: {len(successful_data)}")
         print(f"実測処理時間: {batch_time:.2f}秒")
         print(f"スケール倍率: {scale_factor:.1f}倍")

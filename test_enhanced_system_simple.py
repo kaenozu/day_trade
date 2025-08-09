@@ -11,17 +11,16 @@ from pathlib import Path
 # パス追加
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from day_trade.automation.enhanced_trading_engine import (
-    EnhancedTradingEngine,
-    ExecutionMode,
-)
 from day_trade.automation.advanced_order_manager import (
     AdvancedOrderManager,
     Order,
     OrderType,
 )
+from day_trade.automation.enhanced_trading_engine import (
+    EnhancedTradingEngine,
+    ExecutionMode,
+)
 from day_trade.automation.portfolio_manager import PortfolioManager
-from day_trade.automation.trading_engine import RiskParameters
 from day_trade.core.trade_manager import Trade, TradeType
 
 
@@ -161,7 +160,7 @@ async def test_enhanced_trading_engine():
 
         # 実行中の状態確認
         status = engine.get_comprehensive_status()
-        print(f"📊 実行状態:")
+        print("📊 実行状態:")
         print(f"   - ステータス: {status['engine']['status']}")
         print(f"   - サイクル数: {status['engine']['engine_cycles']}")
         print(f"   - 平均サイクル時間: {status['engine']['avg_cycle_time_ms']:.1f}ms")
@@ -172,7 +171,7 @@ async def test_enhanced_trading_engine():
 
         # 最終統計
         final_status = engine.get_comprehensive_status()
-        print(f"📈 最終統計:")
+        print("📈 最終統計:")
         print(f"   - 総サイクル: {final_status['engine']['engine_cycles']}")
         print(f"   - 実行時間: {final_status['engine']['uptime_seconds']}秒")
         print(f"   - シグナル処理: {engine.execution_stats['signals_processed']}")

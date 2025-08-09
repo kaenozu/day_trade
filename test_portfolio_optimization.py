@@ -81,7 +81,7 @@ def test_portfolio_optimization_basic():
             # ポートフォリオ指標
             if "portfolio_metrics" in portfolio:
                 metrics = portfolio["portfolio_metrics"]
-                print(f"\n   ポートフォリオ指標:")
+                print("\n   ポートフォリオ指標:")
                 print(f"     期待リターン: {metrics.get('expected_return', 0):.2%}")
                 print(f"     ボラティリティ: {metrics.get('portfolio_volatility', 0):.2%}")
                 print(f"     シャープレシオ: {metrics.get('sharpe_ratio', 0):.2f}")

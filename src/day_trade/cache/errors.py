@@ -5,15 +5,15 @@
 元のcache_utils.pyからエラー関連機能を分離。
 """
 
-import logging
 import threading
 import time
 from enum import Enum
 from typing import Optional
 
 from .config import get_cache_config
+from src.day_trade.utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CacheError(Exception):

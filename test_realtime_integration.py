@@ -7,17 +7,18 @@ CI環境での実行を想定した軽量なテストです。
 """
 
 import asyncio
+import builtins
+import contextlib
 import json
 import time
-from typing import Dict, Any
 from unittest.mock import Mock, patch
 
 try:
     from src.day_trade.realtime.realtime_feed import (
-        WebSocketClient,
-        RealtimeDataFeed,
         DataNormalizer,
-        MarketData
+        MarketData,
+        RealtimeDataFeed,
+        WebSocketClient,
     )
     REALTIME_AVAILABLE = True
 except ImportError:
@@ -68,7 +69,7 @@ async def test_websocket_connection():
         mock_client.connect.return_value.set_result(True)
 
         result = await mock_client.connect()
-        assert result == True
+        assert result
         print("OK WebSocket接続テスト成功（モック）")
         return
 
@@ -158,7 +159,7 @@ async def test_realtime_feed():
 
         # テスト実行
         started = await mock_feed.start()
-        assert started == True
+        assert started
 
         mock_feed.subscribe("7203")
         await mock_feed.stop()
@@ -337,9 +338,9 @@ def create_test_report(error: str = None):
             "",
             "## エラー詳細",
             "",
-            f"```",
+            "```",
             f"{error}",
-            f"```",
+            "```",
             "",
             "**注:** エラーは開発環境の制限によるものであり、基本機能は確認済みです。"
         ])
@@ -355,10 +356,8 @@ if __name__ == "__main__":
     import sys
     if sys.platform.startswith('win'):
         import locale
-        try:
+        with contextlib.suppress(builtins.BaseException):
             locale.setlocale(locale.LC_ALL, 'Japanese_Japan.932')
-        except:
-            pass
 
     # テスト実行
     asyncio.run(main())

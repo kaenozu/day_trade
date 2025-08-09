@@ -8,18 +8,20 @@ Phase 4 デイトレード自動執行シミュレーター 統合テスト
 
 import sys
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 # プロジェクトルートをパス追加
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
-from day_trade.simulation.trading_simulator import TradingSimulator
-from day_trade.simulation.strategy_executor import StrategyExecutor, StrategyParameters, StrategyType
+from day_trade.simulation.backtest_engine import BacktestConfig, BacktestEngine
 from day_trade.simulation.portfolio_tracker import PortfolioTracker
-from day_trade.simulation.backtest_engine import BacktestEngine, BacktestConfig
-from day_trade.config.config_manager import ConfigManager
+from day_trade.simulation.strategy_executor import (
+    StrategyExecutor,
+    StrategyParameters,
+    StrategyType,
+)
+from day_trade.simulation.trading_simulator import TradingSimulator
 
 
 def test_trading_simulator():
@@ -42,13 +44,13 @@ def test_trading_simulator():
             "4563", "4592", "3655", "4382", "4475"   # 新興5銘柄
         ]
 
-        print(f"初期設定:")
+        print("初期設定:")
         print(f"  - 初期資金: {simulator.initial_capital:,.0f}円")
         print(f"  - 対象銘柄: {len(test_symbols)}銘柄")
         print(f"  - 超高速ML: {'有効' if hasattr(simulator.ml_engine, 'batch_ultra_fast_analysis') else '無効'}")
 
         # シミュレーション実行
-        print(f"\n=== シミュレーション実行 ===")
+        print("\n=== シミュレーション実行 ===")
         start_time = time.time()
 
         result = simulator.run_simulation(
@@ -68,21 +70,21 @@ def test_trading_simulator():
         trading = result.get("trading_statistics", {})
         performance = result.get("performance_metrics", {})
 
-        print(f"=== 結果サマリー ===")
+        print("=== 結果サマリー ===")
         print(f"初期資金: ¥{summary.get('initial_capital', 0):,.0f}")
         print(f"最終資産: ¥{summary.get('final_capital', 0):,.0f}")
         print(f"総損益: ¥{summary.get('total_pnl', 0):,.0f}")
         print(f"収益率: {summary.get('total_return_pct', 0):+.2f}%")
         print(f"最大ドローダウン: ¥{summary.get('max_drawdown', 0):,.0f}")
 
-        print(f"\n=== 取引統計 ===")
+        print("\n=== 取引統計 ===")
         print(f"総取引数: {trading.get('total_trades', 0)}")
         print(f"買い注文: {trading.get('buy_trades', 0)}")
         print(f"売り注文: {trading.get('sell_trades', 0)}")
         print(f"勝率: {trading.get('win_rate_pct', 0):.1f}%")
         print(f"収益取引: {trading.get('profitable_trades', 0)}")
 
-        print(f"\n=== パフォーマンス ===")
+        print("\n=== パフォーマンス ===")
         print(f"実行時間: {execution_time:.2f}秒")
         print(f"平均処理時間/日: {performance.get('avg_processing_time_seconds', 0):.3f}秒")
         print(f"ML処理総時間: {performance.get('total_ml_time', 0):.2f}秒")
@@ -97,11 +99,11 @@ def test_trading_simulator():
         ]
 
         if all(success_criteria):
-            print(f"\n✅ 取引シミュレーターテスト成功")
+            print("\n✅ 取引シミュレーターテスト成功")
             print(f"   高速処理目標達成: 平均{performance.get('avg_processing_time_seconds', 0):.3f}秒/日")
             return True
         else:
-            print(f"\n⚠️  一部基準未達成")
+            print("\n⚠️  一部基準未達成")
             return False
 
     except Exception as e:
@@ -130,7 +132,7 @@ def test_strategy_executor():
 
         executor = StrategyExecutor(params)
 
-        print(f"戦略設定:")
+        print("戦略設定:")
         print(f"  - 戦略タイプ: {params.strategy_type.value}")
         print(f"  - リスク許容度: {params.risk_tolerance}")
         print(f"  - 最大ポジション: {params.max_position_size:.1%}")
@@ -146,11 +148,11 @@ def test_strategy_executor():
         }
 
         # サンプルデータ（簡略版）
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         sample_data = {}
-        for symbol in ml_recommendations.keys():
+        for symbol in ml_recommendations:
             dates = pd.date_range("2023-01-01", periods=60, freq="D")
             sample_data[symbol] = pd.DataFrame({
                 "Close": 1000 + np.cumsum(np.random.normal(0, 10, 60)),
@@ -158,7 +160,7 @@ def test_strategy_executor():
             }, index=dates)
 
         # 戦略実行
-        print(f"\n=== 戦略実行 ===")
+        print("\n=== 戦略実行 ===")
         start_time = time.time()
 
         signals = executor.execute_strategy(
@@ -177,7 +179,7 @@ def test_strategy_executor():
         buy_signals = [s for s in signals if s.signal_type.value == "BUY"]
         sell_signals = [s for s in signals if s.signal_type.value == "SELL"]
 
-        print(f"\nシグナル内訳:")
+        print("\nシグナル内訳:")
         print(f"  - BUY: {len(buy_signals)}")
         print(f"  - SELL: {len(sell_signals)}")
 
@@ -188,7 +190,7 @@ def test_strategy_executor():
             print(f"  - 総推奨株数: {total_quantity:,}")
 
             # 個別シグナル表示（上位3つ）
-            print(f"\n主要シグナル:")
+            print("\n主要シグナル:")
             for i, signal in enumerate(sorted(signals, key=lambda x: x.confidence, reverse=True)[:3]):
                 print(f"  {i+1}. {signal.symbol}: {signal.signal_type.value} "
                       f"{signal.quantity:,}株 @¥{signal.price:,.0f} "
@@ -222,13 +224,13 @@ def test_portfolio_tracker():
             tax_rate=0.20315
         )
 
-        print(f"初期設定:")
+        print("初期設定:")
         print(f"  - 初期資金: ¥{tracker.initial_capital:,.0f}")
         print(f"  - 手数料率: {tracker.commission_rate:.1%}")
         print(f"  - 税率: {tracker.tax_rate:.1%}")
 
         # サンプル取引実行
-        print(f"\n=== サンプル取引実行 ===")
+        print("\n=== サンプル取引実行 ===")
 
         # 買い取引1
         buy_txn1 = tracker.execute_buy_transaction("7203", 1000, 2500, "ML_BASED")
@@ -241,7 +243,7 @@ def test_portfolio_tracker():
             print(f"買い取引2: {buy_txn2.symbol} {buy_txn2.quantity}株 @¥{buy_txn2.price}")
 
         # 価格更新シミュレーション
-        print(f"\n=== 価格更新シミュレーション ===")
+        print("\n=== 価格更新シミュレーション ===")
         tracker.update_market_prices({
             "7203": 2600,  # +4%上昇
             "8306": 3900   # -2.5%下落
@@ -249,7 +251,7 @@ def test_portfolio_tracker():
 
         # 現在状況確認
         current_status = tracker.get_current_status()
-        print(f"現在の資産状況:")
+        print("現在の資産状況:")
         print(f"  - 現金残高: ¥{current_status['current_capital']:,.0f}")
         print(f"  - 総損益: ¥{current_status['total_pnl']:,.0f}")
         print(f"  - 収益率: {current_status['return_pct']:+.2f}%")
@@ -257,14 +259,14 @@ def test_portfolio_tracker():
 
         # 個別ポジション表示
         if current_status['positions']:
-            print(f"\nポジション詳細:")
+            print("\nポジション詳細:")
             for symbol, pos in current_status['positions'].items():
                 print(f"  {symbol}: {pos['quantity']}株 "
                       f"平均¥{pos['avg_price']:,.0f} → 現在¥{pos['current_price']:,.0f} "
                       f"含損益¥{pos['unrealized_pnl']:,.0f}")
 
         # 売り取引
-        print(f"\n=== 利確取引 ===")
+        print("\n=== 利確取引 ===")
         sell_txn = tracker.execute_sell_transaction("7203", 500, 2600, "PROFIT_TAKING")
         if sell_txn:
             print(f"売り取引: {sell_txn.symbol} {sell_txn.quantity}株 "
@@ -273,7 +275,7 @@ def test_portfolio_tracker():
         # 日次パフォーマンス記録
         daily_perf = tracker.record_daily_performance()
         if daily_perf:
-            print(f"\n=== 日次パフォーマンス ===")
+            print("\n=== 日次パフォーマンス ===")
             print(f"日次損益: ¥{daily_perf.daily_pnl:,.0f} ({daily_perf.daily_pnl_pct:+.2f}%)")
             print(f"総資産: ¥{daily_perf.total_value:,.0f}")
             print(f"実現損益: ¥{daily_perf.realized_pnl:,.0f}")
@@ -284,7 +286,7 @@ def test_portfolio_tracker():
         metrics = report.get("portfolio_metrics", {})
         trading_stats = report.get("trading_statistics", {})
 
-        print(f"\n=== パフォーマンス指標 ===")
+        print("\n=== パフォーマンス指標 ===")
         print(f"総資産: ¥{metrics.get('total_portfolio_value', 0):,.0f}")
         print(f"総収益: ¥{metrics.get('total_return', 0):,.0f}")
         print(f"収益率: {metrics.get('total_return_pct', 0):+.2f}%")
@@ -333,7 +335,7 @@ def test_backtest_engine():
             take_profit_pct=0.18
         )
 
-        print(f"バックテスト設定:")
+        print("バックテスト設定:")
         print(f"  - 期間: {config.start_date} - {config.end_date}")
         print(f"  - 初期資金: ¥{config.initial_capital:,.0f}")
         print(f"  - 対象銘柄: {len(config.symbols)}銘柄")
@@ -341,7 +343,7 @@ def test_backtest_engine():
         print(f"  - リスク許容度: {config.risk_tolerance}")
 
         # バックテスト実行
-        print(f"\n=== バックテスト実行中 ===")
+        print("\n=== バックテスト実行中 ===")
         print("注: 初回実行時はデータ取得に時間がかかる場合があります...")
 
         start_time = time.time()
@@ -349,7 +351,7 @@ def test_backtest_engine():
         execution_time = time.time() - start_time
 
         # 結果表示
-        print(f"\n=== バックテスト結果 ===")
+        print("\n=== バックテスト結果 ===")
         print(f"実行時間: {execution_time:.1f}秒")
         print(f"期間: {result.start_date.date()} - {result.end_date.date()}")
         print(f"初期資金: ¥{config.initial_capital:,.0f}")
@@ -375,7 +377,7 @@ def test_backtest_engine():
         print(f"\n{'✅ バックテストエンジンテスト成功' if success else '⚠️  バックテストエンジンテスト要改善'}")
 
         if success:
-            print(f"   パフォーマンスチャートとデータが test_backtest_results/ に保存されました")
+            print("   パフォーマンスチャートとデータが test_backtest_results/ に保存されました")
 
         return success
 
@@ -397,12 +399,12 @@ def test_integration():
 
         # Phase 1 ML投資助言システム
         from day_trade.data.ultra_fast_ml_engine import UltraFastMLEngine
-        ml_engine = UltraFastMLEngine()
+        UltraFastMLEngine()
         print("  ✅ Phase 1: 超高速ML投資助言システム (3.6秒/85銘柄)")
 
         # Phase 2 ポートフォリオ最適化システム
         from day_trade.optimization.portfolio_manager import PortfolioManager
-        portfolio_manager = PortfolioManager()
+        PortfolioManager()
         print("  ✅ Phase 2: ポートフォリオ最適化システム")
 
         # Phase 4 新機能
@@ -411,12 +413,12 @@ def test_integration():
         print("  ✅ Phase 4c: ポートフォリオ追跡・損益計算")
         print("  ✅ Phase 4d: バックテスト分析エンジン")
 
-        print(f"\nPhase 4 システム構成完了:")
-        print(f"  - 高速ML助言 (Phase 1)")
-        print(f"  - ポートフォリオ最適化 (Phase 2)")
-        print(f"  - リアルタイム取引シミュレーション (Phase 4)")
-        print(f"  - 戦略バックテスト (Phase 4)")
-        print(f"  - 詳細パフォーマンス分析 (Phase 4)")
+        print("\nPhase 4 システム構成完了:")
+        print("  - 高速ML助言 (Phase 1)")
+        print("  - ポートフォリオ最適化 (Phase 2)")
+        print("  - リアルタイム取引シミュレーション (Phase 4)")
+        print("  - 戦略バックテスト (Phase 4)")
+        print("  - 詳細パフォーマンス分析 (Phase 4)")
 
         return True
 
@@ -473,9 +475,9 @@ def main():
     else:
         print("❌ Phase 4 実装に重大な問題、要修正")
 
-    print(f"\nPhase 4 実装完了 - 次のステップ:")
-    print(f"  - GitHub Issue更新とPull Request作成")
-    print(f"  - 本格運用に向けた最終調整検討")
+    print("\nPhase 4 実装完了 - 次のステップ:")
+    print("  - GitHub Issue更新とPull Request作成")
+    print("  - 本格運用に向けた最終調整検討")
 
 
 if __name__ == "__main__":

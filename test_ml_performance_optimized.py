@@ -13,9 +13,9 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
+from day_trade.config.config_manager import ConfigManager
 from day_trade.data.advanced_ml_engine import AdvancedMLEngine
 from day_trade.data.batch_data_fetcher import BatchDataFetcher
-from day_trade.config.config_manager import ConfigManager
 
 
 def test_ml_performance_comparison():
@@ -25,7 +25,7 @@ def test_ml_performance_comparison():
 
     # 設定読み込み
     try:
-        config = ConfigManager()
+        ConfigManager()
         test_symbols = [
             "7203", "8306", "9984", "6758", "4689",  # 主要5銘柄
             "4563", "4592", "3655", "4382",          # 新興4銘柄
@@ -64,7 +64,7 @@ def test_ml_performance_comparison():
         normal_total_time = time.time() - start_time
         normal_avg_time = normal_total_time / len(successful_symbols)
 
-        print(f"\n通常モード結果:")
+        print("\n通常モード結果:")
         print(f"  - 総処理時間: {normal_total_time:.2f}秒")
         print(f"  - 平均時間/銘柄: {normal_avg_time:.3f}秒")
         print(f"  - 85銘柄推定時間: {normal_avg_time * 85:.1f}秒")
@@ -87,7 +87,7 @@ def test_ml_performance_comparison():
         fast_total_time = time.time() - start_time
         fast_avg_time = fast_total_time / len(successful_symbols)
 
-        print(f"\n高速モード結果:")
+        print("\n高速モード結果:")
         print(f"  - 総処理時間: {fast_total_time:.2f}秒")
         print(f"  - 平均時間/銘柄: {fast_avg_time:.3f}秒")
         print(f"  - 85銘柄推定時間: {fast_avg_time * 85:.1f}秒")
@@ -96,13 +96,13 @@ def test_ml_performance_comparison():
         speedup = normal_avg_time / fast_avg_time if fast_avg_time > 0 else 1
         estimated_85_fast = fast_avg_time * 85
 
-        print(f"\n=== 比較結果 ===")
+        print("\n=== 比較結果 ===")
         print(f"高速化倍率: {speedup:.1f}倍")
         print(f"85銘柄推定時間: {estimated_85_fast:.1f}秒")
         print(f"目標10秒: {'OK' if estimated_85_fast <= 10 else 'EXCEED'}")
 
         # 精度比較（簡易）
-        print(f"\n=== 精度比較 ===")
+        print("\n=== 精度比較 ===")
         agreement_count = 0
         for symbol in successful_symbols:
             if normal_results[symbol]['advice'] == fast_results[symbol]['advice']:
@@ -112,7 +112,7 @@ def test_ml_performance_comparison():
         print(f"助言一致率: {accuracy_rate:.1f}% ({agreement_count}/{len(successful_symbols)})")
 
         # 詳細結果表示
-        print(f"\n=== 詳細比較 ===")
+        print("\n=== 詳細比較 ===")
         print(f"{'Symbol':>6} | {'Normal':>12} | {'Fast':>12} | {'Match':>5}")
         print("-" * 50)
         for symbol in successful_symbols:
@@ -176,7 +176,7 @@ def test_85_stocks_simulation():
         avg_time = total_time / len(successful_data)
         estimated_85_time = avg_time * 85
 
-        print(f"\n=== シミュレーション結果 ===")
+        print("\n=== シミュレーション結果 ===")
         print(f"処理銘柄数: {len(successful_data)}")
         print(f"総処理時間: {total_time:.2f}秒")
         print(f"平均処理時間: {avg_time:.3f}秒/銘柄")
@@ -188,7 +188,7 @@ def test_85_stocks_simulation():
         for result in results.values():
             advice_summary[result["advice"]] += 1
 
-        print(f"\n=== 助言サマリー ===")
+        print("\n=== 助言サマリー ===")
         for advice, count in advice_summary.items():
             pct = count / len(results) * 100
             print(f"{advice}: {count}銘柄 ({pct:.1f}%)")
