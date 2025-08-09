@@ -528,6 +528,10 @@ try:
     class DummyTechnicalIndicatorsStrategy(OptimizationStrategy):
         """テクニカル指標ダミー戦略（テスト用）"""
         
+        def execute(self, *args, **kwargs):
+            """ダミー実行メソッド"""
+            return f"Executed with {self.config.level.value} optimization"
+        
         def get_strategy_name(self) -> str:
             return f"DummyTechnicalIndicators-{self.config.level.value}"
     
