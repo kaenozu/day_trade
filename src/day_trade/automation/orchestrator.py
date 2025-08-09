@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..data.stock_fetcher import StockFetcher
+from ..database.database import get_default_database_manager
+from ..core.portfolio import PortfolioManager
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -68,6 +70,7 @@ class DayTradeOrchestrator:
         self.trading_config = get_current_trading_config()
         self.stock_fetcher = StockFetcher()
         self.analysis_engines: Dict[str, AnalysisOnlyEngine] = {}
+        self.db_manager = get_default_database_manager() # DatabaseManagerを取得
 
         logger.info("DayTradeOrchestrator初期化完了 - 完全セーフモード")
         logger.info("※ 自動取引機能は一切含まれていません")
@@ -99,8 +102,13 @@ class DayTradeOrchestrator:
         successful_symbols = 0
         failed_symbols = 0
         errors = []
+        actual_portfolio_summary = None
 
         try:
+            with self.db_manager.session_scope() as session:
+                portfolio_manager = PortfolioManager(session)
+                actual_portfolio_summary = portfolio_manager.get_portfolio_summary()
+
             for symbol in symbols:
                 try:
                     # 分析エンジン作成
@@ -145,17 +153,8 @@ class DayTradeOrchestrator:
                     errors.append(error_msg)
                     logger.error(error_msg)
 
-            # ポートフォリオサマリー（分析専用）
-            portfolio_summary = {
-                "status": "analysis_only",
-                "trading_disabled": True,
-                "analyzed_symbols": successful_symbols,
-                "metrics": {
-                    "total_value": "N/A (分析専用)",
-                    "total_pnl": "N/A (分析専用)",
-                    "total_pnl_percent": "N/A (分析専用)",
-                },
-            }
+            # ポートフォリオサマリーを実際の値で置き換え
+            portfolio_summary = actual_portfolio_summary
 
         except Exception as e:
             error_msg = f"オーケストレーター実行エラー: {str(e)}"
