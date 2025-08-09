@@ -12,6 +12,7 @@ Issue #318: 監視・アラートシステム - Phase 4
 
 import asyncio
 import json
+import random
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -307,7 +308,9 @@ class InvestmentOpportunityAlertSystem:
             logger.info(f"投資機会検出設定削除: {rule_id}")
 
     def register_alert_handler(
-        self, severity: OpportunitySeverity, handler: Callable
+        self,
+        severity: OpportunitySeverity,
+        handler: Callable,
     ) -> None:
         """アラートハンドラー登録"""
         self.alert_handlers[severity].append(handler)
@@ -374,8 +377,6 @@ class InvestmentOpportunityAlertSystem:
     async def _update_market_condition(self) -> None:
         """市場状況更新"""
         # 模擬的な市場状況データ
-        import random
-
         market_trends = ["bull", "bear", "sideways"]
         volatility_levels = ["low", "medium", "high"]
         volume_trends = ["increasing", "decreasing", "stable"]
@@ -555,7 +556,8 @@ class InvestmentOpportunityAlertSystem:
         return elapsed_minutes >= config.check_interval_minutes
 
     async def _analyze_opportunity(
-        self, config: OpportunityConfig
+        self,
+        config: OpportunityConfig,
     ) -> List[InvestmentOpportunity]:
         """機会分析"""
         opportunities = []
@@ -579,7 +581,9 @@ class InvestmentOpportunityAlertSystem:
         return opportunities
 
     async def _analyze_symbol_opportunity(
-        self, symbol: str, config: OpportunityConfig
+        self,
+        symbol: str,
+        config: OpportunityConfig,
     ) -> Optional[InvestmentOpportunity]:
         """銘柄機会分析"""
 
@@ -901,8 +905,6 @@ class InvestmentOpportunityAlertSystem:
         price_change_5d = indicators.get("Price_Change_5D", 0)
 
         # 模擬的な機会検出
-        import random
-
         if random.random() < 0.1:  # 10%の確率で機会検出
             confidence = random.uniform(0.5, 0.9)
             profit_potential = random.uniform(3.0, 15.0)
@@ -970,7 +972,8 @@ class InvestmentOpportunityAlertSystem:
         return True
 
     async def _generate_opportunity_alert(
-        self, opportunity: InvestmentOpportunity
+        self,
+        opportunity: InvestmentOpportunity,
     ) -> None:
         """機会アラート生成"""
         alert_key = f"{opportunity.symbol}_{opportunity.opportunity_type.value}"
@@ -1015,7 +1018,8 @@ class InvestmentOpportunityAlertSystem:
         return True
 
     async def _execute_opportunity_handlers(
-        self, opportunity: InvestmentOpportunity
+        self,
+        opportunity: InvestmentOpportunity,
     ) -> None:
         """機会ハンドラー実行"""
         handlers = self.alert_handlers.get(opportunity.severity, [])
@@ -1158,7 +1162,9 @@ class InvestmentOpportunityAlertSystem:
         }
 
     async def execute_opportunity(
-        self, opportunity_id: str, execution_note: Optional[str] = None
+        self,
+        opportunity_id: str,
+        execution_note: Optional[str] = None,
     ) -> bool:
         """機会実行"""
         for opportunity in self.opportunities:

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #332: エンタープライズ級完全統合システム簡易統合テスト
 
@@ -10,12 +9,9 @@ Issue #332の核心機能検証:
 """
 
 import asyncio
-import sys
-import time
-import json
-from pathlib import Path
-from typing import Dict, List, Any
 import logging
+import time
+from typing import Any, Dict
 
 # 基本ログ設定
 logging.basicConfig(level=logging.WARNING)
@@ -317,11 +313,11 @@ async def main():
 
     # 成功率
     success_rate = successful_tests / total_tests
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  成功テスト: {successful_tests}/{total_tests} ({success_rate:.1%})")
 
     # Issue #332成功条件評価
-    print(f"\nIssue #332 成功条件検証:")
+    print("\nIssue #332 成功条件検証:")
 
     # Phase 1: オーケストレーション機能 (85%以上)
     orchestration_result = next((r for r in test_results if 'orchestration_features' in r), None)
@@ -332,7 +328,7 @@ async def main():
         print(f"  1. オーケストレーション機能85%以上: {orchestration_success_rate:.1%} {'OK' if orchestration_target_met else 'NG'}")
     else:
         orchestration_target_met = False
-        print(f"  1. オーケストレーション機能85%以上: データなし NG")
+        print("  1. オーケストレーション機能85%以上: データなし NG")
 
     # Phase 2: ダッシュボード品質 (90%以上)
     dashboard_result = next((r for r in test_results if 'dashboard_features' in r), None)
@@ -342,7 +338,7 @@ async def main():
         print(f"  2. ダッシュボード品質90%以上: {dashboard_quality:.1%} {'OK' if dashboard_target_met else 'NG'}")
     else:
         dashboard_target_met = False
-        print(f"  2. ダッシュボード品質90%以上: データなし NG")
+        print("  2. ダッシュボード品質90%以上: データなし NG")
 
     # Phase 3: 統合システム運用品質 (85%以上)
     integration_result = next((r for r in test_results if 'integration_score' in r), None)
@@ -352,7 +348,7 @@ async def main():
         print(f"  3. 統合システム運用85%以上: {integration_quality:.3f} {'OK' if integration_target_met else 'NG'}")
     else:
         integration_target_met = False
-        print(f"  3. 統合システム運用85%以上: データなし NG")
+        print("  3. 統合システム運用85%以上: データなし NG")
 
     # エンタープライズ級品質 (全体90%以上)
     enterprise_quality = success_rate
@@ -366,16 +362,16 @@ async def main():
     print(f"\nIssue #332 達成条件: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})")
 
     if issue_success_rate >= 0.75:
-        print(f"判定: OK Issue #332 エンタープライズ級完全統合システム実装成功")
-        print(f"ステータス: エンタープライズ級システム完成")
+        print("判定: OK Issue #332 エンタープライズ級完全統合システム実装成功")
+        print("ステータス: エンタープライズ級システム完成")
     elif issue_success_rate >= 0.5:
-        print(f"判定: PARTIAL 部分的成功")
-        print(f"ステータス: 追加最適化推奨")
+        print("判定: PARTIAL 部分的成功")
+        print("ステータス: 追加最適化推奨")
     else:
-        print(f"判定: NG 成功条件未達成")
-        print(f"ステータス: 追加開発必要")
+        print("判定: NG 成功条件未達成")
+        print("ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #332 エンタープライズ級完全統合システム簡易統合テスト完了")
+    print("\nOK Issue #332 エンタープライズ級完全統合システム簡易統合テスト完了")
 
     return issue_success_rate >= 0.75
 

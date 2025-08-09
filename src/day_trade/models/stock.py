@@ -10,7 +10,7 @@
 from datetime import datetime as dt
 from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,

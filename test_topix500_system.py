@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 TOPIX500システムテスト
 Issue #314: TOPIX500全銘柄対応機能検証
@@ -25,7 +24,9 @@ def test_topix500_manager_import():
     print("=== TOPIX500管理システムインポートテスト ===")
 
     try:
-        from src.day_trade.data.topix500_manager import TOPIX500Manager, TOPIX500Stock, SectorAnalysis
+        from src.day_trade.data.topix500_manager import (
+            TOPIX500Stock,
+        )
         print("[OK] TOPIX500Manager import success")
 
         # 基本クラステスト
@@ -192,14 +193,14 @@ async def test_performance_projection():
         base_memory = 4.6  # MB
         predicted_memory = base_memory * scale_factor * 0.1  # キャッシュ効果考慮
 
-        print(f"[PREDICTION] TOPIX500処理時間予測:")
+        print("[PREDICTION] TOPIX500処理時間予測:")
         print(f"  - 逐次処理時: {sequential_time:.1f}秒")
         print(f"  - 並列処理時: {parallel_time:.1f}秒")
         print(f"  - 目標20秒: {'達成可能' if parallel_time <= 20 else '要追加最適化'}")
-        print(f"[PREDICTION] メモリ使用量予測:")
+        print("[PREDICTION] メモリ使用量予測:")
         print(f"  - 予測使用量: {predicted_memory:.1f}MB")
         print(f"  - 目標1GB: {'達成可能' if predicted_memory <= 1000 else '要最適化'}")
-        print(f"[PREDICTION] 精度維持:")
+        print("[PREDICTION] 精度維持:")
         print(f"  - 期待精度: {base_performance['accuracy']}% (統合最適化基盤)")
 
         return True

@@ -6,7 +6,6 @@ Issue #315: 高度テクニカル指標・ML機能拡張
 全てのML機能を統合してテスト実行
 """
 
-import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,12 +16,14 @@ import pandas as pd
 # プロジェクトルートを追加
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.day_trade.data.lstm_time_series_model import LSTMTimeSeriesModel
-from src.day_trade.analysis.advanced_technical_indicators import AdvancedTechnicalIndicators
+from src.day_trade.analysis.advanced_technical_indicators import (
+    AdvancedTechnicalIndicators,
+)
 from src.day_trade.analysis.multi_timeframe_analysis import MultiTimeframeAnalyzer
+from src.day_trade.data.lstm_time_series_model import LSTMTimeSeriesModel
 from src.day_trade.risk.volatility_prediction_engine import VolatilityPredictionEngine
-from src.day_trade.visualization.ml_results_visualizer import MLResultsVisualizer
 from src.day_trade.utils.logging_config import get_context_logger
+from src.day_trade.visualization.ml_results_visualizer import MLResultsVisualizer
 
 logger = get_context_logger(__name__)
 
@@ -142,7 +143,7 @@ def test_ml_integration():
         )
 
         if training_result:
-            print(f"OK LSTM訓練完了")
+            print("OK LSTM訓練完了")
             print(f"   検証R²: {training_result['val_r2']:.3f}")
             print(f"   検証RMSE: {training_result['val_rmse']:.2f}")
             print(f"   信頼度指標: {training_result['val_r2'] * 100:.1f}%")
@@ -156,7 +157,7 @@ def test_ml_integration():
             )
 
             if prediction_result:
-                print(f"OK LSTM予測完了")
+                print("OK LSTM予測完了")
                 print(f"   現在価格: {prediction_result['current_price']:.0f}")
                 print(f"   5日後予測: {prediction_result['predicted_prices'][-1]:.0f}")
                 print(f"   予測リターン: {prediction_result['predicted_returns'][-1]:+.2f}%")

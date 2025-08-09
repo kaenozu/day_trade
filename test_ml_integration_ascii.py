@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 ML機能統合テスト（ASCII安全版）
 Issue #315: 高度テクニカル指標・ML機能拡張
@@ -7,7 +6,6 @@ Issue #315: 高度テクニカル指標・ML機能拡張
 全てのML機能を統合してテスト実行
 """
 
-import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,12 +16,14 @@ import pandas as pd
 # プロジェクトルートを追加
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.day_trade.data.lstm_time_series_model import LSTMTimeSeriesModel
-from src.day_trade.analysis.advanced_technical_indicators import AdvancedTechnicalIndicators
+from src.day_trade.analysis.advanced_technical_indicators import (
+    AdvancedTechnicalIndicators,
+)
 from src.day_trade.analysis.multi_timeframe_analysis import MultiTimeframeAnalyzer
+from src.day_trade.data.lstm_time_series_model import LSTMTimeSeriesModel
 from src.day_trade.risk.volatility_prediction_engine import VolatilityPredictionEngine
-from src.day_trade.visualization.ml_results_visualizer import MLResultsVisualizer
 from src.day_trade.utils.logging_config import get_context_logger
+from src.day_trade.visualization.ml_results_visualizer import MLResultsVisualizer
 
 logger = get_context_logger(__name__)
 
@@ -132,7 +132,7 @@ def test_ml_integration():
         )
 
         if training_result:
-            print(f"[OK] LSTM training completed")
+            print("[OK] LSTM training completed")
             print(f"   Validation R2: {training_result['val_r2']:.3f}")
             print(f"   Validation RMSE: {training_result['val_rmse']:.2f}")
             print(f"   Confidence Score: {training_result['val_r2'] * 100:.1f}%")
@@ -146,7 +146,7 @@ def test_ml_integration():
             )
 
             if prediction_result:
-                print(f"[OK] LSTM prediction completed")
+                print("[OK] LSTM prediction completed")
                 print(f"   Current Price: {prediction_result['current_price']:.0f}")
                 print(f"   5-day Prediction: {prediction_result['predicted_prices'][-1]:.0f}")
                 print(f"   Predicted Return: {prediction_result['predicted_returns'][-1]:+.2f}%")

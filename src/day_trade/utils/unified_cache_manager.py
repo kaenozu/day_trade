@@ -830,7 +830,7 @@ if __name__ == "__main__":
 
     # データ取得
     print("\n2. データ取得テスト...")
-    for key in test_data.keys():
+    for key in test_data:
         value = cache_manager.get(key)
         print(f"  {key}: {'ヒット' if value else 'ミス'}")
 

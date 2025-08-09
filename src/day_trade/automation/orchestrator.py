@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional
 
 from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
+from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
 from ..database.database import get_default_database_manager
-from ..core.portfolio import PortfolioManager
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)

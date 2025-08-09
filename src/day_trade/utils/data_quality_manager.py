@@ -554,9 +554,7 @@ class DataQualityManager:
         """品質メトリクス計算"""
 
         # データサイズ取得
-        if isinstance(data, pd.DataFrame):
-            total_records = len(data)
-        elif isinstance(data, list):
+        if isinstance(data, pd.DataFrame) or isinstance(data, list):
             total_records = len(data)
         elif isinstance(data, dict):
             total_records = 1

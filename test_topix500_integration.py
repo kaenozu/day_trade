@@ -8,14 +8,14 @@ Issue #314: TOPIX500全銘柄対応
 
 import gc
 import logging
-import psutil
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
-import sys
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import psutil
 
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -141,7 +141,9 @@ def test_parallel_processing():
     print("="*50)
 
     try:
-        from src.day_trade.automation.topix500_parallel_engine import TOPIX500ParallelEngine
+        from src.day_trade.automation.topix500_parallel_engine import (
+            TOPIX500ParallelEngine,
+        )
 
         # 並列処理エンジン初期化
         engine = TOPIX500ParallelEngine(
@@ -169,7 +171,7 @@ def test_parallel_processing():
 
         # パフォーマンス最適化提案
         recommendations = engine.optimize_performance()
-        print(f"✓ パフォーマンス最適化提案生成完了")
+        print("✓ パフォーマンス最適化提案生成完了")
         print(f"  - 推奨ワーカー数: {recommendations['optimal_workers']}")
         print(f"  - 推奨バッチサイズ: {recommendations['optimal_batch_size']}")
 
@@ -192,10 +194,10 @@ def test_memory_pipeline():
 
     try:
         from src.day_trade.data.memory_efficient_pipeline import (
+            DataStreamGenerator,
+            StatisticalFeatureProcessor,
             StreamingDataPipeline,
             TechnicalIndicatorProcessor,
-            StatisticalFeatureProcessor,
-            DataStreamGenerator
         )
 
         # パイプライン初期化
@@ -235,7 +237,7 @@ def test_memory_pipeline():
 
         # パイプライン統計
         stats = pipeline.get_pipeline_stats()
-        print(f"✓ パイプライン統計取得完了")
+        print("✓ パイプライン統計取得完了")
         print(f"  - 総メモリ使用量: {stats['total_memory_usage_mb']:.1f}MB")
         print(f"  - アクティブプロセッサ: {stats['active_processors']}")
 
@@ -314,7 +316,7 @@ def test_sector_analysis():
 
         # 包括的セクター分析
         comprehensive = analyzer.analyze_comprehensive_sectors(sector_data, "bull")
-        print(f"✓ 包括的セクター分析完了")
+        print("✓ 包括的セクター分析完了")
         print(f"  - ローテーション機会: {len(comprehensive.rotation_opportunities)}")
         print(f"  - セクターランキング: {len(comprehensive.sector_rankings)}")
 
@@ -410,7 +412,7 @@ def test_integration_performance(target_symbols: int = 500):
             success = False
             issues.append(f"処理成功率低下: {processed_count}/{len(symbols)}")
 
-        print(f"\n統合パフォーマンステスト結果:")
+        print("\n統合パフォーマンステスト結果:")
         print(f"  処理銘柄数: {processed_count}/{len(symbols)}")
         print(f"  総処理時間: {total_time:.1f}秒 (目標: 20秒)")
         print(f"  メモリ増加: {memory_increase:.1f}MB (目標: <1024MB)")

@@ -630,6 +630,14 @@ class GPUAccelerationEngine:
         }
 
 
+@dataclass
+class GPUAcceleratedResult:
+    """GPU加速実行結果"""
+    indicators: Dict[str, Any]
+    computation_result: GPUComputeResult
+    strategy_name: str
+
+
 # Strategy Pattern への統合
 @optimization_strategy("technical_indicators", OptimizationLevel.GPU_ACCELERATED)
 class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
@@ -670,14 +678,6 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
             self.record_execution(execution_time, False)
             logger.error(f"GPU加速実行エラー: {e}")
             raise
-
-
-@dataclass
-class GPUAcceleratedResult:
-    """GPU加速実行結果"""
-    indicators: Dict[str, Any]
-    computation_result: GPUComputeResult
-    strategy_name: str
 
 
 # GPU_ACCELERATED レベルは optimization_strategy.py で定義済み

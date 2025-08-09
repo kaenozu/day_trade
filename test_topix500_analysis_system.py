@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 TOPIX500分析システム テストスイート
 Issue #314: TOPIX500全銘柄対応の包括的テスト
@@ -7,17 +6,16 @@ Issue #314: TOPIX500全銘柄対応の包括的テスト
 大規模処理・セクター分析・性能要件の検証
 """
 
-import asyncio
 import gc
 import logging
-import pytest
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict
 
 import numpy as np
 import pandas as pd
+import pytest
 
 # プロジェクトパスを追加
 sys.path.append(str(Path(__file__).parent))
@@ -25,10 +23,10 @@ sys.path.append(str(Path(__file__).parent / "src"))
 
 try:
     from src.day_trade.topix.topix500_analysis_system import (
+        PerformanceMetrics,
+        SectorAnalysisResult,
         TOPIX500AnalysisSystem,
         TOPIX500Symbol,
-        SectorAnalysisResult,
-        PerformanceMetrics
     )
     from src.day_trade.utils.logging_config import get_context_logger
 except ImportError as e:
@@ -358,7 +356,7 @@ class TestTOPIX500AnalysisSystem:
                 logger.info(f"✅ キャッシュ効果テスト完了: 1回目{time1:.2f}秒 → 2回目{time2:.2f}秒 "
                            f"高速化{speedup:.1f}倍")
             else:
-                logger.info(f"✅ キャッシュテスト完了: 処理時間短すぎキャッシュ効果測定不可")
+                logger.info("✅ キャッシュテスト完了: 処理時間短すぎキャッシュ効果測定不可")
 
             # 結果の一貫性確認
             assert len(result1['symbol_results']) == len(result2['symbol_results'])

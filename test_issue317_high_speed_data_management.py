@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Issue #317 高速データ管理システム統合テスト
 
@@ -11,10 +10,10 @@ Issue #317 高速データ管理システム統合テスト
 """
 
 import asyncio
-import time
 import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -27,6 +26,27 @@ try:
     # 基本ログ設定
     import logging
     logger = logging.getLogger(__name__)
+
+    from src.day_trade.database.high_speed_time_series_db import (
+        TimeSeriesConfig,
+        HighSpeedTimeSeriesDB,
+    )
+    from src.day_trade.data.data_compression_archive_system import (
+        CompressionConfig,
+        CompressionAlgorithm,
+        DataCompressionArchiveSystem,
+        DataLifecycleStage,
+    )
+    from src.day_trade.data.incremental_update_system import (
+        IncrementalConfig,
+        IncrementalUpdateSystem,
+    )
+    from src.day_trade.api.api_integration_manager import DataSource
+    from src.day_trade.data.backup_disaster_recovery_system import (
+        BackupConfig,
+        BackupDisasterRecoverySystem,
+        BackupType,
+    )
 
     # Issue #317実装システム（簡易版）
     print("Issue #317高速データ管理システムの簡易テスト実行")
@@ -540,11 +560,11 @@ async def main():
 
     # 成功条件評価
     success_rate = successful_tests / total_tests
-    print(f"\n総合結果:")
+    print("\n総合結果:")
     print(f"  成功テスト: {successful_tests}/{total_tests} ({success_rate:.1%})")
 
     # Issue #317成功条件チェック
-    print(f"\nIssue #317 成功条件検証:")
+    print("\nIssue #317 成功条件検証:")
 
     # 成功条件（仮想的な目標値）
     performance_metrics = performance_result.get('performance_metrics', {})
@@ -582,16 +602,16 @@ async def main():
     print(f"\nIssue #317 達成条件: {sum(issue_targets_met)}/{len(issue_targets_met)} ({issue_success_rate:.1%})")
 
     if issue_success_rate >= 0.75:
-        print(f"判定: OK Issue #317 成功条件達成")
-        print(f"ステータス: 高速データ管理システム実装完了")
+        print("判定: OK Issue #317 成功条件達成")
+        print("ステータス: 高速データ管理システム実装完了")
     elif issue_success_rate >= 0.5:
-        print(f"判定: PARTIAL 部分的達成")
-        print(f"ステータス: 追加最適化推奨")
+        print("判定: PARTIAL 部分的達成")
+        print("ステータス: 追加最適化推奨")
     else:
-        print(f"判定: NG 成功条件未達成")
-        print(f"ステータス: 追加開発必要")
+        print("判定: NG 成功条件未達成")
+        print("ステータス: 追加開発必要")
 
-    print(f"\nOK Issue #317 高速データ管理システム統合テスト完了")
+    print("\nOK Issue #317 高速データ管理システム統合テスト完了")
 
     return issue_success_rate >= 0.75
 
