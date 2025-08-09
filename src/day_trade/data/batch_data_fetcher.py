@@ -40,6 +40,14 @@ from .real_market_data import RealMarketDataManager
 
 logger = get_context_logger(__name__)
 
+# 統合テクニカル指標マネージャーをインポート
+try:
+    from ..analysis.technical_indicators_unified import TechnicalIndicatorsManager
+    INDICATORS_AVAILABLE = True
+except ImportError:
+    INDICATORS_AVAILABLE = False
+    logger.warning("統合テクニカル指標マネージャーが利用できません")
+
 @dataclass
 class DataRequest:
     """データ取得リクエスト"""
@@ -325,38 +333,39 @@ class AdvancedBatchDataFetcher:
             )
 
     def _preprocess_data(self, data: pd.DataFrame, request: DataRequest) -> pd.DataFrame:
-        """高度データ前処理"""
+        """高度データ前処理（統合テクニカル指標マネージャー使用）"""
 
         result = data.copy()
 
         try:
-            # 基本特徴量エンジニアリング
-            if '終値' in result.columns:
-                # リターン計算
-                result['returns'] = result['終値'].pct_change()
-                result['log_returns'] = np.log(result['終値'] / result['終値'].shift(1))
+            # 統合テクニカル指標マネージャーを使用
+            if INDICATORS_AVAILABLE:
+                indicators_manager = TechnicalIndicatorsManager()
 
-                # ボラティリティ
-                result['volatility_5d'] = result['returns'].rolling(5).std()
-                result['volatility_20d'] = result['returns'].rolling(20).std()
+                # テクニカル指標を計算
+                indicators_result = indicators_manager.calculate_all_indicators(
+                    data=result,
+                    indicators=['sma', 'ema', 'rsi', 'bollinger_bands', 'macd'],
+                    periods={'sma': [5, 20, 50], 'ema': [5, 20, 50], 'rsi': 14}
+                )
 
-                # 移動平均
-                for period in [5, 20, 50]:
-                    result[f'SMA_{period}'] = result['終値'].rolling(period).mean()
-                    result[f'EMA_{period}'] = result['終値'].ewm(span=period).mean()
+                # 指標データを結合
+                result = pd.concat([result, indicators_result], axis=1)
 
-                # RSI
-                result['RSI_14'] = self._calculate_rsi(result['終値'], 14)
+                logger.debug(f"統合指標マネージャー使用: {request.symbol}")
 
-                # ボリンジャーバンド
-                bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(result['終値'])
-                result['BB_Upper'] = bb_upper
-                result['BB_Middle'] = bb_middle
-                result['BB_Lower'] = bb_lower
-                result['BB_Width'] = (bb_upper - bb_lower) / bb_middle
-                result['BB_Position'] = (result['終値'] - bb_lower) / (bb_upper - bb_lower)
+            else:
+                # フォールバック: 基本的な特徴量のみ
+                if '終値' in result.columns:
+                    result['returns'] = result['終値'].pct_change()
+                    result['log_returns'] = np.log(result['終値'] / result['終値'].shift(1))
+                    result['volatility_5d'] = result['returns'].rolling(5).std()
+                    result['SMA_20'] = result['終値'].rolling(20).mean()
+                    result['EMA_20'] = result['終値'].ewm(span=20).mean()
 
-            # 出来高特徴量
+                logger.debug(f"フォールバック処理: {request.symbol}")
+
+            # 出来高特徴量（追加）
             if '出来高' in result.columns:
                 result['volume_ma_20'] = result['出来高'].rolling(20).mean()
                 result['volume_ratio'] = result['出来高'] / result['volume_ma_20']
@@ -570,23 +579,7 @@ class AdvancedBatchDataFetcher:
 
         self.request_history = self.request_history[-1000:]  # 最新1000件のみ保持
 
-    # ヘルパー関数
-    def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
-        """RSI計算"""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
-
-    def _calculate_bollinger_bands(self, prices: pd.Series, period: int = 20, std_dev: float = 2) -> Tuple[pd.Series, pd.Series, pd.Series]:
-        """ボリンジャーバンド計算"""
-        middle = prices.rolling(window=period).mean()
-        std = prices.rolling(window=period).std()
-        upper = middle + (std * std_dev)
-        lower = middle - (std * std_dev)
-        return upper, middle, lower
+    # ヘルパー関数（重複削除 - 統合テクニカル指標マネージャー使用）
 
     def get_pipeline_stats(self) -> PipelineStats:
         """パイプライン統計取得"""
