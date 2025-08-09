@@ -78,7 +78,7 @@ def validate_symbols(symbols_str: str) -> List[str]:
     unique_symbols = list(dict.fromkeys(symbols))
 
     if len(symbols) != len(unique_symbols):
-        print("注意: 重複する銘柄コードが除去されました")
+        logging.getLogger(__name__).warning("注意: 重複する銘柄コードが除去されました")
 
     return unique_symbols
 
@@ -406,17 +406,17 @@ def main():
             if not symbols:
                 symbols = config_manager.get_symbol_codes()
 
-            print("[設定] 設定情報:")
-            print(f"   設定ファイル: {config_manager.config_path}")
-            print(f"   対象銘柄数: {len(symbols)}")
-            print(f"   銘柄コード: {', '.join(symbols)}")
-            print(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
+            logger.info("[設定] 設定情報:")
+            logger.info(f"   設定ファイル: {config_manager.config_path}")
+            logger.info(f"   対象銘柄数: {len(symbols)}")
+            logger.info(f"   銘柄コード: {', '.join(symbols)}")
+            logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
             # 市場時間チェック
             if config_manager.is_market_open():
-                print("   [オープン] 市場オープン中")
+                logger.info("   [オープン] 市場オープン中")
             else:
-                print("   [クローズ] 市場クローズ中")
+                logger.info("   [クローズ] 市場クローズ中")
 
         except Exception as e:
             logger.error(f"設定読み込みエラー: {e}")
@@ -424,9 +424,9 @@ def main():
 
         # 実行確認
         if not args.report_only:
-            print(f"\n {len(symbols)}銘柄の自動分析を開始します...")
+            logger.info(f"\n {len(symbols)}銘柄の自動分析を開始します...")
         else:
-            print("\n[レポート] レポート生成を開始します...")
+            logger.info("\n[レポート] レポート生成を開始します...")
 
         # オーケストレーター初期化・実行
         orchestrator = DayTradeOrchestrator(config_path)
