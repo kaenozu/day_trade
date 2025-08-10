@@ -113,7 +113,7 @@ jobs:
           echo "📈 **Cyclomatic Complexity**: $complexity" >> mutation_report.md
 
       - name: Upload mutation results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mutation-testing-results
           path: |
@@ -276,7 +276,7 @@ jobs:
           fi
 
       - name: Upload property testing results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: property-testing-results
           path: |
@@ -455,7 +455,7 @@ jobs:
           fi
 
       - name: Upload fuzz testing results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fuzz-testing-results
           path: |
@@ -684,7 +684,7 @@ jobs:
           echo '```' >> chaos_report.md
 
       - name: Upload chaos testing results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: chaos-engineering-results
           path: |
@@ -698,7 +698,7 @@ jobs:
     if: always()
     steps:
       - name: Download all test artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Create comprehensive test summary
         run: |
@@ -816,7 +816,7 @@ jobs:
             }
 
       - name: Upload comprehensive test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: comprehensive-test-report
           path: test_summary.md

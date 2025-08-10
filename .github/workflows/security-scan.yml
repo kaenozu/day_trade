@@ -188,7 +188,7 @@ jobs:
           fi
 
       - name: Upload security scan results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-scan-results
           path: |
@@ -273,7 +273,7 @@ jobs:
           fi
 
       - name: Upload license report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: license-audit-report
           path: license_report.md
@@ -357,7 +357,7 @@ jobs:
           " >> container_security_report.md
 
       - name: Upload container scan results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: container-security-scan
           path: |
@@ -370,7 +370,7 @@ jobs:
     if: always()
     steps:
       - name: Download all security artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Create comprehensive security summary
         run: |
@@ -429,7 +429,7 @@ jobs:
             }
 
       - name: Upload comprehensive security report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: comprehensive-security-report
           path: security_summary.md
