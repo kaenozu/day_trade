@@ -6,11 +6,14 @@
 
 import csv
 import json
+import os
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union, Deque
+from collections import deque
 
 from ..models.database import db_manager
 from ..models.enums import TradeType
@@ -27,6 +30,478 @@ from ..utils.logging_config import (
 
 logger = get_context_logger(__name__)
 error_handler = get_default_error_handler()
+
+
+def safe_decimal_conversion(value: Union[str, int, float, Decimal], context: str = "値") -> Decimal:
+    """
+    安全なDecimal変換（浮動小数点誤差回避・強化版）
+
+    金銭計算に使用する数値をDecimalに変換し、浮動小数点数の精度問題を回避する。
+    企業レベルの会計処理に適した精度保証を提供。
+
+    Args:
+        value: 変換する値
+        context: エラー時のコンテキスト情報
+
+    Returns:
+        Decimal: 変換された値（精度保証済み）
+
+    Raises:
+        ValueError: 変換不可能な値
+        TypeError: 不正な型
+    """
+    if isinstance(value, Decimal):
+        # 既にDecimalの場合も精度を確認
+        if not value.is_finite():
+            raise ValueError(f"Decimal値が無限大またはNaN: {context} = {value}")
+        return value
+
+    try:
+        # 1. None値チェック
+        if value is None:
+            raise ValueError(f"{context}がNoneです")
+
+        # 2. 型別変換処理
+        if isinstance(value, int):
+            # intの場合は直接変換（精度問題なし）
+            return Decimal(value)
+
+        elif isinstance(value, str):
+            # 文字列の場合は空白除去と基本検証
+            clean_value = str(value).strip()
+            if not clean_value:
+                raise ValueError(f"空の文字列: {context}")
+
+            # 危険な文字列パターンをチェック
+            dangerous_patterns = ['inf', '-inf', 'nan', 'null', 'undefined']
+            if clean_value.lower() in dangerous_patterns:
+                raise ValueError(f"無効な数値文字列: {context} = {clean_value}")
+
+            # 基本的な数値形式チェック
+            import re
+            if not re.match(r'^-?\d*\.?\d*$', clean_value.replace(',', '')):
+                raise ValueError(f"数値形式ではありません: {context} = {clean_value}")
+
+            # カンマ区切りを除去
+            clean_value = clean_value.replace(',', '')
+            return Decimal(clean_value)
+
+        elif isinstance(value, float):
+            # floatの場合は特に慎重に処理
+            # 1. 特殊値をチェック
+            import math
+            if math.isinf(value) or math.isnan(value):
+                raise ValueError(f"無限大またはNaN: {context} = {value}")
+
+            # 2. 極端に大きい値や小さい値をチェック
+            if abs(value) > 1e15:  # 京を超える値
+                raise ValueError(f"値が大きすぎます: {context} = {value}")
+            if abs(value) < 1e-10 and value != 0:  # 極小値
+                raise ValueError(f"値が小さすぎます: {context} = {value}")
+
+            # 3. repr()を使って最高精度の文字列表現を取得
+            # これによりfloat -> str -> Decimalの変換で精度を最大限保持
+            decimal_str = repr(value)
+            return Decimal(decimal_str)
+
+        else:
+            # その他の型は拒否
+            raise TypeError(f"サポートされていない型: {type(value).__name__}")
+
+    except (InvalidOperation, ValueError, TypeError) as e:
+        # エラーメッセージに敏感な情報が含まれないようマスキング
+        safe_value_str = mask_sensitive_info(str(value))
+        raise ValueError(f"{context}の変換に失敗しました: {safe_value_str} ({type(value).__name__}) - {str(e)}")
+
+
+def quantize_decimal(value: Decimal, decimal_places: int = 2) -> Decimal:
+    """
+    Decimalの精度を統一（金銭計算用）
+
+    Args:
+        value: 対象のDecimal値
+        decimal_places: 小数点以下の桁数
+
+    Returns:
+        Decimal: 精度調整された値
+    """
+    if not isinstance(value, Decimal):
+        raise TypeError(f"Decimal型が必要です: {type(value)}")
+
+    # 量子化パターンを生成
+    if decimal_places < 0:
+        raise ValueError(f"小数点以下の桁数は0以上である必要があります: {decimal_places}")
+
+    quantum = Decimal('0.1') ** decimal_places
+    return value.quantize(quantum)
+
+
+def validate_positive_decimal(value: Decimal, context: str = "値", allow_zero: bool = False) -> Decimal:
+    """
+    正のDecimal値の検証
+
+    Args:
+        value: 検証する値
+        context: エラー時のコンテキスト情報
+        allow_zero: ゼロを許可するか
+
+    Returns:
+        Decimal: 検証済みの値
+
+    Raises:
+        ValueError: 負数またはゼロ（allow_zero=Falseの場合）
+    """
+    if not isinstance(value, Decimal):
+        raise TypeError(f"{context}はDecimal型である必要があります: {type(value)}")
+
+    if allow_zero:
+        if value < 0:
+            raise ValueError(f"{context}は0以上である必要があります: {value}")
+    else:
+        if value <= 0:
+            raise ValueError(f"{context}は正数である必要があります: {value}")
+
+    return value
+
+
+def validate_file_path(filepath: str, operation: str = "ファイル操作") -> Path:
+    """
+    安全なファイルパス検証（パストラバーサル対策・強化版）
+
+    Args:
+        filepath: 検証するファイルパス
+        operation: 操作種別（エラーメッセージ用）
+
+    Returns:
+        Path: 正規化された安全なパス
+
+    Raises:
+        ValueError: 不正なパス
+        SecurityError: セキュリティ上の問題
+    """
+    if not filepath:
+        raise ValueError(f"{operation}にはファイルパスが必要です")
+
+    if not isinstance(filepath, (str, Path)):
+        raise TypeError(f"ファイルパスは文字列またはPathオブジェクトである必要があります: {type(filepath)}")
+
+    try:
+        # 1. 基本的なセキュリティチェック
+        filepath_str = str(filepath)
+
+        # 危険なパターンを事前チェック
+        dangerous_patterns = [
+            '../', '..\\', '%2e%2e', '~/',
+            'file://', 'ftp://', 'http://', 'https://',
+            '\\\\', '//', '..%2f', '..%5c',
+            '\x00', '\x01', '\x02', '\x03', '\x04'  # NULL文字・制御文字
+        ]
+
+        filepath_lower = filepath_str.lower()
+        for pattern in dangerous_patterns:
+            if pattern in filepath_lower:
+                raise ValueError(f"危険なパスパターンが検出されました: {pattern}")
+
+        # 2. パス長制限
+        if len(filepath_str) > 260:  # Windows MAX_PATH制限
+            raise ValueError(f"ファイルパスが長すぎます: {len(filepath_str)} 文字")
+
+        # 3. パスを正規化
+        path = Path(filepath_str).resolve()
+
+        # 4. 現在のディレクトリを基準とした検証
+        current_dir = Path.cwd().resolve()
+
+        # 許可されたベースディレクトリ
+        allowed_base_dirs = [
+            current_dir,
+            current_dir / "data",
+            current_dir / "output",
+            current_dir / "exports",
+            current_dir / "temp"
+        ]
+
+        # 絶対パスの場合は追加検証
+        is_within_allowed = False
+        try:
+            for allowed_dir in allowed_base_dirs:
+                try:
+                    path.relative_to(allowed_dir)
+                    is_within_allowed = True
+                    break
+                except ValueError:
+                    continue
+        except Exception:
+            pass
+
+        if not is_within_allowed:
+            # 許可されたディレクトリ外の場合、システムディレクトリをチェック
+            forbidden_paths = [
+                # Unix/Linux系システムディレクトリ
+                '/etc', '/usr', '/var', '/root', '/home', '/opt', '/sys', '/proc', '/dev',
+                '/bin', '/sbin', '/lib', '/lib64', '/boot', '/mnt', '/media',
+
+                # Windows系システムディレクトリ
+                'c:\\windows', 'c:\\program files', 'c:\\program files (x86)',
+                'c:\\users\\default', 'c:\\users\\public', 'c:\\programdata',
+                'c:\\system volume information', 'c:\\recovery',
+
+                # ネットワークパス
+                '\\\\', '//', 'smb://', 'nfs://'
+            ]
+
+            path_str = str(path).lower()
+            for forbidden in forbidden_paths:
+                if path_str.startswith(forbidden.lower()):
+                    raise ValueError(f"システムディレクトリへのアクセスは禁止されています: {mask_sensitive_info(str(path))}")
+
+        # 5. ファイル名の検証
+        if path.name:
+            # 危険な文字
+            dangerous_chars = ['<', '>', ':', '"', '|', '?', '*', '\x00']
+            if any(char in path.name for char in dangerous_chars):
+                raise ValueError(f"ファイル名に無効な文字が含まれています: {mask_sensitive_info(path.name)}")
+
+            # 予約語チェック（Windows）
+            reserved_names = [
+                'con', 'prn', 'aux', 'nul',
+                'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+                'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+            ]
+            if path.stem.lower() in reserved_names:
+                raise ValueError(f"予約語をファイル名に使用できません: {path.stem}")
+
+        # 6. ディレクトリ存在確認（親ディレクトリ）
+        if not path.parent.exists():
+            # 親ディレクトリが存在しない場合は作成を試みる（安全な範囲で）
+            if is_within_allowed:
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    logger.info(f"ディレクトリを作成しました: {mask_sensitive_info(str(path.parent))}")
+                except PermissionError:
+                    raise ValueError(f"ディレクトリの作成権限がありません: {mask_sensitive_info(str(path.parent))}")
+                except Exception as e:
+                    raise ValueError(f"ディレクトリ作成に失敗しました: {mask_sensitive_info(str(e))}")
+            else:
+                raise ValueError(f"親ディレクトリが存在しません: {mask_sensitive_info(str(path.parent))}")
+
+        return path
+
+    except Exception as e:
+        if isinstance(e, (ValueError, TypeError)):
+            raise
+        safe_error_msg = mask_sensitive_info(str(e))
+        raise ValueError(f"{operation}のパス処理でエラーが発生しました: {safe_error_msg}")
+
+
+def mask_sensitive_info(text: str, mask_char: str = "*") -> str:
+    """
+    機密情報のマスキング（包括的セキュリティ強化版）
+
+    金融取引データ、ファイルパス、価格情報、手数料等の
+    機密性の高い情報を自動的にマスキングし、ログ出力時の
+    情報漏洩を防止する。
+
+    Args:
+        text: マスキング対象のテキスト
+        mask_char: マスク文字
+
+    Returns:
+        str: マスキング済みテキスト
+    """
+    if not text or not isinstance(text, str):
+        return str(text) if text is not None else ""
+
+    import re
+
+    # 1. 金額・価格情報のマスキング
+    # 価格パターン (例: "2500.00", "¥1,000", "$123.45")
+    price_patterns = [
+        r'[¥$€£]\s*[\d,]+\.?\d*',  # 通貨記号付き金額
+        r'price["\']?\s*[:=]\s*[\d,]+\.?\d*',  # price: 1234.56
+        r'amount["\']?\s*[:=]\s*[\d,]+\.?\d*',  # amount: 1234.56
+        r'cost["\']?\s*[:=]\s*[\d,]+\.?\d*',   # cost: 1234.56
+        r'value["\']?\s*[:=]\s*[\d,]+\.?\d*',  # value: 1234.56
+        r'total["\']?\s*[:=]\s*[\d,]+\.?\d*',  # total: 1234.56
+        r'balance["\']?\s*[:=]\s*[\d,]+\.?\d*', # balance: 1234.56
+    ]
+
+    for pattern in price_patterns:
+        text = re.sub(pattern, lambda m: _mask_financial_value(m.group(), mask_char), text, flags=re.IGNORECASE)
+
+    # 2. 手数料情報のマスキング
+    commission_patterns = [
+        r'commission["\']?\s*[:=]\s*[¥$€£]?[\d,]+\.?\d*',
+        r'fee["\']?\s*[:=]\s*[¥$€£]?[\d,]+\.?\d*',
+        r'費用["\']?\s*[:=]\s*[¥$€£]?[\d,]+\.?\d*',
+        r'手数料["\']?\s*[:=]\s*[¥$€£]?[\d,]+\.?\d*',
+    ]
+
+    for pattern in commission_patterns:
+        text = re.sub(pattern, f'{pattern.split("[")[0].split("\\")[0]}: {mask_char * 6}', text, flags=re.IGNORECASE)
+
+    # 3. ファイルパスのマスキング
+    # Windows/Unix パス情報
+    path_patterns = [
+        r'[C-Z]:[\\\/][\w\\\/.\\-_\s]+',  # C:\path\to\file
+        r'\/[\w\/\.\-_\s]+',  # /path/to/file
+        r'\.[\w\/\\\.\-_\s]+',  # ./relative/path
+        r'~[\w\/\\\.\-_\s]*',  # ~/home/path
+    ]
+
+    for pattern in path_patterns:
+        text = re.sub(pattern, lambda m: _mask_file_path(m.group(), mask_char), text)
+
+    # 4. 取引ID・識別子のマスキング
+    # 取引IDパターン
+    id_patterns = [
+        r'trade_id["\']?\s*[:=]\s*[A-Za-z0-9\-_]+',
+        r'transaction_id["\']?\s*[:=]\s*[A-Za-z0-9\-_]+',
+        r'order_id["\']?\s*[:=]\s*[A-Za-z0-9\-_]+',
+        r'id["\']?\s*[:=]\s*[A-Za-z0-9\-_]{8,}',  # 長いID
+    ]
+
+    for pattern in id_patterns:
+        text = re.sub(pattern, lambda m: _mask_transaction_id(m.group(), mask_char), text, flags=re.IGNORECASE)
+
+    # 5. 数量・ロット情報の部分マスキング
+    quantity_patterns = [
+        r'quantity["\']?\s*[:=]\s*[\d,]+',
+        r'shares["\']?\s*[:=]\s*[\d,]+',
+        r'volume["\']?\s*[:=]\s*[\d,]+',
+        r'数量["\']?\s*[:=]\s*[\d,]+',
+        r'株数["\']?\s*[:=]\s*[\d,]+',
+    ]
+
+    for pattern in quantity_patterns:
+        text = re.sub(pattern, lambda m: _mask_quantity_value(m.group(), mask_char), text, flags=re.IGNORECASE)
+
+    # 6. 個人情報・機密データのマスキング
+    sensitive_patterns = [
+        r'api_key["\']?\s*[:=]\s*[A-Za-z0-9]+',
+        r'secret["\']?\s*[:=]\s*[A-Za-z0-9]+',
+        r'token["\']?\s*[:=]\s*[A-Za-z0-9]+',
+        r'password["\']?\s*[:=]\s*\S+',
+        r'user_id["\']?\s*[:=]\s*\S+',
+    ]
+
+    for pattern in sensitive_patterns:
+        text = re.sub(pattern, lambda m: f"{m.group().split(':', 1)[0].split('=', 1)[0]}: {mask_char * 8}", text, flags=re.IGNORECASE)
+
+    # 7. IPアドレス・ネットワーク情報のマスキング
+    network_patterns = [
+        r'\b(?:\d{1,3}\.){3}\d{1,3}\b',  # IPv4
+        r'localhost:\d+',
+        r'127\.0\.0\.1:\d+',
+    ]
+
+    for pattern in network_patterns:
+        text = re.sub(pattern, f'IP_{mask_char * 4}', text)
+
+    return text
+
+
+def _mask_financial_value(match_str: str, mask_char: str = "*") -> str:
+    """金融価格情報の部分マスキング"""
+    import re
+
+    # キーバリュー形式の場合は値部分のみマスク
+    if ':' in match_str or '=' in match_str:
+        key_part, value_part = re.split(r'[:=]\s*', match_str, 1)
+        masked_value = _mask_number(value_part, mask_char)
+        return f"{key_part}: {masked_value}"
+    else:
+        # 通貨記号付き金額の場合は数値部分をマスク
+        return _mask_number(match_str, mask_char)
+
+
+def _mask_file_path(path_str: str, mask_char: str = "*") -> str:
+    """ファイルパス情報のマスキング"""
+    import os
+
+    # ファイル名のみ表示、ディレクトリ部分をマスク
+    try:
+        filename = os.path.basename(path_str)
+        if len(filename) <= 3:
+            return mask_char * len(path_str)
+
+        # ファイル名の先頭2文字と拡張子のみ残す
+        name, ext = os.path.splitext(filename)
+        if len(name) <= 2:
+            masked_name = name
+        else:
+            masked_name = name[:2] + mask_char * (len(name) - 2)
+
+        return f"{mask_char * 8}/{masked_name}{ext}"
+    except:
+        return mask_char * min(len(path_str), 12)
+
+
+def _mask_transaction_id(id_str: str, mask_char: str = "*") -> str:
+    """取引ID・識別子のマスキング"""
+    import re
+
+    # キーバリュー形式の場合
+    if ':' in id_str or '=' in id_str:
+        key_part, value_part = re.split(r'[:=]\s*', id_str, 1)
+        if len(value_part) <= 4:
+            masked_value = mask_char * len(value_part)
+        else:
+            # 先頭2文字と末尾2文字を残す
+            masked_value = value_part[:2] + mask_char * (len(value_part) - 4) + value_part[-2:]
+        return f"{key_part}: {masked_value}"
+    else:
+        return _mask_number(id_str, mask_char)
+
+
+def _mask_quantity_value(quantity_str: str, mask_char: str = "*") -> str:
+    """数量情報の部分マスキング"""
+    import re
+
+    # キーバリュー形式の場合
+    if ':' in quantity_str or '=' in quantity_str:
+        key_part, value_part = re.split(r'[:=]\s*', quantity_str, 1)
+        # 数量は桁数のみ隠す（実際の値は部分表示）
+        masked_value = _mask_number(value_part, mask_char)
+        return f"{key_part}: {masked_value}"
+    else:
+        return _mask_number(quantity_str, mask_char)
+
+
+def _mask_number(number_str: str, mask_char: str = "*") -> str:
+    """数値の部分マスキング（汎用）"""
+    # 数値以外の文字（通貨記号、カンマなど）を保持
+    import re
+
+    # 数字のみを抽出
+    digits = re.findall(r'\d', number_str)
+    if not digits:
+        return mask_char * len(number_str)
+
+    # 先頭と末尾を残して中間をマスク
+    if len(digits) <= 2:
+        masked_digits = mask_char * len(digits)
+    elif len(digits) <= 4:
+        masked_digits = digits[0] + mask_char * (len(digits) - 2) + digits[-1]
+    else:
+        masked_digits = ''.join(digits[:2]) + mask_char * (len(digits) - 4) + ''.join(digits[-2:])
+
+    # 元の形式を保持しながら数字を置換
+    result = number_str
+    digit_index = 0
+    masked_result = ""
+
+    for char in number_str:
+        if char.isdigit():
+            if digit_index < len(masked_digits):
+                masked_result += masked_digits[digit_index]
+                digit_index += 1
+            else:
+                masked_result += mask_char
+        else:
+            masked_result += char
+
+    return masked_result
 
 
 class TradeStatus(Enum):
@@ -64,29 +539,82 @@ class Trade:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "Trade":
-        """辞書から復元"""
-        return cls(
-            id=data["id"],
-            symbol=data["symbol"],
-            trade_type=TradeType(data["trade_type"]),
-            quantity=data["quantity"],
-            price=Decimal(data["price"]),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            commission=Decimal(data["commission"]),
-            status=TradeStatus(data["status"]),
-            notes=data.get("notes", ""),
-        )
+        """辞書から復元（安全なDecimal変換）"""
+        try:
+            # 必須フィールドの検証
+            required_fields = ["id", "symbol", "trade_type", "quantity", "price", "timestamp"]
+            for field in required_fields:
+                if field not in data:
+                    raise ValueError(f"必須フィールド '{field}' が不足しています")
+
+            # 安全なDecimal変換
+            price = safe_decimal_conversion(data["price"], "価格")
+            commission = safe_decimal_conversion(data.get("commission", "0"), "手数料")
+
+            # 正数検証
+            validate_positive_decimal(price, "価格")
+            validate_positive_decimal(commission, "手数料", allow_zero=True)
+
+            # 数量の検証
+            quantity = int(data["quantity"])
+            if quantity <= 0:
+                raise ValueError(f"数量は正数である必要があります: {quantity}")
+
+            return cls(
+                id=str(data["id"]),
+                symbol=str(data["symbol"]),
+                trade_type=TradeType(data["trade_type"]),
+                quantity=quantity,
+                price=price,
+                timestamp=datetime.fromisoformat(data["timestamp"]),
+                commission=commission,
+                status=TradeStatus(data.get("status", TradeStatus.EXECUTED.value)),
+                notes=str(data.get("notes", "")),
+            )
+        except Exception as e:
+            raise ValueError(f"取引データの復元に失敗しました: {str(e)}")
+
+
+@dataclass
+class BuyLot:
+    """
+    FIFO会計のための買いロット情報
+    個別の買い取引を管理し、正確な売却対応を可能にする
+    """
+    quantity: int
+    price: Decimal
+    commission: Decimal
+    timestamp: datetime
+    trade_id: str
+
+    def total_cost_per_share(self) -> Decimal:
+        """1株あたりの総コスト（買い価格 + 手数料按分）"""
+        if self.quantity == 0:
+            return Decimal("0")
+        return self.price + (self.commission / Decimal(self.quantity))
 
 
 @dataclass
 class Position:
-    """ポジション情報"""
+    """
+    ポジション情報（FIFO会計対応強化版）
+
+    買いロットキューを使用してFIFO原則を厳密に適用
+    """
 
     symbol: str
     quantity: int
     average_price: Decimal
     total_cost: Decimal
     current_price: Decimal = Decimal("0")
+
+    # FIFO会計のための買いロットキュー
+    buy_lots: Deque[BuyLot] = None
+
+    def __post_init__(self):
+        """初期化後の処理"""
+        if self.buy_lots is None:
+            self.buy_lots = deque()
 
     @property
     def market_value(self) -> Decimal:
@@ -153,7 +681,15 @@ class RealizedPnL:
 
 
 class TradeManager:
-    """取引記録管理クラス"""
+    """
+    取引記録管理クラス（会計原則対応版）
+
+    会計原則:
+    - FIFO (First In, First Out): 先入れ先出し法を採用
+    - 実現損益計算では最古の買い取引から順次売却するものとして計算
+    - 手数料は取引毎に個別に管理、実現损益に反映
+    - 税金は利益が出た場合のみ計算
+    """
 
     def __init__(
         self,
@@ -221,36 +757,46 @@ class TradeManager:
         Returns:
             取引ID
         """
-        # コンテキスト情報をログに含める
-        context_info = {
-            "operation": "add_trade",
-            "symbol": symbol,
-            "trade_type": trade_type.value,
-            "quantity": quantity,
-            "price": str(price),
-            "persist_to_db": persist_to_db,
-        }
-
-        logger.info("取引追加処理開始", extra=context_info)
-
         try:
+            # 安全なDecimal変換
+            safe_price = safe_decimal_conversion(price, "取引価格")
+            validate_positive_decimal(safe_price, "取引価格")
+
+            # 数量検証
+            if not isinstance(quantity, int) or quantity <= 0:
+                raise ValueError(f"数量は正の整数である必要があります: {quantity}")
+
+            # コンテキスト情報をログに含める（価格情報はマスク）
+            context_info = {
+                "operation": "add_trade",
+                "symbol": symbol,
+                "trade_type": trade_type.value,
+                "quantity": quantity,
+                "price_masked": mask_sensitive_info(str(safe_price)),
+                "persist_to_db": persist_to_db,
+            }
+
+            logger.info("取引追加処理開始", extra=context_info)
+
             if timestamp is None:
                 timestamp = datetime.now()
 
             if commission is None:
-                commission = self._calculate_commission(price, quantity)
+                safe_commission = self._calculate_commission(safe_price, quantity)
+            else:
+                safe_commission = safe_decimal_conversion(commission, "手数料")
+                validate_positive_decimal(safe_commission, "手数料", allow_zero=True)
 
             trade_id = self._generate_trade_id()
-
             # メモリ内データ構造のトレード
             memory_trade = Trade(
                 id=trade_id,
                 symbol=symbol,
                 trade_type=trade_type,
                 quantity=quantity,
-                price=price,
+                price=safe_price,
                 timestamp=timestamp,
-                commission=commission,
+                commission=safe_commission,
                 notes=notes,
             )
 
@@ -277,8 +823,8 @@ class TradeManager:
                             session=session,
                             stock_code=symbol,
                             quantity=quantity,
-                            price=price,
-                            commission=commission,
+                            price=safe_price,
+                            commission=safe_commission,
                             memo=notes,
                         )
                         if trade_type == TradeType.BUY
@@ -286,8 +832,8 @@ class TradeManager:
                             session=session,
                             stock_code=symbol,
                             quantity=quantity,
-                            price=price,
-                            commission=commission,
+                            price=safe_price,
+                            commission=safe_commission,
                             memo=notes,
                         )
                     )
@@ -299,15 +845,15 @@ class TradeManager:
                     # 中間状態をflushして整合性を確認
                     session.flush()
 
-                    # ビジネスイベントログ
+                    # ビジネスイベントログ（機密情報マスキング適用）
                     log_business_event(
                         "trade_added",
-                        trade_id=trade_id,
+                        trade_id=mask_sensitive_info(str(trade_id)),
                         symbol=symbol,
                         trade_type=trade_type.value,
-                        quantity=quantity,
-                        price=str(price),
-                        commission=str(commission),
+                        quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                        price=mask_sensitive_info(f"price: {str(price)}"),
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
                         persisted=True,
                     )
 
@@ -315,8 +861,8 @@ class TradeManager:
                         "取引追加完了（DB永続化）",
                         extra={
                             **context_info,
-                            "trade_id": trade_id,
-                            "db_trade_id": db_trade.id,
+                            "trade_id": mask_sensitive_info(str(trade_id)),
+                            "db_trade_id": mask_sensitive_info(str(db_trade.id)),
                         },
                     )
             else:
@@ -326,23 +872,24 @@ class TradeManager:
 
                 log_business_event(
                     "trade_added",
-                    trade_id=trade_id,
+                    trade_id=mask_sensitive_info(str(trade_id)),
                     symbol=symbol,
                     trade_type=trade_type.value,
-                    quantity=quantity,
-                    price=str(price),
-                    commission=str(commission),
+                    quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                    price=mask_sensitive_info(f"price: {str(price)}"),
+                    commission=mask_sensitive_info(f"commission: {str(commission)}"),
                     persisted=False,
                 )
 
                 logger.info(
                     "取引追加完了（メモリのみ）",
-                    extra={**context_info, "trade_id": trade_id},
+                    extra={**context_info, "trade_id": mask_sensitive_info(str(trade_id))},
                 )
 
             return trade_id
 
         except Exception as e:
+            logger.error(f"取引追加エラー: {mask_sensitive_info(str(e))}")
             log_error_with_context(
                 e,
                 {
@@ -350,21 +897,38 @@ class TradeManager:
                     "symbol": symbol,
                     "trade_type": trade_type.value,
                     "quantity": quantity,
-                    "price": str(price),
+                    "price_masked": mask_sensitive_info(str(price)),
                     "persist_to_db": persist_to_db,
                 },
             )
-            logger.error("取引追加失敗", extra={**context_info, "error": str(e)})
             raise
 
     def _update_position(self, trade: Trade) -> None:
-        """ポジションを更新"""
+        """
+        ポジション更新（FIFO会計原則・強化版）
+
+        買いロットキューを使用して厳密なFIFO管理を実現
+        """
         symbol = trade.symbol
 
         if trade.trade_type == TradeType.BUY:
             if symbol in self.positions:
-                # 既存ポジションに追加
+                # 既存ポジションに買いロットを追加
                 position = self.positions[symbol]
+
+                # 新しい買いロットを作成
+                new_lot = BuyLot(
+                    quantity=trade.quantity,
+                    price=trade.price,
+                    commission=trade.commission,
+                    timestamp=trade.timestamp,
+                    trade_id=trade.id
+                )
+
+                # 買いロットキューに追加（FIFO）
+                position.buy_lots.append(new_lot)
+
+                # ポジション全体を更新
                 total_cost = (
                     position.total_cost
                     + (trade.price * Decimal(trade.quantity))
@@ -379,95 +943,174 @@ class TradeManager:
             else:
                 # 新規ポジション
                 total_cost = (trade.price * Decimal(trade.quantity)) + trade.commission
-                self.positions[symbol] = Position(
+
+                # 初期買いロット作成
+                initial_lot = BuyLot(
+                    quantity=trade.quantity,
+                    price=trade.price,
+                    commission=trade.commission,
+                    timestamp=trade.timestamp,
+                    trade_id=trade.id
+                )
+
+                new_position = Position(
                     symbol=symbol,
                     quantity=trade.quantity,
                     average_price=total_cost / Decimal(trade.quantity),
                     total_cost=total_cost,
                 )
+                new_position.buy_lots = deque([initial_lot])
+
+                self.positions[symbol] = new_position
 
         elif trade.trade_type == TradeType.SELL:
             if symbol in self.positions:
                 position = self.positions[symbol]
 
                 if position.quantity >= trade.quantity:
-                    # 実現損益を計算
-                    buy_price = position.average_price
-                    sell_price = trade.price
-
-                    # 手数料を按分
-                    buy_commission_per_share = (
-                        position.total_cost / Decimal(position.quantity)
-                        - position.average_price
-                    )
-                    buy_commission = buy_commission_per_share * Decimal(trade.quantity)
-
-                    pnl_before_tax = (
-                        (sell_price - buy_price) * Decimal(trade.quantity)
-                        - buy_commission
-                        - trade.commission
-                    )
-
-                    # 税金計算（利益が出た場合のみ）
-                    tax = Decimal("0")
-                    if pnl_before_tax > 0:
-                        tax = pnl_before_tax * self.tax_rate
-
-                    pnl = pnl_before_tax - tax
-                    pnl_percent = (pnl / (buy_price * Decimal(trade.quantity))) * 100
-
-                    # 実現損益を記録
-                    realized_pnl = RealizedPnL(
-                        symbol=symbol,
-                        quantity=trade.quantity,
-                        buy_price=buy_price,
-                        sell_price=sell_price,
-                        buy_commission=buy_commission,
-                        sell_commission=trade.commission,
-                        pnl=pnl,
-                        pnl_percent=pnl_percent,
-                        buy_date=self._get_earliest_buy_date(symbol),
-                        sell_date=trade.timestamp,
-                    )
-
-                    self.realized_pnl.append(realized_pnl)
-
-                    # ポジション更新
-                    remaining_quantity = position.quantity - trade.quantity
-                    if remaining_quantity > 0:
-                        # 按分してコストを調整
-                        remaining_ratio = Decimal(remaining_quantity) / Decimal(
-                            position.quantity
-                        )
-                        remaining_cost = position.total_cost * remaining_ratio
-                        position.quantity = remaining_quantity
-                        position.total_cost = remaining_cost
-                        position.average_price = remaining_cost / Decimal(
-                            remaining_quantity
-                        )
-                    else:
-                        # ポジション完全クローズ
-                        del self.positions[symbol]
-
+                    # 厳密なFIFO会計による実現損益計算
+                    self._process_sell_fifo(position, trade)
                 else:
                     logger.warning(
-                        f"銘柄 '{symbol}' の売却数量が保有数量 ({position.quantity}) を超過しています。売却数量: {trade.quantity}。取引は処理されません。"
+                        f"銘柄 '{symbol}' の売却数量が保有数量 ({position.quantity}) を超過しています。売却数量: {trade.quantity}。取引は処理されません。",
+                        extra={"symbol": symbol, "available_quantity": position.quantity, "requested_quantity": trade.quantity}
                     )
             else:
                 logger.warning(
-                    f"ポジションを保有していない銘柄 '{symbol}' の売却を試みました。取引は無視されます。"
+                    f"ポジションを保有していない銘柄 '{symbol}' の売却を試みました。取引は無視されます。",
+                    extra={"symbol": symbol, "trade_type": "SELL"}
                 )
 
+    def _process_sell_fifo(self, position: Position, sell_trade: Trade) -> None:
+        """
+        FIFO原則による売却処理（厳密版）
+
+        買いロットキューから順次売却し、正確な実現損益を計算
+        """
+        remaining_sell_quantity = sell_trade.quantity
+        sell_price = sell_trade.price
+        sell_commission = sell_trade.commission
+        symbol = sell_trade.symbol
+
+        # 売却処理による実現損益を累積
+        total_buy_cost = Decimal("0")
+        total_buy_commission = Decimal("0")
+        total_sold_quantity = 0
+        earliest_buy_date = None
+
+        while remaining_sell_quantity > 0 and position.buy_lots:
+            # 最古のロット（FIFO）を取得
+            oldest_lot = position.buy_lots.popleft()
+
+            if earliest_buy_date is None:
+                earliest_buy_date = oldest_lot.timestamp
+
+            # 売却数量の決定
+            quantity_to_sell = min(remaining_sell_quantity, oldest_lot.quantity)
+
+            # 売却分のコスト按分
+            lot_cost_per_share = oldest_lot.total_cost_per_share()
+            buy_cost_for_this_sale = lot_cost_per_share * Decimal(quantity_to_sell)
+            buy_commission_for_this_sale = (oldest_lot.commission * Decimal(quantity_to_sell)
+                                          / Decimal(oldest_lot.quantity))
+
+            total_buy_cost += buy_cost_for_this_sale
+            total_buy_commission += buy_commission_for_this_sale
+            total_sold_quantity += quantity_to_sell
+
+            # ロットを部分的に消費
+            if oldest_lot.quantity > quantity_to_sell:
+                # ロットの残りを戻す
+                remaining_lot = BuyLot(
+                    quantity=oldest_lot.quantity - quantity_to_sell,
+                    price=oldest_lot.price,
+                    commission=oldest_lot.commission * Decimal(oldest_lot.quantity - quantity_to_sell) / Decimal(oldest_lot.quantity),
+                    timestamp=oldest_lot.timestamp,
+                    trade_id=oldest_lot.trade_id
+                )
+                position.buy_lots.appendleft(remaining_lot)
+
+            remaining_sell_quantity -= quantity_to_sell
+
+        if total_sold_quantity > 0:
+            # 実現損益計算
+            gross_proceeds = sell_price * Decimal(total_sold_quantity) - sell_commission
+            cost_basis = total_buy_cost
+            pnl_before_tax = gross_proceeds - cost_basis
+
+            # 税金計算（利益が出た場合のみ）
+            tax = Decimal("0")
+            if pnl_before_tax > 0:
+                tax = pnl_before_tax * self.tax_rate
+
+            # 最終的な実現損益（税引き後）
+            pnl = pnl_before_tax - tax
+
+            # 収益率計算
+            pnl_percent = (pnl / cost_basis * 100) if cost_basis > 0 else Decimal("0")
+
+            # 平均買い価格の計算
+            average_buy_price = cost_basis / Decimal(total_sold_quantity) if total_sold_quantity > 0 else Decimal("0")
+
+            # 実現損益を記録
+            realized_pnl = RealizedPnL(
+                symbol=symbol,
+                quantity=total_sold_quantity,
+                buy_price=average_buy_price,
+                sell_price=sell_price,
+                buy_commission=total_buy_commission,
+                sell_commission=sell_commission,
+                pnl=pnl,
+                pnl_percent=pnl_percent,
+                buy_date=earliest_buy_date or sell_trade.timestamp,
+                sell_date=sell_trade.timestamp,
+            )
+
+            self.realized_pnl.append(realized_pnl)
+
+            # ポジション情報を更新
+            position.quantity -= total_sold_quantity
+            position.total_cost -= cost_basis
+
+            if position.quantity > 0:
+                # 平均価格の再計算
+                position.average_price = position.total_cost / Decimal(position.quantity)
+            else:
+                # ポジション完全クローズ
+                del self.positions[symbol]
+
     def _get_earliest_buy_date(self, symbol: str) -> datetime:
-        """最も古い買い取引の日付を取得"""
+        """
+        最も古い買い取引の日付を取得（FIFO会計原則・最適化版）
+
+        買いロットキューから直接取得することで効率化
+        """
+        if symbol not in self.positions:
+            logger.warning(f"銘柄 {symbol} のポジションが見つかりません")
+            return datetime.now()
+
+        position = self.positions[symbol]
+
+        # 買いロットキューが空でない場合、最古のロット（先頭）の日付を返す
+        if position.buy_lots:
+            earliest_date = position.buy_lots[0].timestamp
+            logger.debug(f"銘柄 {symbol} の最早買い取引日（ロットキューから取得）: {earliest_date}")
+            return earliest_date
+
+        # フォールバック: 全取引から検索（互換性維持）
         buy_trades = [
-            t
-            for t in self.trades
-            if t.symbol == symbol and t.trade_type == TradeType.BUY
+            trade for trade in self.trades
+            if trade.symbol == symbol and trade.trade_type == TradeType.BUY
         ]
-        if buy_trades:
-            return min(trade.timestamp for trade in buy_trades)
-        return datetime.now()
+
+        if not buy_trades:
+            logger.warning(f"銘柄 {symbol} の買い取引が見つかりません")
+            return datetime.now()
+
+        # 最早の取引を効率的に検索
+        earliest_date = min(trade.timestamp for trade in buy_trades)
+        logger.debug(f"銘柄 {symbol} の最早買い取引日（フォールバック検索）: {earliest_date}")
+        return earliest_date
 
     def _load_trades_from_db(self) -> None:
         """データベースから取引履歴を読み込み（トランザクション保護版）"""
@@ -721,7 +1364,7 @@ class TradeManager:
                     log_business_event(
                         "trades_batch_added",
                         batch_size=len(trades_data),
-                        trade_ids=trade_ids,
+                        trade_ids=[mask_sensitive_info(str(tid)) for tid in trade_ids],
                         persisted=True,
                     )
 
@@ -764,7 +1407,7 @@ class TradeManager:
                 log_business_event(
                     "trades_batch_added",
                     batch_size=len(trades_data),
-                    trade_ids=trade_ids,
+                    trade_ids=[mask_sensitive_info(str(tid)) for tid in trade_ids],
                     persisted=False,
                 )
 
@@ -923,13 +1566,16 @@ class TradeManager:
 
     def export_to_csv(self, filepath: str, data_type: str = "trades") -> None:
         """
-        CSVファイルにエクスポート
+        CSVファイルにエクスポート（パス検証強化版）
 
         Args:
             filepath: 出力ファイルパス
             data_type: データタイプ ('trades', 'positions', 'realized_pnl')
         """
         try:
+            # ファイルパス検証
+            safe_path = validate_file_path(filepath, "CSV出力")
+
             if data_type == "trades":
                 data = [trade.to_dict() for trade in self.trades]
                 fieldnames = [
@@ -975,22 +1621,25 @@ class TradeManager:
             else:
                 raise ValueError(f"Invalid data_type: {data_type}")
 
-            with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
+            with open(safe_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(data)
 
-            logger.info(f"CSV出力完了: {filepath} ({len(data)}件)")
+            logger.info(f"CSV出力完了: {mask_sensitive_info(str(safe_path))} ({len(data)}件)")
 
         except Exception as e:
             logger.error(
-                f"データのエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+                f"データのエクスポート中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {mask_sensitive_info(str(e))}"
             )
             raise
 
     def save_to_json(self, filepath: str) -> None:
-        """JSON形式で保存"""
+        """JSON形式で保存（パス検証強化版）"""
         try:
+            # ファイルパス検証
+            safe_path = validate_file_path(filepath, "JSON保存")
+
             data = {
                 "trades": [trade.to_dict() for trade in self.trades],
                 "positions": {
@@ -1004,21 +1653,24 @@ class TradeManager:
                 },
             }
 
-            with open(filepath, "w", encoding="utf-8") as f:
+            with open(safe_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
-            logger.info(f"JSON保存完了: {filepath}")
+            logger.info(f"JSON保存完了: {mask_sensitive_info(str(safe_path))}")
 
         except Exception as e:
             logger.error(
-                f"データの保存中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {e}"
+                f"データの保存中にエラーが発生しました。ファイルパスと書き込み権限を確認してください。詳細: {mask_sensitive_info(str(e))}"
             )
             raise
 
     def load_from_json(self, filepath: str) -> None:
-        """JSON形式から読み込み"""
+        """JSON形式から読み込み（パス検証強化版）"""
         try:
-            with open(filepath, encoding="utf-8") as f:
+            # ファイルパス検証
+            safe_path = validate_file_path(filepath, "JSON読み込み")
+
+            with open(safe_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # 取引履歴復元
@@ -1064,11 +1716,11 @@ class TradeManager:
             if "trade_counter" in settings:
                 self._trade_counter = settings["trade_counter"]
 
-            logger.info(f"JSON読み込み完了: {filepath}")
+            logger.info(f"JSON読み込み完了: {mask_sensitive_info(str(safe_path))}")
 
         except Exception as e:
             logger.error(
-                f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {e}"
+                f"データの読み込み中にエラーが発生しました。ファイル形式が正しいか、破損していないか確認してください。詳細: {mask_sensitive_info(str(e))}"
             )
             raise
 
@@ -1112,11 +1764,17 @@ class TradeManager:
 
         buy_logger.info("株式買い注文処理開始")
 
-        # パラメータ検証
+        # 安全なDecimal変換と検証
+        safe_price = safe_decimal_conversion(price, "購入価格")
+        validate_positive_decimal(safe_price, "購入価格")
+
         if quantity <= 0:
             raise ValueError(f"購入数量は正数である必要があります: {quantity}")
-        if price <= 0:
-            raise ValueError(f"購入価格は正数である必要があります: {price}")
+
+        safe_current_market_price = None
+        if current_market_price is not None:
+            safe_current_market_price = safe_decimal_conversion(current_market_price, "現在価格")
+            validate_positive_decimal(safe_current_market_price, "現在価格")
 
         # メモリ内データのバックアップ
         trades_backup = self.trades.copy()
@@ -1125,7 +1783,7 @@ class TradeManager:
 
         try:
             # 手数料計算
-            commission = self._calculate_commission(price, quantity)
+            commission = self._calculate_commission(safe_price, quantity)
             timestamp = datetime.now()
 
             if persist_to_db:
@@ -1153,7 +1811,7 @@ class TradeManager:
                         session=session,
                         stock_code=symbol,
                         quantity=quantity,
-                        price=price,
+                        price=safe_price,
                         commission=commission,
                         memo=notes,
                     )
@@ -1164,7 +1822,7 @@ class TradeManager:
                         symbol=symbol,
                         trade_type=TradeType.BUY,
                         quantity=quantity,
-                        price=price,
+                        price=safe_price,
                         timestamp=timestamp,
                         commission=commission,
                         notes=notes,
@@ -1177,8 +1835,8 @@ class TradeManager:
                     new_position = self.positions.get(symbol)
 
                     # 6. 現在価格更新（指定されている場合）
-                    if current_market_price and symbol in self.positions:
-                        self.positions[symbol].current_price = current_market_price
+                    if safe_current_market_price and symbol in self.positions:
+                        self.positions[symbol].current_price = safe_current_market_price
 
                     # 中間状態をflushして整合性を確認
                     session.flush()
@@ -1186,13 +1844,13 @@ class TradeManager:
                     # ビジネスイベントログ
                     log_business_event(
                         "stock_purchased",
-                        trade_id=trade_id,
+                        trade_id=mask_sensitive_info(str(trade_id)),
                         symbol=symbol,
-                        quantity=quantity,
-                        price=str(price),
-                        commission=str(commission),
-                        old_position=old_position.to_dict() if old_position else None,
-                        new_position=new_position.to_dict() if new_position else None,
+                        quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                        price=mask_sensitive_info(f"price: {str(price)}"),
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
+                        old_position=mask_sensitive_info(str(old_position.to_dict())) if old_position else None,
+                        new_position=mask_sensitive_info(str(new_position.to_dict())) if new_position else None,
                         persisted=True,
                     )
 
@@ -1222,18 +1880,18 @@ class TradeManager:
                 self._update_position(memory_trade)
                 new_position = self.positions.get(symbol)
 
-                if current_market_price and symbol in self.positions:
-                    self.positions[symbol].current_price = current_market_price
+                if safe_current_market_price and symbol in self.positions:
+                    self.positions[symbol].current_price = safe_current_market_price
 
                 log_business_event(
                     "stock_purchased",
-                    trade_id=trade_id,
+                    trade_id=mask_sensitive_info(str(trade_id)),
                     symbol=symbol,
-                    quantity=quantity,
-                    price=str(price),
-                    commission=str(commission),
-                    old_position=old_position.to_dict() if old_position else None,
-                    new_position=new_position.to_dict() if new_position else None,
+                    quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                    price=mask_sensitive_info(f"price: {str(price)}"),
+                    commission=mask_sensitive_info(f"commission: {str(commission)}"),
+                    old_position=mask_sensitive_info(str(old_position.to_dict())) if old_position else None,
+                    new_position=mask_sensitive_info(str(new_position.to_dict())) if new_position else None,
                     persisted=False,
                 )
 
@@ -1398,14 +2056,14 @@ class TradeManager:
                     # ビジネスイベントログ
                     log_business_event(
                         "stock_sold",
-                        trade_id=trade_id,
+                        trade_id=mask_sensitive_info(str(trade_id)),
                         symbol=symbol,
-                        quantity=quantity,
-                        price=str(price),
-                        commission=str(commission),
-                        old_position=old_position.to_dict(),
-                        new_position=new_position.to_dict() if new_position else None,
-                        realized_pnl=new_realized_pnl.to_dict()
+                        quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                        price=mask_sensitive_info(f"price: {str(price)}"),
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
+                        old_position=mask_sensitive_info(str(old_position.to_dict())),
+                        new_position=mask_sensitive_info(str(new_position.to_dict())) if new_position else None,
+                        realized_pnl=mask_sensitive_info(str(new_realized_pnl.to_dict()))
                         if new_realized_pnl
                         else None,
                         persisted=True,
@@ -1446,19 +2104,19 @@ class TradeManager:
                 if len(self.realized_pnl) > old_realized_pnl_count:
                     new_realized_pnl = self.realized_pnl[-1]
 
-                if current_market_price and symbol in self.positions:
-                    self.positions[symbol].current_price = current_market_price
+                if safe_current_market_price and symbol in self.positions:
+                    self.positions[symbol].current_price = safe_current_market_price
 
                 log_business_event(
                     "stock_sold",
-                    trade_id=trade_id,
+                    trade_id=mask_sensitive_info(str(trade_id)),
                     symbol=symbol,
-                    quantity=quantity,
-                    price=str(price),
-                    commission=str(commission),
-                    old_position=old_position.to_dict(),
-                    new_position=new_position.to_dict() if new_position else None,
-                    realized_pnl=new_realized_pnl.to_dict()
+                    quantity=mask_sensitive_info(f"quantity: {quantity}"),
+                    price=mask_sensitive_info(f"price: {str(price)}"),
+                    commission=mask_sensitive_info(f"commission: {str(commission)}"),
+                    old_position=mask_sensitive_info(str(old_position.to_dict())),
+                    new_position=mask_sensitive_info(str(new_position.to_dict())) if new_position else None,
+                    realized_pnl=mask_sensitive_info(str(new_realized_pnl.to_dict()))
                     if new_realized_pnl
                     else None,
                     persisted=False,
@@ -1560,50 +2218,78 @@ class TradeManager:
                 f"無効な取引アクション: {action}. 'buy' または 'sell' を指定してください"
             )
 
-    def calculate_tax_implications(self, year: int) -> Dict:
-        """税務計算"""
+    def calculate_tax_implications(self, year: int, accounting_method: str = "FIFO") -> Dict:
+        """
+        税務計算（会計原則対応版）
+
+        Args:
+            year: 税務年度
+            accounting_method: 会計手法 ("FIFO", "LIFO", "AVERAGE")
+        """
         try:
             year_start = datetime(year, 1, 1)
             year_end = datetime(year, 12, 31, 23, 59, 59)
 
-            # 年内の実現損益
+            # 年内の実現損益を効率的に取得
             year_pnl = [
-                pnl
-                for pnl in self.realized_pnl
+                pnl for pnl in self.realized_pnl
                 if year_start <= pnl.sell_date <= year_end
             ]
 
-            total_gain = (
-                sum(pnl.pnl for pnl in year_pnl if pnl.pnl > 0)
-                if year_pnl
-                else Decimal("0")
-            )
-            total_loss = (
-                sum(abs(pnl.pnl) for pnl in year_pnl if pnl.pnl < 0)
-                if year_pnl
-                else Decimal("0")
-            )
+            if not year_pnl:
+                return {
+                    "year": year,
+                    "accounting_method": accounting_method,
+                    "total_trades": 0,
+                    "total_gain": "0.00",
+                    "total_loss": "0.00",
+                    "net_gain": "0.00",
+                    "tax_due": "0.00",
+                    "winning_trades": 0,
+                    "losing_trades": 0,
+                    "average_gain_per_winning_trade": "0.00",
+                    "average_loss_per_losing_trade": "0.00",
+                    "win_rate": "0.00%"
+                }
+
+            # 総利益と総损失を計算
+            gains = [pnl.pnl for pnl in year_pnl if pnl.pnl > 0]
+            losses = [pnl.pnl for pnl in year_pnl if pnl.pnl < 0]
+
+            total_gain = sum(gains) if gains else Decimal("0")
+            total_loss = sum(abs(loss) for loss in losses) if losses else Decimal("0")
             net_gain = total_gain - total_loss
 
-            # 税額計算
-            tax_due = Decimal("0")
-            if net_gain > 0:
-                tax_due = net_gain * self.tax_rate
+            # 税額計算（利益が出た場合のみ）
+            tax_due = net_gain * self.tax_rate if net_gain > 0 else Decimal("0")
+
+            # 統計情報を追加
+            winning_trades_count = len(gains)
+            losing_trades_count = len(losses)
+            total_trades = len(year_pnl)
+
+            avg_gain = total_gain / winning_trades_count if winning_trades_count > 0 else Decimal("0")
+            avg_loss = total_loss / losing_trades_count if losing_trades_count > 0 else Decimal("0")
+            win_rate = (winning_trades_count / total_trades * 100) if total_trades > 0 else Decimal("0")
 
             return {
                 "year": year,
-                "total_trades": len(year_pnl),
-                "total_gain": str(total_gain),
-                "total_loss": str(total_loss),
-                "net_gain": str(net_gain),
-                "tax_due": str(tax_due),
-                "winning_trades": len([pnl for pnl in year_pnl if pnl.pnl > 0]),
-                "losing_trades": len([pnl for pnl in year_pnl if pnl.pnl < 0]),
+                "accounting_method": accounting_method,
+                "total_trades": total_trades,
+                "total_gain": str(total_gain.quantize(Decimal("0.01"))),
+                "total_loss": str(total_loss.quantize(Decimal("0.01"))),
+                "net_gain": str(net_gain.quantize(Decimal("0.01"))),
+                "tax_due": str(tax_due.quantize(Decimal("0.01"))),
+                "winning_trades": winning_trades_count,
+                "losing_trades": losing_trades_count,
+                "average_gain_per_winning_trade": str(avg_gain.quantize(Decimal("0.01"))),
+                "average_loss_per_losing_trade": str(avg_loss.quantize(Decimal("0.01"))),
+                "win_rate": f"{win_rate.quantize(Decimal('0.01'))}%"
             }
 
         except Exception as e:
             logger.error(
-                f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {e}"
+                f"税務計算中に予期せぬエラーが発生しました。入力データまたは計算ロジックを確認してください。詳細: {mask_sensitive_info(str(e))}"
             )
             raise
 
@@ -1659,17 +2345,25 @@ if __name__ == "__main__":
                 extra={
                     "section": "realized_pnl_detail",
                     "symbol": pnl.symbol,
-                    "quantity": pnl.quantity,
-                    "buy_price": str(pnl.buy_price),
-                    "sell_price": str(pnl.sell_price),
-                    "pnl": str(pnl.pnl),
-                    "pnl_percent": str(pnl.pnl_percent),
+                    "quantity": mask_sensitive_info(f"quantity: {pnl.quantity}"),
+                    "buy_price": mask_sensitive_info(f"buy_price: {str(pnl.buy_price)}"),
+                    "sell_price": mask_sensitive_info(f"sell_price: {str(pnl.sell_price)}"),
+                    "pnl": mask_sensitive_info(f"pnl: {str(pnl.pnl)}"),
+                    "pnl_percent": mask_sensitive_info(f"pnl_percent: {str(pnl.pnl_percent)}"),
                 },
             )
 
-    # ポートフォリオサマリー
+    # ポートフォリオサマリー（機密情報マスキング適用）
     summary = tm.get_portfolio_summary()
-    extra_data = {"section": "portfolio_summary", **summary}
+    # 機密情報を含む可能性のあるサマリーデータをマスキング
+    masked_summary = {}
+    for key, value in summary.items():
+        if any(sensitive_key in key.lower() for sensitive_key in ['total', 'value', 'pnl', 'price', 'cost', 'balance']):
+            masked_summary[key] = mask_sensitive_info(f"{key}: {str(value)}")
+        else:
+            masked_summary[key] = value
+
+    extra_data = {"section": "portfolio_summary", **masked_summary}
     logger.info("ポートフォリオサマリー", extra=extra_data)
 
     # CSV出力例
