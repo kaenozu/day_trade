@@ -1,0 +1,511 @@
+name: Advanced Issue Triage
+on:
+  issues:
+    types: [opened, edited, labeled, assigned, closed, reopened]
+  schedule:
+    - cron: '0 */4 * * *'  # 4時間ごとにSLA チェック
+    - cron: '0 9 * * 1'    # 毎週月曜日9時にレポート生成
+  workflow_dispatch:
+
+jobs:
+  advanced-triage:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load triage rules
+        id: rules
+        run: |
+          echo "rules=$(cat .github/triage-rules.json | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Advanced triage processing
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_RULES: ${{ steps.rules.outputs.rules }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const rules = JSON.parse(process.env.TRIAGE_RULES);
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+
+            const title = issue.title.toLowerCase();
+            const body = issue.body?.toLowerCase() || '';
+            const existingLabels = issue.labels.map(l => l.name);
+
+            console.log(`Processing issue #${issue.number}: ${action}`);
+
+            let newLabels = [...existingLabels];
+            let assignees = [];
+            let priority = 'medium';
+            let milestone = null;
+            let notifications = [];
+
+            // 優先度判定
+            for (const [level, config] of Object.entries(rules.priority_rules)) {
+              const keywordMatch = config.keywords.some(keyword =>
+                title.includes(keyword) || body.includes(keyword)
+              );
+
+              const labelMatch = config.labels && config.labels.some(label =>
+                existingLabels.includes(label)
+              );
+
+              if (keywordMatch || labelMatch) {
+                priority = level;
+                if (config.auto_assign && config.sla_hours <= 24) {
+                  // 高優先度は自動アサイン
+                  assignees.push('${{ github.repository_owner }}');
+                }
+                break;
+              }
+            }
+
+            // カテゴリベースの処理
+            for (const [category, config] of Object.entries(rules.category_rules)) {
+              const match = config.keywords.some(keyword =>
+                title.includes(keyword) || body.includes(keyword)
+              );
+
+              if (match) {
+                // ラベル追加
+                if (config.auto_labels) {
+                  newLabels.push(...config.auto_labels);
+                }
+
+                // マイルストーン設定
+                if (config.milestone) {
+                  milestone = config.milestone;
+                }
+
+                // 優先度オーバーライド
+                if (config.priority_override) {
+                  priority = config.priority_override;
+                }
+
+                // 通知設定
+                notifications.push({
+                  category: category,
+                  priority: config.priority_override || priority,
+                  channel: rules.notification_settings.channels[category] || rules.notification_settings.channels.general
+                });
+
+                console.log(`Matched category: ${category}`);
+                break;
+              }
+            }
+
+            // フェーズマッピング
+            for (const [phase, config] of Object.entries(rules.phase_mapping)) {
+              const match = config.keywords.some(keyword =>
+                title.includes(keyword) || body.includes(keyword)
+              );
+
+              if (match) {
+                newLabels.push(phase);
+                if (config.milestone) {
+                  milestone = config.milestone;
+                }
+                break;
+              }
+            }
+
+            // 優先度ラベルの追加
+            if (priority === 'critical') {
+              newLabels.push('critical');
+            } else if (priority === 'high') {
+              newLabels.push('high-priority');
+            } else if (priority === 'medium') {
+              newLabels.push('medium-priority');
+            } else if (priority === 'low') {
+              newLabels.push('low-priority');
+            }
+
+            // 重複ラベルの除去
+            newLabels = [...new Set(newLabels)];
+
+            // SLA開始時刻の記録（新規イシューの場合）
+            if (action === 'opened') {
+              const slaInfo = {
+                created_at: issue.created_at,
+                priority: priority,
+                sla_hours: rules.priority_rules[priority]?.sla_hours || 168,
+                response_due: new Date(Date.now() + (rules.sla_tracking.targets[priority]?.response_hours || 24) * 60 * 60 * 1000).toISOString(),
+                resolution_due: new Date(Date.now() + (rules.sla_tracking.targets[priority]?.resolution_hours || 168) * 60 * 60 * 1000).toISOString()
+              };
+
+              // SLA情報をコメントとして記録
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `<!-- SLA_TRACKING:${JSON.stringify(slaInfo)} -->\n\n⏱️ **SLA Tracking**\n- Priority: ${priority}\n- Response due: ${slaInfo.response_due}\n- Resolution due: ${slaInfo.resolution_due}`
+              });
+            }
+
+            // ラベル更新
+            if (newLabels.length > existingLabels.length) {
+              await github.rest.issues.setLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: newLabels
+              });
+              console.log(`Updated labels: ${newLabels.join(', ')}`);
+            }
+
+            // 担当者アサイン
+            if (assignees.length > 0 && !issue.assignee) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: assignees
+              });
+              console.log(`Assigned to: ${assignees.join(', ')}`);
+            }
+
+            // マイルストーン設定
+            if (milestone && !issue.milestone) {
+              const { data: milestones } = await github.rest.issues.listMilestones({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+
+              const targetMilestone = milestones.find(m => m.title === milestone);
+              if (targetMilestone) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  milestone: targetMilestone.number
+                });
+                console.log(`Assigned milestone: ${milestone}`);
+              }
+            }
+
+            // 緊急通知（Slackのシミュレーション）
+            for (const notification of notifications) {
+              if (notification.priority === 'critical') {
+                console.log(`🚨 CRITICAL ALERT: Issue #${issue.number} requires immediate attention!`);
+                console.log(`Channel: ${notification.channel}`);
+                console.log(`Title: ${issue.title}`);
+
+                // 実際の環境では以下のような通知が可能
+                // await fetch(process.env.SLACK_WEBHOOK_URL, {
+                //   method: 'POST',
+                //   body: JSON.stringify({
+                //     channel: notification.channel,
+                //     text: `🚨 Critical Issue: #${issue.number} ${issue.title}`,
+                //     attachments: [{
+                //       color: 'danger',
+                //       fields: [{
+                //         title: 'Priority',
+                //         value: priority,
+                //         short: true
+                //       }]
+                //     }]
+                //   })
+                // });
+              }
+            }
+
+  sla-monitoring:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && contains(github.event.schedule, '*/4')
+    steps:
+      - name: Check SLA violations
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const now = new Date();
+            const violations = [];
+            const warnings = [];
+
+            for (const issue of issues) {
+              const labels = issue.labels.map(l => l.name);
+              const priority = labels.find(l => ['critical', 'high-priority', 'medium-priority', 'low-priority'].includes(l)) || 'medium-priority';
+
+              // コメントからSLA情報を取得
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number
+              });
+
+              let slaInfo = null;
+              for (const comment of comments) {
+                const match = comment.body.match(/<!-- SLA_TRACKING:(.+?) -->/);
+                if (match) {
+                  try {
+                    slaInfo = JSON.parse(match[1]);
+                    break;
+                  } catch (e) {
+                    continue;
+                  }
+                }
+              }
+
+              if (!slaInfo) continue;
+
+              const responseDue = new Date(slaInfo.response_due);
+              const resolutionDue = new Date(slaInfo.resolution_due);
+
+              // レスポンスSLA違反チェック
+              const hasResponse = issue.comments > 1 || issue.assignee;
+              if (!hasResponse && now > responseDue) {
+                violations.push({
+                  issue: issue,
+                  type: 'response',
+                  overdue: Math.round((now - responseDue) / (1000 * 60 * 60)),
+                  priority: priority
+                });
+              }
+
+              // 解決SLA違反チェック
+              if (now > resolutionDue) {
+                violations.push({
+                  issue: issue,
+                  type: 'resolution',
+                  overdue: Math.round((now - resolutionDue) / (1000 * 60 * 60)),
+                  priority: priority
+                });
+              }
+
+              // 警告チェック（80%経過）
+              const responseWarningTime = new Date(responseDue.getTime() - (responseDue - new Date(slaInfo.created_at)) * 0.2);
+              const resolutionWarningTime = new Date(resolutionDue.getTime() - (resolutionDue - new Date(slaInfo.created_at)) * 0.2);
+
+              if (!hasResponse && now > responseWarningTime && now < responseDue) {
+                warnings.push({
+                  issue: issue,
+                  type: 'response_warning',
+                  hoursLeft: Math.round((responseDue - now) / (1000 * 60 * 60)),
+                  priority: priority
+                });
+              }
+
+              if (now > resolutionWarningTime && now < resolutionDue) {
+                warnings.push({
+                  issue: issue,
+                  type: 'resolution_warning',
+                  hoursLeft: Math.round((resolutionDue - now) / (1000 * 60 * 60)),
+                  priority: priority
+                });
+              }
+            }
+
+            // 違反の報告
+            if (violations.length > 0) {
+              console.log(`🚨 SLA VIOLATIONS DETECTED: ${violations.length}`);
+              for (const violation of violations) {
+                console.log(`- Issue #${violation.issue.number} (${violation.priority}): ${violation.type} overdue by ${violation.overdue} hours`);
+
+                // SLA違反コメントの追加
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: violation.issue.number,
+                  body: `⚠️ **SLA Violation**: This ${violation.priority} priority issue has exceeded its ${violation.type} SLA by ${violation.overdue} hours. Please take immediate action.`
+                });
+
+                // 緊急ラベルの追加
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: violation.issue.number,
+                  labels: ['sla-violation']
+                });
+              }
+            }
+
+            // 警告の報告
+            if (warnings.length > 0) {
+              console.log(`⚠️ SLA WARNINGS: ${warnings.length}`);
+              for (const warning of warnings) {
+                console.log(`- Issue #${warning.issue.number} (${warning.priority}): ${warning.type} due in ${warning.hoursLeft} hours`);
+              }
+            }
+
+  weekly-triage-summary:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && contains(github.event.schedule, '0 9 * * 1')
+    steps:
+      - name: Generate comprehensive triage summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              since: oneWeekAgo.toISOString(),
+              per_page: 100
+            });
+
+            // 詳細統計の収集
+            const analytics = {
+              weekly: { opened: 0, closed: 0, net: 0 },
+              priority: { critical: 0, high: 0, medium: 0, low: 0, unlabeled: 0 },
+              category: {},
+              sla: { violations: 0, warnings: 0, onTime: 0 },
+              aging: { under1day: 0, under1week: 0, under1month: 0, over1month: 0 },
+              contributors: {},
+              labels: {}
+            };
+
+            const now = new Date();
+
+            for (const issue of issues) {
+              const createdAt = new Date(issue.created_at);
+              const labels = issue.labels.map(l => l.name);
+              const age = Math.round((now - createdAt) / (1000 * 60 * 60 * 24)); // days
+
+              // 週次統計
+              if (createdAt >= oneWeekAgo) {
+                analytics.weekly.opened++;
+              }
+              if (issue.closed_at && new Date(issue.closed_at) >= oneWeekAgo) {
+                analytics.weekly.closed++;
+              }
+
+              // 優先度統計
+              if (labels.includes('critical')) {
+                analytics.priority.critical++;
+              } else if (labels.includes('high-priority') || labels.includes('security')) {
+                analytics.priority.high++;
+              } else if (labels.includes('medium-priority')) {
+                analytics.priority.medium++;
+              } else if (labels.includes('low-priority')) {
+                analytics.priority.low++;
+              } else {
+                analytics.priority.unlabeled++;
+              }
+
+              // カテゴリ統計
+              const categories = ['security', 'performance', 'machine-learning', 'hft', 'data-processing', 'testing'];
+              for (const category of categories) {
+                if (labels.includes(category)) {
+                  analytics.category[category] = (analytics.category[category] || 0) + 1;
+                }
+              }
+
+              // エイジング統計（オープンイシューのみ）
+              if (issue.state === 'open') {
+                if (age < 1) {
+                  analytics.aging.under1day++;
+                } else if (age < 7) {
+                  analytics.aging.under1week++;
+                } else if (age < 30) {
+                  analytics.aging.under1month++;
+                } else {
+                  analytics.aging.over1month++;
+                }
+              }
+
+              // ラベル統計
+              for (const label of labels) {
+                analytics.labels[label] = (analytics.labels[label] || 0) + 1;
+              }
+
+              // 貢献者統計
+              if (issue.user) {
+                analytics.contributors[issue.user.login] = (analytics.contributors[issue.user.login] || 0) + 1;
+              }
+            }
+
+            analytics.weekly.net = analytics.weekly.opened - analytics.weekly.closed;
+
+            // 包括的レポート生成
+            let report = '# 📊 Comprehensive Triage Report\n\n';
+            report += `**Generated**: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}\n`;
+            report += `**Period**: ${oneWeekAgo.toLocaleDateString('ja-JP')} - ${new Date().toLocaleDateString('ja-JP')}\n\n`;
+
+            report += '## 📈 Weekly Activity\n';
+            report += `- Issues Opened: **${analytics.weekly.opened}**\n`;
+            report += `- Issues Closed: **${analytics.weekly.closed}**\n`;
+            report += `- Net Change: **${analytics.weekly.net > 0 ? '+' : ''}${analytics.weekly.net}**\n\n`;
+
+            const velocityEmoji = analytics.weekly.net < 0 ? '🚀' : analytics.weekly.net === 0 ? '⚖️' : '⚠️';
+            report += `**Velocity**: ${velocityEmoji} ${analytics.weekly.net < 0 ? 'Excellent' : analytics.weekly.net === 0 ? 'Balanced' : 'Accumulating'}\n\n`;
+
+            report += '## 🎯 Priority Distribution (Open Issues)\n';
+            const totalOpen = Object.values(analytics.priority).reduce((a, b) => a + b, 0);
+            for (const [priority, count] of Object.entries(analytics.priority)) {
+              const percentage = totalOpen > 0 ? Math.round((count / totalOpen) * 100) : 0;
+              const emoji = priority === 'critical' ? '🚨' : priority === 'high' ? '⚠️' : priority === 'medium' ? '📋' : priority === 'low' ? '📝' : '🏷️';
+              report += `- ${emoji} ${priority}: **${count}** (${percentage}%)\n`;
+            }
+
+            report += '\n## 📊 Category Breakdown\n';
+            const sortedCategories = Object.entries(analytics.category).sort(([,a], [,b]) => b - a);
+            for (const [category, count] of sortedCategories) {
+              report += `- ${category}: ${count}\n`;
+            }
+
+            report += '\n## ⏰ Issue Aging (Open Issues)\n';
+            report += `- Under 1 day: **${analytics.aging.under1day}**\n`;
+            report += `- 1-7 days: **${analytics.aging.under1week}**\n`;
+            report += `- 1 week - 1 month: **${analytics.aging.under1month}**\n`;
+            report += `- Over 1 month: **${analytics.aging.over1month}** ${analytics.aging.over1month > 0 ? '⚠️' : ''}\n\n`;
+
+            report += '## 🏷️ Top Labels\n';
+            const sortedLabels = Object.entries(analytics.labels)
+              .sort(([,a], [,b]) => b - a)
+              .slice(0, 10);
+
+            for (const [label, count] of sortedLabels) {
+              report += `- \`${label}\`: ${count}\n`;
+            }
+
+            report += '\n## 👥 Top Contributors\n';
+            const sortedContributors = Object.entries(analytics.contributors)
+              .sort(([,a], [,b]) => b - a)
+              .slice(0, 5);
+
+            for (const [user, count] of sortedContributors) {
+              report += `- @${user}: ${count}\n`;
+            }
+
+            report += '\n## 🎯 Action Items\n';
+
+            if (analytics.priority.critical > 0) {
+              report += `- ⚡ **${analytics.priority.critical} critical issues** require immediate attention\n`;
+            }
+
+            if (analytics.priority.unlabeled > 5) {
+              report += `- 🏷️ **${analytics.priority.unlabeled} unlabeled issues** need categorization\n`;
+            }
+
+            if (analytics.aging.over1month > 10) {
+              report += `- 🗓️ **${analytics.aging.over1month} issues over 1 month old** need review\n`;
+            }
+
+            if (analytics.category.security > 0) {
+              report += `- 🔒 **${analytics.category.security} security issues** require security review\n`;
+            }
+
+            if (analytics.weekly.net > 5) {
+              report += `- 📈 **Issue backlog growing** - consider sprint planning\n`;
+            }
+
+            report += '\n---\n';
+            report += '*This report is automatically generated by the Advanced Triage System*\n';
+
+            console.log(report);
+
+            // レポートをDiscussion/Issueとして投稿することも可能

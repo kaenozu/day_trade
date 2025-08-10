@@ -55,6 +55,20 @@ except ImportError:
     OPTIMIZATION_UTILS_AVAILABLE = False
     logger.info("最適化ユーティリティ未利用")
 
+# 新しいデータ最適化ユーティリティ
+try:
+    from ..utils.data_optimization import (
+        DataFrameOptimizer,
+        ChunkedDataProcessor,
+        create_optimized_dataframe,
+        memory_monitor
+    )
+    DATA_OPTIMIZATION_AVAILABLE = True
+    logger.info("データ最適化ユーティリティ利用可能")
+except ImportError:
+    DATA_OPTIMIZATION_AVAILABLE = False
+    logger.info("データ最適化ユーティリティ未利用")
+
 warnings.filterwarnings("ignore")
 
 
@@ -82,6 +96,12 @@ class FeatureConfig:
     chunk_size: int = 10000
     max_workers: int = 4
     memory_limit_mb: int = 1000
+
+    # データ最適化設定
+    enable_dtype_optimization: bool = True
+    enable_copy_elimination: bool = True
+    enable_index_optimization: bool = True
+    enable_memory_monitoring: bool = True
 
     @classmethod
     def default(cls) -> "FeatureConfig":
@@ -483,6 +503,244 @@ class FeatureEngineeringManager:
         """パフォーマンス指標のリセット"""
         if self._strategy:
             self._strategy.reset_metrics()
+
+
+@optimization_strategy("feature_engineering", OptimizationLevel.ADAPTIVE)
+class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
+    """データ最適化版特徴量エンジニアリング実装"""
+
+    def __init__(self, config: OptimizationConfig):
+        super().__init__(config)
+        self.data_optimizer = None
+        self.chunk_processor = None
+
+        # データ最適化機能の初期化
+        if DATA_OPTIMIZATION_AVAILABLE:
+            self.data_optimizer = DataFrameOptimizer()
+            self.chunk_processor = ChunkedDataProcessor(
+                chunk_size=self.feature_config.chunk_size
+            )
+            logger.info("データ最適化特徴量エンジニアリング初期化完了")
+
+    def get_strategy_name(self) -> str:
+        return "データ最適化特徴量エンジニアリング"
+
+    @memory_monitor
+    def _generate_features(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """データ最適化された特徴量生成"""
+        if not DATA_OPTIMIZATION_AVAILABLE:
+            # フォールバック: 最適化版を使用
+            logger.warning("データ最適化ユーティリティ未利用 - 最適化版にフォールバック")
+            return super()._generate_features(data, **kwargs)
+
+        start_time = time.time()
+
+        # 1. 入力データの最適化
+        if self.feature_config.enable_dtype_optimization:
+            data = self.data_optimizer.optimize_dtypes(data, copy=True)
+            logger.debug("データ型最適化完了")
+
+        # 2. 大規模データの場合はチャンク処理
+        if len(data) > self.feature_config.chunk_size:
+            return self._generate_features_with_chunk_processing(data, **kwargs)
+
+        # 3. インデックス最適化
+        if self.feature_config.enable_index_optimization:
+            data = self.data_optimizer.optimize_index(data)
+
+        # 4. 特徴量計算（データ最適化版）
+        features = self._calculate_optimized_features(data, **kwargs)
+
+        # 5. 不必要コピーの回避
+        if self.feature_config.enable_copy_elimination:
+            copy_operations = ['drop_duplicates', 'fillna', 'sort_values']
+            features = self.data_optimizer.eliminate_unnecessary_copies(
+                features, copy_operations
+            )
+
+        optimization_time = time.time() - start_time
+        logger.info(f"データ最適化特徴量生成完了", extra={
+            "optimization_time_ms": round(optimization_time * 1000, 2),
+            "input_shape": data.shape,
+            "output_shape": features.shape,
+            "memory_stats": self.data_optimizer.get_optimization_stats()
+        })
+
+        return features
+
+    def _generate_features_with_chunk_processing(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """チャンク処理による大規模データ対応"""
+        def chunk_feature_generation(chunk_data: pd.DataFrame, **chunk_kwargs) -> pd.DataFrame:
+            """チャンク単位の特徴量生成"""
+            return self._calculate_optimized_features(chunk_data, **chunk_kwargs)
+
+        logger.info(f"チャンク処理による特徴量生成開始", extra={
+            "total_rows": len(data),
+            "chunk_size": self.feature_config.chunk_size
+        })
+
+        result = self.chunk_processor.process_large_dataframe(
+            data, chunk_feature_generation, **kwargs
+        )
+
+        return result
+
+    def _calculate_optimized_features(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """最適化された特徴量計算"""
+        close_col = self._get_price_column(data)
+        features = pd.DataFrame(index=data.index)
+
+        # ベクトル化されたテクニカル指標の計算
+        technical_operations = self._prepare_technical_indicator_operations(close_col)
+        if technical_operations:
+            features = self.data_optimizer.vectorize_operations(data, technical_operations)
+
+        # 統計的特徴量
+        if self.feature_config.enable_statistical_features:
+            statistical_features = self._calculate_statistical_features_optimized(data)
+            features = pd.concat([features, statistical_features], axis=1)
+
+        # 複合特徴量
+        if self.feature_config.enable_cross_features:
+            cross_features = self._calculate_cross_features_optimized(data)
+            features = pd.concat([features, cross_features], axis=1)
+
+        # Numba最適化の特徴量（利用可能な場合）
+        if self.feature_config.enable_numba and NUMBA_AVAILABLE:
+            numba_features = self._calculate_features_numba(data)
+            features = pd.concat([features, numba_features], axis=1)
+
+        return features
+
+    def _prepare_technical_indicator_operations(self, price_column: str) -> List[Dict[str, Any]]:
+        """テクニカル指標操作の準備"""
+        operations = []
+
+        # 移動平均
+        for period in self.feature_config.lookback_periods:
+            operations.extend([
+                {
+                    'type': 'technical_indicator',
+                    'indicator': 'sma',
+                    'column': price_column,
+                    'period': period
+                },
+                {
+                    'type': 'technical_indicator',
+                    'indicator': 'ema',
+                    'column': price_column,
+                    'period': period
+                }
+            ])
+
+        # RSI
+        operations.append({
+            'type': 'technical_indicator',
+            'indicator': 'rsi',
+            'column': price_column,
+            'period': 14
+        })
+
+        # ボリンジャーバンド
+        operations.append({
+            'type': 'technical_indicator',
+            'indicator': 'bollinger_bands',
+            'column': price_column,
+            'period': 20
+        })
+
+        # MACD
+        operations.append({
+            'type': 'technical_indicator',
+            'indicator': 'macd',
+            'column': price_column,
+            'fast_period': 12,
+            'slow_period': 26,
+            'signal_period': 9
+        })
+
+        return operations
+
+    def _calculate_statistical_features_optimized(self, data: pd.DataFrame) -> pd.DataFrame:
+        """最適化された統計的特徴量計算"""
+        close_col = self._get_price_column(data)
+        operations = []
+
+        # ローリング統計量
+        for window in [10, 20, 50]:
+            operations.extend([
+                {
+                    'type': 'rolling_calculation',
+                    'column': close_col,
+                    'window': window,
+                    'calculation': 'std'
+                },
+                {
+                    'type': 'rolling_calculation',
+                    'column': close_col,
+                    'window': window,
+                    'calculation': 'min'
+                },
+                {
+                    'type': 'rolling_calculation',
+                    'column': close_col,
+                    'window': window,
+                    'calculation': 'max'
+                },
+                {
+                    'type': 'rolling_calculation',
+                    'column': close_col,
+                    'window': window,
+                    'calculation': 'volatility'
+                }
+            ])
+
+        if operations:
+            return self.data_optimizer.vectorize_operations(data.copy(), operations)
+        else:
+            return pd.DataFrame(index=data.index)
+
+    def _calculate_cross_features_optimized(self, data: pd.DataFrame) -> pd.DataFrame:
+        """最適化された複合特徴量計算"""
+        close_col = self._get_price_column(data)
+        operations = []
+
+        # 数学的操作
+        operations.extend([
+            {
+                'type': 'mathematical_operation',
+                'operation': 'percentage_change',
+                'columns': [close_col],
+                'result_column': f'{close_col}_pct_change'
+            },
+            {
+                'type': 'mathematical_operation',
+                'operation': 'log_return',
+                'columns': [close_col],
+                'result_column': f'{close_col}_log_return'
+            },
+            {
+                'type': 'mathematical_operation',
+                'operation': 'z_score',
+                'columns': [close_col],
+                'window': 20,
+                'result_column': f'{close_col}_zscore_20'
+            }
+        ])
+
+        if operations:
+            return self.data_optimizer.vectorize_operations(data.copy(), operations)
+        else:
+            return pd.DataFrame(index=data.index)
+
+    def get_optimization_stats(self) -> Dict[str, Any]:
+        """最適化統計情報の取得"""
+        stats = self.get_performance_metrics()
+
+        if self.data_optimizer:
+            stats["data_optimization"] = self.data_optimizer.get_optimization_stats()
+
+        return stats
 
 
 # 便利関数

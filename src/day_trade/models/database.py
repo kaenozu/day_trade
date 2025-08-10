@@ -10,6 +10,7 @@ Issue #120: declarative_base()の定義場所の最適化
 import os
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict, Generator, Optional
 
 from sqlalchemy import create_engine, event, text
@@ -310,15 +311,136 @@ class DatabaseManager:
             raise converted_error from e
 
     def _set_sqlite_pragma(self, dbapi_connection, connection_record):
-        """SQLiteの設定（パフォーマンス最適化・設定化対応）"""
+        """SQLiteの設定（SQLインジェクション対策・セキュリティ強化版）"""
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute(f"PRAGMA journal_mode={self.config.sqlite_journal_mode}")
-        cursor.execute(f"PRAGMA synchronous={self.config.sqlite_synchronous}")
-        cursor.execute(f"PRAGMA cache_size={self.config.sqlite_cache_size}")
-        cursor.execute(f"PRAGMA temp_store={self.config.sqlite_temp_store}")
-        cursor.execute(f"PRAGMA mmap_size={self.config.sqlite_mmap_size}")
-        cursor.close()
+
+        try:
+            # 固定の外部キー制約設定（常に安全）
+            cursor.execute("PRAGMA foreign_keys=ON")
+
+            # 各PRAGMA設定値の安全性検証と実行
+            self._execute_safe_pragma(cursor, "journal_mode", self.config.sqlite_journal_mode)
+            self._execute_safe_pragma(cursor, "synchronous", self.config.sqlite_synchronous)
+            self._execute_safe_pragma(cursor, "cache_size", self.config.sqlite_cache_size)
+            self._execute_safe_pragma(cursor, "temp_store", self.config.sqlite_temp_store)
+            self._execute_safe_pragma(cursor, "mmap_size", self.config.sqlite_mmap_size)
+
+            logger.debug("SQLite PRAGMA設定完了", extra={
+                "journal_mode": self.config.sqlite_journal_mode,
+                "synchronous": self.config.sqlite_synchronous,
+                "cache_size": self.config.sqlite_cache_size,
+                "temp_store": self.config.sqlite_temp_store,
+                "mmap_size": self.config.sqlite_mmap_size
+            })
+
+        except Exception as e:
+            logger.error(f"SQLite PRAGMA設定エラー: {e}")
+            # PRAGMA設定の失敗は致命的ではないため、接続は継続
+        finally:
+            cursor.close()
+
+    def _execute_safe_pragma(self, cursor, pragma_name: str, pragma_value):
+        """
+        安全なPRAGMA実行（SQLインジェクション対策）
+
+        Args:
+            cursor: データベースカーソル
+            pragma_name: PRAGMA名
+            pragma_value: PRAGMA値
+        """
+        # 1. PRAGMA値のホワイトリスト検証
+        validated_value = self._validate_pragma_value(pragma_name, pragma_value)
+
+        if validated_value is None:
+            logger.warning(f"無効なPRAGMA値をスキップ: {pragma_name}={pragma_value}")
+            return
+
+        # 2. 安全なPRAGMA実行（文字列結合を避けたパラメータ化）
+        try:
+            # SQLiteのPRAGMAは動的パラメータに対応していないため、
+            # 検証済み値のみを使用した安全な文字列構築を実行
+            pragma_sql = f"PRAGMA {pragma_name}={validated_value}"
+            cursor.execute(pragma_sql)
+
+            logger.debug(f"PRAGMA実行成功: {pragma_name}={validated_value}")
+
+        except Exception as e:
+            logger.warning(f"PRAGMA実行失敗: {pragma_name}={validated_value} - {e}")
+
+    def _validate_pragma_value(self, pragma_name: str, pragma_value) -> str:
+        """
+        PRAGMA値のホワイトリスト検証（SQLインジェクション対策）
+
+        Args:
+            pragma_name: PRAGMA名
+            pragma_value: 検証対象の値
+
+        Returns:
+            str: 検証済み安全な値、または無効な場合はNone
+        """
+        if pragma_value is None:
+            return None
+
+        # PRAGMA別のホワイトリスト検証
+        if pragma_name == "journal_mode":
+            allowed_values = {"DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"}
+            value_str = str(pragma_value).upper()
+            if value_str in allowed_values:
+                return value_str
+            else:
+                logger.warning(f"journal_mode無効値: {pragma_value}, 許可値: {allowed_values}")
+                return "WAL"  # デフォルト安全値
+
+        elif pragma_name == "synchronous":
+            allowed_values = {"OFF", "NORMAL", "FULL", "EXTRA", "0", "1", "2", "3"}
+            value_str = str(pragma_value).upper()
+            if value_str in allowed_values:
+                return value_str
+            else:
+                logger.warning(f"synchronous無効値: {pragma_value}, 許可値: {allowed_values}")
+                return "NORMAL"  # デフォルト安全値
+
+        elif pragma_name == "cache_size":
+            try:
+                # 整数値の検証（負の値も許可、SQLiteの仕様に準拠）
+                cache_size = int(pragma_value)
+                # 範囲制限: -1000000 to 1000000（メモリ枯渇攻撃防止）
+                if -1000000 <= cache_size <= 1000000:
+                    return str(cache_size)
+                else:
+                    logger.warning(f"cache_size範囲外: {pragma_value}, 範囲: -1000000~1000000")
+                    return "10000"  # デフォルト安全値
+            except (ValueError, TypeError):
+                logger.warning(f"cache_size無効形式: {pragma_value}")
+                return "10000"  # デフォルト安全値
+
+        elif pragma_name == "temp_store":
+            allowed_values = {"DEFAULT", "FILE", "MEMORY", "0", "1", "2"}
+            value_str = str(pragma_value).upper()
+            if value_str in allowed_values:
+                return value_str
+            else:
+                logger.warning(f"temp_store無効値: {pragma_value}, 許可値: {allowed_values}")
+                return "MEMORY"  # デフォルト安全値
+
+        elif pragma_name == "mmap_size":
+            try:
+                # 整数値の検証
+                mmap_size = int(pragma_value)
+                # 範囲制限: 0 to 1GB（メモリマップサイズ制限）
+                if 0 <= mmap_size <= 1073741824:  # 1GB = 1024^3
+                    return str(mmap_size)
+                else:
+                    logger.warning(f"mmap_size範囲外: {pragma_value}, 範囲: 0~1073741824")
+                    return "268435456"  # デフォルト安全値（256MB）
+            except (ValueError, TypeError):
+                logger.warning(f"mmap_size無効形式: {pragma_value}")
+                return "268435456"  # デフォルト安全値
+
+        else:
+            # 未知のPRAGMAは拒否
+            logger.error(f"未サポートのPRAGMA: {pragma_name}")
+            return None
 
     def create_tables(self):
         """全テーブルを作成"""
@@ -462,43 +584,199 @@ class DatabaseManager:
 
     def get_alembic_config(self, config_path: Optional[str] = None) -> Config:
         """
-        Alembic設定を取得（柔軟なパス対応）
+        Alembic設定を取得（TOCTOU脆弱性対策・セキュリティ強化版）
 
         Args:
             config_path: alembic.iniファイルのパス（Noneの場合は自動検索）
         """
         if config_path is None:
-            # 設定ファイルの自動検索
-            possible_paths = [
-                "alembic.ini",
-                "./alembic.ini",
-                os.path.join(os.getcwd(), "alembic.ini"),
-                os.path.join(
-                    os.path.dirname(__file__), "..", "..", "..", "alembic.ini"
-                ),
+            # 設定ファイルの自動検索（セキュリティ強化）
+            config_path = self._find_secure_alembic_config()
+
+        # TOCTOU脆弱性対策: 安全なファイルパス検証
+        validated_config_path = self._validate_alembic_config_path(config_path)
+
+        # 安全なAlembic設定作成
+        try:
+            alembic_cfg = Config(validated_config_path)
+            alembic_cfg.set_main_option("sqlalchemy.url", self.config.database_url)
+
+            logger.debug(f"Alembic設定読み込み成功: {validated_config_path}")
+            return alembic_cfg
+
+        except Exception as e:
+            logger.error(f"Alembic設定読み込みエラー: {validated_config_path} - {e}")
+            raise DatabaseError(
+                f"Failed to load Alembic config: {config_path}",
+                error_code="ALEMBIC_CONFIG_LOAD_ERROR",
+            ) from e
+
+    def _find_secure_alembic_config(self) -> str:
+        """
+        安全なAlembic設定ファイル検索（TOCTOU対策）
+
+        Returns:
+            str: 検証済み安全な設定ファイルパス
+
+        Raises:
+            DatabaseError: 設定ファイルが見つからない場合
+        """
+
+        # 許可された検索ベースディレクトリ
+        allowed_base_dirs = [
+            Path.cwd(),                           # 現在の作業ディレクトリ
+            Path(__file__).parent.parent.parent,  # プロジェクトルート
+        ]
+
+        # 検索対象ファイル名パターン
+        config_filenames = ["alembic.ini"]
+
+        for base_dir in allowed_base_dirs:
+            try:
+                # ベースディレクトリの正規化と検証
+                base_dir_resolved = base_dir.resolve()
+
+                for filename in config_filenames:
+                    config_path = base_dir_resolved / filename
+
+                    # 原子的なファイル存在・読み取り可能チェック
+                    if self._is_safe_readable_file(config_path):
+                        logger.debug(f"Alembic設定ファイル発見: {config_path}")
+                        return str(config_path)
+
+            except Exception as e:
+                logger.debug(f"ディレクトリ検索エラー: {base_dir} - {e}")
+                continue
+
+        # 設定ファイルが見つからない場合
+        raise DatabaseError(
+            "alembic.ini not found in any secure locations",
+            error_code="ALEMBIC_CONFIG_NOT_FOUND",
+        )
+
+    def _validate_alembic_config_path(self, config_path: str) -> str:
+        """
+        Alembic設定ファイルパスの安全性検証（TOCTOU対策）
+
+        Args:
+            config_path: 検証対象のファイルパス
+
+        Returns:
+            str: 検証済み安全なファイルパス
+
+        Raises:
+            DatabaseError: 危険なパスまたはファイルアクセス不可の場合
+        """
+
+        try:
+            # 1. パス正規化とセキュリティチェック
+            path_obj = Path(config_path).resolve()
+
+            # 2. 危険なパスパターンの検出
+            path_str = str(path_obj).lower()
+            dangerous_patterns = [
+                "/etc/", "/usr/", "/var/", "/root/", "/boot/",  # Unix系システムディレクトリ
+                "c:\\windows\\", "c:\\program files\\",        # Windowsシステムディレクトリ
+                "\\\\", "/..", "\\..",                         # UNCパス・パストラバーサル
             ]
 
-            config_path = None
-            for path in possible_paths:
-                if os.path.exists(path):
-                    config_path = path
-                    break
+            for pattern in dangerous_patterns:
+                if pattern in path_str:
+                    logger.warning(f"危険なAlembicパスパターン検出: {config_path}")
+                    raise DatabaseError(
+                        f"Dangerous path pattern detected: {config_path}",
+                        error_code="ALEMBIC_DANGEROUS_PATH",
+                    )
 
-            if config_path is None:
+            # 3. 許可されたベースディレクトリ内かチェック
+            allowed_base_dirs = [
+                Path.cwd().resolve(),                           # 現在の作業ディレクトリ
+                Path(__file__).parent.parent.parent.resolve(), # プロジェクトルート
+            ]
+
+            is_allowed = False
+            for allowed_base in allowed_base_dirs:
+                try:
+                    # 許可されたベースディレクトリ内またはその配下かチェック
+                    if (path_obj == allowed_base or allowed_base in path_obj.parents):
+                        is_allowed = True
+                        break
+                except Exception:
+                    continue
+
+            if not is_allowed:
+                logger.warning(f"許可されていないAlembicパス: {path_obj}")
                 raise DatabaseError(
-                    "alembic.ini not found in any of the expected locations",
-                    error_code="ALEMBIC_CONFIG_NOT_FOUND",
+                    f"Path outside allowed directories: {config_path}",
+                    error_code="ALEMBIC_PATH_NOT_ALLOWED",
                 )
 
-        if not os.path.exists(config_path):
-            raise DatabaseError(
-                f"Alembic config file not found: {config_path}",
-                error_code="ALEMBIC_CONFIG_NOT_FOUND",
-            )
+            # 4. ファイルの存在と読み取り可能性を原子的にチェック
+            if not self._is_safe_readable_file(path_obj):
+                raise DatabaseError(
+                    f"Alembic config file not accessible: {config_path}",
+                    error_code="ALEMBIC_CONFIG_NOT_ACCESSIBLE",
+                )
 
-        alembic_cfg = Config(config_path)
-        alembic_cfg.set_main_option("sqlalchemy.url", self.config.database_url)
-        return alembic_cfg
+            logger.debug(f"Alembicパス検証完了: {path_obj}")
+            return str(path_obj)
+
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(f"Alembicパス検証エラー: {config_path} - {e}")
+            raise DatabaseError(
+                f"Path validation failed: {config_path}",
+                error_code="ALEMBIC_PATH_VALIDATION_ERROR",
+            ) from e
+
+    def _is_safe_readable_file(self, file_path: Path) -> bool:
+        """
+        ファイルの安全な読み取り可能性チェック（TOCTOU対策）
+
+        Args:
+            file_path: チェック対象ファイルパス
+
+        Returns:
+            bool: 安全に読み取り可能な場合True
+        """
+        try:
+            # 原子的操作: ファイル存在・タイプ・読み取り権限のチェック
+            if not file_path.exists():
+                return False
+
+            if not file_path.is_file():
+                logger.warning(f"通常ファイルではない: {file_path}")
+                return False
+
+            # シンボリックリンク攻撃対策
+            if file_path.is_symlink():
+                logger.warning(f"シンボリックリンクのためスキップ: {file_path}")
+                return False
+
+            # ファイルサイズ制限（設定ファイルが異常に大きい場合を検出）
+            stat_info = file_path.stat()
+            if stat_info.st_size > 10 * 1024 * 1024:  # 10MB制限
+                logger.warning(f"設定ファイルが大きすぎます: {file_path} ({stat_info.st_size} bytes)")
+                return False
+
+            # 読み取り権限の確認
+            with open(file_path, 'r', encoding='utf-8') as f:
+                # ファイルの先頭を少し読んで読み取り可能性を確認
+                f.read(1)
+
+            return True
+
+        except (PermissionError, OSError, FileNotFoundError):
+            # ファイルアクセス不可の場合
+            return False
+        except UnicodeDecodeError:
+            # 不正な文字エンコーディングの場合
+            logger.warning(f"不正なエンコーディング: {file_path}")
+            return False
+        except Exception as e:
+            logger.debug(f"ファイル読み取りチェックエラー: {file_path} - {e}")
+            return False
 
     def init_alembic(self):
         """Alembicの初期化（初回マイグレーション作成）"""

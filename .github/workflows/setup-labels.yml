@@ -1,0 +1,112 @@
+name: Setup Repository Labels
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/labels.yml']
+
+jobs:
+  setup-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // 既存ラベルの取得
+            const { data: existingLabels } = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existingLabelNames = existingLabels.map(label => label.name);
+
+            // 必要なラベル定義
+            const labels = [
+              // 優先度
+              { name: 'critical', color: 'B60205', description: '緊急対応が必要な重要な問題' },
+              { name: 'high-priority', color: 'D93F0B', description: '高優先度で対応すべき問題' },
+              { name: 'medium-priority', color: 'FBCA04', description: '中優先度の問題' },
+              { name: 'low-priority', color: '0E8A16', description: '低優先度の問題' },
+
+              // カテゴリ
+              { name: 'security', color: 'B60205', description: 'セキュリティに関する問題' },
+              { name: 'performance', color: 'FF9500', description: 'パフォーマンス改善' },
+              { name: 'optimization', color: 'FF9500', description: 'システム最適化' },
+              { name: 'machine-learning', color: '1D76DB', description: '機械学習・AI関連' },
+              { name: 'data-processing', color: '5319E7', description: 'データ処理・I/O関連' },
+              { name: 'parallel-processing', color: '0052CC', description: '並列処理・分散処理' },
+              { name: 'backtesting', color: '006B75', description: 'バックテスト・シミュレーション' },
+              { name: 'hft', color: 'B60205', description: '高頻度取引システム' },
+              { name: 'testing', color: '7057FF', description: 'テスト関連' },
+
+              // タイプ
+              { name: 'bug', color: 'EE0701', description: 'バグ・不具合' },
+              { name: 'enhancement', color: '84B6EB', description: '機能改善・新機能' },
+              { name: 'feature', color: '0052CC', description: '新機能' },
+              { name: 'refactor', color: 'FBCA04', description: 'リファクタリング' },
+              { name: 'documentation', color: '0E8A16', description: 'ドキュメント関連' },
+
+              // 状態
+              { name: 'stale', color: 'EDEDED', description: '長期間更新がない' },
+              { name: 'duplicate?', color: 'EDEDED', description: '重複の可能性' },
+              { name: 'needs-info', color: 'D4C5F9', description: '追加情報が必要' },
+              { name: 'in-progress', color: 'FBCA04', description: '作業中' },
+              { name: 'ready-for-review', color: '0E8A16', description: 'レビュー待ち' },
+
+              // 複雑さ
+              { name: 'simple', color: 'C2E0C6', description: '簡単なタスク' },
+              { name: 'complex', color: 'F9D0C4', description: '複雑なタスク' },
+              { name: 'epic', color: 'B60205', description: '大規模な機能・改善' },
+
+              // 専門性
+              { name: 'good-first-issue', color: '0E8A16', description: '初心者向けの問題' },
+              { name: 'help-wanted', color: '0052CC', description: 'ヘルプが欲しい問題' },
+              { name: 'dev-experience', color: '5319E7', description: '開発者体験の改善' },
+
+              // 技術領域
+              { name: 'database', color: '006B75', description: 'データベース関連' },
+              { name: 'api', color: '1D76DB', description: 'API関連' },
+              { name: 'ui/ux', color: 'E99695', description: 'ユーザーインターフェース' },
+              { name: 'infrastructure', color: '5319E7', description: 'インフラ・デプロイ' },
+              { name: 'monitoring', color: 'FBCA04', description: '監視・ログ' },
+
+              // Phase関連
+              { name: 'phase-a', color: 'C2E0C6', description: 'フェーズA: 基盤機能' },
+              { name: 'phase-b', color: 'BFD4F2', description: 'フェーズB: データ処理' },
+              { name: 'phase-c', color: 'D1ECF1', description: 'フェーズC: ML機能' },
+              { name: 'phase-d', color: 'FEF2C0', description: 'フェーズD: 最適化' },
+              { name: 'phase-e', color: 'F9D0C4', description: 'フェーズE: 高度機能' },
+              { name: 'phase-f', color: 'E99695', description: 'フェーズF: 次世代機能' }
+            ];
+
+            // ラベルの作成・更新
+            for (const label of labels) {
+              if (existingLabelNames.includes(label.name)) {
+                // 既存ラベルの更新
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+                console.log(`Updated label: ${label.name}`);
+              } else {
+                // 新規ラベルの作成
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+                console.log(`Created label: ${label.name}`);
+              }
+            }
+
+            console.log('All labels have been set up successfully!');
