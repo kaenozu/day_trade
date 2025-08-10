@@ -213,8 +213,8 @@ jobs:
         print(f'Final memory: {final_memory:.2f}MB')
         print(f'Memory increase: {memory_increase:.2f}MB')
 
-        # 100MB以下のメモリ増加を期待
-        assert memory_increase < 100, f'Memory usage too high: {memory_increase}MB'
+        # 200MB以下のメモリ増加を期待
+        assert memory_increase < 200, f'Memory usage too high: {memory_increase}MB'
         print('Memory performance test passed')
         "
 

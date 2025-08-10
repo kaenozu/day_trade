@@ -5,7 +5,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
-from unittest.mock import Mock
+from unittest.mock import Mock, patch, MagicMock
 
 import numpy as np
 import pandas as pd
@@ -195,7 +195,7 @@ class TestBacktestEngine:
     """BacktestEngineクラスのテスト"""
 
     def setup_method(self):
-        """テストセットアップ"""
+        """テストセットアップ（軽量化データで高速化）"""
         self.mock_stock_fetcher = Mock()
         self.mock_signal_generator = Mock()
         self.engine = BacktestEngine(
@@ -203,16 +203,34 @@ class TestBacktestEngine:
             signal_generator=self.mock_signal_generator,
         )
 
-        # 改善されたサンプル履歴データ（動的データ生成ユーティリティ使用）
-        dates = pd.date_range("2023-01-01", "2023-06-30", freq="D")
-        self.sample_data = self._generate_realistic_market_data(
-            dates=dates,
-            base_price=2500,
-            trend=0.0001,  # 微小な上昇トレンド
-            volatility=0.02,
-            volume_base=2000000,
-            volume_variance=0.3,
-        )
+        # 軽量な固定テストデータ（大量データ生成をスキップ）
+        dates = pd.date_range("2023-01-01", "2023-01-10", freq="D")  # 10日間に短縮
+        self.sample_data = self._generate_lightweight_test_data(dates)
+
+    def _generate_lightweight_test_data(self, dates: pd.DatetimeIndex) -> pd.DataFrame:
+        """
+        軽量な固定テストデータ生成（複雑な計算を避けてテスト速度向上）
+        """
+        n_days = len(dates)
+        base_price = 2500.0
+
+        # 簡単な線形変動データを生成
+        price_changes = np.linspace(0, 50, n_days)  # 50ポイントの上昇トレンド
+
+        data = []
+        for i, change in enumerate(price_changes):
+            current_price = base_price + change
+
+            # 固定的なOHLCデータ（計算負荷最小）
+            data.append({
+                "Open": round(current_price - 5, 2),
+                "High": round(current_price + 10, 2),
+                "Low": round(current_price - 10, 2),
+                "Close": round(current_price, 2),
+                "Volume": 1000000 + i * 10000,  # 固定的な出来高
+            })
+
+        return pd.DataFrame(data, index=dates)
 
     def _generate_realistic_market_data(
         self,

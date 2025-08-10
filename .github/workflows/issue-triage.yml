@@ -1,0 +1,422 @@
+name: Issue Triage Automation
+on:
+  issues:
+    types: [opened, edited, labeled, reopened]
+  schedule:
+    - cron: '0 9 * * *'  # 毎日9時にトリアージ実行
+  workflow_dispatch:  # 手動実行可能
+
+jobs:
+  triage-new-issues:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Auto-label based on title and body
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = issue.body?.toLowerCase() || '';
+
+            const labels = [];
+            const assignees = [];
+            let priority = 'medium';
+            let milestone = null;
+
+            // セキュリティ関連の自動検出
+            if (title.includes('セキュリティ') || title.includes('security') ||
+                body.includes('脆弱性') || body.includes('vulnerability') ||
+                title.includes('sqlインジェクション') || title.includes('toctou')) {
+              labels.push('security', 'high-priority');
+              priority = 'high';
+              assignees.push('${{ github.repository_owner }}');
+            }
+
+            // パフォーマンス最適化の検出
+            if (title.includes('最適化') || title.includes('optimization') ||
+                title.includes('高速化') || title.includes('performance') ||
+                title.includes('効率化') || title.includes('efficiency')) {
+              labels.push('performance', 'optimization');
+            }
+
+            // 機械学習関連
+            if (title.includes('機械学習') || title.includes('ml') || title.includes('ai') ||
+                title.includes('特徴量') || title.includes('feature') ||
+                title.includes('モデル') || title.includes('model')) {
+              labels.push('machine-learning', 'feature');
+            }
+
+            // データ処理関連
+            if (title.includes('データ') || title.includes('data') ||
+                title.includes('i/o') || title.includes('キャッシュ') ||
+                title.includes('バッチ') || title.includes('batch')) {
+              labels.push('data-processing');
+            }
+
+            // テスト関連
+            if (title.includes('テスト') || title.includes('test') ||
+                title.includes('モック') || title.includes('mock')) {
+              labels.push('testing', 'dev-experience');
+            }
+
+            // 並列処理関連
+            if (title.includes('並列') || title.includes('parallel') ||
+                title.includes('分散') || title.includes('distributed') ||
+                title.includes('concurrent')) {
+              labels.push('parallel-processing', 'performance');
+            }
+
+            // バックテスト関連
+            if (title.includes('バックテスト') || title.includes('backtest') ||
+                title.includes('シミュレーション') || title.includes('simulation')) {
+              labels.push('backtesting', 'simulation');
+            }
+
+            // 高頻度取引関連
+            if (title.includes('高頻度') || title.includes('hft') ||
+                title.includes('マイクロ秒') || title.includes('microsecond') ||
+                title.includes('超高速') || title.includes('ultra-fast')) {
+              labels.push('hft', 'critical-performance', 'high-priority');
+              priority = 'critical';
+            }
+
+            // バグの検出
+            if (title.includes('バグ') || title.includes('bug') ||
+                title.includes('エラー') || title.includes('error') ||
+                title.includes('修正') || title.includes('fix')) {
+              labels.push('bug');
+              if (title.includes('クリティカル') || title.includes('critical')) {
+                labels.push('critical');
+                priority = 'critical';
+              }
+            }
+
+            // 新機能
+            if (title.includes('feat:') || title.includes('feature:') ||
+                title.includes('新機能') || title.includes('追加')) {
+              labels.push('enhancement', 'feature');
+            }
+
+            // 複雑さベースの優先度調整
+            if (body.includes('phase') || body.includes('フェーズ') ||
+                body.length > 1000) {
+              labels.push('complex');
+            }
+
+            // ラベルの適用
+            if (labels.length > 0) {
+              await github.rest.issues.setLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels
+              });
+            }
+
+            // 担当者の設定
+            if (assignees.length > 0) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: assignees
+              });
+            }
+
+            // 優先度コメントの追加
+            let priorityComment = '';
+            if (priority === 'critical') {
+              priorityComment = '🚨 **Critical Priority** - This issue requires immediate attention.\n\n';
+            } else if (priority === 'high') {
+              priorityComment = '⚠️ **High Priority** - This issue should be addressed soon.\n\n';
+            }
+
+            if (priorityComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: priorityComment + '自動トリアージにより優先度が設定されました。必要に応じて調整してください。'
+              });
+            }
+
+  triage-stale-issues:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Manage stale issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'asc',
+              per_page: 100
+            });
+
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+            for (const issue of issues) {
+              const updatedAt = new Date(issue.updated_at);
+              const hasStaleLabel = issue.labels.some(label => label.name === 'stale');
+              const hasCriticalLabel = issue.labels.some(label =>
+                ['critical', 'security', 'high-priority'].includes(label.name)
+              );
+
+              // クリティカルなイシューは stale にしない
+              if (hasCriticalLabel) {
+                continue;
+              }
+
+              if (updatedAt < thirtyDaysAgo && !hasStaleLabel) {
+                // 30日間更新がない場合は stale ラベルを追加
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ['stale']
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: '🕒 このイシューは30日間更新がありません。まだ有効な場合はコメントで更新してください。7日間応答がない場合、自動的にクローズされます。'
+                });
+
+              } else if (updatedAt < sevenDaysAgo && hasStaleLabel) {
+                // stale ラベルがついてから7日経った場合はクローズ
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: '🔒 長期間更新がなかったため、このイシューを自動クローズしました。必要に応じて再オープンしてください。'
+                });
+              }
+            }
+
+  priority-analysis:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Analyze issue priorities
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const priorities = {
+              critical: [],
+              high: [],
+              medium: [],
+              low: [],
+              unlabeled: []
+            };
+
+            const categories = {
+              security: [],
+              performance: [],
+              'machine-learning': [],
+              'data-processing': [],
+              testing: [],
+              'parallel-processing': [],
+              backtesting: [],
+              hft: [],
+              bug: [],
+              enhancement: []
+            };
+
+            for (const issue of issues) {
+              const labels = issue.labels.map(l => l.name);
+
+              // 優先度分析
+              if (labels.includes('critical')) {
+                priorities.critical.push(issue);
+              } else if (labels.includes('high-priority') || labels.includes('security')) {
+                priorities.high.push(issue);
+              } else if (labels.includes('medium-priority')) {
+                priorities.medium.push(issue);
+              } else if (labels.includes('low-priority')) {
+                priorities.low.push(issue);
+              } else {
+                priorities.unlabeled.push(issue);
+              }
+
+              // カテゴリ分析
+              for (const [category, list] of Object.entries(categories)) {
+                if (labels.includes(category)) {
+                  list.push(issue);
+                }
+              }
+            }
+
+            // サマリーレポートの作成
+            let report = '# Issue Triage Summary Report\n\n';
+            report += `**Generated**: ${new Date().toISOString()}\n\n`;
+
+            report += '## Priority Distribution\n';
+            report += `- 🚨 Critical: ${priorities.critical.length}\n`;
+            report += `- ⚠️ High: ${priorities.high.length}\n`;
+            report += `- 📋 Medium: ${priorities.medium.length}\n`;
+            report += `- 📝 Low: ${priorities.low.length}\n`;
+            report += `- 🏷️ Unlabeled: ${priorities.unlabeled.length}\n\n`;
+
+            report += '## Category Distribution\n';
+            for (const [category, list] of Object.entries(categories)) {
+              if (list.length > 0) {
+                report += `- ${category}: ${list.length}\n`;
+              }
+            }
+
+            report += '\n## Action Items\n';
+
+            if (priorities.critical.length > 0) {
+              report += `- ⚡ ${priorities.critical.length} critical issues need immediate attention\n`;
+            }
+
+            if (priorities.unlabeled.length > 0) {
+              report += `- 🏷️ ${priorities.unlabeled.length} issues need labeling\n`;
+            }
+
+            if (categories.security.length > 0) {
+              report += `- 🔒 ${categories.security.length} security issues require review\n`;
+            }
+
+            // コメントまたはIssueとしてレポート投稿
+            console.log(report);
+
+  duplicate-detection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    steps:
+      - name: Check for duplicates
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const newIssue = context.payload.issue;
+            const newTitle = newIssue.title.toLowerCase();
+            const newBody = newIssue.body?.toLowerCase() || '';
+
+            const { data: existingIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+
+            const similarIssues = [];
+
+            for (const issue of existingIssues) {
+              if (issue.number === newIssue.number) continue;
+
+              const title = issue.title.toLowerCase();
+              const body = issue.body?.toLowerCase() || '';
+
+              // シンプルな類似度チェック
+              const titleSimilarity = this.calculateSimilarity(newTitle, title);
+              const bodySimilarity = this.calculateSimilarity(newBody, body);
+
+              if (titleSimilarity > 0.7 || bodySimilarity > 0.5) {
+                similarIssues.push({
+                  issue: issue,
+                  titleSimilarity: titleSimilarity,
+                  bodySimilarity: bodySimilarity
+                });
+              }
+            }
+
+            if (similarIssues.length > 0) {
+              let comment = '🔍 **類似イシューが検出されました**\n\n';
+              comment += '以下のイシューと類似している可能性があります:\n\n';
+
+              for (const similar of similarIssues.slice(0, 3)) {
+                comment += `- #${similar.issue.number}: ${similar.issue.title}\n`;
+                comment += `  - Status: ${similar.issue.state}\n`;
+                comment += `  - 類似度: ${Math.round(Math.max(similar.titleSimilarity, similar.bodySimilarity) * 100)}%\n\n`;
+              }
+
+              comment += '重複していないかご確認ください。重複している場合は、このイシューをクローズして既存のイシューにコメントしてください。';
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: newIssue.number,
+                body: comment
+              });
+
+              // 重複可能性ラベルを追加
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: newIssue.number,
+                labels: ['duplicate?']
+              });
+            }
+
+            // 簡易的な類似度計算関数
+            this.calculateSimilarity = function(str1, str2) {
+              const longer = str1.length > str2.length ? str1 : str2;
+              const shorter = str1.length > str2.length ? str2 : str1;
+
+              if (longer.length === 0) return 1.0;
+
+              const distance = this.levenshteinDistance(longer, shorter);
+              return (longer.length - distance) / longer.length;
+            };
+
+            this.levenshteinDistance = function(str1, str2) {
+              const matrix = [];
+              for (let i = 0; i <= str2.length; i++) {
+                matrix[i] = [i];
+              }
+              for (let j = 0; j <= str1.length; j++) {
+                matrix[0][j] = j;
+              }
+              for (let i = 1; i <= str2.length; i++) {
+                for (let j = 1; j <= str1.length; j++) {
+                  if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                  } else {
+                    matrix[i][j] = Math.min(
+                      matrix[i - 1][j - 1] + 1,
+                      matrix[i][j - 1] + 1,
+                      matrix[i - 1][j] + 1
+                    );
+                  }
+                }
+              }
+              return matrix[str2.length][str1.length];
+            };

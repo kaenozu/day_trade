@@ -7,6 +7,7 @@ Issue #324: プロダクション運用監視ダッシュボード構築
 """
 
 import base64
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -16,6 +17,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+from ..utils.logging_config import get_context_logger
+
+logger = get_context_logger(__name__)
 
 plt.style.use("seaborn-v0_8")
 # 日本語フォント設定（Windows環境対応）
@@ -46,13 +51,21 @@ class DashboardVisualizationEngine:
 
     def __init__(self, output_dir: str = "dashboard_charts"):
         """
-        初期化
+        初期化（セキュリティ強化版）
 
         Args:
             output_dir: チャート出力ディレクトリ
         """
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
+        # セキュリティ強化: 出力ディレクトリの安全性検証
+        self.output_dir = self._validate_output_directory(output_dir)
+
+        # 安全なディレクトリ作成
+        try:
+            self.output_dir.mkdir(exist_ok=True, parents=True)
+            logger.info(f"チャート出力ディレクトリ初期化: {self.output_dir}")
+        except Exception as e:
+            logger.error(f"ディレクトリ作成失敗: {self.output_dir} - {e}")
+            raise ValueError(f"出力ディレクトリの作成に失敗しました: {output_dir}")
 
         # カラーパレット設定
         self.colors = {
@@ -68,6 +81,96 @@ class DashboardVisualizationEngine:
         }
 
         print("ダッシュボード可視化エンジン初期化完了")
+
+    def _validate_output_directory(self, output_dir: str) -> Path:
+        """
+        出力ディレクトリの安全性検証（セキュリティ強化）
+
+        Args:
+            output_dir: 検証対象のディレクトリパス
+
+        Returns:
+            Path: 検証済みの安全なPathオブジェクト
+
+        Raises:
+            ValueError: 危険なパスが検出された場合
+        """
+        # 1. 入力値の基本検証
+        if not output_dir or not isinstance(output_dir, str):
+            raise ValueError("出力ディレクトリが指定されていません")
+
+        # 2. 危険なパスパターンの検出
+        dangerous_patterns = [
+            "..",           # 親ディレクトリ参照
+            "~/",           # ホームディレクトリ参照
+            "/etc",         # システムディレクトリ
+            "/usr",         # システムディレクトリ
+            "/var",         # システムディレクトリ
+            "/root",        # rootディレクトリ
+            "c:\\windows",  # Windowsシステムディレクトリ
+            "c:\\program files", # Windowsプログラムディレクトリ
+            "\\\\",         # UNCパス
+            "\x00",         # NULLバイト
+        ]
+
+        output_dir_lower = output_dir.lower()
+        for pattern in dangerous_patterns:
+            if pattern in output_dir_lower:
+                logger.warning(f"危険なディレクトリパスパターンを検出: {output_dir}")
+                raise ValueError(f"危険なディレクトリパス: {pattern}")
+
+        # 3. パス長制限
+        if len(output_dir) > 200:
+            logger.warning(f"ディレクトリパスが長すぎます: {len(output_dir)}文字")
+            raise ValueError("ディレクトリパスが長すぎます")
+
+        # 4. Pathオブジェクト作成と正規化
+        try:
+            path_obj = Path(output_dir).resolve()
+        except Exception as e:
+            logger.error(f"パス正規化エラー: {output_dir} - {e}")
+            raise ValueError(f"無効なディレクトリパス: {output_dir}")
+
+        # 5. 許可されたベースディレクトリ内かチェック
+        import tempfile
+        allowed_base_dirs = [
+            Path.cwd(),                    # 現在の作業ディレクトリ
+            Path.cwd() / "dashboard_charts", # デフォルトチャートディレクトリ
+            Path.cwd() / "output",         # 汎用出力ディレクトリ
+            Path.cwd() / "temp",           # 一時ディレクトリ
+            Path.cwd() / "charts",         # チャート専用ディレクトリ
+            Path(tempfile.gettempdir()),   # システム一時ディレクトリ（テスト用）
+        ]
+
+        # 絶対パスの場合は厳格にチェック
+        if path_obj.is_absolute():
+            is_allowed = False
+            for allowed_base in allowed_base_dirs:
+                try:
+                    allowed_base_resolved = allowed_base.resolve()
+                    # 許可されたベースディレクトリ内またはその配下かチェック
+                    if (path_obj == allowed_base_resolved or
+                        allowed_base_resolved in path_obj.parents):
+                        is_allowed = True
+                        break
+                except Exception:
+                    continue
+
+            if not is_allowed:
+                logger.warning(f"許可されていないディレクトリへのアクセス: {path_obj}")
+                raise ValueError(f"許可されていないディレクトリです: {output_dir}")
+
+        # 6. システムディレクトリへの直接アクセス防止
+        system_dirs = ["/etc", "/usr", "/var", "/root", "/boot", "/sys", "/proc"]
+        path_str = str(path_obj).lower()
+
+        for sys_dir in system_dirs:
+            if path_str.startswith(sys_dir):
+                logger.warning(f"システムディレクトリへのアクセス拒否: {path_obj}")
+                raise ValueError(f"システムディレクトリへのアクセスは許可されていません: {sys_dir}")
+
+        logger.debug(f"出力ディレクトリ検証完了: {path_obj}")
+        return path_obj
 
     def create_portfolio_value_chart(self, data: List[Dict[str, Any]]) -> str:
         """ポートフォリオ価値推移チャート作成"""
@@ -650,21 +753,112 @@ class DashboardVisualizationEngine:
             return ""
 
     def cleanup_old_charts(self, hours: int = 24):
-        """古いチャートファイルクリーンアップ"""
+        """古いチャートファイルクリーンアップ（TOCTOU脆弱性対策版）"""
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
+        # パラメータ検証
+        if hours <= 0:
+            logger.warning("無効な時間指定: クリーンアップをスキップします")
+            return
+
+        if hours < 1:
+            logger.warning("1時間未満の指定: 意図しない削除を防止するため処理をスキップします")
+            return
+
         cleaned_count = 0
-        for chart_file in self.output_dir.glob("*.png"):
+        error_count = 0
+
+        # 出力ディレクトリの存在確認
+        if not self.output_dir.exists():
+            logger.info("出力ディレクトリが存在しません: クリーンアップをスキップ")
+            return
+
+        # セキュリティ強化: 安全でないパスパターンのチェック
+        try:
+            resolved_output_dir = self.output_dir.resolve()
+            if ".." in str(resolved_output_dir) or str(resolved_output_dir).startswith("/etc"):
+                logger.error(f"危険なクリーンアップ対象ディレクトリ: {resolved_output_dir}")
+                return
+        except Exception as e:
+            logger.error(f"ディレクトリパス検証エラー: {e}")
+            return
+
+        logger.info(f"クリーンアップ開始: {self.output_dir}, {hours}時間以上経過ファイル対象")
+
+        # *.pngファイルのみを対象（セキュリティ制限）
+        try:
+            chart_files = list(self.output_dir.glob("*.png"))
+        except Exception as e:
+            logger.error(f"ファイル一覧取得エラー: {e}")
+            return
+
+        for chart_file in chart_files:
             try:
-                file_time = datetime.fromtimestamp(chart_file.stat().st_mtime)
-                if file_time < cutoff_time:
+                # TOCTOU対策: statとunlinkを原子的操作で実行
+                # 1. ファイル存在とタイプの確認
+                if not chart_file.is_file():
+                    logger.debug(f"ファイルではないためスキップ: {chart_file}")
+                    continue
+
+                # 2. シンボリックリンク攻撃対策
+                if chart_file.is_symlink():
+                    logger.warning(f"シンボリックリンクのため削除をスキップ: {chart_file}")
+                    continue
+
+                # 3. ファイル名に危険な文字が含まれていないかチェック
+                if any(dangerous_char in chart_file.name for dangerous_char in ['..', '/', '\\']):
+                    logger.warning(f"危険なファイル名のため削除をスキップ: {chart_file}")
+                    continue
+
+                # 4. stat情報の取得（原子的操作の一部）
+                try:
+                    stat_info = chart_file.stat()
+                    file_time = datetime.fromtimestamp(stat_info.st_mtime)
+                except (FileNotFoundError, OSError):
+                    # ファイルが他のプロセスによって既に削除された場合
+                    logger.debug(f"ファイルが既に削除されています: {chart_file}")
+                    continue
+
+                # 5. 時間チェック
+                if file_time >= cutoff_time:
+                    logger.debug(f"まだ新しいファイルのためスキップ: {chart_file}")
+                    continue
+
+                # 6. ファイルサイズチェック（異常に大きなファイルの検出）
+                if stat_info.st_size > 50 * 1024 * 1024:  # 50MB制限
+                    logger.warning(f"異常に大きなファイルのため削除をスキップ: {chart_file} ({stat_info.st_size} bytes)")
+                    continue
+
+                # 7. 原子的削除実行
+                try:
                     chart_file.unlink()
                     cleaned_count += 1
-            except Exception as e:
-                print(f"ファイル削除エラー: {chart_file} - {e}")
+                    logger.debug(f"ファイル削除完了: {chart_file}")
+                except FileNotFoundError:
+                    # 他のプロセスが同時に削除した場合（正常なケース）
+                    logger.debug(f"ファイルが他のプロセスによって削除済み: {chart_file}")
+                except PermissionError:
+                    logger.warning(f"ファイル削除権限なし: {chart_file}")
+                    error_count += 1
+                except OSError as e:
+                    logger.warning(f"ファイル削除OSエラー: {chart_file} - {e}")
+                    error_count += 1
 
+            except Exception as e:
+                logger.error(f"ファイル処理中の予期しないエラー: {chart_file} - {e}")
+                error_count += 1
+                # セキュリティ上重要: 一つのファイルエラーで全体処理を停止しない
+                continue
+
+        # 結果ログ出力
         if cleaned_count > 0:
-            print(f"古いチャート {cleaned_count}件を削除しました")
+            logger.info(f"チャートクリーンアップ完了: {cleaned_count}件削除")
+
+        if error_count > 0:
+            logger.warning(f"クリーンアップエラー: {error_count}件のファイルで問題発生")
+
+        if cleaned_count == 0 and error_count == 0:
+            logger.info("クリーンアップ対象ファイルなし")
 
 
 if __name__ == "__main__":
