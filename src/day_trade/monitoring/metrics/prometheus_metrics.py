@@ -11,21 +11,23 @@ Features:
 - SLA監視
 """
 
-import time
-import psutil
 import threading
-import json
-import asyncio
-from typing import Dict, List, Optional, Any, Union
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from prometheus_client import (
-    Counter, Histogram, Gauge, Summary, Info,
-    CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
-)
+from typing import Any, Dict, List
+
 import numpy as np
-from collections import deque, defaultdict
+import psutil
+from prometheus_client import (
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    Info,
+)
 
 from ...utils.logging_config import get_context_logger
 
@@ -216,13 +218,18 @@ class PrometheusMetricsCollector:
     def _create_realtime_snapshot(self) -> Dict[str, Any]:
         """リアルタイムスナップショット作成"""
 
+        # SystemHealthMetricsから最新のシステムメトリクスを取得
+        from .prometheus_metrics import get_health_metrics  # 自己参照インポート
+
+        health_metrics = get_health_metrics()
+
         timestamp = datetime.now()
         snapshot = {
             'timestamp': timestamp.isoformat(),
             'system_metrics': {
-                'cpu_usage': psutil.cpu_percent(),
-                'memory_usage': psutil.virtual_memory().percent,
-                'disk_usage': psutil.disk_usage('/').percent if psutil.disk_usage('/') else 0
+                'cpu_usage': health_metrics.cpu_usage.get(),
+                'memory_usage': health_metrics.memory_usage.labels(type='used').get() / health_metrics.memory_usage.labels(type='total').get() * 100 if health_metrics.memory_usage.labels(type='total').get() else 0, # Convert bytes to percentage
+                'disk_usage': health_metrics.disk_usage.labels(mount_point='/', type='used').get() / health_metrics.disk_usage.labels(mount_point='/', type='total').get() * 100 if health_metrics.disk_usage.labels(mount_point='/', type='total').get() else 0
             },
             'collection_count': self.metrics_collection_total._value._value
         }
