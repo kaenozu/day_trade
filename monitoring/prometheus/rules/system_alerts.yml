@@ -1,0 +1,107 @@
+# システム全体 アラートルール
+# System-wide Alert Rules
+
+groups:
+  - name: system_critical
+    interval: 10s
+    rules:
+      # インスタンスダウン
+      - alert: InstanceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 30 seconds"
+
+      # CPU使用率異常
+      - alert: HighCPUUsage
+        expr: day_trade_cpu_usage_percent > 90
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+          component: cpu
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for more than 2 minutes"
+
+      # メモリ使用率異常
+      - alert: HighMemoryUsage
+        expr: (day_trade_memory_usage_bytes{type="used"} / day_trade_memory_usage_bytes{type="total"}) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+          component: memory
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% for more than 2 minutes"
+
+      # ディスク使用率異常
+      - alert: HighDiskUsage
+        expr: (day_trade_disk_usage_bytes{type="used"} / day_trade_disk_usage_bytes{type="total"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+          component: disk
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value }}% on {{ $labels.mount_point }} for more than 5 minutes"
+
+  - name: system_high
+    interval: 30s
+    rules:
+      # アプリケーションエラー率上昇
+      - alert: HighApplicationErrorRate
+        expr: rate(day_trade_application_errors_total[5m]) > 1.0
+        for: 2m
+        labels:
+          severity: high
+          service: system
+          component: application
+        annotations:
+          summary: "High application error rate"
+          description: "Application error rate is {{ $value }} errors/second in {{ $labels.component }}"
+
+      # データベース接続プール枯渇
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: day_trade_db_connections{status="active"} / day_trade_db_connections{status="total"} > 0.9
+        for: 1m
+        labels:
+          severity: high
+          service: system
+          component: database
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Database connection pool usage is {{ $value | humanizePercentage }}"
+
+  - name: system_medium
+    interval: 60s
+    rules:
+      # CPU使用率注意
+      - alert: ModeratelyHighCPUUsage
+        expr: day_trade_cpu_usage_percent > 70
+        for: 5m
+        labels:
+          severity: medium
+          service: system
+          component: cpu
+        annotations:
+          summary: "Moderately high CPU usage"
+          description: "CPU usage is {{ $value }}% for more than 5 minutes"
+
+      # メモリ使用率注意
+      - alert: ModeratelyHighMemoryUsage
+        expr: (day_trade_memory_usage_bytes{type="used"} / day_trade_memory_usage_bytes{type="total"}) * 100 > 70
+        for: 5m
+        labels:
+          severity: medium
+          service: system
+          component: memory
+        annotations:
+          summary: "Moderately high memory usage"
+          description: "Memory usage is {{ $value }}% for more than 5 minutes"

@@ -1,0 +1,119 @@
+# リスク管理システム アラートルール
+# Risk Management System Alert Rules
+
+groups:
+  - name: risk_management_critical
+    interval: 5s
+    rules:
+      # Critical リスクレベル検出
+      - alert: CriticalRiskDetected
+        expr: day_trade_current_risk_score > 0.9
+        for: 0s
+        labels:
+          severity: critical
+          service: risk-management
+          component: risk_analyzer
+        annotations:
+          summary: "Critical risk level detected"
+          description: "Risk score {{ $value }} exceeds critical threshold (0.9) for component {{ $labels.component }} on symbol {{ $labels.symbol }}"
+
+      # 不正検知 - 高信頼度アラート
+      - alert: HighConfidenceFraudDetected
+        expr: increase(day_trade_fraud_detection_total{result="fraud", confidence_level="high"}[1m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          service: risk-management
+          component: fraud_detection
+        annotations:
+          summary: "High confidence fraud detection"
+          description: "{{ $value }} high-confidence fraud cases detected in the last minute"
+
+      # リスク分析処理時間異常
+      - alert: RiskAnalysisSlowResponse
+        expr: histogram_quantile(0.95, day_trade_risk_analysis_duration_seconds_bucket) > 5.0
+        for: 30s
+        labels:
+          severity: high
+          service: risk-management
+          component: risk_analyzer
+        annotations:
+          summary: "Risk analysis slow response"
+          description: "95th percentile of risk analysis duration is {{ $value }}s, exceeding 5s threshold"
+
+  - name: risk_management_high
+    interval: 10s
+    rules:
+      # High リスクレベル継続
+      - alert: HighRiskLevelSustained
+        expr: day_trade_current_risk_score > 0.7
+        for: 2m
+        labels:
+          severity: high
+          service: risk-management
+          component: risk_analyzer
+        annotations:
+          summary: "Sustained high risk level"
+          description: "Risk score {{ $value }} remains above high threshold (0.7) for over 2 minutes on {{ $labels.symbol }}"
+
+      # リスクアラート頻発
+      - alert: FrequentRiskAlerts
+        expr: increase(day_trade_risk_alerts_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: high
+          service: risk-management
+          component: alert_system
+        annotations:
+          summary: "Frequent risk alerts"
+          description: "{{ $value }} risk alerts generated in 5 minutes for {{ $labels.component }}"
+
+      # 不正検知精度低下
+      - alert: FraudDetectionAccuracyDrop
+        expr: day_trade_fraud_detection_accuracy < 0.85
+        for: 2m
+        labels:
+          severity: high
+          service: risk-management
+          component: fraud_detection
+        annotations:
+          summary: "Fraud detection accuracy dropped"
+          description: "Fraud detection accuracy dropped to {{ $value }} for model {{ $labels.model_type }}"
+
+  - name: risk_management_medium
+    interval: 30s
+    rules:
+      # Medium リスクレベル
+      - alert: MediumRiskLevel
+        expr: day_trade_current_risk_score > 0.5
+        for: 5m
+        labels:
+          severity: medium
+          service: risk-management
+          component: risk_analyzer
+        annotations:
+          summary: "Medium risk level detected"
+          description: "Risk score {{ $value }} above medium threshold (0.5) for {{ $labels.symbol }}"
+
+      # リスク分析エラー率上昇
+      - alert: RiskAnalysisErrorRate
+        expr: rate(day_trade_application_errors_total{component="risk_analysis"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: medium
+          service: risk-management
+          component: risk_analyzer
+        annotations:
+          summary: "Risk analysis error rate elevated"
+          description: "Risk analysis error rate is {{ $value }} errors/second"
+
+      # リスクコンポーネント異常
+      - alert: RiskComponentDown
+        expr: day_trade_risk_component_status == 0
+        for: 1m
+        labels:
+          severity: medium
+          service: risk-management
+        annotations:
+          summary: "Risk management component down"
+          description: "Risk component {{ $labels.component }} is not responding"

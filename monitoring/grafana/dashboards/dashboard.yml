@@ -1,0 +1,13 @@
+# Grafana ダッシュボード プロビジョニング設定
+# Dashboard Provisioning Configuration
+
+apiVersion: 1
+
+providers:
+  - name: 'Day Trade Dashboards'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,108 @@
+# AI エンジン アラートルール
+# AI Engine Alert Rules
+
+groups:
+  - name: ai_engine_critical
+    interval: 10s
+    rules:
+      # AI予測処理時間異常
+      - alert: AILongPredictionTime
+        expr: histogram_quantile(0.95, day_trade_ai_prediction_duration_seconds_bucket) > 10.0
+        for: 1m
+        labels:
+          severity: critical
+          service: ai-engine
+          component: prediction
+        annotations:
+          summary: "AI prediction taking too long"
+          description: "95th percentile of AI prediction duration is {{ $value }}s for model {{ $labels.model_type }}"
+
+      # 生成AI API呼び出しエラー率上昇
+      - alert: GenerativeAIHighErrorRate
+        expr: rate(day_trade_generative_ai_calls_total{result="error"}[5m]) / rate(day_trade_generative_ai_calls_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: ai-engine
+          component: generative_ai
+        annotations:
+          summary: "Generative AI high error rate"
+          description: "Generative AI error rate is {{ $value | humanizePercentage }} for {{ $labels.provider }}"
+
+      # GPU使用率異常
+      - alert: GPUHighUtilization
+        expr: day_trade_gpu_utilization_percent > 95
+        for: 5m
+        labels:
+          severity: high
+          service: ai-engine
+          component: gpu
+        annotations:
+          summary: "GPU utilization very high"
+          description: "GPU {{ $labels.gpu_id }} utilization is {{ $value }}% for more than 5 minutes"
+
+  - name: ai_engine_high
+    interval: 30s
+    rules:
+      # AI予測精度低下
+      - alert: AIPredictionAccuracyDrop
+        expr: day_trade_prediction_accuracy < 0.8
+        for: 5m
+        labels:
+          severity: high
+          service: ai-engine
+          component: prediction
+        annotations:
+          summary: "AI prediction accuracy dropped"
+          description: "Prediction accuracy dropped to {{ $value }} for {{ $labels.model_type }} on {{ $labels.timeframe }}"
+
+      # モデル訓練停止
+      - alert: ModelTrainingStopped
+        expr: day_trade_model_training_status == 0
+        for: 10m
+        labels:
+          severity: high
+          service: ai-engine
+          component: training
+        annotations:
+          summary: "Model training stopped"
+          description: "Model training stopped for {{ $labels.model_type }}"
+
+      # 生成AI API レスポンス遅延
+      - alert: GenerativeAISlowResponse
+        expr: rate(day_trade_generative_ai_calls_total{result="timeout"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: high
+          service: ai-engine
+          component: generative_ai
+        annotations:
+          summary: "Generative AI slow response"
+          description: "Generative AI timeout rate is {{ $value }} requests/second for {{ $labels.provider }}"
+
+  - name: ai_engine_medium
+    interval: 60s
+    rules:
+      # AI予測実行回数低下
+      - alert: LowAIPredictionVolume
+        expr: rate(day_trade_ai_predictions_total[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: medium
+          service: ai-engine
+          component: prediction
+        annotations:
+          summary: "Low AI prediction volume"
+          description: "AI prediction rate is {{ $value }} predictions/second for {{ $labels.model_type }}"
+
+      # GPU使用率低下（リソース未使用）
+      - alert: LowGPUUtilization
+        expr: day_trade_gpu_utilization_percent < 10
+        for: 30m
+        labels:
+          severity: medium
+          service: ai-engine
+          component: gpu
+        annotations:
+          summary: "Low GPU utilization"
+          description: "GPU {{ $labels.gpu_id }} utilization is only {{ $value }}% for more than 30 minutes"
