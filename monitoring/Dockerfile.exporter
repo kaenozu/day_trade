@@ -1,0 +1,34 @@
+# Day Trade メトリクスエクスポーター用 Dockerfile
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# システム依存関係インストール
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pythonライブラリインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 追加の監視ライブラリ
+RUN pip install --no-cache-dir \
+    prometheus-client==0.17.1 \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    psutil==5.9.6
+
+# アプリケーションコピー
+COPY src/ ./src/
+COPY monitoring/ ./monitoring/
+
+# メトリクス収集・エクスポート用エントリーポイント
+COPY monitoring/docker-entrypoint.py ./entrypoint.py
+
+# ポート公開
+EXPOSE 8000
+
+# 実行
+CMD ["python", "entrypoint.py"]
