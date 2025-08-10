@@ -338,7 +338,9 @@ def mask_sensitive_info(text: str, mask_char: str = "*") -> str:
     ]
 
     for pattern in commission_patterns:
-        text = re.sub(pattern, f'{pattern.split("[")[0].split("\\")[0]}: {mask_char * 6}', text, flags=re.IGNORECASE)
+        backslash = "\\"
+        pattern_key = pattern.split("[")[0].split(backslash)[0]
+        text = re.sub(pattern, f'{pattern_key}: {mask_char * 6}', text, flags=re.IGNORECASE)
 
     # 3. ファイルパスのマスキング
     # Windows/Unix パス情報
