@@ -70,7 +70,7 @@ __all__ = [
     'LogAnalysisSystem',
     'LogLevel',
     'AnomalyType',
-    
+
     # 新基本監視
     'get_metrics_collector',
     'get_risk_metrics',
