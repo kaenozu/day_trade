@@ -6,16 +6,23 @@ Issue #324: プロダクション運用監視ダッシュボード構築
 Flask+WebSocket リアルタイムダッシュボードUI
 """
 
+import os
+import secrets
+import stat
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
 from .dashboard_core import ProductionDashboard
 from .visualization_engine import DashboardVisualizationEngine
+from ..utils.logging_config import get_context_logger
+
+logger = get_context_logger(__name__)
 
 
 class WebDashboard:
@@ -38,10 +45,25 @@ class WebDashboard:
             template_folder=str(Path(__file__).parent / "templates"),
             static_folder=str(Path(__file__).parent / "static"),
         )
-        self.app.config["SECRET_KEY"] = "dashboard_secret_key_2024"
+        # セキュリティ強化: 環境変数からSECRET_KEYを取得、なければランダム生成
+        secret_key = os.environ.get('FLASK_SECRET_KEY')
+        if not secret_key:
+            secret_key = secrets.token_urlsafe(32)
+            logger.warning("FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。")
+            logger.info(f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='{secret_key}'")
 
-        # WebSocket設定
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        self.app.config["SECRET_KEY"] = secret_key
+
+        # WebSocket設定 - CORS制限
+        cors_origins = os.environ.get('DASHBOARD_CORS_ORIGINS', 'http://localhost:5000,http://127.0.0.1:5000')
+        allowed_origins = [origin.strip() for origin in cors_origins.split(',')]
+
+        if debug:
+            # デバッグモードでは開発用オリジンを許可
+            allowed_origins.extend(['http://localhost:3000', 'http://127.0.0.1:3000'])
+
+        self.socketio = SocketIO(self.app, cors_allowed_origins=allowed_origins)
+        logger.info(f"CORS許可オリジン: {allowed_origins}")
 
         # コアコンポーネント初期化
         self.dashboard_core = ProductionDashboard()
@@ -54,12 +76,95 @@ class WebDashboard:
         # ルート設定
         self._setup_routes()
         self._setup_websocket_events()
+        self._setup_security_headers()
 
         # テンプレートフォルダ作成
         self._create_templates()
         self._create_static_files()
 
-        print(f"Webダッシュボード初期化完了 (ポート: {port})")
+        logger.info(f"Webダッシュボード初期化完了 (ポート: {port})")
+
+    def _setup_security_headers(self):
+        """セキュリティヘッダー設定"""
+        @self.app.after_request
+        def set_security_headers(response):
+            # XSS攻撃対策
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'DENY'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+
+            # HTTPS強制（本番環境）
+            if not self.debug:
+                response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+            # CSP（Content Security Policy）
+            csp = "default-src 'self'; " \
+                  "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " \
+                  "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " \
+                  "font-src 'self' cdnjs.cloudflare.com; " \
+                  "img-src 'self' data:; " \
+                  "connect-src 'self'"
+            response.headers['Content-Security-Policy'] = csp
+
+            return response
+
+    def _sanitize_error_message(self, error: Exception) -> str:
+        """エラーメッセージのサニタイズ"""
+        # セキュリティ: 詳細なエラー情報を隠蔽し、一般的なメッセージを返す
+        error_str = str(error).lower()
+
+        # 機密情報が含まれる可能性のあるエラーパターン
+        sensitive_patterns = [
+            'password', 'secret', 'key', 'token', 'credential',
+            'database', 'connection', 'path', 'file', 'directory'
+        ]
+
+        for pattern in sensitive_patterns:
+            if pattern in error_str:
+                return "システム内部エラーが発生しました。管理者にお問い合わせください。"
+
+        # デバッグモード時のみ詳細表示
+        if self.debug:
+            return str(error)
+
+        return "処理中にエラーが発生しました。"
+
+    def _validate_metric_type(self, metric_type: str) -> bool:
+        """メトリクスタイプの検証"""
+        allowed_metrics = [
+            'portfolio', 'system', 'trading', 'risk',
+            'performance', 'alerts', 'status'
+        ]
+        return metric_type in allowed_metrics
+
+    def _validate_chart_type(self, chart_type: str) -> bool:
+        """チャートタイプの検証"""
+        allowed_charts = [
+            'portfolio', 'system', 'trading', 'risk', 'comprehensive'
+        ]
+        return chart_type in allowed_charts
+
+    def _validate_hours_parameter(self, hours: int) -> bool:
+        """時間パラメータの検証"""
+        # 1時間から30日間（720時間）までを許可
+        return 1 <= hours <= 720
+
+    def _create_secure_file(self, file_path: Path, content: str, permissions: int = 0o644):
+        """セキュアなファイル作成"""
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            # ファイル権限設定（Unix系OS）
+            if os.name != 'nt':  # Windows以外
+                os.chmod(file_path, permissions)
+                logger.info(f"ファイル権限設定: {file_path} -> {oct(permissions)}")
+            else:
+                logger.info(f"ファイル作成: {file_path} (Windows環境のため権限設定スキップ)")
+
+        except Exception as e:
+            logger.error(f"セキュアファイル作成エラー {file_path}: {e}")
+            raise
 
     def _setup_routes(self):
         """HTTPルート設定"""
@@ -82,10 +187,12 @@ class WebDashboard:
                     }
                 )
             except Exception as e:
+                # セキュアなエラーハンドリング
+                error_message = self._sanitize_error_message(e)
                 return jsonify(
                     {
                         "success": False,
-                        "error": str(e),
+                        "error": error_message,
                         "timestamp": datetime.now().isoformat(),
                     }
                 ), 500
@@ -94,7 +201,26 @@ class WebDashboard:
         def get_history(metric_type):
             """過去データ取得API"""
             try:
+                # 入力値検証
+                if not self._validate_metric_type(metric_type):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "無効なメトリクスタイプです。",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ), 400
+
                 hours = request.args.get("hours", 24, type=int)
+                if not self._validate_hours_parameter(hours):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ), 400
+
                 data = self.dashboard_core.get_historical_data(metric_type, hours)
                 return jsonify(
                     {
@@ -106,10 +232,12 @@ class WebDashboard:
                     }
                 )
             except Exception as e:
+                # セキュアなエラーハンドリング
+                error_message = self._sanitize_error_message(e)
                 return jsonify(
                     {
                         "success": False,
-                        "error": str(e),
+                        "error": error_message,
                         "timestamp": datetime.now().isoformat(),
                     }
                 ), 500
@@ -118,7 +246,25 @@ class WebDashboard:
         def get_chart(chart_type):
             """チャート生成API"""
             try:
+                # 入力値検証
+                if not self._validate_chart_type(chart_type):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "無効なチャートタイプです。",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ), 400
+
                 hours = request.args.get("hours", 12, type=int)
+                if not self._validate_hours_parameter(hours):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ), 400
 
                 if chart_type == "portfolio":
                     data = self.dashboard_core.get_historical_data("portfolio", hours)
@@ -185,10 +331,12 @@ class WebDashboard:
                 )
 
             except Exception as e:
+                # セキュアなエラーハンドリング
+                error_message = self._sanitize_error_message(e)
                 return jsonify(
                     {
                         "success": False,
-                        "error": str(e),
+                        "error": error_message,
                         "timestamp": datetime.now().isoformat(),
                     }
                 ), 500
@@ -206,10 +354,12 @@ class WebDashboard:
                     }
                 )
             except Exception as e:
+                # セキュアなエラーハンドリング
+                error_message = self._sanitize_error_message(e)
                 return jsonify(
                     {
                         "success": False,
-                        "error": str(e),
+                        "error": error_message,
                         "timestamp": datetime.now().isoformat(),
                     }
                 ), 500
@@ -220,13 +370,13 @@ class WebDashboard:
         @self.socketio.on("connect")
         def handle_connect():
             """クライアント接続"""
-            print(f"クライアント接続: {request.sid}")
+            logger.info(f"クライアント接続: {request.sid}")
             emit("status", {"message": "ダッシュボードに接続されました"})
 
         @self.socketio.on("disconnect")
         def handle_disconnect():
             """クライアント切断"""
-            print(f"クライアント切断: {request.sid}")
+            logger.info(f"クライアント切断: {request.sid}")
 
         @self.socketio.on("request_update")
         def handle_request_update():
@@ -433,8 +583,8 @@ class WebDashboard:
 </body>
 </html>"""
 
-        with open(templates_dir / "dashboard.html", "w", encoding="utf-8") as f:
-            f.write(dashboard_html)
+        # セキュアなファイル作成
+        self._create_secure_file(templates_dir / "dashboard.html", dashboard_html, 0o644)
 
     def _create_static_files(self):
         """静的ファイル作成"""
@@ -503,8 +653,8 @@ body {
 }
         """
 
-        with open(static_dir / "dashboard.css", "w", encoding="utf-8") as f:
-            f.write(css_content)
+        # セキュアなファイル作成
+        self._create_secure_file(static_dir / "dashboard.css", css_content, 0o644)
 
         # JavaScript ファイル
         js_content = """
@@ -702,12 +852,12 @@ function showAlert(message, type = 'info') {
 }
         """
 
-        with open(static_dir / "dashboard.js", "w", encoding="utf-8") as f:
-            f.write(js_content)
+        # セキュアなファイル作成
+        self._create_secure_file(static_dir / "dashboard.js", js_content, 0o644)
 
     def start_monitoring(self):
         """監視開始"""
-        print("Webダッシュボード監視開始")
+        logger.info("Webダッシュボード監視開始")
         self.dashboard_core.start_monitoring()
         self.running = True
 
@@ -717,7 +867,7 @@ function showAlert(message, type = 'info') {
 
     def stop_monitoring(self):
         """監視停止"""
-        print("Webダッシュボード監視停止")
+        logger.info("Webダッシュボード監視停止")
         self.running = False
         self.dashboard_core.stop_monitoring()
 
@@ -732,7 +882,7 @@ function showAlert(message, type = 'info') {
                 self.socketio.emit("dashboard_update", status)
 
             except Exception as e:
-                print(f"更新ループエラー: {e}")
+                logger.error(f"更新ループエラー: {e}")
 
             time.sleep(10)  # 10秒間隔で更新
 
@@ -740,22 +890,22 @@ function showAlert(message, type = 'info') {
         """サーバー開始"""
         try:
             self.start_monitoring()
-            print(f"Webダッシュボードサーバー開始: http://localhost:{self.port}")
+            logger.info(f"Webダッシュボードサーバー開始: http://localhost:{self.port}")
             self.socketio.run(
                 self.app, host="0.0.0.0", port=self.port, debug=self.debug
             )
         except KeyboardInterrupt:
-            print("\nサーバー停止中...")
+            logger.info("\nサーバー停止中...")
             self.stop_monitoring()
         except Exception as e:
-            print(f"サーバーエラー: {e}")
+            logger.error(f"サーバーエラー: {e}")
             self.stop_monitoring()
 
 
 def main():
     """メイン実行"""
-    print("Webダッシュボード起動")
-    print("=" * 50)
+    logger.info("Webダッシュボード起動")
+    logger.info("=" * 50)
 
     dashboard = WebDashboard(port=5000, debug=False)
     dashboard.run()
