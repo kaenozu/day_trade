@@ -22,6 +22,10 @@ PYTORCH_AVAILABLE = False
 try:
     import importlib.util
     if importlib.util.find_spec("torch") is not None:
+        import torch
+        import torch.nn as nn
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, Dataset
         PYTORCH_AVAILABLE = True
 except ImportError:
     pass
