@@ -6,6 +6,11 @@ on:
     types: [opened, closed, merged, ready_for_review]
   workflow_dispatch:
 
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
 jobs:
   manage-project-board:
     runs-on: ubuntu-latest

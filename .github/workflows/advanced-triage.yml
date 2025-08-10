@@ -7,6 +7,10 @@ on:
     - cron: '0 9 * * 1'    # 毎週月曜日9時にレポート生成
   workflow_dispatch:
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   advanced-triage:
     runs-on: ubuntu-latest
