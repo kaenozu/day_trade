@@ -191,10 +191,15 @@ class TimeoutError(NetworkError):
     pass
 
 
-# NOTE: レガシー例外マッピングは削除されました
-# StockFetcherError, InvalidSymbolError, DataNotFoundError は
-# stock_fetcher.py で直接継承して定義されているため、
-# ここでのマッピングは不要です
+# データ取得関連例外
+class StockFetcherError(APIError):
+    """株価データ取得エラー"""
+    pass
+
+
+class InvalidSymbolError(DataError):
+    """無効なシンボルエラー"""
+    pass
 
 
 def handle_database_exception(exc: "sqlalchemy.exc.SQLAlchemyError") -> DatabaseError:
