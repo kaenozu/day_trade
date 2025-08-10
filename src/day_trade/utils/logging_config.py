@@ -5,9 +5,12 @@
 JSON形式での出力、フィルタリング、ログレベル管理を統一。
 """
 
+import atexit
 import logging
 import os
 import sys
+from logging.handlers import QueueHandler, QueueListener
+from queue import Queue
 from typing import Any, Dict
 
 try:
@@ -129,15 +132,45 @@ class LoggingConfig:
             )
 
             # 標準ロガーをstructlogにフック
+            # 非同期ロギングのためにQueueHandlerを使用
+
+            log_queue = Queue(-1)  # 無制限のキュー
+            queue_handler = QueueHandler(log_queue)
+
+            # 標準のStreamHandlerを設定
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setFormatter(logging.Formatter("%(message)s")) # structlogがフォーマットするため、ここではシンプルに
+
+            # QueueListenerを設定し、別スレッドでログを処理
+            queue_listener = QueueListener(log_queue, stream_handler)
+            queue_listener.start() # リスナーを開始
+
+            # アプリケーション終了時にリスナーを停止
+            atexit.register(queue_listener.stop)
+
             logging.basicConfig(
-                format="%(message)s", stream=sys.stdout, level=self.log_level
+                format="%(message)s", handlers=[queue_handler], level=self.log_level
             )
         else:
             # Structlogが利用できない場合のフォールバック
+            # 非同期ロギングのためにQueueHandlerを使用
+            log_queue = Queue(-1)  # 無制限のキュー
+            queue_handler = QueueHandler(log_queue)
+
+            # 標準のStreamHandlerを設定
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+
+            # QueueListenerを設定し、別スレッドでログを処理
+            queue_listener = QueueListener(log_queue, stream_handler)
+            queue_listener.start() # リスナーを開始
+
+            # アプリケーション終了時にリスナーを停止
+            atexit.register(queue_listener.stop)
+
             logging.basicConfig(
                 level=getattr(logging, self.log_level, logging.INFO),
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                handlers=[logging.StreamHandler(sys.stdout)],
+                handlers=[queue_handler],
             )
 
         self.is_configured = True
