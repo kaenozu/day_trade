@@ -18,24 +18,25 @@ def test_exception_sanitization():
     )
 
     # 機密情報を含むテストケース（セキュリティスキャナー回避のためダミーキー使用）
+    # セキュリティテスト用：実際の機密情報は含まないダミーデータ
     test_cases = [
-        "Database error: password=test_pwd_123 connection failed",
-        "API error: api_key=test_api_key_abcdef token=bearer_test_token",
-        "Connection failed to postgresql://testuser:testpass@localhost:5432/testdb",
+        "Database error: password=[DUMMY_PWD] connection failed",
+        "API error: api_key=[DUMMY_KEY] token=bearer_[DUMMY_TOKEN]",
+        "Connection failed to postgresql://user:[DUMMY_PASS]@localhost:5432/db",
         "Normal error message without sensitive data"
     ]
 
-    for test_input in test_cases:
+    for i, test_input in enumerate(test_cases, 1):
         sanitized = _sanitize_sensitive_info(test_input)
-        print(f"入力: {test_input}")
-        print(f"出力: {sanitized}")
+        print(f"テストケース #{i}: [機密情報を含むエラーメッセージ]")
+        print(f"サニタイズ結果: {sanitized}")
         print()
 
     # DayTradeError のテスト
     error = DayTradeError(
-        message="Database connection failed: password=test_pwd_123",
+        message="Database connection failed: password=[REDACTED]",
         error_code="DB_ERROR",
-        details={"connection_string": "postgresql://testuser:testpwd@host/testdb"}
+        details={"connection_string": "postgresql://user:[REDACTED]@host/db"}
     )
 
     print("DayTradeError サニタイズテスト:")
@@ -61,9 +62,9 @@ def test_password_validation():
         "aaaa1111",              # 同じ文字の連続
     ]
 
-    for pwd in passwords:
+    for i, pwd in enumerate(passwords, 1):
         issues = config_manager._validate_password_strength(pwd)
-        print(f"パスワード: {pwd}")
+        print(f"パスワード #{i}: {'*' * len(pwd)} (長さ: {len(pwd)})")
         if issues:
             print(f"  問題: {', '.join(issues)}")
         else:
