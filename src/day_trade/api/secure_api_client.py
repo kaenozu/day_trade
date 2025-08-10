@@ -613,7 +613,7 @@ def create_secure_api_client_example():
     # エラーハンドリング例
     try:
         # 意図的なエラー発生
-        raise ConnectionError("Connection failed with api_key=secret123 to host 192.168.1.100")
+        raise ConnectionError("Connection failed with api_key=[REDACTED] to host [REDACTED]")
     except ConnectionError as e:
         safe_error = SecureErrorHandler.sanitize_error_message(e, "API接続")
         logger.info(f"サニタイズ済みエラー: {safe_error}")
