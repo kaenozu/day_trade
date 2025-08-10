@@ -6,6 +6,10 @@ on:
     - cron: '0 9 * * *'  # 毎日9時にトリアージ実行
   workflow_dispatch:  # 手動実行可能
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   triage-new-issues:
     runs-on: ubuntu-latest
