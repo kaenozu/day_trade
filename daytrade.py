@@ -77,7 +77,7 @@ def validate_symbols(symbols_str: str) -> List[str]:
 
     if invalid_symbols:
         raise CLIValidationError(
-            f"無効な銘柄コード形式: {', '.join(invalid_symbols)}. "
+            f"無効な銘柄コード形式: {\', \'.join(invalid_symbols)}. "
             f"4桁の数字 (例: 7203) または市場コード付き (例: 7203.T) を使用してください。"
         )
 
@@ -162,7 +162,7 @@ def validate_log_level(log_level: str) -> str:
 
     if log_level.upper() not in valid_levels:
         raise CLIValidationError(
-            f"無効なログレベル: {log_level}. 有効な値: {', '.join(valid_levels)}"
+            f"無効なログレベル: {log_level}. 有効な値: {\', \'.join(valid_levels)}"
         )
 
     return log_level.upper()
@@ -214,7 +214,9 @@ def validate_interval(interval: int) -> int:
 
 
 def print_banner():
-    """バナーを表示"""
+    """
+    バナーを表示
+    """
     banner = """
     ========================================
           DayTrade Auto Engine
@@ -225,7 +227,9 @@ def print_banner():
 
 
 def print_summary(report):
-    """実行サマリーを表示"""
+    """
+    実行サマリーを表示
+    """
     execution_time = (report.end_time - report.start_time).total_seconds()
 
     print("\n" + "=" * 50)
@@ -287,7 +291,9 @@ def print_summary(report):
 
 
 def run_watch_mode(symbols, interval_minutes, orchestrator_instance: DayTradeOrchestrator):
-    """継続監視モード"""
+    """
+    継続監視モード
+    """
 
     try:
         print(f"[監視] 継続監視モードを開始します（{interval_minutes}分間隔）")
@@ -339,7 +345,9 @@ def run_watch_mode(symbols, interval_minutes, orchestrator_instance: DayTradeOrc
 
 
 def run_dashboard_mode():
-    """ダッシュボードモード"""
+    """
+    ダッシュボードモード
+    """
     try:
         print("[ダッシュボード] サーバーを起動します...")
         print("  URL: http://localhost:8000")
@@ -360,7 +368,9 @@ def run_dashboard_mode():
 
 
 def print_startup_banner():
-    """起動バナー表示"""
+    """
+    起動バナー表示
+    """
     print("=" * 70)
     print("    DayTrade 分析システム - 統合版")
     print("    [SECURE] 完全セーフモード - 分析・情報提供専用")
@@ -475,7 +485,7 @@ def _parse_and_validate_args():
         try:
             validated_log_level = validate_log_level(args.log_level)
         except CLIValidationError as e:
-            print(f"❌ エラー: {e}", file=sys.stderr)
+            print(f"❌ エラー: コマンドライン引数のログレベルが無効です。", file=sys.stderr) # 変更
             sys.exit(1)
 
         # 監視間隔のバリデーション
@@ -483,7 +493,7 @@ def _parse_and_validate_args():
             try:
                 validated_interval = validate_interval(args.interval)
             except CLIValidationError as e:
-                print(f"❌ エラー: {e}", file=sys.stderr)
+                print(f"❌ エラー: コマンドライン引数の監視間隔が無効です。", file=sys.stderr) # 変更
                 sys.exit(1)
 
         # 銘柄コードのバリデーション
@@ -492,7 +502,7 @@ def _parse_and_validate_args():
                 validated_symbols = validate_symbols(args.symbols)
                 print(f"✅ 銘柄コード検証完了: {len(validated_symbols)}銘柄")
             except CLIValidationError as e:
-                print(f"❌ エラー: {e}", file=sys.stderr)
+                print(f"❌ エラー: コマンドライン引数の銘柄コードが無効です。", file=sys.stderr) # 変更
                 sys.exit(1)
 
         # 設定ファイルのバリデーション
@@ -501,11 +511,13 @@ def _parse_and_validate_args():
                 validated_config_path = validate_config_file(args.config)
                 print(f"✅ 設定ファイル検証完了: {validated_config_path}")
             except CLIValidationError as e:
-                print(f"❌ エラー: {e}", file=sys.stderr)
+                print(f"❌ エラー: コマンドライン引数の設定ファイルパスが無効です。", file=sys.stderr) # 変更
                 sys.exit(1)
         return args, validated_symbols, validated_config_path, validated_log_level, validated_interval
     except Exception as e:
-        print(f"❌ 予期しないバリデーションエラー: {e}", file=sys.stderr)
+        # 詳細エラーはログに、ユーザーには一般的なメッセージ
+        logging.getLogger(__name__).error(f"予期しないバリデーションエラー: {e}", exc_info=True) # 追加
+        print(f"❌ 予期しないエラーが発生しました。詳細はログを確認してください。", file=sys.stderr) # 変更
         sys.exit(1)
 
 def _run_dashboard_mode(args):
@@ -574,7 +586,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
             logger.info("[設定] 設定情報:")
             logger.info(f"   設定ファイル: {config_manager.config_path}")
             logger.info(f"   対象銘柄数: {len(symbols)}")
-            logger.info(f"   銘柄コード: {', '.join(symbols)}")
+            logger.info(f"   銘柄コード: {\', \'.join(symbols)}")
             logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
             # 市場時間チェック
@@ -742,7 +754,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
             print("-" * 110)
             print("※数値は0-100のスコア、総合スコア順でランキング表示")
             print(
-                "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
+            "※総合判定は平均値による技術的参考情報、投資判断は自己責任で行ってください"
             )
             print("=" * 100)
 
@@ -881,7 +893,9 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
     return 0
 
 def main():
-    """メイン関数"""
+    """
+    メイン関数
+    """
     def _signal_handler(signum, frame, orchestrator_instance: DayTradeOrchestrator):
         print("\n\n[中断] システムを安全に停止しています...")
         if orchestrator_instance:
@@ -931,7 +945,7 @@ def main():
                 logger.info("[設定] 設定情報:")
                 logger.info(f"   設定ファイル: {config_manager.config_path}")
                 logger.info(f"   対象銘柄数: {len(symbols)}")
-                logger.info(f"   銘柄コード: {', '.join(symbols)}")
+                logger.info(f"   銘柄コード: {\', \'.join(symbols)}")
                 logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
                 # 市場時間チェック
@@ -961,9 +975,8 @@ def main():
         return 130
 
     except Exception as e:
-        logger.error(f"予期しないエラー: {e}")
-        logger.error(traceback.format_exc())
-        print(f"\n[失敗] エラーが発生しました: {e}")
+        logger.error(f"予期しないエラー: {e}", exc_info=True)
+        print(f"\n[失敗] エラーが発生しました。詳細はログを確認してください。", file=sys.stderr)
         return 1
 
 
