@@ -692,13 +692,12 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
                     )
 
                     trend_val = trend_score.score_value if trend_score else 0
-                    volatility_val =
-                        volatility_score.score_value if volatility_score else 0
+                    volatility_val = volatility_score.score_value if volatility_score else 0
                     pattern_val = pattern_score.score_value if pattern_score else 0
 
                     # 総合判定
                     avg_score = (trend_val + volatility_val + pattern_val) / 3
-                    overall =
+                    overall = (
                         "強い上昇"
                         if avg_score >= 70
                         else "上昇傾向"
@@ -708,6 +707,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
                         else "下降傾向"
                         if avg_score >= 30
                         else "弱い"
+                    )
 
                     scored_results.append(
                         {
@@ -736,7 +736,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
                 avg_score = scored_result["avg_score"]
                 overall = scored_result["overall"]
 
-                rank_symbol =
+                rank_symbol = (
                     "🥇"
                     if i == 1
                     else "🥈"
@@ -744,6 +744,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
                     else "🥉"
                     if i == 3
                     else f"{i:2d}"
+                )
 
                 print(
                     f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
@@ -821,13 +822,12 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
                 )
 
                 trend_val = trend_score.score_value if trend_score else 0
-                volatility_val =
-                    volatility_score.score_value if volatility_score else 0
+                volatility_val = volatility_score.score_value if volatility_score else 0
                 pattern_val = pattern_score.score_value if pattern_score else 0
 
                 # 総合判定
                 avg_score = (trend_val + volatility_val + pattern_val) / 3
-                overall =
+                overall = (
                     "強い上昇"
                     if avg_score >= 70
                     else "上昇傾向"
@@ -837,6 +837,7 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
                     else "下降傾向"
                     if avg_score >= 30
                     else "弱い"
+                )
 
                 scored_results.append(
                     {
@@ -865,7 +866,7 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
             avg_score = scored_result["avg_score"]
             overall = scored_result["overall"]
 
-            rank_symbol =
+            rank_symbol = (
                 "🥇"
                 if i == 1
                 else "🥈"
@@ -873,6 +874,7 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
                 else "🥉"
                 if i == 3
                 else f"{i:2d}"
+            )
 
             print(
                 f"{rank_symbol:<4} {result.symbol:<8} {result.company_name[:10]:<12} {result.current_price:>7.0f} {trend_val:>6.1f} {volatility_val:>8.1f} {pattern_val:>7.1f} {avg_score:>5.1f} {overall:<10}"
