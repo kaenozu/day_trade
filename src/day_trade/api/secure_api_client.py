@@ -113,7 +113,7 @@ class SecureAPIKeyManager:
 
         # 新しいキーを生成（本番環境では環境変数に保存）
         new_key = SecurityHelpers.generate_secure_random_string(64)
-        logger.warning(f"新しいマスターキーを生成しました。環境変数に保存してください: API_MASTER_KEY={new_key}")
+        logger.warning(f"新しいマスターキーを生成しました。環境変数に保存してください: API_MASTER_KEY=[GENERATED_KEY]")
         return new_key.encode()
 
     def add_api_key(self, key_id: str, plain_key: str, key_type: APIKeyType,
@@ -580,7 +580,7 @@ def create_secure_api_client_example():
     # APIキー追加
     success = key_manager.add_api_key(
         key_id="alpha_vantage",
-        plain_key="demo_api_key_12345",
+        plain_key="[DEMO_API_KEY]",
         key_type=APIKeyType.QUERY_PARAM,
         allowed_hosts=["www.alphavantage.co"],
         expiry_hours=24*30  # 30日間有効
@@ -602,7 +602,7 @@ def create_secure_api_client_example():
             params={
                 "function": "TIME_SERIES_DAILY",
                 "symbol": "IBM",
-                "apikey": "demo_key"
+                "apikey": "[DEMO_KEY]"
             }
         )
         logger.info(f"セキュアURL構築成功: {secure_url}")
