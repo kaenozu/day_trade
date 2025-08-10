@@ -222,6 +222,32 @@ class SecurityHelpers:
         return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
     @staticmethod
+    def generate_secure_random_string(length: int = 32) -> str:
+        """
+        暗号学的に安全なランダム文字列を生成（エイリアス）
+
+        Args:
+            length: 文字列の長さ
+
+        Returns:
+            str: セキュアなランダム文字列
+        """
+        return SecurityHelpers.secure_random_string(length)
+
+    @staticmethod
+    def generate_salt(length: int = 32) -> bytes:
+        """
+        暗号化用ソルト生成
+
+        Args:
+            length: ソルトの長さ
+
+        Returns:
+            bytes: ランダムソルト
+        """
+        return secrets.token_bytes(length)
+
+    @staticmethod
     def generate_csrf_token() -> str:
         """
         CSRF攻撃防止用のトークンを生成
