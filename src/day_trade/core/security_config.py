@@ -585,16 +585,14 @@ def create_example_env_file(path: Path):
     Args:
         path: 作成するファイルのパス
     """
-    # セキュリティ強化されたサンプル暗号化キーを生成
-    sample_encryption_key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
-    sample_webhook_secret = secrets.token_urlsafe(32)
-
-    env_content = f"""# Day Trade アプリケーション環境変数設定
+    env_content = """# Day Trade アプリケーション環境変数設定
 # セキュリティのため、このファイルをバージョン管理にコミットしないでください
 # 本番環境では、実際の値に置き換えてください
 
 # 暗号化キー（必須・強力なランダム値に変更）
-DAYTRADE_ENCRYPTION_KEY={sample_encryption_key}
+# 実際の使用時は以下のコマンドで生成してください:
+# python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+DAYTRADE_ENCRYPTION_KEY=YOUR_SECURE_ENCRYPTION_KEY_HERE
 
 # データベース設定
 DAYTRADE_DATABASE_URL=sqlite:///day_trade.db
@@ -615,7 +613,9 @@ DAYTRADE_SMTP_FROM_EMAIL=your_email@gmail.com
 DAYTRADE_SMTP_TO_EMAILS=recipient1@example.com,recipient2@example.com
 
 # Webhook設定（強力なランダム値に変更）
-DAYTRADE_WEBHOOK_SECRET={sample_webhook_secret}
+# 実際の使用時は以下のコマンドで生成してください:
+# python -c "import secrets; print(secrets.token_urlsafe(32))"
+DAYTRADE_WEBHOOK_SECRET=YOUR_SECURE_WEBHOOK_SECRET_HERE
 
 # ログレベル
 DAYTRADE_LOG_LEVEL=INFO
