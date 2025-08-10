@@ -1,23 +1,42 @@
 #!/usr/bin/env python3
 """
-Prometheus メトリクス収集システム
-Day Trade システム専用メトリクス定義・収集機能
+Prometheus リアルタイムメトリクス収集システム
+Day Trade システム専用メトリクス定義・収集・アラート機能
+
+Features:
+- リアルタイムメトリクス収集
+- インテリジェントアラート
+- 異常検知統合
+- パフォーマンス最適化
+- SLA監視
 """
 
 import time
 import psutil
 import threading
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-from dataclasses import dataclass
+import json
+import asyncio
+from typing import Dict, List, Optional, Any, Union
+from datetime import datetime, timedelta
+from dataclasses import dataclass, asdict
+from enum import Enum
 from prometheus_client import (
     Counter, Histogram, Gauge, Summary, Info,
     CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
 )
+import numpy as np
+from collections import deque, defaultdict
 
 from ...utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
+
+class AlertSeverity(Enum):
+    """アラート重要度"""
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
+    EMERGENCY = "emergency"
 
 @dataclass
 class MetricConfig:
@@ -26,6 +45,37 @@ class MetricConfig:
     help: str
     labels: List[str] = None
     buckets: List[float] = None
+
+@dataclass
+class AlertRule:
+    """アラートルール定義"""
+    name: str
+    condition: str
+    severity: AlertSeverity
+    threshold: float
+    duration: int  # seconds
+    description: str
+    labels: Dict[str, str] = None
+
+@dataclass
+class MetricSnapshot:
+    """メトリクススナップショット"""
+    timestamp: datetime
+    metric_name: str
+    value: float
+    labels: Dict[str, str] = None
+    metadata: Dict[str, Any] = None
+
+@dataclass
+class AnomalyDetectionResult:
+    """異常検知結果"""
+    is_anomaly: bool
+    confidence: float
+    explanation: str
+    metric_name: str
+    timestamp: datetime
+    value: float
+    expected_range: tuple = None
 
 class PrometheusMetricsCollector:
     """メインメトリクス収集器"""
@@ -61,12 +111,65 @@ class PrometheusMetricsCollector:
             registry=self.registry
         )
 
+        # リアルタイム監視メトリクス
+        self.realtime_data_latency = Histogram(
+            'day_trade_realtime_data_latency_seconds',
+            'リアルタイムデータ遅延',
+            ['data_source', 'symbol'],
+            buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
+            registry=self.registry
+        )
+
+        self.active_websocket_connections = Gauge(
+            'day_trade_active_websocket_connections',
+            'アクティブWebSocket接続数',
+            ['endpoint'],
+            registry=self.registry
+        )
+
+        self.market_data_updates_total = Counter(
+            'day_trade_market_data_updates_total',
+            'マーケットデータ更新回数',
+            ['symbol', 'data_type'],
+            registry=self.registry
+        )
+
+        self.prediction_confidence_score = Gauge(
+            'day_trade_prediction_confidence_score',
+            '予測信頼度スコア',
+            ['model_type', 'symbol'],
+            registry=self.registry
+        )
+
+        # SLA監視メトリクス
+        self.sla_availability = Gauge(
+            'day_trade_sla_availability_percent',
+            'SLA可用性',
+            ['service'],
+            registry=self.registry
+        )
+
+        self.response_time_percentile = Gauge(
+            'day_trade_response_time_percentile_seconds',
+            'レスポンス時間パーセンタイル',
+            ['service', 'percentile'],
+            registry=self.registry
+        )
+
         # システム初期化
         self.system_info.info({
-            'version': '2.0.0',
+            'version': '2.1.0',
             'environment': 'production',
-            'start_time': datetime.now().isoformat()
+            'start_time': datetime.now().isoformat(),
+            'features': 'realtime,alerts,anomaly_detection'
         })
+
+        # リアルタイム監視データ構造
+        self._realtime_snapshots = deque(maxlen=1000)
+        self._metric_buffers = defaultdict(lambda: deque(maxlen=100))
+        self._alert_history = deque(maxlen=500)
+        self._last_alert_times = {}
+        self._anomaly_detection_enabled = True
 
     def collect_all_metrics(self) -> Dict[str, Any]:
         """全メトリクス収集"""
@@ -84,10 +187,22 @@ class PrometheusMetricsCollector:
                 collector_type='all'
             ).observe(collection_time)
 
+            # リアルタイムスナップショット作成
+            snapshot = self._create_realtime_snapshot()
+            self._store_metric_snapshot(snapshot)
+
+            # 異常検知実行
+            if self._anomaly_detection_enabled:
+                anomalies = self._detect_anomalies()
+                if anomalies:
+                    self._process_anomalies(anomalies)
+
             return {
                 'status': 'success',
                 'collection_time': collection_time,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'snapshots_count': len(self._realtime_snapshots),
+                'anomalies_detected': len(getattr(self, '_last_anomalies', []))
             }
 
         except Exception as e:
@@ -97,6 +212,157 @@ class PrometheusMetricsCollector:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }
+
+    def _create_realtime_snapshot(self) -> Dict[str, Any]:
+        """リアルタイムスナップショット作成"""
+
+        timestamp = datetime.now()
+        snapshot = {
+            'timestamp': timestamp.isoformat(),
+            'system_metrics': {
+                'cpu_usage': psutil.cpu_percent(),
+                'memory_usage': psutil.virtual_memory().percent,
+                'disk_usage': psutil.disk_usage('/').percent if psutil.disk_usage('/') else 0
+            },
+            'collection_count': self.metrics_collection_total._value._value
+        }
+
+        return snapshot
+
+    def _store_metric_snapshot(self, snapshot: Dict[str, Any]):
+        """メトリクススナップショット保存"""
+
+        self._realtime_snapshots.append(snapshot)
+
+        # バッファにも保存（異常検知用）
+        timestamp = datetime.fromisoformat(snapshot['timestamp'].replace('Z', '+00:00'))
+        for metric_name, value in snapshot.get('system_metrics', {}).items():
+            self._metric_buffers[metric_name].append({
+                'timestamp': timestamp,
+                'value': value
+            })
+
+    def _detect_anomalies(self) -> List[AnomalyDetectionResult]:
+        """異常検知実行"""
+
+        anomalies = []
+
+        try:
+            for metric_name, buffer in self._metric_buffers.items():
+                if len(buffer) < 10:  # 最小サンプル数
+                    continue
+
+                values = [item['value'] for item in buffer]
+                timestamps = [item['timestamp'] for item in buffer]
+
+                # 簡単な統計的異常検知
+                mean_val = np.mean(values)
+                std_val = np.std(values)
+                current_val = values[-1]
+                current_timestamp = timestamps[-1]
+
+                # Z-score based anomaly detection
+                if std_val > 0:
+                    z_score = abs(current_val - mean_val) / std_val
+
+                    if z_score > 3.0:  # 3σを超える場合
+                        anomalies.append(AnomalyDetectionResult(
+                            is_anomaly=True,
+                            confidence=min(z_score / 3.0, 1.0),
+                            explanation=f"{metric_name}の値が異常: {current_val:.2f} (平均: {mean_val:.2f}, Z-score: {z_score:.2f})",
+                            metric_name=metric_name,
+                            timestamp=current_timestamp,
+                            value=current_val,
+                            expected_range=(mean_val - 2*std_val, mean_val + 2*std_val)
+                        ))
+
+        except Exception as e:
+            logger.error(f"異常検知エラー: {e}")
+
+        return anomalies
+
+    def _process_anomalies(self, anomalies: List[AnomalyDetectionResult]):
+        """異常処理"""
+
+        self._last_anomalies = anomalies
+
+        for anomaly in anomalies:
+            # アラート履歴に追加
+            alert_data = {
+                'timestamp': anomaly.timestamp.isoformat(),
+                'type': 'anomaly',
+                'severity': 'warning' if anomaly.confidence < 0.8 else 'critical',
+                'metric_name': anomaly.metric_name,
+                'value': anomaly.value,
+                'confidence': anomaly.confidence,
+                'explanation': anomaly.explanation
+            }
+
+            self._alert_history.append(alert_data)
+
+            logger.warning(f"異常検知: {anomaly.explanation}")
+
+    def record_realtime_data_latency(self, data_source: str, symbol: str, latency: float):
+        """リアルタイムデータ遅延記録"""
+
+        self.realtime_data_latency.labels(
+            data_source=data_source,
+            symbol=symbol
+        ).observe(latency)
+
+    def update_websocket_connections(self, endpoint: str, count: int):
+        """WebSocket接続数更新"""
+
+        self.active_websocket_connections.labels(
+            endpoint=endpoint
+        ).set(count)
+
+    def record_market_data_update(self, symbol: str, data_type: str):
+        """マーケットデータ更新記録"""
+
+        self.market_data_updates_total.labels(
+            symbol=symbol,
+            data_type=data_type
+        ).inc()
+
+    def update_prediction_confidence(self, model_type: str, symbol: str, confidence: float):
+        """予測信頼度更新"""
+
+        self.prediction_confidence_score.labels(
+            model_type=model_type,
+            symbol=symbol
+        ).set(confidence)
+
+    def update_sla_availability(self, service: str, availability_percent: float):
+        """SLA可用性更新"""
+
+        self.sla_availability.labels(
+            service=service
+        ).set(availability_percent)
+
+    def update_response_time_percentile(self, service: str, percentile: str, time_seconds: float):
+        """レスポンス時間パーセンタイル更新"""
+
+        self.response_time_percentile.labels(
+            service=service,
+            percentile=percentile
+        ).set(time_seconds)
+
+    def get_alert_history(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """アラート履歴取得"""
+
+        return list(self._alert_history)[-limit:]
+
+    def get_realtime_snapshots(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """リアルタイムスナップショット取得"""
+
+        return list(self._realtime_snapshots)[-limit:]
+
+    def enable_anomaly_detection(self, enabled: bool = True):
+        """異常検知有効化/無効化"""
+
+        self._anomaly_detection_enabled = enabled
+        logger.info(f"異常検知: {'有効' if enabled else '無効'}")
 
 class RiskManagementMetrics:
     """リスク管理システムメトリクス"""
