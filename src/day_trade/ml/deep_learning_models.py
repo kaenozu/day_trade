@@ -36,6 +36,7 @@ class ModelType(Enum):
     GRU = "gru"
     CNN = "cnn"
     HYBRID = "hybrid"
+    HYBRID_LSTM_TRANSFORMER = "hybrid_lstm_transformer"
     ENSEMBLE = "ensemble"
 
 
@@ -978,6 +979,10 @@ class DeepLearningModelManager:
             return TransformerModel(model_config)
         elif model_type == ModelType.LSTM:
             return LSTMModel(model_config)
+        elif model_type == ModelType.HYBRID_LSTM_TRANSFORMER:
+            # ハイブリッドLSTM-Transformerモデル作成
+            from .hybrid_lstm_transformer import HybridLSTMTransformerEngine
+            return HybridLSTMTransformerEngine(model_config)
         else:
             raise ValueError(f"サポートされていないモデルタイプ: {model_type}")
 

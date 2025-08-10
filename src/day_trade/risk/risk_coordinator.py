@@ -21,6 +21,8 @@ from ..utils.logging_config import get_context_logger
 from .generative_ai_engine import GenerativeAIRiskEngine, RiskAnalysisRequest, RiskAnalysisResult
 from .fraud_detection_engine import FraudDetectionEngine, FraudDetectionRequest
 from ..realtime.alert_system import AlertManager, AlertLevel
+from ..monitoring.metrics.decorators import measure_risk_analysis_performance, track_errors
+from ..monitoring.metrics.prometheus_metrics import get_risk_metrics, get_health_metrics
 
 logger = get_context_logger(__name__)
 
@@ -47,6 +49,10 @@ class RiskAnalysisCoordinator:
         self.generative_ai_engine = GenerativeAIRiskEngine()
         self.fraud_detection_engine = FraudDetectionEngine()
         self.alert_manager = AlertManager()
+
+        # メトリクス収集
+        self.risk_metrics = get_risk_metrics()
+        self.health_metrics = get_health_metrics()
 
         # 分析履歴
         self.analysis_history: List[RiskAssessmentSummary] = []
@@ -83,6 +89,8 @@ class RiskAnalysisCoordinator:
 
         logger.info("リスク分析コーディネーター初期化完了")
 
+    @measure_risk_analysis_performance()
+    @track_errors(component="risk_coordinator")
     async def comprehensive_risk_assessment(
         self,
         transaction_data: Dict[str, Any],
@@ -379,7 +387,18 @@ class RiskAnalysisCoordinator:
         amount = float(transaction_data.get('amount', 0))
         estimated_loss_potential = amount * overall_risk_score * 0.1  # 簡略化
 
-        return RiskAssessmentSummary(
+        # メトリクス更新
+        symbol = transaction_data.get('symbol', 'unknown')
+        self.risk_metrics.update_risk_score('risk_coordinator', symbol, overall_risk_score)
+
+        # アラートメトリクス記録
+        if risk_category in ['high', 'critical']:
+            self.risk_metrics.risk_alerts_total.labels(
+                alert_level=risk_category,
+                component='risk_coordinator'
+            ).inc()
+
+        summary = RiskAssessmentSummary(
             request_id=request_id,
             overall_risk_score=overall_risk_score,
             risk_category=risk_category,
@@ -392,6 +411,11 @@ class RiskAnalysisCoordinator:
             component_results=component_results,
             timestamp=datetime.now()
         )
+
+        # 履歴に追加
+        self.analysis_history.append(summary)
+
+        return summary
 
     def _serialize_result(self, result: Any) -> Dict[str, Any]:
         """結果シリアライズ"""

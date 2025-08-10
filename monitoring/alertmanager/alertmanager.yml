@@ -1,0 +1,135 @@
+# AlertManager設定ファイル
+# Day Trade システムアラート管理
+
+global:
+  # SMTP設定（本番環境では環境変数で設定）
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@daytrading.local'
+  smtp_auth_username: 'alerts@daytrading.local'
+  smtp_auth_password: 'password'
+
+# アラートルーティング設定
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+
+  # 重要度別ルーティング
+  routes:
+    # Critical: 即座通知
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+
+    # High: 5分以内通知
+    - match:
+        severity: high
+      receiver: 'high-alerts'
+      group_wait: 5m
+      repeat_interval: 15m
+
+    # Medium: 通常通知
+    - match:
+        severity: medium
+      receiver: 'medium-alerts'
+
+    # リスク管理システム専用
+    - match:
+        service: risk-management
+      receiver: 'risk-management-alerts'
+      group_wait: 1s
+      repeat_interval: 10m
+
+# 通知受信者設定
+receivers:
+  # デフォルト受信者
+  - name: 'default'
+    email_configs:
+      - to: 'admin@daytrading.local'
+        subject: '[Day Trade] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+
+  # Critical アラート
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'critical@daytrading.local,admin@daytrading.local'
+        subject: '🚨 [CRITICAL] Day Trade System Alert'
+        body: |
+          CRITICAL ALERT - Immediate Action Required
+
+          {{ range .Alerts }}
+          Service: {{ .Labels.service }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+    # Slack通知（本番環境用）
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#critical-alerts'
+    #     title: '🚨 Critical Day Trade Alert'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+  # High priority アラート
+  - name: 'high-alerts'
+    email_configs:
+      - to: 'high@daytrading.local,admin@daytrading.local'
+        subject: '⚠️ [HIGH] Day Trade System Alert'
+        body: |
+          HIGH PRIORITY ALERT
+
+          {{ range .Alerts }}
+          Service: {{ .Labels.service }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+  # Medium priority アラート
+  - name: 'medium-alerts'
+    email_configs:
+      - to: 'medium@daytrading.local'
+        subject: 'ℹ️ [MEDIUM] Day Trade System Alert'
+
+  # リスク管理システム専用アラート
+  - name: 'risk-management-alerts'
+    email_configs:
+      - to: 'risk-team@daytrading.local,admin@daytrading.local'
+        subject: '⚖️ [RISK] Day Trade Risk Management Alert'
+        body: |
+          RISK MANAGEMENT ALERT
+
+          {{ range .Alerts }}
+          Risk Component: {{ .Labels.component }}
+          Alert: {{ .Annotations.summary }}
+          Risk Level: {{ .Labels.risk_level }}
+          Confidence: {{ .Labels.confidence }}
+          Description: {{ .Annotations.description }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+# アラート抑制ルール
+inhibit_rules:
+  # インスタンスダウン時は他のアラートを抑制
+  - source_match:
+      alertname: InstanceDown
+    target_match:
+      job: day-trade-app
+    equal: ['instance']
+
+  # Critical アラート時はHigh以下を抑制
+  - source_match:
+      severity: critical
+    target_match_re:
+      severity: high|medium|low
+    equal: ['service', 'instance']
