@@ -118,13 +118,7 @@ if PYTORCH_AVAILABLE:
                 raise ImportError("PyTorch が必要です")
 
             super().__init__()
-else:
-    class LSTMTransformerHybrid:
-        """ハイブリッド LSTM-Transformer 予測モデル（フォールバック）"""
-
-        def __init__(self, config: ModelConfig):
-            raise ImportError("PyTorch が必要です")
-        self.config = config
+            self.config = config
 
         # LSTM分岐
         self.lstm = nn.LSTM(
@@ -209,14 +203,8 @@ if PYTORCH_AVAILABLE:
         def __init__(self, d_model: int, max_len: int = 2000):
             if not PYTORCH_AVAILABLE:
                 raise ImportError("PyTorch が必要です")
-else:
-    class PositionalEncoding:
-        """位置エンコーディング（フォールバック）"""
 
-        def __init__(self, d_model: int, max_len: int = 2000):
-            raise ImportError("PyTorch が必要です")
-
-        super().__init__()
+            super().__init__()
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
