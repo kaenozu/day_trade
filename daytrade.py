@@ -77,8 +77,8 @@ def validate_symbols(symbols_str: str) -> List[str]:
 
     if invalid_symbols:
         raise CLIValidationError(
-            f"無効な銘柄コード形式: {\', \'.join(invalid_symbols)}. "
-            f"4桁の数字 (例: 7203) または市場コード付き (例: 7203.T) を使用してください。"
+            "無効な銘柄コード形式: {}. ".format(', '.join(invalid_symbols)) +
+            "4桁の数字 (例: 7203) または市場コード付き (例: 7203.T) を使用してください。"
         )
 
     # 重複を除去
@@ -162,7 +162,7 @@ def validate_log_level(log_level: str) -> str:
 
     if log_level.upper() not in valid_levels:
         raise CLIValidationError(
-            f"無効なログレベル: {log_level}. 有効な値: {\', \'.join(valid_levels)}"
+            "無効なログレベル: {}. 有効な値: {}".format(log_level, ', '.join(valid_levels))
         )
 
     return log_level.upper()
@@ -586,7 +586,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
             logger.info("[設定] 設定情報:")
             logger.info(f"   設定ファイル: {config_manager.config_path}")
             logger.info(f"   対象銘柄数: {len(symbols)}")
-            logger.info(f"   銘柄コード: {\', \'.join(symbols)}")
+            logger.info("   銘柄コード: {}".format(', '.join(symbols)))
             logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
             # 市場時間チェック
@@ -945,7 +945,7 @@ def main():
                 logger.info("[設定] 設定情報:")
                 logger.info(f"   設定ファイル: {config_manager.config_path}")
                 logger.info(f"   対象銘柄数: {len(symbols)}")
-                logger.info(f"   銘柄コード: {\', \'.join(symbols)}")
+                logger.info("   銘柄コード: {}".format(', '.join(symbols)))
                 logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
                 # 市場時間チェック
