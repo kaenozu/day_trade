@@ -1,4 +1,2 @@
-# Dependencies are managed in pyproject.toml
-# This file is kept for CI compatibility
--e .
 aiosqlite
+types-redis

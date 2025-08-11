@@ -9,20 +9,13 @@ API キー管理・URL 構築・エラー詳細の改善
 - 機密情報漏洩防止エラーハンドリング
 """
 
-import asyncio
-import hashlib
-import hmac
 import re
 import secrets
-import time
 import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
-
-import aiohttp
-from aiohttp import ClientError, ClientTimeout
+from typing import Any, Dict, List, Optional
 
 from ..utils.logging_config import get_context_logger
 from ..utils.security_helpers import SecurityHelpers

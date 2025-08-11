@@ -25,6 +25,7 @@ from ..data.stock_fetcher import StockFetcher
 from ..utils.fault_tolerance import FaultTolerantExecutor
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
+from ..models.database import get_default_database_manager
 
 CI_MODE = os.getenv("CI", "false").lower() == "true"
 
@@ -54,8 +55,6 @@ try:
         ExecutionResult,
         ParallelExecutorManager,
         TaskType,
-        execute_parallel,
-        get_global_executor_manager,
     )
 
     PARALLEL_EXECUTOR_AVAILABLE = True
@@ -225,7 +224,8 @@ class NextGenAIOrchestrator:
                 performance_monitoring=self.config.enable_performance_monitoring,
             )
             logger.info(
-                f"並列実行最適化有効: Thread={self.config.max_thread_workers}, Process={self.config.max_process_workers}"
+                f"並列実行最適化有効: Thread={self.config.max_thread_workers}, "
+                f"Process={self.config.max_process_workers}"
             )
         else:
             self.parallel_manager = None
@@ -241,7 +241,8 @@ class NextGenAIOrchestrator:
         logger.info("Next-Gen AI Orchestrator 初期化完了 - 完全セーフモード")
         logger.info("※ 自動取引機能は一切含まれていません")
         logger.info(
-            f"設定: ML={self.config.enable_ml_engine}, Batch={self.config.enable_advanced_batch}"
+            f"設定: ML={self.config.enable_ml_engine}, "
+            f"Batch={self.config.enable_advanced_batch}"
         )
 
     def __enter__(self):
@@ -338,7 +339,8 @@ class NextGenAIOrchestrator:
         symbols: List[str],
         analysis_functions: List[Tuple[Callable, Dict[str, Any]]],
     ) -> Dict[str, List[ExecutionResult]]:
-        """シーケンシャル実行フォールバック"""
+        """
+        シーケンシャル実行フォールバック"""
         results = {}
 
         for symbol in symbols:
@@ -365,7 +367,7 @@ class NextGenAIOrchestrator:
                     task_id=f"{symbol}_{analysis_func.__name__}",
                     result=result,
                     execution_time_ms=execution_time,
-                    executor_type=ExecutorType.THREAD_POOL,  # フォールバック
+                    # executor_type=ExecutorType.THREAD_POOL,  # フォールバック
                     success=success,
                     error=error,
                 )
@@ -445,11 +447,11 @@ class NextGenAIOrchestrator:
             # 並列AI分析実行
             if CONCURRENT_AVAILABLE and len(symbols) > 1:
                 results = self._execute_parallel_ai_analysis(
-                    symbols, batch_results, analysis_type, include_predictions
+                    symbols, batch_data, analysis_type, include_predictions
                 )
             else:
                 results = self._execute_sequential_ai_analysis(
-                    symbols, batch_results, analysis_type, include_predictions
+                    symbols, batch_data, analysis_type, include_predictions
                 )
 
             # 結果集計
@@ -512,7 +514,8 @@ class NextGenAIOrchestrator:
     def _execute_batch_data_collection(
         self, symbols: List[str]
     ) -> Dict[str, DataResponse]:
-        """高度バッチデータ収集"""
+        """
+        高度バッチデータ収集"""
 
         logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄")
 
@@ -549,7 +552,8 @@ class NextGenAIOrchestrator:
         analysis_type: str,
         include_predictions: bool,
     ) -> Dict[str, Dict]:
-        """並列AI分析実行"""
+        """
+        並列AI分析実行"""
 
         results = {}
 
@@ -593,7 +597,8 @@ class NextGenAIOrchestrator:
         analysis_type: str,
         include_predictions: bool,
     ) -> Dict[str, Dict]:
-        """逐次AI分析実行"""
+        """
+        逐次AI分析実行"""
 
         results = {}
 
@@ -622,7 +627,8 @@ class NextGenAIOrchestrator:
         analysis_type: str,
         include_predictions: bool,
     ) -> Dict:
-        """単一銘柄AI分析"""
+        """
+        単一銘柄AI分析"""
 
         start_time = time.time()
 
@@ -649,8 +655,8 @@ class NextGenAIOrchestrator:
                 self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
 
             engine = self.analysis_engines[symbol]
-            basic_status = engine.get_status()
-            market_summary = engine.get_market_summary()
+            # basic_status = engine.get_status()
+            # market_summary = engine.get_market_summary()
 
             # 高度AI分析実行
             ai_predictions = {}
@@ -756,9 +762,12 @@ class NextGenAIOrchestrator:
             }
 
     def _generate_technical_signals(
-        self, data: pd.DataFrame, symbol: str
+        self,
+        data: pd.DataFrame,
+        symbol: str
     ) -> Dict[str, Any]:
-        """テクニカル分析シグナル生成"""
+        """
+        テクニカル分析シグナル生成"""
 
         signals = {}
 
@@ -811,7 +820,8 @@ class NextGenAIOrchestrator:
         return signals
 
     def _extract_ml_features_summary(self, data: pd.DataFrame) -> Dict[str, Any]:
-        """ML特徴量サマリー抽出"""
+        """
+        ML特徴量サマリー抽出"""
 
         features = {}
 
@@ -863,7 +873,8 @@ class NextGenAIOrchestrator:
         predictions: Dict[str, Any],
         confidence_scores: Dict[str, float],
     ) -> Dict[str, Any]:
-        """リスク評価計算"""
+        """
+        リスク評価計算"""
 
         risk_assessment = {}
 
@@ -960,9 +971,10 @@ class NextGenAIOrchestrator:
             return "ANALYSIS_ERROR"
 
     def _generate_ai_signals(self, analysis: AIAnalysisResult) -> List[Dict[str, Any]]:
-        """AIシグナル生成"""
+        """
+        AIシグナル生成"""
 
-        signals = []
+        signals = {}
 
         try:
             # 基本シグナル
@@ -1024,7 +1036,8 @@ class NextGenAIOrchestrator:
     def _generate_smart_alerts(
         self, analysis: AIAnalysisResult
     ) -> List[Dict[str, Any]]:
-        """スマートアラート生成"""
+        """
+        スマートアラート生成"""
 
         alerts = []
 
@@ -1123,7 +1136,10 @@ class NextGenAIOrchestrator:
                 "portfolio_metrics": {
                     "total_analysis_value": "N/A (分析専用)",
                     "confidence_weighted_score": np.mean(
-                        [r.confidence_scores.get("overall", 0) for r in ai_results]
+                        [
+                            r.confidence_scores.get("overall", 0)
+                            for r in ai_results
+                        ]
                     ),
                     "risk_weighted_score": np.mean(
                         [
@@ -1143,7 +1159,8 @@ class NextGenAIOrchestrator:
             }
 
     def _analyze_system_health(self) -> Dict[str, Any]:
-        """システムヘルス分析"""
+        """
+        システムヘルス分析"""
 
         try:
             health = {"overall_status": "healthy", "components": {}}
@@ -1207,7 +1224,8 @@ class NextGenAIOrchestrator:
             return {"overall_status": "error", "error": str(e)}
 
     def _calculate_performance_stats(self, start_time: datetime) -> Dict[str, Any]:
-        """パフォーマンス統計計算"""
+        """
+        パフォーマンス統計計算"""
 
         try:
             execution_time = (datetime.now() - start_time).total_seconds()
@@ -1247,7 +1265,8 @@ class NextGenAIOrchestrator:
             return {"error": str(e), "execution_time_seconds": 0}
 
     def _estimate_memory_usage(self, data: pd.DataFrame) -> float:
-        """メモリ使用量推定"""
+        """
+        メモリ使用量推定"""
         try:
             return data.memory_usage(deep=True).sum() / 1024 / 1024  # MB
         except Exception:
@@ -1256,7 +1275,8 @@ class NextGenAIOrchestrator:
     async def run_async_advanced_analysis(
         self, symbols: List[str], analysis_type: str = "comprehensive"
     ) -> ExecutionReport:
-        """非同期高度分析実行"""
+        """
+        非同期高度分析実行"""
 
         logger.info("非同期Next-Gen AI分析開始")
 
@@ -1269,11 +1289,13 @@ class NextGenAIOrchestrator:
         return report
 
     def get_execution_history(self, limit: int = 10) -> List[ExecutionReport]:
-        """実行履歴取得"""
+        """
+        実行履歴取得"""
         return self.execution_history[-limit:]
 
     def get_status(self) -> Dict[str, Any]:
-        """オーケストレーターステータス取得"""
+        """
+        オーケストレーターステータス取得"""
 
         return {
             "safe_mode": is_safe_mode(),
@@ -1295,7 +1317,8 @@ class NextGenAIOrchestrator:
         }
 
     def cleanup(self):
-        """リソースクリーンアップ"""
+        """
+        リソースクリーンアップ"""
 
         logger.info("Next-Gen AI Orchestrator クリーンアップ開始")
 

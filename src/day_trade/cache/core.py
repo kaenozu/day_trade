@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-from src.day_trade.utils.logging_config import get_logger
+from ..utils.logging_config import get_context_logger
 
 logger = get_logger(__name__)
 
