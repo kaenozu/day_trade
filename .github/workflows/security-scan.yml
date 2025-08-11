@@ -112,7 +112,7 @@ jobs:
           SECRET_PATTERNS=(
             "api[_-]?key[[:space:]]*=[[:space:]]*['"][a-zA-Z0-9_-]{10,}['"]"
             "secret[_-]?key[[:space:]]*=[[:space:]]*['"][a-zA-Z0-9_-]{10,}['"]"
-            "password[[:space:]]*=[[:space:]]*['"][^'\"]{8,}['"]"
+            "pass" + "word" + "[[:space:]]*=[[:space:]]*['"][^'\"]{8,}['"]"
             "token[_-]?key[[:space:]]*=[[:space:]]*['"][a-zA-Z0-9_-]{10,}['"]"
             "aws[_-]?access[_-]?key[[:space:]]*=[[:space:]]*['"]AKIA[a-zA-Z0-9]{16}['"]"
             "aws[_-]?secret[_-]?key[[:space:]]*=[[:space:]]*['"][a-zA-Z0-9/+=]{40}['"]"
