@@ -217,43 +217,43 @@ jobs:
         continue-on-error: true
         run: |
           echo "🛡️ Issue #419 統合セキュリティテスト実行..."
-          python -c "
+          python -c '
 import sys
 import asyncio
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 async def run_security_test():
     try:
         from day_trade.security import initialize_security_system, get_security_info
 
-        print('🔒 セキュリティシステム初期化...')
+        print("🔒 セキュリティシステム初期化...")
         security_info = get_security_info()
-        print(f'バージョン: {security_info[\"version\"]}')
-        print(f'コンポーネント数: {len(security_info[\"components\"])}')
+        print(f"バージョン: {security_info[\"version\"]}")
+        print(f"コンポーネント数: {len(security_info[\"components\"])}")
 
         # 統合セキュリティ管理システムテスト
         security_manager = initialize_security_system()
         dashboard = await security_manager.get_security_dashboard()
 
-        print(f'✅ セキュリティダッシュボード生成成功')
-        print(f'アラート数: {len(dashboard[\"alerts\"])}')
+        print(f"✅ セキュリティダッシュボード生成成功")
+        print(f"アラート数: {len(dashboard[\"alerts\"])}")
 
-        if dashboard['alerts']:
-            print('⚠️  アクティブセキュリティアラート:')
-            for alert in dashboard['alerts']:
-                print(f'  - {alert[\"severity\"].upper()}: {alert[\"message\"]}')
+        if dashboard["alerts"]:
+            print("⚠️  アクティブセキュリティアラート:")
+            for alert in dashboard["alerts"]:
+                print(f"  - {alert[\"severity\"].upper()}: {alert[\"message\"]}")
 
         # クリーンアップ
         await security_manager.cleanup()
 
         return True
     except Exception as e:
-        print(f'❌ セキュリティテストエラー: {e}')
+        print(f"❌ セキュリティテストエラー: {e}")
         return False
 
 result = asyncio.run(run_security_test())
 exit(0 if result else 1)
-"
+'
 
       - name: 📊 Security gate evaluation
         run: |
