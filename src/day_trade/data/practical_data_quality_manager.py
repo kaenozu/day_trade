@@ -464,11 +464,11 @@ class PracticalDataQualityManager:
 
             if dataset_name:
                 cursor.execute(
-                    """
+                    f"""
                     SELECT * FROM quality_reports
-                    WHERE dataset_name = ? AND timestamp > datetime('now', '-{} days')
+                    WHERE dataset_name = ? AND timestamp > datetime('now', '-{days} days')
                     ORDER BY timestamp DESC
-                """.format(days),
+                """,
                     (dataset_name,),
                 )
             else:

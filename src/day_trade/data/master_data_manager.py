@@ -265,9 +265,9 @@ class StockDataIntegrationRule(DataIntegrationRule):
         """品質ルール適用"""
         # 必須フィールドチェック
         required_fields = ["symbol", "company_name"]
-        for field in required_fields:
-            if field not in data or not data[field]:
-                data[f"{field}_quality_issue"] = "missing_required_field"
+        for required_field in required_fields:
+            if required_field not in data or not data[required_field]:
+                data[f"{required_field}_quality_issue"] = "missing_required_field"
 
         # データ型検証
         if "last_price" in data:

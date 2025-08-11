@@ -32,7 +32,9 @@ try:
     DASK_AVAILABLE = True
 except ImportError:
     DASK_AVAILABLE = False
-    warnings.warn("Daskが利用できません。分散処理機能は制限されます。", UserWarning)
+    warnings.warn(
+        "Daskが利用できません。分散処理機能は制限されます。", UserWarning, stacklevel=2
+    )
 
 # プロジェクトモジュール
 try:

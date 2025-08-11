@@ -6,6 +6,7 @@ AI Risk Management System Basic Test
 import asyncio
 import time
 from datetime import datetime
+
 import numpy as np
 
 # 基本インポート
@@ -82,7 +83,7 @@ class BasicRiskTest:
 
                 print(f"  Risk Score: {risk_score:.3f}")
                 print(f"  Risk Level: {level}")
-                print(f"  Status: OK")
+                print("  Status: OK")
 
                 self.test_results['risk_calc'] = {
                     'success': True,

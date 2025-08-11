@@ -5,13 +5,14 @@ Next-Gen AI Backtest System - ASCII Safe Test
 Windows console compatible backtest system test
 """
 
-import sys
 import os
+import sys
 import time
-from pathlib import Path
-from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -351,7 +352,7 @@ def test_ai_backtest_system():
 
         # Show trade samples
         if engine.trades:
-            print(f"\nTrade Samples (First 5):")
+            print("\nTrade Samples (First 5):")
             for i, trade in enumerate(engine.trades[:5]):
                 print(f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
                       f"{trade.action} {trade.symbol} "
@@ -359,7 +360,7 @@ def test_ai_backtest_system():
                       f"(confidence:{trade.ai_confidence:.2f})")
 
         # Overall evaluation
-        print(f"\nOverall Evaluation:")
+        print("\nOverall Evaluation:")
 
         # Success criteria
         criteria_met = 0

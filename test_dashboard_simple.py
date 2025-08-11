@@ -4,9 +4,9 @@ Enhanced Dashboard 簡単テスト
 Windows環境でのシンプルなテストスクリプト
 """
 
-import sys
-import os
 import asyncio
+import os
+import sys
 from datetime import datetime
 
 # パスを追加

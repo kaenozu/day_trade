@@ -22,7 +22,7 @@ async def test_basic_imports():
     try:
         from src.day_trade.monitoring.metrics.prometheus_metrics import (
             get_metrics_collector,
-            get_risk_metrics
+            get_risk_metrics,
         )
         print("  OK メトリクス収集器インポート成功")
 
@@ -47,7 +47,7 @@ async def test_metrics_collection():
     try:
         from src.day_trade.monitoring.metrics.prometheus_metrics import (
             get_metrics_collector,
-            get_risk_metrics
+            get_risk_metrics,
         )
 
         collector = get_metrics_collector()
@@ -78,7 +78,9 @@ async def test_metrics_server():
     print("-" * 30)
 
     try:
-        from src.day_trade.monitoring.metrics.metrics_exporter import start_metrics_server
+        from src.day_trade.monitoring.metrics.metrics_exporter import (
+            start_metrics_server,
+        )
 
         # バックグラウンドでサーバー開始
         print("  メトリクスサーバー開始中...")

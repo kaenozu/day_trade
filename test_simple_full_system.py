@@ -5,17 +5,22 @@ Next-Gen AI Trading Engine - 簡易完全統合システム検証
 """
 
 import asyncio
-import time
-import logging
 import json
+import logging
 import sys
+import time
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import numpy as np
+
+from src.day_trade.realtime.integration_manager import (
+    IntegrationConfig,
+    create_integration_manager,
+)
 
 # プロジェクト内インポート
 from src.day_trade.utils.logging_config import get_context_logger
-from src.day_trade.realtime.integration_manager import create_integration_manager, IntegrationConfig
 
 logger = get_context_logger(__name__)
 
@@ -229,7 +234,7 @@ class SimpleSystemValidator:
         predictions = self.results['predictions_count']
         errors = len(self.results['errors'])
 
-        print(f"\nRESULTS SUMMARY:")
+        print("\nRESULTS SUMMARY:")
         print(f"  Components Initialized: {components}/4")
         print(f"  System Active: {'Yes' if system_active else 'No'}")
         print(f"  Predictions Generated: {predictions}")
@@ -270,7 +275,7 @@ class SimpleSystemValidator:
                 print(f"  ... and {errors - 3} more issues")
 
         # 推奨事項
-        print(f"\nRECOMMENDations:")
+        print("\nRECOMMENDations:")
         if score >= 0.8:
             print("  - System is performing well")
             print("  - Ready for extended testing")

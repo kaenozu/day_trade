@@ -5,14 +5,15 @@ Next-Gen AI Backtest システム軽量テスト
 主要機能のみをテストする簡易バージョン
 """
 
-import sys
-import os
 import asyncio
+import os
+import sys
 import time
-from pathlib import Path
-from datetime import datetime, timedelta
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -352,7 +353,7 @@ def test_simple_backtest():
 
         # 取引サンプル表示
         if engine.trades:
-            print(f"\n📋 取引サンプル（最初の5件）:")
+            print("\n📋 取引サンプル（最初の5件）:")
             for i, trade in enumerate(engine.trades[:5]):
                 print(f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
                       f"{trade.action} {trade.symbol} "
@@ -360,7 +361,7 @@ def test_simple_backtest():
                       f"(信頼度:{trade.ai_confidence:.2f})")
 
         # 総合評価
-        print(f"\n🏆 総合評価:")
+        print("\n🏆 総合評価:")
 
         # 成功基準
         criteria_met = 0

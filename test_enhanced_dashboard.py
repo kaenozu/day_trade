@@ -4,17 +4,17 @@ Enhanced Dashboard テストスクリプト
 リアルタイムダッシュボードシステムのコンポーネントテスト
 """
 
-import sys
-import os
 import asyncio
+import os
+import sys
 from datetime import datetime
 
 # パスを追加してモジュールをインポート
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
-    from day_trade.dashboard.core.metrics_collector import MetricsCollector
     from day_trade.dashboard.core.feature_store_monitor import FeatureStoreMonitor
+    from day_trade.dashboard.core.metrics_collector import MetricsCollector
     from day_trade.dashboard.core.realtime_stream import RealtimeStream
     from day_trade.ml.feature_store import FeatureStore
 except ImportError as e:
@@ -74,8 +74,8 @@ async def test_enhanced_dashboard():
         print("   ✅ FeatureStoreMonitor 初期化成功")
 
         # いくつかのテストデータでFeature Storeを使用
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         test_data = pd.DataFrame({
             'timestamp': pd.date_range('2024-01-01', periods=20, freq='1min'),

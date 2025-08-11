@@ -8,16 +8,16 @@ Issue #393: チャート生成におけるファイルパスのセキュリテ�
 2. TOCTOU脆弱性対策 - cleanup_old_charts原子的操作・シンボリックリンク攻撃防止
 """
 
-import tempfile
+# テスト中はログ出力を有効化
+import logging
 import os
 import shutil
+import tempfile
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-# テスト中はログ出力を有効化
-import logging
 logging.basicConfig(level=logging.INFO)
 
 from src.day_trade.dashboard.visualization_engine import DashboardVisualizationEngine

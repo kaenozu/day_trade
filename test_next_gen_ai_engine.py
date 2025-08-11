@@ -17,10 +17,11 @@ import os
 import sys
 import time
 import warnings
+from pathlib import Path
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any
-from pathlib import Path
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -31,13 +32,13 @@ warnings.filterwarnings('ignore', category=UserWarning)
 
 try:
     from src.day_trade.data.advanced_ml_engine import (
+        PYTORCH_AVAILABLE,
         NextGenAITradingEngine,
         create_next_gen_engine,
-        PYTORCH_AVAILABLE
     )
     from src.day_trade.ml.hybrid_lstm_transformer import (
         HybridModelConfig,
-        create_hybrid_model
+        create_hybrid_model,
     )
     from src.day_trade.utils.logging_config import get_context_logger
 
@@ -318,7 +319,7 @@ class NextGenAITestSuite:
                 if 'uncertainty' in pred_info and pred_info['uncertainty']:
                     uncertainty = pred_info['uncertainty']
 
-                    logger.info(f"不確実性推定結果:")
+                    logger.info("不確実性推定結果:")
                     logger.info(f"  - 平均不確実性: {uncertainty['mean']:.6f}")
                     logger.info(f"  - 標準偏差: {uncertainty['std']:.6f}")
                     logger.info(f"  - エピステミック不確実性: {uncertainty['epistemic']:.6f}")
@@ -363,7 +364,7 @@ class NextGenAITestSuite:
             if 'attention_analysis' in result:
                 attention = result['attention_analysis']
 
-                logger.info(f"アテンション分析結果:")
+                logger.info("アテンション分析結果:")
                 logger.info(f"  - LSTM寄与度: {attention.get('lstm_contribution', 0):.4f}")
                 logger.info(f"  - Transformer寄与度: {attention.get('transformer_contribution', 0):.4f}")
                 logger.info(f"  - バランス: {attention.get('attention_balance', 'N/A')}")
@@ -494,7 +495,7 @@ class NextGenAITestSuite:
         logger.info(f"総実行時間: {total_time:.2f}秒")
 
         if self.performance_metrics['accuracy'] > 0:
-            logger.info(f"性能指標:")
+            logger.info("性能指標:")
             logger.info(f"  - 精度: {self.performance_metrics['accuracy']:.4f}")
             logger.info(f"  - MAE: {self.performance_metrics['mae']:.6f}")
             logger.info(f"  - RMSE: {self.performance_metrics['rmse']:.6f}")
@@ -531,7 +532,7 @@ def main():
         with open('next_gen_ai_test_results.json', 'w', encoding='utf-8') as f:
             f.write(results_json)
 
-        print(f"\nテスト結果: next_gen_ai_test_results.json に保存")
+        print("\nテスト結果: next_gen_ai_test_results.json に保存")
 
         # 終了コード
         success_rate = results['summary_statistics']['success_rate']

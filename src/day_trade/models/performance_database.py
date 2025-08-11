@@ -5,12 +5,14 @@ SQLAlchemy 2.0の最新機能を活用したハイパフォーマンスデータ
 Phase 2: パフォーマンス最適化プロジェクト対応
 """
 
-import time
-from contextlib import contextmanager, asynccontextmanager
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+import time
+from contextlib import asynccontextmanager, contextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ... (既存のコードは省略)
+
 
 class AsyncPerformanceOptimizedDatabaseManager(PerformanceOptimizedDatabaseManager):
     """非同期処理に最適化されたデータベースマネージャー"""
@@ -18,7 +20,9 @@ class AsyncPerformanceOptimizedDatabaseManager(PerformanceOptimizedDatabaseManag
     def __init__(self, config: DatabaseConfig):
         super().__init__(config)
         self.async_engine = create_async_engine(self.config.get_async_db_url())
-        self.async_session_factory = async_sessionmaker(self.async_engine, expire_on_commit=False, class_=AsyncSession)
+        self.async_session_factory = async_sessionmaker(
+            self.async_engine, expire_on_commit=False, class_=AsyncSession
+        )
 
     @asynccontextmanager
     async def async_session_scope(self) -> AsyncSession:
@@ -33,6 +37,7 @@ class AsyncPerformanceOptimizedDatabaseManager(PerformanceOptimizedDatabaseManag
             raise
         finally:
             await session.close()
+
 
 from typing import Any, Dict, List, Optional, Type
 
@@ -264,7 +269,9 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
             return all_results
 
     @profile_performance
-    async def execute_batch_operations(self, operations: List[ClauseElement]) -> List[Any]:
+    async def execute_batch_operations(
+        self, operations: List[ClauseElement]
+    ) -> List[Any]:
         """
         非同期バッチ操作の実行（複数のSQL文を1つのトランザクションで実行）
 

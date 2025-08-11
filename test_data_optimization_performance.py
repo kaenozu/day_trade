@@ -11,32 +11,37 @@ Issue #378: データI/Oとデータ処理の最適化 - データ構造と操�
 5. チャンク処理による大規模データ対応
 """
 
-import time
 import gc
-import numpy as np
-import pandas as pd
-from typing import Dict, List, Any
-import matplotlib.pyplot as plt
-import psutil
-import os
 
 # ログ出力を有効化
 import logging
+import os
+import time
+from typing import Any, Dict, List
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import psutil
+
 logging.basicConfig(level=logging.INFO)
 
-from src.day_trade.utils.data_optimization import (
-    DataFrameOptimizer,
-    ChunkedDataProcessor,
-    create_optimized_dataframe,
-    benchmark_dataframe_operations,
-    memory_monitor
-)
 from src.day_trade.analysis.feature_engineering_unified import (
-    FeatureEngineeringManager,
     FeatureConfig,
-    generate_features
+    FeatureEngineeringManager,
+    generate_features,
 )
-from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+from src.day_trade.core.optimization_strategy import (
+    OptimizationConfig,
+    OptimizationLevel,
+)
+from src.day_trade.utils.data_optimization import (
+    ChunkedDataProcessor,
+    DataFrameOptimizer,
+    benchmark_dataframe_operations,
+    create_optimized_dataframe,
+    memory_monitor,
+)
 
 
 def create_test_dataset(rows: int = 10000, add_noise: bool = True) -> pd.DataFrame:
@@ -354,11 +359,11 @@ def generate_performance_report(dtype_results, vectorization_result, chunk_resul
 
     # 総合評価
     avg_memory_reduction = np.mean([r['reduction_percent'] for r in dtype_results])
-    print(f"\n6. 総合評価:")
+    print("\n6. 総合評価:")
     print(f"  - データ型最適化によるメモリ削減: 平均{avg_memory_reduction:.1f}%")
     print(f"  - ベクトル化操作による高速化: {vectorization_result['total_operations']}操作を{vectorization_result['vectorization_time_ms']:.2f}msで実行")
     print(f"  - チャンク処理による大規模データ対応: {chunk_result['data_size']:,}行を{chunk_result['chunk_processing_time_ms']:.2f}msで処理")
-    print(f"  - 統合システムの最適化効果: 全レベルで正常動作確認")
+    print("  - 統合システムの最適化効果: 全レベルで正常動作確認")
 
 
 def main():
@@ -388,7 +393,7 @@ def main():
             integration_results
         )
 
-        print(f"\n✅ データI/O最適化パフォーマンステスト完了")
+        print("\n✅ データI/O最適化パフォーマンステスト完了")
         print("\n実装された最適化機能:")
         print("- [MEMORY] データ型最適化でメモリ効率向上")
         print("- [SPEED] DataFrame操作のベクトル化で高速化")

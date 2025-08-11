@@ -5,11 +5,12 @@
 Strategy Pattern実装とPhase A-D統合リファクタリングシステムの動作テスト
 """
 
+import json
 import os
 import sys
 import time
-import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -21,10 +22,10 @@ sys.path.insert(0, str(project_root / "src"))
 
 try:
     from src.day_trade.core.optimization_strategy import (
-        OptimizationLevel,
         OptimizationConfig,
+        OptimizationLevel,
         OptimizationStrategyFactory,
-        get_optimized_implementation
+        get_optimized_implementation,
     )
     OPTIMIZATION_STRATEGY_AVAILABLE = True
 except ImportError as e:
@@ -33,13 +34,18 @@ except ImportError as e:
 
 # 統合システムのインポート
 try:
-    from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
+    from src.day_trade.analysis.technical_indicators_unified import (
+        TechnicalIndicatorsManager,
+    )
     TECHNICAL_INDICATORS_AVAILABLE = True
 except ImportError:
     TECHNICAL_INDICATORS_AVAILABLE = False
 
 try:
-    from src.day_trade.analysis.feature_engineering_unified import FeatureEngineeringManager, FeatureConfig
+    from src.day_trade.analysis.feature_engineering_unified import (
+        FeatureConfig,
+        FeatureEngineeringManager,
+    )
     FEATURE_ENGINEERING_AVAILABLE = True
 except ImportError:
     FEATURE_ENGINEERING_AVAILABLE = False
@@ -82,8 +88,8 @@ class TestUnifiedOptimizationSystem:
         # デフォルト設定
         config = OptimizationConfig()
         assert config.level == OptimizationLevel.STANDARD
-        assert config.auto_fallback == True
-        assert config.cache_enabled == True
+        assert config.auto_fallback
+        assert config.cache_enabled
 
         # 環境変数からの設定
         os.environ["DAYTRADE_OPTIMIZATION_LEVEL"] = "optimized"
@@ -200,14 +206,14 @@ class TestUnifiedOptimizationSystem:
 
         # 簡単なクエリテスト
         result = manager.execute_query("SELECT 1 as test_value")
-        assert result.success == True
+        assert result.success
         assert result.strategy_used == "標準データベース"
 
         # 最適化実装テスト
         manager_opt = DatabaseManager(self.config_optimized)
 
         result_opt = manager_opt.execute_query("SELECT datetime('now') as current_time")
-        assert result_opt.success == True
+        assert result_opt.success
         assert result_opt.strategy_used == "最適化データベース"
 
         # パフォーマンス指標確認
@@ -240,7 +246,7 @@ class TestUnifiedOptimizationSystem:
         try:
             strategy = get_optimized_implementation("non_existent_component", config)
             # このテストは例外が発生することが期待される
-            assert False, "存在しないコンポーネントで例外が発生しませんでした"
+            raise AssertionError("存在しないコンポーネントで例外が発生しませんでした")
         except ValueError:
             pass  # 期待される動作
 
@@ -280,7 +286,7 @@ class TestUnifiedOptimizationSystem:
             # 設定ファイルからの読み込みテスト
             config = OptimizationConfig.from_file(config_file)
             assert config.level == OptimizationLevel.OPTIMIZED
-            assert config.auto_fallback == True
+            assert config.auto_fallback
             assert config.batch_size == 500
 
         finally:

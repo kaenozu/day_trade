@@ -260,12 +260,10 @@ class PasswordSecurityTest(SecurityTest):
         ):
             return False
 
-        if getattr(policy, "require_symbols", False) and not any(
-            c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password
-        ):
-            return False
-
-        return True
+        return not (
+            getattr(policy, "require_symbols", False)
+            and not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password)
+        )
 
 
 class SessionSecurityTest(SecurityTest):

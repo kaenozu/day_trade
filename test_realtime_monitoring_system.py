@@ -14,19 +14,26 @@ Test Coverage:
 """
 
 import asyncio
-import time
 import random
-import numpy as np
+import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from src.day_trade.monitoring.metrics.prometheus_metrics import (
-    get_metrics_collector, get_risk_metrics, get_trading_metrics,
-    get_ai_metrics, get_health_metrics
-)
-from src.day_trade.monitoring.alert_engine import get_alert_engine, NotificationChannel
-from src.day_trade.monitoring.notification_system import get_notification_system, NotificationConfig
+import numpy as np
+
+from src.day_trade.monitoring.alert_engine import NotificationChannel, get_alert_engine
 from src.day_trade.monitoring.anomaly_detection import get_ml_anomaly_system
+from src.day_trade.monitoring.metrics.prometheus_metrics import (
+    get_ai_metrics,
+    get_health_metrics,
+    get_metrics_collector,
+    get_risk_metrics,
+    get_trading_metrics,
+)
+from src.day_trade.monitoring.notification_system import (
+    NotificationConfig,
+    get_notification_system,
+)
 from src.day_trade.monitoring.performance_optimizer import get_performance_system
 from src.day_trade.utils.logging_config import get_context_logger
 
@@ -170,7 +177,11 @@ class RealtimeMonitoringSystemTester:
             self.alert_engine.add_notification_handler(NotificationChannel.EMAIL, test_email_handler)
 
             # テスト用アラート作成（直接送信テスト）
-            from src.day_trade.monitoring.alert_engine import Alert, AlertStatus, AlertSeverity
+            from src.day_trade.monitoring.alert_engine import (
+                Alert,
+                AlertSeverity,
+                AlertStatus,
+            )
 
             test_alert = Alert(
                 id="test_001",

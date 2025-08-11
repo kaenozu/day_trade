@@ -6,24 +6,30 @@ Phase G: 本番運用最適化フェーズ
 監視・アラート・メトリクス収集システムの包括的テスト
 """
 
-import sys
-import time
 import json
+import sys
 import threading
-from pathlib import Path
+import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import Any, Dict, List
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 try:
     from src.day_trade.monitoring.advanced_monitoring_system import (
-        AdvancedMonitoringSystem, AlertLevel, MetricType,
-        MetricsCollector, AlertManager, RuleEngine, MonitoringRule
+        AdvancedMonitoringSystem,
+        AlertLevel,
+        AlertManager,
+        MetricsCollector,
+        MetricType,
+        MonitoringRule,
+        RuleEngine,
     )
     from src.day_trade.monitoring.prometheus_integration import (
-        PrometheusExporter, ApplicationMetricsCollector
+        ApplicationMetricsCollector,
+        PrometheusExporter,
     )
 except ImportError as e:
     print(f"[ERROR] インポートエラー: {e}")
@@ -132,10 +138,7 @@ class MonitoringSystemTester:
 
         # メトリクスサマリーテスト
         summary = collector.get_metric_summary("test_counter")
-        if not summary or summary.get('count') != 1:
-            return False
-
-        return True
+        return not (not summary or summary.get('count') != 1)
 
     def test_alert_manager(self) -> bool:
         """アラート管理テスト"""
@@ -172,10 +175,7 @@ class MonitoringSystemTester:
         # アラート解決テスト
         alert_manager.resolve_alert(alert_id)
         active_alerts = alert_manager.get_active_alerts()
-        if len(active_alerts) != 0:
-            return False
-
-        return True
+        return len(active_alerts) == 0
 
     def test_rule_engine(self) -> bool:
         """ルールエンジンテスト"""
@@ -322,10 +322,7 @@ class MonitoringSystemTester:
 
         # ダッシュボード取得テスト
         dashboard = system.get_system_dashboard()
-        if not dashboard:
-            return False
-
-        return True
+        return dashboard
 
     def test_configuration_validation(self) -> bool:
         """設定検証テスト"""

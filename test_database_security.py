@@ -8,19 +8,20 @@ Issue #392: データベース層のセキュリティ強化
 2. get_alembic_configのTOCTOU脆弱性対策 - 原子的操作・シンボリックリンク攻撃防止
 """
 
-import tempfile
-import os
-import shutil
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
 # テスト中はログ出力を有効化
 import logging
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 logging.basicConfig(level=logging.INFO)
 
-from src.day_trade.models.database import DatabaseManager, DatabaseConfig
-from src.day_trade.utils.exceptions import DatabaseError
 from sqlalchemy import text
+
+from src.day_trade.models.database import DatabaseConfig, DatabaseManager
+from src.day_trade.utils.exceptions import DatabaseError
 
 
 def test_sqlite_pragma_sql_injection_protection():
@@ -234,7 +235,7 @@ def test_secure_alembic_config_search():
         if validated_path:
             print(f"  OK 検索ファイル安全性確認: {validated_path}")
         else:
-            print(f"  FAIL 検索ファイル - 安全性検証失敗")
+            print("  FAIL 検索ファイル - 安全性検証失敗")
 
     except DatabaseError as e:
         if "ALEMBIC_CONFIG_NOT_FOUND" in str(e):

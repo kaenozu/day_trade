@@ -374,10 +374,7 @@ class StandardLogParser(LogParser):
 
     def can_parse(self, raw_log: str) -> bool:
         """標準形式かチェック"""
-        for pattern in self.patterns:
-            if pattern.match(raw_log.strip()):
-                return True
-        return False
+        return any(pattern.match(raw_log.strip()) for pattern in self.patterns)
 
 
 class LogAggregationSystem:
@@ -1199,6 +1196,12 @@ def create_log_aggregation_system(
         max_memory_logs=max_memory_logs,
         retention_days=retention_days,
     )
+
+
+# 後方互換性のためのエイリアス
+def get_log_aggregation_system(*args, **kwargs) -> LogAggregationSystem:
+    """後方互換性のためのエイリアス関数"""
+    return create_log_aggregation_system(*args, **kwargs)
 
 
 if __name__ == "__main__":

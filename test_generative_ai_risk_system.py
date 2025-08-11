@@ -10,21 +10,27 @@ import asyncio
 import json
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 import numpy as np
+
+from src.day_trade.realtime.risk_dashboard import RiskDashboardManager
+from src.day_trade.risk.fraud_detection_engine import (
+    FraudDetectionEngine,
+    FraudDetectionRequest,
+)
 
 # プロジェクト内インポート
 from src.day_trade.risk.generative_ai_engine import (
-    GenerativeAIRiskEngine, GenerativeAIConfig, RiskAnalysisRequest
+    GenerativeAIConfig,
+    GenerativeAIRiskEngine,
+    RiskAnalysisRequest,
 )
-from src.day_trade.risk.fraud_detection_engine import (
-    FraudDetectionEngine, FraudDetectionRequest
+from src.day_trade.risk.real_time_monitor import (
+    RealTimeRiskMonitor,
+    RiskMonitoringConfig,
 )
 from src.day_trade.risk.risk_coordinator import RiskAnalysisCoordinator
-from src.day_trade.risk.real_time_monitor import (
-    RealTimeRiskMonitor, RiskMonitoringConfig
-)
-from src.day_trade.realtime.risk_dashboard import RiskDashboardManager
 from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -70,7 +76,7 @@ class GenerativeAIRiskSystemDemo:
         print("🤖 生成AI統合リスク管理システム - 包括的デモンストレーション")
         print("="*80)
         print(f"📅 実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"🎯 目標: 95%精度, 1秒以内検知, 10億円損失防止")
+        print("🎯 目標: 95%精度, 1秒以内検知, 10億円損失防止")
         print()
 
         # デモシーケンス実行
@@ -275,7 +281,7 @@ class GenerativeAIRiskSystemDemo:
 
             # 推奨事項表示
             if assessment.recommendations:
-                print(f"   推奨事項:")
+                print("   推奨事項:")
                 for i, rec in enumerate(assessment.recommendations[:3], 1):
                     print(f"     {i}. {rec}")
 
@@ -376,7 +382,7 @@ class GenerativeAIRiskSystemDemo:
         print("-" * 50)
 
         print("ダッシュボードサーバー起動中...")
-        print(f"URL: http://localhost:8888")
+        print("URL: http://localhost:8888")
         print("（実際のブラウザでアクセスしてください）")
 
         # ダッシュボードを5秒間起動
@@ -455,17 +461,17 @@ class GenerativeAIRiskSystemDemo:
         fraud_stats = self.fraud_engine.get_stats()
         coordinator_stats = self.risk_coordinator.get_performance_summary()
 
-        print(f"\n🧠 AI エンジン統計:")
+        print("\n🧠 AI エンジン統計:")
         print(f"  総分析数: {ai_stats.get('total_analyses', 0)}")
         print(f"  成功分析数: {ai_stats.get('successful_analyses', 0)}")
         print(f"  キャッシュサイズ: {ai_stats.get('cache_size', 0)}")
 
-        print(f"\n🛡️ 不正検知統計:")
+        print("\n🛡️ 不正検知統計:")
         print(f"  総検知数: {fraud_stats.get('total_detections', 0)}")
         print(f"  不正検知数: {fraud_stats.get('fraud_detected', 0)}")
         print(f"  平均処理時間: {fraud_stats.get('avg_processing_time', 0):.3f}秒")
 
-        print(f"\n⚖️ 統合コーディネーター統計:")
+        print("\n⚖️ 統合コーディネーター統計:")
         print(f"  総評価数: {coordinator_stats.get('total_assessments', 0)}")
         print(f"  成功率: {coordinator_stats.get('success_rate', 0):.1%}")
         print(f"  平均処理時間: {coordinator_stats.get('avg_processing_time', 0):.3f}秒")

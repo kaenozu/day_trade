@@ -33,7 +33,7 @@ try:
     ONNX_QUANTIZATION_AVAILABLE = True
 except ImportError:
     ONNX_QUANTIZATION_AVAILABLE = False
-    warnings.warn("ONNX Runtime quantization tools not available")
+    warnings.warn("ONNX Runtime quantization tools not available", stacklevel=2)
 
 # TensorFlow Lite 量子化 (フォールバック対応)
 try:
