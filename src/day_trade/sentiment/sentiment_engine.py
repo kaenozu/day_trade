@@ -6,21 +6,20 @@ Next-Gen AI Sentiment Engine
 FinBERT・GPT-4・多言語対応・リアルタイム感情解析システム
 """
 
+import re
 import time
 import warnings
-import re
-import json
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional, Any, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-import pandas as pd
-from pathlib import Path
-from datetime import datetime, timedelta
 
 # 自然言語処理ライブラリ
 try:
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
     import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
@@ -28,12 +27,14 @@ except ImportError:
 try:
     import nltk
     from nltk.sentiment import SentimentIntensityAnalyzer
+
     NLTK_AVAILABLE = True
 except ImportError:
     NLTK_AVAILABLE = False
 
 try:
     from textblob import TextBlob
+
     TEXTBLOB_AVAILABLE = True
 except ImportError:
     TEXTBLOB_AVAILABLE = False
@@ -41,6 +42,7 @@ except ImportError:
 # 多言語対応
 try:
     from googletrans import Translator
+
     TRANSLATION_AVAILABLE = True
 except ImportError:
     TRANSLATION_AVAILABLE = False
@@ -50,9 +52,11 @@ from ..utils.logging_config import get_context_logger
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class SentimentConfig:
     """センチメント分析設定"""
+
     # モデル設定
     finbert_model: str = "ProsusAI/finbert"
     use_gpu: bool = True
@@ -76,9 +80,11 @@ class SentimentConfig:
     aggregation_window: int = 24  # 24時間
     min_samples: int = 3
 
+
 @dataclass
 class SentimentResult:
     """センチメント分析結果"""
+
     text: str
     sentiment_label: str  # positive, negative, neutral
     sentiment_score: float  # -1.0 ~ 1.0
@@ -88,9 +94,11 @@ class SentimentResult:
     timestamp: float = 0.0
     metadata: Dict[str, Any] = None
 
+
 @dataclass
 class MarketSentimentIndicator:
     """市場センチメント指標"""
+
     overall_sentiment: float  # -1.0 ~ 1.0
     sentiment_strength: float  # 0.0 ~ 1.0
     sentiment_volatility: float  # 変動性
@@ -100,6 +108,7 @@ class MarketSentimentIndicator:
     confidence_level: float  # 信頼度
     sample_count: int
     timestamp: datetime
+
 
 class SentimentEngine:
     """高度センチメント分析エンジン"""
@@ -145,19 +154,21 @@ class SentimentEngine:
             try:
                 logger.info(f"FinBERTモデル読み込み: {self.config.finbert_model}")
 
-                self.tokenizers['finbert'] = AutoTokenizer.from_pretrained(
+                self.tokenizers["finbert"] = AutoTokenizer.from_pretrained(
                     self.config.finbert_model
                 )
-                self.models['finbert'] = AutoModelForSequenceClassification.from_pretrained(
+                self.models[
+                    "finbert"
+                ] = AutoModelForSequenceClassification.from_pretrained(
                     self.config.finbert_model
                 ).to(self.device)
 
-                self.pipelines['finbert'] = pipeline(
+                self.pipelines["finbert"] = pipeline(
                     "sentiment-analysis",
-                    model=self.models['finbert'],
-                    tokenizer=self.tokenizers['finbert'],
+                    model=self.models["finbert"],
+                    tokenizer=self.tokenizers["finbert"],
                     device=0 if self.device == "cuda" else -1,
-                    return_all_scores=True
+                    return_all_scores=True,
                 )
 
                 logger.info("FinBERT初期化完了")
@@ -184,7 +195,7 @@ class SentimentEngine:
                 sentiment_score=0.0,
                 confidence=0.0,
                 model_used="none",
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
         # キャッシュチェック
@@ -229,23 +240,23 @@ class SentimentEngine:
         try:
             # トークン長チェック
             if len(text) > self.config.max_length:
-                text = text[:self.config.max_length]
+                text = text[: self.config.max_length]
 
             # 推論実行
-            outputs = self.pipelines['finbert'](text)
+            outputs = self.pipelines["finbert"](text)
 
             # 結果解析
-            scores = {item['label'].lower(): item['score'] for item in outputs[0]}
+            scores = {item["label"].lower(): item["score"] for item in outputs[0]}
 
             # 最高スコアのラベル
             best_label = max(scores.keys(), key=lambda k: scores[k])
             best_score = scores[best_label]
 
             # センチメントスコア計算 (-1.0 ~ 1.0)
-            if best_label == 'positive':
-                sentiment_score = scores.get('positive', 0) - scores.get('negative', 0)
-            elif best_label == 'negative':
-                sentiment_score = scores.get('negative', 0) - scores.get('positive', 0)
+            if best_label == "positive":
+                sentiment_score = scores.get("positive", 0) - scores.get("negative", 0)
+            elif best_label == "negative":
+                sentiment_score = scores.get("negative", 0) - scores.get("positive", 0)
                 sentiment_score = -sentiment_score
             else:
                 sentiment_score = 0.0
@@ -258,7 +269,7 @@ class SentimentEngine:
                 emotions=scores,
                 model_used="finbert",
                 timestamp=time.time(),
-                metadata={"full_scores": scores}
+                metadata={"full_scores": scores},
             )
 
         except Exception as e:
@@ -272,7 +283,7 @@ class SentimentEngine:
             scores = self.vader_analyzer.polarity_scores(text)
 
             # ラベル決定
-            compound = scores['compound']
+            compound = scores["compound"]
             if compound >= 0.05:
                 label = "positive"
             elif compound <= -0.05:
@@ -286,13 +297,13 @@ class SentimentEngine:
                 sentiment_score=compound,
                 confidence=abs(compound),
                 emotions={
-                    'positive': scores['pos'],
-                    'negative': scores['neg'],
-                    'neutral': scores['neu']
+                    "positive": scores["pos"],
+                    "negative": scores["neg"],
+                    "neutral": scores["neu"],
                 },
                 model_used="vader",
                 timestamp=time.time(),
-                metadata={"vader_scores": scores}
+                metadata={"vader_scores": scores},
             )
 
         except Exception as e:
@@ -322,10 +333,7 @@ class SentimentEngine:
                 confidence=subjectivity,
                 model_used="textblob",
                 timestamp=time.time(),
-                metadata={
-                    "polarity": polarity,
-                    "subjectivity": subjectivity
-                }
+                metadata={"polarity": polarity, "subjectivity": subjectivity},
             )
 
         except Exception as e:
@@ -337,13 +345,39 @@ class SentimentEngine:
 
         # 簡単なキーワードベース分析
         positive_words = [
-            'good', 'great', 'excellent', 'positive', 'up', 'rise', 'gain', 'profit',
-            'bull', 'bullish', 'strong', 'high', 'increase', 'growth', 'buy'
+            "good",
+            "great",
+            "excellent",
+            "positive",
+            "up",
+            "rise",
+            "gain",
+            "profit",
+            "bull",
+            "bullish",
+            "strong",
+            "high",
+            "increase",
+            "growth",
+            "buy",
         ]
 
         negative_words = [
-            'bad', 'terrible', 'negative', 'down', 'fall', 'loss', 'bear', 'bearish',
-            'weak', 'low', 'decrease', 'decline', 'sell', 'crash', 'drop'
+            "bad",
+            "terrible",
+            "negative",
+            "down",
+            "fall",
+            "loss",
+            "bear",
+            "bearish",
+            "weak",
+            "low",
+            "decrease",
+            "decline",
+            "sell",
+            "crash",
+            "drop",
         ]
 
         text_lower = text.lower()
@@ -375,11 +409,13 @@ class SentimentEngine:
             metadata={
                 "positive_words": pos_count,
                 "negative_words": neg_count,
-                "total_words": total_words
-            }
+                "total_words": total_words,
+            },
         )
 
-    def analyze_batch(self, texts: List[str], model: str = "finbert") -> List[SentimentResult]:
+    def analyze_batch(
+        self, texts: List[str], model: str = "finbert"
+    ) -> List[SentimentResult]:
         """バッチテキスト分析"""
 
         if not texts:
@@ -392,31 +428,37 @@ class SentimentEngine:
 
         # バッチ処理
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+            batch = texts[i : i + batch_size]
             batch_results = [self.analyze_text(text, model) for text in batch]
             results.extend(batch_results)
 
         logger.info(f"バッチ分析完了: {len(results)} 結果")
         return results
 
-    def calculate_market_sentiment(self,
-                                 texts: List[str] = None,
-                                 sentiment_results: List[SentimentResult] = None,
-                                 symbol: str = None) -> MarketSentimentIndicator:
+    def calculate_market_sentiment(
+        self,
+        texts: List[str] = None,
+        sentiment_results: List[SentimentResult] = None,
+        symbol: str = None,
+    ) -> MarketSentimentIndicator:
         """市場センチメント指標計算"""
 
         # 入力データ準備
         if sentiment_results is None:
             if texts is None:
                 # 履歴からデータ取得
-                recent_results = self._get_recent_analysis(hours=self.config.aggregation_window)
+                recent_results = self._get_recent_analysis(
+                    hours=self.config.aggregation_window
+                )
             else:
                 recent_results = self.analyze_batch(texts)
         else:
             recent_results = sentiment_results
 
         if len(recent_results) < self.config.min_samples:
-            logger.warning(f"サンプル数不足: {len(recent_results)} < {self.config.min_samples}")
+            logger.warning(
+                f"サンプル数不足: {len(recent_results)} < {self.config.min_samples}"
+            )
             return self._create_neutral_indicator(len(recent_results))
 
         # 基本統計計算
@@ -433,7 +475,9 @@ class SentimentEngine:
         sentiment_strength = np.mean([abs(score) for score in sentiment_scores])
 
         # センチメント変動性
-        sentiment_volatility = np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
+        sentiment_volatility = (
+            np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
+        )
 
         # トレンド計算（時系列重み付け）
         sentiment_trend = self._calculate_sentiment_trend(recent_results)
@@ -444,7 +488,9 @@ class SentimentEngine:
         )
 
         # 市場ムード判定
-        market_mood = self._determine_market_mood(weighted_sentiment, sentiment_strength)
+        market_mood = self._determine_market_mood(
+            weighted_sentiment, sentiment_strength
+        )
 
         # 信頼度レベル
         confidence_level = np.mean(confidences) if confidences else 0.0
@@ -458,24 +504,28 @@ class SentimentEngine:
             market_mood=market_mood,
             confidence_level=confidence_level,
             sample_count=len(recent_results),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     def _preprocess_text(self, text: str) -> str:
         """テキスト前処理"""
 
         # HTML/XMLタグ除去
-        text = re.sub(r'<[^>]+>', '', text)
+        text = re.sub(r"<[^>]+>", "", text)
 
         # URL除去
-        text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
+        text = re.sub(
+            r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
+            "",
+            text,
+        )
 
         # メンション・ハッシュタグの整理
-        text = re.sub(r'@\w+', '@USER', text)
-        text = re.sub(r'#(\w+)', r'\1', text)
+        text = re.sub(r"@\w+", "@USER", text)
+        text = re.sub(r"#(\w+)", r"\1", text)
 
         # 余分な空白除去
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
 
         return text
 
@@ -520,8 +570,12 @@ class SentimentEngine:
         sorted_results = sorted(results, key=lambda x: x.timestamp)
 
         # 重み付き移動平均によるトレンド
-        weights = np.array([self.config.temporal_weight_decay ** i
-                          for i in range(len(sorted_results)-1, -1, -1)])
+        weights = np.array(
+            [
+                self.config.temporal_weight_decay**i
+                for i in range(len(sorted_results) - 1, -1, -1)
+            ]
+        )
         scores = np.array([r.sentiment_score for r in sorted_results])
 
         if len(scores) > 1:
@@ -532,7 +586,9 @@ class SentimentEngine:
 
         return 0.0
 
-    def _calculate_fear_greed_index(self, sentiment: float, volatility: float, strength: float) -> float:
+    def _calculate_fear_greed_index(
+        self, sentiment: float, volatility: float, strength: float
+    ) -> float:
         """Fear & Greed Index計算"""
 
         # センチメントスコア正規化 (50 + sentiment * 50)
@@ -545,9 +601,11 @@ class SentimentEngine:
         strength_component = strength * 100
 
         # 重み付き平均
-        fear_greed = (sentiment_component * 0.5 +
-                     volatility_component * 0.3 +
-                     strength_component * 0.2)
+        fear_greed = (
+            sentiment_component * 0.5
+            + volatility_component * 0.3
+            + strength_component * 0.2
+        )
 
         return np.clip(fear_greed, 0, 100)
 
@@ -574,7 +632,7 @@ class SentimentEngine:
             market_mood="neutral",
             confidence_level=0.0,
             sample_count=sample_count,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     def get_analysis_summary(self, hours: int = 24) -> Dict[str, Any]:
@@ -609,7 +667,7 @@ class SentimentEngine:
             "average_confidence": np.mean(confidences),
             "model_distribution": model_counts,
             "sentiment_distribution": label_counts,
-            "latest_analysis": recent_results[-1].timestamp if recent_results else None
+            "latest_analysis": recent_results[-1].timestamp if recent_results else None,
         }
 
     def clear_cache(self):
@@ -622,6 +680,7 @@ class SentimentEngine:
         self.analysis_history.clear()
         logger.info("分析履歴クリア完了")
 
+
 # 便利関数
 def create_sentiment_engine(config_dict: Optional[Dict] = None) -> SentimentEngine:
     """センチメントエンジン作成"""
@@ -632,10 +691,12 @@ def create_sentiment_engine(config_dict: Optional[Dict] = None) -> SentimentEngi
 
     return SentimentEngine(config)
 
+
 def analyze_financial_text(text: str, model: str = "finbert") -> SentimentResult:
     """金融テキスト分析（簡易インターフェース）"""
     engine = create_sentiment_engine()
     return engine.analyze_text(text, model)
+
 
 if __name__ == "__main__":
     # センチメントエンジンテスト
@@ -650,7 +711,7 @@ if __name__ == "__main__":
         "Market volatility increases as investors fear economic downturn.",
         "Corporate earnings exceed expectations, driving positive sentiment.",
         "債券市場は安定しており、投資家の信頼が高まっています。",  # 日本語
-        "The company's quarterly results were disappointing, causing stock prices to fall."
+        "The company's quarterly results were disappointing, causing stock prices to fall.",
     ]
 
     print(f"\nテキスト分析開始: {len(test_texts)} サンプル")
@@ -668,7 +729,7 @@ if __name__ == "__main__":
         print(f"モデル: {result.model_used}")
 
     # 市場指標計算
-    print(f"\n市場センチメント指標計算...")
+    print("\n市場センチメント指標計算...")
     market_indicator = engine.calculate_market_sentiment(sentiment_results=results)
 
     print(f"全体センチメント: {market_indicator.overall_sentiment:.3f}")

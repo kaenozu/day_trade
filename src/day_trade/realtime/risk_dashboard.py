@@ -7,38 +7,39 @@ Generative AI Risk Management Dashboard
 """
 
 import asyncio
-import json
-import time
 import warnings
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
-from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-import pandas as pd
+import uvicorn
 
 # Web フレームワーク
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
 # 可視化
 try:
-    import plotly.graph_objects as go
     import plotly.express as px
+    import plotly.graph_objects as go
     from plotly.utils import PlotlyJSONEncoder
+
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
 
 # プロジェクト内インポート
+from ..risk.fraud_detection_engine import FraudDetectionEngine
+from ..risk.generative_ai_engine import (
+    GenerativeAIRiskEngine,
+    RiskAnalysisResult,
+)
 from ..utils.logging_config import get_context_logger
-from ..risk.generative_ai_engine import GenerativeAIRiskEngine, RiskAnalysisRequest, RiskAnalysisResult
-from ..risk.fraud_detection_engine import FraudDetectionEngine, FraudDetectionRequest
-from .alert_system import AlertManager, Alert
+from .alert_system import AlertManager
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 class RiskDashboardManager:
     """生成AI統合リスク管理ダッシュボード"""
@@ -50,7 +51,7 @@ class RiskDashboardManager:
         self.app = FastAPI(
             title="Generative AI Risk Management Dashboard",
             description="生成AI統合リスク管理システム監視ダッシュボード",
-            version="2.0.0"
+            version="2.0.0",
         )
 
         # WebSocket接続管理
@@ -63,12 +64,12 @@ class RiskDashboardManager:
 
         # ダッシュボードデータ
         self.dashboard_data = {
-            'system_status': 'initializing',
-            'last_update': datetime.now().isoformat(),
-            'risk_metrics': {},
-            'fraud_metrics': {},
-            'active_alerts': [],
-            'analysis_history': []
+            "system_status": "initializing",
+            "last_update": datetime.now().isoformat(),
+            "risk_metrics": {},
+            "fraud_metrics": {},
+            "active_alerts": [],
+            "analysis_history": [],
         }
 
         # 統計データ
@@ -618,56 +619,70 @@ class RiskDashboardManager:
         risk_score = np.random.beta(2, 5)  # 0-1の範囲でリスクスコア
 
         return {
-            'timestamp': current_time.isoformat(),
-            'metrics': {
-                'total_analyses': risk_stats.get('total_analyses', 0),
-                'fraud_detections': fraud_stats.get('fraud_detected', 0),
-                'ai_confidence': risk_stats.get('success_rate', 0.85),
-                'avg_processing_time': risk_stats.get('avg_processing_time', 0.5) * 1000
+            "timestamp": current_time.isoformat(),
+            "metrics": {
+                "total_analyses": risk_stats.get("total_analyses", 0),
+                "fraud_detections": fraud_stats.get("fraud_detected", 0),
+                "ai_confidence": risk_stats.get("success_rate", 0.85),
+                "avg_processing_time": risk_stats.get("avg_processing_time", 0.5)
+                * 1000,
             },
-            'charts': {
-                'risk_timeline': {
-                    'timestamps': [(current_time - timedelta(minutes=i)).isoformat()
-                                 for i in range(30, 0, -1)],
-                    'risk_scores': [np.random.beta(2, 5) for _ in range(30)]
+            "charts": {
+                "risk_timeline": {
+                    "timestamps": [
+                        (current_time - timedelta(minutes=i)).isoformat()
+                        for i in range(30, 0, -1)
+                    ],
+                    "risk_scores": [np.random.beta(2, 5) for _ in range(30)],
                 },
-                'ai_performance': {
-                    'gpt4_calls': risk_stats.get('gpt4_calls', 0),
-                    'claude_calls': risk_stats.get('claude_calls', 0),
-                    'heuristic_calls': max(0, risk_stats.get('total_analyses', 0) -
-                                         risk_stats.get('gpt4_calls', 0) -
-                                         risk_stats.get('claude_calls', 0))
+                "ai_performance": {
+                    "gpt4_calls": risk_stats.get("gpt4_calls", 0),
+                    "claude_calls": risk_stats.get("claude_calls", 0),
+                    "heuristic_calls": max(
+                        0,
+                        risk_stats.get("total_analyses", 0)
+                        - risk_stats.get("gpt4_calls", 0)
+                        - risk_stats.get("claude_calls", 0),
+                    ),
                 },
-                'fraud_heatmap': {
-                    'data': np.random.poisson(2, (7, 24)).tolist(),
-                    'hours': list(range(24)),
-                    'days': ['月', '火', '水', '木', '金', '土', '日']
-                }
+                "fraud_heatmap": {
+                    "data": np.random.poisson(2, (7, 24)).tolist(),
+                    "hours": list(range(24)),
+                    "days": ["月", "火", "水", "木", "金", "土", "日"],
+                },
             },
-            'alerts': await self._get_current_alerts(),
-            'recent_analyses': await self._get_recent_analyses(5),
-            'ai_models': {
-                'GPT-4': {
-                    'status': 'healthy' if risk_stats.get('models_available', {}).get('gpt4') else 'error',
-                    'calls': risk_stats.get('gpt4_calls', 0),
-                    'success_rate': 0.95
+            "alerts": await self._get_current_alerts(),
+            "recent_analyses": await self._get_recent_analyses(5),
+            "ai_models": {
+                "GPT-4": {
+                    "status": "healthy"
+                    if risk_stats.get("models_available", {}).get("gpt4")
+                    else "error",
+                    "calls": risk_stats.get("gpt4_calls", 0),
+                    "success_rate": 0.95,
                 },
-                'Claude': {
-                    'status': 'healthy' if risk_stats.get('models_available', {}).get('claude') else 'error',
-                    'calls': risk_stats.get('claude_calls', 0),
-                    'success_rate': 0.93
+                "Claude": {
+                    "status": "healthy"
+                    if risk_stats.get("models_available", {}).get("claude")
+                    else "error",
+                    "calls": risk_stats.get("claude_calls", 0),
+                    "success_rate": 0.93,
                 },
-                'LSTM': {
-                    'status': 'healthy' if fraud_stats.get('models_loaded') else 'warning',
-                    'calls': fraud_stats.get('total_detections', 0),
-                    'success_rate': 0.96
+                "LSTM": {
+                    "status": "healthy"
+                    if fraud_stats.get("models_loaded")
+                    else "warning",
+                    "calls": fraud_stats.get("total_detections", 0),
+                    "success_rate": 0.96,
                 },
-                'Transformer': {
-                    'status': 'healthy' if fraud_stats.get('models_loaded') else 'warning',
-                    'calls': fraud_stats.get('total_detections', 0),
-                    'success_rate': 0.92
-                }
-            }
+                "Transformer": {
+                    "status": "healthy"
+                    if fraud_stats.get("models_loaded")
+                    else "warning",
+                    "calls": fraud_stats.get("total_detections", 0),
+                    "success_rate": 0.92,
+                },
+            },
         }
 
     async def _get_current_alerts(self) -> List[Dict[str, Any]]:
@@ -676,19 +691,19 @@ class RiskDashboardManager:
         # サンプルアラート（実際の実装では alert_manager から取得）
         sample_alerts = [
             {
-                'id': 'ALERT_001',
-                'title': '高リスク取引検知',
-                'message': '異常な取引パターンを検知しました',
-                'level': 'high',
-                'timestamp': (datetime.now() - timedelta(minutes=5)).isoformat()
+                "id": "ALERT_001",
+                "title": "高リスク取引検知",
+                "message": "異常な取引パターンを検知しました",
+                "level": "high",
+                "timestamp": (datetime.now() - timedelta(minutes=5)).isoformat(),
             },
             {
-                'id': 'ALERT_002',
-                'title': 'AI信頼度低下',
-                'message': 'モデル予測精度が閾値を下回りました',
-                'level': 'medium',
-                'timestamp': (datetime.now() - timedelta(minutes=15)).isoformat()
-            }
+                "id": "ALERT_002",
+                "title": "AI信頼度低下",
+                "message": "モデル予測精度が閾値を下回りました",
+                "level": "medium",
+                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+            },
         ]
 
         return sample_alerts
@@ -700,15 +715,21 @@ class RiskDashboardManager:
         sample_analyses = []
         for i in range(limit):
             risk_score = np.random.beta(2, 5)
-            risk_level = 'low' if risk_score < 0.3 else 'medium' if risk_score < 0.7 else 'high'
+            risk_level = (
+                "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
+            )
 
-            sample_analyses.append({
-                'id': f'ANALYSIS_{i+1:03d}',
-                'risk_score': risk_score,
-                'risk_level': risk_level,
-                'explanation': f'リスク分析#{i+1}: {risk_level}レベルのリスクを検出',
-                'timestamp': (datetime.now() - timedelta(minutes=i*2)).isoformat()
-            })
+            sample_analyses.append(
+                {
+                    "id": f"ANALYSIS_{i+1:03d}",
+                    "risk_score": risk_score,
+                    "risk_level": risk_level,
+                    "explanation": f"リスク分析#{i+1}: {risk_level}レベルのリスクを検出",
+                    "timestamp": (
+                        datetime.now() - timedelta(minutes=i * 2)
+                    ).isoformat(),
+                }
+            )
 
         return sample_analyses
 
@@ -720,7 +741,7 @@ class RiskDashboardManager:
         """ダッシュボード起動"""
 
         logger.info(f"生成AIリスク管理ダッシュボード起動: ポート{self.port}")
-        logger.info("URL: http://localhost:{}/".format(self.port))
+        logger.info(f"URL: http://localhost:{self.port}/")
 
         self.is_running = True
 
@@ -733,23 +754,18 @@ class RiskDashboardManager:
 
         # uvicorn サーバー設定
         config = uvicorn.Config(
-            self.app,
-            host="0.0.0.0",
-            port=self.port,
-            log_level="info"
+            self.app, host="0.0.0.0", port=self.port, log_level="info"
         )
         server = uvicorn.Server(config)
 
         try:
             # サーバー起動
-            await asyncio.gather(
-                server.serve(),
-                generate_test_alerts()
-            )
+            await asyncio.gather(server.serve(), generate_test_alerts())
         except Exception as e:
             logger.error(f"ダッシュボードエラー: {e}")
         finally:
             self.is_running = False
+
 
 # 使用例・テスト
 async def test_risk_dashboard():
@@ -762,6 +778,7 @@ async def test_risk_dashboard():
 
     dashboard = RiskDashboardManager(port=8080)
     await dashboard.run_dashboard()
+
 
 if __name__ == "__main__":
     asyncio.run(test_risk_dashboard())

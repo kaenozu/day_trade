@@ -12,23 +12,23 @@ Features:
 - ESG要因考慮
 """
 
-import asyncio
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Any, Union
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
-from enum import Enum
-import warnings
 
+from ..data.advanced_ml_engine import create_advanced_ml_engine
 from ..utils.logging_config import get_context_logger
-from ..models.global_models import MarketType
-from ..data.advanced_ml_engine import AdvancedMLEngine, create_advanced_ml_engine
 
 logger = get_context_logger(__name__)
 
+
 class AssetClass(Enum):
     """資産クラス"""
+
     EQUITY = "equity"
     BOND = "bond"
     COMMODITY = "commodity"
@@ -37,8 +37,10 @@ class AssetClass(Enum):
     CASH = "cash"
     ALTERNATIVE = "alternative"
 
+
 class OptimizationMethod(Enum):
     """最適化手法"""
+
     MEAN_VARIANCE = "mean_variance"
     RISK_PARITY = "risk_parity"
     BLACK_LITTERMAN = "black_litterman"
@@ -46,9 +48,11 @@ class OptimizationMethod(Enum):
     AI_ENHANCED = "ai_enhanced"
     ESG_INTEGRATED = "esg_integrated"
 
+
 @dataclass
 class PortfolioConfig:
     """ポートフォリオ設定"""
+
     # 基本設定
     target_return: float = 0.08  # 年間8%
     risk_tolerance: float = 0.15  # 年間15%ボラティリティ
@@ -86,12 +90,14 @@ class PortfolioConfig:
                 AssetClass.COMMODITY: (0.00, 0.20),
                 AssetClass.REAL_ESTATE: (0.00, 0.15),
                 AssetClass.CRYPTO: (0.00, 0.10),
-                AssetClass.CASH: (0.00, 0.20)
+                AssetClass.CASH: (0.00, 0.20),
             }
+
 
 @dataclass
 class AssetAllocation:
     """資産配分"""
+
     symbol: str
     asset_class: AssetClass
     weight: float
@@ -100,9 +106,11 @@ class AssetAllocation:
     confidence: float
     last_updated: datetime
 
+
 @dataclass
 class PortfolioMetrics:
     """ポートフォリオメトリクス"""
+
     # リターン指標
     expected_annual_return: float
     realized_return: float
@@ -130,9 +138,11 @@ class PortfolioMetrics:
     model_confidence: float
     forecast_horizon_days: int
 
+
 @dataclass
 class OptimizationResults:
     """最適化結果"""
+
     allocations: List[AssetAllocation]
     portfolio_metrics: PortfolioMetrics
     optimization_method: OptimizationMethod
@@ -146,6 +156,7 @@ class OptimizationResults:
     correlation_matrix: np.ndarray
     expected_returns: np.ndarray
     risk_contributions: np.ndarray
+
 
 class PortfolioManager:
     """AI駆動ポートフォリオマネージャー"""
@@ -172,9 +183,11 @@ class PortfolioManager:
 
         logger.info("AI ポートフォリオマネージャー初期化完了")
 
-    async def initialize_portfolio(self,
-                                 asset_universe: Dict[str, Dict[str, Any]],
-                                 historical_data: Dict[str, pd.DataFrame]) -> bool:
+    async def initialize_portfolio(
+        self,
+        asset_universe: Dict[str, Dict[str, Any]],
+        historical_data: Dict[str, pd.DataFrame],
+    ) -> bool:
         """ポートフォリオ初期化"""
         try:
             logger.info("ポートフォリオ初期化開始")
@@ -210,7 +223,9 @@ class PortfolioManager:
         start_time = datetime.now()
 
         try:
-            logger.info(f"ポートフォリオ最適化開始: {self.config.optimization_method.value}")
+            logger.info(
+                f"ポートフォリオ最適化開始: {self.config.optimization_method.value}"
+            )
 
             # 期待リターン予測
             expected_returns = await self._predict_expected_returns()
@@ -220,24 +235,36 @@ class PortfolioManager:
 
             # 最適化実行
             if self.config.optimization_method == OptimizationMethod.AI_ENHANCED:
-                weights = await self._ai_enhanced_optimization(expected_returns, covariance_matrix)
+                weights = await self._ai_enhanced_optimization(
+                    expected_returns, covariance_matrix
+                )
             elif self.config.optimization_method == OptimizationMethod.MEAN_VARIANCE:
-                weights = self._mean_variance_optimization(expected_returns, covariance_matrix)
+                weights = self._mean_variance_optimization(
+                    expected_returns, covariance_matrix
+                )
             elif self.config.optimization_method == OptimizationMethod.RISK_PARITY:
                 weights = self._risk_parity_optimization(covariance_matrix)
             elif self.config.optimization_method == OptimizationMethod.BLACK_LITTERMAN:
-                weights = self._black_litterman_optimization(expected_returns, covariance_matrix)
+                weights = self._black_litterman_optimization(
+                    expected_returns, covariance_matrix
+                )
             else:
-                raise ValueError(f"未対応の最適化手法: {self.config.optimization_method}")
+                raise ValueError(
+                    f"未対応の最適化手法: {self.config.optimization_method}"
+                )
 
             # 配分結果作成
             allocations = self._create_allocations(weights, expected_returns)
 
             # メトリクス計算
-            portfolio_metrics = self._calculate_portfolio_metrics(weights, expected_returns, covariance_matrix)
+            portfolio_metrics = self._calculate_portfolio_metrics(
+                weights, expected_returns, covariance_matrix
+            )
 
             # リスク寄与度計算
-            risk_contributions = self._calculate_risk_contributions(weights, covariance_matrix)
+            risk_contributions = self._calculate_risk_contributions(
+                weights, covariance_matrix
+            )
 
             # 制約チェック
             constraints_satisfied = self._check_constraints(weights)
@@ -251,11 +278,13 @@ class PortfolioManager:
                 optimization_time=optimization_time,
                 constraints_satisfied=constraints_satisfied,
                 convergence_achieved=True,
-                objective_value=self._calculate_objective_value(weights, expected_returns, covariance_matrix),
+                objective_value=self._calculate_objective_value(
+                    weights, expected_returns, covariance_matrix
+                ),
                 covariance_matrix=covariance_matrix,
                 correlation_matrix=np.corrcoef(covariance_matrix),
                 expected_returns=expected_returns,
-                risk_contributions=risk_contributions
+                risk_contributions=risk_contributions,
             )
 
             logger.info(f"ポートフォリオ最適化完了: {optimization_time:.2f}秒")
@@ -273,7 +302,7 @@ class PortfolioManager:
             for symbol, data in self.historical_data.items():
                 if len(data) > 252:  # 1年以上のデータが必要
                     # 特徴量準備
-                    X, y = self.ml_engine.prepare_data(data, target_column='終値')
+                    X, y = self.ml_engine.prepare_data(data, target_column="終値")
 
                     if len(X) > 50:  # 最低限の学習データ
                         # モデル訓練
@@ -281,13 +310,13 @@ class PortfolioManager:
                             X[:-20],  # 訓練用
                             y[:-20],
                             X[-20:],  # 検証用
-                            y[-20:]
+                            y[-20:],
                         )
 
                         self.prediction_models[symbol] = {
-                            'model': self.ml_engine,
-                            'performance': train_result,
-                            'last_updated': datetime.now()
+                            "model": self.ml_engine,
+                            "performance": train_result,
+                            "last_updated": datetime.now(),
                         }
 
                         logger.info(f"モデル訓練完了: {symbol}")
@@ -305,18 +334,26 @@ class PortfolioManager:
             if symbol in self.prediction_models:
                 # AI予測使用
                 model_info = self.prediction_models[symbol]
-                recent_data = self.historical_data[symbol].tail(self.ml_engine.config.sequence_length)
+                recent_data = self.historical_data[symbol].tail(
+                    self.ml_engine.config.sequence_length
+                )
 
-                X, _ = self.ml_engine.prepare_data(recent_data, target_column='終値')
+                X, _ = self.ml_engine.prepare_data(recent_data, target_column="終値")
                 if len(X) > 0:
                     prediction = self.ml_engine.predict(X[-1:])
-                    expected_return = prediction.predictions[0] if len(prediction.predictions) > 0 else 0.08
+                    expected_return = (
+                        prediction.predictions[0]
+                        if len(prediction.predictions) > 0
+                        else 0.08
+                    )
                 else:
                     expected_return = 0.08
             else:
                 # 過去データ基準
-                returns = self.historical_data[symbol]['終値'].pct_change().dropna()
-                expected_return = returns.mean() * 252 if len(returns) > 0 else 0.08  # 年率化
+                returns = self.historical_data[symbol]["終値"].pct_change().dropna()
+                expected_return = (
+                    returns.mean() * 252 if len(returns) > 0 else 0.08
+                )  # 年率化
 
             expected_returns.append(expected_return)
 
@@ -328,7 +365,7 @@ class PortfolioManager:
 
         for symbol in self.asset_universe.keys():
             if symbol in self.historical_data:
-                returns = self.historical_data[symbol]['終値'].pct_change().dropna()
+                returns = self.historical_data[symbol]["終値"].pct_change().dropna()
                 returns_data.append(returns)
 
         if returns_data:
@@ -351,7 +388,9 @@ class PortfolioManager:
             n_assets = len(self.asset_universe)
             return np.eye(n_assets) * 0.04  # 20%ボラティリティ想定
 
-    async def _ai_enhanced_optimization(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+    async def _ai_enhanced_optimization(
+        self, expected_returns: np.ndarray, cov_matrix: np.ndarray
+    ) -> np.ndarray:
         """AI強化最適化"""
         from scipy.optimize import minimize
 
@@ -371,26 +410,35 @@ class PortfolioManager:
             confidence_bonus = 0
             for i, symbol in enumerate(self.asset_universe.keys()):
                 if symbol in self.prediction_models:
-                    confidence = self.prediction_models[symbol]['performance'].get('confidence', 0.5)
+                    confidence = self.prediction_models[symbol]["performance"].get(
+                        "confidence", 0.5
+                    )
                     confidence_bonus += weights[i] * confidence
 
             return -(sharpe_ratio + confidence_bonus * 0.1)
 
         # 制約条件
         constraints = [
-            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}  # 合計100%
+            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}  # 合計100%
         ]
 
         # 境界条件
-        bounds = [(self.config.minimum_allocation, self.config.maximum_allocation)
-                 for _ in range(n_assets)]
+        bounds = [
+            (self.config.minimum_allocation, self.config.maximum_allocation)
+            for _ in range(n_assets)
+        ]
 
         # 初期値
         initial_weights = np.ones(n_assets) / n_assets
 
         # 最適化実行
-        result = minimize(objective, initial_weights, method='SLSQP',
-                         bounds=bounds, constraints=constraints)
+        result = minimize(
+            objective,
+            initial_weights,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
 
         if result.success:
             return result.x
@@ -398,7 +446,9 @@ class PortfolioManager:
             logger.warning("AI強化最適化が収束しませんでした。等ウェイトを使用")
             return initial_weights
 
-    def _mean_variance_optimization(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+    def _mean_variance_optimization(
+        self, expected_returns: np.ndarray, cov_matrix: np.ndarray
+    ) -> np.ndarray:
         """平均-分散最適化"""
         from scipy.optimize import minimize
 
@@ -409,17 +459,27 @@ class PortfolioManager:
             portfolio_return = np.dot(weights, expected_returns)
             portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
             # 効用 = リターン - (リスク回避度/2) * 分散
-            utility = portfolio_return - (1 / (2 * self.config.risk_tolerance)) * portfolio_variance
+            utility = (
+                portfolio_return
+                - (1 / (2 * self.config.risk_tolerance)) * portfolio_variance
+            )
             return -utility  # 最小化のため符号反転
 
-        constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}]
-        bounds = [(self.config.minimum_allocation, self.config.maximum_allocation)
-                 for _ in range(n_assets)]
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
+        bounds = [
+            (self.config.minimum_allocation, self.config.maximum_allocation)
+            for _ in range(n_assets)
+        ]
 
         initial_weights = np.ones(n_assets) / n_assets
 
-        result = minimize(objective, initial_weights, method='SLSQP',
-                         bounds=bounds, constraints=constraints)
+        result = minimize(
+            objective,
+            initial_weights,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
 
         return result.x if result.success else initial_weights
 
@@ -437,18 +497,27 @@ class PortfolioManager:
             target_contrib = portfolio_vol / n_assets
             return np.sum((contrib - target_contrib) ** 2)
 
-        constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}]
-        bounds = [(self.config.minimum_allocation, self.config.maximum_allocation)
-                 for _ in range(n_assets)]
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
+        bounds = [
+            (self.config.minimum_allocation, self.config.maximum_allocation)
+            for _ in range(n_assets)
+        ]
 
         initial_weights = np.ones(n_assets) / n_assets
 
-        result = minimize(risk_budget_objective, initial_weights, method='SLSQP',
-                         bounds=bounds, constraints=constraints)
+        result = minimize(
+            risk_budget_objective,
+            initial_weights,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
 
         return result.x if result.success else initial_weights
 
-    def _black_litterman_optimization(self, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+    def _black_litterman_optimization(
+        self, expected_returns: np.ndarray, cov_matrix: np.ndarray
+    ) -> np.ndarray:
         """Black-Litterman最適化（簡易版）"""
         from scipy.optimize import minimize
 
@@ -470,18 +539,27 @@ class PortfolioManager:
             portfolio_variance = np.dot(weights.T, np.dot(adjusted_cov, weights))
             return -(portfolio_return - 0.5 * risk_aversion * portfolio_variance)
 
-        constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}]
-        bounds = [(self.config.minimum_allocation, self.config.maximum_allocation)
-                 for _ in range(n_assets)]
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
+        bounds = [
+            (self.config.minimum_allocation, self.config.maximum_allocation)
+            for _ in range(n_assets)
+        ]
 
         initial_weights = np.ones(n_assets) / n_assets
 
-        result = minimize(objective, initial_weights, method='SLSQP',
-                         bounds=bounds, constraints=constraints)
+        result = minimize(
+            objective,
+            initial_weights,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
 
         return result.x if result.success else initial_weights
 
-    def _create_allocations(self, weights: np.ndarray, expected_returns: np.ndarray) -> List[AssetAllocation]:
+    def _create_allocations(
+        self, weights: np.ndarray, expected_returns: np.ndarray
+    ) -> List[AssetAllocation]:
         """配分結果作成"""
         allocations = []
 
@@ -489,24 +567,30 @@ class PortfolioManager:
             # 信頼度計算
             confidence = 0.7  # デフォルト
             if symbol in self.prediction_models:
-                model_performance = self.prediction_models[symbol]['performance']
-                confidence = 1.0 - model_performance.get('final_val_loss', 0.3)
+                model_performance = self.prediction_models[symbol]["performance"]
+                confidence = 1.0 - model_performance.get("final_val_loss", 0.3)
                 confidence = max(0.1, min(0.99, confidence))
 
             allocation = AssetAllocation(
                 symbol=symbol,
-                asset_class=AssetClass(asset_info.get('asset_class', 'equity')),
+                asset_class=AssetClass(asset_info.get("asset_class", "equity")),
                 weight=weights[i],
                 expected_return=expected_returns[i],
-                risk=np.sqrt(self.historical_data[symbol]['終値'].pct_change().var() * 252) if symbol in self.historical_data else 0.15,
+                risk=np.sqrt(
+                    self.historical_data[symbol]["終値"].pct_change().var() * 252
+                )
+                if symbol in self.historical_data
+                else 0.15,
                 confidence=confidence,
-                last_updated=datetime.now()
+                last_updated=datetime.now(),
             )
             allocations.append(allocation)
 
         return allocations
 
-    def _calculate_portfolio_metrics(self, weights: np.ndarray, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> PortfolioMetrics:
+    def _calculate_portfolio_metrics(
+        self, weights: np.ndarray, expected_returns: np.ndarray, cov_matrix: np.ndarray
+    ) -> PortfolioMetrics:
         """ポートフォリオメトリクス計算"""
         # 基本指標
         portfolio_return = np.dot(weights, expected_returns)
@@ -517,11 +601,17 @@ class PortfolioManager:
         risk_free_rate = 0.02
 
         # シャープレシオ
-        sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility if portfolio_volatility > 0 else 0
+        sharpe_ratio = (
+            (portfolio_return - risk_free_rate) / portfolio_volatility
+            if portfolio_volatility > 0
+            else 0
+        )
 
         # その他の指標（簡易計算）
-        diversification_ratio = np.sum(weights * np.sqrt(np.diag(cov_matrix))) / portfolio_volatility
-        concentration_herfindahl = np.sum(weights ** 2)
+        diversification_ratio = (
+            np.sum(weights * np.sqrt(np.diag(cov_matrix))) / portfolio_volatility
+        )
+        concentration_herfindahl = np.sum(weights**2)
         effective_number_assets = 1 / concentration_herfindahl
 
         # VaR計算（正規分布想定）
@@ -535,8 +625,8 @@ class PortfolioManager:
             accuracies = []
             confidences = []
             for model_info in self.prediction_models.values():
-                perf = model_info['performance']
-                acc = 1.0 - perf.get('final_val_loss', 0.3)
+                perf = model_info["performance"]
+                acc = 1.0 - perf.get("final_val_loss", 0.3)
                 accuracies.append(max(0.1, min(0.99, acc)))
                 confidences.append(acc)
 
@@ -560,10 +650,12 @@ class PortfolioManager:
             effective_number_assets=effective_number_assets,
             prediction_accuracy=prediction_accuracy,
             model_confidence=model_confidence,
-            forecast_horizon_days=30
+            forecast_horizon_days=30,
         )
 
-    def _calculate_risk_contributions(self, weights: np.ndarray, cov_matrix: np.ndarray) -> np.ndarray:
+    def _calculate_risk_contributions(
+        self, weights: np.ndarray, cov_matrix: np.ndarray
+    ) -> np.ndarray:
         """リスク寄与度計算"""
         portfolio_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
         marginal_contrib = np.dot(cov_matrix, weights) / portfolio_vol
@@ -585,7 +677,9 @@ class PortfolioManager:
         # 資産クラス制約（実装簡易版）
         return True
 
-    def _calculate_objective_value(self, weights: np.ndarray, expected_returns: np.ndarray, cov_matrix: np.ndarray) -> float:
+    def _calculate_objective_value(
+        self, weights: np.ndarray, expected_returns: np.ndarray, cov_matrix: np.ndarray
+    ) -> float:
         """目的関数値計算"""
         portfolio_return = np.dot(weights, expected_returns)
         portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
@@ -601,26 +695,37 @@ class PortfolioManager:
             return {"status": "ポートフォリオ未初期化"}
 
         total_weight = sum(alloc.weight for alloc in self.current_allocations)
-        avg_confidence = sum(alloc.confidence * alloc.weight for alloc in self.current_allocations) / total_weight if total_weight > 0 else 0
+        avg_confidence = (
+            sum(alloc.confidence * alloc.weight for alloc in self.current_allocations)
+            / total_weight
+            if total_weight > 0
+            else 0
+        )
 
         asset_class_distribution = {}
         for alloc in self.current_allocations:
             asset_class = alloc.asset_class.value
-            asset_class_distribution[asset_class] = asset_class_distribution.get(asset_class, 0) + alloc.weight
+            asset_class_distribution[asset_class] = (
+                asset_class_distribution.get(asset_class, 0) + alloc.weight
+            )
 
         return {
             "total_assets": len(self.current_allocations),
             "total_weight": total_weight,
             "average_confidence": avg_confidence,
             "asset_class_distribution": asset_class_distribution,
-            "last_optimization": self.last_optimization.isoformat() if self.last_optimization else None,
+            "last_optimization": self.last_optimization.isoformat()
+            if self.last_optimization
+            else None,
             "optimization_method": self.config.optimization_method.value,
             "ml_models_count": len(self.prediction_models),
-            "initialization_status": self.is_initialized
+            "initialization_status": self.is_initialized,
         }
+
 
 # グローバルインスタンス
 _portfolio_manager = None
+
 
 def get_portfolio_manager(config: PortfolioConfig = None) -> PortfolioManager:
     """ポートフォリオマネージャー取得"""

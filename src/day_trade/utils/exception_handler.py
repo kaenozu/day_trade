@@ -22,7 +22,9 @@ from .logging_config import get_context_logger
 class ExceptionContext:
     """例外コンテキスト管理クラス"""
 
-    def __init__(self, component: str, operation: str, logger_name: Optional[str] = None):
+    def __init__(
+        self, component: str, operation: str, logger_name: Optional[str] = None
+    ):
         self.component = component
         self.operation = operation
         self.logger = get_context_logger(logger_name or f"{component}.{operation}")

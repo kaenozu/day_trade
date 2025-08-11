@@ -4,21 +4,21 @@
 関数・メソッドの実行時間・呼び出し回数・エラー率を自動収集
 """
 
-import time
 import functools
-from typing import Callable, Any, Optional
-from datetime import datetime
+import time
+from typing import Any, Callable
 
+from ...utils.logging_config import get_context_logger
 from .prometheus_metrics import (
+    get_ai_metrics,
+    get_health_metrics,
     get_metrics_collector,
     get_risk_metrics,
     get_trading_metrics,
-    get_ai_metrics,
-    get_health_metrics
 )
-from ...utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
+
 
 def measure_execution_time(component: str = "general"):
     """実行時間測定デコレーター"""
@@ -46,8 +46,7 @@ def measure_execution_time(component: str = "general"):
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component=component
+                    error_type=type(e).__name__, component=component
                 )
                 raise
 
@@ -73,18 +72,18 @@ def measure_execution_time(component: str = "general"):
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component=component
+                    error_type=type(e).__name__, component=component
                 )
                 raise
 
         # 非同期関数の場合
-        if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:
+        if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:
             return async_wrapper
         else:
             return sync_wrapper
 
     return decorator
+
 
 def count_method_calls(component: str = "general"):
     """メソッド呼び出し回数カウントデコレーター"""
@@ -94,14 +93,14 @@ def count_method_calls(component: str = "general"):
         def wrapper(*args, **kwargs) -> Any:
             # 呼び出し回数インクリメント
             collector = get_metrics_collector()
-            collector.metrics_collection_total.labels(
-                collector_type=component
-            ).inc()
+            collector.metrics_collection_total.labels(collector_type=component).inc()
 
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
+
 
 def track_errors(component: str = "general"):
     """エラー追跡デコレーター"""
@@ -114,8 +113,7 @@ def track_errors(component: str = "general"):
             except Exception as e:
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component=component
+                    error_type=type(e).__name__, component=component
                 )
                 logger.error(f"追跡対象エラー in {func.__name__}: {e}")
                 raise
@@ -127,19 +125,19 @@ def track_errors(component: str = "general"):
             except Exception as e:
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component=component
+                    error_type=type(e).__name__, component=component
                 )
                 logger.error(f"追跡対象エラー in {func.__name__}: {e}")
                 raise
 
         # 非同期関数判定
-        if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:
+        if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:
             return async_wrapper
         else:
             return sync_wrapper
 
     return decorator
+
 
 def measure_risk_analysis_performance():
     """リスク分析パフォーマンス測定デコレーター"""
@@ -156,7 +154,7 @@ def measure_risk_analysis_performance():
 
                 # リスクレベル判定
                 risk_level = "unknown"
-                if hasattr(result, 'risk_score'):
+                if hasattr(result, "risk_score"):
                     score = result.risk_score
                     if score >= 0.8:
                         risk_level = "critical"
@@ -166,7 +164,7 @@ def measure_risk_analysis_performance():
                         risk_level = "medium"
                     else:
                         risk_level = "low"
-                elif hasattr(result, 'overall_risk_score'):
+                elif hasattr(result, "overall_risk_score"):
                     score = result.overall_risk_score
                     if score >= 0.8:
                         risk_level = "critical"
@@ -181,7 +179,7 @@ def measure_risk_analysis_performance():
                 get_risk_metrics().record_risk_analysis(
                     analysis_type=analysis_type,
                     risk_level=risk_level,
-                    duration=duration
+                    duration=duration,
                 )
 
                 return result
@@ -192,8 +190,7 @@ def measure_risk_analysis_performance():
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component="risk_analysis"
+                    error_type=type(e).__name__, component="risk_analysis"
                 )
                 raise
 
@@ -208,7 +205,7 @@ def measure_risk_analysis_performance():
 
                 # リスクレベル判定
                 risk_level = "unknown"
-                if hasattr(result, 'risk_score'):
+                if hasattr(result, "risk_score"):
                     score = result.risk_score
                     if score >= 0.8:
                         risk_level = "critical"
@@ -223,7 +220,7 @@ def measure_risk_analysis_performance():
                 get_risk_metrics().record_risk_analysis(
                     analysis_type=analysis_type,
                     risk_level=risk_level,
-                    duration=duration
+                    duration=duration,
                 )
 
                 return result
@@ -234,18 +231,18 @@ def measure_risk_analysis_performance():
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component="risk_analysis"
+                    error_type=type(e).__name__, component="risk_analysis"
                 )
                 raise
 
         # 非同期関数判定
-        if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:
+        if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:
             return async_wrapper
         else:
             return sync_wrapper
 
     return decorator
+
 
 def measure_trading_performance():
     """取引パフォーマンス測定デコレーター"""
@@ -267,9 +264,7 @@ def measure_trading_performance():
                 # 取引結果記録
                 trade_result = "success" if result else "failed"
                 get_trading_metrics().trades_total.labels(
-                    trade_type=func.__name__,
-                    symbol="unknown",
-                    result=trade_result
+                    trade_type=func.__name__, symbol="unknown", result=trade_result
                 ).inc()
 
                 return result
@@ -280,20 +275,19 @@ def measure_trading_performance():
 
                 # 失敗した取引記録
                 get_trading_metrics().trades_total.labels(
-                    trade_type=func.__name__,
-                    symbol="unknown",
-                    result="error"
+                    trade_type=func.__name__, symbol="unknown", result="error"
                 ).inc()
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component="trading"
+                    error_type=type(e).__name__, component="trading"
                 )
                 raise
 
         return async_wrapper
+
     return decorator
+
 
 def measure_ai_prediction_performance():
     """AI予測パフォーマンス測定デコレーター"""
@@ -310,8 +304,7 @@ def measure_ai_prediction_performance():
 
                 # AI予測実行記録
                 get_ai_metrics().ai_predictions_total.labels(
-                    model_type=model_type,
-                    symbol="unknown"
+                    model_type=model_type, symbol="unknown"
                 ).inc()
 
                 # AI予測時間記録
@@ -327,8 +320,7 @@ def measure_ai_prediction_performance():
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component="ai_engine"
+                    error_type=type(e).__name__, component="ai_engine"
                 )
                 raise
 
@@ -343,8 +335,7 @@ def measure_ai_prediction_performance():
 
                 # AI予測実行記録
                 get_ai_metrics().ai_predictions_total.labels(
-                    model_type=model_type,
-                    symbol="unknown"
+                    model_type=model_type, symbol="unknown"
                 ).inc()
 
                 # AI予測時間記録
@@ -360,13 +351,12 @@ def measure_ai_prediction_performance():
 
                 # エラーメトリクス記録
                 get_health_metrics().record_error(
-                    error_type=type(e).__name__,
-                    component="ai_engine"
+                    error_type=type(e).__name__, component="ai_engine"
                 )
                 raise
 
         # 非同期関数判定
-        if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:
+        if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:
             return async_wrapper
         else:
             return sync_wrapper

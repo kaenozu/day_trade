@@ -8,25 +8,26 @@ Real-time Risk Monitoring System
 
 import asyncio
 import time
-import json
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 import numpy as np
-import pandas as pd
-from pathlib import Path
+
+from ..data.stock_fetcher_v2 import StockFetcherV2
+from ..realtime.alert_system import AlertLevel, AlertManager
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
 from .risk_coordinator import RiskAnalysisCoordinator, RiskAssessmentSummary
-from ..realtime.alert_system import AlertManager, AlertLevel
-from ..data.stock_fetcher_v2 import StockFetcherV2
 
 logger = get_context_logger(__name__)
+
 
 @dataclass
 class RiskMonitoringConfig:
     """リスク監視設定"""
+
     monitoring_interval_seconds: int = 5
     batch_analysis_interval_minutes: int = 15
     alert_cooldown_minutes: int = 10
@@ -37,9 +38,11 @@ class RiskMonitoringConfig:
     enable_auto_response: bool = True
     max_daily_alerts: int = 100
 
+
 @dataclass
 class MonitoringMetrics:
     """監視メトリクス"""
+
     timestamp: datetime
     active_monitors: int
     total_analyses_today: int
@@ -49,6 +52,7 @@ class MonitoringMetrics:
     system_health_status: str
     processing_queue_size: int
     memory_usage_mb: float
+
 
 class RealTimeRiskMonitor:
     """リアルタイムリスク監視システム"""
@@ -80,21 +84,19 @@ class RealTimeRiskMonitor:
 
         # パフォーマンス統計
         self.performance_stats = {
-            'start_time': None,
-            'total_monitoring_cycles': 0,
-            'total_risk_analyses': 0,
-            'total_alerts_sent': 0,
-            'avg_cycle_time': 0.0,
-            'error_count': 0,
-            'uptime_seconds': 0
+            "start_time": None,
+            "total_monitoring_cycles": 0,
+            "total_risk_analyses": 0,
+            "total_alerts_sent": 0,
+            "avg_cycle_time": 0.0,
+            "error_count": 0,
+            "uptime_seconds": 0,
         }
 
         logger.info("リアルタイムリスク監視システム初期化完了")
 
     async def start_monitoring(
-        self,
-        symbols: List[str],
-        custom_handlers: Optional[Dict[str, Callable]] = None
+        self, symbols: List[str], custom_handlers: Optional[Dict[str, Callable]] = None
     ):
         """監視開始"""
 
@@ -104,7 +106,7 @@ class RealTimeRiskMonitor:
 
         self.active_symbols = symbols
         self.is_running = True
-        self.performance_stats['start_time'] = datetime.now()
+        self.performance_stats["start_time"] = datetime.now()
 
         # カスタムハンドラー登録
         if custom_handlers:
@@ -118,7 +120,7 @@ class RealTimeRiskMonitor:
             asyncio.create_task(self._analysis_worker()),
             asyncio.create_task(self._metrics_collector_loop()),
             asyncio.create_task(self._batch_analysis_loop()),
-            asyncio.create_task(self._alert_manager_loop())
+            asyncio.create_task(self._alert_manager_loop()),
         ]
 
         # タスク実行
@@ -151,9 +153,9 @@ class RealTimeRiskMonitor:
         self.monitoring_tasks.clear()
 
         # 統計更新
-        if self.performance_stats['start_time']:
-            uptime = datetime.now() - self.performance_stats['start_time']
-            self.performance_stats['uptime_seconds'] = uptime.total_seconds()
+        if self.performance_stats["start_time"]:
+            uptime = datetime.now() - self.performance_stats["start_time"]
+            self.performance_stats["uptime_seconds"] = uptime.total_seconds()
 
         logger.info("監視システム停止完了")
 
@@ -178,21 +180,21 @@ class RealTimeRiskMonitor:
 
                 # 監視サイクル統計更新
                 cycle_time = time.time() - cycle_start
-                self.performance_stats['total_monitoring_cycles'] += 1
+                self.performance_stats["total_monitoring_cycles"] += 1
 
                 # 平均サイクル時間更新
-                cycles = self.performance_stats['total_monitoring_cycles']
-                old_avg = self.performance_stats['avg_cycle_time']
-                self.performance_stats['avg_cycle_time'] = (
-                    (old_avg * (cycles - 1) + cycle_time) / cycles
-                )
+                cycles = self.performance_stats["total_monitoring_cycles"]
+                old_avg = self.performance_stats["avg_cycle_time"]
+                self.performance_stats["avg_cycle_time"] = (
+                    old_avg * (cycles - 1) + cycle_time
+                ) / cycles
 
                 # 次のサイクルまで待機
                 await asyncio.sleep(self.config.monitoring_interval_seconds)
 
             except Exception as e:
                 logger.error(f"監視ループエラー: {e}")
-                self.performance_stats['error_count'] += 1
+                self.performance_stats["error_count"] += 1
                 await asyncio.sleep(1)  # エラー時は短時間待機
 
     async def _analysis_worker(self):
@@ -203,10 +205,7 @@ class RealTimeRiskMonitor:
         while self.is_running:
             try:
                 # キューからイベント取得（タイムアウト付き）
-                event = await asyncio.wait_for(
-                    self.analysis_queue.get(),
-                    timeout=1.0
-                )
+                event = await asyncio.wait_for(self.analysis_queue.get(), timeout=1.0)
 
                 # リスク分析実行
                 assessment = await self._analyze_risk_event(event)
@@ -214,7 +213,7 @@ class RealTimeRiskMonitor:
                 if assessment:
                     # アラート評価・送信
                     await self._process_risk_assessment(assessment)
-                    self.performance_stats['total_risk_analyses'] += 1
+                    self.performance_stats["total_risk_analyses"] += 1
 
                 # キュータスク完了マーク
                 self.analysis_queue.task_done()
@@ -224,7 +223,7 @@ class RealTimeRiskMonitor:
                 continue
             except Exception as e:
                 logger.error(f"分析ワーカーエラー: {e}")
-                self.performance_stats['error_count'] += 1
+                self.performance_stats["error_count"] += 1
 
     async def _fetch_market_data(self) -> Dict[str, Any]:
         """市場データ取得"""
@@ -247,7 +246,9 @@ class RealTimeRiskMonitor:
             logger.error(f"市場データ取得エラー: {e}")
             return {}
 
-    async def _detect_risk_events(self, market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _detect_risk_events(
+        self, market_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """リスクイベント検出"""
 
         risk_events = []
@@ -255,64 +256,72 @@ class RealTimeRiskMonitor:
         try:
             for symbol, data in market_data.items():
                 # 価格変動チェック
-                price_change = data.get('price_change_percent', 0)
+                price_change = data.get("price_change_percent", 0)
                 if abs(price_change) > 5:  # 5%以上の変動
-                    risk_events.append({
-                        'type': 'price_volatility',
-                        'symbol': symbol,
-                        'severity': 'high' if abs(price_change) > 10 else 'medium',
-                        'data': data,
-                        'timestamp': datetime.now()
-                    })
+                    risk_events.append(
+                        {
+                            "type": "price_volatility",
+                            "symbol": symbol,
+                            "severity": "high" if abs(price_change) > 10 else "medium",
+                            "data": data,
+                            "timestamp": datetime.now(),
+                        }
+                    )
 
                 # 取引量チェック
-                volume_ratio = data.get('volume_ratio', 1.0)
+                volume_ratio = data.get("volume_ratio", 1.0)
                 if volume_ratio > 3.0:  # 通常の3倍以上
-                    risk_events.append({
-                        'type': 'volume_spike',
-                        'symbol': symbol,
-                        'severity': 'medium',
-                        'data': data,
-                        'timestamp': datetime.now()
-                    })
+                    risk_events.append(
+                        {
+                            "type": "volume_spike",
+                            "symbol": symbol,
+                            "severity": "medium",
+                            "data": data,
+                            "timestamp": datetime.now(),
+                        }
+                    )
 
                 # テクニカル指標チェック
-                rsi = data.get('rsi', 50)
+                rsi = data.get("rsi", 50)
                 if rsi > 80 or rsi < 20:  # 過熱状態
-                    risk_events.append({
-                        'type': 'technical_signal',
-                        'symbol': symbol,
-                        'severity': 'low',
-                        'data': data,
-                        'timestamp': datetime.now()
-                    })
+                    risk_events.append(
+                        {
+                            "type": "technical_signal",
+                            "symbol": symbol,
+                            "severity": "low",
+                            "data": data,
+                            "timestamp": datetime.now(),
+                        }
+                    )
 
         except Exception as e:
             logger.error(f"リスクイベント検出エラー: {e}")
 
         return risk_events
 
-    async def _analyze_risk_event(self, event: Dict[str, Any]) -> Optional[RiskAssessmentSummary]:
+    async def _analyze_risk_event(
+        self, event: Dict[str, Any]
+    ) -> Optional[RiskAssessmentSummary]:
         """リスクイベント分析"""
 
         try:
             # イベントを取引データ形式に変換
             transaction_data = {
-                'symbol': event['symbol'],
-                'type': 'market_event',
-                'amount': 1000000,  # デフォルト金額
-                'timestamp': event['timestamp'].isoformat(),
-                'event_type': event['type'],
-                'severity': event['severity'],
-                'market_conditions': event['data']
+                "symbol": event["symbol"],
+                "type": "market_event",
+                "amount": 1000000,  # デフォルト金額
+                "timestamp": event["timestamp"].isoformat(),
+                "event_type": event["type"],
+                "severity": event["severity"],
+                "market_conditions": event["data"],
             }
 
             # 包括的リスク分析
             assessment = await self.risk_coordinator.comprehensive_risk_assessment(
                 transaction_data,
-                market_context=event['data'],
+                market_context=event["data"],
                 enable_ai_analysis=True,
-                enable_fraud_detection=False  # 市場イベントでは不正検知は無効
+                enable_fraud_detection=False,  # 市場イベントでは不正検知は無効
             )
 
             return assessment
@@ -346,52 +355,52 @@ class RealTimeRiskMonitor:
         """重要リスク処理"""
 
         # クールダウンチェック
-        if not self._check_alert_cooldown(assessment.request_id, 'critical'):
+        if not self._check_alert_cooldown(assessment.request_id, "critical"):
             return
 
         await self.alert_manager.create_alert(
             title=f"🚨 重要リスクアラート: {assessment.risk_category.upper()}",
             message=f"銘柄: {assessment.component_results.get('symbol', 'N/A')}\n"
-                   f"リスクスコア: {assessment.overall_risk_score:.3f}\n"
-                   f"推定損失: ¥{assessment.estimated_loss_potential:,.0f}\n"
-                   f"緊急対応が必要です",
+            f"リスクスコア: {assessment.overall_risk_score:.3f}\n"
+            f"推定損失: ¥{assessment.estimated_loss_potential:,.0f}\n"
+            f"緊急対応が必要です",
             level=AlertLevel.CRITICAL,
             source="RealTimeMonitor",
-            metadata=asdict(assessment)
+            metadata=asdict(assessment),
         )
 
-        self.performance_stats['total_alerts_sent'] += 1
+        self.performance_stats["total_alerts_sent"] += 1
         logger.critical(f"重要リスクアラート送信: {assessment.request_id}")
 
     async def _handle_high_risk(self, assessment: RiskAssessmentSummary):
         """高リスク処理"""
 
-        if not self._check_alert_cooldown(assessment.request_id, 'high'):
+        if not self._check_alert_cooldown(assessment.request_id, "high"):
             return
 
         await self.alert_manager.create_alert(
-            title=f"⚠️ 高リスクアラート",
+            title="⚠️ 高リスクアラート",
             message=f"リスクスコア: {assessment.overall_risk_score:.3f}\n"
-                   f"監視強化が推奨されます",
+            f"監視強化が推奨されます",
             level=AlertLevel.HIGH,
             source="RealTimeMonitor",
-            metadata=asdict(assessment)
+            metadata=asdict(assessment),
         )
 
-        self.performance_stats['total_alerts_sent'] += 1
+        self.performance_stats["total_alerts_sent"] += 1
 
     async def _handle_medium_risk(self, assessment: RiskAssessmentSummary):
         """中程度リスク処理"""
 
-        if not self._check_alert_cooldown(assessment.request_id, 'medium'):
+        if not self._check_alert_cooldown(assessment.request_id, "medium"):
             return
 
         await self.alert_manager.create_alert(
-            title=f"📊 中程度リスクアラート",
+            title="📊 中程度リスクアラート",
             message=f"リスクスコア: {assessment.overall_risk_score:.3f}",
             level=AlertLevel.MEDIUM,
             source="RealTimeMonitor",
-            metadata=asdict(assessment)
+            metadata=asdict(assessment),
         )
 
     def _check_alert_cooldown(self, request_id: str, risk_level: str) -> bool:
@@ -438,13 +447,13 @@ class RealTimeRiskMonitor:
                 metrics = MonitoringMetrics(
                     timestamp=datetime.now(),
                     active_monitors=len(self.active_symbols),
-                    total_analyses_today=self.performance_stats['total_risk_analyses'],
-                    alerts_sent_today=self.performance_stats['total_alerts_sent'],
+                    total_analyses_today=self.performance_stats["total_risk_analyses"],
+                    alerts_sent_today=self.performance_stats["total_alerts_sent"],
                     average_risk_score=self._calculate_average_risk_score(),
                     critical_alerts_count=self._count_critical_alerts_today(),
                     system_health_status=self._assess_system_health(),
                     processing_queue_size=self.analysis_queue.qsize(),
-                    memory_usage_mb=self._get_memory_usage()
+                    memory_usage_mb=self._get_memory_usage(),
                 )
 
                 # メトリクス履歴に追加
@@ -507,8 +516,8 @@ class RealTimeRiskMonitor:
         critical_count = 0
 
         for alert_data in self.alert_history:
-            alert_date = datetime.fromisoformat(alert_data['timestamp']).date()
-            if alert_date == today and alert_data.get('level') == 'critical':
+            alert_date = datetime.fromisoformat(alert_data["timestamp"]).date()
+            if alert_date == today and alert_data.get("level") == "critical":
                 critical_count += 1
 
         return critical_count
@@ -516,23 +525,25 @@ class RealTimeRiskMonitor:
     def _assess_system_health(self) -> str:
         """システムヘルス評価"""
 
-        error_rate = (self.performance_stats['error_count'] /
-                     max(1, self.performance_stats['total_monitoring_cycles']))
+        error_rate = self.performance_stats["error_count"] / max(
+            1, self.performance_stats["total_monitoring_cycles"]
+        )
 
         queue_size = self.analysis_queue.qsize()
 
         if error_rate > 0.1 or queue_size > 100:
-            return 'critical'
+            return "critical"
         elif error_rate > 0.05 or queue_size > 50:
-            return 'warning'
+            return "warning"
         else:
-            return 'healthy'
+            return "healthy"
 
     def _get_memory_usage(self) -> float:
         """メモリ使用量取得"""
 
         try:
             import psutil
+
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024  # MB
         except ImportError:
@@ -550,19 +561,20 @@ class RealTimeRiskMonitor:
             # バッチリスク分析用データ作成
             transactions = []
             for symbol, data in market_data.items():
-                transactions.append({
-                    'symbol': symbol,
-                    'type': 'batch_analysis',
-                    'amount': 1000000,
-                    'timestamp': datetime.now().isoformat(),
-                    'market_conditions': data
-                })
+                transactions.append(
+                    {
+                        "symbol": symbol,
+                        "type": "batch_analysis",
+                        "amount": 1000000,
+                        "timestamp": datetime.now().isoformat(),
+                        "market_conditions": data,
+                    }
+                )
 
             # バッチ分析実行
             if transactions:
                 results = await self.risk_coordinator.batch_risk_assessment(
-                    transactions,
-                    concurrent_limit=self.config.max_concurrent_analyses
+                    transactions, concurrent_limit=self.config.max_concurrent_analyses
                 )
 
                 logger.info(f"バッチ分析完了: {len(results)}件処理")
@@ -576,8 +588,9 @@ class RealTimeRiskMonitor:
         cutoff = datetime.now() - timedelta(days=7)  # 7日前
 
         self.alert_history = [
-            alert for alert in self.alert_history
-            if datetime.fromisoformat(alert['timestamp']) > cutoff
+            alert
+            for alert in self.alert_history
+            if datetime.fromisoformat(alert["timestamp"]) > cutoff
         ]
 
     async def _update_alert_statistics(self):
@@ -587,29 +600,35 @@ class RealTimeRiskMonitor:
 
         if today not in self.daily_statistics:
             self.daily_statistics[today] = {
-                'alerts_sent': 0,
-                'critical_alerts': 0,
-                'high_alerts': 0,
-                'medium_alerts': 0,
-                'low_alerts': 0
+                "alerts_sent": 0,
+                "critical_alerts": 0,
+                "high_alerts": 0,
+                "medium_alerts": 0,
+                "low_alerts": 0,
             }
 
     def get_monitoring_status(self) -> Dict[str, Any]:
         """監視状況取得"""
 
         uptime = 0
-        if self.performance_stats['start_time']:
-            uptime = (datetime.now() - self.performance_stats['start_time']).total_seconds()
+        if self.performance_stats["start_time"]:
+            uptime = (
+                datetime.now() - self.performance_stats["start_time"]
+            ).total_seconds()
 
         return {
-            'is_running': self.is_running,
-            'uptime_seconds': uptime,
-            'active_symbols': len(self.active_symbols),
-            'performance_stats': self.performance_stats,
-            'current_metrics': self.monitoring_metrics[-1] if self.monitoring_metrics else None,
-            'alert_queue_size': self.analysis_queue.qsize(),
-            'system_health': self._assess_system_health(),
-            'daily_statistics': dict(list(self.daily_statistics.items())[-7:])  # 最新7日分
+            "is_running": self.is_running,
+            "uptime_seconds": uptime,
+            "active_symbols": len(self.active_symbols),
+            "performance_stats": self.performance_stats,
+            "current_metrics": self.monitoring_metrics[-1]
+            if self.monitoring_metrics
+            else None,
+            "alert_queue_size": self.analysis_queue.qsize(),
+            "system_health": self._assess_system_health(),
+            "daily_statistics": dict(
+                list(self.daily_statistics.items())[-7:]
+            ),  # 最新7日分
         }
 
     def register_response_handler(self, risk_level: str, handler: Callable):
@@ -617,6 +636,7 @@ class RealTimeRiskMonitor:
 
         self.response_handlers[risk_level] = handler
         logger.info(f"自動応答ハンドラー登録: {risk_level}")
+
 
 # テスト・デモ用関数
 async def test_realtime_monitor():
@@ -626,7 +646,7 @@ async def test_realtime_monitor():
     config = RiskMonitoringConfig(
         monitoring_interval_seconds=2,
         batch_analysis_interval_minutes=5,
-        alert_cooldown_minutes=1
+        alert_cooldown_minutes=1,
     )
 
     monitor = RealTimeRiskMonitor(config)
@@ -639,20 +659,18 @@ async def test_realtime_monitor():
         print(f"⚠️ 高リスク自動応答: {assessment.request_id}")
 
     # ハンドラー登録
-    monitor.register_response_handler('critical', critical_response_handler)
-    monitor.register_response_handler('high', high_response_handler)
+    monitor.register_response_handler("critical", critical_response_handler)
+    monitor.register_response_handler("high", high_response_handler)
 
     # テスト銘柄
-    test_symbols = ['7203', '6758', '9984']  # トヨタ、ソニー、ソフトバンク
+    test_symbols = ["7203", "6758", "9984"]  # トヨタ、ソニー、ソフトバンク
 
     print("🖥️ リアルタイムリスク監視システムテスト開始")
     print(f"📊 監視銘柄: {', '.join(test_symbols)}")
     print("⏱️ テスト時間: 30秒")
 
     # 監視開始（30秒間）
-    monitor_task = asyncio.create_task(
-        monitor.start_monitoring(test_symbols)
-    )
+    monitor_task = asyncio.create_task(monitor.start_monitoring(test_symbols))
 
     try:
         await asyncio.wait_for(monitor_task, timeout=30)
@@ -661,12 +679,13 @@ async def test_realtime_monitor():
 
     # 結果表示
     status = monitor.get_monitoring_status()
-    print(f"\n📈 監視結果:")
+    print("\n📈 監視結果:")
     print(f"  総監視サイクル: {status['performance_stats']['total_monitoring_cycles']}")
     print(f"  総分析数: {status['performance_stats']['total_risk_analyses']}")
     print(f"  送信アラート数: {status['performance_stats']['total_alerts_sent']}")
     print(f"  エラー数: {status['performance_stats']['error_count']}")
     print(f"  システムヘルス: {status['system_health']}")
+
 
 if __name__ == "__main__":
     asyncio.run(test_realtime_monitor())

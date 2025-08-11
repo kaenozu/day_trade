@@ -4,18 +4,29 @@ Global Trading Engine Database Models
 グローバル市場統合データモデル
 """
 
-from datetime import datetime
-from decimal import Decimal
-from typing import Optional
 
-from sqlalchemy import Column, DateTime, String, Integer, Numeric, Text, Boolean, JSON, Enum, Index
-from sqlalchemy.sql import func
 import enum
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.sql import func
 
 from .base import Base
 
+
 class MarketType(enum.Enum):
     """市場タイプ列挙"""
+
     STOCK = "stock"
     FOREX = "forex"
     CRYPTO = "crypto"
@@ -23,10 +34,11 @@ class MarketType(enum.Enum):
     BOND = "bond"
     INDEX = "index"
 
+
 class GlobalMarketData(Base):
     """グローバル市場統合データ"""
 
-    __tablename__ = 'global_market_data'
+    __tablename__ = "global_market_data"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
@@ -54,24 +66,25 @@ class GlobalMarketData(Base):
     market_specific_data = Column(JSON, nullable=True)
 
     # メタデータ
-    source = Column(String(50), nullable=False, default='api')
+    source = Column(String(50), nullable=False, default="api")
     exchange = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # インデックス設定
     __table_args__ = (
-        Index('idx_global_symbol_type_time', 'symbol', 'market_type', 'timestamp'),
-        Index('idx_global_market_time', 'market_type', 'timestamp'),
-        Index('idx_global_timestamp_desc', 'timestamp', postgresql_using='btree'),
+        Index("idx_global_symbol_type_time", "symbol", "market_type", "timestamp"),
+        Index("idx_global_market_time", "market_type", "timestamp"),
+        Index("idx_global_timestamp_desc", "timestamp", postgresql_using="btree"),
     )
 
     def __repr__(self):
         return f"<GlobalMarketData(symbol={self.symbol}, type={self.market_type.value}, price={self.price})>"
 
+
 class CrossMarketCorrelation(Base):
     """クロスマーケット相関データ"""
 
-    __tablename__ = 'cross_market_correlations'
+    __tablename__ = "cross_market_correlations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
@@ -94,32 +107,37 @@ class CrossMarketCorrelation(Base):
     p_value = Column(Numeric(precision=10, scale=8), nullable=True)
 
     # メタデータ
-    calculation_method = Column(String(50), default='pearson')
+    calculation_method = Column(String(50), default="pearson")
     last_updated = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # インデックス設定
     __table_args__ = (
-        Index('idx_cross_corr_assets', 'asset1_symbol', 'asset2_symbol'),
-        Index('idx_cross_corr_markets', 'asset1_market', 'asset2_market'),
-        Index('idx_cross_corr_updated', 'last_updated'),
+        Index("idx_cross_corr_assets", "asset1_symbol", "asset2_symbol"),
+        Index("idx_cross_corr_markets", "asset1_market", "asset2_market"),
+        Index("idx_cross_corr_updated", "last_updated"),
     )
 
     def __repr__(self):
-        return (f"<CrossMarketCorrelation({self.asset1_symbol}[{self.asset1_market.value}] "
-                f"vs {self.asset2_symbol}[{self.asset2_market.value}], corr_1d={self.correlation_1d})>")
+        return (
+            f"<CrossMarketCorrelation({self.asset1_symbol}[{self.asset1_market.value}] "
+            f"vs {self.asset2_symbol}[{self.asset2_market.value}], corr_1d={self.correlation_1d})>"
+        )
+
 
 class GlobalMarketEvent(Base):
     """グローバル市場イベント"""
 
-    __tablename__ = 'global_market_events'
+    __tablename__ = "global_market_events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # イベント基本情報
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
-    event_type = Column(String(100), nullable=False, index=True)  # earnings, fed_meeting, news, etc.
+    event_type = Column(
+        String(100), nullable=False, index=True
+    )  # earnings, fed_meeting, news, etc.
 
     # 影響範囲
     affected_markets = Column(JSON, nullable=True)  # ["stock", "forex", "crypto"]
@@ -145,23 +163,26 @@ class GlobalMarketEvent(Base):
 
     # インデックス設定
     __table_args__ = (
-        Index('idx_global_event_datetime', 'event_datetime'),
-        Index('idx_global_event_importance', 'importance_level', 'event_datetime'),
-        Index('idx_global_event_type', 'event_type', 'event_datetime'),
+        Index("idx_global_event_datetime", "event_datetime"),
+        Index("idx_global_event_importance", "importance_level", "event_datetime"),
+        Index("idx_global_event_type", "event_type", "event_datetime"),
     )
 
     def __repr__(self):
         return f"<GlobalMarketEvent(title={self.title[:50]}..., importance={self.importance_level})>"
 
+
 class TradingSession(Base):
     """取引セッション情報"""
 
-    __tablename__ = 'trading_sessions'
+    __tablename__ = "trading_sessions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # セッション情報
-    session_name = Column(String(100), nullable=False)  # "Tokyo", "London", "New York", "Sydney"
+    session_name = Column(
+        String(100), nullable=False
+    )  # "Tokyo", "London", "New York", "Sydney"
     market_type = Column(Enum(MarketType), nullable=False)
 
     # 時間情報
@@ -187,23 +208,26 @@ class TradingSession(Base):
 
     # インデックス設定
     __table_args__ = (
-        Index('idx_session_name_date', 'session_name', 'session_date'),
-        Index('idx_session_market_date', 'market_type', 'session_date'),
+        Index("idx_session_name_date", "session_name", "session_date"),
+        Index("idx_session_market_date", "market_type", "session_date"),
     )
 
     def __repr__(self):
         return f"<TradingSession(name={self.session_name}, date={self.session_date}, market={self.market_type.value})>"
 
+
 class SystemPerformanceMetrics(Base):
     """システムパフォーマンス指標"""
 
-    __tablename__ = 'system_performance_metrics'
+    __tablename__ = "system_performance_metrics"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # 時系列データ
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
-    metric_type = Column(String(100), nullable=False, index=True)  # "prediction_accuracy", "latency", etc.
+    metric_type = Column(
+        String(100), nullable=False, index=True
+    )  # "prediction_accuracy", "latency", etc.
 
     # メトリクス値
     value = Column(Numeric(precision=20, scale=8), nullable=False)
@@ -211,18 +235,22 @@ class SystemPerformanceMetrics(Base):
 
     # 詳細データ
     details = Column(JSON, nullable=True)
-    component = Column(String(100), nullable=True, index=True)  # "ml_engine", "data_collector", etc.
+    component = Column(
+        String(100), nullable=True, index=True
+    )  # "ml_engine", "data_collector", etc.
 
     # メタデータ
-    environment = Column(String(50), default='production')  # production, development, test
+    environment = Column(
+        String(50), default="production"
+    )  # production, development, test
     version = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # インデックス設定
     __table_args__ = (
-        Index('idx_perf_type_time', 'metric_type', 'timestamp'),
-        Index('idx_perf_component_time', 'component', 'timestamp'),
-        Index('idx_perf_timestamp_desc', 'timestamp', postgresql_using='btree'),
+        Index("idx_perf_type_time", "metric_type", "timestamp"),
+        Index("idx_perf_component_time", "component", "timestamp"),
+        Index("idx_perf_timestamp_desc", "timestamp", postgresql_using="btree"),
     )
 
     def __repr__(self):

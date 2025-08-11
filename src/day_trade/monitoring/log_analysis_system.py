@@ -6,22 +6,22 @@ Phase G: 本番運用最適化フェーズ
 ログ収集・分析・パターン検出・異常検知システム
 """
 
-import os
-import re
-import json
-import time
 import hashlib
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Set, Tuple
-from dataclasses import dataclass, asdict
-from collections import defaultdict, deque, Counter
-from pathlib import Path
-from enum import Enum
+import json
+import re
 import threading
+import time
+from collections import Counter, defaultdict, deque
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class LogLevel(Enum):
     """ログレベル"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -31,6 +31,7 @@ class LogLevel(Enum):
 
 class AnomalyType(Enum):
     """異常タイプ"""
+
     ERROR_SPIKE = "error_spike"
     UNUSUAL_PATTERN = "unusual_pattern"
     PERFORMANCE_DEGRADATION = "performance_degradation"
@@ -41,6 +42,7 @@ class AnomalyType(Enum):
 @dataclass
 class LogEntry:
     """ログエントリ"""
+
     timestamp: datetime
     level: LogLevel
     component: str
@@ -54,6 +56,7 @@ class LogEntry:
 @dataclass
 class LogPattern:
     """ログパターン"""
+
     pattern_id: str
     regex: str
     description: str
@@ -67,6 +70,7 @@ class LogPattern:
 @dataclass
 class Anomaly:
     """異常検知結果"""
+
     anomaly_id: str
     type: AnomalyType
     severity: LogLevel
@@ -83,72 +87,79 @@ class LogParser:
     def __init__(self):
         self.patterns = {
             # 一般的なログフォーマット
-            'standard': re.compile(
-                r'(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d{3})'
-                r'\s*-\s*(?P<component>\S+)\s*-\s*(?P<level>\w+)\s*-\s*'
-                r'(?P<message>.*)'
+            "standard": re.compile(
+                r"(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d{3})"
+                r"\s*-\s*(?P<component>\S+)\s*-\s*(?P<level>\w+)\s*-\s*"
+                r"(?P<message>.*)"
             ),
-
             # Python logging フォーマット
-            'python': re.compile(
-                r'(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d{3})'
-                r'\s+(?P<level>\w+)\s+(?P<component>\S+)\s+(?P<message>.*)'
+            "python": re.compile(
+                r"(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d{3})"
+                r"\s+(?P<level>\w+)\s+(?P<component>\S+)\s+(?P<message>.*)"
             ),
-
             # JSON形式ログ
-            'json': re.compile(r'^{.*}$'),
-
+            "json": re.compile(r"^{.*}$"),
             # エラーパターン
-            'error_traceback': re.compile(r'Traceback \(most recent call last\):'),
-            'exception': re.compile(r'(?P<exception>\w*Error|Exception):\s*(?P<message>.*)')
+            "error_traceback": re.compile(r"Traceback \(most recent call last\):"),
+            "exception": re.compile(
+                r"(?P<exception>\w*Error|Exception):\s*(?P<message>.*)"
+            ),
         }
 
-    def parse_log_line(self, line: str, line_number: int, file_path: str) -> Optional[LogEntry]:
+    def parse_log_line(
+        self, line: str, line_number: int, file_path: str
+    ) -> Optional[LogEntry]:
         """ログ行パース"""
         line = line.strip()
         if not line:
             return None
 
         # JSON形式チェック
-        if self.patterns['json'].match(line):
+        if self.patterns["json"].match(line):
             try:
                 data = json.loads(line)
                 return LogEntry(
-                    timestamp=datetime.fromisoformat(data.get('timestamp', '')),
-                    level=LogLevel(data.get('level', 'INFO')),
-                    component=data.get('component', 'unknown'),
-                    message=data.get('message', ''),
+                    timestamp=datetime.fromisoformat(data.get("timestamp", "")),
+                    level=LogLevel(data.get("level", "INFO")),
+                    component=data.get("component", "unknown"),
+                    message=data.get("message", ""),
                     metadata=data,
                     raw_line=line,
                     line_number=line_number,
-                    file_path=file_path
+                    file_path=file_path,
                 )
             except (json.JSONDecodeError, ValueError):
                 pass
 
         # 標準フォーマットパース
-        for pattern_name, pattern in [('standard', self.patterns['standard']),
-                                     ('python', self.patterns['python'])]:
+        for pattern_name, pattern in [
+            ("standard", self.patterns["standard"]),
+            ("python", self.patterns["python"]),
+        ]:
             match = pattern.match(line)
             if match:
                 try:
-                    timestamp_str = match.group('timestamp')
+                    timestamp_str = match.group("timestamp")
                     # タイムスタンプ形式の正規化
-                    timestamp_str = timestamp_str.replace(',', '.')
-                    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+                    timestamp_str = timestamp_str.replace(",", ".")
+                    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f")
 
-                    level_str = match.group('level').upper()
-                    level = LogLevel(level_str) if level_str in [l.value for l in LogLevel] else LogLevel.INFO
+                    level_str = match.group("level").upper()
+                    level = (
+                        LogLevel(level_str)
+                        if level_str in [l.value for l in LogLevel]
+                        else LogLevel.INFO
+                    )
 
                     return LogEntry(
                         timestamp=timestamp,
                         level=level,
-                        component=match.group('component'),
-                        message=match.group('message'),
-                        metadata={'parser': pattern_name},
+                        component=match.group("component"),
+                        message=match.group("message"),
+                        metadata={"parser": pattern_name},
                         raw_line=line,
                         line_number=line_number,
-                        file_path=file_path
+                        file_path=file_path,
                     )
                 except (ValueError, KeyError):
                     continue
@@ -157,12 +168,12 @@ class LogParser:
         return LogEntry(
             timestamp=datetime.now(),
             level=LogLevel.INFO,
-            component='unknown',
+            component="unknown",
             message=line,
-            metadata={'parser': 'fallback'},
+            metadata={"parser": "fallback"},
             raw_line=line,
             line_number=line_number,
-            file_path=file_path
+            file_path=file_path,
         )
 
 
@@ -181,50 +192,50 @@ class PatternDetector:
                 pattern_id="error_connection",
                 regex=r".*connection.*(?:failed|error|timeout|refused).*",
                 description="接続エラー",
-                severity=LogLevel.ERROR
+                severity=LogLevel.ERROR,
             ),
             LogPattern(
                 pattern_id="error_authentication",
                 regex=r".*(?:auth|login|credential).*(?:failed|error|invalid).*",
                 description="認証エラー",
-                severity=LogLevel.ERROR
+                severity=LogLevel.ERROR,
             ),
             LogPattern(
                 pattern_id="error_permission",
                 regex=r".*(?:permission|access).*denied.*",
                 description="権限エラー",
-                severity=LogLevel.ERROR
+                severity=LogLevel.ERROR,
             ),
             LogPattern(
                 pattern_id="error_memory",
                 regex=r".*(?:memory|ram|heap).*(?:error|full|limit|exceeded).*",
                 description="メモリエラー",
-                severity=LogLevel.CRITICAL
+                severity=LogLevel.CRITICAL,
             ),
             LogPattern(
                 pattern_id="error_disk",
                 regex=r".*(?:disk|storage|space).*(?:full|error|failed).*",
                 description="ディスクエラー",
-                severity=LogLevel.CRITICAL
+                severity=LogLevel.CRITICAL,
             ),
             LogPattern(
                 pattern_id="warning_performance",
                 regex=r".*(?:slow|timeout|delay|latency).*",
                 description="パフォーマンス警告",
-                severity=LogLevel.WARNING
+                severity=LogLevel.WARNING,
             ),
             LogPattern(
                 pattern_id="info_startup",
                 regex=r".*(?:start|init|boot|launch).*(?:complete|success|ready).*",
                 description="システム起動",
-                severity=LogLevel.INFO
+                severity=LogLevel.INFO,
             ),
             LogPattern(
                 pattern_id="security_attempt",
                 regex=r".*(?:suspicious|attack|intrusion|breach|hack).*",
                 description="セキュリティ脅威",
-                severity=LogLevel.CRITICAL
-            )
+                severity=LogLevel.CRITICAL,
+            ),
         ]
 
         for pattern in default_patterns:
@@ -279,18 +290,20 @@ class PatternDetector:
             # キーワードベースのパターン生成
             keywords = [w for w in words if len(w) > 3][:3]
             if keywords:
-                pattern_id = f"auto_{hashlib.md5('_'.join(keywords).encode()).hexdigest()[:8]}"
+                pattern_id = (
+                    f"auto_{hashlib.md5('_'.join(keywords).encode()).hexdigest()[:8]}"
+                )
 
                 if pattern_id not in self.known_patterns:
                     self.known_patterns[pattern_id] = LogPattern(
                         pattern_id=pattern_id,
-                        regex='.*' + '.*'.join(re.escape(k) for k in keywords) + '.*',
+                        regex=".*" + ".*".join(re.escape(k) for k in keywords) + ".*",
                         description=f"Auto-detected: {' '.join(keywords)}",
                         severity=entry.level,
                         count=1,
                         first_seen=entry.timestamp,
                         last_seen=entry.timestamp,
-                        examples=[entry.message[:200]]
+                        examples=[entry.message[:200]],
                     )
 
                     self.pattern_cache[message_hash] = pattern_id
@@ -303,8 +316,9 @@ class AnomalyDetector:
         self.baseline_metrics = {}
         self.anomaly_threshold = 2.0  # 標準偏差の倍数
 
-    def detect_anomalies(self, log_entries: List[LogEntry],
-                        patterns: List[LogPattern]) -> List[Anomaly]:
+    def detect_anomalies(
+        self, log_entries: List[LogEntry], patterns: List[LogPattern]
+    ) -> List[Anomaly]:
         """異常検知"""
         anomalies = []
 
@@ -338,7 +352,8 @@ class AnomalyDetector:
             if entry.level in [LogLevel.ERROR, LogLevel.CRITICAL]:
                 time_bucket = entry.timestamp.replace(
                     minute=entry.timestamp.minute // window_minutes * window_minutes,
-                    second=0, microsecond=0
+                    second=0,
+                    microsecond=0,
                 )
                 error_counts[time_bucket] += 1
 
@@ -357,9 +372,14 @@ class AnomalyDetector:
                 severity=LogLevel.CRITICAL,
                 description=f"エラー急増検知: {latest_count}件/5分 (平均: {avg_count:.1f}件)",
                 timestamp=datetime.now(),
-                affected_components=self._get_affected_components(log_entries, LogLevel.ERROR),
-                metrics={'error_count': latest_count, 'avg_count': avg_count},
-                evidence=[f"エラー数: {latest_count}", f"平均エラー数: {avg_count:.1f}"]
+                affected_components=self._get_affected_components(
+                    log_entries, LogLevel.ERROR
+                ),
+                metrics={"error_count": latest_count, "avg_count": avg_count},
+                evidence=[
+                    f"エラー数: {latest_count}",
+                    f"平均エラー数: {avg_count:.1f}",
+                ],
             )
 
         return None
@@ -371,22 +391,29 @@ class AnomalyDetector:
         for pattern in patterns:
             if pattern.count > 100:  # 頻出パターン
                 if pattern.severity in [LogLevel.ERROR, LogLevel.CRITICAL]:
-                    anomalies.append(Anomaly(
-                        anomaly_id=f"pattern_{pattern.pattern_id}_{int(time.time())}",
-                        type=AnomalyType.UNUSUAL_PATTERN,
-                        severity=pattern.severity,
-                        description=f"異常パターン頻発: {pattern.description} ({pattern.count}回)",
-                        timestamp=datetime.now(),
-                        affected_components=[],
-                        metrics={'pattern_count': pattern.count},
-                        evidence=[f"パターン: {pattern.description}", f"発生回数: {pattern.count}"]
-                    ))
+                    anomalies.append(
+                        Anomaly(
+                            anomaly_id=f"pattern_{pattern.pattern_id}_{int(time.time())}",
+                            type=AnomalyType.UNUSUAL_PATTERN,
+                            severity=pattern.severity,
+                            description=f"異常パターン頻発: {pattern.description} ({pattern.count}回)",
+                            timestamp=datetime.now(),
+                            affected_components=[],
+                            metrics={"pattern_count": pattern.count},
+                            evidence=[
+                                f"パターン: {pattern.description}",
+                                f"発生回数: {pattern.count}",
+                            ],
+                        )
+                    )
 
         return anomalies
 
-    def _detect_performance_degradation(self, log_entries: List[LogEntry]) -> Optional[Anomaly]:
+    def _detect_performance_degradation(
+        self, log_entries: List[LogEntry]
+    ) -> Optional[Anomaly]:
         """パフォーマンス劣化検知"""
-        perf_keywords = ['slow', 'timeout', 'delay', 'latency', 'performance']
+        perf_keywords = ["slow", "timeout", "delay", "latency", "performance"]
         perf_count = 0
 
         for entry in log_entries:
@@ -402,43 +429,60 @@ class AnomalyDetector:
                 description=f"パフォーマンス劣化検知: {perf_count}件のパフォーマンス関連ログ",
                 timestamp=datetime.now(),
                 affected_components=self._get_affected_components(log_entries),
-                metrics={'perf_log_count': perf_count, 'total_logs': len(log_entries)},
-                evidence=[f"パフォーマンス関連ログ: {perf_count}件", f"全ログ: {len(log_entries)}件"]
+                metrics={"perf_log_count": perf_count, "total_logs": len(log_entries)},
+                evidence=[
+                    f"パフォーマンス関連ログ: {perf_count}件",
+                    f"全ログ: {len(log_entries)}件",
+                ],
             )
 
         return None
 
-    def _detect_security_threats(self, log_entries: List[LogEntry],
-                               patterns: List[LogPattern]) -> List[Anomaly]:
+    def _detect_security_threats(
+        self, log_entries: List[LogEntry], patterns: List[LogPattern]
+    ) -> List[Anomaly]:
         """セキュリティ脅威検知"""
         anomalies = []
 
         security_indicators = [
-            'attack', 'intrusion', 'breach', 'unauthorized', 'suspicious',
-            'malware', 'virus', 'hack', 'exploit', 'injection'
+            "attack",
+            "intrusion",
+            "breach",
+            "unauthorized",
+            "suspicious",
+            "malware",
+            "virus",
+            "hack",
+            "exploit",
+            "injection",
         ]
 
         security_logs = []
         for entry in log_entries:
-            if any(indicator in entry.message.lower() for indicator in security_indicators):
+            if any(
+                indicator in entry.message.lower() for indicator in security_indicators
+            ):
                 security_logs.append(entry)
 
         if len(security_logs) > 5:  # セキュリティ関連ログが5件以上
-            anomalies.append(Anomaly(
-                anomaly_id=f"security_threat_{int(time.time())}",
-                type=AnomalyType.SECURITY_THREAT,
-                severity=LogLevel.CRITICAL,
-                description=f"セキュリティ脅威検知: {len(security_logs)}件の疑わしい活動",
-                timestamp=datetime.now(),
-                affected_components=self._get_affected_components(security_logs),
-                metrics={'security_log_count': len(security_logs)},
-                evidence=[log.message[:100] for log in security_logs[:3]]
-            ))
+            anomalies.append(
+                Anomaly(
+                    anomaly_id=f"security_threat_{int(time.time())}",
+                    type=AnomalyType.SECURITY_THREAT,
+                    severity=LogLevel.CRITICAL,
+                    description=f"セキュリティ脅威検知: {len(security_logs)}件の疑わしい活動",
+                    timestamp=datetime.now(),
+                    affected_components=self._get_affected_components(security_logs),
+                    metrics={"security_log_count": len(security_logs)},
+                    evidence=[log.message[:100] for log in security_logs[:3]],
+                )
+            )
 
         return anomalies
 
-    def _get_affected_components(self, log_entries: List[LogEntry],
-                               level_filter: LogLevel = None) -> List[str]:
+    def _get_affected_components(
+        self, log_entries: List[LogEntry], level_filter: LogLevel = None
+    ) -> List[str]:
         """影響を受けるコンポーネント取得"""
         components = set()
         for entry in log_entries:
@@ -451,7 +495,7 @@ class LogAnalysisSystem:
     """統合ログ分析システム"""
 
     def __init__(self, log_directories: List[str] = None):
-        self.log_directories = log_directories or ['logs']
+        self.log_directories = log_directories or ["logs"]
         self.parser = LogParser()
         self.pattern_detector = PatternDetector()
         self.anomaly_detector = AnomalyDetector()
@@ -472,12 +516,14 @@ class LogAnalysisSystem:
             log_dir = Path(directory)
             if log_dir.exists():
                 # .log, .txt ファイルを収集
-                for pattern in ['*.log', '*.txt']:
+                for pattern in ["*.log", "*.txt"]:
                     files = list(log_dir.rglob(pattern))
                     log_files.extend(files)
 
         # ファイルサイズでソート（大きいファイルを優先）
-        log_files.sort(key=lambda f: f.stat().st_size if f.exists() else 0, reverse=True)
+        log_files.sort(
+            key=lambda f: f.stat().st_size if f.exists() else 0, reverse=True
+        )
 
         return log_files[:max_files]
 
@@ -486,7 +532,7 @@ class LogAnalysisSystem:
         entries = []
 
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 for line_num, line in enumerate(f, 1):
                     if line_num > max_lines:
                         break
@@ -512,7 +558,7 @@ class LogAnalysisSystem:
             print(f"[INFO] 発見ログファイル: {len(log_files)}個")
 
             if not log_files:
-                return {'error': 'ログファイルが見つかりません'}
+                return {"error": "ログファイルが見つかりません"}
 
             # ログエントリ収集
             all_entries = []
@@ -521,16 +567,13 @@ class LogAnalysisSystem:
             for file_path in log_files:
                 entries = self.parse_log_file(file_path)
                 # 時間窓内のエントリのみ
-                recent_entries = [
-                    e for e in entries
-                    if e.timestamp >= cutoff_time
-                ]
+                recent_entries = [e for e in entries if e.timestamp >= cutoff_time]
                 all_entries.extend(recent_entries)
 
             print(f"[INFO] 解析ログエントリ: {len(all_entries)}個")
 
             if not all_entries:
-                return {'error': 'ログエントリが見つかりません'}
+                return {"error": "ログエントリが見つかりません"}
 
             # パターン検出
             patterns = self.pattern_detector.detect_patterns(all_entries)
@@ -544,20 +587,22 @@ class LogAnalysisSystem:
             stats = self._generate_statistics(all_entries)
 
             analysis_result = {
-                'timestamp': datetime.now().isoformat(),
-                'time_window_hours': time_window_hours,
-                'processed_files': len(log_files),
-                'total_entries': len(all_entries),
-                'statistics': stats,
-                'patterns': [asdict(p) for p in patterns],
-                'anomalies': [asdict(a) for a in anomalies],
-                'execution_time': time.time() - start_time
+                "timestamp": datetime.now().isoformat(),
+                "time_window_hours": time_window_hours,
+                "processed_files": len(log_files),
+                "total_entries": len(all_entries),
+                "statistics": stats,
+                "patterns": [asdict(p) for p in patterns],
+                "anomalies": [asdict(a) for a in anomalies],
+                "execution_time": time.time() - start_time,
             }
 
             # 履歴保存
             self.analysis_history.append(analysis_result)
 
-            print(f"[COMPLETE] ログ分析完了 ({analysis_result['execution_time']:.2f}秒)")
+            print(
+                f"[COMPLETE] ログ分析完了 ({analysis_result['execution_time']:.2f}秒)"
+            )
 
             return analysis_result
 
@@ -575,45 +620,47 @@ class LogAnalysisSystem:
         # 時間別統計（1時間単位）
         hourly_counts = defaultdict(int)
         for entry in log_entries:
-            hour_key = entry.timestamp.strftime('%Y-%m-%d %H:00')
+            hour_key = entry.timestamp.strftime("%Y-%m-%d %H:00")
             hourly_counts[hour_key] += 1
 
         # エラー率計算
         total_entries = len(log_entries)
-        error_entries = sum(1 for e in log_entries if e.level in [LogLevel.ERROR, LogLevel.CRITICAL])
+        error_entries = sum(
+            1 for e in log_entries if e.level in [LogLevel.ERROR, LogLevel.CRITICAL]
+        )
         error_rate = (error_entries / total_entries) * 100 if total_entries > 0 else 0
 
         return {
-            'total_entries': total_entries,
-            'error_rate_percent': round(error_rate, 2),
-            'level_distribution': dict(level_counts),
-            'component_distribution': dict(component_counts.most_common(10)),
-            'hourly_distribution': dict(hourly_counts),
-            'time_range': {
-                'start': min(entry.timestamp for entry in log_entries).isoformat(),
-                'end': max(entry.timestamp for entry in log_entries).isoformat()
-            }
+            "total_entries": total_entries,
+            "error_rate_percent": round(error_rate, 2),
+            "level_distribution": dict(level_counts),
+            "component_distribution": dict(component_counts.most_common(10)),
+            "hourly_distribution": dict(hourly_counts),
+            "time_range": {
+                "start": min(entry.timestamp for entry in log_entries).isoformat(),
+                "end": max(entry.timestamp for entry in log_entries).isoformat(),
+            },
         }
 
-    def get_analysis_report(self, format_type: str = 'summary') -> str:
+    def get_analysis_report(self, format_type: str = "summary") -> str:
         """分析レポート取得"""
         if not self.analysis_history:
             return "分析履歴がありません。analyze_logs() を実行してください。"
 
         latest_analysis = self.analysis_history[-1]
 
-        if format_type == 'summary':
+        if format_type == "summary":
             return self._format_summary_report(latest_analysis)
-        elif format_type == 'detailed':
+        elif format_type == "detailed":
             return self._format_detailed_report(latest_analysis)
         else:
             return json.dumps(latest_analysis, indent=2, ensure_ascii=False)
 
     def _format_summary_report(self, analysis: Dict[str, Any]) -> str:
         """サマリーレポート形式"""
-        stats = analysis.get('statistics', {})
-        anomalies = analysis.get('anomalies', [])
-        patterns = analysis.get('patterns', [])
+        stats = analysis.get("statistics", {})
+        anomalies = analysis.get("anomalies", [])
+        patterns = analysis.get("patterns", [])
 
         report = f"""
 === ログ分析サマリーレポート ===
@@ -642,8 +689,8 @@ class LogAnalysisSystem:
         """詳細レポート形式"""
         summary = self._format_summary_report(analysis)
 
-        patterns = analysis.get('patterns', [])
-        anomalies = analysis.get('anomalies', [])
+        patterns = analysis.get("patterns", [])
+        anomalies = analysis.get("anomalies", [])
 
         detailed = summary + "\n\n=== パターン詳細 ==="
 
@@ -681,7 +728,7 @@ class LogAnalysisSystem:
 
         latest_analysis = self.analysis_history[-1]
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(latest_analysis, f, indent=2, ensure_ascii=False)
 
         return f"分析レポート保存完了: {filename}"
@@ -695,13 +742,13 @@ def main():
         # ログ分析実行
         result = log_analyzer.analyze_logs(time_window_hours=24)
 
-        if 'error' in result:
+        if "error" in result:
             print(f"[ERROR] {result['error']}")
             return
 
         # サマリーレポート表示
         print("\n" + "=" * 80)
-        print(log_analyzer.get_analysis_report('summary'))
+        print(log_analyzer.get_analysis_report("summary"))
         print("=" * 80)
 
         # レポート保存

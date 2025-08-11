@@ -12,46 +12,52 @@ Features:
 """
 
 import asyncio
-import json
-import time
-from typing import Dict, List, Optional, Any, Callable
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from enum import Enum
 from collections import defaultdict, deque
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
 from ..utils.logging_config import get_context_logger
-from .metrics.prometheus_metrics import AlertSeverity, AnomalyDetectionResult
+from .metrics.prometheus_metrics import AlertSeverity
 
 logger = get_context_logger(__name__)
 
+
 class AlertStatus(Enum):
     """アラート状態"""
+
     PENDING = "pending"
     FIRING = "firing"
     RESOLVED = "resolved"
     SUPPRESSED = "suppressed"
 
+
 class NotificationChannel(Enum):
     """通知チャネル"""
+
     EMAIL = "email"
     SLACK = "slack"
     WEBHOOK = "webhook"
     SMS = "sms"
     DISCORD = "discord"
 
+
 @dataclass
 class AlertCondition:
     """アラート条件"""
+
     metric_name: str
     operator: str  # >, <, >=, <=, ==, !=
     threshold: float
     duration_seconds: int = 60
     labels: Dict[str, str] = None
 
+
 @dataclass
 class AlertRule:
     """アラートルール"""
+
     id: str
     name: str
     conditions: List[AlertCondition]
@@ -63,9 +69,11 @@ class AlertRule:
     notification_channels: List[NotificationChannel] = None
     labels: Dict[str, str] = None
 
+
 @dataclass
 class Alert:
     """アラート"""
+
     id: str
     rule_id: str
     name: str
@@ -77,6 +85,7 @@ class Alert:
     labels: Dict[str, str] = None
     values: Dict[str, float] = None
     annotations: Dict[str, str] = None
+
 
 class IntelligentAlertEngine:
     """インテリジェント・アラートエンジン"""
@@ -101,77 +110,103 @@ class IntelligentAlertEngine:
         """デフォルトアラートルール設定"""
 
         # 高CPU使用率アラート
-        self.add_alert_rule(AlertRule(
-            id="high_cpu_usage",
-            name="高CPU使用率",
-            conditions=[AlertCondition(
-                metric_name="day_trade_cpu_usage_percent",
-                operator=">",
-                threshold=80.0,
-                duration_seconds=60
-            )],
-            severity=AlertSeverity.WARNING,
-            description="CPU使用率が80%を超えています",
-            notification_channels=[NotificationChannel.SLACK, NotificationChannel.EMAIL]
-        ))
+        self.add_alert_rule(
+            AlertRule(
+                id="high_cpu_usage",
+                name="高CPU使用率",
+                conditions=[
+                    AlertCondition(
+                        metric_name="day_trade_cpu_usage_percent",
+                        operator=">",
+                        threshold=80.0,
+                        duration_seconds=60,
+                    )
+                ],
+                severity=AlertSeverity.WARNING,
+                description="CPU使用率が80%を超えています",
+                notification_channels=[
+                    NotificationChannel.SLACK,
+                    NotificationChannel.EMAIL,
+                ],
+            )
+        )
 
         # メモリ不足アラート
-        self.add_alert_rule(AlertRule(
-            id="high_memory_usage",
-            name="高メモリ使用率",
-            conditions=[AlertCondition(
-                metric_name="day_trade_memory_usage_bytes",
-                operator=">",
-                threshold=0.9,  # 90%
-                duration_seconds=120
-            )],
-            severity=AlertSeverity.CRITICAL,
-            description="メモリ使用率が90%を超えています",
-            notification_channels=[NotificationChannel.SLACK, NotificationChannel.WEBHOOK]
-        ))
+        self.add_alert_rule(
+            AlertRule(
+                id="high_memory_usage",
+                name="高メモリ使用率",
+                conditions=[
+                    AlertCondition(
+                        metric_name="day_trade_memory_usage_bytes",
+                        operator=">",
+                        threshold=0.9,  # 90%
+                        duration_seconds=120,
+                    )
+                ],
+                severity=AlertSeverity.CRITICAL,
+                description="メモリ使用率が90%を超えています",
+                notification_channels=[
+                    NotificationChannel.SLACK,
+                    NotificationChannel.WEBHOOK,
+                ],
+            )
+        )
 
         # リアルタイムデータ遅延アラート
-        self.add_alert_rule(AlertRule(
-            id="high_data_latency",
-            name="リアルタイムデータ遅延",
-            conditions=[AlertCondition(
-                metric_name="day_trade_realtime_data_latency_seconds",
-                operator=">",
-                threshold=1.0,  # 1秒
-                duration_seconds=30
-            )],
-            severity=AlertSeverity.WARNING,
-            description="リアルタイムデータの遅延が1秒を超えています"
-        ))
+        self.add_alert_rule(
+            AlertRule(
+                id="high_data_latency",
+                name="リアルタイムデータ遅延",
+                conditions=[
+                    AlertCondition(
+                        metric_name="day_trade_realtime_data_latency_seconds",
+                        operator=">",
+                        threshold=1.0,  # 1秒
+                        duration_seconds=30,
+                    )
+                ],
+                severity=AlertSeverity.WARNING,
+                description="リアルタイムデータの遅延が1秒を超えています",
+            )
+        )
 
         # 取引実行失敗アラート
-        self.add_alert_rule(AlertRule(
-            id="trade_execution_failures",
-            name="取引実行失敗",
-            conditions=[AlertCondition(
-                metric_name="day_trade_trades_total",
-                operator=">",
-                threshold=5.0,  # 5回の失敗
-                duration_seconds=300,
-                labels={"result": "error"}
-            )],
-            severity=AlertSeverity.CRITICAL,
-            description="取引実行の失敗が多発しています"
-        ))
+        self.add_alert_rule(
+            AlertRule(
+                id="trade_execution_failures",
+                name="取引実行失敗",
+                conditions=[
+                    AlertCondition(
+                        metric_name="day_trade_trades_total",
+                        operator=">",
+                        threshold=5.0,  # 5回の失敗
+                        duration_seconds=300,
+                        labels={"result": "error"},
+                    )
+                ],
+                severity=AlertSeverity.CRITICAL,
+                description="取引実行の失敗が多発しています",
+            )
+        )
 
         # AI予測精度低下アラート
-        self.add_alert_rule(AlertRule(
-            id="low_prediction_accuracy",
-            name="AI予測精度低下",
-            conditions=[AlertCondition(
-                metric_name="day_trade_prediction_accuracy",
-                operator="<",
-                threshold=0.7,  # 70%未満
-                duration_seconds=600  # 10分間
-            )],
-            severity=AlertSeverity.WARNING,
-            description="AI予測精度が70%を下回っています"
-        ))
+        self.add_alert_rule(
+            AlertRule(
+                id="low_prediction_accuracy",
+                name="AI予測精度低下",
+                conditions=[
+                    AlertCondition(
+                        metric_name="day_trade_prediction_accuracy",
+                        operator="<",
+                        threshold=0.7,  # 70%未満
+                        duration_seconds=600,  # 10分間
+                    )
+                ],
+                severity=AlertSeverity.WARNING,
+                description="AI予測精度が70%を下回っています",
+            )
+        )
 
     def add_alert_rule(self, rule: AlertRule):
         """アラートルール追加"""
@@ -186,8 +221,9 @@ class IntelligentAlertEngine:
             del self.alert_rules[rule_id]
             logger.info(f"アラートルール削除: {rule_id}")
 
-    def add_notification_handler(self, channel: NotificationChannel,
-                               handler: Callable[[Alert], None]):
+    def add_notification_handler(
+        self, channel: NotificationChannel, handler: Callable[[Alert], None]
+    ):
         """通知ハンドラー追加"""
 
         self.notification_handlers[channel] = handler
@@ -241,7 +277,9 @@ class IntelligentAlertEngine:
 
             try:
                 # 条件評価
-                conditions_met = await self._evaluate_conditions(rule.conditions, current_time)
+                conditions_met = await self._evaluate_conditions(
+                    rule.conditions, current_time
+                )
 
                 if conditions_met:
                     await self._fire_alert(rule, current_time)
@@ -249,8 +287,9 @@ class IntelligentAlertEngine:
             except Exception as e:
                 logger.error(f"アラートルール評価エラー ({rule.id}): {e}")
 
-    async def _evaluate_conditions(self, conditions: List[AlertCondition],
-                                 current_time: datetime) -> bool:
+    async def _evaluate_conditions(
+        self, conditions: List[AlertCondition], current_time: datetime
+    ) -> bool:
         """条件評価"""
 
         for condition in conditions:
@@ -258,8 +297,9 @@ class IntelligentAlertEngine:
                 return False
         return True
 
-    async def _evaluate_single_condition(self, condition: AlertCondition,
-                                       current_time: datetime) -> bool:
+    async def _evaluate_single_condition(
+        self, condition: AlertCondition, current_time: datetime
+    ) -> bool:
         """単一条件評価"""
 
         # メトリクスバッファから最新の値を取得
@@ -268,17 +308,18 @@ class IntelligentAlertEngine:
             return False
 
         # 指定期間内の値をチェック
-        duration_threshold = current_time - timedelta(seconds=condition.duration_seconds)
+        duration_threshold = current_time - timedelta(
+            seconds=condition.duration_seconds
+        )
         recent_values = [
-            item for item in buffer
-            if item['timestamp'] >= duration_threshold
+            item for item in buffer if item["timestamp"] >= duration_threshold
         ]
 
         if not recent_values:
             return False
 
         # 演算子による評価
-        latest_value = recent_values[-1]['value']
+        latest_value = recent_values[-1]["value"]
         threshold = condition.threshold
 
         if condition.operator == ">":
@@ -326,7 +367,7 @@ class IntelligentAlertEngine:
             status=AlertStatus.FIRING,
             start_time=current_time,
             description=rule.description,
-            labels=rule.labels or {}
+            labels=rule.labels or {},
         )
 
         # アラート記録
@@ -334,7 +375,9 @@ class IntelligentAlertEngine:
         self.alert_history.append(alert)
 
         # 抑制設定
-        self.suppressed_alerts[rule.id] = current_time + timedelta(seconds=rule.suppression_duration)
+        self.suppressed_alerts[rule.id] = current_time + timedelta(
+            seconds=rule.suppression_duration
+        )
 
         # 通知送信
         await self._send_notifications(alert, rule.notification_channels or [])
@@ -356,7 +399,9 @@ class IntelligentAlertEngine:
                 continue
 
             # 条件が解決されているかチェック
-            conditions_met = await self._evaluate_conditions(rule.conditions, current_time)
+            conditions_met = await self._evaluate_conditions(
+                rule.conditions, current_time
+            )
 
             if not conditions_met:
                 alert.status = AlertStatus.RESOLVED
@@ -393,7 +438,9 @@ class IntelligentAlertEngine:
 
         return current_time < self.suppressed_alerts[rule_id]
 
-    async def _send_notifications(self, alert: Alert, channels: List[NotificationChannel]):
+    async def _send_notifications(
+        self, alert: Alert, channels: List[NotificationChannel]
+    ):
         """通知送信"""
 
         for channel in channels:
@@ -410,16 +457,15 @@ class IntelligentAlertEngine:
                 except Exception as e:
                     logger.error(f"通知送信エラー ({channel.value}): {e}")
 
-    def update_metric_value(self, metric_name: str, value: float,
-                          labels: Dict[str, str] = None):
+    def update_metric_value(
+        self, metric_name: str, value: float, labels: Dict[str, str] = None
+    ):
         """メトリクス値更新"""
 
         timestamp = datetime.now()
-        self.metric_buffers[metric_name].append({
-            'timestamp': timestamp,
-            'value': value,
-            'labels': labels or {}
-        })
+        self.metric_buffers[metric_name].append(
+            {"timestamp": timestamp, "value": value, "labels": labels or {}}
+        )
 
     def get_active_alerts(self) -> List[Alert]:
         """アクティブアラート取得"""
@@ -441,16 +487,20 @@ class IntelligentAlertEngine:
             severity_counts[alert.severity.value] += 1
 
         return {
-            'active_alerts': active_count,
-            'severity_breakdown': dict(severity_counts),
-            'total_rules': len(self.alert_rules),
-            'enabled_rules': sum(1 for rule in self.alert_rules.values() if rule.enabled),
-            'suppressed_rules': len(self.suppressed_alerts),
-            'last_evaluation': datetime.now().isoformat()
+            "active_alerts": active_count,
+            "severity_breakdown": dict(severity_counts),
+            "total_rules": len(self.alert_rules),
+            "enabled_rules": sum(
+                1 for rule in self.alert_rules.values() if rule.enabled
+            ),
+            "suppressed_rules": len(self.suppressed_alerts),
+            "last_evaluation": datetime.now().isoformat(),
         }
+
 
 # グローバルインスタンス
 _alert_engine = IntelligentAlertEngine()
+
 
 def get_alert_engine() -> IntelligentAlertEngine:
     """アラートエンジン取得"""

@@ -84,10 +84,23 @@ python test_topix500_analysis_system.py
 4. タイムアウト設定調整（大規模処理対応）
 
 #### 2.2 自動化システム統合
-**実装内容**: 定期実行・アラートシステム連携
+**実装内容**: 定期実行・アラートシステム連携、MLOpsパイプライン統合
+
+```bash
+# GitHub Actions を使用したMLOpsワークフローの例
+# コンセプトドリフト監視ワークフローの手動実行
+# GitHub UIのActionsタブから "Concept Drift Monitor" を選択し、"Run workflow" をクリック
+# または、以下コマンドで手動トリガー (gh CLIが必要)
+# gh workflow run "Concept Drift Monitor"
+
+# モデル再訓練ワークフローの手動実行
+# GitHub UIのActionsタブから "Model Re-Training" を選択し、"Run workflow" をクリック
+# または、以下コマンドで手動トリガー (gh CLIが必要)
+# gh workflow run "Model Re-Training"
+```
 
 ```python
-# 自動化システム例
+# 自動化システム例 (既存のPythonスクリプトによる自動化)
 import schedule
 import time
 
@@ -98,6 +111,7 @@ def automated_analysis():
 
     while True:
         schedule.run_pending()
+        time.run_pending()
         time.sleep(60)
 ```
 
@@ -193,6 +207,8 @@ export PYTHONHASHSEED=0
 2. **メモリ使用量監視**: 制限値接近時の自動最適化
 3. **成功率監視**: 95%を下回った場合の調査トリガー  
 4. **予測精度監視**: ベースライン比較での品質管理
+5. **データドリフト監視**: 入力データ分布の変化をリアルタイムで検知
+6. **コンセプトドリフト監視**: モデル性能の経時的な低下を定期的に検知
 
 ```python
 # 監視システム実行例

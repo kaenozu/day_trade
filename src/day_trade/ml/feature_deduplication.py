@@ -6,19 +6,19 @@ Issue #380: 機械学習モデルの最適化 - 特徴量生成の効率化
 重複計算の検出・排除と計算効率の最適化
 """
 
-import time
 import hashlib
-from typing import Dict, List, Set, Optional, Any, Tuple
-from dataclasses import dataclass, field
-from collections import defaultdict, deque
-from threading import RLock
+import time
 import weakref
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from threading import RLock
+from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from ..utils.logging_config import get_context_logger
 from ..analysis.feature_engineering_unified import FeatureConfig
+from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
@@ -26,6 +26,7 @@ logger = get_context_logger(__name__)
 @dataclass
 class ComputationTask:
     """計算タスク"""
+
     task_id: str
     symbol: str
     config_hash: str
@@ -40,6 +41,7 @@ class ComputationTask:
 @dataclass
 class ComputationStats:
     """計算統計"""
+
     total_requests: int = 0
     duplicate_requests: int = 0
     completed_computations: int = 0
@@ -79,7 +81,9 @@ class FeatureDeduplicationManager:
         self.active_tasks: Dict[str, ComputationTask] = {}
 
         # 完了したタスクのキャッシュ（弱参照で自動クリーンアップ）
-        self.completed_tasks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        self.completed_tasks: weakref.WeakValueDictionary = (
+            weakref.WeakValueDictionary()
+        )
 
         # 待機中の重複リクエスト管理
         self.waiting_requests: Dict[str, List[str]] = defaultdict(list)
@@ -90,27 +94,27 @@ class FeatureDeduplicationManager:
         # タスクの実行履歴（FIFO）
         self.task_history: deque = deque(maxlen=1000)
 
-        logger.info("特徴量重複計算排除マネージャー初期化完了", extra={
-            "max_concurrent_tasks": max_concurrent_tasks,
-            "cache_ttl_seconds": cache_ttl_seconds
-        })
+        logger.info(
+            "特徴量重複計算排除マネージャー初期化完了",
+            extra={
+                "max_concurrent_tasks": max_concurrent_tasks,
+                "cache_ttl_seconds": cache_ttl_seconds,
+            },
+        )
 
     def _generate_task_key(
-        self,
-        symbol: str,
-        data_hash: str,
-        feature_config: FeatureConfig
+        self, symbol: str, data_hash: str, feature_config: FeatureConfig
     ) -> str:
         """タスクキーの生成（重複検出用）"""
         # 設定のハッシュ化
         config_dict = {
-            'lookback_periods': sorted(feature_config.lookback_periods),
-            'volatility_windows': sorted(feature_config.volatility_windows),
-            'momentum_periods': sorted(feature_config.momentum_periods),
-            'enable_cross_features': feature_config.enable_cross_features,
-            'enable_statistical_features': feature_config.enable_statistical_features,
-            'enable_regime_features': feature_config.enable_regime_features,
-            'scaling_method': feature_config.scaling_method,
+            "lookback_periods": sorted(feature_config.lookback_periods),
+            "volatility_windows": sorted(feature_config.volatility_windows),
+            "momentum_periods": sorted(feature_config.momentum_periods),
+            "enable_cross_features": feature_config.enable_cross_features,
+            "enable_statistical_features": feature_config.enable_statistical_features,
+            "enable_regime_features": feature_config.enable_regime_features,
+            "scaling_method": feature_config.scaling_method,
         }
 
         config_str = str(sorted(config_dict.items()))
@@ -128,7 +132,7 @@ class FeatureDeduplicationManager:
         shape_str = f"{data.shape[0]}x{data.shape[1]}"
 
         # インデックスの情報
-        if hasattr(data.index, 'min') and hasattr(data.index, 'max'):
+        if hasattr(data.index, "min") and hasattr(data.index, "max"):
             index_info = f"{data.index.min()}_{data.index.max()}"
         else:
             index_info = "no_datetime_index"
@@ -140,8 +144,12 @@ class FeatureDeduplicationManager:
             # 数値データのハッシュ
             numeric_cols = sample_data.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 0:
-                sample_values = sample_data[numeric_cols].values.flatten()[:50]  # 最大50値
-                values_str = ','.join([f"{v:.6f}" for v in sample_values if not np.isnan(v)])
+                sample_values = sample_data[numeric_cols].values.flatten()[
+                    :50
+                ]  # 最大50値
+                values_str = ",".join(
+                    [f"{v:.6f}" for v in sample_values if not np.isnan(v)]
+                )
             else:
                 values_str = "no_numeric_data"
         except:
@@ -153,10 +161,7 @@ class FeatureDeduplicationManager:
         return data_hash
 
     def is_duplicate_request(
-        self,
-        symbol: str,
-        data: pd.DataFrame,
-        feature_config: FeatureConfig
+        self, symbol: str, data: pd.DataFrame, feature_config: FeatureConfig
     ) -> Tuple[bool, Optional[str]]:
         """重複リクエストの検出"""
         data_hash = self._generate_data_hash(data)
@@ -172,12 +177,15 @@ class FeatureDeduplicationManager:
                     del self.active_tasks[task_key]
                     return False, task_key
 
-                logger.info("重複リクエスト検出（アクティブタスク）", extra={
-                    "symbol": symbol,
-                    "task_key": task_key[:8],
-                    "status": active_task.status,
-                    "age_seconds": round(time.time() - active_task.created_at, 2)
-                })
+                logger.info(
+                    "重複リクエスト検出（アクティブタスク）",
+                    extra={
+                        "symbol": symbol,
+                        "task_key": task_key[:8],
+                        "status": active_task.status,
+                        "age_seconds": round(time.time() - active_task.created_at, 2),
+                    },
+                )
 
                 return True, task_key
 
@@ -190,22 +198,24 @@ class FeatureDeduplicationManager:
                     del self.completed_tasks[task_key]
                     return False, task_key
 
-                logger.info("重複リクエスト検出（完了済み）", extra={
-                    "symbol": symbol,
-                    "task_key": task_key[:8],
-                    "cached_result_available": completed_task.result is not None,
-                    "age_seconds": round(time.time() - completed_task.created_at, 2)
-                })
+                logger.info(
+                    "重複リクエスト検出（完了済み）",
+                    extra={
+                        "symbol": symbol,
+                        "task_key": task_key[:8],
+                        "cached_result_available": completed_task.result is not None,
+                        "age_seconds": round(
+                            time.time() - completed_task.created_at, 2
+                        ),
+                    },
+                )
 
                 return True, task_key
 
             return False, task_key
 
     def register_computation_task(
-        self,
-        symbol: str,
-        data: pd.DataFrame,
-        feature_config: FeatureConfig
+        self, symbol: str, data: pd.DataFrame, feature_config: FeatureConfig
     ) -> str:
         """計算タスクの登録"""
         data_hash = self._generate_data_hash(data)
@@ -221,11 +231,14 @@ class FeatureDeduplicationManager:
                 self.stats.duplicate_requests += 1
                 # 待機リクエストに追加
                 self.waiting_requests[task_key].append(symbol)
-                logger.info("重複計算をスキップ", extra={
-                    "symbol": symbol,
-                    "task_key": task_key[:8],
-                    "waiting_requests": len(self.waiting_requests[task_key])
-                })
+                logger.info(
+                    "重複計算をスキップ",
+                    extra={
+                        "symbol": symbol,
+                        "task_key": task_key[:8],
+                        "waiting_requests": len(self.waiting_requests[task_key]),
+                    },
+                )
                 return task_key
 
             # 新規タスクとして登録
@@ -237,7 +250,7 @@ class FeatureDeduplicationManager:
                 config_hash=config_hash,
                 data_hash=data_hash,
                 feature_config=feature_config,
-                status="pending"
+                status="pending",
             )
 
             self.active_tasks[task_key] = task
@@ -246,12 +259,15 @@ class FeatureDeduplicationManager:
             if len(self.active_tasks) > self.max_concurrent_tasks:
                 self._cleanup_old_tasks()
 
-            logger.info("新規計算タスク登録", extra={
-                "symbol": symbol,
-                "task_key": task_key[:8],
-                "task_id": task.task_id,
-                "active_tasks_count": len(self.active_tasks)
-            })
+            logger.info(
+                "新規計算タスク登録",
+                extra={
+                    "symbol": symbol,
+                    "task_key": task_key[:8],
+                    "task_id": task.task_id,
+                    "active_tasks_count": len(self.active_tasks),
+                },
+            )
 
             return task_key
 
@@ -268,20 +284,19 @@ class FeatureDeduplicationManager:
             task.status = "computing"
             task.created_at = time.time()  # 計算開始時刻で更新
 
-            logger.info("計算開始", extra={
-                "task_key": task_key[:8],
-                "symbol": task.symbol,
-                "task_id": task.task_id
-            })
+            logger.info(
+                "計算開始",
+                extra={
+                    "task_key": task_key[:8],
+                    "symbol": task.symbol,
+                    "task_id": task.task_id,
+                },
+            )
 
             return True
 
     def complete_computation(
-        self,
-        task_key: str,
-        result: Any,
-        computation_time: float,
-        success: bool = True
+        self, task_key: str, result: Any, computation_time: float, success: bool = True
     ) -> List[str]:
         """計算完了処理"""
         with self._lock:
@@ -320,23 +335,28 @@ class FeatureDeduplicationManager:
                 del self.waiting_requests[task_key]
 
             # 履歴に追加
-            self.task_history.append({
-                'task_key': task_key[:8],
-                'symbol': task.symbol,
-                'status': task.status,
-                'computation_time': computation_time,
-                'waiting_requests': len(waiting_symbols),
-                'completed_at': time.time()
-            })
+            self.task_history.append(
+                {
+                    "task_key": task_key[:8],
+                    "symbol": task.symbol,
+                    "status": task.status,
+                    "computation_time": computation_time,
+                    "waiting_requests": len(waiting_symbols),
+                    "completed_at": time.time(),
+                }
+            )
 
-            logger.info("計算完了", extra={
-                "task_key": task_key[:8],
-                "symbol": task.symbol,
-                "success": success,
-                "computation_time_ms": round(computation_time * 1000, 2),
-                "waiting_requests_notified": len(waiting_symbols),
-                "active_tasks_remaining": len(self.active_tasks)
-            })
+            logger.info(
+                "計算完了",
+                extra={
+                    "task_key": task_key[:8],
+                    "symbol": task.symbol,
+                    "success": success,
+                    "computation_time_ms": round(computation_time * 1000, 2),
+                    "waiting_requests_notified": len(waiting_symbols),
+                    "active_tasks_remaining": len(self.active_tasks),
+                },
+            )
 
             return waiting_symbols
 
@@ -390,17 +410,21 @@ class FeatureDeduplicationManager:
         """統計情報の取得"""
         with self._lock:
             return {
-                'total_requests': self.stats.total_requests,
-                'duplicate_requests': self.stats.duplicate_requests,
-                'deduplication_rate_percent': round(self.stats.deduplication_rate, 2),
-                'completed_computations': self.stats.completed_computations,
-                'failed_computations': self.stats.failed_computations,
-                'success_rate_percent': round(self.stats.success_rate, 2),
-                'avg_computation_time_seconds': round(self.stats.avg_computation_time, 3),
-                'time_saved_by_dedup_seconds': round(self.stats.time_saved_by_dedup, 2),
-                'active_tasks_count': len(self.active_tasks),
-                'cached_results_count': len(self.completed_tasks),
-                'waiting_requests_count': sum(len(requests) for requests in self.waiting_requests.values())
+                "total_requests": self.stats.total_requests,
+                "duplicate_requests": self.stats.duplicate_requests,
+                "deduplication_rate_percent": round(self.stats.deduplication_rate, 2),
+                "completed_computations": self.stats.completed_computations,
+                "failed_computations": self.stats.failed_computations,
+                "success_rate_percent": round(self.stats.success_rate, 2),
+                "avg_computation_time_seconds": round(
+                    self.stats.avg_computation_time, 3
+                ),
+                "time_saved_by_dedup_seconds": round(self.stats.time_saved_by_dedup, 2),
+                "active_tasks_count": len(self.active_tasks),
+                "cached_results_count": len(self.completed_tasks),
+                "waiting_requests_count": sum(
+                    len(requests) for requests in self.waiting_requests.values()
+                ),
             }
 
     def reset_statistics(self):

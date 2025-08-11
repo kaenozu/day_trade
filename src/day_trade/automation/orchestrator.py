@@ -6,12 +6,15 @@ Next-Gen AI Trading Engine Orchestrator
 """
 
 import asyncio
+
+# 重いML系インポートは遅延（CI環境でメモリ削減）
+import os
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Callable
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -20,17 +23,25 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
+from ..database.database import get_default_database_manager  # 追加
+from ..ml.data_drift_detector import DataDriftDetector  # 追加
+from ..utils.fault_tolerance import FaultTolerantExecutor
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
-from ..utils.fault_tolerance import FaultTolerantExecutor
 
-# 重いML系インポートは遅延（CI環境でメモリ削減）
-import os
 CI_MODE = os.getenv("CI", "false").lower() == "true"
 
 if not CI_MODE:
-    from ..data.advanced_ml_engine import AdvancedMLEngine, ModelConfig, create_advanced_ml_engine
-    from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest, DataResponse
+    from ..data.advanced_ml_engine import (
+        AdvancedMLEngine,
+        ModelConfig,
+        create_advanced_ml_engine,
+    )
+    from ..data.batch_data_fetcher import (
+        AdvancedBatchDataFetcher,
+        DataRequest,
+        DataResponse,
+    )
 else:
     # CI環境では軽量ダミークラス使用
     AdvancedMLEngine = None
@@ -43,15 +54,18 @@ else:
 # オプショナル依存
 try:
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
     CONCURRENT_AVAILABLE = True
 except ImportError:
     CONCURRENT_AVAILABLE = False
 
 logger = get_context_logger(__name__)
 
+
 @dataclass
 class AIAnalysisResult:
     """AI分析結果"""
+
     symbol: str
     timestamp: datetime
     predictions: Dict[str, Any]
@@ -62,10 +76,13 @@ class AIAnalysisResult:
     data_quality: float
     recommendation: str
     risk_assessment: Dict[str, Any]
+    data_drift_results: Optional[Dict[str, Any]] = None  # データドリフト検出結果
+
 
 @dataclass
 class ExecutionReport:
     """実行レポート（拡張版）"""
+
     start_time: datetime
     end_time: datetime
     total_symbols: int
@@ -85,9 +102,11 @@ class ExecutionReport:
         if self.ai_analysis_results is None:
             self.ai_analysis_results = []
 
+
 @dataclass
 class OrchestrationConfig:
     """オーケストレーション設定"""
+
     max_workers: int = 8
     enable_ml_engine: bool = True
     enable_advanced_batch: bool = True
@@ -99,6 +118,7 @@ class OrchestrationConfig:
     timeout_seconds: int = 300
     cache_enabled: bool = True
     retry_attempts: int = 3
+
 
 class NextGenAIOrchestrator:
     """
@@ -116,10 +136,12 @@ class NextGenAIOrchestrator:
     ※ 実際の取引実行は一切行いません（分析・教育目的のみ）
     """
 
-    def __init__(self,
-                 config: Optional[OrchestrationConfig] = None,
-                 ml_config: Optional[ModelConfig] = None,
-                 config_path: Optional[str] = None):
+    def __init__(
+        self,
+        config: Optional[OrchestrationConfig] = None,
+        ml_config: Optional[ModelConfig] = None,
+        config_path: Optional[str] = None,
+    ):
         """
         初期化
 
@@ -153,7 +175,7 @@ class NextGenAIOrchestrator:
         # コアコンポーネント初期化
         self.stock_fetcher = StockFetcher()
         self.analysis_engines: Dict[str, AnalysisOnlyEngine] = {}
-        self.db_manager = get_default_database_manager() # DatabaseManagerを取得
+        self.db_manager = get_default_database_manager()  # DatabaseManagerを取得
 
         # 高度AIコンポーネント初期化（CI環境では無効化）
         if self.config.enable_ml_engine and not CI_MODE:
@@ -165,7 +187,7 @@ class NextGenAIOrchestrator:
             self.batch_fetcher = AdvancedBatchDataFetcher(
                 max_workers=self.config.max_workers,
                 enable_kafka=False,  # セーフモードではKafka無効
-                enable_redis=False   # セーフモードではRedis無効
+                enable_redis=False,  # セーフモードではRedis無効
             )
         else:
             self.batch_fetcher = None
@@ -180,7 +202,7 @@ class NextGenAIOrchestrator:
         if self.config.enable_fault_tolerance:
             self.fault_executor = FaultTolerantExecutor(
                 max_retries=self.config.retry_attempts,
-                timeout_seconds=self.config.timeout_seconds
+                timeout_seconds=self.config.timeout_seconds,
             )
         else:
             self.fault_executor = None
@@ -189,14 +211,33 @@ class NextGenAIOrchestrator:
         self.execution_history = []
         self.performance_metrics = {}
 
+        # データドリフト検出器の初期化とベースラインのロード
+        self.data_drift_detector = DataDriftDetector()
+        self.baseline_stats_path = Path(
+            "data/baseline_stats.json"
+        )  # ベースライン統計情報のパス
+        if self.baseline_stats_path.exists():
+            self.data_drift_detector.load_baseline(str(self.baseline_stats_path))
+            logger.info(
+                f"データドリフト検出器: ベースライン統計情報を {self.baseline_stats_path} からロードしました。"
+            )
+        else:
+            logger.warning(
+                f"データドリフト検出器: ベースライン統計情報ファイル {self.baseline_stats_path} が見つかりません。初回実行時に生成されます。"
+            )
+
         logger.info("Next-Gen AI Orchestrator 初期化完了 - 完全セーフモード")
         logger.info("※ 自動取引機能は一切含まれていません")
-        logger.info(f"設定: ML={self.config.enable_ml_engine}, Batch={self.config.enable_advanced_batch}")
+        logger.info(
+            f"設定: ML={self.config.enable_ml_engine}, Batch={self.config.enable_advanced_batch}"
+        )
 
-    def run_advanced_analysis(self,
-                            symbols: Optional[List[str]] = None,
-                            analysis_type: str = "comprehensive",
-                            include_predictions: bool = True) -> ExecutionReport:
+    def run_advanced_analysis(
+        self,
+        symbols: Optional[List[str]] = None,
+        analysis_type: str = "comprehensive",
+        include_predictions: bool = True,
+    ) -> ExecutionReport:
         """
         高度AI分析実行
 
@@ -229,12 +270,15 @@ class NextGenAIOrchestrator:
             # ポートフォリオ情報取得
             try:
                 from ..database.database import get_default_database_manager
+
                 db_manager = get_default_database_manager()
                 with db_manager.session_scope() as session:
                     portfolio_manager = PortfolioManager(session)
                     actual_portfolio_summary = portfolio_manager.get_portfolio_summary()
             except ImportError:
-                logger.warning("Database manager not available, skipping portfolio summary")
+                logger.warning(
+                    "Database manager not available, skipping portfolio summary"
+                )
                 actual_portfolio_summary = None
 
             # 高度バッチデータ取得
@@ -250,7 +294,9 @@ class NextGenAIOrchestrator:
                     if symbol not in self.analysis_engines:
                         self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
                 except Exception as e:
-                    logger.warning(f"Failed to create analysis engine for {symbol}: {e}")
+                    logger.warning(
+                        f"Failed to create analysis engine for {symbol}: {e}"
+                    )
 
             # 並列AI分析実行
             if CONCURRENT_AVAILABLE and len(symbols) > 1:
@@ -277,7 +323,9 @@ class NextGenAIOrchestrator:
             if actual_portfolio_summary:
                 portfolio_summary = actual_portfolio_summary
             else:
-                portfolio_summary = self._generate_portfolio_analysis(ai_analysis_results)
+                portfolio_summary = self._generate_portfolio_analysis(
+                    ai_analysis_results
+                )
 
             # システムヘルス分析
             system_health = self._analyze_system_health()
@@ -305,17 +353,21 @@ class NextGenAIOrchestrator:
             portfolio_summary=portfolio_summary,
             performance_stats=performance_stats,
             system_health=system_health,
-            errors=errors
+            errors=errors,
         )
 
         # 実行履歴に保存
         self.execution_history.append(report)
         self.execution_history = self.execution_history[-50:]  # 最新50件のみ保持
 
-        logger.info(f"Next-Gen AI分析完了 - 成功: {successful_symbols}, 失敗: {failed_symbols}")
+        logger.info(
+            f"Next-Gen AI分析完了 - 成功: {successful_symbols}, 失敗: {failed_symbols}"
+        )
         return report
 
-    def _execute_batch_data_collection(self, symbols: List[str]) -> Dict[str, DataResponse]:
+    def _execute_batch_data_collection(
+        self, symbols: List[str]
+    ) -> Dict[str, DataResponse]:
         """高度バッチデータ収集"""
 
         logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄")
@@ -327,9 +379,14 @@ class NextGenAIOrchestrator:
                     symbol=symbol,
                     period="1y",  # より長期間のデータ
                     preprocessing=True,
-                    features=["trend_strength", "momentum", "price_channel", "gap_analysis"],
+                    features=[
+                        "trend_strength",
+                        "momentum",
+                        "price_channel",
+                        "gap_analysis",
+                    ],
                     priority=5 if symbol in ["7203", "8306"] else 3,
-                    cache_ttl=3600
+                    cache_ttl=3600,
                 )
                 for symbol in symbols
             ]
@@ -341,11 +398,13 @@ class NextGenAIOrchestrator:
             logger.error(f"バッチデータ収集エラー: {e}")
             return {}
 
-    def _execute_parallel_ai_analysis(self,
-                                    symbols: List[str],
-                                    batch_data: Dict[str, DataResponse],
-                                    analysis_type: str,
-                                    include_predictions: bool) -> Dict[str, Dict]:
+    def _execute_parallel_ai_analysis(
+        self,
+        symbols: List[str],
+        batch_data: Dict[str, DataResponse],
+        analysis_type: str,
+        include_predictions: bool,
+    ) -> Dict[str, Dict]:
         """並列AI分析実行"""
 
         results = {}
@@ -358,13 +417,15 @@ class NextGenAIOrchestrator:
                     symbol,
                     batch_data.get(symbol),
                     analysis_type,
-                    include_predictions
+                    include_predictions,
                 ): symbol
                 for symbol in symbols
             }
 
             # 結果収集
-            for future in as_completed(future_to_symbol, timeout=self.config.timeout_seconds):
+            for future in as_completed(
+                future_to_symbol, timeout=self.config.timeout_seconds
+            ):
                 symbol = future_to_symbol[future]
                 try:
                     result = future.result(timeout=60)
@@ -376,16 +437,18 @@ class NextGenAIOrchestrator:
                         "errors": [str(e)],
                         "analysis": None,
                         "signals": [],
-                        "alerts": []
+                        "alerts": [],
                     }
 
         return results
 
-    def _execute_sequential_ai_analysis(self,
-                                       symbols: List[str],
-                                       batch_data: Dict[str, DataResponse],
-                                       analysis_type: str,
-                                       include_predictions: bool) -> Dict[str, Dict]:
+    def _execute_sequential_ai_analysis(
+        self,
+        symbols: List[str],
+        batch_data: Dict[str, DataResponse],
+        analysis_type: str,
+        include_predictions: bool,
+    ) -> Dict[str, Dict]:
         """逐次AI分析実行"""
 
         results = {}
@@ -393,10 +456,7 @@ class NextGenAIOrchestrator:
         for symbol in symbols:
             try:
                 result = self._analyze_single_symbol(
-                    symbol,
-                    batch_data.get(symbol),
-                    analysis_type,
-                    include_predictions
+                    symbol, batch_data.get(symbol), analysis_type, include_predictions
                 )
                 results[symbol] = result
             except Exception as e:
@@ -406,18 +466,20 @@ class NextGenAIOrchestrator:
                     "errors": [str(e)],
                     "analysis": None,
                     "signals": [],
-                    "alerts": []
+                    "alerts": [],
                 }
 
         return results
 
-    def _analyze_single_symbol(self,
-                              symbol: str,
-                              data_response: Optional[DataResponse],
-                              analysis_type: str,
-                              include_predictions: bool) -> Dict:
+    def analyze_single_symbol(
+        self,
+        symbol: str,
+        data_response: Any,  # TODO: DataFetchResponse クラスを実装またはインポート
+        include_predictions: bool = True,
+    ) -> Dict[str, Any]:
         """単一銘柄AI分析"""
 
+        alerts = []
         start_time = time.time()
 
         try:
@@ -428,7 +490,7 @@ class NextGenAIOrchestrator:
                     "errors": [f"{symbol}: データ取得失敗"],
                     "analysis": None,
                     "signals": [],
-                    "alerts": []
+                    "alerts": [],
                 }
 
             market_data = data_response.data
@@ -443,8 +505,6 @@ class NextGenAIOrchestrator:
                 self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
 
             engine = self.analysis_engines[symbol]
-            basic_status = engine.get_status()
-            market_summary = engine.get_market_summary()
 
             # 高度AI分析実行
             ai_predictions = {}
@@ -461,15 +521,26 @@ class NextGenAIOrchestrator:
                         prediction_result = self.ml_engine.predict(latest_sequence)
 
                         ai_predictions = {
-                            "price_direction": "up" if prediction_result.predictions[0] > 0 else "down",
+                            "price_direction": "up"
+                            if prediction_result.predictions[0] > 0
+                            else "down",
                             "predicted_change": float(prediction_result.predictions[0]),
-                            "confidence": float(prediction_result.confidence[0]) if prediction_result.confidence is not None else 0.5
+                            "confidence": float(prediction_result.confidence[0])
+                            if prediction_result.confidence is not None
+                            else 0.5,
                         }
 
                         confidence_scores = {
-                            "ml_model": float(prediction_result.confidence[0]) if prediction_result.confidence is not None else 0.5,
+                            "ml_model": float(prediction_result.confidence[0])
+                            if prediction_result.confidence is not None
+                            else 0.5,
                             "data_quality": data_quality / 100.0,
-                            "overall": (float(prediction_result.confidence[0]) if prediction_result.confidence is not None else 0.5) * (data_quality / 100.0)
+                            "overall": (
+                                float(prediction_result.confidence[0])
+                                if prediction_result.confidence is not None
+                                else 0.5
+                            )
+                            * (data_quality / 100.0),
                         }
 
                 except Exception as e:
@@ -488,16 +559,62 @@ class NextGenAIOrchestrator:
                 "analysis_time": time.time() - start_time,
                 "data_points": len(market_data),
                 "feature_count": len(market_data.columns),
-                "memory_usage": self._estimate_memory_usage(market_data)
+                "memory_usage": self._estimate_memory_usage(market_data),
             }
 
             # リスク評価
-            risk_assessment = self._calculate_risk_assessment(market_data, ai_predictions, confidence_scores)
+            risk_assessment = self._calculate_risk_assessment(
+                market_data, ai_predictions, confidence_scores
+            )
 
             # 推奨アクション生成
             recommendation = self._generate_recommendation(
                 ai_predictions, confidence_scores, technical_signals, risk_assessment
             )
+
+            # データドリフト検出
+            data_drift_results = {}
+            if not self.data_drift_detector.baseline_stats:
+                # ベースラインがなければ、現在のデータをベースラインとして設定
+                logger.info(
+                    f"{symbol}: ベースライン統計情報が未設定のため、現在のデータをベースラインとして学習します。"
+                )
+                self.data_drift_detector.fit(market_data)
+                self.data_drift_detector.save_baseline(str(self.baseline_stats_path))
+            else:
+                # ベースラインがあればドリフト検出を実行
+                data_drift_results = self.data_drift_detector.detect_drift(market_data)
+                if data_drift_results.get("drift_detected"):
+                    logger.warning(f"{symbol}: データドリフトが検出されました！")
+                    # ドリフトアラートを生成することも可能
+                    alerts.append(
+                        {
+                            "symbol": symbol,
+                            "type": "DATA_DRIFT_DETECTED",
+                            "message": "データ分布に大きな変化が検出されました。",
+                            "severity": "high",
+                            "timestamp": datetime.now().isoformat(),
+                            "details": data_drift_results,
+                        }
+                    )
+                    # MLflowにデータドリフト結果をログとして記録
+                    try:
+                        import mlflow
+
+                        mlflow.log_dict(
+                            data_drift_results, f"data_drift_results_{symbol}.json"
+                        )
+                        logger.info(
+                            f"{symbol}: データドリフト結果をMLflowにログとして記録しました。"
+                        )
+                    except ImportError:
+                        logger.warning(
+                            "MLflowがインストールされていないため、データドリフト結果をログに記録できません。"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"MLflowへのデータドリフト結果のログ記録中にエラーが発生しました: {e}"
+                        )
 
             # AI分析結果作成
             ai_analysis = AIAnalysisResult(
@@ -510,21 +627,24 @@ class NextGenAIOrchestrator:
                 performance_metrics=performance_metrics,
                 data_quality=data_quality,
                 recommendation=recommendation,
-                risk_assessment=risk_assessment
+                risk_assessment=risk_assessment,
+                data_drift_results=data_drift_results,  # ドリフト検出結果を追加
             )
 
             # シグナル生成
             signals = self._generate_ai_signals(ai_analysis)
 
             # アラート生成
-            alerts = self._generate_smart_alerts(ai_analysis)
+            alerts.extend(
+                self._generate_smart_alerts(ai_analysis)
+            )  # alerts.extend() に変更
 
             return {
                 "success": True,
                 "errors": [],
                 "analysis": ai_analysis,
                 "signals": signals,
-                "alerts": alerts
+                "alerts": alerts,
             }
 
         except Exception as e:
@@ -533,46 +653,56 @@ class NextGenAIOrchestrator:
                 "errors": [f"{symbol}: 分析エラー - {str(e)}"],
                 "analysis": None,
                 "signals": [],
-                "alerts": []
+                "alerts": [],
             }
 
-    def _generate_technical_signals(self, data: pd.DataFrame, symbol: str) -> Dict[str, Any]:
+    def _generate_technical_signals(
+        self, data: pd.DataFrame, symbol: str
+    ) -> Dict[str, Any]:
         """テクニカル分析シグナル生成"""
 
         signals = {}
 
         try:
-            if '終値' in data.columns and len(data) >= 50:
-                current_price = data['終値'].iloc[-1]
+            if "終値" in data.columns and len(data) >= 50:
+                current_price = data["終値"].iloc[-1]
 
                 # 移動平均シグナル
-                sma_20 = data['終値'].rolling(20).mean().iloc[-1]
-                sma_50 = data['終値'].rolling(50).mean().iloc[-1]
+                sma_20 = data["終値"].rolling(20).mean().iloc[-1]
+                sma_50 = data["終値"].rolling(50).mean().iloc[-1]
 
                 signals["moving_average"] = {
                     "sma_20_signal": "bullish" if current_price > sma_20 else "bearish",
                     "sma_50_signal": "bullish" if current_price > sma_50 else "bearish",
                     "golden_cross": sma_20 > sma_50,
-                    "death_cross": sma_20 < sma_50
+                    "death_cross": sma_20 < sma_50,
                 }
 
                 # RSIシグナル
-                if 'RSI_14' in data.columns:
-                    rsi = data['RSI_14'].iloc[-1]
+                if "RSI_14" in data.columns:
+                    rsi = data["RSI_14"].iloc[-1]
                     signals["rsi"] = {
                         "value": rsi,
-                        "signal": "oversold" if rsi < 30 else "overbought" if rsi > 70 else "neutral"
+                        "signal": "oversold"
+                        if rsi < 30
+                        else "overbought"
+                        if rsi > 70
+                        else "neutral",
                     }
 
                 # ボラティリティシグナル
-                if 'volatility_20d' in data.columns:
-                    volatility = data['volatility_20d'].iloc[-1]
-                    vol_percentile = data['volatility_20d'].rank(pct=True).iloc[-1]
+                if "volatility_20d" in data.columns:
+                    volatility = data["volatility_20d"].iloc[-1]
+                    vol_percentile = data["volatility_20d"].rank(pct=True).iloc[-1]
 
                     signals["volatility"] = {
                         "current": volatility,
                         "percentile": vol_percentile,
-                        "regime": "high" if vol_percentile > 0.8 else "low" if vol_percentile < 0.2 else "normal"
+                        "regime": "high"
+                        if vol_percentile > 0.8
+                        else "low"
+                        if vol_percentile < 0.2
+                        else "normal",
                     }
 
         except Exception as e:
@@ -593,22 +723,33 @@ class NextGenAIOrchestrator:
             if len(numeric_columns) > 0:
                 features["basic_stats"] = {
                     "feature_count": len(numeric_columns),
-                    "data_completeness": 1.0 - data[numeric_columns].isnull().sum().sum() / (len(data) * len(numeric_columns)),
+                    "data_completeness": 1.0
+                    - data[numeric_columns].isnull().sum().sum()
+                    / (len(data) * len(numeric_columns)),
                     "value_ranges": {
-                        col: {"min": float(data[col].min()), "max": float(data[col].max())}
+                        col: {
+                            "min": float(data[col].min()),
+                            "max": float(data[col].max()),
+                        }
                         for col in numeric_columns[:5]  # 最初の5列のみ
-                    }
+                    },
                 }
 
             # 時系列特性
-            if '終値' in data.columns:
-                returns = data['終値'].pct_change()
+            if "終値" in data.columns:
+                returns = data["終値"].pct_change()
 
                 features["time_series"] = {
-                    "trend": "upward" if data['終値'].iloc[-1] > data['終値'].iloc[0] else "downward",
+                    "trend": "upward"
+                    if data["終値"].iloc[-1] > data["終値"].iloc[0]
+                    else "downward",
                     "volatility": float(returns.std()),
-                    "sharpe_estimate": float(returns.mean() / returns.std()) if returns.std() > 0 else 0,
-                    "max_drawdown": float((data['終値'] / data['終値'].expanding().max() - 1).min())
+                    "sharpe_estimate": float(returns.mean() / returns.std())
+                    if returns.std() > 0
+                    else 0,
+                    "max_drawdown": float(
+                        (data["終値"] / data["終値"].expanding().max() - 1).min()
+                    ),
                 }
 
         except Exception as e:
@@ -617,42 +758,48 @@ class NextGenAIOrchestrator:
 
         return features
 
-    def _calculate_risk_assessment(self,
-                                  data: pd.DataFrame,
-                                  predictions: Dict[str, Any],
-                                  confidence_scores: Dict[str, float]) -> Dict[str, Any]:
+    def _calculate_risk_assessment(
+        self,
+        data: pd.DataFrame,
+        predictions: Dict[str, Any],
+        confidence_scores: Dict[str, float],
+    ) -> Dict[str, Any]:
         """リスク評価計算"""
 
         risk_assessment = {}
 
         try:
             # データ品質リスク
-            data_completeness = 1.0 - data.isnull().sum().sum() / (len(data) * len(data.columns))
+            data_completeness = 1.0 - data.isnull().sum().sum() / (
+                len(data) * len(data.columns)
+            )
 
             # 予測不確実性リスク
             prediction_risk = 1.0 - confidence_scores.get("overall", 0.5)
 
             # ボラティリティリスク
-            if '終値' in data.columns:
-                returns = data['終値'].pct_change()
+            if "終値" in data.columns:
+                returns = data["終値"].pct_change()
                 volatility_risk = min(returns.std() * 10, 1.0)  # 正規化
             else:
                 volatility_risk = 0.5
 
             # 流動性リスク（出来高ベース）
-            if '出来高' in data.columns:
-                volume_trend = data['出来高'].rolling(20).mean().pct_change().iloc[-1]
+            if "出来高" in data.columns:
+                volume_trend = data["出来高"].rolling(20).mean().pct_change().iloc[-1]
                 liquidity_risk = max(0, -volume_trend)  # 出来高減少時にリスク増
             else:
                 liquidity_risk = 0.3
 
             # 総合リスクスコア
-            overall_risk = np.mean([
-                data_completeness * 0.2,
-                prediction_risk * 0.3,
-                volatility_risk * 0.3,
-                liquidity_risk * 0.2
-            ])
+            overall_risk = np.mean(
+                [
+                    data_completeness * 0.2,
+                    prediction_risk * 0.3,
+                    volatility_risk * 0.3,
+                    liquidity_risk * 0.2,
+                ]
+            )
 
             risk_assessment = {
                 "data_quality_risk": 1.0 - data_completeness,
@@ -660,7 +807,11 @@ class NextGenAIOrchestrator:
                 "volatility_risk": volatility_risk,
                 "liquidity_risk": liquidity_risk,
                 "overall_risk_score": overall_risk,
-                "risk_level": "high" if overall_risk > 0.7 else "medium" if overall_risk > 0.4 else "low"
+                "risk_level": "high"
+                if overall_risk > 0.7
+                else "medium"
+                if overall_risk > 0.4
+                else "low",
             }
 
         except Exception as e:
@@ -668,16 +819,18 @@ class NextGenAIOrchestrator:
             risk_assessment = {
                 "overall_risk_score": 0.5,
                 "risk_level": "unknown",
-                "error": str(e)
+                "error": str(e),
             }
 
         return risk_assessment
 
-    def _generate_recommendation(self,
-                               predictions: Dict[str, Any],
-                               confidence_scores: Dict[str, float],
-                               technical_signals: Dict[str, Any],
-                               risk_assessment: Dict[str, Any]) -> str:
+    def _generate_recommendation(
+        self,
+        predictions: Dict[str, Any],
+        confidence_scores: Dict[str, float],
+        technical_signals: Dict[str, Any],
+        risk_assessment: Dict[str, Any],
+    ) -> str:
         """推奨アクション生成"""
 
         try:
@@ -685,7 +838,10 @@ class NextGenAIOrchestrator:
             overall_risk = risk_assessment.get("overall_risk_score", 0.5)
 
             # 信頼度とリスクに基づく推奨
-            if overall_confidence > self.config.confidence_threshold and overall_risk < 0.4:
+            if (
+                overall_confidence > self.config.confidence_threshold
+                and overall_risk < 0.4
+            ):
                 if predictions.get("predicted_change", 0) > 0.02:  # 2%以上の上昇予測
                     return "STRONG_BUY_SIGNAL"
                 elif predictions.get("predicted_change", 0) < -0.02:  # 2%以上の下落予測
@@ -719,38 +875,46 @@ class NextGenAIOrchestrator:
                 "confidence": analysis.confidence_scores.get("overall", 0.5),
                 "recommendation": analysis.recommendation,
                 "safe_mode": True,
-                "trading_disabled": True
+                "trading_disabled": True,
             }
 
             # 予測シグナル
             if "predicted_change" in analysis.predictions:
                 prediction_signal = base_signal.copy()
-                prediction_signal.update({
-                    "type": "PRICE_PREDICTION",
-                    "predicted_change": analysis.predictions["predicted_change"],
-                    "prediction_horizon": self.config.prediction_horizon,
-                    "data_quality": analysis.data_quality
-                })
+                prediction_signal.update(
+                    {
+                        "type": "PRICE_PREDICTION",
+                        "predicted_change": analysis.predictions["predicted_change"],
+                        "prediction_horizon": self.config.prediction_horizon,
+                        "data_quality": analysis.data_quality,
+                    }
+                )
                 signals.append(prediction_signal)
 
             # テクニカルシグナル
             if "moving_average" in analysis.technical_signals:
                 ma_signal = base_signal.copy()
-                ma_signal.update({
-                    "type": "TECHNICAL_SIGNAL",
-                    "indicator": "moving_average",
-                    "signals": analysis.technical_signals["moving_average"]
-                })
+                ma_signal.update(
+                    {
+                        "type": "TECHNICAL_SIGNAL",
+                        "indicator": "moving_average",
+                        "signals": analysis.technical_signals["moving_average"],
+                    }
+                )
                 signals.append(ma_signal)
 
             # リスクアラート
             if analysis.risk_assessment.get("overall_risk_score", 0) > 0.7:
                 risk_signal = base_signal.copy()
-                risk_signal.update({
-                    "type": "RISK_ALERT",
-                    "risk_level": analysis.risk_assessment.get("risk_level", "unknown"),
-                    "risk_factors": analysis.risk_assessment
-                })
+                risk_signal.update(
+                    {
+                        "type": "RISK_ALERT",
+                        "risk_level": analysis.risk_assessment.get(
+                            "risk_level", "unknown"
+                        ),
+                        "risk_factors": analysis.risk_assessment,
+                    }
+                )
                 signals.append(risk_signal)
 
         except Exception as e:
@@ -758,64 +922,79 @@ class NextGenAIOrchestrator:
 
         return signals
 
-    def _generate_smart_alerts(self, analysis: AIAnalysisResult) -> List[Dict[str, Any]]:
+    def _generate_smart_alerts(
+        self, analysis: AIAnalysisResult
+    ) -> List[Dict[str, Any]]:
         """スマートアラート生成"""
 
-        alerts = []
+        alerts = []  # ここに移動
 
         try:
             # データ品質アラート
             if analysis.data_quality < self.config.data_quality_threshold:
-                alerts.append({
-                    "symbol": analysis.symbol,
-                    "type": "DATA_QUALITY_WARNING",
-                    "message": f"データ品質低下: {analysis.data_quality:.1f}%",
-                    "severity": "medium",
-                    "timestamp": datetime.now().isoformat()
-                })
+                alerts.append(
+                    {
+                        "symbol": analysis.symbol,
+                        "type": "DATA_QUALITY_WARNING",
+                        "message": f"データ品質低下: {analysis.data_quality:.1f}%",
+                        "severity": "medium",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
             # 高信頼度予測アラート
             overall_confidence = analysis.confidence_scores.get("overall", 0)
             if overall_confidence > self.config.confidence_threshold:
-                alerts.append({
-                    "symbol": analysis.symbol,
-                    "type": "HIGH_CONFIDENCE_PREDICTION",
-                    "message": f"高信頼度予測: {analysis.recommendation} (信頼度: {overall_confidence:.2f})",
-                    "severity": "high",
-                    "timestamp": datetime.now().isoformat(),
-                    "action_required": False
-                })
+                alerts.append(
+                    {
+                        "symbol": analysis.symbol,
+                        "type": "HIGH_CONFIDENCE_PREDICTION",
+                        "message": f"高信頼度予測: {analysis.recommendation} (信頼度: {overall_confidence:.2f})",
+                        "severity": "high",
+                        "timestamp": datetime.now().isoformat(),
+                        "action_required": False,
+                    }
+                )
 
             # パフォーマンス異常アラート
             analysis_time = analysis.performance_metrics.get("analysis_time", 0)
             if analysis_time > 30:  # 30秒以上
-                alerts.append({
-                    "symbol": analysis.symbol,
-                    "type": "PERFORMANCE_DEGRADATION",
-                    "message": f"分析時間異常: {analysis_time:.1f}秒",
-                    "severity": "low",
-                    "timestamp": datetime.now().isoformat()
-                })
+                alerts.append(
+                    {
+                        "symbol": analysis.symbol,
+                        "type": "PERFORMANCE_DEGRADATION",
+                        "message": f"分析時間異常: {analysis_time:.1f}秒",
+                        "severity": "low",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
         except Exception as e:
             logger.error(f"スマートアラート生成エラー {analysis.symbol}: {e}")
 
         return alerts
 
-    def _generate_portfolio_analysis(self, ai_results: List[AIAnalysisResult]) -> Dict[str, Any]:
+    def _generate_portfolio_analysis(
+        self, ai_results: List[AIAnalysisResult]
+    ) -> Dict[str, Any]:
         """ポートフォリオ分析生成"""
 
         if not ai_results:
             return {
                 "status": "analysis_only",
                 "trading_disabled": True,
-                "analyzed_symbols": 0
+                "analyzed_symbols": 0,
             }
 
         try:
             # 総合統計
             total_symbols = len(ai_results)
-            high_confidence_count = sum(1 for r in ai_results if r.confidence_scores.get("overall", 0) > self.config.confidence_threshold)
+            high_confidence_count = sum(
+                1
+                for r in ai_results
+                if r.confidence_scores.get("overall", 0)
+                > self.config.confidence_threshold
+            )
 
             # 推奨分布
             recommendations = [r.recommendation for r in ai_results]
@@ -827,7 +1006,9 @@ class NextGenAIOrchestrator:
             avg_data_quality = np.mean([r.data_quality for r in ai_results])
 
             # リスク分布
-            risk_levels = [r.risk_assessment.get("risk_level", "unknown") for r in ai_results]
+            risk_levels = [
+                r.risk_assessment.get("risk_level", "unknown") for r in ai_results
+            ]
             risk_distribution = {}
             for risk in set(risk_levels):
                 risk_distribution[risk] = risk_levels.count(risk)
@@ -842,9 +1023,16 @@ class NextGenAIOrchestrator:
                 "risk_distribution": risk_distribution,
                 "portfolio_metrics": {
                     "total_analysis_value": "N/A (分析専用)",
-                    "confidence_weighted_score": np.mean([r.confidence_scores.get("overall", 0) for r in ai_results]),
-                    "risk_weighted_score": np.mean([r.risk_assessment.get("overall_risk_score", 0.5) for r in ai_results])
-                }
+                    "confidence_weighted_score": np.mean(
+                        [r.confidence_scores.get("overall", 0) for r in ai_results]
+                    ),
+                    "risk_weighted_score": np.mean(
+                        [
+                            r.risk_assessment.get("overall_risk_score", 0.5)
+                            for r in ai_results
+                        ]
+                    ),
+                },
             }
 
         except Exception as e:
@@ -852,17 +1040,14 @@ class NextGenAIOrchestrator:
             return {
                 "status": "analysis_only",
                 "trading_disabled": True,
-                "error": str(e)
+                "error": str(e),
             }
 
     def _analyze_system_health(self) -> Dict[str, Any]:
         """システムヘルス分析"""
 
         try:
-            health = {
-                "overall_status": "healthy",
-                "components": {}
-            }
+            health = {"overall_status": "healthy", "components": {}}
 
             # MLエンジンヘルス
             if self.ml_engine:
@@ -871,12 +1056,12 @@ class NextGenAIOrchestrator:
                     health["components"]["ml_engine"] = {
                         "status": "operational",
                         "model_loaded": ml_summary.get("status") != "モデル未初期化",
-                        "device": ml_summary.get("device", "unknown")
+                        "device": ml_summary.get("device", "unknown"),
                     }
                 except Exception as e:
                     health["components"]["ml_engine"] = {
                         "status": "error",
-                        "error": str(e)
+                        "error": str(e),
                     }
 
             # バッチフェッチャーヘルス
@@ -886,12 +1071,15 @@ class NextGenAIOrchestrator:
                     health["components"]["batch_fetcher"] = {
                         "status": "operational",
                         "throughput": batch_stats.throughput_rps,
-                        "success_rate": batch_stats.successful_requests / batch_stats.total_requests if batch_stats.total_requests > 0 else 1.0
+                        "success_rate": batch_stats.successful_requests
+                        / batch_stats.total_requests
+                        if batch_stats.total_requests > 0
+                        else 1.0,
                     }
                 except Exception as e:
                     health["components"]["batch_fetcher"] = {
                         "status": "error",
-                        "error": str(e)
+                        "error": str(e),
                     }
 
             # パフォーマンス監視ヘルス
@@ -899,26 +1087,25 @@ class NextGenAIOrchestrator:
                 try:
                     health["components"]["performance_monitor"] = {
                         "status": "operational",
-                        "monitoring_active": True
+                        "monitoring_active": True,
                     }
                 except Exception as e:
                     health["components"]["performance_monitor"] = {
                         "status": "error",
-                        "error": str(e)
+                        "error": str(e),
                     }
 
             # 全体ステータス判定
-            component_statuses = [comp.get("status") for comp in health["components"].values()]
+            component_statuses = [
+                comp.get("status") for comp in health["components"].values()
+            ]
             if "error" in component_statuses:
                 health["overall_status"] = "degraded"
 
             return health
 
         except Exception as e:
-            return {
-                "overall_status": "error",
-                "error": str(e)
-            }
+            return {"overall_status": "error", "error": str(e)}
 
     def _calculate_performance_stats(self, start_time: datetime) -> Dict[str, Any]:
         """パフォーマンス統計計算"""
@@ -928,7 +1115,7 @@ class NextGenAIOrchestrator:
 
             stats = {
                 "execution_time_seconds": execution_time,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # バッチフェッチャー統計
@@ -936,27 +1123,29 @@ class NextGenAIOrchestrator:
                 batch_stats = self.batch_fetcher.get_pipeline_stats()
                 stats["batch_fetcher"] = {
                     "total_requests": batch_stats.total_requests,
-                    "success_rate": batch_stats.successful_requests / batch_stats.total_requests if batch_stats.total_requests > 0 else 0,
+                    "success_rate": batch_stats.successful_requests
+                    / batch_stats.total_requests
+                    if batch_stats.total_requests > 0
+                    else 0,
                     "avg_fetch_time": batch_stats.avg_fetch_time,
-                    "throughput_rps": batch_stats.throughput_rps
+                    "throughput_rps": batch_stats.throughput_rps,
                 }
 
             # MLエンジン統計
             if self.ml_engine and self.ml_engine.performance_history:
-                avg_inference_time = np.mean([p["inference_time"] for p in self.ml_engine.performance_history])
+                avg_inference_time = np.mean(
+                    [p["inference_time"] for p in self.ml_engine.performance_history]
+                )
                 stats["ml_engine"] = {
                     "predictions_made": len(self.ml_engine.performance_history),
                     "avg_inference_time": avg_inference_time,
-                    "model_version": self.ml_engine.model_metadata["version"]
+                    "model_version": self.ml_engine.model_metadata["version"],
                 }
 
             return stats
 
         except Exception as e:
-            return {
-                "error": str(e),
-                "execution_time_seconds": 0
-            }
+            return {"error": str(e), "execution_time_seconds": 0}
 
     def _estimate_memory_usage(self, data: pd.DataFrame) -> float:
         """メモリ使用量推定"""
@@ -965,20 +1154,16 @@ class NextGenAIOrchestrator:
         except Exception:
             return 0.0
 
-    async def run_async_advanced_analysis(self,
-                                        symbols: List[str],
-                                        analysis_type: str = "comprehensive") -> ExecutionReport:
+    async def run_async_advanced_analysis(
+        self, symbols: List[str], analysis_type: str = "comprehensive"
+    ) -> ExecutionReport:
         """非同期高度分析実行"""
 
         logger.info("非同期Next-Gen AI分析開始")
 
         loop = asyncio.get_event_loop()
         report = await loop.run_in_executor(
-            None,
-            self.run_advanced_analysis,
-            symbols,
-            analysis_type,
-            True
+            None, self.run_advanced_analysis, symbols, analysis_type, True
         )
 
         logger.info("非同期Next-Gen AI分析完了")
@@ -1002,10 +1187,12 @@ class NextGenAIOrchestrator:
                 "ml_engine_enabled": self.config.enable_ml_engine,
                 "advanced_batch_enabled": self.config.enable_advanced_batch,
                 "performance_monitoring": self.config.enable_performance_monitoring,
-                "fault_tolerance": self.config.enable_fault_tolerance
+                "fault_tolerance": self.config.enable_fault_tolerance,
             },
             "execution_count": len(self.execution_history),
-            "last_execution": self.execution_history[-1].start_time.isoformat() if self.execution_history else None
+            "last_execution": self.execution_history[-1].start_time.isoformat()
+            if self.execution_history
+            else None,
         }
 
     def cleanup(self):
@@ -1046,8 +1233,11 @@ class NextGenAIOrchestrator:
         """コンテキストマネージャー終了"""
         self.cleanup()
         if exc_type:
-            logger.error(f"Next-Gen AI Orchestrator実行エラー: {exc_type.__name__}: {exc_val}")
+            logger.error(
+                f"Next-Gen AI Orchestrator実行エラー: {exc_type.__name__}: {exc_val}"
+            )
         return False
+
 
 # 後方互換性のためのエイリアス
 DayTradeOrchestrator = NextGenAIOrchestrator

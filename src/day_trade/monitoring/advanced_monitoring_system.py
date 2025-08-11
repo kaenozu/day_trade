@@ -6,18 +6,17 @@ Phase G: 本番運用最適化フェーズ
 リアルタイム監視、ログ分析、アラート通知システム
 """
 
-import os
 import json
-import time
 import logging
-import asyncio
+import os
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Callable
-from dataclasses import dataclass, asdict
 from enum import Enum
-from threading import Thread, Lock
-from collections import deque, defaultdict
 from pathlib import Path
+from threading import Lock, Thread
+from typing import Any, Dict, List, Optional
 
 try:
     import psutil
@@ -31,8 +30,9 @@ except ImportError:
 
 try:
     import smtplib
-    from email.mime.text import MimeText
     from email.mime.multipart import MimeMultipart
+    from email.mime.text import MimeText
+
     EMAIL_AVAILABLE = True
 except ImportError:
     EMAIL_AVAILABLE = False
@@ -40,6 +40,7 @@ except ImportError:
 
 class AlertLevel(Enum):
     """アラートレベル"""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -48,6 +49,7 @@ class AlertLevel(Enum):
 
 class MetricType(Enum):
     """メトリクスタイプ"""
+
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
@@ -57,6 +59,7 @@ class MetricType(Enum):
 @dataclass
 class MetricPoint:
     """メトリクス データポイント"""
+
     timestamp: datetime
     value: float
     labels: Dict[str, str]
@@ -67,6 +70,7 @@ class MetricPoint:
 @dataclass
 class Alert:
     """アラート"""
+
     alert_id: str
     level: AlertLevel
     title: str
@@ -81,6 +85,7 @@ class Alert:
 @dataclass
 class MonitoringRule:
     """監視ルール"""
+
     rule_id: str
     name: str
     condition: str  # Python expression
@@ -104,16 +109,14 @@ class AdvancedLogger:
 
         # フォーマッター設定
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
         # ファイルハンドラー
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
 
-        file_handler = logging.FileHandler(
-            log_dir / f"{self.component_name}.log"
-        )
+        file_handler = logging.FileHandler(log_dir / f"{self.component_name}.log")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
@@ -127,17 +130,15 @@ class AdvancedLogger:
     def log_structured(self, level: str, message: str, **kwargs):
         """構造化ログ"""
         log_entry = {
-            'timestamp': datetime.now().isoformat(),
-            'component': self.component_name,
-            'level': level,
-            'message': message,
-            **kwargs
+            "timestamp": datetime.now().isoformat(),
+            "component": self.component_name,
+            "level": level,
+            "message": message,
+            **kwargs,
         }
 
         self.structured_logs.append(log_entry)
-        getattr(self.logger, level.lower())(
-            f"{message} | {json.dumps(kwargs)}"
-        )
+        getattr(self.logger, level.lower())(f"{message} | {json.dumps(kwargs)}")
 
     def info(self, message: str, **kwargs):
         """情報ログ"""
@@ -164,9 +165,13 @@ class MetricsCollector:
         self.collection_lock = Lock()
         self.system_metrics_enabled = True
 
-    def record_metric(self, name: str, value: float,
-                     metric_type: MetricType = MetricType.GAUGE,
-                     labels: Dict[str, str] = None):
+    def record_metric(
+        self,
+        name: str,
+        value: float,
+        metric_type: MetricType = MetricType.GAUGE,
+        labels: Dict[str, str] = None,
+    ):
         """メトリクス記録"""
         if labels is None:
             labels = {}
@@ -176,7 +181,7 @@ class MetricsCollector:
             value=value,
             labels=labels,
             metric_name=name,
-            metric_type=metric_type
+            metric_type=metric_type,
         )
 
         with self.collection_lock:
@@ -199,7 +204,8 @@ class MetricsCollector:
 
             # ディスク使用率 (Windowsでは現在のドライブを使用)
             import platform
-            disk_path = 'C:\\' if platform.system() == 'Windows' else '/'
+
+            disk_path = "C:\\" if platform.system() == "Windows" else "/"
             disk = psutil.disk_usage(disk_path)
             disk_percent = (disk.used / disk.total) * 100
             self.record_metric("system.disk_usage_percent", disk_percent)
@@ -212,8 +218,9 @@ class MetricsCollector:
         except Exception as e:
             print(f"システムメトリクス収集エラー: {e}")
 
-    def get_metric_values(self, metric_name: str,
-                         duration_minutes: int = 5) -> List[MetricPoint]:
+    def get_metric_values(
+        self, metric_name: str, duration_minutes: int = 5
+    ) -> List[MetricPoint]:
         """メトリクス値取得"""
         cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
 
@@ -222,12 +229,14 @@ class MetricsCollector:
                 return []
 
             return [
-                point for point in self.metrics[metric_name]
+                point
+                for point in self.metrics[metric_name]
                 if point.timestamp >= cutoff_time
             ]
 
-    def get_metric_summary(self, metric_name: str,
-                          duration_minutes: int = 5) -> Dict[str, float]:
+    def get_metric_summary(
+        self, metric_name: str, duration_minutes: int = 5
+    ) -> Dict[str, float]:
         """メトリクスサマリー"""
         values = self.get_metric_values(metric_name, duration_minutes)
 
@@ -237,11 +246,11 @@ class MetricsCollector:
         numeric_values = [point.value for point in values]
 
         return {
-            'count': len(numeric_values),
-            'min': min(numeric_values),
-            'max': max(numeric_values),
-            'avg': sum(numeric_values) / len(numeric_values),
-            'latest': numeric_values[-1] if numeric_values else 0
+            "count": len(numeric_values),
+            "min": min(numeric_values),
+            "max": max(numeric_values),
+            "avg": sum(numeric_values) / len(numeric_values),
+            "latest": numeric_values[-1] if numeric_values else 0,
         }
 
 
@@ -254,12 +263,18 @@ class AlertManager:
         self.notification_channels = []
         self.rule_cooldowns: Dict[str, datetime] = {}
 
-    def add_notification_channel(self, channel: 'NotificationChannel'):
+    def add_notification_channel(self, channel: "NotificationChannel"):
         """通知チャンネル追加"""
         self.notification_channels.append(channel)
 
-    def create_alert(self, level: AlertLevel, title: str, message: str,
-                    source_component: str, metadata: Dict[str, Any] = None) -> str:
+    def create_alert(
+        self,
+        level: AlertLevel,
+        title: str,
+        message: str,
+        source_component: str,
+        metadata: Dict[str, Any] = None,
+    ) -> str:
         """アラート作成"""
         import uuid
 
@@ -273,7 +288,7 @@ class AlertManager:
             message=message,
             timestamp=datetime.now(),
             source_component=source_component,
-            metadata=metadata
+            metadata=metadata,
         )
 
         with self.alert_lock:
@@ -307,7 +322,9 @@ class AlertManager:
             active_alerts = [alert for alert in self.alerts if not alert.resolved]
 
             if level:
-                active_alerts = [alert for alert in active_alerts if alert.level == level]
+                active_alerts = [
+                    alert for alert in active_alerts if alert.level == level
+                ]
 
             return sorted(active_alerts, key=lambda a: a.timestamp, reverse=True)
 
@@ -323,10 +340,18 @@ class NotificationChannel:
 class EmailNotificationChannel(NotificationChannel):
     """メール通知チャンネル"""
 
-    def __init__(self, smtp_server: str, smtp_port: int,
-                 username: str, password: str, to_addresses: List[str]):
+    def __init__(
+        self,
+        smtp_server: str,
+        smtp_port: int,
+        username: str,
+        password: str,
+        to_addresses: List[str],
+    ):
         if not EMAIL_AVAILABLE:
-            raise RuntimeError("Email機能が利用できません: smtplibまたはemailライブラリが見つかりません")
+            raise RuntimeError(
+                "Email機能が利用できません: smtplibまたはemailライブラリが見つかりません"
+            )
 
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
@@ -342,9 +367,9 @@ class EmailNotificationChannel(NotificationChannel):
 
         try:
             msg = MimeMultipart()
-            msg['From'] = self.username
-            msg['To'] = ', '.join(self.to_addresses)
-            msg['Subject'] = f"[{alert.level.value.upper()}] {alert.title}"
+            msg["From"] = self.username
+            msg["To"] = ", ".join(self.to_addresses)
+            msg["Subject"] = f"[{alert.level.value.upper()}] {alert.title}"
 
             body = f"""
 Day Trade システムアラート
@@ -360,7 +385,7 @@ Day Trade システムアラート
 {json.dumps(alert.metadata, indent=2, ensure_ascii=False)}
 """
 
-            msg.attach(MimeText(body, 'plain', 'utf-8'))
+            msg.attach(MimeText(body, "plain", "utf-8"))
 
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.starttls()
@@ -377,7 +402,9 @@ class SlackNotificationChannel(NotificationChannel):
 
     def __init__(self, webhook_url: str):
         if not requests:
-            raise RuntimeError("Slack通知機能が利用できません: requestsライブラリが見つかりません")
+            raise RuntimeError(
+                "Slack通知機能が利用できません: requestsライブラリが見つかりません"
+            )
 
         self.webhook_url = webhook_url
 
@@ -392,20 +419,30 @@ class SlackNotificationChannel(NotificationChannel):
                 AlertLevel.INFO: "#36a64f",
                 AlertLevel.WARNING: "#ffcc00",
                 AlertLevel.ERROR: "#ff6b6b",
-                AlertLevel.CRITICAL: "#ff0000"
+                AlertLevel.CRITICAL: "#ff0000",
             }
 
             payload = {
-                "attachments": [{
-                    "color": color_map.get(alert.level, "#cccccc"),
-                    "title": f"[{alert.level.value.upper()}] {alert.title}",
-                    "text": alert.message,
-                    "fields": [
-                        {"title": "コンポーネント", "value": alert.source_component, "short": True},
-                        {"title": "時刻", "value": alert.timestamp.strftime('%H:%M:%S'), "short": True}
-                    ],
-                    "timestamp": int(alert.timestamp.timestamp())
-                }]
+                "attachments": [
+                    {
+                        "color": color_map.get(alert.level, "#cccccc"),
+                        "title": f"[{alert.level.value.upper()}] {alert.title}",
+                        "text": alert.message,
+                        "fields": [
+                            {
+                                "title": "コンポーネント",
+                                "value": alert.source_component,
+                                "short": True,
+                            },
+                            {
+                                "title": "時刻",
+                                "value": alert.timestamp.strftime("%H:%M:%S"),
+                                "short": True,
+                            },
+                        ],
+                        "timestamp": int(alert.timestamp.timestamp()),
+                    }
+                ]
             }
 
             response = requests.post(self.webhook_url, json=payload)
@@ -418,8 +455,9 @@ class SlackNotificationChannel(NotificationChannel):
 class RuleEngine:
     """ルールエンジン"""
 
-    def __init__(self, metrics_collector: MetricsCollector,
-                 alert_manager: AlertManager):
+    def __init__(
+        self, metrics_collector: MetricsCollector, alert_manager: AlertManager
+    ):
         self.metrics_collector = metrics_collector
         self.alert_manager = alert_manager
         self.rules: List[MonitoringRule] = []
@@ -437,36 +475,36 @@ class RuleEngine:
                 name="高CPU使用率",
                 condition="cpu_usage > 80",
                 alert_level=AlertLevel.WARNING,
-                cooldown_seconds=300
+                cooldown_seconds=300,
             ),
             MonitoringRule(
                 rule_id="critical_cpu",
                 name="重要CPU使用率",
                 condition="cpu_usage > 95",
                 alert_level=AlertLevel.CRITICAL,
-                cooldown_seconds=60
+                cooldown_seconds=60,
             ),
             MonitoringRule(
                 rule_id="low_memory",
                 name="メモリ不足",
                 condition="memory_available < 1024",  # 1GB未満
                 alert_level=AlertLevel.ERROR,
-                cooldown_seconds=300
+                cooldown_seconds=300,
             ),
             MonitoringRule(
                 rule_id="disk_full",
                 name="ディスク容量不足",
                 condition="disk_usage > 90",
                 alert_level=AlertLevel.CRITICAL,
-                cooldown_seconds=600
+                cooldown_seconds=600,
             ),
             MonitoringRule(
                 rule_id="api_error_rate",
                 name="API エラー率高",
                 condition="api_error_rate > 0.05",  # 5%以上
                 alert_level=AlertLevel.WARNING,
-                cooldown_seconds=300
-            )
+                cooldown_seconds=300,
+            ),
         ]
 
         for rule in default_rules:
@@ -499,14 +537,16 @@ class RuleEngine:
                         message=f"監視ルール '{rule.name}' が発火しました: {rule.condition}",
                         source_component="RuleEngine",
                         metadata={
-                            'rule_id': rule.rule_id,
-                            'condition': rule.condition,
-                            'context': self.evaluation_context.copy()
-                        }
+                            "rule_id": rule.rule_id,
+                            "condition": rule.condition,
+                            "context": self.evaluation_context.copy(),
+                        },
                     )
 
                     # クールダウン設定
-                    cooldown_end = current_time + timedelta(seconds=rule.cooldown_seconds)
+                    cooldown_end = current_time + timedelta(
+                        seconds=rule.cooldown_seconds
+                    )
                     self.alert_manager.rule_cooldowns[rule.rule_id] = cooldown_end
 
             except Exception as e:
@@ -515,18 +555,26 @@ class RuleEngine:
     def _update_evaluation_context(self):
         """評価コンテキスト更新"""
         # システムメトリクス
-        cpu_summary = self.metrics_collector.get_metric_summary("system.cpu_usage_percent")
-        memory_summary = self.metrics_collector.get_metric_summary("system.memory_available_mb")
-        disk_summary = self.metrics_collector.get_metric_summary("system.disk_usage_percent")
+        cpu_summary = self.metrics_collector.get_metric_summary(
+            "system.cpu_usage_percent"
+        )
+        memory_summary = self.metrics_collector.get_metric_summary(
+            "system.memory_available_mb"
+        )
+        disk_summary = self.metrics_collector.get_metric_summary(
+            "system.disk_usage_percent"
+        )
 
-        self.evaluation_context.update({
-            'cpu_usage': cpu_summary.get('latest', 0),
-            'memory_available': memory_summary.get('latest', 0),
-            'disk_usage': disk_summary.get('latest', 0),
-            'time': datetime.now(),
-            # 必要に応じてアプリケーション固有メトリクスを追加
-            'api_error_rate': 0.01  # デモ用
-        })
+        self.evaluation_context.update(
+            {
+                "cpu_usage": cpu_summary.get("latest", 0),
+                "memory_available": memory_summary.get("latest", 0),
+                "disk_usage": disk_summary.get("latest", 0),
+                "time": datetime.now(),
+                # 必要に応じてアプリケーション固有メトリクスを追加
+                "api_error_rate": 0.01,  # デモ用
+            }
+        )
 
 
 class AdvancedMonitoringSystem:
@@ -549,9 +597,9 @@ class AdvancedMonitoringSystem:
     def setup_notifications(self):
         """通知設定"""
         # 環境変数から設定を読み込み
-        smtp_server = os.getenv('SMTP_SERVER')
-        smtp_username = os.getenv('SMTP_USERNAME')
-        smtp_password = os.getenv('SMTP_PASSWORD')
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
 
         if smtp_server and smtp_username and smtp_password and EMAIL_AVAILABLE:
             try:
@@ -560,14 +608,14 @@ class AdvancedMonitoringSystem:
                     smtp_port=587,
                     username=smtp_username,
                     password=smtp_password,
-                    to_addresses=os.getenv('ALERT_EMAIL_ADDRESSES', '').split(',')
+                    to_addresses=os.getenv("ALERT_EMAIL_ADDRESSES", "").split(","),
                 )
                 self.alert_manager.add_notification_channel(email_channel)
                 self.logger.info("メール通知チャンネル設定完了")
             except Exception as e:
                 self.logger.warning("メール通知チャンネル設定失敗", error=str(e))
 
-        slack_webhook = os.getenv('SLACK_WEBHOOK_URL')
+        slack_webhook = os.getenv("SLACK_WEBHOOK_URL")
         if slack_webhook and requests:
             try:
                 slack_channel = SlackNotificationChannel(slack_webhook)
@@ -614,38 +662,53 @@ class AdvancedMonitoringSystem:
                 self.logger.error("監視ループエラー", error=str(e))
                 time.sleep(60)  # エラー時は1分待機
 
-    def record_application_metric(self, name: str, value: float,
-                                 labels: Dict[str, str] = None):
+    def record_application_metric(
+        self, name: str, value: float, labels: Dict[str, str] = None
+    ):
         """アプリケーションメトリクス記録"""
         self.metrics_collector.record_metric(name, value, labels=labels)
 
-    def create_manual_alert(self, level: AlertLevel, title: str,
-                           message: str, component: str = "Application"):
+    def create_manual_alert(
+        self,
+        level: AlertLevel,
+        title: str,
+        message: str,
+        component: str = "Application",
+    ):
         """手動アラート作成"""
         return self.alert_manager.create_alert(
-            level=level, title=title, message=message,
-            source_component=component
+            level=level, title=title, message=message, source_component=component
         )
 
     def get_system_dashboard(self) -> Dict[str, Any]:
         """システムダッシュボード情報"""
         return {
-            'system_metrics': {
-                'cpu': self.metrics_collector.get_metric_summary("system.cpu_usage_percent"),
-                'memory': self.metrics_collector.get_metric_summary("system.memory_available_mb"),
-                'disk': self.metrics_collector.get_metric_summary("system.disk_usage_percent")
+            "system_metrics": {
+                "cpu": self.metrics_collector.get_metric_summary(
+                    "system.cpu_usage_percent"
+                ),
+                "memory": self.metrics_collector.get_metric_summary(
+                    "system.memory_available_mb"
+                ),
+                "disk": self.metrics_collector.get_metric_summary(
+                    "system.disk_usage_percent"
+                ),
             },
-            'active_alerts': {
-                'critical': len(self.alert_manager.get_active_alerts(AlertLevel.CRITICAL)),
-                'error': len(self.alert_manager.get_active_alerts(AlertLevel.ERROR)),
-                'warning': len(self.alert_manager.get_active_alerts(AlertLevel.WARNING)),
-                'total': len(self.alert_manager.get_active_alerts())
+            "active_alerts": {
+                "critical": len(
+                    self.alert_manager.get_active_alerts(AlertLevel.CRITICAL)
+                ),
+                "error": len(self.alert_manager.get_active_alerts(AlertLevel.ERROR)),
+                "warning": len(
+                    self.alert_manager.get_active_alerts(AlertLevel.WARNING)
+                ),
+                "total": len(self.alert_manager.get_active_alerts()),
             },
-            'monitoring_status': {
-                'running': self.running,
-                'rules_count': len(self.rule_engine.rules),
-                'notification_channels': len(self.alert_manager.notification_channels)
-            }
+            "monitoring_status": {
+                "running": self.running,
+                "rules_count": len(self.rule_engine.rules),
+                "notification_channels": len(self.alert_manager.notification_channels),
+            },
         }
 
 
@@ -664,7 +727,7 @@ def main():
         system.create_manual_alert(
             AlertLevel.INFO,
             "監視システム開始",
-            "高度監視システムが正常に開始されました"
+            "高度監視システムが正常に開始されました",
         )
 
         print("\n[RUNNING] 監視システム実行中...")
@@ -673,9 +736,11 @@ def main():
         # メインループ（実際の本番環境では常時実行）
         while True:
             dashboard = system.get_system_dashboard()
-            print(f"\n[DASHBOARD] CPU: {dashboard['system_metrics']['cpu'].get('latest', 0):.1f}% | "
-                  f"Memory: {dashboard['system_metrics']['memory'].get('latest', 0):.0f}MB | "
-                  f"Alerts: {dashboard['active_alerts']['total']}")
+            print(
+                f"\n[DASHBOARD] CPU: {dashboard['system_metrics']['cpu'].get('latest', 0):.1f}% | "
+                f"Memory: {dashboard['system_metrics']['memory'].get('latest', 0):.0f}MB | "
+                f"Alerts: {dashboard['active_alerts']['total']}"
+            )
             time.sleep(60)
 
     except KeyboardInterrupt:

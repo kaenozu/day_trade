@@ -20,15 +20,15 @@ repos:
       - id: check-json
 
   # Python code formatting and linting with Ruff
-  # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: v0.1.15
-  #   hooks:
-  #     - id: ruff
-  #       alias: ruff-check
-  #       args: [--fix, --exit-non-zero-on-fix]
-  #       exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py)$
-  #     - id: ruff-format
-  #       exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py)$
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.15
+    hooks:
+      - id: ruff-format # フォーマッターを先に実行
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|src/day_trade/analysis/advanced_technical_indicators.py)$
+      - id: ruff # リンターを実行し、自動修正を適用
+        alias: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|src/day_trade/analysis/advanced_technical_indicators.py)$
 
   # Type checking with mypy (temporarily disabled for Issue #117 PR)
   # - repo: https://github.com/pre-commit/mirrors-mypy

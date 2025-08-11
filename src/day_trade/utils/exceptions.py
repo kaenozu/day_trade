@@ -4,7 +4,7 @@ Day Trade システム用カスタム例外クラス
 """
 
 import re
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     import requests.exceptions
@@ -38,36 +38,34 @@ def _sanitize_sensitive_info(text: str) -> str:
     # 機密情報パターンのリスト
     sensitive_patterns = [
         # パスワード関連
-        (r'password[=:]\s*[^\s,;]+', 'password=***'),
-        (r'pwd[=:]\s*[^\s,;]+', 'pwd=***'),
-        (r'pass[=:]\s*[^\s,;]+', 'pass=***'),
-
+        (r"password[=:]\s*[^\s,;]+", "password=***"),
+        (r"pwd[=:]\s*[^\s,;]+", "pwd=***"),
+        (r"pass[=:]\s*[^\s,;]+", "pass=***"),
         # APIキー・トークン関連
-        (r'api_key[=:]\s*[^\s,;]+', 'api_key=***'),
-        (r'apikey[=:]\s*[^\s,;]+', 'apikey=***'),
-        (r'token[=:]\s*[^\s,;]+', 'token=***'),
-        (r'access_token[=:]\s*[^\s,;]+', 'access_token=***'),
-        (r'refresh_token[=:]\s*[^\s,;]+', 'refresh_token=***'),
-        (r'secret[=:]\s*[^\s,;]+', 'secret=***'),
-
+        (r"api_key[=:]\s*[^\s,;]+", "api_key=***"),
+        (r"apikey[=:]\s*[^\s,;]+", "apikey=***"),
+        (r"token[=:]\s*[^\s,;]+", "token=***"),
+        (r"access_token[=:]\s*[^\s,;]+", "access_token=***"),
+        (r"refresh_token[=:]\s*[^\s,;]+", "refresh_token=***"),
+        (r"secret[=:]\s*[^\s,;]+", "secret=***"),
         # データベース接続文字列
-        (r'postgresql://[^@]+:[^@]+@', 'postgresql://***:***@'),
-        (r'mysql://[^@]+:[^@]+@', 'mysql://***:***@'),
-        (r'mongodb://[^@]+:[^@]+@', 'mongodb://***:***@'),
-        (r'sqlite:///[^\s]+', 'sqlite:///***'),
-
+        (r"postgresql://[^@]+:[^@]+@", "postgresql://***:***@"),
+        (r"mysql://[^@]+:[^@]+@", "mysql://***:***@"),
+        (r"mongodb://[^@]+:[^@]+@", "mongodb://***:***@"),
+        (r"sqlite:///[^\s]+", "sqlite:///***"),
         # IP・URL・ポート情報（部分的にマスク）
-        (r'://[^:@/]+:[^@/]+@', '://***:***@'),
-
+        (r"://[^:@/]+:[^@/]+@", "://***:***@"),
         # 一般的な機密情報キーワード
-        (r'key[=:]\s*[^\s,;]+', 'key=***'),
-        (r'credential[=:]\s*[^\s,;]+', 'credential=***'),
-        (r'auth[=:]\s*[^\s,;]+', 'auth=***'),
+        (r"key[=:]\s*[^\s,;]+", "key=***"),
+        (r"credential[=:]\s*[^\s,;]+", "credential=***"),
+        (r"auth[=:]\s*[^\s,;]+", "auth=***"),
     ]
 
     sanitized_text = text
     for pattern, replacement in sensitive_patterns:
-        sanitized_text = re.sub(pattern, replacement, sanitized_text, flags=re.IGNORECASE)
+        sanitized_text = re.sub(
+            pattern, replacement, sanitized_text, flags=re.IGNORECASE
+        )
 
     return sanitized_text
 
@@ -310,11 +308,13 @@ class TimeoutError(NetworkError):
 # データ取得関連例外
 class StockFetcherError(APIError):
     """株価データ取得エラー"""
+
     pass
 
 
 class InvalidSymbolError(DataError):
     """無効なシンボルエラー"""
+
     pass
 
 
@@ -344,7 +344,7 @@ def handle_database_exception(exc: "sqlalchemy.exc.SQLAlchemyError") -> Database
     # 詳細情報は機密情報をサニタイズして格納
     details = {
         "error_type": exc_type_name,
-        "sanitized_error": _sanitize_sensitive_info(str(exc))
+        "sanitized_error": _sanitize_sensitive_info(str(exc)),
     }
 
     if isinstance(exc, sa_exc.IntegrityError):
@@ -396,7 +396,7 @@ def handle_network_exception(exc: "requests.exceptions.RequestException") -> API
     # 詳細情報は機密情報をサニタイズして格納
     details = {
         "error_type": exc_type_name,
-        "sanitized_error": _sanitize_sensitive_info(str(exc))
+        "sanitized_error": _sanitize_sensitive_info(str(exc)),
     }
 
     if isinstance(exc, req_exc.ConnectionError):

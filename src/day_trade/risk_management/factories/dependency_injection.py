@@ -7,27 +7,31 @@ Dependency Injection Container
 """
 
 import asyncio
-import inspect
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
-from enum import Enum
-from dataclasses import dataclass
 import functools
+import inspect
 import threading
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 
 from ..exceptions.risk_exceptions import ConfigurationError
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ServiceLifetime(Enum):
     """サービスライフタイム"""
-    SINGLETON = "singleton"      # 単一インスタンス
-    TRANSIENT = "transient"      # 毎回新規作成
-    SCOPED = "scoped"           # スコープ内で単一
+
+    SINGLETON = "singleton"  # 単一インスタンス
+    TRANSIENT = "transient"  # 毎回新規作成
+    SCOPED = "scoped"  # スコープ内で単一
+
 
 @dataclass
 class ServiceDescriptor:
     """サービス記述子"""
+
     service_type: Type
     implementation_type: Optional[Type] = None
     factory: Optional[Callable] = None
@@ -38,6 +42,7 @@ class ServiceDescriptor:
     def __post_init__(self):
         if self.dependencies is None:
             self.dependencies = []
+
 
 class IServiceScope(ABC):
     """サービススコープインターフェース"""
@@ -52,10 +57,11 @@ class IServiceScope(ABC):
         """リソース解放"""
         pass
 
+
 class ServiceScope(IServiceScope):
     """サービススコープ実装"""
 
-    def __init__(self, container: 'DIContainer'):
+    def __init__(self, container: "DIContainer"):
         self._container = container
         self._scoped_instances: Dict[Type, Any] = {}
         self._disposed = False
@@ -69,7 +75,9 @@ class ServiceScope(IServiceScope):
 
         if descriptor.lifetime == ServiceLifetime.SCOPED:
             if service_type not in self._scoped_instances:
-                self._scoped_instances[service_type] = self._container._create_instance(descriptor, self)
+                self._scoped_instances[service_type] = self._container._create_instance(
+                    descriptor, self
+                )
             return self._scoped_instances[service_type]
         else:
             return self._container._create_instance(descriptor, self)
@@ -80,7 +88,7 @@ class ServiceScope(IServiceScope):
             return
 
         for instance in self._scoped_instances.values():
-            if hasattr(instance, 'dispose'):
+            if hasattr(instance, "dispose"):
                 try:
                     instance.dispose()
                 except Exception:
@@ -88,6 +96,7 @@ class ServiceScope(IServiceScope):
 
         self._scoped_instances.clear()
         self._disposed = True
+
 
 class DIContainer:
     """依存性注入コンテナー"""
@@ -101,52 +110,36 @@ class DIContainer:
         self.register_instance(DIContainer, self)
 
     def register_transient(
-        self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None
-    ) -> 'DIContainer':
+        self, service_type: Type[T], implementation_type: Optional[Type[T]] = None
+    ) -> "DIContainer":
         """一時的サービス登録"""
         return self._register_service(
-            service_type,
-            implementation_type or service_type,
-            ServiceLifetime.TRANSIENT
+            service_type, implementation_type or service_type, ServiceLifetime.TRANSIENT
         )
 
     def register_singleton(
-        self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None
-    ) -> 'DIContainer':
+        self, service_type: Type[T], implementation_type: Optional[Type[T]] = None
+    ) -> "DIContainer":
         """シングルトンサービス登録"""
         return self._register_service(
-            service_type,
-            implementation_type or service_type,
-            ServiceLifetime.SINGLETON
+            service_type, implementation_type or service_type, ServiceLifetime.SINGLETON
         )
 
     def register_scoped(
-        self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None
-    ) -> 'DIContainer':
+        self, service_type: Type[T], implementation_type: Optional[Type[T]] = None
+    ) -> "DIContainer":
         """スコープサービス登録"""
         return self._register_service(
-            service_type,
-            implementation_type or service_type,
-            ServiceLifetime.SCOPED
+            service_type, implementation_type or service_type, ServiceLifetime.SCOPED
         )
 
-    def register_instance(
-        self,
-        service_type: Type[T],
-        instance: T
-    ) -> 'DIContainer':
+    def register_instance(self, service_type: Type[T], instance: T) -> "DIContainer":
         """インスタンス登録"""
         with self._lock:
             self._services[service_type] = ServiceDescriptor(
                 service_type=service_type,
                 instance=instance,
-                lifetime=ServiceLifetime.SINGLETON
+                lifetime=ServiceLifetime.SINGLETON,
             )
             self._singletons[service_type] = instance
         return self
@@ -155,8 +148,8 @@ class DIContainer:
         self,
         service_type: Type[T],
         factory: Callable[..., T],
-        lifetime: ServiceLifetime = ServiceLifetime.TRANSIENT
-    ) -> 'DIContainer':
+        lifetime: ServiceLifetime = ServiceLifetime.TRANSIENT,
+    ) -> "DIContainer":
         """ファクトリー関数登録"""
         with self._lock:
             dependencies = self._analyze_dependencies(factory)
@@ -164,7 +157,7 @@ class DIContainer:
                 service_type=service_type,
                 factory=factory,
                 lifetime=lifetime,
-                dependencies=dependencies
+                dependencies=dependencies,
             )
         return self
 
@@ -178,7 +171,7 @@ class DIContainer:
         if service_type not in self._services:
             raise ConfigurationError(
                 f"Service of type {service_type.__name__} is not registered",
-                config_key=f"service.{service_type.__name__}"
+                config_key=f"service.{service_type.__name__}",
             )
         return self.get_service(service_type)
 
@@ -203,8 +196,8 @@ class DIContainer:
         self,
         service_type: Type[T],
         implementation_type: Type[T],
-        lifetime: ServiceLifetime
-    ) -> 'DIContainer':
+        lifetime: ServiceLifetime,
+    ) -> "DIContainer":
         """サービス登録内部実装"""
         with self._lock:
             dependencies = self._analyze_dependencies(implementation_type.__init__)
@@ -212,7 +205,7 @@ class DIContainer:
                 service_type=service_type,
                 implementation_type=implementation_type,
                 lifetime=lifetime,
-                dependencies=dependencies
+                dependencies=dependencies,
             )
         return self
 
@@ -225,15 +218,13 @@ class DIContainer:
             else:
                 raise ConfigurationError(
                     f"Service of type {service_type.__name__} is not registered",
-                    config_key=f"service.{service_type.__name__}"
+                    config_key=f"service.{service_type.__name__}",
                 )
 
         return self._services[service_type]
 
     def _create_instance(
-        self,
-        descriptor: ServiceDescriptor,
-        scope: Optional[ServiceScope] = None
+        self, descriptor: ServiceDescriptor, scope: Optional[ServiceScope] = None
     ) -> Any:
         """インスタンス作成"""
 
@@ -254,7 +245,7 @@ class DIContainer:
         else:
             raise ConfigurationError(
                 f"Cannot create instance of {descriptor.service_type.__name__}",
-                config_key=f"service.{descriptor.service_type.__name__}"
+                config_key=f"service.{descriptor.service_type.__name__}",
             )
 
         # シングルトンキャッシュ
@@ -265,9 +256,7 @@ class DIContainer:
         return instance
 
     def _create_from_factory(
-        self,
-        descriptor: ServiceDescriptor,
-        scope: Optional[ServiceScope] = None
+        self, descriptor: ServiceDescriptor, scope: Optional[ServiceScope] = None
     ) -> Any:
         """ファクトリーからインスタンス作成"""
 
@@ -277,18 +266,22 @@ class DIContainer:
             if scope and dep_type in self._services:
                 dep_descriptor = self._services[dep_type]
                 if dep_descriptor.lifetime == ServiceLifetime.SCOPED:
-                    dependencies[self._get_parameter_name(dep_type)] = scope.get_service(dep_type)
+                    dependencies[
+                        self._get_parameter_name(dep_type)
+                    ] = scope.get_service(dep_type)
                 else:
-                    dependencies[self._get_parameter_name(dep_type)] = self.get_service(dep_type)
+                    dependencies[self._get_parameter_name(dep_type)] = self.get_service(
+                        dep_type
+                    )
             else:
-                dependencies[self._get_parameter_name(dep_type)] = self.get_service(dep_type)
+                dependencies[self._get_parameter_name(dep_type)] = self.get_service(
+                    dep_type
+                )
 
         return descriptor.factory(**dependencies)
 
     def _create_from_type(
-        self,
-        descriptor: ServiceDescriptor,
-        scope: Optional[ServiceScope] = None
+        self, descriptor: ServiceDescriptor, scope: Optional[ServiceScope] = None
     ) -> Any:
         """型からインスタンス作成"""
 
@@ -300,7 +293,7 @@ class DIContainer:
         kwargs = {}
 
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             # 型アノテーションから依存関係を特定
@@ -334,7 +327,7 @@ class DIContainer:
         sig = inspect.signature(func)
 
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             if param.annotation != param.empty:
@@ -344,9 +337,15 @@ class DIContainer:
 
     def _get_parameter_name(self, service_type: Type) -> str:
         """型からパラメーター名を推定"""
-        return service_type.__name__.lower().replace('i', '', 1) if service_type.__name__.startswith('I') else service_type.__name__.lower()
+        return (
+            service_type.__name__.lower().replace("i", "", 1)
+            if service_type.__name__.startswith("I")
+            else service_type.__name__.lower()
+        )
+
 
 # デコレーター
+
 
 def inject_dependencies(container: Optional[DIContainer] = None):
     """依存関係注入デコレーター"""
@@ -389,11 +388,13 @@ def inject_dependencies(container: Optional[DIContainer] = None):
 
     return decorator
 
+
 def singleton(cls: Type[T]) -> Type[T]:
     """シングルトンクラスデコレーター"""
     container = get_global_container()
     container.register_singleton(cls, cls)
     return cls
+
 
 def transient(cls: Type[T]) -> Type[T]:
     """一時的クラスデコレーター"""
@@ -401,9 +402,11 @@ def transient(cls: Type[T]) -> Type[T]:
     container.register_transient(cls, cls)
     return cls
 
+
 # グローバルコンテナー
 
 _global_container: Optional[DIContainer] = None
+
 
 def get_global_container() -> DIContainer:
     """グローバルDIコンテナー取得"""
@@ -412,10 +415,12 @@ def get_global_container() -> DIContainer:
         _global_container = DIContainer()
     return _global_container
 
+
 def set_global_container(container: DIContainer):
     """グローバルDIコンテナー設定"""
     global _global_container
     _global_container = container
+
 
 def configure_services(configure_func: Callable[[DIContainer], None]) -> DIContainer:
     """サービス設定"""

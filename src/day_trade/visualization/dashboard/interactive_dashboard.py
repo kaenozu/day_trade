@@ -4,10 +4,10 @@
 Plotlyを使用したインタラクティブな分析ダッシュボード作成
 """
 
+from typing import Dict, Optional
+
 import numpy as np
-from typing import Dict, List, Optional, Any, Union
 import pandas as pd
-from datetime import datetime
 
 from ...utils.logging_config import get_context_logger
 from ..base.chart_renderer import ChartRenderer
@@ -16,9 +16,9 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
+    import plotly.express as px
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    import plotly.express as px
 
     PLOTLY_AVAILABLE = True
 except ImportError:
@@ -61,7 +61,9 @@ class InteractiveDashboard(ChartRenderer):
             保存されたファイルパス
         """
         if not PLOTLY_AVAILABLE:
-            logger.error("plotly未インストール - インタラクティブダッシュボード作成不可")
+            logger.error(
+                "plotly未インストール - インタラクティブダッシュボード作成不可"
+            )
             return None
 
         symbol = kwargs.get("symbol", "UNKNOWN")
@@ -177,7 +179,12 @@ class InteractiveDashboard(ChartRenderer):
         return fig
 
     def _add_price_prediction_chart(
-        self, fig: go.Figure, data: pd.DataFrame, analysis_results: Dict, row: int, col: int
+        self,
+        fig: go.Figure,
+        data: pd.DataFrame,
+        analysis_results: Dict,
+        row: int,
+        col: int,
     ) -> None:
         """
         価格・予測チャート追加
@@ -209,7 +216,7 @@ class InteractiveDashboard(ChartRenderer):
             lstm_pred = analysis_results["lstm_prediction"]
             if "predictions" in lstm_pred:
                 predictions = lstm_pred["predictions"]
-                pred_index = data.index[-len(predictions):]
+                pred_index = data.index[-len(predictions) :]
 
                 fig.add_trace(
                     go.Scatter(
@@ -261,7 +268,7 @@ class InteractiveDashboard(ChartRenderer):
             ensemble_pred = analysis_results["ensemble_prediction"]
             if "ensemble_prediction" in ensemble_pred:
                 predictions = ensemble_pred["ensemble_prediction"]
-                pred_index = data.index[-len(predictions):]
+                pred_index = data.index[-len(predictions) :]
 
                 fig.add_trace(
                     go.Scatter(
@@ -277,7 +284,12 @@ class InteractiveDashboard(ChartRenderer):
                 )
 
     def _add_technical_indicators_chart(
-        self, fig: go.Figure, data: pd.DataFrame, analysis_results: Dict, row: int, col: int
+        self,
+        fig: go.Figure,
+        data: pd.DataFrame,
+        analysis_results: Dict,
+        row: int,
+        col: int,
     ) -> None:
         """
         テクニカル指標チャート追加
@@ -295,7 +307,7 @@ class InteractiveDashboard(ChartRenderer):
 
             if "RSI" in tech_data and "rsi" in tech_data["RSI"]:
                 rsi_values = tech_data["RSI"]["rsi"]
-                rsi_index = data.index[-len(rsi_values):]
+                rsi_index = data.index[-len(rsi_values) :]
 
                 fig.add_trace(
                     go.Scatter(
@@ -337,7 +349,7 @@ class InteractiveDashboard(ChartRenderer):
                 if "macd" in macd_data and "signal" in macd_data:
                     macd_line = macd_data["macd"]
                     signal_line = macd_data["signal"]
-                    macd_index = data.index[-len(macd_line):]
+                    macd_index = data.index[-len(macd_line) :]
 
                     fig.add_trace(
                         go.Scatter(
@@ -366,7 +378,12 @@ class InteractiveDashboard(ChartRenderer):
                     )
 
     def _add_volume_analysis_chart(
-        self, fig: go.Figure, data: pd.DataFrame, analysis_results: Dict, row: int, col: int
+        self,
+        fig: go.Figure,
+        data: pd.DataFrame,
+        analysis_results: Dict,
+        row: int,
+        col: int,
     ) -> None:
         """
         出来高分析チャート追加
@@ -409,7 +426,7 @@ class InteractiveDashboard(ChartRenderer):
                 vol_analysis = analysis_results["volume_analysis"]
                 if "volume_ma" in vol_analysis:
                     volume_ma = vol_analysis["volume_ma"]
-                    vol_ma_index = data.index[-len(volume_ma):]
+                    vol_ma_index = data.index[-len(volume_ma) :]
 
                     fig.add_trace(
                         go.Scatter(
@@ -448,7 +465,9 @@ class InteractiveDashboard(ChartRenderer):
             confidence_data.append(("GARCH", garch_conf))
 
         if "ensemble_prediction" in analysis_results:
-            ensemble_conf = analysis_results["ensemble_prediction"].get("confidence", 0.5)
+            ensemble_conf = analysis_results["ensemble_prediction"].get(
+                "confidence", 0.5
+            )
             confidence_data.append(("Ensemble", ensemble_conf))
 
         if confidence_data:
@@ -479,9 +498,7 @@ class InteractiveDashboard(ChartRenderer):
             )
 
             # 信頼度閾値線
-            fig.add_hline(
-                y=0.8, line_dash="dash", line_color="green", row=row, col=col
-            )
+            fig.add_hline(y=0.8, line_dash="dash", line_color="green", row=row, col=col)
             fig.add_hline(
                 y=0.6, line_dash="dash", line_color="orange", row=row, col=col
             )
@@ -787,7 +804,7 @@ class InteractiveDashboard(ChartRenderer):
                     predictions = model_data["predictions"]
 
                     if len(predictions) <= len(actual_prices):
-                        actual_subset = actual_prices[-len(predictions):]
+                        actual_subset = actual_prices[-len(predictions) :]
 
                         fig.add_trace(
                             go.Scatter(

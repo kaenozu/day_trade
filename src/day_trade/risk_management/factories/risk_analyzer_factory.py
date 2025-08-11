@@ -6,16 +6,18 @@ Risk Analyzer Factory
 動的リスク分析器生成とプラグインシステムの基盤
 """
 
-from typing import Dict, Type, Any, Optional, List, Callable
-from enum import Enum
 import importlib
 import inspect
+from enum import Enum
+from typing import Any, Dict, List, Optional, Type
 
-from ..interfaces.risk_interfaces import IRiskAnalyzer, RiskAnalyzerMetadata
 from ..exceptions.risk_exceptions import ConfigurationError, ValidationError
+from ..interfaces.risk_interfaces import IRiskAnalyzer
+
 
 class AnalyzerType(Enum):
     """分析器タイプ"""
+
     GENERATIVE_AI = "generative_ai"
     FRAUD_DETECTION = "fraud_detection"
     RULE_BASED = "rule_based"
@@ -23,6 +25,7 @@ class AnalyzerType(Enum):
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     PLUGIN = "plugin"
     ENSEMBLE = "ensemble"
+
 
 class RiskAnalyzerFactory:
     """リスク分析器ファクトリー"""
@@ -50,8 +53,8 @@ class RiskAnalyzerFactory:
                     "openai_api_key": {"type": str, "required": False},
                     "anthropic_api_key": {"type": str, "required": False},
                     "temperature": {"type": float, "default": 0.3},
-                    "max_tokens": {"type": int, "default": 1000}
-                }
+                    "max_tokens": {"type": int, "default": 1000},
+                },
             )
 
             # 不正検知分析器
@@ -61,8 +64,8 @@ class RiskAnalyzerFactory:
                 "FraudDetectionEngine",
                 {
                     "model_path": {"type": str, "required": False},
-                    "threshold": {"type": float, "default": 0.5}
-                }
+                    "threshold": {"type": float, "default": 0.5},
+                },
             )
 
             # ルールベース分析器
@@ -72,13 +75,14 @@ class RiskAnalyzerFactory:
                 "RuleBasedRiskAnalyzer",
                 {
                     "rules_file": {"type": str, "required": False},
-                    "strict_mode": {"type": bool, "default": False}
-                }
+                    "strict_mode": {"type": bool, "default": False},
+                },
             )
 
         except Exception as e:
             # 組み込み分析器の登録失敗は警告レベル
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to register some builtin analyzers: {e}")
 
@@ -87,7 +91,7 @@ class RiskAnalyzerFactory:
         analyzer_type: AnalyzerType,
         module_path: str,
         class_name: str,
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """分析器タイプ登録"""
         try:
@@ -99,7 +103,7 @@ class RiskAnalyzerFactory:
             if not issubclass(analyzer_class, IRiskAnalyzer):
                 raise ConfigurationError(
                     f"Analyzer class {class_name} must implement IRiskAnalyzer interface",
-                    config_key=f"analyzer.{analyzer_type.value}"
+                    config_key=f"analyzer.{analyzer_type.value}",
                 )
 
             self._analyzer_registry[analyzer_type] = analyzer_class
@@ -113,21 +117,21 @@ class RiskAnalyzerFactory:
             raise ConfigurationError(
                 f"Failed to register analyzer type {analyzer_type.value}",
                 config_key=f"analyzer.{analyzer_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def register_plugin_analyzer(
         self,
         plugin_name: str,
         analyzer_class: Type[IRiskAnalyzer],
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """プラグイン分析器登録"""
         try:
             if not issubclass(analyzer_class, IRiskAnalyzer):
                 raise ConfigurationError(
                     f"Plugin analyzer {plugin_name} must implement IRiskAnalyzer interface",
-                    config_key=f"plugin.{plugin_name}"
+                    config_key=f"plugin.{plugin_name}",
                 )
 
             self._plugin_registry[plugin_name] = analyzer_class
@@ -144,7 +148,7 @@ class RiskAnalyzerFactory:
             raise ConfigurationError(
                 f"Failed to register plugin analyzer {plugin_name}",
                 config_key=f"plugin.{plugin_name}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_analyzer(
@@ -152,7 +156,7 @@ class RiskAnalyzerFactory:
         analyzer_type: AnalyzerType,
         config: Optional[Dict[str, Any]] = None,
         plugin_name: Optional[str] = None,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> IRiskAnalyzer:
         """分析器インスタンス作成"""
 
@@ -183,14 +187,14 @@ class RiskAnalyzerFactory:
             raise ConfigurationError(
                 f"Failed to create analyzer instance of type {analyzer_type.value}",
                 config_key=f"analyzer.{analyzer_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_ensemble_analyzer(
         self,
         analyzer_configs: List[Dict[str, Any]],
         ensemble_weights: Optional[Dict[str, float]] = None,
-        ensemble_strategy: str = "weighted_average"
+        ensemble_strategy: str = "weighted_average",
     ) -> IRiskAnalyzer:
         """アンサンブル分析器作成"""
 
@@ -202,10 +206,7 @@ class RiskAnalyzerFactory:
             analyzer_config = config.get("config", {})
 
             analyzer = self.create_analyzer(
-                analyzer_type,
-                analyzer_config,
-                plugin_name,
-                use_cache=True
+                analyzer_type, analyzer_config, plugin_name, use_cache=True
             )
             analyzers.append(analyzer)
 
@@ -213,9 +214,7 @@ class RiskAnalyzerFactory:
         from ..analyzers.ensemble_analyzer import EnsembleRiskAnalyzer
 
         return EnsembleRiskAnalyzer(
-            analyzers=analyzers,
-            weights=ensemble_weights,
-            strategy=ensemble_strategy
+            analyzers=analyzers, weights=ensemble_weights, strategy=ensemble_strategy
         )
 
     def get_available_analyzers(self) -> Dict[str, Dict[str, Any]]:
@@ -231,34 +230,34 @@ class RiskAnalyzerFactory:
             try:
                 # メタデータ取得（可能な場合）
                 temp_instance = analyzer_class({})
-                if hasattr(temp_instance, 'get_metadata'):
+                if hasattr(temp_instance, "get_metadata"):
                     metadata = temp_instance.get_metadata()
                     available[analyzer_type.value] = {
                         "type": "builtin",
                         "name": metadata.name,
                         "version": metadata.version,
                         "description": metadata.description,
-                        "config_schema": config_schema
+                        "config_schema": config_schema,
                     }
                 else:
                     available[analyzer_type.value] = {
                         "type": "builtin",
                         "name": analyzer_type.value,
-                        "config_schema": config_schema
+                        "config_schema": config_schema,
                     }
             except Exception:
                 # メタデータ取得に失敗した場合は基本情報のみ
                 available[analyzer_type.value] = {
                     "type": "builtin",
                     "name": analyzer_type.value,
-                    "config_schema": config_schema
+                    "config_schema": config_schema,
                 }
 
         # プラグイン分析器
         for plugin_name, analyzer_class in self._plugin_registry.items():
             try:
                 temp_instance = analyzer_class({})
-                if hasattr(temp_instance, 'get_metadata'):
+                if hasattr(temp_instance, "get_metadata"):
                     metadata = temp_instance.get_metadata()
                     available[plugin_name] = {
                         "type": "plugin",
@@ -267,7 +266,7 @@ class RiskAnalyzerFactory:
                         "description": metadata.description,
                         "config_schema": self._config_schemas.get(
                             AnalyzerType.PLUGIN, {}
-                        ).get(plugin_name, {})
+                        ).get(plugin_name, {}),
                     }
                 else:
                     available[plugin_name] = {
@@ -275,13 +274,10 @@ class RiskAnalyzerFactory:
                         "name": plugin_name,
                         "config_schema": self._config_schemas.get(
                             AnalyzerType.PLUGIN, {}
-                        ).get(plugin_name, {})
+                        ).get(plugin_name, {}),
                     }
             except Exception:
-                available[plugin_name] = {
-                    "type": "plugin",
-                    "name": plugin_name
-                }
+                available[plugin_name] = {"type": "plugin", "name": plugin_name}
 
         return available
 
@@ -293,7 +289,7 @@ class RiskAnalyzerFactory:
         self,
         analyzer_type: AnalyzerType,
         config: Optional[Dict[str, Any]],
-        plugin_name: Optional[str]
+        plugin_name: Optional[str],
     ) -> Dict[str, Any]:
         """設定検証"""
 
@@ -302,7 +298,9 @@ class RiskAnalyzerFactory:
 
         # スキーマ取得
         if analyzer_type == AnalyzerType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(plugin_name, {})
+            schema = self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(
+                plugin_name, {}
+            )
         else:
             schema = self._config_schemas.get(analyzer_type, {})
 
@@ -314,7 +312,7 @@ class RiskAnalyzerFactory:
                 raise ValidationError(
                     f"Required configuration field '{field_name}' is missing",
                     field_name=field_name,
-                    validation_rules=["required"]
+                    validation_rules=["required"],
                 )
 
             # デフォルト値適用
@@ -328,7 +326,7 @@ class RiskAnalyzerFactory:
                         f"Configuration field '{field_name}' must be of type {expected_type.__name__}",
                         field_name=field_name,
                         invalid_value=config[field_name],
-                        validation_rules=[f"type:{expected_type.__name__}"]
+                        validation_rules=[f"type:{expected_type.__name__}"],
                     )
                 validated_config[field_name] = config[field_name]
 
@@ -340,9 +338,7 @@ class RiskAnalyzerFactory:
         return validated_config
 
     def _get_analyzer_class(
-        self,
-        analyzer_type: AnalyzerType,
-        plugin_name: Optional[str]
+        self, analyzer_type: AnalyzerType, plugin_name: Optional[str]
     ) -> Type[IRiskAnalyzer]:
         """分析器クラス取得"""
 
@@ -350,13 +346,13 @@ class RiskAnalyzerFactory:
             if not plugin_name:
                 raise ConfigurationError(
                     "Plugin name is required for plugin analyzer type",
-                    config_key="plugin_name"
+                    config_key="plugin_name",
                 )
 
             if plugin_name not in self._plugin_registry:
                 raise ConfigurationError(
                     f"Plugin analyzer '{plugin_name}' is not registered",
-                    config_key=f"plugin.{plugin_name}"
+                    config_key=f"plugin.{plugin_name}",
                 )
 
             return self._plugin_registry[plugin_name]
@@ -365,15 +361,13 @@ class RiskAnalyzerFactory:
             if analyzer_type not in self._analyzer_registry:
                 raise ConfigurationError(
                     f"Analyzer type '{analyzer_type.value}' is not registered",
-                    config_key=f"analyzer.{analyzer_type.value}"
+                    config_key=f"analyzer.{analyzer_type.value}",
                 )
 
             return self._analyzer_registry[analyzer_type]
 
     def _create_instance(
-        self,
-        analyzer_class: Type[IRiskAnalyzer],
-        config: Dict[str, Any]
+        self, analyzer_class: Type[IRiskAnalyzer], config: Dict[str, Any]
     ) -> IRiskAnalyzer:
         """インスタンス作成"""
 
@@ -384,7 +378,7 @@ class RiskAnalyzerFactory:
         if len(sig.parameters) > 1:  # self 以外のパラメーターがある場合
             param_names = list(sig.parameters.keys())[1:]  # self を除外
 
-            if len(param_names) == 1 and param_names[0] in ['config', 'configuration']:
+            if len(param_names) == 1 and param_names[0] in ["config", "configuration"]:
                 # 設定オブジェクト全体を渡す
                 return analyzer_class(config)
             else:
@@ -402,7 +396,7 @@ class RiskAnalyzerFactory:
         self,
         analyzer_type: AnalyzerType,
         plugin_name: Optional[str],
-        config: Optional[Dict[str, Any]]
+        config: Optional[Dict[str, Any]],
     ) -> str:
         """キャッシュキー生成"""
         import hashlib
@@ -411,14 +405,16 @@ class RiskAnalyzerFactory:
         key_data = {
             "type": analyzer_type.value,
             "plugin": plugin_name,
-            "config": config or {}
+            "config": config or {},
         }
 
         key_string = json.dumps(key_data, sort_keys=True)
         return hashlib.md5(key_string.encode()).hexdigest()
 
+
 # グローバルファクトリーインスタンス
 _global_analyzer_factory: Optional[RiskAnalyzerFactory] = None
+
 
 def get_analyzer_factory() -> RiskAnalyzerFactory:
     """グローバル分析器ファクトリー取得"""
@@ -427,21 +423,25 @@ def get_analyzer_factory() -> RiskAnalyzerFactory:
         _global_analyzer_factory = RiskAnalyzerFactory()
     return _global_analyzer_factory
 
+
 def create_analyzer(
     analyzer_type: AnalyzerType,
     config: Optional[Dict[str, Any]] = None,
-    plugin_name: Optional[str] = None
+    plugin_name: Optional[str] = None,
 ) -> IRiskAnalyzer:
     """分析器作成（便利関数）"""
     factory = get_analyzer_factory()
     return factory.create_analyzer(analyzer_type, config, plugin_name)
 
+
 def register_analyzer_type(
     analyzer_type: AnalyzerType,
     module_path: str,
     class_name: str,
-    config_schema: Optional[Dict[str, Any]] = None
+    config_schema: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """分析器タイプ登録（便利関数）"""
     factory = get_analyzer_factory()
-    return factory.register_analyzer(analyzer_type, module_path, class_name, config_schema)
+    return factory.register_analyzer(
+        analyzer_type, module_path, class_name, config_schema
+    )

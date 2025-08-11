@@ -4,7 +4,8 @@
 複数ML手法の統合結果とアンサンブル予測の詳細可視化
 """
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -15,8 +16,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -202,7 +203,8 @@ class EnsembleVisualizer(ChartRenderer):
 
             for i, (model_name, prediction) in enumerate(individual_preds.items()):
                 color = self.palette.get_color(
-                    model_colors[i % len(model_colors)] if i < len(model_colors)
+                    model_colors[i % len(model_colors)]
+                    if i < len(model_colors)
                     else "neutral"
                 )
 
@@ -305,7 +307,9 @@ class EnsembleVisualizer(ChartRenderer):
                         va="bottom",
                     )
 
-                self.apply_common_styling(ax, title="モデルパフォーマンス", ylabel="スコア")
+                self.apply_common_styling(
+                    ax, title="モデルパフォーマンス", ylabel="スコア"
+                )
                 plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
 
     def _plot_prediction_uncertainty(self, ax, ensemble_results: Dict) -> None:
@@ -402,9 +406,7 @@ class EnsembleVisualizer(ChartRenderer):
         fig = plt.figure(figsize=(20, 15))
 
         # グリッドレイアウト設定
-        gs = fig.add_gridspec(
-            3, 3, height_ratios=[2, 1, 1], width_ratios=[2, 1, 1]
-        )
+        gs = fig.add_gridspec(3, 3, height_ratios=[2, 1, 1], width_ratios=[2, 1, 1])
 
         # メインアンサンブル予測
         ax_main = fig.add_subplot(gs[0, :])
@@ -593,7 +595,9 @@ class EnsembleVisualizer(ChartRenderer):
             if diversity_chart:
                 exported_files["diversity_analysis"] = diversity_chart
 
-            logger.info(f"アンサンブル分析レポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"アンサンブル分析レポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

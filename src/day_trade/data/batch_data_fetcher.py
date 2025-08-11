@@ -6,13 +6,12 @@ Next-Gen AI バッチデータパイプライン
 Apache Kafka統合・大規模並列処理・MLパイプライン対応
 """
 
-import time
-import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
-from typing import Dict, List, Optional, Tuple, Any, Callable, Union
-from dataclasses import dataclass, asdict
-from pathlib import Path
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -20,6 +19,7 @@ import pandas as pd
 KAFKA_AVAILABLE = False
 try:
     import importlib.util
+
     if importlib.util.find_spec("kafka") is not None:
         KAFKA_AVAILABLE = True
 except ImportError:
@@ -28,6 +28,7 @@ except ImportError:
 REDIS_AVAILABLE = False
 try:
     import importlib.util
+
     if importlib.util.find_spec("redis") is not None:
         REDIS_AVAILABLE = True
 except ImportError:
@@ -36,6 +37,7 @@ except ImportError:
 CONFLUENT_KAFKA_AVAILABLE = False
 try:
     import importlib.util
+
     if importlib.util.find_spec("confluent_kafka") is not None:
         CONFLUENT_KAFKA_AVAILABLE = True
 except ImportError:
@@ -49,14 +51,17 @@ logger = get_context_logger(__name__)
 # 統合テクニカル指標マネージャーをインポート
 try:
     from ..analysis.technical_indicators_unified import TechnicalIndicatorsManager
+
     INDICATORS_AVAILABLE = True
 except ImportError:
     INDICATORS_AVAILABLE = False
     logger.warning("統合テクニカル指標マネージャーが利用できません")
 
+
 @dataclass
 class DataRequest:
     """データ取得リクエスト"""
+
     symbol: str
     period: str = "60d"
     interval: str = "1d"
@@ -66,9 +71,11 @@ class DataRequest:
     priority: int = 1  # 優先度（1:低 → 5:高）
     metadata: Dict[str, Any] = None
 
+
 @dataclass
 class DataResponse:
     """データ取得結果"""
+
     symbol: str
     data: Optional[pd.DataFrame]
     success: bool
@@ -80,9 +87,11 @@ class DataResponse:
     feature_count: int = 0
     metadata: Dict[str, Any] = None
 
+
 @dataclass
 class PipelineStats:
     """パイプライン統計"""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -92,6 +101,7 @@ class PipelineStats:
     throughput_rps: float = 0.0
     timestamp: float = 0.0
 
+
 class AdvancedBatchDataFetcher:
     """
     Next-Gen AI バッチデータフェッチャー
@@ -99,35 +109,35 @@ class AdvancedBatchDataFetcher:
     高速並列処理・Kafka統合・リアルタイムストリーミング対応
     """
 
-    def __init__(self,
-                 max_workers: int = 8,
-                 enable_kafka: bool = False,
-                 enable_redis: bool = False,
-                 kafka_config: Dict[str, Any] = None,
-                 redis_config: Dict[str, Any] = None):
-
+    def __init__(
+        self,
+        max_workers: int = 8,
+        enable_kafka: bool = False,
+        enable_redis: bool = False,
+        kafka_config: Dict[str, Any] = None,
+        redis_config: Dict[str, Any] = None,
+    ):
         # CI環境でのメモリ最適化
         import os
+
         self.ci_mode = os.getenv("CI", "false").lower() == "true"
 
         self.data_manager = RealMarketDataManager()
-        self.max_workers = max_workers if not self.ci_mode else min(max_workers, 2)  # CI時は2並列まで
+        self.max_workers = (
+            max_workers if not self.ci_mode else min(max_workers, 2)
+        )  # CI時は2並列まで
 
         # Kafka設定（CI時は無効化）
         self.enable_kafka = enable_kafka and KAFKA_AVAILABLE and not self.ci_mode
         self.kafka_config = kafka_config or {
-            'bootstrap_servers': 'localhost:9092',
-            'topic_prefix': 'market_data'
+            "bootstrap_servers": "localhost:9092",
+            "topic_prefix": "market_data",
         }
         self.kafka_producer = None
 
         # Redis設定（CI時は無効化）
         self.enable_redis = enable_redis and REDIS_AVAILABLE and not self.ci_mode
-        self.redis_config = redis_config or {
-            'host': 'localhost',
-            'port': 6379,
-            'db': 0
-        }
+        self.redis_config = redis_config or {"host": "localhost", "port": 6379, "db": 0}
         self.redis_client = None
 
         # パフォーマンス統計
@@ -137,7 +147,9 @@ class AdvancedBatchDataFetcher:
         # 初期化
         self._initialize_connections()
 
-        logger.info(f"Advanced Batch Data Fetcher 初期化完了: workers={max_workers}, kafka={self.enable_kafka}, redis={self.enable_redis}")
+        logger.info(
+            f"Advanced Batch Data Fetcher 初期化完了: workers={max_workers}, kafka={self.enable_kafka}, redis={self.enable_redis}"
+        )
 
     def _initialize_connections(self):
         """外部サービス接続初期化"""
@@ -146,10 +158,13 @@ class AdvancedBatchDataFetcher:
         if self.enable_kafka:
             try:
                 from kafka import KafkaProducer  # 遅延インポート
+
                 self.kafka_producer = KafkaProducer(
-                    bootstrap_servers=self.kafka_config['bootstrap_servers'],
-                    value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
-                    key_serializer=lambda k: k.encode('utf-8') if k else None
+                    bootstrap_servers=self.kafka_config["bootstrap_servers"],
+                    value_serializer=lambda v: json.dumps(v, default=str).encode(
+                        "utf-8"
+                    ),
+                    key_serializer=lambda k: k.encode("utf-8") if k else None,
                 )
                 logger.info("Kafka Producer初期化完了")
             except Exception as e:
@@ -160,17 +175,22 @@ class AdvancedBatchDataFetcher:
         if self.enable_redis:
             try:
                 import redis  # 遅延インポート
-                self.redis_client = redis.Redis(**self.redis_config, decode_responses=True)
+
+                self.redis_client = redis.Redis(
+                    **self.redis_config, decode_responses=True
+                )
                 self.redis_client.ping()
                 logger.info("Redis接続初期化完了")
             except Exception as e:
                 logger.error(f"Redis初期化失敗: {e}")
                 self.enable_redis = False
 
-    def fetch_batch(self,
-                   requests: List[DataRequest],
-                   use_parallel: bool = True,
-                   priority_sort: bool = True) -> Dict[str, DataResponse]:
+    def fetch_batch(
+        self,
+        requests: List[DataRequest],
+        use_parallel: bool = True,
+        priority_sort: bool = True,
+    ) -> Dict[str, DataResponse]:
         """
         高度バッチデータ取得
 
@@ -204,10 +224,14 @@ class AdvancedBatchDataFetcher:
         if self.enable_kafka:
             self._publish_to_kafka(results)
 
-        logger.info(f"Advanced バッチ取得完了: {len(results)} レスポンス ({elapsed_time:.2f}秒)")
+        logger.info(
+            f"Advanced バッチ取得完了: {len(results)} レスポンス ({elapsed_time:.2f}秒)"
+        )
         return results
 
-    def _fetch_parallel_advanced(self, requests: List[DataRequest]) -> Dict[str, DataResponse]:
+    def _fetch_parallel_advanced(
+        self, requests: List[DataRequest]
+    ) -> Dict[str, DataResponse]:
         """高度並列取得"""
         results = {}
 
@@ -226,9 +250,13 @@ class AdvancedBatchDataFetcher:
                     results[request.symbol] = response
 
                     if response.success:
-                        logger.debug(f"並列取得成功: {request.symbol} ({response.record_count}レコード)")
+                        logger.debug(
+                            f"並列取得成功: {request.symbol} ({response.record_count}レコード)"
+                        )
                     else:
-                        logger.warning(f"並列取得失敗: {request.symbol} - {response.error_message}")
+                        logger.warning(
+                            f"並列取得失敗: {request.symbol} - {response.error_message}"
+                        )
 
                 except Exception as e:
                     logger.error(f"並列取得エラー {request.symbol}: {e}")
@@ -236,12 +264,14 @@ class AdvancedBatchDataFetcher:
                         symbol=request.symbol,
                         data=None,
                         success=False,
-                        error_message=str(e)
+                        error_message=str(e),
                     )
 
         return results
 
-    def _fetch_sequential_advanced(self, requests: List[DataRequest]) -> Dict[str, DataResponse]:
+    def _fetch_sequential_advanced(
+        self, requests: List[DataRequest]
+    ) -> Dict[str, DataResponse]:
         """高度逐次取得"""
         results = {}
 
@@ -251,9 +281,13 @@ class AdvancedBatchDataFetcher:
                 results[request.symbol] = response
 
                 if response.success:
-                    logger.debug(f"逐次取得成功: {request.symbol} ({response.record_count}レコード)")
+                    logger.debug(
+                        f"逐次取得成功: {request.symbol} ({response.record_count}レコード)"
+                    )
                 else:
-                    logger.warning(f"逐次取得失敗: {request.symbol} - {response.error_message}")
+                    logger.warning(
+                        f"逐次取得失敗: {request.symbol} - {response.error_message}"
+                    )
 
             except Exception as e:
                 logger.error(f"逐次取得エラー {request.symbol}: {e}")
@@ -261,7 +295,7 @@ class AdvancedBatchDataFetcher:
                     symbol=request.symbol,
                     data=None,
                     success=False,
-                    error_message=str(e)
+                    error_message=str(e),
                 )
 
         return results
@@ -288,13 +322,12 @@ class AdvancedBatchDataFetcher:
                         data_quality_score=data_quality,
                         record_count=len(cached_data),
                         feature_count=len(cached_data.columns),
-                        metadata={"source": "redis_cache"}
+                        metadata={"source": "redis_cache"},
                     )
 
             # データ取得
             raw_data = self.data_manager.get_stock_data(
-                symbol=request.symbol,
-                period=request.period
+                symbol=request.symbol, period=request.period
             )
 
             if raw_data is None or raw_data.empty:
@@ -303,7 +336,7 @@ class AdvancedBatchDataFetcher:
                     data=None,
                     success=False,
                     error_message="データ取得失敗またはデータなし",
-                    fetch_time=time.time() - start_time
+                    fetch_time=time.time() - start_time,
                 )
 
             # 前処理実行
@@ -331,8 +364,8 @@ class AdvancedBatchDataFetcher:
                 feature_count=len(processed_data.columns),
                 metadata={
                     "source": "market_api",
-                    "preprocessing_applied": request.preprocessing
-                }
+                    "preprocessing_applied": request.preprocessing,
+                },
             )
 
         except Exception as e:
@@ -341,10 +374,12 @@ class AdvancedBatchDataFetcher:
                 data=None,
                 success=False,
                 error_message=str(e),
-                fetch_time=time.time() - start_time
+                fetch_time=time.time() - start_time,
             )
 
-    def _preprocess_data(self, data: pd.DataFrame, request: DataRequest) -> pd.DataFrame:
+    def _preprocess_data(
+        self, data: pd.DataFrame, request: DataRequest
+    ) -> pd.DataFrame:
         """高度データ前処理（統合テクニカル指標マネージャー使用）"""
 
         result = data.copy()
@@ -357,8 +392,8 @@ class AdvancedBatchDataFetcher:
                 # テクニカル指標を計算
                 indicators_result = indicators_manager.calculate_all_indicators(
                     data=result,
-                    indicators=['sma', 'ema', 'rsi', 'bollinger_bands', 'macd'],
-                    periods={'sma': [5, 20, 50], 'ema': [5, 20, 50], 'rsi': 14}
+                    indicators=["sma", "ema", "rsi", "bollinger_bands", "macd"],
+                    periods={"sma": [5, 20, 50], "ema": [5, 20, 50], "rsi": 14},
                 )
 
                 # 指標データを結合
@@ -368,20 +403,25 @@ class AdvancedBatchDataFetcher:
 
             else:
                 # フォールバック: 基本的な特徴量のみ
-                if '終値' in result.columns:
-                    result['returns'] = result['終値'].pct_change()
-                    result['log_returns'] = np.log(result['終値'] / result['終値'].shift(1))
-                    result['volatility_5d'] = result['returns'].rolling(5).std()
-                    result['SMA_20'] = result['終値'].rolling(20).mean()
-                    result['EMA_20'] = result['終値'].ewm(span=20).mean()
+                if "終値" in result.columns:
+                    result["returns"] = result["終値"].pct_change()
+                    result["log_returns"] = np.log(
+                        result["終値"] / result["終値"].shift(1)
+                    )
+                    result["volatility_5d"] = result["returns"].rolling(5).std()
+                    result["SMA_20"] = result["終値"].rolling(20).mean()
+                    result["EMA_20"] = result["終値"].ewm(span=20).mean()
 
                 logger.debug(f"フォールバック処理: {request.symbol}")
 
             # 出来高特徴量（追加）
-            if '出来高' in result.columns:
-                result['volume_ma_20'] = result['出来高'].rolling(20).mean()
-                result['volume_ratio'] = result['出来高'] / result['volume_ma_20']
-                result['volume_trend'] = result['出来高'].rolling(5).mean() / result['出来高'].rolling(20).mean()
+            if "出来高" in result.columns:
+                result["volume_ma_20"] = result["出来高"].rolling(20).mean()
+                result["volume_ratio"] = result["出来高"] / result["volume_ma_20"]
+                result["volume_trend"] = (
+                    result["出来高"].rolling(5).mean()
+                    / result["出来高"].rolling(20).mean()
+                )
 
             # カスタム特徴量（リクエストに基づく）
             if request.features:
@@ -389,7 +429,7 @@ class AdvancedBatchDataFetcher:
                     result = self._add_custom_feature(result, feature)
 
             # 欠損値処理
-            result = result.fillna(method='ffill').fillna(method='bfill')
+            result = result.fillna(method="ffill").fillna(method="bfill")
 
             logger.debug(f"前処理完了: {request.symbol} - {len(result.columns)} 特徴量")
 
@@ -400,32 +440,44 @@ class AdvancedBatchDataFetcher:
 
         return result
 
-    def _add_custom_feature(self, data: pd.DataFrame, feature_name: str) -> pd.DataFrame:
+    def _add_custom_feature(
+        self, data: pd.DataFrame, feature_name: str
+    ) -> pd.DataFrame:
         """カスタム特徴量追加"""
 
         try:
-            if feature_name == "trend_strength" and '終値' in data.columns:
+            if feature_name == "trend_strength" and "終値" in data.columns:
                 # トレンド強度
-                short_ma = data['終値'].rolling(10).mean()
-                long_ma = data['終値'].rolling(30).mean()
-                data['trend_strength'] = (short_ma - long_ma) / long_ma * 100
+                short_ma = data["終値"].rolling(10).mean()
+                long_ma = data["終値"].rolling(30).mean()
+                data["trend_strength"] = (short_ma - long_ma) / long_ma * 100
 
-            elif feature_name == "momentum" and '終値' in data.columns:
+            elif feature_name == "momentum" and "終値" in data.columns:
                 # モメンタム指標
-                data['momentum_10'] = data['終値'].pct_change(10)
-                data['momentum_20'] = data['終値'].pct_change(20)
+                data["momentum_10"] = data["終値"].pct_change(10)
+                data["momentum_20"] = data["終値"].pct_change(20)
 
-            elif feature_name == "price_channel" and all(col in data.columns for col in ['高値', '安値']):
+            elif feature_name == "price_channel" and all(
+                col in data.columns for col in ["高値", "安値"]
+            ):
                 # 価格チャネル
-                highest_high = data['高値'].rolling(20).max()
-                lowest_low = data['安値'].rolling(20).min()
-                data['price_channel_position'] = (data['終値'] - lowest_low) / (highest_high - lowest_low)
+                highest_high = data["高値"].rolling(20).max()
+                lowest_low = data["安値"].rolling(20).min()
+                data["price_channel_position"] = (data["終値"] - lowest_low) / (
+                    highest_high - lowest_low
+                )
 
-            elif feature_name == "gap_analysis" and all(col in data.columns for col in ['始値', '終値']):
+            elif feature_name == "gap_analysis" and all(
+                col in data.columns for col in ["始値", "終値"]
+            ):
                 # ギャップ分析
-                prev_close = data['終値'].shift(1)
-                data['gap_up'] = ((data['始値'] - prev_close) / prev_close > 0.02).astype(int)
-                data['gap_down'] = ((prev_close - data['始値']) / prev_close > 0.02).astype(int)
+                prev_close = data["終値"].shift(1)
+                data["gap_up"] = (
+                    (data["始値"] - prev_close) / prev_close > 0.02
+                ).astype(int)
+                data["gap_down"] = (
+                    (prev_close - data["始値"]) / prev_close > 0.02
+                ).astype(int)
 
         except Exception as e:
             logger.warning(f"カスタム特徴量 {feature_name} 追加失敗: {e}")
@@ -446,14 +498,14 @@ class AdvancedBatchDataFetcher:
             quality_score -= missing_ratio * 30
 
             # データ完整性チェック
-            if '終値' in data.columns:
+            if "終値" in data.columns:
                 # 異常値チェック（極端な価格変動）
-                returns = data['終値'].pct_change().abs()
+                returns = data["終値"].pct_change().abs()
                 extreme_moves = (returns > 0.2).sum()  # 20%以上の変動
                 quality_score -= min(extreme_moves * 5, 20)
 
                 # ゼロ価格チェック
-                zero_prices = (data['終値'] <= 0).sum()
+                zero_prices = (data["終値"] <= 0).sum()
                 quality_score -= zero_prices * 10
 
             # データ量チェック
@@ -481,12 +533,14 @@ class AdvancedBatchDataFetcher:
             return None
 
         try:
-            cache_key = f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            cache_key = (
+                f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            )
             cached_json = self.redis_client.get(cache_key)
 
             if cached_json:
                 data_dict = json.loads(cached_json)
-                df = pd.DataFrame(data_dict['data'])
+                df = pd.DataFrame(data_dict["data"])
                 df.index = pd.to_datetime(df.index)
 
                 logger.debug(f"Redis キャッシュヒット: {request.symbol}")
@@ -504,19 +558,19 @@ class AdvancedBatchDataFetcher:
             return
 
         try:
-            cache_key = f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            cache_key = (
+                f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            )
 
             # DataFrameをJSON形式で保存
             data_dict = {
-                'data': data.to_dict('records'),
-                'index': data.index.strftime('%Y-%m-%d').tolist(),
-                'cached_at': time.time()
+                "data": data.to_dict("records"),
+                "index": data.index.strftime("%Y-%m-%d").tolist(),
+                "cached_at": time.time(),
             }
 
             self.redis_client.setex(
-                cache_key,
-                request.cache_ttl,
-                json.dumps(data_dict, default=str)
+                cache_key, request.cache_ttl, json.dumps(data_dict, default=str)
             )
 
             logger.debug(f"Redis キャッシュ保存: {request.symbol}")
@@ -537,13 +591,15 @@ class AdvancedBatchDataFetcher:
                 if response.success and response.data is not None:
                     # データをKafkaメッセージとして配信
                     kafka_message = {
-                        'symbol': symbol,
-                        'timestamp': time.time(),
-                        'record_count': response.record_count,
-                        'feature_count': response.feature_count,
-                        'data_quality_score': response.data_quality_score,
-                        'cache_hit': response.cache_hit,
-                        'data_sample': response.data.tail(5).to_dict('records')  # 最新5レコードのサンプル
+                        "symbol": symbol,
+                        "timestamp": time.time(),
+                        "record_count": response.record_count,
+                        "feature_count": response.feature_count,
+                        "data_quality_score": response.data_quality_score,
+                        "cache_hit": response.cache_hit,
+                        "data_sample": response.data.tail(5).to_dict(
+                            "records"
+                        ),  # 最新5レコードのサンプル
                     }
 
                     self.kafka_producer.send(topic, key=symbol, value=kafka_message)
@@ -554,7 +610,12 @@ class AdvancedBatchDataFetcher:
         except Exception as e:
             logger.error(f"Kafka配信エラー: {e}")
 
-    def _update_stats(self, requests: List[DataRequest], responses: Dict[str, DataResponse], elapsed_time: float):
+    def _update_stats(
+        self,
+        requests: List[DataRequest],
+        responses: Dict[str, DataResponse],
+        elapsed_time: float,
+    ):
         """統計更新"""
 
         successful = len([r for r in responses.values() if r.success])
@@ -568,26 +629,38 @@ class AdvancedBatchDataFetcher:
         # 平均計算
         if self.stats.total_requests > 0:
             self.stats.avg_fetch_time = (
-                (self.stats.avg_fetch_time * (self.stats.total_requests - len(requests)) +
-                 sum(r.fetch_time for r in responses.values())) / self.stats.total_requests
-            )
+                self.stats.avg_fetch_time * (self.stats.total_requests - len(requests))
+                + sum(r.fetch_time for r in responses.values())
+            ) / self.stats.total_requests
 
-            quality_scores = [r.data_quality_score for r in responses.values() if r.success]
+            quality_scores = [
+                r.data_quality_score for r in responses.values() if r.success
+            ]
             if quality_scores:
                 self.stats.avg_data_quality = (
-                    (self.stats.avg_data_quality * (self.stats.successful_requests - len(quality_scores)) +
-                     sum(quality_scores)) / self.stats.successful_requests
-                )
+                    self.stats.avg_data_quality
+                    * (self.stats.successful_requests - len(quality_scores))
+                    + sum(quality_scores)
+                ) / self.stats.successful_requests
 
-        self.stats.throughput_rps = len(requests) / elapsed_time if elapsed_time > 0 else 0
+        self.stats.throughput_rps = (
+            len(requests) / elapsed_time if elapsed_time > 0 else 0
+        )
         self.stats.timestamp = time.time()
 
         # リクエスト履歴保存（最新1000件）
-        self.request_history.extend([{
-            'symbol': req.symbol,
-            'timestamp': time.time(),
-            'success': responses.get(req.symbol, DataResponse(req.symbol, None, False)).success
-        } for req in requests])
+        self.request_history.extend(
+            [
+                {
+                    "symbol": req.symbol,
+                    "timestamp": time.time(),
+                    "success": responses.get(
+                        req.symbol, DataResponse(req.symbol, None, False)
+                    ).success,
+                }
+                for req in requests
+            ]
+        )
 
         self.request_history = self.request_history[-1000:]  # 最新1000件のみ保持
 
@@ -611,15 +684,15 @@ class AdvancedBatchDataFetcher:
                 pattern = "market_data:*"
                 keys = self.redis_client.keys(pattern)
                 if keys:
-                    cleared_counts['redis'] = self.redis_client.delete(*keys)
+                    cleared_counts["redis"] = self.redis_client.delete(*keys)
                 else:
-                    cleared_counts['redis'] = 0
+                    cleared_counts["redis"] = 0
             except Exception as e:
                 logger.error(f"Redisキャッシュクリアエラー: {e}")
-                cleared_counts['redis'] = -1
+                cleared_counts["redis"] = -1
 
         # メモリキャッシュクリア
-        cleared_counts['memory'] = len(self.data_manager.memory_cache)
+        cleared_counts["memory"] = len(self.data_manager.memory_cache)
         self.data_manager.memory_cache.clear()
         self.data_manager.cache_expiry.clear()
 
@@ -634,20 +707,26 @@ class AdvancedBatchDataFetcher:
             self.redis_client.close()
         logger.info("Advanced Batch Data Fetcher リソース解放完了")
 
+
 # 便利関数
 def create_data_request(symbol: str, **kwargs) -> DataRequest:
     """データリクエスト作成ヘルパー"""
     return DataRequest(symbol=symbol, **kwargs)
 
-def fetch_advanced_batch(symbols: List[str],
-                        period: str = "60d",
-                        preprocessing: bool = True,
-                        priority: int = 1,
-                        **kwargs) -> Dict[str, DataResponse]:
+
+def fetch_advanced_batch(
+    symbols: List[str],
+    period: str = "60d",
+    preprocessing: bool = True,
+    priority: int = 1,
+    **kwargs,
+) -> Dict[str, DataResponse]:
     """高度バッチ取得（簡易インターフェース）"""
 
     requests = [
-        DataRequest(symbol=symbol, period=period, preprocessing=preprocessing, priority=priority)
+        DataRequest(
+            symbol=symbol, period=period, preprocessing=preprocessing, priority=priority
+        )
         for symbol in symbols
     ]
 
@@ -657,9 +736,10 @@ def fetch_advanced_batch(symbols: List[str],
     finally:
         fetcher.close()
 
-def preload_advanced_cache(symbols: List[str],
-                          periods: List[str] = None,
-                          **kwargs) -> Dict[str, int]:
+
+def preload_advanced_cache(
+    symbols: List[str], periods: List[str] = None, **kwargs
+) -> Dict[str, int]:
     """高度キャッシュ事前読み込み"""
 
     if periods is None:
@@ -686,6 +766,7 @@ def preload_advanced_cache(symbols: List[str],
 
     return results
 
+
 if __name__ == "__main__":
     # 高度テスト実行
     print("=== Next-Gen AI バッチデータパイプライン テスト ===")
@@ -699,8 +780,10 @@ if __name__ == "__main__":
             period="60d",
             preprocessing=True,
             features=["trend_strength", "momentum", "price_channel"],
-            priority=5 if symbol in ["7203", "8306"] else 3,  # トヨタ・三菱UFJは高優先度
-            cache_ttl=1800
+            priority=5
+            if symbol in ["7203", "8306"]
+            else 3,  # トヨタ・三菱UFJは高優先度
+            cache_ttl=1800,
         )
         for symbol in test_symbols
     ]
@@ -709,7 +792,7 @@ if __name__ == "__main__":
     fetcher = AdvancedBatchDataFetcher(
         max_workers=6,
         enable_kafka=False,  # テスト時はKafka無効
-        enable_redis=False   # テスト時はRedis無効
+        enable_redis=False,  # テスト時はRedis無効
     )
 
     try:
@@ -725,14 +808,16 @@ if __name__ == "__main__":
 
         for symbol, response in responses.items():
             if response.success:
-                print(f"✓ {symbol}: {response.record_count}レコード, {response.feature_count}特徴量, "
-                      f"品質={response.data_quality_score:.1f}, キャッシュ={'✓' if response.cache_hit else '✗'}")
+                print(
+                    f"✓ {symbol}: {response.record_count}レコード, {response.feature_count}特徴量, "
+                    f"品質={response.data_quality_score:.1f}, キャッシュ={'✓' if response.cache_hit else '✗'}"
+                )
             else:
                 print(f"✗ {symbol}: {response.error_message}")
 
         # パフォーマンス統計
         stats = fetcher.get_pipeline_stats()
-        print(f"\nパフォーマンス統計:")
+        print("\nパフォーマンス統計:")
         print(f"  総リクエスト: {stats.total_requests}")
         print(f"  成功率: {stats.successful_requests/stats.total_requests*100:.1f}%")
         print(f"  キャッシュヒット率: {stats.cache_hits/stats.total_requests*100:.1f}%")

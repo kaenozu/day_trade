@@ -6,11 +6,9 @@
 
 import ast
 import hashlib
-import os
 import re
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from ..utils.logging_config import get_context_logger
 
@@ -24,25 +22,63 @@ class SecuritySandbox:
         """初期化"""
         # 危険なモジュール・関数
         self.dangerous_modules = {
-            'os', 'subprocess', 'sys', 'shutil', 'socket',
-            'urllib', 'requests', 'ftplib', 'smtplib',
-            'pickle', 'marshal', 'exec', 'eval', 'compile',
-            '__import__', 'open', 'file', 'input', 'raw_input'
+            "os",
+            "subprocess",
+            "sys",
+            "shutil",
+            "socket",
+            "urllib",
+            "requests",
+            "ftplib",
+            "smtplib",
+            "pickle",
+            "marshal",
+            "exec",
+            "eval",
+            "compile",
+            "__import__",
+            "open",
+            "file",
+            "input",
+            "raw_input",
         }
 
         # 危険なキーワード
         self.dangerous_keywords = {
-            '__import__', 'exec', 'eval', 'compile', 'globals',
-            'locals', 'vars', 'dir', 'getattr', 'setattr',
-            'delattr', 'hasattr', '__getattribute__', '__setattr__'
+            "__import__",
+            "exec",
+            "eval",
+            "compile",
+            "globals",
+            "locals",
+            "vars",
+            "dir",
+            "getattr",
+            "setattr",
+            "delattr",
+            "hasattr",
+            "__getattribute__",
+            "__setattr__",
         }
 
         # 許可されたモジュール
         self.allowed_modules = {
-            'datetime', 'math', 're', 'json', 'typing',
-            'dataclasses', 'enum', 'abc', 'collections',
-            'itertools', 'functools', 'warnings',
-            'numpy', 'pandas', 'sklearn', 'scipy'
+            "datetime",
+            "math",
+            "re",
+            "json",
+            "typing",
+            "dataclasses",
+            "enum",
+            "abc",
+            "collections",
+            "itertools",
+            "functools",
+            "warnings",
+            "numpy",
+            "pandas",
+            "sklearn",
+            "scipy",
         }
 
         # プラグイン実行制限
@@ -68,7 +104,7 @@ class SecuritySandbox:
                 return False
 
             # ファイル内容読み込み
-            with open(plugin_file, 'r', encoding='utf-8') as f:
+            with open(plugin_file, encoding="utf-8") as f:
                 code = f.read()
 
             # 構文解析
@@ -130,20 +166,20 @@ class SecuritySandbox:
 
                 # 危険な属性アクセス
                 if isinstance(node, ast.Attribute):
-                    if node.attr.startswith('__'):
+                    if node.attr.startswith("__"):
                         logger.warning(f"危険な属性アクセス: {node.attr}")
                         return False
 
             # 文字列パターンチェック
             dangerous_patterns = [
-                r'__[a-zA-Z_]+__',  # マジックメソッド
-                r'exec\s*\(',       # exec呼び出し
-                r'eval\s*\(',       # eval呼び出し
-                r'import\s+os',     # osモジュール
-                r'from\s+os',       # osモジュール
-                r'subprocess',      # subprocess
-                r'system\(',        # system呼び出し
-                r'popen\(',         # popen呼び出し
+                r"__[a-zA-Z_]+__",  # マジックメソッド
+                r"exec\s*\(",  # exec呼び出し
+                r"eval\s*\(",  # eval呼び出し
+                r"import\s+os",  # osモジュール
+                r"from\s+os",  # osモジュール
+                r"subprocess",  # subprocess
+                r"system\(",  # system呼び出し
+                r"popen\(",  # popen呼び出し
             ]
 
             for pattern in dangerous_patterns:
@@ -165,14 +201,14 @@ class SecuritySandbox:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        module_name = alias.name.split('.')[0]
+                        module_name = alias.name.split(".")[0]
                         if not self._is_module_allowed(module_name):
                             logger.warning(f"危険なモジュール: {module_name}")
                             return False
 
                 elif isinstance(node, ast.ImportFrom):
                     if node.module:
-                        module_name = node.module.split('.')[0]
+                        module_name = node.module.split(".")[0]
                         if not self._is_module_allowed(module_name):
                             logger.warning(f"危険なFromインポート: {module_name}")
                             return False
@@ -194,15 +230,28 @@ class SecuritySandbox:
             return True
 
         # プロジェクト内モジュール
-        if module_name.startswith('day_trade') or module_name.startswith('..'):
+        if module_name.startswith("day_trade") or module_name.startswith(".."):
             return True
 
         # その他標準ライブラリ（一部許可）
         safe_stdlib_modules = {
-            'collections', 'itertools', 'functools', 'operator',
-            'copy', 'weakref', 'types', 'inspect', 'importlib',
-            'statistics', 'random', 'decimal', 'fractions',
-            'logging', 'traceback', 'time', 'calendar'
+            "collections",
+            "itertools",
+            "functools",
+            "operator",
+            "copy",
+            "weakref",
+            "types",
+            "inspect",
+            "importlib",
+            "statistics",
+            "random",
+            "decimal",
+            "fractions",
+            "logging",
+            "traceback",
+            "time",
+            "calendar",
         }
 
         if module_name in safe_stdlib_modules:
@@ -224,27 +273,53 @@ class SecuritySandbox:
         try:
             # 基本的な組み込み関数のみ許可
             safe_builtins = {
-                'abs', 'all', 'any', 'bool', 'dict', 'enumerate',
-                'filter', 'float', 'int', 'isinstance', 'len',
-                'list', 'map', 'max', 'min', 'range', 'round',
-                'set', 'sorted', 'str', 'sum', 'tuple', 'type',
-                'zip', 'ValueError', 'TypeError', 'KeyError',
-                'IndexError', 'AttributeError'
+                "abs",
+                "all",
+                "any",
+                "bool",
+                "dict",
+                "enumerate",
+                "filter",
+                "float",
+                "int",
+                "isinstance",
+                "len",
+                "list",
+                "map",
+                "max",
+                "min",
+                "range",
+                "round",
+                "set",
+                "sorted",
+                "str",
+                "sum",
+                "tuple",
+                "type",
+                "zip",
+                "ValueError",
+                "TypeError",
+                "KeyError",
+                "IndexError",
+                "AttributeError",
             }
 
             # 制限された環境作成
             restricted_env = {
-                '__builtins__': {name: getattr(__builtins__, name)
-                                for name in safe_builtins if hasattr(__builtins__, name)},
-                '__name__': f'plugin_{plugin_name}',
-                '__file__': f'<plugin_{plugin_name}>',
+                "__builtins__": {
+                    name: getattr(__builtins__, name)
+                    for name in safe_builtins
+                    if hasattr(__builtins__, name)
+                },
+                "__name__": f"plugin_{plugin_name}",
+                "__file__": f"<plugin_{plugin_name}>",
             }
 
             # プラグイン専用ディレクトリ作成
             plugin_dir = Path(f"temp/plugins/{plugin_name}")
             plugin_dir.mkdir(parents=True, exist_ok=True)
 
-            restricted_env['__plugin_dir__'] = str(plugin_dir)
+            restricted_env["__plugin_dir__"] = str(plugin_dir)
 
             return restricted_env
 
@@ -252,7 +327,7 @@ class SecuritySandbox:
             logger.error(f"実行環境作成エラー: {e}")
             return {}
 
-    def monitor_plugin_execution(self, plugin_name: str) -> 'PluginMonitor':
+    def monitor_plugin_execution(self, plugin_name: str) -> "PluginMonitor":
         """
         プラグイン実行監視開始
 
@@ -265,7 +340,7 @@ class SecuritySandbox:
         return PluginMonitor(
             plugin_name=plugin_name,
             max_memory_mb=self.max_memory_mb,
-            max_execution_time=self.max_execution_time
+            max_execution_time=self.max_execution_time,
         )
 
     def calculate_file_hash(self, plugin_file: Path) -> str:
@@ -279,7 +354,7 @@ class SecuritySandbox:
             SHA256ハッシュ
         """
         try:
-            with open(plugin_file, 'rb') as f:
+            with open(plugin_file, "rb") as f:
                 file_hash = hashlib.sha256(f.read()).hexdigest()
             return file_hash
         except Exception as e:
@@ -287,9 +362,7 @@ class SecuritySandbox:
             return ""
 
     def validate_plugin_signature(
-        self,
-        plugin_file: Path,
-        expected_hash: Optional[str] = None
+        self, plugin_file: Path, expected_hash: Optional[str] = None
     ) -> bool:
         """
         プラグイン署名検証
@@ -324,10 +397,7 @@ class PluginMonitor:
     """プラグイン実行監視"""
 
     def __init__(
-        self,
-        plugin_name: str,
-        max_memory_mb: int = 512,
-        max_execution_time: int = 30
+        self, plugin_name: str, max_memory_mb: int = 512, max_execution_time: int = 30
     ):
         """
         初期化
@@ -348,6 +418,7 @@ class PluginMonitor:
     def __enter__(self):
         """監視開始"""
         import time
+
         self.start_time = time.time()
         return self
 
@@ -366,12 +437,15 @@ class PluginMonitor:
             if self.violations:
                 logger.warning(f"プラグイン違反 {self.plugin_name}: {self.violations}")
             else:
-                logger.debug(f"プラグイン実行完了 {self.plugin_name}: {execution_time:.2f}秒")
+                logger.debug(
+                    f"プラグイン実行完了 {self.plugin_name}: {execution_time:.2f}秒"
+                )
 
     def check_memory_usage(self):
         """メモリ使用量チェック"""
         try:
             import psutil
+
             process = psutil.Process()
             memory_mb = process.memory_info().rss / (1024 * 1024)
 

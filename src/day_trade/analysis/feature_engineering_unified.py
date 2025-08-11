@@ -7,19 +7,19 @@
 import gc
 import time
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from ..core.optimization_strategy import (
-    OptimizationStrategy,
-    OptimizationLevel,
     OptimizationConfig,
+    OptimizationLevel,
+    OptimizationStrategy,
+    get_optimized_implementation,
     optimization_strategy,
-    get_optimized_implementation
 )
 from ..utils.logging_config import get_context_logger
 
@@ -27,8 +27,9 @@ logger = get_context_logger(__name__)
 
 # オプショナル依存パッケージ
 try:
-    from numba import njit
     import numba
+    from numba import njit
+
     NUMBA_AVAILABLE = True
     logger.info("Numba利用可能 - 高速計算が有効")
 except ImportError:
@@ -37,6 +38,7 @@ except ImportError:
 
 try:
     from sklearn.preprocessing import RobustScaler, StandardScaler
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -50,6 +52,7 @@ try:
         vectorized_technical_indicators,
     )
     from ..utils.performance_analyzer import profile_performance
+
     OPTIMIZATION_UTILS_AVAILABLE = True
 except ImportError:
     OPTIMIZATION_UTILS_AVAILABLE = False
@@ -58,11 +61,12 @@ except ImportError:
 # 新しいデータ最適化ユーティリティ
 try:
     from ..utils.data_optimization import (
-        DataFrameOptimizer,
         ChunkedDataProcessor,
+        DataFrameOptimizer,
         create_optimized_dataframe,
-        memory_monitor
+        memory_monitor,
     )
+
     DATA_OPTIMIZATION_AVAILABLE = True
     logger.info("データ最適化ユーティリティ利用可能")
 except ImportError:
@@ -75,6 +79,7 @@ warnings.filterwarnings("ignore")
 @dataclass
 class FeatureConfig:
     """統合特徴量生成設定"""
+
     # 基本設定
     lookback_periods: List[int]
     volatility_windows: List[int]
@@ -116,6 +121,7 @@ class FeatureConfig:
 @dataclass
 class FeatureResult:
     """特徴量生成結果"""
+
     features: pd.DataFrame
     feature_names: List[str]
     metadata: Dict[str, Any]
@@ -125,6 +131,7 @@ class FeatureResult:
 
 # Numba最適化関数群（条件付き定義）
 if NUMBA_AVAILABLE:
+
     @njit
     def fast_rsi_calculation(prices: np.ndarray, window: int = 14) -> np.ndarray:
         """高速RSI計算（Numba最適化）"""
@@ -153,7 +160,9 @@ if NUMBA_AVAILABLE:
         return rsi
 
     @njit
-    def fast_bollinger_bands(prices: np.ndarray, window: int = 20, std_factor: float = 2.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fast_bollinger_bands(
+        prices: np.ndarray, window: int = 20, std_factor: float = 2.0
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """高速ボリンジャーバンド計算"""
         n = len(prices)
         sma = np.full(n, np.nan)
@@ -161,7 +170,7 @@ if NUMBA_AVAILABLE:
         lower = np.full(n, np.nan)
 
         for i in range(window - 1, n):
-            window_data = prices[i - window + 1:i + 1]
+            window_data = prices[i - window + 1 : i + 1]
             mean_val = np.mean(window_data)
             std_val = np.std(window_data)
 
@@ -181,36 +190,40 @@ if NUMBA_AVAILABLE:
         for i in range(max_period, n):
             for j, period in enumerate(periods):
                 if i >= period:
-                    features[i, j] = (prices[i] - prices[i - period]) / prices[i - period] * 100
+                    features[i, j] = (
+                        (prices[i] - prices[i - period]) / prices[i - period] * 100
+                    )
 
         return features
 else:
     # フォールバック実装
     def fast_rsi_calculation(prices: np.ndarray, window: int = 14) -> np.ndarray:
         """標準RSI計算"""
-        df = pd.DataFrame({'price': prices})
-        delta = df['price'].diff()
+        df = pd.DataFrame({"price": prices})
+        delta = df["price"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return rsi.fillna(50.0).values
 
-    def fast_bollinger_bands(prices: np.ndarray, window: int = 20, std_factor: float = 2.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fast_bollinger_bands(
+        prices: np.ndarray, window: int = 20, std_factor: float = 2.0
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """標準ボリンジャーバンド計算"""
-        df = pd.DataFrame({'price': prices})
-        sma = df['price'].rolling(window=window).mean()
-        std = df['price'].rolling(window=window).std()
+        df = pd.DataFrame({"price": prices})
+        sma = df["price"].rolling(window=window).mean()
+        std = df["price"].rolling(window=window).std()
         upper = sma + (std * std_factor)
         lower = sma - (std * std_factor)
         return sma.values, upper.values, lower.values
 
     def fast_momentum_features(prices: np.ndarray, periods: np.ndarray) -> np.ndarray:
         """標準モメンタム特徴量計算"""
-        df = pd.DataFrame({'price': prices})
+        df = pd.DataFrame({"price": prices})
         features = []
         for period in periods:
-            momentum = df['price'].pct_change(periods=period) * 100
+            momentum = df["price"].pct_change(periods=period) * 100
             features.append(momentum.values)
         return np.column_stack(features)
 
@@ -222,7 +235,12 @@ class FeatureEngineeringBase(OptimizationStrategy):
         super().__init__(config)
         self.feature_config = FeatureConfig.default()
 
-    def execute(self, data: pd.DataFrame, feature_config: Optional[FeatureConfig] = None, **kwargs) -> FeatureResult:
+    def execute(
+        self,
+        data: pd.DataFrame,
+        feature_config: Optional[FeatureConfig] = None,
+        **kwargs,
+    ) -> FeatureResult:
         """特徴量生成の実行"""
         start_time = time.time()
 
@@ -243,7 +261,7 @@ class FeatureEngineeringBase(OptimizationStrategy):
                     "config": self.feature_config,
                 },
                 generation_time=execution_time,
-                strategy_used=self.get_strategy_name()
+                strategy_used=self.get_strategy_name(),
             )
 
         except Exception as e:
@@ -272,10 +290,10 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
     def _get_price_column(self, data: pd.DataFrame) -> str:
         """価格カラムの特定"""
-        if '終値' in data.columns:
-            return '終値'
-        elif 'Close' in data.columns:
-            return 'Close'
+        if "終値" in data.columns:
+            return "終値"
+        elif "Close" in data.columns:
+            return "Close"
         else:
             return data.columns[0]  # フォールバック
 
@@ -285,17 +303,19 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
         # 移動平均
         for period in self.feature_config.lookback_periods:
-            features[f'sma_{period}'] = prices.rolling(window=period).mean()
-            features[f'ema_{period}'] = prices.ewm(span=period).mean()
+            features[f"sma_{period}"] = prices.rolling(window=period).mean()
+            features[f"ema_{period}"] = prices.ewm(span=period).mean()
 
         # ボラティリティ
         for window in self.feature_config.volatility_windows:
-            features[f'volatility_{window}'] = prices.pct_change().rolling(window=window).std()
+            features[f"volatility_{window}"] = (
+                prices.pct_change().rolling(window=window).std()
+            )
 
         # モメンタム
         for period in self.feature_config.momentum_periods:
-            features[f'momentum_{period}'] = prices.pct_change(periods=period)
-            features[f'roc_{period}'] = (prices / prices.shift(period) - 1) * 100
+            features[f"momentum_{period}"] = prices.pct_change(periods=period)
+            features[f"roc_{period}"] = (prices / prices.shift(period) - 1) * 100
 
         return features
 
@@ -307,14 +327,18 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
         # 価格統計
         for window in [10, 20, 50]:
-            features[f'price_percentile_{window}'] = prices.rolling(window=window).rank(pct=True)
-            features[f'price_zscore_{window}'] = (prices - prices.rolling(window=window).mean()) / prices.rolling(window=window).std()
+            features[f"price_percentile_{window}"] = prices.rolling(window=window).rank(
+                pct=True
+            )
+            features[f"price_zscore_{window}"] = (
+                prices - prices.rolling(window=window).mean()
+            ) / prices.rolling(window=window).std()
 
         # リターン統計
         returns = prices.pct_change()
         for window in [10, 20]:
-            features[f'returns_skew_{window}'] = returns.rolling(window=window).skew()
-            features[f'returns_kurt_{window}'] = returns.rolling(window=window).kurt()
+            features[f"returns_skew_{window}"] = returns.rolling(window=window).skew()
+            features[f"returns_kurt_{window}"] = returns.rolling(window=window).kurt()
 
         return features
 
@@ -326,12 +350,12 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
         # 価格と移動平均の関係
         sma_20 = prices.rolling(window=20).mean()
-        features['price_vs_sma20'] = (prices - sma_20) / sma_20
+        features["price_vs_sma20"] = (prices - sma_20) / sma_20
 
         # ボリンジャーバンド位置
         bb_middle = prices.rolling(window=20).mean()
         bb_std = prices.rolling(window=20).std()
-        features['bb_position'] = (prices - bb_middle) / (2 * bb_std)
+        features["bb_position"] = (prices - bb_middle) / (2 * bb_std)
 
         return features
 
@@ -392,11 +416,13 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
 
     def _generate_features_chunked(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """チャンク処理による特徴量生成"""
-        logger.info(f"チャンク処理開始: {len(data)}行 -> {self.feature_config.chunk_size}行ずつ")
+        logger.info(
+            f"チャンク処理開始: {len(data)}行 -> {self.feature_config.chunk_size}行ずつ"
+        )
 
         chunk_results = []
         for i in range(0, len(data), self.feature_config.chunk_size):
-            chunk = data.iloc[i:i + self.feature_config.chunk_size]
+            chunk = data.iloc[i : i + self.feature_config.chunk_size]
             chunk_features = super()._generate_features(chunk, **kwargs)
             chunk_results.append(chunk_features)
 
@@ -407,11 +433,15 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
         close_col = self._get_price_column(data)
         prices = data[close_col].values
 
-        with ThreadPoolExecutor(max_workers=self.feature_config.max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.feature_config.max_workers
+        ) as executor:
             # 並列タスクを投入
             future_sma = executor.submit(self._calculate_sma_parallel, prices)
             future_ema = executor.submit(self._calculate_ema_parallel, prices)
-            future_volatility = executor.submit(self._calculate_volatility_parallel, prices)
+            future_volatility = executor.submit(
+                self._calculate_volatility_parallel, prices
+            )
 
             # 結果を収集
             features = pd.DataFrame(index=data.index)
@@ -425,26 +455,26 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
         """並列SMA計算"""
         features = {}
         for period in self.feature_config.lookback_periods:
-            df_temp = pd.DataFrame({'price': prices})
-            features[f'sma_{period}'] = df_temp['price'].rolling(window=period).mean()
+            df_temp = pd.DataFrame({"price": prices})
+            features[f"sma_{period}"] = df_temp["price"].rolling(window=period).mean()
         return pd.DataFrame(features)
 
     def _calculate_ema_parallel(self, prices: np.ndarray) -> pd.DataFrame:
         """並列EMA計算"""
         features = {}
         for period in self.feature_config.lookback_periods:
-            df_temp = pd.DataFrame({'price': prices})
-            features[f'ema_{period}'] = df_temp['price'].ewm(span=period).mean()
+            df_temp = pd.DataFrame({"price": prices})
+            features[f"ema_{period}"] = df_temp["price"].ewm(span=period).mean()
         return pd.DataFrame(features)
 
     def _calculate_volatility_parallel(self, prices: np.ndarray) -> pd.DataFrame:
         """並列ボラティリティ計算"""
         features = {}
-        df_temp = pd.DataFrame({'price': prices})
-        returns = df_temp['price'].pct_change()
+        df_temp = pd.DataFrame({"price": prices})
+        returns = df_temp["price"].pct_change()
 
         for window in self.feature_config.volatility_windows:
-            features[f'volatility_{window}'] = returns.rolling(window=window).std()
+            features[f"volatility_{window}"] = returns.rolling(window=window).std()
 
         return pd.DataFrame(features)
 
@@ -456,20 +486,20 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
 
         # RSI
         if 14 in self.feature_config.lookback_periods:
-            features['rsi_14'] = fast_rsi_calculation(prices, 14)
+            features["rsi_14"] = fast_rsi_calculation(prices, 14)
 
         # ボリンジャーバンド
         bb_sma, bb_upper, bb_lower = fast_bollinger_bands(prices, 20, 2.0)
-        features['bb_sma'] = bb_sma
-        features['bb_upper'] = bb_upper
-        features['bb_lower'] = bb_lower
-        features['bb_width'] = (bb_upper - bb_lower) / bb_sma
+        features["bb_sma"] = bb_sma
+        features["bb_upper"] = bb_upper
+        features["bb_lower"] = bb_lower
+        features["bb_width"] = (bb_upper - bb_lower) / bb_sma
 
         # モメンタム特徴量
         momentum_periods = np.array(self.feature_config.momentum_periods)
         momentum_features = fast_momentum_features(prices, momentum_periods)
         for i, period in enumerate(momentum_periods):
-            features[f'momentum_{period}'] = momentum_features[:, i]
+            features[f"momentum_{period}"] = momentum_features[:, i]
 
         return features
 
@@ -485,10 +515,17 @@ class FeatureEngineeringManager:
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
         if self._strategy is None:
-            self._strategy = get_optimized_implementation("feature_engineering", self.config)
+            self._strategy = get_optimized_implementation(
+                "feature_engineering", self.config
+            )
         return self._strategy
 
-    def generate_features(self, data: pd.DataFrame, feature_config: Optional[FeatureConfig] = None, **kwargs) -> FeatureResult:
+    def generate_features(
+        self,
+        data: pd.DataFrame,
+        feature_config: Optional[FeatureConfig] = None,
+        **kwargs,
+    ) -> FeatureResult:
         """特徴量生成の実行"""
         strategy = self.get_strategy()
         return strategy.execute(data, feature_config, **kwargs)
@@ -530,7 +567,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         """データ最適化された特徴量生成"""
         if not DATA_OPTIMIZATION_AVAILABLE:
             # フォールバック: 最適化版を使用
-            logger.warning("データ最適化ユーティリティ未利用 - 最適化版にフォールバック")
+            logger.warning(
+                "データ最適化ユーティリティ未利用 - 最適化版にフォールバック"
+            )
             return super()._generate_features(data, **kwargs)
 
         start_time = time.time()
@@ -553,31 +592,42 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         # 5. 不必要コピーの回避
         if self.feature_config.enable_copy_elimination:
-            copy_operations = ['drop_duplicates', 'fillna', 'sort_values']
+            copy_operations = ["drop_duplicates", "fillna", "sort_values"]
             features = self.data_optimizer.eliminate_unnecessary_copies(
                 features, copy_operations
             )
 
         optimization_time = time.time() - start_time
-        logger.info(f"データ最適化特徴量生成完了", extra={
-            "optimization_time_ms": round(optimization_time * 1000, 2),
-            "input_shape": data.shape,
-            "output_shape": features.shape,
-            "memory_stats": self.data_optimizer.get_optimization_stats()
-        })
+        logger.info(
+            "データ最適化特徴量生成完了",
+            extra={
+                "optimization_time_ms": round(optimization_time * 1000, 2),
+                "input_shape": data.shape,
+                "output_shape": features.shape,
+                "memory_stats": self.data_optimizer.get_optimization_stats(),
+            },
+        )
 
         return features
 
-    def _generate_features_with_chunk_processing(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def _generate_features_with_chunk_processing(
+        self, data: pd.DataFrame, **kwargs
+    ) -> pd.DataFrame:
         """チャンク処理による大規模データ対応"""
-        def chunk_feature_generation(chunk_data: pd.DataFrame, **chunk_kwargs) -> pd.DataFrame:
+
+        def chunk_feature_generation(
+            chunk_data: pd.DataFrame, **chunk_kwargs
+        ) -> pd.DataFrame:
             """チャンク単位の特徴量生成"""
             return self._calculate_optimized_features(chunk_data, **chunk_kwargs)
 
-        logger.info(f"チャンク処理による特徴量生成開始", extra={
-            "total_rows": len(data),
-            "chunk_size": self.feature_config.chunk_size
-        })
+        logger.info(
+            "チャンク処理による特徴量生成開始",
+            extra={
+                "total_rows": len(data),
+                "chunk_size": self.feature_config.chunk_size,
+            },
+        )
 
         result = self.chunk_processor.process_large_dataframe(
             data, chunk_feature_generation, **kwargs
@@ -585,7 +635,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         return result
 
-    def _calculate_optimized_features(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def _calculate_optimized_features(
+        self, data: pd.DataFrame, **kwargs
+    ) -> pd.DataFrame:
         """最適化された特徴量計算"""
         close_col = self._get_price_column(data)
         features = pd.DataFrame(index=data.index)
@@ -593,7 +645,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         # ベクトル化されたテクニカル指標の計算
         technical_operations = self._prepare_technical_indicator_operations(close_col)
         if technical_operations:
-            features = self.data_optimizer.vectorize_operations(data, technical_operations)
+            features = self.data_optimizer.vectorize_operations(
+                data, technical_operations
+            )
 
         # 統計的特徴量
         if self.feature_config.enable_statistical_features:
@@ -612,88 +666,102 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         return features
 
-    def _prepare_technical_indicator_operations(self, price_column: str) -> List[Dict[str, Any]]:
+    def _prepare_technical_indicator_operations(
+        self, price_column: str
+    ) -> List[Dict[str, Any]]:
         """テクニカル指標操作の準備"""
         operations = []
 
         # 移動平均
         for period in self.feature_config.lookback_periods:
-            operations.extend([
-                {
-                    'type': 'technical_indicator',
-                    'indicator': 'sma',
-                    'column': price_column,
-                    'period': period
-                },
-                {
-                    'type': 'technical_indicator',
-                    'indicator': 'ema',
-                    'column': price_column,
-                    'period': period
-                }
-            ])
+            operations.extend(
+                [
+                    {
+                        "type": "technical_indicator",
+                        "indicator": "sma",
+                        "column": price_column,
+                        "period": period,
+                    },
+                    {
+                        "type": "technical_indicator",
+                        "indicator": "ema",
+                        "column": price_column,
+                        "period": period,
+                    },
+                ]
+            )
 
         # RSI
-        operations.append({
-            'type': 'technical_indicator',
-            'indicator': 'rsi',
-            'column': price_column,
-            'period': 14
-        })
+        operations.append(
+            {
+                "type": "technical_indicator",
+                "indicator": "rsi",
+                "column": price_column,
+                "period": 14,
+            }
+        )
 
         # ボリンジャーバンド
-        operations.append({
-            'type': 'technical_indicator',
-            'indicator': 'bollinger_bands',
-            'column': price_column,
-            'period': 20
-        })
+        operations.append(
+            {
+                "type": "technical_indicator",
+                "indicator": "bollinger_bands",
+                "column": price_column,
+                "period": 20,
+            }
+        )
 
         # MACD
-        operations.append({
-            'type': 'technical_indicator',
-            'indicator': 'macd',
-            'column': price_column,
-            'fast_period': 12,
-            'slow_period': 26,
-            'signal_period': 9
-        })
+        operations.append(
+            {
+                "type": "technical_indicator",
+                "indicator": "macd",
+                "column": price_column,
+                "fast_period": 12,
+                "slow_period": 26,
+                "signal_period": 9,
+            }
+        )
 
         return operations
 
-    def _calculate_statistical_features_optimized(self, data: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_statistical_features_optimized(
+        self, data: pd.DataFrame
+    ) -> pd.DataFrame:
         """最適化された統計的特徴量計算"""
         close_col = self._get_price_column(data)
         operations = []
 
         # ローリング統計量
         for window in [10, 20, 50]:
-            operations.extend([
-                {
-                    'type': 'rolling_calculation',
-                    'column': close_col,
-                    'window': window,
-                    'calculation': 'std'
-                },
-                {
-                    'type': 'rolling_calculation',
-                    'column': close_col,
-                    'window': window,
-                    'calculation': 'min'
-                },
-                {
-                    'type': 'rolling_calculation',
-                    'column': close_col,
-                    'window': window,
-                    'calculation': 'max'
-                },
-                {
-                    'type': 'rolling_calculation',
-                    'column': close_col,
-                    'window': window,
-                    'calculation': 'volatility'
-                }
-            ])
+            operations.extend(
+                [
+                    {
+                        "type": "rolling_calculation",
+                        "column": close_col,
+                        "window": window,
+                        "calculation": "std",
+                    },
+                    {
+                        "type": "rolling_calculation",
+                        "column": close_col,
+                        "window": window,
+                        "calculation": "min",
+                    },
+                    {
+                        "type": "rolling_calculation",
+                        "column": close_col,
+                        "window": window,
+                        "calculation": "max",
+                    },
+                    {
+                        "type": "rolling_calculation",
+                        "column": close_col,
+                        "window": window,
+                        "calculation": "volatility",
+                    },
+                ]
+            )
 
         if operations:
             return self.data_optimizer.vectorize_operations(data.copy(), operations)
@@ -706,27 +774,29 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         operations = []
 
         # 数学的操作
-        operations.extend([
-            {
-                'type': 'mathematical_operation',
-                'operation': 'percentage_change',
-                'columns': [close_col],
-                'result_column': f'{close_col}_pct_change'
-            },
-            {
-                'type': 'mathematical_operation',
-                'operation': 'log_return',
-                'columns': [close_col],
-                'result_column': f'{close_col}_log_return'
-            },
-            {
-                'type': 'mathematical_operation',
-                'operation': 'z_score',
-                'columns': [close_col],
-                'window': 20,
-                'result_column': f'{close_col}_zscore_20'
-            }
-        ])
+        operations.extend(
+            [
+                {
+                    "type": "mathematical_operation",
+                    "operation": "percentage_change",
+                    "columns": [close_col],
+                    "result_column": f"{close_col}_pct_change",
+                },
+                {
+                    "type": "mathematical_operation",
+                    "operation": "log_return",
+                    "columns": [close_col],
+                    "result_column": f"{close_col}_log_return",
+                },
+                {
+                    "type": "mathematical_operation",
+                    "operation": "z_score",
+                    "columns": [close_col],
+                    "window": 20,
+                    "result_column": f"{close_col}_zscore_20",
+                },
+            ]
+        )
 
         if operations:
             return self.data_optimizer.vectorize_operations(data.copy(), operations)
@@ -748,7 +818,7 @@ def generate_features(
     data: pd.DataFrame,
     feature_config: Optional[FeatureConfig] = None,
     optimization_config: Optional[OptimizationConfig] = None,
-    **kwargs
+    **kwargs,
 ) -> FeatureResult:
     """特徴量生成のヘルパー関数"""
     manager = FeatureEngineeringManager(optimization_config)

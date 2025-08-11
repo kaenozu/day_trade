@@ -4,13 +4,12 @@
 共通的なチャート描画機能を提供
 """
 
+import warnings
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
-import warnings
+from typing import Any, List, Optional, Tuple
 
 import pandas as pd
-import numpy as np
 
 from ...utils.logging_config import get_context_logger
 from .color_palette import ColorPalette
@@ -19,8 +18,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
     from matplotlib.collections import LineCollection
     from matplotlib.patches import Polygon, Rectangle
 

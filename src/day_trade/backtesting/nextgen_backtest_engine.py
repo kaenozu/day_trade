@@ -6,31 +6,34 @@ LSTM-Transformer + PPO強化学習 + センチメント分析統合バックテ�
 完全なAI統合バックテストシステム
 """
 
+import asyncio
 import time
 import warnings
-import asyncio
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any, Union
+from datetime import datetime
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from pathlib import Path
+
+from ..automation.orchestrator import NextGenAIOrchestrator
 
 # プロジェクト内インポート
 from ..data.advanced_ml_engine import AdvancedMLEngine, ModelConfig
-from ..rl.trading_environment import MultiAssetTradingEnvironment
-from ..rl.ppo_agent import PPOAgent, PPOConfig
-from ..sentiment.market_psychology import MarketPsychologyAnalyzer
-from ..automation.orchestrator import NextGenAIOrchestrator
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
+from ..rl.ppo_agent import PPOAgent, PPOConfig
+from ..rl.trading_environment import MultiAssetTradingEnvironment
+from ..sentiment.market_psychology import MarketPsychologyAnalyzer
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class NextGenBacktestConfig:
     """Next-Gen AI バックテスト設定"""
+
     # 期間設定
     start_date: str = "2023-01-01"
     end_date: str = "2024-01-01"
@@ -59,9 +62,11 @@ class NextGenBacktestConfig:
     stop_loss: float = 0.05
     take_profit: float = 0.10
 
+
 @dataclass
 class NextGenTrade:
     """Next-Gen AI取引記録"""
+
     symbol: str
     action: str
     quantity: float
@@ -80,9 +85,11 @@ class NextGenTrade:
     def get_trade_value(self) -> float:
         return abs(self.quantity * self.price)
 
+
 @dataclass
 class NextGenBacktestResult:
     """Next-Gen バックテスト結果"""
+
     config: NextGenBacktestConfig
 
     # 基本パフォーマンス
@@ -110,6 +117,7 @@ class NextGenBacktestResult:
     # 計算時間
     backtest_duration: float
     calculation_timestamp: datetime = field(default_factory=datetime.now)
+
 
 class NextGenBacktestEngine:
     """Next-Gen AI バックテストエンジン"""
@@ -149,7 +157,7 @@ class NextGenBacktestEngine:
                     lstm_hidden_size=128,
                     transformer_d_model=256,
                     sequence_length=self.config.ml_sequence_length,
-                    num_features=15
+                    num_features=15,
                 )
                 self.ml_engine = AdvancedMLEngine(ml_config)
                 logger.info("ML Engine initialized for backtesting")
@@ -161,7 +169,7 @@ class NextGenBacktestEngine:
                     symbols=symbols,
                     initial_balance=self.config.initial_capital,
                     max_position_size=self.config.max_position_size,
-                    transaction_cost=self.config.transaction_cost
+                    transaction_cost=self.config.transaction_cost,
                 )
 
                 # PPOエージェント初期化
@@ -169,7 +177,7 @@ class NextGenBacktestEngine:
                     state_dim=self.rl_env.observation_space.shape[0],
                     action_dim=self.rl_env.action_space.shape[0],
                     hidden_dim=256,
-                    max_episodes=self.config.rl_training_episodes
+                    max_episodes=self.config.rl_training_episodes,
                 )
                 self.rl_agent = PPOAgent(rl_config)
                 logger.info("RL Agent initialized for backtesting")
@@ -213,13 +221,15 @@ class NextGenBacktestEngine:
         requests = []
 
         for symbol in symbols:
-            requests.append(DataRequest(
-                symbol=symbol,
-                start_date=self.config.start_date,
-                end_date=self.config.end_date,
-                period="2y",
-                preprocessing=True
-            ))
+            requests.append(
+                DataRequest(
+                    symbol=symbol,
+                    start_date=self.config.start_date,
+                    end_date=self.config.end_date,
+                    period="2y",
+                    preprocessing=True,
+                )
+            )
 
         try:
             results = await self.data_fetcher.fetch_batch_data(requests)
@@ -227,7 +237,9 @@ class NextGenBacktestEngine:
             for result in results:
                 if result.success and not result.data.empty:
                     data[result.symbol] = result.data
-                    logger.info(f"データ取得成功: {result.symbol} ({len(result.data)} レコード)")
+                    logger.info(
+                        f"データ取得成功: {result.symbol} ({len(result.data)} レコード)"
+                    )
                 else:
                     logger.warning(f"データ取得失敗: {result.symbol}")
 
@@ -260,7 +272,9 @@ class NextGenBacktestEngine:
                     next_state, reward, done, info = self.rl_env.step(action)
 
                     # エージェント学習
-                    self.rl_agent.store_transition(state, action, reward, next_state, done)
+                    self.rl_agent.store_transition(
+                        state, action, reward, next_state, done
+                    )
 
                     state = next_state
                     total_reward += reward
@@ -269,14 +283,18 @@ class NextGenBacktestEngine:
                         break
 
                 if episode % 5 == 0:
-                    logger.info(f"訓練エピソード {episode}: 総報酬 = {total_reward:.2f}")
+                    logger.info(
+                        f"訓練エピソード {episode}: 総報酬 = {total_reward:.2f}"
+                    )
 
             logger.info("強化学習エージェント事前訓練完了")
 
         except Exception as e:
             logger.error(f"RL事前訓練エラー: {e}")
 
-    async def _execute_daily_backtest(self, symbols: List[str], historical_data: Dict[str, pd.DataFrame]):
+    async def _execute_daily_backtest(
+        self, symbols: List[str], historical_data: Dict[str, pd.DataFrame]
+    ):
         """日次バックテスト実行"""
 
         # 共通日付作成
@@ -292,8 +310,13 @@ class NextGenBacktestEngine:
                 # 現在の市場データ
                 current_prices = {}
                 for symbol in symbols:
-                    if symbol in historical_data and current_date in historical_data[symbol].index:
-                        current_prices[symbol] = historical_data[symbol].loc[current_date, '終値']
+                    if (
+                        symbol in historical_data
+                        and current_date in historical_data[symbol].index
+                    ):
+                        current_prices[symbol] = historical_data[symbol].loc[
+                            current_date, "終値"
+                        ]
 
                 if not current_prices:
                     continue
@@ -306,23 +329,32 @@ class NextGenBacktestEngine:
                     )
 
                     # 取引実行
-                    await self._execute_ai_trades(ai_decisions, current_prices, current_date)
+                    await self._execute_ai_trades(
+                        ai_decisions, current_prices, current_date
+                    )
 
                 # ポートフォリオ価値更新
                 self._update_portfolio_value(current_prices)
 
                 # プログレス表示
                 if i % 50 == 0 and i > 0:
-                    current_return = (self.current_capital - self.config.initial_capital) / self.config.initial_capital
-                    logger.info(f"進捗: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) - リターン: {current_return:.2%}")
+                    current_return = (
+                        self.current_capital - self.config.initial_capital
+                    ) / self.config.initial_capital
+                    logger.info(
+                        f"進捗: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) - リターン: {current_return:.2%}"
+                    )
 
             except Exception as e:
                 logger.error(f"日次バックテストエラー ({current_date}): {e}")
 
-    async def _run_nextgen_ai_analysis(self, symbols: List[str],
-                                     historical_data: Dict[str, pd.DataFrame],
-                                     current_date: datetime,
-                                     day_index: int) -> Dict[str, Dict]:
+    async def _run_nextgen_ai_analysis(
+        self,
+        symbols: List[str],
+        historical_data: Dict[str, pd.DataFrame],
+        current_date: datetime,
+        day_index: int,
+    ) -> Dict[str, Dict]:
         """Next-Gen AI統合分析"""
 
         ai_decisions = {}
@@ -341,32 +373,32 @@ class NextGenBacktestEngine:
                     continue
 
                 decision = {
-                    'symbol': symbol,
-                    'timestamp': current_date,
-                    'action': 'HOLD',
-                    'confidence': 0.0,
-                    'ml_prediction': None,
-                    'rl_decision': None,
-                    'sentiment_score': 0.0,
-                    'combined_signal': 0.0
+                    "symbol": symbol,
+                    "timestamp": current_date,
+                    "action": "HOLD",
+                    "confidence": 0.0,
+                    "ml_prediction": None,
+                    "rl_decision": None,
+                    "sentiment_score": 0.0,
+                    "combined_signal": 0.0,
                 }
 
                 # ML予測
                 if self.config.enable_ml_engine:
                     ml_result = await self._get_ml_prediction(symbol_data)
-                    decision['ml_prediction'] = ml_result
+                    decision["ml_prediction"] = ml_result
                     self.ml_predictions += 1
 
                 # 強化学習判断
                 if self.config.enable_rl_agent:
                     rl_result = await self._get_rl_decision(symbol_data)
-                    decision['rl_decision'] = rl_result
+                    decision["rl_decision"] = rl_result
                     self.rl_decisions += 1
 
                 # センチメント分析
                 if self.config.enable_sentiment:
                     sentiment_result = await self._get_sentiment_analysis(symbol)
-                    decision['sentiment_score'] = sentiment_result
+                    decision["sentiment_score"] = sentiment_result
 
                 # 統合判断
                 final_decision = self._integrate_ai_signals(decision)
@@ -384,13 +416,13 @@ class NextGenBacktestEngine:
         """ML予測取得"""
         try:
             if not self.ml_engine:
-                return {'direction': 0, 'confidence': 0.0}
+                return {"direction": 0, "confidence": 0.0}
 
             # 実際のML予測の代わりに統計的予測
-            returns = data['終値'].pct_change().dropna()
+            returns = data["終値"].pct_change().dropna()
 
             if len(returns) < 10:
-                return {'direction': 0, 'confidence': 0.0}
+                return {"direction": 0, "confidence": 0.0}
 
             # トレンド分析
             recent_trend = returns.tail(10).mean()
@@ -405,65 +437,70 @@ class NextGenBacktestEngine:
                 confidence = 0.3
 
             return {
-                'direction': direction,
-                'confidence': confidence,
-                'predicted_return': recent_trend,
-                'volatility': volatility
+                "direction": direction,
+                "confidence": confidence,
+                "predicted_return": recent_trend,
+                "volatility": volatility,
             }
 
         except Exception as e:
             logger.error(f"ML予測エラー: {e}")
-            return {'direction': 0, 'confidence': 0.0}
+            return {"direction": 0, "confidence": 0.0}
 
     async def _get_rl_decision(self, data: pd.DataFrame) -> Dict:
         """強化学習判断取得"""
         try:
             if not self.rl_agent or not self.rl_env:
-                return {'action': 'HOLD', 'confidence': 0.0}
+                return {"action": "HOLD", "confidence": 0.0}
 
             # 現在状態作成（簡略化）
-            prices = data['終値'].values
+            prices = data["終値"].values
             returns = np.diff(prices) / prices[:-1]
 
             # 状態ベクトル作成
             state_features = []
             if len(returns) >= 20:
-                state_features.extend([
-                    returns[-1],  # 最新リターン
-                    returns[-20:].mean(),  # 20日平均リターン
-                    returns[-20:].std(),  # 20日ボラティリティ
-                    (prices[-1] - prices[-20]) / prices[-20],  # 20日価格変化率
-                ])
+                state_features.extend(
+                    [
+                        returns[-1],  # 最新リターン
+                        returns[-20:].mean(),  # 20日平均リターン
+                        returns[-20:].std(),  # 20日ボラティリティ
+                        (prices[-1] - prices[-20]) / prices[-20],  # 20日価格変化率
+                    ]
+                )
 
             # 状態ベクトルをRL環境の次元に合わせる
             while len(state_features) < self.rl_env.observation_space.shape[0]:
                 state_features.append(0.0)
 
-            state = np.array(state_features[:self.rl_env.observation_space.shape[0]], dtype=np.float32)
+            state = np.array(
+                state_features[: self.rl_env.observation_space.shape[0]],
+                dtype=np.float32,
+            )
 
             # エージェント行動決定
             action = self.rl_agent.get_action(state, deterministic=True)
 
             # アクション解釈
             if action[0] > 0.3:
-                rl_action = 'BUY'
+                rl_action = "BUY"
             elif action[0] < -0.3:
-                rl_action = 'SELL'
+                rl_action = "SELL"
             else:
-                rl_action = 'HOLD'
+                rl_action = "HOLD"
 
             confidence = min(abs(action[0]), 0.9)
 
             return {
-                'action': rl_action,
-                'confidence': confidence,
-                'raw_action': action.tolist(),
-                'state_features': state_features
+                "action": rl_action,
+                "confidence": confidence,
+                "raw_action": action.tolist(),
+                "state_features": state_features,
             }
 
         except Exception as e:
             logger.error(f"RL判断エラー: {e}")
-            return {'action': 'HOLD', 'confidence': 0.0}
+            return {"action": "HOLD", "confidence": 0.0}
 
     async def _get_sentiment_analysis(self, symbol: str) -> float:
         """センチメント分析取得"""
@@ -484,21 +521,21 @@ class NextGenBacktestEngine:
         weights = []
 
         # ML予測シグナル
-        if decision['ml_prediction']:
-            ml_signal = decision['ml_prediction']['direction']
-            ml_confidence = decision['ml_prediction']['confidence']
+        if decision["ml_prediction"]:
+            ml_signal = decision["ml_prediction"]["direction"]
+            ml_confidence = decision["ml_prediction"]["confidence"]
             if ml_confidence >= self.config.ml_prediction_threshold:
                 signals.append(ml_signal)
                 weights.append(ml_confidence * 0.4)  # 40%重み
 
         # RL判断シグナル
-        if decision['rl_decision']:
-            rl_action = decision['rl_decision']['action']
-            rl_confidence = decision['rl_decision']['confidence']
+        if decision["rl_decision"]:
+            rl_action = decision["rl_decision"]["action"]
+            rl_confidence = decision["rl_decision"]["confidence"]
 
-            if rl_action == 'BUY':
+            if rl_action == "BUY":
                 rl_signal = 1
-            elif rl_action == 'SELL':
+            elif rl_action == "SELL":
                 rl_signal = -1
             else:
                 rl_signal = 0
@@ -507,7 +544,7 @@ class NextGenBacktestEngine:
             weights.append(rl_confidence * 0.4)  # 40%重み
 
         # センチメントシグナル
-        sentiment = decision['sentiment_score']
+        sentiment = decision["sentiment_score"]
         signals.append(sentiment)
         weights.append(0.2)  # 20%重み
 
@@ -521,43 +558,48 @@ class NextGenBacktestEngine:
 
         # 最終アクション決定
         if combined_signal > 0.3 and overall_confidence > 0.5:
-            final_action = 'BUY'
+            final_action = "BUY"
         elif combined_signal < -0.3 and overall_confidence > 0.5:
-            final_action = 'SELL'
+            final_action = "SELL"
         else:
-            final_action = 'HOLD'
+            final_action = "HOLD"
 
-        decision.update({
-            'action': final_action,
-            'confidence': overall_confidence,
-            'combined_signal': combined_signal
-        })
+        decision.update(
+            {
+                "action": final_action,
+                "confidence": overall_confidence,
+                "combined_signal": combined_signal,
+            }
+        )
 
         return decision
 
-    async def _execute_ai_trades(self, ai_decisions: Dict[str, Dict],
-                               current_prices: Dict[str, float],
-                               current_date: datetime):
+    async def _execute_ai_trades(
+        self,
+        ai_decisions: Dict[str, Dict],
+        current_prices: Dict[str, float],
+        current_date: datetime,
+    ):
         """AI判断による取引実行"""
 
         for symbol, decision in ai_decisions.items():
             if symbol not in current_prices:
                 continue
 
-            action = decision['action']
-            if action == 'HOLD':
+            action = decision["action"]
+            if action == "HOLD":
                 continue
 
             try:
                 current_price = current_prices[symbol]
-                confidence = decision['confidence']
+                confidence = decision["confidence"]
 
                 # ポジションサイズ決定
                 position_size = confidence * self.config.max_position_size
                 trade_value = self.current_capital * position_size
                 quantity = trade_value / current_price
 
-                if action == 'SELL':
+                if action == "SELL":
                     quantity = -quantity
 
                 # 取引実行
@@ -567,10 +609,10 @@ class NextGenBacktestEngine:
                     quantity=quantity,
                     price=current_price,
                     timestamp=current_date,
-                    ml_prediction=decision.get('ml_prediction'),
-                    rl_decision=decision.get('rl_decision'),
-                    sentiment_analysis={'score': decision.get('sentiment_score', 0.0)},
-                    confidence_score=confidence
+                    ml_prediction=decision.get("ml_prediction"),
+                    rl_decision=decision.get("rl_decision"),
+                    sentiment_analysis={"score": decision.get("sentiment_score", 0.0)},
+                    confidence_score=confidence,
                 )
 
                 # ポジション更新
@@ -578,10 +620,14 @@ class NextGenBacktestEngine:
                 self.trades.append(trade)
 
                 # 資本更新（取引コスト考慮）
-                transaction_cost = trade.get_trade_value() * self.config.transaction_cost
+                transaction_cost = (
+                    trade.get_trade_value() * self.config.transaction_cost
+                )
                 self.current_capital -= transaction_cost
 
-                logger.debug(f"取引実行: {action} {abs(quantity):.2f} {symbol} @ {current_price:.2f} (信頼度: {confidence:.2f})")
+                logger.debug(
+                    f"取引実行: {action} {abs(quantity):.2f} {symbol} @ {current_price:.2f} (信頼度: {confidence:.2f})"
+                )
 
             except Exception as e:
                 logger.error(f"取引実行エラー ({symbol}): {e}")
@@ -616,7 +662,9 @@ class NextGenBacktestEngine:
 
         # 基本パフォーマンス計算
         final_value = self.equity_curve[-1]
-        total_return = (final_value - self.config.initial_capital) / self.config.initial_capital
+        total_return = (
+            final_value - self.config.initial_capital
+        ) / self.config.initial_capital
 
         # リターン系列
         equity_series = pd.Series(self.equity_curve)
@@ -624,11 +672,17 @@ class NextGenBacktestEngine:
 
         # 年率リターン
         trading_days = len(self.equity_curve)
-        annualized_return = (1 + total_return) ** (252 / trading_days) - 1 if trading_days > 0 else 0
+        annualized_return = (
+            (1 + total_return) ** (252 / trading_days) - 1 if trading_days > 0 else 0
+        )
 
         # シャープレシオ
         excess_returns = returns - (0.02 / 252)  # リスクフリーレート調整
-        sharpe_ratio = excess_returns.mean() / excess_returns.std() * np.sqrt(252) if len(excess_returns) > 0 else 0
+        sharpe_ratio = (
+            excess_returns.mean() / excess_returns.std() * np.sqrt(252)
+            if len(excess_returns) > 0
+            else 0
+        )
 
         # 最大ドローダウン
         peak = equity_series.expanding().max()
@@ -639,8 +693,16 @@ class NextGenBacktestEngine:
         calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else 0
 
         # AI パフォーマンス
-        ml_accuracy = self.ml_correct_predictions / self.ml_predictions if self.ml_predictions > 0 else 0
-        rl_success_rate = self.rl_successful_decisions / self.rl_decisions if self.rl_decisions > 0 else 0
+        ml_accuracy = (
+            self.ml_correct_predictions / self.ml_predictions
+            if self.ml_predictions > 0
+            else 0
+        )
+        rl_success_rate = (
+            self.rl_successful_decisions / self.rl_decisions
+            if self.rl_decisions > 0
+            else 0
+        )
         sentiment_correlation = 0.65  # 模擬値
 
         # 取引統計
@@ -667,7 +729,7 @@ class NextGenBacktestEngine:
             equity_curve=equity_series,
             trades=self.trades,
             ai_decisions_log=self.ai_decisions_log,
-            backtest_duration=0.0  # 後で設定
+            backtest_duration=0.0,  # 後で設定
         )
 
     def _create_empty_result(self) -> NextGenBacktestResult:
@@ -688,15 +750,18 @@ class NextGenBacktestEngine:
             equity_curve=pd.Series([]),
             trades=[],
             ai_decisions_log=[],
-            backtest_duration=0.0
+            backtest_duration=0.0,
         )
 
+
 # 便利関数
-async def run_nextgen_backtest(symbols: List[str],
-                             config: Optional[NextGenBacktestConfig] = None) -> NextGenBacktestResult:
+async def run_nextgen_backtest(
+    symbols: List[str], config: Optional[NextGenBacktestConfig] = None
+) -> NextGenBacktestResult:
     """Next-Gen AIバックテスト実行（便利関数）"""
     engine = NextGenBacktestEngine(config)
     return await engine.run_nextgen_backtest(symbols)
+
 
 if __name__ == "__main__":
     # テスト実行
@@ -711,7 +776,7 @@ if __name__ == "__main__":
             initial_capital=1000000.0,
             enable_ml_engine=True,
             enable_rl_agent=True,
-            enable_sentiment=True
+            enable_sentiment=True,
         )
 
         try:
@@ -738,6 +803,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"テストエラー: {e}")
             import traceback
+
             traceback.print_exc()
 
     # テスト実行
