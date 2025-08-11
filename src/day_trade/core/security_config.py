@@ -85,8 +85,8 @@ class SecureConfigManager:
             "key",
             "token",
             "api_key",
-            "smtp_password",
-            "db_password",
+            "smtp_pass",
+            "db_pass",
             "webhook_secret",
         }
 
@@ -595,7 +595,7 @@ class EnvironmentConfigLoader:
             "smtp_server": os.environ.get("DAYTRADE_SMTP_SERVER"),
             "smtp_port": int(os.environ.get("DAYTRADE_SMTP_PORT", "587")),
             "smtp_user": os.environ.get("DAYTRADE_SMTP_USER"),
-            "smtp_password": os.environ.get("DAYTRADE_SMTP_PASSWORD"),
+            "smtp_pass": os.environ.get("DAYTRADE_SMTP_PASS"),
             "smtp_from_email": os.environ.get("DAYTRADE_SMTP_FROM_EMAIL"),
             "smtp_to_emails": os.environ.get("DAYTRADE_SMTP_TO_EMAILS", "").split(",")
             if os.environ.get("DAYTRADE_SMTP_TO_EMAILS")
@@ -633,7 +633,7 @@ DAYTRADE_API_CACHE_ENABLED=true
 DAYTRADE_SMTP_SERVER=smtp.gmail.com
 DAYTRADE_SMTP_PORT=587
 DAYTRADE_SMTP_USER=your_email@gmail.com
-DAYTRADE_SMTP_PASSWORD=your_strong_app_password_here
+DAYTRADE_SMTP_PASS=your_strong_app_pass_here
 DAYTRADE_SMTP_FROM_EMAIL=your_email@gmail.com
 DAYTRADE_SMTP_TO_EMAILS=recipient1@example.com,recipient2@example.com
 

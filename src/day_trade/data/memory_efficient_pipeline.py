@@ -373,8 +373,7 @@ class StreamingDataPipeline:
         """
 
         def data_generator():
-            for symbol, data in symbol_data_pairs:
-                yield symbol, data
+            yield from symbol_data_pairs
 
         results = []
         for chunk in self.process_data_stream(data_generator()):

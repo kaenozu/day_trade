@@ -577,10 +577,7 @@ class PerformanceAlertSystem:
         # 時間あたりアラート数制限
         hour_key = f"{alert_key}_{current_time.hour}"
         hourly_count = self.alert_counts.get(hour_key, 0)
-        if hourly_count >= self.config.max_alerts_per_hour:
-            return False
-
-        return True
+        return not (hourly_count >= self.config.max_alerts_per_hour)
 
     async def _execute_alert_handlers(self, alert: PerformanceAlert) -> None:
         """アラートハンドラー実行"""
