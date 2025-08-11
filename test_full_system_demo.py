@@ -7,19 +7,24 @@ Next-Gen AI Trading Engine - 完全統合システム動作検証・デモ
 """
 
 import asyncio
-import time
-import logging
 import json
+import logging
 import sys
+import time
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
 
+from src.day_trade.realtime.integration_manager import (
+    IntegrationConfig,
+    create_integration_manager,
+)
+from src.day_trade.realtime.websocket_stream import MarketTick, NewsItem, SocialPost
+
 # プロジェクト内インポート
 from src.day_trade.utils.logging_config import get_context_logger
-from src.day_trade.realtime.integration_manager import create_integration_manager, IntegrationConfig
-from src.day_trade.realtime.websocket_stream import MarketTick, NewsItem, SocialPost
 
 logger = get_context_logger(__name__)
 
@@ -319,14 +324,14 @@ class FullSystemValidator:
             print(f"Duration: {duration:.1f} seconds ({duration/60:.1f} minutes)")
 
         # コンポーネント状況
-        print(f"\nCOMPONENTS STATUS:")
+        print("\nCOMPONENTS STATUS:")
         components = self.validation_results['components_status']
         for component, status in components.items():
             status_mark = "OK" if status in ['initialized', 'active'] else "WARN"
             print(f"  [{status_mark}] {component}: {status}")
 
         # パフォーマンス指標
-        print(f"\nPERFORMANCE METRICS:")
+        print("\nPERFORMANCE METRICS:")
         metrics = self.validation_results['performance_metrics']
         if metrics:
             print(f"  Predictions Generated: {metrics.get('total_predictions', 0)}")
@@ -370,10 +375,10 @@ class FullSystemValidator:
             if len(errors) > 5:
                 print(f"  ... and {len(errors) - 5} more issues")
         else:
-            print(f"\nNO CRITICAL ISSUES DETECTED")
+            print("\nNO CRITICAL ISSUES DETECTED")
 
         # 推奨事項
-        print(f"\nRECOMMENDATIONS:")
+        print("\nRECOMMENDATIONS:")
         recommendations = self._generate_recommendations()
         for rec in recommendations:
             print(f"  - {rec}")

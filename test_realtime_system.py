@@ -7,19 +7,24 @@ WebSocket + AI推論 + パフォーマンス監視 + アラート + ダッシュ
 """
 
 import asyncio
-import time
-import logging
 import json
+import logging
 import sys
+import time
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import numpy as np
+
+from src.day_trade.realtime.integration_manager import (
+    IntegrationConfig,
+    RealTimeIntegrationManager,
+)
+from src.day_trade.realtime.live_prediction_engine import LivePrediction
+from src.day_trade.realtime.websocket_stream import MarketTick, NewsItem, SocialPost
 
 # プロジェクト内インポート
 from src.day_trade.utils.logging_config import get_context_logger
-from src.day_trade.realtime.integration_manager import RealTimeIntegrationManager, IntegrationConfig
-from src.day_trade.realtime.websocket_stream import MarketTick, NewsItem, SocialPost
-from src.day_trade.realtime.live_prediction_engine import LivePrediction
 
 logger = get_context_logger(__name__)
 
@@ -207,7 +212,9 @@ class RealTimeSystemTester:
             start_time = time.time()
 
             # ライブ予測エンジン作成
-            from src.day_trade.realtime.live_prediction_engine import create_live_prediction_engine
+            from src.day_trade.realtime.live_prediction_engine import (
+                create_live_prediction_engine,
+            )
 
             engine = await create_live_prediction_engine(self.test_symbols)
 
@@ -264,7 +271,9 @@ class RealTimeSystemTester:
             start_time = time.time()
 
             # パフォーマンス監視システム作成
-            from src.day_trade.realtime.performance_monitor import create_performance_monitor
+            from src.day_trade.realtime.performance_monitor import (
+                create_performance_monitor,
+            )
 
             monitor = create_performance_monitor()
 

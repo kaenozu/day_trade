@@ -4,18 +4,16 @@
 Issue #388 と #387 の修正を検証
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def test_exception_sanitization():
     """例外サニタイズ機能のテスト"""
     print("=== 例外サニタイズ機能テスト ===")
 
-    from src.day_trade.utils.exceptions import (
-        DayTradeError,
-        _sanitize_sensitive_info
-    )
+    from src.day_trade.utils.exceptions import DayTradeError, _sanitize_sensitive_info
 
     # 機密情報を含むテストケース（セキュリティスキャナー回避のためダミーキー使用）
     # セキュリティテスト用：実際の機密情報は含まないダミーデータ

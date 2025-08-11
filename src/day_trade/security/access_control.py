@@ -182,10 +182,7 @@ class Session:
         if self.status != SessionStatus.ACTIVE:
             return False
 
-        if self.expires_at and datetime.utcnow() > self.expires_at:
-            return False
-
-        return True
+        return not (self.expires_at and datetime.utcnow() > self.expires_at)
 
     def to_dict(self) -> Dict[str, Any]:
         return {

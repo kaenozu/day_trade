@@ -5,9 +5,10 @@ Issue #415対応
 """
 
 import asyncio
-import sys
 import subprocess
+import sys
 from pathlib import Path
+
 
 async def test_basic_quality_gates():
     """基本品質ゲートテスト"""

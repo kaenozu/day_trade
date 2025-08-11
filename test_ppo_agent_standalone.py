@@ -4,12 +4,13 @@ PPO Agent スタンドアロンテスト
 依存関係を最小化した強化学習エージェントテスト
 """
 
-import sys
 import os
+import sys
 import time
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent
@@ -58,7 +59,9 @@ def test_trading_environment_basic():
     try:
         # 基本データクラスのテスト
         from src.day_trade.rl.trading_environment import (
-            TradingAction, MarketState, TradingReward
+            MarketState,
+            TradingAction,
+            TradingReward,
         )
         print("✓ 取引環境データクラス読み込み成功")
 
@@ -131,7 +134,9 @@ def test_batch_data_fetcher():
 
     try:
         from src.day_trade.data.batch_data_fetcher import (
-            AdvancedBatchDataFetcher, DataRequest, DataResponse
+            AdvancedBatchDataFetcher,
+            DataRequest,
+            DataResponse,
         )
         print("✓ バッチデータフェッチャー読み込み成功")
 
@@ -143,7 +148,7 @@ def test_batch_data_fetcher():
             priority=3
         )
         assert request.symbol == "TEST_STOCK"
-        assert request.preprocessing == True
+        assert request.preprocessing
         print("✓ データリクエスト作成成功")
 
         # データレスポンステスト

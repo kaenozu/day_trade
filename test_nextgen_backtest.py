@@ -5,11 +5,11 @@ Next-Gen AI Trading Engine バックテストシステム動作確認
 LSTM-Transformer + PPO強化学習 + センチメント分析統合バックテスト
 """
 
-import sys
-import os
 import asyncio
-from pathlib import Path
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent
@@ -17,10 +17,11 @@ sys.path.insert(0, str(project_root / "src"))
 
 # Next-Gen バックテストエンジン
 from src.day_trade.backtesting.nextgen_backtest_engine import (
-    NextGenBacktestEngine,
     NextGenBacktestConfig,
-    run_nextgen_backtest
+    NextGenBacktestEngine,
+    run_nextgen_backtest,
 )
+
 
 async def test_nextgen_backtest_comprehensive():
     """包括的Next-Gen AIバックテストテスト"""
@@ -228,7 +229,10 @@ async def test_individual_components():
     # データ構造テスト
     print("3. データ構造テスト...")
     try:
-        from src.day_trade.backtesting.nextgen_backtest_engine import NextGenTrade, NextGenBacktestResult
+        from src.day_trade.backtesting.nextgen_backtest_engine import (
+            NextGenBacktestResult,
+            NextGenTrade,
+        )
 
         # テスト取引作成
         test_trade = NextGenTrade(

@@ -9,10 +9,10 @@ ELK Stack風ログ集約、Prometheus/Grafana風メトリクス・ダッシュ�
 import asyncio
 from datetime import datetime, timedelta
 
-from .log_aggregation_system import get_log_aggregation_system
+from .alert_system import create_default_alert_rules, get_alert_manager
+from .log_aggregation_system import create_log_aggregation_system
 from .metrics_collection_system import get_metrics_system
-from .performance_dashboard import get_dashboard_manager, DashboardTemplates
-from .alert_system import get_alert_manager, create_default_alert_rules
+from .performance_dashboard import DashboardTemplates, get_dashboard_manager
 from .performance_optimization_system import get_optimization_manager
 
 
@@ -21,14 +21,14 @@ async def initialize_integrated_monitoring():
     print("統合監視システムを初期化中...")
 
     # 1. ログ集約システム
-    log_system = get_log_aggregation_system()
-    await log_system.start()
-    print("✅ ログ集約システム開始")
+    log_system = create_log_aggregation_system()
+    await log_system.start_processing()
+    print("[OK] ログ集約システム開始")
 
     # 2. メトリクス収集システム
     metrics_system = get_metrics_system()
     metrics_system.start()
-    print("✅ メトリクス収集システム開始")
+    print("[OK] メトリクス収集システム開始")
 
     # 3. ダッシュボードシステム
     dashboard_manager = get_dashboard_manager()
@@ -42,7 +42,7 @@ async def initialize_integrated_monitoring():
     dashboard_manager.save_dashboard(system_dashboard)
     dashboard_manager.save_dashboard(app_dashboard)
     dashboard_manager.save_dashboard(ml_dashboard)
-    print("✅ パフォーマンスダッシュボード設定完了")
+    print("[OK] パフォーマンスダッシュボード設定完了")
 
     # 4. アラートシステム
     alert_manager = get_alert_manager()
@@ -53,11 +53,11 @@ async def initialize_integrated_monitoring():
         alert_manager.add_alert_rule(rule)
 
     await alert_manager.start()
-    print("✅ アラートシステム開始")
+    print("[OK] アラートシステム開始")
 
     # 5. パフォーマンス最適化システム
     optimization_manager = get_optimization_manager()
-    print("✅ パフォーマンス最適化システム準備完了")
+    print("[OK] パフォーマンス最適化システム準備完了")
 
     return {
         "log_system": log_system,
@@ -70,9 +70,9 @@ async def initialize_integrated_monitoring():
 
 async def demo_log_analysis():
     """ログ分析のデモ"""
-    print("\n📊 ログ分析デモ")
+    print("\n[INFO] ログ分析デモ")
 
-    log_system = get_log_aggregation_system()
+    log_system = create_log_aggregation_system()
 
     # サンプルログの送信
     sample_logs = [
@@ -85,31 +85,33 @@ async def demo_log_analysis():
     ]
 
     for log_msg in sample_logs:
-        await log_system.process_log_line(log_msg)
+        await log_system.ingest_log(log_msg)
 
     # ログ分析実行
+    from .log_aggregation_system import LogSearchQuery
+
     end_time = datetime.utcnow()
     start_time = end_time - timedelta(minutes=5)
 
-    logs = await log_system.search_logs(
+    query = LogSearchQuery(
         start_time=start_time,
         end_time=end_time,
         limit=100
     )
+    logs = await log_system.search_logs(query)
 
     print(f"  - 分析対象ログ: {len(logs)}件")
 
-    # パターン検出
-    patterns = await log_system.detect_patterns()
-    print(f"  - 検出パターン: {len(patterns)}個")
-
-    for pattern in patterns[:3]:
-        print(f"    * {pattern.pattern}: {pattern.count}回")
+    if logs:
+        latest_log = logs[0]
+        print(f"  - 最新ログサンプル: {getattr(latest_log, 'message', 'N/A')}")
+    else:
+        print("  - ログが見つかりませんでした")
 
 
 async def demo_metrics_collection():
     """メトリクス収集のデモ"""
-    print("\n📈 メトリクス収集デモ")
+    print("\n[INFO] メトリクス収集デモ")
 
     metrics_system = get_metrics_system()
 
@@ -128,12 +130,13 @@ async def demo_metrics_collection():
 
     # Prometheusフォーマットでエクスポート
     prometheus_output = metrics_system.get_metrics_prometheus()
-    print(f"  - Prometheusメトリクス: {len(prometheus_output.split('\\n'))}行")
+    line_count = len(prometheus_output.split('\n'))
+    print(f"  - Prometheusメトリクス: {line_count}行")
 
 
 async def demo_dashboard_data():
     """ダッシュボードデータの取得デモ"""
-    print("\n📊 ダッシュボードデータ取得デモ")
+    print("\n[INFO] ダッシュボードデータ取得デモ")
 
     dashboard_manager = get_dashboard_manager()
 
@@ -152,7 +155,7 @@ async def demo_dashboard_data():
 
 async def demo_alert_monitoring():
     """アラート監視のデモ"""
-    print("\n🚨 アラート監視デモ")
+    print("\n[INFO] アラート監視デモ")
 
     alert_manager = get_alert_manager()
 
@@ -171,7 +174,7 @@ async def demo_alert_monitoring():
 
 async def demo_performance_optimization():
     """パフォーマンス最適化のデモ"""
-    print("\n🔧 パフォーマンス最適化デモ")
+    print("\n[INFO] パフォーマンス最適化デモ")
 
     optimization_manager = get_optimization_manager()
 
@@ -203,7 +206,7 @@ async def demo_integrated_monitoring():
     try:
         # システム初期化
         systems = await initialize_integrated_monitoring()
-        print("\n✅ 全システム初期化完了")
+        print("\n[OK] 全システム初期化完了")
 
         # 各機能のデモ実行
         await demo_log_analysis()
@@ -213,7 +216,7 @@ async def demo_integrated_monitoring():
         await demo_performance_optimization()
 
         print("\n" + "=" * 60)
-        print("🎉 統合監視システム デモ完了")
+        print("[SUCCESS] 統合監視システム デモ完了")
         print("ELK Stack風ログ集約、Prometheus/Grafana風メトリクス・ダッシュボード、")
         print("アラートシステム、AI駆動パフォーマンス最適化が連携動作中")
         print("=" * 60)
@@ -221,16 +224,16 @@ async def demo_integrated_monitoring():
         return systems
 
     except Exception as e:
-        print(f"\n❌ デモ実行エラー: {e}")
+        print(f"\n[ERROR] デモ実行エラー: {e}")
         raise
     finally:
         # クリーンアップ
         try:
             if 'systems' in locals():
-                systems['log_system'].stop()
+                await systems['log_system'].stop_processing()
                 systems['metrics_system'].stop()
-                systems['alert_manager'].stop()
-                print("\n🧹 システム停止完了")
+                await systems['alert_manager'].stop()
+                print("\n[INFO] システム停止完了")
         except:
             pass
 

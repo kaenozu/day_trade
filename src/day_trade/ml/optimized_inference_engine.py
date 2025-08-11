@@ -27,7 +27,9 @@ try:
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
-    warnings.warn("ONNX Runtime not installed. Fallback to original frameworks.")
+    warnings.warn(
+        "ONNX Runtime not installed. Fallback to original frameworks.", stacklevel=2
+    )
 
 # モデル変換ライブラリ (フォールバック対応)
 try:

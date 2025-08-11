@@ -28,7 +28,7 @@ try:
     ONNX_GPU_AVAILABLE = True
 except ImportError:
     ONNX_GPU_AVAILABLE = False
-    warnings.warn("ONNX Runtime GPU not available")
+    warnings.warn("ONNX Runtime GPU not available", stacklevel=2)
 
 # CUDA支援ライブラリ (フォールバック対応)
 try:
@@ -38,7 +38,7 @@ try:
     CUPY_AVAILABLE = True
 except ImportError:
     CUPY_AVAILABLE = False
-    warnings.warn("CuPy not available - CPU fallback")
+    warnings.warn("CuPy not available - CPU fallback", stacklevel=2)
 
 # OpenCL支援ライブラリ (フォールバック対応)
 try:

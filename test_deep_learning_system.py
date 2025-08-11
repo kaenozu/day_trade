@@ -8,20 +8,24 @@ Transformer, LSTM統合システムの動作確認・ベンチマーク
 
 import sys
 import time
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.day_trade.ml import (
-    DeepLearningModelManager,
-    TransformerModel,
-    LSTMModel,
-    DeepLearningConfig
+from src.day_trade.core.optimization_strategy import (
+    OptimizationConfig,
+    OptimizationLevel,
 )
-from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+from src.day_trade.ml import (
+    DeepLearningConfig,
+    DeepLearningModelManager,
+    LSTMModel,
+    TransformerModel,
+)
 
 
 class DeepLearningSystemTester:
@@ -230,11 +234,11 @@ class DeepLearningSystemTester:
             uncertainty_time = time.time() - start_time
 
             print(f"不確実性推定時間: {uncertainty_time:.4f}秒")
-            print(f"サンプル数: 10")
+            print("サンプル数: 10")
 
             if prediction_result.uncertainty:
                 uncertainty = prediction_result.uncertainty
-                print(f"不確実性統計:")
+                print("不確実性統計:")
                 print(f"  平均: {uncertainty.mean:.4f}")
                 print(f"  標準偏差: {uncertainty.std:.4f}")
                 print(f"  95%信頼区間: [{uncertainty.lower_bound[0]:.4f}, {uncertainty.upper_bound[0]:.4f}]")
@@ -341,7 +345,7 @@ def main():
         with open('deep_learning_test_results.json', 'w', encoding='utf-8') as f:
             json.dump(serializable_result, f, indent=2, ensure_ascii=False)
 
-        print(f"\n[SAVE] テスト結果をdeep_learning_test_results.jsonに保存しました。")
+        print("\n[SAVE] テスト結果をdeep_learning_test_results.jsonに保存しました。")
 
         return 0 if result['success_count'] >= result['total_tests'] * 0.8 else 1
 

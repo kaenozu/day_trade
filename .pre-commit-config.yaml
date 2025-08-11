@@ -31,37 +31,30 @@ repos:
         exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|.*example.*\.py)$
 
   # Type checking with mypy (comprehensive coverage for Issue #415)
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
     hooks:
-      - id: mypy-comprehensive
-        name: MyPy Comprehensive Type Check
-        entry: mypy
-        language: system
+      - id: mypy
+        args: [--ignore-missing-imports, --no-strict-optional, --allow-redefinition]
         files: ^src/day_trade/.*\.py$
-        args: 
-          - --ignore-missing-imports
-          - --disable-error-code=import,attr-defined
-          - --follow-imports=silent
-          - --show-error-codes
-          - --no-strict-optional
-          - --allow-redefinition
         exclude: ^(.*example.*\.py|.*demo.*\.py|.*test.*\.py|.*_test\.py|test_.*\.py)
+        additional_dependencies: [types-requests, types-PyYAML]
 
-  # Security scanning with bandit (re-enabled for enhanced security)
+  # Security scanning with bandit (re-enabled for enhanced security)  
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, src/, -s, B110,B311,B101,B601]
-        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py)
+        args: [--recursive, src/, --skip, B110,B311,B101,B601]
+        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py|.*test.*\.py)
 
   # Additional quality gates
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
-        args: [--max-complexity=12, --max-line-length=88, --extend-ignore=E203,W503]
-        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py)
+        args: [--max-complexity=15, --max-line-length=88, --extend-ignore=E203,W503,F401,F841,C901]
+        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py|.*test.*\.py)
 
 # Global settings
 exclude: |

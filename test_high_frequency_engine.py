@@ -7,21 +7,21 @@ Issue #366: High-Frequency Trading Optimization Engine Performance Test
 """
 
 import asyncio
+import json
 import sys
 import time
 from pathlib import Path
-import json
 
 # パス調整
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from src.day_trade.trading.high_frequency_engine import (
-    create_high_frequency_trading_engine,
-    MicrosecondTimer,
-    OrderType,
-    OrderPriority
-)
 from src.day_trade.core.optimization_strategy import OptimizationConfig
+from src.day_trade.trading.high_frequency_engine import (
+    MicrosecondTimer,
+    OrderPriority,
+    OrderType,
+    create_high_frequency_trading_engine,
+)
 
 
 async def run_performance_benchmark():
@@ -41,14 +41,14 @@ async def run_performance_benchmark():
     symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "NFLX"]
 
     try:
-        print(f"\nテスト設定:")
+        print("\nテスト設定:")
         print(f"  - 対象銘柄: {len(symbols)}銘柄 {symbols}")
-        print(f"  - GPU加速: 有効")
-        print(f"  - メモリプール: 200MB")
-        print(f"  - 実行スレッド数: 4")
+        print("  - GPU加速: 有効")
+        print("  - メモリプール: 200MB")
+        print("  - 実行スレッド数: 4")
 
         # エンジン作成
-        print(f"\nエンジン初期化中...")
+        print("\nエンジン初期化中...")
         start_init = MicrosecondTimer.now_ns()
 
         engine = await create_high_frequency_trading_engine(config, symbols)
@@ -57,7 +57,7 @@ async def run_performance_benchmark():
         print(f"  ✅ 初期化完了: {init_time_ms:.2f}ms")
 
         # 基本機能テスト
-        print(f"\n🧪 基本機能テスト:")
+        print("\n🧪 基本機能テスト:")
 
         # 1. メモリプール性能テスト
         print("  1. メモリプール性能テスト...")
@@ -78,14 +78,14 @@ async def run_performance_benchmark():
         print(f"     - 決定精度: {decision_test_results['decision_accuracy']:.1f}%")
 
         # 4. エンドツーエンドベンチマーク
-        print(f"\n🏆 エンドツーエンド ベンチマーク実行中...")
+        print("\n🏆 エンドツーエンド ベンチマーク実行中...")
         print("  - テスト時間: 30秒")
         print("  - 全機能統合テスト")
 
         benchmark_results = await engine.run_performance_benchmark(duration_seconds=30)
 
         # 結果表示
-        print(f"\n📈 ベンチマーク結果:")
+        print("\n📈 ベンチマーク結果:")
         print(f"  - 処理注文数: {benchmark_results['total_orders_processed']:,}")
         print(f"  - 平均遅延: {benchmark_results['average_latency_microseconds']:.1f}μs")
         print(f"  - スループット: {benchmark_results['peak_throughput_orders_per_second']:.1f} 注文/秒")
@@ -93,28 +93,28 @@ async def run_performance_benchmark():
 
         # 詳細統計
         detailed_stats = benchmark_results['detailed_stats']
-        print(f"\n📊 詳細統計:")
-        print(f"  📡 市場データフィード:")
+        print("\n📊 詳細統計:")
+        print("  📡 市場データフィード:")
         print(f"     - 受信ティック数: {detailed_stats['market_data']['ticks_received']:,}")
         print(f"     - 平均遅延: {detailed_stats['market_data']['avg_latency_us']:.1f}μs")
         print(f"     - 最大遅延: {detailed_stats['market_data']['max_latency_us']}μs")
 
-        print(f"  🧠 決定エンジン:")
+        print("  🧠 決定エンジン:")
         print(f"     - 決定回数: {detailed_stats['decision_engine']['decisions_made']:,}")
         print(f"     - 平均決定時間: {detailed_stats['decision_engine']['avg_decision_time_us']:.1f}μs")
 
-        print(f"  📋 注文キュー:")
+        print("  📋 注文キュー:")
         print(f"     - キュー投入数: {detailed_stats['order_queue']['enqueued']:,}")
         print(f"     - キュー取得数: {detailed_stats['order_queue']['dequeued']:,}")
         print(f"     - ドロップ数: {detailed_stats['order_queue']['dropped']}")
 
-        print(f"  💾 メモリプール:")
+        print("  💾 メモリプール:")
         print(f"     - プールサイズ: {detailed_stats['memory_pool']['size_mb']}MB")
         print(f"     - 割り当て済みブロック: {detailed_stats['memory_pool']['allocated_blocks']}")
         print(f"     - フリーブロック: {detailed_stats['memory_pool']['free_blocks']}")
 
         # パフォーマンス評価
-        print(f"\n⭐ パフォーマンス評価:")
+        print("\n⭐ パフォーマンス評価:")
 
         # 遅延評価
         avg_latency = benchmark_results['average_latency_microseconds']
@@ -322,15 +322,15 @@ if __name__ == "__main__":
         results = asyncio.run(run_performance_benchmark())
 
         if results:
-            print(f"\n🎯 高頻度取引エンジン パフォーマンステスト完了!")
-            print(f"   マイクロ秒レベル実行: ✅ 達成")
-            print(f"   市場競争力: ✅ 確認済み")
+            print("\n🎯 高頻度取引エンジン パフォーマンステスト完了!")
+            print("   マイクロ秒レベル実行: ✅ 達成")
+            print("   市場競争力: ✅ 確認済み")
         else:
-            print(f"\n❌ パフォーマンステスト失敗")
+            print("\n❌ パフォーマンステスト失敗")
             sys.exit(1)
 
     except KeyboardInterrupt:
-        print(f"\n⏹️  テスト中断")
+        print("\n⏹️  テスト中断")
     except Exception as e:
         print(f"\n💥 予期しないエラー: {e}")
         import traceback
