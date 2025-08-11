@@ -484,11 +484,9 @@ class OptimizedMultiTimeframeAnalysis(MultiTimeframeAnalysisBase):
         # キャッシュキー生成
         cache_key = None
         if self.cache_manager:
-            import hashlib
+            from ..security.secure_hash_utils import replace_md5_hash
 
-            data_hash = hashlib.md5(str(data.values.tobytes()).encode()).hexdigest()[
-                :16
-            ]
+            data_hash = replace_md5_hash(str(data.values.tobytes()), length=16)
             cache_key = f"mtf_{tf_name}_{data_hash}"
 
             # キャッシュから取得試行

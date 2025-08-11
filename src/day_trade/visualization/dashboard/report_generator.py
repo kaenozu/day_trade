@@ -61,7 +61,8 @@ class ReportGenerator:
         if JINJA2_AVAILABLE:
             try:
                 self.jinja_env = Environment(
-                    loader=FileSystemLoader(str(self.template_dir))
+                    loader=FileSystemLoader(str(self.template_dir)),
+                    autoescape=True,  # XSS脆弱性対策 Issue #419
                 )
             except Exception as e:
                 logger.warning(f"テンプレートディレクトリ設定失敗: {e}")

@@ -41,6 +41,11 @@ dependencies = [
     "structlog>=23.0.0,<25.0",
     "tenacity>=8.2.0,<9.0",
     "psutil>=5.9.0",  # Performance monitoring (flexible version)
+
+    # Security (Issue #419)
+    "cryptography>=41.0.0,<43.0",  # Encryption support
+    "pyotp>=2.9.0,<3.0",  # TOTP/MFA support
+    "qrcode[pil]>=7.4.0,<8.0",  # QR code generation for MFA
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -316,10 +321,10 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# カバレッジの最小しきい値設定 - Issue #129対応後
-# 現在13.50%の実際のカバレッジに基づいて現実的に設定
-# 段階的に向上させるため、まず10%に設定
-fail_under = 10
+# カバレッジの最小しきい値設定 - Issue #415対応
+# 段階的な改善計画: 10% -> 20% -> 30% -> 50%
+# Phase 2: 品質ゲートシステム統合により30%に向上
+fail_under = 30
 
 [tool.coverage.html]
 # HTMLレポート生成設定
