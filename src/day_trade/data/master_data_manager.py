@@ -1,17 +1,5 @@
-entity_id=row[0],
-                    entity_type=row[1],
-                    primary_key=row[2],
-                    attributes=json.loads(row[3]) if row[3] else {},
-                    domain=DataDomain(row[4]),
-                    status=MasterDataStatus(row[5]),
-                    version=row[6],
-                    source_system=row[7],
-                    data_quality_score=row[8],
-                    last_validated=datetime.fromisoformat(row[9]),
-                    created_at=datetime.fromisoformat(row[10]),
-                    updated_at=datetime.fromisoformat(row[11]),
-                    steward=row[12],
-                    lineage=json.loads(row[13]) if row[13] else [],
-                    relationships=json.loads(row[14]) if row[14] else {},
-                    metadata=json.loads(row[15]) if row[15] else {},
-                )
+                "average_quality_score": (
+                    total_quality_score / entity_count
+                    if entity_count > 0
+                    else 0
+                ),
