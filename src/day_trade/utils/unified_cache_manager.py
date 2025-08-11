@@ -202,9 +202,7 @@ class L2WarmCache(CacheLayer):
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
         self.ttl_seconds = ttl_seconds
         self.cache = {}
-        self.access_order = (
-            OrderedDict()
-        )  # O(1)での削除を可能にするためにOrderedDictを使用
+        self.access_order = OrderedDict
         self.frequency_counter = {}
         self.current_size = 0
         self.lock = threading.RLock()
