@@ -1,6 +1,16 @@
 # Core trading functionality
 from ..models.enums import AlertType
 from .alerts import AlertCondition, AlertManager, AlertPriority
+
+# Strategy Pattern統合システム
+from .optimization_strategy import (
+    OptimizationConfig,
+    OptimizationLevel,
+    OptimizationStrategy,
+    OptimizationStrategyFactory,
+    get_optimized_implementation,
+    optimization_strategy,
+)
 from .portfolio import PortfolioManager  # PortfolioManagerのみをインポート
 from .trade_manager import (
     Position,
@@ -11,16 +21,6 @@ from .trade_manager import (
     TradeType,
 )
 from .watchlist import AlertNotification, WatchlistManager
-
-# Strategy Pattern統合システム
-from .optimization_strategy import (
-    OptimizationLevel,
-    OptimizationConfig,
-    OptimizationStrategy,
-    OptimizationStrategyFactory,
-    optimization_strategy,
-    get_optimized_implementation
-)
 
 __all__ = [
     "TradeManager",

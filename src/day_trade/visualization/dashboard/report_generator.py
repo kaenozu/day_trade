@@ -4,11 +4,11 @@
 統合レポート・PDF生成・サマリー作成の自動化機能
 """
 
-from typing import Dict, List, Optional, Any, Tuple
-import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-import json
+from typing import Dict, List, Optional
+
+import pandas as pd
 
 from ...utils.logging_config import get_context_logger
 from ..base.export_manager import ExportManager
@@ -26,7 +26,7 @@ except ImportError:
     logger.warning("matplotlib未インストール")
 
 try:
-    from jinja2 import Template, Environment, FileSystemLoader
+    from jinja2 import Environment, FileSystemLoader, Template
 
     JINJA2_AVAILABLE = True
 except ImportError:
@@ -41,7 +41,9 @@ class ReportGenerator:
     統合レポート・PDF生成・サマリー作成の自動化機能を提供
     """
 
-    def __init__(self, output_dir: str = "output/reports", template_dir: str = "templates"):
+    def __init__(
+        self, output_dir: str = "output/reports", template_dir: str = "templates"
+    ):
         """
         初期化
 
@@ -59,7 +61,8 @@ class ReportGenerator:
         if JINJA2_AVAILABLE:
             try:
                 self.jinja_env = Environment(
-                    loader=FileSystemLoader(str(self.template_dir))
+                    loader=FileSystemLoader(str(self.template_dir)),
+                    autoescape=True,  # XSS脆弱性対策 Issue #419
                 )
             except Exception as e:
                 logger.warning(f"テンプレートディレクトリ設定失敗: {e}")
@@ -131,9 +134,7 @@ class ReportGenerator:
             generated_files.update(data_exports)
 
             # 6. レポートインデックス生成
-            index_file = self._generate_report_index(
-                generated_files, symbol, report_id
-            )
+            index_file = self._generate_report_index(generated_files, symbol, report_id)
             if index_file:
                 generated_files["report_index"] = index_file
 
@@ -172,7 +173,9 @@ class ReportGenerator:
                     },
                 },
                 "price_summary": self._extract_price_summary(data),
-                "prediction_summary": self._extract_prediction_summary(analysis_results),
+                "prediction_summary": self._extract_prediction_summary(
+                    analysis_results
+                ),
                 "technical_summary": self._extract_technical_summary(analysis_results),
                 "risk_summary": self._extract_risk_summary(analysis_results),
                 "model_performance": self._extract_model_performance(analysis_results),
@@ -221,7 +224,9 @@ class ReportGenerator:
                 "report_id": report_id,
                 "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "price_summary": self._extract_price_summary(data),
-                "prediction_summary": self._extract_prediction_summary(analysis_results),
+                "prediction_summary": self._extract_prediction_summary(
+                    analysis_results
+                ),
                 "technical_summary": self._extract_technical_summary(analysis_results),
                 "risk_summary": self._extract_risk_summary(analysis_results),
                 "visualization_results": visualization_results,
@@ -558,7 +563,9 @@ class ReportGenerator:
             close_prices = data["Close"]
             return {
                 "current_price": float(close_prices.iloc[-1]),
-                "period_return": float((close_prices.iloc[-1] / close_prices.iloc[0] - 1) * 100),
+                "period_return": float(
+                    (close_prices.iloc[-1] / close_prices.iloc[0] - 1) * 100
+                ),
                 "volatility": float(close_prices.pct_change().std() * 100),
                 "max_price": float(close_prices.max()),
                 "min_price": float(close_prices.min()),
@@ -574,14 +581,18 @@ class ReportGenerator:
             lstm_data = analysis_results["lstm_prediction"]
             if "predictions" in lstm_data:
                 predictions = lstm_data["predictions"]
-                summary["lstm_next_price"] = float(predictions[-1]) if predictions else None
+                summary["lstm_next_price"] = (
+                    float(predictions[-1]) if predictions else None
+                )
                 summary["lstm_confidence"] = lstm_data.get("confidence", 0.5)
 
         if "ensemble_prediction" in analysis_results:
             ensemble_data = analysis_results["ensemble_prediction"]
             if "ensemble_prediction" in ensemble_data:
                 predictions = ensemble_data["ensemble_prediction"]
-                summary["ensemble_next_price"] = float(predictions[-1]) if predictions else None
+                summary["ensemble_next_price"] = (
+                    float(predictions[-1]) if predictions else None
+                )
                 summary["ensemble_confidence"] = ensemble_data.get("confidence", 0.5)
 
         return summary
@@ -640,7 +651,9 @@ class ReportGenerator:
 
         return performance
 
-    def _generate_key_insights(self, data: pd.DataFrame, analysis_results: Dict) -> List[str]:
+    def _generate_key_insights(
+        self, data: pd.DataFrame, analysis_results: Dict
+    ) -> List[str]:
         """主要インサイト生成"""
         insights = []
 
@@ -649,14 +662,18 @@ class ReportGenerator:
             recent_return = (data["Close"].iloc[-1] / data["Close"].iloc[-2] - 1) * 100
             if abs(recent_return) > 2:
                 direction = "上昇" if recent_return > 0 else "下落"
-                insights.append(f"直近の価格は{recent_return:.1f}%の{direction}を示しています")
+                insights.append(
+                    f"直近の価格は{recent_return:.1f}%の{direction}を示しています"
+                )
 
         # 予測インサイト
         prediction_summary = self._extract_prediction_summary(analysis_results)
         if "ensemble_confidence" in prediction_summary:
             confidence = prediction_summary["ensemble_confidence"]
             if confidence > 0.8:
-                insights.append("アンサンブル予測の信頼度が高く、予測精度が期待できます")
+                insights.append(
+                    "アンサンブル予測の信頼度が高く、予測精度が期待できます"
+                )
             elif confidence < 0.5:
                 insights.append("予測信頼度が低く、市場環境が不安定な可能性があります")
 
@@ -800,7 +817,9 @@ class ReportGenerator:
 
         html_content = ""
         if "var_95" in risk_summary:
-            html_content += f'<div class="metric">VaR(95%): {risk_summary["var_95"]:.4f}</div>'
+            html_content += (
+                f'<div class="metric">VaR(95%): {risk_summary["var_95"]:.4f}</div>'
+            )
 
         return html_content or "<p>リスクデータが利用できません</p>"
 
@@ -837,8 +856,11 @@ class ReportGenerator:
                     html_content += f'<a href="{filename}" class="file-item">{filename} ({file_key})</a>'
 
         # その他のファイル
-        other_files = {k: v for k, v in generated_files.items()
-                      if not any(cat in k for cat in categories.keys())}
+        other_files = {
+            k: v
+            for k, v in generated_files.items()
+            if not any(cat in k for cat in categories.keys())
+        }
         if other_files:
             html_content += '<div class="category">その他のファイル</div>'
             for file_key, file_path in other_files.items():
@@ -847,22 +869,31 @@ class ReportGenerator:
 
         return html_content
 
-    def _create_summary_page(self, data: pd.DataFrame, analysis_results: Dict, symbol: str):
+    def _create_summary_page(
+        self, data: pd.DataFrame, analysis_results: Dict, symbol: str
+    ):
         """サマリーページ作成（matplotlib）"""
         if not MATPLOTLIB_AVAILABLE:
             return None
 
         try:
             fig, ax = plt.subplots(figsize=(11.69, 8.27))  # A4サイズ
-            ax.axis('off')
+            ax.axis("off")
 
             # タイトル
-            fig.suptitle(f'{symbol} 分析サマリー', fontsize=20, fontweight='bold')
+            fig.suptitle(f"{symbol} 分析サマリー", fontsize=20, fontweight="bold")
 
             # サマリー情報をテキストで表示
             summary_text = self._generate_summary_text(data, analysis_results)
-            ax.text(0.1, 0.9, summary_text, transform=ax.transAxes, fontsize=12,
-                   verticalalignment='top', fontfamily='monospace')
+            ax.text(
+                0.1,
+                0.9,
+                summary_text,
+                transform=ax.transAxes,
+                fontsize=12,
+                verticalalignment="top",
+                fontfamily="monospace",
+            )
 
             return fig
 
@@ -889,9 +920,13 @@ class ReportGenerator:
         ]
 
         if "ensemble_next_price" in pred_summary:
-            summary_lines.append(f"アンサンブル予測: {pred_summary['ensemble_next_price']:.2f}")
+            summary_lines.append(
+                f"アンサンブル予測: {pred_summary['ensemble_next_price']:.2f}"
+            )
         if "ensemble_confidence" in pred_summary:
-            summary_lines.append(f"予測信頼度: {pred_summary['ensemble_confidence']:.1%}")
+            summary_lines.append(
+                f"予測信頼度: {pred_summary['ensemble_confidence']:.1%}"
+            )
 
         summary_lines.extend(["", "テクニカル分析", "=" * 50])
         if "current_rsi" in tech_summary:
@@ -907,9 +942,10 @@ class ReportGenerator:
             if Path(image_path).exists():
                 fig, ax = plt.subplots(figsize=(11.69, 8.27))
                 import matplotlib.image as mpimg
+
                 img = mpimg.imread(image_path)
                 ax.imshow(img)
-                ax.axis('off')
+                ax.axis("off")
                 return fig
         except Exception as e:
             logger.warning(f"画像読み込みエラー {image_path}: {e}")

@@ -4,7 +4,7 @@ ID生成
 取引ID・注文ID・レポートIDの一意生成機能
 """
 
-import hashlib
+from ..security.secure_hash_utils import replace_md5_hash
 import time
 import uuid
 from datetime import datetime
@@ -255,7 +255,7 @@ class IDGenerator:
             if algorithm.lower() == "md5":
                 hash_obj = hashlib.md5(unique_data.encode())
             elif algorithm.lower() == "sha1":
-                hash_obj = hashlib.sha1(unique_data.encode())
+                hash_obj = hashlib.sha256(unique_data.encode(, usedforsecurity=False))
             elif algorithm.lower() == "sha256":
                 hash_obj = hashlib.sha256(unique_data.encode())
             else:
