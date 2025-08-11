@@ -1,9 +1,9 @@
-Refactor: DayTradeOrchestratorでPortfolioManagerを利用
+feat: MLOpsパイプラインとモデルドリフト検出機能を追加 (Issue #414)
 
-`DayTradeOrchestrator`がポートフォリオサマリーを取得する際に、新しく分離された`PortfolioManager`クラスを利用するように変更しました。
-
-- `DayTradeOrchestrator.__init__`で`DatabaseManager`を取得するようにしました。
-- `DayTradeOrchestrator.run_full_automation`内で、データベースセッションを用いて`PortfolioManager`をインスタンス化し、ポートフォリオサマリーを計算するようにしました。
-- これにより、`DayTradeOrchestrator`内のダミーのポートフォリオサマリー生成ロジックを実際のビジネスロジックに置き換え、責務の分離をさらに進めました。
-
-Fixes #350
+- データドリフト検出機能 (`DataDriftDetector`) を実装し、Orchestratorに統合。
+- コンセプトドリフト検出機能 (`ConceptDriftDetector`) を実装。
+- モデル再訓練スクリプト (`re_train_model.py`) を追加。
+- GitHub Actions ワークフロー (`concept-drift-monitor.yml`, `re-train-model.yml`) を追加し、ドリフト監視と自動再訓練の基盤を構築。
+- MLflowとの連携を強化し、ドリフト検出結果や訓練結果を追跡可能に。
+- 関連ドキュメント (`README.md`, `COMPREHENSIVE_SYSTEM_DOCUMENTATION.md`, `DEPLOYMENT_GUIDE.md`, `MONITORING_README.md`) を更新。
+- データドリフト検出、コンセプトドリフト検出、モデル再訓練スクリプトの単体・統合テストを追加。

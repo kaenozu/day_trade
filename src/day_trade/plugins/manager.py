@@ -8,19 +8,17 @@ import importlib
 import importlib.util
 import inspect
 import json
-import os
-import sys
 import threading
-import time
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 # ホットリロード機能（オプション）
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
+
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -28,7 +26,14 @@ except ImportError:
     Observer = None
 
 from ..utils.logging_config import get_context_logger
-from .interfaces import IRiskPlugin, PluginInfo, PluginType, RiskAnalysisResult, MarketData, PortfolioData
+from .interfaces import (
+    IRiskPlugin,
+    MarketData,
+    PluginInfo,
+    PortfolioData,
+    RiskAnalysisResult,
+    RiskLevel,
+)
 from .sandbox import SecuritySandbox
 
 logger = get_context_logger(__name__)
@@ -38,17 +43,17 @@ warnings.filterwarnings("ignore", category=UserWarning)
 class PluginEventHandler(FileSystemEventHandler):
     """プラグインファイル変更監視"""
 
-    def __init__(self, manager: 'PluginManager'):
+    def __init__(self, manager: "PluginManager"):
         self.manager = manager
         super().__init__()
 
     def on_modified(self, event):
         """ファイル変更時処理"""
-        if event.is_directory or not event.src_path.endswith('.py'):
+        if event.is_directory or not event.src_path.endswith(".py"):
             return
 
         plugin_path = Path(event.src_path)
-        if plugin_path.stem.startswith('plugin_'):
+        if plugin_path.stem.startswith("plugin_"):
             logger.info(f"プラグインファイル変更検出: {plugin_path}")
             self.manager._schedule_reload(plugin_path.stem[7:])  # 'plugin_'を除去
 
@@ -61,7 +66,7 @@ class PluginManager:
         plugins_dir: str = "plugins",
         config_file: Optional[str] = None,
         enable_hot_reload: bool = True,
-        security_enabled: bool = True
+        security_enabled: bool = True,
     ):
         """
         初期化
@@ -120,10 +125,12 @@ class PluginManager:
     def _load_config(self):
         """設定ファイル読み込み"""
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
+            with open(self.config_file, encoding="utf-8") as f:
                 config = json.load(f)
-                self._plugin_configs = config.get('plugins', {})
-                logger.info(f"プラグイン設定読み込み完了: {len(self._plugin_configs)}件")
+                self._plugin_configs = config.get("plugins", {})
+                logger.info(
+                    f"プラグイン設定読み込み完了: {len(self._plugin_configs)}件"
+                )
         except Exception as e:
             logger.error(f"設定読み込みエラー: {e}")
 
@@ -132,13 +139,13 @@ class PluginManager:
         builtin_plugins = [
             self._create_industry_risk_plugin(),
             self._create_compliance_plugin(),
-            self._create_news_sentiment_plugin()
+            self._create_news_sentiment_plugin(),
         ]
 
         for plugin_code, plugin_name in builtin_plugins:
             plugin_file = self.plugins_dir / f"plugin_{plugin_name}.py"
             if not plugin_file.exists():
-                plugin_file.write_text(plugin_code, encoding='utf-8')
+                plugin_file.write_text(plugin_code, encoding="utf-8")
                 logger.info(f"組み込みプラグイン作成: {plugin_name}")
 
     def _create_industry_risk_plugin(self) -> tuple:
@@ -884,9 +891,11 @@ class NewsSentimentPlugin(IRiskPlugin):
             # プラグインクラス検索
             plugin_class = None
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if (issubclass(obj, IRiskPlugin) and
-                    obj != IRiskPlugin and
-                    not name.startswith('I')):
+                if (
+                    issubclass(obj, IRiskPlugin)
+                    and obj != IRiskPlugin
+                    and not name.startswith("I")
+                ):
                     plugin_class = obj
                     break
 
@@ -921,9 +930,7 @@ class NewsSentimentPlugin(IRiskPlugin):
             self._observer = Observer()
             event_handler = PluginEventHandler(self)
             self._observer.schedule(
-                event_handler,
-                str(self.plugins_dir),
-                recursive=False
+                event_handler, str(self.plugins_dir), recursive=False
             )
             self._observer.start()
             logger.info("ホットリロード開始")
@@ -1004,7 +1011,7 @@ class NewsSentimentPlugin(IRiskPlugin):
         market_data: Union[MarketData, List[MarketData]],
         portfolio_data: Optional[PortfolioData] = None,
         context: Optional[Dict[str, Any]] = None,
-        plugin_filter: Optional[List[str]] = None
+        plugin_filter: Optional[List[str]] = None,
     ) -> Dict[str, RiskAnalysisResult]:
         """全プラグインで分析実行"""
         results = {}
@@ -1012,8 +1019,7 @@ class NewsSentimentPlugin(IRiskPlugin):
         target_plugins = plugin_filter or list(self._plugins.keys())
 
         for plugin_name in target_plugins:
-            if (plugin_name in self._plugins and
-                self._plugin_infos[plugin_name].enabled):
+            if plugin_name in self._plugins and self._plugin_infos[plugin_name].enabled:
                 try:
                     plugin = self._plugins[plugin_name]
                     result = plugin.analyze_risk(market_data, portfolio_data, context)
@@ -1034,7 +1040,7 @@ class NewsSentimentPlugin(IRiskPlugin):
                         details={},
                         recommendations=[],
                         alerts=[f"プラグインエラー: {str(e)}"],
-                        metadata={"error": True}
+                        metadata={"error": True},
                     )
 
         return results
@@ -1048,7 +1054,7 @@ class NewsSentimentPlugin(IRiskPlugin):
             status[plugin_name] = {
                 "info": info,
                 "status": plugin.get_status(),
-                "enabled": info.enabled
+                "enabled": info.enabled,
             }
 
         return status

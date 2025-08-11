@@ -6,19 +6,18 @@ Phase G: 本番運用最適化フェーズ
 Prometheus形式でのメトリクス出力とサービス監視
 """
 
-import time
 import threading
-from typing import Dict, List, Any, Optional
-from datetime import datetime
-from dataclasses import dataclass
+import time
 from collections import defaultdict
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Dict, Optional
 
 
 @dataclass
 class PrometheusMetric:
     """Prometheusメトリクス"""
+
     name: str
     metric_type: str  # counter, gauge, histogram, summary
     help_text: str
@@ -40,8 +39,9 @@ class PrometheusRegistry:
             key = f"{metric.name}_{self._labels_to_key(metric.labels)}"
             self.metrics[key] = metric
 
-    def increment_counter(self, name: str, labels: Dict[str, str] = None,
-                         amount: float = 1.0):
+    def increment_counter(
+        self, name: str, labels: Dict[str, str] = None, amount: float = 1.0
+    ):
         """カウンター増加"""
         if labels is None:
             labels = {}
@@ -57,7 +57,7 @@ class PrometheusRegistry:
                     metric_type="counter",
                     help_text=f"Counter metric {name}",
                     labels=labels,
-                    value=amount
+                    value=amount,
                 )
 
     def set_gauge(self, name: str, value: float, labels: Dict[str, str] = None):
@@ -76,11 +76,10 @@ class PrometheusRegistry:
                     metric_type="gauge",
                     help_text=f"Gauge metric {name}",
                     labels=labels,
-                    value=value
+                    value=value,
                 )
 
-    def observe_histogram(self, name: str, value: float,
-                         labels: Dict[str, str] = None):
+    def observe_histogram(self, name: str, value: float, labels: Dict[str, str] = None):
         """ヒストグラム観測"""
         if labels is None:
             labels = {}
@@ -127,7 +126,9 @@ class PrometheusRegistry:
                 # 各メトリクス値
                 for metric in metric_list:
                     if metric.labels:
-                        label_str = ",".join(f'{k}="{v}"' for k, v in metric.labels.items())
+                        label_str = ",".join(
+                            f'{k}="{v}"' for k, v in metric.labels.items()
+                        )
                         lines.append(f"{metric.name}{{{label_str}}} {metric.value}")
                     else:
                         lines.append(f"{metric.name} {metric.value}")
@@ -148,11 +149,11 @@ class MetricsHandler(BaseHTTPRequestHandler):
         """GETリクエスト処理"""
         if self.path == "/metrics":
             self.send_response(200)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header("Content-type", "text/plain; charset=utf-8")
             self.end_headers()
 
             metrics_text = self.registry.generate_metrics_text()
-            self.wfile.write(metrics_text.encode('utf-8'))
+            self.wfile.write(metrics_text.encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -178,21 +179,25 @@ class PrometheusExporter:
         self.registry.set_gauge("daytrade_start_time_seconds", time.time())
 
         # 基本カウンター
-        self.registry.register_metric(PrometheusMetric(
-            name="daytrade_requests_total",
-            metric_type="counter",
-            help_text="Total number of requests",
-            labels={},
-            value=0
-        ))
+        self.registry.register_metric(
+            PrometheusMetric(
+                name="daytrade_requests_total",
+                metric_type="counter",
+                help_text="Total number of requests",
+                labels={},
+                value=0,
+            )
+        )
 
-        self.registry.register_metric(PrometheusMetric(
-            name="daytrade_errors_total",
-            metric_type="counter",
-            help_text="Total number of errors",
-            labels={},
-            value=0
-        ))
+        self.registry.register_metric(
+            PrometheusMetric(
+                name="daytrade_errors_total",
+                metric_type="counter",
+                help_text="Total number of errors",
+                labels={},
+                value=0,
+            )
+        )
 
     def start_server(self):
         """メトリクスサーバー開始"""
@@ -202,14 +207,21 @@ class PrometheusExporter:
         def handler_factory(registry):
             def create_handler(*args, **kwargs):
                 return MetricsHandler(registry, *args, **kwargs)
+
             return create_handler
 
         try:
-            self.server = HTTPServer(('0.0.0.0', self.port), handler_factory(self.registry))
-            self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.server = HTTPServer(
+                ("0.0.0.0", self.port), handler_factory(self.registry)
+            )
+            self.server_thread = threading.Thread(
+                target=self.server.serve_forever, daemon=True
+            )
             self.server_thread.start()
 
-            print(f"[PROMETHEUS] メトリクスサーバー開始: http://localhost:{self.port}/metrics")
+            print(
+                f"[PROMETHEUS] メトリクスサーバー開始: http://localhost:{self.port}/metrics"
+            )
         except Exception as e:
             print(f"[ERROR] メトリクスサーバー開始エラー: {e}")
 
@@ -220,60 +232,73 @@ class PrometheusExporter:
             self.server = None
             print("[PROMETHEUS] メトリクスサーバー停止")
 
-    def record_request(self, method: str, endpoint: str, status_code: int, duration: float):
+    def record_request(
+        self, method: str, endpoint: str, status_code: int, duration: float
+    ):
         """リクエストメトリクス記録"""
         labels = {
             "method": method,
             "endpoint": endpoint,
-            "status_code": str(status_code)
+            "status_code": str(status_code),
         }
 
         self.registry.increment_counter("daytrade_requests_total", labels)
-        self.registry.observe_histogram("daytrade_request_duration_seconds", duration, labels)
+        self.registry.observe_histogram(
+            "daytrade_request_duration_seconds", duration, labels
+        )
 
         if status_code >= 400:
             self.registry.increment_counter("daytrade_errors_total", labels)
 
-    def record_trading_operation(self, operation_type: str, symbol: str,
-                               success: bool, duration: float):
+    def record_trading_operation(
+        self, operation_type: str, symbol: str, success: bool, duration: float
+    ):
         """取引操作メトリクス記録"""
         labels = {
             "operation": operation_type,
             "symbol": symbol,
-            "status": "success" if success else "error"
+            "status": "success" if success else "error",
         }
 
         self.registry.increment_counter("daytrade_operations_total", labels)
-        self.registry.observe_histogram("daytrade_operation_duration_seconds", duration, labels)
+        self.registry.observe_histogram(
+            "daytrade_operation_duration_seconds", duration, labels
+        )
 
-    def update_system_metrics(self, cpu_percent: float, memory_usage_mb: float,
-                            active_connections: int):
+    def update_system_metrics(
+        self, cpu_percent: float, memory_usage_mb: float, active_connections: int
+    ):
         """システムメトリクス更新"""
         self.registry.set_gauge("daytrade_cpu_usage_percent", cpu_percent)
         self.registry.set_gauge("daytrade_memory_usage_mb", memory_usage_mb)
         self.registry.set_gauge("daytrade_active_connections", active_connections)
 
-    def record_ml_prediction(self, model_name: str, prediction_time: float,
-                           confidence: float):
+    def record_ml_prediction(
+        self, model_name: str, prediction_time: float, confidence: float
+    ):
         """ML予測メトリクス記録"""
         labels = {"model": model_name}
 
         self.registry.increment_counter("daytrade_predictions_total", labels)
-        self.registry.observe_histogram("daytrade_prediction_duration_seconds",
-                                      prediction_time, labels)
+        self.registry.observe_histogram(
+            "daytrade_prediction_duration_seconds", prediction_time, labels
+        )
         self.registry.set_gauge("daytrade_prediction_confidence", confidence, labels)
 
-    def record_data_fetch(self, source: str, symbol: str, success: bool, duration: float):
+    def record_data_fetch(
+        self, source: str, symbol: str, success: bool, duration: float
+    ):
         """データ取得メトリクス記録"""
         labels = {
             "source": source,
             "symbol": symbol,
-            "status": "success" if success else "error"
+            "status": "success" if success else "error",
         }
 
         self.registry.increment_counter("daytrade_data_fetches_total", labels)
-        self.registry.observe_histogram("daytrade_data_fetch_duration_seconds",
-                                      duration, labels)
+        self.registry.observe_histogram(
+            "daytrade_data_fetch_duration_seconds", duration, labels
+        )
 
 
 class ApplicationMetricsCollector:
@@ -288,8 +313,13 @@ class ApplicationMetricsCollector:
         self.operation_start_times[operation_id] = time.time()
         return operation_id
 
-    def end_operation(self, operation_id: str, operation_type: str,
-                     symbol: str = "", success: bool = True):
+    def end_operation(
+        self,
+        operation_id: str,
+        operation_type: str,
+        symbol: str = "",
+        success: bool = True,
+    ):
         """操作終了"""
         if operation_id in self.operation_start_times:
             duration = time.time() - self.operation_start_times[operation_id]
@@ -299,14 +329,18 @@ class ApplicationMetricsCollector:
                 operation_type, symbol, success, duration
             )
 
-    def record_api_call(self, method: str, endpoint: str, status_code: int, duration: float):
+    def record_api_call(
+        self, method: str, endpoint: str, status_code: int, duration: float
+    ):
         """API呼び出し記録"""
         self.prometheus.record_request(method, endpoint, status_code, duration)
 
     def record_error(self, error_type: str, component: str):
         """エラー記録"""
         labels = {"error_type": error_type, "component": component}
-        self.prometheus.registry.increment_counter("daytrade_errors_by_type_total", labels)
+        self.prometheus.registry.increment_counter(
+            "daytrade_errors_by_type_total", labels
+        )
 
 
 def main():
@@ -338,7 +372,7 @@ def main():
 
             time.sleep(0.1)
 
-        print(f"[INFO] メトリクス確認: http://localhost:9090/metrics")
+        print("[INFO] メトリクス確認: http://localhost:9090/metrics")
         print("テストメトリクス生成完了")
 
         # テスト用に短時間待機

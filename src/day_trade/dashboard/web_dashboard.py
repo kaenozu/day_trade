@@ -8,19 +8,17 @@ Flask+WebSocket リアルタイムダッシュボードUI
 
 import os
 import secrets
-import stat
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
+from ..utils.logging_config import get_context_logger
 from .dashboard_core import ProductionDashboard
 from .visualization_engine import DashboardVisualizationEngine
-from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
@@ -46,21 +44,27 @@ class WebDashboard:
             static_folder=str(Path(__file__).parent / "static"),
         )
         # セキュリティ強化: 環境変数からSECRET_KEYを取得、なければランダム生成
-        secret_key = os.environ.get('FLASK_SECRET_KEY')
+        secret_key = os.environ.get("FLASK_SECRET_KEY")
         if not secret_key:
             secret_key = secrets.token_urlsafe(32)
-            logger.warning("FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。")
-            logger.info(f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='{secret_key}'")
+            logger.warning(
+                "FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。"
+            )
+            logger.info(
+                f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='{secret_key}'"
+            )
 
         self.app.config["SECRET_KEY"] = secret_key
 
         # WebSocket設定 - CORS制限
-        cors_origins = os.environ.get('DASHBOARD_CORS_ORIGINS', 'http://localhost:5000,http://127.0.0.1:5000')
-        allowed_origins = [origin.strip() for origin in cors_origins.split(',')]
+        cors_origins = os.environ.get(
+            "DASHBOARD_CORS_ORIGINS", "http://localhost:5000,http://127.0.0.1:5000"
+        )
+        allowed_origins = [origin.strip() for origin in cors_origins.split(",")]
 
         if debug:
             # デバッグモードでは開発用オリジンを許可
-            allowed_origins.extend(['http://localhost:3000', 'http://127.0.0.1:3000'])
+            allowed_origins.extend(["http://localhost:3000", "http://127.0.0.1:3000"])
 
         self.socketio = SocketIO(self.app, cors_allowed_origins=allowed_origins)
         logger.info(f"CORS許可オリジン: {allowed_origins}")
@@ -86,25 +90,30 @@ class WebDashboard:
 
     def _setup_security_headers(self):
         """セキュリティヘッダー設定"""
+
         @self.app.after_request
         def set_security_headers(response):
             # XSS攻撃対策
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            response.headers['X-Frame-Options'] = 'DENY'
-            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-XSS-Protection"] = "1; mode=block"
 
             # HTTPS強制（本番環境）
             if not self.debug:
-                response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+                response.headers[
+                    "Strict-Transport-Security"
+                ] = "max-age=31536000; includeSubDomains"
 
             # CSP（Content Security Policy）
-            csp = "default-src 'self'; " \
-                  "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " \
-                  "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; " \
-                  "font-src 'self' cdnjs.cloudflare.com; " \
-                  "img-src 'self' data:; " \
-                  "connect-src 'self'"
-            response.headers['Content-Security-Policy'] = csp
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; "
+                "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; "
+                "font-src 'self' cdnjs.cloudflare.com; "
+                "img-src 'self' data:; "
+                "connect-src 'self'"
+            )
+            response.headers["Content-Security-Policy"] = csp
 
             return response
 
@@ -115,13 +124,23 @@ class WebDashboard:
 
         # 機密情報が含まれる可能性のあるエラーパターン
         sensitive_patterns = [
-            'password', 'secret', 'key', 'token', 'credential',
-            'database', 'connection', 'path', 'file', 'directory'
+            "password",
+            "secret",
+            "key",
+            "token",
+            "credential",
+            "database",
+            "connection",
+            "path",
+            "file",
+            "directory",
         ]
 
         for pattern in sensitive_patterns:
             if pattern in error_str:
-                return "システム内部エラーが発生しました。管理者にお問い合わせください。"
+                return (
+                    "システム内部エラーが発生しました。管理者にお問い合わせください。"
+                )
 
         # デバッグモード時のみ詳細表示
         if self.debug:
@@ -132,16 +151,19 @@ class WebDashboard:
     def _validate_metric_type(self, metric_type: str) -> bool:
         """メトリクスタイプの検証"""
         allowed_metrics = [
-            'portfolio', 'system', 'trading', 'risk',
-            'performance', 'alerts', 'status'
+            "portfolio",
+            "system",
+            "trading",
+            "risk",
+            "performance",
+            "alerts",
+            "status",
         ]
         return metric_type in allowed_metrics
 
     def _validate_chart_type(self, chart_type: str) -> bool:
         """チャートタイプの検証"""
-        allowed_charts = [
-            'portfolio', 'system', 'trading', 'risk', 'comprehensive'
-        ]
+        allowed_charts = ["portfolio", "system", "trading", "risk", "comprehensive"]
         return chart_type in allowed_charts
 
     def _validate_hours_parameter(self, hours: int) -> bool:
@@ -149,18 +171,22 @@ class WebDashboard:
         # 1時間から30日間（720時間）までを許可
         return 1 <= hours <= 720
 
-    def _create_secure_file(self, file_path: Path, content: str, permissions: int = 0o644):
+    def _create_secure_file(
+        self, file_path: Path, content: str, permissions: int = 0o644
+    ):
         """セキュアなファイル作成"""
         try:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
 
             # ファイル権限設定（Unix系OS）
-            if os.name != 'nt':  # Windows以外
+            if os.name != "nt":  # Windows以外
                 os.chmod(file_path, permissions)
                 logger.info(f"ファイル権限設定: {file_path} -> {oct(permissions)}")
             else:
-                logger.info(f"ファイル作成: {file_path} (Windows環境のため権限設定スキップ)")
+                logger.info(
+                    f"ファイル作成: {file_path} (Windows環境のため権限設定スキップ)"
+                )
 
         except Exception as e:
             logger.error(f"セキュアファイル作成エラー {file_path}: {e}")
@@ -584,7 +610,9 @@ class WebDashboard:
 </html>"""
 
         # セキュアなファイル作成
-        self._create_secure_file(templates_dir / "dashboard.html", dashboard_html, 0o644)
+        self._create_secure_file(
+            templates_dir / "dashboard.html", dashboard_html, 0o644
+        )
 
     def _create_static_files(self):
         """静的ファイル作成"""

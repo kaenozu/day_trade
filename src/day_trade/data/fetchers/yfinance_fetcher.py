@@ -4,16 +4,19 @@ Yahoo Finance データフェッチャー
 yfinanceライブラリを使用した株価データ取得
 """
 
-import os
 from datetime import datetime
 from functools import lru_cache
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
 
-from ...utils.logging_config import get_context_logger, log_api_call, log_performance_metric
-from ...utils.exceptions import InvalidSymbolError, DataNotFoundError, ValidationError
+from ...utils.exceptions import DataNotFoundError, InvalidSymbolError, ValidationError
+from ...utils.logging_config import (
+    get_context_logger,
+    log_api_call,
+    log_performance_metric,
+)
 from ..cache.cache_decorators import cache_with_ttl
 from .base_fetcher import BaseFetcher
 
@@ -60,13 +63,13 @@ class YFinanceFetcher(BaseFetcher):
 
     def _fetch_data(self, symbol: str, **kwargs) -> Any:
         """基底クラスの抽象メソッド実装"""
-        data_type = kwargs.get('data_type', 'current_price')
+        data_type = kwargs.get("data_type", "current_price")
 
-        if data_type == 'current_price':
+        if data_type == "current_price":
             return self._get_current_price_raw(symbol)
-        elif data_type == 'historical':
+        elif data_type == "historical":
             return self._get_historical_data_raw(symbol, **kwargs)
-        elif data_type == 'company_info':
+        elif data_type == "company_info":
             return self._get_company_info_raw(symbol)
         else:
             raise ValueError(f"未サポートのデータタイプ: {data_type}")
@@ -188,11 +191,13 @@ class YFinanceFetcher(BaseFetcher):
             if result["previous_close"] > 0:
                 price_change = result["current_price"] - result["previous_close"]
                 result["price_change"] = price_change
-                result["price_change_percent"] = (price_change / result["previous_close"]) * 100
+                result["price_change_percent"] = (
+                    price_change / result["previous_close"]
+                ) * 100
 
             log_performance_metric(
                 "current_price_success",
-                {"symbol": symbol, "price": result["current_price"]}
+                {"symbol": symbol, "price": result["current_price"]},
             )
 
             return result
@@ -221,10 +226,7 @@ class YFinanceFetcher(BaseFetcher):
             symbol = self._format_symbol(code)
 
             return self._retry_on_error(
-                self._get_historical_data_raw,
-                symbol,
-                period=period,
-                interval=interval
+                self._get_historical_data_raw, symbol, period=period, interval=interval
             )
 
         except Exception as e:
@@ -234,7 +236,19 @@ class YFinanceFetcher(BaseFetcher):
     def _validate_period_interval(self, period: str, interval: str) -> None:
         """期間と間隔の組み合わせを検証"""
         # 有効な期間
-        valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+        valid_periods = [
+            "1d",
+            "5d",
+            "1mo",
+            "3mo",
+            "6mo",
+            "1y",
+            "2y",
+            "5y",
+            "10y",
+            "ytd",
+            "max",
+        ]
         if period not in valid_periods:
             raise ValidationError(
                 message=f"無効な期間: {period}",
@@ -242,7 +256,21 @@ class YFinanceFetcher(BaseFetcher):
             )
 
         # 有効な間隔
-        valid_intervals = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]
+        valid_intervals = [
+            "1m",
+            "2m",
+            "5m",
+            "15m",
+            "30m",
+            "60m",
+            "90m",
+            "1h",
+            "1d",
+            "5d",
+            "1wk",
+            "1mo",
+            "3mo",
+        ]
         if interval not in valid_intervals:
             raise ValidationError(
                 message=f"無効な間隔: {interval}",
@@ -261,10 +289,7 @@ class YFinanceFetcher(BaseFetcher):
                 )
 
     def _get_historical_data_raw(
-        self,
-        symbol: str,
-        period: str = "1mo",
-        interval: str = "1d"
+        self, symbol: str, period: str = "1mo", interval: str = "1d"
     ) -> pd.DataFrame:
         """履歴データの実際の取得処理"""
         with log_api_call("yfinance_historical", symbol):
@@ -306,7 +331,7 @@ class YFinanceFetcher(BaseFetcher):
 
             log_performance_metric(
                 "historical_data_success",
-                {"symbol": symbol, "rows": len(df), "period": period}
+                {"symbol": symbol, "rows": len(df), "period": period},
             )
 
             return df
@@ -341,7 +366,7 @@ class YFinanceFetcher(BaseFetcher):
                 symbol,
                 start_date=start_date,
                 end_date=end_date,
-                interval=interval
+                interval=interval,
             )
 
         except Exception as e:
@@ -349,11 +374,7 @@ class YFinanceFetcher(BaseFetcher):
             return None
 
     def _get_historical_data_range_raw(
-        self,
-        symbol: str,
-        start_date: str,
-        end_date: str,
-        interval: str = "1d"
+        self, symbol: str, start_date: str, end_date: str, interval: str = "1d"
     ) -> pd.DataFrame:
         """日付範囲指定履歴データの実際の取得処理"""
         with log_api_call("yfinance_historical_range", symbol):
@@ -453,7 +474,7 @@ class YFinanceFetcher(BaseFetcher):
 
             log_performance_metric(
                 "company_info_success",
-                {"symbol": symbol, "company_name": result["company_name"]}
+                {"symbol": symbol, "company_name": result["company_name"]},
             )
 
             return result
@@ -483,16 +504,24 @@ class YFinanceFetcher(BaseFetcher):
                 logger.error(f"リアルタイムデータ取得エラー: {code} - {e}")
                 results[code] = {}
 
-        logger.info(f"リアルタイムデータ一括取得完了: {len(codes)}銘柄中{len([r for r in results.values() if r])}銘柄成功")
+        logger.info(
+            f"リアルタイムデータ一括取得完了: {len(codes)}銘柄中{len([r for r in results.values() if r])}銘柄成功"
+        )
         return results
 
     def get_cache_performance_report(self) -> Dict[str, Any]:
         """キャッシュパフォーマンスレポートを取得"""
         try:
             # 各キャッシュデコレータの統計を取得
-            current_price_stats = getattr(self.get_current_price, 'get_stats', lambda: {})()
-            historical_stats = getattr(self.get_historical_data, 'get_stats', lambda: {})()
-            company_info_stats = getattr(self.get_company_info, 'get_stats', lambda: {})()
+            current_price_stats = getattr(
+                self.get_current_price, "get_stats", lambda: {}
+            )()
+            historical_stats = getattr(
+                self.get_historical_data, "get_stats", lambda: {}
+            )()
+            company_info_stats = getattr(
+                self.get_company_info, "get_stats", lambda: {}
+            )()
 
             return {
                 "current_price_cache": current_price_stats,
@@ -510,13 +539,13 @@ class YFinanceFetcher(BaseFetcher):
         """全てのキャッシュをクリア"""
         try:
             # デコレータキャッシュをクリア
-            if hasattr(self.get_current_price, 'clear_cache'):
+            if hasattr(self.get_current_price, "clear_cache"):
                 self.get_current_price.clear_cache()
 
-            if hasattr(self.get_historical_data, 'clear_cache'):
+            if hasattr(self.get_historical_data, "clear_cache"):
                 self.get_historical_data.clear_cache()
 
-            if hasattr(self.get_company_info, 'clear_cache'):
+            if hasattr(self.get_company_info, "clear_cache"):
                 self.get_company_info.clear_cache()
 
             # LRUキャッシュをクリア
@@ -536,32 +565,38 @@ class YFinanceFetcher(BaseFetcher):
             # 現在価格キャッシュの分析
             current_stats = performance_report.get("current_price_cache", {})
             if current_stats.get("hit_rate", 0) < 0.5:
-                recommendations.append({
-                    "cache": "current_price",
-                    "issue": "低いヒット率",
-                    "current_hit_rate": current_stats.get("hit_rate", 0),
-                    "suggestion": "TTLを延長することを検討（現在30秒）"
-                })
+                recommendations.append(
+                    {
+                        "cache": "current_price",
+                        "issue": "低いヒット率",
+                        "current_hit_rate": current_stats.get("hit_rate", 0),
+                        "suggestion": "TTLを延長することを検討（現在30秒）",
+                    }
+                )
 
             # 履歴データキャッシュの分析
             historical_stats = performance_report.get("historical_data_cache", {})
             if historical_stats.get("hit_rate", 0) < 0.7:
-                recommendations.append({
-                    "cache": "historical_data",
-                    "issue": "低いヒット率",
-                    "current_hit_rate": historical_stats.get("hit_rate", 0),
-                    "suggestion": "TTLを延長することを検討（現在5分）"
-                })
+                recommendations.append(
+                    {
+                        "cache": "historical_data",
+                        "issue": "低いヒット率",
+                        "current_hit_rate": historical_stats.get("hit_rate", 0),
+                        "suggestion": "TTLを延長することを検討（現在5分）",
+                    }
+                )
 
             # LRUキャッシュの分析
             lru_info = performance_report.get("lru_cache_info", {})
             if lru_info.get("hit_rate", 0) < 0.6:
-                recommendations.append({
-                    "cache": "lru_ticker",
-                    "issue": "低いヒット率",
-                    "current_hit_rate": lru_info.get("hit_rate", 0),
-                    "suggestion": f"キャッシュサイズを増加することを検討（現在{self.cache_size}）"
-                })
+                recommendations.append(
+                    {
+                        "cache": "lru_ticker",
+                        "issue": "低いヒット率",
+                        "current_hit_rate": lru_info.get("hit_rate", 0),
+                        "suggestion": f"キャッシュサイズを増加することを検討（現在{self.cache_size}）",
+                    }
+                )
 
             return {
                 "recommendations": recommendations,

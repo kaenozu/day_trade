@@ -6,24 +6,25 @@ Phase E: ユーザーエクスペリエンス強化
 リアルタイム更新・レスポンシブデザイン・ダークモード対応
 """
 
-import json
 import asyncio
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 try:
-    from fastapi import FastAPI, WebSocket, Request
+    import uvicorn
+    from fastapi import FastAPI, Request, WebSocket
     from fastapi.responses import HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
     from fastapi.templating import Jinja2Templates
-    import uvicorn
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
 
-from ..core.optimization_strategy import OptimizationConfig, OptimizationLevel
 from ..core.enhanced_error_handler import EnhancedErrorHandler, handle_error_gracefully
+from ..core.optimization_strategy import OptimizationConfig
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -34,53 +35,53 @@ class DashboardThemeManager:
 
     def __init__(self):
         self.themes = {
-            'light': {
-                'name': 'ライト',
-                'primary_color': '#2c3e50',
-                'secondary_color': '#3498db',
-                'background_color': '#ffffff',
-                'text_color': '#2c3e50',
-                'card_background': '#f8f9fa',
-                'border_color': '#dee2e6',
-                'success_color': '#28a745',
-                'warning_color': '#ffc107',
-                'danger_color': '#dc3545',
-                'info_color': '#17a2b8'
+            "light": {
+                "name": "ライト",
+                "primary_color": "#2c3e50",
+                "secondary_color": "#3498db",
+                "background_color": "#ffffff",
+                "text_color": "#2c3e50",
+                "card_background": "#f8f9fa",
+                "border_color": "#dee2e6",
+                "success_color": "#28a745",
+                "warning_color": "#ffc107",
+                "danger_color": "#dc3545",
+                "info_color": "#17a2b8",
             },
-            'dark': {
-                'name': 'ダーク',
-                'primary_color': '#ffffff',
-                'secondary_color': '#4dabf7',
-                'background_color': '#1a1a1a',
-                'text_color': '#ffffff',
-                'card_background': '#2d3748',
-                'border_color': '#4a5568',
-                'success_color': '#48bb78',
-                'warning_color': '#ed8936',
-                'danger_color': '#f56565',
-                'info_color': '#4299e1'
+            "dark": {
+                "name": "ダーク",
+                "primary_color": "#ffffff",
+                "secondary_color": "#4dabf7",
+                "background_color": "#1a1a1a",
+                "text_color": "#ffffff",
+                "card_background": "#2d3748",
+                "border_color": "#4a5568",
+                "success_color": "#48bb78",
+                "warning_color": "#ed8936",
+                "danger_color": "#f56565",
+                "info_color": "#4299e1",
             },
-            'high_contrast': {
-                'name': 'ハイコントラスト',
-                'primary_color': '#000000',
-                'secondary_color': '#0066cc',
-                'background_color': '#ffffff',
-                'text_color': '#000000',
-                'card_background': '#f0f0f0',
-                'border_color': '#000000',
-                'success_color': '#006600',
-                'warning_color': '#cc6600',
-                'danger_color': '#cc0000',
-                'info_color': '#0066cc'
-            }
+            "high_contrast": {
+                "name": "ハイコントラスト",
+                "primary_color": "#000000",
+                "secondary_color": "#0066cc",
+                "background_color": "#ffffff",
+                "text_color": "#000000",
+                "card_background": "#f0f0f0",
+                "border_color": "#000000",
+                "success_color": "#006600",
+                "warning_color": "#cc6600",
+                "danger_color": "#cc0000",
+                "info_color": "#0066cc",
+            },
         }
 
-        self.current_theme = 'light'
+        self.current_theme = "light"
 
     def get_theme(self, theme_name: str = None) -> Dict[str, Any]:
         """テーマ取得"""
         theme_name = theme_name or self.current_theme
-        return self.themes.get(theme_name, self.themes['light'])
+        return self.themes.get(theme_name, self.themes["light"])
 
     def get_css_variables(self, theme_name: str = None) -> str:
         """CSS変数生成"""
@@ -88,8 +89,8 @@ class DashboardThemeManager:
         css_vars = []
 
         for key, value in theme.items():
-            if key != 'name':
-                css_var_name = key.replace('_', '-')
+            if key != "name":
+                css_var_name = key.replace("_", "-")
                 css_vars.append(f"--{css_var_name}: {value};")
 
         return "\n".join(css_vars)
@@ -120,11 +121,14 @@ class RealTimeDataManager:
         if not self.active_connections:
             return
 
-        message = json.dumps({
-            'type': 'data_update',
-            'timestamp': datetime.now().isoformat(),
-            'data': data
-        }, ensure_ascii=False)
+        message = json.dumps(
+            {
+                "type": "data_update",
+                "timestamp": datetime.now().isoformat(),
+                "data": data,
+            },
+            ensure_ascii=False,
+        )
 
         # 接続中の全クライアントにデータ送信
         disconnected_connections = []
@@ -145,11 +149,9 @@ class RealTimeDataManager:
         self.data_cache[key] = data
         self.last_update = datetime.now()
 
-        await self.broadcast_data({
-            'key': key,
-            'data': data,
-            'update_time': self.last_update.isoformat()
-        })
+        await self.broadcast_data(
+            {"key": key, "data": data, "update_time": self.last_update.isoformat()}
+        )
 
 
 class ResponsiveLayoutManager:
@@ -157,43 +159,43 @@ class ResponsiveLayoutManager:
 
     def __init__(self):
         self.breakpoints = {
-            'xs': 0,      # モバイル
-            'sm': 576,    # 小型タブレット
-            'md': 768,    # タブレット
-            'lg': 992,    # デスクトップ
-            'xl': 1200,   # 大型デスクトップ
-            'xxl': 1400   # 超大型ディスプレイ
+            "xs": 0,  # モバイル
+            "sm": 576,  # 小型タブレット
+            "md": 768,  # タブレット
+            "lg": 992,  # デスクトップ
+            "xl": 1200,  # 大型デスクトップ
+            "xxl": 1400,  # 超大型ディスプレイ
         }
 
         self.layout_configs = {
-            'mobile': {
-                'columns': 1,
-                'chart_height': '300px',
-                'sidebar_collapsed': True,
-                'show_detailed_metrics': False
+            "mobile": {
+                "columns": 1,
+                "chart_height": "300px",
+                "sidebar_collapsed": True,
+                "show_detailed_metrics": False,
             },
-            'tablet': {
-                'columns': 2,
-                'chart_height': '400px',
-                'sidebar_collapsed': False,
-                'show_detailed_metrics': True
+            "tablet": {
+                "columns": 2,
+                "chart_height": "400px",
+                "sidebar_collapsed": False,
+                "show_detailed_metrics": True,
             },
-            'desktop': {
-                'columns': 3,
-                'chart_height': '500px',
-                'sidebar_collapsed': False,
-                'show_detailed_metrics': True
-            }
+            "desktop": {
+                "columns": 3,
+                "chart_height": "500px",
+                "sidebar_collapsed": False,
+                "show_detailed_metrics": True,
+            },
         }
 
     def get_layout_for_width(self, width: int) -> Dict[str, Any]:
         """画面幅に応じたレイアウト取得"""
-        if width < self.breakpoints['md']:
-            return self.layout_configs['mobile']
-        elif width < self.breakpoints['lg']:
-            return self.layout_configs['tablet']
+        if width < self.breakpoints["md"]:
+            return self.layout_configs["mobile"]
+        elif width < self.breakpoints["lg"]:
+            return self.layout_configs["tablet"]
         else:
-            return self.layout_configs['desktop']
+            return self.layout_configs["desktop"]
 
 
 class EnhancedDashboardServer:
@@ -205,7 +207,7 @@ class EnhancedDashboardServer:
 
         self.config = config or OptimizationConfig()
         self.app = FastAPI(title="Day Trade Enhanced Dashboard", version="2.0")
-        self.error_handler = EnhancedErrorHandler(language='ja')
+        self.error_handler = EnhancedErrorHandler(language="ja")
         self.theme_manager = DashboardThemeManager()
         self.realtime_manager = RealTimeDataManager()
         self.layout_manager = ResponsiveLayoutManager()
@@ -660,11 +662,14 @@ class EnhancedDashboardServer:
             theme = self.theme_manager.get_theme()
             layout = self.layout_manager.get_layout_for_width(1200)  # デフォルト幅
 
-            return self.templates.TemplateResponse("dashboard.html", {
-                "request": request,
-                "theme_css": self.theme_manager.get_css_variables(),
-                "chart_height": layout['chart_height']
-            })
+            return self.templates.TemplateResponse(
+                "dashboard.html",
+                {
+                    "request": request,
+                    "theme_css": self.theme_manager.get_css_variables(),
+                    "chart_height": layout["chart_height"],
+                },
+            )
 
         @self.app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
@@ -677,7 +682,7 @@ class EnhancedDashboardServer:
                     message = json.loads(data)
 
                     # メッセージに応じた処理
-                    if message.get('type') == 'request_update':
+                    if message.get("type") == "request_update":
                         await self.send_dashboard_data(websocket)
 
             except Exception as e:
@@ -690,13 +695,15 @@ class EnhancedDashboardServer:
         async def change_theme(request: Request):
             """テーマ変更"""
             body = await request.json()
-            theme_name = body.get('theme', 'light')
+            theme_name = body.get("theme", "light")
 
             if theme_name in self.theme_manager.themes:
                 self.theme_manager.current_theme = theme_name
                 return JSONResponse({"status": "success", "theme": theme_name})
             else:
-                return JSONResponse({"status": "error", "message": "無効なテーマ"}, status_code=400)
+                return JSONResponse(
+                    {"status": "error", "message": "無効なテーマ"}, status_code=400
+                )
 
         @self.app.get("/api/metrics")
         @handle_error_gracefully("get_metrics", "dashboard")
@@ -709,30 +716,37 @@ class EnhancedDashboardServer:
         @self.app.get("/api/health")
         async def health_check():
             """ヘルスチェック"""
-            return JSONResponse({
-                "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
-                "version": "2.0",
-                "active_connections": len(self.realtime_manager.active_connections)
-            })
+            return JSONResponse(
+                {
+                    "status": "healthy",
+                    "timestamp": datetime.now().isoformat(),
+                    "version": "2.0",
+                    "active_connections": len(self.realtime_manager.active_connections),
+                }
+            )
 
     async def send_dashboard_data(self, websocket: WebSocket):
         """ダッシュボードデータ送信"""
         try:
             metrics = await self.collect_system_metrics()
 
-            await websocket.send_text(json.dumps({
-                "type": "data_update",
-                "timestamp": datetime.now().isoformat(),
-                "data": {
-                    "metrics": metrics,
-                    "performance": await self.get_performance_data(),
-                    "activity": {
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "data_update",
                         "timestamp": datetime.now().isoformat(),
-                        "message": f"システムメトリクス更新: {metrics.get('total_analyses', 0)}件の分析完了"
-                    }
-                }
-            }, ensure_ascii=False))
+                        "data": {
+                            "metrics": metrics,
+                            "performance": await self.get_performance_data(),
+                            "activity": {
+                                "timestamp": datetime.now().isoformat(),
+                                "message": f"システムメトリクス更新: {metrics.get('total_analyses', 0)}件の分析完了",
+                            },
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+            )
 
         except Exception as e:
             logger.error(f"ダッシュボードデータ送信エラー: {e}")
@@ -751,17 +765,22 @@ class EnhancedDashboardServer:
 
             for component_name in components.keys():
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(component_name, self.config)
-                    if hasattr(strategy, 'get_performance_metrics'):
+                    strategy = OptimizationStrategyFactory.get_strategy(
+                        component_name, self.config
+                    )
+                    if hasattr(strategy, "get_performance_metrics"):
                         metrics = strategy.get_performance_metrics()
-                        total_analyses += metrics.get('execution_count', 0)
-                        avg_processing_time += metrics.get('average_time', 0)
-                        success_rate = min(success_rate, metrics.get('success_rate', 1.0))
+                        total_analyses += metrics.get("execution_count", 0)
+                        avg_processing_time += metrics.get("average_time", 0)
+                        success_rate = min(
+                            success_rate, metrics.get("success_rate", 1.0)
+                        )
                 except Exception:
                     continue
 
             # メモリ使用量取得
             import psutil
+
             memory_info = psutil.virtual_memory()
             memory_usage = memory_info.used / 1024 / 1024  # MB
 
@@ -770,7 +789,7 @@ class EnhancedDashboardServer:
                 "avg_processing_time": avg_processing_time / max(len(components), 1),
                 "success_rate": success_rate,
                 "memory_usage": memory_usage,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
@@ -780,7 +799,7 @@ class EnhancedDashboardServer:
                 "avg_processing_time": 0,
                 "success_rate": 0,
                 "memory_usage": 0,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     async def get_performance_data(self) -> Dict[str, float]:
@@ -793,21 +812,22 @@ class EnhancedDashboardServer:
             memory = psutil.virtual_memory()
 
             return {
-                "speed_score": max(0, (100 - cpu_percent) / 100),  # CPU使用率から速度スコア算出
-                "memory_efficiency": (memory.available / memory.total),  # 利用可能メモリ比率
-                "cache_hit_rate": 0.85  # 仮の値（実際のキャッシュ統計から取得）
+                "speed_score": max(
+                    0, (100 - cpu_percent) / 100
+                ),  # CPU使用率から速度スコア算出
+                "memory_efficiency": (
+                    memory.available / memory.total
+                ),  # 利用可能メモリ比率
+                "cache_hit_rate": 0.85,  # 仮の値（実際のキャッシュ統計から取得）
             }
 
         except Exception as e:
             logger.error(f"パフォーマンスデータ取得エラー: {e}")
-            return {
-                "speed_score": 0.0,
-                "memory_efficiency": 0.0,
-                "cache_hit_rate": 0.0
-            }
+            return {"speed_score": 0.0, "memory_efficiency": 0.0, "cache_hit_rate": 0.0}
 
     async def start_background_tasks(self):
         """バックグラウンドタスク開始"""
+
         async def periodic_update():
             """定期的データ更新"""
             while True:
@@ -817,14 +837,16 @@ class EnhancedDashboardServer:
 
                     if self.realtime_manager.active_connections:
                         metrics = await self.collect_system_metrics()
-                        await self.realtime_manager.broadcast_data({
-                            "metrics": metrics,
-                            "performance": await self.get_performance_data(),
-                            "activity": {
-                                "timestamp": datetime.now().isoformat(),
-                                "message": f"定期更新: {len(self.realtime_manager.active_connections)}クライアント接続中"
+                        await self.realtime_manager.broadcast_data(
+                            {
+                                "metrics": metrics,
+                                "performance": await self.get_performance_data(),
+                                "activity": {
+                                    "timestamp": datetime.now().isoformat(),
+                                    "message": f"定期更新: {len(self.realtime_manager.active_connections)}クライアント接続中",
+                                },
                             }
-                        })
+                        )
 
                 except Exception as e:
                     logger.error(f"定期更新エラー: {e}")
@@ -844,5 +866,5 @@ class EnhancedDashboardServer:
             host=host,
             port=port,
             log_level="info" if debug else "warning",
-            access_log=debug
+            access_log=debug,
         )

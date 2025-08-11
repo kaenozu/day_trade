@@ -8,30 +8,29 @@ AI予測・市場データ・システム状況のリアルタイム可視化
 
 import asyncio
 import json
-import time
 import warnings
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from datetime import datetime
 from pathlib import Path
-import numpy as np
-import pandas as pd
+from typing import Any, Dict, List, Optional
+
+import uvicorn
 
 # Web フレームワーク
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse
-import uvicorn
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from .live_prediction_engine import LivePredictionEngine, LivePrediction
+from .alert_system import AlertManager
+from .live_prediction_engine import LivePredictionEngine
 from .performance_monitor import RealTimePerformanceMonitor
-from .alert_system import AlertManager, Alert
 from .websocket_stream import RealTimeStreamManager
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 class DashboardManager:
     """ダッシュボード管理システム"""
@@ -51,12 +50,12 @@ class DashboardManager:
 
         # ダッシュボードデータ
         self.dashboard_data = {
-            'system_status': 'Starting',
-            'last_update': datetime.now().isoformat(),
-            'active_predictions': [],
-            'performance_metrics': {},
-            'recent_alerts': [],
-            'market_data': {}
+            "system_status": "Starting",
+            "last_update": datetime.now().isoformat(),
+            "active_predictions": [],
+            "performance_metrics": {},
+            "recent_alerts": [],
+            "market_data": {},
         }
 
         # 更新タスク
@@ -446,7 +445,9 @@ class DashboardManager:
         await websocket.accept()
         self.active_connections.append(websocket)
 
-        logger.info(f"WebSocket connected. Active connections: {len(self.active_connections)}")
+        logger.info(
+            f"WebSocket connected. Active connections: {len(self.active_connections)}"
+        )
 
         try:
             while True:
@@ -458,7 +459,9 @@ class DashboardManager:
 
         except WebSocketDisconnect:
             self.active_connections.remove(websocket)
-            logger.info(f"WebSocket disconnected. Active connections: {len(self.active_connections)}")
+            logger.info(
+                f"WebSocket disconnected. Active connections: {len(self.active_connections)}"
+            )
 
     async def broadcast_update(self, data: Dict[str, Any]):
         """WebSocket ブロードキャスト"""
@@ -483,11 +486,13 @@ class DashboardManager:
             if connection in self.active_connections:
                 self.active_connections.remove(connection)
 
-    def inject_components(self,
-                         prediction_engine: Optional[LivePredictionEngine] = None,
-                         performance_monitor: Optional[RealTimePerformanceMonitor] = None,
-                         alert_manager: Optional[AlertManager] = None,
-                         stream_manager: Optional[RealTimeStreamManager] = None):
+    def inject_components(
+        self,
+        prediction_engine: Optional[LivePredictionEngine] = None,
+        performance_monitor: Optional[RealTimePerformanceMonitor] = None,
+        alert_manager: Optional[AlertManager] = None,
+        stream_manager: Optional[RealTimeStreamManager] = None,
+    ):
         """システムコンポーネント注入"""
 
         self.prediction_engine = prediction_engine
@@ -508,12 +513,7 @@ class DashboardManager:
         logger.info(f"Starting dashboard server on {host}:{port}")
 
         # uvicorn サーバー起動
-        config = uvicorn.Config(
-            self.app,
-            host=host,
-            port=port,
-            log_level="info"
-        )
+        config = uvicorn.Config(self.app, host=host, port=port, log_level="info")
         server = uvicorn.Server(config)
 
         try:
@@ -571,55 +571,67 @@ class DashboardManager:
         """ダッシュボードデータ収集"""
 
         data = {
-            'timestamp': datetime.now().isoformat(),
-            'system': {},
-            'ai': {},
-            'trading': {},
-            'alerts': []
+            "timestamp": datetime.now().isoformat(),
+            "system": {},
+            "ai": {},
+            "trading": {},
+            "alerts": [],
         }
 
         try:
             # システム状況
             if self.performance_monitor:
-                comprehensive_status = self.performance_monitor.get_comprehensive_status()
-                system_summary = comprehensive_status.get('system_summary', {})
-                data['system'] = {
-                    'cpu_percent': system_summary.get('cpu', {}).get('current', 0),
-                    'memory_percent': system_summary.get('memory', {}).get('current', 0),
-                    'status': 'healthy' if system_summary.get('cpu', {}).get('current', 0) < 70 else 'warning',
-                    'active_tasks': comprehensive_status.get('monitoring_stats', {}).get('total_monitoring_cycles', 0)
+                comprehensive_status = (
+                    self.performance_monitor.get_comprehensive_status()
+                )
+                system_summary = comprehensive_status.get("system_summary", {})
+                data["system"] = {
+                    "cpu_percent": system_summary.get("cpu", {}).get("current", 0),
+                    "memory_percent": system_summary.get("memory", {}).get(
+                        "current", 0
+                    ),
+                    "status": "healthy"
+                    if system_summary.get("cpu", {}).get("current", 0) < 70
+                    else "warning",
+                    "active_tasks": comprehensive_status.get(
+                        "monitoring_stats", {}
+                    ).get("total_monitoring_cycles", 0),
                 }
 
                 # AI性能
-                ai_summary = comprehensive_status.get('ai_summary', {})
-                data['ai'] = {
-                    'total_predictions': ai_summary.get('total_predictions', 0),
-                    'success_rate': ai_summary.get('success_rate', 0),
-                    'average_latency': ai_summary.get('average_latency_ms', 0),
-                    'status': 'healthy' if ai_summary.get('error_rate', 0) < 0.1 else 'warning'
+                ai_summary = comprehensive_status.get("ai_summary", {})
+                data["ai"] = {
+                    "total_predictions": ai_summary.get("total_predictions", 0),
+                    "success_rate": ai_summary.get("success_rate", 0),
+                    "average_latency": ai_summary.get("average_latency_ms", 0),
+                    "status": "healthy"
+                    if ai_summary.get("error_rate", 0) < 0.1
+                    else "warning",
                 }
 
                 # 取引パフォーマンス
-                trading_summary = comprehensive_status.get('trading_summary', {})
-                data['trading'] = {
-                    'total_signals': trading_summary.get('total_signals', 0),
-                    'virtual_return': trading_summary.get('virtual_return', 0),
-                    'virtual_drawdown': trading_summary.get('virtual_drawdown', 0),
-                    'status': 'healthy' if trading_summary.get('virtual_drawdown', 0) < 0.05 else 'warning'
+                trading_summary = comprehensive_status.get("trading_summary", {})
+                data["trading"] = {
+                    "total_signals": trading_summary.get("total_signals", 0),
+                    "virtual_return": trading_summary.get("virtual_return", 0),
+                    "virtual_drawdown": trading_summary.get("virtual_drawdown", 0),
+                    "status": "healthy"
+                    if trading_summary.get("virtual_drawdown", 0) < 0.05
+                    else "warning",
                 }
 
             # アラート情報
             if self.alert_manager:
                 recent_alerts = self.alert_manager.get_alert_history(hours=24)
-                data['alerts'] = [
+                data["alerts"] = [
                     {
-                        'id': alert.id,
-                        'timestamp': alert.timestamp.isoformat(),
-                        'level': alert.level.value,
-                        'title': alert.title,
-                        'message': alert.message,
-                        'acknowledged': alert.acknowledged,
-                        'resolved': alert.resolved
+                        "id": alert.id,
+                        "timestamp": alert.timestamp.isoformat(),
+                        "level": alert.level.value,
+                        "title": alert.title,
+                        "message": alert.message,
+                        "acknowledged": alert.acknowledged,
+                        "resolved": alert.resolved,
                     }
                     for alert in recent_alerts[-10:]  # 最新10件
                 ]
@@ -635,10 +647,7 @@ class DashboardManager:
         if self.performance_monitor:
             return self.performance_monitor.get_comprehensive_status()
 
-        return {
-            'status': 'unknown',
-            'message': 'Performance monitor not available'
-        }
+        return {"status": "unknown", "message": "Performance monitor not available"}
 
     def _get_recent_predictions(self) -> List[Dict]:
         """最近の予測取得"""
@@ -683,11 +692,13 @@ class DashboardManager:
 
         logger.info("System components restarted")
 
+
 # 便利関数
 def create_dashboard_manager() -> DashboardManager:
     """ダッシュボード管理システム作成"""
 
     return DashboardManager()
+
 
 async def start_dashboard_server(
     prediction_engine: Optional[LivePredictionEngine] = None,
@@ -695,7 +706,7 @@ async def start_dashboard_server(
     alert_manager: Optional[AlertManager] = None,
     stream_manager: Optional[RealTimeStreamManager] = None,
     host: str = "0.0.0.0",
-    port: int = 8000
+    port: int = 8000,
 ):
     """ダッシュボードサーバー起動"""
 
@@ -706,11 +717,12 @@ async def start_dashboard_server(
         prediction_engine=prediction_engine,
         performance_monitor=performance_monitor,
         alert_manager=alert_manager,
-        stream_manager=stream_manager
+        stream_manager=stream_manager,
     )
 
     # サーバー起動
     await dashboard.start_dashboard(host=host, port=port)
+
 
 if __name__ == "__main__":
     # ダッシュボードテスト
@@ -727,7 +739,7 @@ if __name__ == "__main__":
             # サーバー起動（テスト用に短時間）
             await asyncio.wait_for(
                 dashboard.start_dashboard(host="0.0.0.0", port=8000),
-                timeout=30  # 30秒でタイムアウト
+                timeout=30,  # 30秒でタイムアウト
             )
 
         except asyncio.TimeoutError:
@@ -735,6 +747,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Test error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # テスト実行

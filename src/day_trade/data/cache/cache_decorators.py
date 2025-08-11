@@ -6,7 +6,7 @@
 
 import logging
 from functools import wraps
-from typing import Callable, Any
+from typing import Any, Callable
 
 from ...utils.cache_utils import (
     CacheStats,
@@ -14,9 +14,8 @@ from ...utils.cache_utils import (
     sanitize_cache_value,
     validate_cache_key,
 )
-from ...utils.exceptions import APIError, NetworkError, DataError
+from ...utils.exceptions import APIError, DataError, NetworkError
 from ...utils.logging_config import get_context_logger
-
 from .data_cache import DataCache
 
 logger = get_context_logger(__name__)
@@ -174,7 +173,9 @@ def adaptive_cache(
                     if auto_tune_counter % auto_tune_threshold == 0:
                         tune_result = cache.auto_tune_cache_settings()
                         if tune_result["adjusted"]:
-                            logger.info(f"キャッシュ自動調整: {tune_result['adjustments']}")
+                            logger.info(
+                                f"キャッシュ自動調整: {tune_result['adjustments']}"
+                            )
 
                     return cached_result
 
@@ -317,9 +318,8 @@ def memory_efficient_cache(
     Returns:
         デコレートされた関数
     """
-    import sys
-    import pickle
     import gzip
+    import pickle
 
     # 動的サイズ計算（概算）
     estimated_entry_size = 512  # バイト
@@ -338,9 +338,11 @@ def memory_efficient_cache(
                 cached_result = cache.get(cache_key)
                 if cached_result is not None:
                     # 圧縮されているかチェック
-                    if isinstance(cached_result, dict) and cached_result.get('compressed'):
+                    if isinstance(cached_result, dict) and cached_result.get(
+                        "compressed"
+                    ):
                         try:
-                            decompressed = gzip.decompress(cached_result['data'])
+                            decompressed = gzip.decompress(cached_result["data"])
                             result = pickle.loads(decompressed)
                             stats.record_hit()
                             return result
@@ -363,14 +365,18 @@ def memory_efficient_cache(
                         # 圧縮判定
                         if data_size > compression_threshold:
                             compressed_data = gzip.compress(serialized)
-                            if len(compressed_data) < data_size * 0.8:  # 20%以上圧縮できた場合
+                            if (
+                                len(compressed_data) < data_size * 0.8
+                            ):  # 20%以上圧縮できた場合
                                 cached_data = {
-                                    'compressed': True,
-                                    'data': compressed_data,
-                                    'original_size': data_size,
-                                    'compressed_size': len(compressed_data)
+                                    "compressed": True,
+                                    "data": compressed_data,
+                                    "original_size": data_size,
+                                    "compressed_size": len(compressed_data),
                                 }
-                                logger.debug(f"データ圧縮: {data_size}→{len(compressed_data)}バイト")
+                                logger.debug(
+                                    f"データ圧縮: {data_size}→{len(compressed_data)}バイト"
+                                )
                             else:
                                 cached_data = result
                         else:

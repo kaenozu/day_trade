@@ -4,13 +4,12 @@
 分析結果・税務データ・パフォーマンスレポートの多形式出力機能
 """
 
-import json
 import csv
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-import io
+from typing import Any, Dict, List, Optional
 
 from ...utils.logging_config import get_context_logger
 
@@ -89,7 +88,9 @@ class ReportExporter:
         """
         try:
             if filename is None:
-                year = tax_data.get("report_info", {}).get("target_year", datetime.now().year)
+                year = tax_data.get("report_info", {}).get(
+                    "target_year", datetime.now().year
+                )
                 filename = f"tax_report_{year}"
 
             if format_type.lower() == "json":
@@ -130,9 +131,13 @@ class ReportExporter:
             if format_type.lower() == "csv":
                 return self._export_transactions_to_csv(transactions, f"{filename}.csv")
             elif format_type.lower() == "json":
-                return self._export_to_json({"transactions": transactions}, f"{filename}.json")
+                return self._export_to_json(
+                    {"transactions": transactions}, f"{filename}.json"
+                )
             elif format_type.lower() == "xlsx":
-                return self._export_transactions_to_excel(transactions, f"{filename}.xlsx")
+                return self._export_transactions_to_excel(
+                    transactions, f"{filename}.xlsx"
+                )
             else:
                 raise ValueError(f"未サポートの出力形式: {format_type}")
 
@@ -151,8 +156,10 @@ class ReportExporter:
                     return str(obj)
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2, default=decimal_encoder)
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    data, f, ensure_ascii=False, indent=2, default=decimal_encoder
+                )
 
             logger.info(f"JSON出力完了: {file_path}")
             return str(file_path)
@@ -161,12 +168,14 @@ class ReportExporter:
             logger.error(f"JSON出力エラー: {e}")
             return ""
 
-    def _export_portfolio_to_csv(self, report_data: Dict[str, Any], filename: str) -> str:
+    def _export_portfolio_to_csv(
+        self, report_data: Dict[str, Any], filename: str
+    ) -> str:
         """ポートフォリオCSV出力"""
         file_path = self.output_dir / filename
 
         try:
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile)
 
                 # ヘッダー情報
@@ -225,7 +234,7 @@ class ReportExporter:
         file_path = self.output_dir / filename
 
         try:
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile)
 
                 # 基本情報
@@ -263,18 +272,30 @@ class ReportExporter:
                 stock_details = tax_data.get("stock_details", [])
                 if stock_details:
                     writer.writerow(["銘柄別損益明細"])
-                    writer.writerow(["銘柄", "購入回数", "売却回数", "購入額", "売却額", "実現損益", "手数料"])
+                    writer.writerow(
+                        [
+                            "銘柄",
+                            "購入回数",
+                            "売却回数",
+                            "購入額",
+                            "売却額",
+                            "実現損益",
+                            "手数料",
+                        ]
+                    )
 
                     for stock in stock_details:
-                        writer.writerow([
-                            stock["symbol"],
-                            stock["buy_transactions"],
-                            stock["sell_transactions"],
-                            stock["total_buy_amount"],
-                            stock["total_sell_amount"],
-                            stock["realized_pnl"],
-                            stock["total_fees"],
-                        ])
+                        writer.writerow(
+                            [
+                                stock["symbol"],
+                                stock["buy_transactions"],
+                                stock["sell_transactions"],
+                                stock["total_buy_amount"],
+                                stock["total_sell_amount"],
+                                stock["realized_pnl"],
+                                stock["total_fees"],
+                            ]
+                        )
 
             logger.info(f"税務CSV出力完了: {file_path}")
             return str(file_path)
@@ -283,7 +304,9 @@ class ReportExporter:
             logger.error(f"税務CSV出力エラー: {e}")
             return ""
 
-    def _export_transactions_to_csv(self, transactions: List[Dict], filename: str) -> str:
+    def _export_transactions_to_csv(
+        self, transactions: List[Dict], filename: str
+    ) -> str:
         """取引明細CSV出力"""
         file_path = self.output_dir / filename
 
@@ -292,7 +315,7 @@ class ReportExporter:
                 logger.warning("取引データが空です")
                 return ""
 
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
                 # ヘッダー作成
                 headers = list(transactions[0].keys())
                 writer = csv.DictWriter(csvfile, fieldnames=headers)
@@ -318,14 +341,16 @@ class ReportExporter:
             logger.error(f"取引明細CSV出力エラー: {e}")
             return ""
 
-    def _export_portfolio_to_html(self, report_data: Dict[str, Any], filename: str) -> str:
+    def _export_portfolio_to_html(
+        self, report_data: Dict[str, Any], filename: str
+    ) -> str:
         """ポートフォリオHTML出力"""
         file_path = self.output_dir / filename
 
         try:
             html_content = self._generate_portfolio_html(report_data)
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
             logger.info(f"ポートフォリオHTML出力完了: {file_path}")
@@ -419,7 +444,7 @@ class ReportExporter:
         try:
             html_content = self._generate_tax_html(tax_data)
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
             logger.info(f"税務HTML出力完了: {file_path}")
@@ -438,7 +463,9 @@ class ReportExporter:
         # 銘柄別テーブル生成
         stock_table_rows = ""
         for stock in stock_details:
-            pnl_class = "positive" if float(stock.get("realized_pnl", 0)) >= 0 else "negative"
+            pnl_class = (
+                "positive" if float(stock.get("realized_pnl", 0)) >= 0 else "negative"
+            )
             stock_table_rows += f"""
             <tr>
                 <td>{stock['symbol']}</td>
@@ -535,12 +562,14 @@ class ReportExporter:
 
         return html
 
-    def _export_transactions_to_excel(self, transactions: List[Dict], filename: str) -> str:
+    def _export_transactions_to_excel(
+        self, transactions: List[Dict], filename: str
+    ) -> str:
         """Excel形式出力（要openpyxl）"""
         try:
             # openpyxlが利用可能かチェック
             import openpyxl
-            from openpyxl.styles import Font, Alignment, Border, Side
+            from openpyxl.styles import Alignment, Border, Font, Side
         except ImportError:
             logger.error("Excel出力にはopenpyxlが必要です")
             return ""
@@ -554,12 +583,12 @@ class ReportExporter:
 
             # ヘッダースタイル設定
             header_font = Font(bold=True)
-            header_alignment = Alignment(horizontal='center')
+            header_alignment = Alignment(horizontal="center")
             border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
             )
 
             # ヘッダー行
@@ -579,7 +608,7 @@ class ReportExporter:
 
                         # 数値の場合は右寄せ
                         if isinstance(value, (int, float, Decimal)):
-                            cell.alignment = Alignment(horizontal='right')
+                            cell.alignment = Alignment(horizontal="right")
 
             # 列幅自動調整
             for column in ws.columns:
@@ -629,11 +658,15 @@ class ReportExporter:
         for format_type in formats:
             try:
                 if data_type == "portfolio":
-                    file_path = self.export_portfolio_report(data, format_type, base_filename)
+                    file_path = self.export_portfolio_report(
+                        data, format_type, base_filename
+                    )
                 elif data_type == "tax":
                     file_path = self.export_tax_report(data, format_type, base_filename)
                 elif data_type == "transactions":
-                    file_path = self.export_trade_transactions(data, format_type, base_filename)
+                    file_path = self.export_trade_transactions(
+                        data, format_type, base_filename
+                    )
                 else:
                     logger.error(f"未知のデータタイプ: {data_type}")
                     continue

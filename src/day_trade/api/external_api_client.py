@@ -29,6 +29,24 @@ try:
 except ImportError:
     SecurityManager = None
 
+# セキュア APIクライアント統合
+try:
+    from .secure_api_client import (
+        APIKeyType,
+        SecureAPIKeyManager,
+        SecureErrorHandler,
+        SecureURLBuilder,
+        SecurityLevel,
+        URLSecurityPolicy,
+    )
+
+    SECURE_API_AVAILABLE = True
+except ImportError:
+    SECURE_API_AVAILABLE = False
+    logger.warning(
+        "セキュアAPIクライアント機能が利用できません（オプショナル依存関係）"
+    )
+
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -178,14 +196,25 @@ class APIConfig:
 
     # セキュリティ設定（強化版）
     security_manager: Optional[SecurityManager] = None
-    api_key_prefix_mapping: Dict[str, str] = field(default_factory=lambda: {
-        'yahoo_finance': 'YF_API_KEY',
-        'alpha_vantage': 'AV_API_KEY',
-        'iex_cloud': 'IEX_API_KEY',
-        'finnhub': 'FINNHUB_API_KEY',
-        'polygon': 'POLYGON_API_KEY',
-        'twelve_data': 'TWELVE_DATA_API_KEY'
-    })
+    secure_key_manager: Optional["SecureAPIKeyManager"] = None
+    secure_url_builder: Optional["SecureURLBuilder"] = None
+    security_level: "SecurityLevel" = (
+        SecurityLevel.MEDIUM if SECURE_API_AVAILABLE else None
+    )
+
+    api_key_prefix_mapping: Dict[str, str] = field(
+        default_factory=lambda: {
+            "yahoo_finance": "YF_API_KEY",
+            "alpha_vantage": "AV_API_KEY",
+            "iex_cloud": "IEX_API_KEY",
+            "finnhub": "FINNHUB_API_KEY",
+            "polygon": "POLYGON_API_KEY",
+            "twelve_data": "TWELVE_DATA_API_KEY",
+        }
+    )
+
+    # セキュアURL構築ポリシー
+    url_security_policy: Optional["URLSecurityPolicy"] = None
 
     # 廃止予定フィールド（後方互換性のため残存）
     api_keys: Dict[str, str] = field(default_factory=dict)
@@ -193,6 +222,7 @@ class APIConfig:
 
     def __post_init__(self):
         """初期化後処理でセキュリティマネージャー設定"""
+        # 既存のSecurityManager初期化
         if self.security_manager is None and SecurityManager is not None:
             try:
                 self.security_manager = SecurityManager()
@@ -201,11 +231,59 @@ class APIConfig:
                 logger.warning(f"セキュリティマネージャー初期化失敗: {e}")
                 self.security_manager = None
         elif SecurityManager is None:
-            logger.debug("SecurityManagerモジュールが利用できません（オプショナル依存関係）")
+            logger.debug(
+                "SecurityManagerモジュールが利用できません（オプショナル依存関係）"
+            )
+
+        # セキュアAPIクライアント機能の初期化
+        if SECURE_API_AVAILABLE:
+            self._initialize_secure_features()
+        else:
+            logger.warning(
+                "セキュアAPIクライアント機能が無効です。基本的なセキュリティ機能のみ利用可能です。"
+            )
+
+    def _initialize_secure_features(self):
+        """セキュア機能の初期化"""
+        try:
+            # セキュアAPIキーマネージャー初期化
+            if self.secure_key_manager is None:
+                self.secure_key_manager = SecureAPIKeyManager()
+                logger.info("セキュアAPIキーマネージャー初期化完了")
+
+            # セキュアURL構築器初期化
+            if self.secure_url_builder is None:
+                # デフォルトポリシー設定
+                if self.url_security_policy is None:
+                    self.url_security_policy = URLSecurityPolicy(
+                        allowed_schemes=["https"],
+                        allowed_hosts=[
+                            ".alphavantage.co",
+                            ".yahoo.com",
+                            ".yahooapis.com",
+                            ".iexapis.com",
+                            ".finnhub.io",
+                            ".polygon.io",
+                            ".twelvedata.com",
+                            ".quandl.com",
+                        ],
+                        max_url_length=4096,
+                        max_param_length=1024,
+                        strict_encoding=True,
+                    )
+
+                self.secure_url_builder = SecureURLBuilder(self.url_security_policy)
+                logger.info("セキュアURL構築器初期化完了")
+
+        except Exception as e:
+            logger.error(f"セキュア機能初期化エラー: {e}")
+            # フォールバック: セキュア機能を無効化
+            self.secure_key_manager = None
+            self.secure_url_builder = None
 
 
 class ExternalAPIClient:
-    """外部APIクライアント"""
+    """外部APIクライアント（セキュリティ強化版）"""
 
     def __init__(self, config: Optional[APIConfig] = None):
         self.config = config or APIConfig()
@@ -217,16 +295,18 @@ class ExternalAPIClient:
         self.session: Optional[aiohttp.ClientSession] = None
         self.semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
 
-        # 統計情報
+        # 統計情報とセキュリティメトリクス
         self.request_stats: Dict[str, int] = {
             "total_requests": 0,
             "successful_requests": 0,
             "failed_requests": 0,
             "cached_responses": 0,
             "rate_limited_requests": 0,
+            "security_violations": 0,
+            "sanitized_errors": 0,
         }
 
-        # デフォルトエンドポイント設定
+        # デフォルトエンドポイント設定（セキュリティ強化版）
         self._setup_default_endpoints()
 
     def _setup_default_endpoints(self) -> None:
@@ -441,7 +521,9 @@ class ExternalAPIClient:
                 # セキュリティ強化: エラーメッセージをサニタイズして保存
                 raw_error = str(e)
                 last_error = self._sanitize_error_message(raw_error, type(e).__name__)
-                logger.warning(f"APIリクエストエラー (試行 {attempt + 1}): {last_error}")
+                logger.warning(
+                    f"APIリクエストエラー (試行 {attempt + 1}): {last_error}"
+                )
 
                 if attempt >= request.endpoint.max_retries:
                     break
@@ -555,44 +637,90 @@ class ExternalAPIClient:
 
     def _build_url(self, request: APIRequest) -> str:
         """URL構築（セキュリティ強化版）"""
-        url = request.endpoint.endpoint_url
+        try:
+            # セキュアURL構築器が利用可能な場合
+            if self.config.secure_url_builder and SECURE_API_AVAILABLE:
+                # パスパラメータとクエリパラメータを分離
+                path_params = {}
+                query_params = {}
 
-        # パラメータ置換（安全なエンコーディングで実施）
-        for key, value in request.params.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in url:
-                # セキュリティ強化: 適切なURLエンコーディングを適用
-                safe_value = self._sanitize_url_parameter(str(value), key)
-                url = url.replace(placeholder, safe_value)
+                for key, value in request.params.items():
+                    placeholder = f"{{{key}}}"
+                    if placeholder in request.endpoint.endpoint_url:
+                        path_params[key] = str(value)
+                    else:
+                        query_params[key] = value
 
-        return url
+                # セキュアURL構築
+                secure_url = self.config.secure_url_builder.build_secure_url(
+                    base_url=request.endpoint.endpoint_url,
+                    params=query_params if query_params else None,
+                    path_params=path_params if path_params else None,
+                )
+
+                logger.debug(f"セキュアURL構築成功: {len(secure_url)}文字")
+                return secure_url
+
+            else:
+                # フォールバック: 既存のセキュリティ機能を使用
+                url = request.endpoint.endpoint_url
+
+                # パラメータ置換（安全なエンコーディングで実施）
+                for key, value in request.params.items():
+                    placeholder = f"{{{key}}}"
+                    if placeholder in url:
+                        # セキュリティ強化: 適切なURLエンコーディングを適用
+                        safe_value = self._sanitize_url_parameter(str(value), key)
+                        url = url.replace(placeholder, safe_value)
+
+                return url
+
+        except ValueError as e:
+            # セキュリティポリシー違反
+            self.request_stats["security_violations"] += 1
+            logger.error(f"URL構築セキュリティエラー: {e}")
+            raise ValueError("URL構築に失敗しました: セキュリティポリシー違反")
+
+        except Exception as e:
+            logger.error(f"URL構築中に予期しないエラー: {e}")
+            # セキュアエラーハンドリングで機密情報を除去
+            if SECURE_API_AVAILABLE:
+                safe_error_msg = SecureErrorHandler.sanitize_error_message(e, "URL構築")
+                self.request_stats["sanitized_errors"] += 1
+                raise ValueError(safe_error_msg)
+            else:
+                raise
 
     def _sanitize_url_parameter(self, value: str, param_name: str) -> str:
         """URLパラメータのサニタイゼーション（セキュリティ強化）"""
         # 1. 危険な文字パターンチェック
         dangerous_patterns = [
-            "../",      # パストラバーサル攻撃
-            "..\\",     # Windows パストラバーサル
-            "%2e%2e",   # エンコード済みパストラバーサル
-            "%2e%2e%2f", # エンコード済みパストラバーサル
-            "//",       # プロトコル相対URL
-            "\\\\",     # UNCパス
-            "\x00",     # NULLバイト
-            "<",        # HTMLタグ
-            ">",        # HTMLタグ
-            "'",        # SQLインジェクション対策
-            '"',        # SQLインジェクション対策
-            "javascript:", # JavaScriptスキーム
-            "data:",    # データスキーム
-            "file:",    # ファイルスキーム
-            "ftp:",     # FTPスキーム
+            "../",  # パストラバーサル攻撃
+            "..\\",  # Windows パストラバーサル
+            "%2e%2e",  # エンコード済みパストラバーサル
+            "%2e%2e%2f",  # エンコード済みパストラバーサル
+            "//",  # プロトコル相対URL
+            "\\\\",  # UNCパス
+            "\x00",  # NULLバイト
+            "<",  # HTMLタグ
+            ">",  # HTMLタグ
+            "'",  # SQLインジェクション対策
+            '"',  # SQLインジェクション対策
+            "javascript:",  # JavaScriptスキーム
+            "data:",  # データスキーム
+            "file:",  # ファイルスキーム
+            "ftp:",  # FTPスキーム
         ]
 
         # 危険パターン検出
         for pattern in dangerous_patterns:
             if pattern in value.lower():
-                logger.warning(f"危険なURLパラメータパターンを検出: {param_name}={value[:50]}...")
-                raise ValueError(f"URLパラメータに危険な文字が含まれています: {param_name}")
+                logger.warning(
+                    f"危険なURLパラメータパターンを検出: {param_name}={value[:50]}..."
+                )
+                raise ValueError(
+                    f"URLパラメータに危険な文字が含まれています: {param_name}"
+                )
 
         # 2. パラメータ長さ制限
         if len(value) > 200:
@@ -600,16 +728,20 @@ class ExternalAPIClient:
             raise ValueError(f"URLパラメータが長すぎます: {param_name}")
 
         # 3. 英数字・記号のみ許可（特殊用途パラメータ以外）
-        if param_name in ['symbol', 'ticker']:
+        if param_name in ["symbol", "ticker"]:
             # 株式コード用: 英数字・ピリオド・ハイフンのみ許可
-            if not all(c.isalnum() or c in '.-' for c in value):
+            if not all(c.isalnum() or c in ".-" for c in value):
                 logger.warning(f"不正な株式コード形式: {param_name}={value}")
-                raise ValueError(f"株式コードに不正な文字が含まれています: {param_name}")
+                raise ValueError(
+                    f"株式コードに不正な文字が含まれています: {param_name}"
+                )
 
         # 4. URLエンコーディング適用
         try:
-            encoded_value = urllib.parse.quote(value, safe='')
-            logger.debug(f"URLパラメータエンコード: {param_name}: {value} -> {encoded_value}")
+            encoded_value = urllib.parse.quote(value, safe="")
+            logger.debug(
+                f"URLパラメータエンコード: {param_name}: {value} -> {encoded_value}"
+            )
             return encoded_value
         except Exception as e:
             logger.error(f"URLエンコーディングエラー: {param_name}={value}, error={e}")
@@ -617,9 +749,30 @@ class ExternalAPIClient:
 
     def _sanitize_error_message(self, error_message: str, error_type: str) -> str:
         """エラーメッセージの機密情報サニタイゼーション（セキュリティ強化）"""
+        # セキュアエラーハンドラーが利用可能な場合
+        if SECURE_API_AVAILABLE:
+            try:
+                # 高度なセキュリティサニタイゼーション
+                sanitized_msg = SecureErrorHandler.sanitize_error_message(
+                    Exception(error_message), f"API通信[{error_type}]"
+                )
+                self.request_stats["sanitized_errors"] += 1
+                return sanitized_msg
+
+            except Exception as e:
+                logger.error(f"セキュアエラーハンドラーエラー: {e}")
+                # フォールバック: 既存のサニタイゼーション
+
+        # 従来のサニタイゼーション
         # 内部ログに詳細エラーを記録（セキュアなマスキング付き）
-        from ..core.trade_manager import mask_sensitive_info
-        logger.error(f"内部APIエラー詳細[{error_type}]: {mask_sensitive_info(error_message)}")
+        try:
+            from ..core.trade_manager import mask_sensitive_info
+
+            logger.error(
+                f"内部APIエラー詳細[{error_type}]: {mask_sensitive_info(error_message)}"
+            )
+        except ImportError:
+            logger.error(f"内部APIエラー[{error_type}]: [マスキング機能無効]")
 
         # 公開用の安全なエラーメッセージ生成
         safe_messages = {
@@ -629,7 +782,7 @@ class ExternalAPIClient:
             "JSONDecodeError": "外部APIからの応答形式が不正です",
             "ValueError": "リクエストパラメータが不正です",
             "KeyError": "APIレスポンスの形式が予期しないものです",
-            "default": "外部API処理でエラーが発生しました"
+            "default": "外部API処理でエラーが発生しました",
         }
 
         # エラータイプに応じた安全なメッセージを返す
@@ -637,19 +790,22 @@ class ExternalAPIClient:
 
         # 機密情報が含まれる可能性のあるパターンをチェック
         sensitive_patterns = [
-            r'/[a-zA-Z]:/[^/]+',  # Windowsファイルパス
-            r'/[^/]+/.+',         # Unixファイルパス
-            r'[a-zA-Z0-9]{20,}',  # APIキー様文字列
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',  # IPアドレス
-            r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',  # メールアドレス
-            r'[a-zA-Z]+://[^\s]+',  # URL
-            r'(?:password|token|key|secret)[:=]\s*[^\s]+',  # 認証情報
+            r"/[a-zA-Z]:/[^/]+",  # Windowsファイルパス
+            r"/[^/]+/.+",  # Unixファイルパス
+            r"[a-zA-Z0-9]{20,}",  # APIキー様文字列
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",  # IPアドレス
+            r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",  # メールアドレス
+            r"[a-zA-Z]+://[^\s]+",  # URL
+            r"(?:password|token|key|secret)[:=]\s*[^\s]+",  # 認証情報
         ]
 
         import re
+
         for pattern in sensitive_patterns:
             if re.search(pattern, error_message, re.IGNORECASE):
-                logger.warning(f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}")
+                logger.warning(
+                    f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}"
+                )
                 # より汎用的なメッセージにさらに変更
                 return f"{safe_message}（詳細はシステムログを確認してください）"
 
@@ -660,26 +816,55 @@ class ExternalAPIClient:
         """認証キー取得（セキュリティ強化版）"""
         provider_key = endpoint.provider.value
 
-        # 1. セキュリティマネージャーを使用した安全なキー取得
-        if self.config.security_manager and provider_key in self.config.api_key_prefix_mapping:
+        # 1. セキュアAPIキーマネージャーを使用した取得を優先
+        if self.config.secure_key_manager and SECURE_API_AVAILABLE:
+            try:
+                # ホスト名を取得してセキュリティ検証
+                import urllib.parse
+
+                parsed_url = urllib.parse.urlparse(endpoint.endpoint_url)
+                host = parsed_url.hostname or "unknown"
+
+                api_key = self.config.secure_key_manager.get_api_key(provider_key, host)
+                if api_key:
+                    logger.debug(
+                        f"セキュアAPIキーマネージャーからキー取得成功: {provider_key}"
+                    )
+                    return api_key
+                else:
+                    logger.info(
+                        f"セキュアAPIキーマネージャーでキー未登録: {provider_key}"
+                    )
+            except Exception as e:
+                logger.error(f"セキュアAPIキーマネージャーエラー: {e}")
+
+        # 2. 従来のSecurityManagerを使用した安全なキー取得
+        if (
+            self.config.security_manager
+            and provider_key in self.config.api_key_prefix_mapping
+        ):
             try:
                 env_key_name = self.config.api_key_prefix_mapping[provider_key]
                 api_key = self.config.security_manager.get_api_key(env_key_name)
                 if api_key:
-                    logger.debug(f"セキュリティマネージャーからAPIキー取得: {provider_key}")
+                    logger.debug(
+                        f"セキュリティマネージャーからAPIキー取得: {provider_key}"
+                    )
                     return api_key
                 else:
-                    logger.warning(f"セキュリティマネージャーでAPIキー未設定: {env_key_name}")
+                    logger.warning(
+                        f"セキュリティマネージャーでAPIキー未設定: {env_key_name}"
+                    )
             except Exception as e:
                 logger.error(f"セキュリティマネージャーAPIキー取得エラー: {e}")
 
-        # 2. フォールバック: 従来のapi_keys辞書から取得（後方互換性）
+        # 3. フォールバック: 従来のapi_keys辞書から取得（後方互換性）
         fallback_key = self.config.api_keys.get(provider_key)
         if fallback_key:
             logger.warning(f"従来のAPIキー辞書を使用（非推奨）: {provider_key}")
             return fallback_key
 
-        # 3. APIキーが見つからない場合
+        # 4. APIキーが見つからない場合
         logger.error(f"APIキーが設定されていません: {provider_key}")
         return None
 
@@ -849,19 +1034,19 @@ class ExternalAPIClient:
                 raise ValueError("CSVファイルサイズが制限を超過しています")
 
             # セキュリティ強化: 行数制限
-            line_count = csv_text.count('\n') + 1
+            line_count = csv_text.count("\n") + 1
             if line_count > 50000:  # 50,000行制限
                 logger.warning(f"CSV行数が多すぎます: {line_count}行")
                 raise ValueError("CSV行数が制限を超過しています")
 
             # セキュリティ強化: 危険なCSVパターンチェック
             dangerous_csv_patterns = [
-                "=cmd|",          # Excelコマンド実行
-                "=system(",       # システムコマンド
-                "@SUM(",          # Excel関数インジェクション
-                "=HYPERLINK(",    # ハイパーリンクインジェクション
-                "javascript:",    # JavaScriptスキーム
-                "data:text/html", # HTMLデータスキーム
+                "=cmd|",  # Excelコマンド実行
+                "=system(",  # システムコマンド
+                "@SUM(",  # Excel関数インジェクション
+                "=HYPERLINK(",  # ハイパーリンクインジェクション
+                "javascript:",  # JavaScriptスキーム
+                "data:text/html",  # HTMLデータスキーム
             ]
 
             for pattern in dangerous_csv_patterns:
@@ -874,10 +1059,10 @@ class ExternalAPIClient:
             # 安全なCSV読み込み設定
             return pd.read_csv(
                 StringIO(csv_text),
-                nrows=50000,      # 行数制限（重複チェック）
+                nrows=50000,  # 行数制限（重複チェック）
                 memory_map=False,  # メモリマップ無効
                 low_memory=False,  # 低メモリモード無効（安全性優先）
-                engine='python'    # Pythonエンジン使用（C拡張の脆弱性回避）
+                engine="python",  # Pythonエンジン使用（C拡張の脆弱性回避）
             )
 
         except pd.errors.EmptyDataError:

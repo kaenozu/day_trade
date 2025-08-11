@@ -7,8 +7,8 @@
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
 
 from ...utils.logging_config import get_context_logger, log_performance_metric
 from .yfinance_fetcher import YFinanceFetcher
@@ -59,7 +59,7 @@ class BulkFetcher:
     def bulk_get_current_prices(
         self,
         codes: List[str],
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Dict[str, float]]:
         """
         複数銘柄の現在価格を一括取得
@@ -80,10 +80,15 @@ class BulkFetcher:
             results = {}
 
             # バッチに分割
-            batches = [codes[i:i + self.batch_size] for i in range(0, len(codes), self.batch_size)]
+            batches = [
+                codes[i : i + self.batch_size]
+                for i in range(0, len(codes), self.batch_size)
+            ]
             processed_count = 0
 
-            logger.info(f"価格一括取得開始: {len(codes)}銘柄を{len(batches)}バッチで処理")
+            logger.info(
+                f"価格一括取得開始: {len(codes)}銘柄を{len(batches)}バッチで処理"
+            )
 
             for batch_idx, batch in enumerate(batches):
                 batch_start_time = time.time()
@@ -103,18 +108,23 @@ class BulkFetcher:
                     time.sleep(self.rate_limit_delay)
 
                 batch_time = time.time() - batch_start_time
-                logger.debug(f"バッチ{batch_idx + 1}/{len(batches)}完了: {len(batch)}銘柄, {batch_time:.2f}秒")
+                logger.debug(
+                    f"バッチ{batch_idx + 1}/{len(batches)}完了: {len(batch)}銘柄, {batch_time:.2f}秒"
+                )
 
             # 統計更新
-            self.bulk_stats["successful_symbols"] += len([r for r in results.values() if r])
+            self.bulk_stats["successful_symbols"] += len(
+                [r for r in results.values() if r]
+            )
             self.bulk_stats["successful_requests"] += 1
             self.bulk_stats["last_request_time"] = datetime.now().isoformat()
 
             total_time = time.time() - start_time
             self.bulk_stats["average_batch_time"] = (
-                (self.bulk_stats["average_batch_time"] * (self.bulk_stats["successful_requests"] - 1) + total_time)
-                / self.bulk_stats["successful_requests"]
-            )
+                self.bulk_stats["average_batch_time"]
+                * (self.bulk_stats["successful_requests"] - 1)
+                + total_time
+            ) / self.bulk_stats["successful_requests"]
 
             successful_count = len([r for r in results.values() if r])
 
@@ -124,8 +134,10 @@ class BulkFetcher:
                     "total_symbols": len(codes),
                     "successful_symbols": successful_count,
                     "processing_time": total_time,
-                    "symbols_per_second": len(codes) / total_time if total_time > 0 else 0,
-                }
+                    "symbols_per_second": len(codes) / total_time
+                    if total_time > 0
+                    else 0,
+                },
             )
 
             logger.info(
@@ -144,7 +156,9 @@ class BulkFetcher:
         """価格データバッチ処理"""
         results = {}
 
-        with ThreadPoolExecutor(max_workers=min(self.max_workers, len(batch))) as executor:
+        with ThreadPoolExecutor(
+            max_workers=min(self.max_workers, len(batch))
+        ) as executor:
             # 並列タスク投入
             future_to_code = {
                 executor.submit(self.base_fetcher.get_current_price, code): code
@@ -166,7 +180,7 @@ class BulkFetcher:
     def bulk_get_company_info(
         self,
         codes: List[str],
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
         複数銘柄の企業情報を一括取得
@@ -182,10 +196,15 @@ class BulkFetcher:
 
         try:
             results = {}
-            batches = [codes[i:i + self.batch_size] for i in range(0, len(codes), self.batch_size)]
+            batches = [
+                codes[i : i + self.batch_size]
+                for i in range(0, len(codes), self.batch_size)
+            ]
             processed_count = 0
 
-            logger.info(f"企業情報一括取得開始: {len(codes)}銘柄を{len(batches)}バッチで処理")
+            logger.info(
+                f"企業情報一括取得開始: {len(codes)}銘柄を{len(batches)}バッチで処理"
+            )
 
             for batch_idx, batch in enumerate(batches):
                 batch_results = self._process_company_info_batch(batch)
@@ -209,7 +228,7 @@ class BulkFetcher:
                     "total_symbols": len(codes),
                     "successful_symbols": successful_count,
                     "processing_time": total_time,
-                }
+                },
             )
 
             logger.info(
@@ -223,11 +242,15 @@ class BulkFetcher:
             logger.error(f"企業情報一括取得エラー: {e}")
             return {}
 
-    def _process_company_info_batch(self, batch: List[str]) -> Dict[str, Dict[str, Any]]:
+    def _process_company_info_batch(
+        self, batch: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
         """企業情報バッチ処理"""
         results = {}
 
-        with ThreadPoolExecutor(max_workers=min(self.max_workers // 2, len(batch))) as executor:
+        with ThreadPoolExecutor(
+            max_workers=min(self.max_workers // 2, len(batch))
+        ) as executor:
             # 企業情報取得は重い処理なので並列数を抑制
             future_to_code = {
                 executor.submit(self.base_fetcher.get_company_info, code): code
@@ -237,7 +260,9 @@ class BulkFetcher:
             for future in as_completed(future_to_code):
                 code = future_to_code[future]
                 try:
-                    result = future.result(timeout=60)  # 60秒タイムアウト（企業情報は時間がかかる）
+                    result = future.result(
+                        timeout=60
+                    )  # 60秒タイムアウト（企業情報は時間がかかる）
                     results[code] = result if result else {}
                 except Exception as e:
                     logger.warning(f"企業情報取得失敗: {code} - {e}")
@@ -246,10 +271,7 @@ class BulkFetcher:
         return results
 
     def bulk_get_current_prices_optimized(
-        self,
-        codes: List[str],
-        chunk_size: int = 20,
-        max_concurrent_chunks: int = 5
+        self, codes: List[str], chunk_size: int = 20, max_concurrent_chunks: int = 5
     ) -> Dict[str, Dict[str, float]]:
         """
         最適化された価格一括取得（大量銘柄対応）
@@ -266,7 +288,9 @@ class BulkFetcher:
 
         try:
             # チャンクに分割
-            chunks = [codes[i:i + chunk_size] for i in range(0, len(codes), chunk_size)]
+            chunks = [
+                codes[i : i + chunk_size] for i in range(0, len(codes), chunk_size)
+            ]
             results = {}
 
             logger.info(
@@ -277,7 +301,9 @@ class BulkFetcher:
             # セマフォで同時実行数を制御
             semaphore = asyncio.Semaphore(max_concurrent_chunks)
 
-            async def process_chunk_async(chunk: List[str]) -> Dict[str, Dict[str, float]]:
+            async def process_chunk_async(
+                chunk: List[str],
+            ) -> Dict[str, Dict[str, float]]:
                 async with semaphore:
                     # 非同期でチャンク処理
                     loop = asyncio.get_event_loop()
@@ -319,10 +345,12 @@ class BulkFetcher:
                     "total_symbols": len(codes),
                     "successful_symbols": successful_count,
                     "processing_time": total_time,
-                    "symbols_per_second": len(codes) / total_time if total_time > 0 else 0,
+                    "symbols_per_second": len(codes) / total_time
+                    if total_time > 0
+                    else 0,
                     "chunk_size": chunk_size,
                     "concurrent_chunks": max_concurrent_chunks,
-                }
+                },
             )
 
             logger.info(
@@ -342,10 +370,14 @@ class BulkFetcher:
 
         # 追加の計算済み統計
         if stats["total_symbols"] > 0:
-            stats["symbol_success_rate"] = stats["successful_symbols"] / stats["total_symbols"]
+            stats["symbol_success_rate"] = (
+                stats["successful_symbols"] / stats["total_symbols"]
+            )
 
         if stats["total_requests"] > 0:
-            stats["request_success_rate"] = stats["successful_requests"] / stats["total_requests"]
+            stats["request_success_rate"] = (
+                stats["successful_requests"] / stats["total_requests"]
+            )
 
         stats["configuration"] = {
             "max_workers": self.max_workers,
@@ -405,9 +437,9 @@ class BulkFetcher:
 
             # 予想処理時間を計算
             estimated_time = (
-                (target_symbols / optimal_batch_size) *
-                (optimal_batch_size / optimal_workers) *
-                (1.0 + optimal_delay)
+                (target_symbols / optimal_batch_size)
+                * (optimal_batch_size / optimal_workers)
+                * (1.0 + optimal_delay)
             )
 
             recommendations = {
@@ -483,17 +515,23 @@ class BulkFetcher:
             # 成功率チェック
             if stats.get("symbol_success_rate", 1.0) < 0.8:
                 bulk_health_score -= 20
-                bulk_issues.append(f"低いシンボル成功率: {stats.get('symbol_success_rate', 0):.2%}")
+                bulk_issues.append(
+                    f"低いシンボル成功率: {stats.get('symbol_success_rate', 0):.2%}"
+                )
 
             # リクエスト成功率チェック
             if stats.get("request_success_rate", 1.0) < 0.9:
                 bulk_health_score -= 15
-                bulk_issues.append(f"低いリクエスト成功率: {stats.get('request_success_rate', 0):.2%}")
+                bulk_issues.append(
+                    f"低いリクエスト成功率: {stats.get('request_success_rate', 0):.2%}"
+                )
 
             # 処理時間チェック
             if stats.get("average_batch_time", 0) > 60:  # 1分超
                 bulk_health_score -= 10
-                bulk_issues.append(f"長い平均処理時間: {stats.get('average_batch_time', 0):.1f}秒")
+                bulk_issues.append(
+                    f"長い平均処理時間: {stats.get('average_batch_time', 0):.1f}秒"
+                )
 
             # 総合評価
             combined_score = (base_health["score"] + bulk_health_score) / 2

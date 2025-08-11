@@ -6,27 +6,33 @@ Phase G: 本番運用最適化フェーズ
 全モジュールの動作確認・パフォーマンス測定・問題診断
 """
 
+import json
 import sys
 import time
-import json
-import psutil
 import traceback
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # 主要モジュールのインポート
 try:
-    from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
-    from src.day_trade.data.stock_fetcher import StockFetcher
-    from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
-    from src.day_trade.ml import DeepLearningModelManager, DeepLearningConfig
     from src.day_trade.acceleration import GPUAccelerationEngine
+    from src.day_trade.analysis.technical_indicators_unified import (
+        TechnicalIndicatorsManager,
+    )
     from src.day_trade.api import RealtimePredictionAPI
+    from src.day_trade.core.optimization_strategy import (
+        OptimizationConfig,
+        OptimizationLevel,
+    )
+    from src.day_trade.data.stock_fetcher import StockFetcher
+    from src.day_trade.ml import DeepLearningConfig, DeepLearningModelManager
 except ImportError as e:
     print(f"[CRITICAL] モジュールインポートエラー: {e}")
     sys.exit(1)
@@ -35,6 +41,7 @@ except ImportError as e:
 @dataclass
 class HealthCheckResult:
     """健全性チェック結果"""
+
     module_name: str
     status: str  # OK, WARNING, ERROR, CRITICAL
     execution_time: float
@@ -47,6 +54,7 @@ class HealthCheckResult:
 @dataclass
 class SystemDiagnosticReport:
     """システム診断レポート"""
+
     timestamp: datetime
     overall_status: str
     system_info: Dict[str, Any]
@@ -69,7 +77,9 @@ class SystemHealthDiagnostic:
         print("Phase G: 本番運用最適化フェーズ")
         print("=" * 80)
         print(f"診断開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"システム: {self.system_info['platform']} {self.system_info['architecture']}")
+        print(
+            f"システム: {self.system_info['platform']} {self.system_info['architecture']}"
+        )
         print(f"Python: {self.system_info['python_version']}")
         print(f"CPU: {self.system_info['cpu_cores']}コア")
         print(f"RAM: {self.system_info['memory_total']:.1f}GB")
@@ -80,15 +90,15 @@ class SystemHealthDiagnostic:
         import platform
 
         return {
-            'platform': platform.system(),
-            'platform_version': platform.version(),
-            'architecture': platform.machine(),
-            'python_version': platform.python_version(),
-            'cpu_cores': psutil.cpu_count(logical=True),
-            'cpu_physical_cores': psutil.cpu_count(logical=False),
-            'memory_total': psutil.virtual_memory().total / 1024**3,  # GB
-            'disk_total': psutil.disk_usage('/').total / 1024**3,  # GB
-            'hostname': platform.node()
+            "platform": platform.system(),
+            "platform_version": platform.version(),
+            "architecture": platform.machine(),
+            "python_version": platform.python_version(),
+            "cpu_cores": psutil.cpu_count(logical=True),
+            "cpu_physical_cores": psutil.cpu_count(logical=False),
+            "memory_total": psutil.virtual_memory().total / 1024**3,  # GB
+            "disk_total": psutil.disk_usage("/").total / 1024**3,  # GB
+            "hostname": platform.node(),
         }
 
     def _measure_performance(self, func, *args, **kwargs) -> tuple:
@@ -129,9 +139,9 @@ class SystemHealthDiagnostic:
                     raise Exception(f"最適化レベル {level.value} エラー: {e}")
 
             return {
-                'tested_levels': levels_tested,
-                'strategy_pattern_working': True,
-                'fallback_functional': True
+                "tested_levels": levels_tested,
+                "strategy_pattern_working": True,
+                "fallback_functional": True,
             }
 
         result, success, error, exec_time, mem_usage = self._measure_performance(
@@ -154,7 +164,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_data_fetching_system(self) -> HealthCheckResult:
@@ -165,20 +175,20 @@ class SystemHealthDiagnostic:
             fetcher = StockFetcher()
 
             # 設定確認
-            config_check = hasattr(fetcher, 'config') and fetcher.config is not None
+            config_check = hasattr(fetcher, "config") and fetcher.config is not None
 
             # キャッシュ機能確認
-            cache_check = hasattr(fetcher, 'cache') and fetcher.cache is not None
+            cache_check = hasattr(fetcher, "cache") and fetcher.cache is not None
 
             # API接続確認（モック）
             api_status = "available"  # 実際の環境では実際のAPIテストを行う
 
             return {
-                'fetcher_initialized': True,
-                'config_valid': config_check,
-                'cache_functional': cache_check,
-                'api_status': api_status,
-                'supported_sources': ['yahoo', 'alpha_vantage', 'quandl']
+                "fetcher_initialized": True,
+                "config_valid": config_check,
+                "cache_functional": cache_check,
+                "api_status": api_status,
+                "supported_sources": ["yahoo", "alpha_vantage", "quandl"],
             }
 
         result, success, error, exec_time, mem_usage = self._measure_performance(
@@ -194,7 +204,7 @@ class SystemHealthDiagnostic:
             recommendations.append("データ取得の初期化時間を最適化")
             status = "WARNING"
 
-        if result and not result.get('cache_functional'):
+        if result and not result.get("cache_functional"):
             recommendations.append("キャッシュシステムの有効化推奨")
 
         return HealthCheckResult(
@@ -204,7 +214,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_technical_analysis_system(self) -> HealthCheckResult:
@@ -213,21 +223,25 @@ class SystemHealthDiagnostic:
 
         def test_analysis_system():
             # テストデータ生成
-            import pandas as pd
             import numpy as np
+            import pandas as pd
 
-            dates = pd.date_range('2023-01-01', periods=100, freq='D')
-            test_data = pd.DataFrame({
-                'Date': dates,
-                'Open': np.random.uniform(100, 200, 100),
-                'High': np.random.uniform(150, 250, 100),
-                'Low': np.random.uniform(50, 150, 100),
-                'Close': np.random.uniform(100, 200, 100),
-                'Volume': np.random.randint(100000, 1000000, 100)
-            }).set_index('Date')
+            dates = pd.date_range("2023-01-01", periods=100, freq="D")
+            test_data = pd.DataFrame(
+                {
+                    "Date": dates,
+                    "Open": np.random.uniform(100, 200, 100),
+                    "High": np.random.uniform(150, 250, 100),
+                    "Low": np.random.uniform(50, 150, 100),
+                    "Close": np.random.uniform(100, 200, 100),
+                    "Volume": np.random.randint(100000, 1000000, 100),
+                }
+            ).set_index("Date")
 
             # テクニカル指標テスト
-            from src.day_trade.core.optimization_strategy import get_optimized_implementation
+            from src.day_trade.core.optimization_strategy import (
+                get_optimized_implementation,
+            )
 
             # 最適化実装取得
             indicators = get_optimized_implementation("technical_indicators")
@@ -238,11 +252,11 @@ class SystemHealthDiagnostic:
             rsi_result = indicators.calculate_rsi(test_data, period=14)
 
             return {
-                'indicators_available': True,
-                'sma_functional': len(sma_result) > 0,
-                'ema_functional': len(ema_result) > 0,
-                'rsi_functional': len(rsi_result) > 0,
-                'calculation_accuracy': 'verified'
+                "indicators_available": True,
+                "sma_functional": len(sma_result) > 0,
+                "ema_functional": len(ema_result) > 0,
+                "rsi_functional": len(rsi_result) > 0,
+                "calculation_accuracy": "verified",
             }
 
         result, success, error, exec_time, mem_usage = self._measure_performance(
@@ -265,7 +279,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_gpu_acceleration_system(self) -> HealthCheckResult:
@@ -276,15 +290,16 @@ class SystemHealthDiagnostic:
             gpu_engine = GPUAccelerationEngine()
 
             # GPU利用可能性チェック
-            gpu_available = len([b for b in gpu_engine.available_backends
-                               if b.value != 'cpu']) > 0
+            gpu_available = (
+                len([b for b in gpu_engine.available_backends if b.value != "cpu"]) > 0
+            )
 
             # デバイス情報
             device_info = {
-                'available_backends': [b.value for b in gpu_engine.available_backends],
-                'primary_backend': gpu_engine.primary_backend.value,
-                'device_count': len(gpu_engine.devices),
-                'gpu_available': gpu_available
+                "available_backends": [b.value for b in gpu_engine.available_backends],
+                "primary_backend": gpu_engine.primary_backend.value,
+                "device_count": len(gpu_engine.devices),
+                "gpu_available": gpu_available,
             }
 
             return device_info
@@ -298,7 +313,7 @@ class SystemHealthDiagnostic:
 
         if not success:
             recommendations.append("GPU加速システムの修復が必要")
-        elif result and not result.get('gpu_available'):
+        elif result and not result.get("gpu_available"):
             recommendations.append("GPU利用可能化でパフォーマンス向上可能")
             status = "WARNING"
 
@@ -309,7 +324,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_deep_learning_system(self) -> HealthCheckResult:
@@ -320,7 +335,7 @@ class SystemHealthDiagnostic:
             dl_config = DeepLearningConfig(
                 sequence_length=30,  # テスト用に短縮
                 epochs=1,  # テスト用に最小化
-                use_pytorch=False  # 安定性のためNumPyを使用
+                use_pytorch=False,  # 安定性のためNumPyを使用
             )
 
             opt_config = OptimizationConfig(level=OptimizationLevel.STANDARD)
@@ -328,10 +343,10 @@ class SystemHealthDiagnostic:
             manager = DeepLearningModelManager(dl_config, opt_config)
 
             return {
-                'manager_initialized': True,
-                'pytorch_available': dl_config.use_pytorch,
-                'models_ready': len(manager.models) == 0,  # 初期状態
-                'config_valid': True
+                "manager_initialized": True,
+                "pytorch_available": dl_config.use_pytorch,
+                "models_ready": len(manager.models) == 0,  # 初期状態
+                "config_valid": True,
             }
 
         result, success, error, exec_time, mem_usage = self._measure_performance(
@@ -347,7 +362,7 @@ class SystemHealthDiagnostic:
             recommendations.append("深層学習システムの初期化時間最適化")
             status = "WARNING"
 
-        if result and not result.get('pytorch_available'):
+        if result and not result.get("pytorch_available"):
             recommendations.append("PyTorch利用でモデル性能向上可能")
 
         return HealthCheckResult(
@@ -357,7 +372,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_api_system(self) -> HealthCheckResult:
@@ -375,11 +390,11 @@ class SystemHealthDiagnostic:
             routes_configured = len(api.app.url_map._rules) > 1
 
             return {
-                'api_initialized': True,
-                'flask_app_configured': app_configured,
-                'routes_available': routes_configured,
-                'executor_ready': api.executor is not None,
-                'cache_enabled': len(api.prediction_cache) == 0  # 初期状態
+                "api_initialized": True,
+                "flask_app_configured": app_configured,
+                "routes_available": routes_configured,
+                "executor_ready": api.executor is not None,
+                "cache_enabled": len(api.prediction_cache) == 0,  # 初期状態
             }
 
         result, success, error, exec_time, mem_usage = self._measure_performance(
@@ -402,7 +417,7 @@ class SystemHealthDiagnostic:
             memory_usage=mem_usage,
             error_message=error,
             performance_metrics=result,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def check_security_vulnerabilities(self) -> Dict[str, Any]:
@@ -416,30 +431,37 @@ class SystemHealthDiagnostic:
         config_files = [
             Path("config/settings.json"),
             Path(".env"),
-            Path("src/day_trade/config")
+            Path("src/day_trade/config"),
         ]
 
         for config_file in config_files:
             if config_file.exists():
-                if config_file.suffix == '.json':
+                if config_file.suffix == ".json":
                     try:
-                        with open(config_file, 'r') as f:
+                        with open(config_file) as f:
                             content = f.read()
-                            if 'password' in content.lower() or 'secret' in content.lower():
-                                security_issues.append(f"機密情報が {config_file} に平文保存されている可能性")
+                            if (
+                                "password" in content.lower()
+                                or "secret" in content.lower()
+                            ):
+                                security_issues.append(
+                                    f"機密情報が {config_file} に平文保存されている可能性"
+                                )
                                 security_score -= 20
                     except Exception:
                         pass
 
         # APIキーチェック
-        api_key_patterns = ['api_key', 'secret_key', 'token']
-        for py_file in Path('.').rglob('*.py'):
+        api_key_patterns = ["api_key", "secret_key", "token"]
+        for py_file in Path(".").rglob("*.py"):
             try:
-                with open(py_file, 'r', encoding='utf-8') as f:
+                with open(py_file, encoding="utf-8") as f:
                     content = f.read()
                     for pattern in api_key_patterns:
-                        if f'{pattern}=' in content and 'your_' not in content.lower():
-                            security_issues.append(f"APIキーがハードコーディングされている可能性: {py_file}")
+                        if f"{pattern}=" in content and "your_" not in content.lower():
+                            security_issues.append(
+                                f"APIキーがハードコーディングされている可能性: {py_file}"
+                            )
                             security_score -= 15
                             break
             except Exception:
@@ -448,26 +470,27 @@ class SystemHealthDiagnostic:
         # 依存関係セキュリティ
         try:
             import subprocess
+
             # pip-auditがインストールされていれば実行
-            result = subprocess.run(['pip', 'list'], capture_output=True, text=True)
+            result = subprocess.run(["pip", "list"], capture_output=True, text=True)
             if result.returncode == 0:
                 packages = result.stdout
                 # 既知の脆弱性パッケージチェック（例）
-                vulnerable_packages = ['pillow<8.3.2', 'urllib3<1.26.5']
+                vulnerable_packages = ["pillow<8.3.2", "urllib3<1.26.5"]
                 # 実際の実装では詳細なチェックを行う
         except Exception:
             pass
 
         return {
-            'security_score': security_score,
-            'issues_found': len(security_issues),
-            'issues': security_issues,
-            'recommendations': [
+            "security_score": security_score,
+            "issues_found": len(security_issues),
+            "issues": security_issues,
+            "recommendations": [
                 "機密情報は環境変数で管理",
                 "APIキーの外部化",
                 "定期的な依存関係脆弱性スキャン",
-                "アクセスログの監視"
-            ]
+                "アクセスログの監視",
+            ],
         }
 
     def run_comprehensive_diagnostic(self) -> SystemDiagnosticReport:
@@ -481,7 +504,7 @@ class SystemHealthDiagnostic:
             self.check_technical_analysis_system,
             self.check_gpu_acceleration_system,
             self.check_deep_learning_system,
-            self.check_api_system
+            self.check_api_system,
         ]
 
         for diagnostic_func in diagnostic_functions:
@@ -494,7 +517,7 @@ class SystemHealthDiagnostic:
                     "OK": "[OK]",
                     "WARNING": "[WARNING]",
                     "ERROR": "[ERROR]",
-                    "CRITICAL": "[CRITICAL]"
+                    "CRITICAL": "[CRITICAL]",
                 }.get(result.status, "[UNKNOWN]")
 
                 print(f"{status_marker} {result.module_name}: {result.status}")
@@ -513,7 +536,7 @@ class SystemHealthDiagnostic:
                     status="CRITICAL",
                     execution_time=0.0,
                     memory_usage=0.0,
-                    error_message=str(e)
+                    error_message=str(e),
                 )
                 self.results.append(error_result)
                 print(f"[CRITICAL] {diagnostic_func.__name__}: CRITICAL")
@@ -548,7 +571,7 @@ class SystemHealthDiagnostic:
             module_results=self.results,
             performance_summary=performance_summary,
             security_assessment=security_assessment,
-            recommendations=overall_recommendations
+            recommendations=overall_recommendations,
         )
 
         return report
@@ -580,12 +603,16 @@ class SystemHealthDiagnostic:
         total_memory = sum(r.memory_usage for r in self.results)
 
         return {
-            'total_execution_time': total_exec_time,
-            'average_execution_time': total_exec_time / len(self.results),
-            'total_memory_usage': total_memory,
-            'average_memory_usage': total_memory / len(self.results),
-            'slowest_module': max(self.results, key=lambda r: r.execution_time).module_name,
-            'memory_heaviest_module': max(self.results, key=lambda r: r.memory_usage).module_name
+            "total_execution_time": total_exec_time,
+            "average_execution_time": total_exec_time / len(self.results),
+            "total_memory_usage": total_memory,
+            "average_memory_usage": total_memory / len(self.results),
+            "slowest_module": max(
+                self.results, key=lambda r: r.execution_time
+            ).module_name,
+            "memory_heaviest_module": max(
+                self.results, key=lambda r: r.memory_usage
+            ).module_name,
         }
 
     def _generate_overall_recommendations(self) -> List[str]:
@@ -604,12 +631,14 @@ class SystemHealthDiagnostic:
         if self._calculate_overall_status() in ["ERROR", "CRITICAL"]:
             unique_recommendations.insert(0, "緊急: システム修復が必要")
 
-        unique_recommendations.extend([
-            "定期的なシステム診断の実行",
-            "パフォーマンス監視の継続",
-            "セキュリティアップデートの適用",
-            "ログ分析による問題の早期発見"
-        ])
+        unique_recommendations.extend(
+            [
+                "定期的なシステム診断の実行",
+                "パフォーマンス監視の継続",
+                "セキュリティアップデートの適用",
+                "ログ分析による問題の早期発見",
+            ]
+        )
 
         return unique_recommendations
 
@@ -621,29 +650,29 @@ class SystemHealthDiagnostic:
 
         # JSONシリアライズ対応の辞書に変換
         report_dict = {
-            'timestamp': report.timestamp.isoformat(),
-            'overall_status': report.overall_status,
-            'system_info': report.system_info,
-            'module_results': [],
-            'performance_summary': report.performance_summary,
-            'security_assessment': report.security_assessment,
-            'recommendations': report.recommendations
+            "timestamp": report.timestamp.isoformat(),
+            "overall_status": report.overall_status,
+            "system_info": report.system_info,
+            "module_results": [],
+            "performance_summary": report.performance_summary,
+            "security_assessment": report.security_assessment,
+            "recommendations": report.recommendations,
         }
 
         # モジュール結果を辞書に変換
         for result in report.module_results:
             result_dict = {
-                'module_name': result.module_name,
-                'status': result.status,
-                'execution_time': result.execution_time,
-                'memory_usage': result.memory_usage,
-                'error_message': result.error_message,
-                'performance_metrics': result.performance_metrics,
-                'recommendations': result.recommendations or []
+                "module_name": result.module_name,
+                "status": result.status,
+                "execution_time": result.execution_time,
+                "memory_usage": result.memory_usage,
+                "error_message": result.error_message,
+                "performance_metrics": result.performance_metrics,
+                "recommendations": result.recommendations or [],
             }
-            report_dict['module_results'].append(result_dict)
+            report_dict["module_results"].append(result_dict)
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(report_dict, f, indent=2, ensure_ascii=False)
 
         print(f"\n[REPORT] 診断レポートを保存しました: {filename}")

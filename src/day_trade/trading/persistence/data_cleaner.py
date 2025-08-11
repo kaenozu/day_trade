@@ -6,10 +6,10 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
-from ...utils.logging_config import get_context_logger, log_business_event
 from ...utils.enhanced_error_handler import get_default_error_handler
+from ...utils.logging_config import get_context_logger, log_business_event
 from ..core.types import Trade, TradeStatus, TradeType
 from .db_manager import TradeDatabaseManager
 
@@ -52,32 +52,34 @@ class DataCleaner:
         try:
             # 各種クリーニング実行
             duplicate_result = self.remove_duplicates(trades)
-            cleaned_trades = duplicate_result['cleaned_trades']
+            cleaned_trades = duplicate_result["cleaned_trades"]
 
             validation_result = self.validate_trade_data(cleaned_trades)
-            valid_trades = validation_result['valid_trades']
+            valid_trades = validation_result["valid_trades"]
 
             consistency_result = self.check_data_consistency(valid_trades)
-            consistent_trades = consistency_result['consistent_trades']
+            consistent_trades = consistency_result["consistent_trades"]
 
             # 結果統計
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
 
             result = {
-                'original_count': original_count,
-                'final_count': len(consistent_trades),
-                'removed_duplicates': duplicate_result['duplicates_removed'],
-                'invalid_trades': validation_result['invalid_count'],
-                'inconsistent_trades': consistency_result['inconsistent_count'],
-                'cleaned_trades': consistent_trades,
-                'cleaning_time_seconds': processing_time,
-                'data_quality_score': self._calculate_quality_score(original_count, len(consistent_trades)),
+                "original_count": original_count,
+                "final_count": len(consistent_trades),
+                "removed_duplicates": duplicate_result["duplicates_removed"],
+                "invalid_trades": validation_result["invalid_count"],
+                "inconsistent_trades": consistency_result["inconsistent_count"],
+                "cleaned_trades": consistent_trades,
+                "cleaning_time_seconds": processing_time,
+                "data_quality_score": self._calculate_quality_score(
+                    original_count, len(consistent_trades)
+                ),
             }
 
             log_business_event(
                 f"データクリーニング完了: {original_count}件→{len(consistent_trades)}件",
-                result
+                result,
             )
 
             return result
@@ -85,10 +87,10 @@ class DataCleaner:
         except Exception as e:
             logger.error(f"データクリーニングエラー: {e}")
             return {
-                'original_count': original_count,
-                'final_count': 0,
-                'error': str(e),
-                'cleaned_trades': [],
+                "original_count": original_count,
+                "final_count": 0,
+                "error": str(e),
+                "cleaned_trades": [],
             }
 
     def remove_duplicates(self, trades: List[Trade]) -> Dict[str, any]:
@@ -122,10 +124,10 @@ class DataCleaner:
             duplicates_removed = original_count - len(cleaned_trades)
 
             result = {
-                'original_count': original_count,
-                'cleaned_count': len(cleaned_trades),
-                'duplicates_removed': duplicates_removed,
-                'cleaned_trades': cleaned_trades,
+                "original_count": original_count,
+                "cleaned_count": len(cleaned_trades),
+                "duplicates_removed": duplicates_removed,
+                "cleaned_trades": cleaned_trades,
             }
 
             logger.info(f"重複除去完了: {duplicates_removed}件除去")
@@ -134,11 +136,11 @@ class DataCleaner:
         except Exception as e:
             logger.error(f"重複除去エラー: {e}")
             return {
-                'original_count': original_count,
-                'cleaned_count': 0,
-                'duplicates_removed': 0,
-                'cleaned_trades': [],
-                'error': str(e)
+                "original_count": original_count,
+                "cleaned_count": 0,
+                "duplicates_removed": 0,
+                "cleaned_trades": [],
+                "error": str(e),
             }
 
     def validate_trade_data(self, trades: List[Trade]) -> Dict[str, any]:
@@ -164,14 +166,16 @@ class DataCleaner:
                 logger.warning(f"無効な取引データ: {trade.id} - {validation_errors}")
 
         result = {
-            'total_trades': len(trades),
-            'valid_count': len(valid_trades),
-            'invalid_count': len(invalid_trades),
-            'valid_trades': valid_trades,
-            'invalid_trades': invalid_trades,
+            "total_trades": len(trades),
+            "valid_count": len(valid_trades),
+            "invalid_count": len(invalid_trades),
+            "valid_trades": valid_trades,
+            "invalid_trades": invalid_trades,
         }
 
-        logger.info(f"データ検証完了: {len(valid_trades)}件有効, {len(invalid_trades)}件無効")
+        logger.info(
+            f"データ検証完了: {len(valid_trades)}件有効, {len(invalid_trades)}件無効"
+        )
         return result
 
     def _validate_single_trade(self, trade: Trade) -> List[str]:
@@ -219,8 +223,12 @@ class DataCleaner:
                 errors.append("取引タイプ不正")
 
             # ステータス検証
-            valid_statuses = [TradeStatus.EXECUTED, TradeStatus.PENDING, TradeStatus.CANCELLED]
-            if hasattr(trade, 'status') and trade.status not in valid_statuses:
+            valid_statuses = [
+                TradeStatus.EXECUTED,
+                TradeStatus.PENDING,
+                TradeStatus.CANCELLED,
+            ]
+            if hasattr(trade, "status") and trade.status not in valid_statuses:
                 errors.append("取引ステータス不正")
 
             # 価格レンジ検証（明らかに異常な価格）
@@ -283,10 +291,14 @@ class DataCleaner:
                     position_quantity -= trade.quantity
 
                 # 手数料整合性チェック
-                expected_commission = self._calculate_expected_commission(trade.quantity, trade.price)
+                expected_commission = self._calculate_expected_commission(
+                    trade.quantity, trade.price
+                )
                 commission_diff = abs(trade.commission - expected_commission)
                 if commission_diff > Decimal("10"):  # 10円以上の差異
-                    consistency_errors.append(f"手数料異常: 実際{trade.commission}円 vs 期待{expected_commission}円")
+                    consistency_errors.append(
+                        f"手数料異常: 実際{trade.commission}円 vs 期待{expected_commission}円"
+                    )
 
                 # 結果分類
                 if not consistency_errors:
@@ -296,14 +308,16 @@ class DataCleaner:
                     logger.warning(f"整合性エラー: {trade.id} - {consistency_errors}")
 
         result = {
-            'total_trades': len(trades),
-            'consistent_count': len(consistent_trades),
-            'inconsistent_count': len(inconsistent_trades),
-            'consistent_trades': consistent_trades,
-            'inconsistent_trades': inconsistent_trades,
+            "total_trades": len(trades),
+            "consistent_count": len(consistent_trades),
+            "inconsistent_count": len(inconsistent_trades),
+            "consistent_trades": consistent_trades,
+            "inconsistent_trades": inconsistent_trades,
         }
 
-        logger.info(f"整合性チェック完了: {len(consistent_trades)}件整合, {len(inconsistent_trades)}件不整合")
+        logger.info(
+            f"整合性チェック完了: {len(consistent_trades)}件整合, {len(inconsistent_trades)}件不整合"
+        )
         return result
 
     def _calculate_expected_commission(self, quantity: int, price: Decimal) -> Decimal:
@@ -348,9 +362,9 @@ class DataCleaner:
             fixed_trades.append(fixed_trade)
 
         result = {
-            'total_trades': len(trades),
-            'fixed_count': fix_count,
-            'fixed_trades': fixed_trades,
+            "total_trades": len(trades),
+            "fixed_count": fix_count,
+            "fixed_trades": fixed_trades,
         }
 
         logger.info(f"データ修正完了: {fix_count}件修正")
@@ -375,8 +389,8 @@ class DataCleaner:
             price=trade.price,
             timestamp=trade.timestamp,
             commission=max(trade.commission, Decimal("0")),  # 負の手数料を0に修正
-            status=getattr(trade, 'status', TradeStatus.EXECUTED),
-            notes=getattr(trade, 'notes', '').strip(),
+            status=getattr(trade, "status", TradeStatus.EXECUTED),
+            notes=getattr(trade, "notes", "").strip(),
         )
 
         return fixed_trade
@@ -400,12 +414,14 @@ class DataCleaner:
             # 統計計算
             total_trades = len(trades)
             quality_issues = (
-                duplicate_result['duplicates_removed'] +
-                validation_result['invalid_count'] +
-                consistency_result['inconsistent_count']
+                duplicate_result["duplicates_removed"]
+                + validation_result["invalid_count"]
+                + consistency_result["inconsistent_count"]
             )
 
-            quality_score = self._calculate_quality_score(total_trades, total_trades - quality_issues)
+            quality_score = self._calculate_quality_score(
+                total_trades, total_trades - quality_issues
+            )
 
             # 銘柄別統計
             symbol_stats = self._calculate_symbol_statistics(trades)
@@ -414,17 +430,17 @@ class DataCleaner:
             temporal_stats = self._calculate_temporal_statistics(trades)
 
             report = {
-                'report_timestamp': datetime.now().isoformat(),
-                'total_trades': total_trades,
-                'quality_score': quality_score,
-                'quality_issues': {
-                    'duplicates': duplicate_result['duplicates_removed'],
-                    'invalid_data': validation_result['invalid_count'],
-                    'inconsistent_data': consistency_result['inconsistent_count'],
+                "report_timestamp": datetime.now().isoformat(),
+                "total_trades": total_trades,
+                "quality_score": quality_score,
+                "quality_issues": {
+                    "duplicates": duplicate_result["duplicates_removed"],
+                    "invalid_data": validation_result["invalid_count"],
+                    "inconsistent_data": consistency_result["inconsistent_count"],
                 },
-                'symbol_statistics': symbol_stats,
-                'temporal_statistics': temporal_stats,
-                'recommendations': self._generate_data_quality_recommendations(
+                "symbol_statistics": symbol_stats,
+                "temporal_statistics": temporal_stats,
+                "recommendations": self._generate_data_quality_recommendations(
                     duplicate_result, validation_result, consistency_result
                 ),
             }
@@ -435,8 +451,8 @@ class DataCleaner:
         except Exception as e:
             logger.error(f"品質レポート生成エラー: {e}")
             return {
-                'error': str(e),
-                'report_timestamp': datetime.now().isoformat(),
+                "error": str(e),
+                "report_timestamp": datetime.now().isoformat(),
             }
 
     def _calculate_quality_score(self, total: int, clean: int) -> float:
@@ -450,9 +466,11 @@ class DataCleaner:
             symbol_counts[trade.symbol] = symbol_counts.get(trade.symbol, 0) + 1
 
         return {
-            'total_symbols': len(symbol_counts),
-            'trades_per_symbol': symbol_counts,
-            'most_traded_symbol': max(symbol_counts.items(), key=lambda x: x[1])[0] if symbol_counts else None,
+            "total_symbols": len(symbol_counts),
+            "trades_per_symbol": symbol_counts,
+            "most_traded_symbol": max(symbol_counts.items(), key=lambda x: x[1])[0]
+            if symbol_counts
+            else None,
         }
 
     def _calculate_temporal_statistics(self, trades: List[Trade]) -> Dict[str, any]:
@@ -463,27 +481,24 @@ class DataCleaner:
         timestamps = [trade.timestamp for trade in trades]
 
         return {
-            'earliest_trade': min(timestamps).isoformat(),
-            'latest_trade': max(timestamps).isoformat(),
-            'time_span_days': (max(timestamps) - min(timestamps)).days,
+            "earliest_trade": min(timestamps).isoformat(),
+            "latest_trade": max(timestamps).isoformat(),
+            "time_span_days": (max(timestamps) - min(timestamps)).days,
         }
 
     def _generate_data_quality_recommendations(
-        self,
-        duplicate_result: Dict,
-        validation_result: Dict,
-        consistency_result: Dict
+        self, duplicate_result: Dict, validation_result: Dict, consistency_result: Dict
     ) -> List[str]:
         """データ品質改善推奨事項生成"""
         recommendations = []
 
-        if duplicate_result['duplicates_removed'] > 0:
+        if duplicate_result["duplicates_removed"] > 0:
             recommendations.append("重複データ除去処理の定期実行を推奨")
 
-        if validation_result['invalid_count'] > 0:
+        if validation_result["invalid_count"] > 0:
             recommendations.append("データ入力時の検証強化を推奨")
 
-        if consistency_result['inconsistent_count'] > 0:
+        if consistency_result["inconsistent_count"] > 0:
             recommendations.append("取引記録の整合性チェック強化を推奨")
 
         return recommendations
@@ -507,7 +522,7 @@ class DataCleaner:
 
             if not archive_trades:
                 logger.info("アーカイブ対象データなし")
-                return {'archived_count': 0}
+                return {"archived_count": 0}
 
             # アーカイブファイル作成
             archive_filename = f"trades_archive_{cutoff_date.strftime('%Y%m%d')}.json"
@@ -519,9 +534,9 @@ class DataCleaner:
             archived_count = len(archive_trades) if backup_success else 0
 
             result = {
-                'archived_count': archived_count,
-                'archive_path': archive_path if backup_success else None,
-                'cutoff_date': cutoff_date.isoformat(),
+                "archived_count": archived_count,
+                "archive_path": archive_path if backup_success else None,
+                "cutoff_date": cutoff_date.isoformat(),
             }
 
             logger.info(f"アーカイブ完了: {archived_count}件")
@@ -529,4 +544,4 @@ class DataCleaner:
 
         except Exception as e:
             logger.error(f"アーカイブエラー: {e}")
-            return {'archived_count': 0, 'error': str(e)}
+            return {"archived_count": 0, "error": str(e)}

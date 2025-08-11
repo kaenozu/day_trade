@@ -21,7 +21,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_engine_initialization_real(self):
         """実際の初期化テスト"""
-        symbols = ['7203', '6758', '4689']
+        symbols = ["7203", "6758", "4689"]
         engine = AnalysisOnlyEngine(symbols)
 
         assert engine.symbols == symbols
@@ -34,7 +34,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_status_management(self):
         """ステータス管理テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # 初期ステータス確認
@@ -50,7 +50,7 @@ class TestAnalysisOnlyEngineIntegration:
     @pytest.mark.asyncio
     async def test_async_operations(self):
         """非同期操作テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # 停止操作テスト
@@ -89,7 +89,7 @@ class TestAnalysisOnlyEngineIntegration:
             volatility=0.25,
             volume_trend="増加",
             price_trend="上昇",
-            recommendations=["買い検討", "注意深く監視"]
+            recommendations=["買い検討", "注意深く監視"],
         )
 
         assert analysis_with_data.volatility == 0.25
@@ -99,7 +99,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_analysis_report_generation(self):
         """分析レポート生成テスト"""
-        symbols = ['7203', '6758']
+        symbols = ["7203", "6758"]
         engine = AnalysisOnlyEngine(symbols)
 
         # 模擬的な分析データを追加
@@ -107,14 +107,14 @@ class TestAnalysisOnlyEngineIntegration:
             symbol="7203",
             current_price=Decimal("2500.0"),
             analysis_timestamp=datetime.now(),
-            recommendations=["テスト推奨1"]
+            recommendations=["テスト推奨1"],
         )
 
         analysis2 = MarketAnalysis(
             symbol="6758",
             current_price=Decimal("1800.0"),
             analysis_timestamp=datetime.now(),
-            recommendations=["テスト推奨2"]
+            recommendations=["テスト推奨2"],
         )
 
         engine.market_analyses["7203"] = analysis1
@@ -131,7 +131,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_statistics_update(self):
         """統計更新テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # 成功時の統計更新
@@ -152,7 +152,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_analysis_data_access(self):
         """分析データアクセステスト"""
-        symbols = ['7203', '6758']
+        symbols = ["7203", "6758"]
         engine = AnalysisOnlyEngine(symbols)
 
         # 空の状態でのテスト
@@ -177,14 +177,12 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_recommendations_generation(self):
         """推奨事項生成テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # シグナルなしでの推奨事項
         recommendations = engine._generate_recommendations(
-            "7203",
-            Decimal("2500.0"),
-            None
+            "7203", Decimal("2500.0"), None
         )
 
         assert len(recommendations) > 0
@@ -195,7 +193,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_market_summary(self):
         """市場サマリーテスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # レポートなしの場合
@@ -212,7 +210,7 @@ class TestAnalysisOnlyEngineIntegration:
             weak_signals=0,
             market_sentiment="強気",
             top_recommendations=[{"symbol": "7203", "action": "buy"}],
-            analysis_time_ms=100.0
+            analysis_time_ms=100.0,
         )
         engine.analysis_history.append(report)
 
@@ -225,7 +223,7 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_symbol_recommendations(self):
         """銘柄別推奨事項テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         # データなしの場合
@@ -238,7 +236,7 @@ class TestAnalysisOnlyEngineIntegration:
             symbol="7203",
             current_price=Decimal("2500.0"),
             analysis_timestamp=datetime.now(),
-            recommendations=["テスト推奨1", "テスト推奨2"]
+            recommendations=["テスト推奨1", "テスト推奨2"],
         )
         engine.market_analyses["7203"] = analysis
 
@@ -249,15 +247,13 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_volatility_calculation(self):
         """ボラティリティ計算テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         import pandas as pd
 
         # 正常なデータでのテスト
-        data = pd.DataFrame({
-            'Close': [100.0, 102.0, 101.0, 103.0, 105.0]
-        })
+        data = pd.DataFrame({"Close": [100.0, 102.0, 101.0, 103.0, 105.0]})
 
         volatility = engine._calculate_volatility(data)
         assert volatility is not None
@@ -275,23 +271,21 @@ class TestAnalysisOnlyEngineIntegration:
 
     def test_trend_analysis(self):
         """トレンド分析テスト"""
-        symbols = ['7203']
+        symbols = ["7203"]
         engine = AnalysisOnlyEngine(symbols)
 
         import pandas as pd
 
         # 出来高トレンドテスト
-        volume_data = pd.DataFrame({
-            'Volume': [1000, 1100, 1200, 1400, 1500, 1600]
-        })
+        volume_data = pd.DataFrame({"Volume": [1000, 1100, 1200, 1400, 1500, 1600]})
 
         volume_trend = engine._analyze_volume_trend(volume_data)
         assert volume_trend == "増加"
 
         # 価格トレンドテスト
-        price_data = pd.DataFrame({
-            'Close': [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120]
-        })
+        price_data = pd.DataFrame(
+            {"Close": [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120]}
+        )
 
         price_trend = engine._analyze_price_trend(price_data)
         assert price_trend == "上昇"

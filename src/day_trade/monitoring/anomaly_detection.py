@@ -11,27 +11,25 @@ Features:
 - 適応的閾値調整
 """
 
-import asyncio
-import numpy as np
-import pandas as pd
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
+from collections import defaultdict, deque
 from dataclasses import dataclass
-from collections import deque, defaultdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-import joblib
-import os
 
 from ..utils.logging_config import get_context_logger
-from .metrics.prometheus_metrics import AnomalyDetectionResult, AlertSeverity
+from .metrics.prometheus_metrics import AnomalyDetectionResult
 
 logger = get_context_logger(__name__)
+
 
 @dataclass
 class AnomalyDetectionConfig:
     """異常検知設定"""
+
     method: str  # isolation_forest, lstm, statistical, ensemble
     window_size: int = 100
     contamination: float = 0.1
@@ -39,14 +37,17 @@ class AnomalyDetectionConfig:
     enabled: bool = True
     retrain_interval: int = 3600  # 1時間
 
+
 @dataclass
 class ModelMetrics:
     """モデルメトリクス"""
+
     accuracy: float
     precision: float
     recall: float
     f1_score: float
     last_updated: datetime
+
 
 class StatisticalAnomalyDetector:
     """統計ベース異常検知器"""
@@ -80,6 +81,7 @@ class StatisticalAnomalyDetector:
         explanation = f"Z-score: {z_score:.2f}, 閾値: {self.z_threshold}, 平均: {mean_val:.2f}, 標準偏差: {std_val:.2f}"
 
         return is_anomaly, confidence, explanation
+
 
 class IsolationForestDetector:
     """Isolation Forest異常検知器"""
@@ -115,9 +117,7 @@ class IsolationForestDetector:
 
             # モデル訓練
             self.model = IsolationForest(
-                contamination=self.contamination,
-                random_state=42,
-                n_estimators=100
+                contamination=self.contamination, random_state=42, n_estimators=100
             )
             self.model.fit(data_normalized)
 
@@ -159,6 +159,7 @@ class IsolationForestDetector:
             logger.error(f"Isolation Forest 異常検知エラー: {e}")
             return False, 0.0, f"検知エラー: {str(e)}"
 
+
 class LSTMAnomalyDetector:
     """LSTM時系列異常検知器"""
 
@@ -172,8 +173,7 @@ class LSTMAnomalyDetector:
 
         # 簡単な実装のため、統計的手法で代替
         self.statistical_detector = StatisticalAnomalyDetector(
-            window_size=sequence_length,
-            z_threshold=2.5
+            window_size=sequence_length, z_threshold=2.5
         )
 
     def update(self, value: float):
@@ -198,40 +198,40 @@ class LSTMAnomalyDetector:
             return False, 0.0, "モデル未訓練"
 
         # 統計的手法で代替実装
-        is_anomaly, confidence, explanation = self.statistical_detector.detect_anomaly(value)
+        is_anomaly, confidence, explanation = self.statistical_detector.detect_anomaly(
+            value
+        )
 
         return is_anomaly, confidence, f"LSTM(統計代替): {explanation}"
+
 
 class EnsembleAnomalyDetector:
     """アンサンブル異常検知器"""
 
     def __init__(self):
         self.detectors = {
-            'statistical': StatisticalAnomalyDetector(window_size=100, z_threshold=3.0),
-            'isolation_forest': IsolationForestDetector(contamination=0.1),
-            'lstm': LSTMAnomalyDetector(sequence_length=50)
+            "statistical": StatisticalAnomalyDetector(window_size=100, z_threshold=3.0),
+            "isolation_forest": IsolationForestDetector(contamination=0.1),
+            "lstm": LSTMAnomalyDetector(sequence_length=50),
         }
-        self.weights = {
-            'statistical': 0.4,
-            'isolation_forest': 0.4,
-            'lstm': 0.2
-        }
+        self.weights = {"statistical": 0.4, "isolation_forest": 0.4, "lstm": 0.2}
         self.retrain_counters = defaultdict(int)
 
-    async def update_and_detect(self, metric_name: str, value: float,
-                              features: Optional[np.ndarray] = None) -> Optional[AnomalyDetectionResult]:
+    async def update_and_detect(
+        self, metric_name: str, value: float, features: Optional[np.ndarray] = None
+    ) -> Optional[AnomalyDetectionResult]:
         """データ更新と異常検知実行"""
 
         try:
             # 各検知器にデータ更新
-            self.detectors['statistical'].update(value)
-            self.detectors['lstm'].update(value)
+            self.detectors["statistical"].update(value)
+            self.detectors["lstm"].update(value)
 
             if features is not None:
-                self.detectors['isolation_forest'].update(features)
+                self.detectors["isolation_forest"].update(features)
             else:
                 # 単一の値を特徴量として使用
-                self.detectors['isolation_forest'].update(np.array([value]))
+                self.detectors["isolation_forest"].update(np.array([value]))
 
             # 定期的にモデル再訓練
             await self._retrain_if_needed()
@@ -240,17 +240,23 @@ class EnsembleAnomalyDetector:
             results = {}
 
             # 統計的検知
-            is_anom_stat, conf_stat, exp_stat = self.detectors['statistical'].detect_anomaly(value)
-            results['statistical'] = (is_anom_stat, conf_stat, exp_stat)
+            is_anom_stat, conf_stat, exp_stat = self.detectors[
+                "statistical"
+            ].detect_anomaly(value)
+            results["statistical"] = (is_anom_stat, conf_stat, exp_stat)
 
             # Isolation Forest検知
             detect_features = features if features is not None else np.array([value])
-            is_anom_if, conf_if, exp_if = self.detectors['isolation_forest'].detect_anomaly(detect_features)
-            results['isolation_forest'] = (is_anom_if, conf_if, exp_if)
+            is_anom_if, conf_if, exp_if = self.detectors[
+                "isolation_forest"
+            ].detect_anomaly(detect_features)
+            results["isolation_forest"] = (is_anom_if, conf_if, exp_if)
 
             # LSTM検知
-            is_anom_lstm, conf_lstm, exp_lstm = self.detectors['lstm'].detect_anomaly(value)
-            results['lstm'] = (is_anom_lstm, conf_lstm, exp_lstm)
+            is_anom_lstm, conf_lstm, exp_lstm = self.detectors["lstm"].detect_anomaly(
+                value
+            )
+            results["lstm"] = (is_anom_lstm, conf_lstm, exp_lstm)
 
             # アンサンブル結果計算
             total_confidence = 0.0
@@ -279,7 +285,7 @@ class EnsembleAnomalyDetector:
                     metric_name=metric_name,
                     timestamp=datetime.now(),
                     value=value,
-                    expected_range=None
+                    expected_range=None,
                 )
 
             return None
@@ -297,16 +303,17 @@ class EnsembleAnomalyDetector:
             self.retrain_counters[detector_name] += 1
 
             # 100回に1回、または1時間毎に再訓練
-            if (self.retrain_counters[detector_name] % 100 == 0 or
-                (hasattr(detector, 'last_retrain_time') and
-                 detector.last_retrain_time and
-                 (current_time - detector.last_retrain_time).seconds > 3600)):
-
-                if hasattr(detector, 'train'):
+            if self.retrain_counters[detector_name] % 100 == 0 or (
+                hasattr(detector, "last_retrain_time")
+                and detector.last_retrain_time
+                and (current_time - detector.last_retrain_time).seconds > 3600
+            ):
+                if hasattr(detector, "train"):
                     success = detector.train()
                     if success:
                         logger.info(f"{detector_name} モデル再訓練完了")
                     self.retrain_counters[detector_name] = 0
+
 
 class MLAnomalyDetectionSystem:
     """機械学習異常検知システム"""
@@ -327,35 +334,24 @@ class MLAnomalyDetectionSystem:
         """デフォルト設定"""
 
         self.configs = {
-            'cpu_usage': AnomalyDetectionConfig(
-                method='ensemble',
-                window_size=100,
-                contamination=0.05,
-                threshold=0.7
+            "cpu_usage": AnomalyDetectionConfig(
+                method="ensemble", window_size=100, contamination=0.05, threshold=0.7
             ),
-            'memory_usage': AnomalyDetectionConfig(
-                method='ensemble',
-                window_size=100,
-                contamination=0.05,
-                threshold=0.7
+            "memory_usage": AnomalyDetectionConfig(
+                method="ensemble", window_size=100, contamination=0.05, threshold=0.7
             ),
-            'response_time': AnomalyDetectionConfig(
-                method='isolation_forest',
+            "response_time": AnomalyDetectionConfig(
+                method="isolation_forest",
                 window_size=200,
                 contamination=0.1,
-                threshold=0.6
+                threshold=0.6,
             ),
-            'error_rate': AnomalyDetectionConfig(
-                method='statistical',
-                window_size=50,
-                threshold=0.8
+            "error_rate": AnomalyDetectionConfig(
+                method="statistical", window_size=50, threshold=0.8
             ),
-            'prediction_accuracy': AnomalyDetectionConfig(
-                method='ensemble',
-                window_size=100,
-                contamination=0.08,
-                threshold=0.75
-            )
+            "prediction_accuracy": AnomalyDetectionConfig(
+                method="ensemble", window_size=100, contamination=0.08, threshold=0.75
+            ),
         }
 
     def add_metric_detector(self, metric_name: str, config: AnomalyDetectionConfig):
@@ -363,28 +359,26 @@ class MLAnomalyDetectionSystem:
 
         self.configs[metric_name] = config
 
-        if config.method == 'ensemble':
+        if config.method == "ensemble":
             self.detectors[metric_name] = EnsembleAnomalyDetector()
-        elif config.method == 'isolation_forest':
+        elif config.method == "isolation_forest":
             self.detectors[metric_name] = IsolationForestDetector(
-                contamination=config.contamination,
-                window_size=config.window_size
+                contamination=config.contamination, window_size=config.window_size
             )
-        elif config.method == 'statistical':
+        elif config.method == "statistical":
             self.detectors[metric_name] = StatisticalAnomalyDetector(
-                window_size=config.window_size,
-                z_threshold=3.0
+                window_size=config.window_size, z_threshold=3.0
             )
-        elif config.method == 'lstm':
+        elif config.method == "lstm":
             self.detectors[metric_name] = LSTMAnomalyDetector(
-                sequence_length=config.window_size,
-                threshold=config.threshold
+                sequence_length=config.window_size, threshold=config.threshold
             )
 
         logger.info(f"異常検知器追加: {metric_name} ({config.method})")
 
-    async def detect_anomaly(self, metric_name: str, value: float,
-                           features: Optional[np.ndarray] = None) -> Optional[AnomalyDetectionResult]:
+    async def detect_anomaly(
+        self, metric_name: str, value: float, features: Optional[np.ndarray] = None
+    ) -> Optional[AnomalyDetectionResult]:
         """異常検知実行"""
 
         if metric_name not in self.configs or not self.configs[metric_name].enabled:
@@ -402,7 +396,7 @@ class MLAnomalyDetectionSystem:
                 # 単一検知器の場合
                 detector.update(value)
 
-                if hasattr(detector, 'detect_anomaly'):
+                if hasattr(detector, "detect_anomaly"):
                     is_anomaly, confidence, explanation = detector.detect_anomaly(value)
 
                     if is_anomaly:
@@ -412,7 +406,7 @@ class MLAnomalyDetectionSystem:
                             explanation=explanation,
                             metric_name=metric_name,
                             timestamp=datetime.now(),
-                            value=value
+                            value=value,
                         )
                     else:
                         result = None
@@ -421,13 +415,15 @@ class MLAnomalyDetectionSystem:
 
             # 検知履歴記録
             if result:
-                self.detection_history.append({
-                    'timestamp': result.timestamp.isoformat(),
-                    'metric_name': metric_name,
-                    'value': value,
-                    'confidence': result.confidence,
-                    'explanation': result.explanation
-                })
+                self.detection_history.append(
+                    {
+                        "timestamp": result.timestamp.isoformat(),
+                        "metric_name": metric_name,
+                        "value": value,
+                        "confidence": result.confidence,
+                        "explanation": result.explanation,
+                    }
+                )
 
             return result
 
@@ -441,11 +437,7 @@ class MLAnomalyDetectionSystem:
         total_detections = len(self.detection_history)
 
         if total_detections == 0:
-            return {
-                'total_detections': 0,
-                'by_metric': {},
-                'last_24h': 0
-            }
+            return {"total_detections": 0, "by_metric": {}, "last_24h": 0}
 
         by_metric = defaultdict(int)
         last_24h = 0
@@ -453,20 +445,22 @@ class MLAnomalyDetectionSystem:
 
         for record in self.detection_history:
             # メトリクス別
-            metric_name = record['metric_name']
+            metric_name = record["metric_name"]
             by_metric[metric_name] += 1
 
             # 過去24時間
-            detection_time = datetime.fromisoformat(record['timestamp'])
+            detection_time = datetime.fromisoformat(record["timestamp"])
             if (current_time - detection_time).total_seconds() < 86400:
                 last_24h += 1
 
         return {
-            'total_detections': total_detections,
-            'by_metric': dict(by_metric),
-            'last_24h': last_24h,
-            'active_detectors': len(self.detectors),
-            'enabled_metrics': sum(1 for config in self.configs.values() if config.enabled)
+            "total_detections": total_detections,
+            "by_metric": dict(by_metric),
+            "last_24h": last_24h,
+            "active_detectors": len(self.detectors),
+            "enabled_metrics": sum(
+                1 for config in self.configs.values() if config.enabled
+            ),
         }
 
     def get_detection_history(self, limit: int = 100) -> List[Dict[str, Any]]:
@@ -479,7 +473,9 @@ class MLAnomalyDetectionSystem:
 
         if metric_name in self.configs:
             self.configs[metric_name].enabled = enabled
-            logger.info(f"メトリクス検知 {metric_name}: {'有効' if enabled else '無効'}")
+            logger.info(
+                f"メトリクス検知 {metric_name}: {'有効' if enabled else '無効'}"
+            )
 
     async def train_all_models(self):
         """全モデル訓練"""
@@ -488,7 +484,7 @@ class MLAnomalyDetectionSystem:
 
         for metric_name, detector in self.detectors.items():
             try:
-                if hasattr(detector, 'train'):
+                if hasattr(detector, "train"):
                     success = detector.train()
                     if success:
                         trained_count += 1
@@ -496,10 +492,12 @@ class MLAnomalyDetectionSystem:
                 elif isinstance(detector, EnsembleAnomalyDetector):
                     # アンサンブル内の各検知器を訓練
                     for sub_detector_name, sub_detector in detector.detectors.items():
-                        if hasattr(sub_detector, 'train'):
+                        if hasattr(sub_detector, "train"):
                             success = sub_detector.train()
                             if success:
-                                logger.info(f"サブモデル訓練完了: {metric_name}.{sub_detector_name}")
+                                logger.info(
+                                    f"サブモデル訓練完了: {metric_name}.{sub_detector_name}"
+                                )
                     trained_count += 1
 
             except Exception as e:
@@ -508,8 +506,10 @@ class MLAnomalyDetectionSystem:
         logger.info(f"訓練完了モデル数: {trained_count}/{len(self.detectors)}")
         return trained_count
 
+
 # グローバルインスタンス
 _ml_anomaly_system = MLAnomalyDetectionSystem()
+
 
 def get_ml_anomaly_system() -> MLAnomalyDetectionSystem:
     """機械学習異常検知システム取得"""

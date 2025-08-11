@@ -7,16 +7,12 @@ Phase F: 次世代機能拡張フェーズ
 """
 
 from .realtime_prediction_api import (
-    RealtimePredictionAPI,
     PredictionRequest,
-    PredictionResponse
+    PredictionResponse,
+    RealtimePredictionAPI,
 )
 
-__all__ = [
-    'RealtimePredictionAPI',
-    'PredictionRequest',
-    'PredictionResponse'
-]
+__all__ = ["RealtimePredictionAPI", "PredictionRequest", "PredictionResponse"]
 
 # バージョン情報
 __version__ = "1.0.0"

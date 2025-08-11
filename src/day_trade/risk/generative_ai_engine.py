@@ -7,19 +7,19 @@ GPT-4/Claude統合による次世代金融リスク分析システム
 """
 
 import asyncio
-import time
 import json
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-import pandas as pd
-from pathlib import Path
 
 # 生成AI統合
 try:
     import openai
     from openai import AsyncOpenAI
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -27,19 +27,21 @@ except ImportError:
 try:
     import anthropic
     from anthropic import AsyncAnthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from ..core.optimization_strategy import OptimizationConfig
 
 logger = get_context_logger(__name__)
+
 
 @dataclass
 class RiskAnalysisRequest:
     """リスク分析リクエスト"""
+
     transaction_id: str
     symbol: str
     transaction_type: str
@@ -49,23 +51,27 @@ class RiskAnalysisRequest:
     user_profile: Dict[str, Any]
     additional_context: Dict[str, Any] = None
 
+
 @dataclass
 class RiskAnalysisResult:
     """リスク分析結果"""
+
     request_id: str
     risk_score: float  # 0-1 (1が最高リスク)
-    risk_level: str    # "low", "medium", "high", "critical"
+    risk_level: str  # "low", "medium", "high", "critical"
     confidence: float  # 0-1 (1が最高信頼度)
-    explanation: str   # 生成AI による自然言語説明
+    explanation: str  # 生成AI による自然言語説明
     recommendations: List[str]
     risk_factors: Dict[str, float]
     processing_time: float
     ai_models_used: List[str]
     timestamp: datetime
 
+
 @dataclass
 class GenerativeAIConfig:
     """生成AI設定"""
+
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     default_model_gpt: str = "gpt-4"
@@ -76,6 +82,7 @@ class GenerativeAIConfig:
     enable_caching: bool = True
     cache_ttl_seconds: int = 300
 
+
 class GenerativeAIRiskEngine:
     """生成AI統合リスク分析エンジン"""
 
@@ -84,9 +91,7 @@ class GenerativeAIRiskEngine:
 
         # OpenAI クライアント初期化
         if OPENAI_AVAILABLE and self.config.openai_api_key:
-            self.openai_client = AsyncOpenAI(
-                api_key=self.config.openai_api_key
-            )
+            self.openai_client = AsyncOpenAI(api_key=self.config.openai_api_key)
             logger.info("OpenAI GPT-4 クライアント初期化完了")
         else:
             self.openai_client = None
@@ -108,13 +113,13 @@ class GenerativeAIRiskEngine:
 
         # パフォーマンス統計
         self.performance_stats = {
-            'total_analyses': 0,
-            'avg_processing_time': 0.0,
-            'successful_analyses': 0,
-            'failed_analyses': 0,
-            'cache_hits': 0,
-            'gpt4_calls': 0,
-            'claude_calls': 0
+            "total_analyses": 0,
+            "avg_processing_time": 0.0,
+            "successful_analyses": 0,
+            "failed_analyses": 0,
+            "cache_hits": 0,
+            "gpt4_calls": 0,
+            "claude_calls": 0,
         }
 
         logger.info("生成AI統合リスク分析エンジン初期化完了")
@@ -124,7 +129,7 @@ class GenerativeAIRiskEngine:
         request: RiskAnalysisRequest,
         use_gpt4: bool = True,
         use_claude: bool = True,
-        use_ensemble: bool = True
+        use_ensemble: bool = True,
     ) -> RiskAnalysisResult:
         """包括的リスク分析（生成AI統合）"""
 
@@ -135,7 +140,7 @@ class GenerativeAIRiskEngine:
         if self.config.enable_caching:
             cached_result = self._get_cached_result(request_hash)
             if cached_result:
-                self.performance_stats['cache_hits'] += 1
+                self.performance_stats["cache_hits"] += 1
                 return cached_result
 
         try:
@@ -167,7 +172,9 @@ class GenerativeAIRiskEngine:
                 )
             else:
                 # 単一モデル結果使用
-                valid_results = [r for r in analysis_results if not isinstance(r, Exception)]
+                valid_results = [
+                    r for r in analysis_results if not isinstance(r, Exception)
+                ]
                 if valid_results:
                     final_result = valid_results[0]
                 else:
@@ -178,20 +185,19 @@ class GenerativeAIRiskEngine:
                 self._cache_result(request_hash, final_result)
 
             # 統計更新
-            self.performance_stats['total_analyses'] += 1
-            self.performance_stats['successful_analyses'] += 1
-            self.performance_stats['avg_processing_time'] = (
-                (self.performance_stats['avg_processing_time'] *
-                 (self.performance_stats['total_analyses'] - 1) +
-                 (time.time() - start_time)) /
-                self.performance_stats['total_analyses']
-            )
+            self.performance_stats["total_analyses"] += 1
+            self.performance_stats["successful_analyses"] += 1
+            self.performance_stats["avg_processing_time"] = (
+                self.performance_stats["avg_processing_time"]
+                * (self.performance_stats["total_analyses"] - 1)
+                + (time.time() - start_time)
+            ) / self.performance_stats["total_analyses"]
 
             return final_result
 
         except Exception as e:
-            self.performance_stats['total_analyses'] += 1
-            self.performance_stats['failed_analyses'] += 1
+            self.performance_stats["total_analyses"] += 1
+            self.performance_stats["failed_analyses"] += 1
             logger.error(f"リスク分析エラー: {e}")
 
             # フォールバック分析
@@ -200,7 +206,7 @@ class GenerativeAIRiskEngine:
     async def _analyze_with_gpt4(self, request: RiskAnalysisRequest) -> Dict[str, Any]:
         """GPT-4による高度リスク分析"""
 
-        self.performance_stats['gpt4_calls'] += 1
+        self.performance_stats["gpt4_calls"] += 1
 
         # プロンプト構築
         system_prompt = """あなたは世界最高レベルの金融リスク分析専門家です。
@@ -236,12 +242,12 @@ class GenerativeAIRiskEngine:
                     model=self.config.default_model_gpt,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_prompt},
                     ],
                     temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens
+                    max_tokens=self.config.max_tokens,
                 ),
-                timeout=self.config.timeout_seconds
+                timeout=self.config.timeout_seconds,
             )
 
             # JSON解析
@@ -255,7 +261,7 @@ class GenerativeAIRiskEngine:
                 "explanation": analysis.get("explanation", ""),
                 "recommendations": analysis.get("recommendations", []),
                 "risk_factors": analysis.get("key_risk_factors", []),
-                "raw_response": content
+                "raw_response": content,
             }
 
         except asyncio.TimeoutError:
@@ -268,10 +274,12 @@ class GenerativeAIRiskEngine:
             logger.error(f"GPT-4 分析エラー: {e}")
             return self._create_fallback_response("gpt-4", str(e))
 
-    async def _analyze_with_claude(self, request: RiskAnalysisRequest) -> Dict[str, Any]:
+    async def _analyze_with_claude(
+        self, request: RiskAnalysisRequest
+    ) -> Dict[str, Any]:
         """Claudeによる高度リスク分析"""
 
-        self.performance_stats['claude_calls'] += 1
+        self.performance_stats["claude_calls"] += 1
 
         prompt = f"""あなたは金融リスク管理の専門家です。以下の取引を分析してください。
 
@@ -299,9 +307,9 @@ class GenerativeAIRiskEngine:
                 self.anthropic_client.messages.create(
                     model=self.config.default_model_claude,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=self.config.max_tokens
+                    max_tokens=self.config.max_tokens,
                 ),
-                timeout=self.config.timeout_seconds
+                timeout=self.config.timeout_seconds,
             )
 
             content = response.content[0].text
@@ -314,14 +322,16 @@ class GenerativeAIRiskEngine:
                 "explanation": analysis.get("explanation", ""),
                 "recommendations": analysis.get("recommendations", []),
                 "confidence": float(analysis.get("confidence", 0.7)),
-                "raw_response": content
+                "raw_response": content,
             }
 
         except Exception as e:
             logger.error(f"Claude分析エラー: {e}")
             return self._create_fallback_response("claude-3-opus", str(e))
 
-    async def _basic_risk_analysis(self, request: RiskAnalysisRequest) -> Dict[str, Any]:
+    async def _basic_risk_analysis(
+        self, request: RiskAnalysisRequest
+    ) -> Dict[str, Any]:
         """基本的なヒューリスティックリスク分析"""
 
         risk_score = 0.0
@@ -375,7 +385,7 @@ class GenerativeAIRiskEngine:
             "explanation": f"基本分析によるリスクスコア: {risk_score:.2f}",
             "recommendations": self._generate_basic_recommendations(risk_score),
             "risk_factors": risk_factors,
-            "confidence": 0.8
+            "confidence": 0.8,
         }
 
     def _ensemble_analysis(
@@ -383,21 +393,19 @@ class GenerativeAIRiskEngine:
         request: RiskAnalysisRequest,
         results: List[Dict[str, Any]],
         models_used: List[str],
-        start_time: float
+        start_time: float,
     ) -> RiskAnalysisResult:
         """アンサンブル分析結果統合"""
 
-        valid_results = [r for r in results if isinstance(r, dict) and "risk_score" in r]
+        valid_results = [
+            r for r in results if isinstance(r, dict) and "risk_score" in r
+        ]
 
         if not valid_results:
             raise ValueError("有効な分析結果がありません")
 
         # 重み付き平均（GPT-4とClaudeを高重視）
-        weights = {
-            "gpt-4": 0.4,
-            "claude-3-opus": 0.4,
-            "heuristic-analyzer": 0.2
-        }
+        weights = {"gpt-4": 0.4, "claude-3-opus": 0.4, "heuristic-analyzer": 0.2}
 
         weighted_risk_score = 0.0
         total_weight = 0.0
@@ -444,16 +452,16 @@ class GenerativeAIRiskEngine:
             confidence=np.mean(confidences),
             explanation=combined_explanation,
             recommendations=list(set(all_recommendations)),  # 重複除去
-            risk_factors={f"factor_{i}": 1.0 for i, f in enumerate(set(all_risk_factors))},
+            risk_factors={
+                f"factor_{i}": 1.0 for i, f in enumerate(set(all_risk_factors))
+            },
             processing_time=time.time() - start_time,
             ai_models_used=models_used,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     async def _fallback_analysis(
-        self,
-        request: RiskAnalysisRequest,
-        start_time: float
+        self, request: RiskAnalysisRequest, start_time: float
     ) -> RiskAnalysisResult:
         """フォールバック分析"""
 
@@ -468,11 +476,13 @@ class GenerativeAIRiskEngine:
             risk_level=basic_result["risk_level"],
             confidence=0.6,  # フォールバック時は信頼度低下
             explanation=f"フォールバック分析: {basic_result['explanation']}",
-            recommendations=basic_result.get("recommendations", ["詳細分析を再実行してください"]),
+            recommendations=basic_result.get(
+                "recommendations", ["詳細分析を再実行してください"]
+            ),
             risk_factors={"fallback_analysis": 1.0},
             processing_time=time.time() - start_time,
             ai_models_used=["fallback-analyzer"],
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     def _create_fallback_response(self, source: str, error: str) -> Dict[str, Any]:
@@ -484,7 +494,7 @@ class GenerativeAIRiskEngine:
             "explanation": f"分析エラー ({source}): {error}",
             "recommendations": ["システム管理者に連絡してください"],
             "confidence": 0.3,
-            "error": error
+            "error": error,
         }
 
     def _generate_basic_recommendations(self, risk_score: float) -> List[str]:
@@ -493,23 +503,23 @@ class GenerativeAIRiskEngine:
             return [
                 "取引を停止してください",
                 "リスク管理責任者に相談してください",
-                "詳細なデューデリジェンスを実施してください"
+                "詳細なデューデリジェンスを実施してください",
             ]
         elif risk_score >= 0.6:
             return [
                 "取引前に追加確認を行ってください",
                 "取引金額の見直しを検討してください",
-                "市場状況を再確認してください"
+                "市場状況を再確認してください",
             ]
         elif risk_score >= 0.3:
             return [
                 "定期的な監視を継続してください",
-                "ポジションサイズに注意してください"
+                "ポジションサイズに注意してください",
             ]
         else:
             return [
                 "通常どおり取引を継続できます",
-                "引き続き市場動向を監視してください"
+                "引き続き市場動向を監視してください",
             ]
 
     def _generate_request_hash(self, request: RiskAnalysisRequest) -> str:
@@ -529,7 +539,9 @@ class GenerativeAIRiskEngine:
         if not cache_time:
             return None
 
-        if datetime.now() - cache_time > timedelta(seconds=self.config.cache_ttl_seconds):
+        if datetime.now() - cache_time > timedelta(
+            seconds=self.config.cache_ttl_seconds
+        ):
             # 期限切れキャッシュ削除
             del self.analysis_cache[request_hash]
             del self.cache_timestamps[request_hash]
@@ -545,8 +557,9 @@ class GenerativeAIRiskEngine:
         # キャッシュサイズ制限（1000件）
         if len(self.analysis_cache) > 1000:
             # 最も古いキャッシュを削除
-            oldest_key = min(self.cache_timestamps.keys(),
-                           key=lambda k: self.cache_timestamps[k])
+            oldest_key = min(
+                self.cache_timestamps.keys(), key=lambda k: self.cache_timestamps[k]
+            )
             del self.analysis_cache[oldest_key]
             del self.cache_timestamps[oldest_key]
 
@@ -556,13 +569,13 @@ class GenerativeAIRiskEngine:
             **self.performance_stats,
             "cache_size": len(self.analysis_cache),
             "success_rate": (
-                self.performance_stats['successful_analyses'] /
-                max(1, self.performance_stats['total_analyses'])
+                self.performance_stats["successful_analyses"]
+                / max(1, self.performance_stats["total_analyses"])
             ),
             "models_available": {
                 "gpt4": self.openai_client is not None,
-                "claude": self.anthropic_client is not None
-            }
+                "claude": self.anthropic_client is not None,
+            },
         }
 
     def clear_cache(self):
@@ -570,6 +583,7 @@ class GenerativeAIRiskEngine:
         self.analysis_cache.clear()
         self.cache_timestamps.clear()
         logger.info("分析キャッシュをクリアしました")
+
 
 # 使用例とテスト
 async def test_generative_ai_risk_engine():
@@ -580,7 +594,7 @@ async def test_generative_ai_risk_engine():
         openai_api_key="dummy_key",  # 実際は os.getenv("OPENAI_API_KEY")
         anthropic_api_key="dummy_key",  # 実際は os.getenv("ANTHROPIC_API_KEY")
         temperature=0.3,
-        max_tokens=800
+        max_tokens=800,
     )
 
     engine = GenerativeAIRiskEngine(config)
@@ -596,13 +610,13 @@ async def test_generative_ai_risk_engine():
             "current_price": 2500,
             "volatility": 0.25,
             "volume": 1000000,
-            "trend": "upward"
+            "trend": "upward",
         },
         user_profile={
             "risk_tolerance": "moderate",
             "experience_level": "intermediate",
-            "portfolio_value": 10000000
-        }
+            "portfolio_value": 10000000,
+        },
     )
 
     # 分析実行
@@ -612,10 +626,10 @@ async def test_generative_ai_risk_engine():
         test_request,
         use_gpt4=False,  # テスト時はダミーキーなのでFalse
         use_claude=False,  # テスト時はダミーキーなのでFalse
-        use_ensemble=True
+        use_ensemble=True,
     )
 
-    print(f"✅ 分析完了!")
+    print("✅ 分析完了!")
     print(f"🎯 リスクスコア: {result.risk_score:.2f}")
     print(f"⚠️ リスクレベル: {result.risk_level}")
     print(f"🕐 処理時間: {result.processing_time:.2f}秒")
@@ -625,6 +639,7 @@ async def test_generative_ai_risk_engine():
     # パフォーマンス統計
     stats = engine.get_performance_stats()
     print(f"📈 統計: {stats}")
+
 
 if __name__ == "__main__":
     asyncio.run(test_generative_ai_risk_engine())

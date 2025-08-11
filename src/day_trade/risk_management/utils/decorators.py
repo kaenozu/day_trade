@@ -6,26 +6,26 @@ Risk Management Decorators
 統一されたエラーハンドリング、メトリクス収集、キャッシュ等を提供
 """
 
-import functools
 import asyncio
+import functools
 import time
-from typing import Any, Callable, Dict, Optional, Type, Union
-from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, Optional
 
 from ..exceptions.risk_exceptions import (
+    AnalysisError,
+    RateLimitError,
     RiskManagementError,
     TimeoutError,
-    RateLimitError,
-    AnalysisError
 )
-from ..interfaces.risk_interfaces import IMetricsCollector, ICacheManager
+from ..interfaces.risk_interfaces import ICacheManager, IMetricsCollector
+
 
 def error_handler(
     fallback_value: Any = None,
     catch_exceptions: tuple = (Exception,),
     log_errors: bool = True,
     raise_on_error: bool = False,
-    error_metrics_name: Optional[str] = None
+    error_metrics_name: Optional[str] = None,
 ):
     """統一エラーハンドリングデコレーター"""
 
@@ -50,15 +50,16 @@ def error_handler(
                 # エラーログ記録
                 if log_errors:
                     import logging
+
                     logger = logging.getLogger(func.__module__)
                     logger.error(
                         f"Error in {func.__name__}: {str(e)}",
                         extra={
-                            'function': func.__name__,
-                            'args': str(args)[:200],  # 長すぎる引数は切り詰め
-                            'processing_time': processing_time,
-                            'error_type': type(e).__name__
-                        }
+                            "function": func.__name__,
+                            "args": str(args)[:200],  # 長すぎる引数は切り詰め
+                            "processing_time": processing_time,
+                            "error_type": type(e).__name__,
+                        },
                     )
 
                 # エラーメトリクス記録
@@ -74,7 +75,7 @@ def error_handler(
                             message=f"Error in {func.__name__}: {str(e)}",
                             analyzer_name=func.__name__,
                             analysis_stage="execution",
-                            cause=e
+                            cause=e,
                         ) from e
                     raise
                 else:
@@ -93,15 +94,16 @@ def error_handler(
 
                 if log_errors:
                     import logging
+
                     logger = logging.getLogger(func.__module__)
                     logger.error(
                         f"Error in {func.__name__}: {str(e)}",
                         extra={
-                            'function': func.__name__,
-                            'args': str(args)[:200],
-                            'processing_time': processing_time,
-                            'error_type': type(e).__name__
-                        }
+                            "function": func.__name__,
+                            "args": str(args)[:200],
+                            "processing_time": processing_time,
+                            "error_type": type(e).__name__,
+                        },
                     )
 
                 if raise_on_error:
@@ -110,7 +112,7 @@ def error_handler(
                             message=f"Error in {func.__name__}: {str(e)}",
                             analyzer_name=func.__name__,
                             analysis_stage="execution",
-                            cause=e
+                            cause=e,
                         ) from e
                     raise
                 else:
@@ -120,10 +122,8 @@ def error_handler(
 
     return decorator
 
-def timeout_handler(
-    timeout_seconds: float,
-    error_message: Optional[str] = None
-):
+
+def timeout_handler(timeout_seconds: float, error_message: Optional[str] = None):
     """タイムアウトハンドリングデコレーター"""
 
     def decorator(func: Callable) -> Callable:
@@ -131,15 +131,17 @@ def timeout_handler(
         async def async_wrapper(*args, **kwargs):
             try:
                 return await asyncio.wait_for(
-                    func(*args, **kwargs),
-                    timeout=timeout_seconds
+                    func(*args, **kwargs), timeout=timeout_seconds
                 )
             except asyncio.TimeoutError:
-                message = error_message or f"Function {func.__name__} timed out after {timeout_seconds} seconds"
+                message = (
+                    error_message
+                    or f"Function {func.__name__} timed out after {timeout_seconds} seconds"
+                )
                 raise TimeoutError(
                     message=message,
                     operation=func.__name__,
-                    timeout_seconds=timeout_seconds
+                    timeout_seconds=timeout_seconds,
                 )
 
         @functools.wraps(func)
@@ -152,11 +154,12 @@ def timeout_handler(
 
     return decorator
 
+
 def metrics_collector(
     counter_name: Optional[str] = None,
     histogram_name: Optional[str] = None,
     labels: Optional[Dict[str, str]] = None,
-    metrics_collector: Optional[IMetricsCollector] = None
+    metrics_collector: Optional[IMetricsCollector] = None,
 ):
     """メトリクス収集デコレーター"""
 
@@ -169,7 +172,7 @@ def metrics_collector(
             if metrics_collector and counter_name:
                 metrics_collector.record_counter(
                     counter_name + "_total",
-                    labels={**(labels or {}), "function": func.__name__}
+                    labels={**(labels or {}), "function": func.__name__},
                 )
 
             try:
@@ -183,13 +186,17 @@ def metrics_collector(
                         metrics_collector.record_histogram(
                             histogram_name + "_duration_seconds",
                             processing_time,
-                            labels={**(labels or {}), "function": func.__name__, "status": "success"}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "status": "success",
+                            },
                         )
 
                     if counter_name:
                         metrics_collector.record_counter(
                             counter_name + "_success_total",
-                            labels={**(labels or {}), "function": func.__name__}
+                            labels={**(labels or {}), "function": func.__name__},
                         )
 
                 return result
@@ -203,13 +210,21 @@ def metrics_collector(
                         metrics_collector.record_histogram(
                             histogram_name + "_duration_seconds",
                             processing_time,
-                            labels={**(labels or {}), "function": func.__name__, "status": "error"}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "status": "error",
+                            },
                         )
 
                     if counter_name:
                         metrics_collector.record_counter(
                             counter_name + "_error_total",
-                            labels={**(labels or {}), "function": func.__name__, "error_type": type(e).__name__}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "error_type": type(e).__name__,
+                            },
                         )
 
                 raise
@@ -221,7 +236,7 @@ def metrics_collector(
             if metrics_collector and counter_name:
                 metrics_collector.record_counter(
                     counter_name + "_total",
-                    labels={**(labels or {}), "function": func.__name__}
+                    labels={**(labels or {}), "function": func.__name__},
                 )
 
             try:
@@ -234,13 +249,17 @@ def metrics_collector(
                         metrics_collector.record_histogram(
                             histogram_name + "_duration_seconds",
                             processing_time,
-                            labels={**(labels or {}), "function": func.__name__, "status": "success"}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "status": "success",
+                            },
                         )
 
                     if counter_name:
                         metrics_collector.record_counter(
                             counter_name + "_success_total",
-                            labels={**(labels or {}), "function": func.__name__}
+                            labels={**(labels or {}), "function": func.__name__},
                         )
 
                 return result
@@ -253,13 +272,21 @@ def metrics_collector(
                         metrics_collector.record_histogram(
                             histogram_name + "_duration_seconds",
                             processing_time,
-                            labels={**(labels or {}), "function": func.__name__, "status": "error"}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "status": "error",
+                            },
                         )
 
                     if counter_name:
                         metrics_collector.record_counter(
                             counter_name + "_error_total",
-                            labels={**(labels or {}), "function": func.__name__, "error_type": type(e).__name__}
+                            labels={
+                                **(labels or {}),
+                                "function": func.__name__,
+                                "error_type": type(e).__name__,
+                            },
                         )
 
                 raise
@@ -268,12 +295,13 @@ def metrics_collector(
 
     return decorator
 
+
 def cache_result(
     cache_key_template: str,
     ttl_seconds: int = 3600,
     cache_manager: Optional[ICacheManager] = None,
     use_args_in_key: bool = True,
-    key_args_indices: Optional[list] = None
+    key_args_indices: Optional[list] = None,
 ):
     """結果キャッシュデコレーター"""
 
@@ -291,7 +319,7 @@ def cache_result(
                 args,
                 kwargs,
                 use_args_in_key,
-                key_args_indices
+                key_args_indices,
             )
 
             # キャッシュから取得を試行
@@ -316,10 +344,9 @@ def cache_result(
 
     return decorator
 
+
 def rate_limit(
-    max_calls: int,
-    window_seconds: int,
-    key_func: Optional[Callable] = None
+    max_calls: int, window_seconds: int, key_func: Optional[Callable] = None
 ):
     """レート制限デコレーター"""
 
@@ -340,28 +367,30 @@ def rate_limit(
             # レート制限状態初期化
             if limit_key not in _rate_limit_state:
                 _rate_limit_state[limit_key] = {
-                    'calls': [],
-                    'window_start': current_time
+                    "calls": [],
+                    "window_start": current_time,
                 }
 
             state = _rate_limit_state[limit_key]
 
             # 古い記録をクリーンアップ
             cutoff_time = current_time - window_seconds
-            state['calls'] = [call_time for call_time in state['calls'] if call_time > cutoff_time]
+            state["calls"] = [
+                call_time for call_time in state["calls"] if call_time > cutoff_time
+            ]
 
             # レート制限チェック
-            if len(state['calls']) >= max_calls:
-                oldest_call = min(state['calls'])
+            if len(state["calls"]) >= max_calls:
+                oldest_call = min(state["calls"])
                 retry_after = int(oldest_call + window_seconds - current_time)
                 raise RateLimitError(
                     message=f"Rate limit exceeded for {func.__name__}",
                     rate_limit=max_calls,
-                    retry_after_seconds=max(retry_after, 1)
+                    retry_after_seconds=max(retry_after, 1),
                 )
 
             # 呼び出し記録
-            state['calls'].append(current_time)
+            state["calls"].append(current_time)
 
             return await func(*args, **kwargs)
 
@@ -377,24 +406,26 @@ def rate_limit(
 
             if limit_key not in _rate_limit_state:
                 _rate_limit_state[limit_key] = {
-                    'calls': [],
-                    'window_start': current_time
+                    "calls": [],
+                    "window_start": current_time,
                 }
 
             state = _rate_limit_state[limit_key]
             cutoff_time = current_time - window_seconds
-            state['calls'] = [call_time for call_time in state['calls'] if call_time > cutoff_time]
+            state["calls"] = [
+                call_time for call_time in state["calls"] if call_time > cutoff_time
+            ]
 
-            if len(state['calls']) >= max_calls:
-                oldest_call = min(state['calls'])
+            if len(state["calls"]) >= max_calls:
+                oldest_call = min(state["calls"])
                 retry_after = int(oldest_call + window_seconds - current_time)
                 raise RateLimitError(
                     message=f"Rate limit exceeded for {func.__name__}",
                     rate_limit=max_calls,
-                    retry_after_seconds=max(retry_after, 1)
+                    retry_after_seconds=max(retry_after, 1),
                 )
 
-            state['calls'].append(current_time)
+            state["calls"].append(current_time)
 
             return func(*args, **kwargs)
 
@@ -402,11 +433,12 @@ def rate_limit(
 
     return decorator
 
+
 def retry_on_failure(
     max_retries: int = 3,
     delay_seconds: float = 1.0,
     backoff_multiplier: float = 2.0,
-    retry_exceptions: tuple = (Exception,)
+    retry_exceptions: tuple = (Exception,),
 ):
     """失敗時リトライデコレーター"""
 
@@ -423,11 +455,12 @@ def retry_on_failure(
                     last_exception = e
 
                     if attempt < max_retries:
-                        delay = delay_seconds * (backoff_multiplier ** attempt)
+                        delay = delay_seconds * (backoff_multiplier**attempt)
                         await asyncio.sleep(delay)
 
                         # ログ記録
                         import logging
+
                         logger = logging.getLogger(func.__module__)
                         logger.warning(
                             f"Retry attempt {attempt + 1}/{max_retries} for {func.__name__}: {str(e)}"
@@ -450,10 +483,11 @@ def retry_on_failure(
                     last_exception = e
 
                     if attempt < max_retries:
-                        delay = delay_seconds * (backoff_multiplier ** attempt)
+                        delay = delay_seconds * (backoff_multiplier**attempt)
                         time.sleep(delay)
 
                         import logging
+
                         logger = logging.getLogger(func.__module__)
                         logger.warning(
                             f"Retry attempt {attempt + 1}/{max_retries} for {func.__name__}: {str(e)}"
@@ -467,7 +501,9 @@ def retry_on_failure(
 
     return decorator
 
+
 # ヘルパー関数
+
 
 def _generate_cache_key(
     template: str,
@@ -475,7 +511,7 @@ def _generate_cache_key(
     args: tuple,
     kwargs: dict,
     use_args: bool,
-    key_args_indices: Optional[list]
+    key_args_indices: Optional[list],
 ) -> str:
     """キャッシュキー生成"""
     import hashlib
@@ -496,13 +532,15 @@ def _generate_cache_key(
     key_string = ":".join(key_parts)
     return hashlib.md5(key_string.encode()).hexdigest()
 
+
 # 組み合わせデコレーター
+
 
 def risk_analysis_handler(
     analyzer_name: str,
     timeout_seconds: float = 30.0,
     max_retries: int = 2,
-    cache_ttl_seconds: int = 300
+    cache_ttl_seconds: int = 300,
 ):
     """リスク分析用統合デコレーター"""
 
@@ -516,26 +554,24 @@ def risk_analysis_handler(
             catch_exceptions=(Exception,),
             log_errors=True,
             raise_on_error=True,
-            error_metrics_name=f"{analyzer_name}_analysis"
+            error_metrics_name=f"{analyzer_name}_analysis",
         )(decorated_func)
 
         # タイムアウト
         decorated_func = timeout_handler(
             timeout_seconds=timeout_seconds,
-            error_message=f"{analyzer_name} analysis timed out"
+            error_message=f"{analyzer_name} analysis timed out",
         )(decorated_func)
 
         # リトライ
         decorated_func = retry_on_failure(
-            max_retries=max_retries,
-            delay_seconds=1.0,
-            backoff_multiplier=1.5
+            max_retries=max_retries, delay_seconds=1.0, backoff_multiplier=1.5
         )(decorated_func)
 
         # メトリクス収集
         decorated_func = metrics_collector(
             counter_name=f"{analyzer_name}_analysis",
-            histogram_name=f"{analyzer_name}_analysis"
+            histogram_name=f"{analyzer_name}_analysis",
         )(decorated_func)
 
         return decorated_func

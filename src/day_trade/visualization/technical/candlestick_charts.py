@@ -4,7 +4,8 @@
 高度なローソク足パターン認識とチャート可視化
 """
 
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -15,8 +16,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
     from matplotlib.patches import Rectangle
 
     MATPLOTLIB_AVAILABLE = True
@@ -177,11 +178,13 @@ class CandlestickCharts(ChartRenderer):
 
             # パターン範囲をハイライト
             if start_idx < len(data) and end_idx < len(data):
-                high_price = data.iloc[start_idx:end_idx + 1]["High"].max()
-                low_price = data.iloc[start_idx:end_idx + 1]["Low"].min()
+                high_price = data.iloc[start_idx : end_idx + 1]["High"].max()
+                low_price = data.iloc[start_idx : end_idx + 1]["Low"].min()
 
                 # 背景ハイライト
-                existing_labels = [p.get_label() for p in ax.get_children() if hasattr(p, 'get_label')]
+                existing_labels = [
+                    p.get_label() for p in ax.get_children() if hasattr(p, "get_label")
+                ]
                 should_add_label = pattern_name not in existing_labels
 
                 ax.axvspan(
@@ -200,9 +203,7 @@ class CandlestickCharts(ChartRenderer):
                     textcoords="offset points",
                     fontsize=9,
                     ha="center",
-                    bbox=dict(
-                        boxstyle="round,pad=0.3", facecolor=color, alpha=0.7
-                    ),
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor=color, alpha=0.7),
                     arrowprops=dict(
                         arrowstyle="->", connectionstyle="arc3,rad=0", color=color
                     ),
@@ -311,7 +312,9 @@ class CandlestickCharts(ChartRenderer):
                         fontsize=9,
                     )
 
-                self.apply_common_styling(ax, title="検出パターン統計", ylabel="検出回数")
+                self.apply_common_styling(
+                    ax, title="検出パターン統計", ylabel="検出回数"
+                )
                 plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
 
     def create_pattern_recognition_dashboard(
@@ -366,7 +369,9 @@ class CandlestickCharts(ChartRenderer):
         self._plot_risk_return_analysis(ax_risk, patterns)
 
         plt.suptitle(
-            f"{symbol} ローソク足パターン認識ダッシュボード", fontsize=16, fontweight="bold"
+            f"{symbol} ローソク足パターン認識ダッシュボード",
+            fontsize=16,
+            fontweight="bold",
         )
         plt.tight_layout()
 
@@ -507,7 +512,10 @@ class CandlestickCharts(ChartRenderer):
             ax.axvline(0, color="black", linestyle="-", alpha=0.3)
 
             self.apply_common_styling(
-                ax, title="パターン別リスク・リターン分析", xlabel="リスク", ylabel="リターン"
+                ax,
+                title="パターン別リスク・リターン分析",
+                xlabel="リスク",
+                ylabel="リターン",
             )
 
     def export_candlestick_report(
@@ -539,7 +547,9 @@ class CandlestickCharts(ChartRenderer):
             if dashboard:
                 exported_files["dashboard"] = dashboard
 
-            logger.info(f"ローソク足分析レポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"ローソク足分析レポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

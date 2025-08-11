@@ -7,7 +7,6 @@ Issue #324: プロダクション運用監視ダッシュボード構築
 """
 
 import base64
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -101,16 +100,16 @@ class DashboardVisualizationEngine:
 
         # 2. 危険なパスパターンの検出
         dangerous_patterns = [
-            "..",           # 親ディレクトリ参照
-            "~/",           # ホームディレクトリ参照
-            "/etc",         # システムディレクトリ
-            "/usr",         # システムディレクトリ
-            "/var",         # システムディレクトリ
-            "/root",        # rootディレクトリ
+            "..",  # 親ディレクトリ参照
+            "~/",  # ホームディレクトリ参照
+            "/etc",  # システムディレクトリ
+            "/usr",  # システムディレクトリ
+            "/var",  # システムディレクトリ
+            "/root",  # rootディレクトリ
             "c:\\windows",  # Windowsシステムディレクトリ
-            "c:\\program files", # Windowsプログラムディレクトリ
-            "\\\\",         # UNCパス
-            "\x00",         # NULLバイト
+            "c:\\program files",  # Windowsプログラムディレクトリ
+            "\\\\",  # UNCパス
+            "\x00",  # NULLバイト
         ]
 
         output_dir_lower = output_dir.lower()
@@ -133,13 +132,14 @@ class DashboardVisualizationEngine:
 
         # 5. 許可されたベースディレクトリ内かチェック
         import tempfile
+
         allowed_base_dirs = [
-            Path.cwd(),                    # 現在の作業ディレクトリ
-            Path.cwd() / "dashboard_charts", # デフォルトチャートディレクトリ
-            Path.cwd() / "output",         # 汎用出力ディレクトリ
-            Path.cwd() / "temp",           # 一時ディレクトリ
-            Path.cwd() / "charts",         # チャート専用ディレクトリ
-            Path(tempfile.gettempdir()),   # システム一時ディレクトリ（テスト用）
+            Path.cwd(),  # 現在の作業ディレクトリ
+            Path.cwd() / "dashboard_charts",  # デフォルトチャートディレクトリ
+            Path.cwd() / "output",  # 汎用出力ディレクトリ
+            Path.cwd() / "temp",  # 一時ディレクトリ
+            Path.cwd() / "charts",  # チャート専用ディレクトリ
+            Path(tempfile.gettempdir()),  # システム一時ディレクトリ（テスト用）
         ]
 
         # 絶対パスの場合は厳格にチェック
@@ -149,8 +149,10 @@ class DashboardVisualizationEngine:
                 try:
                     allowed_base_resolved = allowed_base.resolve()
                     # 許可されたベースディレクトリ内またはその配下かチェック
-                    if (path_obj == allowed_base_resolved or
-                        allowed_base_resolved in path_obj.parents):
+                    if (
+                        path_obj == allowed_base_resolved
+                        or allowed_base_resolved in path_obj.parents
+                    ):
                         is_allowed = True
                         break
                 except Exception:
@@ -167,7 +169,9 @@ class DashboardVisualizationEngine:
         for sys_dir in system_dirs:
             if path_str.startswith(sys_dir):
                 logger.warning(f"システムディレクトリへのアクセス拒否: {path_obj}")
-                raise ValueError(f"システムディレクトリへのアクセスは許可されていません: {sys_dir}")
+                raise ValueError(
+                    f"システムディレクトリへのアクセスは許可されていません: {sys_dir}"
+                )
 
         logger.debug(f"出力ディレクトリ検証完了: {path_obj}")
         return path_obj
@@ -762,7 +766,9 @@ class DashboardVisualizationEngine:
             return
 
         if hours < 1:
-            logger.warning("1時間未満の指定: 意図しない削除を防止するため処理をスキップします")
+            logger.warning(
+                "1時間未満の指定: 意図しない削除を防止するため処理をスキップします"
+            )
             return
 
         cleaned_count = 0
@@ -776,14 +782,20 @@ class DashboardVisualizationEngine:
         # セキュリティ強化: 安全でないパスパターンのチェック
         try:
             resolved_output_dir = self.output_dir.resolve()
-            if ".." in str(resolved_output_dir) or str(resolved_output_dir).startswith("/etc"):
-                logger.error(f"危険なクリーンアップ対象ディレクトリ: {resolved_output_dir}")
+            if ".." in str(resolved_output_dir) or str(resolved_output_dir).startswith(
+                "/etc"
+            ):
+                logger.error(
+                    f"危険なクリーンアップ対象ディレクトリ: {resolved_output_dir}"
+                )
                 return
         except Exception as e:
             logger.error(f"ディレクトリパス検証エラー: {e}")
             return
 
-        logger.info(f"クリーンアップ開始: {self.output_dir}, {hours}時間以上経過ファイル対象")
+        logger.info(
+            f"クリーンアップ開始: {self.output_dir}, {hours}時間以上経過ファイル対象"
+        )
 
         # *.pngファイルのみを対象（セキュリティ制限）
         try:
@@ -802,12 +814,19 @@ class DashboardVisualizationEngine:
 
                 # 2. シンボリックリンク攻撃対策
                 if chart_file.is_symlink():
-                    logger.warning(f"シンボリックリンクのため削除をスキップ: {chart_file}")
+                    logger.warning(
+                        f"シンボリックリンクのため削除をスキップ: {chart_file}"
+                    )
                     continue
 
                 # 3. ファイル名に危険な文字が含まれていないかチェック
-                if any(dangerous_char in chart_file.name for dangerous_char in ['..', '/', '\\']):
-                    logger.warning(f"危険なファイル名のため削除をスキップ: {chart_file}")
+                if any(
+                    dangerous_char in chart_file.name
+                    for dangerous_char in ["..", "/", "\\"]
+                ):
+                    logger.warning(
+                        f"危険なファイル名のため削除をスキップ: {chart_file}"
+                    )
                     continue
 
                 # 4. stat情報の取得（原子的操作の一部）
@@ -826,7 +845,9 @@ class DashboardVisualizationEngine:
 
                 # 6. ファイルサイズチェック（異常に大きなファイルの検出）
                 if stat_info.st_size > 50 * 1024 * 1024:  # 50MB制限
-                    logger.warning(f"異常に大きなファイルのため削除をスキップ: {chart_file} ({stat_info.st_size} bytes)")
+                    logger.warning(
+                        f"異常に大きなファイルのため削除をスキップ: {chart_file} ({stat_info.st_size} bytes)"
+                    )
                     continue
 
                 # 7. 原子的削除実行
@@ -836,7 +857,9 @@ class DashboardVisualizationEngine:
                     logger.debug(f"ファイル削除完了: {chart_file}")
                 except FileNotFoundError:
                     # 他のプロセスが同時に削除した場合（正常なケース）
-                    logger.debug(f"ファイルが他のプロセスによって削除済み: {chart_file}")
+                    logger.debug(
+                        f"ファイルが他のプロセスによって削除済み: {chart_file}"
+                    )
                 except PermissionError:
                     logger.warning(f"ファイル削除権限なし: {chart_file}")
                     error_count += 1

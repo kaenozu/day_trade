@@ -212,28 +212,35 @@ class AnalysisOnlyEngine:
                 except (DataError, NetworkError) as e:
                     # 回復可能なエラー - 統計更新してログ出力、処理継続
                     self._update_statistics(time.time() - analysis_start, success=False)
-                    log_exception(logger, e, {
-                        "component": "AnalysisEngine",
-                        "operation": "analysis_cycle",
-                        "cycle_time": time.time() - analysis_start
-                    }, level="warning")
+                    log_exception(
+                        logger,
+                        e,
+                        {
+                            "component": "AnalysisEngine",
+                            "operation": "analysis_cycle",
+                            "cycle_time": time.time() - analysis_start,
+                        },
+                        level="warning",
+                    )
 
                 except AnalysisError as e:
                     # 分析エラー - 統計更新してログ出力、処理継続
                     self._update_statistics(time.time() - analysis_start, success=False)
-                    log_exception(logger, e, {
-                        "component": "AnalysisEngine",
-                        "operation": "analysis_cycle"
-                    })
+                    log_exception(
+                        logger,
+                        e,
+                        {"component": "AnalysisEngine", "operation": "analysis_cycle"},
+                    )
 
                 except Exception as e:
                     # 予期しないエラー - AnalysisErrorに変換
                     self._update_statistics(time.time() - analysis_start, success=False)
                     analysis_error = context.handle(e)
-                    log_exception(logger, analysis_error, {
-                        "component": "AnalysisEngine",
-                        "operation": "analysis_cycle"
-                    })
+                    log_exception(
+                        logger,
+                        analysis_error,
+                        {"component": "AnalysisEngine", "operation": "analysis_cycle"},
+                    )
 
                 # インターバル待機
                 await asyncio.sleep(self.update_interval)
@@ -241,11 +248,15 @@ class AnalysisOnlyEngine:
         except AnalysisError as e:
             # 分析関連の重大エラー
             self.status = AnalysisStatus.ERROR
-            log_exception(logger, e, {
-                "component": "AnalysisEngine",
-                "operation": "main_loop",
-                "engine_status": self.status.value
-            })
+            log_exception(
+                logger,
+                e,
+                {
+                    "component": "AnalysisEngine",
+                    "operation": "main_loop",
+                    "engine_status": self.status.value,
+                },
+            )
             error_handler.handle_error(e, context={"engine_status": self.status.value})
 
         except Exception as e:
@@ -253,12 +264,19 @@ class AnalysisOnlyEngine:
             self.status = AnalysisStatus.ERROR
             main_context = ExceptionContext("AnalysisEngine", "main_loop")
             critical_error = main_context.handle(e)
-            log_exception(logger, critical_error, {
-                "component": "AnalysisEngine",
-                "operation": "main_loop",
-                "engine_status": self.status.value
-            }, level="critical")
-            error_handler.handle_error(critical_error, context={"engine_status": self.status.value})
+            log_exception(
+                logger,
+                critical_error,
+                {
+                    "component": "AnalysisEngine",
+                    "operation": "main_loop",
+                    "engine_status": self.status.value,
+                },
+                level="critical",
+            )
+            error_handler.handle_error(
+                critical_error, context={"engine_status": self.status.value}
+            )
 
     async def _perform_market_analysis(self) -> None:
         """市場データ分析の実行"""
@@ -279,7 +297,9 @@ class AnalysisOnlyEngine:
                 current_price = Decimal(str(current_data["current_price"]))
 
                 # 履歴データ取得（パフォーマンス監視付き）
-                with performance_monitor.monitor(f"historical_data_{symbol}", "data_fetch"):
+                with performance_monitor.monitor(
+                    f"historical_data_{symbol}", "data_fetch"
+                ):
                     historical_data = await asyncio.get_event_loop().run_in_executor(
                         None, self.stock_fetcher.get_historical_data, symbol, "30d"
                     )
@@ -287,11 +307,15 @@ class AnalysisOnlyEngine:
                 # シグナル生成（パフォーマンス監視付き）
                 signal = None
                 if historical_data is not None and not historical_data.empty:
-                    with performance_monitor.monitor(f"signal_generation_{symbol}", "ml_analysis"):
+                    with performance_monitor.monitor(
+                        f"signal_generation_{symbol}", "ml_analysis"
+                    ):
                         signal = self.signal_generator.generate_signal(historical_data)
 
                 # 分析結果作成（パフォーマンス監視付き）
-                with performance_monitor.monitor(f"analysis_creation_{symbol}", "analysis"):
+                with performance_monitor.monitor(
+                    f"analysis_creation_{symbol}", "analysis"
+                ):
                     analysis = MarketAnalysis(
                         symbol=symbol,
                         current_price=current_price,
@@ -326,23 +350,35 @@ class AnalysisOnlyEngine:
                 data_error = DataError(
                     message=f"銘柄データ処理エラー: {symbol}",
                     error_code="SYMBOL_DATA_ERROR",
-                    details={"symbol": symbol, "original_error": str(e)}
+                    details={"symbol": symbol, "original_error": str(e)},
                 )
-                log_exception(logger, data_error, {
-                    "component": "AnalysisEngine",
-                    "operation": "symbol_analysis",
-                    "symbol": symbol
-                }, level="warning")
+                log_exception(
+                    logger,
+                    data_error,
+                    {
+                        "component": "AnalysisEngine",
+                        "operation": "symbol_analysis",
+                        "symbol": symbol,
+                    },
+                    level="warning",
+                )
 
             except Exception as e:
                 # 予期しないエラー - 銘柄をスキップして継続
-                symbol_context = ExceptionContext("AnalysisEngine", f"symbol_analysis_{symbol}")
+                symbol_context = ExceptionContext(
+                    "AnalysisEngine", f"symbol_analysis_{symbol}"
+                )
                 symbol_error = symbol_context.handle(e)
-                log_exception(logger, symbol_error, {
-                    "component": "AnalysisEngine",
-                    "operation": "symbol_analysis",
-                    "symbol": symbol
-                }, level="warning")
+                log_exception(
+                    logger,
+                    symbol_error,
+                    {
+                        "component": "AnalysisEngine",
+                        "operation": "symbol_analysis",
+                        "symbol": symbol,
+                    },
+                    level="warning",
+                )
 
         logger.info(f"市場分析完了 - {successful_analyses}/{len(self.symbols)}銘柄")
 
@@ -364,11 +400,16 @@ class AnalysisOnlyEngine:
             # 予期しないエラー
             calc_context = ExceptionContext("AnalysisEngine", "volatility_calculation")
             calc_error = calc_context.handle(e)
-            log_exception(logger, calc_error, {
-                "component": "AnalysisEngine",
-                "operation": "volatility_calculation",
-                "data_type": type(data).__name__ if data is not None else "None"
-            }, level="warning")
+            log_exception(
+                logger,
+                calc_error,
+                {
+                    "component": "AnalysisEngine",
+                    "operation": "volatility_calculation",
+                    "data_type": type(data).__name__ if data is not None else "None",
+                },
+                level="warning",
+            )
             return None
 
     def _analyze_volume_trend(self, data) -> Optional[str]:
@@ -392,10 +433,12 @@ class AnalysisOnlyEngine:
         except Exception as e:
             volume_context = ExceptionContext("AnalysisEngine", "volume_trend_analysis")
             volume_error = volume_context.handle(e)
-            log_exception(logger, volume_error, {
-                "component": "AnalysisEngine",
-                "operation": "volume_trend_analysis"
-            }, level="warning")
+            log_exception(
+                logger,
+                volume_error,
+                {"component": "AnalysisEngine", "operation": "volume_trend_analysis"},
+                level="warning",
+            )
             return None
 
     def _analyze_price_trend(self, data) -> Optional[str]:
@@ -420,10 +463,12 @@ class AnalysisOnlyEngine:
         except Exception as e:
             price_context = ExceptionContext("AnalysisEngine", "price_trend_analysis")
             price_error = price_context.handle(e)
-            log_exception(logger, price_error, {
-                "component": "AnalysisEngine",
-                "operation": "price_trend_analysis"
-            }, level="warning")
+            log_exception(
+                logger,
+                price_error,
+                {"component": "AnalysisEngine", "operation": "price_trend_analysis"},
+                level="warning",
+            )
             return None
 
     def _generate_recommendations(
@@ -465,17 +510,23 @@ class AnalysisOnlyEngine:
                 "シグナル: データ不足",
                 "※ これは分析情報です",
                 "※ 投資判断は自己責任で行ってください",
-                "※ 自動取引は実行されません"
+                "※ 自動取引は実行されません",
             ]
         except Exception as e:
             # 予期しないエラー
-            rec_context = ExceptionContext("AnalysisEngine", f"recommendations_{symbol}")
+            rec_context = ExceptionContext(
+                "AnalysisEngine", f"recommendations_{symbol}"
+            )
             rec_error = rec_context.handle(e)
-            log_exception(logger, rec_error, {
-                "component": "AnalysisEngine",
-                "operation": "recommendations_generation",
-                "symbol": symbol
-            })
+            log_exception(
+                logger,
+                rec_error,
+                {
+                    "component": "AnalysisEngine",
+                    "operation": "recommendations_generation",
+                    "symbol": symbol,
+                },
+            )
             recommendations = ["分析情報の生成に失敗しました"]
 
         return recommendations

@@ -15,6 +15,7 @@ import pandas as pd
 
 class PluginType(Enum):
     """プラグインタイプ"""
+
     RISK_ANALYZER = "risk_analyzer"
     MARKET_MONITOR = "market_monitor"
     COMPLIANCE_CHECK = "compliance_check"
@@ -24,6 +25,7 @@ class PluginType(Enum):
 
 class RiskLevel(Enum):
     """リスクレベル"""
+
     VERY_LOW = "very_low"
     LOW = "low"
     MODERATE = "moderate"
@@ -35,6 +37,7 @@ class RiskLevel(Enum):
 @dataclass
 class PluginInfo:
     """プラグイン情報"""
+
     name: str
     version: str
     description: str
@@ -50,6 +53,7 @@ class PluginInfo:
 @dataclass
 class RiskAnalysisResult:
     """リスク分析結果"""
+
     plugin_name: str
     timestamp: datetime
     risk_level: RiskLevel
@@ -65,6 +69,7 @@ class RiskAnalysisResult:
 @dataclass
 class MarketData:
     """市場データ"""
+
     symbol: str
     timestamp: datetime
     price_data: pd.DataFrame
@@ -78,6 +83,7 @@ class MarketData:
 @dataclass
 class PortfolioData:
     """ポートフォリオデータ"""
+
     positions: Dict[str, Dict[str, Any]]
     total_value: float
     available_cash: float
@@ -125,7 +131,7 @@ class IRiskPlugin(abc.ABC):
         self,
         market_data: Union[MarketData, List[MarketData]],
         portfolio_data: Optional[PortfolioData] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> RiskAnalysisResult:
         """
         リスク分析実行
@@ -187,7 +193,7 @@ class IRiskPlugin(abc.ABC):
         return {
             "initialized": self._initialized,
             "config": self.config,
-            "last_analysis": getattr(self, '_last_analysis_time', None)
+            "last_analysis": getattr(self, "_last_analysis_time", None),
         }
 
 
@@ -196,9 +202,7 @@ class IMarketMonitorPlugin(IRiskPlugin):
 
     @abc.abstractmethod
     def monitor_market(
-        self,
-        symbols: List[str],
-        monitoring_config: Dict[str, Any]
+        self, symbols: List[str], monitoring_config: Dict[str, Any]
     ) -> List[RiskAnalysisResult]:
         """
         市場監視実行
@@ -221,7 +225,7 @@ class ICompliancePlugin(IRiskPlugin):
         self,
         trade_data: Dict[str, Any],
         portfolio_data: PortfolioData,
-        regulations: Dict[str, Any]
+        regulations: Dict[str, Any],
     ) -> RiskAnalysisResult:
         """
         コンプライアンスチェック
@@ -245,7 +249,7 @@ class ISentimentPlugin(IRiskPlugin):
         self,
         news_data: List[Dict[str, Any]],
         social_data: Optional[List[Dict[str, Any]]] = None,
-        historical_sentiment: Optional[pd.DataFrame] = None
+        historical_sentiment: Optional[pd.DataFrame] = None,
     ) -> RiskAnalysisResult:
         """
         センチメント分析実行

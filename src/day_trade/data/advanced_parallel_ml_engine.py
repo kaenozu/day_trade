@@ -28,6 +28,7 @@ try:
     )
 except ImportError:
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     def get_context_logger(name):

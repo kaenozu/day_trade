@@ -6,15 +6,17 @@ Request Models
 API呼び出しや分析要求で使用される標準化されたリクエストモデル
 """
 
-from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
-from .unified_models import Asset, Portfolio, Position, AssetType, RiskLevel
+from .unified_models import Asset, AssetType, Portfolio, Position, RiskLevel
+
 
 class AnalysisType(Enum):
     """分析タイプ"""
+
     PORTFOLIO_RISK = "portfolio_risk"
     POSITION_RISK = "position_risk"
     ASSET_RISK = "asset_risk"
@@ -26,8 +28,10 @@ class AnalysisType(Enum):
     COMPLIANCE_CHECK = "compliance_check"
     STRESS_TEST = "stress_test"
 
+
 class TimeFrame(Enum):
     """時間枠"""
+
     REALTIME = "realtime"
     INTRADAY = "intraday"
     DAILY = "daily"
@@ -36,28 +40,36 @@ class TimeFrame(Enum):
     QUARTERLY = "quarterly"
     YEARLY = "yearly"
 
+
 class Priority(Enum):
     """優先度"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     URGENT = "urgent"
 
+
 # 基本リクエストクラス
+
 
 @dataclass
 class BaseRequest:
     """基本リクエスト"""
+
     request_id: str
     timestamp: datetime = field(default_factory=datetime.now)
     priority: Priority = Priority.MEDIUM
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 # リスク分析リクエスト
+
 
 @dataclass
 class RiskAnalysisRequest(BaseRequest):
     """リスク分析リクエスト"""
+
     analysis_type: AnalysisType
     target: Union[Asset, Position, Portfolio]
     time_frame: TimeFrame = TimeFrame.DAILY
@@ -70,9 +82,11 @@ class RiskAnalysisRequest(BaseRequest):
         if not 0.5 <= self.confidence_level <= 0.99:
             raise ValueError("confidence_level must be between 0.5 and 0.99")
 
+
 @dataclass
 class PortfolioRiskRequest(RiskAnalysisRequest):
     """ポートフォリオリスク分析リクエスト"""
+
     portfolio: Portfolio
     calculate_var: bool = True
     calculate_cvar: bool = True
@@ -81,45 +95,52 @@ class PortfolioRiskRequest(RiskAnalysisRequest):
     benchmark_symbol: Optional[str] = None
 
     def __init__(self, **kwargs):
-        if 'target' not in kwargs:
-            kwargs['target'] = kwargs.get('portfolio')
-        if 'analysis_type' not in kwargs:
-            kwargs['analysis_type'] = AnalysisType.PORTFOLIO_RISK
+        if "target" not in kwargs:
+            kwargs["target"] = kwargs.get("portfolio")
+        if "analysis_type" not in kwargs:
+            kwargs["analysis_type"] = AnalysisType.PORTFOLIO_RISK
         super().__init__(**kwargs)
+
 
 @dataclass
 class AssetRiskRequest(RiskAnalysisRequest):
     """資産リスク分析リクエスト"""
+
     asset: Asset
     market_data_days: int = 252
     include_fundamental_analysis: bool = False
     include_technical_analysis: bool = True
 
     def __init__(self, **kwargs):
-        if 'target' not in kwargs:
-            kwargs['target'] = kwargs.get('asset')
-        if 'analysis_type' not in kwargs:
-            kwargs['analysis_type'] = AnalysisType.ASSET_RISK
+        if "target" not in kwargs:
+            kwargs["target"] = kwargs.get("asset")
+        if "analysis_type" not in kwargs:
+            kwargs["analysis_type"] = AnalysisType.ASSET_RISK
         super().__init__(**kwargs)
+
 
 @dataclass
 class FraudDetectionRequest(RiskAnalysisRequest):
     """不正検知リクエスト"""
+
     transaction_data: List[Dict[str, Any]]
     model_type: str = "ensemble"
     anomaly_threshold: float = 0.5
     include_explanation: bool = True
 
     def __init__(self, **kwargs):
-        if 'analysis_type' not in kwargs:
-            kwargs['analysis_type'] = AnalysisType.FRAUD_DETECTION
+        if "analysis_type" not in kwargs:
+            kwargs["analysis_type"] = AnalysisType.FRAUD_DETECTION
         super().__init__(**kwargs)
 
+
 # バッチ処理リクエスト
+
 
 @dataclass
 class BatchAnalysisRequest(BaseRequest):
     """バッチ分析リクエスト"""
+
     analysis_requests: List[RiskAnalysisRequest]
     parallel_execution: bool = True
     max_concurrent_tasks: int = 5
@@ -132,9 +153,11 @@ class BatchAnalysisRequest(BaseRequest):
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
 
+
 @dataclass
 class ScheduledAnalysisRequest(BaseRequest):
     """スケジュール分析リクエスト"""
+
     analysis_request: RiskAnalysisRequest
     schedule_expression: str  # CRON式
     start_date: Optional[datetime] = None
@@ -146,11 +169,14 @@ class ScheduledAnalysisRequest(BaseRequest):
         if self.start_date and self.end_date and self.start_date >= self.end_date:
             raise ValueError("start_date must be before end_date")
 
+
 # データ取得リクエスト
+
 
 @dataclass
 class MarketDataRequest(BaseRequest):
     """市場データリクエスト"""
+
     symbols: List[str]
     data_type: str  # "price", "volume", "ohlc", "all"
     start_date: Optional[datetime] = None
@@ -164,13 +190,17 @@ class MarketDataRequest(BaseRequest):
         if self.start_date and self.end_date and self.start_date >= self.end_date:
             raise ValueError("start_date must be before end_date")
 
+
 @dataclass
 class HistoricalDataRequest(BaseRequest):
     """履歴データリクエスト"""
+
     symbol: str
     asset_type: AssetType
     lookback_days: int = 252
-    data_fields: List[str] = field(default_factory=lambda: ["open", "high", "low", "close", "volume"])
+    data_fields: List[str] = field(
+        default_factory=lambda: ["open", "high", "low", "close", "volume"]
+    )
     include_dividends: bool = False
     include_splits: bool = False
 
@@ -180,51 +210,65 @@ class HistoricalDataRequest(BaseRequest):
         if not self.data_fields:
             raise ValueError("data_fields cannot be empty")
 
+
 # 設定・管理リクエスト
+
 
 @dataclass
 class ConfigurationRequest(BaseRequest):
     """設定リクエスト"""
+
     operation: str  # "get", "set", "update", "delete"
     config_path: str
     config_value: Optional[Any] = None
     validate_config: bool = True
     backup_existing: bool = True
 
+
 @dataclass
 class CacheRequest(BaseRequest):
     """キャッシュリクエスト"""
+
     operation: str  # "get", "set", "delete", "clear", "stats"
     cache_key: Optional[str] = None
     cache_value: Optional[Any] = None
     ttl_seconds: Optional[int] = None
     cache_provider: Optional[str] = None  # "redis", "memory", "file"
 
+
 @dataclass
 class AlertRequest(BaseRequest):
     """アラートリクエスト"""
+
     operation: str  # "create", "update", "acknowledge", "resolve", "delete"
     alert_id: Optional[str] = None
     alert_level: Optional[RiskLevel] = None
     title: Optional[str] = None
     message: Optional[str] = None
     target: Optional[Union[Asset, Position, Portfolio]] = None
-    notification_channels: List[str] = field(default_factory=list)  # "email", "slack", "webhook"
+    notification_channels: List[str] = field(
+        default_factory=list
+    )  # "email", "slack", "webhook"
+
 
 # ストリーミング・リアルタイムリクエスト
+
 
 @dataclass
 class StreamingRequest(BaseRequest):
     """ストリーミングリクエスト"""
+
     stream_type: str  # "market_data", "risk_alerts", "analysis_results"
     symbols: List[str] = field(default_factory=list)
     filters: Dict[str, Any] = field(default_factory=dict)
     buffer_size: int = 1000
     compression: bool = False
 
+
 @dataclass
 class RealtimeAnalysisRequest(BaseRequest):
     """リアルタイム分析リクエスト"""
+
     analysis_type: AnalysisType
     target: Union[Asset, Position, Portfolio]
     update_interval_seconds: int = 60
@@ -235,11 +279,14 @@ class RealtimeAnalysisRequest(BaseRequest):
         if self.update_interval_seconds <= 0:
             raise ValueError("update_interval_seconds must be positive")
 
+
 # バックテスト・シミュレーションリクエスト
+
 
 @dataclass
 class BacktestRequest(BaseRequest):
     """バックテストリクエスト"""
+
     strategy_config: Dict[str, Any]
     start_date: datetime
     end_date: datetime
@@ -255,9 +302,11 @@ class BacktestRequest(BaseRequest):
         if self.initial_capital <= 0:
             raise ValueError("initial_capital must be positive")
 
+
 @dataclass
 class StressTestRequest(BaseRequest):
     """ストレステストリクエスト"""
+
     portfolio: Portfolio
     stress_scenarios: List[Dict[str, Any]]
     confidence_levels: List[float] = field(default_factory=lambda: [0.95, 0.99])
@@ -271,7 +320,9 @@ class StressTestRequest(BaseRequest):
         if self.monte_carlo_iterations <= 0:
             raise ValueError("monte_carlo_iterations must be positive")
 
+
 # リクエスト検証
+
 
 class RequestValidator:
     """リクエスト検証"""
@@ -294,7 +345,7 @@ class RequestValidator:
         """リスク分析リクエスト検証"""
         errors = RequestValidator.validate_base_request(request)
 
-        if not hasattr(request, 'target') or request.target is None:
+        if not hasattr(request, "target") or request.target is None:
             errors.append("analysis target is required")
 
         if not 0.5 <= request.confidence_level <= 0.99:
@@ -323,19 +374,21 @@ class RequestValidator:
                 errors.append("start_date must be before end_date")
 
             # 過去5年以内の制限
-            max_lookback = datetime.now() - timedelta(days=5*365)
+            max_lookback = datetime.now() - timedelta(days=5 * 365)
             if request.start_date < max_lookback:
                 errors.append("start_date cannot be more than 5 years ago")
 
         return errors
 
+
 # リクエスト作成ヘルパー関数
+
 
 def create_portfolio_risk_request(
     portfolio: Portfolio,
     confidence_level: float = 0.95,
     include_var: bool = True,
-    priority: Priority = Priority.MEDIUM
+    priority: Priority = Priority.MEDIUM,
 ) -> PortfolioRiskRequest:
     """ポートフォリオリスクリクエスト作成"""
     import uuid
@@ -345,13 +398,12 @@ def create_portfolio_risk_request(
         portfolio=portfolio,
         confidence_level=confidence_level,
         calculate_var=include_var,
-        priority=priority
+        priority=priority,
     )
 
+
 def create_asset_risk_request(
-    asset: Asset,
-    market_data_days: int = 252,
-    priority: Priority = Priority.MEDIUM
+    asset: Asset, market_data_days: int = 252, priority: Priority = Priority.MEDIUM
 ) -> AssetRiskRequest:
     """資産リスクリクエスト作成"""
     import uuid
@@ -360,13 +412,14 @@ def create_asset_risk_request(
         request_id=str(uuid.uuid4()),
         asset=asset,
         market_data_days=market_data_days,
-        priority=priority
+        priority=priority,
     )
+
 
 def create_fraud_detection_request(
     transaction_data: List[Dict[str, Any]],
     threshold: float = 0.5,
-    priority: Priority = Priority.HIGH
+    priority: Priority = Priority.HIGH,
 ) -> FraudDetectionRequest:
     """不正検知リクエスト作成"""
     import uuid
@@ -376,13 +429,12 @@ def create_fraud_detection_request(
         transaction_data=transaction_data,
         anomaly_threshold=threshold,
         priority=priority,
-        target=None  # ダミー値
+        target=None,  # ダミー値
     )
 
+
 def create_market_data_request(
-    symbols: List[str],
-    data_type: str = "all",
-    lookback_days: int = 30
+    symbols: List[str], data_type: str = "all", lookback_days: int = 30
 ) -> MarketDataRequest:
     """市場データリクエスト作成"""
     import uuid
@@ -395,5 +447,5 @@ def create_market_data_request(
         symbols=symbols,
         data_type=data_type,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
     )

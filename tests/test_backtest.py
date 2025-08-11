@@ -5,7 +5,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -222,13 +222,15 @@ class TestBacktestEngine:
             current_price = base_price + change
 
             # 固定的なOHLCデータ（計算負荷最小）
-            data.append({
-                "Open": round(current_price - 5, 2),
-                "High": round(current_price + 10, 2),
-                "Low": round(current_price - 10, 2),
-                "Close": round(current_price, 2),
-                "Volume": 1000000 + i * 10000,  # 固定的な出来高
-            })
+            data.append(
+                {
+                    "Open": round(current_price - 5, 2),
+                    "High": round(current_price + 10, 2),
+                    "Low": round(current_price - 10, 2),
+                    "Close": round(current_price, 2),
+                    "Volume": 1000000 + i * 10000,  # 固定的な出来高
+                }
+            )
 
         return pd.DataFrame(data, index=dates)
 

@@ -73,26 +73,26 @@ class PerformanceThresholds:
     def __init__(self):
         self.execution_time = {
             "ml_analysis": 5.0,  # 5秒以内
-            "data_fetch": 3.0,   # 3秒以内
+            "data_fetch": 3.0,  # 3秒以内
             "analysis_cycle": 2.0,  # 2秒以内
             "database_operation": 1.0,  # 1秒以内
-            "api_call": 10.0,    # 10秒以内
+            "api_call": 10.0,  # 10秒以内
         }
 
         self.memory_usage = {
-            "total_mb": 1024,    # 1GB以内
-            "process_mb": 512,   # 512MB以内
+            "total_mb": 1024,  # 1GB以内
+            "process_mb": 512,  # 512MB以内
             "growth_rate": 0.1,  # 10%成長率以内
         }
 
         self.cpu_usage = {
-            "average": 70.0,     # 70%以内
-            "peak": 90.0,        # 90%以内
+            "average": 70.0,  # 70%以内
+            "peak": 90.0,  # 90%以内
         }
 
         self.system = {
             "memory_percent": 80.0,  # 80%以内
-            "disk_percent": 85.0,    # 85%以内
+            "disk_percent": 85.0,  # 85%以内
         }
 
 
@@ -117,15 +117,17 @@ class EnhancedPerformanceMonitor:
         self.thresholds = PerformanceThresholds()
 
         # 統計情報
-        self.process_stats = defaultdict(lambda: {
-            "total_calls": 0,
-            "successful_calls": 0,
-            "failed_calls": 0,
-            "total_time": 0.0,
-            "avg_time": 0.0,
-            "max_time": 0.0,
-            "min_time": float('inf'),
-        })
+        self.process_stats = defaultdict(
+            lambda: {
+                "total_calls": 0,
+                "successful_calls": 0,
+                "failed_calls": 0,
+                "total_time": 0.0,
+                "avg_time": 0.0,
+                "max_time": 0.0,
+                "min_time": float("inf"),
+            }
+        )
 
         # システム監視用
         self._monitoring_active = False
@@ -146,8 +148,7 @@ class EnhancedPerformanceMonitor:
         self._system_monitor_interval = interval
         self._monitoring_active = True
         self._monitoring_thread = threading.Thread(
-            target=self._system_monitoring_loop,
-            daemon=True
+            target=self._system_monitoring_loop, daemon=True
         )
         self._monitoring_thread.start()
         logger.info(f"システム監視を開始しました (間隔: {interval}秒)")
@@ -185,7 +186,7 @@ class EnhancedPerformanceMonitor:
         cpu_percent = psutil.cpu_percent(interval=0.1)
 
         # ディスク使用率
-        disk_usage = psutil.disk_usage('/')
+        disk_usage = psutil.disk_usage("/")
 
         return SystemMetrics(
             timestamp=datetime.now(),
@@ -195,7 +196,7 @@ class EnhancedPerformanceMonitor:
             cpu_usage_percent=cpu_percent,
             disk_usage_percent=disk_usage.percent,
             active_threads=threading.active_count(),
-            process_count=len(psutil.pids())
+            process_count=len(psutil.pids()),
         )
 
     @contextmanager
@@ -210,7 +211,9 @@ class EnhancedPerformanceMonitor:
         start_time = time.time()
         start_memory = self._get_memory_usage()
         start_cpu = psutil.cpu_percent()
-        start_gc = sum(gc.get_stats()[i]['collections'] for i in range(len(gc.get_stats())))
+        start_gc = sum(
+            gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats()))
+        )
 
         success = True
         error_message = None
@@ -226,7 +229,9 @@ class EnhancedPerformanceMonitor:
             execution_time = time.time() - start_time
             end_memory = self._get_memory_usage()
             end_cpu = psutil.cpu_percent()
-            end_gc = sum(gc.get_stats()[i]['collections'] for i in range(len(gc.get_stats())))
+            end_gc = sum(
+                gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats()))
+            )
 
             metrics = PerformanceMetrics(
                 timestamp=datetime.now(),
@@ -237,7 +242,7 @@ class EnhancedPerformanceMonitor:
                 cpu_usage=end_cpu - start_cpu,
                 thread_count=threading.active_count(),
                 gc_collections=end_gc - start_gc,
-                error_message=error_message
+                error_message=error_message,
             )
 
             # 履歴に追加
@@ -257,22 +262,26 @@ class EnhancedPerformanceMonitor:
         process = psutil.Process()
         return process.memory_info().rss / 1024 / 1024
 
-    def _update_process_stats(self, process_name: str, execution_time: float, success: bool):
+    def _update_process_stats(
+        self, process_name: str, execution_time: float, success: bool
+    ):
         """プロセス統計情報を更新"""
         stats = self.process_stats[process_name]
-        stats['total_calls'] += 1
+        stats["total_calls"] += 1
 
         if success:
-            stats['successful_calls'] += 1
+            stats["successful_calls"] += 1
         else:
-            stats['failed_calls'] += 1
+            stats["failed_calls"] += 1
 
-        stats['total_time'] += execution_time
-        stats['avg_time'] = stats['total_time'] / stats['total_calls']
-        stats['max_time'] = max(stats['max_time'], execution_time)
-        stats['min_time'] = min(stats['min_time'], execution_time)
+        stats["total_time"] += execution_time
+        stats["avg_time"] = stats["total_time"] / stats["total_calls"]
+        stats["max_time"] = max(stats["max_time"], execution_time)
+        stats["min_time"] = min(stats["min_time"], execution_time)
 
-    def _check_performance_alerts(self, metrics: PerformanceMetrics, category: Optional[str]):
+    def _check_performance_alerts(
+        self, metrics: PerformanceMetrics, category: Optional[str]
+    ):
         """パフォーマンスアラートをチェック"""
         alerts = []
 
@@ -281,32 +290,40 @@ class EnhancedPerformanceMonitor:
         execution_threshold = self.thresholds.execution_time.get(threshold_key, 5.0)
 
         if metrics.execution_time > execution_threshold:
-            alerts.append(PerformanceAlert(
-                timestamp=metrics.timestamp,
-                alert_type="EXECUTION_TIME",
-                severity="HIGH" if metrics.execution_time > execution_threshold * 2 else "MEDIUM",
-                process_name=metrics.process_name,
-                message=f"実行時間が閾値を超過: {metrics.execution_time:.2f}秒",
-                metrics=asdict(metrics),
-                threshold=execution_threshold,
-                actual_value=metrics.execution_time
-            ))
+            alerts.append(
+                PerformanceAlert(
+                    timestamp=metrics.timestamp,
+                    alert_type="EXECUTION_TIME",
+                    severity="HIGH"
+                    if metrics.execution_time > execution_threshold * 2
+                    else "MEDIUM",
+                    process_name=metrics.process_name,
+                    message=f"実行時間が閾値を超過: {metrics.execution_time:.2f}秒",
+                    metrics=asdict(metrics),
+                    threshold=execution_threshold,
+                    actual_value=metrics.execution_time,
+                )
+            )
 
         # メモリ使用量チェック
         memory_threshold = self.thresholds.memory_usage["process_mb"]
         current_memory = self._get_memory_usage()
 
         if current_memory > memory_threshold:
-            alerts.append(PerformanceAlert(
-                timestamp=metrics.timestamp,
-                alert_type="MEMORY_USAGE",
-                severity="HIGH" if current_memory > memory_threshold * 2 else "MEDIUM",
-                process_name=metrics.process_name,
-                message=f"メモリ使用量が閾値を超過: {current_memory:.2f}MB",
-                metrics=asdict(metrics),
-                threshold=memory_threshold,
-                actual_value=current_memory
-            ))
+            alerts.append(
+                PerformanceAlert(
+                    timestamp=metrics.timestamp,
+                    alert_type="MEMORY_USAGE",
+                    severity="HIGH"
+                    if current_memory > memory_threshold * 2
+                    else "MEDIUM",
+                    process_name=metrics.process_name,
+                    message=f"メモリ使用量が閾値を超過: {current_memory:.2f}MB",
+                    metrics=asdict(metrics),
+                    threshold=memory_threshold,
+                    actual_value=current_memory,
+                )
+            )
 
         # アラートを履歴に追加し、コールバックを実行
         for alert in alerts:
@@ -322,30 +339,37 @@ class EnhancedPerformanceMonitor:
         alerts = []
 
         # メモリ使用率チェック
-        if system_metrics.memory_usage_percent > self.thresholds.system["memory_percent"]:
-            alerts.append(PerformanceAlert(
-                timestamp=system_metrics.timestamp,
-                alert_type="SYSTEM_MEMORY",
-                severity="HIGH",
-                process_name="SYSTEM",
-                message=f"システムメモリ使用率が高い: {system_metrics.memory_usage_percent:.1f}%",
-                metrics=asdict(system_metrics),
-                threshold=self.thresholds.system["memory_percent"],
-                actual_value=system_metrics.memory_usage_percent
-            ))
+        if (
+            system_metrics.memory_usage_percent
+            > self.thresholds.system["memory_percent"]
+        ):
+            alerts.append(
+                PerformanceAlert(
+                    timestamp=system_metrics.timestamp,
+                    alert_type="SYSTEM_MEMORY",
+                    severity="HIGH",
+                    process_name="SYSTEM",
+                    message=f"システムメモリ使用率が高い: {system_metrics.memory_usage_percent:.1f}%",
+                    metrics=asdict(system_metrics),
+                    threshold=self.thresholds.system["memory_percent"],
+                    actual_value=system_metrics.memory_usage_percent,
+                )
+            )
 
         # ディスク使用率チェック
         if system_metrics.disk_usage_percent > self.thresholds.system["disk_percent"]:
-            alerts.append(PerformanceAlert(
-                timestamp=system_metrics.timestamp,
-                alert_type="SYSTEM_DISK",
-                severity="MEDIUM",
-                process_name="SYSTEM",
-                message=f"ディスク使用率が高い: {system_metrics.disk_usage_percent:.1f}%",
-                metrics=asdict(system_metrics),
-                threshold=self.thresholds.system["disk_percent"],
-                actual_value=system_metrics.disk_usage_percent
-            ))
+            alerts.append(
+                PerformanceAlert(
+                    timestamp=system_metrics.timestamp,
+                    alert_type="SYSTEM_DISK",
+                    severity="MEDIUM",
+                    process_name="SYSTEM",
+                    message=f"ディスク使用率が高い: {system_metrics.disk_usage_percent:.1f}%",
+                    metrics=asdict(system_metrics),
+                    threshold=self.thresholds.system["disk_percent"],
+                    actual_value=system_metrics.disk_usage_percent,
+                )
+            )
 
         # アラートを処理
         for alert in alerts:
@@ -356,14 +380,16 @@ class EnhancedPerformanceMonitor:
                 except Exception as e:
                     logger.error(f"システムアラートコールバックエラー: {e}")
 
-    def _log_performance_metrics(self, metrics: PerformanceMetrics, category: Optional[str]):
+    def _log_performance_metrics(
+        self, metrics: PerformanceMetrics, category: Optional[str]
+    ):
         """パフォーマンスメトリクスをログ出力"""
         log_data = {
             "process_name": metrics.process_name,
             "execution_time": f"{metrics.execution_time:.3f}s",
             "memory_delta": f"{metrics.memory_usage:.2f}MB",
             "success": metrics.success,
-            "category": category
+            "category": category,
         }
 
         if metrics.success:
@@ -372,7 +398,9 @@ class EnhancedPerformanceMonitor:
             else:
                 logger.debug("パフォーマンスメトリクス", extra=log_data)
         else:
-            logger.error("プロセス実行失敗", extra={**log_data, "error": metrics.error_message})
+            logger.error(
+                "プロセス実行失敗", extra={**log_data, "error": metrics.error_message}
+            )
 
     def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]):
         """アラートコールバックを追加"""
@@ -392,7 +420,9 @@ class EnhancedPerformanceMonitor:
         # 統計計算
         total_processes = len(recent_metrics)
         successful_processes = len([m for m in recent_metrics if m.success])
-        avg_execution_time = sum(m.execution_time for m in recent_metrics) / total_processes
+        avg_execution_time = (
+            sum(m.execution_time for m in recent_metrics) / total_processes
+        )
         max_execution_time = max(m.execution_time for m in recent_metrics)
         total_memory_usage = sum(m.memory_usage for m in recent_metrics)
 
@@ -411,7 +441,9 @@ class EnhancedPerformanceMonitor:
             }
 
         # 最新のシステムメトリクス
-        latest_system = self.system_metrics_history[-1] if self.system_metrics_history else None
+        latest_system = (
+            self.system_metrics_history[-1] if self.system_metrics_history else None
+        )
 
         return {
             "period": f"{hours}時間",
@@ -421,8 +453,10 @@ class EnhancedPerformanceMonitor:
             "max_execution_time": max_execution_time,
             "total_memory_delta": total_memory_usage,
             "process_summary": process_summary,
-            "recent_alerts": len([a for a in self.alerts_history if a.timestamp >= cutoff_time]),
-            "system_status": asdict(latest_system) if latest_system else None
+            "recent_alerts": len(
+                [a for a in self.alerts_history if a.timestamp >= cutoff_time]
+            ),
+            "system_status": asdict(latest_system) if latest_system else None,
         }
 
     def get_bottleneck_analysis(self, limit: int = 10) -> Dict[str, Any]:
@@ -430,30 +464,38 @@ class EnhancedPerformanceMonitor:
         process_performance = []
 
         for process_name, stats in self.process_stats.items():
-            if stats['total_calls'] > 0:
-                process_performance.append({
-                    "process_name": process_name,
-                    "avg_time": stats['avg_time'],
-                    "max_time": stats['max_time'],
-                    "total_time": stats['total_time'],
-                    "call_count": stats['total_calls'],
-                    "failure_rate": stats['failed_calls'] / stats['total_calls'],
-                })
+            if stats["total_calls"] > 0:
+                process_performance.append(
+                    {
+                        "process_name": process_name,
+                        "avg_time": stats["avg_time"],
+                        "max_time": stats["max_time"],
+                        "total_time": stats["total_time"],
+                        "call_count": stats["total_calls"],
+                        "failure_rate": stats["failed_calls"] / stats["total_calls"],
+                    }
+                )
 
         # 平均実行時間でソート
-        slowest_by_avg = sorted(process_performance, key=lambda x: x['avg_time'], reverse=True)[:limit]
+        slowest_by_avg = sorted(
+            process_performance, key=lambda x: x["avg_time"], reverse=True
+        )[:limit]
 
         # 最大実行時間でソート
-        slowest_by_max = sorted(process_performance, key=lambda x: x['max_time'], reverse=True)[:limit]
+        slowest_by_max = sorted(
+            process_performance, key=lambda x: x["max_time"], reverse=True
+        )[:limit]
 
         # 総実行時間でソート
-        heaviest_by_total = sorted(process_performance, key=lambda x: x['total_time'], reverse=True)[:limit]
+        heaviest_by_total = sorted(
+            process_performance, key=lambda x: x["total_time"], reverse=True
+        )[:limit]
 
         return {
             "slowest_by_average": slowest_by_avg,
             "slowest_by_maximum": slowest_by_max,
             "heaviest_by_total_time": heaviest_by_total,
-            "analysis_timestamp": datetime.now()
+            "analysis_timestamp": datetime.now(),
         }
 
 
@@ -469,20 +511,20 @@ def get_performance_monitor() -> EnhancedPerformanceMonitor:
 # アラート処理のデフォルト実装
 def default_alert_handler(alert: PerformanceAlert):
     """デフォルトアラートハンドラ"""
-    severity_prefix = {
-        "LOW": "ℹ️",
-        "MEDIUM": "⚠️",
-        "HIGH": "🚨",
-        "CRITICAL": "🔴"
-    }.get(alert.severity, "⚠️")
+    severity_prefix = {"LOW": "ℹ️", "MEDIUM": "⚠️", "HIGH": "🚨", "CRITICAL": "🔴"}.get(
+        alert.severity, "⚠️"
+    )
 
-    logger.warning(f"{severity_prefix} パフォーマンスアラート: {alert.message}", extra={
-        "alert_type": alert.alert_type,
-        "severity": alert.severity,
-        "process_name": alert.process_name,
-        "threshold": alert.threshold,
-        "actual_value": alert.actual_value
-    })
+    logger.warning(
+        f"{severity_prefix} パフォーマンスアラート: {alert.message}",
+        extra={
+            "alert_type": alert.alert_type,
+            "severity": alert.severity,
+            "process_name": alert.process_name,
+            "threshold": alert.threshold,
+            "actual_value": alert.actual_value,
+        },
+    )
 
 
 # デフォルトアラートハンドラーを登録

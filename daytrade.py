@@ -11,7 +11,6 @@ import signal
 import subprocess
 import sys
 import time
-import traceback
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -35,6 +34,7 @@ from src.day_trade.config.trading_mode_config import (
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
+
 
 class CLIValidationError(Exception):
     """CLI引数検証エラー"""
@@ -77,8 +77,8 @@ def validate_symbols(symbols_str: str) -> List[str]:
 
     if invalid_symbols:
         raise CLIValidationError(
-            "無効な銘柄コード形式: {}. ".format(', '.join(invalid_symbols)) +
-            "4桁の数字 (例: 7203) または市場コード付き (例: 7203.T) を使用してください。"
+            "無効な銘柄コード形式: {}. ".format(", ".join(invalid_symbols))
+            + "4桁の数字 (例: 7203) または市場コード付き (例: 7203.T) を使用してください。"
         )
 
     # 重複を除去
@@ -162,7 +162,9 @@ def validate_log_level(log_level: str) -> str:
 
     if log_level.upper() not in valid_levels:
         raise CLIValidationError(
-            "無効なログレベル: {}. 有効な値: {}".format(log_level, ', '.join(valid_levels))
+            "無効なログレベル: {}. 有効な値: {}".format(
+                log_level, ", ".join(valid_levels)
+            )
         )
 
     return log_level.upper()
@@ -290,7 +292,9 @@ def print_summary(report):
     print("=" * 50)
 
 
-def run_watch_mode(symbols, interval_minutes, orchestrator_instance: DayTradeOrchestrator):
+def run_watch_mode(
+    symbols, interval_minutes, orchestrator_instance: DayTradeOrchestrator
+):
     """
     継続監視モード
     """
@@ -485,7 +489,10 @@ def _parse_and_validate_args():
         try:
             validated_log_level = validate_log_level(args.log_level)
         except CLIValidationError as e:
-            print(f"❌ エラー: コマンドライン引数のログレベルが無効です。", file=sys.stderr) # 変更
+            print(
+                "❌ エラー: コマンドライン引数のログレベルが無効です。",
+                file=sys.stderr,
+            )  # 変更
             sys.exit(1)
 
         # 監視間隔のバリデーション
@@ -493,7 +500,10 @@ def _parse_and_validate_args():
             try:
                 validated_interval = validate_interval(args.interval)
             except CLIValidationError as e:
-                print(f"❌ エラー: コマンドライン引数の監視間隔が無効です。", file=sys.stderr) # 変更
+                print(
+                    "❌ エラー: コマンドライン引数の監視間隔が無効です。",
+                    file=sys.stderr,
+                )  # 変更
                 sys.exit(1)
 
         # 銘柄コードのバリデーション
@@ -502,7 +512,10 @@ def _parse_and_validate_args():
                 validated_symbols = validate_symbols(args.symbols)
                 print(f"✅ 銘柄コード検証完了: {len(validated_symbols)}銘柄")
             except CLIValidationError as e:
-                print(f"❌ エラー: コマンドライン引数の銘柄コードが無効です。", file=sys.stderr) # 変更
+                print(
+                    "❌ エラー: コマンドライン引数の銘柄コードが無効です。",
+                    file=sys.stderr,
+                )  # 変更
                 sys.exit(1)
 
         # 設定ファイルのバリデーション
@@ -511,13 +524,27 @@ def _parse_and_validate_args():
                 validated_config_path = validate_config_file(args.config)
                 print(f"✅ 設定ファイル検証完了: {validated_config_path}")
             except CLIValidationError as e:
-                print(f"❌ エラー: コマンドライン引数の設定ファイルパスが無効です。", file=sys.stderr) # 変更
+                print(
+                    "❌ エラー: コマンドライン引数の設定ファイルパスが無効です。",
+                    file=sys.stderr,
+                )  # 変更
                 sys.exit(1)
-        return args, validated_symbols, validated_config_path, validated_log_level, validated_interval
+        return (
+            args,
+            validated_symbols,
+            validated_config_path,
+            validated_log_level,
+            validated_interval,
+        )
     except Exception as e:
         # 詳細エラーはログに、ユーザーには一般的なメッセージ
-        logging.getLogger(__name__).error(f"予期しないバリデーションエラー: {e}", exc_info=True) # 追加
-        print(f"❌ 予期しないエラーが発生しました。詳細はログを確認してください。", file=sys.stderr) # 変更
+        logging.getLogger(__name__).error(
+            f"予期しないバリデーションエラー: {e}", exc_info=True
+        )  # 追加
+        print(
+            "❌ 予期しないエラーが発生しました。詳細はログを確認してください。",
+            file=sys.stderr,
+        )  # 変更
         sys.exit(1)
 
 
@@ -526,6 +553,7 @@ def _run_dashboard_mode(args):
         print_startup_banner()
     run_dashboard_mode()
     return 0
+
 
 def _run_interactive_mode(args):
     # ログ設定（バリデート済みレベルを使用）
@@ -558,7 +586,10 @@ def _run_interactive_mode(args):
         print(f"❌ インタラクティブモードエラー: {e}")
         return 1
 
-def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestrator, _signal_handler):
+
+def _run_analysis_mode(
+    args, validated_symbols, validated_config_path, orchestrator, _signal_handler
+):
     logger = logging.getLogger(__name__)
 
     # バナー表示
@@ -587,7 +618,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
             logger.info("[設定] 設定情報:")
             logger.info(f"   設定ファイル: {config_manager.config_path}")
             logger.info(f"   対象銘柄数: {len(symbols)}")
-            logger.info("   銘柄コード: {}".format(', '.join(symbols)))
+            logger.info("   銘柄コード: {}".format(", ".join(symbols)))
             logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
 
             # 市場時間チェック
@@ -613,8 +644,14 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
     # オーケストレーター初期化・実行
     orchestrator_instance = DayTradeOrchestrator(config_path)
     # シグナルハンドラに実際のorchestratorインスタンスをバインド
-    signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator_instance))
-    signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator_instance))
+    signal.signal(
+        signal.SIGINT,
+        partial(_signal_handler, orchestrator_instance=orchestrator_instance),
+    )
+    signal.signal(
+        signal.SIGTERM,
+        partial(_signal_handler, orchestrator_instance=orchestrator_instance),
+    )
 
     start_time = datetime.now()
     print(f"開始時刻: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -692,7 +729,9 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
                     )
 
                     trend_val = trend_score.score_value if trend_score else 0
-                    volatility_val = volatility_score.score_value if volatility_score else 0
+                    volatility_val = (
+                        volatility_score.score_value if volatility_score else 0
+                    )
                     pattern_val = pattern_score.score_value if pattern_score else 0
 
                     # 総合判定
@@ -769,6 +808,7 @@ def _run_analysis_mode(args, validated_symbols, validated_config_path, orchestra
         else:
             print("\n[失敗] 処理に失敗しました")
         return 1  # 部分的または全体的な失敗の場合、1を返す
+
 
 def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results):
     # 詳細レポート（最初の3銘柄のみ）
@@ -867,13 +907,7 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
             overall = scored_result["overall"]
 
             rank_symbol = (
-                "🥇"
-                if i == 1
-                else "🥈"
-                if i == 2
-                else "🥉"
-                if i == 3
-                else f"{i:2d}"
+                "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i:2d}"
             )
 
             print(
@@ -889,10 +923,12 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
 
     return 0
 
+
 def main():
     """
     メイン関数
     """
+
     def _signal_handler(signum, frame, orchestrator_instance: DayTradeOrchestrator):
         print("\n\n[中断] システムを安全に停止しています...")
         if orchestrator_instance:
@@ -904,7 +940,13 @@ def main():
     signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=None))
     signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=None))
 
-    args, validated_symbols, validated_config_path, validated_log_level, validated_interval = _parse_and_validate_args()
+    (
+        args,
+        validated_symbols,
+        validated_config_path,
+        validated_log_level,
+        validated_interval,
+    ) = _parse_and_validate_args()
 
     # ログ設定（バリデート済みレベルを使用）
     setup_logging(validated_log_level)
@@ -926,8 +968,12 @@ def main():
         )
 
         # シグナルハンドラに実際のorchestratorインスタンスをバインド
-        signal.signal(signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator))
-        signal.signal(signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator))
+        signal.signal(
+            signal.SIGINT, partial(_signal_handler, orchestrator_instance=orchestrator)
+        )
+        signal.signal(
+            signal.SIGTERM, partial(_signal_handler, orchestrator_instance=orchestrator)
+        )
 
         # 設定の表示とシンボル取得
         symbols = validated_symbols
@@ -942,8 +988,10 @@ def main():
                 logger.info("[設定] 設定情報:")
                 logger.info(f"   設定ファイル: {config_manager.config_path}")
                 logger.info(f"   対象銘柄数: {len(symbols)}")
-                logger.info("   銘柄コード: {}".format(', '.join(symbols)))
-                logger.info(f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}")
+                logger.info("   銘柄コード: {}".format(", ".join(symbols)))
+                logger.info(
+                    f"   レポートのみ: {'はい' if args.report_only else 'いいえ'}"
+                )
 
                 # 市場時間チェック
                 if config_manager.is_market_open():
@@ -964,7 +1012,9 @@ def main():
             return 0
 
         # 通常分析モードの実行
-        return _run_analysis_mode(args, symbols, validated_config_path, orchestrator, _signal_handler)
+        return _run_analysis_mode(
+            args, symbols, validated_config_path, orchestrator, _signal_handler
+        )
 
     except KeyboardInterrupt:
         logger.info("ユーザーによって中断されました")
@@ -972,8 +1022,11 @@ def main():
         return 130
 
     except Exception as e:
-        logger.error(f"予期しないエラー: {e}", exc_info=True) # 変更
-        print(f"\n[失敗] エラーが発生しました。詳細はログを確認してください。", file=sys.stderr) # 変更
+        logger.error(f"予期しないエラー: {e}", exc_info=True)  # 変更
+        print(
+            "\n[失敗] エラーが発生しました。詳細はログを確認してください。",
+            file=sys.stderr,
+        )  # 変更
         return 1
 
 

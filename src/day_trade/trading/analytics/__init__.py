@@ -5,8 +5,8 @@
 """
 
 from .portfolio_analyzer import PortfolioAnalyzer
-from .tax_calculator import TaxCalculator
 from .report_exporter import ReportExporter
+from .tax_calculator import TaxCalculator
 
 __all__ = [
     "PortfolioAnalyzer",

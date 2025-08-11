@@ -4,27 +4,22 @@
 Prometheus向けHTTPサーバー・メトリクス公開機能
 """
 
-import asyncio
 import threading
-from typing import Dict, Any, Optional
 from datetime import datetime
-import json
+from typing import Optional
 
-from fastapi import FastAPI, Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import uvicorn
+from fastapi import FastAPI, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from .prometheus_metrics import (
-    get_registry,
-    get_metrics_collector,
-    get_risk_metrics,
-    get_trading_metrics,
-    get_ai_metrics,
-    get_health_metrics
-)
 from ...utils.logging_config import get_context_logger
+from .prometheus_metrics import (
+    get_metrics_collector,
+    get_registry,
+)
 
 logger = get_context_logger(__name__)
+
 
 class MetricsExporter:
     """メトリクス エクスポーター"""
@@ -34,7 +29,7 @@ class MetricsExporter:
         self.app = FastAPI(
             title="Day Trade Metrics Exporter",
             description="Prometheus メトリクス エクスポーター",
-            version="2.0.0"
+            version="2.0.0",
         )
         self._setup_routes()
 
@@ -53,17 +48,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"メトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/risk_metrics")
@@ -74,17 +66,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"リスクメトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/trading_metrics")
@@ -95,17 +84,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"取引メトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/ai_metrics")
@@ -116,17 +102,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"AIメトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/fraud_metrics")
@@ -137,17 +120,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"不正検知メトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/db_metrics")
@@ -158,17 +138,14 @@ class MetricsExporter:
                 registry = get_registry()
                 metrics_data = generate_latest(registry)
 
-                return Response(
-                    content=metrics_data,
-                    media_type=CONTENT_TYPE_LATEST
-                )
+                return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
 
             except Exception as e:
                 logger.error(f"DBメトリクス取得エラー: {e}")
                 return Response(
                     content=f"# ERROR: {e}\n",
                     media_type=CONTENT_TYPE_LATEST,
-                    status_code=500
+                    status_code=500,
                 )
 
         @self.app.get("/health")
@@ -185,8 +162,8 @@ class MetricsExporter:
                     "/trading_metrics",
                     "/ai_metrics",
                     "/fraud_metrics",
-                    "/db_metrics"
-                ]
+                    "/db_metrics",
+                ],
             }
 
         @self.app.get("/status")
@@ -201,7 +178,7 @@ class MetricsExporter:
                     "exporter_status": "running",
                     "port": self.port,
                     "metrics_collection": status,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
             except Exception as e:
@@ -209,7 +186,7 @@ class MetricsExporter:
                 return {
                     "exporter_status": "error",
                     "error": str(e),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
     def start_server(self):
@@ -218,18 +195,16 @@ class MetricsExporter:
         try:
             logger.info(f"メトリクスエクスポーター開始: port {self.port}")
 
-            uvicorn.run(
-                self.app,
-                host="0.0.0.0",
-                port=self.port,
-                log_level="info"
-            )
+            uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="info")
 
         except Exception as e:
             logger.error(f"サーバー開始エラー: {e}")
             raise
 
-def start_metrics_server(port: int = 8000, background: bool = True) -> Optional[MetricsExporter]:
+
+def start_metrics_server(
+    port: int = 8000, background: bool = True
+) -> Optional[MetricsExporter]:
     """メトリクスサーバー開始"""
 
     exporter = MetricsExporter(port)
@@ -239,10 +214,7 @@ def start_metrics_server(port: int = 8000, background: bool = True) -> Optional[
         def run_server():
             exporter.start_server()
 
-        server_thread = threading.Thread(
-            target=run_server,
-            daemon=True
-        )
+        server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
 
         logger.info(f"メトリクスサーバーをバックグラウンドで開始: port {port}")
@@ -252,12 +224,15 @@ def start_metrics_server(port: int = 8000, background: bool = True) -> Optional[
         exporter.start_server()
         return None
 
+
 # グローバル エクスポーター インスタンス
 _metrics_exporter: Optional[MetricsExporter] = None
+
 
 def get_metrics_exporter() -> Optional[MetricsExporter]:
     """グローバル エクスポーター取得"""
     return _metrics_exporter
+
 
 def initialize_metrics_server(port: int = 8000) -> MetricsExporter:
     """メトリクスサーバー初期化"""

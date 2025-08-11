@@ -7,30 +7,36 @@ WebSocket + AI推論 + パフォーマンス監視 + アラート + ダッシュ
 """
 
 import asyncio
-import time
 import json
+import time
 import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Callable
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from .websocket_stream import RealTimeStreamManager, MarketTick, NewsItem, SocialPost
-from .live_prediction_engine import LivePredictionEngine, LivePrediction, PredictionConfig
-from .performance_monitor import RealTimePerformanceMonitor, PerformanceConfig
-from .alert_system import AlertManager, TradingAlertGenerator, AlertConfig
+from .alert_system import AlertManager, TradingAlertGenerator
 from .dashboard import DashboardManager
+from .live_prediction_engine import (
+    LivePrediction,
+    LivePredictionEngine,
+)
+from .performance_monitor import RealTimePerformanceMonitor
+from .websocket_stream import MarketTick, RealTimeStreamManager
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class IntegrationConfig:
     """統合システム設定"""
+
     # 基本設定
-    symbols: List[str] = field(default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"])
+    symbols: List[str] = field(
+        default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"]
+    )
     update_interval: float = 1.0  # 1秒間隔
 
     # コンポーネント有効化
@@ -51,6 +57,7 @@ class IntegrationConfig:
     # ログ設定
     detailed_logging: bool = True
     performance_logging_interval: int = 60  # 60秒間隔
+
 
 class RealTimeIntegrationManager:
     """リアルタイム統合管理システム"""
@@ -78,11 +85,11 @@ class RealTimeIntegrationManager:
 
         # 統計
         self.stats = {
-            'uptime_seconds': 0,
-            'total_predictions': 0,
-            'total_alerts': 0,
-            'system_errors': 0,
-            'last_performance_log': datetime.now()
+            "uptime_seconds": 0,
+            "total_predictions": 0,
+            "total_alerts": 0,
+            "system_errors": 0,
+            "last_performance_log": datetime.now(),
         }
 
         logger.info("Real-Time Integration Manager initialized")
@@ -97,7 +104,10 @@ class RealTimeIntegrationManager:
             if self.config.enable_streaming:
                 logger.info("Initializing streaming system...")
                 from .websocket_stream import create_realtime_stream_manager
-                self.stream_manager = await create_realtime_stream_manager(self.config.symbols)
+
+                self.stream_manager = await create_realtime_stream_manager(
+                    self.config.symbols
+                )
                 # データコールバック設定
                 self.stream_manager.add_data_callback(self._handle_stream_data)
 
@@ -105,24 +115,30 @@ class RealTimeIntegrationManager:
             if self.config.enable_prediction:
                 logger.info("Initializing prediction engine...")
                 from .live_prediction_engine import create_live_prediction_engine
-                self.prediction_engine = await create_live_prediction_engine(self.config.symbols)
+
+                self.prediction_engine = await create_live_prediction_engine(
+                    self.config.symbols
+                )
 
             # 3. パフォーマンス監視
             if self.config.enable_monitoring:
                 logger.info("Initializing performance monitor...")
                 from .performance_monitor import create_performance_monitor
+
                 self.performance_monitor = create_performance_monitor()
 
             # 4. アラートシステム
             if self.config.enable_alerts:
                 logger.info("Initializing alert system...")
                 from .alert_system import create_alert_system
+
                 self.alert_manager, self.trading_alert_generator = create_alert_system()
 
             # 5. ダッシュボード
             if self.config.enable_dashboard:
                 logger.info("Initializing dashboard...")
                 from .dashboard import create_dashboard_manager
+
                 self.dashboard_manager = create_dashboard_manager()
 
                 # システムコンポーネント注入
@@ -130,13 +146,15 @@ class RealTimeIntegrationManager:
                     prediction_engine=self.prediction_engine,
                     performance_monitor=self.performance_monitor,
                     alert_manager=self.alert_manager,
-                    stream_manager=self.stream_manager
+                    stream_manager=self.stream_manager,
                 )
 
             # 6. システム統合設定
             if self.prediction_engine and self.performance_monitor:
                 # 予測結果をパフォーマンス監視に登録
-                self.prediction_engine.add_prediction_callback(self._handle_prediction_result)
+                self.prediction_engine.add_prediction_callback(
+                    self._handle_prediction_result
+                )
 
             logger.info("System initialization completed successfully")
 
@@ -213,27 +231,24 @@ class RealTimeIntegrationManager:
 
         # ストリーミング
         if self.stream_manager:
-            stream_task = asyncio.create_task(
-                self.stream_manager.start_all_streams()
-            )
-            tasks.append(('streaming', stream_task))
+            stream_task = asyncio.create_task(self.stream_manager.start_all_streams())
+            tasks.append(("streaming", stream_task))
 
         # パフォーマンス監視
         if self.performance_monitor:
             monitoring_task = asyncio.create_task(
                 self.performance_monitor.start_monitoring()
             )
-            tasks.append(('monitoring', monitoring_task))
+            tasks.append(("monitoring", monitoring_task))
 
         # ダッシュボード（別プロセスで起動）
         if self.dashboard_manager:
             dashboard_task = asyncio.create_task(
                 self.dashboard_manager.start_dashboard(
-                    host=self.config.dashboard_host,
-                    port=self.config.dashboard_port
+                    host=self.config.dashboard_host, port=self.config.dashboard_port
                 )
             )
-            tasks.append(('dashboard', dashboard_task))
+            tasks.append(("dashboard", dashboard_task))
 
         # タスク記録
         for name, task in tasks:
@@ -305,7 +320,7 @@ class RealTimeIntegrationManager:
 
             except Exception as e:
                 logger.error(f"Main system loop error: {e}")
-                self.stats['system_errors'] += 1
+                self.stats["system_errors"] += 1
                 await asyncio.sleep(1)
 
     async def _update_market_data(self):
@@ -317,7 +332,7 @@ class RealTimeIntegrationManager:
         try:
             # 最新データ取得
             latest_data = self.stream_manager.get_latest_data()
-            market_ticks = latest_data.get('market_ticks', [])
+            market_ticks = latest_data.get("market_ticks", [])
 
             if market_ticks:
                 # データをシンボル別に整理
@@ -330,15 +345,17 @@ class RealTimeIntegrationManager:
 
                     # 履歴サイズ制限（最新100件）
                     if len(self.latest_market_data[symbol]) > 100:
-                        self.latest_market_data[symbol] = self.latest_market_data[symbol][-50:]
+                        self.latest_market_data[symbol] = self.latest_market_data[
+                            symbol
+                        ][-50:]
 
                 # 予測エンジンに市場データ更新
                 if self.prediction_engine:
                     await self.prediction_engine.update_market_data(market_ticks)
 
             # ニュース・ソーシャルデータ処理
-            news_items = latest_data.get('news_items', [])
-            social_posts = latest_data.get('social_posts', [])
+            news_items = latest_data.get("news_items", [])
+            social_posts = latest_data.get("social_posts", [])
 
             if self.prediction_engine and (news_items or social_posts):
                 self.prediction_engine.update_news_data(news_items)
@@ -355,19 +372,20 @@ class RealTimeIntegrationManager:
 
         try:
             # ニュース・ソーシャルデータ取得
-            latest_data = self.stream_manager.get_latest_data() if self.stream_manager else {}
-            news_items = latest_data.get('news_items', [])
-            social_posts = latest_data.get('social_posts', [])
+            latest_data = (
+                self.stream_manager.get_latest_data() if self.stream_manager else {}
+            )
+            news_items = latest_data.get("news_items", [])
+            social_posts = latest_data.get("social_posts", [])
 
             # 予測実行
             predictions = await self.prediction_engine.generate_predictions(
-                news_items=news_items,
-                social_posts=social_posts
+                news_items=news_items, social_posts=social_posts
             )
 
             if predictions:
                 self.latest_predictions.update(predictions)
-                self.stats['total_predictions'] += len(predictions)
+                self.stats["total_predictions"] += len(predictions)
 
                 # 高信頼度予測をログ出力
                 for symbol, prediction in predictions.items():
@@ -385,12 +403,14 @@ class RealTimeIntegrationManager:
         """ストリームデータ処理コールバック"""
 
         try:
-            market_ticks = stream_data.get('market_ticks', [])
-            news_items = stream_data.get('news_items', [])
+            market_ticks = stream_data.get("market_ticks", [])
+            news_items = stream_data.get("news_items", [])
 
             # 高頻度ログ抑制
             if len(market_ticks) > 0:
-                logger.debug(f"Received {len(market_ticks)} market ticks, {len(news_items)} news items")
+                logger.debug(
+                    f"Received {len(market_ticks)} market ticks, {len(news_items)} news items"
+                )
 
         except Exception as e:
             logger.error(f"Stream data handling error: {e}")
@@ -414,12 +434,14 @@ class RealTimeIntegrationManager:
         """予測アラート生成"""
 
         try:
-            alert = await self.trading_alert_generator.generate_trading_signal_alert(prediction)
+            alert = await self.trading_alert_generator.generate_trading_signal_alert(
+                prediction
+            )
 
             if alert and self.alert_manager:
                 success = await self.alert_manager.send_alert(alert)
                 if success:
-                    self.stats['total_alerts'] += 1
+                    self.stats["total_alerts"] += 1
 
         except Exception as e:
             logger.error(f"Prediction alert generation error: {e}")
@@ -428,7 +450,9 @@ class RealTimeIntegrationManager:
         """システム統計更新"""
 
         if self.start_time:
-            self.stats['uptime_seconds'] = (datetime.now() - self.start_time).total_seconds()
+            self.stats["uptime_seconds"] = (
+                datetime.now() - self.start_time
+            ).total_seconds()
 
     async def _log_performance_if_needed(self):
         """必要に応じてパフォーマンスログ出力"""
@@ -437,35 +461,37 @@ class RealTimeIntegrationManager:
             return
 
         now = datetime.now()
-        time_since_last_log = (now - self.stats['last_performance_log']).total_seconds()
+        time_since_last_log = (now - self.stats["last_performance_log"]).total_seconds()
 
         if time_since_last_log >= self.config.performance_logging_interval:
             await self._log_system_performance()
-            self.stats['last_performance_log'] = now
+            self.stats["last_performance_log"] = now
 
     async def _log_system_performance(self):
         """システムパフォーマンスログ"""
 
         try:
             # システム統計
-            uptime_minutes = self.stats['uptime_seconds'] / 60
-            pred_per_minute = self.stats['total_predictions'] / max(uptime_minutes, 1)
+            uptime_minutes = self.stats["uptime_seconds"] / 60
+            pred_per_minute = self.stats["total_predictions"] / max(uptime_minutes, 1)
 
             performance_log = {
-                'timestamp': datetime.now().isoformat(),
-                'uptime_minutes': uptime_minutes,
-                'total_predictions': self.stats['total_predictions'],
-                'predictions_per_minute': pred_per_minute,
-                'total_alerts': self.stats['total_alerts'],
-                'system_errors': self.stats['system_errors'],
-                'active_symbols': len(self.latest_market_data),
-                'latest_predictions': len(self.latest_predictions)
+                "timestamp": datetime.now().isoformat(),
+                "uptime_minutes": uptime_minutes,
+                "total_predictions": self.stats["total_predictions"],
+                "predictions_per_minute": pred_per_minute,
+                "total_alerts": self.stats["total_alerts"],
+                "system_errors": self.stats["system_errors"],
+                "active_symbols": len(self.latest_market_data),
+                "latest_predictions": len(self.latest_predictions),
             }
 
             # コンポーネント別統計
             if self.performance_monitor:
-                comprehensive_status = self.performance_monitor.get_comprehensive_status()
-                performance_log['system_status'] = comprehensive_status
+                comprehensive_status = (
+                    self.performance_monitor.get_comprehensive_status()
+                )
+                performance_log["system_status"] = comprehensive_status
 
             logger.info(f"System Performance: {json.dumps(performance_log, indent=2)}")
 
@@ -491,12 +517,12 @@ class RealTimeIntegrationManager:
         """最終統計出力"""
 
         final_stats = {
-            'total_uptime_minutes': self.stats['uptime_seconds'] / 60,
-            'total_predictions': self.stats['total_predictions'],
-            'total_alerts': self.stats['total_alerts'],
-            'total_errors': self.stats['system_errors'],
-            'symbols_processed': len(self.latest_market_data),
-            'final_predictions': len(self.latest_predictions)
+            "total_uptime_minutes": self.stats["uptime_seconds"] / 60,
+            "total_predictions": self.stats["total_predictions"],
+            "total_alerts": self.stats["total_alerts"],
+            "total_errors": self.stats["system_errors"],
+            "symbols_processed": len(self.latest_market_data),
+            "final_predictions": len(self.latest_predictions),
         }
 
         logger.info(f"Final System Statistics: {json.dumps(final_stats, indent=2)}")
@@ -505,17 +531,17 @@ class RealTimeIntegrationManager:
         """システム状況取得"""
 
         status = {
-            'is_running': self.is_running,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'uptime_seconds': self.stats['uptime_seconds'],
-            'statistics': self.stats.copy(),
-            'components': {
-                'streaming': self.stream_manager is not None,
-                'prediction': self.prediction_engine is not None,
-                'monitoring': self.performance_monitor is not None,
-                'alerts': self.alert_manager is not None,
-                'dashboard': self.dashboard_manager is not None
-            }
+            "is_running": self.is_running,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "uptime_seconds": self.stats["uptime_seconds"],
+            "statistics": self.stats.copy(),
+            "components": {
+                "streaming": self.stream_manager is not None,
+                "prediction": self.prediction_engine is not None,
+                "monitoring": self.performance_monitor is not None,
+                "alerts": self.alert_manager is not None,
+                "dashboard": self.dashboard_manager is not None,
+            },
         }
 
         return status
@@ -533,17 +559,19 @@ class RealTimeIntegrationManager:
             if ticks:
                 latest_tick = ticks[-1]
                 summary[symbol] = {
-                    'current_price': latest_tick.price,
-                    'volume': latest_tick.volume,
-                    'timestamp': latest_tick.timestamp.isoformat(),
-                    'data_points': len(ticks)
+                    "current_price": latest_tick.price,
+                    "volume": latest_tick.volume,
+                    "timestamp": latest_tick.timestamp.isoformat(),
+                    "data_points": len(ticks),
                 }
 
         return summary
 
+
 # 便利関数
-def create_integration_manager(symbols: List[str] = None,
-                             dashboard_port: int = 8000) -> RealTimeIntegrationManager:
+def create_integration_manager(
+    symbols: List[str] = None, dashboard_port: int = 8000
+) -> RealTimeIntegrationManager:
     """統合管理システム作成"""
 
     config = IntegrationConfig(
@@ -554,13 +582,15 @@ def create_integration_manager(symbols: List[str] = None,
         enable_alerts=True,
         enable_dashboard=True,
         dashboard_port=dashboard_port,
-        detailed_logging=True
+        detailed_logging=True,
     )
 
     return RealTimeIntegrationManager(config)
 
-async def start_complete_trading_system(symbols: List[str] = None,
-                                      dashboard_port: int = 8000):
+
+async def start_complete_trading_system(
+    symbols: List[str] = None, dashboard_port: int = 8000
+):
     """完全なトレーディングシステム起動"""
 
     logger.info("Starting Next-Gen AI Trading Engine Complete System...")
@@ -579,6 +609,7 @@ async def start_complete_trading_system(symbols: List[str] = None,
     finally:
         # システム停止
         await integration_manager.stop_system()
+
 
 if __name__ == "__main__":
     # 統合システムテスト
@@ -610,6 +641,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Test error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # テスト実行
