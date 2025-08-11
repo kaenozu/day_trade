@@ -29,12 +29,24 @@ jobs:
       - name: Install security scanning tools
         run: |
           python -m pip install --upgrade pip
-          pip install safety bandit semgrep
-          pip install -r requirements.txt
+          pip install safety bandit semgrep pip-audit
+          pip install -e ".[dev,test]"
 
       - name: Python dependency vulnerability scan
         run: |
           echo "## 🔍 依存関係脆弱性スキャン結果" > security_report.md
+          echo "" >> security_report.md
+
+          # pip-auditによる最新脆弱性スキャン
+          echo "### pip-audit - 最新脆弱性データベース" >> security_report.md
+          if pip-audit --format=json --output=pip_audit_results.json --desc; then
+            echo "✅ **脆弱性は発見されませんでした**" >> security_report.md
+          else
+            echo "⚠️ **脆弱性が発見されました**" >> security_report.md
+            echo '```json' >> security_report.md
+            cat pip_audit_results.json >> security_report.md
+            echo '```' >> security_report.md
+          fi
           echo "" >> security_report.md
 
           # Safetyによる既知の脆弱性スキャン
@@ -186,6 +198,69 @@ jobs:
           if [ $PII_FOUND -eq 0 ]; then
             echo "✅ 個人情報保護: 適切" >> security_report.md
           fi
+
+      - name: Run Custom Vulnerability Management System
+        run: |
+          echo "### 🎯 統合脆弱性管理システム" >> security_report.md
+          echo "" >> security_report.md
+
+          # カスタム脆弱性管理システム実行
+          python -c '
+import asyncio
+import sys
+import os
+sys.path.insert(0, "src")
+
+async def run_vulnerability_scan():
+    try:
+        from day_trade.security.vulnerability_manager import create_vulnerability_manager
+
+        # 脆弱性管理システム初期化
+        manager = create_vulnerability_manager("security/vulnerabilities")
+
+        # 包括的スキャン実行
+        scan_results = await manager.run_comprehensive_scan(".")
+
+        # レポート生成
+        report = await manager.generate_security_report()
+
+        # 結果出力
+        print("#### スキャン結果サマリー")
+        summary = manager.get_vulnerability_summary()
+        print(f"- **総脆弱性数**: {summary[\"total_vulnerabilities\"]}")
+        print(f"- **期限超過**: {summary[\"overdue_count\"]}")
+        print(f"- **重要な未解決**: {summary[\"critical_open\"]}")
+        print("")
+
+        if summary["by_severity"]:
+            print("#### 重要度別内訳")
+            for severity, count in summary["by_severity"].items():
+                if count > 0:
+                    emoji = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🟢"}.get(severity, "⚫")
+                    print(f"- {emoji} **{severity}**: {count}件")
+
+        print("")
+
+        # 推奨事項
+        if report["recommendations"]:
+            print("#### 推奨事項")
+            for rec in report["recommendations"][:3]:  # 上位3件
+                print(f"- {rec}")
+
+        print("")
+        print(f"📊 **レポートID**: {report[\"report_id\"]}")
+
+        # クリーンアップ
+        await manager.cleanup()
+
+        return True
+
+    except Exception as e:
+        print(f"❌ **エラー**: {str(e)}")
+        return False
+
+success = asyncio.run(run_vulnerability_scan())
+' >> security_report.md || echo "⚠️ カスタム脆弱性管理システムの実行に失敗しました" >> security_report.md
 
       - name: Upload security scan results
         uses: actions/upload-artifact@v4

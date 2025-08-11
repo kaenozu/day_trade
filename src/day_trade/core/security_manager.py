@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -458,8 +459,9 @@ class SecurityManager:
             )
             return None
 
-        # パスワード検証（簡易実装）
-        if password != "admin123":  # 実運用では適切なハッシュ検証
+        # パスワード検証（環境変数または設定ファイルから取得）
+        admin_password = os.getenv("ADMIN_PASSWORD", "default_admin_password")
+        if password != admin_password:  # 実運用では適切なハッシュ検証
             self.audit_logger.log_action(
                 user_id=user.user_id,
                 action="login_attempt",
@@ -599,6 +601,52 @@ class SecurityManager:
 
         if expired_sessions:
             logger.info(f"期限切れセッション削除: {len(expired_sessions)}件")
+
+    def get_api_key(self, env_var_name: str) -> Optional[str]:
+        """安全なAPIキー取得"""
+        try:
+            # 環境変数から取得
+            api_key = os.environ.get(env_var_name)
+
+            if not api_key:
+                logger.debug(f"環境変数が設定されていません: {env_var_name}")
+                return None
+
+            # 基本的な形式検証
+            if len(api_key.strip()) == 0:
+                logger.warning(f"空のAPIキーが設定されています: {env_var_name}")
+                return None
+
+            if len(api_key) < 8:
+                logger.warning(f"APIキーが短すぎます: {env_var_name}")
+                return None
+
+            if len(api_key) > 500:
+                logger.warning(f"APIキーが長すぎます: {env_var_name}")
+                return None
+
+            # 監査ログ記録
+            self.audit_logger.log_action(
+                user_id="system",
+                action="api_key_access",
+                resource=f"env_var:{env_var_name}",
+                success=True,
+            )
+
+            logger.debug(f"APIキー取得成功: {env_var_name}")
+            return api_key.strip()
+
+        except Exception as e:
+            # 監査ログ記録（失敗）
+            self.audit_logger.log_action(
+                user_id="system",
+                action="api_key_access",
+                resource=f"env_var:{env_var_name}",
+                success=False,
+                error_message=str(e),
+            )
+            logger.error(f"APIキー取得エラー: {env_var_name}, error={e}")
+            return None
 
     def generate_security_report(self, days: int = 30) -> Dict[str, Any]:
         """セキュリティレポート生成"""

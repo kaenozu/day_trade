@@ -202,7 +202,7 @@ class L2WarmCache(CacheLayer):
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
         self.ttl_seconds = ttl_seconds
         self.cache = {}
-        self.access_order = deque()
+        self.access_order = OrderedDict()  # O(1)での削除を可能にするためにOrderedDictを使用
         self.frequency_counter = {}
         self.current_size = 0
         self.lock = threading.RLock()
@@ -233,6 +233,8 @@ class L2WarmCache(CacheLayer):
             self.frequency_counter[key] = self.frequency_counter.get(key, 0) + 1
             entry.last_accessed = current_time
             entry.access_count += 1
+            # アクセス順序を更新
+            self.access_order.move_to_end(key)
 
             self.stats["hits"] += 1
             return entry
@@ -252,7 +254,7 @@ class L2WarmCache(CacheLayer):
 
             if self.current_size + entry.size_bytes <= self.max_memory_bytes:
                 self.cache[key] = entry
-                self.access_order.append(key)
+                self.access_order[key] = None # O(1)で追加
                 self.frequency_counter[key] = 1
                 self.current_size += entry.size_bytes
                 self.stats["current_size"] = self.current_size // 1024 // 1024
@@ -284,11 +286,8 @@ class L2WarmCache(CacheLayer):
             if key in self.frequency_counter:
                 del self.frequency_counter[key]
 
-            # access_orderから削除（効率のため線形探索回避）
-            try:
-                self.access_order.remove(key)
-            except ValueError:
-                pass
+            if key in self.access_order:
+                del self.access_order[key] # O(1)で削除
 
     def _evict_lfu(self):
         """LFU退避 (Least Frequently Used)"""
@@ -297,17 +296,18 @@ class L2WarmCache(CacheLayer):
 
         # 最も使用頻度の低いキーを選択
         min_freq = min(self.frequency_counter.values())
-        candidates = [k for k, v in self.frequency_counter.items() if v == min_freq]
+        candidates = {k for k, v in self.frequency_counter.items() if v == min_freq}
 
         # 同じ頻度なら古いものを選択
-        key_to_evict = candidates[0]
+        key_to_evict = None
         for key in self.access_order:
             if key in candidates:
                 key_to_evict = key
                 break
 
-        self._remove_entry(key_to_evict)
-        self.stats["evictions"] += 1
+        if key_to_evict:
+            self._remove_entry(key_to_evict)
+            self.stats["evictions"] += 1
 
     def get_stats(self) -> Dict[str, Any]:
         with self.lock:

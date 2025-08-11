@@ -1,0 +1,398 @@
+name: Enhanced Quality Gates System
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test,dashboard]"
+          pip install pipdeptree pip-licenses pip-audit
+
+      - name: Create quality gates directory
+        run: mkdir -p quality_reports
+
+      - name: Run comprehensive quality check
+        id: quality_check
+        run: |
+          echo "🔍 Running comprehensive quality gates check..."
+
+          python -m src.day_trade.ci.advanced_quality_gate_system \
+            --project-root . \
+            --output quality_reports/quality_report.md \
+            --format markdown
+
+          # Exit codeを確認
+          echo "quality_check_status=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Generate quality summary
+        run: |
+          echo "# 📊 Quality Gates Summary" > quality_summary.md
+          echo "" >> quality_summary.md
+
+          if [ -f "quality_reports/quality_report.md" ]; then
+            cat quality_reports/quality_report.md >> quality_summary.md
+          else
+            echo "⚠️ Quality report generation failed" >> quality_summary.md
+          fi
+
+          echo "" >> quality_summary.md
+          echo "## 🔧 Additional Quality Checks" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+      - name: Run MyPy type checking
+        run: |
+          echo "### 🔍 MyPy Type Checking Results" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          if mypy src/ --ignore-missing-imports --show-error-codes > mypy_output.txt 2>&1; then
+            echo "✅ **Type checking passed** - No type errors found" >> quality_summary.md
+          else
+            echo "❌ **Type checking failed** - Found type errors:" >> quality_summary.md
+            echo "" >> quality_summary.md
+            echo "```" >> quality_summary.md
+            head -20 mypy_output.txt >> quality_summary.md
+            echo "```" >> quality_summary.md
+          fi
+          echo "" >> quality_summary.md
+
+      - name: Run security scanning with Bandit
+        run: |
+          echo "### 🔒 Security Scanning Results" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          if bandit -r src/ -f json -o bandit_results.json -q; then
+            echo "✅ **Security scan passed** - No security issues found" >> quality_summary.md
+          else
+            echo "⚠️ **Security issues detected**:" >> quality_summary.md
+            echo "" >> quality_summary.md
+
+            python -c "
+            import json
+            try:
+                with open('bandit_results.json') as f:
+                    data = json.load(f)
+                results = data.get('results', [])
+
+                high_issues = [r for r in results if r.get('issue_severity') == 'HIGH']
+                medium_issues = [r for r in results if r.get('issue_severity') == 'MEDIUM']
+
+                print('- 🔴 High severity issues: {}'.format(len(high_issues)))
+                print('- 🟡 Medium severity issues: {}'.format(len(medium_issues)))
+                print('- Total issues: {}'.format(len(results)))
+
+                if high_issues:
+                    print('')
+                    print('**High Severity Issues:**')
+                    for issue in high_issues[:3]:
+                        print('- {} in {}:{}'.format(
+                            issue.get('test_name', 'Unknown'),
+                            issue.get('filename', 'Unknown'),
+                            issue.get('line_number', '?')
+                        ))
+            except Exception as e:
+                print('Error parsing Bandit results: {}'.format(e))
+            " >> quality_summary.md
+          fi
+          echo "" >> quality_summary.md
+
+      - name: Run test coverage analysis
+        run: |
+          echo "### 📊 Test Coverage Analysis" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          if python -m pytest --cov=src --cov-report=json:coverage.json --cov-report=term --quiet; then
+            coverage_pct=$(python -c "
+            import json
+            try:
+                with open('coverage.json') as f:
+                    data = json.load(f)
+                print('{:.1f}'.format(data['totals']['percent_covered']))
+            except:
+                print('0.0')
+            ")
+
+            echo "📈 **Test Coverage**: ${coverage_pct}%" >> quality_summary.md
+
+            if (( $(echo "${coverage_pct} >= 30" | bc -l) )); then
+              echo "✅ Coverage meets minimum threshold (30%)" >> quality_summary.md
+            else
+              echo "❌ Coverage below minimum threshold (30%)" >> quality_summary.md
+            fi
+          else
+            echo "❌ **Test execution failed**" >> quality_summary.md
+          fi
+          echo "" >> quality_summary.md
+
+      - name: Check dependency vulnerabilities
+        run: |
+          echo "### 🔍 Dependency Vulnerability Check" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          if pip-audit --format=json --output=vulnerability_results.json --desc 2>/dev/null; then
+            echo "✅ **No vulnerabilities found** in dependencies" >> quality_summary.md
+          else
+            echo "⚠️ **Vulnerabilities detected** in dependencies:" >> quality_summary.md
+            echo "" >> quality_summary.md
+
+            python -c "
+            import json
+            try:
+                with open('vulnerability_results.json') as f:
+                    data = json.load(f)
+
+                vulnerabilities = data.get('vulnerabilities', [])
+                critical = len([v for v in vulnerabilities if v.get('classification') == 'critical'])
+                high = len([v for v in vulnerabilities if v.get('classification') == 'high'])
+                medium = len([v for v in vulnerabilities if v.get('classification') == 'medium'])
+
+                print('- 🔴 Critical: {}'.format(critical))
+                print('- 🟠 High: {}'.format(high))
+                print('- 🟡 Medium: {}'.format(medium))
+                print('- Total: {}'.format(len(vulnerabilities)))
+
+                if vulnerabilities:
+                    print('')
+                    print('**Top Vulnerabilities:**')
+                    for vuln in vulnerabilities[:3]:
+                        print('- {} ({})'.format(
+                            vuln.get('package', 'Unknown'),
+                            vuln.get('classification', 'unknown')
+                        ))
+            except Exception as e:
+                print('Error parsing vulnerability results: {}'.format(e))
+            " >> quality_summary.md || echo "Error parsing vulnerability results" >> quality_summary.md
+          fi
+          echo "" >> quality_summary.md
+
+      - name: Check code complexity
+        run: |
+          echo "### 🧮 Code Complexity Analysis" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          # Flake8 でコード複雑度をチェック
+          if flake8 src/ --max-complexity=12 --statistics --count > complexity_output.txt 2>&1; then
+            echo "✅ **Code complexity** meets standards (≤12)" >> quality_summary.md
+          else
+            echo "⚠️ **High complexity functions** detected:" >> quality_summary.md
+            echo "" >> quality_summary.md
+            echo "```" >> quality_summary.md
+            head -10 complexity_output.txt >> quality_summary.md
+            echo "```" >> quality_summary.md
+          fi
+          echo "" >> quality_summary.md
+
+      - name: Generate final quality assessment
+        run: |
+          echo "## 🎯 Overall Quality Assessment" >> quality_summary.md
+          echo "" >> quality_summary.md
+
+          # 品質スコア計算（簡易版）
+          quality_score=100
+          issues_found=0
+
+          # MyPy チェック
+          if ! mypy src/ --ignore-missing-imports --quiet >/dev/null 2>&1; then
+            quality_score=$((quality_score - 15))
+            issues_found=$((issues_found + 1))
+          fi
+
+          # Bandit チェック
+          if ! bandit -r src/ -q >/dev/null 2>&1; then
+            quality_score=$((quality_score - 20))
+            issues_found=$((issues_found + 1))
+          fi
+
+          # Coverage チェック
+          coverage_pct=$(python -c "
+          import json
+          try:
+              with open('coverage.json') as f:
+                  data = json.load(f)
+              print(int(data['totals']['percent_covered']))
+          except:
+              print(0)
+          " 2>/dev/null || echo 0)
+
+          if [ "$coverage_pct" -lt 30 ]; then
+            quality_score=$((quality_score - 25))
+            issues_found=$((issues_found + 1))
+          fi
+
+          # 脆弱性チェック
+          if [ -f "vulnerability_results.json" ] && [ -s "vulnerability_results.json" ]; then
+            quality_score=$((quality_score - 20))
+            issues_found=$((issues_found + 1))
+          fi
+
+          # 総合評価
+          if [ "$quality_score" -ge 90 ]; then
+            echo "🟢 **Excellent Quality** (Score: ${quality_score}/100)" >> quality_summary.md
+            echo "✅ All quality gates passed successfully" >> quality_summary.md
+          elif [ "$quality_score" -ge 75 ]; then
+            echo "🔵 **Good Quality** (Score: ${quality_score}/100)" >> quality_summary.md
+            echo "✅ Most quality gates passed with minor issues" >> quality_summary.md
+          elif [ "$quality_score" -ge 60 ]; then
+            echo "🟡 **Acceptable Quality** (Score: ${quality_score}/100)" >> quality_summary.md
+            echo "⚠️ Some quality improvements needed" >> quality_summary.md
+          else
+            echo "🔴 **Quality Issues Detected** (Score: ${quality_score}/100)" >> quality_summary.md
+            echo "❌ Multiple quality gates failed - immediate attention required" >> quality_summary.md
+          fi
+
+          echo "" >> quality_summary.md
+          echo "**Issues Found**: ${issues_found}" >> quality_summary.md
+          echo "**Quality Score**: ${quality_score}/100" >> quality_summary.md
+
+          # GitHub Output に設定
+          echo "quality_score=${quality_score}" >> $GITHUB_OUTPUT
+          echo "issues_found=${issues_found}" >> $GITHUB_OUTPUT
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            quality_summary.md
+            quality_reports/
+            coverage.json
+            bandit_results.json
+            vulnerability_results.json
+            mypy_output.txt
+          retention-days: 30
+
+      - name: Comment PR with quality report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              const qualityReport = fs.readFileSync('quality_summary.md', 'utf8');
+
+              // 既存のコメントを検索
+              const comments = await github.rest.issues.listComments({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+
+              const botComment = comments.data.find(comment =>
+                comment.user.type === 'Bot' && comment.body.includes('📊 Quality Gates Summary')
+              );
+
+              const commentBody = `${qualityReport}
+
+\n---\n*🤖 Automated Quality Gates Report - ${new Date().toISOString()}*
+*Generated by Enhanced Quality Gates System*`;
+
+              if (botComment) {
+                // 既存コメントを更新
+                await github.rest.issues.updateComment({
+                  comment_id: botComment.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: commentBody
+                });
+              } else {
+                // 新規コメント作成
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: commentBody
+                });
+              }
+            } catch (error) {
+              console.error('Error posting quality report:', error);
+            }
+
+      - name: Set quality gate status
+        run: |
+          quality_score=${{ steps.generate_final_assessment.outputs.quality_score || 0 }}
+          issues_found=${{ steps.generate_final_assessment.outputs.issues_found || 0 }}
+
+          if [ "$quality_score" -lt 60 ] || [ "$issues_found" -gt 3 ]; then
+            echo "❌ Quality gates failed - Score: ${quality_score}, Issues: ${issues_found}"
+            exit 1
+          else
+            echo "✅ Quality gates passed - Score: ${quality_score}, Issues: ${issues_found}"
+            exit 0
+          fi
+
+  pre-commit-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          allow-dependencies-licenses: MIT, Apache-2.0, BSD-3-Clause, ISC, BSD-2-Clause
+
+  notify-status:
+    needs: [quality-gates, pre-commit-hooks]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify quality status
+        run: |
+          quality_status="${{ needs.quality-gates.result }}"
+          precommit_status="${{ needs.pre-commit-hooks.result }}"
+
+          echo "## 🎯 CI/CD Pipeline Status"
+          echo "- Quality Gates: ${quality_status}"
+          echo "- Pre-commit Hooks: ${precommit_status}"
+
+          if [ "$quality_status" = "success" ] && [ "$precommit_status" = "success" ]; then
+            echo "✅ All checks passed - ready for merge"
+            exit 0
+          else
+            echo "❌ Some checks failed - review required"
+            exit 1
+          fi
