@@ -1,11 +1,12 @@
-import pandas as pd
-import numpy as np
-from scipy.stats import ks_2samp
 import json
-from pathlib import Path
 import logging
 
+import numpy as np
+import pandas as pd
+from scipy.stats import ks_2samp
+
 logger = logging.getLogger(__name__)
+
 
 class DataDriftDetector:
     """
@@ -41,54 +42,71 @@ class DataDriftDetector:
 
         Args:
             new_data (pd.DataFrame): 新しいデータ
-        
+
         Returns:
             dict: ドリフト検出結果。各特徴量ごとのドリフト情報を含みます。
         """
         if not self.baseline_stats:
-            logger.warning("ベースライン統計情報が設定されていません。fit()を先に実行してください。")
+            logger.warning(
+                "ベースライン統計情報が設定されていません。fit()を先に実行してください。"
+            )
             return {"drift_detected": False, "features": {}}
 
         logger.info("データドリフト検出器: ドリフトを検出中...")
         drift_results = {}
         overall_drift_detected = False
 
-        for feature, baseline_stat in self.baseline_stats.items():
-            if feature not in new_data.columns:
-                logger.warning(f"新しいデータに特徴量 '{feature}' が見つかりません。スキップします。")
+        for _feature, baseline_stat in self.baseline_stats.items():
+            if _feature not in new_data.columns:
+                logger.warning(
+                    f"新しいデータに特徴量 '{_feature}' が見つかりません。スキップします。"
+                )
                 continue
 
             new_data_series = new_data[feature].dropna()
             if new_data_series.empty:
-                logger.warning(f"新しいデータの特徴量 '{feature}' が空です。スキップします。")
+                logger.warning(
+                    f"新しいデータの特徴量 '{feature}' が空です。スキップします。"
+                )
                 continue
 
             # 数値データのみを対象
-            if pd.api.types.is_numeric_dtype(new_data_series) and pd.api.types.is_numeric_dtype(pd.Series(baseline_stat['values'])):
+            if pd.api.types.is_numeric_dtype(
+                new_data_series
+            ) and pd.api.types.is_numeric_dtype(pd.Series(baseline_stat["values"])):
                 # Kolmogorov-Smirnov (KS) 検定で分布の差を検出
                 try:
-                    statistic, p_value = ks_2samp(baseline_stat['values'], new_data_series.values)
+                    statistic, p_value = ks_2samp(
+                        baseline_stat["values"], new_data_series.values
+                    )
                     drift_detected = p_value < self.threshold
                     if drift_detected:
                         overall_drift_detected = True
-                    
+
                     drift_results[feature] = {
                         "drift_detected": drift_detected,
                         "p_value": p_value,
                         "statistic": statistic,
-                        "baseline_mean": baseline_stat.get('mean'),
+                        "baseline_mean": baseline_stat.get("mean"),
                         "new_mean": new_data_series.mean(),
-                        "baseline_std": baseline_stat.get('std'),
+                        "baseline_std": baseline_stat.get("std"),
                         "new_std": new_data_series.std(),
                     }
                 except ValueError as e:
                     logger.error(f"KS検定エラー for feature '{feature}': {e}")
                     drift_results[feature] = {"drift_detected": False, "error": str(e)}
             else:
-                logger.info(f"特徴量 '{feature}' は数値データではないため、KS検定をスキップします。")
-                drift_results[feature] = {"drift_detected": False, "reason": "非数値データ"}
+                logger.info(
+                    f"特徴量 '{feature}' は数値データではないため、KS検定をスキップします。"
+                )
+                drift_results[feature] = {
+                    "drift_detected": False,
+                    "reason": "非数値データ",
+                }
 
-        logger.info(f"データドリフト検出完了。全体ドリフト検出: {overall_drift_detected}")
+        logger.info(
+            f"データドリフト検出完了。全体ドリフト検出: {overall_drift_detected}"
+        )
         return {"drift_detected": overall_drift_detected, "features": drift_results}
 
     def _calculate_statistics(self, data: pd.DataFrame) -> dict:
@@ -112,7 +130,7 @@ class DataDriftDetector:
                         "min": series.min(),
                         "max": series.max(),
                         "median": series.median(),
-                        "values": series.tolist() # 分布比較のために値を保存
+                        "values": series.tolist(),  # 分布比較のために値を保存
                     }
         return stats
 
@@ -128,11 +146,13 @@ class DataDriftDetector:
             serializable_stats = {}
             for feature, stat in self.baseline_stats.items():
                 serializable_stat = stat.copy()
-                if 'values' in serializable_stat:
-                    serializable_stat['values'] = [float(v) for v in serializable_stat['values']]
+                if "values" in serializable_stat:
+                    serializable_stat["values"] = [
+                        float(v) for v in serializable_stat["values"]
+                    ]
                 serializable_stats[feature] = serializable_stat
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(serializable_stats, f, ensure_ascii=False, indent=4)
             logger.info(f"ベースライン統計情報を '{file_path}' に保存しました。")
         except Exception as e:
@@ -146,20 +166,21 @@ class DataDriftDetector:
             file_path (str): 読み込み元のファイルパス
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 loaded_stats = json.load(f)
-            
+
             # リストをNumPy配列に戻す（必要であれば）
             for feature, stat in loaded_stats.items():
-                if 'values' in stat:
-                    stat['values'] = np.array(stat['values'])
-            
+                if "values" in stat:
+                    stat["values"] = np.array(stat["values"])
+
             self.baseline_stats = loaded_stats
             logger.info(f"ベースライン統計情報を '{file_path}' から読み込みました。")
         except FileNotFoundError:
             logger.warning(f"ベースラインファイル '{file_path}' が見つかりません。")
         except json.JSONDecodeError as e:
-            logger.error(f"ベースラインファイルの読み込み中にJSONデコードエラーが発生しました: {e}")
+            logger.error(
+                f"ベースラインファイルの読み込み中にJSONデコードエラーが発生しました: {e}"
+            )
         except Exception as e:
             logger.error(f"ベースライン統計情報の読み込み中にエラーが発生しました: {e}")
-

@@ -1,10 +1,11 @@
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
+
 
 class ConceptDriftDetector:
     """
@@ -26,7 +27,12 @@ class ConceptDriftDetector:
         self.window_size = window_size
         self.baseline_metric: Optional[float] = None
 
-    def add_performance_data(self, predictions: np.ndarray, actuals: np.ndarray, timestamp: datetime = datetime.now()):
+    def add_performance_data(
+        self,
+        predictions: np.ndarray,
+        actuals: np.ndarray,
+        timestamp: datetime = datetime.now(),
+    ):
         """
         新しい性能データを追加します。
 
@@ -36,7 +42,9 @@ class ConceptDriftDetector:
             timestamp (datetime): データが生成されたタイムスタンプ
         """
         if len(predictions) != len(actuals):
-            logger.warning("予測値と実際の値の長さが一致しません。性能データをスキップします。")
+            logger.warning(
+                "予測値と実際の値の長さが一致しません。性能データをスキップします。"
+            )
             return
         if len(predictions) == 0:
             logger.warning("予測値または実際の値が空です。性能データをスキップします。")
@@ -46,16 +54,20 @@ class ConceptDriftDetector:
         mae = np.mean(np.abs(predictions - actuals))
         rmse = np.sqrt(np.mean((predictions - actuals) ** 2))
 
-        self.performance_history.append({
-            "timestamp": timestamp.isoformat(),
-            "mae": mae,
-            "rmse": rmse,
-            "num_samples": len(predictions)
-        })
+        self.performance_history.append(
+            {
+                "timestamp": timestamp.isoformat(),
+                "mae": mae,
+                "rmse": rmse,
+                "num_samples": len(predictions),
+            }
+        )
 
         # 履歴を最新のwindow_sizeに保つ
-        self.performance_history = self.performance_history[-self.window_size:]
-        logger.info(f"性能データ追加: MAE={mae:.4f}, RMSE={rmse:.4f}, サンプル数={len(predictions)}")
+        self.performance_history = self.performance_history[-self.window_size :]
+        logger.info(
+            f"性能データ追加: MAE={mae:.4f}, RMSE={rmse:.4f}, サンプル数={len(predictions)}"
+        )
 
     def detect_drift(self) -> Dict[str, Any]:
         """
@@ -74,17 +86,26 @@ class ConceptDriftDetector:
         if self.baseline_metric is None:
             # 最初の数データポイントの平均をベースラインとする
             if len(self.performance_history) >= 5:
-                self.baseline_metric = np.mean([d["mae"] for d in self.performance_history[:5]])
-                logger.info(f"コンセプトドリフト検出器: ベースラインMAEを設定しました: {self.baseline_metric:.4f}")
+                self.baseline_metric = np.mean(
+                    [d["mae"] for d in self.performance_history[:5]]
+                )
+                logger.info(
+                    f"コンセプトドリフト検出器: ベースラインMAEを設定しました: {self.baseline_metric:.4f}"
+                )
             else:
-                return {"drift_detected": False, "reason": "ベースライン設定のための履歴データが不足しています"}
+                return {
+                    "drift_detected": False,
+                    "reason": "ベースライン設定のための履歴データが不足しています",
+                }
 
         # ベースラインからの性能低下をチェック
         # MAEは小さいほど良いので、増加をドリフトとみなす
-        if self.baseline_metric > 0: # ゼロ除算回避
-            mae_increase_ratio = (latest_mae - self.baseline_metric) / self.baseline_metric
+        if self.baseline_metric > 0:  # ゼロ除算回避
+            mae_increase_ratio = (
+                latest_mae - self.baseline_metric
+            ) / self.baseline_metric
         else:
-            mae_increase_ratio = 0 # ベースラインが0の場合はドリフトなし
+            mae_increase_ratio = 0  # ベースラインが0の場合はドリフトなし
 
         drift_detected = mae_increase_ratio > self.metric_threshold
 
@@ -94,12 +115,16 @@ class ConceptDriftDetector:
             "baseline_mae": self.baseline_metric,
             "mae_increase_ratio": mae_increase_ratio,
             "threshold": self.metric_threshold,
-            "history_length": len(self.performance_history)
+            "history_length": len(self.performance_history),
         }
 
         if drift_detected:
-            logger.warning(f"コンセプトドリフト検出: MAEがベースラインから {mae_increase_ratio:.2%} 増加しました。")
-            result["reason"] = f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
+            logger.warning(
+                f"コンセプトドリフト検出: MAEがベースラインから {mae_increase_ratio:.2%} 増加しました。"
+            )
+            result[
+                "reason"
+            ] = f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
         else:
             logger.info(f"コンセプトドリフトなし: MAE増加率 {mae_increase_ratio:.2%}")
             result["reason"] = "性能は安定しています"
@@ -131,6 +156,5 @@ class ConceptDriftDetector:
             "latest_rmse": rmses[-1],
             "average_rmse": np.mean(rmses),
             "history_length": len(self.performance_history),
-            "baseline_mae": self.baseline_metric
+            "baseline_mae": self.baseline_metric,
         }
-

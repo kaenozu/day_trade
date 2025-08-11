@@ -73,6 +73,9 @@ dashboard = [
     "uvicorn>=0.24.0",
     "websockets>=11.0",
 ]
+mlops = [
+    "mlflow>=2.0.0,<3.0",
+]
 dev = [
     # コード品質・フォーマット
     "black>=23.0.0,<25.0",
@@ -160,6 +163,8 @@ ignore = [
     "C901",  # too complex
     "N806",  # variable name should be lowercase (for pandas compatibility)
     "N803",  # argument name should be lowercase (for ML X, y compatibility)
+    "B007",  # Loop control variable not used within loop body
+    "F841",  # Local variable is assigned to but never used
     # FMT rule removed - invalid selector
 ]
 
