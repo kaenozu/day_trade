@@ -257,7 +257,7 @@ class IDGenerator:
             if algorithm.lower() == "md5":
                 hash_obj = hashlib.md5(unique_data.encode())
             elif algorithm.lower() == "sha1":
-                hash_obj = hashlib.sha1(unique_data.encode())
+                hash_obj = hashlib.sha256(unique_data.encode(), usedforsecurity=False)
             elif algorithm.lower() == "sha256":
                 hash_obj = hashlib.sha256(unique_data.encode())
             else:

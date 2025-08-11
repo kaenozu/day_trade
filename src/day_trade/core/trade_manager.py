@@ -6,6 +6,7 @@
 
 import csv
 import json
+import os
 from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -518,7 +519,6 @@ def _mask_financial_value(match_str: str, mask_char: str = "*") -> str:
 
 def _mask_file_path(path_str: str, mask_char: str = "*") -> str:
     """ファイルパス情報のマスキング"""
-    import os
 
     # ファイル名のみ表示、ディレクトリ部分をマスク
     try:
@@ -2128,14 +2128,6 @@ class TradeManager:
             price=str(price),
             persist_to_db=persist_to_db,
         )
-
-        # safe_current_market_price の定義を追加
-        safe_current_market_price = None
-        if current_market_price is not None:
-            safe_current_market_price = safe_decimal_conversion(
-                current_market_price, "現在価格"
-            )
-            validate_positive_decimal(safe_current_market_price, "現在価格")
 
         sell_logger.info("株式売り注文処理開始")
 

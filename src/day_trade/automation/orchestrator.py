@@ -12,8 +12,7 @@ import os
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -23,8 +22,6 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
-from ..database.database import get_default_database_manager  # 追加
-from ..ml.data_drift_detector import DataDriftDetector  # 追加
 from ..utils.fault_tolerance import FaultTolerantExecutor
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
@@ -51,13 +48,23 @@ else:
     DataRequest = None
     DataResponse = None
 
-# オプショナル依存
+# 並列処理システム
 try:
+    from ..utils.parallel_executor_manager import (
+        ExecutionResult,
+        ParallelExecutorManager,
+        TaskType,
+        execute_parallel,
+        get_global_executor_manager,
+    )
+
+    PARALLEL_EXECUTOR_AVAILABLE = True
+except ImportError:
+    # フォールバック用レガシー並列処理
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    PARALLEL_EXECUTOR_AVAILABLE = False
     CONCURRENT_AVAILABLE = True
-except ImportError:
-    CONCURRENT_AVAILABLE = False
 
 logger = get_context_logger(__name__)
 
@@ -76,7 +83,6 @@ class AIAnalysisResult:
     data_quality: float
     recommendation: str
     risk_assessment: Dict[str, Any]
-    data_drift_results: Optional[Dict[str, Any]] = None  # データドリフト検出結果
 
 
 @dataclass
@@ -108,10 +114,13 @@ class OrchestrationConfig:
     """オーケストレーション設定"""
 
     max_workers: int = 8
+    max_thread_workers: int = 12  # I/Oバウンド用
+    max_process_workers: int = 4  # CPUバウンド用
     enable_ml_engine: bool = True
     enable_advanced_batch: bool = True
     enable_performance_monitoring: bool = True
     enable_fault_tolerance: bool = True
+    enable_parallel_optimization: bool = True  # 新並列システム
     prediction_horizon: int = 5  # 予測期間（日）
     confidence_threshold: float = 0.7
     data_quality_threshold: float = 80.0
@@ -207,30 +216,165 @@ class NextGenAIOrchestrator:
         else:
             self.fault_executor = None
 
+        # 並列実行マネージャー (Issue #383)
+        if self.config.enable_parallel_optimization and PARALLEL_EXECUTOR_AVAILABLE:
+            self.parallel_manager = ParallelExecutorManager(
+                max_thread_workers=self.config.max_thread_workers,
+                max_process_workers=self.config.max_process_workers,
+                enable_adaptive_sizing=True,
+                performance_monitoring=self.config.enable_performance_monitoring,
+            )
+            logger.info(
+                f"並列実行最適化有効: Thread={self.config.max_thread_workers}, Process={self.config.max_process_workers}"
+            )
+        else:
+            self.parallel_manager = None
+            if not PARALLEL_EXECUTOR_AVAILABLE:
+                logger.warning(
+                    "ParallelExecutorManagerが利用できません。レガシー並列処理を使用"
+                )
+
         # 実行統計
         self.execution_history = []
         self.performance_metrics = {}
-
-        # データドリフト検出器の初期化とベースラインのロード
-        self.data_drift_detector = DataDriftDetector()
-        self.baseline_stats_path = Path(
-            "data/baseline_stats.json"
-        )  # ベースライン統計情報のパス
-        if self.baseline_stats_path.exists():
-            self.data_drift_detector.load_baseline(str(self.baseline_stats_path))
-            logger.info(
-                f"データドリフト検出器: ベースライン統計情報を {self.baseline_stats_path} からロードしました。"
-            )
-        else:
-            logger.warning(
-                f"データドリフト検出器: ベースライン統計情報ファイル {self.baseline_stats_path} が見つかりません。初回実行時に生成されます。"
-            )
 
         logger.info("Next-Gen AI Orchestrator 初期化完了 - 完全セーフモード")
         logger.info("※ 自動取引機能は一切含まれていません")
         logger.info(
             f"設定: ML={self.config.enable_ml_engine}, Batch={self.config.enable_advanced_batch}"
         )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.parallel_manager:
+            self.parallel_manager.shutdown()
+
+    def _execute_parallel_analysis(
+        self,
+        symbols: List[str],
+        analysis_functions: List[Tuple[Callable, Dict[str, Any]]],
+        max_concurrent: Optional[int] = None,
+    ) -> Dict[str, List[ExecutionResult]]:
+        """
+        並列分析実行 (Issue #383対応)
+
+        CPU/I/Oバウンドタスクを適切に分離して効率的に並列実行
+
+        Args:
+            symbols: 分析対象銘柄
+            analysis_functions: (関数, 引数辞書) のリスト
+            max_concurrent: 最大同時実行数
+
+        Returns:
+            シンボル別実行結果辞書
+        """
+        if not self.parallel_manager:
+            logger.warning(
+                "並列マネージャーが無効です。シーケンシャル実行にフォールバック"
+            )
+            return self._execute_sequential_fallback(symbols, analysis_functions)
+
+        results = {}
+        all_tasks = []
+
+        # 各銘柄×各分析関数の組み合わせでタスクを生成
+        for symbol in symbols:
+            symbol_tasks = []
+
+            for analysis_func, kwargs in analysis_functions:
+                # シンボル固有の引数を設定
+                task_kwargs = kwargs.copy()
+                task_kwargs["symbol"] = symbol
+
+                # タスクタイプをヒント
+                if (
+                    "fetch" in analysis_func.__name__
+                    or "download" in analysis_func.__name__
+                ):
+                    task_type = TaskType.IO_BOUND
+                elif (
+                    "compute" in analysis_func.__name__
+                    or "calculate" in analysis_func.__name__
+                ):
+                    task_type = TaskType.CPU_BOUND
+                else:
+                    task_type = TaskType.MIXED
+
+                task = (analysis_func, (), task_kwargs)
+                all_tasks.append((symbol, analysis_func.__name__, task))
+                symbol_tasks.append(task)
+
+            results[symbol] = []
+
+        # バッチ実行
+        batch_tasks = [task for _, _, task in all_tasks]
+        execution_results = self.parallel_manager.execute_batch(
+            batch_tasks, max_concurrent=max_concurrent or self.config.max_workers
+        )
+
+        # 結果を銘柄別に整理
+        for (symbol, func_name, _), exec_result in zip(all_tasks, execution_results):
+            results[symbol].append(exec_result)
+
+        # 統計情報をログ出力
+        successful_tasks = sum(1 for r in execution_results if r.success)
+        total_tasks = len(execution_results)
+
+        logger.info(f"並列分析完了: {successful_tasks}/{total_tasks} 成功")
+        if self.parallel_manager:
+            perf_stats = self.parallel_manager.get_performance_stats()
+            for executor_name, stats in perf_stats.items():
+                logger.info(
+                    f"{executor_name}: 平均時間={stats['average_time_ms']:.1f}ms, "
+                    f"成功率={stats['success_rate']:.1%}"
+                )
+
+        return results
+
+    def _execute_sequential_fallback(
+        self,
+        symbols: List[str],
+        analysis_functions: List[Tuple[Callable, Dict[str, Any]]],
+    ) -> Dict[str, List[ExecutionResult]]:
+        """シーケンシャル実行フォールバック"""
+        results = {}
+
+        for symbol in symbols:
+            symbol_results = []
+
+            for analysis_func, kwargs in analysis_functions:
+                task_kwargs = kwargs.copy()
+                task_kwargs["symbol"] = symbol
+
+                start_time = time.perf_counter()
+                try:
+                    result = analysis_func(**task_kwargs)
+                    success = True
+                    error = None
+                except Exception as e:
+                    result = None
+                    success = False
+                    error = e
+                    logger.error(f"Sequential execution failed for {symbol}: {e}")
+
+                execution_time = (time.perf_counter() - start_time) * 1000
+
+                exec_result = ExecutionResult(
+                    task_id=f"{symbol}_{analysis_func.__name__}",
+                    result=result,
+                    execution_time_ms=execution_time,
+                    executor_type=ExecutorType.THREAD_POOL,  # フォールバック
+                    success=success,
+                    error=error,
+                )
+
+                symbol_results.append(exec_result)
+
+            results[symbol] = symbol_results
+
+        return results
 
     def run_advanced_analysis(
         self,
@@ -471,15 +615,15 @@ class NextGenAIOrchestrator:
 
         return results
 
-    def analyze_single_symbol(
+    def _analyze_single_symbol(
         self,
         symbol: str,
-        data_response: Any,  # TODO: DataFetchResponse クラスを実装またはインポート
-        include_predictions: bool = True,
-    ) -> Dict[str, Any]:
+        data_response: Optional[DataResponse],
+        analysis_type: str,
+        include_predictions: bool,
+    ) -> Dict:
         """単一銘柄AI分析"""
 
-        alerts = []
         start_time = time.time()
 
         try:
@@ -505,6 +649,8 @@ class NextGenAIOrchestrator:
                 self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
 
             engine = self.analysis_engines[symbol]
+            basic_status = engine.get_status()
+            market_summary = engine.get_market_summary()
 
             # 高度AI分析実行
             ai_predictions = {}
@@ -572,50 +718,6 @@ class NextGenAIOrchestrator:
                 ai_predictions, confidence_scores, technical_signals, risk_assessment
             )
 
-            # データドリフト検出
-            data_drift_results = {}
-            if not self.data_drift_detector.baseline_stats:
-                # ベースラインがなければ、現在のデータをベースラインとして設定
-                logger.info(
-                    f"{symbol}: ベースライン統計情報が未設定のため、現在のデータをベースラインとして学習します。"
-                )
-                self.data_drift_detector.fit(market_data)
-                self.data_drift_detector.save_baseline(str(self.baseline_stats_path))
-            else:
-                # ベースラインがあればドリフト検出を実行
-                data_drift_results = self.data_drift_detector.detect_drift(market_data)
-                if data_drift_results.get("drift_detected"):
-                    logger.warning(f"{symbol}: データドリフトが検出されました！")
-                    # ドリフトアラートを生成することも可能
-                    alerts.append(
-                        {
-                            "symbol": symbol,
-                            "type": "DATA_DRIFT_DETECTED",
-                            "message": "データ分布に大きな変化が検出されました。",
-                            "severity": "high",
-                            "timestamp": datetime.now().isoformat(),
-                            "details": data_drift_results,
-                        }
-                    )
-                    # MLflowにデータドリフト結果をログとして記録
-                    try:
-                        import mlflow
-
-                        mlflow.log_dict(
-                            data_drift_results, f"data_drift_results_{symbol}.json"
-                        )
-                        logger.info(
-                            f"{symbol}: データドリフト結果をMLflowにログとして記録しました。"
-                        )
-                    except ImportError:
-                        logger.warning(
-                            "MLflowがインストールされていないため、データドリフト結果をログに記録できません。"
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"MLflowへのデータドリフト結果のログ記録中にエラーが発生しました: {e}"
-                        )
-
             # AI分析結果作成
             ai_analysis = AIAnalysisResult(
                 symbol=symbol,
@@ -628,16 +730,13 @@ class NextGenAIOrchestrator:
                 data_quality=data_quality,
                 recommendation=recommendation,
                 risk_assessment=risk_assessment,
-                data_drift_results=data_drift_results,  # ドリフト検出結果を追加
             )
 
             # シグナル生成
             signals = self._generate_ai_signals(ai_analysis)
 
             # アラート生成
-            alerts.extend(
-                self._generate_smart_alerts(ai_analysis)
-            )  # alerts.extend() に変更
+            alerts = self._generate_smart_alerts(ai_analysis)
 
             return {
                 "success": True,
@@ -927,7 +1026,7 @@ class NextGenAIOrchestrator:
     ) -> List[Dict[str, Any]]:
         """スマートアラート生成"""
 
-        alerts = []  # ここに移動
+        alerts = []
 
         try:
             # データ品質アラート

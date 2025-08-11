@@ -133,11 +133,11 @@ class PerformanceCache:
         self.miss_count = 0
 
     def _generate_key(self, data: pd.DataFrame, model_config: ModelConfig) -> str:
-        """キャッシュキー生成"""
-        import hashlib
+        """キャッシュキー生成 (セキュア)"""
+        from ..security.secure_hash_utils import replace_md5_hash
 
-        data_hash = hashlib.md5(str(data.values.tobytes()).encode()).hexdigest()[:16]
-        config_hash = hashlib.md5(str(model_config.__dict__).encode()).hexdigest()[:16]
+        data_hash = replace_md5_hash(str(data.values.tobytes()), length=16)
+        config_hash = replace_md5_hash(str(model_config.__dict__), length=16)
         return f"{data_hash}_{config_hash}"
 
     def get(self, key: str) -> Optional[Any]:
@@ -491,9 +491,9 @@ class OptimizedMLModels(MLModelsBase):
         # キャッシュチェック
         cache_key = None
         if self.cache and self.model_config.enable_caching:
-            import hashlib
+            from ..security.secure_hash_utils import replace_md5_hash
 
-            data_hash = hashlib.md5(str(X.values.tobytes()).encode()).hexdigest()
+            data_hash = replace_md5_hash(str(X.values.tobytes()))
             cache_key = f"predict_{data_hash}_{model_key or 'default'}"
 
             cached_result = self.cache.get(cache_key)

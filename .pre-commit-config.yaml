@@ -23,29 +23,45 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.15
     hooks:
-      - id: ruff-format # フォーマッターを先に実行
-        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|src/day_trade/analysis/advanced_technical_indicators.py)$
-      - id: ruff # リンターを実行し、自動修正を適用
+      - id: ruff
         alias: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
-        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|src/day_trade/analysis/advanced_technical_indicators.py)$
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|.*example.*\.py)$
+      - id: ruff-format
+        exclude: ^(test_.*\.py|debug_.*\.py|.*_backup\.py|.*example.*\.py)$
 
-  # Type checking with mypy (temporarily disabled for Issue #117 PR)
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.7.1
-  #   hooks:
-  #     - id: mypy
-  #       additional_dependencies: [types-requests, types-setuptools]
-  #       args: [--ignore-missing-imports, --show-error-codes, --follow-imports=skip, --disable-error-code=import]
-  #       files: ^src/day_trade/(core|models)/.*\.py$
+  # Type checking with mypy (comprehensive coverage for Issue #415)
+  - repo: local
+    hooks:
+      - id: mypy-comprehensive
+        name: MyPy Comprehensive Type Check
+        entry: mypy
+        language: system
+        files: ^src/day_trade/.*\.py$
+        args: 
+          - --ignore-missing-imports
+          - --disable-error-code=import,attr-defined
+          - --follow-imports=silent
+          - --show-error-codes
+          - --no-strict-optional
+          - --allow-redefinition
+        exclude: ^(.*example.*\.py|.*demo.*\.py|.*test.*\.py|.*_test\.py|test_.*\.py)
 
-  # Security scanning with bandit (temporarily disabled for CI stability)
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.5
-  #   hooks:
-  #     - id: bandit
-  #       args: [-r, src/, -s, B110,B311]
-  #       exclude: ^(tests/|docs/|scripts/)
+  # Security scanning with bandit (re-enabled for enhanced security)
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, src/, -s, B110,B311,B101,B601]
+        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py)
+
+  # Additional quality gates
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        args: [--max-complexity=12, --max-line-length=88, --extend-ignore=E203,W503]
+        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py)
 
 # Global settings
 exclude: |

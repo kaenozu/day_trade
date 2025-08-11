@@ -19,6 +19,18 @@ from scipy import stats
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_analyzer import profile_performance
 
+# Issue #383: 並列処理最適化
+try:
+    from ..utils.parallel_executor_manager import (
+        ParallelExecutorManager,
+        TaskType,
+        get_global_executor_manager,
+    )
+
+    PARALLEL_MANAGER_AVAILABLE = True
+except ImportError:
+    PARALLEL_MANAGER_AVAILABLE = False
+
 warnings.filterwarnings("ignore")
 logger = get_context_logger(__name__)
 
@@ -33,6 +45,9 @@ class OptimizationConfig:
     chunk_size: int = 10000
     max_workers: int = 4
     memory_limit_mb: int = 1000
+    # Issue #383: 並列処理強化設定
+    enable_smart_parallel: bool = True  # スマート並列実行マネージャー使用
+    cpu_bound_chunk_size: int = 5000  # CPUバウンド用チャンクサイズ
 
 
 # Numba最適化関数群
@@ -333,6 +348,85 @@ class OptimizedAdvancedFeatureEngineer:
         enable_advanced: bool,
     ) -> pd.DataFrame:
         """並列特徴量生成"""
+
+        # Issue #383: スマート並列処理を利用
+        if self.config.enable_smart_parallel and PARALLEL_MANAGER_AVAILABLE:
+            return self._generate_features_smart_parallel(
+                data, indicators, enable_advanced
+            )
+
+        # 従来の並列処理にフォールバック
+        return self._generate_features_legacy_parallel(
+            data, indicators, enable_advanced
+        )
+
+    def _generate_features_smart_parallel(
+        self,
+        data: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        enable_advanced: bool,
+    ) -> pd.DataFrame:
+        """スマート並列特徴量生成 (Issue #383)"""
+
+        logger.info(f"スマート並列特徴量生成開始: データサイズ={data.shape}")
+
+        # データをCPUバウンド処理用に適切にチャンク分割
+        chunk_size = self.config.cpu_bound_chunk_size
+        chunks = [
+            (i, data.iloc[i : i + chunk_size]) for i in range(0, len(data), chunk_size)
+        ]
+
+        # 並列実行タスクを準備
+        tasks = []
+        for chunk_id, chunk in chunks:
+            task = (
+                self._generate_features_for_chunk,
+                (chunk, indicators, enable_advanced),
+                {"chunk_id": chunk_id},
+            )
+            tasks.append(task)
+
+        # スマート並列実行マネージャーで実行
+        parallel_manager = get_global_executor_manager()
+        results = parallel_manager.execute_batch(
+            tasks, max_concurrent=self.config.max_workers
+        )
+
+        # 結果を順序保持して結合
+        processed_chunks = []
+        for i, exec_result in enumerate(results):
+            if exec_result.success:
+                processed_chunks.append(exec_result.result)
+            else:
+                logger.error(f"特徴量生成チャンク{i}失敗: {exec_result.error}")
+                # エラー時はシーケンシャルで再実行
+                chunk_id, chunk = chunks[i]
+                fallback_result = self._generate_features_for_chunk(
+                    chunk, indicators, enable_advanced
+                )
+                processed_chunks.append(fallback_result)
+
+        # チャンクを結合
+        combined_result = pd.concat(processed_chunks, ignore_index=False)
+
+        # 統計情報をログ出力
+        successful_count = sum(1 for r in results if r.success)
+        total_time = max(r.execution_time_ms for r in results) if results else 0
+
+        logger.info(
+            f"スマート並列特徴量生成完了: {successful_count}/{len(chunks)}チャンク成功, "
+            f"実行時間: {total_time:.1f}ms, 最終特徴量数: {combined_result.shape[1]}"
+        )
+
+        return combined_result
+
+    def _generate_features_legacy_parallel(
+        self,
+        data: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        enable_advanced: bool,
+    ) -> pd.DataFrame:
+        """従来の並列特徴量生成"""
 
         # データをチャンクに分割
         chunks = [

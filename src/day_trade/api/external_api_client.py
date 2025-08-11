@@ -11,7 +11,6 @@ Issue #331: API・外部統合システム - Phase 1
 """
 
 import asyncio
-import hashlib
 import time
 import urllib.parse
 from dataclasses import dataclass, field
@@ -984,7 +983,9 @@ class ExternalAPIClient:
             request.endpoint.data_type.value,
             str(sorted(request.params.items())),
         ]
-        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+        from ..security.secure_hash_utils import replace_md5_hash
+
+        return replace_md5_hash("|".join(key_parts))
 
     def _get_cached_response(self, cache_key: str) -> Optional[APIResponse]:
         """キャッシュレスポンス取得"""

@@ -1,862 +1,796 @@
+#!/usr/bin/env python3
 """
-耐障害性強化版株価データ取得モジュール
-Issue 185: 外部API通信の耐障害性強化
+Enhanced Stock Fetcher - 高度キャッシング統合版
+Issue #377: 高度なキャッシング戦略の導入
 
-高度なリトライ機構、サーキットブレーカー、フェイルオーバー機能を統合
+永続キャッシュ、分散キャッシュ、スマート無効化戦略を統合したstock_fetcher
 """
 
-import asyncio
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
-import yfinance as yf
 
-from ..utils.api_resilience import (
-    APIEndpoint,
-    CircuitBreakerConfig,
-    ResilientAPIClient,
-    RetryConfig,
-)
-from ..utils.exceptions import (
-    APIError,
-    DataError,
-    NetworkError,
-    ValidationError,
-)
-from ..utils.logging_config import (
-    get_context_logger,
-    log_api_call,
-    log_business_event,
-    log_error_with_context,
-    log_performance_metric,
-    log_security_event,
-)
-from ..utils.performance_optimizer import DataFetchOptimizer
-from .stock_fetcher import StockFetcher  # 既存実装を継承
+# 基本モジュール
+try:
+    from ..utils.exceptions import APIError, DataError, NetworkError, ValidationError
+    from ..utils.logging_config import get_context_logger, log_performance_metric
+    from .stock_fetcher import StockFetcher as BaseStockFetcher
+except ImportError:
+    import logging
+
+    def get_context_logger(name):
+        return logging.getLogger(name)
+
+    def log_performance_metric(*args, **kwargs):
+        pass
+
+    # フォールバック例外クラス
+    class APIError(Exception):
+        pass
+
+    class NetworkError(Exception):
+        pass
+
+    class DataError(Exception):
+        pass
+
+    class ValidationError(Exception):
+        pass
+
+    # フォールバック基底クラス
+    class BaseStockFetcher:
+        def __init__(self, **kwargs):
+            self.logger = logging.getLogger(__name__)
 
 
-class EnhancedStockFetcher(StockFetcher):
-    """耐障害性強化版株価データ取得クラス"""
+# 高度キャッシュシステム
+try:
+    from ..cache.distributed_cache_system import (
+        distributed_cache,
+        get_distributed_cache,
+    )
+    from ..cache.persistent_cache_system import get_persistent_cache, persistent_cache
+    from ..cache.smart_invalidation_strategies import (
+        CacheEntry,
+        DependencyBasedStrategy,
+        EventDrivenStrategy,
+        InvalidationTrigger,
+        LFUStrategy,
+        LRUStrategy,
+        SmartInvalidationManager,
+        TTLStrategy,
+        get_invalidation_manager,
+    )
 
-    def __init__(
-        self,
-        cache_size: int = 128,
-        price_cache_ttl: int = 30,
-        historical_cache_ttl: int = 300,
-        retry_count: int = 3,
-        retry_delay: float = 1.0,
-        enable_fallback: bool = True,
-        enable_circuit_breaker: bool = True,
-        enable_health_monitoring: bool = True,
-    ):
-        """
-        Args:
-            cache_size: LRUキャッシュのサイズ
-            price_cache_ttl: 価格データキャッシュのTTL（秒）
-            historical_cache_ttl: ヒストリカルデータキャッシュのTTL（秒）
-            retry_count: リトライ回数
-            retry_delay: リトライ間隔（秒）
-            enable_fallback: フェイルオーバー機能の有効化
-            enable_circuit_breaker: サーキットブレーカーの有効化
-            enable_health_monitoring: ヘルスモニタリングの有効化
-        """
-        # 親クラス初期化
-        super().__init__(
-            cache_size, price_cache_ttl, historical_cache_ttl, retry_count, retry_delay
-        )
+    ADVANCED_CACHE_AVAILABLE = True
+except ImportError:
+    # フォールバックキャッシュ実装
 
-        self.enable_fallback = enable_fallback
-        self.enable_circuit_breaker = enable_circuit_breaker
-        self.enable_health_monitoring = enable_health_monitoring
+    def get_persistent_cache(**kwargs):
+        return None
 
-        # 拡張ロガー
-        self.logger = get_context_logger(__name__)
+    def get_distributed_cache(**kwargs):
+        return None
 
-        # 耐障害性機能の初期化
-        if self.enable_fallback or self.enable_circuit_breaker:
-            self._setup_resilience()
+    def get_invalidation_manager(**kwargs):
+        return None
 
-        self.logger.info(
-            "EnhancedStockFetcher初期化完了",
-            enable_fallback=enable_fallback,
-            enable_circuit_breaker=enable_circuit_breaker,
-            enable_health_monitoring=enable_health_monitoring,
-        )
+    def persistent_cache(**kwargs):
+        def decorator(func):
+            return func
 
-    def _setup_resilience(self) -> None:
-        """耐障害性機能のセットアップ"""
-        # APIエンドポイント設定（Yahoo Finance の複数アクセス方法）
-        endpoints = [
-            APIEndpoint(
-                name="yahoo_primary",
-                base_url="https://query1.finance.yahoo.com",
-                priority=1,
-                timeout=30.0,
-                health_check_path="/v8/finance/chart/AAPL",
-            ),
-            APIEndpoint(
-                name="yahoo_secondary",
-                base_url="https://query2.finance.yahoo.com",
-                priority=2,
-                timeout=30.0,
-                health_check_path="/v8/finance/chart/AAPL",
-            ),
-        ]
+        return decorator
 
-        # リトライ設定
-        retry_config = RetryConfig(
-            max_attempts=self.retry_count,
-            base_delay=self.retry_delay,
-            max_delay=60.0,
-            exponential_base=2.0,
-            jitter=True,
-            status_forcelist=[429, 500, 502, 503, 504, 408],
-        )
+    def distributed_cache(**kwargs):
+        def decorator(func):
+            return func
 
-        # サーキットブレーカー設定
-        circuit_config = CircuitBreakerConfig(
-            failure_threshold=5,
-            success_threshold=3,
-            timeout=120.0,  # 2分間
-            monitor_window=300.0,  # 5分間
-        )
+        return decorator
 
-        # 耐障害性クライアント
-        self.resilient_client = ResilientAPIClient(
-            endpoints=endpoints,
-            retry_config=retry_config,
-            circuit_config=circuit_config,
-            enable_health_check=self.enable_health_monitoring,
-            health_check_interval=300.0,  # 5分間隔
-        )
+    ADVANCED_CACHE_AVAILABLE = False
 
-        self.logger.info(
-            "耐障害性機能セットアップ完了",
-            endpoints_count=len(endpoints),
-            retry_attempts=retry_config.max_attempts,
-            circuit_failure_threshold=circuit_config.failure_threshold,
-        )
+logger = get_context_logger(__name__)
 
-    def _enhanced_retry_on_error(self, func, *args, **kwargs):
-        """拡張版エラー時リトライ機能"""
-        if not (self.enable_fallback or self.enable_circuit_breaker):
-            # 従来のリトライ機構を使用
-            return super()._retry_on_error(func, *args, **kwargs)
 
-        last_exception = None
+class CacheConfig:
+    """キャッシュ設定管理"""
 
-        # 段階的なフォールバック戦略
-        strategies = [
-            ("standard", self._standard_execution),
-            ("cache_fallback", self._cache_fallback_execution),
-            ("degraded_mode", self._degraded_mode_execution),
-        ]
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
 
-        for strategy_name, strategy_func in strategies:
+        # デフォルト設定
+        self.defaults = {
+            # 永続キャッシュ設定
+            "persistent_cache_enabled": True,
+            "persistent_storage_type": "sqlite",
+            "persistent_storage_path": "data/stock_cache",
+            "persistent_compression": True,
+            "persistent_auto_cleanup": True,
+            # 分散キャッシュ設定
+            "distributed_cache_enabled": False,  # デフォルト無効
+            "distributed_backend_type": "memory",
+            "distributed_backend_config": {},
+            "distributed_serialization": "pickle",
+            # スマート無効化設定
+            "smart_invalidation_enabled": True,
+            "max_cache_size": 10000,
+            "memory_pressure_threshold": 0.8,
+            # TTL設定
+            "price_ttl_seconds": 30,
+            "historical_ttl_seconds": 300,
+            "company_info_ttl_seconds": 3600,
+            "bulk_operations_ttl_seconds": 60,
+            # キャッシュレイヤー設定
+            "enable_multi_layer_cache": True,
+            "l1_memory_size": 1000,
+            "l2_persistent_enabled": True,
+            "l3_distributed_enabled": False,
+        }
+
+    def get(self, key: str, default=None):
+        """設定値取得"""
+        return self.config.get(key, self.defaults.get(key, default))
+
+    def set(self, key: str, value: Any):
+        """設定値更新"""
+        self.config[key] = value
+
+
+class MultiLayerCacheManager:
+    """マルチレイヤーキャッシュ管理"""
+
+    def __init__(self, config: CacheConfig):
+        self.config = config
+        self.stats = {
+            "l1_hits": 0,
+            "l1_misses": 0,
+            "l2_hits": 0,
+            "l2_misses": 0,
+            "l3_hits": 0,
+            "l3_misses": 0,
+            "total_requests": 0,
+        }
+        import threading
+
+        self._lock = threading.RLock()
+
+        # L1: メモリキャッシュ（インスタンス内）
+        self.l1_cache = {}
+        self.l1_max_size = config.get("l1_memory_size")
+
+        # L2: 永続キャッシュ
+        self.l2_cache = None
+        if config.get("l2_persistent_enabled") and ADVANCED_CACHE_AVAILABLE:
             try:
-                self.logger.debug(f"実行戦略: {strategy_name}")
-                result = strategy_func(func, *args, **kwargs)
-
-                if result is not None:
-                    log_business_event(
-                        "api_execution_success",
-                        strategy=strategy_name,
-                        function=func.__name__,
-                    )
-                    return result
-
+                self.l2_cache = get_persistent_cache(
+                    storage_type=config.get("persistent_storage_type"),
+                    storage_path=config.get("persistent_storage_path"),
+                )
             except Exception as e:
-                last_exception = e
-                log_error_with_context(
-                    e,
-                    {
-                        "strategy": strategy_name,
-                        "function": func.__name__,
-                        "args": str(args)[:200],  # 長すぎる場合は切り詰め
-                    },
-                )
+                logger.warning(f"L2永続キャッシュ初期化失敗: {e}")
 
-                self.logger.warning(
-                    f"戦略 {strategy_name} が失敗、次の戦略を試行",
-                    strategy=strategy_name,
-                    error=str(e)[:200],
+        # L3: 分散キャッシュ
+        self.l3_cache = None
+        if config.get("l3_distributed_enabled") and ADVANCED_CACHE_AVAILABLE:
+            try:
+                self.l3_cache = get_distributed_cache(
+                    backend_type=config.get("distributed_backend_type"),
+                    backend_config=config.get("distributed_backend_config"),
                 )
-                continue
+            except Exception as e:
+                logger.warning(f"L3分散キャッシュ初期化失敗: {e}")
 
-        # すべての戦略が失敗
-        log_business_event(
-            "api_execution_failed_all_strategies",
-            function=func.__name__,
-            strategies=[s[0] for s in strategies],
+        # スマート無効化マネージャー
+        self.invalidation_manager = None
+        if config.get("smart_invalidation_enabled") and ADVANCED_CACHE_AVAILABLE:
+            try:
+                strategies = [
+                    TTLStrategy(),
+                    LRUStrategy(max_idle_seconds=3600),
+                    LFUStrategy(min_frequency_threshold=0.01),
+                ]
+                self.invalidation_manager = get_invalidation_manager(
+                    strategies=strategies, max_cache_size=config.get("max_cache_size")
+                )
+            except Exception as e:
+                logger.warning(f"スマート無効化マネージャー初期化失敗: {e}")
+
+        logger.info(
+            "マルチレイヤーキャッシュマネージャー初期化完了",
+            extra={
+                "l1_enabled": True,
+                "l2_enabled": self.l2_cache is not None,
+                "l3_enabled": self.l3_cache is not None,
+                "smart_invalidation": self.invalidation_manager is not None,
+            },
         )
 
-        if last_exception:
-            self._handle_error(last_exception)
-        else:
-            raise APIError("すべての実行戦略が失敗しました")
+    def get(self, key: str, default=None):
+        """マルチレイヤーキャッシュ取得"""
+        with self._lock:
+            self.stats["total_requests"] += 1
 
-    def _standard_execution(self, func, *args, **kwargs):
-        """標準実行（耐障害性クライアント使用）"""
-        if hasattr(self, "resilient_client"):
-            # 耐障害性クライアントを使用した実行
-            return func(*args, **kwargs)
-        else:
-            # フォールバック：従来のリトライ機構
-            return super()._retry_on_error(func, *args, **kwargs)
+            # L1: メモリキャッシュ
+            if key in self.l1_cache:
+                value, timestamp = self.l1_cache[key]
+                self.stats["l1_hits"] += 1
+                return value
+            self.stats["l1_misses"] += 1
 
-    def _cache_fallback_execution(self, func, *args, **kwargs):
-        """キャッシュフォールバック実行"""
-        # 親クラスのキャッシュ機能を利用して古いデータを取得
+            # L2: 永続キャッシュ
+            if self.l2_cache:
+                try:
+                    value = self.l2_cache.get(key)
+                    if value is not None:
+                        self.stats["l2_hits"] += 1
+                        # L1にも保存
+                        self._set_l1(key, value)
+                        return value
+                except Exception as e:
+                    logger.debug(f"L2キャッシュ取得エラー: {e}")
+                self.stats["l2_misses"] += 1
+
+            # L3: 分散キャッシュ
+            if self.l3_cache:
+                try:
+                    value = self.l3_cache.get(key)
+                    if value is not None:
+                        self.stats["l3_hits"] += 1
+                        # 上位層にも保存
+                        self._set_l1(key, value)
+                        if self.l2_cache:
+                            self.l2_cache.set(key, value)
+                        return value
+                except Exception as e:
+                    logger.debug(f"L3キャッシュ取得エラー: {e}")
+                self.stats["l3_misses"] += 1
+
+            return default
+
+    def set(self, key: str, value: Any, ttl_seconds: int = 300):
+        """マルチレイヤーキャッシュ保存"""
+        with self._lock:
+            # L1: メモリキャッシュ
+            self._set_l1(key, value)
+
+            # L2: 永続キャッシュ
+            if self.l2_cache:
+                try:
+                    self.l2_cache.set(key, value, ttl_seconds=ttl_seconds)
+                except Exception as e:
+                    logger.debug(f"L2キャッシュ設定エラー: {e}")
+
+            # L3: 分散キャッシュ
+            if self.l3_cache:
+                try:
+                    self.l3_cache.set(key, value, ttl_seconds=ttl_seconds)
+                except Exception as e:
+                    logger.debug(f"L3キャッシュ設定エラー: {e}")
+
+            # スマート無効化マネージャーに追加
+            if self.invalidation_manager:
+                try:
+                    entry = CacheEntry(
+                        key=key,
+                        value=value,
+                        created_at=time.time(),
+                        last_accessed=time.time(),
+                        access_count=1,
+                        size_bytes=len(str(value).encode("utf-8")),
+                    )
+                    self.invalidation_manager.add_entry(key, entry)
+                except Exception as e:
+                    logger.debug(f"無効化マネージャー追加エラー: {e}")
+
+    def _set_l1(self, key: str, value: Any):
+        """L1キャッシュ設定（LRU削除付き）"""
+        if len(self.l1_cache) >= self.l1_max_size:
+            # 最古のエントリを削除
+            oldest_key = min(self.l1_cache.keys(), key=lambda k: self.l1_cache[k][1])
+            del self.l1_cache[oldest_key]
+
+        self.l1_cache[key] = (value, time.time())
+
+    def invalidate(self, key: str):
+        """特定キーの無効化"""
+        with self._lock:
+            # L1から削除
+            if key in self.l1_cache:
+                del self.l1_cache[key]
+
+            # L2から削除
+            if self.l2_cache:
+                try:
+                    self.l2_cache.delete(key)
+                except Exception as e:
+                    logger.debug(f"L2キャッシュ削除エラー: {e}")
+
+            # L3から削除
+            if self.l3_cache:
+                try:
+                    self.l3_cache.delete(key)
+                except Exception as e:
+                    logger.debug(f"L3キャッシュ削除エラー: {e}")
+
+            # スマート無効化マネージャーから削除
+            if self.invalidation_manager:
+                try:
+                    self.invalidation_manager.remove_entry(key)
+                except Exception as e:
+                    logger.debug(f"無効化マネージャー削除エラー: {e}")
+
+    def clear_all(self):
+        """全キャッシュクリア"""
+        with self._lock:
+            # L1クリア
+            self.l1_cache.clear()
+
+            # L2クリア
+            if self.l2_cache:
+                try:
+                    self.l2_cache.clear()
+                except Exception:
+                    pass
+
+            # L3クリア
+            if self.l3_cache:
+                try:
+                    self.l3_cache.clear()
+                except Exception:
+                    pass
+
+    def get_stats(self) -> Dict[str, Any]:
+        """キャッシュ統計取得"""
+        with self._lock:
+            total_hits = (
+                self.stats["l1_hits"] + self.stats["l2_hits"] + self.stats["l3_hits"]
+            )
+            total_misses = (
+                self.stats["l1_misses"]
+                + self.stats["l2_misses"]
+                + self.stats["l3_misses"]
+            )
+
+            stats = {
+                **self.stats,
+                "l1_cache_size": len(self.l1_cache),
+                "l1_hit_rate": self.stats["l1_hits"]
+                / max(self.stats["total_requests"], 1),
+                "overall_hit_rate": total_hits / max(total_hits + total_misses, 1),
+                "cache_layers_active": sum(
+                    [
+                        1,  # L1 always active
+                        1 if self.l2_cache else 0,
+                        1 if self.l3_cache else 0,
+                    ]
+                ),
+            }
+
+            # 各レイヤーの統計も追加
+            if self.l2_cache:
+                try:
+                    l2_stats = self.l2_cache.get_stats()
+                    stats["l2_stats"] = l2_stats
+                except Exception:
+                    pass
+
+            if self.l3_cache:
+                try:
+                    l3_stats = self.l3_cache.get_stats()
+                    stats["l3_stats"] = l3_stats
+                except Exception:
+                    pass
+
+            return stats
+
+
+class EnhancedStockFetcher(BaseStockFetcher):
+    """高度キャッシング戦略統合版Stock Fetcher"""
+
+    def __init__(self, cache_config: Dict[str, Any] = None, **kwargs):
+        """
+        初期化
+
+        Args:
+            cache_config: キャッシュ設定辞書
+            **kwargs: BaseStockFetcher用パラメータ
+        """
+        super().__init__(**kwargs)
+
+        # キャッシュ設定初期化
+        self.cache_config = CacheConfig(cache_config)
+
+        # マルチレイヤーキャッシュマネージャー初期化
+        self.cache_manager = MultiLayerCacheManager(self.cache_config)
+
+        # パフォーマンス統計
+        self.performance_stats = {
+            "api_calls": 0,
+            "cache_hits": 0,
+            "total_requests": 0,
+            "avg_response_time_ms": 0.0,
+            "cache_hit_rate": 0.0,
+        }
+
+        logger.info(
+            "Enhanced Stock Fetcher 初期化完了",
+            extra={
+                "advanced_cache_available": ADVANCED_CACHE_AVAILABLE,
+                "multi_layer_enabled": self.cache_config.get(
+                    "enable_multi_layer_cache"
+                ),
+            },
+        )
+
+    def _generate_cache_key(self, method: str, *args, **kwargs) -> str:
+        """キャッシュキー生成"""
+        import hashlib
+
+        key_parts = [method] + [str(arg) for arg in args]
+        if kwargs:
+            sorted_kwargs = sorted(kwargs.items())
+            key_parts.extend([f"{k}={v}" for k, v in sorted_kwargs])
+
+        key_string = "|".join(key_parts)
+        return hashlib.sha256(key_string.encode()).hexdigest()[:16]
+
+    def _cached_operation(
+        self, operation_name: str, operation_func, ttl_seconds: int, *args, **kwargs
+    ):
+        """キャッシュ付き操作実行"""
+        start_time = time.time()
+        self.performance_stats["total_requests"] += 1
+
+        # キャッシュキー生成
+        cache_key = f"{operation_name}:{self._generate_cache_key(operation_name, *args, **kwargs)}"
+
+        # キャッシュから取得試行
+        cached_result = self.cache_manager.get(cache_key)
+        if cached_result is not None:
+            self.performance_stats["cache_hits"] += 1
+            elapsed_ms = (time.time() - start_time) * 1000
+
+            # 統計更新
+            self._update_performance_stats(elapsed_ms)
+
+            logger.debug(
+                f"キャッシュヒット: {operation_name}",
+                extra={"cache_key": cache_key, "elapsed_ms": elapsed_ms},
+            )
+            return cached_result
+
+        # API実行
         try:
-            # TTLを緩和した状態で再試行
-            # 既存のキャッシュ仕組みを使用してより長いTTLで動作させる
+            self.performance_stats["api_calls"] += 1
+            result = operation_func(*args, **kwargs)
 
-            # 現在のTTL設定を一時的に保存
-            original_price_ttl = self.price_cache_ttl
-            original_historical_ttl = self.historical_cache_ttl
-
-            # TTLを大幅に延長（12時間）
-            self.price_cache_ttl = 3600 * 12
-            self.historical_cache_ttl = 3600 * 12
-
-            # 親クラスのメソッドを直接呼び出してキャッシュから取得
-            if func.__name__ == "get_current_price" and args:
-                result = super().get_current_price(args[0])
-            elif func.__name__ == "get_historical_data" and args:
-                period = args[1] if len(args) > 1 else "1d"
-                interval = args[2] if len(args) > 2 else "1d"
-                result = super().get_historical_data(args[0], period, interval)
-            elif func.__name__ == "get_company_info" and args:
-                result = super().get_company_info(args[0])
-            else:
-                result = None
-
-            # TTLを元に戻す
-            self.price_cache_ttl = original_price_ttl
-            self.historical_cache_ttl = original_historical_ttl
-
+            # 結果をキャッシュに保存
             if result is not None:
-                self.logger.info(
-                    "キャッシュフォールバックで取得成功", function=func.__name__
-                )
-                log_business_event("cache_fallback_success", function=func.__name__)
-                return result
+                self.cache_manager.set(cache_key, result, ttl_seconds)
+
+            elapsed_ms = (time.time() - start_time) * 1000
+            self._update_performance_stats(elapsed_ms)
+
+            log_performance_metric(f"stock_fetcher_{operation_name}", elapsed_ms, "ms")
+
+            logger.debug(
+                f"API実行完了: {operation_name}",
+                extra={"elapsed_ms": elapsed_ms, "cache_key": cache_key},
+            )
+
+            return result
 
         except Exception as e:
-            self.logger.debug(f"キャッシュフォールバック失敗: {e}")
+            elapsed_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"API実行エラー: {operation_name}",
+                extra={"error": str(e), "elapsed_ms": elapsed_ms},
+            )
+            raise
 
-        return None
+    def _update_performance_stats(self, elapsed_ms: float):
+        """パフォーマンス統計更新"""
+        # 移動平均でレスポンス時間更新
+        alpha = 0.1
+        self.performance_stats["avg_response_time_ms"] = (
+            self.performance_stats["avg_response_time_ms"] * (1 - alpha)
+            + elapsed_ms * alpha
+        )
 
-    def _degraded_mode_execution(self, func, *args, **kwargs):
-        """劣化モード実行（最小限のデータ）"""
-        # 最低限のデフォルトデータを返す
-        self.logger.warning("劣化モードで実行", function=func.__name__)
-
-        log_security_event("degraded_mode_activated", "warning", function=func.__name__)
-
-        # 関数名に応じてデフォルトデータを生成
-        if "get_current_price" in func.__name__:
-            return self._generate_default_price_data(args[0] if args else "UNKNOWN")
-        elif "get_historical_data" in func.__name__:
-            return self._generate_default_historical_data()
-        elif "get_company_info" in func.__name__:
-            return self._generate_default_company_info(args[0] if args else "UNKNOWN")
-
-        return None
-
-    def _generate_default_price_data(self, symbol: str) -> Dict[str, any]:
-        """デフォルト価格データを生成"""
-        return {
-            "symbol": symbol,
-            "current_price": 0.0,
-            "previous_close": 0.0,
-            "change": 0.0,
-            "change_percent": 0.0,
-            "volume": 0,
-            "market_cap": None,
-            "timestamp": datetime.now(),
-            "data_quality": "degraded",
-            "source": "fallback",
-        }
-
-    def _generate_default_historical_data(self) -> pd.DataFrame:
-        """デフォルトヒストリカルデータを生成"""
-        # 空のDataFrameを返す
-        return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
-
-    def _generate_default_company_info(self, symbol: str) -> Dict[str, any]:
-        """デフォルト企業情報を生成"""
-        return {
-            "symbol": symbol,
-            "name": f"Company {symbol}",
-            "sector": "Unknown",
-            "industry": "Unknown",
-            "market_cap": None,
-            "employees": None,
-            "description": "Company information unavailable",
-            "website": None,
-            "headquarters": "Unknown",
-            "country": "Unknown",
-            "currency": "Unknown",
-            "exchange": "Unknown",
-            "data_quality": "degraded",
-            "source": "fallback",
-        }
+        # キャッシュヒット率更新
+        total_requests = self.performance_stats["total_requests"]
+        if total_requests > 0:
+            self.performance_stats["cache_hit_rate"] = (
+                self.performance_stats["cache_hits"] / total_requests
+            )
 
     def get_current_price(self, code: str) -> Optional[Dict[str, float]]:
-        """
-        耐障害性強化版現在株価取得
-
-        Args:
-            code: 証券コード
-
-        Returns:
-            価格情報の辞書
-        """
-
-        def _enhanced_get_price():
-            price_logger = self.logger.bind(
-                operation="enhanced_get_current_price", stock_code=code
-            )
-            price_logger.info("耐障害性強化版価格取得開始")
-
-            start_time = time.time()
-
-            try:
-                # データ検証強化
-                self._validate_symbol(code)
-                self._validate_market_hours()
-
-                symbol = self._format_symbol(code)
-
-                # Yahoo Finance API経由で取得
-                ticker = self._get_ticker(symbol)
-
-                # API呼び出しログ（詳細版）
-                log_api_call(
-                    "yfinance_enhanced",
-                    "GET",
-                    f"ticker.info for {symbol}",
-                    context="enhanced_stock_fetcher",
-                )
-
-                info = ticker.info
-
-                # レスポンス検証強化
-                if not self._validate_api_response(info):
-                    raise DataError(f"無効なAPIレスポンス: {symbol}")
-
-                # 価格データ抽出と検証
-                price_data = self._extract_and_validate_price_data(info, symbol)
-
-                # パフォーマンス測定
-                elapsed_time = (time.time() - start_time) * 1000
-                log_performance_metric(
-                    "enhanced_price_fetch_time",
-                    elapsed_time,
-                    "ms",
-                    stock_code=code,
-                    data_source="enhanced",
-                )
-
-                price_logger.info(
-                    "耐障害性強化版価格取得完了",
-                    current_price=price_data.get("current_price"),
-                    elapsed_ms=elapsed_time,
-                    data_quality="standard",
-                )
-
-                return price_data
-
-            except Exception as e:
-                elapsed_time = (time.time() - start_time) * 1000
-                log_error_with_context(
-                    e,
-                    {
-                        "operation": "enhanced_get_current_price",
-                        "stock_code": code,
-                        "elapsed_ms": elapsed_time,
-                    },
-                )
-                price_logger.error(
-                    "耐障害性強化版価格取得でエラー",
-                    error=str(e),
-                    elapsed_ms=elapsed_time,
-                )
-                raise
-
-        return self._enhanced_retry_on_error(_enhanced_get_price)
-
-    def _validate_market_hours(self) -> None:
-        """市場時間の検証"""
-        # 簡単な実装例（実際にはより複雑な市場時間チェックが必要）
-        now = datetime.now()
-        hour = now.hour
-
-        # 日本市場の取引時間外でも警告のみ
-        if hour < 9 or hour > 15:
-            self.logger.warning("市場時間外のアクセス", current_hour=hour, market="JP")
-
-    def _validate_api_response(self, response_data: any) -> bool:
-        """APIレスポンスの妥当性検証"""
-        if not response_data:
-            return False
-
-        if not isinstance(response_data, dict):
-            return False
-
-        # 最低限必要なフィールドの存在確認
-        required_fields = ["currentPrice", "regularMarketPrice", "previousClose"]
-        has_required = any(field in response_data for field in required_fields)
-
-        if not has_required:
-            self.logger.warning(
-                "必要なフィールドが不足",
-                available_fields=list(response_data.keys())[:10],
-            )
-            return False
-
-        return True
-
-    def _extract_and_validate_price_data(
-        self, info: dict, symbol: str
-    ) -> Dict[str, any]:
-        """価格データの抽出と検証"""
-        # 現在価格の取得（複数の可能性を試行）
-        current_price = (
-            info.get("currentPrice")
-            or info.get("regularMarketPrice")
-            or info.get("price")
+        """現在価格取得（キャッシュ強化版）"""
+        ttl = self.cache_config.get("price_ttl_seconds")
+        return self._cached_operation(
+            "get_current_price", super().get_current_price, ttl, code
         )
 
-        previous_close = info.get("previousClose")
-
-        if current_price is None:
-            raise DataError(f"現在価格を取得できません: {symbol}")
-
-        # 価格の妥当性チェック
-        if not isinstance(current_price, (int, float)) or current_price <= 0:
-            raise ValidationError(f"無効な価格データ: {current_price}")
-
-        # 変化額・変化率の計算
-        change = 0.0
-        change_percent = 0.0
-
-        if (
-            previous_close
-            and isinstance(previous_close, (int, float))
-            and previous_close > 0
-        ):
-            change = current_price - previous_close
-            change_percent = (change / previous_close) * 100
-
-        return {
-            "symbol": symbol,
-            "current_price": float(current_price),
-            "previous_close": float(previous_close) if previous_close else None,
-            "change": float(change),
-            "change_percent": float(change_percent),
-            "volume": int(info.get("volume", 0)),
-            "market_cap": info.get("marketCap"),
-            "timestamp": datetime.now(),
-            "data_quality": "standard",
-            "source": "yfinance_enhanced",
-        }
-
-    def get_system_status(self) -> Dict[str, any]:
-        """システム状態の取得"""
-        status = {
-            "timestamp": datetime.now().isoformat(),
-            "service": "enhanced_stock_fetcher",
-            "cache_stats": self._get_cache_stats(),
-            "resilience_status": None,
-        }
-
-        if hasattr(self, "resilient_client"):
-            status["resilience_status"] = self.resilient_client.get_status()
-
-        return status
-
-    def _get_cache_stats(self) -> Dict[str, any]:
-        """キャッシュ統計の取得"""
-        stats = {}
-
-        # メソッドレベルのキャッシュ統計
-        methods_with_cache = [
-            "get_current_price",
+    def get_historical_data(
+        self, code: str, period: str = "1mo", interval: str = "1d"
+    ) -> Optional[pd.DataFrame]:
+        """ヒストリカルデータ取得（キャッシュ強化版）"""
+        ttl = self.cache_config.get("historical_ttl_seconds")
+        return self._cached_operation(
             "get_historical_data",
-            "get_company_info",
+            super().get_historical_data,
+            ttl,
+            code,
+            period,
+            interval,
+        )
+
+    def get_historical_data_range(
+        self,
+        code: str,
+        start_date: Union[str, datetime],
+        end_date: Union[str, datetime],
+        interval: str = "1d",
+    ) -> Optional[pd.DataFrame]:
+        """期間指定ヒストリカルデータ取得（キャッシュ強化版）"""
+        ttl = self.cache_config.get("historical_ttl_seconds")
+        return self._cached_operation(
+            "get_historical_data_range",
+            super().get_historical_data_range,
+            ttl,
+            code,
+            start_date,
+            end_date,
+            interval,
+        )
+
+    def get_company_info(self, code: str) -> Optional[Dict[str, Any]]:
+        """企業情報取得（キャッシュ強化版）"""
+        ttl = self.cache_config.get("company_info_ttl_seconds")
+        return self._cached_operation(
+            "get_company_info", super().get_company_info, ttl, code
+        )
+
+    def bulk_get_current_prices(
+        self, codes: List[str], batch_size: int = 50, delay: float = 0.1
+    ) -> Dict[str, Optional[Dict]]:
+        """一括現在価格取得（キャッシュ強化版）"""
+        if not codes:
+            return {}
+
+        results = {}
+        uncached_codes = []
+
+        # まずキャッシュから取得
+        for code in codes:
+            cache_key = f"get_current_price:{self._generate_cache_key('get_current_price', code)}"
+            cached_result = self.cache_manager.get(cache_key)
+            if cached_result is not None:
+                results[code] = cached_result
+                self.performance_stats["cache_hits"] += 1
+            else:
+                uncached_codes.append(code)
+            self.performance_stats["total_requests"] += 1
+
+        # キャッシュにないものをバルク取得
+        if uncached_codes:
+            ttl = self.cache_config.get("price_ttl_seconds")
+            bulk_results = self._cached_operation(
+                "bulk_get_current_prices",
+                super().bulk_get_current_prices,
+                ttl,
+                uncached_codes,
+                batch_size,
+                delay,
+            )
+
+            # 個別にキャッシュ保存
+            for code, result in bulk_results.items():
+                if result is not None:
+                    cache_key = f"get_current_price:{self._generate_cache_key('get_current_price', code)}"
+                    self.cache_manager.set(cache_key, result, ttl)
+                results[code] = result
+
+        logger.info(
+            f"一括価格取得完了: {len(results)}件, キャッシュヒット: {len(codes) - len(uncached_codes)}件"
+        )
+        return results
+
+    def invalidate_cache(self, pattern: str = None):
+        """キャッシュ無効化"""
+        if pattern:
+            # パターンマッチング無効化（簡易実装）
+            if self.cache_manager.invalidation_manager:
+                try:
+                    self.cache_manager.invalidation_manager.trigger_event(
+                        "pattern_invalidation", pattern=pattern
+                    )
+                except Exception as e:
+                    logger.debug(f"パターン無効化エラー: {e}")
+        else:
+            # 全キャッシュクリア
+            self.cache_manager.clear_all()
+
+        logger.info(f"キャッシュ無効化完了: pattern={pattern}")
+
+    def invalidate_symbol_cache(self, symbol: str):
+        """特定銘柄のキャッシュ無効化"""
+        patterns = [
+            f"get_current_price:{self._generate_cache_key('get_current_price', symbol)}",
+            f"get_historical_data:{symbol}",
+            f"get_company_info:{self._generate_cache_key('get_company_info', symbol)}",
         ]
 
-        for method_name in methods_with_cache:
-            method = getattr(self, method_name, None)
-            if method and hasattr(method, "get_stats"):
-                stats[method_name] = method.get_stats()
+        for pattern in patterns:
+            self.cache_manager.invalidate(pattern)
 
-        return stats
+        logger.info(f"銘柄キャッシュ無効化完了: {symbol}")
 
-    def health_check(self) -> Dict[str, any]:
-        """ヘルスチェック"""
-        start_time = time.time()
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """キャッシュ統計取得"""
+        cache_stats = self.cache_manager.get_stats()
 
-        health = {
-            "timestamp": datetime.now().isoformat(),
-            "status": "healthy",
-            "checks": {},
-            "response_time_ms": 0,
+        return {
+            "performance_stats": self.performance_stats,
+            "cache_stats": cache_stats,
+            "cache_config": {
+                "multi_layer_enabled": self.cache_config.get(
+                    "enable_multi_layer_cache"
+                ),
+                "persistent_enabled": self.cache_config.get("persistent_cache_enabled"),
+                "distributed_enabled": self.cache_config.get(
+                    "distributed_cache_enabled"
+                ),
+                "smart_invalidation_enabled": self.cache_config.get(
+                    "smart_invalidation_enabled"
+                ),
+            },
+            "advanced_cache_available": ADVANCED_CACHE_AVAILABLE,
         }
 
-        # 基本機能チェック
-        try:
-            # 簡単な価格取得テスト（キャッシュヒットする可能性があるシンボル）
-            test_result = self.get_current_price("7203")  # トヨタ
-            health["checks"]["price_fetch"] = {
-                "status": "pass" if test_result else "fail",
-                "details": "価格取得テスト",
-            }
-        except Exception as e:
-            health["checks"]["price_fetch"] = {
-                "status": "fail",
-                "details": f"価格取得エラー: {str(e)[:100]}",
-            }
-            health["status"] = "degraded"
+    def optimize_cache_settings(self) -> Dict[str, Any]:
+        """キャッシュ設定最適化"""
+        stats = self.get_cache_stats()
+        recommendations = {}
 
-        # 耐障害性機能チェック
-        if hasattr(self, "resilient_client"):
-            try:
-                resilience_status = self.resilient_client.get_status()
-                health["checks"]["resilience"] = {
-                    "status": "pass" if resilience_status["overall_health"] else "fail",
-                    "details": resilience_status,
-                }
+        # ヒット率に基づく推奨
+        hit_rate = stats["performance_stats"]["cache_hit_rate"]
+        if hit_rate < 0.3:
+            recommendations["increase_ttl"] = "TTLを延長してヒット率を改善"
+        elif hit_rate > 0.9:
+            recommendations["decrease_ttl"] = "TTLを短縮してメモリ効率を改善"
 
-                if not resilience_status["overall_health"]:
-                    health["status"] = "degraded"
-
-            except Exception as e:
-                health["checks"]["resilience"] = {
-                    "status": "fail",
-                    "details": f"耐障害性チェックエラー: {str(e)[:100]}",
-                }
-                health["status"] = "degraded"
-
-        health["response_time_ms"] = (time.time() - start_time) * 1000
-
-        # ヘルスステータスをログ出力
-        log_business_event(
-            "health_check_completed",
-            status=health["status"],
-            response_time=health["response_time_ms"],
-            checks_passed=sum(
-                1 for check in health["checks"].values() if check["status"] == "pass"
-            ),
+        # API呼び出し頻度に基づく推奨
+        api_ratio = stats["performance_stats"]["api_calls"] / max(
+            stats["performance_stats"]["total_requests"], 1
         )
+        if api_ratio > 0.8:
+            recommendations["enable_persistent"] = "永続キャッシュを有効化"
+            if not self.cache_config.get("l3_distributed_enabled"):
+                recommendations["consider_distributed"] = "分散キャッシュの検討"
+
+        return {
+            "current_stats": stats,
+            "recommendations": recommendations,
+            "optimization_score": hit_rate * 100,  # 0-100のスコア
+        }
+
+    def health_check(self) -> Dict[str, Any]:
+        """ヘルスチェック"""
+        health = {
+            "status": "healthy",
+            "cache_manager_active": self.cache_manager is not None,
+            "l1_cache_size": len(self.cache_manager.l1_cache),
+            "advanced_cache_available": ADVANCED_CACHE_AVAILABLE,
+            "issues": [],
+        }
+
+        # L2キャッシュ確認
+        if self.cache_manager.l2_cache:
+            try:
+                l2_stats = self.cache_manager.l2_cache.get_stats()
+                health["l2_persistent_healthy"] = True
+                health["l2_entries"] = l2_stats.get("total_operations", 0)
+            except Exception as e:
+                health["l2_persistent_healthy"] = False
+                health["issues"].append(f"L2永続キャッシュエラー: {e}")
+
+        # L3キャッシュ確認
+        if self.cache_manager.l3_cache:
+            try:
+                l3_stats = self.cache_manager.l3_cache.get_stats()
+                health["l3_distributed_healthy"] = True
+                health["l3_connected"] = l3_stats.get("primary_connected", False)
+            except Exception as e:
+                health["l3_distributed_healthy"] = False
+                health["issues"].append(f"L3分散キャッシュエラー: {e}")
+
+        if health["issues"]:
+            health["status"] = "warning"
 
         return health
 
-    # === パフォーマンス最適化機能 (Issue #165) ===
 
-    def __init_performance_optimizer(self):
-        """パフォーマンス最適化コンポーネントの初期化"""
-        self.data_optimizer = DataFetchOptimizer(max_workers=4, chunk_size=50)
+# 工場関数
+def create_enhanced_stock_fetcher(
+    cache_config: Dict[str, Any] = None, **fetcher_kwargs
+) -> EnhancedStockFetcher:
+    """
+    Enhanced Stock Fetcher インスタンス作成
 
-    def fetch_multiple_bulk(
-        self,
-        symbols: List[str],
-        period: str = "1d",
-        interval: str = "1d",
-        use_async: bool = True,
-        auto_retry_failed: bool = True,
-    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
-        """
-        複数銘柄の一括データ取得（最適化版）
+    Args:
+        cache_config: キャッシュ設定
+        **fetcher_kwargs: StockFetcher用パラメータ
 
-        Args:
-            symbols: 銘柄コードのリスト
-            period: 取得期間 ("1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max")
-            interval: データ間隔 ("1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo")
-            use_async: 非同期処理を使用するか
-            auto_retry_failed: 失敗した銘柄を自動リトライするか
+    Returns:
+        設定済みEnhancedStockFetcher
+    """
+    default_cache_config = {
+        "persistent_cache_enabled": True,
+        "persistent_storage_type": "sqlite",
+        "persistent_compression": True,
+        "smart_invalidation_enabled": True,
+        "enable_multi_layer_cache": True,
+        "price_ttl_seconds": 30,
+        "historical_ttl_seconds": 300,
+        "company_info_ttl_seconds": 3600,
+    }
 
-        Returns:
-            銘柄コードをキーとする辞書。値は成功時はDataFrame、失敗時はException
-        """
-        if not hasattr(self, "data_optimizer"):
-            self.__init_performance_optimizer()
+    if cache_config:
+        default_cache_config.update(cache_config)
 
-        start_time = time.time()
-        self.logger.info(
-            "一括データ取得開始",
-            symbol_count=len(symbols),
-            period=period,
-            interval=interval,
-            use_async=use_async,
-        )
-
-        try:
-            # yfinanceの一括取得機能を優先使用
-            bulk_result = self._fetch_bulk_yfinance(symbols, period, interval)
-
-            # 失敗した銘柄がある場合は個別取得
-            failed_symbols = [
-                symbol
-                for symbol, data in bulk_result.items()
-                if isinstance(data, Exception)
-            ]
-
-            if failed_symbols and auto_retry_failed:
-                self.logger.warning(
-                    "一括取得失敗銘柄の個別リトライ", failed_count=len(failed_symbols)
-                )
-
-                if use_async:
-                    individual_results = asyncio.run(
-                        self.data_optimizer.fetch_multiple_async(
-                            failed_symbols,
-                            self._fetch_single_with_resilience,
-                            period=period,
-                            interval=interval,
-                        )
-                    )
-                else:
-                    individual_results = self.data_optimizer.fetch_multiple_threaded(
-                        failed_symbols,
-                        self._fetch_single_with_resilience,
-                        period=period,
-                        interval=interval,
-                    )
-
-                # 成功したリトライ結果をマージ
-                bulk_result.update(individual_results.get("success", {}))
-
-            execution_time = time.time() - start_time
-            success_count = sum(
-                1 for v in bulk_result.values() if not isinstance(v, Exception)
-            )
-
-            # パフォーマンスメトリクス記録
-            log_performance_metric(
-                self.logger,
-                operation="bulk_fetch",
-                duration=execution_time,
-                symbol_count=len(symbols),
-                success_count=success_count,
-                throughput=success_count / execution_time if execution_time > 0 else 0,
-            )
-
-            return bulk_result
-
-        except Exception as e:
-            log_error_with_context(
-                self.logger,
-                e,
-                operation="fetch_multiple_bulk",
-                symbol_count=len(symbols),
-            )
-            # エラー時は全銘柄にエラーオブジェクトを返す
-            return {symbol: e for symbol in symbols}
-
-    def _fetch_bulk_yfinance(
-        self, symbols: List[str], period: str, interval: str
-    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
-        """yfinanceの一括取得機能を使用した最適化取得"""
-        try:
-            # 銘柄リストを空白区切りの文字列に変換
-            symbols_str = " ".join(symbols)
-
-            # yfinanceの一括取得
-            bulk_data = yf.download(
-                tickers=symbols_str,
-                period=period,
-                interval=interval,
-                group_by="ticker",
-                auto_adjust=True,
-                prepost=True,
-                threads=True,  # マルチスレッド有効
-                progress=False,  # プログレスバー無効
-            )
-
-            results = {}
-
-            if len(symbols) == 1:
-                # 単一銘柄の場合
-                symbol = symbols[0]
-                if not bulk_data.empty:
-                    results[symbol] = bulk_data
-                else:
-                    results[symbol] = DataError(f"No data available for {symbol}")
-            else:
-                # 複数銘柄の場合
-                for symbol in symbols:
-                    try:
-                        if symbol in bulk_data.columns.levels[0]:
-                            symbol_data = bulk_data[symbol].dropna()
-                            if not symbol_data.empty:
-                                results[symbol] = symbol_data
-                            else:
-                                results[symbol] = DataError(
-                                    f"No data available for {symbol}"
-                                )
-                        else:
-                            results[symbol] = DataError(
-                                f"Symbol {symbol} not found in bulk data"
-                            )
-                    except Exception as e:
-                        results[symbol] = e
-
-            return results
-
-        except Exception as e:
-            self.logger.error("一括取得エラー", error=str(e), symbol_count=len(symbols))
-            # エラー時は全銘柄に同じエラーを返す
-            return {symbol: e for symbol in symbols}
-
-    def _fetch_single_with_resilience(
-        self, symbol: str, period: str = "1d", interval: str = "1d"
-    ) -> pd.DataFrame:
-        """耐障害性機能付きの単一銘柄取得"""
-        try:
-            # 既存の単一取得メソッドを使用（耐障害性機能付き）
-            data = self.get_historical_data(symbol, period, interval)
-            if data is None or data.empty:
-                raise DataError(f"No data available for {symbol}")
-            return data
-        except Exception as e:
-            # エラーを適切な型に変換
-            if isinstance(e, (APIError, DataError, NetworkError)):
-                raise e
-            else:
-                raise APIError(f"Failed to fetch data for {symbol}: {str(e)}") from e
-
-    async def fetch_multiple_async_optimized(
-        self,
-        symbols: List[str],
-        period: str = "1d",
-        interval: str = "1d",
-        batch_size: int = 50,
-    ) -> Dict[str, Union[pd.DataFrame, Exception]]:
-        """
-        非同期一括取得の最適化版
-
-        大量の銘柄を効率的に処理するため、バッチ分割と並列処理を組み合わせ
-        """
-        if not hasattr(self, "data_optimizer"):
-            self.__init_performance_optimizer()
-
-        start_time = time.time()
-        self.logger.info(
-            "非同期一括取得開始", symbol_count=len(symbols), batch_size=batch_size
-        )
-
-        # バッチ分割
-        batches = [
-            symbols[i : i + batch_size] for i in range(0, len(symbols), batch_size)
-        ]
-        all_results = {}
-
-        # 各バッチを並列処理
-        for batch_idx, batch in enumerate(batches):
-            try:
-                batch_results = await self.data_optimizer.fetch_multiple_async(
-                    batch,
-                    self._fetch_single_with_resilience,
-                    period=period,
-                    interval=interval,
-                )
-
-                all_results.update(batch_results.get("success", {}))
-
-                # エラーもマージ
-                for symbol, error in batch_results.get("errors", {}).items():
-                    all_results[symbol] = error
-
-                self.logger.debug(
-                    "バッチ処理完了",
-                    batch_index=batch_idx + 1,
-                    batch_symbols=len(batch),
-                    success_count=len(batch_results.get("success", {})),
-                )
-
-            except Exception as e:
-                # バッチ全体でエラーの場合
-                for symbol in batch:
-                    all_results[symbol] = e
-
-                self.logger.error(
-                    "バッチ処理エラー", batch_index=batch_idx + 1, error=str(e)
-                )
-
-        execution_time = time.time() - start_time
-        success_count = sum(
-            1 for v in all_results.values() if not isinstance(v, Exception)
-        )
-
-        log_performance_metric(
-            self.logger,
-            operation="async_bulk_fetch",
-            duration=execution_time,
-            symbol_count=len(symbols),
-            success_count=success_count,
-            throughput=success_count / execution_time if execution_time > 0 else 0,
-            batch_count=len(batches),
-        )
-
-        return all_results
-
-    def get_performance_stats(self) -> Dict[str, Any]:
-        """パフォーマンス統計を取得"""
-        base_stats = (
-            super().get_retry_stats() if hasattr(super(), "get_retry_stats") else {}
-        )
-
-        # 耐障害性統計
-        resilience_stats = {}
-        if hasattr(self, "resilient_client"):
-            resilience_stats = self.resilient_client.get_statistics()
-
-        return {
-            "basic_stats": base_stats,
-            "resilience_stats": resilience_stats,
-            "optimization_enabled": hasattr(self, "data_optimizer"),
-            "timestamp": datetime.now().isoformat(),
-        }
+    return EnhancedStockFetcher(cache_config=default_cache_config, **fetcher_kwargs)
 
 
-# 使用例
 if __name__ == "__main__":
-    from ..utils.logging_config import setup_logging
+    # テスト実行
+    print("=== Enhanced Stock Fetcher テスト ===")
 
-    setup_logging()
-    logger = get_context_logger(__name__)
+    # デフォルト設定でインスタンス作成
+    fetcher = create_enhanced_stock_fetcher()
 
-    logger.info("=== EnhancedStockFetcher デモ開始 ===")
+    print("\n1. ヘルスチェック")
+    health = fetcher.health_check()
+    print(f"ステータス: {health['status']}")
+    print(f"高度キャッシュ利用可能: {health['advanced_cache_available']}")
 
-    # 耐障害性強化版インスタンス作成
-    enhanced_fetcher = EnhancedStockFetcher(
-        enable_fallback=True, enable_circuit_breaker=True, enable_health_monitoring=True
-    )
-
-    # ヘルスチェック
-    health = enhanced_fetcher.health_check()
-    logger.info("ヘルスチェック結果", **health)
-
-    # システム状態確認
-    status = enhanced_fetcher.get_system_status()
-    logger.info("システム状態", **status)
-
-    # 価格取得テスト
+    print("\n2. 現在価格取得テスト")
     try:
-        price_data = enhanced_fetcher.get_current_price("7203")
-        if price_data:
-            logger.info(
-                "価格取得成功",
-                symbol=price_data["symbol"],
-                current_price=price_data["current_price"],
-                data_quality=price_data.get("data_quality", "unknown"),
-            )
-    except Exception as e:
-        logger.error("価格取得エラー", error=str(e))
+        # 初回実行（API呼び出し）
+        start_time = time.time()
+        price1 = fetcher.get_current_price("7203")
+        first_time = time.time() - start_time
 
-    logger.info("=== EnhancedStockFetcher デモ完了 ===")
+        # 2回目実行（キャッシュヒット）
+        start_time = time.time()
+        price2 = fetcher.get_current_price("7203")
+        cached_time = time.time() - start_time
+
+        print(f"初回実行時間: {first_time:.3f}秒")
+        print(f"キャッシュ実行時間: {cached_time:.3f}秒")
+        print(f"高速化率: {first_time/max(cached_time, 0.001):.1f}x")
+
+    except Exception as e:
+        print(f"価格取得テストエラー: {e}")
+
+    print("\n3. キャッシュ統計")
+    stats = fetcher.get_cache_stats()
+    perf_stats = stats["performance_stats"]
+    print(f"総リクエスト: {perf_stats['total_requests']}")
+    print(f"キャッシュヒット: {perf_stats['cache_hits']}")
+    print(f"ヒット率: {perf_stats['cache_hit_rate']:.2%}")
+    print(f"平均レスポンス時間: {perf_stats['avg_response_time_ms']:.1f}ms")
+
+    print("\n4. 最適化推奨")
+    optimization = fetcher.optimize_cache_settings()
+    print(f"最適化スコア: {optimization['optimization_score']:.1f}/100")
+    if optimization["recommendations"]:
+        for key, recommendation in optimization["recommendations"].items():
+            print(f"- {key}: {recommendation}")
+    else:
+        print("- 現在の設定は最適です")
+
+    print("\n=== Enhanced Stock Fetcher テスト完了 ===")

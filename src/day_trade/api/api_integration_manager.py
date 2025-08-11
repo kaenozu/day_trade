@@ -11,7 +11,6 @@ RESTful・WebSocket API統合管理・データ統一・キャッシュ・フォ
 """
 
 import asyncio
-import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -695,9 +694,11 @@ class APIIntegrationManager:
         self.cache_stats["total_size"] = len(self.cache)
 
     def _generate_cache_key(self, symbol: str, data_type: str) -> str:
-        """キャッシュキー生成"""
+        """キャッシュキー生成 (セキュア)"""
+        from ..security.secure_hash_utils import replace_md5_hash
+
         key_string = f"{symbol}_{data_type}"
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return replace_md5_hash(key_string)
 
     async def start_real_time_streaming(self, symbols: List[str]) -> Dict[str, str]:
         """リアルタイムストリーミング開始"""
