@@ -527,7 +527,6 @@ class SecureErrorHandler:
 
         # 機密情報パターン
         sensitive_patterns = [
-            # APIキー・トークン
             r"ap[i][_-]?k[e]y[:\s=]+[a-zA-Z0-9\-._~+=]+",
             r"tok[e]n[:\s=]+[a-zA-Z0-9\-._~+=]+",
             r"sec[r]et[:\s=]+[a-zA-Z0-9\-._~+=]+",
@@ -575,7 +574,8 @@ class SecureErrorHandler:
 
     @staticmethod
     def create_safe_error_response(
-        error: Exception, request_id: str = None
+        error: Exception,
+        request_id: str = None,
     ) -> Dict[str, Any]:
         """
         安全なエラーレスポンス生成

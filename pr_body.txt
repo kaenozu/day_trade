@@ -1,5 +1,3 @@
-refactor: Pre-commit linting fixes and enhancements
-
 This commit addresses and resolves various linting issues identified by pre-commit hooks, primarily focusing on `ruff` and `ruff-format` errors.
 
 Changes include:

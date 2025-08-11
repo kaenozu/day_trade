@@ -763,7 +763,7 @@ class VolatilityPredictionEngine:
 
     def create_volatility_regime_classifier(
         self, data: pd.DataFrame, thresholds: Optional[Dict[str, float]] = None
-    ) -> pd.Series:
+    ):
         """
         ボラティリティレジーム分類
 

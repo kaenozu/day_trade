@@ -892,16 +892,19 @@ class DatabaseManager:
 
         try:
             with self.transaction_scope() as session:
+                start_time = time.time()
                 for i in range(0, len(data_list), batch_size):
                     batch = data_list[i : i + batch_size]
                     batch_number = i // batch_size + 1
 
+                    batch_start_time = time.time()
                     try:
                         session.bulk_insert_mappings(model_class, batch)
                         session.flush()
+                        batch_end_time = time.time()
                         log_database_operation(
                             "bulk_insert_batch",
-                            duration=0.0,
+                            duration=batch_end_time - batch_start_time,
                             table_name=str(model_class.__table__.name),
                             batch_number=batch_number,
                             batch_size=len(batch),
@@ -940,16 +943,20 @@ class DatabaseManager:
 
         try:
             with self.transaction_scope() as session:
+                start_time = time.time()
                 for i in range(0, len(data_list), batch_size):
                     batch = data_list[i : i + batch_size]
                     batch_number = i // batch_size + 1
 
+                    batch_start_time = time.time()
                     try:
                         session.bulk_update_mappings(model_class, batch)
                         session.flush()
+                        batch_end_time = time.time()
                         log_database_operation(
                             "bulk_update_batch",
-                            model_class.__table__.name,
+                            duration=batch_end_time - batch_start_time,
+                            table_name=str(model_class.__table__.name),
                             batch_number=batch_number,
                             batch_size=len(batch),
                         )
@@ -969,6 +976,63 @@ class DatabaseManager:
                 "Bulk update operation failed", extra={"error": str(converted_error)}
             )
             raise converted_error from e
+
+    def read_in_chunks(
+        self,
+        model_class,
+        chunk_size: int = 1000,
+        filters: Optional[List[Any]] = None,
+        order_by: Optional[Any] = None,
+    ) -> Generator[List[Any], None, None]:
+        """
+        指定されたモデルからデータをチャンク単位で読み込むジェネレータ
+
+        Args:
+            model_class: 読み込むモデルクラス
+            chunk_size: 1チャンクあたりのレコード数
+            filters: 読み込みに適用するフィルターのリスト (SQLAlchemy filter句)
+            order_by: 読み込み順序 (SQLAlchemy order_by句)
+
+        Yields:
+            List[Any]: チャンクごとのモデルインスタンスのリスト
+        """
+        operation_logger = logger.bind(
+            operation="read_in_chunks",
+            model_class=model_class.__name__,
+            chunk_size=chunk_size,
+        )
+        operation_logger.info("Starting chunked read operation")
+
+        offset = 0
+        total_read = 0
+        while True:
+            with self.session_scope() as session:
+                query = session.query(model_class)
+                if filters:
+                    for f in filters:
+                        query = query.filter(f)
+                if order_by:
+                    query = query.order_by(order_by)
+
+                # チャンク読み込み
+                chunk = query.offset(offset).limit(chunk_size).all()
+
+                if not chunk:
+                    break  # データがなくなったら終了
+
+                total_read += len(chunk)
+                operation_logger.debug(
+                    f"Read chunk: offset={offset}, size={len(chunk)}, total_read={total_read}"
+                )
+                yield chunk
+                offset += chunk_size
+
+            if len(chunk) < chunk_size:
+                break  # 最後のチャンクがchunk_size未満なら全件読み込み完了
+
+        operation_logger.info(
+            "Chunked read operation completed", extra={"total_records_read": total_read}
+        )
 
     def atomic_operation(self, operations: list, retry_count: int = 3):
         """

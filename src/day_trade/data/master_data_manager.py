@@ -21,7 +21,8 @@ import sqlite3
 import time
 import warnings
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field as dataclasses_field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -120,13 +121,13 @@ class DataElement:
     domain: DataDomain
     classification: DataClassification = DataClassification.INTERNAL
     is_pii: bool = False  # 個人識別情報
-    business_rules: List[str] = field(default_factory=list)
-    validation_rules: List[str] = field(default_factory=list)
-    source_systems: List[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    business_rules: List[str] = dataclasses_field(default_factory=list)
+    validation_rules: List[str] = dataclasses_field(default_factory=list)
+    source_systems: List[str] = dataclasses_field(default_factory=list)
+    created_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
+    updated_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
     created_by: str = "system"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 @dataclass
@@ -142,13 +143,13 @@ class MasterDataEntity:
     version: int = 1
     source_system: str = "mdm"
     data_quality_score: float = 1.0
-    last_validated: datetime = field(default_factory=datetime.utcnow)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    last_validated: datetime = dataclasses_field(default_factory=datetime.utcnow)
+    created_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
+    updated_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
     steward: Optional[str] = None
-    lineage: List[str] = field(default_factory=list)  # データ系譜
-    relationships: Dict[str, List[str]] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    lineage: List[str] = dataclasses_field(default_factory=list)  # データ系譜
+    relationships: Dict[str, List[str]] = dataclasses_field(default_factory=dict)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 @dataclass
@@ -160,10 +161,10 @@ class DataSteward:
     email: str
     role: DataStewardshipRole
     domains: List[DataDomain]
-    responsibilities: List[str] = field(default_factory=list)
+    responsibilities: List[str] = dataclasses_field(default_factory=list)
     active: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 @dataclass
@@ -182,7 +183,7 @@ class DataGovernancePolicy:
     owner: str = "system"
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 @dataclass
@@ -195,8 +196,8 @@ class DataLineage:
     transformation: str
     transformation_type: str  # "extract", "transform", "load", "calculation"
     confidence: float = 1.0  # 系譜の信頼度
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = dataclasses_field(default_factory=datetime.utcnow)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 class DataIntegrationRule(ABC):
@@ -1165,8 +1166,8 @@ class MasterDataManager:
             for policy in domain_policies:
                 if policy.policy_type == "quality":
                     # 品質ポリシー適用
-                    for rule in policy.rules:
-                        if rule["rule"] == "completeness":
+                    for policy_rule in policy.rules:
+                        if policy_rule["rule"] == "completeness":
                             required_attrs = self._get_required_attributes(
                                 entity.entity_type
                             )
@@ -1183,13 +1184,26 @@ class MasterDataManager:
                                 else 1.0
                             )
 
-                            if completeness < rule["threshold"]:
+                            if completeness < policy_rule["threshold"]:
                                 entity.metadata[
                                     "quality_violations"
                                 ] = entity.metadata.get("quality_violations", [])
                                 entity.metadata["quality_violations"].append(
-                                    f"完全性違反: {completeness:.2f} < {rule['threshold']}"
+                                    f"完全性違反: {completeness:.2f} < {policy_rule['threshold']}"
                                 )
+
+                elif policy.policy_type == "retention":
+                    # データ保持ポリシー適用（エンティティの最終更新日時をチェックし、古い場合は警告）
+                    retention_threshold = datetime.utcnow() - timedelta(
+                        days=policy.rules[0]["retention_years"] * 365
+                    )
+                    if entity.updated_at < retention_threshold:
+                        entity.metadata["retention_violations"] = entity.metadata.get(
+                            "retention_violations", []
+                        )
+                        entity.metadata["retention_violations"].append(
+                            f"保持期間違反: 最終更新日時が {retention_threshold.isoformat()} より古い"
+                        )
 
         except Exception as e:
             logger.error(f"ガバナンスポリシー適用エラー: {e}")

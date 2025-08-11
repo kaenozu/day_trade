@@ -1325,6 +1325,5 @@ class NextGenAIOrchestrator:
             logger.error(f"クリーンアップエラー: {e}")
 
 
-
 # 後方互換性のためのエイリアス
 DayTradeOrchestrator = NextGenAIOrchestrator
