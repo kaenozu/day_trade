@@ -105,7 +105,7 @@ class DatabaseConfig:
     ):
         """設定値を優先順位に従って取得"""
         if explicit_value is not None and explicit_value != (
-            False if type_converter == bool else 0
+            False if isinstance(type_converter, type) and issubclass(type_converter, bool) else 0
         ):
             return explicit_value
 
@@ -115,7 +115,7 @@ class DatabaseConfig:
                 if config_value is not None:
                     return (
                         type_converter(config_value)
-                        if type_converter != str
+                        if not (isinstance(type_converter, type) and issubclass(type_converter, str))
                         else config_value
                     )
             except Exception:
@@ -124,7 +124,7 @@ class DatabaseConfig:
         env_value = os.environ.get(env_key)
         if env_value is not None:
             try:
-                if type_converter == bool:
+                if isinstance(type_converter, type) and issubclass(type_converter, bool):
                     return env_value.lower() in ("true", "1", "yes", "on")
                 return type_converter(env_value)
             except (ValueError, TypeError):

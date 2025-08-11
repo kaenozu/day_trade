@@ -63,7 +63,7 @@ class LSTMTimeSeriesModel:
         self,
         sequence_length: int = 60,
         prediction_horizon: int = 5,
-        lstm_units: List[int] = [128, 64, 32],
+        lstm_units: Optional[List[int]] = None,
         dropout_rate: float = 0.3,
         learning_rate: float = 0.001,
         model_cache_dir: str = "data/lstm_models",
@@ -81,7 +81,7 @@ class LSTMTimeSeriesModel:
         """
         self.sequence_length = sequence_length
         self.prediction_horizon = prediction_horizon
-        self.lstm_units = lstm_units
+        self.lstm_units = lstm_units if lstm_units is not None else [128, 64, 32]
         self.dropout_rate = dropout_rate
         self.learning_rate = learning_rate
         self.model_cache_dir = Path(model_cache_dir)
@@ -264,7 +264,7 @@ class LSTMTimeSeriesModel:
                     # 第2 LSTMレイヤー
                     layers.LSTM(
                         self.lstm_units[1],
-                        return_sequences=True if len(self.lstm_units) > 2 else False,
+                        return_sequences=len(self.lstm_units) > 2,
                         dropout=self.dropout_rate,
                         recurrent_dropout=self.dropout_rate / 2,
                     ),
