@@ -6,7 +6,34 @@ Phase 2: パフォーマンス最適化プロジェクト対応
 """
 
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+# ... (既存のコードは省略)
+
+class AsyncPerformanceOptimizedDatabaseManager(PerformanceOptimizedDatabaseManager):
+    """非同期処理に最適化されたデータベースマネージャー"""
+
+    def __init__(self, config: DatabaseConfig):
+        super().__init__(config)
+        self.async_engine = create_async_engine(self.config.get_async_db_url())
+        self.async_session_factory = async_sessionmaker(self.async_engine, expire_on_commit=False, class_=AsyncSession)
+
+    @asynccontextmanager
+    async def async_session_scope(self) -> AsyncSession:
+        """非同期セッションスコープ"""
+        session = self.async_session_factory()
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Async session failed: {e}")
+            raise
+        finally:
+            await session.close()
+
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import event, insert, text, update
@@ -95,14 +122,14 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
                     )
 
     @profile_performance
-    def bulk_insert_optimized(
+    async def bulk_insert_optimized(
         self,
         model_class: Type[Base],
         data: List[Dict[str, Any]],
         chunk_size: Optional[int] = None,
     ) -> int:
         """
-        最適化されたバルク挿入操作
+        最適化された非同期バルク挿入操作
 
         Args:
             model_class: SQLAlchemyモデルクラス
@@ -118,7 +145,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         chunk_size = chunk_size or self.perf_config.database.bulk_batch_size
         total_inserted = 0
 
-        with self.session_scope() as session:
+        async with self.async_session_scope() as session:
             # SQLAlchemy 2.0のbulk insert構文を使用
             stmt = insert(model_class)
 
@@ -127,9 +154,9 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
                 chunk = data[i : i + chunk_size]
 
                 try:
-                    result = session.execute(stmt, chunk)
+                    result = await session.execute(stmt, chunk)
                     total_inserted += result.rowcount
-                    session.commit()
+                    await session.commit()
 
                     logger.debug(
                         "Bulk insert chunk completed",
@@ -138,7 +165,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
                     )
 
                 except Exception as e:
-                    session.rollback()
+                    await session.rollback()
                     logger.error(
                         "Bulk insert chunk failed",
                         chunk_start=i,
@@ -156,14 +183,14 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         return total_inserted
 
     @profile_performance
-    def bulk_update_optimized(
+    async def bulk_update_optimized(
         self,
         model_class: Type[Base],
         updates: List[Dict[str, Any]],
         id_column: str = "id",
     ) -> int:
         """
-        最適化されたバルク更新操作
+        最適化された非同期バルク更新操作
 
         Args:
             model_class: SQLAlchemyモデルクラス
@@ -178,7 +205,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
 
         total_updated = 0
 
-        with self.session_scope() as session:
+        async with self.async_session_scope() as session:
             try:
                 # SQLAlchemy 2.0のbulk update構文を使用
                 stmt = update(model_class)
@@ -186,17 +213,17 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
                 for update_data in updates:
                     id_value = update_data.pop(id_column)
 
-                    result = session.execute(
+                    result = await session.execute(
                         stmt.where(getattr(model_class, id_column) == id_value).values(
                             **update_data
                         )
                     )
                     total_updated += result.rowcount
 
-                session.commit()
+                await session.commit()
 
             except Exception as e:
-                session.rollback()
+                await session.rollback()
                 logger.error(
                     "Bulk update failed", updates_count=len(updates), error=str(e)
                 )
@@ -207,11 +234,11 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         return total_updated
 
     @profile_performance
-    def execute_optimized_select(
+    async def execute_optimized_select(
         self, stmt: Select, use_cache: bool = True
     ) -> List[Any]:
         """
-        最適化されたSELECTクエリ実行
+        最適化された非同期SELECTクエリ実行
 
         Args:
             stmt: SQLAlchemy SELECT文
@@ -220,25 +247,26 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         Returns:
             List[Any]: クエリ結果
         """
-        with self.session_scope() as session:
+        async with self.async_session_scope() as session:
             if use_cache:
                 # クエリキャッシュを有効化
                 stmt = stmt.execution_options(compiled_cache={})
 
-            result = session.scalars(stmt).all()
+            result = await session.scalars(stmt)
+            all_results = result.all()
 
             logger.debug(
                 "Optimized select executed",
-                result_count=len(result),
+                result_count=len(all_results),
                 cache_enabled=use_cache,
             )
 
-            return result
+            return all_results
 
     @profile_performance
-    def execute_batch_operations(self, operations: List[ClauseElement]) -> List[Any]:
+    async def execute_batch_operations(self, operations: List[ClauseElement]) -> List[Any]:
         """
-        バッチ操作の実行（複数のSQL文を1つのトランザクションで実行）
+        非同期バッチ操作の実行（複数のSQL文を1つのトランザクションで実行）
 
         Args:
             operations: 実行するSQL操作のリスト
@@ -248,20 +276,20 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         """
         results = []
 
-        with self.session_scope() as session:
+        async with self.async_session_scope() as session:
             try:
                 for operation in operations:
-                    result = session.execute(operation)
+                    result = await session.execute(operation)
                     results.append(result)
 
-                session.commit()
+                await session.commit()
 
                 logger.info(
                     "Batch operations completed", operations_count=len(operations)
                 )
 
             except Exception as e:
-                session.rollback()
+                await session.rollback()
                 logger.error(
                     "Batch operations failed",
                     operations_count=len(operations),

@@ -83,6 +83,20 @@ try:
 
     TF_AVAILABLE = True
     logger.info("TensorFlow利用可能")
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # GPUメモリの動的確保を有効化
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logger.info(f"利用可能なGPU: {len(gpus)}個 ({[gpu.name for gpu in gpus]})")
+        except RuntimeError as e:
+            # ドライバの問題などで失敗した場合
+            logger.error(f"GPUの初期化に失敗: {e}")
+            TF_AVAILABLE = False
+    else:
+        logger.warning("利用可能なGPUが見つかりません。CPUで動作します。")
+
 except ImportError:
     TF_AVAILABLE = False
     logger.warning("TensorFlow未インストール - LSTM機能利用不可")
@@ -490,6 +504,7 @@ class AdvancedMLModels:
 
     async def _extract_technical_features(self, data: pd.DataFrame) -> Dict[str, float]:
         """テクニカル指標特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         if not PANDAS_TA_AVAILABLE:
@@ -536,10 +551,13 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"テクニカル指標特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_technical_features processed in {processing_time:.4f} seconds")
         return features
 
     async def _extract_price_patterns(self, data: pd.DataFrame) -> Dict[str, float]:
         """価格パターン特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         try:
@@ -572,12 +590,15 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"価格パターン特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_price_patterns processed in {processing_time:.4f} seconds")
         return features
 
     async def _extract_volatility_features(
         self, data: pd.DataFrame
     ) -> Dict[str, float]:
         """ボラティリティ特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         try:
@@ -611,10 +632,13 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"ボラティリティ特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_volatility_features processed in {processing_time:.4f} seconds")
         return features
 
     async def _extract_momentum_features(self, data: pd.DataFrame) -> Dict[str, float]:
         """モメンタム特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         try:
@@ -643,10 +667,13 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"モメンタム特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_momentum_features processed in {processing_time:.4f} seconds")
         return features
 
     async def _extract_volume_features(self, data: pd.DataFrame) -> Dict[str, float]:
         """出来高特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         try:
@@ -675,12 +702,15 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"出来高特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_volume_features processed in {processing_time:.4f} seconds")
         return features
 
     async def _extract_multiframe_features(
         self, data: pd.DataFrame
     ) -> Dict[str, float]:
         """マルチフレーム特徴量抽出"""
+        start_time = time.time()
         features = {}
 
         try:
@@ -705,6 +735,8 @@ class AdvancedMLModels:
         except Exception as e:
             logger.warning(f"マルチフレーム特徴量抽出エラー: {e}")
 
+        processing_time = time.time() - start_time
+        logger.info(f"_extract_multiframe_features processed in {processing_time:.4f} seconds")
         return features
 
     def _create_default_feature_set(self, symbol: str) -> AdvancedFeatureSet:
