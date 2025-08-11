@@ -29,7 +29,7 @@ jobs:
       - name: Install security scanning tools
         run: |
           python -m pip install --upgrade pip
-          pip install safety bandit semgrep
+          pip install safety bandit semgrep pip-audit
           pip install -r requirements.txt
 
       - name: Python dependency vulnerability scan
@@ -45,6 +45,18 @@ jobs:
             echo "⚠️ **脆弱性が発見されました**" >> security_report.md
             echo '```json' >> security_report.md
             cat safety_results.json >> security_report.md
+            echo '```' >> security_report.md
+          fi
+          echo "" >> security_report.md
+
+          # pip-auditによる既知の脆弱性スキャン
+          echo "### pip-audit - 既知の脆弱性" >> security_report.md
+          if pip-audit --format json . > pip_audit_results.json; then
+            echo "✅ **脆弱性は発見されませんでした**" >> security_report.md
+          else
+            echo "⚠️ **脆弱性が発見されました**" >> security_report.md
+            echo '```json' >> security_report.md
+            cat pip_audit_results.json >> security_report.md
             echo '```' >> security_report.md
           fi
           echo "" >> security_report.md
