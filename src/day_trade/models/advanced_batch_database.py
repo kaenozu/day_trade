@@ -41,6 +41,13 @@ except ImportError:
     def get_database_manager():
         return None
 
+    class DatabaseManager:
+        def __init__(self):
+            pass
+        
+        def get_session(self):
+            return None
+
     class DatabaseError(Exception):
         pass
 
@@ -108,7 +115,7 @@ class BatchResult:
 class DatabaseConnectionPool:
     """データベース接続プール（高度版）"""
 
-    def __init__(self, db_manager: DatabaseManager, pool_size: int = 10):
+    def __init__(self, db_manager, pool_size: int = 10):
         self.db_manager = db_manager
         self.pool_size = pool_size
         self._pool = deque()
