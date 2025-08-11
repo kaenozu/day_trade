@@ -39,7 +39,9 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    warnings.warn("Redis not available. Redis distributed cache will be disabled.")
+    warnings.warn(
+        "Redis not available. Redis distributed cache will be disabled.", stacklevel=2
+    )
 
 try:
     import memcache
@@ -48,7 +50,8 @@ try:
 except ImportError:
     MEMCACHED_AVAILABLE = False
     warnings.warn(
-        "Memcached not available. Memcached distributed cache will be disabled."
+        "Memcached not available. Memcached distributed cache will be disabled.",
+        stacklevel=2,
     )
 
 logger = get_context_logger(__name__)

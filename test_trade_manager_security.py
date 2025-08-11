@@ -10,12 +10,12 @@ Issue #396: 取引管理ロジックの堅牢化とセキュリティ強化
 4. ログ出力の機密情報マスキング - mask_sensitive_info包括強化
 """
 
+import logging
 import os
 import tempfile
-import logging
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from datetime import datetime
 from unittest.mock import patch
 
 # テスト中はログ出力を有効化
@@ -23,15 +23,15 @@ logging.basicConfig(level=logging.INFO)
 
 from src.day_trade.core.trade_manager import (
     TradeManager,
-    safe_decimal_conversion,
-    quantize_decimal,
-    validate_file_path,
-    mask_sensitive_info,
-    _mask_financial_value,
     _mask_file_path,
-    _mask_transaction_id,
+    _mask_financial_value,
+    _mask_number,
     _mask_quantity_value,
-    _mask_number
+    _mask_transaction_id,
+    mask_sensitive_info,
+    quantize_decimal,
+    safe_decimal_conversion,
+    validate_file_path,
 )
 
 
@@ -248,13 +248,13 @@ def test_fifo_lot_management():
         # 2. ポジション確認
         if "TEST" in tm.positions:
             position = tm.positions["TEST"]
-            print(f"\n2. ポジション確認:")
+            print("\n2. ポジション確認:")
             print(f"  総保有株数: {mask_sensitive_info(f'quantity: {position.quantity}')}")
             print(f"  平均取得価格: {mask_sensitive_info(f'price: {position.avg_cost}')}")
             print(f"  ロット数: {len(position.buy_lots)}")
 
             # 3. FIFO売却テスト
-            print(f"\n3. FIFO売却テスト:")
+            print("\n3. FIFO売却テスト:")
             sell_qty = 250  # 最初の2ロットの一部を売却
             trade_id = tm.sell_stock(
                 symbol="TEST",

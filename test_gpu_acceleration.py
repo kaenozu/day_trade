@@ -8,9 +8,10 @@ GPU加速機能の動作確認・ベンチマーク
 
 import sys
 import time
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))

@@ -7,20 +7,25 @@ Forex・Crypto・Stock市場の包括的分析・取引システム
 """
 
 import asyncio
-import time
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Any
-import numpy as np
 import json
+import logging
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
+from src.day_trade.analysis.cross_market_correlation import create_correlation_engine
+from src.day_trade.data.crypto_data_collector import create_crypto_collector
+from src.day_trade.data.forex_data_collector import create_forex_collector
+from src.day_trade.models.database import init_global_database
+from src.day_trade.models.global_ai_models import (
+    GlobalModelConfig,
+    create_global_ai_models,
+)
 
 # プロジェクト内インポート
 from src.day_trade.utils.logging_config import get_context_logger
-from src.day_trade.data.forex_data_collector import create_forex_collector
-from src.day_trade.data.crypto_data_collector import create_crypto_collector
-from src.day_trade.models.global_ai_models import create_global_ai_models, GlobalModelConfig
-from src.day_trade.analysis.cross_market_correlation import create_correlation_engine
-from src.day_trade.models.database import init_global_database
 
 logger = get_context_logger(__name__)
 
@@ -179,7 +184,7 @@ class GlobalTradingEngine:
             # 指定時間後に停止
             duration_seconds = duration_hours * 3600
 
-            print(f"🚀 24時間連続システム開始...")
+            print("🚀 24時間連続システム開始...")
             print(f"⏰ {duration_seconds:.0f} 秒間の運用テスト実行中...")
 
             # タスク実行とタイムアウト
@@ -401,7 +406,7 @@ class GlobalTradingEngine:
     async def _shutdown_system(self):
         """システム停止処理"""
 
-        print(f"\n🔄 システム停止処理中...")
+        print("\n🔄 システム停止処理中...")
         self.is_running = False
 
         try:
@@ -432,12 +437,12 @@ class GlobalTradingEngine:
         print(f"運用期間: {stats['start_time']} ～ {datetime.now()}")
         print(f"総稼働時間: {stats['uptime_hours']:.2f} 時間")
 
-        print(f"\n📈 処理統計:")
+        print("\n📈 処理統計:")
         print(f"  ✅ 総AI予測回数: {stats['total_predictions']:,}")
         print(f"  ✅ 総相関分析回数: {stats['total_correlations']:,}")
         print(f"  ✅ データ収集レート: {metrics['data_collection_rate']}/cycle")
 
-        print(f"\n⚡ パフォーマンス指標:")
+        print("\n⚡ パフォーマンス指標:")
         if metrics['prediction_latency']:
             avg_latency = np.mean(metrics['prediction_latency'])
             min_latency = np.min(metrics['prediction_latency'])
@@ -450,7 +455,7 @@ class GlobalTradingEngine:
 
         print(f"  最終ヘルススコア: {metrics['system_health_score']:.1%}")
 
-        print(f"\n🏆 運用判定:")
+        print("\n🏆 運用判定:")
         if stats['uptime_hours'] >= 0.95 and metrics['system_health_score'] >= 0.8:
             grade = "EXCELLENT - 24時間運用対応"
             emoji = "🌟"

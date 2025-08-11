@@ -10,19 +10,24 @@ Issue #395: 外部APIクライアントのセキュリティ強化
 """
 
 import asyncio
-import pytest
-import tempfile
 import os
 import sys
+import tempfile
 from datetime import datetime, timedelta
+
+import pytest
 
 # パスを追加してモジュールをインポート
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
     from day_trade.api.secure_api_client import (
-        SecureAPIKeyManager, SecureURLBuilder, SecureErrorHandler,
-        APIKeyType, SecurityLevel, URLSecurityPolicy
+        APIKeyType,
+        SecureAPIKeyManager,
+        SecureErrorHandler,
+        SecureURLBuilder,
+        SecurityLevel,
+        URLSecurityPolicy,
     )
     SECURE_API_AVAILABLE = True
 except ImportError as e:
@@ -331,7 +336,7 @@ def run_simple_tests():
             Exception("test error with api_key=secret"),
             "テスト"
         )
-        print(f"✅ エラーハンドラー: 機密情報除去済み")
+        print("✅ エラーハンドラー: 機密情報除去済み")
 
         return True
 

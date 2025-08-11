@@ -25,7 +25,9 @@ try:
 except ImportError:
     ONNX_AVAILABLE = False
     warnings.warn(
-        "ONNXRuntimeが利用できません。AI推論機能は制限されます。", UserWarning
+        "ONNXRuntimeが利用できません。AI推論機能は制限されます。",
+        UserWarning,
+        stacklevel=2,
     )
 
 # プロジェクトモジュール

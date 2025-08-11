@@ -10,27 +10,31 @@ Issue #380: 機械学習モデルの最適化 - 特徴量生成の効率化
 4. バッチ処理最適化
 """
 
-import time
-import tempfile
-import shutil
-from pathlib import Path
-import numpy as np
-import pandas as pd
-from typing import Dict, List
-
 # ログ出力を有効化
 import logging
+import shutil
+import tempfile
+import time
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
+import pandas as pd
+
 logging.basicConfig(level=logging.INFO)
 
-from src.day_trade.ml.feature_store import FeatureStore, FeatureStoreConfig
-from src.day_trade.ml.feature_pipeline import FeaturePipeline, PipelineConfig
+from src.day_trade.analysis.feature_engineering_unified import FeatureConfig
+from src.day_trade.core.optimization_strategy import (
+    OptimizationConfig,
+    OptimizationLevel,
+)
 from src.day_trade.ml.feature_deduplication import (
     FeatureDeduplicationManager,
     get_deduplication_manager,
-    reset_deduplication_manager
+    reset_deduplication_manager,
 )
-from src.day_trade.analysis.feature_engineering_unified import FeatureConfig
-from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+from src.day_trade.ml.feature_pipeline import FeaturePipeline, PipelineConfig
+from src.day_trade.ml.feature_store import FeatureStore, FeatureStoreConfig
 
 
 def create_test_data(symbols: List[str], rows: int = 1000) -> Dict[str, pd.DataFrame]:
@@ -375,7 +379,7 @@ def test_end_to_end_feature_efficiency():
             pipeline_stats = pipeline.get_pipeline_stats()
             dedup_stats = get_deduplication_manager().get_statistics()
 
-            print(f"\nEfficiency Analysis:")
+            print("\nEfficiency Analysis:")
             print(f"  Cache speedup: {cache_speedup:.1f}x faster")
             print(f"  Cache hit rate: {pipeline_stats['cache_efficiency']:.1f}%")
             print(f"  Deduplication rate: {dedup_stats['deduplication_rate_percent']:.1f}%")
@@ -487,7 +491,7 @@ def main():
             e2e_results
         )
 
-        print(f"\n[OK] Feature Efficiency System integration test completed")
+        print("\n[OK] Feature Efficiency System integration test completed")
         print("\nImplemented efficiency optimizations:")
         print("- [CACHE] 80%+ cache hit rates with intelligent storage")
         print("- [DEDUP] Automatic duplicate computation elimination")

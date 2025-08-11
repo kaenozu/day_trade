@@ -7,10 +7,11 @@ Simplified Generative AI Risk Management System Test
 """
 
 import asyncio
+import json
 import time
 from datetime import datetime, timedelta
+
 import numpy as np
-import json
 
 # 簡易テスト用インポート
 from src.day_trade.utils.logging_config import get_context_logger
@@ -102,7 +103,7 @@ class SimplifiedRiskSystemTest:
 
             processing_time = time.time() - start_time
 
-            print(f"  OK リスク計算完了")
+            print("  OK リスク計算完了")
             print(f"  リスクスコア: {risk_score:.3f}")
             print(f"  処理時間: {processing_time:.3f}秒")
 

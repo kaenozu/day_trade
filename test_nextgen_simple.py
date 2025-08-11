@@ -7,18 +7,19 @@ Unicode問題を避けた基本動作確認
 import os
 import sys
 import time
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 # プロジェクトパス追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 try:
     from src.day_trade.data.advanced_ml_engine import (
+        PYTORCH_AVAILABLE,
         NextGenAITradingEngine,
         create_next_gen_engine,
-        PYTORCH_AVAILABLE
     )
     from src.day_trade.ml.hybrid_lstm_transformer import HybridModelConfig
 
@@ -37,7 +38,7 @@ try:
     )
 
     engine = NextGenAITradingEngine(config)
-    print(f"   エンジン初期化: 成功")
+    print("   エンジン初期化: 成功")
     print(f"   PyTorch利用可能: {PYTORCH_AVAILABLE}")
 
     # 2. データ生成

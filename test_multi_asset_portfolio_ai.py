@@ -14,27 +14,43 @@ Test Coverage:
 """
 
 import asyncio
-import time
 import random
+import time
+from datetime import datetime, timedelta
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from typing import Dict, List, Any
 
 from src.day_trade.portfolio.ai_portfolio_manager import (
-    get_portfolio_manager, PortfolioConfig, AssetClass, OptimizationMethod
-)
-from src.day_trade.portfolio.technical_indicators import (
-    get_indicator_engine, IndicatorConfig, IndicatorCategory
+    AssetClass,
+    OptimizationMethod,
+    PortfolioConfig,
+    get_portfolio_manager,
 )
 from src.day_trade.portfolio.automl_system import (
-    get_automl_system, AutoMLConfig, ModelType, OptimizationMethod as AutoMLOptimizationMethod
+    AutoMLConfig,
+    ModelType,
+    get_automl_system,
+)
+from src.day_trade.portfolio.automl_system import (
+    OptimizationMethod as AutoMLOptimizationMethod,
 )
 from src.day_trade.portfolio.risk_parity_optimizer import (
-    get_risk_parity_optimizer, RiskParityConfig, RiskParityMethod
+    RiskParityConfig,
+    RiskParityMethod,
+    get_risk_parity_optimizer,
 )
 from src.day_trade.portfolio.style_analyzer import (
-    get_style_analyzer, StyleConfiguration, InvestmentStyle, RiskProfile
+    InvestmentStyle,
+    RiskProfile,
+    StyleConfiguration,
+    get_style_analyzer,
+)
+from src.day_trade.portfolio.technical_indicators import (
+    IndicatorCategory,
+    IndicatorConfig,
+    get_indicator_engine,
 )
 from src.day_trade.utils.logging_config import get_context_logger
 
@@ -667,8 +683,9 @@ class MultiAssetPortfolioAITester:
             performance_results['style_analysis_time'] = style_analysis_time
 
             # 4. メモリ使用量チェック（簡易版）
-            import psutil
             import os
+
+            import psutil
 
             process = psutil.Process(os.getpid())
             memory_usage_mb = process.memory_info().rss / 1024 / 1024

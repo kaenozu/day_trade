@@ -4,28 +4,33 @@ Simple Data Optimization Performance Test
 Issue #378: Data I/O and Processing Optimization
 """
 
-import time
 import gc
-import numpy as np
-import pandas as pd
-import psutil
-import os
 
 # ログ出力を有効化
 import logging
+import os
+import time
+
+import numpy as np
+import pandas as pd
+import psutil
+
 logging.basicConfig(level=logging.INFO)
 
-from src.day_trade.utils.data_optimization import (
-    DataFrameOptimizer,
-    ChunkedDataProcessor,
-    create_optimized_dataframe
-)
 from src.day_trade.analysis.feature_engineering_unified import (
-    FeatureEngineeringManager,
     FeatureConfig,
-    generate_features
+    FeatureEngineeringManager,
+    generate_features,
 )
-from src.day_trade.core.optimization_strategy import OptimizationConfig, OptimizationLevel
+from src.day_trade.core.optimization_strategy import (
+    OptimizationConfig,
+    OptimizationLevel,
+)
+from src.day_trade.utils.data_optimization import (
+    ChunkedDataProcessor,
+    DataFrameOptimizer,
+    create_optimized_dataframe,
+)
 
 
 def create_test_dataset(rows: int = 10000) -> pd.DataFrame:
@@ -318,11 +323,11 @@ def generate_performance_report(dtype_results, vectorization_result, chunk_resul
 
     # Overall evaluation
     avg_memory_reduction = np.mean([r['reduction_percent'] for r in dtype_results])
-    print(f"\n6. Overall Evaluation:")
+    print("\n6. Overall Evaluation:")
     print(f"  - Memory reduction by dtype optimization: Average {avg_memory_reduction:.1f}%")
     print(f"  - Speed improvement by vectorization: {vectorization_result['total_operations']} operations in {vectorization_result['vectorization_time_ms']:.2f}ms")
     print(f"  - Large data processing by chunking: {chunk_result['data_size']:,} rows in {chunk_result['chunk_processing_time_ms']:.2f}ms")
-    print(f"  - Integrated system optimization: All levels working correctly")
+    print("  - Integrated system optimization: All levels working correctly")
 
 
 def main():
@@ -352,7 +357,7 @@ def main():
             integration_results
         )
 
-        print(f"\n[OK] Data I/O optimization performance test completed")
+        print("\n[OK] Data I/O optimization performance test completed")
         print("\nImplemented optimization features:")
         print("- [MEMORY] Data type optimization for memory efficiency")
         print("- [SPEED] DataFrame operation vectorization for acceleration")

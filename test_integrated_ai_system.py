@@ -6,18 +6,19 @@ LSTM-Transformer + PPO強化学習 + センチメント分析の統合動作確�
 完全なエンドツーエンド処理チェーン検証
 """
 
-import sys
+import asyncio
+import json
 import os
+import sys
 import time
 import warnings
-from pathlib import Path
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-import json
-import asyncio
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any
 
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent
@@ -134,7 +135,10 @@ class IntegratedAISystemTester:
 
             # ML Engine
             try:
-                from src.day_trade.data.advanced_ml_engine import AdvancedMLEngine, ModelConfig
+                from src.day_trade.data.advanced_ml_engine import (
+                    AdvancedMLEngine,
+                    ModelConfig,
+                )
                 ml_config = ModelConfig(
                     lstm_hidden_size=64,  # テスト用小サイズ
                     transformer_d_model=128,
@@ -148,8 +152,10 @@ class IntegratedAISystemTester:
 
             # 強化学習環境・エージェント
             try:
-                from src.day_trade.rl.trading_environment import create_trading_environment
                 from src.day_trade.rl.ppo_agent import PPOConfig
+                from src.day_trade.rl.trading_environment import (
+                    create_trading_environment,
+                )
 
                 env = create_trading_environment(
                     symbols=["TEST_A", "TEST_B"],
@@ -169,8 +175,12 @@ class IntegratedAISystemTester:
 
             # センチメント分析
             try:
-                from src.day_trade.sentiment.sentiment_engine import create_sentiment_engine
-                from src.day_trade.sentiment.market_psychology import MarketPsychologyAnalyzer
+                from src.day_trade.sentiment.market_psychology import (
+                    MarketPsychologyAnalyzer,
+                )
+                from src.day_trade.sentiment.sentiment_engine import (
+                    create_sentiment_engine,
+                )
 
                 sentiment_engine = create_sentiment_engine()
                 psychology_analyzer = MarketPsychologyAnalyzer()
@@ -234,7 +244,10 @@ class IntegratedAISystemTester:
 
             # バッチデータフェッチャーテスト
             try:
-                from src.day_trade.data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
+                from src.day_trade.data.batch_data_fetcher import (
+                    AdvancedBatchDataFetcher,
+                    DataRequest,
+                )
 
                 fetcher = AdvancedBatchDataFetcher(
                     max_workers=2,
@@ -824,14 +837,14 @@ def main():
         summary = final_report['test_summary']
         metrics = final_report['performance_metrics']
 
-        print(f"\n📊 テストサマリー:")
+        print("\n📊 テストサマリー:")
         print(f"   総テスト数: {summary['total_tests']}")
         print(f"   成功テスト: {summary['successful_tests']}")
         print(f"   成功率: {summary['success_rate']*100:.1f}%")
         print(f"   実行時間: {summary['total_test_time']:.2f}秒")
         print(f"   システム評価: {summary['system_grade']}")
 
-        print(f"\n⚡ パフォーマンス指標:")
+        print("\n⚡ パフォーマンス指標:")
         print(f"   ML予測時間: {metrics['ml_prediction_time']:.3f}秒")
         print(f"   RL決定時間: {metrics['rl_decision_time']:.3f}秒")
         print(f"   センチメント分析時間: {metrics['sentiment_analysis_time']:.3f}秒")
@@ -840,7 +853,7 @@ def main():
         print(f"   システム安定性: {metrics['system_stability_score']*100:.1f}%")
         print(f"   データ品質スコア: {metrics['data_quality_score']*100:.1f}%")
 
-        print(f"\n📋 詳細テスト結果:")
+        print("\n📋 詳細テスト結果:")
         for test in final_report['test_details']:
             status = "✅ 成功" if test['success'] else "❌ 失敗"
             print(f"   {status} {test['name']} ({test['execution_time']:.2f}秒)")
@@ -856,10 +869,10 @@ def main():
 
         # 最終判定
         if summary['success_rate'] >= 0.8:
-            print(f"\n🎉 Next-Gen AI Trading Engine 統合テスト合格！")
-            print(f"   システムは本格運用準備完了レベルです。")
+            print("\n🎉 Next-Gen AI Trading Engine 統合テスト合格！")
+            print("   システムは本格運用準備完了レベルです。")
         else:
-            print(f"\n⚠️  システム改善が必要です。")
+            print("\n⚠️  システム改善が必要です。")
             print(f"   成功率 {summary['success_rate']*100:.1f}% (目標: 80%以上)")
 
         return summary['success_rate'] >= 0.8

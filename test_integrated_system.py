@@ -15,8 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from src.day_trade.simulation.integrated_trading_system import (
+    IntegratedSystemConfig,
     create_integrated_trading_system,
-    IntegratedSystemConfig
 )
 
 
@@ -40,7 +40,7 @@ async def run_integrated_system_test():
 
         print("   統合システム初期化完了")
         print(f"   対象銘柄: {symbols}")
-        print(f"   システム構成: HFT + バックテスト + イベント駆動")
+        print("   システム構成: HFT + バックテスト + イベント駆動")
 
         # 2. システム状態確認
         print("\n2. システム状態確認...")
@@ -84,7 +84,7 @@ async def run_integrated_system_test():
         event_results = demo_results.get("event_simulation", {})
         if event_results:
             event_summary = event_results.get("simulation_summary", {})
-            print(f"\n   イベント駆動シミュレーション:")
+            print("\n   イベント駆動シミュレーション:")
             print(f"   - 処理イベント数: {event_summary.get('total_events', 0):,}")
             print(f"   - イベント処理率: {event_summary.get('events_per_second', 0):.0f} イベント/秒")
 
@@ -95,19 +95,19 @@ async def run_integrated_system_test():
         # 高頻度取引結果
         hft_results = demo_results.get("hft_performance", {})
         if hft_results:
-            print(f"\n   高頻度取引エンジン:")
+            print("\n   高頻度取引エンジン:")
             print(f"   - 処理注文数: {hft_results.get('total_orders_processed', 0):,}")
             print(f"   - 平均遅延: {hft_results.get('average_latency_microseconds', 0):.1f}μs")
             print(f"   - スループット: {hft_results.get('peak_throughput_orders_per_second', 0):.0f} 注文/秒")
 
         # システム間統合結果
         integration_stats = demo_results.get("integration_stats", {})
-        print(f"\n   システム間統合:")
+        print("\n   システム間統合:")
         print(f"   - ブリッジイベント数: {integration_stats.get('events_bridged', 0):,}")
         print(f"   - 接続システム数: {integration_stats.get('systems_connected', 0)}")
 
         # 6. パフォーマンス評価
-        print(f"\n6. パフォーマンス評価:")
+        print("\n6. パフォーマンス評価:")
 
         # イベント処理評価
         event_rate = event_summary.get('events_per_second', 0) if 'event_summary' in locals() else 0
@@ -163,20 +163,20 @@ async def run_integrated_system_test():
         print(f"   🏆 総合評価: {overall_grade}")
 
         # 7. 技術的成果
-        print(f"\n7. 技術的成果:")
-        print(f"   ✅ マイクロ秒レベル高頻度取引実現")
-        print(f"   ✅ 並列バックテスト最適化統合")
-        print(f"   ✅ イベント駆動リアルタイム処理")
-        print(f"   ✅ 全システム統合ブリッジ動作")
-        print(f"   ✅ 複合イベント処理(CEP)機能")
+        print("\n7. 技術的成果:")
+        print("   ✅ マイクロ秒レベル高頻度取引実現")
+        print("   ✅ 並列バックテスト最適化統合")
+        print("   ✅ イベント駆動リアルタイム処理")
+        print("   ✅ 全システム統合ブリッジ動作")
+        print("   ✅ 複合イベント処理(CEP)機能")
 
         # 8. システム停止
-        print(f"\n8. システム停止...")
+        print("\n8. システム停止...")
         await system.stop()
         print("   統合システム停止完了")
 
-        print(f"\n統合トレーディングシステム 統合テスト完了!")
-        print(f"機関投資家レベルのトレーディングシステムが稼働しました。")
+        print("\n統合トレーディングシステム 統合テスト完了!")
+        print("機関投資家レベルのトレーディングシステムが稼働しました。")
 
         return True
 
@@ -191,8 +191,8 @@ if __name__ == "__main__":
     success = asyncio.run(run_integrated_system_test())
 
     if success:
-        print(f"\n🎉 統合トレーディングシステム統合テスト成功!")
-        print(f"全システム統合により機関投資家レベルの処理能力を実現!")
+        print("\n🎉 統合トレーディングシステム統合テスト成功!")
+        print("全システム統合により機関投資家レベルの処理能力を実現!")
     else:
-        print(f"\n❌ 統合トレーディングシステム統合テスト失敗...")
+        print("\n❌ 統合トレーディングシステム統合テスト失敗...")
         sys.exit(1)

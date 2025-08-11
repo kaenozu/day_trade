@@ -509,11 +509,7 @@ class EnhancedExternalAPIClient:
 
         # 危険パターンチェック
         dangerous_patterns = ["..", "/", "\\", "<", ">", '"', "'"]
-        for pattern in dangerous_patterns:
-            if pattern in symbol:
-                return False
-
-        return True
+        return all(pattern not in symbol for pattern in dangerous_patterns)
 
     def _validate_request_params(self, params: Dict[str, Any]) -> bool:
         """リクエストパラメータ検証"""

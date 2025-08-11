@@ -36,8 +36,8 @@ async def test_advanced_ml_initialization():
         print("[OK] AdvancedMLModels initialization success")
 
         # 設定確認
-        assert ml_system.enable_cache == True, "Cache should be enabled"
-        assert ml_system.enable_parallel == True, "Parallel should be enabled"
+        assert ml_system.enable_cache, "Cache should be enabled"
+        assert ml_system.enable_parallel, "Parallel should be enabled"
         assert ml_system.lstm_sequence_length == 30, f"LSTM sequence length should be 30, got {ml_system.lstm_sequence_length}"
         assert ml_system.ensemble_models == 3, f"Ensemble models should be 3, got {ml_system.ensemble_models}"
 

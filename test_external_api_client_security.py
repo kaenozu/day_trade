@@ -11,22 +11,23 @@ Issue #395: 外部APIクライアントのセキュリティ強化
 """
 
 import asyncio
-import tempfile
-import os
-from unittest.mock import Mock, patch
 
 # テスト中はログ出力を有効化
 import logging
+import os
+import tempfile
+from unittest.mock import Mock, patch
+
 logging.basicConfig(level=logging.INFO)
 
 from src.day_trade.api.external_api_client import (
-    ExternalAPIClient,
     APIConfig,
-    APIProvider,
-    DataType,
     APIEndpoint,
+    APIProvider,
     APIRequest,
-    RequestMethod
+    DataType,
+    ExternalAPIClient,
+    RequestMethod,
 )
 
 # SecurityManagerはオプショナル依存関係
@@ -243,7 +244,7 @@ def test_csv_security_parsing():
         df = client._parse_csv_response(large_csv_rows)
         print(f"  FAIL 大容量CSV（行数） - 制限を超過したが処理された: {len(df)}行")
     except ValueError as e:
-        print(f"  OK 大容量CSV（行数） - 正常に阻止")
+        print("  OK 大容量CSV（行数） - 正常に阻止")
     except Exception as e:
         print(f"  WARN 大容量CSV（行数） - 予期しないエラー: {e}")
 
@@ -252,9 +253,9 @@ def test_csv_security_parsing():
 
     try:
         df = client._parse_csv_response(huge_csv)
-        print(f"  FAIL 大容量CSV（サイズ） - 制限を超過したが処理された")
+        print("  FAIL 大容量CSV（サイズ） - 制限を超過したが処理された")
     except ValueError as e:
-        print(f"  OK 大容量CSV（サイズ） - 正常に阻止")
+        print("  OK 大容量CSV（サイズ） - 正常に阻止")
     except Exception as e:
         print(f"  WARN 大容量CSV（サイズ） - 予期しないエラー: {e}")
 
