@@ -6,23 +6,22 @@ Redisキャッシュプロバイダー
 分散キャッシュとして使用可能な高性能Redis実装
 """
 
-import json
 import time
-import asyncio
-from typing import Any, Dict, Optional, List, Union
-from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from ..interfaces.cache_interfaces import ICacheProvider, ICacheSerializer
 from ..exceptions.risk_exceptions import CacheError, ExternalServiceError
+from ..interfaces.cache_interfaces import ICacheProvider
 
 try:
     import redis
     import redis.asyncio as aioredis
+
     REDIS_AVAILABLE = True
 except ImportError:
     redis = None
     aioredis = None
     REDIS_AVAILABLE = False
+
 
 class RedisCacheProvider(ICacheProvider):
     """Redisキャッシュプロバイダー"""
@@ -32,42 +31,43 @@ class RedisCacheProvider(ICacheProvider):
             raise CacheError(
                 "Redis is not available. Please install redis-py: pip install redis",
                 cache_provider="redis",
-                operation="init"
+                operation="init",
             )
 
         # Redis設定
-        self.host = config.get('host', 'localhost')
-        self.port = config.get('port', 6379)
-        self.db = config.get('db', 0)
-        self.password = config.get('password')
-        self.socket_timeout = config.get('socket_timeout', 2.0)
-        self.socket_connect_timeout = config.get('socket_connect_timeout', 2.0)
-        self.socket_keepalive = config.get('socket_keepalive', True)
-        self.socket_keepalive_options = config.get('socket_keepalive_options', {})
-        self.connection_pool_size = config.get('connection_pool_size', 10)
-        self.retry_on_timeout = config.get('retry_on_timeout', True)
-        self.max_retries = config.get('max_retries', 3)
-        self.retry_delay = config.get('retry_delay', 0.1)
+        self.host = config.get("host", "localhost")
+        self.port = config.get("port", 6379)
+        self.db = config.get("db", 0)
+        self.password = config.get("password")
+        self.socket_timeout = config.get("socket_timeout", 2.0)
+        self.socket_connect_timeout = config.get("socket_connect_timeout", 2.0)
+        self.socket_keepalive = config.get("socket_keepalive", True)
+        self.socket_keepalive_options = config.get("socket_keepalive_options", {})
+        self.connection_pool_size = config.get("connection_pool_size", 10)
+        self.retry_on_timeout = config.get("retry_on_timeout", True)
+        self.max_retries = config.get("max_retries", 3)
+        self.retry_delay = config.get("retry_delay", 0.1)
 
         # キー設定
-        self.key_prefix = config.get('key_prefix', 'risk_cache:')
-        self.default_ttl_seconds = config.get('ttl_seconds', 3600)
+        self.key_prefix = config.get("key_prefix", "risk_cache:")
+        self.default_ttl_seconds = config.get("ttl_seconds", 3600)
 
         # シリアライゼーション
-        self._serializer = config.get('serializer')
+        self._serializer = config.get("serializer")
         if not self._serializer:
             from .serializers import JsonSerializer
+
             self._serializer = JsonSerializer()
 
         # 統計情報
-        self.enable_stats = config.get('enable_stats', True)
+        self.enable_stats = config.get("enable_stats", True)
         self._stats = {
-            'hits': 0,
-            'misses': 0,
-            'sets': 0,
-            'deletes': 0,
-            'errors': 0,
-            'total_requests': 0
+            "hits": 0,
+            "misses": 0,
+            "sets": 0,
+            "deletes": 0,
+            "errors": 0,
+            "total_requests": 0,
         }
 
         # Redis接続初期化
@@ -88,7 +88,7 @@ class RedisCacheProvider(ICacheProvider):
                 socket_keepalive_options=self.socket_keepalive_options,
                 max_connections=self.connection_pool_size,
                 retry_on_timeout=self.retry_on_timeout,
-                decode_responses=False  # バイナリデータ対応
+                decode_responses=False,  # バイナリデータ対応
             )
 
             self._redis = redis.Redis(connection_pool=self._redis_pool)
@@ -104,7 +104,7 @@ class RedisCacheProvider(ICacheProvider):
                 f"Failed to connect to Redis at {self.host}:{self.port}",
                 cache_provider="redis",
                 operation="connect",
-                cause=e
+                cause=e,
             )
 
     def get(self, key: str) -> Optional[Any]:
@@ -114,49 +114,49 @@ class RedisCacheProvider(ICacheProvider):
         for attempt in range(self.max_retries + 1):
             try:
                 if self.enable_stats:
-                    self._stats['total_requests'] += 1
+                    self._stats["total_requests"] += 1
 
                 # Redis から値取得
                 raw_value = self._redis.get(full_key)
 
                 if raw_value is None:
                     if self.enable_stats:
-                        self._stats['misses'] += 1
+                        self._stats["misses"] += 1
                     return None
 
                 # デシリアライゼーション
                 value = self._serializer.deserialize(raw_value)
 
                 if self.enable_stats:
-                    self._stats['hits'] += 1
+                    self._stats["hits"] += 1
 
                 return value
 
             except redis.ConnectionError as e:
                 if attempt < self.max_retries:
-                    time.sleep(self.retry_delay * (2 ** attempt))
+                    time.sleep(self.retry_delay * (2**attempt))
                     continue
 
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise ExternalServiceError(
                     f"Redis connection failed for key: {key}",
                     service_name="redis",
                     endpoint=f"{self.host}:{self.port}",
-                    cause=e
+                    cause=e,
                 )
 
             except Exception as e:
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise CacheError(
                     f"Failed to get cache item for key: {key}",
                     cache_key=key,
                     operation="get",
                     cache_provider="redis",
-                    cause=e
+                    cause=e,
                 )
 
     def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> bool:
@@ -169,7 +169,7 @@ class RedisCacheProvider(ICacheProvider):
         for attempt in range(self.max_retries + 1):
             try:
                 if self.enable_stats:
-                    self._stats['total_requests'] += 1
+                    self._stats["total_requests"] += 1
 
                 # シリアライゼーション
                 serialized_value = self._serializer.serialize(value)
@@ -178,35 +178,35 @@ class RedisCacheProvider(ICacheProvider):
                 result = self._redis.setex(full_key, ttl_seconds, serialized_value)
 
                 if self.enable_stats:
-                    self._stats['sets'] += 1
+                    self._stats["sets"] += 1
 
                 return bool(result)
 
             except redis.ConnectionError as e:
                 if attempt < self.max_retries:
-                    time.sleep(self.retry_delay * (2 ** attempt))
+                    time.sleep(self.retry_delay * (2**attempt))
                     continue
 
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise ExternalServiceError(
                     f"Redis connection failed for key: {key}",
                     service_name="redis",
                     endpoint=f"{self.host}:{self.port}",
-                    cause=e
+                    cause=e,
                 )
 
             except Exception as e:
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise CacheError(
                     f"Failed to set cache item for key: {key}",
                     cache_key=key,
                     operation="set",
                     cache_provider="redis",
-                    cause=e
+                    cause=e,
                 )
 
     def delete(self, key: str) -> bool:
@@ -216,40 +216,40 @@ class RedisCacheProvider(ICacheProvider):
         for attempt in range(self.max_retries + 1):
             try:
                 if self.enable_stats:
-                    self._stats['total_requests'] += 1
+                    self._stats["total_requests"] += 1
 
                 result = self._redis.delete(full_key)
 
                 if self.enable_stats:
-                    self._stats['deletes'] += 1
+                    self._stats["deletes"] += 1
 
                 return result > 0
 
             except redis.ConnectionError as e:
                 if attempt < self.max_retries:
-                    time.sleep(self.retry_delay * (2 ** attempt))
+                    time.sleep(self.retry_delay * (2**attempt))
                     continue
 
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise ExternalServiceError(
                     f"Redis connection failed for key: {key}",
                     service_name="redis",
                     endpoint=f"{self.host}:{self.port}",
-                    cause=e
+                    cause=e,
                 )
 
             except Exception as e:
                 if self.enable_stats:
-                    self._stats['errors'] += 1
+                    self._stats["errors"] += 1
 
                 raise CacheError(
                     f"Failed to delete cache item for key: {key}",
                     cache_key=key,
                     operation="delete",
                     cache_provider="redis",
-                    cause=e
+                    cause=e,
                 )
 
     def exists(self, key: str) -> bool:
@@ -260,14 +260,14 @@ class RedisCacheProvider(ICacheProvider):
             return bool(self._redis.exists(full_key))
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 f"Failed to check existence for key: {key}",
                 cache_key=key,
                 operation="exists",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def clear(self) -> bool:
@@ -283,13 +283,13 @@ class RedisCacheProvider(ICacheProvider):
 
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 "Failed to clear cache",
                 operation="clear",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def keys(self, pattern: Optional[str] = None) -> List[str]:
@@ -304,18 +304,22 @@ class RedisCacheProvider(ICacheProvider):
 
             # プレフィックスを除去
             prefix_len = len(self.key_prefix)
-            return [key.decode('utf-8')[prefix_len:] if isinstance(key, bytes) else key[prefix_len:]
-                    for key in redis_keys]
+            return [
+                key.decode("utf-8")[prefix_len:]
+                if isinstance(key, bytes)
+                else key[prefix_len:]
+                for key in redis_keys
+            ]
 
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 f"Failed to get keys with pattern: {pattern}",
                 operation="keys",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def size(self) -> int:
@@ -327,13 +331,13 @@ class RedisCacheProvider(ICacheProvider):
 
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 "Failed to get cache size",
                 operation="size",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -343,26 +347,27 @@ class RedisCacheProvider(ICacheProvider):
             redis_info = self._redis.info()
 
             stats = self._stats.copy()
-            stats.update({
-                'redis_version': redis_info.get('redis_version'),
-                'connected_clients': redis_info.get('connected_clients'),
-                'used_memory': redis_info.get('used_memory'),
-                'used_memory_human': redis_info.get('used_memory_human'),
-                'keyspace_hits': redis_info.get('keyspace_hits'),
-                'keyspace_misses': redis_info.get('keyspace_misses'),
-                'instantaneous_ops_per_sec': redis_info.get('instantaneous_ops_per_sec'),
-                'cache_size': self.size(),
-                'hit_rate': self._calculate_hit_rate()
-            })
+            stats.update(
+                {
+                    "redis_version": redis_info.get("redis_version"),
+                    "connected_clients": redis_info.get("connected_clients"),
+                    "used_memory": redis_info.get("used_memory"),
+                    "used_memory_human": redis_info.get("used_memory_human"),
+                    "keyspace_hits": redis_info.get("keyspace_hits"),
+                    "keyspace_misses": redis_info.get("keyspace_misses"),
+                    "instantaneous_ops_per_sec": redis_info.get(
+                        "instantaneous_ops_per_sec"
+                    ),
+                    "cache_size": self.size(),
+                    "hit_rate": self._calculate_hit_rate(),
+                }
+            )
 
             return stats
 
         except Exception as e:
             # 統計情報取得失敗時は基本情報のみ返す
-            return {
-                **self._stats,
-                'error': f"Failed to get Redis stats: {str(e)}"
-            }
+            return {**self._stats, "error": f"Failed to get Redis stats: {str(e)}"}
 
     def get_ttl(self, key: str) -> Optional[int]:
         """キーのTTL取得"""
@@ -383,7 +388,7 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="ttl",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def expire(self, key: str, ttl_seconds: int) -> bool:
@@ -399,7 +404,7 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="expire",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def increment(self, key: str, amount: int = 1) -> int:
@@ -415,7 +420,7 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="increment",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def decrement(self, key: str, amount: int = 1) -> int:
@@ -431,7 +436,7 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="decrement",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def multi_get(self, keys: List[str]) -> Dict[str, Any]:
@@ -450,16 +455,18 @@ class RedisCacheProvider(ICacheProvider):
 
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 f"Failed to get multiple keys: {keys}",
                 operation="multi_get",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
-    def multi_set(self, mapping: Dict[str, Any], ttl_seconds: Optional[int] = None) -> bool:
+    def multi_set(
+        self, mapping: Dict[str, Any], ttl_seconds: Optional[int] = None
+    ) -> bool:
         """複数キー一括設定"""
         if ttl_seconds is None:
             ttl_seconds = self.default_ttl_seconds
@@ -477,21 +484,21 @@ class RedisCacheProvider(ICacheProvider):
 
         except Exception as e:
             if self.enable_stats:
-                self._stats['errors'] += 1
+                self._stats["errors"] += 1
 
             raise CacheError(
                 f"Failed to set multiple keys: {list(mapping.keys())}",
                 operation="multi_set",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
     def close(self):
         """接続クローズ"""
         try:
-            if hasattr(self, '_redis'):
+            if hasattr(self, "_redis"):
                 self._redis.close()
-            if hasattr(self, '_redis_pool'):
+            if hasattr(self, "_redis_pool"):
                 self._redis_pool.disconnect()
         except Exception:
             # クローズエラーは無視
@@ -503,10 +510,10 @@ class RedisCacheProvider(ICacheProvider):
 
     def _calculate_hit_rate(self) -> float:
         """ヒット率計算"""
-        total_requests = self._stats['hits'] + self._stats['misses']
+        total_requests = self._stats["hits"] + self._stats["misses"]
         if total_requests == 0:
             return 0.0
-        return self._stats['hits'] / total_requests
+        return self._stats["hits"] / total_requests
 
     # 非同期メソッド（オプション）
 
@@ -514,10 +521,7 @@ class RedisCacheProvider(ICacheProvider):
         """非同期キー取得"""
         if self._async_redis is None:
             self._async_redis = aioredis.Redis(
-                host=self.host,
-                port=self.port,
-                db=self.db,
-                password=self.password
+                host=self.host, port=self.port, db=self.db, password=self.password
             )
 
         try:
@@ -535,17 +539,16 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="get_async",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )
 
-    async def set_async(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> bool:
+    async def set_async(
+        self, key: str, value: Any, ttl_seconds: Optional[int] = None
+    ) -> bool:
         """非同期キー設定"""
         if self._async_redis is None:
             self._async_redis = aioredis.Redis(
-                host=self.host,
-                port=self.port,
-                db=self.db,
-                password=self.password
+                host=self.host, port=self.port, db=self.db, password=self.password
             )
 
         try:
@@ -555,7 +558,9 @@ class RedisCacheProvider(ICacheProvider):
             if ttl_seconds is None:
                 ttl_seconds = self.default_ttl_seconds
 
-            result = await self._async_redis.setex(full_key, ttl_seconds, serialized_value)
+            result = await self._async_redis.setex(
+                full_key, ttl_seconds, serialized_value
+            )
             return bool(result)
 
         except Exception as e:
@@ -564,5 +569,5 @@ class RedisCacheProvider(ICacheProvider):
                 cache_key=key,
                 operation="set_async",
                 cache_provider="redis",
-                cause=e
+                cause=e,
             )

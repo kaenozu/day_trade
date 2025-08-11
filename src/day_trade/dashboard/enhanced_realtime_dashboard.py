@@ -7,22 +7,21 @@ Enhanced Realtime Dashboard Server
 - リアルタイムデータストリーミング
 """
 
-import asyncio
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
-from ..utils.logging_config import get_context_logger
+from ..config.trading_mode_config import is_safe_mode
 from ..ml.feature_store import FeatureStore
-from .core.metrics_collector import MetricsCollector
+from ..utils.logging_config import get_context_logger
 from .core.feature_store_monitor import FeatureStoreMonitor
+from .core.metrics_collector import MetricsCollector
 from .core.realtime_stream import RealtimeStream
 
 logger = get_context_logger(__name__)
@@ -543,7 +542,9 @@ async def websocket_realtime_endpoint(websocket: WebSocket):
     global realtime_stream
 
     if not realtime_stream:
-        await websocket.close(code=1011, reason="リアルタイムストリームが利用できません")
+        await websocket.close(
+            code=1011, reason="リアルタイムストリームが利用できません"
+        )
         return
 
     await realtime_stream.connect(websocket)
@@ -564,6 +565,7 @@ async def websocket_realtime_endpoint(websocket: WebSocket):
 
 # REST API エンドポイント
 
+
 @app.get("/api/system/status")
 async def get_system_status():
     """システムステータス取得"""
@@ -575,8 +577,8 @@ async def get_system_status():
         "components": {
             "metrics_collector": metrics_collector is not None,
             "feature_store_monitor": feature_store_monitor is not None,
-            "realtime_stream": realtime_stream is not None
-        }
+            "realtime_stream": realtime_stream is not None,
+        },
     }
 
     if metrics_collector:
@@ -612,16 +614,15 @@ async def get_metrics_history(minutes: int = 10):
     """メトリクス履歴取得"""
     global metrics_collector, feature_store_monitor
 
-    result = {
-        "period_minutes": minutes,
-        "timestamp": datetime.now().isoformat()
-    }
+    result = {"period_minutes": minutes, "timestamp": datetime.now().isoformat()}
 
     if metrics_collector:
         result["system_history"] = metrics_collector.get_metrics_history(minutes)
 
     if feature_store_monitor:
-        result["feature_store_history"] = feature_store_monitor.get_metrics_history(minutes)
+        result["feature_store_history"] = feature_store_monitor.get_metrics_history(
+            minutes
+        )
 
     return result
 
@@ -634,7 +635,7 @@ async def get_comprehensive_report():
     report = {
         "generated_at": datetime.now().isoformat(),
         "report_type": "comprehensive_monitoring_report",
-        "safe_mode": is_safe_mode()
+        "safe_mode": is_safe_mode(),
     }
 
     if metrics_collector:
@@ -655,19 +656,22 @@ async def demo_feature_store():
         raise HTTPException(status_code=503, detail="Feature Storeが利用できません")
 
     # デモ用の特徴量生成
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
     # サンプルデータ作成
-    data = pd.DataFrame({
-        'timestamp': pd.date_range('2024-01-01', periods=100, freq='1min'),
-        'price': np.random.uniform(1000, 2000, 100),
-        'volume': np.random.randint(1000, 10000, 100)
-    })
+    data = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=100, freq="1min"),
+            "price": np.random.uniform(1000, 2000, 100),
+            "volume": np.random.randint(1000, 10000, 100),
+        }
+    )
 
     # Feature Store経由で特徴量生成
     try:
         from ..ml.feature_pipeline import FeaturePipeline
+
         pipeline = FeaturePipeline()
 
         # バッチ処理でデモ実行
@@ -678,7 +682,7 @@ async def demo_feature_store():
             "message": "Feature Store デモ実行完了",
             "features_generated": len(features) if features else 0,
             "demo_data_size": len(data),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except Exception as e:

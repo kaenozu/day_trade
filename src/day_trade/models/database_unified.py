@@ -9,34 +9,33 @@ import time
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from typing import Any, Dict, Generator, List, Optional, Type
-from sqlalchemy import create_engine, event, text, Index
-from sqlalchemy.exc import IntegrityError, OperationalError
+
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from ..core.optimization_strategy import (
-    OptimizationStrategy,
-    OptimizationLevel,
     OptimizationConfig,
+    OptimizationLevel,
+    OptimizationStrategy,
+    get_optimized_implementation,
     optimization_strategy,
-    get_optimized_implementation
 )
+from ..utils.exceptions import DatabaseError
 from ..utils.logging_config import (
     get_context_logger,
-    log_database_operation,
-    log_error_with_context,
 )
-from ..utils.exceptions import DatabaseError, handle_database_exception
 
 logger = get_context_logger(__name__)
 
 # 基底クラスとAlembic設定の読み込み
 try:
-    from .base import Base
     from alembic import command
     from alembic.config import Config
+
+    from .base import Base
+
     ALEMBIC_AVAILABLE = True
 except ImportError:
     Base = None
@@ -44,8 +43,9 @@ except ImportError:
     logger.warning("Alembic未利用 - マイグレーション機能は無効")
 
 try:
-    from ..utils.performance_config import get_performance_config
     from ..utils.performance_analyzer import profile_performance
+    from ..utils.performance_config import get_performance_config
+
     PERFORMANCE_UTILS_AVAILABLE = True
 except ImportError:
     PERFORMANCE_UTILS_AVAILABLE = False
@@ -59,6 +59,7 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 @dataclass
 class DatabaseConfig:
     """統合データベース設定クラス"""
+
     database_url: Optional[str] = None
     echo: bool = False
     pool_size: int = 5
@@ -96,6 +97,7 @@ class DatabaseConfig:
 @dataclass
 class QueryPerformanceMetrics:
     """クエリパフォーマンス指標"""
+
     query_hash: str
     execution_time: float
     rows_affected: int
@@ -108,6 +110,7 @@ class QueryPerformanceMetrics:
 @dataclass
 class DatabaseOperationResult:
     """データベース操作結果"""
+
     success: bool
     execution_time: float
     affected_rows: int
@@ -131,25 +134,28 @@ class DatabaseBase(OptimizationStrategy):
         database_url = self.db_config.database_url or self._get_default_database_url()
 
         # エンジンの作成
-        engine_kwargs = {'echo': self.db_config.echo}
+        engine_kwargs = {"echo": self.db_config.echo}
 
         # SQLite用の特別設定
-        if database_url.startswith('sqlite'):
-            engine_kwargs.update({
-                'poolclass': StaticPool,
-                'connect_args': {'check_same_thread': False}
-            })
+        if database_url.startswith("sqlite"):
+            engine_kwargs.update(
+                {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
+            )
         else:
             # PostgreSQL, MySQL等用の設定
-            engine_kwargs.update({
-                'pool_size': self.db_config.pool_size,
-                'max_overflow': self.db_config.max_overflow,
-                'pool_timeout': self.db_config.pool_timeout,
-                'pool_recycle': self.db_config.pool_recycle,
-            })
+            engine_kwargs.update(
+                {
+                    "pool_size": self.db_config.pool_size,
+                    "max_overflow": self.db_config.max_overflow,
+                    "pool_timeout": self.db_config.pool_timeout,
+                    "pool_recycle": self.db_config.pool_recycle,
+                }
+            )
 
         self.engine = create_engine(database_url, **engine_kwargs)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
 
         # イベントハンドラーの設定
         self._setup_event_handlers()
@@ -162,6 +168,7 @@ class DatabaseBase(OptimizationStrategy):
 
     def _setup_event_handlers(self):
         """イベントハンドラーの設定"""
+
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             if self.engine.url.drivername == "sqlite":
@@ -198,7 +205,7 @@ class DatabaseBase(OptimizationStrategy):
                 execution_time=execution_time,
                 affected_rows=result.get("affected_rows", 0),
                 strategy_used=self.get_strategy_name(),
-                performance_metrics=result.get("performance_metrics")
+                performance_metrics=result.get("performance_metrics"),
             )
 
         except Exception as e:
@@ -212,7 +219,7 @@ class DatabaseBase(OptimizationStrategy):
                 execution_time=execution_time,
                 affected_rows=0,
                 strategy_used=self.get_strategy_name(),
-                error_message=error_msg
+                error_message=error_msg,
             )
 
     @contextmanager
@@ -242,7 +249,9 @@ class DatabaseBase(OptimizationStrategy):
 
         return {"affected_rows": table_count}
 
-    def _execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """クエリ実行"""
         with self.get_session() as session:
             result = session.execute(text(query), params or {})
@@ -252,7 +261,9 @@ class DatabaseBase(OptimizationStrategy):
             else:
                 return {"affected_rows": result.rowcount}
 
-    def _bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """バルクインサート"""
         if not data:
             return {"affected_rows": 0}
@@ -292,9 +303,9 @@ class DatabaseBase(OptimizationStrategy):
 
         # Base.registryから該当テーブルを検索
         for mapper in Base.registry._class_registry.values():
-            if hasattr(mapper, 'mapped_class'):
+            if hasattr(mapper, "mapped_class"):
                 cls = mapper.mapped_class
-                if hasattr(cls, '__tablename__') and cls.__tablename__ == table_name:
+                if hasattr(cls, "__tablename__") and cls.__tablename__ == table_name:
                     return cls
 
         return None
@@ -331,7 +342,9 @@ class OptimizedDatabase(DatabaseBase):
     def get_strategy_name(self) -> str:
         return "最適化データベース"
 
-    def _execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """キャッシュ機能付きクエリ実行"""
         if not self.db_config.enable_query_cache:
             return super()._execute_query(query, params)
@@ -360,7 +373,7 @@ class OptimizedDatabase(DatabaseBase):
             execution_time=execution_time,
             rows_affected=result.get("affected_rows", 0),
             cache_hit=False,
-            optimization_level="optimized"
+            optimization_level="optimized",
         )
 
         result["performance_metrics"] = performance_metrics
@@ -372,19 +385,25 @@ class OptimizedDatabase(DatabaseBase):
 
         return result
 
-    def _bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """最適化バルクインサート"""
         if not data:
             return {"affected_rows": 0}
 
         # バッチ処理の有効性チェック
-        if (self.db_config.enable_batch_processing and
-            len(data) >= self.db_config.bulk_insert_threshold):
+        if (
+            self.db_config.enable_batch_processing
+            and len(data) >= self.db_config.bulk_insert_threshold
+        ):
             return self._optimized_bulk_insert(table_name, data)
         else:
             return super()._bulk_insert(table_name, data)
 
-    def _optimized_bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _optimized_bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """最適化されたバルクインサート"""
         total_inserted = 0
         batch_size = self.db_config.batch_size
@@ -396,7 +415,7 @@ class OptimizedDatabase(DatabaseBase):
             session.execute(text("PRAGMA synchronous=OFF"))  # SQLite用
 
             for i in range(0, len(data), batch_size):
-                batch = data[i:i + batch_size]
+                batch = data[i : i + batch_size]
 
                 # テーブルクラスの使用を試行
                 table_class = self._get_table_class(table_name)
@@ -454,13 +473,17 @@ class OptimizedDatabase(DatabaseBase):
 
                 # 既存インデックスをチェック
                 index_exists = any(
-                    index_name == idx['name'] or column in idx['column_names']
+                    index_name == idx["name"] or column in idx["column_names"]
                     for idx in existing_indexes
                 )
 
                 if not index_exists:
                     # インデックス作成
-                    session.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column})"))
+                    session.execute(
+                        text(
+                            f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column})"
+                        )
+                    )
                     logger.info(f"インデックス作成: {index_name}")
 
     def clear_query_cache(self) -> None:
@@ -497,12 +520,16 @@ class DatabaseManager:
         strategy = self.get_strategy()
         return strategy.execute("create_tables")
 
-    def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> DatabaseOperationResult:
+    def execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> DatabaseOperationResult:
         """クエリ実行"""
         strategy = self.get_strategy()
         return strategy.execute("execute_query", query, params)
 
-    def bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> DatabaseOperationResult:
+    def bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> DatabaseOperationResult:
         """バルクインサート"""
         strategy = self.get_strategy()
         return strategy.execute("bulk_insert", table_name, data)
@@ -527,6 +554,8 @@ class DatabaseManager:
 
 
 # 便利関数
-def get_database_manager(config: Optional[OptimizationConfig] = None) -> DatabaseManager:
+def get_database_manager(
+    config: Optional[OptimizationConfig] = None,
+) -> DatabaseManager:
     """データベースマネージャーのファクトリ関数"""
     return DatabaseManager(config)

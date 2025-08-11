@@ -12,28 +12,33 @@ Features:
 """
 
 import asyncio
-import psutil
 import time
-from typing import Dict, List, Optional, Any, Tuple
+from collections import defaultdict, deque
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from collections import deque, defaultdict
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 from ..utils.logging_config import get_context_logger
 from .metrics.prometheus_metrics import get_metrics_collector
 
 logger = get_context_logger(__name__)
 
+
 class SLAStatus(Enum):
     """SLA状態"""
+
     HEALTHY = "healthy"
     WARNING = "warning"
     BREACH = "breach"
     CRITICAL = "critical"
 
+
 class OptimizationAction(Enum):
     """最適化アクション"""
+
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
     CACHE_CLEAR = "cache_clear"
@@ -41,19 +46,23 @@ class OptimizationAction(Enum):
     ADJUST_BATCH_SIZE = "adjust_batch_size"
     OPTIMIZE_QUERY = "optimize_query"
 
+
 @dataclass
 class SLATarget:
     """SLA目標"""
+
     service_name: str
     availability_target: float  # %
-    response_time_p95: float   # ms
-    response_time_p99: float   # ms
+    response_time_p95: float  # ms
+    response_time_p99: float  # ms
     error_rate_threshold: float  # %
-    throughput_minimum: float   # req/s
+    throughput_minimum: float  # req/s
+
 
 @dataclass
 class PerformanceMetrics:
     """パフォーマンスメトリクス"""
+
     timestamp: datetime
     cpu_usage: float
     memory_usage: float
@@ -66,9 +75,11 @@ class PerformanceMetrics:
     error_rate: float
     active_connections: int
 
+
 @dataclass
 class SLAViolation:
     """SLA違反"""
+
     service_name: str
     violation_type: str
     threshold: float
@@ -78,15 +89,18 @@ class SLAViolation:
     duration: timedelta
     description: str
 
+
 @dataclass
 class OptimizationRecommendation:
     """最適化推奨"""
+
     action: OptimizationAction
     target_component: str
     description: str
     expected_impact: str
     confidence: float
     priority: int
+
 
 class PerformanceMonitor:
     """パフォーマンス監視器"""
@@ -133,7 +147,7 @@ class PerformanceMonitor:
         # システムメトリクス収集
         cpu_usage = psutil.cpu_percent(interval=None)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         network = psutil.net_io_counters()
 
         # アプリケーションメトリクス（Prometheusから取得）
@@ -150,7 +164,7 @@ class PerformanceMonitor:
             response_time_p99=0.0,  # 実際の実装では計算
             throughput=0.0,  # 実際の実装では計算
             error_rate=0.0,  # 実際の実装では計算
-            active_connections=len(psutil.net_connections())
+            active_connections=len(psutil.net_connections()),
         )
 
     def _calculate_baseline(self):
@@ -162,12 +176,17 @@ class PerformanceMonitor:
         recent_metrics = list(self.metrics_history)[-100:]
 
         self.baseline_metrics = {
-            'cpu_usage': sum(m.cpu_usage for m in recent_metrics) / len(recent_metrics),
-            'memory_usage': sum(m.memory_usage for m in recent_metrics) / len(recent_metrics),
-            'disk_usage': sum(m.disk_usage for m in recent_metrics) / len(recent_metrics),
-            'response_time_avg': sum(m.response_time_avg for m in recent_metrics) / len(recent_metrics),
-            'throughput': sum(m.throughput for m in recent_metrics) / len(recent_metrics),
-            'error_rate': sum(m.error_rate for m in recent_metrics) / len(recent_metrics)
+            "cpu_usage": sum(m.cpu_usage for m in recent_metrics) / len(recent_metrics),
+            "memory_usage": sum(m.memory_usage for m in recent_metrics)
+            / len(recent_metrics),
+            "disk_usage": sum(m.disk_usage for m in recent_metrics)
+            / len(recent_metrics),
+            "response_time_avg": sum(m.response_time_avg for m in recent_metrics)
+            / len(recent_metrics),
+            "throughput": sum(m.throughput for m in recent_metrics)
+            / len(recent_metrics),
+            "error_rate": sum(m.error_rate for m in recent_metrics)
+            / len(recent_metrics),
         }
 
         logger.info("ベースラインメトリクス計算完了")
@@ -180,15 +199,15 @@ class PerformanceMonitor:
 
         return self.metrics_history[-1]
 
-    def get_metrics_history(self, duration_minutes: int = 60) -> List[PerformanceMetrics]:
+    def get_metrics_history(
+        self, duration_minutes: int = 60
+    ) -> List[PerformanceMetrics]:
         """メトリクス履歴取得"""
 
         cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
 
-        return [
-            m for m in self.metrics_history
-            if m.timestamp >= cutoff_time
-        ]
+        return [m for m in self.metrics_history if m.timestamp >= cutoff_time]
+
 
 class SLAMonitor:
     """SLA監視器"""
@@ -205,8 +224,9 @@ class SLAMonitor:
         self.sla_targets[target.service_name] = target
         logger.info(f"SLA目標設定: {target.service_name}")
 
-    def check_sla_compliance(self, service_name: str,
-                           metrics: PerformanceMetrics) -> List[SLAViolation]:
+    def check_sla_compliance(
+        self, service_name: str, metrics: PerformanceMetrics
+    ) -> List[SLAViolation]:
         """SLA遵守チェック"""
 
         if service_name not in self.sla_targets:
@@ -218,54 +238,70 @@ class SLAMonitor:
 
         # レスポンス時間チェック
         if metrics.response_time_p95 > target.response_time_p95:
-            violations.append(SLAViolation(
-                service_name=service_name,
-                violation_type="response_time_p95",
-                threshold=target.response_time_p95,
-                current_value=metrics.response_time_p95,
-                severity=SLAStatus.BREACH if metrics.response_time_p95 > target.response_time_p95 * 1.5 else SLAStatus.WARNING,
-                timestamp=current_time,
-                duration=timedelta(seconds=0),  # 実際の実装では継続時間を計算
-                description=f"P95レスポンス時間が目標値 {target.response_time_p95}ms を超過: {metrics.response_time_p95:.2f}ms"
-            ))
+            violations.append(
+                SLAViolation(
+                    service_name=service_name,
+                    violation_type="response_time_p95",
+                    threshold=target.response_time_p95,
+                    current_value=metrics.response_time_p95,
+                    severity=SLAStatus.BREACH
+                    if metrics.response_time_p95 > target.response_time_p95 * 1.5
+                    else SLAStatus.WARNING,
+                    timestamp=current_time,
+                    duration=timedelta(seconds=0),  # 実際の実装では継続時間を計算
+                    description=f"P95レスポンス時間が目標値 {target.response_time_p95}ms を超過: {metrics.response_time_p95:.2f}ms",
+                )
+            )
 
         if metrics.response_time_p99 > target.response_time_p99:
-            violations.append(SLAViolation(
-                service_name=service_name,
-                violation_type="response_time_p99",
-                threshold=target.response_time_p99,
-                current_value=metrics.response_time_p99,
-                severity=SLAStatus.CRITICAL if metrics.response_time_p99 > target.response_time_p99 * 2 else SLAStatus.BREACH,
-                timestamp=current_time,
-                duration=timedelta(seconds=0),
-                description=f"P99レスポンス時間が目標値 {target.response_time_p99}ms を超過: {metrics.response_time_p99:.2f}ms"
-            ))
+            violations.append(
+                SLAViolation(
+                    service_name=service_name,
+                    violation_type="response_time_p99",
+                    threshold=target.response_time_p99,
+                    current_value=metrics.response_time_p99,
+                    severity=SLAStatus.CRITICAL
+                    if metrics.response_time_p99 > target.response_time_p99 * 2
+                    else SLAStatus.BREACH,
+                    timestamp=current_time,
+                    duration=timedelta(seconds=0),
+                    description=f"P99レスポンス時間が目標値 {target.response_time_p99}ms を超過: {metrics.response_time_p99:.2f}ms",
+                )
+            )
 
         # エラー率チェック
         if metrics.error_rate > target.error_rate_threshold:
-            violations.append(SLAViolation(
-                service_name=service_name,
-                violation_type="error_rate",
-                threshold=target.error_rate_threshold,
-                current_value=metrics.error_rate,
-                severity=SLAStatus.CRITICAL if metrics.error_rate > target.error_rate_threshold * 2 else SLAStatus.BREACH,
-                timestamp=current_time,
-                duration=timedelta(seconds=0),
-                description=f"エラー率が目標値 {target.error_rate_threshold}% を超過: {metrics.error_rate:.2f}%"
-            ))
+            violations.append(
+                SLAViolation(
+                    service_name=service_name,
+                    violation_type="error_rate",
+                    threshold=target.error_rate_threshold,
+                    current_value=metrics.error_rate,
+                    severity=SLAStatus.CRITICAL
+                    if metrics.error_rate > target.error_rate_threshold * 2
+                    else SLAStatus.BREACH,
+                    timestamp=current_time,
+                    duration=timedelta(seconds=0),
+                    description=f"エラー率が目標値 {target.error_rate_threshold}% を超過: {metrics.error_rate:.2f}%",
+                )
+            )
 
         # スループットチェック
         if metrics.throughput < target.throughput_minimum:
-            violations.append(SLAViolation(
-                service_name=service_name,
-                violation_type="throughput",
-                threshold=target.throughput_minimum,
-                current_value=metrics.throughput,
-                severity=SLAStatus.BREACH if metrics.throughput < target.throughput_minimum * 0.5 else SLAStatus.WARNING,
-                timestamp=current_time,
-                duration=timedelta(seconds=0),
-                description=f"スループットが最低値 {target.throughput_minimum} req/s を下回る: {metrics.throughput:.2f} req/s"
-            ))
+            violations.append(
+                SLAViolation(
+                    service_name=service_name,
+                    violation_type="throughput",
+                    threshold=target.throughput_minimum,
+                    current_value=metrics.throughput,
+                    severity=SLAStatus.BREACH
+                    if metrics.throughput < target.throughput_minimum * 0.5
+                    else SLAStatus.WARNING,
+                    timestamp=current_time,
+                    duration=timedelta(seconds=0),
+                    description=f"スループットが最低値 {target.throughput_minimum} req/s を下回る: {metrics.throughput:.2f} req/s",
+                )
+            )
 
         # 違反記録
         for violation in violations:
@@ -284,7 +320,8 @@ class SLAMonitor:
             return {"error": "SLA target not found"}
 
         current_violations = [
-            v for v in self.current_violations.values()
+            v
+            for v in self.current_violations.values()
             if v.service_name == service_name
         ]
 
@@ -300,11 +337,12 @@ class SLAMonitor:
                 overall_status = SLAStatus.WARNING
 
         return {
-            'service_name': service_name,
-            'overall_status': overall_status.value,
-            'active_violations': len(current_violations),
-            'violations': [asdict(v) for v in current_violations]
+            "service_name": service_name,
+            "overall_status": overall_status.value,
+            "active_violations": len(current_violations),
+            "violations": [asdict(v) for v in current_violations],
         }
+
 
 class PerformanceOptimizer:
     """パフォーマンス最適化器"""
@@ -313,74 +351,87 @@ class PerformanceOptimizer:
         self.optimization_history = deque(maxlen=500)
         self.active_optimizations = {}
 
-    def analyze_performance_issues(self, metrics: PerformanceMetrics,
-                                 baseline: Dict[str, float] = None) -> List[OptimizationRecommendation]:
+    def analyze_performance_issues(
+        self, metrics: PerformanceMetrics, baseline: Dict[str, float] = None
+    ) -> List[OptimizationRecommendation]:
         """パフォーマンス問題分析"""
 
         recommendations = []
 
         # CPU使用率分析
         if metrics.cpu_usage > 80:
-            recommendations.append(OptimizationRecommendation(
-                action=OptimizationAction.SCALE_UP,
-                target_component="cpu",
-                description=f"CPU使用率が高い: {metrics.cpu_usage:.1f}%",
-                expected_impact="レスポンス時間改善",
-                confidence=0.8,
-                priority=1 if metrics.cpu_usage > 95 else 2
-            ))
+            recommendations.append(
+                OptimizationRecommendation(
+                    action=OptimizationAction.SCALE_UP,
+                    target_component="cpu",
+                    description=f"CPU使用率が高い: {metrics.cpu_usage:.1f}%",
+                    expected_impact="レスポンス時間改善",
+                    confidence=0.8,
+                    priority=1 if metrics.cpu_usage > 95 else 2,
+                )
+            )
 
         # メモリ使用率分析
         if metrics.memory_usage > 85:
-            recommendations.append(OptimizationRecommendation(
-                action=OptimizationAction.CACHE_CLEAR,
-                target_component="memory",
-                description=f"メモリ使用率が高い: {metrics.memory_usage:.1f}%",
-                expected_impact="メモリ解放",
-                confidence=0.7,
-                priority=1 if metrics.memory_usage > 95 else 3
-            ))
+            recommendations.append(
+                OptimizationRecommendation(
+                    action=OptimizationAction.CACHE_CLEAR,
+                    target_component="memory",
+                    description=f"メモリ使用率が高い: {metrics.memory_usage:.1f}%",
+                    expected_impact="メモリ解放",
+                    confidence=0.7,
+                    priority=1 if metrics.memory_usage > 95 else 3,
+                )
+            )
 
         # ディスク使用率分析
         if metrics.disk_usage > 90:
-            recommendations.append(OptimizationRecommendation(
-                action=OptimizationAction.OPTIMIZE_QUERY,
-                target_component="storage",
-                description=f"ディスク使用率が高い: {metrics.disk_usage:.1f}%",
-                expected_impact="ディスク容量確保",
-                confidence=0.6,
-                priority=2
-            ))
+            recommendations.append(
+                OptimizationRecommendation(
+                    action=OptimizationAction.OPTIMIZE_QUERY,
+                    target_component="storage",
+                    description=f"ディスク使用率が高い: {metrics.disk_usage:.1f}%",
+                    expected_impact="ディスク容量確保",
+                    confidence=0.6,
+                    priority=2,
+                )
+            )
 
         # レスポンス時間分析（ベースラインとの比較）
-        if baseline and 'response_time_avg' in baseline:
-            if metrics.response_time_avg > baseline['response_time_avg'] * 1.5:
-                recommendations.append(OptimizationRecommendation(
-                    action=OptimizationAction.ADJUST_BATCH_SIZE,
-                    target_component="application",
-                    description=f"レスポンス時間がベースラインの1.5倍: {metrics.response_time_avg:.2f}ms",
-                    expected_impact="レスポンス時間短縮",
-                    confidence=0.75,
-                    priority=1
-                ))
+        if baseline and "response_time_avg" in baseline:
+            if metrics.response_time_avg > baseline["response_time_avg"] * 1.5:
+                recommendations.append(
+                    OptimizationRecommendation(
+                        action=OptimizationAction.ADJUST_BATCH_SIZE,
+                        target_component="application",
+                        description=f"レスポンス時間がベースラインの1.5倍: {metrics.response_time_avg:.2f}ms",
+                        expected_impact="レスポンス時間短縮",
+                        confidence=0.75,
+                        priority=1,
+                    )
+                )
 
         # エラー率分析
         if metrics.error_rate > 5.0:  # 5%以上
-            recommendations.append(OptimizationRecommendation(
-                action=OptimizationAction.RESTART_SERVICE,
-                target_component="application",
-                description=f"エラー率が高い: {metrics.error_rate:.2f}%",
-                expected_impact="エラー率低減",
-                confidence=0.6,
-                priority=1 if metrics.error_rate > 10 else 2
-            ))
+            recommendations.append(
+                OptimizationRecommendation(
+                    action=OptimizationAction.RESTART_SERVICE,
+                    target_component="application",
+                    description=f"エラー率が高い: {metrics.error_rate:.2f}%",
+                    expected_impact="エラー率低減",
+                    confidence=0.6,
+                    priority=1 if metrics.error_rate > 10 else 2,
+                )
+            )
 
         # 優先度でソート
         recommendations.sort(key=lambda x: x.priority)
 
         return recommendations
 
-    async def apply_optimization(self, recommendation: OptimizationRecommendation) -> bool:
+    async def apply_optimization(
+        self, recommendation: OptimizationRecommendation
+    ) -> bool:
         """最適化適用"""
 
         optimization_id = f"{recommendation.target_component}_{int(time.time())}"
@@ -391,7 +442,9 @@ class PerformanceOptimizer:
             success = False
 
             if recommendation.action == OptimizationAction.SCALE_UP:
-                success = await self._scale_up_resources(recommendation.target_component)
+                success = await self._scale_up_resources(
+                    recommendation.target_component
+                )
             elif recommendation.action == OptimizationAction.CACHE_CLEAR:
                 success = await self._clear_cache()
             elif recommendation.action == OptimizationAction.RESTART_SERVICE:
@@ -402,14 +455,16 @@ class PerformanceOptimizer:
                 success = await self._optimize_queries()
 
             # 最適化履歴記録
-            self.optimization_history.append({
-                'id': optimization_id,
-                'timestamp': datetime.now().isoformat(),
-                'action': recommendation.action.value,
-                'target': recommendation.target_component,
-                'description': recommendation.description,
-                'success': success
-            })
+            self.optimization_history.append(
+                {
+                    "id": optimization_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "action": recommendation.action.value,
+                    "target": recommendation.target_component,
+                    "description": recommendation.description,
+                    "success": success,
+                }
+            )
 
             if success:
                 logger.info(f"最適化完了: {recommendation.description}")
@@ -457,6 +512,7 @@ class PerformanceOptimizer:
         await asyncio.sleep(1)  # シミュレート
         return True
 
+
 class IntegratedPerformanceSystem:
     """統合パフォーマンスシステム"""
 
@@ -475,34 +531,40 @@ class IntegratedPerformanceSystem:
         """デフォルトSLA目標設定"""
 
         # トレーディングサービス
-        self.sla_monitor.add_sla_target(SLATarget(
-            service_name="trading",
-            availability_target=99.9,
-            response_time_p95=100.0,  # 100ms
-            response_time_p99=200.0,  # 200ms
-            error_rate_threshold=0.1,  # 0.1%
-            throughput_minimum=10.0   # 10 req/s
-        ))
+        self.sla_monitor.add_sla_target(
+            SLATarget(
+                service_name="trading",
+                availability_target=99.9,
+                response_time_p95=100.0,  # 100ms
+                response_time_p99=200.0,  # 200ms
+                error_rate_threshold=0.1,  # 0.1%
+                throughput_minimum=10.0,  # 10 req/s
+            )
+        )
 
         # AIエンジン
-        self.sla_monitor.add_sla_target(SLATarget(
-            service_name="ai_engine",
-            availability_target=99.5,
-            response_time_p95=500.0,  # 500ms
-            response_time_p99=1000.0, # 1秒
-            error_rate_threshold=0.5,  # 0.5%
-            throughput_minimum=5.0    # 5 req/s
-        ))
+        self.sla_monitor.add_sla_target(
+            SLATarget(
+                service_name="ai_engine",
+                availability_target=99.5,
+                response_time_p95=500.0,  # 500ms
+                response_time_p99=1000.0,  # 1秒
+                error_rate_threshold=0.5,  # 0.5%
+                throughput_minimum=5.0,  # 5 req/s
+            )
+        )
 
         # データ取得サービス
-        self.sla_monitor.add_sla_target(SLATarget(
-            service_name="data_fetcher",
-            availability_target=99.8,
-            response_time_p95=200.0,  # 200ms
-            response_time_p99=500.0,  # 500ms
-            error_rate_threshold=0.2,  # 0.2%
-            throughput_minimum=20.0   # 20 req/s
-        ))
+        self.sla_monitor.add_sla_target(
+            SLATarget(
+                service_name="data_fetcher",
+                availability_target=99.8,
+                response_time_p95=200.0,  # 200ms
+                response_time_p99=500.0,  # 500ms
+                error_rate_threshold=0.2,  # 0.2%
+                throughput_minimum=20.0,  # 20 req/s
+            )
+        )
 
     async def start(self):
         """システム開始"""
@@ -514,7 +576,9 @@ class IntegratedPerformanceSystem:
         logger.info("統合パフォーマンスシステム開始")
 
         # パフォーマンス監視開始
-        monitoring_task = asyncio.create_task(self.performance_monitor.start_monitoring())
+        monitoring_task = asyncio.create_task(
+            self.performance_monitor.start_monitoring()
+        )
 
         # 定期SLAチェック＆最適化ループ
         optimization_task = asyncio.create_task(self._optimization_loop())
@@ -531,15 +595,20 @@ class IntegratedPerformanceSystem:
                 if current_metrics:
                     # 各サービスのSLAチェック
                     for service_name in self.sla_monitor.sla_targets.keys():
-                        violations = self.sla_monitor.check_sla_compliance(service_name, current_metrics)
+                        violations = self.sla_monitor.check_sla_compliance(
+                            service_name, current_metrics
+                        )
 
                         if violations:
-                            logger.warning(f"SLA違反検出 ({service_name}): {len(violations)}件")
+                            logger.warning(
+                                f"SLA違反検出 ({service_name}): {len(violations)}件"
+                            )
 
                     # パフォーマンス問題分析
-                    recommendations = self.performance_optimizer.analyze_performance_issues(
-                        current_metrics,
-                        self.performance_monitor.baseline_metrics
+                    recommendations = (
+                        self.performance_optimizer.analyze_performance_issues(
+                            current_metrics, self.performance_monitor.baseline_metrics
+                        )
                     )
 
                     # 高優先度の最適化を実行
@@ -570,16 +639,20 @@ class IntegratedPerformanceSystem:
             sla_statuses[service_name] = self.sla_monitor.get_sla_status(service_name)
 
         return {
-            'system_running': self.running,
-            'current_metrics': asdict(current_metrics) if current_metrics else None,
-            'baseline_metrics': self.performance_monitor.baseline_metrics,
-            'sla_statuses': sla_statuses,
-            'recent_optimizations': list(self.performance_optimizer.optimization_history)[-10:],
-            'metrics_history_size': len(self.performance_monitor.metrics_history)
+            "system_running": self.running,
+            "current_metrics": asdict(current_metrics) if current_metrics else None,
+            "baseline_metrics": self.performance_monitor.baseline_metrics,
+            "sla_statuses": sla_statuses,
+            "recent_optimizations": list(
+                self.performance_optimizer.optimization_history
+            )[-10:],
+            "metrics_history_size": len(self.performance_monitor.metrics_history),
         }
+
 
 # グローバルインスタンス
 _performance_system = IntegratedPerformanceSystem()
+
 
 def get_performance_system() -> IntegratedPerformanceSystem:
     """統合パフォーマンスシステム取得"""

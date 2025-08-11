@@ -421,7 +421,12 @@ class DataCompressionArchiveSystem:
         """ライフサイクルステージ決定"""
 
         # アクセス頻度重視の判定
-        if days_since_access <= 7 and access_count > 10 or days_since_creation <= self.config.hot_retention_days and access_count > 3:
+        if (
+            days_since_access <= 7
+            and access_count > 10
+            or days_since_creation <= self.config.hot_retention_days
+            and access_count > 3
+        ):
             return DataLifecycleStage.HOT
         elif days_since_creation <= self.config.warm_retention_days:
             return DataLifecycleStage.WARM

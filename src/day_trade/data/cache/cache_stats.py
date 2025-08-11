@@ -4,11 +4,11 @@
 キャッシュのパフォーマンス追跡と分析機能
 """
 
-import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
 import threading
+import time
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from ...utils.logging_config import get_context_logger
 
@@ -73,9 +73,15 @@ class CacheStats:
                 "errors": self.errors,
                 "total_requests": total_requests,
                 "hit_rate": self.hits / total_requests if total_requests > 0 else 0.0,
-                "miss_rate": self.misses / total_requests if total_requests > 0 else 0.0,
-                "fallback_rate": self.fallbacks / total_requests if total_requests > 0 else 0.0,
-                "error_rate": self.errors / (total_requests + self.errors) if total_requests + self.errors > 0 else 0.0,
+                "miss_rate": self.misses / total_requests
+                if total_requests > 0
+                else 0.0,
+                "fallback_rate": self.fallbacks / total_requests
+                if total_requests > 0
+                else 0.0,
+                "error_rate": self.errors / (total_requests + self.errors)
+                if total_requests + self.errors > 0
+                else 0.0,
                 "requests_per_second": total_requests / uptime if uptime > 0 else 0.0,
                 "uptime_seconds": uptime,
                 "last_reset": self.last_reset_time.isoformat(),
@@ -110,14 +116,16 @@ class CachePerformanceMonitor:
 
         self.alerts: List[Dict[str, Any]] = []
 
-        logger.info(f"パフォーマンス監視初期化: ウィンドウ={window_size}s, 間隔={sample_interval}s")
+        logger.info(
+            f"パフォーマンス監視初期化: ウィンドウ={window_size}s, 間隔={sample_interval}s"
+        )
 
     def record_function_call(
         self,
         function_name: str,
         cache_hit: bool,
         response_time: float,
-        error: Optional[Exception] = None
+        error: Optional[Exception] = None,
     ) -> None:
         """
         関数呼び出しを記録
@@ -153,8 +161,7 @@ class CachePerformanceMonitor:
             # ウィンドウサイズ制限
             cutoff_time = datetime.now() - timedelta(seconds=self.window_size)
             self.performance_history = [
-                p for p in self.performance_history
-                if p["timestamp"] > cutoff_time
+                p for p in self.performance_history if p["timestamp"] > cutoff_time
             ]
 
     def get_function_performance(self, function_name: str) -> Dict[str, Any]:
@@ -172,25 +179,28 @@ class CachePerformanceMonitor:
 
             # 最近のパフォーマンスデータ
             recent_calls = [
-                p for p in self.performance_history
-                if p["function"] == function_name
+                p for p in self.performance_history if p["function"] == function_name
             ]
 
             if recent_calls:
                 response_times = [p["response_time"] for p in recent_calls]
-                stats.update({
-                    "recent_calls": len(recent_calls),
-                    "avg_response_time": sum(response_times) / len(response_times),
-                    "min_response_time": min(response_times),
-                    "max_response_time": max(response_times),
-                })
+                stats.update(
+                    {
+                        "recent_calls": len(recent_calls),
+                        "avg_response_time": sum(response_times) / len(response_times),
+                        "min_response_time": min(response_times),
+                        "max_response_time": max(response_times),
+                    }
+                )
             else:
-                stats.update({
-                    "recent_calls": 0,
-                    "avg_response_time": 0.0,
-                    "min_response_time": 0.0,
-                    "max_response_time": 0.0,
-                })
+                stats.update(
+                    {
+                        "recent_calls": 0,
+                        "avg_response_time": 0.0,
+                        "min_response_time": 0.0,
+                        "max_response_time": 0.0,
+                    }
+                )
 
             return stats
 
@@ -214,17 +224,22 @@ class CachePerformanceMonitor:
                 response_times = [p["response_time"] for p in self.performance_history]
                 cache_hits = [p for p in self.performance_history if p["cache_hit"]]
 
-                overall_stats.update({
-                    "total_functions": len(self.function_stats),
-                    "recent_calls": len(self.performance_history),
-                    "avg_response_time": sum(response_times) / len(response_times),
-                    "recent_hit_rate": len(cache_hits) / len(self.performance_history),
-                    "active_alerts": len(self.alerts),
-                })
+                overall_stats.update(
+                    {
+                        "total_functions": len(self.function_stats),
+                        "recent_calls": len(self.performance_history),
+                        "avg_response_time": sum(response_times) / len(response_times),
+                        "recent_hit_rate": len(cache_hits)
+                        / len(self.performance_history),
+                        "active_alerts": len(self.alerts),
+                    }
+                )
 
             return overall_stats
 
-    def get_top_functions(self, limit: int = 10, sort_by: str = "hits") -> List[Dict[str, Any]]:
+    def get_top_functions(
+        self, limit: int = 10, sort_by: str = "hits"
+    ) -> List[Dict[str, Any]]:
         """
         トップ関数リストを取得
 
@@ -251,9 +266,13 @@ class CachePerformanceMonitor:
             elif sort_by == "errors":
                 function_performances.sort(key=lambda x: x["errors"], reverse=True)
             elif sort_by == "calls":
-                function_performances.sort(key=lambda x: x["total_requests"], reverse=True)
+                function_performances.sort(
+                    key=lambda x: x["total_requests"], reverse=True
+                )
             else:
-                function_performances.sort(key=lambda x: x.get("avg_response_time", 0), reverse=True)
+                function_performances.sort(
+                    key=lambda x: x.get("avg_response_time", 0), reverse=True
+                )
 
             return function_performances[:limit]
 
@@ -267,33 +286,45 @@ class CachePerformanceMonitor:
 
             # ヒット率アラート
             if overall_perf.get("hit_rate", 0) < self.alert_thresholds["hit_rate_min"]:
-                new_alerts.append({
-                    "type": "low_hit_rate",
-                    "message": f"キャッシュヒット率が低下: {overall_perf['hit_rate']:.2%}",
-                    "threshold": self.alert_thresholds["hit_rate_min"],
-                    "current_value": overall_perf["hit_rate"],
-                    "timestamp": current_time,
-                })
+                new_alerts.append(
+                    {
+                        "type": "low_hit_rate",
+                        "message": f"キャッシュヒット率が低下: {overall_perf['hit_rate']:.2%}",
+                        "threshold": self.alert_thresholds["hit_rate_min"],
+                        "current_value": overall_perf["hit_rate"],
+                        "timestamp": current_time,
+                    }
+                )
 
             # エラー率アラート
-            if overall_perf.get("error_rate", 0) > self.alert_thresholds["error_rate_max"]:
-                new_alerts.append({
-                    "type": "high_error_rate",
-                    "message": f"エラー率が上昇: {overall_perf['error_rate']:.2%}",
-                    "threshold": self.alert_thresholds["error_rate_max"],
-                    "current_value": overall_perf["error_rate"],
-                    "timestamp": current_time,
-                })
+            if (
+                overall_perf.get("error_rate", 0)
+                > self.alert_thresholds["error_rate_max"]
+            ):
+                new_alerts.append(
+                    {
+                        "type": "high_error_rate",
+                        "message": f"エラー率が上昇: {overall_perf['error_rate']:.2%}",
+                        "threshold": self.alert_thresholds["error_rate_max"],
+                        "current_value": overall_perf["error_rate"],
+                        "timestamp": current_time,
+                    }
+                )
 
             # 応答時間アラート
-            if overall_perf.get("avg_response_time", 0) > self.alert_thresholds["response_time_max"]:
-                new_alerts.append({
-                    "type": "slow_response",
-                    "message": f"平均応答時間が遅延: {overall_perf['avg_response_time']:.2f}s",
-                    "threshold": self.alert_thresholds["response_time_max"],
-                    "current_value": overall_perf["avg_response_time"],
-                    "timestamp": current_time,
-                })
+            if (
+                overall_perf.get("avg_response_time", 0)
+                > self.alert_thresholds["response_time_max"]
+            ):
+                new_alerts.append(
+                    {
+                        "type": "slow_response",
+                        "message": f"平均応答時間が遅延: {overall_perf['avg_response_time']:.2f}s",
+                        "threshold": self.alert_thresholds["response_time_max"],
+                        "current_value": overall_perf["avg_response_time"],
+                        "timestamp": current_time,
+                    }
+                )
 
             # 新しいアラートを追加
             self.alerts.extend(new_alerts)
@@ -301,8 +332,7 @@ class CachePerformanceMonitor:
             # 古いアラートを削除（24時間以上前）
             cutoff_time = current_time - timedelta(hours=24)
             self.alerts = [
-                alert for alert in self.alerts
-                if alert["timestamp"] > cutoff_time
+                alert for alert in self.alerts if alert["timestamp"] > cutoff_time
             ]
 
         if new_alerts:
@@ -323,8 +353,7 @@ class CachePerformanceMonitor:
         with self._lock:
             cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
             recent_history = [
-                p for p in self.performance_history
-                if p["timestamp"] > cutoff_time
+                p for p in self.performance_history if p["timestamp"] > cutoff_time
             ]
 
             if not recent_history:
@@ -349,7 +378,9 @@ class CachePerformanceMonitor:
                 if bucket_data:
                     hits = sum(1 for p in bucket_data if p["cache_hit"])
                     hit_rate = hits / len(bucket_data)
-                    avg_response = sum(p["response_time"] for p in bucket_data) / len(bucket_data)
+                    avg_response = sum(p["response_time"] for p in bucket_data) / len(
+                        bucket_data
+                    )
 
                     hit_rates.append(hit_rate)
                     response_times.append(avg_response)
@@ -371,8 +402,8 @@ class CachePerformanceMonitor:
             return "insufficient_data"
 
         # 単純な線形回帰的なトレンド判定
-        first_half = sum(values[:len(values)//2]) / (len(values)//2)
-        second_half = sum(values[len(values)//2:]) / (len(values) - len(values)//2)
+        first_half = sum(values[: len(values) // 2]) / (len(values) // 2)
+        second_half = sum(values[len(values) // 2 :]) / (len(values) - len(values) // 2)
 
         change_rate = (second_half - first_half) / first_half if first_half != 0 else 0
 
@@ -398,11 +429,19 @@ class CachePerformanceMonitor:
 
         # 全体統計
         report_lines.append("【全体統計】")
-        report_lines.append(f"総リクエスト数: {overall_perf.get('total_requests', 0):,}")
-        report_lines.append(f"キャッシュヒット率: {overall_perf.get('hit_rate', 0):.2%}")
+        report_lines.append(
+            f"総リクエスト数: {overall_perf.get('total_requests', 0):,}"
+        )
+        report_lines.append(
+            f"キャッシュヒット率: {overall_perf.get('hit_rate', 0):.2%}"
+        )
         report_lines.append(f"エラー率: {overall_perf.get('error_rate', 0):.2%}")
-        report_lines.append(f"平均応答時間: {overall_perf.get('avg_response_time', 0):.3f}s")
-        report_lines.append(f"アクティブアラート: {overall_perf.get('active_alerts', 0)}件")
+        report_lines.append(
+            f"平均応答時間: {overall_perf.get('avg_response_time', 0):.3f}s"
+        )
+        report_lines.append(
+            f"アクティブアラート: {overall_perf.get('active_alerts', 0)}件"
+        )
         report_lines.append("")
 
         # トップ関数
@@ -421,11 +460,17 @@ class CachePerformanceMonitor:
             report_lines.append("【トレンド分析】")
             report_lines.append(f"分析データ数: {trend_analysis['data_points']}")
             report_lines.append(f"ヒット率トレンド: {trend_analysis['hit_rate_trend']}")
-            report_lines.append(f"応答時間トレンド: {trend_analysis['response_time_trend']}")
+            report_lines.append(
+                f"応答時間トレンド: {trend_analysis['response_time_trend']}"
+            )
             report_lines.append("")
 
         # アクティブアラート
-        recent_alerts = [a for a in self.alerts if (datetime.now() - a["timestamp"]).total_seconds() < 3600]
+        recent_alerts = [
+            a
+            for a in self.alerts
+            if (datetime.now() - a["timestamp"]).total_seconds() < 3600
+        ]
         if recent_alerts:
             report_lines.append("【直近のアラート】")
             for alert in recent_alerts[-5:]:  # 最新5件

@@ -7,25 +7,27 @@ Global Trading Engine - Forex Market Data Collector
 """
 
 import asyncio
-import aiohttp
 import time
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, asdict
-import pandas as pd
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Dict, List, Optional
+
+import aiohttp
 import numpy as np
-from decimal import Decimal, ROUND_HALF_UP
+
+from ..models.database import ForexPrice, get_session
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from ..models.database import get_session, ForexPrice, GlobalMarketData
 
 logger = get_context_logger(__name__)
+
 
 @dataclass
 class ForexTick:
     """Forex取引データ"""
+
     pair: str
     timestamp: datetime
     bid_price: float
@@ -34,9 +36,11 @@ class ForexTick:
     volume: Optional[float] = None
     source: str = "forex_api"
 
+
 @dataclass
 class ForexOHLC:
     """Forex OHLC データ"""
+
     pair: str
     timestamp: datetime
     open: float
@@ -46,6 +50,7 @@ class ForexOHLC:
     volume: float
     timeframe: str  # 1m, 5m, 1h, etc.
 
+
 class ForexDataCollector:
     """外国為替データ収集器"""
 
@@ -54,14 +59,25 @@ class ForexDataCollector:
 
         # 主要通貨ペア
         self.major_pairs = [
-            "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF",
-            "AUD/USD", "USD/CAD", "NZD/USD"
+            "EUR/USD",
+            "GBP/USD",
+            "USD/JPY",
+            "USD/CHF",
+            "AUD/USD",
+            "USD/CAD",
+            "NZD/USD",
         ]
 
         # マイナー・エキゾチック通貨ペア
         self.minor_pairs = [
-            "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY",
-            "EUR/AUD", "GBP/AUD", "CHF/JPY", "CAD/JPY"
+            "EUR/GBP",
+            "EUR/JPY",
+            "GBP/JPY",
+            "AUD/JPY",
+            "EUR/AUD",
+            "GBP/AUD",
+            "CHF/JPY",
+            "CAD/JPY",
         ]
 
         # 全監視対象
@@ -76,7 +92,7 @@ class ForexDataCollector:
             "alpha_vantage": "https://www.alphavantage.co/query",
             "fixer": "http://data.fixer.io/api",
             "forex_api": "https://api.forex.com/v1",
-            "yahoo": "https://query1.finance.yahoo.com/v8/finance/chart"
+            "yahoo": "https://query1.finance.yahoo.com/v8/finance/chart",
         }
 
         # レート制限管理
@@ -130,7 +146,9 @@ class ForexDataCollector:
                 # データベースに保存
                 await self._save_tick_to_db(tick_data)
 
-                logger.debug(f"Updated {pair}: {tick_data.bid_price:.5f}/{tick_data.ask_price:.5f}")
+                logger.debug(
+                    f"Updated {pair}: {tick_data.bid_price:.5f}/{tick_data.ask_price:.5f}"
+                )
 
         except Exception as e:
             logger.warning(f"Failed to collect {pair} data: {e}")
@@ -146,15 +164,15 @@ class ForexDataCollector:
                         data = await response.json()
 
                         # レスポンス解析
-                        result = data.get('chart', {}).get('result', [])
+                        result = data.get("chart", {}).get("result", [])
                         if not result:
                             return None
 
                         chart_data = result[0]
-                        meta = chart_data.get('meta', {})
+                        meta = chart_data.get("meta", {})
 
                         # 最新価格取得
-                        current_price = meta.get('regularMarketPrice', 0)
+                        current_price = meta.get("regularMarketPrice", 0)
                         if current_price == 0:
                             return None
 
@@ -171,8 +189,8 @@ class ForexDataCollector:
                             bid_price=bid_price,
                             ask_price=ask_price,
                             spread=estimated_spread,
-                            volume=meta.get('regularMarketVolume'),
-                            source="yahoo_finance"
+                            volume=meta.get("regularMarketVolume"),
+                            source="yahoo_finance",
                         )
 
         except Exception as e:
@@ -199,8 +217,10 @@ class ForexDataCollector:
             self.last_reset["daily"] = current_time
 
         # 制限チェック
-        if (self.request_counts["minute"] >= self.rate_limits["minute"] or
-            self.request_counts["daily"] >= self.rate_limits["daily"]):
+        if (
+            self.request_counts["minute"] >= self.rate_limits["minute"]
+            or self.request_counts["daily"] >= self.rate_limits["daily"]
+        ):
             return False
 
         # カウント増加
@@ -218,16 +238,16 @@ class ForexDataCollector:
                 pair=tick.pair,
                 timestamp=tick.timestamp,
                 bid_price=Decimal(str(tick.bid_price)).quantize(
-                    Decimal('0.00001'), rounding=ROUND_HALF_UP
+                    Decimal("0.00001"), rounding=ROUND_HALF_UP
                 ),
                 ask_price=Decimal(str(tick.ask_price)).quantize(
-                    Decimal('0.00001'), rounding=ROUND_HALF_UP
+                    Decimal("0.00001"), rounding=ROUND_HALF_UP
                 ),
                 spread=Decimal(str(tick.spread)).quantize(
-                    Decimal('0.00001'), rounding=ROUND_HALF_UP
+                    Decimal("0.00001"), rounding=ROUND_HALF_UP
                 ),
                 volume=tick.volume,
-                source=tick.source
+                source=tick.source,
             )
 
             session.add(forex_price)
@@ -257,20 +277,25 @@ class ForexDataCollector:
 
             # 統計データ
             market_stats = {
-                'active_pairs': active_pairs,
-                'total_volume': total_volume,
-                'average_spread': np.mean([t.spread for t in self.latest_ticks.values()]),
-                'market_volatility': np.std(price_changes) if price_changes else 0,
-                'update_timestamp': datetime.now(timezone.utc)
+                "active_pairs": active_pairs,
+                "total_volume": total_volume,
+                "average_spread": np.mean(
+                    [t.spread for t in self.latest_ticks.values()]
+                ),
+                "market_volatility": np.std(price_changes) if price_changes else 0,
+                "update_timestamp": datetime.now(timezone.utc),
             }
 
-            logger.debug(f"Market stats: {active_pairs} pairs, avg spread: {market_stats['average_spread']:.5f}")
+            logger.debug(
+                f"Market stats: {active_pairs} pairs, avg spread: {market_stats['average_spread']:.5f}"
+            )
 
         except Exception as e:
             logger.error(f"Market statistics update error: {e}")
 
-    async def get_historical_data(self, pair: str, timeframe: str = "1h",
-                                periods: int = 100) -> List[ForexOHLC]:
+    async def get_historical_data(
+        self, pair: str, timeframe: str = "1h", periods: int = 100
+    ) -> List[ForexOHLC]:
         """過去データ取得"""
         try:
             # Yahoo Finance履歴データ
@@ -292,10 +317,10 @@ class ForexDataCollector:
             # API呼び出し
             url = f"{self.base_urls['yahoo']}/{symbol}=X"
             params = {
-                'period1': int(start_date.timestamp()),
-                'period2': int(end_date.timestamp()),
-                'interval': '1h',
-                'includePrePost': 'false'
+                "period1": int(start_date.timestamp()),
+                "period2": int(end_date.timestamp()),
+                "interval": "1h",
+                "includePrePost": "false",
             }
 
             async with aiohttp.ClientSession() as session:
@@ -310,17 +335,19 @@ class ForexDataCollector:
             logger.error(f"Historical data fetch error for {pair}: {e}")
             return []
 
-    def _parse_yahoo_ohlc(self, data: dict, pair: str, timeframe: str) -> List[ForexOHLC]:
+    def _parse_yahoo_ohlc(
+        self, data: dict, pair: str, timeframe: str
+    ) -> List[ForexOHLC]:
         """Yahoo FinanceデータをOHLC形式に変換"""
         try:
-            result = data.get('chart', {}).get('result', [])
+            result = data.get("chart", {}).get("result", [])
             if not result:
                 return []
 
             chart_data = result[0]
-            timestamps = chart_data.get('timestamp', [])
-            indicators = chart_data.get('indicators', {})
-            quote = indicators.get('quote', [{}])[0]
+            timestamps = chart_data.get("timestamp", [])
+            indicators = chart_data.get("indicators", {})
+            quote = indicators.get("quote", [{}])[0]
 
             ohlc_data = []
             for i, ts in enumerate(timestamps):
@@ -328,12 +355,12 @@ class ForexDataCollector:
                     ohlc = ForexOHLC(
                         pair=pair,
                         timestamp=datetime.fromtimestamp(ts, tz=timezone.utc),
-                        open=quote.get('open', [])[i] or 0,
-                        high=quote.get('high', [])[i] or 0,
-                        low=quote.get('low', [])[i] or 0,
-                        close=quote.get('close', [])[i] or 0,
-                        volume=quote.get('volume', [])[i] or 0,
-                        timeframe=timeframe
+                        open=quote.get("open", [])[i] or 0,
+                        high=quote.get("high", [])[i] or 0,
+                        low=quote.get("low", [])[i] or 0,
+                        close=quote.get("close", [])[i] or 0,
+                        volume=quote.get("volume", [])[i] or 0,
+                        timeframe=timeframe,
                     )
 
                     # データ有効性チェック
@@ -387,9 +414,11 @@ class ForexDataCollector:
         """リソースクリーンアップ"""
         logger.info("Forex Data Collector cleanup completed")
 
+
 def create_forex_collector(api_key: Optional[str] = None) -> ForexDataCollector:
     """Forex Data Collector ファクトリー関数"""
     return ForexDataCollector(api_key=api_key)
+
 
 async def main():
     """テスト実行"""
@@ -410,16 +439,19 @@ async def main():
     print(f"\nCollected data for {len(latest_data)} pairs:")
 
     for pair, tick in latest_data.items():
-        print(f"{pair}: {tick.bid_price:.5f}/{tick.ask_price:.5f} (spread: {tick.spread:.5f})")
+        print(
+            f"{pair}: {tick.bid_price:.5f}/{tick.ask_price:.5f} (spread: {tick.spread:.5f})"
+        )
 
     # クロスレート表示
     cross_rates = collector.calculate_cross_rates()
     if cross_rates:
-        print(f"\nCalculated cross rates:")
+        print("\nCalculated cross rates:")
         for pair, rate in cross_rates.items():
             print(f"{pair}: {rate:.5f}")
 
     await collector.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

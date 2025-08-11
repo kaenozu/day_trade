@@ -6,28 +6,29 @@ Cache Decorators
 関数レベルでのキャッシュ機能を提供
 """
 
+import asyncio
 import functools
 import hashlib
-import asyncio
-import inspect
 import time
-from typing import Any, Callable, Optional, Dict, List, Union
-from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
 
-from ..interfaces.cache_interfaces import ICacheProvider
 from ..exceptions.risk_exceptions import CacheError
+from ..interfaces.cache_interfaces import ICacheProvider
 
 # グローバルキャッシュプロバイダー
 _default_cache_provider: Optional[ICacheProvider] = None
+
 
 def set_default_cache_provider(provider: ICacheProvider):
     """デフォルトキャッシュプロバイダー設定"""
     global _default_cache_provider
     _default_cache_provider = provider
 
+
 def get_default_cache_provider() -> Optional[ICacheProvider]:
     """デフォルトキャッシュプロバイダー取得"""
     return _default_cache_provider
+
 
 def cache_result(
     ttl_seconds: int = 3600,
@@ -40,7 +41,7 @@ def cache_result(
     key_func: Optional[Callable] = None,
     condition: Optional[Callable] = None,
     on_cache_hit: Optional[Callable] = None,
-    on_cache_miss: Optional[Callable] = None
+    on_cache_miss: Optional[Callable] = None,
 ):
     """
     関数結果キャッシュデコレーター
@@ -68,8 +69,15 @@ def cache_result(
 
             # キャッシュキー生成
             cache_key = _generate_cache_key(
-                func, args, kwargs, key_prefix, include_args, include_kwargs,
-                exclude_args, exclude_kwargs, key_func
+                func,
+                args,
+                kwargs,
+                key_prefix,
+                include_args,
+                include_kwargs,
+                exclude_args,
+                exclude_kwargs,
+                key_func,
             )
 
             try:
@@ -104,8 +112,15 @@ def cache_result(
 
             # キャッシュキー生成
             cache_key = _generate_cache_key(
-                func, args, kwargs, key_prefix, include_args, include_kwargs,
-                exclude_args, exclude_kwargs, key_func
+                func,
+                args,
+                kwargs,
+                key_prefix,
+                include_args,
+                include_kwargs,
+                exclude_args,
+                exclude_kwargs,
+                key_func,
             )
 
             try:
@@ -147,9 +162,9 @@ def cache_result(
 
     return decorator
 
+
 def invalidate_cache(
-    key_pattern: str = "*",
-    cache_provider: Optional[ICacheProvider] = None
+    key_pattern: str = "*", cache_provider: Optional[ICacheProvider] = None
 ):
     """
     キャッシュ無効化デコレーター
@@ -197,11 +212,12 @@ def invalidate_cache(
 
     return decorator
 
+
 def cache_aside(
     get_func: Callable,
     set_func: Optional[Callable] = None,
     ttl_seconds: int = 3600,
-    cache_provider: Optional[ICacheProvider] = None
+    cache_provider: Optional[ICacheProvider] = None,
 ):
     """
     Cache-Aside パターンデコレーター
@@ -276,7 +292,10 @@ def cache_aside(
 
     return decorator
 
-def cached_property(ttl_seconds: int = 3600, cache_provider: Optional[ICacheProvider] = None):
+
+def cached_property(
+    ttl_seconds: int = 3600, cache_provider: Optional[ICacheProvider] = None
+):
     """
     キャッシュ付きプロパティデコレーター
 
@@ -317,10 +336,11 @@ def cached_property(ttl_seconds: int = 3600, cache_provider: Optional[ICacheProv
 
     return decorator
 
+
 def cache_with_lock(
     ttl_seconds: int = 3600,
     lock_timeout_seconds: int = 30,
-    cache_provider: Optional[ICacheProvider] = None
+    cache_provider: Optional[ICacheProvider] = None,
 ):
     """
     分散ロック付きキャッシュデコレーター
@@ -426,10 +446,11 @@ def cache_with_lock(
 
     return decorator
 
+
 def bulk_cache(
     batch_size: int = 100,
     ttl_seconds: int = 3600,
-    cache_provider: Optional[ICacheProvider] = None
+    cache_provider: Optional[ICacheProvider] = None,
 ):
     """
     一括キャッシュデコレーター
@@ -444,7 +465,7 @@ def bulk_cache(
         @functools.wraps(func)
         def wrapper(items: List[Any], *args, **kwargs):
             provider = cache_provider or get_default_cache_provider()
-            if provider is None or not hasattr(provider, 'multi_get'):
+            if provider is None or not hasattr(provider, "multi_get"):
                 return func(items, *args, **kwargs)
 
             try:
@@ -481,7 +502,7 @@ def bulk_cache(
                         cache_data[cache_key] = result
                         results[item] = result
 
-                    if hasattr(provider, 'multi_set'):
+                    if hasattr(provider, "multi_set"):
                         provider.multi_set(cache_data, ttl_seconds)
                     else:
                         # 個別設定
@@ -498,7 +519,9 @@ def bulk_cache(
 
     return decorator
 
+
 # ヘルパー関数
+
 
 def _generate_cache_key(
     func: Callable,
@@ -509,7 +532,7 @@ def _generate_cache_key(
     include_kwargs: bool = True,
     exclude_args: Optional[List[int]] = None,
     exclude_kwargs: Optional[List[str]] = None,
-    key_func: Optional[Callable] = None
+    key_func: Optional[Callable] = None,
 ) -> str:
     """キャッシュキー生成"""
 
@@ -547,12 +570,13 @@ def _generate_cache_key(
 
         if filtered_kwargs:
             sorted_kwargs = sorted(filtered_kwargs.items())
-            kwargs_str = ':'.join(f"{k}={v}" for k, v in sorted_kwargs)
+            kwargs_str = ":".join(f"{k}={v}" for k, v in sorted_kwargs)
             key_parts.append(f"kwargs:{kwargs_str}")
 
     # キーを結合してハッシュ化
     key_string = "|".join(key_parts)
-    return hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    return hashlib.md5(key_string.encode("utf-8")).hexdigest()
+
 
 def _serialize_for_key(value: Any) -> str:
     """キー用のシリアライゼーション"""
@@ -565,7 +589,7 @@ def _serialize_for_key(value: Any) -> str:
     elif isinstance(value, dict):
         items = sorted(value.items())
         return f"{{{','.join(f'{k}:{_serialize_for_key(v)}' for k, v in items)}}}"
-    elif hasattr(value, '__dict__'):
+    elif hasattr(value, "__dict__"):
         # オブジェクトの場合は属性をシリアライズ
         attrs = sorted(value.__dict__.items())
         return f"obj:{value.__class__.__name__}:{{{','.join(f'{k}:{_serialize_for_key(v)}' for k, v in attrs)}}}"
@@ -573,18 +597,19 @@ def _serialize_for_key(value: Any) -> str:
         # その他の場合は文字列表現
         return f"obj:{type(value).__name__}:{str(value)}"
 
+
 def _invalidate_matching_keys(
     provider: ICacheProvider,
     pattern: str,
     func: Callable,
     args: tuple,
-    kwargs: Dict[str, Any]
+    kwargs: Dict[str, Any],
 ):
     """パターンに一致するキーを無効化"""
 
     try:
         # パターンに一致するキーを取得
-        if hasattr(provider, 'keys'):
+        if hasattr(provider, "keys"):
             matching_keys = provider.keys(pattern)
 
             # キーを削除
@@ -594,23 +619,25 @@ def _invalidate_matching_keys(
             # keys メソッドがない場合は個別キー削除のみ
             if pattern == "*":
                 # 全削除はclearメソッド使用
-                if hasattr(provider, 'clear'):
+                if hasattr(provider, "clear"):
                     provider.clear()
 
     except Exception:
         # 無効化エラーは無視
         pass
 
+
 # キャッシュ統計情報取得
+
 
 def get_cache_stats(func: Callable) -> Optional[Dict[str, Any]]:
     """キャッシュされた関数の統計情報取得"""
 
-    if not hasattr(func, '_cached_function'):
+    if not hasattr(func, "_cached_function"):
         return None
 
     provider = get_default_cache_provider()
-    if provider is None or not hasattr(provider, 'get_stats'):
+    if provider is None or not hasattr(provider, "get_stats"):
         return None
 
     try:
@@ -618,7 +645,10 @@ def get_cache_stats(func: Callable) -> Optional[Dict[str, Any]]:
     except CacheError:
         return None
 
-def clear_function_cache(func: Callable, cache_provider: Optional[ICacheProvider] = None):
+
+def clear_function_cache(
+    func: Callable, cache_provider: Optional[ICacheProvider] = None
+):
     """特定関数のキャッシュをクリア"""
 
     provider = cache_provider or get_default_cache_provider()

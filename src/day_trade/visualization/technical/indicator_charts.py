@@ -4,7 +4,8 @@
 RSI、MACD、ボリンジャーバンド等のテクニカル指標可視化
 """
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -15,8 +16,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -44,9 +45,7 @@ class IndicatorCharts(ChartRenderer):
         super().__init__(output_dir, theme)
         logger.info("テクニカル指標可視化システム初期化完了")
 
-    def render(
-        self, data: pd.DataFrame, indicators: Dict, **kwargs
-    ) -> Optional[str]:
+    def render(self, data: pd.DataFrame, indicators: Dict, **kwargs) -> Optional[str]:
         """
         テクニカル指標チャート描画
 
@@ -220,10 +219,16 @@ class IndicatorCharts(ChartRenderer):
 
                 # 過買い・過売りライン
                 ax.axhline(
-                    70, color=self.palette.get_color("bearish"), linestyle="--", alpha=0.7
+                    70,
+                    color=self.palette.get_color("bearish"),
+                    linestyle="--",
+                    alpha=0.7,
                 )
                 ax.axhline(
-                    30, color=self.palette.get_color("bullish"), linestyle="--", alpha=0.7
+                    30,
+                    color=self.palette.get_color("bullish"),
+                    linestyle="--",
+                    alpha=0.7,
                 )
 
                 # 過買い・過売り領域を塗りつぶし
@@ -269,7 +274,9 @@ class IndicatorCharts(ChartRenderer):
 
                 ax.set_ylim(0, 100)
 
-        self.apply_common_styling(ax, title="RSI (Relative Strength Index)", ylabel="RSI")
+        self.apply_common_styling(
+            ax, title="RSI (Relative Strength Index)", ylabel="RSI"
+        )
 
     def _plot_macd(self, ax, indicators: Dict) -> None:
         """
@@ -306,7 +313,9 @@ class IndicatorCharts(ChartRenderer):
             if "histogram" in macd_data:
                 histogram = macd_data["histogram"]
                 colors = [
-                    self.palette.get_color("bullish") if h >= 0 else self.palette.get_color("bearish")
+                    self.palette.get_color("bullish")
+                    if h >= 0
+                    else self.palette.get_color("bearish")
                     for h in histogram
                 ]
 
@@ -651,7 +660,11 @@ class IndicatorCharts(ChartRenderer):
         signal_summary = {}
 
         if "RSI" in indicators:
-            rsi_latest = indicators["RSI"].get("rsi", [0])[-1] if indicators["RSI"].get("rsi") else 50
+            rsi_latest = (
+                indicators["RSI"].get("rsi", [0])[-1]
+                if indicators["RSI"].get("rsi")
+                else 50
+            )
             if rsi_latest > 70:
                 signal_summary["RSI"] = "過買い"
             elif rsi_latest < 30:
@@ -712,7 +725,9 @@ class IndicatorCharts(ChartRenderer):
             if dashboard:
                 exported_files["dashboard"] = dashboard
 
-            logger.info(f"テクニカル分析レポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"テクニカル分析レポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

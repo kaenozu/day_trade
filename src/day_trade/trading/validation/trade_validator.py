@@ -7,10 +7,10 @@
 import re
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 from ...utils.logging_config import get_context_logger
-from ..core.types import Trade, TradeType, TradeStatus
+from ..core.types import Trade, TradeType
 
 logger = get_context_logger(__name__)
 
@@ -68,7 +68,7 @@ class TradeValidator:
             "errors": [],
             "warnings": [],
             "info": [],
-            "validation_details": {}
+            "validation_details": {},
         }
 
         try:
@@ -78,25 +78,31 @@ class TradeValidator:
                 "symbol_format": self._validate_symbol_format(trade),
                 "quantity_positive": self._validate_quantity_positive(trade),
                 "price_positive": self._validate_price_positive(trade),
-                "commission_non_negative": self._validate_commission_non_negative(trade),
+                "commission_non_negative": self._validate_commission_non_negative(
+                    trade
+                ),
                 "timestamp_valid": self._validate_timestamp_valid(trade),
                 "trade_type_valid": self._validate_trade_type_valid(trade),
                 "unit_share_compliance": self._validate_unit_share_compliance(trade),
                 "price_range_check": self._validate_price_range(trade),
                 "weekend_trading_check": self._validate_weekend_trading(trade),
-                "commission_reasonableness": self._validate_commission_reasonableness(trade),
+                "commission_reasonableness": self._validate_commission_reasonableness(
+                    trade
+                ),
             }
 
             # 結果分類
             for rule_name, (is_valid, message) in validations.items():
                 validation_result["validation_details"][rule_name] = {
                     "is_valid": is_valid,
-                    "message": message
+                    "message": message,
                 }
 
                 if not is_valid:
                     # ルールの重要度に基づいて分類
-                    rule = next((r for r in self.validation_rules if r.name == rule_name), None)
+                    rule = next(
+                        (r for r in self.validation_rules if r.name == rule_name), None
+                    )
                     severity = rule.severity if rule else "error"
 
                     if severity == "error":
@@ -109,9 +115,13 @@ class TradeValidator:
 
             # サマリーログ
             if not validation_result["is_valid"]:
-                logger.warning(f"取引検証失敗: {trade.id} - {len(validation_result['errors'])}エラー")
+                logger.warning(
+                    f"取引検証失敗: {trade.id} - {len(validation_result['errors'])}エラー"
+                )
             elif validation_result["warnings"]:
-                logger.info(f"取引検証注意: {trade.id} - {len(validation_result['warnings'])}警告")
+                logger.info(
+                    f"取引検証注意: {trade.id} - {len(validation_result['warnings'])}警告"
+                )
 
             return validation_result
 
@@ -130,7 +140,7 @@ class TradeValidator:
             return False, "取引IDが短すぎます"
 
         # ID形式パターン（例: TRD_20240101120000_12345678）
-        pattern = r'^TRD_\d{14}_[a-zA-Z0-9]{8}$'
+        pattern = r"^TRD_\d{14}_[a-zA-Z0-9]{8}$"
         if not re.match(pattern, trade.id):
             return False, "取引ID形式が正しくありません"
 
@@ -145,9 +155,12 @@ class TradeValidator:
             return False, "銘柄コードが空白のみです"
 
         # 日本株銘柄コードパターン（4桁数字）
-        pattern = r'^\d{4}$'
+        pattern = r"^\d{4}$"
         if not re.match(pattern, trade.symbol):
-            return False, "銘柄コード形式が正しくありません（4桁数字である必要があります）"
+            return (
+                False,
+                "銘柄コード形式が正しくありません（4桁数字である必要があります）",
+            )
 
         return True, "銘柄コード形式OK"
 
@@ -261,7 +274,7 @@ class TradeValidator:
                 "warning_types": {},
                 "most_common_errors": [],
                 "most_common_warnings": [],
-            }
+            },
         }
 
         try:
@@ -280,23 +293,28 @@ class TradeValidator:
                 # エラー・警告の統計
                 for error in trade_result["errors"]:
                     error_type = error.split(":")[0]
-                    batch_result["summary"]["error_types"][error_type] = \
+                    batch_result["summary"]["error_types"][error_type] = (
                         batch_result["summary"]["error_types"].get(error_type, 0) + 1
+                    )
 
                 for warning in trade_result["warnings"]:
                     warning_type = warning.split(":")[0]
-                    batch_result["summary"]["warning_types"][warning_type] = \
-                        batch_result["summary"]["warning_types"].get(warning_type, 0) + 1
+                    batch_result["summary"]["warning_types"][warning_type] = (
+                        batch_result["summary"]["warning_types"].get(warning_type, 0)
+                        + 1
+                    )
 
             # 最頻出エラー・警告
             batch_result["summary"]["most_common_errors"] = sorted(
                 batch_result["summary"]["error_types"].items(),
-                key=lambda x: x[1], reverse=True
+                key=lambda x: x[1],
+                reverse=True,
             )[:5]
 
             batch_result["summary"]["most_common_warnings"] = sorted(
                 batch_result["summary"]["warning_types"].items(),
-                key=lambda x: x[1], reverse=True
+                key=lambda x: x[1],
+                reverse=True,
             )[:5]
 
             logger.info(
@@ -343,11 +361,13 @@ class TradeValidator:
 
                 # タイムスタンプ順序チェック
                 if prev_timestamp and trade.timestamp < prev_timestamp:
-                    sequence_result["timeline_issues"].append({
-                        "trade_id": trade.id,
-                        "issue": "時刻順序不正",
-                        "details": f"前の取引より古い時刻: {trade.timestamp}"
-                    })
+                    sequence_result["timeline_issues"].append(
+                        {
+                            "trade_id": trade.id,
+                            "issue": "時刻順序不正",
+                            "details": f"前の取引より古い時刻: {trade.timestamp}",
+                        }
+                    )
 
                 # ポジション追跡初期化
                 if symbol not in position_balances:
@@ -356,12 +376,14 @@ class TradeValidator:
                 # 売却時のポジション不足チェック
                 if trade.trade_type == TradeType.SELL:
                     if position_balances[symbol] < trade.quantity:
-                        sequence_result["issues"].append({
-                            "trade_id": trade.id,
-                            "issue": "売却数量過多",
-                            "details": f"保有{position_balances[symbol]}株に対し{trade.quantity}株売却",
-                            "severity": "error"
-                        })
+                        sequence_result["issues"].append(
+                            {
+                                "trade_id": trade.id,
+                                "issue": "売却数量過多",
+                                "details": f"保有{position_balances[symbol]}株に対し{trade.quantity}株売却",
+                                "severity": "error",
+                            }
+                        )
                         sequence_result["sequence_valid"] = False
 
                 # ポジション更新
@@ -379,7 +401,9 @@ class TradeValidator:
             if sequence_result["sequence_valid"]:
                 logger.info("取引シーケンス検証成功")
             else:
-                logger.warning(f"取引シーケンス検証失敗: {len(sequence_result['issues'])}問題")
+                logger.warning(
+                    f"取引シーケンス検証失敗: {len(sequence_result['issues'])}問題"
+                )
 
             return sequence_result
 
@@ -404,15 +428,25 @@ class TradeValidator:
             report_lines.append("=" * 60)
             report_lines.append("取引データ検証レポート")
             report_lines.append("=" * 60)
-            report_lines.append(f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+            report_lines.append(
+                f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}"
+            )
             report_lines.append("")
 
             # サマリー
             report_lines.append("【検証サマリー】")
-            report_lines.append(f"総取引数: {validation_results.get('total_trades', 0):,}件")
-            report_lines.append(f"有効取引: {validation_results.get('valid_trades', 0):,}件")
-            report_lines.append(f"無効取引: {validation_results.get('invalid_trades', 0):,}件")
-            report_lines.append(f"警告あり: {validation_results.get('trades_with_warnings', 0):,}件")
+            report_lines.append(
+                f"総取引数: {validation_results.get('total_trades', 0):,}件"
+            )
+            report_lines.append(
+                f"有効取引: {validation_results.get('valid_trades', 0):,}件"
+            )
+            report_lines.append(
+                f"無効取引: {validation_results.get('invalid_trades', 0):,}件"
+            )
+            report_lines.append(
+                f"警告あり: {validation_results.get('trades_with_warnings', 0):,}件"
+            )
             report_lines.append("")
 
             # エラー統計
@@ -454,7 +488,9 @@ class TradeValidator:
             logger.error(f"検証レポート生成エラー: {e}")
             return f"検証レポート生成エラー: {str(e)}"
 
-    def get_validation_statistics(self, validation_results: Dict[str, Any]) -> Dict[str, Any]:
+    def get_validation_statistics(
+        self, validation_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         検証統計情報取得
 
@@ -470,13 +506,25 @@ class TradeValidator:
             invalid_trades = validation_results.get("invalid_trades", 0)
 
             statistics = {
-                "validation_success_rate": (valid_trades / total_trades * 100) if total_trades > 0 else 0,
-                "error_rate": (invalid_trades / total_trades * 100) if total_trades > 0 else 0,
+                "validation_success_rate": (valid_trades / total_trades * 100)
+                if total_trades > 0
+                else 0,
+                "error_rate": (invalid_trades / total_trades * 100)
+                if total_trades > 0
+                else 0,
                 "warning_rate": (
-                    validation_results.get("trades_with_warnings", 0) / total_trades * 100
-                ) if total_trades > 0 else 0,
-                "data_quality_score": self._calculate_data_quality_score(validation_results),
-                "most_critical_issue": self._identify_most_critical_issue(validation_results),
+                    validation_results.get("trades_with_warnings", 0)
+                    / total_trades
+                    * 100
+                )
+                if total_trades > 0
+                else 0,
+                "data_quality_score": self._calculate_data_quality_score(
+                    validation_results
+                ),
+                "most_critical_issue": self._identify_most_critical_issue(
+                    validation_results
+                ),
             }
 
             return statistics
@@ -485,7 +533,9 @@ class TradeValidator:
             logger.error(f"検証統計取得エラー: {e}")
             return {}
 
-    def _calculate_data_quality_score(self, validation_results: Dict[str, Any]) -> float:
+    def _calculate_data_quality_score(
+        self, validation_results: Dict[str, Any]
+    ) -> float:
         """データ品質スコア計算"""
         total_trades = validation_results.get("total_trades", 0)
         if total_trades == 0:

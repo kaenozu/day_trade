@@ -225,7 +225,9 @@ class RSIOversoldRule(SignalRule):
             config = SignalRulesConfig()
 
         threshold = config.get_rsi_thresholds().get("oversold", self.threshold)
-        confidence_multiplier = config.get_confidence_multiplier("rsi_oversold", self.confidence_multiplier)
+        confidence_multiplier = config.get_confidence_multiplier(
+            "rsi_oversold", self.confidence_multiplier
+        )
 
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -266,7 +268,9 @@ class RSIOverboughtRule(SignalRule):
             config = SignalRulesConfig()
 
         threshold = config.get_rsi_thresholds().get("overbought", self.threshold)
-        confidence_multiplier = config.get_confidence_multiplier("rsi_overbought", self.confidence_multiplier)
+        confidence_multiplier = config.get_confidence_multiplier(
+            "rsi_overbought", self.confidence_multiplier
+        )
 
         if "RSI" not in indicators.columns or indicators["RSI"].empty:
             return False, 0.0
@@ -304,7 +308,9 @@ class MACDCrossoverRule(SignalRule):
             config = SignalRulesConfig()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
-        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+        angle_multiplier = config.get_confidence_multiplier(
+            "macd_angle", self.angle_multiplier
+        )
 
         if (
             "MACD" not in indicators.columns
@@ -355,7 +361,9 @@ class MACDDeathCrossRule(SignalRule):
             config = SignalRulesConfig()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
-        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+        angle_multiplier = config.get_confidence_multiplier(
+            "macd_angle", self.angle_multiplier
+        )
 
         if (
             "MACD" not in indicators.columns
@@ -413,7 +421,9 @@ class BollingerBandRule(SignalRule):
         if config is None:
             config = SignalRulesConfig()
 
-        deviation_multiplier = config.get_confidence_multiplier("bollinger_deviation", self.deviation_multiplier)
+        deviation_multiplier = config.get_confidence_multiplier(
+            "bollinger_deviation", self.deviation_multiplier
+        )
 
         if (
             "BB_Upper" not in indicators.columns

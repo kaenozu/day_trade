@@ -14,14 +14,14 @@ Features:
 """
 
 import asyncio
-import json
 import smtplib
-import aiohttp
-from typing import Dict, List, Optional, Any
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any, Dict, List
+
+import aiohttp
 from jinja2 import Template
 
 from ..utils.logging_config import get_context_logger
@@ -29,21 +29,26 @@ from .alert_engine import Alert, AlertSeverity, NotificationChannel
 
 logger = get_context_logger(__name__)
 
+
 @dataclass
 class NotificationConfig:
     """通知設定"""
+
     channel: NotificationChannel
     enabled: bool = True
     settings: Dict[str, Any] = None
 
+
 @dataclass
 class NotificationTemplate:
     """通知テンプレート"""
+
     channel: NotificationChannel
     severity: AlertSeverity
     title_template: str
     body_template: str
     color: str = None
+
 
 class NotificationSystem:
     """通知システム"""
@@ -60,11 +65,12 @@ class NotificationSystem:
         """デフォルトテンプレート設定"""
 
         # Slackテンプレート
-        self.add_template(NotificationTemplate(
-            channel=NotificationChannel.SLACK,
-            severity=AlertSeverity.INFO,
-            title_template="📊 Day Trade Alert - {{ alert.name }}",
-            body_template="""
+        self.add_template(
+            NotificationTemplate(
+                channel=NotificationChannel.SLACK,
+                severity=AlertSeverity.INFO,
+                title_template="📊 Day Trade Alert - {{ alert.name }}",
+                body_template="""
 *Alert Details:*
 • *Name:* {{ alert.name }}
 • *Severity:* {{ alert.severity.value.upper() }}
@@ -78,14 +84,16 @@ class NotificationSystem:
 {% endfor %}
 {% endif %}
             """.strip(),
-            color="#36a64f"
-        ))
+                color="#36a64f",
+            )
+        )
 
-        self.add_template(NotificationTemplate(
-            channel=NotificationChannel.SLACK,
-            severity=AlertSeverity.WARNING,
-            title_template="⚠️ Day Trade Warning - {{ alert.name }}",
-            body_template="""
+        self.add_template(
+            NotificationTemplate(
+                channel=NotificationChannel.SLACK,
+                severity=AlertSeverity.WARNING,
+                title_template="⚠️ Day Trade Warning - {{ alert.name }}",
+                body_template="""
 *Alert Details:*
 • *Name:* {{ alert.name }}
 • *Severity:* {{ alert.severity.value.upper() }}
@@ -101,14 +109,16 @@ class NotificationSystem:
 
 *Action Required:* Please investigate this warning.
             """.strip(),
-            color="#ffa500"
-        ))
+                color="#ffa500",
+            )
+        )
 
-        self.add_template(NotificationTemplate(
-            channel=NotificationChannel.SLACK,
-            severity=AlertSeverity.CRITICAL,
-            title_template="🚨 Day Trade CRITICAL - {{ alert.name }}",
-            body_template="""
+        self.add_template(
+            NotificationTemplate(
+                channel=NotificationChannel.SLACK,
+                severity=AlertSeverity.CRITICAL,
+                title_template="🚨 Day Trade CRITICAL - {{ alert.name }}",
+                body_template="""
 *CRITICAL ALERT*
 • *Name:* {{ alert.name }}
 • *Severity:* {{ alert.severity.value.upper() }}
@@ -125,14 +135,16 @@ class NotificationSystem:
 *IMMEDIATE ACTION REQUIRED!*
 @channel Please respond immediately.
             """.strip(),
-            color="#ff0000"
-        ))
+                color="#ff0000",
+            )
+        )
 
-        self.add_template(NotificationTemplate(
-            channel=NotificationChannel.SLACK,
-            severity=AlertSeverity.EMERGENCY,
-            title_template="🚨🚨 Day Trade EMERGENCY - {{ alert.name }}",
-            body_template="""
+        self.add_template(
+            NotificationTemplate(
+                channel=NotificationChannel.SLACK,
+                severity=AlertSeverity.EMERGENCY,
+                title_template="🚨🚨 Day Trade EMERGENCY - {{ alert.name }}",
+                body_template="""
 *EMERGENCY ALERT*
 • *Name:* {{ alert.name }}
 • *Severity:* {{ alert.severity.value.upper() }}
@@ -149,16 +161,18 @@ class NotificationSystem:
 *SYSTEM FAILURE - EMERGENCY RESPONSE REQUIRED*
 @channel @here CRITICAL SYSTEM FAILURE
             """.strip(),
-            color="#8B0000"
-        ))
+                color="#8B0000",
+            )
+        )
 
         # Emailテンプレート
         for severity in AlertSeverity:
-            self.add_template(NotificationTemplate(
-                channel=NotificationChannel.EMAIL,
-                severity=severity,
-                title_template="[{{ alert.severity.value.upper() }}] Day Trade Alert - {{ alert.name }}",
-                body_template="""
+            self.add_template(
+                NotificationTemplate(
+                    channel=NotificationChannel.EMAIL,
+                    severity=severity,
+                    title_template="[{{ alert.severity.value.upper() }}] Day Trade Alert - {{ alert.name }}",
+                    body_template="""
 <html>
 <body>
 <h2 style="color: {% if alert.severity.value == 'critical' %}#ff0000{% elif alert.severity.value == 'warning' %}#ffa500{% else %}#36a64f{% endif %};">
@@ -184,8 +198,9 @@ class NotificationSystem:
 <p><em>This is an automated alert from the Day Trade monitoring system.</em></p>
 </body>
 </html>
-                """.strip()
-            ))
+                """.strip(),
+                )
+            )
 
     def add_config(self, config: NotificationConfig):
         """通知設定追加"""
@@ -220,34 +235,38 @@ class NotificationSystem:
                 logger.warning(f"未実装の通知チャネル: {channel.value}")
 
             # 履歴記録
-            self.notification_history.append({
-                'timestamp': datetime.now().isoformat(),
-                'alert_id': alert.id,
-                'channel': channel.value,
-                'status': 'sent',
-                'alert_name': alert.name,
-                'severity': alert.severity.value
-            })
+            self.notification_history.append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "alert_id": alert.id,
+                    "channel": channel.value,
+                    "status": "sent",
+                    "alert_name": alert.name,
+                    "severity": alert.severity.value,
+                }
+            )
 
         except Exception as e:
             logger.error(f"通知送信エラー ({channel.value}): {e}")
 
             # エラー履歴記録
-            self.notification_history.append({
-                'timestamp': datetime.now().isoformat(),
-                'alert_id': alert.id,
-                'channel': channel.value,
-                'status': 'error',
-                'error': str(e),
-                'alert_name': alert.name,
-                'severity': alert.severity.value
-            })
+            self.notification_history.append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "alert_id": alert.id,
+                    "channel": channel.value,
+                    "status": "error",
+                    "error": str(e),
+                    "alert_name": alert.name,
+                    "severity": alert.severity.value,
+                }
+            )
 
     async def _send_slack_notification(self, alert: Alert):
         """Slack通知送信"""
 
         config = self.configs[NotificationChannel.SLACK]
-        webhook_url = config.settings.get('webhook_url')
+        webhook_url = config.settings.get("webhook_url")
 
         if not webhook_url:
             raise ValueError("Slack webhook URL未設定")
@@ -261,13 +280,15 @@ class NotificationSystem:
         payload = {
             "username": "Day Trade Monitor",
             "icon_emoji": ":robot_face:",
-            "attachments": [{
-                "color": template.color,
-                "title": title,
-                "text": body,
-                "timestamp": int(alert.start_time.timestamp()),
-                "footer": "Day Trade Monitoring System"
-            }]
+            "attachments": [
+                {
+                    "color": template.color,
+                    "title": title,
+                    "text": body,
+                    "timestamp": int(alert.start_time.timestamp()),
+                    "footer": "Day Trade Monitoring System",
+                }
+            ],
         }
 
         # HTTP POST送信
@@ -282,11 +303,11 @@ class NotificationSystem:
         config = self.configs[NotificationChannel.EMAIL]
         settings = config.settings
 
-        smtp_server = settings.get('smtp_server')
-        smtp_port = settings.get('smtp_port', 587)
-        username = settings.get('username')
-        password = settings.get('password')
-        to_addresses = settings.get('to_addresses', [])
+        smtp_server = settings.get("smtp_server")
+        smtp_port = settings.get("smtp_port", 587)
+        username = settings.get("username")
+        password = settings.get("password")
+        to_addresses = settings.get("to_addresses", [])
 
         if not all([smtp_server, username, password, to_addresses]):
             raise ValueError("Email設定不完全")
@@ -297,12 +318,12 @@ class NotificationSystem:
         body = Template(template.body_template).render(alert=alert)
 
         # メール作成
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = username
-        msg['To'] = ', '.join(to_addresses)
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = username
+        msg["To"] = ", ".join(to_addresses)
 
-        html_part = MIMEText(body, 'html')
+        html_part = MIMEText(body, "html")
         msg.attach(html_part)
 
         # SMTP送信（非同期実行）
@@ -318,23 +339,23 @@ class NotificationSystem:
         """Webhook通知送信"""
 
         config = self.configs[NotificationChannel.WEBHOOK]
-        url = config.settings.get('url')
-        headers = config.settings.get('headers', {})
+        url = config.settings.get("url")
+        headers = config.settings.get("headers", {})
 
         if not url:
             raise ValueError("Webhook URL未設定")
 
         # ペイロード作成
         payload = {
-            'alert': asdict(alert),
-            'timestamp': datetime.now().isoformat(),
-            'source': 'day_trade_monitoring'
+            "alert": asdict(alert),
+            "timestamp": datetime.now().isoformat(),
+            "source": "day_trade_monitoring",
         }
 
         # 日時オブジェクトを文字列に変換
-        payload['alert']['start_time'] = alert.start_time.isoformat()
+        payload["alert"]["start_time"] = alert.start_time.isoformat()
         if alert.end_time:
-            payload['alert']['end_time'] = alert.end_time.isoformat()
+            payload["alert"]["end_time"] = alert.end_time.isoformat()
 
         # HTTP POST送信
         async with aiohttp.ClientSession() as session:
@@ -346,7 +367,7 @@ class NotificationSystem:
         """Discord通知送信"""
 
         config = self.configs[NotificationChannel.DISCORD]
-        webhook_url = config.settings.get('webhook_url')
+        webhook_url = config.settings.get("webhook_url")
 
         if not webhook_url:
             raise ValueError("Discord webhook URL未設定")
@@ -358,24 +379,24 @@ class NotificationSystem:
 
         # Discord色コード変換
         color_map = {
-            "#36a64f": 3580735,    # 緑
-            "#ffa500": 16753920,   # オレンジ
-            "#ff0000": 16711680,   # 赤
-            "#8B0000": 9109504     # ダークレッド
+            "#36a64f": 3580735,  # 緑
+            "#ffa500": 16753920,  # オレンジ
+            "#ff0000": 16711680,  # 赤
+            "#8B0000": 9109504,  # ダークレッド
         }
 
         # Discord Webhook ペイロード作成
         payload = {
             "username": "Day Trade Monitor",
-            "embeds": [{
-                "title": title,
-                "description": body[:2000],  # Discord制限
-                "color": color_map.get(template.color, 3580735),
-                "timestamp": alert.start_time.isoformat(),
-                "footer": {
-                    "text": "Day Trade Monitoring System"
+            "embeds": [
+                {
+                    "title": title,
+                    "description": body[:2000],  # Discord制限
+                    "color": color_map.get(template.color, 3580735),
+                    "timestamp": alert.start_time.isoformat(),
+                    "footer": {"text": "Day Trade Monitoring System"},
                 }
-            }]
+            ],
         }
 
         # HTTP POST送信
@@ -384,8 +405,9 @@ class NotificationSystem:
                 if response.status != 200:
                     raise Exception(f"Discord API エラー: {response.status}")
 
-    def _get_template(self, channel: NotificationChannel,
-                     severity: AlertSeverity) -> NotificationTemplate:
+    def _get_template(
+        self, channel: NotificationChannel, severity: AlertSeverity
+    ) -> NotificationTemplate:
         """テンプレート取得"""
 
         key = f"{channel.value}_{severity.value}"
@@ -412,10 +434,10 @@ class NotificationSystem:
 
         if total_notifications == 0:
             return {
-                'total_notifications': 0,
-                'by_channel': {},
-                'by_severity': {},
-                'success_rate': 0.0
+                "total_notifications": 0,
+                "by_channel": {},
+                "by_severity": {},
+                "success_rate": 0.0,
             }
 
         by_channel = {}
@@ -424,28 +446,40 @@ class NotificationSystem:
 
         for record in self.notification_history:
             # チャネル別
-            channel = record['channel']
+            channel = record["channel"]
             by_channel[channel] = by_channel.get(channel, 0) + 1
 
             # 重要度別
-            severity = record['severity']
+            severity = record["severity"]
             by_severity[severity] = by_severity.get(severity, 0) + 1
 
             # 成功率
-            if record['status'] == 'sent':
+            if record["status"] == "sent":
                 successful += 1
 
         return {
-            'total_notifications': total_notifications,
-            'by_channel': by_channel,
-            'by_severity': by_severity,
-            'success_rate': (successful / total_notifications) * 100 if total_notifications > 0 else 0.0,
-            'last_24h': len([r for r in self.notification_history
-                           if (datetime.now() - datetime.fromisoformat(r['timestamp'])).total_seconds() < 86400])
+            "total_notifications": total_notifications,
+            "by_channel": by_channel,
+            "by_severity": by_severity,
+            "success_rate": (successful / total_notifications) * 100
+            if total_notifications > 0
+            else 0.0,
+            "last_24h": len(
+                [
+                    r
+                    for r in self.notification_history
+                    if (
+                        datetime.now() - datetime.fromisoformat(r["timestamp"])
+                    ).total_seconds()
+                    < 86400
+                ]
+            ),
         }
+
 
 # グローバルインスタンス
 _notification_system = NotificationSystem()
+
 
 def get_notification_system() -> NotificationSystem:
     """通知システム取得"""

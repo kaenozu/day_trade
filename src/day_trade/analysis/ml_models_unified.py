@@ -10,17 +10,17 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
 from ..core.optimization_strategy import (
-    OptimizationStrategy,
-    OptimizationLevel,
     OptimizationConfig,
+    OptimizationLevel,
+    OptimizationStrategy,
+    get_optimized_implementation,
     optimization_strategy,
-    get_optimized_implementation
 )
 from ..utils.logging_config import get_context_logger
 
@@ -28,6 +28,7 @@ logger = get_context_logger(__name__)
 
 # オプショナル機械学習依存関係
 try:
+    import joblib
     from sklearn.ensemble import (
         GradientBoostingRegressor,
         RandomForestClassifier,
@@ -37,7 +38,7 @@ try:
     from sklearn.metrics import accuracy_score, mean_squared_error
     from sklearn.model_selection import TimeSeriesSplit, cross_val_score
     from sklearn.preprocessing import StandardScaler
-    import joblib
+
     SKLEARN_AVAILABLE = True
     logger.info("scikit-learn利用可能")
 except ImportError:
@@ -46,6 +47,7 @@ except ImportError:
 
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
     logger.info("XGBoost利用可能")
 except ImportError:
@@ -54,6 +56,7 @@ except ImportError:
 
 try:
     import lightgbm as lgb
+
     LIGHTGBM_AVAILABLE = True
     logger.info("LightGBM利用可能")
 except ImportError:
@@ -62,6 +65,7 @@ except ImportError:
 
 try:
     from ..utils.performance_analyzer import profile_performance
+
     PERFORMANCE_UTILS_AVAILABLE = True
 except ImportError:
     PERFORMANCE_UTILS_AVAILABLE = False
@@ -72,7 +76,10 @@ warnings.filterwarnings("ignore")
 @dataclass
 class ModelConfig:
     """統合モデル設定"""
-    model_type: str = "random_forest"  # random_forest, gradient_boosting, xgboost, lightgbm
+
+    model_type: str = (
+        "random_forest"  # random_forest, gradient_boosting, xgboost, lightgbm
+    )
     n_estimators: int = 100
     max_depth: int = 5
     learning_rate: float = 0.1
@@ -90,6 +97,7 @@ class ModelConfig:
 @dataclass
 class ModelPrediction:
     """統合モデル予測結果"""
+
     prediction: float
     confidence: float = 0.0
     model_name: str = ""
@@ -103,6 +111,7 @@ class ModelPrediction:
 @dataclass
 class ModelTrainingResult:
     """モデル訓練結果"""
+
     model: Any
     training_score: float
     validation_score: float
@@ -126,6 +135,7 @@ class PerformanceCache:
     def _generate_key(self, data: pd.DataFrame, model_config: ModelConfig) -> str:
         """キャッシュキー生成"""
         import hashlib
+
         data_hash = hashlib.md5(str(data.values.tobytes()).encode()).hexdigest()[:16]
         config_hash = hashlib.md5(str(model_config.__dict__).encode()).hexdigest()[:16]
         return f"{data_hash}_{config_hash}"
@@ -150,7 +160,9 @@ class PerformanceCache:
         """キャッシュに保存"""
         if len(self.cache) >= self.max_size:
             # LRU削除
-            oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
+            oldest_key = min(
+                self.access_times.keys(), key=lambda k: self.access_times[k]
+            )
             del self.cache[oldest_key]
             del self.access_times[oldest_key]
 
@@ -166,7 +178,7 @@ class PerformanceCache:
             "miss_count": self.miss_count,
             "hit_rate": hit_rate,
             "cache_size": len(self.cache),
-            "max_size": self.max_size
+            "max_size": self.max_size,
         }
 
 
@@ -214,21 +226,21 @@ class MLModelsBase(OptimizationStrategy):
             return RandomForestRegressor(
                 n_estimators=model_config.n_estimators,
                 max_depth=model_config.max_depth,
-                random_state=42
+                random_state=42,
             )
         elif model_config.model_type == "gradient_boosting":
             return GradientBoostingRegressor(
                 n_estimators=model_config.n_estimators,
                 max_depth=model_config.max_depth,
                 learning_rate=model_config.learning_rate,
-                random_state=42
+                random_state=42,
             )
         elif model_config.model_type == "xgboost" and XGBOOST_AVAILABLE:
             return xgb.XGBRegressor(
                 n_estimators=model_config.n_estimators,
                 max_depth=model_config.max_depth,
                 learning_rate=model_config.learning_rate,
-                random_state=42
+                random_state=42,
             )
         elif model_config.model_type == "lightgbm" and LIGHTGBM_AVAILABLE:
             return lgb.LGBMRegressor(
@@ -236,14 +248,16 @@ class MLModelsBase(OptimizationStrategy):
                 max_depth=model_config.max_depth,
                 learning_rate=model_config.learning_rate,
                 random_state=42,
-                verbose=-1
+                verbose=-1,
             )
         else:
             # フォールバック: Linear Regression
             logger.warning(f"モデル{model_config.model_type}未利用、線形回帰使用")
             return LinearRegression()
 
-    def _train_model(self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None) -> ModelTrainingResult:
+    def _train_model(
+        self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None
+    ) -> ModelTrainingResult:
         """モデル訓練"""
         if model_config:
             self.model_config = model_config
@@ -252,6 +266,7 @@ class MLModelsBase(OptimizationStrategy):
 
         # データ分割
         from sklearn.model_selection import train_test_split
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=self.model_config.test_size, random_state=42
         )
@@ -271,15 +286,17 @@ class MLModelsBase(OptimizationStrategy):
 
         # 特徴重要度
         feature_importance = None
-        if hasattr(model, 'feature_importances_'):
+        if hasattr(model, "feature_importances_"):
             feature_importance = dict(zip(X.columns, model.feature_importances_))
 
         # クロスバリデーション
         cv_scores = None
         if self.model_config.cv_folds > 1:
             cv_scores = cross_val_score(
-                model, X_train_scaled, y_train,
-                cv=TimeSeriesSplit(n_splits=self.model_config.cv_folds)
+                model,
+                X_train_scaled,
+                y_train,
+                cv=TimeSeriesSplit(n_splits=self.model_config.cv_folds),
             ).tolist()
 
         training_time = time.time() - start_time
@@ -295,10 +312,12 @@ class MLModelsBase(OptimizationStrategy):
             training_time=training_time,
             strategy_used=self.get_strategy_name(),
             feature_importance=feature_importance,
-            cross_validation_scores=cv_scores
+            cross_validation_scores=cv_scores,
         )
 
-    def _predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def _predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """予測実行"""
         start_time = time.time()
 
@@ -317,21 +336,25 @@ class MLModelsBase(OptimizationStrategy):
 
         # 信頼度計算（可能な場合）
         confidence = 0.0
-        if hasattr(model, 'predict_proba'):
+        if hasattr(model, "predict_proba"):
             proba = model.predict_proba(X_scaled)
             confidence = float(np.max(proba, axis=1).mean())
 
         computation_time = time.time() - start_time
 
         return ModelPrediction(
-            prediction=float(prediction[0] if len(prediction) == 1 else prediction.mean()),
+            prediction=float(
+                prediction[0] if len(prediction) == 1 else prediction.mean()
+            ),
             confidence=confidence,
             model_name=type(model).__name__,
             computation_time=computation_time,
-            strategy_used=self.get_strategy_name()
+            strategy_used=self.get_strategy_name(),
         )
 
-    def _evaluate_model(self, X_test: pd.DataFrame, y_test: pd.Series, model_key: Optional[str] = None) -> Dict[str, float]:
+    def _evaluate_model(
+        self, X_test: pd.DataFrame, y_test: pd.Series, model_key: Optional[str] = None
+    ) -> Dict[str, float]:
         """モデル評価"""
         if model_key and model_key in self.trained_models:
             model, scaler = self.trained_models[model_key]
@@ -351,7 +374,7 @@ class MLModelsBase(OptimizationStrategy):
             "mse": mse,
             "rmse": rmse,
             "r2_score": r2,
-            "mean_absolute_error": np.mean(np.abs(y_test - y_pred))
+            "mean_absolute_error": np.mean(np.abs(y_test - y_pred)),
         }
 
 
@@ -369,16 +392,22 @@ class OptimizedMLModels(MLModelsBase):
 
     def __init__(self, config: OptimizationConfig):
         super().__init__(config)
-        self.cache = PerformanceCache(
-            max_size=self.model_config.cache_size,
-            ttl_hours=self.model_config.cache_ttl_hours
-        ) if self.model_config.enable_caching else None
+        self.cache = (
+            PerformanceCache(
+                max_size=self.model_config.cache_size,
+                ttl_hours=self.model_config.cache_ttl_hours,
+            )
+            if self.model_config.enable_caching
+            else None
+        )
         logger.info("最適化MLモデル初期化完了")
 
     def get_strategy_name(self) -> str:
         return "最適化MLモデル"
 
-    def _train_model(self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None) -> ModelTrainingResult:
+    def _train_model(
+        self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None
+    ) -> ModelTrainingResult:
         """キャッシュ・並列処理機能付き訓練"""
         if model_config:
             self.model_config = model_config
@@ -406,7 +435,9 @@ class OptimizedMLModels(MLModelsBase):
 
         return result
 
-    def _train_model_parallel(self, X: pd.DataFrame, y: pd.Series) -> ModelTrainingResult:
+    def _train_model_parallel(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> ModelTrainingResult:
         """並列モデル訓練"""
         model_types = ["random_forest", "gradient_boosting"]
         if XGBOOST_AVAILABLE:
@@ -425,7 +456,7 @@ class OptimizedMLModels(MLModelsBase):
                     model_type=model_type,
                     n_estimators=self.model_config.n_estimators,
                     max_depth=self.model_config.max_depth,
-                    learning_rate=self.model_config.learning_rate
+                    learning_rate=self.model_config.learning_rate,
                 )
 
                 future = executor.submit(super()._train_model, X, y, config)
@@ -438,7 +469,9 @@ class OptimizedMLModels(MLModelsBase):
                     if result.validation_score > best_score:
                         best_score = result.validation_score
                         best_result = result
-                        logger.info(f"最良モデル更新: {futures[future]} (score: {best_score:.4f})")
+                        logger.info(
+                            f"最良モデル更新: {futures[future]} (score: {best_score:.4f})"
+                        )
                 except Exception as e:
                     logger.warning(f"並列訓練エラー {futures[future]}: {e}")
 
@@ -449,7 +482,9 @@ class OptimizedMLModels(MLModelsBase):
 
         return best_result
 
-    def _predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def _predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """キャッシュ機能付き予測"""
         start_time = time.time()
 
@@ -457,6 +492,7 @@ class OptimizedMLModels(MLModelsBase):
         cache_key = None
         if self.cache and self.model_config.enable_caching:
             import hashlib
+
             data_hash = hashlib.md5(str(X.values.tobytes()).encode()).hexdigest()
             cache_key = f"predict_{data_hash}_{model_key or 'default'}"
 
@@ -506,17 +542,23 @@ class MLModelsManager:
             self._strategy = get_optimized_implementation("ml_models", self.config)
         return self._strategy
 
-    def train_model(self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None) -> ModelTrainingResult:
+    def train_model(
+        self, X: pd.DataFrame, y: pd.Series, model_config: Optional[ModelConfig] = None
+    ) -> ModelTrainingResult:
         """モデル訓練"""
         strategy = self.get_strategy()
         return strategy.execute("train", X, y, model_config)
 
-    def predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """予測実行"""
         strategy = self.get_strategy()
         return strategy.execute("predict", X, model_key)
 
-    def evaluate_model(self, X_test: pd.DataFrame, y_test: pd.Series, model_key: Optional[str] = None) -> Dict[str, float]:
+    def evaluate_model(
+        self, X_test: pd.DataFrame, y_test: pd.Series, model_key: Optional[str] = None
+    ) -> Dict[str, float]:
         """モデル評価"""
         strategy = self.get_strategy()
         return strategy.execute("evaluate", X_test, y_test, model_key)
@@ -542,7 +584,7 @@ def train_ml_model(
     X: pd.DataFrame,
     y: pd.Series,
     model_config: Optional[ModelConfig] = None,
-    optimization_config: Optional[OptimizationConfig] = None
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> ModelTrainingResult:
     """機械学習モデル訓練のヘルパー関数"""
     manager = MLModelsManager(optimization_config)
@@ -552,7 +594,7 @@ def train_ml_model(
 def predict_with_ml(
     X: pd.DataFrame,
     model_key: Optional[str] = None,
-    optimization_config: Optional[OptimizationConfig] = None
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> ModelPrediction:
     """機械学習予測のヘルパー関数"""
     manager = MLModelsManager(optimization_config)

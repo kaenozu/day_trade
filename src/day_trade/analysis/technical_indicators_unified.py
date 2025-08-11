@@ -8,17 +8,18 @@
 import asyncio
 import time
 import warnings
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Tuple, Optional, Any
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
 from ..core.optimization_strategy import (
-    OptimizationStrategy,
-    OptimizationLevel,
     OptimizationConfig,
+    OptimizationLevel,
+    OptimizationStrategy,
+    get_optimized_implementation,
     optimization_strategy,
-    get_optimized_implementation
 )
 from ..utils.logging_config import get_context_logger
 
@@ -27,6 +28,7 @@ logger = get_context_logger(__name__)
 # 依存パッケージチェック
 try:
     import talib
+
     TALIB_AVAILABLE = True
     logger.info("TA-Lib利用可能")
 except ImportError:
@@ -41,6 +43,7 @@ try:
         UnifiedCacheManager,
         generate_unified_cache_key,
     )
+
     OPTIMIZATION_AVAILABLE = True
     logger.info("最適化システム利用可能")
 except ImportError:
@@ -54,6 +57,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 @dataclass
 class IndicatorResult:
     """指標計算結果"""
+
     name: str
     values: Dict[str, Any]
     metadata: Dict[str, Any]
@@ -66,11 +70,23 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
 
     def __init__(self, config: OptimizationConfig):
         super().__init__(config)
-        self.fibonacci_levels = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.236, 1.618]
+        self.fibonacci_levels = [
+            0.0,
+            0.236,
+            0.382,
+            0.5,
+            0.618,
+            0.786,
+            1.0,
+            1.236,
+            1.618,
+        ]
         self.bollinger_periods = [20, 50, 100]
         self.ma_periods = [5, 10, 20, 50, 100, 200]
 
-    def execute(self, data: pd.DataFrame, indicators: List[str], **kwargs) -> Dict[str, IndicatorResult]:
+    def execute(
+        self, data: pd.DataFrame, indicators: List[str], **kwargs
+    ) -> Dict[str, IndicatorResult]:
         """指標計算の実行"""
         start_time = time.time()
         results = {}
@@ -89,7 +105,7 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
                         values=result,
                         metadata={"params": kwargs},
                         calculation_time=calc_time,
-                        strategy_used=self.get_strategy_name()
+                        strategy_used=self.get_strategy_name(),
                     )
                 else:
                     logger.warning(f"未サポートの指標: {indicator}")
@@ -106,21 +122,27 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             raise
 
     # 基本指標計算メソッド（共通）
-    def calculate_sma(self, data: pd.DataFrame, period: int = 20) -> Dict[str, np.ndarray]:
+    def calculate_sma(
+        self, data: pd.DataFrame, period: int = 20
+    ) -> Dict[str, np.ndarray]:
         """単純移動平均"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
         sma = close.rolling(window=period).mean()
         return {"sma": sma.values, "period": period}
 
-    def calculate_ema(self, data: pd.DataFrame, period: int = 20) -> Dict[str, np.ndarray]:
+    def calculate_ema(
+        self, data: pd.DataFrame, period: int = 20
+    ) -> Dict[str, np.ndarray]:
         """指数移動平均"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
         ema = close.ewm(span=period).mean()
         return {"ema": ema.values, "period": period}
 
-    def calculate_bollinger_bands(self, data: pd.DataFrame, period: int = 20, std_dev: float = 2.0) -> Dict[str, np.ndarray]:
+    def calculate_bollinger_bands(
+        self, data: pd.DataFrame, period: int = 20, std_dev: float = 2.0
+    ) -> Dict[str, np.ndarray]:
         """ボリンジャーバンド"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
         sma = close.rolling(window=period).mean()
         std = close.rolling(window=period).std()
 
@@ -132,12 +154,14 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             "upper": upper_band.values,
             "lower": lower_band.values,
             "period": period,
-            "std_dev": std_dev
+            "std_dev": std_dev,
         }
 
-    def calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, np.ndarray]:
+    def calculate_rsi(
+        self, data: pd.DataFrame, period: int = 14
+    ) -> Dict[str, np.ndarray]:
         """RSI計算"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
         delta = close.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -147,9 +171,15 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
 
         return {"rsi": rsi.values, "period": period}
 
-    def calculate_macd(self, data: pd.DataFrame, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Dict[str, np.ndarray]:
+    def calculate_macd(
+        self,
+        data: pd.DataFrame,
+        fast_period: int = 12,
+        slow_period: int = 26,
+        signal_period: int = 9,
+    ) -> Dict[str, np.ndarray]:
         """MACD計算"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
         ema_fast = close.ewm(span=fast_period).mean()
         ema_slow = close.ewm(span=slow_period).mean()
 
@@ -163,7 +193,7 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             "histogram": histogram.values,
             "fast_period": fast_period,
             "slow_period": slow_period,
-            "signal_period": signal_period
+            "signal_period": signal_period,
         }
 
 
@@ -174,30 +204,42 @@ class StandardTechnicalIndicators(TechnicalIndicatorsBase):
     def get_strategy_name(self) -> str:
         return "標準テクニカル指標"
 
-    def calculate_ichimoku(self, data: pd.DataFrame,
-                          conversion_period: int = 9,
-                          base_period: int = 26,
-                          leading_span_b_period: int = 52,
-                          lagging_span_period: int = 26) -> Dict[str, np.ndarray]:
+    def calculate_ichimoku(
+        self,
+        data: pd.DataFrame,
+        conversion_period: int = 9,
+        base_period: int = 26,
+        leading_span_b_period: int = 52,
+        lagging_span_period: int = 26,
+    ) -> Dict[str, np.ndarray]:
         """一目均衡表（標準実装）"""
-        high = data['高値'] if '高値' in data.columns else data['High']
-        low = data['安値'] if '安値' in data.columns else data['Low']
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        high = data["高値"] if "高値" in data.columns else data["High"]
+        low = data["安値"] if "安値" in data.columns else data["Low"]
+        close = data["終値"] if "終値" in data.columns else data["Close"]
 
         # 転換線 (Conversion Line)
-        conversion_line = (high.rolling(window=conversion_period).max() +
-                          low.rolling(window=conversion_period).min()) / 2
+        conversion_line = (
+            high.rolling(window=conversion_period).max()
+            + low.rolling(window=conversion_period).min()
+        ) / 2
 
         # 基準線 (Base Line)
-        base_line = (high.rolling(window=base_period).max() +
-                    low.rolling(window=base_period).min()) / 2
+        base_line = (
+            high.rolling(window=base_period).max()
+            + low.rolling(window=base_period).min()
+        ) / 2
 
         # 先行スパン1 (Leading Span A)
         leading_span_a = ((conversion_line + base_line) / 2).shift(base_period)
 
         # 先行スパン2 (Leading Span B)
-        leading_span_b = ((high.rolling(window=leading_span_b_period).max() +
-                          low.rolling(window=leading_span_b_period).min()) / 2).shift(base_period)
+        leading_span_b = (
+            (
+                high.rolling(window=leading_span_b_period).max()
+                + low.rolling(window=leading_span_b_period).min()
+            )
+            / 2
+        ).shift(base_period)
 
         # 遅行スパン (Lagging Span)
         lagging_span = close.shift(-lagging_span_period)
@@ -209,13 +251,14 @@ class StandardTechnicalIndicators(TechnicalIndicatorsBase):
             "leading_span_b": leading_span_b.values,
             "lagging_span": lagging_span.values,
             "cloud_top": np.maximum(leading_span_a.values, leading_span_b.values),
-            "cloud_bottom": np.minimum(leading_span_a.values, leading_span_b.values)
+            "cloud_bottom": np.minimum(leading_span_a.values, leading_span_b.values),
         }
 
-    def calculate_fibonacci_retracement(self, data: pd.DataFrame,
-                                       period: int = 100) -> Dict[str, Any]:
+    def calculate_fibonacci_retracement(
+        self, data: pd.DataFrame, period: int = 100
+    ) -> Dict[str, Any]:
         """フィボナッチリトレースメント（標準実装）"""
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
 
         # 期間内の最高値・最安値を取得
         high_val = close.rolling(window=period).max().iloc[-1]
@@ -230,7 +273,7 @@ class StandardTechnicalIndicators(TechnicalIndicatorsBase):
             "levels": retracement_levels,
             "high": high_val,
             "low": low_val,
-            "range": diff
+            "range": diff,
         }
 
 
@@ -246,9 +289,7 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             # UnifiedCacheManagerのAPIに合わせた初期化
             try:
                 self.cache_manager = UnifiedCacheManager(
-                    cache_size=1000,
-                    ttl_seconds=300,
-                    enable_compression=True
+                    cache_size=1000, ttl_seconds=300, enable_compression=True
                 )
             except TypeError:
                 # フォールバック: 基本パラメータのみ
@@ -265,7 +306,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
     def get_strategy_name(self) -> str:
         return "最適化テクニカル指標"
 
-    def execute(self, data: pd.DataFrame, indicators: List[str], **kwargs) -> Dict[str, IndicatorResult]:
+    def execute(
+        self, data: pd.DataFrame, indicators: List[str], **kwargs
+    ) -> Dict[str, IndicatorResult]:
         """キャッシュ機能付き実行"""
         if self.cache_manager and self.config.cache_enabled:
             # キャッシュキーを生成
@@ -274,8 +317,8 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 {
                     "data_hash": hash(str(data.values.tobytes())),
                     "indicators": sorted(indicators),
-                    "params": sorted(kwargs.items())
-                }
+                    "params": sorted(kwargs.items()),
+                },
             )
 
             # キャッシュから取得を試行
@@ -293,20 +336,28 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
 
         return result
 
-    def calculate_ichimoku(self, data: pd.DataFrame,
-                          conversion_period: int = 9,
-                          base_period: int = 26,
-                          leading_span_b_period: int = 52,
-                          lagging_span_period: int = 26) -> Dict[str, np.ndarray]:
+    def calculate_ichimoku(
+        self,
+        data: pd.DataFrame,
+        conversion_period: int = 9,
+        base_period: int = 26,
+        leading_span_b_period: int = 52,
+        lagging_span_period: int = 26,
+    ) -> Dict[str, np.ndarray]:
         """一目均衡表（最適化実装）"""
         if not OPTIMIZATION_AVAILABLE:
             # フォールバック
-            return super().calculate_ichimoku(data, conversion_period, base_period,
-                                            leading_span_b_period, lagging_span_period)
+            return super().calculate_ichimoku(
+                data,
+                conversion_period,
+                base_period,
+                leading_span_b_period,
+                lagging_span_period,
+            )
 
-        high = data['高値'] if '高値' in data.columns else data['High']
-        low = data['安値'] if '安値' in data.columns else data['Low']
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        high = data["高値"] if "高値" in data.columns else data["High"]
+        low = data["安値"] if "安値" in data.columns else data["Low"]
+        close = data["終値"] if "終値" in data.columns else data["Close"]
 
         # 最適化されたローリング計算
         with self.performance_monitor.measure_time("ichimoku_calculation"):
@@ -319,68 +370,92 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                     n = len(arr)
                     result_max = np.empty(n)
                     result_min = np.empty(n)
-                    result_max[:window-1] = np.nan
-                    result_min[:window-1] = np.nan
+                    result_max[: window - 1] = np.nan
+                    result_min[: window - 1] = np.nan
 
-                    for i in range(window-1, n):
-                        result_max[i] = np.max(arr[i-window+1:i+1])
-                        result_min[i] = np.min(arr[i-window+1:i+1])
+                    for i in range(window - 1, n):
+                        result_max[i] = np.max(arr[i - window + 1 : i + 1])
+                        result_min[i] = np.min(arr[i - window + 1 : i + 1])
 
                     return result_max, result_min
 
                 # 高速計算
                 conv_max, conv_min = rolling_max_min(high.values, conversion_period)
                 base_max, base_min = rolling_max_min(high.values, base_period)
-                span_b_max, span_b_min = rolling_max_min(high.values, leading_span_b_period)
+                span_b_max, span_b_min = rolling_max_min(
+                    high.values, leading_span_b_period
+                )
 
                 conversion_line = (conv_max + conv_min) / 2
                 base_line = (base_max + base_min) / 2
 
             except ImportError:
                 # フォールバック（標準実装）
-                conversion_line = (high.rolling(window=conversion_period).max() +
-                                  low.rolling(window=conversion_period).min()) / 2
-                base_line = (high.rolling(window=base_period).max() +
-                            low.rolling(window=base_period).min()) / 2
+                conversion_line = (
+                    high.rolling(window=conversion_period).max()
+                    + low.rolling(window=conversion_period).min()
+                ) / 2
+                base_line = (
+                    high.rolling(window=base_period).max()
+                    + low.rolling(window=base_period).min()
+                ) / 2
 
             # 先行スパン計算
-            leading_span_a = ((conversion_line + base_line) / 2)
+            leading_span_a = (conversion_line + base_line) / 2
             if isinstance(leading_span_a, pd.Series):
                 leading_span_a = leading_span_a.shift(base_period)
             else:
-                leading_span_a = np.concatenate([np.full(base_period, np.nan), leading_span_a[:-base_period]])
+                leading_span_a = np.concatenate(
+                    [np.full(base_period, np.nan), leading_span_a[:-base_period]]
+                )
 
             # 先行スパン2
-            leading_span_b = ((high.rolling(window=leading_span_b_period).max() +
-                              low.rolling(window=leading_span_b_period).min()) / 2).shift(base_period)
+            leading_span_b = (
+                (
+                    high.rolling(window=leading_span_b_period).max()
+                    + low.rolling(window=leading_span_b_period).min()
+                )
+                / 2
+            ).shift(base_period)
 
             # 遅行スパン
             lagging_span = close.shift(-lagging_span_period)
 
         return {
-            "conversion_line": conversion_line if isinstance(conversion_line, np.ndarray) else conversion_line.values,
-            "base_line": base_line if isinstance(base_line, np.ndarray) else base_line.values,
-            "leading_span_a": leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values,
+            "conversion_line": conversion_line
+            if isinstance(conversion_line, np.ndarray)
+            else conversion_line.values,
+            "base_line": base_line
+            if isinstance(base_line, np.ndarray)
+            else base_line.values,
+            "leading_span_a": leading_span_a
+            if isinstance(leading_span_a, np.ndarray)
+            else leading_span_a.values,
             "leading_span_b": leading_span_b.values,
             "lagging_span": lagging_span.values,
             "cloud_top": np.maximum(
-                leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values,
-                leading_span_b.values
+                leading_span_a
+                if isinstance(leading_span_a, np.ndarray)
+                else leading_span_a.values,
+                leading_span_b.values,
             ),
             "cloud_bottom": np.minimum(
-                leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values,
-                leading_span_b.values
-            )
+                leading_span_a
+                if isinstance(leading_span_a, np.ndarray)
+                else leading_span_a.values,
+                leading_span_b.values,
+            ),
         }
 
-    def calculate_fibonacci_retracement(self, data: pd.DataFrame,
-                                       period: int = 100) -> Dict[str, Any]:
+    def calculate_fibonacci_retracement(
+        self, data: pd.DataFrame, period: int = 100
+    ) -> Dict[str, Any]:
         """フィボナッチリトレースメント（ML強化最適化実装）"""
         if not OPTIMIZATION_AVAILABLE or not self.ml_engine:
             # フォールバック
             return super().calculate_fibonacci_retracement(data, period)
 
-        close = data['終値'] if '終値' in data.columns else data['Close']
+        close = data["終値"] if "終値" in data.columns else data["Close"]
 
         with self.performance_monitor.measure_time("fibonacci_ml_analysis"):
             # ML強化による自動重要レベル検出
@@ -388,8 +463,14 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 # 価格データの特徴抽出
                 features = {
                     "price_data": close.tail(period).values,
-                    "volatility": close.pct_change().rolling(20).std().tail(period).values,
-                    "volume": data.get('出来高', data.get('Volume', pd.Series())).tail(period).values
+                    "volatility": close.pct_change()
+                    .rolling(20)
+                    .std()
+                    .tail(period)
+                    .values,
+                    "volume": data.get("出来高", data.get("Volume", pd.Series()))
+                    .tail(period)
+                    .values,
                 }
 
                 # ML予測による重要レベル特定
@@ -418,14 +499,16 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                     "low": low_val,
                     "range": diff,
                     "ml_key_levels": ml_levels,
-                    "analysis_enhanced": True
+                    "analysis_enhanced": True,
                 }
 
             except Exception as e:
                 logger.warning(f"ML強化フィボナッチ分析失敗: {e}, 標準計算使用")
                 return super().calculate_fibonacci_retracement(data, period)
 
-    async def _detect_key_levels_async(self, features: Dict[str, np.ndarray]) -> List[float]:
+    async def _detect_key_levels_async(
+        self, features: Dict[str, np.ndarray]
+    ) -> List[float]:
         """ML非同期重要レベル検出"""
         try:
             # 簡単化された重要レベル検出アルゴリズム
@@ -434,22 +517,34 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             troughs = []
 
             for i in range(2, len(price_data) - 2):
-                if (price_data[i] > price_data[i-1] and price_data[i] > price_data[i-2] and
-                    price_data[i] > price_data[i+1] and price_data[i] > price_data[i+2]):
+                if (
+                    price_data[i] > price_data[i - 1]
+                    and price_data[i] > price_data[i - 2]
+                    and price_data[i] > price_data[i + 1]
+                    and price_data[i] > price_data[i + 2]
+                ):
                     peaks.append(price_data[i])
-                elif (price_data[i] < price_data[i-1] and price_data[i] < price_data[i-2] and
-                      price_data[i] < price_data[i+1] and price_data[i] < price_data[i+2]):
+                elif (
+                    price_data[i] < price_data[i - 1]
+                    and price_data[i] < price_data[i - 2]
+                    and price_data[i] < price_data[i + 1]
+                    and price_data[i] < price_data[i + 2]
+                ):
                     troughs.append(price_data[i])
 
             # 上位5つの重要レベルを返す
-            key_levels = sorted(peaks + troughs, key=lambda x: abs(x - price_data[-1]))[:5]
+            key_levels = sorted(peaks + troughs, key=lambda x: abs(x - price_data[-1]))[
+                :5
+            ]
             return key_levels
 
         except Exception as e:
             logger.error(f"ML重要レベル検出エラー: {e}")
             return []
 
-    def _calculate_level_importance(self, level_price: float, price_history: np.ndarray, ml_levels: List[float]) -> float:
+    def _calculate_level_importance(
+        self, level_price: float, price_history: np.ndarray, ml_levels: List[float]
+    ) -> float:
         """レベル重要度スコア計算"""
         try:
             # 価格履歴における接触回数
@@ -459,7 +554,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             # MLで検出されたレベルとの近接性
             ml_proximity = 0.0
             if ml_levels:
-                min_distance = min(abs(level_price - ml_level) for ml_level in ml_levels)
+                min_distance = min(
+                    abs(level_price - ml_level) for ml_level in ml_levels
+                )
                 max_price_range = price_history.max() - price_history.min()
                 ml_proximity = max(0, 1.0 - (min_distance / max_price_range))
 
@@ -482,10 +579,14 @@ class TechnicalIndicatorsManager:
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
         if self._strategy is None:
-            self._strategy = get_optimized_implementation("technical_indicators", self.config)
+            self._strategy = get_optimized_implementation(
+                "technical_indicators", self.config
+            )
         return self._strategy
 
-    def calculate_indicators(self, data: pd.DataFrame, indicators: List[str], **kwargs) -> Dict[str, IndicatorResult]:
+    def calculate_indicators(
+        self, data: pd.DataFrame, indicators: List[str], **kwargs
+    ) -> Dict[str, IndicatorResult]:
         """指標計算の実行"""
         strategy = self.get_strategy()
         return strategy.execute(data, indicators, **kwargs)
@@ -493,8 +594,13 @@ class TechnicalIndicatorsManager:
     def get_available_indicators(self) -> List[str]:
         """利用可能な指標一覧"""
         return [
-            "sma", "ema", "bollinger_bands", "rsi", "macd",
-            "ichimoku", "fibonacci_retracement"
+            "sma",
+            "ema",
+            "bollinger_bands",
+            "rsi",
+            "macd",
+            "ichimoku",
+            "fibonacci_retracement",
         ]
 
     def get_performance_summary(self) -> Dict[str, Any]:
@@ -514,7 +620,7 @@ def calculate_technical_indicators(
     data: pd.DataFrame,
     indicators: List[str],
     config: Optional[OptimizationConfig] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, IndicatorResult]:
     """テクニカル指標計算のヘルパー関数"""
     manager = TechnicalIndicatorsManager(config)
@@ -523,7 +629,10 @@ def calculate_technical_indicators(
 
 # 戦略の自動登録（ダミー戦略でテスト用）
 try:
-    from ..core.optimization_strategy import OptimizationStrategyFactory, OptimizationLevel
+    from ..core.optimization_strategy import (
+        OptimizationLevel,
+        OptimizationStrategyFactory,
+    )
 
     class DummyTechnicalIndicatorsStrategy(OptimizationStrategy):
         """テクニカル指標ダミー戦略（テスト用）"""
@@ -539,12 +648,12 @@ try:
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.STANDARD,
-        DummyTechnicalIndicatorsStrategy
+        DummyTechnicalIndicatorsStrategy,
     )
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.OPTIMIZED,
-        DummyTechnicalIndicatorsStrategy
+        DummyTechnicalIndicatorsStrategy,
     )
 
     logger.info("テクニカル指標戦略の自動登録完了")

@@ -7,11 +7,10 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Dict, List, Optional, Callable, Any
+from typing import Any, Callable, Dict, List, Optional
 
-from ...utils.logging_config import get_context_logger, log_business_event
 from ...utils.enhanced_error_handler import get_default_error_handler
+from ...utils.logging_config import get_context_logger, log_business_event
 from ..core.types import Trade
 from .db_manager import TradeDatabaseManager
 
@@ -66,8 +65,7 @@ class TradeBatchProcessor:
         try:
             # バッチに分割
             batches = [
-                trades[i:i + batch_size]
-                for i in range(0, total_trades, batch_size)
+                trades[i : i + batch_size] for i in range(0, total_trades, batch_size)
             ]
 
             logger.info(f"バッチ処理開始: {len(batches)}バッチ, 総{total_trades}取引")
@@ -76,9 +74,7 @@ class TradeBatchProcessor:
             futures = []
             for batch_idx, batch in enumerate(batches):
                 future = self.executor.submit(
-                    self._process_single_batch,
-                    batch,
-                    batch_idx
+                    self._process_single_batch, batch, batch_idx
                 )
                 futures.append(future)
 
@@ -86,8 +82,8 @@ class TradeBatchProcessor:
             for future in as_completed(futures):
                 try:
                     batch_result = future.result()
-                    processed += batch_result['processed']
-                    failed += batch_result['failed']
+                    processed += batch_result["processed"]
+                    failed += batch_result["failed"]
 
                     # 進捗通知
                     if progress_callback:
@@ -101,18 +97,21 @@ class TradeBatchProcessor:
             processing_time = (end_time - start_time).total_seconds()
 
             result = {
-                'total_trades': total_trades,
-                'processed': processed,
-                'failed': failed,
-                'success_rate': (processed / total_trades * 100) if total_trades > 0 else 0,
-                'processing_time_seconds': processing_time,
-                'trades_per_second': processed / processing_time if processing_time > 0 else 0,
-                'batches_count': len(batches),
+                "total_trades": total_trades,
+                "processed": processed,
+                "failed": failed,
+                "success_rate": (processed / total_trades * 100)
+                if total_trades > 0
+                else 0,
+                "processing_time_seconds": processing_time,
+                "trades_per_second": processed / processing_time
+                if processing_time > 0
+                else 0,
+                "batches_count": len(batches),
             }
 
             log_business_event(
-                f"バッチ処理完了: {processed}件成功, {failed}件失敗",
-                result
+                f"バッチ処理完了: {processed}件成功, {failed}件失敗", result
             )
 
             return result
@@ -120,13 +119,15 @@ class TradeBatchProcessor:
         except Exception as e:
             logger.error(f"バッチ処理予期せぬエラー: {e}")
             return {
-                'total_trades': total_trades,
-                'processed': 0,
-                'failed': total_trades,
-                'error': str(e)
+                "total_trades": total_trades,
+                "processed": 0,
+                "failed": total_trades,
+                "error": str(e),
             }
 
-    def _process_single_batch(self, batch: List[Trade], batch_idx: int) -> Dict[str, int]:
+    def _process_single_batch(
+        self, batch: List[Trade], batch_idx: int
+    ) -> Dict[str, int]:
         """
         単一バッチ処理
 
@@ -154,16 +155,10 @@ class TradeBatchProcessor:
 
         logger.debug(f"バッチ{batch_idx}処理完了: {processed}成功, {failed}失敗")
 
-        return {
-            'processed': processed,
-            'failed': failed,
-            'batch_index': batch_idx
-        }
+        return {"processed": processed, "failed": failed, "batch_index": batch_idx}
 
     async def process_trades_async(
-        self,
-        trades: List[Trade],
-        concurrent_limit: int = 10
+        self, trades: List[Trade], concurrent_limit: int = 10
     ) -> Dict[str, Any]:
         """
         非同期取引処理
@@ -183,9 +178,7 @@ class TradeBatchProcessor:
                     # 非同期でDB保存（実際の実装では asyncio対応のDB操作を使用）
                     loop = asyncio.get_event_loop()
                     result = await loop.run_in_executor(
-                        None,
-                        self.db_manager.save_trade_to_db,
-                        trade
+                        None, self.db_manager.save_trade_to_db, trade
                     )
                     return result
                 except Exception as e:
@@ -206,20 +199,18 @@ class TradeBatchProcessor:
         processing_time = (end_time - start_time).total_seconds()
 
         result = {
-            'total_trades': len(trades),
-            'processed': processed,
-            'failed': failed,
-            'processing_time_seconds': processing_time,
-            'concurrent_limit': concurrent_limit,
+            "total_trades": len(trades),
+            "processed": processed,
+            "failed": failed,
+            "processing_time_seconds": processing_time,
+            "concurrent_limit": concurrent_limit,
         }
 
         logger.info(f"非同期処理完了: {processed}件成功, {failed}件失敗")
         return result
 
     def bulk_update_trades(
-        self,
-        updates: List[Dict[str, Any]],
-        batch_size: int = 50
+        self, updates: List[Dict[str, Any]], batch_size: int = 50
     ) -> Dict[str, int]:
         """
         取引データ一括更新
@@ -238,11 +229,11 @@ class TradeBatchProcessor:
         try:
             # バッチに分割して処理
             for i in range(0, total_updates, batch_size):
-                batch = updates[i:i + batch_size]
+                batch = updates[i : i + batch_size]
 
                 for update_data in batch:
                     try:
-                        trade_id = update_data.get('trade_id')
+                        trade_id = update_data.get("trade_id")
                         if not trade_id:
                             failed_updates += 1
                             continue
@@ -259,20 +250,22 @@ class TradeBatchProcessor:
                         failed_updates += 1
 
             result = {
-                'total_updates': total_updates,
-                'successful': successful_updates,
-                'failed': failed_updates,
+                "total_updates": total_updates,
+                "successful": successful_updates,
+                "failed": failed_updates,
             }
 
-            logger.info(f"一括更新完了: {successful_updates}件成功, {failed_updates}件失敗")
+            logger.info(
+                f"一括更新完了: {successful_updates}件成功, {failed_updates}件失敗"
+            )
             return result
 
         except Exception as e:
             logger.error(f"一括更新予期せぬエラー: {e}")
             return {
-                'total_updates': total_updates,
-                'successful': 0,
-                'failed': total_updates,
+                "total_updates": total_updates,
+                "successful": 0,
+                "failed": total_updates,
             }
 
     def _update_single_trade(self, update_data: Dict[str, Any]) -> bool:
@@ -288,7 +281,7 @@ class TradeBatchProcessor:
         try:
             # 実際の実装では、SQLAlchemyのupdateクエリを使用
             # ここでは簡易実装
-            trade_id = update_data.get('trade_id')
+            trade_id = update_data.get("trade_id")
             logger.debug(f"取引更新: {trade_id}")
 
             # 実装例: 特定フィールドの更新
@@ -312,15 +305,15 @@ class TradeBatchProcessor:
             db_stats = self.db_manager.get_database_statistics()
 
             statistics = {
-                'database_statistics': db_stats,
-                'processor_info': {
-                    'max_workers': self.max_workers,
-                    'executor_active': not self.executor._shutdown,
+                "database_statistics": db_stats,
+                "processor_info": {
+                    "max_workers": self.max_workers,
+                    "executor_active": not self.executor._shutdown,
                 },
-                'performance_metrics': {
-                    'average_batch_size': 100,  # 設定値
-                    'recommended_batch_size': self._calculate_optimal_batch_size(),
-                }
+                "performance_metrics": {
+                    "average_batch_size": 100,  # 設定値
+                    "recommended_batch_size": self._calculate_optimal_batch_size(),
+                },
             }
 
             return statistics
@@ -346,9 +339,7 @@ class TradeBatchProcessor:
         return optimal_size
 
     def schedule_periodic_sync(
-        self,
-        interval_minutes: int = 60,
-        max_sync_trades: int = 1000
+        self, interval_minutes: int = 60, max_sync_trades: int = 1000
     ) -> None:
         """
         定期同期スケジュール設定
@@ -357,6 +348,7 @@ class TradeBatchProcessor:
             interval_minutes: 同期間隔（分）
             max_sync_trades: 最大同期取引数
         """
+
         async def periodic_sync():
             while True:
                 try:
@@ -370,10 +362,11 @@ class TradeBatchProcessor:
                     recent_trades = []  # 時間範囲で取引データ取得
 
                     if recent_trades:
-                        sync_result = self.db_manager.sync_trades_to_db(recent_trades[:max_sync_trades])
+                        sync_result = self.db_manager.sync_trades_to_db(
+                            recent_trades[:max_sync_trades]
+                        )
                         log_business_event(
-                            f"定期同期完了: {sync_result['saved']}件保存",
-                            sync_result
+                            f"定期同期完了: {sync_result['saved']}件保存", sync_result
                         )
 
                     # 次回同期まで待機
@@ -406,9 +399,9 @@ class TradeBatchProcessor:
             deleted_count = 0  # 仮の値
 
             result = {
-                'cutoff_date': cutoff_date.isoformat(),
-                'deleted_trades': deleted_count,
-                'days_threshold': days_threshold,
+                "cutoff_date": cutoff_date.isoformat(),
+                "deleted_trades": deleted_count,
+                "days_threshold": days_threshold,
             }
 
             logger.info(f"データクリーンアップ完了: {deleted_count}件削除")
@@ -416,10 +409,7 @@ class TradeBatchProcessor:
 
         except Exception as e:
             logger.error(f"データクリーンアップエラー: {e}")
-            return {
-                'deleted_trades': 0,
-                'error': str(e)
-            }
+            return {"deleted_trades": 0, "error": str(e)}
 
     def shutdown(self) -> None:
         """

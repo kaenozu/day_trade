@@ -19,9 +19,7 @@ class PortfolioManager:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_portfolio_summary(
-        self, start_date: Optional[dt] = None
-    ) -> Dict[str, Any]:
+    def get_portfolio_summary(self, start_date: Optional[dt] = None) -> Dict[str, Any]:
         """
         ポートフォリオサマリーを効率的に計算
 

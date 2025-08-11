@@ -15,6 +15,7 @@ from typing import Any, Dict
 
 try:
     import structlog
+
     STRUCTLOG_AVAILABLE = True
 except ImportError:
     STRUCTLOG_AVAILABLE = False
@@ -116,7 +117,7 @@ class LoggingConfig:
             ]
 
             # Python 3.12+ でのみ add_logger_oid を使用
-            if hasattr(structlog.stdlib, 'add_logger_oid'):
+            if hasattr(structlog.stdlib, "add_logger_oid"):
                 processors.insert(1, structlog.stdlib.add_logger_oid)
 
             if self.log_format == "json":
@@ -139,11 +140,13 @@ class LoggingConfig:
 
             # 標準のStreamHandlerを設定
             stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setFormatter(logging.Formatter("%(message)s")) # structlogがフォーマットするため、ここではシンプルに
+            stream_handler.setFormatter(
+                logging.Formatter("%(message)s")
+            )  # structlogがフォーマットするため、ここではシンプルに
 
             # QueueListenerを設定し、別スレッドでログを処理
             queue_listener = QueueListener(log_queue, stream_handler)
-            queue_listener.start() # リスナーを開始
+            queue_listener.start()  # リスナーを開始
 
             # アプリケーション終了時にリスナーを停止
             atexit.register(queue_listener.stop)
@@ -159,11 +162,15 @@ class LoggingConfig:
 
             # 標準のStreamHandlerを設定
             stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+            stream_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+            )
 
             # QueueListenerを設定し、別スレッドでログを処理
             queue_listener = QueueListener(log_queue, stream_handler)
-            queue_listener.start() # リスナーを開始
+            queue_listener.start()  # リスナーを開始
 
             # アプリケーション終了時にリスナーを停止
             atexit.register(queue_listener.stop)
@@ -176,6 +183,8 @@ class LoggingConfig:
         self.is_configured = True
 
     # グローバルロギング設定インスタンス
+
+
 _logging_config = LoggingConfig()
 
 

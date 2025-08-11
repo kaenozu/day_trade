@@ -6,16 +6,17 @@ Configuration Provider Factory
 設定管理システムの動的生成とプラグイン管理
 """
 
-from typing import Dict, Type, Any, Optional, List, Union
-from enum import Enum
 import importlib
-import os
+from enum import Enum
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from ..exceptions.risk_exceptions import ConfigurationError, ValidationError
 
+
 class ConfigProviderType(Enum):
     """設定プロバイダータイプ"""
+
     FILE = "file"
     ENVIRONMENT = "environment"
     DATABASE = "database"
@@ -26,14 +27,17 @@ class ConfigProviderType(Enum):
     ETCD = "etcd"
     PLUGIN = "plugin"
 
+
 class ConfigFormat(Enum):
     """設定ファイル形式"""
+
     JSON = "json"
     YAML = "yaml"
     TOML = "toml"
     INI = "ini"
     XML = "xml"
     PROPERTIES = "properties"
+
 
 class IConfigProvider:
     """設定プロバイダーインターフェース"""
@@ -74,6 +78,7 @@ class IConfigProvider:
         """設定復元"""
         return True
 
+
 class ConfigProviderFactory:
     """設定プロバイダーファクトリー"""
 
@@ -101,8 +106,8 @@ class ConfigProviderFactory:
                     "auto_reload": {"type": bool, "default": False},
                     "watch_changes": {"type": bool, "default": False},
                     "backup_count": {"type": int, "default": 5},
-                    "encoding": {"type": str, "default": "utf-8"}
-                }
+                    "encoding": {"type": str, "default": "utf-8"},
+                },
             )
 
             # 環境変数設定
@@ -115,8 +120,8 @@ class ConfigProviderFactory:
                     "separator": {"type": str, "default": "_"},
                     "case_sensitive": {"type": bool, "default": False},
                     "type_conversion": {"type": bool, "default": True},
-                    "default_values": {"type": dict, "default": {}}
-                }
+                    "default_values": {"type": dict, "default": {}},
+                },
             )
 
             # データベース設定
@@ -130,8 +135,8 @@ class ConfigProviderFactory:
                     "key_column": {"type": str, "default": "key"},
                     "value_column": {"type": str, "default": "value"},
                     "cache_ttl_seconds": {"type": int, "default": 300},
-                    "auto_sync": {"type": bool, "default": True}
-                }
+                    "auto_sync": {"type": bool, "default": True},
+                },
             )
 
             # リモート設定
@@ -145,8 +150,8 @@ class ConfigProviderFactory:
                     "auth_credentials": {"type": dict, "default": {}},
                     "polling_interval_seconds": {"type": int, "default": 60},
                     "timeout_seconds": {"type": int, "default": 30},
-                    "retry_attempts": {"type": int, "default": 3}
-                }
+                    "retry_attempts": {"type": int, "default": 3},
+                },
             )
 
             # HashiCorp Vault設定
@@ -161,8 +166,8 @@ class ConfigProviderFactory:
                     "secret_id": {"type": str, "required": False},
                     "mount_point": {"type": str, "default": "secret"},
                     "path_prefix": {"type": str, "default": ""},
-                    "verify_ssl": {"type": bool, "default": True}
-                }
+                    "verify_ssl": {"type": bool, "default": True},
+                },
             )
 
             # Kubernetes ConfigMap設定
@@ -175,12 +180,13 @@ class ConfigProviderFactory:
                     "config_map_name": {"type": str, "required": True},
                     "kubeconfig_path": {"type": str, "required": False},
                     "context": {"type": str, "required": False},
-                    "watch_changes": {"type": bool, "default": True}
-                }
+                    "watch_changes": {"type": bool, "default": True},
+                },
             )
 
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to register some builtin config providers: {e}")
 
@@ -189,7 +195,7 @@ class ConfigProviderFactory:
         provider_type: ConfigProviderType,
         module_path: str,
         class_name: str,
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """プロバイダー登録"""
         try:
@@ -199,7 +205,7 @@ class ConfigProviderFactory:
             if not issubclass(provider_class, IConfigProvider):
                 raise ConfigurationError(
                     f"Config provider class {class_name} must implement IConfigProvider interface",
-                    config_key=f"config.provider.{provider_type.value}"
+                    config_key=f"config.provider.{provider_type.value}",
                 )
 
             self._provider_registry[provider_type] = provider_class
@@ -213,30 +219,32 @@ class ConfigProviderFactory:
             raise ConfigurationError(
                 f"Failed to register config provider type {provider_type.value}",
                 config_key=f"config.provider.{provider_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def register_plugin_provider(
         self,
         plugin_name: str,
         provider_class: Type[IConfigProvider],
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """プラグインプロバイダー登録"""
         try:
             if not issubclass(provider_class, IConfigProvider):
                 raise ConfigurationError(
                     f"Plugin config provider {plugin_name} must implement IConfigProvider interface",
-                    config_key=f"config.plugin.{plugin_name}"
+                    config_key=f"config.plugin.{plugin_name}",
                 )
 
             self._plugin_registry[plugin_name] = provider_class
 
             if config_schema:
-                self._config_schemas[ConfigProviderType.PLUGIN] = self._config_schemas.get(
-                    ConfigProviderType.PLUGIN, {}
-                )
-                self._config_schemas[ConfigProviderType.PLUGIN][plugin_name] = config_schema
+                self._config_schemas[
+                    ConfigProviderType.PLUGIN
+                ] = self._config_schemas.get(ConfigProviderType.PLUGIN, {})
+                self._config_schemas[ConfigProviderType.PLUGIN][
+                    plugin_name
+                ] = config_schema
 
             return True
 
@@ -244,7 +252,7 @@ class ConfigProviderFactory:
             raise ConfigurationError(
                 f"Failed to register plugin config provider {plugin_name}",
                 config_key=f"config.plugin.{plugin_name}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_config_provider(
@@ -252,7 +260,7 @@ class ConfigProviderFactory:
         provider_type: ConfigProviderType,
         config: Optional[Dict[str, Any]] = None,
         plugin_name: Optional[str] = None,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> IConfigProvider:
         """設定プロバイダーインスタンス作成"""
 
@@ -283,36 +291,35 @@ class ConfigProviderFactory:
             raise ConfigurationError(
                 f"Failed to create config provider instance of type {provider_type.value}",
                 config_key=f"config.provider.{provider_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_hierarchical_provider(
-        self,
-        provider_configs: List[Dict[str, Any]],
-        merge_strategy: str = "override"  # "override", "merge", "append"
-    ) -> 'HierarchicalConfigProvider':
+        self, config_sources: List[Dict[str, Any]]
+    ) -> (
+        "HierarchicalConfigProvider"
+    ):  # TODO: HierarchicalConfigProvider クラスを実装 # type: ignore
         """階層設定プロバイダー作成"""
 
         providers = []
 
-        for config in provider_configs:
+        for config in config_sources:
             provider_type = ConfigProviderType(config["type"])
             plugin_name = config.get("plugin_name")
             provider_config = config.get("config", {})
             priority = config.get("priority", 0)
 
             provider = self.create_config_provider(
-                provider_type,
-                provider_config,
-                plugin_name,
-                use_cache=False
+                provider_type, provider_config, plugin_name, use_cache=False
             )
 
-            providers.append({
-                "provider": provider,
-                "priority": priority,
-                "name": config.get("name", provider_type.value)
-            })
+            providers.append(
+                {
+                    "provider": provider,
+                    "priority": priority,
+                    "name": config.get("name", provider_type.value),
+                }
+            )
 
         # 優先度順にソート
         providers.sort(key=lambda x: x["priority"], reverse=True)
@@ -322,15 +329,14 @@ class ConfigProviderFactory:
 
         return HierarchicalConfigProvider(
             providers=[p["provider"] for p in providers],
-            merge_strategy=merge_strategy
+            merge_strategy=merge_strategy or "default",
         )
 
     def create_encrypted_provider(
-        self,
-        base_provider: IConfigProvider,
-        encryption_key: str,
-        encrypted_keys: List[str] = None
-    ) -> 'EncryptedConfigProvider':
+        self, base_provider: Any, encryption_key: str
+    ) -> (
+        "EncryptedConfigProvider"
+    ):  # TODO: EncryptedConfigProvider クラスを実装 # type: ignore
         """暗号化設定プロバイダー作成"""
 
         # 暗号化プロバイダー作成
@@ -339,15 +345,14 @@ class ConfigProviderFactory:
         return EncryptedConfigProvider(
             base_provider=base_provider,
             encryption_key=encryption_key,
-            encrypted_keys=encrypted_keys or []
+            encrypted_keys=encrypted_keys or [],
         )
 
     def create_cached_provider(
-        self,
-        base_provider: IConfigProvider,
-        cache_ttl_seconds: int = 300,
-        max_cache_size: int = 1000
-    ) -> 'CachedConfigProvider':
+        self, base_provider: Any, cache_ttl: int = 300
+    ) -> (
+        "CachedConfigProvider"
+    ):  # TODO: CachedConfigProvider クラスを実装 # type: ignore
         """キャッシュ設定プロバイダー作成"""
 
         # キャッシュプロバイダー作成
@@ -355,27 +360,23 @@ class ConfigProviderFactory:
 
         return CachedConfigProvider(
             base_provider=base_provider,
-            cache_ttl_seconds=cache_ttl_seconds,
-            max_cache_size=max_cache_size
+            cache_ttl_seconds=cache_ttl,
+            max_cache_size=1000,
         )
 
     def create_config_watcher(
-        self,
-        provider: IConfigProvider,
-        watched_keys: List[str],
-        callback: callable,
-        polling_interval_seconds: int = 30
-    ) -> 'ConfigWatcher':
+        self, config_path: str, callback: Callable[[Dict[str, Any]], None]
+    ) -> "ConfigWatcher":  # TODO: ConfigWatcher クラスを実装 # type: ignore
         """設定監視システム作成"""
 
         # 設定監視システム作成
         from ..config.config_watcher import ConfigWatcher
 
         watcher = ConfigWatcher(
-            provider=provider,
-            watched_keys=watched_keys,
+            provider=None,  # TODO: provider を設定
+            watched_keys=[],  # TODO: watched_keys を設定
             callback=callback,
-            polling_interval_seconds=polling_interval_seconds
+            polling_interval_seconds=60,  # TODO: polling_interval_seconds を設定
         )
 
         # 監視システムを登録
@@ -387,9 +388,7 @@ class ConfigProviderFactory:
         return watcher
 
     def validate_configuration(
-        self,
-        provider: IConfigProvider,
-        schema: Dict[str, Any]
+        self, provider: IConfigProvider, schema: Dict[str, Any]
     ) -> Dict[str, List[str]]:
         """設定検証"""
 
@@ -409,46 +408,44 @@ class ConfigProviderFactory:
                 # 型チェック
                 expected_type = field_schema.get("type")
                 if expected_type and not isinstance(value, expected_type):
-                    errors.setdefault("type_errors", []).append({
-                        "field": field_name,
-                        "expected": expected_type.__name__,
-                        "actual": type(value).__name__
-                    })
+                    errors.setdefault("type_errors", []).append(
+                        {
+                            "field": field_name,
+                            "expected": expected_type.__name__,
+                            "actual": type(value).__name__,
+                        }
+                    )
 
                 # 値範囲チェック
                 min_value = field_schema.get("min")
                 max_value = field_schema.get("max")
                 if min_value is not None and value < min_value:
-                    errors.setdefault("range_errors", []).append({
-                        "field": field_name,
-                        "value": value,
-                        "min": min_value
-                    })
+                    errors.setdefault("range_errors", []).append(
+                        {"field": field_name, "value": value, "min": min_value}
+                    )
                 if max_value is not None and value > max_value:
-                    errors.setdefault("range_errors", []).append({
-                        "field": field_name,
-                        "value": value,
-                        "max": max_value
-                    })
+                    errors.setdefault("range_errors", []).append(
+                        {"field": field_name, "value": value, "max": max_value}
+                    )
 
                 # 列挙値チェック
                 allowed_values = field_schema.get("enum")
                 if allowed_values and value not in allowed_values:
-                    errors.setdefault("enum_errors", []).append({
-                        "field": field_name,
-                        "value": value,
-                        "allowed": allowed_values
-                    })
+                    errors.setdefault("enum_errors", []).append(
+                        {"field": field_name, "value": value, "allowed": allowed_values}
+                    )
 
         # 非推奨フィールドチェック
         for field_name, value in config_data.items():
             if field_name in schema:
                 field_schema = schema[field_name]
                 if field_schema.get("deprecated", False):
-                    warnings.setdefault("deprecated_fields", []).append({
-                        "field": field_name,
-                        "replacement": field_schema.get("replacement")
-                    })
+                    warnings.setdefault("deprecated_fields", []).append(
+                        {
+                            "field": field_name,
+                            "replacement": field_schema.get("replacement"),
+                        }
+                    )
 
         return {"errors": errors, "warnings": warnings}
 
@@ -464,14 +461,14 @@ class ConfigProviderFactory:
                 "type": "builtin",
                 "name": provider_type.value,
                 "config_schema": config_schema,
-                "supported_features": self._get_provider_features(provider_type)
+                "supported_features": self._get_provider_features(provider_type),
             }
 
         # プラグインプロバイダー
         for plugin_name, provider_class in self._plugin_registry.items():
             try:
                 temp_instance = provider_class({})
-                if hasattr(temp_instance, 'get_metadata'):
+                if hasattr(temp_instance, "get_metadata"):
                     metadata = temp_instance.get_metadata()
                     available[plugin_name] = {
                         "type": "plugin",
@@ -480,18 +477,15 @@ class ConfigProviderFactory:
                         "description": metadata.get("description", ""),
                         "config_schema": self._config_schemas.get(
                             ConfigProviderType.PLUGIN, {}
-                        ).get(plugin_name, {})
+                        ).get(plugin_name, {}),
                     }
                 else:
-                    available[plugin_name] = {
-                        "type": "plugin",
-                        "name": plugin_name
-                    }
+                    available[plugin_name] = {"type": "plugin", "name": plugin_name}
             except Exception:
                 available[plugin_name] = {
                     "type": "plugin",
                     "name": plugin_name,
-                    "status": "unavailable"
+                    "status": "unavailable",
                 }
 
         return available
@@ -500,7 +494,7 @@ class ConfigProviderFactory:
         """インスタンスキャッシュクリア"""
         # アクティブな接続を適切に閉じる
         for instance in self._instance_cache.values():
-            if hasattr(instance, 'close'):
+            if hasattr(instance, "close"):
                 try:
                     instance.close()
                 except Exception:
@@ -515,7 +509,7 @@ class ConfigProviderFactory:
             all_watchers.update(watchers)
 
         for watcher in all_watchers:
-            if hasattr(watcher, 'stop'):
+            if hasattr(watcher, "stop"):
                 try:
                     watcher.stop()
                 except Exception:
@@ -527,7 +521,7 @@ class ConfigProviderFactory:
         self,
         provider_type: ConfigProviderType,
         config: Optional[Dict[str, Any]],
-        plugin_name: Optional[str]
+        plugin_name: Optional[str],
     ) -> Dict[str, Any]:
         """設定検証"""
 
@@ -536,7 +530,9 @@ class ConfigProviderFactory:
 
         # スキーマ取得
         if provider_type == ConfigProviderType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(ConfigProviderType.PLUGIN, {}).get(plugin_name, {})
+            schema = self._config_schemas.get(ConfigProviderType.PLUGIN, {}).get(
+                plugin_name, {}
+            )
         else:
             schema = self._config_schemas.get(provider_type, {})
 
@@ -548,7 +544,7 @@ class ConfigProviderFactory:
                 raise ValidationError(
                     f"Required configuration field '{field_name}' is missing for {provider_type.value}",
                     field_name=field_name,
-                    validation_rules=["required"]
+                    validation_rules=["required"],
                 )
 
             if field_name not in config and "default" in field_schema:
@@ -561,7 +557,7 @@ class ConfigProviderFactory:
                         f"Configuration field '{field_name}' must be of type {expected_type.__name__}",
                         field_name=field_name,
                         invalid_value=config[field_name],
-                        validation_rules=[f"type:{expected_type.__name__}"]
+                        validation_rules=[f"type:{expected_type.__name__}"],
                     )
                 validated_config[field_name] = config[field_name]
 
@@ -573,9 +569,7 @@ class ConfigProviderFactory:
         return validated_config
 
     def _get_provider_class(
-        self,
-        provider_type: ConfigProviderType,
-        plugin_name: Optional[str]
+        self, provider_type: ConfigProviderType, plugin_name: Optional[str]
     ) -> Type[IConfigProvider]:
         """プロバイダークラス取得"""
 
@@ -583,13 +577,13 @@ class ConfigProviderFactory:
             if not plugin_name:
                 raise ConfigurationError(
                     "Plugin name is required for plugin config provider type",
-                    config_key="plugin_name"
+                    config_key="plugin_name",
                 )
 
             if plugin_name not in self._plugin_registry:
                 raise ConfigurationError(
                     f"Plugin config provider '{plugin_name}' is not registered",
-                    config_key=f"config.plugin.{plugin_name}"
+                    config_key=f"config.plugin.{plugin_name}",
                 )
 
             return self._plugin_registry[plugin_name]
@@ -598,15 +592,13 @@ class ConfigProviderFactory:
             if provider_type not in self._provider_registry:
                 raise ConfigurationError(
                     f"Config provider type '{provider_type.value}' is not registered",
-                    config_key=f"config.provider.{provider_type.value}"
+                    config_key=f"config.provider.{provider_type.value}",
                 )
 
             return self._provider_registry[provider_type]
 
     def _create_provider_instance(
-        self,
-        provider_class: Type[IConfigProvider],
-        config: Dict[str, Any]
+        self, provider_class: Type[IConfigProvider], config: Dict[str, Any]
     ) -> IConfigProvider:
         """プロバイダーインスタンス作成"""
         return provider_class(config)
@@ -633,7 +625,7 @@ class ConfigProviderFactory:
         self,
         provider_type: ConfigProviderType,
         plugin_name: Optional[str],
-        config: Optional[Dict[str, Any]]
+        config: Optional[Dict[str, Any]],
     ) -> str:
         """キャッシュキー生成"""
         import hashlib
@@ -642,14 +634,16 @@ class ConfigProviderFactory:
         key_data = {
             "type": provider_type.value,
             "plugin": plugin_name,
-            "config": config or {}
+            "config": config or {},
         }
 
         key_string = json.dumps(key_data, sort_keys=True)
         return hashlib.md5(key_string.encode()).hexdigest()
 
+
 # グローバルファクトリーインスタンス
 _global_config_factory: Optional[ConfigProviderFactory] = None
+
 
 def get_config_factory() -> ConfigProviderFactory:
     """グローバル設定ファクトリー取得"""
@@ -658,46 +652,52 @@ def get_config_factory() -> ConfigProviderFactory:
         _global_config_factory = ConfigProviderFactory()
     return _global_config_factory
 
+
 def create_config_provider(
     provider_type: ConfigProviderType,
     config: Optional[Dict[str, Any]] = None,
-    plugin_name: Optional[str] = None
+    plugin_name: Optional[str] = None,
 ) -> IConfigProvider:
     """設定プロバイダー作成（便利関数）"""
     factory = get_config_factory()
     return factory.create_config_provider(provider_type, config, plugin_name)
 
+
 # 設定ヘルパー関数
 
-def load_config_from_file(file_path: str, format_type: Optional[str] = None) -> Dict[str, Any]:
+
+def load_config_from_file(
+    file_path: str, format_type: Optional[str] = None
+) -> Dict[str, Any]:
     """ファイルから設定読み込み"""
 
     if format_type is None:
         # ファイル拡張子から形式を推定
         ext = Path(file_path).suffix.lower()
         format_map = {
-            '.json': 'json',
-            '.yaml': 'yaml', '.yml': 'yaml',
-            '.toml': 'toml',
-            '.ini': 'ini', '.cfg': 'ini',
-            '.xml': 'xml',
-            '.properties': 'properties'
+            ".json": "json",
+            ".yaml": "yaml",
+            ".yml": "yaml",
+            ".toml": "toml",
+            ".ini": "ini",
+            ".cfg": "ini",
+            ".xml": "xml",
+            ".properties": "properties",
         }
-        format_type = format_map.get(ext, 'json')
+        format_type = format_map.get(ext, "json")
 
     provider = create_config_provider(
-        ConfigProviderType.FILE,
-        {"file_path": file_path, "format": format_type}
+        ConfigProviderType.FILE, {"file_path": file_path, "format": format_type}
     )
 
     return provider.get_all()
+
 
 def load_config_from_env(prefix: str = "", separator: str = "_") -> Dict[str, Any]:
     """環境変数から設定読み込み"""
 
     provider = create_config_provider(
-        ConfigProviderType.ENVIRONMENT,
-        {"prefix": prefix, "separator": separator}
+        ConfigProviderType.ENVIRONMENT, {"prefix": prefix, "separator": separator}
     )
 
     return provider.get_all()

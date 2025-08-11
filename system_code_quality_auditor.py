@@ -6,21 +6,21 @@
 コード品質、設計パターン、最適化機会の包括的分析
 """
 
-import os
-import re
 import ast
 import json
+import re
 import time
-from pathlib import Path
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple, Set
-from dataclasses import dataclass, asdict
-from collections import defaultdict, Counter
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class QualityLevel(Enum):
     """品質レベル"""
+
     EXCELLENT = "excellent"
     GOOD = "good"
     FAIR = "fair"
@@ -30,6 +30,7 @@ class QualityLevel(Enum):
 
 class IssueType(Enum):
     """問題タイプ"""
+
     CODE_SMELL = "code_smell"
     BUG_RISK = "bug_risk"
     PERFORMANCE = "performance"
@@ -42,6 +43,7 @@ class IssueType(Enum):
 @dataclass
 class CodeIssue:
     """コード問題"""
+
     file_path: str
     line_number: int
     issue_type: IssueType
@@ -55,6 +57,7 @@ class CodeIssue:
 @dataclass
 class FileAnalysis:
     """ファイル分析結果"""
+
     file_path: str
     file_size: int
     line_count: int
@@ -70,6 +73,7 @@ class FileAnalysis:
 @dataclass
 class QualityReport:
     """品質レポート"""
+
     timestamp: datetime
     total_files: int
     total_lines: int
@@ -84,17 +88,23 @@ class PythonASTAnalyzer:
 
     def __init__(self):
         self.complexity_weights = {
-            'if': 1, 'elif': 1, 'else': 0,
-            'for': 2, 'while': 2,
-            'try': 1, 'except': 1,
-            'with': 1, 'lambda': 1,
-            'and': 1, 'or': 1
+            "if": 1,
+            "elif": 1,
+            "else": 0,
+            "for": 2,
+            "while": 2,
+            "try": 1,
+            "except": 1,
+            "with": 1,
+            "lambda": 1,
+            "and": 1,
+            "or": 1,
         }
 
     def analyze_file(self, file_path: Path) -> Optional[FileAnalysis]:
         """ファイル分析"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             if not content.strip():
@@ -112,18 +122,20 @@ class PythonASTAnalyzer:
                     class_count=0,
                     complexity_score=0,
                     quality_level=QualityLevel.CRITICAL,
-                    issues=[CodeIssue(
-                        file_path=str(file_path),
-                        line_number=e.lineno or 1,
-                        issue_type=IssueType.BUG_RISK,
-                        severity=QualityLevel.CRITICAL,
-                        title="構文エラー",
-                        description=f"Python構文エラー: {e.msg}",
-                        suggestion="構文を修正してください",
-                        code_snippet=""
-                    )],
+                    issues=[
+                        CodeIssue(
+                            file_path=str(file_path),
+                            line_number=e.lineno or 1,
+                            issue_type=IssueType.BUG_RISK,
+                            severity=QualityLevel.CRITICAL,
+                            title="構文エラー",
+                            description=f"Python構文エラー: {e.msg}",
+                            suggestion="構文を修正してください",
+                            code_snippet="",
+                        )
+                    ],
                     docstring_coverage=0,
-                    test_coverage=0
+                    test_coverage=0,
                 )
 
             # 基本メトリクス
@@ -154,125 +166,149 @@ class PythonASTAnalyzer:
                 quality_level=quality_level,
                 issues=issues,
                 docstring_coverage=docstring_coverage,
-                test_coverage=0  # TODO: テストカバレッジ統合
+                test_coverage=0,  # TODO: テストカバレッジ統合
             )
 
         except Exception as e:
             print(f"ファイル分析エラー {file_path}: {e}")
             return None
 
-    def _detect_issues(self, file_path: Path, content: str, lines: List[str], walker: 'ASTWalker') -> List[CodeIssue]:
+    def _detect_issues(
+        self, file_path: Path, content: str, lines: List[str], walker: "ASTWalker"
+    ) -> List[CodeIssue]:
         """問題検出"""
         issues = []
 
         # 長い関数検出
         for func_name, func_lines in walker.function_lengths.items():
             if func_lines > 50:
-                issues.append(CodeIssue(
-                    file_path=str(file_path),
-                    line_number=walker.function_line_numbers.get(func_name, 1),
-                    issue_type=IssueType.MAINTAINABILITY,
-                    severity=QualityLevel.FAIR if func_lines < 100 else QualityLevel.POOR,
-                    title="長すぎる関数",
-                    description=f"関数 '{func_name}' が {func_lines} 行と長すぎます",
-                    suggestion="関数を複数の小さな関数に分割することを検討してください",
-                    code_snippet=""
-                ))
+                issues.append(
+                    CodeIssue(
+                        file_path=str(file_path),
+                        line_number=walker.function_line_numbers.get(func_name, 1),
+                        issue_type=IssueType.MAINTAINABILITY,
+                        severity=QualityLevel.FAIR
+                        if func_lines < 100
+                        else QualityLevel.POOR,
+                        title="長すぎる関数",
+                        description=f"関数 '{func_name}' が {func_lines} 行と長すぎます",
+                        suggestion="関数を複数の小さな関数に分割することを検討してください",
+                        code_snippet="",
+                    )
+                )
 
         # 複雑度チェック
         if walker.complexity_score > 20:
-            issues.append(CodeIssue(
-                file_path=str(file_path),
-                line_number=1,
-                issue_type=IssueType.MAINTAINABILITY,
-                severity=QualityLevel.POOR if walker.complexity_score < 30 else QualityLevel.CRITICAL,
-                title="高すぎる循環的複雑度",
-                description=f"ファイルの循環的複雑度が {walker.complexity_score:.1f} と高すぎます",
-                suggestion="条件分岐やループを単純化し、関数を分割してください",
-                code_snippet=""
-            ))
+            issues.append(
+                CodeIssue(
+                    file_path=str(file_path),
+                    line_number=1,
+                    issue_type=IssueType.MAINTAINABILITY,
+                    severity=QualityLevel.POOR
+                    if walker.complexity_score < 30
+                    else QualityLevel.CRITICAL,
+                    title="高すぎる循環的複雑度",
+                    description=f"ファイルの循環的複雑度が {walker.complexity_score:.1f} と高すぎます",
+                    suggestion="条件分岐やループを単純化し、関数を分割してください",
+                    code_snippet="",
+                )
+            )
 
         # 重複コード検出
         line_hashes = defaultdict(list)
         for i, line in enumerate(lines):
             stripped = line.strip()
-            if len(stripped) > 20 and not stripped.startswith('#'):
+            if len(stripped) > 20 and not stripped.startswith("#"):
                 line_hashes[hash(stripped)].append(i + 1)
 
         for line_hash, line_numbers in line_hashes.items():
             if len(line_numbers) > 2:
-                issues.append(CodeIssue(
-                    file_path=str(file_path),
-                    line_number=line_numbers[0],
-                    issue_type=IssueType.CODE_SMELL,
-                    severity=QualityLevel.FAIR,
-                    title="重複コード",
-                    description=f"{len(line_numbers)} 箇所で同じコードが重複しています",
-                    suggestion="共通処理を関数として抽出してください",
-                    code_snippet=""
-                ))
+                issues.append(
+                    CodeIssue(
+                        file_path=str(file_path),
+                        line_number=line_numbers[0],
+                        issue_type=IssueType.CODE_SMELL,
+                        severity=QualityLevel.FAIR,
+                        title="重複コード",
+                        description=f"{len(line_numbers)} 箇所で同じコードが重複しています",
+                        suggestion="共通処理を関数として抽出してください",
+                        code_snippet="",
+                    )
+                )
 
         # TODO/FIXME/HACK コメント検出
         for i, line in enumerate(lines):
             line_lower = line.lower()
-            if any(marker in line_lower for marker in ['todo', 'fixme', 'hack', 'xxx']):
-                issues.append(CodeIssue(
-                    file_path=str(file_path),
-                    line_number=i + 1,
-                    issue_type=IssueType.MAINTAINABILITY,
-                    severity=QualityLevel.FAIR,
-                    title="未完了タスク",
-                    description="TODO/FIXMEコメントが残っています",
-                    suggestion="タスクを完了するか、適切にドキュメント化してください",
-                    code_snippet=line.strip()
-                ))
+            if any(marker in line_lower for marker in ["todo", "fixme", "hack", "xxx"]):
+                issues.append(
+                    CodeIssue(
+                        file_path=str(file_path),
+                        line_number=i + 1,
+                        issue_type=IssueType.MAINTAINABILITY,
+                        severity=QualityLevel.FAIR,
+                        title="未完了タスク",
+                        description="TODO/FIXMEコメントが残っています",
+                        suggestion="タスクを完了するか、適切にドキュメント化してください",
+                        code_snippet=line.strip(),
+                    )
+                )
 
         # 長い行検出
         for i, line in enumerate(lines):
             if len(line) > 120:
-                issues.append(CodeIssue(
-                    file_path=str(file_path),
-                    line_number=i + 1,
-                    issue_type=IssueType.CODE_SMELL,
-                    severity=QualityLevel.FAIR,
-                    title="長すぎる行",
-                    description=f"行が {len(line)} 文字と長すぎます（推奨: 120文字以内）",
-                    suggestion="行を分割してください",
-                    code_snippet=line.strip()[:50] + "..."
-                ))
+                issues.append(
+                    CodeIssue(
+                        file_path=str(file_path),
+                        line_number=i + 1,
+                        issue_type=IssueType.CODE_SMELL,
+                        severity=QualityLevel.FAIR,
+                        title="長すぎる行",
+                        description=f"行が {len(line)} 文字と長すぎます（推奨: 120文字以内）",
+                        suggestion="行を分割してください",
+                        code_snippet=line.strip()[:50] + "...",
+                    )
+                )
 
         # インポートチェック
-        import_lines = [line for line in lines if line.strip().startswith(('import ', 'from '))]
+        import_lines = [
+            line for line in lines if line.strip().startswith(("import ", "from "))
+        ]
         if len(import_lines) > 30:
-            issues.append(CodeIssue(
-                file_path=str(file_path),
-                line_number=1,
-                issue_type=IssueType.MAINTAINABILITY,
-                severity=QualityLevel.FAIR,
-                title="過多なインポート",
-                description=f"{len(import_lines)} のインポート文があります",
-                suggestion="必要最小限のインポートに整理してください",
-                code_snippet=""
-            ))
+            issues.append(
+                CodeIssue(
+                    file_path=str(file_path),
+                    line_number=1,
+                    issue_type=IssueType.MAINTAINABILITY,
+                    severity=QualityLevel.FAIR,
+                    title="過多なインポート",
+                    description=f"{len(import_lines)} のインポート文があります",
+                    suggestion="必要最小限のインポートに整理してください",
+                    code_snippet="",
+                )
+            )
 
         # ハードコードされた値検出
         for i, line in enumerate(lines):
             # 数値リテラル検出（設定値っぽいもの）
-            if re.search(r'=\s*\d{4,}', line):  # 4桁以上の数値
-                issues.append(CodeIssue(
-                    file_path=str(file_path),
-                    line_number=i + 1,
-                    issue_type=IssueType.MAINTAINABILITY,
-                    severity=QualityLevel.FAIR,
-                    title="ハードコードされた値",
-                    description="設定値がハードコードされている可能性があります",
-                    suggestion="定数として定義するか設定ファイルに移動してください",
-                    code_snippet=line.strip()
-                ))
+            if re.search(r"=\s*\d{4,}", line):  # 4桁以上の数値
+                issues.append(
+                    CodeIssue(
+                        file_path=str(file_path),
+                        line_number=i + 1,
+                        issue_type=IssueType.MAINTAINABILITY,
+                        severity=QualityLevel.FAIR,
+                        title="ハードコードされた値",
+                        description="設定値がハードコードされている可能性があります",
+                        suggestion="定数として定義するか設定ファイルに移動してください",
+                        code_snippet=line.strip(),
+                    )
+                )
 
         return issues
 
-    def _calculate_quality_level(self, walker: 'ASTWalker', issues: List[CodeIssue]) -> QualityLevel:
+    def _calculate_quality_level(
+        self, walker: "ASTWalker", issues: List[CodeIssue]
+    ) -> QualityLevel:
         """品質レベル計算"""
         # 重大問題があるかチェック
         if any(issue.severity == QualityLevel.CRITICAL for issue in issues):
@@ -291,7 +327,7 @@ class PythonASTAnalyzer:
         else:
             return QualityLevel.EXCELLENT
 
-    def _calculate_docstring_coverage(self, walker: 'ASTWalker') -> float:
+    def _calculate_docstring_coverage(self, walker: "ASTWalker") -> float:
         """ドキュメント化率計算"""
         total_items = walker.function_count + walker.class_count
         documented_items = walker.documented_functions + walker.documented_classes
@@ -321,14 +357,19 @@ class ASTWalker(ast.NodeVisitor):
         self.current_function = node.name
 
         # 関数の行数計算
-        func_lines = node.end_lineno - node.lineno + 1 if hasattr(node, 'end_lineno') else 1
+        func_lines = (
+            node.end_lineno - node.lineno + 1 if hasattr(node, "end_lineno") else 1
+        )
         self.function_lengths[node.name] = func_lines
         self.function_line_numbers[node.name] = node.lineno
 
         # ドキュメント化チェック
-        if (node.body and isinstance(node.body[0], ast.Expr) and
-            isinstance(node.body[0].value, ast.Constant) and
-            isinstance(node.body[0].value.value, str)):
+        if (
+            node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)
+        ):
             self.documented_functions += 1
 
         self.generic_visit(node)
@@ -343,9 +384,12 @@ class ASTWalker(ast.NodeVisitor):
         self.class_count += 1
 
         # ドキュメント化チェック
-        if (node.body and isinstance(node.body[0], ast.Expr) and
-            isinstance(node.body[0].value, ast.Constant) and
-            isinstance(node.body[0].value.value, str)):
+        if (
+            node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)
+        ):
             self.documented_classes += 1
 
         self.generic_visit(node)
@@ -386,11 +430,15 @@ class SystemCodeQualityAuditor:
 
     def __init__(self):
         self.analyzer = PythonASTAnalyzer()
-        self.file_patterns = ['**/*.py']
+        self.file_patterns = ["**/*.py"]
         self.exclude_patterns = [
-            '**/venv/**', '**/env/**', '**/__pycache__/**',
-            '**/node_modules/**', '**/build/**', '**/dist/**',
-            '**/.*/**'
+            "**/venv/**",
+            "**/env/**",
+            "**/__pycache__/**",
+            "**/node_modules/**",
+            "**/build/**",
+            "**/dist/**",
+            "**/.*/**",
         ]
 
         print("=" * 80)
@@ -421,7 +469,7 @@ class SystemCodeQualityAuditor:
 
         return sorted(filtered_files, key=lambda f: f.stat().st_size, reverse=True)
 
-    def audit_codebase(self, root_dir: str = '.') -> QualityReport:
+    def audit_codebase(self, root_dir: str = ".") -> QualityReport:
         """コードベース監査"""
         start_time = time.time()
         root_path = Path(root_dir)
@@ -441,7 +489,7 @@ class SystemCodeQualityAuditor:
                 overall_quality=QualityLevel.FAIR,
                 file_analyses=[],
                 quality_metrics={},
-                improvement_recommendations=["分析対象ファイルが見つかりませんでした"]
+                improvement_recommendations=["分析対象ファイルが見つかりませんでした"],
             )
 
         # ファイル分析
@@ -474,7 +522,7 @@ class SystemCodeQualityAuditor:
             overall_quality=overall_quality,
             file_analyses=file_analyses,
             quality_metrics=quality_metrics,
-            improvement_recommendations=recommendations
+            improvement_recommendations=recommendations,
         )
 
         print(f"\n[COMPLETE] 品質監査完了 ({execution_time:.2f}秒)")
@@ -497,7 +545,9 @@ class SystemCodeQualityAuditor:
             return QualityLevel.CRITICAL
 
         # 低品質ファイルが30%以上
-        poor_ratio = (quality_counts[QualityLevel.CRITICAL] + quality_counts[QualityLevel.POOR]) / total_files
+        poor_ratio = (
+            quality_counts[QualityLevel.CRITICAL] + quality_counts[QualityLevel.POOR]
+        ) / total_files
         if poor_ratio > 0.3:
             return QualityLevel.POOR
 
@@ -513,7 +563,9 @@ class SystemCodeQualityAuditor:
 
         return QualityLevel.EXCELLENT
 
-    def _calculate_quality_metrics(self, analyses: List[FileAnalysis]) -> Dict[str, Any]:
+    def _calculate_quality_metrics(
+        self, analyses: List[FileAnalysis]
+    ) -> Dict[str, Any]:
         """品質メトリクス計算"""
         if not analyses:
             return {}
@@ -529,7 +581,9 @@ class SystemCodeQualityAuditor:
 
         # ドキュメント化統計
         doc_coverages = [a.docstring_coverage for a in analyses]
-        avg_doc_coverage = sum(doc_coverages) / len(doc_coverages) if doc_coverages else 0
+        avg_doc_coverage = (
+            sum(doc_coverages) / len(doc_coverages) if doc_coverages else 0
+        )
 
         # 問題タイプ別統計
         issue_type_counts = Counter()
@@ -541,28 +595,42 @@ class SystemCodeQualityAuditor:
         quality_distribution = Counter(a.quality_level.value for a in analyses)
 
         return {
-            'total_functions': total_functions,
-            'total_classes': total_classes,
-            'total_issues': total_issues,
-            'average_complexity': round(avg_complexity, 2),
-            'average_docstring_coverage': round(avg_doc_coverage, 2),
-            'issue_type_distribution': dict(issue_type_counts),
-            'quality_level_distribution': dict(quality_distribution),
-            'files_needing_attention': len([a for a in analyses if a.quality_level in [QualityLevel.POOR, QualityLevel.CRITICAL]])
+            "total_functions": total_functions,
+            "total_classes": total_classes,
+            "total_issues": total_issues,
+            "average_complexity": round(avg_complexity, 2),
+            "average_docstring_coverage": round(avg_doc_coverage, 2),
+            "issue_type_distribution": dict(issue_type_counts),
+            "quality_level_distribution": dict(quality_distribution),
+            "files_needing_attention": len(
+                [
+                    a
+                    for a in analyses
+                    if a.quality_level in [QualityLevel.POOR, QualityLevel.CRITICAL]
+                ]
+            ),
         }
 
-    def _generate_improvement_recommendations(self, analyses: List[FileAnalysis]) -> List[str]:
+    def _generate_improvement_recommendations(
+        self, analyses: List[FileAnalysis]
+    ) -> List[str]:
         """改善推奨事項生成"""
         recommendations = []
 
         # 品質レベル別推奨事項
-        critical_files = [a for a in analyses if a.quality_level == QualityLevel.CRITICAL]
+        critical_files = [
+            a for a in analyses if a.quality_level == QualityLevel.CRITICAL
+        ]
         if critical_files:
-            recommendations.append(f"重要: {len(critical_files)}個のファイルに重大な問題があります。優先的に修正してください")
+            recommendations.append(
+                f"重要: {len(critical_files)}個のファイルに重大な問題があります。優先的に修正してください"
+            )
 
         poor_files = [a for a in analyses if a.quality_level == QualityLevel.POOR]
         if poor_files:
-            recommendations.append(f"{len(poor_files)}個のファイルの品質が低いです。リファクタリングを検討してください")
+            recommendations.append(
+                f"{len(poor_files)}個のファイルの品質が低いです。リファクタリングを検討してください"
+            )
 
         # 共通問題の推奨事項
         all_issues = []
@@ -572,40 +640,54 @@ class SystemCodeQualityAuditor:
         issue_counts = Counter(issue.issue_type for issue in all_issues)
 
         if issue_counts[IssueType.MAINTAINABILITY] > 20:
-            recommendations.append("保守性の問題が多数検出されています。関数の分割や複雑度の削減を検討してください")
+            recommendations.append(
+                "保守性の問題が多数検出されています。関数の分割や複雑度の削減を検討してください"
+            )
 
         if issue_counts[IssueType.CODE_SMELL] > 15:
-            recommendations.append("コードの臭いが検出されています。リファクタリングで改善してください")
+            recommendations.append(
+                "コードの臭いが検出されています。リファクタリングで改善してください"
+            )
 
         if issue_counts[IssueType.DOCUMENTATION] > 10:
-            recommendations.append("ドキュメント不足が検出されています。コメントやdocstringを追加してください")
+            recommendations.append(
+                "ドキュメント不足が検出されています。コメントやdocstringを追加してください"
+            )
 
         # ドキュメント化推奨
         low_doc_files = [a for a in analyses if a.docstring_coverage < 50]
         if len(low_doc_files) > len(analyses) * 0.3:
-            recommendations.append("多くのファイルでドキュメント化率が低いです。docstringの追加を推奨します")
+            recommendations.append(
+                "多くのファイルでドキュメント化率が低いです。docstringの追加を推奨します"
+            )
 
         # 複雑度推奨
         high_complexity_files = [a for a in analyses if a.complexity_score > 15]
         if high_complexity_files:
-            recommendations.append(f"{len(high_complexity_files)}個のファイルの複雑度が高いです。機能分割を検討してください")
+            recommendations.append(
+                f"{len(high_complexity_files)}個のファイルの複雑度が高いです。機能分割を検討してください"
+            )
 
         # 一般的推奨事項
-        recommendations.extend([
-            "定期的なコードレビューの実施",
-            "自動フォーマッター（black, flake8）の導入",
-            "静的解析ツールの継続使用",
-            "単体テストの充実",
-            "CI/CDでの品質チェック統合"
-        ])
+        recommendations.extend(
+            [
+                "定期的なコードレビューの実施",
+                "自動フォーマッター（black, flake8）の導入",
+                "静的解析ツールの継続使用",
+                "単体テストの充実",
+                "CI/CDでの品質チェック統合",
+            ]
+        )
 
         return recommendations[:15]  # 最大15個の推奨事項
 
-    def generate_quality_report(self, report: QualityReport, format_type: str = 'summary') -> str:
+    def generate_quality_report(
+        self, report: QualityReport, format_type: str = "summary"
+    ) -> str:
         """品質レポート生成"""
-        if format_type == 'summary':
+        if format_type == "summary":
             return self._format_summary_report(report)
-        elif format_type == 'detailed':
+        elif format_type == "detailed":
             return self._format_detailed_report(report)
         else:
             return json.dumps(asdict(report), indent=2, ensure_ascii=False, default=str)
@@ -640,8 +722,11 @@ class SystemCodeQualityAuditor:
         summary = self._format_summary_report(report)
 
         # 問題のあるファイルの詳細
-        problem_files = [a for a in report.file_analyses
-                        if a.quality_level in [QualityLevel.CRITICAL, QualityLevel.POOR]]
+        problem_files = [
+            a
+            for a in report.file_analyses
+            if a.quality_level in [QualityLevel.CRITICAL, QualityLevel.POOR]
+        ]
 
         detailed = summary + "\n\n=== 要注意ファイル ==="
 
@@ -655,7 +740,9 @@ class SystemCodeQualityAuditor:
 主な問題:"""
 
             for issue in analysis.issues[:3]:  # 主要問題3個
-                detailed += f"\n  - {issue.title} (行{issue.line_number}): {issue.description}"
+                detailed += (
+                    f"\n  - {issue.title} (行{issue.line_number}): {issue.description}"
+                )
 
         return detailed
 
@@ -666,12 +753,12 @@ class SystemCodeQualityAuditor:
             return "データなし"
 
         result = []
-        for level in ['excellent', 'good', 'fair', 'poor', 'critical']:
+        for level in ["excellent", "good", "fair", "poor", "critical"]:
             count = distribution.get(level, 0)
             percent = (count / total) * 100
             result.append(f"{level.capitalize()}: {count}個 ({percent:.1f}%)")
 
-        return '\n'.join(result)
+        return "\n".join(result)
 
     def save_quality_report(self, report: QualityReport, filename: str = None) -> str:
         """品質レポート保存"""
@@ -681,9 +768,9 @@ class SystemCodeQualityAuditor:
 
         # JSON用にシリアライズ
         report_dict = asdict(report)
-        report_dict['timestamp'] = report.timestamp.isoformat()
+        report_dict["timestamp"] = report.timestamp.isoformat()
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(report_dict, f, indent=2, ensure_ascii=False)
 
         return f"品質レポート保存完了: {filename}"
@@ -700,11 +787,13 @@ def main():
         # サマリー表示
         try:
             print("\n" + "=" * 80)
-            summary_report = auditor.generate_quality_report(report, 'summary')
-            print(summary_report.encode('ascii', 'replace').decode('ascii'))
+            summary_report = auditor.generate_quality_report(report, "summary")
+            print(summary_report.encode("ascii", "replace").decode("ascii"))
             print("=" * 80)
         except UnicodeEncodeError:
-            print("\n[SUMMARY] レポート出力完了（エンコーディング問題のため詳細は省略）")
+            print(
+                "\n[SUMMARY] レポート出力完了（エンコーディング問題のため詳細は省略）"
+            )
             print(f"総ファイル数: {report.total_files}")
             print(f"総行数: {report.total_lines:,}")
             print(f"品質レベル: {report.overall_quality.value.upper()}")
@@ -715,11 +804,11 @@ def main():
         print(f"\n[REPORT] {saved_file}")
 
         # 詳細レポートも表示（問題ファイルがある場合）
-        if report.quality_metrics.get('files_needing_attention', 0) > 0:
+        if report.quality_metrics.get("files_needing_attention", 0) > 0:
             print("\n" + "=" * 80)
             print("[DETAILED] 問題のあるファイルの詳細")
             print("=" * 80)
-            print(auditor.generate_quality_report(report, 'detailed'))
+            print(auditor.generate_quality_report(report, "detailed"))
 
     except KeyboardInterrupt:
         print("\n[STOP] コード品質監査中断")

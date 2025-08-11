@@ -7,12 +7,13 @@ WebSocket経由でリアルタイムデータをクライアントに配信
 import asyncio
 import json
 from datetime import datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, Optional, Set
+
 from fastapi import WebSocket, WebSocketDisconnect
 
 from ...utils.logging_config import get_context_logger
-from .metrics_collector import MetricsCollector
 from .feature_store_monitor import FeatureStoreMonitor
+from .metrics_collector import MetricsCollector
 
 logger = get_context_logger(__name__)
 
@@ -65,20 +66,26 @@ class RealtimeStream:
             # システム情報送信
             if self.metrics_collector:
                 system_info = self.metrics_collector.get_system_info()
-                await self._send_to_connection(websocket, {
-                    'type': 'system_info',
-                    'data': system_info,
-                    'timestamp': datetime.now().isoformat()
-                })
+                await self._send_to_connection(
+                    websocket,
+                    {
+                        "type": "system_info",
+                        "data": system_info,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
 
             # Feature Store情報送信（利用可能な場合）
             if self.feature_store_monitor:
                 fs_status = self.feature_store_monitor.get_health_status()
-                await self._send_to_connection(websocket, {
-                    'type': 'feature_store_status',
-                    'data': fs_status,
-                    'timestamp': datetime.now().isoformat()
-                })
+                await self._send_to_connection(
+                    websocket,
+                    {
+                        "type": "feature_store_status",
+                        "data": fs_status,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
 
         except Exception as e:
             logger.error(f"初期データ送信エラー: {e}")
@@ -91,7 +98,9 @@ class RealtimeStream:
 
         self.is_streaming = True
         self._streaming_task = asyncio.create_task(self._streaming_loop())
-        logger.info(f"リアルタイムストリーミングを開始しました (間隔: {self.broadcast_interval}秒)")
+        logger.info(
+            f"リアルタイムストリーミングを開始しました (間隔: {self.broadcast_interval}秒)"
+        )
 
     async def stop_streaming(self) -> None:
         """リアルタイムストリーミング停止"""
@@ -107,11 +116,13 @@ class RealtimeStream:
                 pass
 
         # 全接続に停止通知
-        await self.broadcast({
-            'type': 'streaming_stopped',
-            'message': 'リアルタイムストリーミングを停止しました',
-            'timestamp': datetime.now().isoformat()
-        })
+        await self.broadcast(
+            {
+                "type": "streaming_stopped",
+                "message": "リアルタイムストリーミングを停止しました",
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         logger.info("リアルタイムストリーミングを停止しました")
 
@@ -133,20 +144,22 @@ class RealtimeStream:
     async def _collect_streaming_data(self) -> Optional[Dict]:
         """ストリーミング用データ収集"""
         data = {
-            'type': 'realtime_update',
-            'timestamp': datetime.now().isoformat(),
-            'data': {}
+            "type": "realtime_update",
+            "timestamp": datetime.now().isoformat(),
+            "data": {},
         }
 
         # システムメトリクス
         if self.metrics_collector:
             try:
                 current_metrics = self.metrics_collector.get_current_metrics()
-                aggregated_metrics = self.metrics_collector.get_aggregated_metrics(1)  # 直近1分
+                aggregated_metrics = self.metrics_collector.get_aggregated_metrics(
+                    1
+                )  # 直近1分
 
-                data['data']['system_metrics'] = {
-                    'current': current_metrics,
-                    'aggregated': aggregated_metrics
+                data["data"]["system_metrics"] = {
+                    "current": current_metrics,
+                    "aggregated": aggregated_metrics,
                 }
             except Exception as e:
                 logger.error(f"システムメトリクス収集エラー: {e}")
@@ -157,15 +170,15 @@ class RealtimeStream:
                 fs_metrics = self.feature_store_monitor.get_current_metrics()
                 fs_summary = self.feature_store_monitor.get_performance_summary()
 
-                data['data']['feature_store'] = {
-                    'metrics': fs_metrics,
-                    'performance_summary': fs_summary
+                data["data"]["feature_store"] = {
+                    "metrics": fs_metrics,
+                    "performance_summary": fs_summary,
                 }
             except Exception as e:
                 logger.error(f"Feature Store メトリクス収集エラー: {e}")
 
         # データが空でない場合のみ返す
-        if data['data']:
+        if data["data"]:
             return data
         return None
 
@@ -196,27 +209,31 @@ class RealtimeStream:
             logger.warning(f"メッセージ送信失敗: {e}")
             raise
 
-    async def send_alert(self, alert_type: str, message: str, data: Optional[Dict] = None) -> None:
+    async def send_alert(
+        self, alert_type: str, message: str, data: Optional[Dict] = None
+    ) -> None:
         """アラートメッセージ送信"""
         alert_message = {
-            'type': 'alert',
-            'alert_type': alert_type,  # 'info', 'warning', 'error', 'critical'
-            'message': message,
-            'data': data or {},
-            'timestamp': datetime.now().isoformat()
+            "type": "alert",
+            "alert_type": alert_type,  # 'info', 'warning', 'error', 'critical'
+            "message": message,
+            "data": data or {},
+            "timestamp": datetime.now().isoformat(),
         }
 
         await self.broadcast(alert_message)
         logger.info(f"アラート送信: {alert_type} - {message}")
 
-    async def send_notification(self, title: str, message: str, category: str = 'system') -> None:
+    async def send_notification(
+        self, title: str, message: str, category: str = "system"
+    ) -> None:
         """通知メッセージ送信"""
         notification = {
-            'type': 'notification',
-            'title': title,
-            'message': message,
-            'category': category,  # 'system', 'performance', 'feature_store', 'user'
-            'timestamp': datetime.now().isoformat()
+            "type": "notification",
+            "title": title,
+            "message": message,
+            "category": category,  # 'system', 'performance', 'feature_store', 'user'
+            "timestamp": datetime.now().isoformat(),
         }
 
         await self.broadcast(notification)
@@ -225,25 +242,24 @@ class RealtimeStream:
     async def handle_client_message(self, websocket: WebSocket, message: Dict) -> None:
         """クライアントからのメッセージ処理"""
         try:
-            message_type = message.get('type')
+            message_type = message.get("type")
 
-            if message_type == 'ping':
+            if message_type == "ping":
                 # Ping-Pong応答
-                await self._send_to_connection(websocket, {
-                    'type': 'pong',
-                    'timestamp': datetime.now().isoformat()
-                })
+                await self._send_to_connection(
+                    websocket, {"type": "pong", "timestamp": datetime.now().isoformat()}
+                )
 
-            elif message_type == 'request_data':
+            elif message_type == "request_data":
                 # データリクエスト処理
-                data_type = message.get('data_type')
+                data_type = message.get("data_type")
                 await self._handle_data_request(websocket, data_type)
 
-            elif message_type == 'subscribe':
+            elif message_type == "subscribe":
                 # 購読設定
                 await self._handle_subscription(websocket, message)
 
-            elif message_type == 'unsubscribe':
+            elif message_type == "unsubscribe":
                 # 購読解除
                 await self._handle_unsubscription(websocket, message)
 
@@ -252,44 +268,56 @@ class RealtimeStream:
 
         except Exception as e:
             logger.error(f"クライアントメッセージ処理エラー: {e}")
-            await self._send_to_connection(websocket, {
-                'type': 'error',
-                'message': 'メッセージ処理中にエラーが発生しました',
-                'timestamp': datetime.now().isoformat()
-            })
+            await self._send_to_connection(
+                websocket,
+                {
+                    "type": "error",
+                    "message": "メッセージ処理中にエラーが発生しました",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
 
     async def _handle_data_request(self, websocket: WebSocket, data_type: str) -> None:
         """データリクエスト処理"""
         try:
-            if data_type == 'system_health':
+            if data_type == "system_health":
                 if self.metrics_collector:
                     health_report = self.metrics_collector.generate_health_report()
-                    await self._send_to_connection(websocket, {
-                        'type': 'data_response',
-                        'data_type': 'system_health',
-                        'data': health_report,
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    await self._send_to_connection(
+                        websocket,
+                        {
+                            "type": "data_response",
+                            "data_type": "system_health",
+                            "data": health_report,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
 
-            elif data_type == 'feature_store_report':
+            elif data_type == "feature_store_report":
                 if self.feature_store_monitor:
                     fs_report = self.feature_store_monitor.generate_report()
-                    await self._send_to_connection(websocket, {
-                        'type': 'data_response',
-                        'data_type': 'feature_store_report',
-                        'data': fs_report,
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    await self._send_to_connection(
+                        websocket,
+                        {
+                            "type": "data_response",
+                            "data_type": "feature_store_report",
+                            "data": fs_report,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
 
-            elif data_type == 'historical_metrics':
+            elif data_type == "historical_metrics":
                 if self.metrics_collector:
                     history = self.metrics_collector.get_metrics_history(30)  # 30分
-                    await self._send_to_connection(websocket, {
-                        'type': 'data_response',
-                        'data_type': 'historical_metrics',
-                        'data': history,
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    await self._send_to_connection(
+                        websocket,
+                        {
+                            "type": "data_response",
+                            "data_type": "historical_metrics",
+                            "data": history,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
 
         except Exception as e:
             logger.error(f"データリクエスト処理エラー: {e}")
@@ -297,33 +325,39 @@ class RealtimeStream:
     async def _handle_subscription(self, websocket: WebSocket, message: Dict) -> None:
         """購読設定処理"""
         # 将来の拡張用: クライアント別購読設定
-        channels = message.get('channels', [])
+        channels = message.get("channels", [])
         logger.info(f"購読設定: {channels}")
 
-        await self._send_to_connection(websocket, {
-            'type': 'subscription_confirmed',
-            'channels': channels,
-            'timestamp': datetime.now().isoformat()
-        })
+        await self._send_to_connection(
+            websocket,
+            {
+                "type": "subscription_confirmed",
+                "channels": channels,
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
 
     async def _handle_unsubscription(self, websocket: WebSocket, message: Dict) -> None:
         """購読解除処理"""
         # 将来の拡張用: クライアント別購読解除
-        channels = message.get('channels', [])
+        channels = message.get("channels", [])
         logger.info(f"購読解除: {channels}")
 
-        await self._send_to_connection(websocket, {
-            'type': 'unsubscription_confirmed',
-            'channels': channels,
-            'timestamp': datetime.now().isoformat()
-        })
+        await self._send_to_connection(
+            websocket,
+            {
+                "type": "unsubscription_confirmed",
+                "channels": channels,
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
 
     def get_connection_stats(self) -> Dict:
         """接続統計取得"""
         return {
-            'active_connections': len(self.active_connections),
-            'streaming_active': self.is_streaming,
-            'broadcast_interval': self.broadcast_interval,
-            'metrics_collector_active': self.metrics_collector is not None,
-            'feature_store_monitor_active': self.feature_store_monitor is not None
+            "active_connections": len(self.active_connections),
+            "streaming_active": self.is_streaming,
+            "broadcast_interval": self.broadcast_interval,
+            "metrics_collector_active": self.metrics_collector is not None,
+            "feature_store_monitor_active": self.feature_store_monitor is not None,
         }

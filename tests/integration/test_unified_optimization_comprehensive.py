@@ -6,25 +6,24 @@ Phase E: システム品質強化フェーズ
 全統合コンポーネントの網羅的テスト
 """
 
-import asyncio
-import pytest
+import sys
+import time
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any
-from unittest.mock import patch, MagicMock
+import pytest
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from src.day_trade.core.optimization_strategy import (
     OptimizationConfig,
     OptimizationLevel,
     OptimizationStrategyFactory,
-    get_optimized_implementation
+    get_optimized_implementation,
 )
+
 
 class TestUnifiedOptimizationSystem:
     """統合最適化システム包括テスト"""
@@ -33,19 +32,21 @@ class TestUnifiedOptimizationSystem:
     def setup_test_data(self):
         """テストデータセットアップ（軽量化でテスト高速化）"""
         # 軽量な固定テストデータ（計算負荷削減）
-        dates = pd.date_range('2023-01-01', periods=20, freq='D')  # 100日から20日に削減
+        dates = pd.date_range("2023-01-01", periods=20, freq="D")  # 100日から20日に削減
 
         # 固定的な価格データ（乱数計算をスキップ）
         base_prices = [1000 + i * 2 for i in range(20)]  # 簡単な線形増加
 
-        self.test_data = pd.DataFrame({
-            'Date': dates,
-            'Open': [p - 1 for p in base_prices],
-            'High': [p + 5 for p in base_prices],
-            'Low': [p - 5 for p in base_prices],
-            'Close': base_prices,
-            'Volume': [1000000 + i * 10000 for i in range(20)]  # 固定的な出来高
-        }).set_index('Date')
+        self.test_data = pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": [p - 1 for p in base_prices],
+                "High": [p + 5 for p in base_prices],
+                "Low": [p - 5 for p in base_prices],
+                "Close": base_prices,
+                "Volume": [1000000 + i * 10000 for i in range(20)],  # 固定的な出来高
+            }
+        ).set_index("Date")
 
         # 複数最適化レベル設定
         self.optimization_configs = [
@@ -65,7 +66,7 @@ class TestUnifiedOptimizationSystem:
             "feature_engineering",
             "ml_models",
             "multi_timeframe_analysis",
-            "database"
+            "database",
         ]
 
         for component in required_components:
@@ -77,15 +78,20 @@ class TestUnifiedOptimizationSystem:
 
         print(f"✅ 戦略登録テスト完了: {len(components)}個のコンポーネント")
 
-    @pytest.mark.parametrize("config", [
-        OptimizationConfig(level=OptimizationLevel.STANDARD),
-        OptimizationConfig(level=OptimizationLevel.OPTIMIZED),
-        OptimizationConfig(level=OptimizationLevel.ADAPTIVE)
-    ])
+    @pytest.mark.parametrize(
+        "config",
+        [
+            OptimizationConfig(level=OptimizationLevel.STANDARD),
+            OptimizationConfig(level=OptimizationLevel.OPTIMIZED),
+            OptimizationConfig(level=OptimizationLevel.ADAPTIVE),
+        ],
+    )
     def test_technical_indicators_all_levels(self, config):
         """全最適化レベルでのテクニカル指標テスト"""
         try:
-            from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
+            from src.day_trade.analysis.technical_indicators_unified import (
+                TechnicalIndicatorsManager,
+            )
 
             manager = TechnicalIndicatorsManager(config)
 
@@ -93,26 +99,38 @@ class TestUnifiedOptimizationSystem:
             indicators = ["sma", "ema", "rsi", "macd", "bollinger_bands"]
             start_time = time.time()
 
-            results = manager.calculate_indicators(self.test_data, indicators, period=20)
+            results = manager.calculate_indicators(
+                self.test_data, indicators, period=20
+            )
 
             execution_time = time.time() - start_time
 
             # 結果検証
-            assert len(results) == len(indicators), f"指標数不一致: 期待{len(indicators)}, 実際{len(results)}"
+            assert len(results) == len(
+                indicators
+            ), f"指標数不一致: 期待{len(indicators)}, 実際{len(results)}"
 
             for indicator, result in results.items():
                 assert result is not None, f"指標計算失敗: {indicator}"
                 # パフォーマンスオブジェクトの確認
-                assert hasattr(result, 'calculation_time'), f"パフォーマンス情報欠如: {indicator}"
-                assert hasattr(result, 'strategy_used'), f"戦略情報欠如: {indicator}"
+                assert hasattr(
+                    result, "calculation_time"
+                ), f"パフォーマンス情報欠如: {indicator}"
+                assert hasattr(result, "strategy_used"), f"戦略情報欠如: {indicator}"
 
             # レベル別性能期待値
             if config.level == OptimizationLevel.OPTIMIZED:
-                assert execution_time < 2.0, f"最適化版の性能不足: {execution_time:.3f}秒"
+                assert (
+                    execution_time < 2.0
+                ), f"最適化版の性能不足: {execution_time:.3f}秒"
             elif config.level == OptimizationLevel.STANDARD:
-                assert execution_time < 5.0, f"標準版の性能許容範囲超過: {execution_time:.3f}秒"
+                assert (
+                    execution_time < 5.0
+                ), f"標準版の性能許容範囲超過: {execution_time:.3f}秒"
 
-            print(f"✅ テクニカル指標テスト完了 ({config.level.value}): {execution_time:.3f}秒")
+            print(
+                f"✅ テクニカル指標テスト完了 ({config.level.value}): {execution_time:.3f}秒"
+            )
 
         except ImportError as e:
             pytest.skip(f"テクニカル指標統合システム未利用: {e}")
@@ -121,13 +139,12 @@ class TestUnifiedOptimizationSystem:
         """並列特徴量エンジニアリングテスト"""
         try:
             from src.day_trade.analysis.feature_engineering_unified import (
+                FeatureConfig,
                 FeatureEngineeringManager,
-                FeatureConfig
             )
 
             config = OptimizationConfig(
-                level=OptimizationLevel.OPTIMIZED,
-                parallel_processing=True
+                level=OptimizationLevel.OPTIMIZED, parallel_processing=True
             )
 
             feature_config = FeatureConfig(
@@ -135,7 +152,7 @@ class TestUnifiedOptimizationSystem:
                 volatility_windows=[10, 20],
                 momentum_periods=[5, 10],
                 enable_parallel=True,
-                max_workers=2
+                max_workers=2,
             )
 
             manager = FeatureEngineeringManager(config)
@@ -146,38 +163,39 @@ class TestUnifiedOptimizationSystem:
 
             # 結果検証
             assert result is not None, "特徴量生成失敗"
-            assert hasattr(result, 'feature_names'), "特徴量名情報欠如"
-            assert hasattr(result, 'generation_time'), "生成時間情報欠如"
+            assert hasattr(result, "feature_names"), "特徴量名情報欠如"
+            assert hasattr(result, "generation_time"), "生成時間情報欠如"
             assert len(result.feature_names) > 0, "特徴量生成数不足"
 
             # 並列処理効果確認
             assert execution_time < 3.0, f"並列処理の性能不足: {execution_time:.3f}秒"
 
-            print(f"✅ 特徴量エンジニアリングテスト完了: {len(result.feature_names)}個, {execution_time:.3f}秒")
+            print(
+                f"✅ 特徴量エンジニアリングテスト完了: {len(result.feature_names)}個, {execution_time:.3f}秒"
+            )
 
         except ImportError as e:
             pytest.skip(f"特徴量エンジニアリング統合システム未利用: {e}")
 
-    @patch('src.day_trade.analysis.ml_models_unified.MLModelsManager.train_model')
-    @patch('src.day_trade.analysis.ml_models_unified.MLModelsManager.predict')
+    @patch("src.day_trade.analysis.ml_models_unified.MLModelsManager.train_model")
+    @patch("src.day_trade.analysis.ml_models_unified.MLModelsManager.predict")
     def test_ml_models_caching(self, mock_predict, mock_train_model):
         """MLモデル キャッシュ機能テスト（モック化で高速化）"""
         try:
             from src.day_trade.analysis.ml_models_unified import (
                 MLModelsManager,
-                ModelConfig
+                ModelConfig,
             )
 
             config = OptimizationConfig(
-                level=OptimizationLevel.OPTIMIZED,
-                cache_enabled=True
+                level=OptimizationLevel.OPTIMIZED, cache_enabled=True
             )
 
             model_config = ModelConfig(
                 model_type="random_forest",
                 n_estimators=10,  # テスト用に小さな値
                 max_depth=3,
-                enable_parallel=True
+                enable_parallel=True,
             )
 
             manager = MLModelsManager(config)
@@ -210,7 +228,9 @@ class TestUnifiedOptimizationSystem:
             # キャッシュ効果確認（2回目が明らかに高速）
             cache_speedup = first_time / max(second_time, 0.001)  # ゼロ除算回避
 
-            print(f"✅ MLモデルテスト完了: 1回目{first_time:.3f}秒, 2回目{second_time:.3f}秒, 高速化{cache_speedup:.1f}倍")
+            print(
+                f"✅ MLモデルテスト完了: 1回目{first_time:.3f}秒, 2回目{second_time:.3f}秒, 高速化{cache_speedup:.1f}倍"
+            )
 
         except ImportError as e:
             pytest.skip(f"MLモデル統合システム未利用: {e}")
@@ -218,7 +238,9 @@ class TestUnifiedOptimizationSystem:
     def test_multi_timeframe_analysis(self):
         """マルチタイムフレーム分析テスト"""
         try:
-            from src.day_trade.analysis.multi_timeframe_analysis_unified import MultiTimeframeAnalysisManager
+            from src.day_trade.analysis.multi_timeframe_analysis_unified import (
+                MultiTimeframeAnalysisManager,
+            )
 
             config = OptimizationConfig(level=OptimizationLevel.OPTIMIZED)
             manager = MultiTimeframeAnalysisManager(config)
@@ -229,21 +251,33 @@ class TestUnifiedOptimizationSystem:
 
             # 結果検証
             assert result is not None, "マルチタイムフレーム分析失敗"
-            assert hasattr(result, 'timeframe_results'), "タイムフレーム結果欠如"
-            assert hasattr(result, 'integrated_trend'), "統合トレンド情報欠如"
-            assert hasattr(result, 'confidence_score'), "信頼度情報欠如"
+            assert hasattr(result, "timeframe_results"), "タイムフレーム結果欠如"
+            assert hasattr(result, "integrated_trend"), "統合トレンド情報欠如"
+            assert hasattr(result, "confidence_score"), "信頼度情報欠如"
 
             # タイムフレーム結果確認
             assert len(result.timeframe_results) > 0, "タイムフレーム分析結果不足"
 
             # トレンド値確認
-            valid_trends = ["strong_bullish", "bullish", "neutral", "bearish", "strong_bearish"]
-            assert result.integrated_trend in valid_trends, f"不正なトレンド値: {result.integrated_trend}"
+            valid_trends = [
+                "strong_bullish",
+                "bullish",
+                "neutral",
+                "bearish",
+                "strong_bearish",
+            ]
+            assert (
+                result.integrated_trend in valid_trends
+            ), f"不正なトレンド値: {result.integrated_trend}"
 
             # 信頼度範囲確認
-            assert 0.0 <= result.confidence_score <= 1.0, f"信頼度範囲外: {result.confidence_score}"
+            assert (
+                0.0 <= result.confidence_score <= 1.0
+            ), f"信頼度範囲外: {result.confidence_score}"
 
-            print(f"✅ マルチタイムフレーム分析テスト完了: {result.integrated_trend} (信頼度{result.confidence_score:.3f}), {execution_time:.3f}秒")
+            print(
+                f"✅ マルチタイムフレーム分析テスト完了: {result.integrated_trend} (信頼度{result.confidence_score:.3f}), {execution_time:.3f}秒"
+            )
 
         except ImportError as e:
             pytest.skip(f"マルチタイムフレーム分析統合システム未利用: {e}")
@@ -258,7 +292,9 @@ class TestUnifiedOptimizationSystem:
 
             # 基本接続テスト
             connection_result = db_manager.test_connection()
-            assert connection_result.success, f"データベース接続失敗: {connection_result.error_message}"
+            assert (
+                connection_result.success
+            ), f"データベース接続失敗: {connection_result.error_message}"
 
             # クエリ実行テスト
             query_result = db_manager.execute_query("SELECT 1 as test_value")
@@ -266,11 +302,13 @@ class TestUnifiedOptimizationSystem:
 
             # キャッシュ機能テスト（最適化版）
             strategy = db_manager.get_strategy()
-            if hasattr(strategy, 'get_cache_stats'):
+            if hasattr(strategy, "get_cache_stats"):
                 cache_stats = strategy.get_cache_stats()
-                assert 'cache_enabled' in cache_stats, "キャッシュ統計情報欠如"
+                assert "cache_enabled" in cache_stats, "キャッシュ統計情報欠如"
 
-            print(f"✅ データベース最適化テスト完了: 戦略 {strategy.get_strategy_name()}")
+            print(
+                f"✅ データベース最適化テスト完了: 戦略 {strategy.get_strategy_name()}"
+            )
 
         except ImportError as e:
             pytest.skip(f"データベース統合システム未利用: {e}")
@@ -279,7 +317,9 @@ class TestUnifiedOptimizationSystem:
     async def test_async_processing_capability(self):
         """非同期処理能力テスト"""
         try:
-            from src.day_trade.analysis.multi_timeframe_analysis_unified import MultiTimeframeAnalysisManager
+            from src.day_trade.analysis.multi_timeframe_analysis_unified import (
+                MultiTimeframeAnalysisManager,
+            )
 
             config = OptimizationConfig(level=OptimizationLevel.OPTIMIZED)
             manager = MultiTimeframeAnalysisManager(config)
@@ -290,7 +330,7 @@ class TestUnifiedOptimizationSystem:
             execution_time = time.time() - start_time
 
             assert result is not None, "非同期分析失敗"
-            assert hasattr(result, 'integrated_trend'), "非同期分析結果不備"
+            assert hasattr(result, "integrated_trend"), "非同期分析結果不備"
 
             print(f"✅ 非同期処理テスト完了: {execution_time:.3f}秒")
 
@@ -306,11 +346,13 @@ class TestUnifiedOptimizationSystem:
                 # パフォーマンスメトリクス取得
                 metrics = strategy.get_performance_metrics()
 
-                assert 'execution_count' in metrics, "実行回数情報欠如"
-                assert 'total_time' in metrics, "総実行時間情報欠如"
-                assert 'success_rate' in metrics, "成功率情報欠如"
+                assert "execution_count" in metrics, "実行回数情報欠如"
+                assert "total_time" in metrics, "総実行時間情報欠如"
+                assert "success_rate" in metrics, "成功率情報欠如"
 
-                print(f"✅ パフォーマンス監視テスト完了 ({config.level.value}): 成功率{metrics.get('success_rate', 0):.2%}")
+                print(
+                    f"✅ パフォーマンス監視テスト完了 ({config.level.value}): 成功率{metrics.get('success_rate', 0):.2%}"
+                )
 
             except ImportError:
                 pytest.skip(f"パフォーマンス監視システム未利用 ({config.level.value})")
@@ -318,8 +360,7 @@ class TestUnifiedOptimizationSystem:
     def test_adaptive_level_functionality(self):
         """適応的レベル機能テスト"""
         config = OptimizationConfig(
-            level=OptimizationLevel.ADAPTIVE,
-            auto_fallback=True
+            level=OptimizationLevel.ADAPTIVE, auto_fallback=True
         )
 
         try:
@@ -329,7 +370,9 @@ class TestUnifiedOptimizationSystem:
             assert strategy is not None, "適応的戦略取得失敗"
 
             strategy_name = strategy.get_strategy_name()
-            assert "適応" in strategy_name or "Adaptive" in strategy_name, f"適応的戦略名不正: {strategy_name}"
+            assert (
+                "適応" in strategy_name or "Adaptive" in strategy_name
+            ), f"適応的戦略名不正: {strategy_name}"
 
             print(f"✅ 適応的レベル機能テスト完了: {strategy_name}")
 
@@ -344,7 +387,9 @@ class TestUnifiedOptimizationSystem:
         config = OptimizationConfig(level=OptimizationLevel.STANDARD)
 
         try:
-            from src.day_trade.analysis.technical_indicators_unified import TechnicalIndicatorsManager
+            from src.day_trade.analysis.technical_indicators_unified import (
+                TechnicalIndicatorsManager,
+            )
 
             manager = TechnicalIndicatorsManager(config)
 
@@ -362,13 +407,20 @@ class TestUnifiedOptimizationSystem:
         # 各種設定パターンのテスト
         test_configs = [
             OptimizationConfig(level=OptimizationLevel.STANDARD, cache_enabled=False),
-            OptimizationConfig(level=OptimizationLevel.OPTIMIZED, parallel_processing=False),
+            OptimizationConfig(
+                level=OptimizationLevel.OPTIMIZED, parallel_processing=False
+            ),
             OptimizationConfig(level=OptimizationLevel.ADAPTIVE, auto_fallback=False),
         ]
 
         for config in test_configs:
             # 設定の有効性確認
-            assert config.level in [OptimizationLevel.STANDARD, OptimizationLevel.OPTIMIZED, OptimizationLevel.ADAPTIVE, OptimizationLevel.DEBUG]
+            assert config.level in [
+                OptimizationLevel.STANDARD,
+                OptimizationLevel.OPTIMIZED,
+                OptimizationLevel.ADAPTIVE,
+                OptimizationLevel.DEBUG,
+            ]
             assert isinstance(config.cache_enabled, bool)
             assert isinstance(config.parallel_processing, bool)
 

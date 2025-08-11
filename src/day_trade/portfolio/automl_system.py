@@ -12,16 +12,15 @@ Features:
 - 本番環境デプロイ対応
 """
 
-import asyncio
+import json
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Any, Union, Callable
-from dataclasses import dataclass, asdict
-from enum import Enum
-from datetime import datetime
-import warnings
-import json
-from pathlib import Path
 
 from ..utils.logging_config import get_context_logger
 
@@ -33,34 +32,39 @@ OPTUNA_AVAILABLE = False
 XGBOOST_AVAILABLE = False
 
 try:
-    from sklearn.model_selection import cross_val_score, TimeSeriesSplit, GridSearchCV
-    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-    from sklearn.linear_model import Ridge, Lasso, ElasticNet
-    from sklearn.svm import SVR
-    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-    from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-    from sklearn.feature_selection import SelectKBest, RFE, SelectFromModel
+    from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+    from sklearn.feature_selection import RFE, SelectFromModel, SelectKBest
+    from sklearn.linear_model import ElasticNet, Lasso, Ridge
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+    from sklearn.model_selection import GridSearchCV, TimeSeriesSplit, cross_val_score
     from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+    from sklearn.svm import SVR
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     pass
 
 try:
     import optuna
-    from optuna.samplers import TPESampler
     from optuna.pruners import MedianPruner
+    from optuna.samplers import TPESampler
+
     OPTUNA_AVAILABLE = True
 except ImportError:
     pass
 
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     pass
 
+
 class ModelType(Enum):
     """モデルタイプ"""
+
     RANDOM_FOREST = "random_forest"
     GRADIENT_BOOSTING = "gradient_boosting"
     XGBOOST = "xgboost"
@@ -70,17 +74,21 @@ class ModelType(Enum):
     SVR = "svr"
     ENSEMBLE = "ensemble"
 
+
 class OptimizationMethod(Enum):
     """最適化手法"""
+
     GRID_SEARCH = "grid_search"
     RANDOM_SEARCH = "random_search"
     BAYESIAN = "bayesian"
     HYPERBAND = "hyperband"
     OPTUNA = "optuna"
 
+
 @dataclass
 class AutoMLConfig:
     """AutoML設定"""
+
     # モデル選択
     models_to_try: List[ModelType] = None
     optimization_method: OptimizationMethod = OptimizationMethod.OPTUNA
@@ -94,10 +102,10 @@ class AutoMLConfig:
     # 特徴量選択
     feature_selection: bool = True
     max_features: int = 50
-    feature_selection_method: str = 'mutual_info'
+    feature_selection_method: str = "mutual_info"
 
     # 前処理
-    scaling_method: str = 'standard'  # standard, minmax, robust
+    scaling_method: str = "standard"  # standard, minmax, robust
     handle_missing: bool = True
 
     # アンサンブル
@@ -109,7 +117,7 @@ class AutoMLConfig:
     memory_limit_gb: float = 8.0
 
     # 目標メトリクス
-    target_metric: str = 'rmse'  # rmse, mae, r2
+    target_metric: str = "rmse"  # rmse, mae, r2
     early_stopping_patience: int = 20
 
     def __post_init__(self):
@@ -118,15 +126,17 @@ class AutoMLConfig:
                 ModelType.RANDOM_FOREST,
                 ModelType.GRADIENT_BOOSTING,
                 ModelType.RIDGE,
-                ModelType.LASSO
+                ModelType.LASSO,
             ]
 
             if XGBOOST_AVAILABLE:
                 self.models_to_try.append(ModelType.XGBOOST)
 
+
 @dataclass
 class ModelPerformance:
     """モデル性能"""
+
     model_type: ModelType
     train_score: float
     validation_score: float
@@ -139,9 +149,11 @@ class ModelPerformance:
     parameters: Dict[str, Any]
     feature_importance: Dict[str, float] = None
 
+
 @dataclass
 class HyperparameterResults:
     """ハイパーパラメータ最適化結果"""
+
     best_params: Dict[str, Any]
     best_score: float
     optimization_history: List[Dict[str, Any]]
@@ -149,6 +161,7 @@ class HyperparameterResults:
     best_trial_number: int
     optimization_time: float
     convergence_curve: List[float]
+
 
 class AutoMLSystem:
     """機械学習自動化システム"""
@@ -176,10 +189,12 @@ class AutoMLSystem:
 
         logger.info("AutoMLシステム初期化完了")
 
-    async def auto_train(self,
-                        X: pd.DataFrame,
-                        y: pd.Series,
-                        validation_data: Tuple[pd.DataFrame, pd.Series] = None) -> Dict[str, Any]:
+    async def auto_train(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        validation_data: Tuple[pd.DataFrame, pd.Series] = None,
+    ) -> Dict[str, Any]:
         """自動訓練実行"""
 
         self.training_start_time = datetime.now()
@@ -196,10 +211,12 @@ class AutoMLSystem:
             # 3. データ分割
             if validation_data is None:
                 from sklearn.model_selection import train_test_split
+
                 X_train, X_val, y_train, y_val = train_test_split(
-                    X_processed, y_processed,
+                    X_processed,
+                    y_processed,
                     test_size=self.config.test_size,
-                    random_state=42
+                    random_state=42,
                 )
             else:
                 X_train, y_train = X_processed, y_processed
@@ -227,26 +244,36 @@ class AutoMLSystem:
             # 6. アンサンブル構築
             ensemble_result = None
             if self.config.enable_ensemble and len(training_results) >= 2:
-                ensemble_result = await self._build_ensemble(X_train, y_train, X_val, y_val)
+                ensemble_result = await self._build_ensemble(
+                    X_train, y_train, X_val, y_val
+                )
 
             # 7. 最終評価
             final_evaluation = await self._final_evaluation(X_val, y_val)
 
             self.is_fitted = True
-            total_training_time = (datetime.now() - self.training_start_time).total_seconds()
+            total_training_time = (
+                datetime.now() - self.training_start_time
+            ).total_seconds()
 
             result = {
-                'training_results': training_results,
-                'best_model': {
-                    'type': self.best_model_type.value if self.best_model_type else None,
-                    'performance': asdict(self.model_performances.get(self.best_model_type.value, {})) if self.best_model_type else None
+                "training_results": training_results,
+                "best_model": {
+                    "type": self.best_model_type.value
+                    if self.best_model_type
+                    else None,
+                    "performance": asdict(
+                        self.model_performances.get(self.best_model_type.value, {})
+                    )
+                    if self.best_model_type
+                    else None,
                 },
-                'ensemble_result': ensemble_result,
-                'final_evaluation': final_evaluation,
-                'total_training_time': total_training_time,
-                'feature_importances': self.feature_importances,
-                'models_trained': len(training_results),
-                'optimization_method': self.config.optimization_method.value
+                "ensemble_result": ensemble_result,
+                "final_evaluation": final_evaluation,
+                "total_training_time": total_training_time,
+                "feature_importances": self.feature_importances,
+                "models_trained": len(training_results),
+                "optimization_method": self.config.optimization_method.value,
             }
 
             logger.info(f"AutoML自動訓練完了: {total_training_time:.2f}秒")
@@ -256,7 +283,9 @@ class AutoMLSystem:
             logger.error(f"AutoML自動訓練エラー: {e}")
             raise
 
-    async def _preprocess_data(self, X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:
+    async def _preprocess_data(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> Tuple[pd.DataFrame, pd.Series]:
         """データ前処理"""
         logger.info("データ前処理開始")
 
@@ -265,19 +294,17 @@ class AutoMLSystem:
             X = X.fillna(X.median())
 
         # スケーリング
-        if self.config.scaling_method == 'standard':
+        if self.config.scaling_method == "standard":
             scaler = StandardScaler()
-        elif self.config.scaling_method == 'minmax':
+        elif self.config.scaling_method == "minmax":
             scaler = MinMaxScaler()
-        elif self.config.scaling_method == 'robust':
+        elif self.config.scaling_method == "robust":
             scaler = RobustScaler()
         else:
             scaler = StandardScaler()
 
         X_scaled = pd.DataFrame(
-            scaler.fit_transform(X),
-            columns=X.columns,
-            index=X.index
+            scaler.fit_transform(X), columns=X.columns, index=X.index
         )
 
         self.preprocessing_pipeline = scaler
@@ -293,41 +320,45 @@ class AutoMLSystem:
             logger.info("特徴量数が制限以下のため、特徴量選択をスキップ")
             return X
 
-        if self.config.feature_selection_method == 'mutual_info':
+        if self.config.feature_selection_method == "mutual_info":
             from sklearn.feature_selection import mutual_info_regression
-            selector = SelectKBest(score_func=mutual_info_regression, k=self.config.max_features)
-        elif self.config.feature_selection_method == 'rfe':
+
+            selector = SelectKBest(
+                score_func=mutual_info_regression, k=self.config.max_features
+            )
+        elif self.config.feature_selection_method == "rfe":
             from sklearn.ensemble import RandomForestRegressor
+
             estimator = RandomForestRegressor(n_estimators=50, random_state=42)
             selector = RFE(estimator, n_features_to_select=self.config.max_features)
         else:
             # デフォルト: 分散ベース
             from sklearn.feature_selection import VarianceThreshold
+
             selector = VarianceThreshold()
 
-        X_selected = pd.DataFrame(
-            selector.fit_transform(X, y),
-            index=X.index
-        )
+        X_selected = pd.DataFrame(selector.fit_transform(X, y), index=X.index)
 
         # 特徴量名の取得
-        if hasattr(selector, 'get_support'):
+        if hasattr(selector, "get_support"):
             selected_features = X.columns[selector.get_support()]
             X_selected.columns = selected_features
         else:
-            X_selected.columns = [f'feature_{i}' for i in range(X_selected.shape[1])]
+            X_selected.columns = [f"feature_{i}" for i in range(X_selected.shape[1])]
 
         self.feature_selector = selector
 
         logger.info(f"特徴量選択完了: {X.shape[1]} -> {X_selected.shape[1]}")
         return X_selected
 
-    async def _train_single_model(self,
-                                model_type: ModelType,
-                                X_train: pd.DataFrame,
-                                y_train: pd.Series,
-                                X_val: pd.DataFrame,
-                                y_val: pd.Series) -> ModelPerformance:
+    async def _train_single_model(
+        self,
+        model_type: ModelType,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ) -> ModelPerformance:
         """単一モデル訓練"""
 
         start_time = datetime.now()
@@ -336,7 +367,10 @@ class AutoMLSystem:
         model = self._create_model(model_type)
 
         # ハイパーパラメータ最適化
-        if self.config.optimization_method == OptimizationMethod.OPTUNA and OPTUNA_AVAILABLE:
+        if (
+            self.config.optimization_method == OptimizationMethod.OPTUNA
+            and OPTUNA_AVAILABLE
+        ):
             best_params, optimization_result = await self._optuna_optimize(
                 model_type, X_train, y_train
             )
@@ -357,9 +391,11 @@ class AutoMLSystem:
 
         # 交差検証
         cv_scores = cross_val_score(
-            model, X_train, y_train,
+            model,
+            X_train,
+            y_train,
             cv=TimeSeriesSplit(n_splits=self.config.cv_folds),
-            scoring='neg_mean_squared_error'
+            scoring="neg_mean_squared_error",
         )
         cv_scores = -cv_scores  # 正の値に変換
 
@@ -384,7 +420,7 @@ class AutoMLSystem:
             training_time=training_time,
             prediction_time=pred_time,
             parameters=best_params,
-            feature_importance=feature_importance
+            feature_importance=feature_importance,
         )
 
         # モデル保存
@@ -402,7 +438,9 @@ class AutoMLSystem:
             raise ImportError("scikit-learn が必要です")
 
         if model_type == ModelType.RANDOM_FOREST:
-            return RandomForestRegressor(random_state=42, n_jobs=self.config.parallel_jobs)
+            return RandomForestRegressor(
+                random_state=42, n_jobs=self.config.parallel_jobs
+            )
         elif model_type == ModelType.GRADIENT_BOOSTING:
             return GradientBoostingRegressor(random_state=42)
         elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
@@ -418,10 +456,9 @@ class AutoMLSystem:
         else:
             return RandomForestRegressor(random_state=42)
 
-    async def _optuna_optimize(self,
-                             model_type: ModelType,
-                             X_train: pd.DataFrame,
-                             y_train: pd.Series) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    async def _optuna_optimize(
+        self, model_type: ModelType, X_train: pd.DataFrame, y_train: pd.Series
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Optuna最適化"""
 
         def objective(trial):
@@ -431,32 +468,34 @@ class AutoMLSystem:
 
             # 交差検証
             scores = cross_val_score(
-                model, X_train, y_train,
+                model,
+                X_train,
+                y_train,
                 cv=TimeSeriesSplit(n_splits=min(3, self.config.cv_folds)),
-                scoring='neg_mean_squared_error',
-                n_jobs=self.config.parallel_jobs
+                scoring="neg_mean_squared_error",
+                n_jobs=self.config.parallel_jobs,
             )
 
             return -scores.mean()
 
         # Study作成
         study = optuna.create_study(
-            direction='minimize',
+            direction="minimize",
             sampler=TPESampler(seed=42),
-            pruner=MedianPruner(n_warmup_steps=5)
+            pruner=MedianPruner(n_warmup_steps=5),
         )
 
         # 最適化実行
         study.optimize(
             objective,
             n_trials=self.config.max_trials,
-            timeout=self.config.timeout_seconds // len(self.config.models_to_try)
+            timeout=self.config.timeout_seconds // len(self.config.models_to_try),
         )
 
         optimization_result = {
-            'best_value': study.best_value,
-            'best_trial': study.best_trial.number,
-            'n_trials': len(study.trials)
+            "best_value": study.best_value,
+            "best_trial": study.best_trial.number,
+            "n_trials": len(study.trials),
         }
 
         return study.best_params, optimization_result
@@ -466,56 +505,60 @@ class AutoMLSystem:
 
         if model_type == ModelType.RANDOM_FOREST:
             return {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-                'max_depth': trial.suggest_int('max_depth', 3, 20),
-                'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-                'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
-                'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', None])
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "max_depth": trial.suggest_int("max_depth", 3, 20),
+                "min_samples_split": trial.suggest_int("min_samples_split", 2, 20),
+                "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 10),
+                "max_features": trial.suggest_categorical(
+                    "max_features", ["sqrt", "log2", None]
+                ),
             }
 
         elif model_type == ModelType.GRADIENT_BOOSTING:
             return {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'max_depth': trial.suggest_int('max_depth', 3, 15),
-                'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-                'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
-                'subsample': trial.suggest_float('subsample', 0.6, 1.0)
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
+                "max_depth": trial.suggest_int("max_depth", 3, 15),
+                "min_samples_split": trial.suggest_int("min_samples_split", 2, 20),
+                "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 10),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
             }
 
         elif model_type == ModelType.XGBOOST and XGBOOST_AVAILABLE:
             return {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'max_depth': trial.suggest_int('max_depth', 3, 15),
-                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-                'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 1.0, log=True),
-                'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 1.0, log=True)
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
+                "max_depth": trial.suggest_int("max_depth", 3, 15),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 1.0, log=True),
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 1.0, log=True),
             }
 
         elif model_type == ModelType.RIDGE:
-            return {
-                'alpha': trial.suggest_float('alpha', 1e-8, 10.0, log=True)
-            }
+            return {"alpha": trial.suggest_float("alpha", 1e-8, 10.0, log=True)}
 
         elif model_type == ModelType.LASSO:
-            return {
-                'alpha': trial.suggest_float('alpha', 1e-8, 10.0, log=True)
-            }
+            return {"alpha": trial.suggest_float("alpha", 1e-8, 10.0, log=True)}
 
         elif model_type == ModelType.ELASTIC_NET:
             return {
-                'alpha': trial.suggest_float('alpha', 1e-8, 10.0, log=True),
-                'l1_ratio': trial.suggest_float('l1_ratio', 0.0, 1.0)
+                "alpha": trial.suggest_float("alpha", 1e-8, 10.0, log=True),
+                "l1_ratio": trial.suggest_float("l1_ratio", 0.0, 1.0),
             }
 
         elif model_type == ModelType.SVR:
             return {
-                'C': trial.suggest_float('C', 1e-3, 1000, log=True),
-                'gamma': trial.suggest_categorical('gamma', ['scale', 'auto']),
-                'kernel': trial.suggest_categorical('kernel', ['rbf', 'linear', 'poly'])
+                "C": trial.suggest_float("C", 1e-3, 1000, log=True),
+                "gamma": trial.suggest_categorical("gamma", ["scale", "auto"]),
+                "kernel": trial.suggest_categorical(
+                    "kernel", ["rbf", "linear", "poly"]
+                ),
             }
 
         return {}
@@ -525,47 +568,49 @@ class AutoMLSystem:
 
         defaults = {
             ModelType.RANDOM_FOREST: {
-                'n_estimators': 100,
-                'max_depth': 10,
-                'min_samples_split': 5,
-                'min_samples_leaf': 2
+                "n_estimators": 100,
+                "max_depth": 10,
+                "min_samples_split": 5,
+                "min_samples_leaf": 2,
             },
             ModelType.GRADIENT_BOOSTING: {
-                'n_estimators': 100,
-                'learning_rate': 0.1,
-                'max_depth': 6
+                "n_estimators": 100,
+                "learning_rate": 0.1,
+                "max_depth": 6,
             },
             ModelType.XGBOOST: {
-                'n_estimators': 100,
-                'learning_rate': 0.1,
-                'max_depth': 6
+                "n_estimators": 100,
+                "learning_rate": 0.1,
+                "max_depth": 6,
             },
-            ModelType.RIDGE: {'alpha': 1.0},
-            ModelType.LASSO: {'alpha': 1.0},
-            ModelType.ELASTIC_NET: {'alpha': 1.0, 'l1_ratio': 0.5},
-            ModelType.SVR: {'C': 1.0, 'gamma': 'scale'}
+            ModelType.RIDGE: {"alpha": 1.0},
+            ModelType.LASSO: {"alpha": 1.0},
+            ModelType.ELASTIC_NET: {"alpha": 1.0, "l1_ratio": 0.5},
+            ModelType.SVR: {"C": 1.0, "gamma": "scale"},
         }
 
         return defaults.get(model_type, {})
 
     def _calculate_score(self, y_true: pd.Series, y_pred: np.ndarray) -> float:
         """スコア計算"""
-        if self.config.target_metric == 'rmse':
+        if self.config.target_metric == "rmse":
             return np.sqrt(mean_squared_error(y_true, y_pred))
-        elif self.config.target_metric == 'mae':
+        elif self.config.target_metric == "mae":
             return mean_absolute_error(y_true, y_pred)
-        elif self.config.target_metric == 'r2':
+        elif self.config.target_metric == "r2":
             return r2_score(y_true, y_pred)
         else:
             return np.sqrt(mean_squared_error(y_true, y_pred))
 
-    def _get_feature_importance(self, model, feature_names: List[str]) -> Dict[str, float]:
+    def _get_feature_importance(
+        self, model, feature_names: List[str]
+    ) -> Dict[str, float]:
         """特徴量重要度取得"""
         try:
-            if hasattr(model, 'feature_importances_'):
+            if hasattr(model, "feature_importances_"):
                 importances = model.feature_importances_
                 return dict(zip(feature_names, importances))
-            elif hasattr(model, 'coef_'):
+            elif hasattr(model, "coef_"):
                 importances = np.abs(model.coef_)
                 return dict(zip(feature_names, importances))
             else:
@@ -578,13 +623,17 @@ class AutoMLSystem:
         if not training_results:
             return
 
-        best_score = float('inf') if self.config.target_metric in ['rmse', 'mae'] else float('-inf')
+        best_score = (
+            float("inf")
+            if self.config.target_metric in ["rmse", "mae"]
+            else float("-inf")
+        )
         best_model_name = None
 
         for model_name, performance in training_results.items():
             score = performance.validation_score
 
-            if self.config.target_metric in ['rmse', 'mae']:
+            if self.config.target_metric in ["rmse", "mae"]:
                 if score < best_score:
                     best_score = score
                     best_model_name = model_name
@@ -599,21 +648,32 @@ class AutoMLSystem:
 
             logger.info(f"最良モデル選択: {best_model_name} (score: {best_score:.4f})")
 
-    async def _build_ensemble(self,
-                            X_train: pd.DataFrame,
-                            y_train: pd.Series,
-                            X_val: pd.DataFrame,
-                            y_val: pd.Series) -> Dict[str, Any]:
+    async def _build_ensemble(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ) -> Dict[str, Any]:
         """アンサンブル構築"""
         logger.info("アンサンブルモデル構築開始")
+
+        # best_score の定義を追加
+        best_score = (
+            float("inf")
+            if self.config.target_metric in ["rmse", "mae"]
+            else float("-inf")
+        )
 
         try:
             # 上位モデル選択
             performances = list(self.model_performances.values())
-            performances.sort(key=lambda x: x.validation_score,
-                            reverse=(self.config.target_metric == 'r2'))
+            performances.sort(
+                key=lambda x: x.validation_score,
+                reverse=(self.config.target_metric == "r2"),
+            )
 
-            top_models = performances[:self.config.ensemble_size]
+            top_models = performances[: self.config.ensemble_size]
             ensemble_models = []
             ensemble_weights = []
 
@@ -622,7 +682,7 @@ class AutoMLSystem:
                 ensemble_models.append(model)
 
                 # 重み計算（性能ベース）
-                if self.config.target_metric in ['rmse', 'mae']:
+                if self.config.target_metric in ["rmse", "mae"]:
                     weight = 1.0 / (perf.validation_score + 1e-8)
                 else:
                     weight = perf.validation_score
@@ -640,7 +700,9 @@ class AutoMLSystem:
                 val_predictions.append(pred)
 
             # 重み付き平均
-            ensemble_pred = np.average(val_predictions, axis=0, weights=ensemble_weights)
+            ensemble_pred = np.average(
+                val_predictions, axis=0, weights=ensemble_weights
+            )
             ensemble_score = self._calculate_score(y_val, ensemble_pred)
 
             # アンサンブルモデル作成
@@ -654,7 +716,7 @@ class AutoMLSystem:
                     return np.average(predictions, axis=0, weights=self.weights)
 
             ensemble_model = EnsembleModel(ensemble_models, ensemble_weights)
-            self.trained_models['ensemble'] = ensemble_model
+            self.trained_models["ensemble"] = ensemble_model
 
             ensemble_performance = ModelPerformance(
                 model_type=ModelType.ENSEMBLE,
@@ -666,16 +728,18 @@ class AutoMLSystem:
                 cv_std=0.0,
                 training_time=0.0,
                 prediction_time=0.0,
-                parameters={'weights': ensemble_weights}
+                parameters={"weights": ensemble_weights},
             )
 
-            self.model_performances['ensemble'] = ensemble_performance
+            self.model_performances["ensemble"] = ensemble_performance
 
             result = {
-                'ensemble_score': ensemble_score,
-                'component_models': [perf.model_type.value for perf in top_models],
-                'weights': ensemble_weights,
-                'improvement_over_best': best_score - ensemble_score if self.config.target_metric in ['rmse', 'mae'] else ensemble_score - best_score
+                "ensemble_score": ensemble_score,
+                "component_models": [perf.model_type.value for perf in top_models],
+                "weights": ensemble_weights,
+                "improvement_over_best": best_score - ensemble_score
+                if self.config.target_metric in ["rmse", "mae"]
+                else ensemble_score - best_score,
             }
 
             logger.info(f"アンサンブル構築完了: score={ensemble_score:.4f}")
@@ -685,7 +749,9 @@ class AutoMLSystem:
             logger.error(f"アンサンブル構築エラー: {e}")
             return None
 
-    async def _final_evaluation(self, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, Any]:
+    async def _final_evaluation(
+        self, X_test: pd.DataFrame, y_test: pd.Series
+    ) -> Dict[str, Any]:
         """最終評価"""
         logger.info("最終評価開始")
 
@@ -697,8 +763,8 @@ class AutoMLSystem:
                 score = self._calculate_score(y_test, pred)
 
                 evaluation_results[model_name] = {
-                    'test_score': score,
-                    'predictions': pred[:10].tolist()  # サンプル予測
+                    "test_score": score,
+                    "predictions": pred[:10].tolist(),  # サンプル予測
                 }
 
                 # パフォーマンス更新
@@ -721,7 +787,7 @@ class AutoMLSystem:
             X_processed = pd.DataFrame(
                 self.preprocessing_pipeline.transform(X),
                 columns=X.columns,
-                index=X.index
+                index=X.index,
             )
         else:
             X_processed = X
@@ -729,15 +795,14 @@ class AutoMLSystem:
         # 特徴量選択
         if self.feature_selector:
             X_processed = pd.DataFrame(
-                self.feature_selector.transform(X_processed),
-                index=X_processed.index
+                self.feature_selector.transform(X_processed), index=X_processed.index
             )
 
         # 予測
         if use_best_model and self.best_model:
             return self.best_model.predict(X_processed)
-        elif 'ensemble' in self.trained_models:
-            return self.trained_models['ensemble'].predict(X_processed)
+        elif "ensemble" in self.trained_models:
+            return self.trained_models["ensemble"].predict(X_processed)
         elif self.trained_models:
             # フォールバック: 最初のモデル
             first_model = next(iter(self.trained_models.values()))
@@ -752,27 +817,31 @@ class AutoMLSystem:
 
         performances = []
         for model_name, perf in self.model_performances.items():
-            performances.append({
-                'model': model_name,
-                'validation_score': perf.validation_score,
-                'cv_mean': perf.cv_mean,
-                'cv_std': perf.cv_std,
-                'training_time': perf.training_time
-            })
+            performances.append(
+                {
+                    "model": model_name,
+                    "validation_score": perf.validation_score,
+                    "cv_mean": perf.cv_mean,
+                    "cv_std": perf.cv_std,
+                    "training_time": perf.training_time,
+                }
+            )
 
         # ソート
-        performances.sort(key=lambda x: x['validation_score'],
-                         reverse=(self.config.target_metric == 'r2'))
+        performances.sort(
+            key=lambda x: x["validation_score"],
+            reverse=(self.config.target_metric == "r2"),
+        )
 
         return {
-            'total_models': len(self.trained_models),
-            'best_model': self.best_model_type.value if self.best_model_type else None,
-            'optimization_method': self.config.optimization_method.value,
-            'target_metric': self.config.target_metric,
-            'model_performances': performances,
-            'feature_importances_available': len(self.feature_importances) > 0,
-            'ensemble_available': 'ensemble' in self.trained_models,
-            'is_fitted': self.is_fitted
+            "total_models": len(self.trained_models),
+            "best_model": self.best_model_type.value if self.best_model_type else None,
+            "optimization_method": self.config.optimization_method.value,
+            "target_metric": self.config.target_metric,
+            "model_performances": performances,
+            "feature_importances_available": len(self.feature_importances) > 0,
+            "ensemble_available": "ensemble" in self.trained_models,
+            "is_fitted": self.is_fitted,
         }
 
     def save_models(self, save_dir: str):
@@ -785,38 +854,44 @@ class AutoMLSystem:
         # モデル保存
         for model_name, model in self.trained_models.items():
             model_file = save_path / f"model_{model_name}.pkl"
-            with open(model_file, 'wb') as f:
+            with open(model_file, "wb") as f:
                 pickle.dump(model, f)
 
         # 前処理パイプライン保存
         if self.preprocessing_pipeline:
             pipeline_file = save_path / "preprocessing_pipeline.pkl"
-            with open(pipeline_file, 'wb') as f:
+            with open(pipeline_file, "wb") as f:
                 pickle.dump(self.preprocessing_pipeline, f)
 
         # 特徴量選択器保存
         if self.feature_selector:
             selector_file = save_path / "feature_selector.pkl"
-            with open(selector_file, 'wb') as f:
+            with open(selector_file, "wb") as f:
                 pickle.dump(self.feature_selector, f)
 
         # メタデータ保存
         metadata = {
-            'model_performances': {k: asdict(v) for k, v in self.model_performances.items()},
-            'feature_importances': self.feature_importances,
-            'best_model_type': self.best_model_type.value if self.best_model_type else None,
-            'config': asdict(self.config),
-            'is_fitted': self.is_fitted
+            "model_performances": {
+                k: asdict(v) for k, v in self.model_performances.items()
+            },
+            "feature_importances": self.feature_importances,
+            "best_model_type": self.best_model_type.value
+            if self.best_model_type
+            else None,
+            "config": asdict(self.config),
+            "is_fitted": self.is_fitted,
         }
 
         metadata_file = save_path / "metadata.json"
-        with open(metadata_file, 'w', encoding='utf-8') as f:
+        with open(metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
 
         logger.info(f"モデル保存完了: {save_path}")
 
+
 # グローバルインスタンス
 _automl_system = None
+
 
 def get_automl_system(config: AutoMLConfig = None) -> AutoMLSystem:
     """AutoMLシステム取得"""

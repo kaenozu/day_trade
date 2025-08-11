@@ -6,7 +6,7 @@ TTL・LRU・stale-while-revalidate機能付きキャッシュシステム
 
 import os
 import time
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from ...utils.logging_config import get_context_logger
 
@@ -311,7 +311,9 @@ class DataCache:
         self._eviction_count += excess_count
         logger.debug(f"余剰エントリ削除: {excess_count}件")
 
-    def _calculate_expected_improvement(self, adjustments: Dict[str, Any]) -> Dict[str, float]:
+    def _calculate_expected_improvement(
+        self, adjustments: Dict[str, Any]
+    ) -> Dict[str, float]:
         """調整による期待される改善効果を推定"""
         improvement = {"hit_rate": 0.0, "memory_efficiency": 0.0}
 

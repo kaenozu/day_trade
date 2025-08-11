@@ -6,23 +6,21 @@ Strategy Pattern統合システムの設定管理と動作テスト機能
 """
 
 import argparse
-import json
-import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Optional
 
-import psutil
-import pandas as pd
 import numpy as np
+import pandas as pd
+import psutil
 
+from ..utils.logging_config import get_context_logger
 from .optimization_strategy import (
     OptimizationConfig,
     OptimizationLevel,
-    OptimizationStrategyFactory
+    OptimizationStrategyFactory,
 )
-from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
@@ -112,7 +110,7 @@ class OptimizationCLI:
 
             # パフォーマンス指標の表示
             metrics = strategy.get_performance_metrics()
-            print(f"パフォーマンス指標:")
+            print("パフォーマンス指標:")
             print(f"  実行回数: {metrics.get('execution_count', 0)}")
             print(f"  成功回数: {metrics.get('success_count', 0)}")
             print(f"  平均実行時間: {metrics.get('average_time', 0):.3f}秒")
@@ -125,26 +123,30 @@ class OptimizationCLI:
         print("テクニカル指標テストデータ生成...")
 
         # テストデータ生成
-        dates = pd.date_range('2023-01-01', periods=100, freq='D')
+        dates = pd.date_range("2023-01-01", periods=100, freq="D")
         np.random.seed(42)
         prices = 1000 + np.cumsum(np.random.randn(100) * 10)
 
-        test_data = pd.DataFrame({
-            'Date': dates,
-            '終値': prices,
-            '高値': prices + np.random.rand(100) * 5,
-            '安値': prices - np.random.rand(100) * 5,
-            '出来高': np.random.randint(1000, 10000, 100)
-        }).set_index('Date')
+        test_data = pd.DataFrame(
+            {
+                "Date": dates,
+                "終値": prices,
+                "高値": prices + np.random.rand(100) * 5,
+                "安値": prices - np.random.rand(100) * 5,
+                "出来高": np.random.randint(1000, 10000, 100),
+            }
+        ).set_index("Date")
 
         # テスト実行
-        test_indicators = ['sma', 'bollinger_bands', 'rsi']
+        test_indicators = ["sma", "bollinger_bands", "rsi"]
 
         start_time = time.time()
         result = strategy.execute(test_data, test_indicators, period=20)
         execution_time = time.time() - start_time
 
-        print(f"テクニカル指標計算完了: {len(test_indicators)}指標, {execution_time:.3f}秒")
+        print(
+            f"テクニカル指標計算完了: {len(test_indicators)}指標, {execution_time:.3f}秒"
+        )
 
         for indicator, indicator_result in result.items():
             print(f"  {indicator}: 計算時間 {indicator_result.calculation_time:.3f}秒")
@@ -154,24 +156,28 @@ class OptimizationCLI:
         print("特徴量エンジニアリングテストデータ生成...")
 
         # テストデータ生成
-        dates = pd.date_range('2023-01-01', periods=200, freq='D')
+        dates = pd.date_range("2023-01-01", periods=200, freq="D")
         np.random.seed(42)
         prices = 1000 + np.cumsum(np.random.randn(200) * 10)
 
-        test_data = pd.DataFrame({
-            'Date': dates,
-            '終値': prices,
-            '高値': prices + np.random.rand(200) * 5,
-            '安値': prices - np.random.rand(200) * 5,
-            '出来高': np.random.randint(1000, 10000, 200)
-        }).set_index('Date')
+        test_data = pd.DataFrame(
+            {
+                "Date": dates,
+                "終値": prices,
+                "高値": prices + np.random.rand(200) * 5,
+                "安値": prices - np.random.rand(200) * 5,
+                "出来高": np.random.randint(1000, 10000, 200),
+            }
+        ).set_index("Date")
 
         # テスト実行
         start_time = time.time()
         result = strategy.execute(test_data)
         execution_time = time.time() - start_time
 
-        print(f"特徴量生成完了: {result.features.shape[1]}特徴量, {execution_time:.3f}秒")
+        print(
+            f"特徴量生成完了: {result.features.shape[1]}特徴量, {execution_time:.3f}秒"
+        )
         print(f"生成特徴量: {len(result.feature_names)}個")
 
     def _test_database(self, strategy) -> None:
@@ -215,7 +221,9 @@ class OptimizationCLI:
                 config = OptimizationConfig(level=level)
 
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(component, config)
+                    strategy = OptimizationStrategyFactory.get_strategy(
+                        component, config
+                    )
 
                     # 簡易ベンチマーク実行
                     start_time = time.time()
@@ -225,8 +233,8 @@ class OptimizationCLI:
                     metrics = strategy.get_performance_metrics()
                     results[component][level.value] = {
                         "total_time": execution_time,
-                        "avg_time": metrics.get('average_time', 0),
-                        "success_count": metrics.get('success_count', 0),
+                        "avg_time": metrics.get("average_time", 0),
+                        "success_count": metrics.get("success_count", 0),
                     }
 
                 except Exception as e:
@@ -244,8 +252,10 @@ class OptimizationCLI:
                 if "error" in metrics:
                     print(f"  {level}: エラー - {metrics['error']}")
                 else:
-                    print(f"  {level}: 総時間 {metrics['total_time']:.3f}秒, "
-                          f"平均時間 {metrics['avg_time']:.3f}秒")
+                    print(
+                        f"  {level}: 総時間 {metrics['total_time']:.3f}秒, "
+                        f"平均時間 {metrics['avg_time']:.3f}秒"
+                    )
 
     def system_info(self) -> None:
         """システム情報の表示"""
@@ -263,7 +273,7 @@ class OptimizationCLI:
         print(f"  総メモリ: {memory.total / (1024**3):.1f}GB")
 
         # ディスク情報
-        disk = psutil.disk_usage('.')
+        disk = psutil.disk_usage(".")
         print(f"  ディスク使用率: {disk.percent}%")
         print(f"  利用可能容量: {disk.free / (1024**3):.1f}GB")
 
@@ -272,12 +282,12 @@ class OptimizationCLI:
 
         # 依存ライブラリ確認
         optional_libs = {
-            'numba': 'Numba高速化',
-            'talib': 'TA-Lib指標',
-            'psutil': 'システム監視',
-            'sqlalchemy': 'データベース',
-            'pandas': 'データ処理',
-            'numpy': '数値計算'
+            "numba": "Numba高速化",
+            "talib": "TA-Lib指標",
+            "psutil": "システム監視",
+            "sqlalchemy": "データベース",
+            "pandas": "データ処理",
+            "numpy": "数値計算",
         }
 
         print("\n依存ライブラリ:")
@@ -293,61 +303,65 @@ def main():
     """メインエントリーポイント"""
     parser = argparse.ArgumentParser(
         description="Day Trade最適化設定管理CLI",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(dest='command', help='利用可能なコマンド')
+    subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 
     # 設定関連コマンド
-    config_parser = subparsers.add_parser('config', help='設定管理')
-    config_subparsers = config_parser.add_subparsers(dest='config_action')
+    config_parser = subparsers.add_parser("config", help="設定管理")
+    config_subparsers = config_parser.add_subparsers(dest="config_action")
 
-    config_subparsers.add_parser('show', help='現在の設定を表示')
+    config_subparsers.add_parser("show", help="現在の設定を表示")
 
-    template_parser = config_subparsers.add_parser('template', help='設定テンプレート作成')
-    template_parser.add_argument('--output', '-o', help='出力ファイルパス')
+    template_parser = config_subparsers.add_parser(
+        "template", help="設定テンプレート作成"
+    )
+    template_parser.add_argument("--output", "-o", help="出力ファイルパス")
 
     # コンポーネント関連コマンド
-    comp_parser = subparsers.add_parser('component', help='コンポーネント管理')
-    comp_subparsers = comp_parser.add_subparsers(dest='component_action')
+    comp_parser = subparsers.add_parser("component", help="コンポーネント管理")
+    comp_subparsers = comp_parser.add_subparsers(dest="component_action")
 
-    comp_subparsers.add_parser('list', help='登録済みコンポーネント一覧')
+    comp_subparsers.add_parser("list", help="登録済みコンポーネント一覧")
 
-    test_parser = comp_subparsers.add_parser('test', help='コンポーネントテスト')
-    test_parser.add_argument('name', help='コンポーネント名')
-    test_parser.add_argument('--level', '-l', help='最適化レベル (standard/optimized/adaptive)')
+    test_parser = comp_subparsers.add_parser("test", help="コンポーネントテスト")
+    test_parser.add_argument("name", help="コンポーネント名")
+    test_parser.add_argument(
+        "--level", "-l", help="最適化レベル (standard/optimized/adaptive)"
+    )
 
     # ベンチマーク関連コマンド
-    subparsers.add_parser('benchmark', help='全コンポーネントベンチマーク')
+    subparsers.add_parser("benchmark", help="全コンポーネントベンチマーク")
 
     # システム情報
-    subparsers.add_parser('system', help='システム情報表示')
+    subparsers.add_parser("system", help="システム情報表示")
 
     args = parser.parse_args()
 
     cli = OptimizationCLI()
 
-    if args.command == 'config':
-        if args.config_action == 'show':
+    if args.command == "config":
+        if args.config_action == "show":
             cli.show_current_config()
-        elif args.config_action == 'template':
+        elif args.config_action == "template":
             cli.create_config_template(args.output)
 
-    elif args.command == 'component':
-        if args.component_action == 'list':
+    elif args.command == "component":
+        if args.component_action == "list":
             cli.list_components()
-        elif args.component_action == 'test':
+        elif args.component_action == "test":
             cli.test_component(args.name, args.level)
 
-    elif args.command == 'benchmark':
+    elif args.command == "benchmark":
         cli.benchmark_all()
 
-    elif args.command == 'system':
+    elif args.command == "system":
         cli.system_info()
 
     else:
         parser.print_help()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

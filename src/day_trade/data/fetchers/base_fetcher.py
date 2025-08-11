@@ -4,19 +4,26 @@
 データ取得の基本機能・リトライ・エラーハンドリング
 """
 
+import os
 import time
 from abc import ABC, abstractmethod
-from functools import lru_cache
-from typing import Dict, Optional, Any, List
-import os
+from typing import Any, Dict
 
 from tenacity import (
-    after_log, before_sleep_log, retry, retry_if_exception,
-    stop_after_attempt, wait_exponential
+    after_log,
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
 )
 
+from ...utils.exceptions import (
+    NetworkError,
+    StockFetcherError,
+    handle_network_exception,
+)
 from ...utils.logging_config import get_context_logger, get_performance_logger
-from ...utils.exceptions import StockFetcherError, NetworkError, handle_network_exception
 
 logger = get_context_logger(__name__)
 
@@ -214,13 +221,13 @@ class BaseFetcher(ABC):
 
     def clear_cache(self) -> None:
         """キャッシュをクリア"""
-        if hasattr(self, '_get_ticker'):
+        if hasattr(self, "_get_ticker"):
             self._get_ticker.cache_clear()
         logger.info("キャッシュクリア完了")
 
     def get_cache_info(self) -> Dict[str, Any]:
         """キャッシュ情報を取得"""
-        if hasattr(self, '_get_ticker'):
+        if hasattr(self, "_get_ticker"):
             cache_info = self._get_ticker.cache_info()
             return {
                 "hits": cache_info.hits,
@@ -228,7 +235,8 @@ class BaseFetcher(ABC):
                 "maxsize": cache_info.maxsize,
                 "currsize": cache_info.currsize,
                 "hit_rate": cache_info.hits / (cache_info.hits + cache_info.misses)
-                if (cache_info.hits + cache_info.misses) > 0 else 0.0,
+                if (cache_info.hits + cache_info.misses) > 0
+                else 0.0,
             }
         return {}
 
@@ -283,7 +291,9 @@ class BaseFetcher(ABC):
             cache_info = self.get_cache_info()
             if cache_info.get("hit_rate", 1.0) < 0.5:
                 health_score -= 10
-                issues.append(f"低いキャッシュ効率: {cache_info.get('hit_rate', 0):.2%}")
+                issues.append(
+                    f"低いキャッシュ効率: {cache_info.get('hit_rate', 0):.2%}"
+                )
 
             health_status = "healthy"
             if health_score < 60:

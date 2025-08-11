@@ -5,20 +5,19 @@
 統合最適化システムのプロダクション環境への配備と設定管理
 """
 
-import os
-import sys
+import argparse
 import json
+import logging
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-import argparse
-import logging
+from typing import Optional
 
 # ログ設定
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,40 +40,38 @@ class ProductionSetup:
             "batch_size": 2000,
             "timeout_seconds": 120,
             "memory_limit_mb": 2048,
-
             "component_specific": {
                 "technical_indicators": {
                     "level": "optimized",
                     "enable_numba": True,
                     "enable_ml_enhancement": True,
-                    "cache_ttl_seconds": 600
+                    "cache_ttl_seconds": 600,
                 },
                 "feature_engineering": {
                     "level": "optimized",
                     "enable_parallel": True,
                     "chunk_size": 50000,
-                    "max_workers": 8
+                    "max_workers": 8,
                 },
                 "database": {
                     "level": "optimized",
                     "query_cache_size": 5000,
                     "query_cache_ttl_minutes": 120,
                     "bulk_insert_threshold": 1000,
-                    "batch_size": 5000
+                    "batch_size": 5000,
                 },
                 "ml_models": {
                     "level": "optimized",
                     "enable_parallel": True,
                     "enable_caching": True,
                     "max_workers": 6,
-                    "cache_size": 2000
+                    "cache_size": 2000,
                 },
                 "multi_timeframe_analysis": {
                     "level": "optimized",
-                    "parallel_processing": True
-                }
+                    "parallel_processing": True,
+                },
             },
-
             "system_thresholds": {
                 "memory_usage_warning": 75,
                 "memory_usage_critical": 90,
@@ -83,19 +80,18 @@ class ProductionSetup:
                 "auto_fallback_triggers": {
                     "memory_over": 85,
                     "cpu_over": 90,
-                    "error_rate_over": 0.05
-                }
+                    "error_rate_over": 0.05,
+                },
             },
-
             "monitoring": {
                 "enable_detailed_logging": True,
                 "log_performance_metrics": True,
                 "alert_thresholds": {
                     "slow_operation_seconds": 30,
                     "high_memory_usage_mb": 1800,
-                    "cache_hit_rate_below": 0.7
-                }
-            }
+                    "cache_hit_rate_below": 0.7,
+                },
+            },
         }
 
     def setup_production_environment(self):
@@ -146,7 +142,7 @@ class ProductionSetup:
             "monitoring/alerts",
             "backups/database",
             "backups/config",
-            "tmp/processing"
+            "tmp/processing",
         ]
 
         for dir_path in directories:
@@ -162,7 +158,7 @@ class ProductionSetup:
         config_file = self.config_dir / "production" / "optimization_config.json"
         config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(config_file, 'w', encoding='utf-8') as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(self.production_config, f, indent=2, ensure_ascii=False)
 
         logger.info(f"プロダクション設定ファイル作成: {config_file}")
@@ -172,19 +168,21 @@ class ProductionSetup:
             "development": {
                 **self.production_config,
                 "optimization_level": "standard",
-                "monitoring": {"enable_detailed_logging": True}
+                "monitoring": {"enable_detailed_logging": True},
             },
             "staging": {
                 **self.production_config,
                 "optimization_level": "optimized",
-                "batch_size": 1000
+                "batch_size": 1000,
             },
-            "production": self.production_config
+            "production": self.production_config,
         }
 
         for env_name, env_config in env_configs.items():
-            env_config_file = self.config_dir / "production" / f"optimization_config_{env_name}.json"
-            with open(env_config_file, 'w', encoding='utf-8') as f:
+            env_config_file = (
+                self.config_dir / "production" / f"optimization_config_{env_name}.json"
+            )
+            with open(env_config_file, "w", encoding="utf-8") as f:
                 json.dump(env_config, f, indent=2, ensure_ascii=False)
             logger.debug(f"環境別設定ファイル作成: {env_config_file}")
 
@@ -203,12 +201,14 @@ class ProductionSetup:
             "DAYTRADE_TIMEOUT": "120",
             "DAYTRADE_MEMORY_LIMIT": "2048",
             "DAYTRADE_LOG_LEVEL": "INFO",
-            "DAYTRADE_CONFIG_PATH": str(self.config_dir / "production" / "optimization_config.json")
+            "DAYTRADE_CONFIG_PATH": str(
+                self.config_dir / "production" / "optimization_config.json"
+            ),
         }
 
         # .env ファイル作成
         env_file = self.project_root / ".env.production"
-        with open(env_file, 'w') as f:
+        with open(env_file, "w") as f:
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 
@@ -229,7 +229,7 @@ class ProductionSetup:
             "numpy>=1.24.0",
             "pandas>=2.0.0",
             "sqlalchemy>=2.0.0",
-            "scikit-learn>=1.3.0"
+            "scikit-learn>=1.3.0",
         ]
 
         # オプショナル最適化パッケージ
@@ -237,7 +237,7 @@ class ProductionSetup:
             "numba>=0.58.0",
             "xgboost>=1.7.0",
             "lightgbm>=4.0.0",
-            "joblib>=1.3.0"
+            "joblib>=1.3.0",
         ]
 
         try:
@@ -245,7 +245,9 @@ class ProductionSetup:
             for package in required_packages:
                 result = subprocess.run(
                     [sys.executable, "-m", "pip", "install", package],
-                    capture_output=True, text=True, check=True
+                    capture_output=True,
+                    text=True,
+                    check=True,
                 )
                 logger.debug(f"必須パッケージインストール: {package}")
 
@@ -254,7 +256,9 @@ class ProductionSetup:
                 try:
                     result = subprocess.run(
                         [sys.executable, "-m", "pip", "install", package],
-                        capture_output=True, text=True, check=True
+                        capture_output=True,
+                        text=True,
+                        check=True,
                     )
                     logger.debug(f"オプショナルパッケージインストール: {package}")
                 except subprocess.CalledProcessError:
@@ -274,8 +278,8 @@ class ProductionSetup:
             # データベース設定のインポートと初期化
             sys.path.insert(0, str(self.project_root / "src"))
 
-            from src.day_trade.models.database_unified import DatabaseManager
             from src.day_trade.core.optimization_strategy import OptimizationConfig
+            from src.day_trade.models.database_unified import DatabaseManager
 
             config = OptimizationConfig.from_env()
             db_manager = DatabaseManager(config)
@@ -307,9 +311,9 @@ class ProductionSetup:
             sys.path.insert(0, str(self.project_root / "src"))
 
             from src.day_trade.core.optimization_strategy import (
-                OptimizationStrategyFactory,
                 OptimizationConfig,
-                OptimizationLevel
+                OptimizationLevel,
+                OptimizationStrategyFactory,
             )
 
             # 戦略ファクトリーの検証
@@ -321,8 +325,12 @@ class ProductionSetup:
 
             for component_name in components.keys():
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(component_name, config)
-                    logger.info(f"コンポーネント検証成功: {component_name} - {strategy.get_strategy_name()}")
+                    strategy = OptimizationStrategyFactory.get_strategy(
+                        component_name, config
+                    )
+                    logger.info(
+                        f"コンポーネント検証成功: {component_name} - {strategy.get_strategy_name()}"
+                    )
                 except Exception as e:
                     logger.error(f"コンポーネント検証失敗: {component_name} - {e}")
                     raise
@@ -346,7 +354,7 @@ class ProductionSetup:
                     cwd=str(self.project_root),
                     capture_output=True,
                     text=True,
-                    timeout=300  # 5分タイムアウト
+                    timeout=300,  # 5分タイムアウト
                 )
 
                 if result.returncode == 0:
@@ -359,7 +367,10 @@ class ProductionSetup:
 
             # CLI ベンチマークの実行
             benchmark_cmd = [
-                sys.executable, "-m", "src.day_trade.core.optimization_cli", "benchmark"
+                sys.executable,
+                "-m",
+                "src.day_trade.core.optimization_cli",
+                "benchmark",
             ]
 
             result = subprocess.run(
@@ -367,7 +378,7 @@ class ProductionSetup:
                 cwd=str(self.project_root),
                 capture_output=True,
                 text=True,
-                timeout=600  # 10分タイムアウト
+                timeout=600,  # 10分タイムアウト
             )
 
             if result.returncode == 0:
@@ -399,7 +410,7 @@ class ProductionSetup:
 """
 
         logrotate_file = self.project_root / "deployment" / "logrotate.conf"
-        with open(logrotate_file, 'w') as f:
+        with open(logrotate_file, "w") as f:
             f.write(logrotate_config)
 
         # システムサービス設定
@@ -426,7 +437,7 @@ WantedBy=multi-user.target
 """
 
         service_file = self.project_root / "deployment" / "daytrade.service"
-        with open(service_file, 'w') as f:
+        with open(service_file, "w") as f:
             f.write(systemd_service)
 
         # 監視スクリプト
@@ -487,7 +498,7 @@ main
 """
 
         monitoring_file = self.project_root / "deployment" / "monitoring.sh"
-        with open(monitoring_file, 'w') as f:
+        with open(monitoring_file, "w") as f:
             f.write(monitoring_script)
 
         # 実行権限付与
@@ -512,11 +523,12 @@ main
             "deployment/",
             "test_unified_optimization_system.py",
             "requirements.txt",
-            ".env.production"
+            ".env.production",
         ]
 
         # パッケージング
         import tarfile
+
         package_name = f"daytrade_unified_system_{os.environ.get('BUILD_VERSION', 'latest')}.tar.gz"
         package_path = self.deployment_root / package_name
 
@@ -536,7 +548,9 @@ main
         logger.info("古いデプロイメント清理中...")
 
         # 古いパッケージファイルの削除
-        package_files = list(self.deployment_root.glob("daytrade_unified_system_*.tar.gz"))
+        package_files = list(
+            self.deployment_root.glob("daytrade_unified_system_*.tar.gz")
+        )
         if len(package_files) > keep_versions:
             # 作成時間でソート
             package_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
@@ -549,10 +563,11 @@ main
         log_dir = self.project_root / "logs"
         if log_dir.exists():
             import gzip
+
             for log_file in log_dir.glob("*.log"):
                 if log_file.stat().st_size > 10 * 1024 * 1024:  # 10MB以上
-                    with open(log_file, 'rb') as f_in:
-                        with gzip.open(f"{log_file}.gz", 'wb') as f_out:
+                    with open(log_file, "rb") as f_in:
+                        with gzip.open(f"{log_file}.gz", "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
                     log_file.unlink()
                     logger.info(f"ログファイル圧縮: {log_file}")
@@ -560,14 +575,22 @@ main
 
 def main():
     """メインエントリーポイント"""
-    parser = argparse.ArgumentParser(description="Day Trade プロダクション環境セットアップ")
-    parser.add_argument('--action', choices=[
-        'setup', 'package', 'cleanup', 'validate', 'all'
-    ], default='all', help='実行するアクション')
-    parser.add_argument('--environment', choices=[
-        'development', 'staging', 'production'
-    ], default='production', help='環境設定')
-    parser.add_argument('--verbose', '-v', action='store_true', help='詳細ログ')
+    parser = argparse.ArgumentParser(
+        description="Day Trade プロダクション環境セットアップ"
+    )
+    parser.add_argument(
+        "--action",
+        choices=["setup", "package", "cleanup", "validate", "all"],
+        default="all",
+        help="実行するアクション",
+    )
+    parser.add_argument(
+        "--environment",
+        choices=["development", "staging", "production"],
+        default="production",
+        help="環境設定",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="詳細ログ")
 
     args = parser.parse_args()
 
@@ -575,22 +598,22 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     # 環境変数設定
-    os.environ['DAYTRADE_ENVIRONMENT'] = args.environment
+    os.environ["DAYTRADE_ENVIRONMENT"] = args.environment
 
     setup = ProductionSetup()
 
     try:
-        if args.action in ['setup', 'all']:
+        if args.action in ["setup", "all"]:
             setup.setup_production_environment()
 
-        if args.action in ['package', 'all']:
+        if args.action in ["package", "all"]:
             package_path = setup.create_deployment_package()
             print(f"デプロイメントパッケージ: {package_path}")
 
-        if args.action in ['cleanup', 'all']:
+        if args.action in ["cleanup", "all"]:
             setup.cleanup_old_deployments()
 
-        if args.action in ['validate', 'all']:
+        if args.action in ["validate", "all"]:
             setup._validate_unified_system()
 
         print("✅ プロダクション環境セットアップ完了")

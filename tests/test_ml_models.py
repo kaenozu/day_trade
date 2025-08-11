@@ -1,10 +1,9 @@
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import numpy as np
-import joblib
+import pandas as pd
 
 from src.day_trade.analysis.ml_models import MLModelManager, ModelConfig
 
@@ -26,8 +25,8 @@ class TestMLModelManager(unittest.TestCase):
             f.unlink()
         self.models_dir.rmdir()
 
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.train_model')
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.predict')
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.train_model")
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.predict")
     def test_train_predict_symbol_specific_model(self, mock_predict, mock_train_model):
         """銘柄固有モデルの訓練と予測をテスト（モック化で高速化）"""
         config = ModelConfig(model_type="linear", task_type="regression")
@@ -51,15 +50,21 @@ class TestMLModelManager(unittest.TestCase):
         # 別の銘柄「8306」のモデルは訓練されていないことを確認
         predictions = self.manager.predict("return_predictor", self.X)
 
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.train_model')
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.save_model')
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.load_model')
-    @patch('src.day_trade.analysis.ml_models.MLModelManager.predict')
-    @patch('joblib.dump')
-    @patch('joblib.load')
-    def test_save_load_symbol_specific_model(self, mock_joblib_load, mock_joblib_dump,
-                                           mock_predict, mock_load_model, mock_save_model,
-                                           mock_train_model):
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.train_model")
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.save_model")
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.load_model")
+    @patch("src.day_trade.analysis.ml_models.MLModelManager.predict")
+    @patch("joblib.dump")
+    @patch("joblib.load")
+    def test_save_load_symbol_specific_model(
+        self,
+        mock_joblib_load,
+        mock_joblib_dump,
+        mock_predict,
+        mock_load_model,
+        mock_save_model,
+        mock_train_model,
+    ):
         """銘柄固有モデルの保存と読み込みをテスト（モック化で高速化）"""
         config = ModelConfig(model_type="linear", task_type="regression")
         self.manager.create_model("return_predictor", config)

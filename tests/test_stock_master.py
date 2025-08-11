@@ -6,7 +6,6 @@ import os
 import sys
 
 import pytest
-
 from day_trade.data.stock_master import StockMasterManager  # Moved to top
 from day_trade.models.stock import Stock  # Moved to top
 
