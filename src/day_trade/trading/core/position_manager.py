@@ -42,7 +42,9 @@ class PositionManager:
 
         logger.debug(f"ポジション更新完了: {symbol}")
 
-    def _handle_buy_trade(self, trade: Trade, current_position: Optional[Position]) -> None:
+    def _handle_buy_trade(
+        self, trade: Trade, current_position: Optional[Position]
+    ) -> None:
         """
         買い取引処理
 
@@ -78,9 +80,13 @@ class PositionManager:
                 total_cost=new_total_cost,
                 current_price=current_position.current_price,
             )
-            logger.info(f"ポジション追加: {symbol} {trade.quantity}株追加, 計{new_quantity}株")
+            logger.info(
+                f"ポジション追加: {symbol} {trade.quantity}株追加, 計{new_quantity}株"
+            )
 
-    def _handle_sell_trade(self, trade: Trade, current_position: Optional[Position]) -> None:
+    def _handle_sell_trade(
+        self, trade: Trade, current_position: Optional[Position]
+    ) -> None:
         """
         売り取引処理
 
@@ -112,7 +118,9 @@ class PositionManager:
         else:
             # 部分売却 - 平均取得価格は変更しない
             # 売却分に対応するコスト減算
-            cost_per_share = current_position.total_cost / Decimal(current_position.quantity)
+            cost_per_share = current_position.total_cost / Decimal(
+                current_position.quantity
+            )
             remaining_cost = cost_per_share * Decimal(remaining_quantity)
 
             self.positions[symbol] = Position(
@@ -181,7 +189,9 @@ class PositionManager:
 
         # ポートフォリオ指標計算
         portfolio_return_pct = (
-            (total_unrealized_pnl / total_cost * 100) if total_cost > 0 else Decimal("0")
+            (total_unrealized_pnl / total_cost * 100)
+            if total_cost > 0
+            else Decimal("0")
         )
 
         portfolio_summary = {
@@ -192,7 +202,9 @@ class PositionManager:
             "portfolio_return_percentage": portfolio_return_pct,
         }
 
-        logger.debug(f"ポートフォリオサマリー: 評価額{total_market_value}円, {len(self.positions)}銘柄")
+        logger.debug(
+            f"ポートフォリオサマリー: 評価額{total_market_value}円, {len(self.positions)}銘柄"
+        )
         return portfolio_summary
 
     def get_positions_by_value(self, descending: bool = True) -> List[Position]:
@@ -206,10 +218,7 @@ class PositionManager:
             評価額順ポジションリスト
         """
         positions_list = list(self.positions.values())
-        positions_list.sort(
-            key=lambda p: p.market_value,
-            reverse=descending
-        )
+        positions_list.sort(key=lambda p: p.market_value, reverse=descending)
 
         return positions_list
 
@@ -224,10 +233,7 @@ class PositionManager:
             含み損益順ポジションリスト
         """
         positions_list = list(self.positions.values())
-        positions_list.sort(
-            key=lambda p: p.unrealized_pnl,
-            reverse=descending
-        )
+        positions_list.sort(key=lambda p: p.unrealized_pnl, reverse=descending)
 
         return positions_list
 
@@ -247,7 +253,9 @@ class PositionManager:
         concentration_data = {}
         for symbol, position in self.positions.items():
             concentration_pct = (
-                (position.market_value / total_value * 100) if total_value > 0 else Decimal("0")
+                (position.market_value / total_value * 100)
+                if total_value > 0
+                else Decimal("0")
             )
 
             concentration_data[symbol] = {
@@ -262,7 +270,7 @@ class PositionManager:
             sorted(
                 concentration_data.items(),
                 key=lambda x: x[1]["concentration_percentage"],
-                reverse=True
+                reverse=True,
             )
         )
 

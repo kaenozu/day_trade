@@ -11,14 +11,14 @@ Issue #378: データI/Oとデータ処理の最適化 - データ構造と操�
 """
 
 import gc
+import os
 import time
-import warnings
-from typing import Dict, List, Optional, Tuple, Any, Union
+from functools import wraps
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from functools import wraps
 import psutil
-import os
 
 from .logging_config import get_context_logger
 
@@ -28,8 +28,10 @@ logger = get_context_logger(__name__)
 MEMORY_WARNING_THRESHOLD = 1000  # 1GB
 MEMORY_CRITICAL_THRESHOLD = 2000  # 2GB
 
+
 def memory_monitor(func):
     """メモリ使用量監視デコレータ"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         # 実行前のメモリ使用量
@@ -46,12 +48,15 @@ def memory_monitor(func):
             elapsed_time = time.perf_counter() - start_time
 
             # ログ出力
-            logger.debug(f"{func.__name__} 実行完了", extra={
-                "execution_time_ms": round(elapsed_time * 1000, 2),
-                "memory_before_mb": round(memory_before, 2),
-                "memory_after_mb": round(memory_after, 2),
-                "memory_diff_mb": round(memory_diff, 2)
-            })
+            logger.debug(
+                f"{func.__name__} 実行完了",
+                extra={
+                    "execution_time_ms": round(elapsed_time * 1000, 2),
+                    "memory_before_mb": round(memory_before, 2),
+                    "memory_after_mb": round(memory_after, 2),
+                    "memory_diff_mb": round(memory_diff, 2),
+                },
+            )
 
             # メモリ警告
             if memory_after > MEMORY_CRITICAL_THRESHOLD:
@@ -63,10 +68,13 @@ def memory_monitor(func):
 
         except Exception as e:
             elapsed_time = time.perf_counter() - start_time
-            logger.error(f"{func.__name__} 実行失敗: {e}", extra={
-                "execution_time_ms": round(elapsed_time * 1000, 2),
-                "memory_before_mb": round(memory_before, 2)
-            })
+            logger.error(
+                f"{func.__name__} 実行失敗: {e}",
+                extra={
+                    "execution_time_ms": round(elapsed_time * 1000, 2),
+                    "memory_before_mb": round(memory_before, 2),
+                },
+            )
             raise
 
     return wrapper
@@ -105,10 +113,10 @@ class DataFrameOptimizer:
         for col in df.columns:
             original_dtype = df[col].dtype
 
-            if original_dtype == 'object':
+            if original_dtype == "object":
                 # 文字列型の最適化
                 if self._is_categorical_candidate(df[col]):
-                    df[col] = df[col].astype('category')
+                    df[col] = df[col].astype("category")
                     optimizations_applied += 1
                     logger.debug(f"列 '{col}' を category 型に変換")
 
@@ -119,16 +127,20 @@ class DataFrameOptimizer:
                     try:
                         df[col] = df[col].astype(optimized_dtype)
                         optimizations_applied += 1
-                        logger.debug(f"列 '{col}' を {original_dtype} から {optimized_dtype} に変換")
+                        logger.debug(
+                            f"列 '{col}' を {original_dtype} から {optimized_dtype} に変換"
+                        )
                     except (ValueError, OverflowError):
-                        logger.warning(f"列 '{col}' の型変換に失敗: {original_dtype} -> {optimized_dtype}")
+                        logger.warning(
+                            f"列 '{col}' の型変換に失敗: {original_dtype} -> {optimized_dtype}"
+                        )
 
             elif pd.api.types.is_datetime64_any_dtype(df[col]):
                 # 日時型の最適化
                 if df[col].dt.tz is None and not df[col].isna().any():
                     # タイムゾーンなしで欠損値がない場合はより効率的な型を使用
                     try:
-                        df[col] = pd.to_datetime(df[col], format='%Y-%m-%d %H:%M:%S')
+                        df[col] = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S")
                         optimizations_applied += 1
                         logger.debug(f"列 '{col}' の日時型を最適化")
                     except:
@@ -140,19 +152,24 @@ class DataFrameOptimizer:
         self.optimization_stats["memory_saved_mb"] += memory_saved
         self.optimization_stats["dtype_optimizations"] += optimizations_applied
 
-        logger.info(f"データ型最適化完了", extra={
-            "memory_before_mb": round(memory_before, 2),
-            "memory_after_mb": round(memory_after, 2),
-            "memory_saved_mb": round(memory_saved, 2),
-            "memory_reduction_percent": round((memory_saved / memory_before) * 100, 1),
-            "optimizations_applied": optimizations_applied
-        })
+        logger.info(
+            "データ型最適化完了",
+            extra={
+                "memory_before_mb": round(memory_before, 2),
+                "memory_after_mb": round(memory_after, 2),
+                "memory_saved_mb": round(memory_saved, 2),
+                "memory_reduction_percent": round(
+                    (memory_saved / memory_before) * 100, 1
+                ),
+                "optimizations_applied": optimizations_applied,
+            },
+        )
 
         return df
 
     def _is_categorical_candidate(self, series: pd.Series) -> bool:
         """カテゴリ型候補かどうかを判定"""
-        if series.dtype != 'object':
+        if series.dtype != "object":
             return False
 
         unique_count = series.nunique()
@@ -173,46 +190,48 @@ class DataFrameOptimizer:
 
             if min_val >= 0:  # 非負整数
                 if max_val < 256:
-                    return 'uint8'
+                    return "uint8"
                 elif max_val < 65536:
-                    return 'uint16'
+                    return "uint16"
                 elif max_val < 4294967296:
-                    return 'uint32'
+                    return "uint32"
                 else:
-                    return 'uint64'
+                    return "uint64"
             else:  # 符号付き整数
                 if min_val >= -128 and max_val < 128:
-                    return 'int8'
+                    return "int8"
                 elif min_val >= -32768 and max_val < 32768:
-                    return 'int16'
+                    return "int16"
                 elif min_val >= -2147483648 and max_val < 2147483648:
-                    return 'int32'
+                    return "int32"
                 else:
-                    return 'int64'
+                    return "int64"
 
         elif pd.api.types.is_float_dtype(series):
             # 浮動小数点型の最適化
             # NaN値の有無をチェック
             if series.isna().any():
                 # NaN値がある場合は精度を保持
-                if series.dtype == 'float64':
+                if series.dtype == "float64":
                     # 値の範囲をチェックしてfloat32で表現可能かどうか
                     try:
                         # float32の範囲に収まるかチェック
                         series_copy = series.dropna()
                         if (series_copy.abs() <= np.finfo(np.float32).max).all():
-                            return 'float32'
+                            return "float32"
                     except:
                         pass
-                return 'float64'
+                return "float64"
             else:
                 # NaN値がない場合はfloat32を試す
-                return 'float32'
+                return "float32"
 
         return str(series.dtype)
 
     @memory_monitor
-    def vectorize_operations(self, df: pd.DataFrame, operations: List[Dict[str, Any]]) -> pd.DataFrame:
+    def vectorize_operations(
+        self, df: pd.DataFrame, operations: List[Dict[str, Any]]
+    ) -> pd.DataFrame:
         """
         DataFrame操作のベクトル化
 
@@ -227,9 +246,9 @@ class DataFrameOptimizer:
         vectorizations_applied = 0
 
         for operation in operations:
-            op_type = operation.get('type')
+            op_type = operation.get("type")
 
-            if op_type == 'technical_indicator':
+            if op_type == "technical_indicator":
                 # テクニカル指標の計算
                 result = self._calculate_technical_indicator_vectorized(
                     optimized_df, operation
@@ -238,7 +257,7 @@ class DataFrameOptimizer:
                     optimized_df = result
                     vectorizations_applied += 1
 
-            elif op_type == 'rolling_calculation':
+            elif op_type == "rolling_calculation":
                 # ローリング計算
                 result = self._apply_rolling_calculation_vectorized(
                     optimized_df, operation
@@ -247,7 +266,7 @@ class DataFrameOptimizer:
                     optimized_df = result
                     vectorizations_applied += 1
 
-            elif op_type == 'mathematical_operation':
+            elif op_type == "mathematical_operation":
                 # 数学的操作
                 result = self._apply_mathematical_operation_vectorized(
                     optimized_df, operation
@@ -258,62 +277,69 @@ class DataFrameOptimizer:
 
         self.optimization_stats["vectorizations"] += vectorizations_applied
 
-        logger.info(f"ベクトル化操作完了", extra={
-            "operations_applied": vectorizations_applied,
-            "total_operations": len(operations)
-        })
+        logger.info(
+            "ベクトル化操作完了",
+            extra={
+                "operations_applied": vectorizations_applied,
+                "total_operations": len(operations),
+            },
+        )
 
         return optimized_df
 
-    def _calculate_technical_indicator_vectorized(self, df: pd.DataFrame, operation: Dict[str, Any]) -> Optional[pd.DataFrame]:
+    def _calculate_technical_indicator_vectorized(
+        self, df: pd.DataFrame, operation: Dict[str, Any]
+    ) -> Optional[pd.DataFrame]:
         """ベクトル化されたテクニカル指標計算"""
-        indicator_type = operation.get('indicator')
-        column = operation.get('column', 'Close')
-        period = operation.get('period', 20)
+        indicator_type = operation.get("indicator")
+        column = operation.get("column", "Close")
+        period = operation.get("period", 20)
 
         if column not in df.columns:
             logger.warning(f"列 '{column}' が存在しません")
             return None
 
         try:
-            if indicator_type == 'sma':
+            if indicator_type == "sma":
                 # 単純移動平均
-                df[f'SMA_{period}'] = df[column].rolling(window=period, min_periods=1).mean()
+                df[f"SMA_{period}"] = (
+                    df[column].rolling(window=period, min_periods=1).mean()
+                )
 
-            elif indicator_type == 'ema':
+            elif indicator_type == "ema":
                 # 指数移動平均
-                df[f'EMA_{period}'] = df[column].ewm(span=period, adjust=False).mean()
+                df[f"EMA_{period}"] = df[column].ewm(span=period, adjust=False).mean()
 
-            elif indicator_type == 'bollinger_bands':
+            elif indicator_type == "bollinger_bands":
                 # ボリンジャーバンド
                 sma = df[column].rolling(window=period).mean()
                 std = df[column].rolling(window=period).std()
-                df[f'BB_Upper_{period}'] = sma + (std * 2)
-                df[f'BB_Lower_{period}'] = sma - (std * 2)
-                df[f'BB_Middle_{period}'] = sma
+                df[f"BB_Upper_{period}"] = sma + (std * 2)
+                df[f"BB_Lower_{period}"] = sma - (std * 2)
+                df[f"BB_Middle_{period}"] = sma
 
-            elif indicator_type == 'rsi':
+            elif indicator_type == "rsi":
                 # RSI
                 delta = df[column].diff()
                 gain = delta.where(delta > 0, 0).rolling(window=period).mean()
                 loss = (-delta).where(delta < 0, 0).rolling(window=period).mean()
                 rs = gain / loss
-                df[f'RSI_{period}'] = 100 - (100 / (1 + rs))
+                df[f"RSI_{period}"] = 100 - (100 / (1 + rs))
 
-            elif indicator_type == 'macd':
+            elif indicator_type == "macd":
                 # MACD
-                fast_period = operation.get('fast_period', 12)
-                slow_period = operation.get('slow_period', 26)
-                signal_period = operation.get('signal_period', 9)
+                fast_period = operation.get("fast_period", 12)
+                slow_period = operation.get("slow_period", 26)
+                signal_period = operation.get("signal_period", 9)
 
                 ema_fast = df[column].ewm(span=fast_period).mean()
                 ema_slow = df[column].ewm(span=slow_period).mean()
                 macd_line = ema_fast - ema_slow
                 signal_line = macd_line.ewm(span=signal_period).mean()
 
-                df['MACD'] = macd_line
-                df['MACD_Signal'] = signal_line
-                df['MACD_Histogram'] = macd_line - signal_line
+                df["MACD"] = macd_line
+                df["MACD_Signal"] = signal_line
+                df["MACD_Histogram"] = macd_line - signal_line
 
             return df
 
@@ -321,11 +347,13 @@ class DataFrameOptimizer:
             logger.error(f"テクニカル指標計算エラー: {e}")
             return None
 
-    def _apply_rolling_calculation_vectorized(self, df: pd.DataFrame, operation: Dict[str, Any]) -> Optional[pd.DataFrame]:
+    def _apply_rolling_calculation_vectorized(
+        self, df: pd.DataFrame, operation: Dict[str, Any]
+    ) -> Optional[pd.DataFrame]:
         """ベクトル化されたローリング計算"""
-        column = operation.get('column')
-        window = operation.get('window', 20)
-        calc_type = operation.get('calculation')
+        column = operation.get("column")
+        window = operation.get("window", 20)
+        calc_type = operation.get("calculation")
 
         if column not in df.columns:
             logger.warning(f"列 '{column}' が存在しません")
@@ -334,20 +362,22 @@ class DataFrameOptimizer:
         try:
             rolling = df[column].rolling(window=window, min_periods=1)
 
-            if calc_type == 'mean':
-                df[f'{column}_rolling_mean_{window}'] = rolling.mean()
-            elif calc_type == 'std':
-                df[f'{column}_rolling_std_{window}'] = rolling.std()
-            elif calc_type == 'min':
-                df[f'{column}_rolling_min_{window}'] = rolling.min()
-            elif calc_type == 'max':
-                df[f'{column}_rolling_max_{window}'] = rolling.max()
-            elif calc_type == 'sum':
-                df[f'{column}_rolling_sum_{window}'] = rolling.sum()
-            elif calc_type == 'volatility':
+            if calc_type == "mean":
+                df[f"{column}_rolling_mean_{window}"] = rolling.mean()
+            elif calc_type == "std":
+                df[f"{column}_rolling_std_{window}"] = rolling.std()
+            elif calc_type == "min":
+                df[f"{column}_rolling_min_{window}"] = rolling.min()
+            elif calc_type == "max":
+                df[f"{column}_rolling_max_{window}"] = rolling.max()
+            elif calc_type == "sum":
+                df[f"{column}_rolling_sum_{window}"] = rolling.sum()
+            elif calc_type == "volatility":
                 # 価格変化率の標準偏差（ボラティリティ）
                 returns = df[column].pct_change()
-                df[f'{column}_volatility_{window}'] = returns.rolling(window=window).std()
+                df[f"{column}_volatility_{window}"] = returns.rolling(
+                    window=window
+                ).std()
 
             return df
 
@@ -355,11 +385,13 @@ class DataFrameOptimizer:
             logger.error(f"ローリング計算エラー: {e}")
             return None
 
-    def _apply_mathematical_operation_vectorized(self, df: pd.DataFrame, operation: Dict[str, Any]) -> Optional[pd.DataFrame]:
+    def _apply_mathematical_operation_vectorized(
+        self, df: pd.DataFrame, operation: Dict[str, Any]
+    ) -> Optional[pd.DataFrame]:
         """ベクトル化された数学的操作"""
-        operation_type = operation.get('operation')
-        columns = operation.get('columns', [])
-        result_column = operation.get('result_column')
+        operation_type = operation.get("operation")
+        columns = operation.get("columns", [])
+        result_column = operation.get("result_column")
 
         if not all(col in df.columns for col in columns):
             missing_cols = [col for col in columns if col not in df.columns]
@@ -367,31 +399,33 @@ class DataFrameOptimizer:
             return None
 
         try:
-            if operation_type == 'ratio':
+            if operation_type == "ratio":
                 # 比率計算
                 if len(columns) == 2:
-                    df[result_column] = df[columns[0]] / df[columns[1]].replace(0, np.nan)
+                    df[result_column] = df[columns[0]] / df[columns[1]].replace(
+                        0, np.nan
+                    )
 
-            elif operation_type == 'difference':
+            elif operation_type == "difference":
                 # 差分計算
                 if len(columns) == 2:
                     df[result_column] = df[columns[0]] - df[columns[1]]
 
-            elif operation_type == 'percentage_change':
+            elif operation_type == "percentage_change":
                 # 変化率計算
                 if len(columns) == 1:
                     df[result_column] = df[columns[0]].pct_change()
 
-            elif operation_type == 'log_return':
+            elif operation_type == "log_return":
                 # 対数収益率
                 if len(columns) == 1:
                     df[result_column] = np.log(df[columns[0]] / df[columns[0]].shift(1))
 
-            elif operation_type == 'z_score':
+            elif operation_type == "z_score":
                 # Zスコア正規化
                 if len(columns) == 1:
                     col = columns[0]
-                    window = operation.get('window', 20)
+                    window = operation.get("window", 20)
                     rolling_mean = df[col].rolling(window=window).mean()
                     rolling_std = df[col].rolling(window=window).std()
                     df[result_column] = (df[col] - rolling_mean) / rolling_std
@@ -403,7 +437,9 @@ class DataFrameOptimizer:
             return None
 
     @memory_monitor
-    def eliminate_unnecessary_copies(self, df: pd.DataFrame, operations: List[str]) -> pd.DataFrame:
+    def eliminate_unnecessary_copies(
+        self, df: pd.DataFrame, operations: List[str]
+    ) -> pd.DataFrame:
         """
         不必要なデータコピーの回避
 
@@ -419,41 +455,49 @@ class DataFrameOptimizer:
         copy_eliminations = 0
 
         for operation in operations:
-            if operation == 'drop_duplicates':
+            if operation == "drop_duplicates":
                 # 重複行削除（インプレース操作）
                 if optimized_df.duplicated().any():
-                    optimized_df = optimized_df.drop_duplicates(keep='first')
+                    optimized_df = optimized_df.drop_duplicates(keep="first")
                     copy_eliminations += 1
 
-            elif operation == 'fillna':
+            elif operation == "fillna":
                 # 欠損値処理（効率的な方法）
                 if optimized_df.isna().any().any():
                     # 数値列は前方穴埋め、その他は特定値で穴埋め
-                    numeric_cols = optimized_df.select_dtypes(include=[np.number]).columns
-                    categorical_cols = optimized_df.select_dtypes(include=['category', 'object']).columns
+                    numeric_cols = optimized_df.select_dtypes(
+                        include=[np.number]
+                    ).columns
+                    categorical_cols = optimized_df.select_dtypes(
+                        include=["category", "object"]
+                    ).columns
 
                     if len(numeric_cols) > 0:
-                        optimized_df[numeric_cols] = optimized_df[numeric_cols].fillna(method='ffill')
+                        optimized_df[numeric_cols] = optimized_df[numeric_cols].fillna(
+                            method="ffill"
+                        )
                     if len(categorical_cols) > 0:
-                        optimized_df[categorical_cols] = optimized_df[categorical_cols].fillna('Unknown')
+                        optimized_df[categorical_cols] = optimized_df[
+                            categorical_cols
+                        ].fillna("Unknown")
                     copy_eliminations += 1
 
-            elif operation == 'sort_values':
+            elif operation == "sort_values":
                 # 効率的なソート
-                if 'timestamp' in optimized_df.columns:
-                    optimized_df = optimized_df.sort_values('timestamp')
+                if "timestamp" in optimized_df.columns:
+                    optimized_df = optimized_df.sort_values("timestamp")
                     copy_eliminations += 1
 
         self.optimization_stats["copy_eliminations"] += copy_eliminations
 
-        logger.info(f"コピー最適化完了", extra={
-            "copy_eliminations": copy_eliminations
-        })
+        logger.info("コピー最適化完了", extra={"copy_eliminations": copy_eliminations})
 
         return optimized_df
 
     @memory_monitor
-    def optimize_index(self, df: pd.DataFrame, index_columns: Optional[List[str]] = None) -> pd.DataFrame:
+    def optimize_index(
+        self, df: pd.DataFrame, index_columns: Optional[List[str]] = None
+    ) -> pd.DataFrame:
         """
         インデックスの最適化
 
@@ -466,10 +510,10 @@ class DataFrameOptimizer:
         """
         if index_columns is None:
             # デフォルトのインデックス最適化
-            if 'timestamp' in df.columns:
-                index_columns = ['timestamp']
-            elif 'date' in df.columns:
-                index_columns = ['date']
+            if "timestamp" in df.columns:
+                index_columns = ["timestamp"]
+            elif "date" in df.columns:
+                index_columns = ["date"]
             else:
                 logger.info("インデックス最適化用の列が見つかりません")
                 return df
@@ -482,10 +526,13 @@ class DataFrameOptimizer:
             if not optimized_df.index.is_monotonic_increasing:
                 optimized_df = optimized_df.sort_index()
 
-            logger.info(f"インデックス最適化完了", extra={
-                "index_columns": index_columns,
-                "is_sorted": optimized_df.index.is_monotonic_increasing
-            })
+            logger.info(
+                "インデックス最適化完了",
+                extra={
+                    "index_columns": index_columns,
+                    "is_sorted": optimized_df.index.is_monotonic_increasing,
+                },
+            )
 
             return optimized_df
 
@@ -521,7 +568,9 @@ class ChunkedDataProcessor:
         self.optimizer = DataFrameOptimizer()
 
     @memory_monitor
-    def process_large_dataframe(self, df: pd.DataFrame, processing_func, **kwargs) -> pd.DataFrame:
+    def process_large_dataframe(
+        self, df: pd.DataFrame, processing_func, **kwargs
+    ) -> pd.DataFrame:
         """
         大規模DataFrameのチャンク処理
 
@@ -537,16 +586,19 @@ class ChunkedDataProcessor:
             # チャンク処理が不要な場合
             return processing_func(df, **kwargs)
 
-        logger.info(f"チャンク処理開始", extra={
-            "total_rows": len(df),
-            "chunk_size": self.chunk_size,
-            "num_chunks": len(df) // self.chunk_size + 1
-        })
+        logger.info(
+            "チャンク処理開始",
+            extra={
+                "total_rows": len(df),
+                "chunk_size": self.chunk_size,
+                "num_chunks": len(df) // self.chunk_size + 1,
+            },
+        )
 
         processed_chunks = []
 
         for i in range(0, len(df), self.chunk_size):
-            chunk = df.iloc[i:i + self.chunk_size]
+            chunk = df.iloc[i : i + self.chunk_size]
 
             try:
                 # ガベージコレクション（メモリ効率化）
@@ -556,7 +608,9 @@ class ChunkedDataProcessor:
                 processed_chunk = processing_func(chunk, **kwargs)
                 processed_chunks.append(processed_chunk)
 
-                logger.debug(f"チャンク処理完了: {i//self.chunk_size + 1}/{len(df)//self.chunk_size + 1}")
+                logger.debug(
+                    f"チャンク処理完了: {i//self.chunk_size + 1}/{len(df)//self.chunk_size + 1}"
+                )
 
             except Exception as e:
                 logger.error(f"チャンク処理エラー (行 {i}-{i+len(chunk)}): {e}")
@@ -570,14 +624,14 @@ class ChunkedDataProcessor:
         del processed_chunks
         gc.collect()
 
-        logger.info(f"チャンク処理完了", extra={
-            "result_rows": len(result)
-        })
+        logger.info("チャンク処理完了", extra={"result_rows": len(result)})
 
         return result
 
 
-def create_optimized_dataframe(data: Dict[str, Any], optimize_dtypes: bool = True) -> pd.DataFrame:
+def create_optimized_dataframe(
+    data: Dict[str, Any], optimize_dtypes: bool = True
+) -> pd.DataFrame:
     """
     最適化されたDataFrameを作成
 
@@ -597,8 +651,9 @@ def create_optimized_dataframe(data: Dict[str, Any], optimize_dtypes: bool = Tru
     return df
 
 
-def benchmark_dataframe_operations(df: pd.DataFrame, operations: List[Dict[str, Any]],
-                                 iterations: int = 3) -> Dict[str, Any]:
+def benchmark_dataframe_operations(
+    df: pd.DataFrame, operations: List[Dict[str, Any]], iterations: int = 3
+) -> Dict[str, Any]:
     """
     DataFrame操作のベンチマーク
 
@@ -612,36 +667,40 @@ def benchmark_dataframe_operations(df: pd.DataFrame, operations: List[Dict[str, 
     """
     optimizer = DataFrameOptimizer()
     results = {
-        'original_memory_mb': df.memory_usage(deep=True).sum() / 1024 / 1024,
-        'operation_results': []
+        "original_memory_mb": df.memory_usage(deep=True).sum() / 1024 / 1024,
+        "operation_results": [],
     }
 
     for operation in operations:
-        operation_name = operation.get('name', 'unknown')
+        operation_name = operation.get("name", "unknown")
         operation_times = []
 
         for i in range(iterations):
             start_time = time.perf_counter()
 
             try:
-                if operation.get('type') == 'dtype_optimization':
+                if operation.get("type") == "dtype_optimization":
                     _ = optimizer.optimize_dtypes(df.copy())
-                elif operation.get('type') == 'vectorization':
-                    _ = optimizer.vectorize_operations(df.copy(), operation.get('operations', []))
+                elif operation.get("type") == "vectorization":
+                    _ = optimizer.vectorize_operations(
+                        df.copy(), operation.get("operations", [])
+                    )
 
                 elapsed_time = time.perf_counter() - start_time
                 operation_times.append(elapsed_time * 1000)  # ms
 
             except Exception as e:
                 logger.error(f"ベンチマーク操作エラー ({operation_name}): {e}")
-                operation_times.append(float('inf'))
+                operation_times.append(float("inf"))
 
-        results['operation_results'].append({
-            'name': operation_name,
-            'avg_time_ms': np.mean(operation_times),
-            'min_time_ms': np.min(operation_times),
-            'max_time_ms': np.max(operation_times),
-            'std_time_ms': np.std(operation_times)
-        })
+        results["operation_results"].append(
+            {
+                "name": operation_name,
+                "avg_time_ms": np.mean(operation_times),
+                "min_time_ms": np.min(operation_times),
+                "max_time_ms": np.max(operation_times),
+                "std_time_ms": np.std(operation_times),
+            }
+        )
 
     return results

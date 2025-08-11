@@ -14,5 +14,5 @@ __all__ = [
     "PluginInfo",
     "RiskAnalysisResult",
     "PluginManager",
-    "SecuritySandbox"
+    "SecuritySandbox",
 ]

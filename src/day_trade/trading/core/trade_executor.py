@@ -93,7 +93,9 @@ class TradeExecutor:
 
             # 売却時の数量検証
             if trade_type == TradeType.SELL:
-                validation = self.position_manager.validate_sell_quantity(symbol, quantity)
+                validation = self.position_manager.validate_sell_quantity(
+                    symbol, quantity
+                )
                 if not validation["overall_valid"]:
                     logger.error(f"売却検証失敗: {symbol} {quantity}株")
                     return None
@@ -112,7 +114,7 @@ class TradeExecutor:
             # ビジネスイベントログ
             log_business_event(
                 f"取引実行: {symbol} {trade_type.value} {quantity}株 @{price}円",
-                {"trade_id": trade_id, "symbol": symbol, "type": trade_type.value}
+                {"trade_id": trade_id, "symbol": symbol, "type": trade_type.value},
             )
 
             logger.info(
@@ -320,11 +322,13 @@ class TradeExecutor:
 
         total_buy_value = sum(
             t.price * Decimal(t.quantity) + t.commission
-            for t in self.trades if t.trade_type == TradeType.BUY
+            for t in self.trades
+            if t.trade_type == TradeType.BUY
         )
         total_sell_value = sum(
             t.price * Decimal(t.quantity) - t.commission
-            for t in self.trades if t.trade_type == TradeType.SELL
+            for t in self.trades
+            if t.trade_type == TradeType.SELL
         )
         total_commission = sum(t.commission for t in self.trades)
 
@@ -373,7 +377,7 @@ class TradeExecutor:
         export_data = {
             "trade_statistics": self.get_trade_statistics(),
             "trades": [trade.to_dict() for trade in self.trades],
-            "trade_history_by_symbol": {}
+            "trade_history_by_symbol": {},
         }
 
         # 銘柄別履歴

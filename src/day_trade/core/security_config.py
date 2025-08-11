@@ -70,7 +70,9 @@ class SecureConfigManager:
             existing_salt = self._load_salt()
             if existing_salt:
                 # 既存のソルトを使用して暗号化オブジェクトを作成
-                self._cipher = self._create_cipher_with_salt(self.encryption_key, existing_salt)
+                self._cipher = self._create_cipher_with_salt(
+                    self.encryption_key, existing_salt
+                )
             else:
                 # 新規作成
                 self._cipher = self._create_cipher(self.encryption_key)
@@ -138,7 +140,9 @@ class SecureConfigManager:
         - 適切なKDF設定
         """
         if not CRYPTO_AVAILABLE:
-            self.logger.error("cryptographyライブラリが利用できないため、暗号化を初期化できません")
+            self.logger.error(
+                "cryptographyライブラリが利用できないため、暗号化を初期化できません"
+            )
             return None
 
         try:
@@ -420,29 +424,35 @@ class SecureConfigManager:
         if len(password) < 12:
             issues.append("12文字以上を推奨します")
 
-        if not re.search(r'[a-z]', password):
+        if not re.search(r"[a-z]", password):
             issues.append("小文字を含める必要があります")
 
-        if not re.search(r'[A-Z]', password):
+        if not re.search(r"[A-Z]", password):
             issues.append("大文字を含める必要があります")
 
-        if not re.search(r'\d', password):
+        if not re.search(r"\d", password):
             issues.append("数字を含める必要があります")
 
-        if not re.search(r'[!@#$%^&*(),.?\":{}|<>]', password):
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
             issues.append("記号を含めることを推奨します")
 
         # 一般的な弱いパスワードチェック
         weak_passwords = {
-            'password', '12345678', 'qwerty123', 'admin123',
-            'password123', '123456789', 'welcome123', 'letmein123'
+            "password",
+            "12345678",
+            "qwerty123",
+            "admin123",
+            "password123",
+            "123456789",
+            "welcome123",
+            "letmein123",
         }
 
         if password.lower() in weak_passwords:
             issues.append("一般的すぎるパスワードです")
 
         # 同じ文字の連続チェック
-        if re.search(r'(.)\1{2,}', password):
+        if re.search(r"(.)\1{2,}", password):
             issues.append("同じ文字の連続は避けてください")
 
         return issues
@@ -476,17 +486,23 @@ class SecureConfigManager:
                     if "password" in key.lower():
                         password_issues = self._validate_password_strength(value)
                         for issue in password_issues:
-                            warnings.append(f"パスワード強度の問題 ({current_path}): {issue}")
+                            warnings.append(
+                                f"パスワード強度の問題 ({current_path}): {issue}"
+                            )
 
                     # APIキーの形式チェック
                     if "api_key" in key.lower() or "token" in key.lower():
                         if len(value) < 16:
-                            warnings.append(f"APIキー/トークンが短すぎます: {current_path}")
+                            warnings.append(
+                                f"APIキー/トークンが短すぎます: {current_path}"
+                            )
 
                     # データベースURLの機密情報チェック
                     if "database_url" in key.lower() or "db_url" in key.lower():
                         if "password" in value.lower() and "***" not in value:
-                            warnings.append(f"データベースURLに平文パスワードが含まれています: {current_path}")
+                            warnings.append(
+                                f"データベースURLに平文パスワードが含まれています: {current_path}"
+                            )
 
         check_dict(config)
         return warnings
@@ -505,13 +521,18 @@ class SecureConfigManager:
 
         # 暗号化設定のチェック
         if not self.encryption_key:
-            suggestions.append("暗号化キーを環境変数 DAYTRADE_ENCRYPTION_KEY に設定することを強く推奨します")
+            suggestions.append(
+                "暗号化キーを環境変数 DAYTRADE_ENCRYPTION_KEY に設定することを強く推奨します"
+            )
 
         if not CRYPTO_AVAILABLE:
-            suggestions.append("cryptographyライブラリのインストールを推奨します: pip install cryptography")
+            suggestions.append(
+                "cryptographyライブラリのインストールを推奨します: pip install cryptography"
+            )
 
         # 明示的な機密情報指定の推奨
         sensitive_found = False
+
         def check_for_sensitive(d: Dict[str, Any]):
             nonlocal sensitive_found
             for key, value in d.items():
@@ -523,10 +544,14 @@ class SecureConfigManager:
         check_for_sensitive(config)
 
         if sensitive_found:
-            suggestions.append("機密情報フィールドに '_sensitive' サフィックスを付けることで、明示的にマークできます")
+            suggestions.append(
+                "機密情報フィールドに '_sensitive' サフィックスを付けることで、明示的にマークできます"
+            )
 
         # バックアップの推奨
-        suggestions.append("設定ファイルの定期的なバックアップを推奨します（暗号化したまま）")
+        suggestions.append(
+            "設定ファイルの定期的なバックアップを推奨します（暗号化したまま）"
+        )
 
         return suggestions
 

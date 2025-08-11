@@ -6,15 +6,21 @@ Cache Provider Factory
 様々なキャッシュプロバイダーの動的生成とプラグイン管理
 """
 
-from typing import Dict, Type, Any, Optional, List
-from enum import Enum
 import importlib
+from enum import Enum
+from typing import Any, Dict, List, Optional, Type
 
-from ..interfaces.cache_interfaces import ICacheProvider, ICacheSerializer, ICacheEvictionPolicy
 from ..exceptions.risk_exceptions import ConfigurationError, ValidationError
+from ..interfaces.cache_interfaces import (
+    ICacheEvictionPolicy,
+    ICacheProvider,
+    ICacheSerializer,
+)
+
 
 class CacheProviderType(Enum):
     """キャッシュプロバイダータイプ"""
+
     MEMORY = "memory"
     REDIS = "redis"
     FILE = "file"
@@ -22,16 +28,20 @@ class CacheProviderType(Enum):
     HYBRID = "hybrid"
     PLUGIN = "plugin"
 
+
 class SerializerType(Enum):
     """シリアライザータイプ"""
+
     PICKLE = "pickle"
     JSON = "json"
     MSGPACK = "msgpack"
     PROTOBUF = "protobuf"
     CUSTOM = "custom"
 
+
 class EvictionPolicyType(Enum):
     """立ち退きポリシータイプ"""
+
     LRU = "lru"
     LFU = "lfu"
     FIFO = "fifo"
@@ -39,13 +49,16 @@ class EvictionPolicyType(Enum):
     RANDOM = "random"
     NONE = "none"
 
+
 class CacheProviderFactory:
     """キャッシュプロバイダーファクトリー"""
 
     def __init__(self):
         self._provider_registry: Dict[CacheProviderType, Type[ICacheProvider]] = {}
         self._serializer_registry: Dict[SerializerType, Type[ICacheSerializer]] = {}
-        self._eviction_policy_registry: Dict[EvictionPolicyType, Type[ICacheEvictionPolicy]] = {}
+        self._eviction_policy_registry: Dict[
+            EvictionPolicyType, Type[ICacheEvictionPolicy]
+        ] = {}
         self._plugin_registry: Dict[str, Type[ICacheProvider]] = {}
         self._config_schemas: Dict[CacheProviderType, Dict[str, Any]] = {}
         self._instance_cache: Dict[str, ICacheProvider] = {}
@@ -67,8 +80,8 @@ class CacheProviderFactory:
                     "max_size": {"type": int, "default": 1000},
                     "ttl_seconds": {"type": int, "default": 3600},
                     "eviction_policy": {"type": str, "default": "lru"},
-                    "thread_safe": {"type": bool, "default": True}
-                }
+                    "thread_safe": {"type": bool, "default": True},
+                },
             )
 
             # Redisキャッシュ
@@ -83,8 +96,8 @@ class CacheProviderFactory:
                     "password": {"type": str, "required": False},
                     "connection_pool_size": {"type": int, "default": 10},
                     "socket_timeout": {"type": float, "default": 2.0},
-                    "socket_connect_timeout": {"type": float, "default": 2.0}
-                }
+                    "socket_connect_timeout": {"type": float, "default": 2.0},
+                },
             )
 
             # ファイルキャッシュ
@@ -97,8 +110,8 @@ class CacheProviderFactory:
                     "max_file_size_mb": {"type": int, "default": 100},
                     "max_cache_size_gb": {"type": int, "default": 1},
                     "cleanup_interval_hours": {"type": int, "default": 24},
-                    "compression": {"type": bool, "default": True}
-                }
+                    "compression": {"type": bool, "default": True},
+                },
             )
 
             # 分散キャッシュ
@@ -110,12 +123,13 @@ class CacheProviderFactory:
                     "nodes": {"type": list, "required": True},
                     "replication_factor": {"type": int, "default": 2},
                     "consistency_level": {"type": str, "default": "quorum"},
-                    "partition_strategy": {"type": str, "default": "hash_ring"}
-                }
+                    "partition_strategy": {"type": str, "default": "hash_ring"},
+                },
             )
 
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to register some builtin cache providers: {e}")
 
@@ -123,14 +137,18 @@ class CacheProviderFactory:
         """組み込みシリアライザー登録"""
         try:
             from ..cache.serializers import (
-                PickleSerializer, JsonSerializer, MsgPackSerializer
+                JsonSerializer,
+                MsgPackSerializer,
+                PickleSerializer,
             )
 
-            self._serializer_registry.update({
-                SerializerType.PICKLE: PickleSerializer,
-                SerializerType.JSON: JsonSerializer,
-                SerializerType.MSGPACK: MsgPackSerializer
-            })
+            self._serializer_registry.update(
+                {
+                    SerializerType.PICKLE: PickleSerializer,
+                    SerializerType.JSON: JsonSerializer,
+                    SerializerType.MSGPACK: MsgPackSerializer,
+                }
+            )
 
         except ImportError:
             pass  # シリアライザーが利用できない場合は無視
@@ -139,17 +157,22 @@ class CacheProviderFactory:
         """組み込み立ち退きポリシー登録"""
         try:
             from ..cache.eviction_policies import (
-                LRUEvictionPolicy, LFUEvictionPolicy, FIFOEvictionPolicy,
-                TTLEvictionPolicy, RandomEvictionPolicy
+                FIFOEvictionPolicy,
+                LFUEvictionPolicy,
+                LRUEvictionPolicy,
+                RandomEvictionPolicy,
+                TTLEvictionPolicy,
             )
 
-            self._eviction_policy_registry.update({
-                EvictionPolicyType.LRU: LRUEvictionPolicy,
-                EvictionPolicyType.LFU: LFUEvictionPolicy,
-                EvictionPolicyType.FIFO: FIFOEvictionPolicy,
-                EvictionPolicyType.TTL: TTLEvictionPolicy,
-                EvictionPolicyType.RANDOM: RandomEvictionPolicy
-            })
+            self._eviction_policy_registry.update(
+                {
+                    EvictionPolicyType.LRU: LRUEvictionPolicy,
+                    EvictionPolicyType.LFU: LFUEvictionPolicy,
+                    EvictionPolicyType.FIFO: FIFOEvictionPolicy,
+                    EvictionPolicyType.TTL: TTLEvictionPolicy,
+                    EvictionPolicyType.RANDOM: RandomEvictionPolicy,
+                }
+            )
 
         except ImportError:
             pass  # ポリシーが利用できない場合は無視
@@ -159,7 +182,7 @@ class CacheProviderFactory:
         provider_type: CacheProviderType,
         module_path: str,
         class_name: str,
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """プロバイダー登録"""
         try:
@@ -169,7 +192,7 @@ class CacheProviderFactory:
             if not issubclass(provider_class, ICacheProvider):
                 raise ConfigurationError(
                     f"Cache provider class {class_name} must implement ICacheProvider interface",
-                    config_key=f"cache.provider.{provider_type.value}"
+                    config_key=f"cache.provider.{provider_type.value}",
                 )
 
             self._provider_registry[provider_type] = provider_class
@@ -183,30 +206,32 @@ class CacheProviderFactory:
             raise ConfigurationError(
                 f"Failed to register cache provider type {provider_type.value}",
                 config_key=f"cache.provider.{provider_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def register_plugin_provider(
         self,
         plugin_name: str,
         provider_class: Type[ICacheProvider],
-        config_schema: Optional[Dict[str, Any]] = None
+        config_schema: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """プラグインプロバイダー登録"""
         try:
             if not issubclass(provider_class, ICacheProvider):
                 raise ConfigurationError(
                     f"Plugin cache provider {plugin_name} must implement ICacheProvider interface",
-                    config_key=f"cache.plugin.{plugin_name}"
+                    config_key=f"cache.plugin.{plugin_name}",
                 )
 
             self._plugin_registry[plugin_name] = provider_class
 
             if config_schema:
-                self._config_schemas[CacheProviderType.PLUGIN] = self._config_schemas.get(
-                    CacheProviderType.PLUGIN, {}
-                )
-                self._config_schemas[CacheProviderType.PLUGIN][plugin_name] = config_schema
+                self._config_schemas[
+                    CacheProviderType.PLUGIN
+                ] = self._config_schemas.get(CacheProviderType.PLUGIN, {})
+                self._config_schemas[CacheProviderType.PLUGIN][
+                    plugin_name
+                ] = config_schema
 
             return True
 
@@ -214,7 +239,7 @@ class CacheProviderFactory:
             raise ConfigurationError(
                 f"Failed to register plugin cache provider {plugin_name}",
                 config_key=f"cache.plugin.{plugin_name}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_provider(
@@ -222,7 +247,7 @@ class CacheProviderFactory:
         provider_type: CacheProviderType,
         config: Optional[Dict[str, Any]] = None,
         plugin_name: Optional[str] = None,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> ICacheProvider:
         """プロバイダーインスタンス作成"""
 
@@ -241,20 +266,18 @@ class CacheProviderFactory:
 
         try:
             # シリアライザー作成
-            serializer = self._create_serializer(validated_config.get('serializer', 'pickle'))
+            serializer = self._create_serializer(
+                validated_config.get("serializer", "pickle")
+            )
 
             # 立ち退きポリシー作成
             eviction_policy = self._create_eviction_policy(
-                validated_config.get('eviction_policy', 'lru'),
-                validated_config
+                validated_config.get("eviction_policy", "lru"), validated_config
             )
 
             # インスタンス作成
             instance = self._create_provider_instance(
-                provider_class,
-                validated_config,
-                serializer,
-                eviction_policy
+                provider_class, validated_config, serializer, eviction_policy
             )
 
             # キャッシュに保存
@@ -267,7 +290,7 @@ class CacheProviderFactory:
             raise ConfigurationError(
                 f"Failed to create cache provider instance of type {provider_type.value}",
                 config_key=f"cache.provider.{provider_type.value}",
-                cause=e
+                cause=e,
             ) from e
 
     def create_hybrid_provider(
@@ -275,20 +298,20 @@ class CacheProviderFactory:
         l1_config: Dict[str, Any],  # 高速キャッシュ（メモリなど）
         l2_config: Dict[str, Any],  # 大容量キャッシュ（Redisなど）
         promotion_policy: str = "frequency",
-        demotion_policy: str = "lru"
+        demotion_policy: str = "lru",
     ) -> ICacheProvider:
         """ハイブリッドキャッシュプロバイダー作成"""
 
         l1_provider = self.create_provider(
-            CacheProviderType(l1_config['type']),
-            l1_config.get('config', {}),
-            use_cache=False
+            CacheProviderType(l1_config["type"]),
+            l1_config.get("config", {}),
+            use_cache=False,
         )
 
         l2_provider = self.create_provider(
-            CacheProviderType(l2_config['type']),
-            l2_config.get('config', {}),
-            use_cache=False
+            CacheProviderType(l2_config["type"]),
+            l2_config.get("config", {}),
+            use_cache=False,
         )
 
         # ハイブリッドプロバイダー作成
@@ -298,23 +321,23 @@ class CacheProviderFactory:
             l1_provider=l1_provider,
             l2_provider=l2_provider,
             promotion_policy=promotion_policy,
-            demotion_policy=demotion_policy
+            demotion_policy=demotion_policy,
         )
 
     def create_distributed_cluster(
         self,
         node_configs: List[Dict[str, Any]],
         replication_factor: int = 2,
-        consistency_level: str = "quorum"
+        consistency_level: str = "quorum",
     ) -> ICacheProvider:
         """分散クラスターキャッシュ作成"""
 
         nodes = []
         for node_config in node_configs:
             provider = self.create_provider(
-                CacheProviderType(node_config['type']),
-                node_config.get('config', {}),
-                use_cache=False
+                CacheProviderType(node_config["type"]),
+                node_config.get("config", {}),
+                use_cache=False,
             )
             nodes.append(provider)
 
@@ -324,7 +347,7 @@ class CacheProviderFactory:
         return DistributedCacheProvider(
             nodes=nodes,
             replication_factor=replication_factor,
-            consistency_level=consistency_level
+            consistency_level=consistency_level,
         )
 
     def get_available_providers(self) -> Dict[str, Dict[str, Any]]:
@@ -339,14 +362,14 @@ class CacheProviderFactory:
                 "type": "builtin",
                 "name": provider_type.value,
                 "config_schema": config_schema,
-                "supported_features": self._get_provider_features(provider_type)
+                "supported_features": self._get_provider_features(provider_type),
             }
 
         # プラグインプロバイダー
         for plugin_name, provider_class in self._plugin_registry.items():
             try:
                 temp_instance = provider_class({})
-                if hasattr(temp_instance, 'get_metadata'):
+                if hasattr(temp_instance, "get_metadata"):
                     metadata = temp_instance.get_metadata()
                     available[plugin_name] = {
                         "type": "plugin",
@@ -355,18 +378,15 @@ class CacheProviderFactory:
                         "description": metadata.get("description", ""),
                         "config_schema": self._config_schemas.get(
                             CacheProviderType.PLUGIN, {}
-                        ).get(plugin_name, {})
+                        ).get(plugin_name, {}),
                     }
                 else:
-                    available[plugin_name] = {
-                        "type": "plugin",
-                        "name": plugin_name
-                    }
+                    available[plugin_name] = {"type": "plugin", "name": plugin_name}
             except Exception:
                 available[plugin_name] = {
                     "type": "plugin",
                     "name": plugin_name,
-                    "status": "unavailable"
+                    "status": "unavailable",
                 }
 
         return available
@@ -375,7 +395,7 @@ class CacheProviderFactory:
         """インスタンスキャッシュクリア"""
         # アクティブな接続を適切に閉じる
         for instance in self._instance_cache.values():
-            if hasattr(instance, 'close'):
+            if hasattr(instance, "close"):
                 try:
                     instance.close()
                 except Exception:
@@ -387,7 +407,7 @@ class CacheProviderFactory:
         self,
         provider_type: CacheProviderType,
         config: Optional[Dict[str, Any]],
-        plugin_name: Optional[str]
+        plugin_name: Optional[str],
     ) -> Dict[str, Any]:
         """設定検証"""
 
@@ -396,7 +416,9 @@ class CacheProviderFactory:
 
         # スキーマ取得
         if provider_type == CacheProviderType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(CacheProviderType.PLUGIN, {}).get(plugin_name, {})
+            schema = self._config_schemas.get(CacheProviderType.PLUGIN, {}).get(
+                plugin_name, {}
+            )
         else:
             schema = self._config_schemas.get(provider_type, {})
 
@@ -408,7 +430,7 @@ class CacheProviderFactory:
                 raise ValidationError(
                     f"Required configuration field '{field_name}' is missing",
                     field_name=field_name,
-                    validation_rules=["required"]
+                    validation_rules=["required"],
                 )
 
             if field_name not in config and "default" in field_schema:
@@ -421,7 +443,7 @@ class CacheProviderFactory:
                         f"Configuration field '{field_name}' must be of type {expected_type.__name__}",
                         field_name=field_name,
                         invalid_value=config[field_name],
-                        validation_rules=[f"type:{expected_type.__name__}"]
+                        validation_rules=[f"type:{expected_type.__name__}"],
                     )
                 validated_config[field_name] = config[field_name]
 
@@ -433,9 +455,7 @@ class CacheProviderFactory:
         return validated_config
 
     def _get_provider_class(
-        self,
-        provider_type: CacheProviderType,
-        plugin_name: Optional[str]
+        self, provider_type: CacheProviderType, plugin_name: Optional[str]
     ) -> Type[ICacheProvider]:
         """プロバイダークラス取得"""
 
@@ -443,13 +463,13 @@ class CacheProviderFactory:
             if not plugin_name:
                 raise ConfigurationError(
                     "Plugin name is required for plugin cache provider type",
-                    config_key="plugin_name"
+                    config_key="plugin_name",
                 )
 
             if plugin_name not in self._plugin_registry:
                 raise ConfigurationError(
                     f"Plugin cache provider '{plugin_name}' is not registered",
-                    config_key=f"cache.plugin.{plugin_name}"
+                    config_key=f"cache.plugin.{plugin_name}",
                 )
 
             return self._plugin_registry[plugin_name]
@@ -458,7 +478,7 @@ class CacheProviderFactory:
             if provider_type not in self._provider_registry:
                 raise ConfigurationError(
                     f"Cache provider type '{provider_type.value}' is not registered",
-                    config_key=f"cache.provider.{provider_type.value}"
+                    config_key=f"cache.provider.{provider_type.value}",
                 )
 
             return self._provider_registry[provider_type]
@@ -473,17 +493,17 @@ class CacheProviderFactory:
             else:
                 # デフォルトのPickleシリアライザー
                 from ..cache.serializers import PickleSerializer
+
                 return PickleSerializer()
 
         except (ValueError, KeyError):
             # 不明なシリアライザーの場合はPickleを使用
             from ..cache.serializers import PickleSerializer
+
             return PickleSerializer()
 
     def _create_eviction_policy(
-        self,
-        policy_type: str,
-        config: Dict[str, Any]
+        self, policy_type: str, config: Dict[str, Any]
     ) -> ICacheEvictionPolicy:
         """立ち退きポリシー作成"""
         try:
@@ -494,11 +514,13 @@ class CacheProviderFactory:
             else:
                 # デフォルトのLRUポリシー
                 from ..cache.eviction_policies import LRUEvictionPolicy
+
                 return LRUEvictionPolicy(config)
 
         except (ValueError, KeyError):
             # 不明なポリシーの場合はLRUを使用
             from ..cache.eviction_policies import LRUEvictionPolicy
+
             return LRUEvictionPolicy(config)
 
     def _create_provider_instance(
@@ -506,14 +528,14 @@ class CacheProviderFactory:
         provider_class: Type[ICacheProvider],
         config: Dict[str, Any],
         serializer: ICacheSerializer,
-        eviction_policy: ICacheEvictionPolicy
+        eviction_policy: ICacheEvictionPolicy,
     ) -> ICacheProvider:
         """プロバイダーインスタンス作成"""
 
         # 設定にシリアライザーとポリシーを追加
         enhanced_config = config.copy()
-        enhanced_config['serializer'] = serializer
-        enhanced_config['eviction_policy'] = eviction_policy
+        enhanced_config["serializer"] = serializer
+        enhanced_config["eviction_policy"] = eviction_policy
 
         return provider_class(enhanced_config)
 
@@ -536,7 +558,7 @@ class CacheProviderFactory:
         self,
         provider_type: CacheProviderType,
         plugin_name: Optional[str],
-        config: Optional[Dict[str, Any]]
+        config: Optional[Dict[str, Any]],
     ) -> str:
         """キャッシュキー生成"""
         import hashlib
@@ -545,14 +567,16 @@ class CacheProviderFactory:
         key_data = {
             "type": provider_type.value,
             "plugin": plugin_name,
-            "config": config or {}
+            "config": config or {},
         }
 
         key_string = json.dumps(key_data, sort_keys=True)
         return hashlib.md5(key_string.encode()).hexdigest()
 
+
 # グローバルファクトリーインスタンス
 _global_cache_factory: Optional[CacheProviderFactory] = None
+
 
 def get_cache_factory() -> CacheProviderFactory:
     """グローバルキャッシュファクトリー取得"""
@@ -561,10 +585,11 @@ def get_cache_factory() -> CacheProviderFactory:
         _global_cache_factory = CacheProviderFactory()
     return _global_cache_factory
 
+
 def create_cache_provider(
     provider_type: CacheProviderType,
     config: Optional[Dict[str, Any]] = None,
-    plugin_name: Optional[str] = None
+    plugin_name: Optional[str] = None,
 ) -> ICacheProvider:
     """キャッシュプロバイダー作成（便利関数）"""
     factory = get_cache_factory()

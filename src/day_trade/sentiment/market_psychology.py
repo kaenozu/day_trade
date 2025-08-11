@@ -6,33 +6,37 @@ Next-Gen AI Market Psychology System
 Fear & Greed Index・VIX・Put/Call Ratio・センチメント統合分析
 """
 
+import json
 import time
 import warnings
-import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-import pandas as pd
-from datetime import datetime, timedelta
-from pathlib import Path
 
 # 統計・数値計算
 from scipy import stats
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+from ..utils.logging_config import get_context_logger
+from .news_analyzer import NewsAnalyzer
 
 # プロジェクト内インポート
-from .sentiment_engine import SentimentEngine, MarketSentimentIndicator, create_sentiment_engine
-from .news_analyzer import NewsAnalyzer, NewsSentimentResult
-from .social_analyzer import SocialMediaAnalyzer, SocialSentimentResult
-from ..utils.logging_config import get_context_logger
+from .sentiment_engine import (
+    create_sentiment_engine,
+)
+from .social_analyzer import SocialMediaAnalyzer
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class MarketPsychologyConfig:
     """市場心理分析設定"""
+
     # データソース重み
     news_weight: float = 0.35
     social_weight: float = 0.25
@@ -54,9 +58,11 @@ class MarketPsychologyConfig:
     update_interval_minutes: int = 15
     cache_ttl_minutes: int = 30
 
+
 @dataclass
 class TechnicalIndicators:
     """テクニカル指標データ"""
+
     vix: float = 0.0
     put_call_ratio: float = 0.0
     advance_decline_ratio: float = 0.0
@@ -65,9 +71,11 @@ class TechnicalIndicators:
     insider_trading_ratio: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class MacroIndicators:
     """マクロ経済指標データ"""
+
     interest_rate: float = 0.0
     inflation_rate: float = 0.0
     unemployment_rate: float = 0.0
@@ -76,9 +84,11 @@ class MacroIndicators:
     commodity_index: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class MarketPsychologyIndex:
     """市場心理総合指標"""
+
     # 主要指標
     fear_greed_index: float  # 0-100
     sentiment_score: float  # -1.0 ~ 1.0
@@ -107,29 +117,30 @@ class MarketPsychologyIndex:
 
         # Fear & Greed Index解釈
         if self.fear_greed_index <= 20:
-            interpretations['fear_greed'] = "極度の恐怖 - 買い機会の可能性"
+            interpretations["fear_greed"] = "極度の恐怖 - 買い機会の可能性"
         elif self.fear_greed_index <= 40:
-            interpretations['fear_greed'] = "恐怖 - 慎重な楽観視"
+            interpretations["fear_greed"] = "恐怖 - 慎重な楽観視"
         elif self.fear_greed_index <= 60:
-            interpretations['fear_greed'] = "中立 - バランスの取れた市場"
+            interpretations["fear_greed"] = "中立 - バランスの取れた市場"
         elif self.fear_greed_index <= 80:
-            interpretations['fear_greed'] = "貪欲 - 注意が必要"
+            interpretations["fear_greed"] = "貪欲 - 注意が必要"
         else:
-            interpretations['fear_greed'] = "極度の貪欲 - 売り機会の可能性"
+            interpretations["fear_greed"] = "極度の貪欲 - 売り機会の可能性"
 
         # センチメント解釈
         if self.sentiment_score >= 0.3:
-            interpretations['sentiment'] = "強気センチメント"
+            interpretations["sentiment"] = "強気センチメント"
         elif self.sentiment_score >= 0.1:
-            interpretations['sentiment'] = "やや強気"
+            interpretations["sentiment"] = "やや強気"
         elif self.sentiment_score <= -0.3:
-            interpretations['sentiment'] = "弱気センチメント"
+            interpretations["sentiment"] = "弱気センチメント"
         elif self.sentiment_score <= -0.1:
-            interpretations['sentiment'] = "やや弱気"
+            interpretations["sentiment"] = "やや弱気"
         else:
-            interpretations['sentiment'] = "中立的センチメント"
+            interpretations["sentiment"] = "中立的センチメント"
 
         return interpretations
+
 
 class MarketPsychologyAnalyzer:
     """市場心理分析システム"""
@@ -152,12 +163,14 @@ class MarketPsychologyAnalyzer:
 
         logger.info("Market Psychology Analyzer 初期化完了")
 
-    async def calculate_market_psychology(self,
-                                        symbols: List[str] = None,
-                                        include_news: bool = True,
-                                        include_social: bool = True,
-                                        include_technical: bool = True,
-                                        include_macro: bool = True) -> MarketPsychologyIndex:
+    async def calculate_market_psychology(
+        self,
+        symbols: List[str] = None,
+        include_news: bool = True,
+        include_social: bool = True,
+        include_technical: bool = True,
+        include_macro: bool = True,
+    ) -> MarketPsychologyIndex:
         """市場心理指標計算"""
 
         logger.info("市場心理指標計算開始")
@@ -173,52 +186,57 @@ class MarketPsychologyAnalyzer:
             try:
                 news_articles = await self.news_analyzer.fetch_news(
                     keywords=symbols or ["stock market", "financial market"],
-                    hours_back=24
+                    hours_back=24,
                 )
                 news_result = self.news_analyzer.analyze_articles(news_articles)
-                analysis_results['news'] = news_result.overall_sentiment
-                data_quality_scores['news'] = news_result.confidence_score
-                sample_sizes['news'] = len(news_articles)
+                analysis_results["news"] = news_result.overall_sentiment
+                data_quality_scores["news"] = news_result.confidence_score
+                sample_sizes["news"] = len(news_articles)
 
                 logger.info(f"ニュース分析完了: {len(news_articles)} 記事")
             except Exception as e:
                 logger.error(f"ニュース分析エラー: {e}")
-                analysis_results['news'] = 0.0
-                data_quality_scores['news'] = 0.0
-                sample_sizes['news'] = 0
+                analysis_results["news"] = 0.0
+                data_quality_scores["news"] = 0.0
+                sample_sizes["news"] = 0
 
         # ソーシャル分析
         if include_social:
             try:
                 social_posts = await self.social_analyzer.collect_social_data(
-                    keywords=symbols or ["$SPY", "$QQQ", "stock market"],
-                    hours_back=24
+                    keywords=symbols or ["$SPY", "$QQQ", "stock market"], hours_back=24
                 )
-                social_result = self.social_analyzer.analyze_social_sentiment(social_posts)
-                analysis_results['social'] = social_result.overall_sentiment
-                data_quality_scores['social'] = social_result.confidence_score
-                sample_sizes['social'] = len(social_posts)
+                social_result = self.social_analyzer.analyze_social_sentiment(
+                    social_posts
+                )
+                analysis_results["social"] = social_result.overall_sentiment
+                data_quality_scores["social"] = social_result.confidence_score
+                sample_sizes["social"] = len(social_posts)
 
                 logger.info(f"ソーシャル分析完了: {len(social_posts)} 投稿")
             except Exception as e:
                 logger.error(f"ソーシャル分析エラー: {e}")
-                analysis_results['social'] = 0.0
-                data_quality_scores['social'] = 0.0
-                sample_sizes['social'] = 0
+                analysis_results["social"] = 0.0
+                data_quality_scores["social"] = 0.0
+                sample_sizes["social"] = 0
 
         # テクニカル分析
         if include_technical:
             technical_indicators = self._get_technical_indicators()
-            analysis_results['technical'] = self._calculate_technical_sentiment(technical_indicators)
-            data_quality_scores['technical'] = 0.8  # 固定値（データの信頼性は高い）
-            sample_sizes['technical'] = 6  # 6つの指標
+            analysis_results["technical"] = self._calculate_technical_sentiment(
+                technical_indicators
+            )
+            data_quality_scores["technical"] = 0.8  # 固定値（データの信頼性は高い）
+            sample_sizes["technical"] = 6  # 6つの指標
 
         # マクロ経済分析
         if include_macro:
             macro_indicators = self._get_macro_indicators()
-            analysis_results['macro'] = self._calculate_macro_sentiment(macro_indicators)
-            data_quality_scores['macro'] = 0.7  # 固定値
-            sample_sizes['macro'] = 6  # 6つの指標
+            analysis_results["macro"] = self._calculate_macro_sentiment(
+                macro_indicators
+            )
+            data_quality_scores["macro"] = 0.7  # 固定値
+            sample_sizes["macro"] = 6  # 6つの指標
 
         # 重み付き総合センチメント計算
         weighted_sentiment = self._calculate_weighted_sentiment(analysis_results)
@@ -227,7 +245,9 @@ class MarketPsychologyAnalyzer:
         fear_greed_index = self._calculate_fear_greed_index(analysis_results)
 
         # 信頼度計算
-        confidence_level = self._calculate_confidence_level(data_quality_scores, sample_sizes)
+        confidence_level = self._calculate_confidence_level(
+            data_quality_scores, sample_sizes
+        )
 
         # 市場ムード判定
         market_mood = self._determine_market_mood(fear_greed_index)
@@ -242,7 +262,9 @@ class MarketPsychologyAnalyzer:
         trend_momentum = self._calculate_trend_momentum()
 
         # 総合データ品質スコア
-        data_quality_score = np.mean(list(data_quality_scores.values())) if data_quality_scores else 0.0
+        data_quality_score = (
+            np.mean(list(data_quality_scores.values())) if data_quality_scores else 0.0
+        )
 
         # 結果作成
         psychology_index = MarketPsychologyIndex(
@@ -250,15 +272,15 @@ class MarketPsychologyAnalyzer:
             sentiment_score=weighted_sentiment,
             confidence_level=confidence_level,
             market_mood=market_mood,
-            news_sentiment=analysis_results.get('news', 0.0),
-            social_sentiment=analysis_results.get('social', 0.0),
-            technical_sentiment=analysis_results.get('technical', 0.0),
-            macro_sentiment=analysis_results.get('macro', 0.0),
+            news_sentiment=analysis_results.get("news", 0.0),
+            social_sentiment=analysis_results.get("social", 0.0),
+            technical_sentiment=analysis_results.get("technical", 0.0),
+            macro_sentiment=analysis_results.get("macro", 0.0),
             historical_percentile=historical_percentile,
             volatility_adjustment=volatility_adjustment,
             trend_momentum=trend_momentum,
             data_quality_score=data_quality_score,
-            sample_sizes=sample_sizes
+            sample_sizes=sample_sizes,
         )
 
         # 履歴に追加
@@ -270,7 +292,9 @@ class MarketPsychologyAnalyzer:
 
         calculation_time = time.time() - start_time
         logger.info(f"市場心理指標計算完了: {calculation_time:.2f}秒")
-        logger.info(f"Fear & Greed Index: {fear_greed_index:.1f}, センチメント: {weighted_sentiment:.3f}")
+        logger.info(
+            f"Fear & Greed Index: {fear_greed_index:.1f}, センチメント: {weighted_sentiment:.3f}"
+        )
 
         return psychology_index
 
@@ -286,7 +310,7 @@ class MarketPsychologyAnalyzer:
             advance_decline_ratio=np.random.uniform(0.8, 1.2),  # A/D: 0.8-1.2
             new_high_low_ratio=np.random.uniform(0.5, 2.0),  # H/L: 0.5-2.0
             margin_debt_ratio=np.random.uniform(0.8, 1.5),  # Margin: 0.8-1.5
-            insider_trading_ratio=np.random.uniform(0.6, 1.4)  # Insider: 0.6-1.4
+            insider_trading_ratio=np.random.uniform(0.6, 1.4),  # Insider: 0.6-1.4
         )
 
     def _get_macro_indicators(self) -> MacroIndicators:
@@ -300,7 +324,7 @@ class MarketPsychologyAnalyzer:
             unemployment_rate=np.random.uniform(0.03, 0.08),  # 3-8%
             gdp_growth=np.random.uniform(0.01, 0.04),  # 1-4%
             currency_strength=np.random.uniform(0.9, 1.1),  # 90-110
-            commodity_index=np.random.uniform(90, 110)  # 90-110
+            commodity_index=np.random.uniform(90, 110),  # 90-110
         )
 
     def _calculate_technical_sentiment(self, indicators: TechnicalIndicators) -> float:
@@ -322,11 +346,20 @@ class MarketPsychologyAnalyzer:
         margin_sentiment = np.clip((indicators.margin_debt_ratio - 1.0) / 0.3, -1, 1)
 
         # インサイダー取引: 低い方が楽観的
-        insider_sentiment = np.clip((1.0 - indicators.insider_trading_ratio) / 0.4, -1, 1)
+        insider_sentiment = np.clip(
+            (1.0 - indicators.insider_trading_ratio) / 0.4, -1, 1
+        )
 
         # 加重平均
         weights = [0.3, 0.2, 0.2, 0.15, 0.1, 0.05]
-        sentiments = [vix_sentiment, pc_sentiment, ad_sentiment, hl_sentiment, margin_sentiment, insider_sentiment]
+        sentiments = [
+            vix_sentiment,
+            pc_sentiment,
+            ad_sentiment,
+            hl_sentiment,
+            margin_sentiment,
+            insider_sentiment,
+        ]
 
         technical_sentiment = np.average(sentiments, weights=weights)
 
@@ -355,22 +388,30 @@ class MarketPsychologyAnalyzer:
 
         # 加重平均
         weights = [0.25, 0.2, 0.2, 0.15, 0.1, 0.1]
-        sentiments = [rate_sentiment, inflation_sentiment, unemployment_sentiment,
-                     gdp_sentiment, currency_sentiment, commodity_sentiment]
+        sentiments = [
+            rate_sentiment,
+            inflation_sentiment,
+            unemployment_sentiment,
+            gdp_sentiment,
+            currency_sentiment,
+            commodity_sentiment,
+        ]
 
         macro_sentiment = np.average(sentiments, weights=weights)
 
         # -1 ~ 1に正規化
         return np.clip(macro_sentiment * 2 - 1, -1.0, 1.0)
 
-    def _calculate_weighted_sentiment(self, analysis_results: Dict[str, float]) -> float:
+    def _calculate_weighted_sentiment(
+        self, analysis_results: Dict[str, float]
+    ) -> float:
         """重み付き総合センチメント計算"""
 
         weights = {
-            'news': self.config.news_weight,
-            'social': self.config.social_weight,
-            'technical': self.config.technical_weight,
-            'macro': self.config.macro_weight
+            "news": self.config.news_weight,
+            "social": self.config.social_weight,
+            "technical": self.config.technical_weight,
+            "macro": self.config.macro_weight,
         }
 
         weighted_sum = 0.0
@@ -396,17 +437,25 @@ class MarketPsychologyAnalyzer:
         # 各要素の寄与度
         contributions = {}
 
-        if 'news' in analysis_results:
-            contributions['news'] = analysis_results['news'] * 25 * self.config.news_weight
+        if "news" in analysis_results:
+            contributions["news"] = (
+                analysis_results["news"] * 25 * self.config.news_weight
+            )
 
-        if 'social' in analysis_results:
-            contributions['social'] = analysis_results['social'] * 25 * self.config.social_weight
+        if "social" in analysis_results:
+            contributions["social"] = (
+                analysis_results["social"] * 25 * self.config.social_weight
+            )
 
-        if 'technical' in analysis_results:
-            contributions['technical'] = analysis_results['technical'] * 25 * self.config.technical_weight
+        if "technical" in analysis_results:
+            contributions["technical"] = (
+                analysis_results["technical"] * 25 * self.config.technical_weight
+            )
 
-        if 'macro' in analysis_results:
-            contributions['macro'] = analysis_results['macro'] * 25 * self.config.macro_weight
+        if "macro" in analysis_results:
+            contributions["macro"] = (
+                analysis_results["macro"] * 25 * self.config.macro_weight
+            )
 
         # 総合スコア計算
         total_contribution = sum(contributions.values())
@@ -415,13 +464,16 @@ class MarketPsychologyAnalyzer:
         # 平滑化（前回値との加重平均）
         if self.historical_data:
             prev_score = self.historical_data[-1].fear_greed_index
-            fear_greed_score = (prev_score * self.config.fear_greed_smoothing +
-                              fear_greed_score * (1 - self.config.fear_greed_smoothing))
+            fear_greed_score = (
+                prev_score * self.config.fear_greed_smoothing
+                + fear_greed_score * (1 - self.config.fear_greed_smoothing)
+            )
 
         return np.clip(fear_greed_score, 0.0, 100.0)
 
-    def _calculate_confidence_level(self, data_quality_scores: Dict[str, float],
-                                  sample_sizes: Dict[str, int]) -> float:
+    def _calculate_confidence_level(
+        self, data_quality_scores: Dict[str, float], sample_sizes: Dict[str, int]
+    ) -> float:
         """信頼度レベル計算"""
 
         if not data_quality_scores:
@@ -460,7 +512,9 @@ class MarketPsychologyAnalyzer:
         if len(self.historical_data) < 10:
             return 50.0  # データ不足時は中央値
 
-        historical_values = [data.fear_greed_index for data in self.historical_data[-30:]]  # 過去30点
+        historical_values = [
+            data.fear_greed_index for data in self.historical_data[-30:]
+        ]  # 過去30点
         percentile = stats.percentileofscore(historical_values, current_value)
 
         return percentile
@@ -472,11 +526,16 @@ class MarketPsychologyAnalyzer:
             return 0.0
 
         # 過去データの標準偏差
-        recent_values = [data.fear_greed_index for data in self.historical_data[-self.config.volatility_window:]]
+        recent_values = [
+            data.fear_greed_index
+            for data in self.historical_data[-self.config.volatility_window :]
+        ]
         volatility = np.std(recent_values)
 
         # 正規化（0-1）
-        normalized_volatility = min(volatility / 20.0, 1.0)  # 20が最大ボラティリティと仮定
+        normalized_volatility = min(
+            volatility / 20.0, 1.0
+        )  # 20が最大ボラティリティと仮定
 
         return normalized_volatility
 
@@ -493,22 +552,26 @@ class MarketPsychologyAnalyzer:
         if len(recent_values) > 1:
             slope, _, r_value, _, _ = stats.linregress(x, recent_values)
             # 傾きを正規化
-            momentum = np.clip(slope / 5.0, -1.0, 1.0)  # 1ステップあたり最大5の変化と仮定
-            return momentum * r_value ** 2  # R²で重み付け
+            momentum = np.clip(
+                slope / 5.0, -1.0, 1.0
+            )  # 1ステップあたり最大5の変化と仮定
+            return momentum * r_value**2  # R²で重み付け
 
         return 0.0
 
-    def get_market_psychology_summary(self, index: MarketPsychologyIndex) -> Dict[str, Any]:
+    def get_market_psychology_summary(
+        self, index: MarketPsychologyIndex
+    ) -> Dict[str, Any]:
         """市場心理サマリー作成"""
 
         interpretations = index.get_interpretation()
 
         # レーダーチャート用データ
         radar_data = {
-            'ニュースセンチメント': (index.news_sentiment + 1) * 50,  # 0-100に変換
-            'ソーシャルセンチメント': (index.social_sentiment + 1) * 50,
-            'テクニカル指標': (index.technical_sentiment + 1) * 50,
-            'マクロ経済': (index.macro_sentiment + 1) * 50
+            "ニュースセンチメント": (index.news_sentiment + 1) * 50,  # 0-100に変換
+            "ソーシャルセンチメント": (index.social_sentiment + 1) * 50,
+            "テクニカル指標": (index.technical_sentiment + 1) * 50,
+            "マクロ経済": (index.macro_sentiment + 1) * 50,
         }
 
         # アラート生成
@@ -526,20 +589,22 @@ class MarketPsychologyAnalyzer:
             alerts.append(f"強い{direction}トレンド継続中")
 
         return {
-            'fear_greed_index': index.fear_greed_index,
-            'market_mood': index.market_mood,
-            'sentiment_score': index.sentiment_score,
-            'confidence_level': index.confidence_level,
-            'interpretations': interpretations,
-            'radar_data': radar_data,
-            'alerts': alerts,
-            'historical_percentile': index.historical_percentile,
-            'data_quality_score': index.data_quality_score,
-            'sample_sizes': index.sample_sizes,
-            'timestamp': index.calculation_timestamp.isoformat()
+            "fear_greed_index": index.fear_greed_index,
+            "market_mood": index.market_mood,
+            "sentiment_score": index.sentiment_score,
+            "confidence_level": index.confidence_level,
+            "interpretations": interpretations,
+            "radar_data": radar_data,
+            "alerts": alerts,
+            "historical_percentile": index.historical_percentile,
+            "data_quality_score": index.data_quality_score,
+            "sample_sizes": index.sample_sizes,
+            "timestamp": index.calculation_timestamp.isoformat(),
         }
 
-    def export_psychology_analysis(self, index: MarketPsychologyIndex, format: str = "json") -> str:
+    def export_psychology_analysis(
+        self, index: MarketPsychologyIndex, format: str = "json"
+    ) -> str:
         """市場心理分析エクスポート"""
 
         if format == "json":
@@ -547,14 +612,14 @@ class MarketPsychologyAnalyzer:
 
             export_data = {
                 **summary,
-                'detailed_components': {
-                    'news_sentiment': index.news_sentiment,
-                    'social_sentiment': index.social_sentiment,
-                    'technical_sentiment': index.technical_sentiment,
-                    'macro_sentiment': index.macro_sentiment,
-                    'volatility_adjustment': index.volatility_adjustment,
-                    'trend_momentum': index.trend_momentum
-                }
+                "detailed_components": {
+                    "news_sentiment": index.news_sentiment,
+                    "social_sentiment": index.social_sentiment,
+                    "technical_sentiment": index.technical_sentiment,
+                    "macro_sentiment": index.macro_sentiment,
+                    "volatility_adjustment": index.volatility_adjustment,
+                    "trend_momentum": index.trend_momentum,
+                },
             }
 
             return json.dumps(export_data, indent=2, ensure_ascii=False)
@@ -572,15 +637,18 @@ class MarketPsychologyAnalyzer:
         recent_data = self.historical_data[-days:]
 
         return {
-            'timestamps': [data.calculation_timestamp.isoformat() for data in recent_data],
-            'fear_greed_index': [data.fear_greed_index for data in recent_data],
-            'sentiment_score': [data.sentiment_score for data in recent_data],
-            'confidence_level': [data.confidence_level for data in recent_data],
-            'news_sentiment': [data.news_sentiment for data in recent_data],
-            'social_sentiment': [data.social_sentiment for data in recent_data],
-            'technical_sentiment': [data.technical_sentiment for data in recent_data],
-            'macro_sentiment': [data.macro_sentiment for data in recent_data]
+            "timestamps": [
+                data.calculation_timestamp.isoformat() for data in recent_data
+            ],
+            "fear_greed_index": [data.fear_greed_index for data in recent_data],
+            "sentiment_score": [data.sentiment_score for data in recent_data],
+            "confidence_level": [data.confidence_level for data in recent_data],
+            "news_sentiment": [data.news_sentiment for data in recent_data],
+            "social_sentiment": [data.social_sentiment for data in recent_data],
+            "technical_sentiment": [data.technical_sentiment for data in recent_data],
+            "macro_sentiment": [data.macro_sentiment for data in recent_data],
         }
+
 
 # 便利関数
 def analyze_market_psychology(symbols: List[str] = None) -> MarketPsychologyIndex:
@@ -591,7 +659,9 @@ def analyze_market_psychology(symbols: List[str] = None) -> MarketPsychologyInde
         return await analyzer.calculate_market_psychology(symbols=symbols)
 
     import asyncio
+
     return asyncio.run(_analyze())
+
 
 if __name__ == "__main__":
     # 市場心理分析テスト
@@ -608,22 +678,22 @@ if __name__ == "__main__":
             include_news=True,
             include_social=True,
             include_technical=True,
-            include_macro=True
+            include_macro=True,
         )
 
-        print(f"\n=== 市場心理分析結果 ===")
+        print("\n=== 市場心理分析結果 ===")
         print(f"Fear & Greed Index: {psychology_index.fear_greed_index:.1f}")
         print(f"市場ムード: {psychology_index.market_mood}")
         print(f"センチメントスコア: {psychology_index.sentiment_score:.3f}")
         print(f"信頼度レベル: {psychology_index.confidence_level:.3f}")
 
-        print(f"\n=== 構成要素 ===")
+        print("\n=== 構成要素 ===")
         print(f"ニュースセンチメント: {psychology_index.news_sentiment:.3f}")
         print(f"ソーシャルセンチメント: {psychology_index.social_sentiment:.3f}")
         print(f"テクニカル指標: {psychology_index.technical_sentiment:.3f}")
         print(f"マクロ経済指標: {psychology_index.macro_sentiment:.3f}")
 
-        print(f"\n=== 統計情報 ===")
+        print("\n=== 統計情報 ===")
         print(f"過去パーセンタイル: {psychology_index.historical_percentile:.1f}%")
         print(f"ボラティリティ調整: {psychology_index.volatility_adjustment:.3f}")
         print(f"トレンドモメンタム: {psychology_index.trend_momentum:.3f}")
@@ -631,14 +701,14 @@ if __name__ == "__main__":
 
         # 解釈表示
         interpretations = psychology_index.get_interpretation()
-        print(f"\n=== 解釈 ===")
+        print("\n=== 解釈 ===")
         for key, interpretation in interpretations.items():
             print(f"{key}: {interpretation}")
 
         # サマリー作成
         summary = analyzer.get_market_psychology_summary(psychology_index)
-        print(f"\n=== アラート ===")
-        for alert in summary['alerts']:
+        print("\n=== アラート ===")
+        for alert in summary["alerts"]:
             print(f"⚠️  {alert}")
 
         # エクスポートテスト
@@ -646,7 +716,7 @@ if __name__ == "__main__":
         print(f"\nJSON エクスポート長: {len(json_export)} 文字")
 
         # 複数回実行して履歴作成
-        print(f"\n履歴データ作成中...")
+        print("\n履歴データ作成中...")
         for i in range(3):
             await analyzer.calculate_market_psychology()
             await asyncio.sleep(0.1)  # 短い間隔
@@ -657,11 +727,13 @@ if __name__ == "__main__":
 
     # テスト実行
     import asyncio
+
     try:
         asyncio.run(test_market_psychology())
     except Exception as e:
         print(f"テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\n=== テスト完了 ===")

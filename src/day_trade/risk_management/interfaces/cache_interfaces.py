@@ -7,29 +7,35 @@ Redis、Memory、File等の各種キャッシュ実装に対応した抽象イ�
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, AsyncIterator
-from datetime import datetime, timedelta
-from enum import Enum
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 
 class CacheStrategy(Enum):
     """キャッシュ戦略"""
-    LRU = "lru"              # Least Recently Used
-    LFU = "lfu"              # Least Frequently Used
-    FIFO = "fifo"            # First In First Out
-    RANDOM = "random"        # ランダム削除
+
+    LRU = "lru"  # Least Recently Used
+    LFU = "lfu"  # Least Frequently Used
+    FIFO = "fifo"  # First In First Out
+    RANDOM = "random"  # ランダム削除
     TTL_BASED = "ttl_based"  # TTL ベース
+
 
 class CacheEntryStatus(Enum):
     """キャッシュエントリーステータス"""
+
     HIT = "hit"
     MISS = "miss"
     EXPIRED = "expired"
     INVALID = "invalid"
 
+
 @dataclass
 class CacheEntry:
     """キャッシュエントリー"""
+
     key: str
     value: Any
     created_at: datetime
@@ -45,9 +51,11 @@ class CacheEntry:
             return False
         return (datetime.now() - self.created_at).seconds > self.ttl_seconds
 
+
 @dataclass
 class CacheStats:
     """キャッシュ統計"""
+
     total_entries: int
     memory_usage_bytes: int
     hit_rate: float
@@ -57,6 +65,7 @@ class CacheStats:
     total_misses: int
     evictions: int
     errors: int
+
 
 class ICacheProvider(ABC):
     """キャッシュプロバイダーインターフェース"""
@@ -72,7 +81,7 @@ class ICacheProvider(ABC):
         key: str,
         value: Any,
         ttl_seconds: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """エントリー設定"""
         pass
@@ -107,6 +116,7 @@ class ICacheProvider(ABC):
         """ヘルスチェック"""
         pass
 
+
 class ICacheSerializer(ABC):
     """キャッシュシリアライザーインターフェース"""
 
@@ -125,15 +135,13 @@ class ICacheSerializer(ABC):
         """コンテンツタイプ取得"""
         pass
 
+
 class ICacheEvictionPolicy(ABC):
     """キャッシュ削除ポリシーインターフェース"""
 
     @abstractmethod
     async def should_evict(
-        self,
-        entries: List[CacheEntry],
-        new_entry_size: int,
-        max_capacity: int
+        self, entries: List[CacheEntry], new_entry_size: int, max_capacity: int
     ) -> List[str]:
         """削除対象キー決定"""
         pass
@@ -143,15 +151,13 @@ class ICacheEvictionPolicy(ABC):
         """ポリシー名取得"""
         pass
 
+
 class IDistributedLock(ABC):
     """分散ロックインターフェース"""
 
     @abstractmethod
     async def acquire(
-        self,
-        key: str,
-        timeout_seconds: int = 10,
-        ttl_seconds: int = 60
+        self, key: str, timeout_seconds: int = 10, ttl_seconds: int = 60
     ) -> bool:
         """ロック取得"""
         pass
@@ -170,6 +176,7 @@ class IDistributedLock(ABC):
     async def extend_lock(self, key: str, ttl_seconds: int) -> bool:
         """ロック延長"""
         pass
+
 
 class ICacheCluster(ABC):
     """キャッシュクラスターインターフェース"""
@@ -194,6 +201,7 @@ class ICacheCluster(ABC):
         """クラスター再バランス"""
         pass
 
+
 class ICacheMiddleware(ABC):
     """キャッシュミドルウェアインターフェース"""
 
@@ -204,39 +212,27 @@ class ICacheMiddleware(ABC):
 
     @abstractmethod
     async def after_get(
-        self,
-        key: str,
-        value: Optional[Any],
-        cache_status: CacheEntryStatus
+        self, key: str, value: Optional[Any], cache_status: CacheEntryStatus
     ) -> Optional[Any]:
         """取得後処理"""
         pass
 
     @abstractmethod
-    async def before_set(
-        self,
-        key: str,
-        value: Any
-    ) -> Optional[tuple]:  # (key, value)
+    async def before_set(self, key: str, value: Any) -> Optional[tuple]:  # (key, value)
         """設定前処理"""
         pass
 
     @abstractmethod
-    async def after_set(
-        self,
-        key: str,
-        value: Any,
-        success: bool
-    ) -> None:
+    async def after_set(self, key: str, value: Any, success: bool) -> None:
         """設定後処理"""
         pass
 
+
 # ヘルパー関数
 
+
 def create_cache_key(
-    namespace: str,
-    identifier: str,
-    version: Optional[str] = None
+    namespace: str, identifier: str, version: Optional[str] = None
 ) -> str:
     """キャッシュキー作成"""
     parts = [namespace, identifier]
@@ -244,22 +240,24 @@ def create_cache_key(
         parts.append(version)
     return ":".join(parts)
 
-def calculate_ttl_seconds(
-    base_ttl: int,
-    jitter_ratio: float = 0.1
-) -> int:
+
+def calculate_ttl_seconds(base_ttl: int, jitter_ratio: float = 0.1) -> int:
     """TTL計算（ジッター付き）"""
     import random
+
     jitter = int(base_ttl * jitter_ratio * (random.random() - 0.5))
     return max(1, base_ttl + jitter)
+
 
 def estimate_object_size(obj: Any) -> int:
     """オブジェクトサイズ推定"""
     try:
         import pickle
+
         return len(pickle.dumps(obj))
     except Exception:
-        return len(str(obj).encode('utf-8'))
+        return len(str(obj).encode("utf-8"))
+
 
 def is_cache_key_valid(key: str) -> bool:
     """キャッシュキー検証"""
@@ -267,5 +265,5 @@ def is_cache_key_valid(key: str) -> bool:
         return False
 
     # 無効な文字チェック
-    invalid_chars = {' ', '\n', '\r', '\t', '\0'}
+    invalid_chars = {" ", "\n", "\r", "\t", "\0"}
     return not any(char in key for char in invalid_chars)

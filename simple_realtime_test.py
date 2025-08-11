@@ -7,14 +7,17 @@ Next-Gen AI Trading Engine - 簡易リアルタイムシステムテスト
 import asyncio
 import logging
 from datetime import datetime
+
 import numpy as np
 
-# プロジェクト内インポート
-from src.day_trade.utils.logging_config import get_context_logger
 from src.day_trade.realtime.live_prediction_engine import create_live_prediction_engine
 from src.day_trade.realtime.websocket_stream import MarketTick
 
+# プロジェクト内インポート
+from src.day_trade.utils.logging_config import get_context_logger
+
 logger = get_context_logger(__name__)
+
 
 async def simple_system_test():
     """簡易システムテスト"""
@@ -37,7 +40,7 @@ async def simple_system_test():
                     symbol=symbol,
                     timestamp=datetime.now(),
                     price=150.0 + np.random.uniform(-5, 5),
-                    volume=1000 + int(np.random.uniform(0, 500))
+                    volume=1000 + int(np.random.uniform(0, 500)),
                 )
                 mock_ticks.append(tick)
 
@@ -55,9 +58,11 @@ async def simple_system_test():
         if predictions:
             print(f"OK Generated {len(predictions)} predictions:")
             for symbol, prediction in predictions.items():
-                print(f"  {symbol}: {prediction.final_action} "
-                      f"(confidence: {prediction.confidence:.2%}, "
-                      f"target: ${prediction.predicted_price:.2f})")
+                print(
+                    f"  {symbol}: {prediction.final_action} "
+                    f"(confidence: {prediction.confidence:.2%}, "
+                    f"target: ${prediction.predicted_price:.2f})"
+                )
         else:
             print("ERROR No predictions generated")
 
@@ -77,8 +82,10 @@ async def simple_system_test():
     except Exception as e:
         print(f"\nERROR Simple test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 async def main():
     """メイン実行"""
@@ -95,7 +102,9 @@ async def main():
         print("System has issues that need fixing.")
         return 1
 
+
 if __name__ == "__main__":
     import sys
+
     exit_code = asyncio.run(main())
     sys.exit(exit_code)

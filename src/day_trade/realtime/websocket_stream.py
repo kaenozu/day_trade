@@ -7,31 +7,29 @@ Next-Gen AI Trading Engine - WebSocketリアルタイムストリーミング
 """
 
 import asyncio
-import time
 import json
+import time
 import warnings
-import websockets
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any, Callable, Union
 from datetime import datetime, timedelta
-from pathlib import Path
-import numpy as np
-import pandas as pd
+from typing import Any, Callable, Dict, List, Optional
 
 # WebSocket・HTTP通信
 import aiohttp
+import numpy as np
 import websockets
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from ..data.batch_data_fetcher import DataRequest
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class StreamConfig:
     """ストリーム設定"""
+
     # WebSocket設定
     max_connections: int = 10
     reconnect_delay: float = 5.0
@@ -51,11 +49,15 @@ class StreamConfig:
     news_api_key: Optional[str] = None
 
     # 監視銘柄
-    symbols: List[str] = field(default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"])
+    symbols: List[str] = field(
+        default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"]
+    )
+
 
 @dataclass
 class MarketTick:
     """市場ティックデータ"""
+
     symbol: str
     timestamp: datetime
     price: float
@@ -70,9 +72,11 @@ class MarketTick:
     quality_score: float = 1.0
     latency_ms: float = 0.0
 
+
 @dataclass
 class NewsItem:
     """ニュース項目"""
+
     title: str
     content: str
     timestamp: datetime
@@ -82,9 +86,11 @@ class NewsItem:
     relevance_score: float = 0.0
     symbols: List[str] = field(default_factory=list)
 
+
 @dataclass
 class SocialPost:
     """ソーシャル投稿"""
+
     platform: str
     content: str
     timestamp: datetime
@@ -92,6 +98,7 @@ class SocialPost:
     engagement: int = 0
     sentiment_score: float = 0.0
     symbols: List[str] = field(default_factory=list)
+
 
 class WebSocketDataStream:
     """WebSocketデータストリーム基底クラス"""
@@ -109,11 +116,11 @@ class WebSocketDataStream:
 
         # 統計
         self.stats = {
-            'messages_received': 0,
-            'messages_processed': 0,
-            'connection_errors': 0,
-            'data_quality_issues': 0,
-            'average_latency': 0.0
+            "messages_received": 0,
+            "messages_processed": 0,
+            "connection_errors": 0,
+            "data_quality_issues": 0,
+            "average_latency": 0.0,
         }
 
     async def connect(self, uri: str, headers: Optional[Dict] = None):
@@ -124,7 +131,7 @@ class WebSocketDataStream:
                 extra_headers=headers or {},
                 ping_interval=self.config.heartbeat_interval,
                 ping_timeout=10,
-                close_timeout=10
+                close_timeout=10,
             )
 
             self.is_connected = True
@@ -164,7 +171,7 @@ class WebSocketDataStream:
                 try:
                     data = json.loads(message)
                     await message_handler(data)
-                    self.stats['messages_received'] += 1
+                    self.stats["messages_received"] += 1
 
                 except json.JSONDecodeError:
                     logger.warning(f"Invalid JSON received: {message[:100]}...")
@@ -199,6 +206,7 @@ class WebSocketDataStream:
         logger.error("Max reconnection attempts exceeded")
         return False
 
+
 class YahooFinanceStream(WebSocketDataStream):
     """Yahoo Finance WebSocketストリーム"""
 
@@ -221,9 +229,7 @@ class YahooFinanceStream(WebSocketDataStream):
             await self.connect(mock_uri)
 
             # 購読メッセージ送信
-            subscribe_message = {
-                "subscribe": symbols
-            }
+            subscribe_message = {"subscribe": symbols}
             await self.send_message(subscribe_message)
 
             # リスニング開始
@@ -237,18 +243,18 @@ class YahooFinanceStream(WebSocketDataStream):
     async def _handle_yahoo_message(self, data: Dict):
         """Yahoo Financeメッセージ処理"""
         try:
-            if 'id' in data and 'price' in data:
+            if "id" in data and "price" in data:
                 tick = MarketTick(
-                    symbol=data.get('id', 'UNKNOWN'),
-                    timestamp=datetime.fromtimestamp(data.get('time', time.time())),
-                    price=float(data.get('price', 0)),
-                    volume=int(data.get('volume', 0)),
-                    bid=float(data.get('bid', 0)),
-                    ask=float(data.get('ask', 0)),
-                    change=float(data.get('change', 0)),
-                    change_percent=float(data.get('changePercent', 0)),
+                    symbol=data.get("id", "UNKNOWN"),
+                    timestamp=datetime.fromtimestamp(data.get("time", time.time())),
+                    price=float(data.get("price", 0)),
+                    volume=int(data.get("volume", 0)),
+                    bid=float(data.get("bid", 0)),
+                    ask=float(data.get("ask", 0)),
+                    change=float(data.get("change", 0)),
+                    change_percent=float(data.get("changePercent", 0)),
                     source="yahoo_finance",
-                    latency_ms=data.get('latency', 0)
+                    latency_ms=data.get("latency", 0),
                 )
 
                 # データバッファに追加
@@ -259,10 +265,11 @@ class YahooFinanceStream(WebSocketDataStream):
                     if len(self.data_buffer) > self.config.buffer_size:
                         self.data_buffer.pop(0)
 
-                self.stats['messages_processed'] += 1
+                self.stats["messages_processed"] += 1
 
         except Exception as e:
             logger.error(f"Yahoo message processing error: {e}")
+
 
 class NewsAPIStream:
     """NewsAPI ストリーム（HTTPポーリング）"""
@@ -316,11 +323,11 @@ class NewsAPIStream:
         try:
             query = " OR ".join(keywords)
             params = {
-                'q': query,
-                'sortBy': 'publishedAt',
-                'from': self.last_fetch.isoformat(),
-                'apiKey': self.api_key,
-                'language': 'en'
+                "q": query,
+                "sortBy": "publishedAt",
+                "from": self.last_fetch.isoformat(),
+                "apiKey": self.api_key,
+                "language": "en",
             }
 
             url = f"{self.base_url}/everything"
@@ -329,17 +336,19 @@ class NewsAPIStream:
                 if response.status == 200:
                     data = await response.json()
 
-                    for article in data.get('articles', []):
+                    for article in data.get("articles", []):
                         news_item = NewsItem(
-                            title=article.get('title', ''),
-                            content=article.get('description', ''),
+                            title=article.get("title", ""),
+                            content=article.get("description", ""),
                             timestamp=datetime.fromisoformat(
-                                article.get('publishedAt', '').replace('Z', '+00:00')
+                                article.get("publishedAt", "").replace("Z", "+00:00")
                             ),
-                            source=article.get('source', {}).get('name', ''),
-                            url=article.get('url'),
-                            symbols=self._extract_symbols(article.get('title', '') +
-                                                        article.get('description', ''))
+                            source=article.get("source", {}).get("name", ""),
+                            url=article.get("url"),
+                            symbols=self._extract_symbols(
+                                article.get("title", "")
+                                + article.get("description", "")
+                            ),
                         )
                         news_items.append(news_item)
 
@@ -361,7 +370,7 @@ class NewsAPIStream:
             "Tech Giants Report Record Quarterly Earnings",
             "Federal Reserve Maintains Interest Rates",
             "Cryptocurrency Market Experiences High Volatility",
-            "Investment Flows Continue Into ESG Funds"
+            "Investment Flows Continue Into ESG Funds",
         ]
 
         news_items = []
@@ -373,11 +382,11 @@ class NewsAPIStream:
             news_item = NewsItem(
                 title=headline,
                 content=f"Mock news content for: {headline}",
-                timestamp=datetime.now() - timedelta(minutes=i*30),
+                timestamp=datetime.now() - timedelta(minutes=i * 30),
                 source="Mock News",
                 sentiment_score=np.random.uniform(-0.5, 0.5),
                 relevance_score=np.random.uniform(0.6, 0.9),
-                symbols=["AAPL", "MSFT"] if "Tech" in headline else ["SPY"]
+                symbols=["AAPL", "MSFT"] if "Tech" in headline else ["SPY"],
             )
             news_items.append(news_item)
 
@@ -394,6 +403,7 @@ class NewsAPIStream:
                 symbols.append(pattern[1:])  # $を除去
 
         return symbols
+
 
 class RealTimeStreamManager:
     """リアルタイムストリーム管理システム"""
@@ -435,15 +445,11 @@ class RealTimeStreamManager:
             self.running_tasks.append(market_task)
 
             # ニュースストリーム
-            news_task = asyncio.create_task(
-                self.news_stream.start_stream()
-            )
+            news_task = asyncio.create_task(self.news_stream.start_stream())
             self.running_tasks.append(news_task)
 
             # データ処理タスク
-            processing_task = asyncio.create_task(
-                self._data_processing_loop()
-            )
+            processing_task = asyncio.create_task(self._data_processing_loop())
             self.running_tasks.append(processing_task)
 
             logger.info(f"Started {len(self.running_tasks)} streaming tasks")
@@ -464,7 +470,7 @@ class RealTimeStreamManager:
         await self.market_stream.disconnect()
 
         # HTTPセッション終了
-        if hasattr(self.news_stream, 'session') and self.news_stream.session:
+        if hasattr(self.news_stream, "session") and self.news_stream.session:
             await self.news_stream.session.close()
 
         # タスクキャンセル
@@ -519,8 +525,7 @@ class RealTimeStreamManager:
                 # 古いデータ削除
                 cutoff_time = datetime.now() - timedelta(hours=1)
                 self.market_data = [
-                    tick for tick in self.market_data
-                    if tick.timestamp > cutoff_time
+                    tick for tick in self.market_data if tick.timestamp > cutoff_time
                 ]
 
     async def _process_news_data(self):
@@ -536,10 +541,10 @@ class RealTimeStreamManager:
 
         # 最新データ準備
         latest_data = {
-            'market_ticks': self.market_data[-10:] if self.market_data else [],
-            'news_items': self.news_data[-5:] if self.news_data else [],
-            'social_posts': self.social_data[-5:] if self.social_data else [],
-            'timestamp': datetime.now()
+            "market_ticks": self.market_data[-10:] if self.market_data else [],
+            "news_items": self.news_data[-5:] if self.news_data else [],
+            "social_posts": self.social_data[-5:] if self.social_data else [],
+            "timestamp": datetime.now(),
         }
 
         # 全コールバック実行
@@ -553,10 +558,10 @@ class RealTimeStreamManager:
         """統計情報更新"""
 
         stats = {
-            'market_stream_stats': self.market_stream.stats,
-            'total_market_data': len(self.market_data),
-            'total_news_data': len(self.news_data),
-            'active_tasks': len([t for t in self.running_tasks if not t.done()])
+            "market_stream_stats": self.market_stream.stats,
+            "total_market_data": len(self.market_data),
+            "total_news_data": len(self.news_data),
+            "active_tasks": len([t for t in self.running_tasks if not t.done()]),
         }
 
         # ログ出力（5分間隔）
@@ -593,11 +598,11 @@ class RealTimeStreamManager:
             market_data = [tick for tick in market_data if tick.symbol == symbol]
 
         return {
-            'market_ticks': market_data[-limit:],
-            'news_items': self.news_data[-limit:],
-            'social_posts': self.social_data[-limit:],
-            'timestamp': datetime.now(),
-            'data_quality': self._calculate_data_quality()
+            "market_ticks": market_data[-limit:],
+            "news_items": self.news_data[-limit:],
+            "social_posts": self.social_data[-limit:],
+            "timestamp": datetime.now(),
+            "data_quality": self._calculate_data_quality(),
         }
 
     def _calculate_data_quality(self) -> float:
@@ -608,28 +613,36 @@ class RealTimeStreamManager:
 
         # 最近1分間のデータ数
         recent_cutoff = datetime.now() - timedelta(minutes=1)
-        recent_data = [tick for tick in self.market_data if tick.timestamp > recent_cutoff]
+        recent_data = [
+            tick for tick in self.market_data if tick.timestamp > recent_cutoff
+        ]
 
         # 期待データ数との比較
         expected_ticks = len(self.config.symbols) * 60  # 1分間で1銘柄60ティック想定
         actual_ticks = len(recent_data)
 
-        quality_score = min(actual_ticks / expected_ticks, 1.0) if expected_ticks > 0 else 0.0
+        quality_score = (
+            min(actual_ticks / expected_ticks, 1.0) if expected_ticks > 0 else 0.0
+        )
 
         return quality_score
 
+
 # 便利関数
-async def create_realtime_stream_manager(symbols: List[str] = None) -> RealTimeStreamManager:
+async def create_realtime_stream_manager(
+    symbols: List[str] = None,
+) -> RealTimeStreamManager:
     """リアルタイムストリーム管理システム作成"""
 
     config = StreamConfig(
         symbols=symbols or ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"],
         buffer_size=1000,
-        processing_interval=1.0
+        processing_interval=1.0,
     )
 
     manager = RealTimeStreamManager(config)
     return manager
+
 
 if __name__ == "__main__":
     # WebSocketストリーミングテスト
@@ -638,9 +651,11 @@ if __name__ == "__main__":
 
         # テスト用コールバック
         async def data_callback(data):
-            market_count = len(data['market_ticks'])
-            news_count = len(data['news_items'])
-            print(f"Data received: {market_count} market ticks, {news_count} news items")
+            market_count = len(data["market_ticks"])
+            news_count = len(data["news_items"])
+            print(
+                f"Data received: {market_count} market ticks, {news_count} news items"
+            )
 
         try:
             # ストリーム管理システム作成
@@ -669,6 +684,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Test error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # テスト実行

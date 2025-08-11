@@ -8,34 +8,39 @@ Risk Management Core Interfaces
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Union, AsyncIterator
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 # 前方参照用の型定義
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from ..models.unified_models import UnifiedRiskRequest, UnifiedRiskResult
 
+
 class RiskLevel(Enum):
     """リスクレベル定義"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
+
 class AnalysisStatus(Enum):
     """分析ステータス"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
 
+
 @dataclass
 class RiskAnalyzerMetadata:
     """リスク分析器メタデータ"""
+
     name: str
     version: str
     description: str
@@ -43,6 +48,7 @@ class RiskAnalyzerMetadata:
     expected_processing_time_ms: float
     confidence_threshold: float
     weight: float = 1.0
+
 
 class IRiskAnalyzer(ABC):
     """リスク分析器インターフェース"""
@@ -53,10 +59,7 @@ class IRiskAnalyzer(ABC):
         pass
 
     @abstractmethod
-    async def analyze_risk(
-        self,
-        request: 'UnifiedRiskRequest'
-    ) -> 'UnifiedRiskResult':
+    async def analyze_risk(self, request: "UnifiedRiskRequest") -> "UnifiedRiskResult":
         """リスク分析実行"""
         pass
 
@@ -75,6 +78,7 @@ class IRiskAnalyzer(ABC):
         """設定更新"""
         pass
 
+
 class IAlertManager(ABC):
     """アラート管理インターフェース"""
 
@@ -84,7 +88,7 @@ class IAlertManager(ABC):
         title: str,
         message: str,
         severity: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """アラート送信"""
         pass
@@ -106,31 +110,23 @@ class IAlertManager(ABC):
 
     @abstractmethod
     def subscribe_to_alerts(
-        self,
-        callback: callable,
-        filter_criteria: Optional[Dict[str, Any]] = None
+        self, callback: callable, filter_criteria: Optional[Dict[str, Any]] = None
     ) -> str:
         """アラート購読"""
         pass
+
 
 class ICacheManager(ABC):
     """キャッシュ管理インターフェース"""
 
     @abstractmethod
-    async def get(
-        self,
-        key: str,
-        default: Any = None
-    ) -> Optional[Any]:
+    async def get(self, key: str, default: Any = None) -> Optional[Any]:
         """キャッシュ取得"""
         pass
 
     @abstractmethod
     async def set(
-        self,
-        key: str,
-        value: Any,
-        ttl_seconds: Optional[int] = None
+        self, key: str, value: Any, ttl_seconds: Optional[int] = None
     ) -> bool:
         """キャッシュ設定"""
         pass
@@ -155,44 +151,33 @@ class ICacheManager(ABC):
         """キャッシュ統計"""
         pass
 
+
 class IMetricsCollector(ABC):
     """メトリクス収集インターフェース"""
 
     @abstractmethod
     def record_counter(
-        self,
-        name: str,
-        value: float = 1.0,
-        labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float = 1.0, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """カウンターメトリクス記録"""
         pass
 
     @abstractmethod
     def record_histogram(
-        self,
-        name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """ヒストグラムメトリクス記録"""
         pass
 
     @abstractmethod
     def record_gauge(
-        self,
-        name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """ゲージメトリクス記録"""
         pass
 
     @abstractmethod
-    async def get_metrics(
-        self,
-        name_pattern: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def get_metrics(self, name_pattern: Optional[str] = None) -> Dict[str, Any]:
         """メトリクス取得"""
         pass
 
@@ -201,24 +186,17 @@ class IMetricsCollector(ABC):
         """タイマーコンテキスト作成"""
         pass
 
+
 class IConfigManager(ABC):
     """設定管理インターフェース"""
 
     @abstractmethod
-    async def get_config(
-        self,
-        key: str,
-        default: Any = None
-    ) -> Any:
+    async def get_config(self, key: str, default: Any = None) -> Any:
         """設定取得"""
         pass
 
     @abstractmethod
-    async def set_config(
-        self,
-        key: str,
-        value: Any
-    ) -> bool:
+    async def set_config(self, key: str, value: Any) -> bool:
         """設定更新"""
         pass
 
@@ -234,12 +212,11 @@ class IConfigManager(ABC):
 
     @abstractmethod
     def subscribe_to_changes(
-        self,
-        callback: callable,
-        key_pattern: Optional[str] = None
+        self, callback: callable, key_pattern: Optional[str] = None
     ) -> str:
         """設定変更購読"""
         pass
+
 
 class IRiskAnalysisOrchestrator(ABC):
     """リスク分析オーケストレーターインターフェース"""
@@ -256,10 +233,8 @@ class IRiskAnalysisOrchestrator(ABC):
 
     @abstractmethod
     async def execute_analysis(
-        self,
-        request: 'UnifiedRiskRequest',
-        analyzer_names: Optional[List[str]] = None
-    ) -> 'UnifiedRiskResult':
+        self, request: "UnifiedRiskRequest", analyzer_names: Optional[List[str]] = None
+    ) -> "UnifiedRiskResult":
         """統合分析実行"""
         pass
 
@@ -267,6 +242,7 @@ class IRiskAnalysisOrchestrator(ABC):
     async def get_analyzer_status(self) -> Dict[str, Dict[str, Any]]:
         """分析器ステータス取得"""
         pass
+
 
 class IEventBus(ABC):
     """イベントバスインターフェース"""
@@ -277,11 +253,7 @@ class IEventBus(ABC):
         pass
 
     @abstractmethod
-    def subscribe(
-        self,
-        event_type: str,
-        handler: callable
-    ) -> str:
+    def subscribe(self, event_type: str, handler: callable) -> str:
         """イベント購読"""
         pass
 
@@ -290,7 +262,9 @@ class IEventBus(ABC):
         """イベント購読解除"""
         pass
 
+
 # ヘルパー関数とユーティリティ
+
 
 def validate_risk_level(level: str) -> bool:
     """リスクレベル検証"""
@@ -300,9 +274,10 @@ def validate_risk_level(level: str) -> bool:
     except ValueError:
         return False
 
+
 def calculate_weighted_risk_score(
     scores: List[Tuple[float, float]],  # (score, weight) のリスト
-    normalization_factor: float = 1.0
+    normalization_factor: float = 1.0,
 ) -> float:
     """重み付きリスクスコア計算"""
     if not scores:
@@ -316,16 +291,17 @@ def calculate_weighted_risk_score(
 
     return min(1.0, max(0.0, (weighted_sum / total_weight) * normalization_factor))
 
+
 def create_analysis_context(
     request_id: str,
     timestamp: datetime,
-    additional_metadata: Optional[Dict[str, Any]] = None
+    additional_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """分析コンテキスト作成"""
     context = {
-        'request_id': request_id,
-        'timestamp': timestamp.isoformat(),
-        'created_at': datetime.now().isoformat()
+        "request_id": request_id,
+        "timestamp": timestamp.isoformat(),
+        "created_at": datetime.now().isoformat(),
     }
 
     if additional_metadata:

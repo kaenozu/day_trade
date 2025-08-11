@@ -6,25 +6,21 @@ Phase G: 本番運用最適化フェーズ
 包括的なセキュリティ監視・脅威検知・防御システム
 """
 
-import os
-import re
-import json
-import hashlib
-import secrets
-import time
-import socket
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Set, Tuple
-from dataclasses import dataclass, asdict
-from enum import Enum
-from pathlib import Path
-from collections import defaultdict, deque
-import threading
 import ipaddress
+import json
+import re
+import threading
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set
 
 
 class ThreatLevel(Enum):
     """脅威レベル"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -33,6 +29,7 @@ class ThreatLevel(Enum):
 
 class AttackType(Enum):
     """攻撃タイプ"""
+
     BRUTE_FORCE = "brute_force"
     SQL_INJECTION = "sql_injection"
     XSS = "xss"
@@ -45,6 +42,7 @@ class AttackType(Enum):
 
 class SecurityEvent(Enum):
     """セキュリティイベント"""
+
     LOGIN_ATTEMPT = "login_attempt"
     LOGIN_FAILURE = "login_failure"
     PERMISSION_DENIED = "permission_denied"
@@ -56,6 +54,7 @@ class SecurityEvent(Enum):
 @dataclass
 class ThreatAlert:
     """脅威アラート"""
+
     alert_id: str
     threat_level: ThreatLevel
     attack_type: AttackType
@@ -71,6 +70,7 @@ class ThreatAlert:
 @dataclass
 class SecurityRule:
     """セキュリティルール"""
+
     rule_id: str
     name: str
     pattern: str
@@ -83,6 +83,7 @@ class SecurityRule:
 @dataclass
 class NetworkConnection:
     """ネットワーク接続情報"""
+
     source_ip: str
     destination_ip: str
     source_port: int
@@ -108,15 +109,15 @@ class IPBlocklist:
         """デフォルトブロックリスト読み込み"""
         # 既知の悪意のあるIPレンジ（例）
         default_blocks = [
-            "10.0.0.0/8",      # プライベートIPの一部（設定による）
+            "10.0.0.0/8",  # プライベートIPの一部（設定による）
             "192.168.0.0/16",  # プライベートIP
-            "127.0.0.0/8"      # ローカルホスト
+            "127.0.0.0/8",  # ローカルホスト
         ]
 
         # 実際の運用では外部のIP脅威フィードを使用
         known_malicious_ips = [
-            "198.51.100.1",    # RFC5737 テスト用IP（例）
-            "203.0.113.1"      # RFC5737 テスト用IP（例）
+            "198.51.100.1",  # RFC5737 テスト用IP（例）
+            "203.0.113.1",  # RFC5737 テスト用IP（例）
         ]
 
         with self.block_lock:
@@ -171,7 +172,8 @@ class IPBlocklist:
         with self.block_lock:
             current_time = datetime.now()
             expired_ips = [
-                ip for ip, expiry in self.temporary_blocks.items()
+                ip
+                for ip, expiry in self.temporary_blocks.items()
                 if current_time >= expiry
             ]
             for ip in expired_ips:
@@ -197,36 +199,36 @@ class IntrusionDetectionSystem:
                 name="SQL インジェクション検知",
                 pattern=r".*(union|select|insert|update|delete|drop|alter|exec|execute).*\s*(from|into|where|order\s+by).*",
                 threat_level=ThreatLevel.HIGH,
-                attack_type=AttackType.SQL_INJECTION
+                attack_type=AttackType.SQL_INJECTION,
             ),
             SecurityRule(
                 rule_id="xss_attempt",
                 name="XSS 攻撃検知",
                 pattern=r".*(<script|javascript:|on\w+\s*=|<iframe|<object|<embed).*",
                 threat_level=ThreatLevel.MEDIUM,
-                attack_type=AttackType.XSS
+                attack_type=AttackType.XSS,
             ),
             SecurityRule(
                 rule_id="path_traversal",
                 name="パストラバーサル検知",
                 pattern=r".*(\.\.\/|\.\.\\|%2e%2e%2f|%2e%2e%5c).*",
                 threat_level=ThreatLevel.HIGH,
-                attack_type=AttackType.UNAUTHORIZED_ACCESS
+                attack_type=AttackType.UNAUTHORIZED_ACCESS,
             ),
             SecurityRule(
                 rule_id="command_injection",
                 name="コマンドインジェクション検知",
                 pattern=r".*(\||;|&|\$\(|`|nc\s|wget\s|curl\s|/bin/|cmd\.exe).*",
                 threat_level=ThreatLevel.CRITICAL,
-                attack_type=AttackType.PRIVILEGE_ESCALATION
+                attack_type=AttackType.PRIVILEGE_ESCALATION,
             ),
             SecurityRule(
                 rule_id="credential_stuffing",
                 name="クレデンシャルスタッフィング検知",
                 pattern=r".*(admin|administrator|root|password|123456|qwerty|login).*",
                 threat_level=ThreatLevel.MEDIUM,
-                attack_type=AttackType.BRUTE_FORCE
-            )
+                attack_type=AttackType.BRUTE_FORCE,
+            ),
         ]
 
         self.security_rules.extend(default_rules)
@@ -235,11 +237,11 @@ class IntrusionDetectionSystem:
         """リクエスト分析"""
         alerts = []
 
-        source_ip = request_data.get('source_ip', '')
-        request_path = request_data.get('path', '')
-        request_method = request_data.get('method', '')
-        request_body = request_data.get('body', '')
-        user_agent = request_data.get('user_agent', '')
+        source_ip = request_data.get("source_ip", "")
+        request_path = request_data.get("path", "")
+        request_method = request_data.get("method", "")
+        request_body = request_data.get("body", "")
+        user_agent = request_data.get("user_agent", "")
 
         # 全体のリクエスト内容
         full_request = f"{request_method} {request_path} {request_body} {user_agent}"
@@ -261,13 +263,13 @@ class IntrusionDetectionSystem:
                     evidence=[
                         f"ルール: {rule.name}",
                         f"パターン: {rule.pattern}",
-                        f"リクエスト: {full_request[:500]}"
+                        f"リクエスト: {full_request[:500]}",
                     ],
                     mitigation_actions=[
                         f"ソースIP {source_ip} を一時ブロック検討",
                         "リクエストの詳細分析",
-                        "ログの継続監視"
-                    ]
+                        "ログの継続監視",
+                    ],
                 )
                 alerts.append(alert)
 
@@ -287,8 +289,10 @@ class IntrusionDetectionSystem:
 
         # 過去1分より古いエントリを削除
         cutoff_time = current_time - timedelta(minutes=1)
-        while (self.request_rates[source_ip] and
-               self.request_rates[source_ip][0] < cutoff_time):
+        while (
+            self.request_rates[source_ip]
+            and self.request_rates[source_ip][0] < cutoff_time
+        ):
             self.request_rates[source_ip].popleft()
 
         request_count = len(self.request_rates[source_ip])
@@ -307,13 +311,15 @@ class IntrusionDetectionSystem:
                 mitigation_actions=[
                     f"IP {source_ip} の即座ブロック",
                     "ネットワークレベルでの制限",
-                    "トラフィック分散の確認"
-                ]
+                    "トラフィック分散の確認",
+                ],
             )
 
         return None
 
-    def record_login_attempt(self, source_ip: str, username: str, success: bool) -> Optional[ThreatAlert]:
+    def record_login_attempt(
+        self, source_ip: str, username: str, success: bool
+    ) -> Optional[ThreatAlert]:
         """ログイン試行記録"""
         current_time = datetime.now()
 
@@ -324,8 +330,7 @@ class IntrusionDetectionSystem:
             # 過去10分間の失敗数チェック
             cutoff_time = current_time - timedelta(minutes=10)
             recent_failures = [
-                t for t in self.failed_login_attempts[source_ip]
-                if t > cutoff_time
+                t for t in self.failed_login_attempts[source_ip] if t > cutoff_time
             ]
             self.failed_login_attempts[source_ip] = recent_failures
 
@@ -341,13 +346,13 @@ class IntrusionDetectionSystem:
                     description=f"ブルートフォース攻撃の疑い: {source_ip} からの連続ログイン失敗",
                     evidence=[
                         f"失敗回数: {len(recent_failures)}回/10分",
-                        f"対象ユーザー: {username}"
+                        f"対象ユーザー: {username}",
                     ],
                     mitigation_actions=[
                         f"IP {source_ip} の24時間ブロック",
                         f"ユーザー {username} のアカウント保護",
-                        "追加認証の要求"
-                    ]
+                        "追加認証の要求",
+                    ],
                 )
 
         return None
@@ -368,8 +373,9 @@ class SecurityHardeningSystem:
         print("Phase G: 本番運用最適化フェーズ")
         print("=" * 80)
 
-    def process_security_event(self, event_type: SecurityEvent,
-                              event_data: Dict[str, Any]) -> List[ThreatAlert]:
+    def process_security_event(
+        self, event_type: SecurityEvent, event_data: Dict[str, Any]
+    ) -> List[ThreatAlert]:
         """セキュリティイベント処理"""
         alerts = []
 
@@ -382,25 +388,25 @@ class SecurityHardeningSystem:
                 alerts.extend(request_alerts)
 
                 # IPブロック確認
-                source_ip = event_data.get('source_ip', '')
+                source_ip = event_data.get("source_ip", "")
                 if source_ip and self.ip_blocklist.is_blocked(source_ip):
                     block_alert = ThreatAlert(
                         alert_id=f"blocked_ip_{source_ip}_{int(time.time())}",
                         threat_level=ThreatLevel.MEDIUM,
                         attack_type=AttackType.UNAUTHORIZED_ACCESS,
                         source_ip=source_ip,
-                        target_resource=event_data.get('path', ''),
+                        target_resource=event_data.get("path", ""),
                         timestamp=datetime.now(),
                         description=f"ブロック済みIP からのアクセス試行: {source_ip}",
                         evidence=[f"ブロック済みIP: {source_ip}"],
-                        mitigation_actions=["接続拒否", "ログ記録"]
+                        mitigation_actions=["接続拒否", "ログ記録"],
                     )
                     alerts.append(block_alert)
 
             elif event_type == SecurityEvent.LOGIN_FAILURE:
                 # ログイン失敗分析
-                source_ip = event_data.get('source_ip', '')
-                username = event_data.get('username', '')
+                source_ip = event_data.get("source_ip", "")
+                username = event_data.get("username", "")
 
                 login_alert = self.ids.record_login_attempt(source_ip, username, False)
                 if login_alert:
@@ -411,20 +417,22 @@ class SecurityHardeningSystem:
 
             elif event_type == SecurityEvent.PERMISSION_DENIED:
                 # 権限エラー分析
-                source_ip = event_data.get('source_ip', '')
-                resource = event_data.get('resource', '')
+                source_ip = event_data.get("source_ip", "")
+                resource = event_data.get("resource", "")
 
-                alerts.append(ThreatAlert(
-                    alert_id=f"permission_denied_{int(time.time())}",
-                    threat_level=ThreatLevel.LOW,
-                    attack_type=AttackType.UNAUTHORIZED_ACCESS,
-                    source_ip=source_ip,
-                    target_resource=resource,
-                    timestamp=datetime.now(),
-                    description=f"認可されていないリソースへのアクセス試行: {resource}",
-                    evidence=[f"ソースIP: {source_ip}", f"リソース: {resource}"],
-                    mitigation_actions=["アクセス拒否", "監視継続"]
-                ))
+                alerts.append(
+                    ThreatAlert(
+                        alert_id=f"permission_denied_{int(time.time())}",
+                        threat_level=ThreatLevel.LOW,
+                        attack_type=AttackType.UNAUTHORIZED_ACCESS,
+                        source_ip=source_ip,
+                        target_resource=resource,
+                        timestamp=datetime.now(),
+                        description=f"認可されていないリソースへのアクセス試行: {resource}",
+                        evidence=[f"ソースIP: {source_ip}", f"リソース: {resource}"],
+                        mitigation_actions=["アクセス拒否", "監視継続"],
+                    )
+                )
 
             # アラート保存
             for alert in alerts:
@@ -436,7 +444,9 @@ class SecurityHardeningSystem:
     def get_security_dashboard(self) -> Dict[str, Any]:
         """セキュリティダッシュボード"""
         with self.alert_lock:
-            active_alerts = [alert for alert in self.threat_alerts if not alert.resolved]
+            active_alerts = [
+                alert for alert in self.threat_alerts if not alert.resolved
+            ]
 
             # 脅威レベル別集計
             threat_counts = defaultdict(int)
@@ -450,19 +460,23 @@ class SecurityHardeningSystem:
 
             # 最近の重要なアラート
             recent_critical = [
-                alert for alert in active_alerts
+                alert
+                for alert in active_alerts
                 if alert.threat_level in [ThreatLevel.HIGH, ThreatLevel.CRITICAL]
                 and alert.timestamp > datetime.now() - timedelta(hours=24)
             ]
 
             return {
-                'total_alerts': len(active_alerts),
-                'threat_level_distribution': dict(threat_counts),
-                'attack_type_distribution': dict(attack_counts),
-                'recent_critical_alerts': len(recent_critical),
-                'blocked_ips_count': len(self.ip_blocklist.blocked_ips) + len(self.ip_blocklist.temporary_blocks),
-                'security_metrics': dict(self.security_metrics),
-                'system_status': 'PROTECTED' if len(active_alerts) < 10 else 'UNDER_ATTACK'
+                "total_alerts": len(active_alerts),
+                "threat_level_distribution": dict(threat_counts),
+                "attack_type_distribution": dict(attack_counts),
+                "recent_critical_alerts": len(recent_critical),
+                "blocked_ips_count": len(self.ip_blocklist.blocked_ips)
+                + len(self.ip_blocklist.temporary_blocks),
+                "security_metrics": dict(self.security_metrics),
+                "system_status": "PROTECTED"
+                if len(active_alerts) < 10
+                else "UNDER_ATTACK",
             }
 
     def generate_security_report(self, hours: int = 24) -> Dict[str, Any]:
@@ -471,21 +485,24 @@ class SecurityHardeningSystem:
 
         with self.alert_lock:
             recent_alerts = [
-                alert for alert in self.threat_alerts
-                if alert.timestamp > cutoff_time
+                alert for alert in self.threat_alerts if alert.timestamp > cutoff_time
             ]
 
             # 統計計算
             total_alerts = len(recent_alerts)
             resolved_alerts = len([a for a in recent_alerts if a.resolved])
-            resolution_rate = (resolved_alerts / total_alerts) * 100 if total_alerts > 0 else 0
+            resolution_rate = (
+                (resolved_alerts / total_alerts) * 100 if total_alerts > 0 else 0
+            )
 
             # 最も多い攻撃タイプ
             attack_counter = defaultdict(int)
             for alert in recent_alerts:
                 attack_counter[alert.attack_type.value] += 1
 
-            top_attacks = sorted(attack_counter.items(), key=lambda x: x[1], reverse=True)[:5]
+            top_attacks = sorted(
+                attack_counter.items(), key=lambda x: x[1], reverse=True
+            )[:5]
 
             # 最も多いソースIP
             ip_counter = defaultdict(int)
@@ -493,20 +510,26 @@ class SecurityHardeningSystem:
                 if alert.source_ip:
                     ip_counter[alert.source_ip] += 1
 
-            top_source_ips = sorted(ip_counter.items(), key=lambda x: x[1], reverse=True)[:10]
+            top_source_ips = sorted(
+                ip_counter.items(), key=lambda x: x[1], reverse=True
+            )[:10]
 
             return {
-                'report_period_hours': hours,
-                'timestamp': datetime.now().isoformat(),
-                'total_alerts': total_alerts,
-                'resolved_alerts': resolved_alerts,
-                'resolution_rate_percent': round(resolution_rate, 2),
-                'top_attack_types': top_attacks,
-                'top_source_ips': top_source_ips,
-                'security_recommendations': self._generate_security_recommendations(recent_alerts)
+                "report_period_hours": hours,
+                "timestamp": datetime.now().isoformat(),
+                "total_alerts": total_alerts,
+                "resolved_alerts": resolved_alerts,
+                "resolution_rate_percent": round(resolution_rate, 2),
+                "top_attack_types": top_attacks,
+                "top_source_ips": top_source_ips,
+                "security_recommendations": self._generate_security_recommendations(
+                    recent_alerts
+                ),
             }
 
-    def _generate_security_recommendations(self, alerts: List[ThreatAlert]) -> List[str]:
+    def _generate_security_recommendations(
+        self, alerts: List[ThreatAlert]
+    ) -> List[str]:
         """セキュリティ推奨事項生成"""
         recommendations = []
 
@@ -514,27 +537,35 @@ class SecurityHardeningSystem:
         attack_types = set(alert.attack_type for alert in alerts)
 
         if AttackType.SQL_INJECTION in attack_types:
-            recommendations.append("SQLインジェクション対策: パラメータ化クエリの徹底使用")
+            recommendations.append(
+                "SQLインジェクション対策: パラメータ化クエリの徹底使用"
+            )
 
         if AttackType.XSS in attack_types:
             recommendations.append("XSS対策: 入力値のサニタイズ強化")
 
         if AttackType.BRUTE_FORCE in attack_types:
-            recommendations.append("ブルートフォース対策: アカウントロックアウト機能の実装")
+            recommendations.append(
+                "ブルートフォース対策: アカウントロックアウト機能の実装"
+            )
 
         if AttackType.DDOS in attack_types:
             recommendations.append("DDoS対策: レート制限とCDN利用の検討")
 
         # 一般的な推奨事項
         if len(alerts) > 50:
-            recommendations.append("高い攻撃頻度: WAF（Web Application Firewall）の導入検討")
+            recommendations.append(
+                "高い攻撃頻度: WAF（Web Application Firewall）の導入検討"
+            )
 
-        recommendations.extend([
-            "定期的なセキュリティパッチ適用",
-            "ログ監視の継続実施",
-            "セキュリティ意識向上研修の実施",
-            "侵入テストの定期実行"
-        ])
+        recommendations.extend(
+            [
+                "定期的なセキュリティパッチ適用",
+                "ログ監視の継続実施",
+                "セキュリティ意識向上研修の実施",
+                "侵入テストの定期実行",
+            ]
+        )
 
         return recommendations[:10]  # 最大10個の推奨事項
 
@@ -558,7 +589,7 @@ class SecurityHardeningSystem:
 
         report = self.generate_security_report()
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
 
         return f"セキュリティレポート保存完了: {filename}"
@@ -573,43 +604,48 @@ def main():
     # テスト用セキュリティイベント
     test_events = [
         # 通常のリクエスト
-        (SecurityEvent.SUSPICIOUS_REQUEST, {
-            'source_ip': '192.168.1.100',
-            'method': 'GET',
-            'path': '/api/data',
-            'body': '',
-            'user_agent': 'Mozilla/5.0'
-        }),
-
+        (
+            SecurityEvent.SUSPICIOUS_REQUEST,
+            {
+                "source_ip": "192.168.1.100",
+                "method": "GET",
+                "path": "/api/data",
+                "body": "",
+                "user_agent": "Mozilla/5.0",
+            },
+        ),
         # SQL インジェクション試行
-        (SecurityEvent.SUSPICIOUS_REQUEST, {
-            'source_ip': '203.0.113.1',
-            'method': 'POST',
-            'path': '/login',
-            'body': "username=admin&password=' OR '1'='1",
-            'user_agent': 'sqlmap/1.0'
-        }),
-
+        (
+            SecurityEvent.SUSPICIOUS_REQUEST,
+            {
+                "source_ip": "203.0.113.1",
+                "method": "POST",
+                "path": "/login",
+                "body": "username=admin&password=' OR '1'='1",
+                "user_agent": "sqlmap/1.0",
+            },
+        ),
         # XSS 試行
-        (SecurityEvent.SUSPICIOUS_REQUEST, {
-            'source_ip': '198.51.100.1',
-            'method': 'GET',
-            'path': '/search',
-            'body': 'q=<script>alert("xss")</script>',
-            'user_agent': 'AttackBot'
-        }),
-
+        (
+            SecurityEvent.SUSPICIOUS_REQUEST,
+            {
+                "source_ip": "198.51.100.1",
+                "method": "GET",
+                "path": "/search",
+                "body": 'q=<script>alert("xss")</script>',
+                "user_agent": "AttackBot",
+            },
+        ),
         # ブルートフォース攻撃
-        (SecurityEvent.LOGIN_FAILURE, {
-            'source_ip': '203.0.113.1',
-            'username': 'admin'
-        }),
-
+        (
+            SecurityEvent.LOGIN_FAILURE,
+            {"source_ip": "203.0.113.1", "username": "admin"},
+        ),
         # 権限エラー
-        (SecurityEvent.PERMISSION_DENIED, {
-            'source_ip': '192.168.1.200',
-            'resource': '/admin/config'
-        })
+        (
+            SecurityEvent.PERMISSION_DENIED,
+            {"source_ip": "192.168.1.200", "resource": "/admin/config"},
+        ),
     ]
 
     print(f"\n[TEST] {len(test_events)} のセキュリティイベントを処理中...")
