@@ -4,12 +4,12 @@ ID生成
 取引ID・注文ID・レポートIDの一意生成機能
 """
 
-from ..security.secure_hash_utils import replace_md5_hash
+import hashlib
+import threading
 import time
 import uuid
 from datetime import datetime
 from typing import Dict, Optional, Set
-import threading
 
 from ...utils.logging_config import get_context_logger
 
@@ -236,7 +236,9 @@ class IDGenerator:
             logger.error(f"数値ID生成エラー: {e}")
             return f"{prefix}{'9' * digits}"
 
-    def generate_hash_id(self, data: str, algorithm: str = "md5", length: int = 16) -> str:
+    def generate_hash_id(
+        self, data: str, algorithm: str = "md5", length: int = 16
+    ) -> str:
         """
         ハッシュID生成
 
@@ -255,7 +257,7 @@ class IDGenerator:
             if algorithm.lower() == "md5":
                 hash_obj = hashlib.md5(unique_data.encode())
             elif algorithm.lower() == "sha1":
-                hash_obj = hashlib.sha256(unique_data.encode(, usedforsecurity=False))
+                hash_obj = hashlib.sha256(unique_data.encode(), usedforsecurity=False)
             elif algorithm.lower() == "sha256":
                 hash_obj = hashlib.sha256(unique_data.encode())
             else:
@@ -304,7 +306,9 @@ class IDGenerator:
                 logger.warning(f"ID重複回避失敗、フォールバック使用: {fallback_id}")
                 return fallback_id
 
-    def validate_id_format(self, id_string: str, expected_prefix: str = None) -> Dict[str, bool]:
+    def validate_id_format(
+        self, id_string: str, expected_prefix: str = None
+    ) -> Dict[str, bool]:
         """
         ID形式検証
 
@@ -387,7 +391,9 @@ class IDGenerator:
                 stats = {
                     "total_generated_ids": len(self._used_ids),
                     "sequence_counters": dict(self._sequence_counters),
-                    "startup_time": datetime.fromtimestamp(self._startup_time).isoformat(),
+                    "startup_time": datetime.fromtimestamp(
+                        self._startup_time
+                    ).isoformat(),
                     "uptime_seconds": int(time.time() - self._startup_time),
                     "memory_usage_estimate": len(self._used_ids) * 50,  # バイト概算
                 }
