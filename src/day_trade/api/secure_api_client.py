@@ -608,7 +608,7 @@ def create_secure_api_client_example():
     # APIキー追加
     success = key_manager.add_api_key(
         key_id="alpha_vantage",
-        plain_key="[DEMO_API_KEY]",
+        plain_key="dummy_api_key",
         key_type=APIKeyType.QUERY_PARAM,
         allowed_hosts=["www.alphavantage.co"],
         expiry_hours=24 * 30,  # 30日間有効
@@ -632,7 +632,7 @@ def create_secure_api_client_example():
             params={
                 "function": "TIME_SERIES_DAILY",
                 "symbol": "IBM",
-                "apikey": "[DEMO_KEY]",
+                "apikey": "dummy_key",
             },
         )
         logger.info(f"セキュアURL構築成功: {secure_url}")
