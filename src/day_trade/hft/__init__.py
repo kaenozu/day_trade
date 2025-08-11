@@ -95,17 +95,17 @@ __all__ = [
     "MarketUpdate",
     "OrderBook",
     "create_market_data_processor",
-    
+
     # Next-Gen HFT Engine
     "NextGenHFTEngine",
     "NextGenHFTConfig",
-    "NextGenExecutionOrder", 
+    "NextGenExecutionOrder",
     "NextGenExecutionResult",
     "HFTExecutionMode",
     "HFTMarketData",
     "MarketRegime",
     "create_next_gen_hft_engine",
-    
+
     # AI Market Prediction
     "AIMarketPredictor",
     "MarketPrediction",
@@ -113,7 +113,7 @@ __all__ = [
     "PredictionModel",
     "MarketSignal",
     "create_ai_market_predictor",
-    
+
     # Testing & Validation
     "IntegratedHFTTestSuite",
     "HFTTestResult",
@@ -134,20 +134,20 @@ HFT_NEXT_GEN_CONFIG = {
     "execution_latency_target_us": HFT_TARGET_LATENCY_US,
     "market_data_buffer_size": 128 * 1024 * 1024,  # 128MB (doubled)
     "order_queue_size": 2 * 1024 * 1024,  # 2M orders (doubled)
-    
+
     # Hardware Optimization
     "cpu_affinity_enabled": True,
     "huge_pages_enabled": True,
     "numa_optimization": True,
     "lock_free_structures": True,
     "zero_copy_networking": True,
-    
+
     # Next-Gen Features
     "batch_optimization_enabled": True,
     "ai_prediction_enabled": True,
     "smart_cache_enabled": True,
     "adaptive_execution_mode": True,
-    
+
     # Performance Targets
     "cache_hit_rate_target": 95.0,  # 95%
     "batch_efficiency_target": 85.0,  # 85%

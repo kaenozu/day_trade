@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-monitoring
+  labels:
+    name: trading-monitoring
+    environment: production
+    app: monitoring-system
+---
+...

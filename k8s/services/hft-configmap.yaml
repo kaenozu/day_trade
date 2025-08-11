@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hft-config
+  namespace: trading-production
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      hft_stream_port: 8082
+
+    hft:
+      performance:
+        target_latency_us: 30
+        max_latency_us: 100
+        throughput_target: 1000000
+
+      execution:
+        cpu_affinity_enabled: true
+        huge_pages_enabled: true
+        numa_optimization: true
+        lock_free_structures: true
+        zero_copy_networking: true
+
+      market_data:
+        buffer_size_mb: 64
+        update_frequency_us: 100
+
+      order_management:
+        queue_size: 1048576  # 1M orders
+        batch_size: 1000
+        timeout_us: 50
+
+    cache:
+      in_memory_enabled: true
+      l1_cache_size_mb: 256
+      l2_cache_size_mb: 1024
+
+    logging:
+      level: "WARNING"  # 最小限のログ（パフォーマンス優先）
+      format: "binary"
+      async_enabled: true
+---
