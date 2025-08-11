@@ -130,7 +130,8 @@ async def demo_metrics_collection():
 
     # Prometheusフォーマットでエクスポート
     prometheus_output = metrics_system.get_metrics_prometheus()
-    print(f"  - Prometheusメトリクス: {len(prometheus_output.split('\\n'))}行")
+    line_count = len(prometheus_output.split('\n'))
+    print(f"  - Prometheusメトリクス: {line_count}行")
 
 
 async def demo_dashboard_data():

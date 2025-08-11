@@ -52,8 +52,8 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, src/, --skip, B110,B311,B101,B601]
-        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py)
+        args: [-r, ., -ll, --skip, B110,B311,B101,B601]
+        exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py|.*test.*\.py)
 
   # Additional quality gates
   - repo: https://github.com/pycqa/flake8

@@ -773,9 +773,9 @@ class UnifiedBatchDataFlow:
         # タスク投入
         task_ids = []
         for symbol in symbols:
-            task_id = handler.submit_task(  # noqa: B026
+            task_id = handler.submit_task(
                 function=function,
-                *task_args,
+                *task_args,  # noqa: B026
                 symbol=symbol,
                 **task_kwargs,
             )
