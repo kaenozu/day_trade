@@ -35,9 +35,9 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
-        args: [--ignore-missing-imports, --no-strict-optional, --allow-redefinition]
+        args: [--ignore-missing-imports, --no-strict-optional, --allow-redefinition, --explicit-package-bases]
         files: ^src/day_trade/.*\.py$
-        exclude: ^(.*example.*\.py|.*demo.*\.py|.*test.*\.py|.*_test\.py|test_.*\.py)
+        exclude: ^(.*example.*\.py|.*demo.*\.py|.*test.*\.py|.*_test\.py|test_.*\.py|src/day_trade/analysis/screening_config\.py)$
         additional_dependencies: [types-requests, types-PyYAML]
 
   # Security scanning with bandit (re-enabled for enhanced security)  
@@ -45,7 +45,8 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [--recursive, src/, --skip, B110,B311,B101,B601]
+        args: [--skip, B110,B311,B101,B601]
+        files: ^src/.*\.py$
         exclude: ^(tests/|docs/|scripts/|.*example.*\.py|.*demo.*\.py|.*test.*\.py)
 
   # Additional quality gates

@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trading-engine-service
+  namespace: trading-production
+  labels:
+    app: trading-engine-service
+    version: v1.0
+    component: trading
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: trading-engine-service
+  template:
+    metadata:
+      labels:
+        app: trading-engine-service
+        version: v1.0
+    spec:
+      containers:
+      - name: trading-engine-service
+        image: day-trade/trading-engine-service:v1.0
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgresql-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: redis-url
+        - name: BROKER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: broker-secrets
+              key: api-key
+        - name: RISK_LIMIT_PERCENT
+          value: "10"
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1Gi
+          limits:
+            cpu: 1500m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: trading-engine-config
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - trading-engine-service
+            topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-engine-service
+  namespace: trading-production
+  labels:
+    app: trading-engine-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: trading-engine-service
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trading-engine-config
+  namespace: trading-production
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+
+    trading:
+      order_execution:
+        timeout_seconds: 30
+        retry_attempts: 3
+        batch_size: 100
+
+      risk_management:
+        max_position_size_percent: 10
+        max_daily_loss_percent: 5
+        stop_loss_percent: 2
+        take_profit_percent: 4
+
+      order_types:
+        - market
+        - limit
+        - stop_loss
+        - stop_limit
+
+    database:
+      connection_pool_size: 20
+      max_overflow: 30
+      pool_timeout: 30
+
+    cache:
+      order_status_ttl: 300
+      position_cache_ttl: 60
+
+    logging:
+      level: "INFO"
+      format: "json"
+      audit_enabled: true

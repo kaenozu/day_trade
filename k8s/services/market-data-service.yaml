@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-data-service
+  namespace: trading-production
+  labels:
+    app: market-data-service
+    version: v1.0
+    component: market-data
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: market-data-service
+  template:
+    metadata:
+      labels:
+        app: market-data-service
+        version: v1.0
+    spec:
+      containers:
+      - name: market-data-service
+        image: day-trade/market-data-service:v1.0
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8081
+          name: websocket
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: timescaledb-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: redis-url
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: market-data-config
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - market-data-service
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-data-service
+  namespace: trading-production
+  labels:
+    app: market-data-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: websocket
+  selector:
+    app: market-data-service
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: market-data-config
+  namespace: trading-production
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      websocket_port: 8081
+
+    market_data:
+      providers:
+        - name: "yahoo_finance"
+          enabled: true
+          rate_limit: 1000
+        - name: "alpha_vantage"
+          enabled: false
+          api_key: "${ALPHA_VANTAGE_API_KEY}"
+
+      cache:
+        ttl_seconds: 60
+        max_entries: 10000
+
+    performance:
+      max_connections: 1000
+      request_timeout: 30
+      keepalive_timeout: 60
+
+    logging:
+      level: "INFO"
+      format: "json"
