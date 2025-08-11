@@ -1,87 +1,3 @@
-#!/usr/bin/env python3
-"""
-分散キャッシュシステム
-Issue #377: 高度なキャッシング戦略の導入
-
-Redis/Memcached対応分散キャッシュと複数インスタンス間でのキャッシュ共有機能を実装
-"""
-
-import hashlib
-import json
-import pickle
-import threading
-import time
-import warnings
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
-try:
-    from ..utils.cache_utils import generate_safe_cache_key, sanitize_cache_value
-    from ..utils.logging_config import get_context_logger
-except ImportError:
-    import logging
-
-    def get_context_logger(name):
-        return logging.getLogger(name)
-
-    def generate_safe_cache_key(*args, **kwargs):
-        return hashlib.sha256(str(args).encode() + str(kwargs).encode()).hexdigest()
-
-    def sanitize_cache_value(value):
-        return value
-
-
-# オプショナル依存関係
-try:
-    import redis
-
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    warnings.warn(
-        "Redis not available. Redis distributed cache will be disabled.", stacklevel=2
-    )
-
-try:
-    import memcache
-
-    MEMCACHED_AVAILABLE = True
-except ImportError:
-    MEMCACHED_AVAILABLE = False
-    warnings.warn(
-        "Memcached not available. Memcached distributed cache will be disabled.",
-        stacklevel=2,
-    )
-
-logger = get_context_logger(__name__)
-
-
-@dataclass
-class DistributedCacheEntry:
-    """分散キャッシュエントリ"""
-
-    key: str
-    value: Any
-    created_at: float
-    expires_at: float
-    version: int = 1
-    node_id: str = None
-    tags: List[str] = None
-
-    def __post_init__(self):
-        if self.tags is None:
-            self.tags = []
-
-    @property
-    def is_expired(self) -> bool:
-        return time.time() > self.expires_at
-
-    @property
-    def age_seconds(self) -> float:
-        return time.time() - self.created_at
-
-
 class DistributedCacheBackend(ABC):
     """分散キャッシュバックエンド抽象基底クラス"""
 
@@ -467,10 +383,14 @@ class InMemoryBackend(DistributedCacheBackend):
         """接続状態チェック"""
         return True
 
-    def _evict_lru(self):
+    def _evict_lru(self, oldest_key: str = None):
         """LRU削除"""
         if self._access_order:
-            oldest_key = self._access_order.pop(0)
+            if oldest_key is None:
+                oldest_key = self._access_order.pop(0) # Oldest by access time
+            else:
+                self._access_order.remove(oldest_key)
+
             if oldest_key in self._data:
                 del self._data[oldest_key]
 
@@ -534,7 +454,8 @@ class DistributedCacheManager:
     def set(
         self, key: str, value: Any, ttl_seconds: int = 3600, tags: List[str] = None
     ) -> bool:
-        """データ設定"""
+        """
+        データ設定"""
         with self._lock:
             try:
                 # データシリアライズ
@@ -572,7 +493,8 @@ class DistributedCacheManager:
                 return False
 
     def get(self, key: str, default: Any = None) -> Any:
-        """データ取得"""
+        """
+        データ取得"""
         with self._lock:
             try:
                 # プライマリバックエンドから取得試行
@@ -606,7 +528,8 @@ class DistributedCacheManager:
                 return default
 
     def delete(self, key: str) -> bool:
-        """データ削除"""
+        """
+        データ削除"""
         with self._lock:
             success = False
 
@@ -627,7 +550,8 @@ class DistributedCacheManager:
             return success
 
     def clear(self, pattern: str = None) -> int:
-        """キャッシュクリア"""
+        """
+        キャッシュクリア"""
         with self._lock:
             total_cleared = 0
 
@@ -647,7 +571,8 @@ class DistributedCacheManager:
             return total_cleared
 
     def get_stats(self) -> Dict[str, Any]:
-        """統計情報取得"""
+        """
+        統計情報取得"""
         with self._lock:
             stats = {
                 **self._stats,
@@ -697,7 +622,8 @@ class DistributedCacheManager:
             return stats
 
     def _serialize(self, value: Any) -> bytes:
-        """データシリアライゼーション"""
+        """
+        データシリアライゼーション"""
         if self.serialization == "pickle":
             return pickle.dumps(sanitize_cache_value(value))
         elif self.serialization == "json":
@@ -706,7 +632,8 @@ class DistributedCacheManager:
             raise ValueError(f"未サポートのシリアライゼーション: {self.serialization}")
 
     def _deserialize(self, data: bytes) -> Any:
-        """データデシリアライゼーション"""
+        """
+        データデシリアライゼーション"""
         if self.serialization == "pickle":
             return pickle.loads(data)
         elif self.serialization == "json":
@@ -723,7 +650,8 @@ _cache_lock = threading.Lock()
 def get_distributed_cache(
     backend_type: str = "memory", backend_config: Dict[str, Any] = None
 ) -> DistributedCacheManager:
-    """グローバル分散キャッシュインスタンス取得"""
+    """
+    グローバル分散キャッシュインスタンス取得"""
     global _global_distributed_cache
 
     if _global_distributed_cache is None:
@@ -743,7 +671,8 @@ def distributed_cache(
     backend_config: Dict[str, Any] = None,
     tags: List[str] = None,
 ):
-    """分散キャッシュデコレータ"""
+    """
+    分散キャッシュデコレータ"""
 
     def decorator(func):
         def wrapper(*args, **kwargs):

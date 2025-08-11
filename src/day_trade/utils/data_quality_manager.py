@@ -10,7 +10,7 @@ import asyncio
 import statistics
 import time
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclasses_field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -88,7 +88,7 @@ class DataQualityIssue:
     detection_time: datetime
     auto_fixable: bool = False
     fix_suggestion: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = dataclasses_field(default_factory=dict)
 
 
 @dataclass
@@ -105,7 +105,7 @@ class DataQualityMetrics:
     quality_level: DataQualityLevel
     total_records: int
     issues_found: int
-    calculation_time: datetime = field(default_factory=datetime.now)
+    calculation_time: datetime = dataclasses_field(default_factory=datetime.now)
 
 
 @dataclass
@@ -118,7 +118,7 @@ class BackfillRequest:
     end_date: datetime
     priority: int = 5  # 1(最高) - 10(最低)
     reason: str = ""
-    requested_at: datetime = field(default_factory=datetime.now)
+    requested_at: datetime = dataclasses_field(default_factory=datetime.now)
     status: str = "pending"  # pending, processing, completed, failed
     progress: float = 0.0
 
