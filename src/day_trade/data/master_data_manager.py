@@ -1,5 +1,5 @@
-                "average_quality_score": (
-                    total_quality_score / entity_count
-                    if entity_count > 0
-                    else 0
-                ),
+name="データ品質管理ポリシー",
+            description=(
+                "すべてのマスターデータは定義された品質基準を"
+                "満たす必要があります"
+            ),
