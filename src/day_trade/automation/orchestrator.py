@@ -14,6 +14,7 @@ from pathlib import Path
 import json
 import numpy as np
 import pandas as pd
+import mlflow # 追加
 
 # プロジェクト内モジュール
 from ..automation.analysis_only_engine import AnalysisOnlyEngine
@@ -23,6 +24,7 @@ from ..data.stock_fetcher import StockFetcher
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
 from ..utils.fault_tolerance import FaultTolerantExecutor
+from ..ml.data_drift_detector import DataDriftDetector # 追加
 
 # 重いML系インポートは遅延（CI環境でメモリ削減）
 import os
@@ -62,6 +64,7 @@ class AIAnalysisResult:
     data_quality: float
     recommendation: str
     risk_assessment: Dict[str, Any]
+    data_drift_results: Optional[Dict[str, Any]] = None # データドリフト検出結果
 
 @dataclass
 class ExecutionReport:
@@ -188,6 +191,15 @@ class NextGenAIOrchestrator:
         # 実行統計
         self.execution_history = []
         self.performance_metrics = {}
+
+        # データドリフト検出器の初期化とベースラインのロード
+        self.data_drift_detector = DataDriftDetector()
+        self.baseline_stats_path = Path("data/baseline_stats.json") # ベースライン統計情報のパス
+        if self.baseline_stats_path.exists():
+            self.data_drift_detector.load_baseline(str(self.baseline_stats_path))
+            logger.info(f"データドリフト検出器: ベースライン統計情報を {self.baseline_stats_path} からロードしました。")
+        else:
+            logger.warning(f"データドリフト検出器: ベースライン統計情報ファイル {self.baseline_stats_path} が見つかりません。初回実行時に生成されます。")
 
         logger.info("Next-Gen AI Orchestrator 初期化完了 - 完全セーフモード")
         logger.info("※ 自動取引機能は一切含まれていません")
@@ -499,6 +511,37 @@ class NextGenAIOrchestrator:
                 ai_predictions, confidence_scores, technical_signals, risk_assessment
             )
 
+            # データドリフト検出
+            data_drift_results = {}
+            if not self.data_drift_detector.baseline_stats:
+                # ベースラインがなければ、現在のデータをベースラインとして設定
+                logger.info(f"{symbol}: ベースライン統計情報が未設定のため、現在のデータをベースラインとして学習します。")
+                self.data_drift_detector.fit(market_data)
+                self.data_drift_detector.save_baseline(str(self.baseline_stats_path))
+            else:
+                # ベースラインがあればドリフト検出を実行
+                data_drift_results = self.data_drift_detector.detect_drift(market_data)
+                if data_drift_results.get("drift_detected"):
+                    logger.warning(f"{symbol}: データドリフトが検出されました！")
+                    # ドリフトアラートを生成することも可能
+                    alerts.append({
+                        "symbol": symbol,
+                        "type": "DATA_DRIFT_DETECTED",
+                        "message": "データ分布に大きな変化が検出されました。",
+                        "severity": "high",
+                        "timestamp": datetime.now().isoformat(),
+                        "details": data_drift_results
+                    })
+                    # MLflowにデータドリフト結果をログとして記録
+                    try:
+                        import mlflow
+                        mlflow.log_dict(data_drift_results, f"data_drift_results_{symbol}.json")
+                        logger.info(f"{symbol}: データドリフト結果をMLflowにログとして記録しました。")
+                    except ImportError:
+                        logger.warning("MLflowがインストールされていないため、データドリフト結果をログに記録できません。")
+                    except Exception as e:
+                        logger.error(f"MLflowへのデータドリフト結果のログ記録中にエラーが発生しました: {e}")
+
             # AI分析結果作成
             ai_analysis = AIAnalysisResult(
                 symbol=symbol,
@@ -510,7 +553,8 @@ class NextGenAIOrchestrator:
                 performance_metrics=performance_metrics,
                 data_quality=data_quality,
                 recommendation=recommendation,
-                risk_assessment=risk_assessment
+                risk_assessment=risk_assessment,
+                data_drift_results=data_drift_results # ドリフト検出結果を追加
             )
 
             # シグナル生成

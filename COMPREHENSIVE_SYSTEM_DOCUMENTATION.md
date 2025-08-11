@@ -121,6 +121,77 @@
 - 依存関係最適化
 - 再利用可能コンポーネント
 
+## 4. MLOpsパイプラインとモデルドリフト検出 (Issue #414)
+
+### 概要
+本システムでは、AI/MLモデルの継続的な性能維持と運用効率化のため、MLOpsパイプラインを構築し、モデルドリフト検出機能を導入しました。これにより、市場環境の変化やデータ特性の変化に迅速に対応し、モデルの予測精度を常に最適に保つことが可能になります。
+
+### アーキテクチャ
+MLOpsパイプラインは、以下の主要コンポーネントとプロセスで構成されます。
+
+```
++---------------------+     +---------------------+     +---------------------+
+| データ収集/前処理   | --> | モデル予測/分析     | --> | ドリフト検出        |
+| (StockFetcher,      |     | (AdvancedMLEngine,   |     | (DataDriftDetector, |
+| AdvancedBatchDataFetcher) |     | Orchestrator)       |     | ConceptDriftDetector)|
++---------------------+     +---------------------+     +---------------------+
+        |                                 |                       |
+        v                                 v                       v
++---------------------+     +---------------------+     +---------------------+
+| 特徴量エンジニアリング|     | 予測結果/性能メトリクス |     | アラート/再訓練トリガー |
+| (AdvancedMLEngine)  |     | (AIAnalysisResult)  |     | (GitHub Actions)    |
++---------------------+     +---------------------+     +---------------------+
+        |                                 |                       |
+        v                                 v                       v
++---------------------+     +---------------------+     +---------------------+
+| MLflowによる追跡    | <-- | モデルレジストリ    | <-- | モデル再訓練        |
+| (実験管理, モデルバージョン管理) |     | (MLflow)            |     | (re_train_model.py) |
++---------------------+     +---------------------+     +---------------------+
+```
+
+### 主要コンポーネント
+
+-   **`DataDriftDetector` (`src/day_trade/ml/data_drift_detector.py`)**:
+    -   入力データの特徴量分布の変化（データドリフト）を統計的に検出します。
+    -   Kolmogorov-Smirnov (KS) 検定を用いて、ベースラインデータと新しいデータの分布の差を評価します。
+    -   `orchestrator.py` に統合され、リアルタイム分析時にデータ品質の一部としてドリフトを監視します。
+
+-   **`ConceptDriftDetector` (`src/day_trade/ml/concept_drift_detector.py`)**:
+    -   モデルの予測性能の経時的な低下（コンセプトドリフト）を検出します。
+    -   過去の予測と実際の値（正解ラベル）を比較し、MAE (Mean Absolute Error) などの性能指標の変化を監視します。
+    -   定期的に実行されるバッチ処理 (`run_concept_drift_detection.py`) で利用されます。
+
+-   **`orchestrator.py` (`src/day_trade/automation/orchestrator.py`)**:
+    -   `NextGenAIOrchestrator` クラス内で `DataDriftDetector` が初期化され、各分析サイクルでデータドリフト検出が実行されます。
+    -   検出されたドリフトは `AIAnalysisResult` に含まれ、アラートとして通知されます。
+
+-   **`run_concept_drift_detection.py` (`src/day_trade/ml/run_concept_drift_detection.py`)**:
+    -   コンセプトドリフト検出を定期的に実行するためのスクリプトです。
+    -   シミュレーションデータまたは外部からロードされたデータを使用して、`ConceptDriftDetector` を実行します。
+    -   検出結果はMLflowにログとして記録されます。
+
+-   **`re_train_model.py` (`src/day_trade/ml/re_train_model.py`)**:
+    -   モデルの再訓練プロセスを実行するスクリプトです。
+    -   `AdvancedMLEngine` を使用してモデルを訓練し、訓練結果とモデル自体をMLflowに新しいバージョンとして登録します。
+
+-   **GitHub Actions ワークフロー**:
+    -   **`concept-drift-monitor.yml`**: `run_concept_drift_detection.py` を定期的に（例: 毎日）実行し、コンセプトドリフトを監視します。
+    -   **`re-train-model.yml`**: モデルの再訓練を手動でトリガーできるようにします。将来的にドリフト検出結果に基づいて自動トリガーする拡張が可能です。
+
+-   **MLflow**:
+    -   モデル訓練の実験管理、モデルのバージョン管理（モデルレジストリ）、ドリフト検出結果の追跡、アーティファクトの保存など、MLOpsのハブとして機能します。
+
+### データフロー
+
+1.  **データ収集**: `StockFetcher` や `AdvancedBatchDataFetcher` が市場データを収集します。
+2.  **特徴量エンジニアリング**: `AdvancedMLEngine` が生データから予測に必要な特徴量を生成します。
+3.  **モデル予測**: `AdvancedMLEngine` が訓練済みモデルを使用して予測を行います。
+4.  **データドリフト検出**: `orchestrator.py` 内で、入力データの特徴量分布がベースラインから変化していないかを `DataDriftDetector` が監視します。
+5.  **コンセプトドリフト検出**: `run_concept_drift_detection.py` が定期的に実行され、モデルの予測性能が時間とともに低下していないかを `ConceptDriftDetector` が監視します。
+6.  **アラート/再訓練トリガー**: ドリフトが検出された場合、システムはアラートを生成し、必要に応じてモデルの再訓練をトリガーします（手動または自動）。
+7.  **モデル更新**: `re_train_model.py` が実行され、新しいデータでモデルが再訓練され、MLflowに新しいバージョンとして登録されます。
+8.  **デプロイ**: 新しいモデルバージョンが承認されると、本番環境にデプロイされ、`orchestrator.py` が最新のモデルをロードして使用します。
+
 #### Issue #323: 高度並列ML処理エンジン
 **実装ファイル**: `advanced_parallel_ml_engine.py`
 - 100倍処理速度向上実現
