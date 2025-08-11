@@ -31,7 +31,9 @@ except ImportError as e:
         str(e).split("'")[1] if "'" in str(e) else "distributed computing library"
     )
     warnings.warn(
-        f"{missing_lib}が利用できません。該当機能は制限されます。", UserWarning
+        f"{missing_lib}が利用できません。該当機能は制限されます。",
+        UserWarning,
+        stacklevel=2,
     )
     DASK_AVAILABLE = False
     RAY_AVAILABLE = False
@@ -194,9 +196,9 @@ class DaskBackendManager(DistributedBackendManager):
         try:
             self.dask_processor = create_dask_data_processor(
                 enable_distributed=config.get("enable_distributed", True),
-                n_workers=config.get("n_workers", None),
+                n_workers=config.get("n_workers"),
                 memory_limit=config.get("memory_limit", "2GB"),
-                temp_dir=config.get("temp_dir", None),
+                temp_dir=config.get("temp_dir"),
             )
 
             self.initialized = True
@@ -323,8 +325,8 @@ class RayBackendManager(DistributedBackendManager):
             # Ray初期化（既に初期化済みの場合はスキップ）
             if not ray.is_initialized():
                 ray_config = {
-                    "num_cpus": config.get("num_cpus", None),
-                    "object_store_memory": config.get("object_store_memory", None),
+                    "num_cpus": config.get("num_cpus"),
+                    "object_store_memory": config.get("object_store_memory"),
                     "log_to_driver": config.get("log_to_driver", False),
                 }
 

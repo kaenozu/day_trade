@@ -352,8 +352,8 @@ class AdvancedTechnicalIndicators:
     def calculate_advanced_bollinger_bands(
         self,
         data: pd.DataFrame,
-        periods: List[int] = [20, 50],
-        std_devs: List[float] = [1.0, 2.0, 3.0],
+        periods: Optional[List[int]] = None,
+        std_devs: Optional[List[float]] = None,
     ) -> pd.DataFrame:
         """
         高度ボリンジャーバンド分析
@@ -368,6 +368,11 @@ class AdvancedTechnicalIndicators:
         """
         try:
             df = data.copy()
+
+            if periods is None:
+                periods = [20, 50]
+            if std_devs is None:
+                std_devs = [1.0, 2.0, 3.0]
 
             for period in periods:
                 sma = df["Close"].rolling(window=period).mean()
@@ -431,10 +436,7 @@ class AdvancedTechnicalIndicators:
 
                 # スクイーズブレイクアウト
                 if "bb_squeeze" in df.columns:
-                    if (
-                        df["bb_squeeze"].iloc[i - 1] == True
-                        and df["bb_squeeze"].iloc[i] == False
-                    ):
+                    if df["bb_squeeze"].iloc[i - 1] and not df["bb_squeeze"].iloc[i]:
                         # ブレイクアウト方向を判定
                         if df["Close"].iloc[i] > df["Close"].iloc[i - 5 : i].mean():
                             signal = "breakout_buy"
@@ -702,7 +704,7 @@ class AdvancedTechnicalIndicators:
             return {"confidence": 0, "waves": [], "next_expected": "unknown"}
 
     def calculate_volatility_indicators(
-        self, data: pd.DataFrame, periods: List[int] = [10, 20, 50]
+        self, data: pd.DataFrame, periods: Optional[List[int]] = None
     ) -> pd.DataFrame:
         """
         高度ボラティリティ指標計算
@@ -716,6 +718,8 @@ class AdvancedTechnicalIndicators:
         """
         try:
             df = data.copy()
+            if periods is None:
+                periods = [10, 20, 50]
             returns = df["Close"].pct_change()
 
             for period in periods:

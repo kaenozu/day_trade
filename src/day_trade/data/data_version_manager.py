@@ -1322,7 +1322,8 @@ class DataVersionManager:
     def _calculate_data_diff(self, data1: Any, data2: Any) -> Dict[str, Any]:
         """データ差分計算"""
         diff = {
-            "type_changed": type(data1) != type(data2),
+            "type_changed": not isinstance(data1, type(data2))
+            or not isinstance(data2, type(data1)),
             "content_summary": "データが変更されました",
         }
 

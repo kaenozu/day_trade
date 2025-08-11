@@ -202,7 +202,9 @@ class L2WarmCache(CacheLayer):
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
         self.ttl_seconds = ttl_seconds
         self.cache = {}
-        self.access_order = OrderedDict()  # O(1)での削除を可能にするためにOrderedDictを使用
+        self.access_order = (
+            OrderedDict()
+        )  # O(1)での削除を可能にするためにOrderedDictを使用
         self.frequency_counter = {}
         self.current_size = 0
         self.lock = threading.RLock()
@@ -254,7 +256,7 @@ class L2WarmCache(CacheLayer):
 
             if self.current_size + entry.size_bytes <= self.max_memory_bytes:
                 self.cache[key] = entry
-                self.access_order[key] = None # O(1)で追加
+                self.access_order[key] = None  # O(1)で追加
                 self.frequency_counter[key] = 1
                 self.current_size += entry.size_bytes
                 self.stats["current_size"] = self.current_size // 1024 // 1024
@@ -287,7 +289,7 @@ class L2WarmCache(CacheLayer):
                 del self.frequency_counter[key]
 
             if key in self.access_order:
-                del self.access_order[key] # O(1)で削除
+                del self.access_order[key]  # O(1)で削除
 
     def _evict_lfu(self):
         """LFU退避 (Least Frequently Used)"""

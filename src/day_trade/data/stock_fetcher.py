@@ -1588,6 +1588,120 @@ class StockFetcher:
         )
         return results
 
+    def bulk_get_historical_data(
+        self,
+        codes: List[str],
+        period: str = "1y",
+        interval: str = "1d",
+        batch_size: int = 50,
+        delay: float = 0.1,
+    ) -> Dict[str, Optional[pd.DataFrame]]:
+        """
+        複数銘柄のヒストリカルデータを一括取得
+
+        Args:
+            codes: 銘柄コードのリスト
+            period: 期間（1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max）
+            interval: 間隔（1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo）
+            batch_size: 一回の処理で取得する銘柄数
+            delay: バッチ間の遅延（秒）
+
+        Returns:
+            {銘柄コード: 価格データのDataFrame} の辞書
+        """
+        if not codes:
+            return {}
+
+        results = {}
+        start_time = time.time()
+
+        for i in range(0, len(codes), batch_size):
+            batch_codes = codes[i : i + batch_size]
+            batch_start = time.time()
+            formatted_symbols = [self._format_symbol(code) for code in batch_codes]
+
+            try:
+                # yf.downloadを使用した真の一括取得
+                data = yf.download(
+                    formatted_symbols,
+                    period=period,
+                    interval=interval,
+                    group_by="ticker",
+                    auto_adjust=True,
+                    prepost=True,
+                    threads=True,  # 並列処理を有効化
+                    progress=False,
+                )
+
+                for code in batch_codes:
+                    symbol = self._format_symbol(code)
+                    ticker_data = None
+
+                    if len(formatted_symbols) > 1 and hasattr(data.columns, "levels"):
+                        # 複数銘柄の場合、MultiIndexからデータを抽出
+                        if symbol in data.columns.levels[0]:
+                            ticker_data = data[symbol]
+                    else:
+                        # 単一銘柄の場合、直接データを使用
+                        ticker_data = data
+
+                    if ticker_data is not None and not ticker_data.empty:
+                        if ticker_data.index.tz is not None:
+                            ticker_data.index = ticker_data.index.tz_localize(None)
+                        results[code] = ticker_data
+                    else:
+                        self.logger.warning(
+                            f"ヒストリカルデータが取得できませんでした: {code}"
+                        )
+                        results[code] = None
+
+            except Exception as e:
+                self.logger.error(
+                    f"ヒストリカルデータバッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}"
+                )
+                # バッチ失敗時は個別に処理（フォールバック）
+                for code in batch_codes:
+                    try:
+                        results[code] = self.get_historical_data(code, period, interval)
+                    except Exception:
+                        results[code] = None
+
+            batch_elapsed = time.time() - batch_start
+            log_performance_metric(
+                "bulk_historical_data_batch",
+                {
+                    "batch_size": len(batch_codes),
+                    "batch_index": i // batch_size,
+                    "elapsed_ms": batch_elapsed * 1000,
+                    "codes_processed": len(batch_codes),
+                },
+            )
+
+            if delay > 0 and i + batch_size < len(codes):
+                time.sleep(delay)
+
+        total_elapsed = time.time() - start_time
+        successful_count = sum(1 for result in results.values() if result is not None)
+
+        log_performance_metric(
+            "bulk_historical_data_complete",
+            {
+                "total_codes": len(codes),
+                "successful_count": successful_count,
+                "failure_count": len(codes) - successful_count,
+                "success_rate": successful_count / len(codes) if codes else 0,
+                "total_elapsed_ms": total_elapsed * 1000,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
+                if codes
+                else 0,
+            },
+        )
+
+        self.logger.info(
+            f"一括ヒストリカルデータ取得完了: {successful_count}/{len(codes)}件成功 ({total_elapsed:.2f}秒)"
+        )
+        return results
+
     # Issue #383: 並列処理最適化機能
     def parallel_get_historical_data(
         self,

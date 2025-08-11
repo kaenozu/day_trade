@@ -1324,19 +1324,6 @@ class NextGenAIOrchestrator:
         except Exception as e:
             logger.error(f"クリーンアップエラー: {e}")
 
-    def __enter__(self):
-        """コンテキストマネージャー開始"""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """コンテキストマネージャー終了"""
-        self.cleanup()
-        if exc_type:
-            logger.error(
-                f"Next-Gen AI Orchestrator実行エラー: {exc_type.__name__}: {exc_val}"
-            )
-        return False
-
 
 # 後方互換性のためのエイリアス
 DayTradeOrchestrator = NextGenAIOrchestrator

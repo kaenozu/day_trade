@@ -216,29 +216,29 @@ class DataValidator:
         issues = []
 
         # 必須フィールドチェック
-        for field in rules["required_fields"]:
-            if field not in data.columns:
+        for field_name in rules["required_fields"]:
+            if field_name not in data.columns:
                 issues.append(
                     DataQualityIssue(
                         issue_type=DataIssueType.MISSING_VALUES,
                         severity="critical",
-                        description=f"必須フィールド欠如: {field}",
-                        affected_fields=[field],
+                        description=f"必須フィールド欠如: {field_name}",
+                        affected_fields=[field_name],
                         detection_time=datetime.now(),
                     )
                 )
 
         # 数値フィールドチェック
-        for field in rules["numeric_fields"]:
-            if field in data.columns:
-                non_numeric_count = data[field].isna().sum()
+        for field_name in rules["numeric_fields"]:
+            if field_name in data.columns:
+                non_numeric_count = data[field_name].isna().sum()
                 if non_numeric_count > 0:
                     issues.append(
                         DataQualityIssue(
                             issue_type=DataIssueType.MISSING_VALUES,
                             severity="medium",
-                            description=f"数値欠損: {field} ({non_numeric_count}件)",
-                            affected_fields=[field],
+                            description=f"数値欠損: {field_name} ({non_numeric_count}件)",
+                            affected_fields=[field_name],
                             detection_time=datetime.now(),
                             auto_fixable=True,
                             fix_suggestion="前後値補間",
@@ -271,16 +271,16 @@ class DataValidator:
                 )
 
         # 異常値チェック
-        for field in ["Open", "High", "Low", "Close"]:
-            if field in data.columns:
-                outliers = self._detect_outliers(data[field])
+        for field_name in ["Open", "High", "Low", "Close"]:
+            if field_name in data.columns:
+                outliers = self._detect_outliers(data[field_name])
                 if len(outliers) > 0:
                     issues.append(
                         DataQualityIssue(
                             issue_type=DataIssueType.OUTLIERS,
                             severity="medium",
-                            description=f"{field}異常値: {len(outliers)}件",
-                            affected_fields=[field],
+                            description=f"{field_name}異常値: {len(outliers)}件",
+                            affected_fields=[field_name],
                             detection_time=datetime.now(),
                             auto_fixable=True,
                             fix_suggestion="統計的異常値除去",
@@ -309,14 +309,14 @@ class DataValidator:
 
         # 必須フィールドチェック
         for i, article in enumerate(data):
-            for field in rules["required_fields"]:
-                if field not in article or not article[field]:
+            for field_name in rules["required_fields"]:
+                if field_name not in article or not article[field_name]:
                     issues.append(
                         DataQualityIssue(
                             issue_type=DataIssueType.MISSING_VALUES,
                             severity="medium",
-                            description=f"記事{i}: {field}欠損",
-                            affected_fields=[field],
+                            description=f"記事{i}: {field_name}欠損",
+                            affected_fields=[field_name],
                             detection_time=datetime.now(),
                         )
                     )
@@ -347,30 +347,30 @@ class DataValidator:
         issues = []
 
         # 必須フィールドチェック
-        for field in rules["required_fields"]:
-            if field not in data or data[field] is None:
+        for field_name in rules["required_fields"]:
+            if field_name not in data or data[field_name] is None:
                 issues.append(
                     DataQualityIssue(
                         issue_type=DataIssueType.MISSING_VALUES,
                         severity="critical",
-                        description=f"センチメント必須フィールド欠如: {field}",
-                        affected_fields=[field],
+                        description=f"センチメント必須フィールド欠如: {field_name}",
+                        affected_fields=[field_name],
                         detection_time=datetime.now(),
                     )
                 )
 
         # 範囲チェック
         if "range_checks" in rules:
-            for field, (min_val, max_val) in rules["range_checks"].items():
-                if field in data and isinstance(data[field], (int, float)):
-                    value = data[field]
+            for field_name, (min_val, max_val) in rules["range_checks"].items():
+                if field_name in data and isinstance(data[field_name], (int, float)):
+                    value = data[field_name]
                     if not (min_val <= value <= max_val):
                         issues.append(
                             DataQualityIssue(
                                 issue_type=DataIssueType.OUTLIERS,
                                 severity="high",
-                                description=f"{field}範囲外: {value} (範囲: {min_val}-{max_val})",
-                                affected_fields=[field],
+                                description=f"{field_name}範囲外: {value} (範囲: {min_val}-{max_val})",
+                                affected_fields=[field_name],
                                 detection_time=datetime.now(),
                                 auto_fixable=True,
                                 fix_suggestion=f"値を{min_val}-{max_val}に正規化",
@@ -384,14 +384,14 @@ class DataValidator:
         issues = []
 
         # 必須フィールドチェック
-        for field in rules["required_fields"]:
-            if field not in data or data[field] is None:
+        for field_name in rules["required_fields"]:
+            if field_name not in data or data[field_name] is None:
                 issues.append(
                     DataQualityIssue(
                         issue_type=DataIssueType.MISSING_VALUES,
                         severity="high",
-                        description=f"マクロ指標欠損: {field}",
-                        affected_fields=[field],
+                        description=f"マクロ指標欠損: {field_name}",
+                        affected_fields=[field_name],
                         detection_time=datetime.now(),
                     )
                 )
@@ -554,7 +554,7 @@ class DataQualityManager:
         """品質メトリクス計算"""
 
         # データサイズ取得
-        if isinstance(data, pd.DataFrame) or isinstance(data, list):
+        if isinstance(data, (pd.DataFrame, list)):
             total_records = len(data)
         elif isinstance(data, dict):
             total_records = 1

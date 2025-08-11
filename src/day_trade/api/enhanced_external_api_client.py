@@ -509,11 +509,7 @@ class EnhancedExternalAPIClient:
 
         # 危険パターンチェック
         dangerous_patterns = ["..", "/", "\\", "<", ">", '"', "'"]
-        for pattern in dangerous_patterns:
-            if pattern in symbol:
-                return False
-
-        return True
+        return not any(pattern in symbol for pattern in dangerous_patterns)
 
     def _validate_request_params(self, params: Dict[str, Any]) -> bool:
         """リクエストパラメータ検証"""
@@ -1042,11 +1038,7 @@ class EnhancedExternalAPIClient:
             return False
 
         # 4xx エラー（クライアントエラー）はリトライしない
-        if 400 <= response.status_code < 500:
-            return False
-
-        # 5xx エラーやネットワークエラーはリトライする
-        return True
+        return not (400 <= response.status_code < 500)
 
     def _calculate_retry_delay(self, attempt: int, endpoint: APIEndpoint) -> float:
         """リトライ遅延時間計算"""

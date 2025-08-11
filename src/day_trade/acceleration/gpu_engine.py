@@ -711,7 +711,7 @@ class GPUAcceleratedTechnicalIndicators(OptimizationStrategy):
 
     def execute(self, data: pd.DataFrame, indicators: List[str], **kwargs) -> Any:
         """GPU加速実行"""
-        periods = kwargs.get("periods", None)
+        periods = kwargs.get("periods")
         device_id = kwargs.get("device_id", 0)
 
         start_time = time.time()

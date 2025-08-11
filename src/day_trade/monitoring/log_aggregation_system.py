@@ -374,10 +374,7 @@ class StandardLogParser(LogParser):
 
     def can_parse(self, raw_log: str) -> bool:
         """標準形式かチェック"""
-        for pattern in self.patterns:
-            if pattern.match(raw_log.strip()):
-                return True
-        return False
+        return any(pattern.match(raw_log.strip()) for pattern in self.patterns)
 
 
 class LogAggregationSystem:

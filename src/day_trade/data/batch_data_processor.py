@@ -522,14 +522,31 @@ class BatchDataProcessor:
         results = {}
         api_calls = 0
 
-        for code in codes:
-            try:
-                historical_data = fetcher.get_historical_data(code, period, interval)
-                if historical_data is not None:
-                    results[code] = historical_data
-                    api_calls += 1
-            except Exception as e:
-                logger.debug(f"ヒストリカルデータ取得失敗 {code}: {e}")
+        # 最適バッチサイズを使用
+        optimal_batch_size = self.optimizer.get_optimal_batch_size(
+            BatchOperationType.HISTORICAL_FETCH
+        )
+
+        if hasattr(fetcher, "bulk_get_historical_data"):
+            bulk_results = fetcher.bulk_get_historical_data(
+                codes, period=period, interval=interval, batch_size=optimal_batch_size
+            )
+            results.update(bulk_results)
+            api_calls = len(
+                codes
+            )  # yfinance.downloadが効率的にAPIを呼び出すため、リクエスト数としては全コード数をカウント
+        else:
+            # フォールバックとして従来の個別取得
+            for code in codes:
+                try:
+                    historical_data = fetcher.get_historical_data(
+                        code, period, interval
+                    )
+                    if historical_data is not None:
+                        results[code] = historical_data
+                        api_calls += 1
+                except Exception as e:
+                    logger.debug(f"ヒストリカルデータ取得失敗 {code}: {e}")
 
         return results, len(codes), 0, api_calls
 

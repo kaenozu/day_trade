@@ -878,11 +878,7 @@ class ExternalAPIClient:
             return False
 
         # 4xx エラー（クライアントエラー）はリトライしない
-        if 400 <= response.status_code < 500:
-            return False
-
-        # 5xx エラーやネットワークエラーはリトライする
-        return True
+        return not (400 <= response.status_code < 500)
 
     def _calculate_retry_delay(self, attempt: int, endpoint: APIEndpoint) -> float:
         """リトライ遅延時間計算"""
