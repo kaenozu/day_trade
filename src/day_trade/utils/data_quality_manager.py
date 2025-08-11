@@ -1,6 +1,10 @@
-logger.info(
-            "データ品質管理システム初期化完了"
+        print(
+            f"   評価済みデータセット: {quality_report['overall_statistics']['total_assessments']}"
         )
-        logger.info(f"  - 自動修正: {'有効' if auto_fix_enabled else '無効'}")
-        logger.info(f"  - 品質閾値: {quality_threshold}")
-        logger.info(f"  - キャッシュ: {'有効' if self.cache_enabled else '無効'}")
+        print(
+            f"   平均品質スコア: {quality_report['overall_statistics']['average_quality_score']:.3f}"
+        )
+        print(f"   バックフィルキュー: {quality_report['backfill_queue_size']}")
+
+        print("
+✅ データ品質管理システムテスト完了")
