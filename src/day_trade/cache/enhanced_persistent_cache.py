@@ -822,13 +822,12 @@ async def test_enhanced_persistent_cache():
         print(
             f"   平均応答時間: {final_stats['operation_stats']['average_response_time_ms']:.2f}ms"
         )
-        print(
-            f"   総操作数: {sum([
+        total_operations = sum([
             final_stats['operation_stats']['get_operations'],
             final_stats['operation_stats']['put_operations'],
             final_stats['operation_stats']['delete_operations']
-        ])}"
-        )
+        ])
+        print(f"   総操作数: {total_operations}")
 
         # クリーンアップ
         await cache.shutdown()
