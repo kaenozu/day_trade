@@ -14,11 +14,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from src.day_trade.backtesting.parallel_backtest_framework import (
-    create_parallel_backtest_framework,
-    ParameterSpace,
-    ParallelMode,
+    MicrosecondTimer,
     OptimizationMethod,
-    MicrosecondTimer
+    ParallelMode,
+    ParameterSpace,
+    create_parallel_backtest_framework,
 )
 
 
@@ -69,14 +69,14 @@ def run_parallel_backtest_test():
         start_date = "2023-01-01"
         end_date = "2023-12-31"
 
-        print(f"\n3. 並列最適化実行設定:")
+        print("\n3. 並列最適化実行設定:")
         print(f"   対象銘柄: {symbols}")
         print(f"   期間: {start_date} - {end_date}")
-        print(f"   並列ワーカー数: 4")
-        print(f"   最適化手法: グリッドサーチ")
+        print("   並列ワーカー数: 4")
+        print("   最適化手法: グリッドサーチ")
 
         # 最適化実行
-        print(f"\n4. 並列パラメータ最適化実行中...")
+        print("\n4. 並列パラメータ最適化実行中...")
         print(f"   推定実行時間: {combinations}タスク × 2秒 ÷ 4ワーカー = {combinations * 2 // 4}秒")
 
         start_time = MicrosecondTimer.now_ns()
@@ -93,7 +93,7 @@ def run_parallel_backtest_test():
         execution_time_ms = MicrosecondTimer.elapsed_us(start_time) / 1000
 
         # 結果表示
-        print(f"\n5. 最適化結果:")
+        print("\n5. 最適化結果:")
         if "error" in results:
             print(f"   エラー: {results['error']}")
             return False
@@ -107,11 +107,11 @@ def run_parallel_backtest_test():
         print(f"   成功率: {summary.get('success_rate', 0):.1%}")
         print(f"   最適値: {summary.get('best_value', 0):.4f}")
 
-        print(f"\n6. 最優秀パラメータ:")
+        print("\n6. 最優秀パラメータ:")
         for param, value in best_params.items():
             print(f"   {param}: {value}")
 
-        print(f"\n7. 最優秀結果:")
+        print("\n7. 最優秀結果:")
         print(f"   総リターン: {best_result.get('total_return', 0):.2%}")
         print(f"   年率リターン: {best_result.get('annualized_return', 0):.2%}")
         print(f"   シャープレシオ: {best_result.get('sharpe_ratio', 0):.3f}")
@@ -120,7 +120,7 @@ def run_parallel_backtest_test():
         print(f"   総取引数: {best_result.get('total_trades', 0)}")
 
         # パフォーマンス評価
-        print(f"\n8. パフォーマンス評価:")
+        print("\n8. パフォーマンス評価:")
         stats = framework.get_framework_stats()
         exec_stats = stats.get("execution_stats", {})
 
@@ -133,24 +133,24 @@ def run_parallel_backtest_test():
 
         # 効率評価
         if throughput > 2.0:
-            print(f"   評価: 優秀 - 高速並列処理達成")
+            print("   評価: 優秀 - 高速並列処理達成")
         elif throughput > 1.0:
-            print(f"   評価: 良好 - 並列処理効果確認")
+            print("   評価: 良好 - 並列処理効果確認")
         else:
-            print(f"   評価: 改善余地 - 並列処理最適化必要")
+            print("   評価: 改善余地 - 並列処理最適化必要")
 
         # Top 3結果表示
         top_results = results.get("top_10_results", [])[:3]
         if top_results:
-            print(f"\n9. Top 3 結果:")
+            print("\n9. Top 3 結果:")
             for result in top_results:
                 rank = result.get("rank", 0)
                 params = result.get("parameters", {})
                 sharpe = result.get("sharpe_ratio", 0)
                 print(f"   第{rank}位: シャープ {sharpe:.3f} - {params}")
 
-        print(f"\n並列バックテストフレームワーク テスト完了!")
-        print(f"高速化により戦略開発効率が大幅向上しました。")
+        print("\n並列バックテストフレームワーク テスト完了!")
+        print("高速化により戦略開発効率が大幅向上しました。")
         return True
 
     except Exception as e:
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     success = run_parallel_backtest_test()
 
     if success:
-        print(f"\n並列バックテストフレームワーク統合テスト成功!")
+        print("\n並列バックテストフレームワーク統合テスト成功!")
     else:
-        print(f"\n並列バックテストフレームワーク統合テスト失敗...")
+        print("\n並列バックテストフレームワーク統合テスト失敗...")
         sys.exit(1)

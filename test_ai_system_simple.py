@@ -4,11 +4,12 @@ Next-Gen AI Trading Engine Simple Integration Test
 Windows互換・軽量統合テスト
 """
 
-import sys
 import os
+import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -96,7 +97,10 @@ def test_system_components():
     # 5. バッチデータフェッチャーテスト
     print("[5/6] データパイプラインテスト実行中...")
     try:
-        from src.day_trade.data.batch_data_fetcher import DataRequest, AdvancedBatchDataFetcher
+        from src.day_trade.data.batch_data_fetcher import (
+            AdvancedBatchDataFetcher,
+            DataRequest,
+        )
 
         request = DataRequest(symbol="TEST", period="30d", preprocessing=True)
         fetcher = AdvancedBatchDataFetcher(max_workers=2, enable_kafka=False, enable_redis=False)
@@ -252,19 +256,19 @@ def generate_performance_report(test_results, pipeline_success, pipeline_results
     successful_tests = len([r for r in test_results if r[1]])
     success_rate = successful_tests / total_tests
 
-    print(f"\n基本コンポーネントテスト:")
+    print("\n基本コンポーネントテスト:")
     print(f"  総テスト数: {total_tests}")
     print(f"  成功テスト: {successful_tests}")
     print(f"  成功率: {success_rate*100:.1f}%")
 
     # 詳細結果
-    print(f"\n詳細テスト結果:")
+    print("\n詳細テスト結果:")
     for test_name, success, details in test_results:
         status = "成功" if success else "失敗"
         print(f"  [{status}] {test_name}: {details}")
 
     # パイプラインテスト結果
-    print(f"\nエンドツーエンドパイプライン:")
+    print("\nエンドツーエンドパイプライン:")
     if pipeline_success:
         print("  [成功] 統合パイプライン動作確認")
 
@@ -293,7 +297,7 @@ def generate_performance_report(test_results, pipeline_success, pipeline_results
         grade = "C (要改善)"
         status = "システム改善必要"
 
-    print(f"\n総合評価:")
+    print("\n総合評価:")
     print(f"  システムグレード: {grade}")
     print(f"  運用準備状況: {status}")
 

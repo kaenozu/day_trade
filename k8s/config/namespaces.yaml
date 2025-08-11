@@ -1,0 +1,99 @@
+# Namespace definitions for trading system
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-production
+  labels:
+    name: trading-production
+    environment: production
+    app: day-trade-system
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-staging
+  labels:
+    name: trading-staging
+    environment: staging
+    app: day-trade-system
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-development
+  labels:
+    name: trading-development
+    environment: development
+    app: day-trade-system
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-monitoring
+  labels:
+    name: trading-monitoring
+    environment: production
+    app: monitoring-system
+
+---
+# Resource Quotas for Production
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-quota
+  namespace: trading-production
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    pods: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+    persistentvolumeclaims: "10"
+
+---
+# Network Policies for Production
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trading-network-policy
+  namespace: trading-production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: trading-production
+    - namespaceSelector:
+        matchLabels:
+          name: trading-monitoring
+    - podSelector:
+        matchLabels:
+          app: kong-gateway
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53  # DNS
+    - protocol: UDP
+      port: 53  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: trading-production
+  - to: []  # External APIs (market data providers)
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

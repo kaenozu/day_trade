@@ -762,10 +762,8 @@ class VolatilityPredictionEngine:
             return None
 
     def create_volatility_regime_classifier(
-        self,
-        data: pd.DataFrame,
-        thresholds: Optional[Dict[str, float]] = None,
-    ) -> pd.Series:
+        self, data: pd.DataFrame, thresholds: Optional[Dict[str, float]] = None
+    ):
         """
         ボラティリティレジーム分類
 

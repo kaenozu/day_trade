@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hft-service
+  namespace: trading-production
+  labels:
+    app: hft-service
+    version: v1.0
+    component: hft
+spec:
+  replicas: 1  # HFT は単一インスタンス（状態管理の複雑さ回避）
+  selector:
+    matchLabels:
+      app: hft-service
+  template:
+    metadata:
+      labels:
+        app: hft-service
+        version: v1.0
+    spec:
+      containers:
+      - name: hft-service
+        image: day-trade/hft-service:v1.0
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8082
+          name: hft-stream
+        env:
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: redis-cluster-url
+        - name: HFT_LATENCY_TARGET_US
+          value: "30"
+        - name: CPU_AFFINITY_ENABLED
+          value: "true"
+        - name: HUGE_PAGES_ENABLED
+          value: "true"
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 4Gi
+          limits:
+            cpu: 2000m  # 専用CPU割当
+            memory: 4Gi
+            hugepages-2Mi: 1Gi  # Huge Pages for ultra-low latency
+        securityContext:
+          capabilities:
+            add: ["SYS_NICE"]  # CPU priority control
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: hugepages
+          mountPath: /dev/hugepages
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hft-config
+      - name: hugepages
+        emptyDir:
+          medium: HugePages-2Mi
+      nodeSelector:
+        node-type: high-performance  # 高性能ノード指定
+        storage-type: nvme-ssd       # NVMe SSD ストレージ
+      tolerations:
+      - key: "hft-node"
+        operator: "Equal"
+        value: "dedicated"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values: ["amd64"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hft-service
+  namespace: trading-production
+  labels:
+    app: hft-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 8082
+    targetPort: 8082
+    protocol: TCP
+    name: hft-stream
+  selector:
+    app: hft-service
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hft-config
+  namespace: trading-production
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      hft_stream_port: 8082
+
+    hft:
+      performance:
+        target_latency_us: 30
+        max_latency_us: 100
+        throughput_target: 1000000
+
+      execution:
+        cpu_affinity_enabled: true
+        huge_pages_enabled: true
+        numa_optimization: true
+        lock_free_structures: true
+        zero_copy_networking: true
+
+      market_data:
+        buffer_size_mb: 64
+        update_frequency_us: 100
+
+      order_management:
+        queue_size: 1048576  # 1M orders
+        batch_size: 1000
+        timeout_us: 50
+
+    cache:
+      in_memory_enabled: true
+      l1_cache_size_mb: 256
+      l2_cache_size_mb: 1024
+
+    logging:
+      level: "WARNING"  # 最小限のログ（パフォーマンス優先）
+      format: "binary"
+      async_enabled: true

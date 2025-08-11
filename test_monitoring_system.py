@@ -5,18 +5,18 @@ Monitoring System Integration Test
 """
 
 import asyncio
-import time
 import json
+import time
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 from src.day_trade.monitoring.metrics import (
+    get_ai_metrics,
+    get_health_metrics,
     get_metrics_collector,
     get_risk_metrics,
     get_trading_metrics,
-    get_ai_metrics,
-    get_health_metrics,
-    start_metrics_server
+    start_metrics_server,
 )
 from src.day_trade.risk.risk_coordinator import RiskAnalysisCoordinator
 from src.day_trade.utils.logging_config import get_context_logger
@@ -69,11 +69,11 @@ class MonitoringSystemTest:
 
             processing_time = time.time() - start_time
 
-            print(f"  OK メトリクス収集器初期化完了")
-            print(f"  OK リスク管理メトリクス: 準備完了")
-            print(f"  OK 取引メトリクス: 準備完了")
-            print(f"  OK AIメトリクス: 準備完了")
-            print(f"  OK ヘルスメトリクス: 準備完了")
+            print("  OK メトリクス収集器初期化完了")
+            print("  OK リスク管理メトリクス: 準備完了")
+            print("  OK 取引メトリクス: 準備完了")
+            print("  OK AIメトリクス: 準備完了")
+            print("  OK ヘルスメトリクス: 準備完了")
             print(f"  処理時間: {processing_time:.3f}秒")
 
             self.test_results['metrics_collection'] = {
@@ -185,9 +185,9 @@ class MonitoringSystemTest:
 
             processing_time = time.time() - start_time
 
-            print(f"  OK メトリクスサーバー開始完了")
-            print(f"  OK エクスポーター: http://localhost:8001/metrics")
-            print(f"  OK ヘルスチェック: http://localhost:8001/health")
+            print("  OK メトリクスサーバー開始完了")
+            print("  OK エクスポーター: http://localhost:8001/metrics")
+            print("  OK ヘルスチェック: http://localhost:8001/health")
             print(f"  処理時間: {processing_time:.3f}秒")
 
             self.test_results['metrics_exporter'] = {

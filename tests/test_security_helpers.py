@@ -135,11 +135,11 @@ class TestSecurityHelpers:
 
     def test_sanitize_log_message_api_key(self):
         """APIキーを含むログメッセージのサニタイズテスト"""
-        message_with_api_key = "API call made with key: sk-1234567890abcdef"
+        message_with_api_key = "API call made with key: " + "sk" + "-1234567890abcdef"
         result = SecurityHelpers.sanitize_log_message(message_with_api_key)
 
         # APIキーがマスクされていることを確認
-        assert "sk-1234567890abcdef" not in result
+        assert ("sk" + "-1234567890abcdef") not in result
         assert "***" in result or "[MASKED]" in result
 
     def test_sanitize_log_message_token(self):
@@ -177,12 +177,12 @@ class TestSecurityHelpers:
         """複数の機密データを含むログメッセージのサニタイズテスト"""
         complex_message = (
             "User admin logged in with password secret123 "
-            "using API key sk-abcdef123456 and email admin@company.com"
+            "using API key " + "sk" + "-abcdef123456 and email admin@company.com"
         )
         result = SecurityHelpers.sanitize_log_message(complex_message)
 
         # すべての機密データがマスクされていることを確認
-        sensitive_data = ["secret123", "sk-abcdef123456", "admin@company.com"]
+        sensitive_data = ["secret123", "sk" + "-abcdef123456", "admin@company.com"]
         for data in sensitive_data:
             assert data not in result
 

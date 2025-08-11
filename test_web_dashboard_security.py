@@ -12,12 +12,12 @@ Test Coverage:
 - ファイル権限設定
 """
 
+import logging
 import os
 import tempfile
 import unittest
-import logging
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # テスト用にSECRET_KEYを設定
 os.environ['FLASK_SECRET_KEY'] = 'test-secret-key-for-unit-testing-only'
@@ -193,7 +193,7 @@ class TestWebDashboardSecurity(unittest.TestCase):
         self.assertTrue(test_file.exists())
 
         # 内容確認
-        with open(test_file, 'r', encoding='utf-8') as f:
+        with open(test_file, encoding='utf-8') as f:
             content = f.read()
         self.assertEqual(content, test_content)
 
@@ -252,19 +252,19 @@ def run_security_tests():
     result = runner.run(suite)
 
     # 結果出力
-    print(f"\n=== テスト結果 ===")
+    print("\n=== テスト結果 ===")
     print(f"実行テスト数: {result.testsRun}")
     print(f"成功: {result.testsRun - len(result.failures) - len(result.errors)}")
     print(f"失敗: {len(result.failures)}")
     print(f"エラー: {len(result.errors)}")
 
     if result.failures:
-        print(f"\n失敗詳細:")
+        print("\n失敗詳細:")
         for test, trace in result.failures:
             print(f"- {test}: {trace}")
 
     if result.errors:
-        print(f"\nエラー詳細:")
+        print("\nエラー詳細:")
         for test, trace in result.errors:
             print(f"- {test}: {trace}")
 

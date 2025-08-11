@@ -503,14 +503,14 @@ def run_security_test_suite():
         if result.failures:
             print(f"\n❌ 失敗: {len(result.failures)}件")
             for test, traceback in result.failures:
-                print(
-                    f"  - {test}: {traceback.split('AssertionError: ')[-1].split('\\n')[0]}"
-                )
+                failure_msg = traceback.split('AssertionError: ')[-1].split('\n')[0]
+                print(f"  - {test}: {failure_msg}")
 
         if result.errors:
             print(f"\n💥 エラー: {len(result.errors)}件")
             for test, traceback in result.errors:
-                print(f"  - {test}: {traceback.split('\\n')[-2]}")
+                error_msg = traceback.split('\n')[-2]
+                print(f"  - {test}: {error_msg}")
 
     # 最終結果
     print(f"\n{'='*80}")

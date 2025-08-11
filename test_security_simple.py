@@ -4,8 +4,8 @@
 Windows環境対応版
 """
 
-import sys
 import os
+import sys
 
 # パスを追加
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -18,8 +18,12 @@ def test_secure_api_client():
 
     try:
         from day_trade.api.secure_api_client import (
-            SecureAPIKeyManager, SecureURLBuilder, SecureErrorHandler,
-            APIKeyType, SecurityLevel, URLSecurityPolicy
+            APIKeyType,
+            SecureAPIKeyManager,
+            SecureErrorHandler,
+            SecureURLBuilder,
+            SecurityLevel,
+            URLSecurityPolicy,
         )
         print("[OK] Import successful")
     except ImportError as e:

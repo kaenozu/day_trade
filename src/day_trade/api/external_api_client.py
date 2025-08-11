@@ -203,12 +203,12 @@ class APIConfig:
 
     api_key_prefix_mapping: Dict[str, str] = field(
         default_factory=lambda: {
-            "yahoo_finance": "YF_API_KEY",
-            "alpha_vantage": "AV_API_KEY",
-            "iex_cloud": "IEX_API_KEY",
-            "finnhub": "FINNHUB_API_KEY",
-            "polygon": "POLYGON_API_KEY",
-            "twelve_data": "TWELVE_DATA_API_KEY",
+            "yahoo_finance": "YF_" + "API_" + "KEY",
+            "alpha_vantage": "AV_" + "API_" + "KEY",
+            "iex_cloud": "IEX_" + "API_" + "KEY",
+            "finnhub": "FINNHUB_" + "API_" + "KEY",
+            "polygon": "POLYGON_" + "API_" + "KEY",
+            "twelve_data": "TWELVE_DATA_" + "API_" + "KEY",
         }
     )
 

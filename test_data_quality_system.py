@@ -5,9 +5,11 @@ Issue #420対応
 """
 
 import asyncio
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 
 # テストデータ生成
 def create_test_financial_data():
@@ -51,7 +53,7 @@ def test_basic_data_quality():
 
     clean_data, dirty_data = create_test_financial_data()
 
-    print(f"\n[統計] テストデータ概要:")
+    print("\n[統計] テストデータ概要:")
     print(f"  正常データ: {len(clean_data)}行")
     print(f"  問題データ: {len(dirty_data)}行")
     print(f"  欠損値: {dirty_data.isnull().sum().sum()}箇所")
@@ -109,7 +111,7 @@ def test_basic_data_quality():
     # 前方補完で欠損値を修正
     cleaned_data = cleaned_data.fillna(method='ffill')
 
-    print(f"\n[清掃] クリーニング後:")
+    print("\n[清掃] クリーニング後:")
     print(f"  データ行数: {len(dirty_data)} → {len(cleaned_data)}")
     print(f"  欠損値: {dirty_data.isnull().sum().sum()} → {cleaned_data.isnull().sum().sum()}")
 
@@ -121,7 +123,9 @@ async def test_advanced_data_system():
 
     try:
         # 包括的データ品質システムのインポートを試行
-        from src.day_trade.data.comprehensive_data_quality_system import ComprehensiveDataQualitySystem
+        from src.day_trade.data.comprehensive_data_quality_system import (
+            ComprehensiveDataQualitySystem,
+        )
 
         print("[利用可能] 包括的データ品質システム利用可能")
 
@@ -206,16 +210,16 @@ def main():
     advanced_result = asyncio.run(test_advanced_data_system())
 
     # 総合評価
-    print(f"\n[結果] テスト結果サマリー:")
+    print("\n[結果] テスト結果サマリー:")
     print(f"  基本データ品質: {'[合格] PASS' if basic_result else '[不合格] FAIL'}")
     print(f"  バリデーションルール: {'[合格] PASS' if validation_result else '[不合格] FAIL'}")
     print(f"  高度システム: {'[合格] PASS' if advanced_result else '[不合格] FAIL'}")
 
     if all([basic_result, validation_result, advanced_result]):
-        print(f"\n[成功] 全テスト成功: データ品質システム正常動作")
+        print("\n[成功] 全テスト成功: データ品質システム正常動作")
         return True
     else:
-        print(f"\n[警告] 一部テスト失敗: システム改善が必要")
+        print("\n[警告] 一部テスト失敗: システム改善が必要")
         return False
 
 if __name__ == "__main__":

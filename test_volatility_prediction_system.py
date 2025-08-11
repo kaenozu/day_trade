@@ -38,8 +38,8 @@ async def test_volatility_system_initialization():
         print("[OK] VolatilityPredictionSystem initialization success")
 
         # 設定確認
-        assert volatility_system.enable_cache == True, "Cache should be enabled"
-        assert volatility_system.enable_parallel == True, "Parallel should be enabled"
+        assert volatility_system.enable_cache, "Cache should be enabled"
+        assert volatility_system.enable_parallel, "Parallel should be enabled"
         assert volatility_system.garch_model_type == "GARCH", f"GARCH model should be GARCH, got {volatility_system.garch_model_type}"
         assert volatility_system.forecast_horizon == 5, f"Forecast horizon should be 5, got {volatility_system.forecast_horizon}"
         assert volatility_system.var_confidence == 0.95, f"VaR confidence should be 0.95, got {volatility_system.var_confidence}"

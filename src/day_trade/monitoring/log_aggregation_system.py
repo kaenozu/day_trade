@@ -1198,6 +1198,12 @@ def create_log_aggregation_system(
     )
 
 
+# 後方互換性のためのエイリアス
+def get_log_aggregation_system(*args, **kwargs) -> LogAggregationSystem:
+    """後方互換性のためのエイリアス関数"""
+    return create_log_aggregation_system(*args, **kwargs)
+
+
 if __name__ == "__main__":
     # テスト実行
     async def test_log_aggregation_system():
