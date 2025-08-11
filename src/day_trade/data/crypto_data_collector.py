@@ -7,29 +7,29 @@ Global Trading Engine - Cryptocurrency Data Collector
 """
 
 import asyncio
-import aiohttp
-import websockets
 import json
 import time
-import hmac
-import hashlib
-import base64
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, asdict
-import pandas as pd
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Optional, Tuple
+
+import aiohttp
 import numpy as np
-from decimal import Decimal, ROUND_HALF_UP
+import websockets
+
+from ..models.database import CryptoPrice, get_session
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
-from ..models.database import get_session, CryptoPrice, GlobalMarketData
 
 logger = get_context_logger(__name__)
+
 
 @dataclass
 class CryptoTick:
     """暗号通貨取引データ"""
+
     symbol: str
     timestamp: datetime
     price: float
@@ -41,34 +41,55 @@ class CryptoTick:
     price_change_24h: Optional[float] = None
     exchange: str = "binance"
 
+
 @dataclass
 class CryptoOrderBook:
     """オーダーブック情報"""
+
     symbol: str
     timestamp: datetime
     bids: List[Tuple[float, float]]  # [price, quantity]
     asks: List[Tuple[float, float]]
     exchange: str
 
+
 class CryptoDataCollector:
     """暗号通貨データ収集器"""
 
-    def __init__(self, binance_api_key: Optional[str] = None,
-                 binance_secret: Optional[str] = None):
+    def __init__(
+        self,
+        binance_api_key: Optional[str] = None,
+        binance_secret: Optional[str] = None,
+    ):
         self.binance_api_key = binance_api_key
         self.binance_secret = binance_secret
 
         # 主要暗号通貨
         self.major_cryptos = [
-            "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT",
-            "DOTUSDT", "XRPUSDT", "LTCUSDT", "LINKUSDT",
-            "BCHUSDT", "XLMUSDT", "UNIUSDT", "SOLUSDT"
+            "BTCUSDT",
+            "ETHUSDT",
+            "BNBUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "XRPUSDT",
+            "LTCUSDT",
+            "LINKUSDT",
+            "BCHUSDT",
+            "XLMUSDT",
+            "UNIUSDT",
+            "SOLUSDT",
         ]
 
         # DeFiトークン
         self.defi_tokens = [
-            "AAVEUSDT", "COMPUSDT", "MKRUSDT", "SUSHIUSDT",
-            "YFIUSDT", "CRVUSDT", "1INCHUSDT", "BALUSDT"
+            "AAVEUSDT",
+            "COMPUSDT",
+            "MKRUSDT",
+            "SUSHIUSDT",
+            "YFIUSDT",
+            "CRVUSDT",
+            "1INCHUSDT",
+            "BALUSDT",
         ]
 
         # 全監視対象
@@ -90,17 +111,16 @@ class CryptoDataCollector:
         self.last_reset = time.time()
         self.weight_limit = 1200  # Binance制限
 
-        logger.info(f"Crypto Data Collector initialized for {len(self.all_symbols)} symbols")
+        logger.info(
+            f"Crypto Data Collector initialized for {len(self.all_symbols)} symbols"
+        )
 
     async def start_collection(self):
         """データ収集開始"""
         logger.info("Starting crypto data collection...")
 
         # WebSocket接続開始
-        ws_tasks = [
-            self._connect_binance_websocket(),
-            self._start_rest_api_updates()
-        ]
+        ws_tasks = [self._connect_binance_websocket(), self._start_rest_api_updates()]
 
         await asyncio.gather(*ws_tasks, return_exceptions=True)
 
@@ -137,18 +157,18 @@ class CryptoDataCollector:
     async def _process_binance_message(self, data: dict):
         """Binance WebSocketメッセージ処理"""
         try:
-            if 'stream' not in data:
+            if "stream" not in data:
                 return
 
-            stream = data['stream']
-            message_data = data['data']
+            stream = data["stream"]
+            message_data = data["data"]
 
             # ティッカーデータ処理
-            if '@ticker' in stream:
+            if "@ticker" in stream:
                 await self._process_ticker_data(message_data)
 
             # 板データ処理
-            elif '@depth' in stream:
+            elif "@depth" in stream:
                 await self._process_depth_data(message_data)
 
         except Exception as e:
@@ -157,7 +177,7 @@ class CryptoDataCollector:
     async def _process_ticker_data(self, data: dict):
         """ティッカーデータ処理"""
         try:
-            symbol = data.get('s')
+            symbol = data.get("s")
             if not symbol or symbol not in self.all_symbols:
                 return
 
@@ -165,14 +185,14 @@ class CryptoDataCollector:
             tick = CryptoTick(
                 symbol=symbol,
                 timestamp=datetime.fromtimestamp(
-                    data.get('E', 0) / 1000, tz=timezone.utc
+                    data.get("E", 0) / 1000, tz=timezone.utc
                 ),
-                price=float(data.get('c', 0)),
-                volume_24h=float(data.get('v', 0)),
-                bid_price=float(data.get('b', 0)),
-                ask_price=float(data.get('a', 0)),
-                price_change_24h=float(data.get('P', 0)),
-                exchange="binance"
+                price=float(data.get("c", 0)),
+                volume_24h=float(data.get("v", 0)),
+                bid_price=float(data.get("b", 0)),
+                ask_price=float(data.get("a", 0)),
+                price_change_24h=float(data.get("P", 0)),
+                exchange="binance",
             )
 
             # スプレッド計算
@@ -184,8 +204,10 @@ class CryptoDataCollector:
             # データベース保存
             await self._save_crypto_tick(tick)
 
-            logger.debug(f"Updated {symbol}: ${tick.price:.4f} "
-                        f"(24h: {tick.price_change_24h:+.2f}%)")
+            logger.debug(
+                f"Updated {symbol}: ${tick.price:.4f} "
+                f"(24h: {tick.price_change_24h:+.2f}%)"
+            )
 
         except Exception as e:
             logger.error(f"Ticker data processing error: {e}")
@@ -193,20 +215,20 @@ class CryptoDataCollector:
     async def _process_depth_data(self, data: dict):
         """板データ処理"""
         try:
-            symbol = data.get('s')
+            symbol = data.get("s")
             if not symbol:
                 return
 
             # Bid/Ask変換
-            bids = [(float(bid[0]), float(bid[1])) for bid in data.get('bids', [])]
-            asks = [(float(ask[0]), float(ask[1])) for ask in data.get('asks', [])]
+            bids = [(float(bid[0]), float(bid[1])) for bid in data.get("bids", [])]
+            asks = [(float(ask[0]), float(ask[1])) for ask in data.get("asks", [])]
 
             order_book = CryptoOrderBook(
                 symbol=symbol,
                 timestamp=datetime.now(timezone.utc),
                 bids=bids,
                 asks=asks,
-                exchange="binance"
+                exchange="binance",
             )
 
             self.order_books[symbol] = order_book
@@ -244,7 +266,7 @@ class CryptoDataCollector:
 
                         # 監視対象のみ処理
                         for ticker in data:
-                            symbol = ticker.get('symbol')
+                            symbol = ticker.get("symbol")
                             if symbol in self.all_symbols:
                                 await self._process_ticker_data(ticker)
 
@@ -255,7 +277,7 @@ class CryptoDataCollector:
         """個別銘柄データ取得"""
         try:
             url = f"{self.binance_base_url}/api/v3/ticker/24hr"
-            params = {'symbol': symbol}
+            params = {"symbol": symbol}
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, timeout=10) as response:
@@ -275,14 +297,14 @@ class CryptoDataCollector:
                 symbol=tick.symbol,
                 timestamp=tick.timestamp,
                 price=Decimal(str(tick.price)).quantize(
-                    Decimal('0.00000001'), rounding=ROUND_HALF_UP
+                    Decimal("0.00000001"), rounding=ROUND_HALF_UP
                 ),
                 volume_24h=Decimal(str(tick.volume_24h)) if tick.volume_24h else None,
                 bid_price=Decimal(str(tick.bid_price)) if tick.bid_price else None,
                 ask_price=Decimal(str(tick.ask_price)) if tick.ask_price else None,
                 spread=Decimal(str(tick.spread)) if tick.spread else None,
                 price_change_24h=tick.price_change_24h,
-                exchange=tick.exchange
+                exchange=tick.exchange,
             )
 
             session.add(crypto_price)
@@ -311,20 +333,26 @@ class CryptoDataCollector:
                 return {}
 
             prices = [tick.price for tick in self.latest_ticks.values()]
-            changes = [tick.price_change_24h for tick in self.latest_ticks.values()
-                      if tick.price_change_24h is not None]
-            volumes = [tick.volume_24h for tick in self.latest_ticks.values()
-                      if tick.volume_24h is not None]
+            changes = [
+                tick.price_change_24h
+                for tick in self.latest_ticks.values()
+                if tick.price_change_24h is not None
+            ]
+            volumes = [
+                tick.volume_24h
+                for tick in self.latest_ticks.values()
+                if tick.volume_24h is not None
+            ]
 
             metrics = {
-                'total_symbols': len(self.latest_ticks),
-                'average_price': np.mean(prices) if prices else 0,
-                'total_volume_24h': sum(volumes) if volumes else 0,
-                'average_change_24h': np.mean(changes) if changes else 0,
-                'market_volatility': np.std(changes) if changes else 0,
-                'bullish_symbols': len([c for c in changes if c > 0]),
-                'bearish_symbols': len([c for c in changes if c < 0]),
-                'timestamp': datetime.now(timezone.utc)
+                "total_symbols": len(self.latest_ticks),
+                "average_price": np.mean(prices) if prices else 0,
+                "total_volume_24h": sum(volumes) if volumes else 0,
+                "average_change_24h": np.mean(changes) if changes else 0,
+                "market_volatility": np.std(changes) if changes else 0,
+                "bullish_symbols": len([c for c in changes if c > 0]),
+                "bearish_symbols": len([c for c in changes if c < 0]),
+                "timestamp": datetime.now(timezone.utc),
             }
 
             return metrics
@@ -333,16 +361,13 @@ class CryptoDataCollector:
             logger.error(f"Market metrics calculation error: {e}")
             return {}
 
-    async def get_historical_data(self, symbol: str, interval: str = "1h",
-                                limit: int = 100) -> List[dict]:
+    async def get_historical_data(
+        self, symbol: str, interval: str = "1h", limit: int = 100
+    ) -> List[dict]:
         """過去データ取得"""
         try:
             url = f"{self.binance_base_url}/api/v3/klines"
-            params = {
-                'symbol': symbol,
-                'interval': interval,
-                'limit': limit
-            }
+            params = {"symbol": symbol, "interval": interval, "limit": limit}
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, timeout=15) as response:
@@ -352,16 +377,18 @@ class CryptoDataCollector:
                         # OHLCV形式に変換
                         ohlcv_data = []
                         for candle in data:
-                            ohlcv_data.append({
-                                'timestamp': datetime.fromtimestamp(
-                                    candle[0] / 1000, tz=timezone.utc
-                                ),
-                                'open': float(candle[1]),
-                                'high': float(candle[2]),
-                                'low': float(candle[3]),
-                                'close': float(candle[4]),
-                                'volume': float(candle[5])
-                            })
+                            ohlcv_data.append(
+                                {
+                                    "timestamp": datetime.fromtimestamp(
+                                        candle[0] / 1000, tz=timezone.utc
+                                    ),
+                                    "open": float(candle[1]),
+                                    "high": float(candle[2]),
+                                    "low": float(candle[3]),
+                                    "close": float(candle[4]),
+                                    "volume": float(candle[5]),
+                                }
+                            )
 
                         return ohlcv_data
 
@@ -374,22 +401,24 @@ class CryptoDataCollector:
     def get_top_gainers(self, limit: int = 10) -> List[CryptoTick]:
         """上昇率上位取得"""
         ticks_with_change = [
-            tick for tick in self.latest_ticks.values()
+            tick
+            for tick in self.latest_ticks.values()
             if tick.price_change_24h is not None
         ]
 
-        return sorted(ticks_with_change,
-                     key=lambda x: x.price_change_24h, reverse=True)[:limit]
+        return sorted(
+            ticks_with_change, key=lambda x: x.price_change_24h, reverse=True
+        )[:limit]
 
     def get_top_losers(self, limit: int = 10) -> List[CryptoTick]:
         """下落率上位取得"""
         ticks_with_change = [
-            tick for tick in self.latest_ticks.values()
+            tick
+            for tick in self.latest_ticks.values()
             if tick.price_change_24h is not None
         ]
 
-        return sorted(ticks_with_change,
-                     key=lambda x: x.price_change_24h)[:limit]
+        return sorted(ticks_with_change, key=lambda x: x.price_change_24h)[:limit]
 
     async def cleanup(self):
         """リソースクリーンアップ"""
@@ -402,13 +431,15 @@ class CryptoDataCollector:
 
         logger.info("Crypto Data Collector cleanup completed")
 
-def create_crypto_collector(binance_api_key: Optional[str] = None,
-                          binance_secret: Optional[str] = None) -> CryptoDataCollector:
+
+def create_crypto_collector(
+    binance_api_key: Optional[str] = None, binance_secret: Optional[str] = None
+) -> CryptoDataCollector:
     """Crypto Data Collector ファクトリー関数"""
     return CryptoDataCollector(
-        binance_api_key=binance_api_key,
-        binance_secret=binance_secret
+        binance_api_key=binance_api_key, binance_secret=binance_secret
     )
+
 
 async def main():
     """テスト実行"""
@@ -428,34 +459,39 @@ async def main():
     print(f"\nCollected data for {len(market_data)} crypto symbols:")
 
     for symbol, tick in list(market_data.items())[:10]:  # 最初の10件
-        print(f"{symbol}: ${tick.price:.4f} "
-              f"(24h: {tick.price_change_24h:+.2f}% | Vol: ${tick.volume_24h:,.0f})")
+        print(
+            f"{symbol}: ${tick.price:.4f} "
+            f"(24h: {tick.price_change_24h:+.2f}% | Vol: ${tick.volume_24h:,.0f})"
+        )
 
     # 市場指標表示
     metrics = collector.calculate_market_metrics()
     if metrics:
-        print(f"\nMarket Metrics:")
+        print("\nMarket Metrics:")
         print(f"  Total Volume 24h: ${metrics['total_volume_24h']:,.0f}")
         print(f"  Average Change 24h: {metrics['average_change_24h']:+.2f}%")
         print(f"  Market Volatility: {metrics['market_volatility']:.2f}")
-        print(f"  Bullish/Bearish: {metrics['bullish_symbols']}/{metrics['bearish_symbols']}")
+        print(
+            f"  Bullish/Bearish: {metrics['bullish_symbols']}/{metrics['bearish_symbols']}"
+        )
 
     # トップゲイナー・ルーザー
     gainers = collector.get_top_gainers(5)
     losers = collector.get_top_losers(5)
 
     if gainers:
-        print(f"\nTop 5 Gainers:")
+        print("\nTop 5 Gainers:")
         for tick in gainers:
             print(f"  {tick.symbol}: {tick.price_change_24h:+.2f}%")
 
     if losers:
-        print(f"\nTop 5 Losers:")
+        print("\nTop 5 Losers:")
         for tick in losers:
             print(f"  {tick.symbol}: {tick.price_change_24h:+.2f}%")
 
     collection_task.cancel()
     await collector.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

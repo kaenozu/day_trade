@@ -1,13 +1,12 @@
-import json # 追加
+import json  # 追加
 import logging
 from datetime import datetime, timedelta
-from typing import Optional # 追加
+from typing import Optional  # 追加
 
 import mlflow
 import mlflow.pyfunc
 import numpy as np
 import pandas as pd
-
 from concept_drift_detector import ConceptDriftDetector
 
 # ロギング設定

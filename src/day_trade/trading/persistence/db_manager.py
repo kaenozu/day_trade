@@ -11,10 +11,11 @@ from typing import Dict, List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...models.database import db_manager
-from ...models.stock import Stock, Trade as DBTrade
 from ...models.enums import TradeType
-from ...utils.logging_config import get_context_logger, log_error_with_context
+from ...models.stock import Stock
+from ...models.stock import Trade as DBTrade
 from ...utils.enhanced_error_handler import get_default_error_handler
+from ...utils.logging_config import get_context_logger, log_error_with_context
 from ..core.types import Trade, TradeStatus
 
 logger = get_context_logger(__name__)
@@ -82,7 +83,7 @@ class TradeDatabaseManager:
                 return trades
 
         except SQLAlchemyError as e:
-            log_error_with_context(f"DB読み込みエラー", e, {"symbol": symbol})
+            log_error_with_context("DB読み込みエラー", e, {"symbol": symbol})
             return []
         except Exception as e:
             logger.error(f"取引データ読み込み予期せぬエラー: {e}")
@@ -106,7 +107,7 @@ class TradeDatabaseManager:
                     stock = Stock(
                         symbol=trade.symbol,
                         name=f"銘柄{trade.symbol}",  # 暫定名
-                        market="未指定"
+                        market="未指定",
                     )
                     session.add(stock)
                     session.flush()  # IDを取得
@@ -131,9 +132,7 @@ class TradeDatabaseManager:
 
         except SQLAlchemyError as e:
             log_error_with_context(
-                f"DB取引保存エラー",
-                e,
-                {"trade_id": trade.id, "symbol": trade.symbol}
+                "DB取引保存エラー", e, {"trade_id": trade.id, "symbol": trade.symbol}
             )
             return False
         except Exception as e:
@@ -206,14 +205,16 @@ class TradeDatabaseManager:
                     return 0
 
                 # 関連取引削除
-                deleted_count = session.query(DBTrade).filter_by(stock_id=stock.id).delete()
+                deleted_count = (
+                    session.query(DBTrade).filter_by(stock_id=stock.id).delete()
+                )
                 session.commit()
 
                 logger.info(f"銘柄{symbol}の取引データ削除完了: {deleted_count}件")
                 return deleted_count
 
         except SQLAlchemyError as e:
-            log_error_with_context(f"取引削除エラー", e, {"symbol": symbol})
+            log_error_with_context("取引削除エラー", e, {"symbol": symbol})
             return 0
         except Exception as e:
             logger.error(f"取引削除予期せぬエラー: {e}")
@@ -235,7 +236,7 @@ class TradeDatabaseManager:
                 return deleted_count
 
         except SQLAlchemyError as e:
-            log_error_with_context(f"全取引削除エラー", e)
+            log_error_with_context("全取引削除エラー", e)
             return 0
         except Exception as e:
             logger.error(f"全取引削除予期せぬエラー: {e}")
@@ -252,7 +253,10 @@ class TradeDatabaseManager:
             with self.db.get_session() as session:
                 # 銘柄別集計クエリ
                 results = (
-                    session.query(Stock.symbol, session.query(DBTrade).filter_by(stock_id=Stock.id).count())
+                    session.query(
+                        Stock.symbol,
+                        session.query(DBTrade).filter_by(stock_id=Stock.id).count(),
+                    )
                     .join(DBTrade, Stock.id == DBTrade.stock_id)
                     .group_by(Stock.symbol)
                     .all()
@@ -263,7 +267,7 @@ class TradeDatabaseManager:
                 return trade_counts
 
         except SQLAlchemyError as e:
-            log_error_with_context(f"取引件数集計エラー", e)
+            log_error_with_context("取引件数集計エラー", e)
             return {}
         except Exception as e:
             logger.error(f"取引件数集計予期せぬエラー: {e}")
@@ -283,27 +287,47 @@ class TradeDatabaseManager:
                 total_stocks = session.query(Stock).count()
 
                 # 取引タイプ別件数
-                buy_count = session.query(DBTrade).filter_by(trade_type=TradeType.BUY.value).count()
-                sell_count = session.query(DBTrade).filter_by(trade_type=TradeType.SELL.value).count()
+                buy_count = (
+                    session.query(DBTrade)
+                    .filter_by(trade_type=TradeType.BUY.value)
+                    .count()
+                )
+                sell_count = (
+                    session.query(DBTrade)
+                    .filter_by(trade_type=TradeType.SELL.value)
+                    .count()
+                )
 
                 # 最新・最古取引日時
-                latest_trade = session.query(DBTrade.timestamp).order_by(DBTrade.timestamp.desc()).first()
-                earliest_trade = session.query(DBTrade.timestamp).order_by(DBTrade.timestamp.asc()).first()
+                latest_trade = (
+                    session.query(DBTrade.timestamp)
+                    .order_by(DBTrade.timestamp.desc())
+                    .first()
+                )
+                earliest_trade = (
+                    session.query(DBTrade.timestamp)
+                    .order_by(DBTrade.timestamp.asc())
+                    .first()
+                )
 
                 statistics = {
                     "total_trades": total_trades,
                     "total_stocks": total_stocks,
                     "buy_trades": buy_count,
                     "sell_trades": sell_count,
-                    "latest_trade_date": latest_trade[0].isoformat() if latest_trade else None,
-                    "earliest_trade_date": earliest_trade[0].isoformat() if earliest_trade else None,
+                    "latest_trade_date": latest_trade[0].isoformat()
+                    if latest_trade
+                    else None,
+                    "earliest_trade_date": earliest_trade[0].isoformat()
+                    if earliest_trade
+                    else None,
                 }
 
                 logger.debug(f"DB統計取得完了: {total_trades}取引, {total_stocks}銘柄")
                 return statistics
 
         except SQLAlchemyError as e:
-            log_error_with_context(f"DB統計取得エラー", e)
+            log_error_with_context("DB統計取得エラー", e)
             return {}
         except Exception as e:
             logger.error(f"DB統計取得予期せぬエラー: {e}")
@@ -325,6 +349,7 @@ class TradeDatabaseManager:
 
             # JSON形式でエクスポート
             import json
+
             backup_data = {
                 "backup_timestamp": datetime.now().isoformat(),
                 "trade_count": len(all_trades),
@@ -332,7 +357,7 @@ class TradeDatabaseManager:
                 "statistics": self.get_database_statistics(),
             }
 
-            with open(backup_path, 'w', encoding='utf-8') as f:
+            with open(backup_path, "w", encoding="utf-8") as f:
                 json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
 
             logger.info(f"DBバックアップ完了: {backup_path} ({len(all_trades)}取引)")
@@ -355,7 +380,7 @@ class TradeDatabaseManager:
         try:
             import json
 
-            with open(backup_path, 'r', encoding='utf-8') as f:
+            with open(backup_path, encoding="utf-8") as f:
                 backup_data = json.load(f)
 
             trades_data = backup_data.get("trades", [])

@@ -19,25 +19,23 @@ Next-Gen AI Trading Engine - ハイブリッドLSTM-Transformerモデル
 
 import time
 import warnings
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Any, Tuple, Union
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
-import logging
+
+from ..utils.logging_config import get_context_logger
 
 # 既存基盤クラスインポート
 from .deep_learning_models import (
     BaseDeepLearningModel,
-    ModelConfig,
     DeepLearningConfig,
-    ModelType,
-    TrainingResult,
-    ModelTrainingResult,
+    ModelConfig,
     PredictionResult,
-    UncertaintyEstimate
+    TrainingResult,
+    UncertaintyEstimate,
 )
-from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
@@ -46,9 +44,10 @@ PYTORCH_AVAILABLE = False
 try:
     import torch
     import torch.nn as nn
-    import torch.optim as optim
     import torch.nn.functional as F
+    import torch.optim as optim
     from torch.utils.data import DataLoader, Dataset
+
     PYTORCH_AVAILABLE = True
     logger.info("PyTorch利用可能 - GPU加速対応")
 except ImportError:
@@ -99,6 +98,7 @@ class HybridModelConfig(ModelConfig):
 @dataclass
 class HybridTrainingResult(TrainingResult):
     """ハイブリッドモデル訓練結果"""
+
     lstm_loss: float = 0.0
     transformer_loss: float = 0.0
     fusion_loss: float = 0.0
@@ -127,8 +127,13 @@ if PYTORCH_AVAILABLE:
     class CrossAttentionLayer(nn.Module):
         """Cross-Attention融合メカニズム"""
 
-        def __init__(self, lstm_dim: int, transformer_dim: int,
-                     attention_heads: int = 4, attention_dim: int = 128):
+        def __init__(
+            self,
+            lstm_dim: int,
+            transformer_dim: int,
+            attention_heads: int = 4,
+            attention_dim: int = 128,
+        ):
             super().__init__()
             self.attention_heads = attention_heads
             self.attention_dim = attention_dim
@@ -148,8 +153,9 @@ if PYTORCH_AVAILABLE:
             self.layer_norm = nn.LayerNorm(attention_dim)
             self.dropout = nn.Dropout(0.1)
 
-        def forward(self, lstm_features: torch.Tensor,
-                   transformer_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        def forward(
+            self, lstm_features: torch.Tensor, transformer_features: torch.Tensor
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
             """
             Cross-Attention計算
 
@@ -165,19 +171,35 @@ if PYTORCH_AVAILABLE:
 
             # 特徴量投影
             lstm_proj = self.lstm_proj(lstm_features)  # [batch, attention_dim]
-            transformer_proj = self.transformer_proj(transformer_features)  # [batch, attention_dim]
+            transformer_proj = self.transformer_proj(
+                transformer_features
+            )  # [batch, attention_dim]
 
             # 結合特徴量
-            combined = torch.stack([lstm_proj, transformer_proj], dim=1)  # [batch, 2, attention_dim]
+            combined = torch.stack(
+                [lstm_proj, transformer_proj], dim=1
+            )  # [batch, 2, attention_dim]
 
             # Multi-head attention準備
             batch_size, seq_len, _ = combined.shape
             head_dim = self.attention_dim // self.attention_heads
 
             # Q, K, V計算
-            Q = self.query_proj(combined).view(batch_size, seq_len, self.attention_heads, head_dim).transpose(1, 2)
-            K = self.key_proj(combined).view(batch_size, seq_len, self.attention_heads, head_dim).transpose(1, 2)
-            V = self.value_proj(combined).view(batch_size, seq_len, self.attention_heads, head_dim).transpose(1, 2)
+            Q = (
+                self.query_proj(combined)
+                .view(batch_size, seq_len, self.attention_heads, head_dim)
+                .transpose(1, 2)
+            )
+            K = (
+                self.key_proj(combined)
+                .view(batch_size, seq_len, self.attention_heads, head_dim)
+                .transpose(1, 2)
+            )
+            V = (
+                self.value_proj(combined)
+                .view(batch_size, seq_len, self.attention_heads, head_dim)
+                .transpose(1, 2)
+            )
 
             # Attention scores計算
             attention_scores = torch.matmul(Q, K.transpose(-2, -1)) * self.scale
@@ -186,7 +208,11 @@ if PYTORCH_AVAILABLE:
 
             # Attention適用
             attended = torch.matmul(attention_weights, V)
-            attended = attended.transpose(1, 2).contiguous().view(batch_size, seq_len, self.attention_dim)
+            attended = (
+                attended.transpose(1, 2)
+                .contiguous()
+                .view(batch_size, seq_len, self.attention_dim)
+            )
 
             # Output projection
             output = self.output_proj(attended)
@@ -202,12 +228,17 @@ if PYTORCH_AVAILABLE:
 
             return fused_features, avg_attention_weights
 
-
     class ModifiedTransformerEncoder(nn.Module):
         """修正Transformer (mTrans) - 時空間融合最適化"""
 
-        def __init__(self, d_model: int, num_heads: int, dim_feedforward: int,
-                     num_layers: int, dropout: float = 0.1):
+        def __init__(
+            self,
+            d_model: int,
+            num_heads: int,
+            dim_feedforward: int,
+            num_layers: int,
+            dropout: float = 0.1,
+        ):
             super().__init__()
             self.d_model = d_model
 
@@ -220,10 +251,10 @@ if PYTORCH_AVAILABLE:
                 nhead=num_heads,
                 dim_feedforward=dim_feedforward,
                 dropout=dropout,
-                activation='gelu',  # GELU for better performance
+                activation="gelu",  # GELU for better performance
                 layer_norm_eps=1e-6,
                 batch_first=True,
-                norm_first=True  # Pre-norm for stability
+                norm_first=True,  # Pre-norm for stability
             )
             self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
@@ -231,7 +262,9 @@ if PYTORCH_AVAILABLE:
             self.temporal_conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
             self.temporal_norm = nn.LayerNorm(d_model)
 
-        def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        def forward(
+            self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+        ) -> torch.Tensor:
             """
             Modified Transformer forward pass
 
@@ -252,13 +285,14 @@ if PYTORCH_AVAILABLE:
             # [batch, seq_len, d_model] -> [batch, d_model, seq_len]
             conv_input = transformer_out.transpose(1, 2)
             temporal_out = self.temporal_conv(conv_input)
-            temporal_out = temporal_out.transpose(1, 2)  # Back to [batch, seq_len, d_model]
+            temporal_out = temporal_out.transpose(
+                1, 2
+            )  # Back to [batch, seq_len, d_model]
 
             # Residual connection
             output = self.temporal_norm(transformer_out + temporal_out)
 
             return output
-
 
     class PositionalEncoding(nn.Module):
         """時系列データ用位置エンコーディング"""
@@ -269,18 +303,19 @@ if PYTORCH_AVAILABLE:
 
             pe = torch.zeros(max_len, d_model)
             position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-            div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+            )
 
             pe[:, 0::2] = torch.sin(position * div_term)
             pe[:, 1::2] = torch.cos(position * div_term)
             pe = pe.unsqueeze(0).transpose(0, 1)
 
-            self.register_buffer('pe', pe)
+            self.register_buffer("pe", pe)
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            x = x + self.pe[:x.size(1), :].transpose(0, 1)
+            x = x + self.pe[: x.size(1), :].transpose(0, 1)
             return self.dropout(x)
-
 
     class HybridLSTMTransformerModel(nn.Module):
         """ハイブリッドLSTM-Transformerモデル - PyTorch実装"""
@@ -300,13 +335,17 @@ if PYTORCH_AVAILABLE:
                 num_layers=config.lstm_num_layers,
                 batch_first=True,
                 dropout=config.dropout_rate if config.lstm_num_layers > 1 else 0.0,
-                bidirectional=config.lstm_bidirectional
+                bidirectional=config.lstm_bidirectional,
             )
 
-            lstm_output_dim = config.lstm_hidden_size * (2 if config.lstm_bidirectional else 1)
+            lstm_output_dim = config.lstm_hidden_size * (
+                2 if config.lstm_bidirectional else 1
+            )
 
             # Transformer Branch - Input projection for transformer
-            self.transformer_projection = nn.Linear(config.lstm_hidden_size, config.transformer_d_model)
+            self.transformer_projection = nn.Linear(
+                config.lstm_hidden_size, config.transformer_d_model
+            )
 
             # Modified Transformer
             self.modified_transformer = ModifiedTransformerEncoder(
@@ -314,7 +353,7 @@ if PYTORCH_AVAILABLE:
                 num_heads=config.transformer_num_heads,
                 dim_feedforward=config.transformer_dim_feedforward,
                 num_layers=config.transformer_num_layers,
-                dropout=config.dropout_rate
+                dropout=config.dropout_rate,
             )
 
             # Cross-Attention Fusion
@@ -322,7 +361,7 @@ if PYTORCH_AVAILABLE:
                 lstm_dim=lstm_output_dim,
                 transformer_dim=config.transformer_d_model,
                 attention_heads=config.cross_attention_heads,
-                attention_dim=config.cross_attention_dim
+                attention_dim=config.cross_attention_dim,
             )
 
             # Prediction Head (MLP)
@@ -330,12 +369,14 @@ if PYTORCH_AVAILABLE:
             prev_dim = config.cross_attention_dim
 
             for hidden_dim in config.fusion_hidden_dims:
-                fusion_layers.extend([
-                    nn.Linear(prev_dim, hidden_dim),
-                    nn.LayerNorm(hidden_dim),
-                    nn.GELU(),
-                    nn.Dropout(config.fusion_dropout)
-                ])
+                fusion_layers.extend(
+                    [
+                        nn.Linear(prev_dim, hidden_dim),
+                        nn.LayerNorm(hidden_dim),
+                        nn.GELU(),
+                        nn.Dropout(config.fusion_dropout),
+                    ]
+                )
                 prev_dim = hidden_dim
 
             # Final prediction layer
@@ -358,12 +399,14 @@ if PYTORCH_AVAILABLE:
                         nn.init.zeros_(module.bias)
                 elif isinstance(module, nn.LSTM):
                     for name, param in module.named_parameters():
-                        if 'weight' in name:
+                        if "weight" in name:
                             nn.init.xavier_uniform_(param)
-                        elif 'bias' in name:
+                        elif "bias" in name:
                             nn.init.zeros_(param)
 
-        def forward(self, x: torch.Tensor, return_attention: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict]]:
+        def forward(
+            self, x: torch.Tensor, return_attention: bool = False
+        ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict]]:
             """
             ハイブリッドモデル推論
 
@@ -390,28 +433,38 @@ if PYTORCH_AVAILABLE:
                 lstm_features = hidden[-1]  # [batch, hidden_size]
 
             # Transformer Branch
-            transformer_input = self.transformer_projection(x_proj)  # [batch, seq_len, d_model]
-            transformer_out = self.modified_transformer(transformer_input)  # [batch, seq_len, d_model]
+            transformer_input = self.transformer_projection(
+                x_proj
+            )  # [batch, seq_len, d_model]
+            transformer_out = self.modified_transformer(
+                transformer_input
+            )  # [batch, seq_len, d_model]
             # 最後のタイムステップを使用
             transformer_features = transformer_out[:, -1, :]  # [batch, d_model]
 
             # Cross-Attention Fusion
-            fused_features, attention_weights = self.cross_attention(lstm_features, transformer_features)
+            fused_features, attention_weights = self.cross_attention(
+                lstm_features, transformer_features
+            )
 
             # Prediction Head
             predictions = self.prediction_head(fused_features)
 
             if return_attention:
                 attention_info = {
-                    'cross_attention_weights': attention_weights.detach().cpu().numpy(),
-                    'lstm_contribution': attention_weights[:, 0, 0].mean().item(),
-                    'transformer_contribution': attention_weights[:, 1, 1].mean().item()
+                    "cross_attention_weights": attention_weights.detach().cpu().numpy(),
+                    "lstm_contribution": attention_weights[:, 0, 0].mean().item(),
+                    "transformer_contribution": attention_weights[:, 1, 1]
+                    .mean()
+                    .item(),
                 }
                 return predictions, attention_info
 
             return predictions
 
-        def forward_with_uncertainty(self, x: torch.Tensor, num_samples: int = 50) -> Tuple[torch.Tensor, torch.Tensor]:
+        def forward_with_uncertainty(
+            self, x: torch.Tensor, num_samples: int = 50
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
             """
             Monte Carlo Dropout による不確実性推定
 
@@ -432,7 +485,9 @@ if PYTORCH_AVAILABLE:
                     pred = self(x)
                     predictions.append(pred)
 
-            predictions = torch.stack(predictions)  # [num_samples, batch, prediction_horizon]
+            predictions = torch.stack(
+                predictions
+            )  # [num_samples, batch, prediction_horizon]
 
             mean_pred = predictions.mean(dim=0)
             std_pred = predictions.std(dim=0)
@@ -455,16 +510,18 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
                 learning_rate=config.learning_rate,
                 epochs=config.epochs,
                 batch_size=config.batch_size,
-                early_stopping_patience=config.early_stopping_patience
+                early_stopping_patience=config.early_stopping_patience,
             )
         else:
             hybrid_config = config
 
         super().__init__(hybrid_config)
         self.hybrid_config = hybrid_config
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        logger.info(f"ハイブリッドLSTM-Transformerエンジン初期化完了 (デバイス: {self.device})")
+        logger.info(
+            f"ハイブリッドLSTM-Transformerエンジン初期化完了 (デバイス: {self.device})"
+        )
 
     def build_model(self, input_shape: Tuple[int, ...]) -> Any:
         """ハイブリッドモデル構築"""
@@ -474,7 +531,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             model = HybridLSTMTransformerModel(self.hybrid_config, n_features)
             model = model.to(self.device)
 
-            logger.info(f"PyTorch ハイブリッドモデル構築完了")
+            logger.info("PyTorch ハイブリッドモデル構築完了")
             logger.info(f"パラメータ数: {sum(p.numel() for p in model.parameters()):,}")
 
             return model
@@ -488,11 +545,12 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         seq_len, n_features = input_shape
 
         return {
-            'type': 'numpy_hybrid',
-            'input_shape': input_shape,
-            'lstm_weights': self._initialize_lstm_weights(n_features),
-            'transformer_weights': self._initialize_transformer_weights(n_features),
-            'fusion_weights': np.random.randn(256, self.config.prediction_horizon) * 0.1
+            "type": "numpy_hybrid",
+            "input_shape": input_shape,
+            "lstm_weights": self._initialize_lstm_weights(n_features),
+            "transformer_weights": self._initialize_transformer_weights(n_features),
+            "fusion_weights": np.random.randn(256, self.config.prediction_horizon)
+            * 0.1,
         }
 
     def _initialize_lstm_weights(self, n_features: int) -> Dict[str, np.ndarray]:
@@ -500,10 +558,10 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         hidden_size = self.hybrid_config.lstm_hidden_size
 
         return {
-            'W_i': np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
-            'W_f': np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
-            'W_o': np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
-            'W_c': np.random.randn(n_features + hidden_size, hidden_size) * 0.1
+            "W_i": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
+            "W_f": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
+            "W_o": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
+            "W_c": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,
         }
 
     def _initialize_transformer_weights(self, n_features: int) -> Dict[str, np.ndarray]:
@@ -511,17 +569,17 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         d_model = self.hybrid_config.transformer_d_model
 
         return {
-            'W_q': np.random.randn(n_features, d_model) * 0.1,
-            'W_k': np.random.randn(n_features, d_model) * 0.1,
-            'W_v': np.random.randn(n_features, d_model) * 0.1,
-            'W_o': np.random.randn(d_model, d_model) * 0.1
+            "W_q": np.random.randn(n_features, d_model) * 0.1,
+            "W_k": np.random.randn(n_features, d_model) * 0.1,
+            "W_v": np.random.randn(n_features, d_model) * 0.1,
+            "W_o": np.random.randn(d_model, d_model) * 0.1,
         }
 
     def _train_internal(self, X: np.ndarray, y: np.ndarray) -> Dict[str, Any]:
         """内部訓練メソッド"""
         start_time = time.time()
 
-        if PYTORCH_AVAILABLE and hasattr(self.model, 'parameters'):
+        if PYTORCH_AVAILABLE and hasattr(self.model, "parameters"):
             result = self._train_pytorch_hybrid(X, y, start_time)
         else:
             result = self._train_numpy_hybrid(X, y, start_time)
@@ -529,7 +587,9 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         self.is_trained = True
         return result
 
-    def _train_pytorch_hybrid(self, X: np.ndarray, y: np.ndarray, start_time: float) -> Dict[str, Any]:
+    def _train_pytorch_hybrid(
+        self, X: np.ndarray, y: np.ndarray, start_time: float
+    ) -> Dict[str, Any]:
         """PyTorch ハイブリッドモデル訓練"""
         # データテンソル変換
         X_tensor = torch.FloatTensor(X).to(self.device)
@@ -544,27 +604,31 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         train_dataset = TimeSeriesDataset(X_train.cpu().numpy(), y_train.cpu().numpy())
         val_dataset = TimeSeriesDataset(X_val.cpu().numpy(), y_val.cpu().numpy())
 
-        train_loader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=self.config.batch_size, shuffle=False)
+        train_loader = DataLoader(
+            train_dataset, batch_size=self.config.batch_size, shuffle=True
+        )
+        val_loader = DataLoader(
+            val_dataset, batch_size=self.config.batch_size, shuffle=False
+        )
 
         # オプティマイザー・スケジューラー
         optimizer = optim.AdamW(
             self.model.parameters(),
             lr=self.config.learning_rate,
-            weight_decay=self.hybrid_config.weight_decay
+            weight_decay=self.hybrid_config.weight_decay,
         )
 
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
-            mode='min',
+            mode="min",
             factor=self.hybrid_config.lr_scheduler_factor,
-            patience=self.hybrid_config.lr_scheduler_patience
+            patience=self.hybrid_config.lr_scheduler_patience,
         )
 
         criterion = nn.MSELoss()
 
         # 訓練ループ
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
         patience_counter = 0
         training_losses = []
         validation_losses = []
@@ -584,8 +648,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(),
-                    self.hybrid_config.gradient_clip_value
+                    self.model.parameters(), self.hybrid_config.gradient_clip_value
                 )
 
                 optimizer.step()
@@ -623,8 +686,10 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
 
             # ログ出力（10エポック毎）
             if (epoch + 1) % 10 == 0:
-                logger.info(f"エポック {epoch + 1}/{self.config.epochs}: "
-                          f"訓練損失={train_loss:.6f}, 検証損失={val_loss:.6f}")
+                logger.info(
+                    f"エポック {epoch + 1}/{self.config.epochs}: "
+                    f"訓練損失={train_loss:.6f}, 検証損失={val_loss:.6f}"
+                )
 
         training_time = time.time() - start_time
 
@@ -651,27 +716,30 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         val_accuracy = self._calculate_accuracy(y_val.cpu().numpy(), val_pred)
 
         return {
-            'final_loss': validation_losses[-1],
-            'best_loss': best_val_loss,
-            'epochs_run': epoch + 1,
-            'validation_metrics': {
-                'mse': best_val_loss,
-                'mae': np.mean(np.abs(y_val.cpu().numpy() - val_pred)),
-                'rmse': np.sqrt(best_val_loss)
+            "final_loss": validation_losses[-1],
+            "best_loss": best_val_loss,
+            "epochs_run": epoch + 1,
+            "validation_metrics": {
+                "mse": best_val_loss,
+                "mae": np.mean(np.abs(y_val.cpu().numpy() - val_pred)),
+                "rmse": np.sqrt(best_val_loss),
             },
-            'convergence_achieved': patience_counter < self.config.early_stopping_patience,
-            'training_time': training_time,
-            'training_accuracy': train_accuracy,
-            'validation_accuracy': val_accuracy
+            "convergence_achieved": patience_counter
+            < self.config.early_stopping_patience,
+            "training_time": training_time,
+            "training_accuracy": train_accuracy,
+            "validation_accuracy": val_accuracy,
         }
 
-    def _train_numpy_hybrid(self, X: np.ndarray, y: np.ndarray, start_time: float) -> Dict[str, Any]:
+    def _train_numpy_hybrid(
+        self, X: np.ndarray, y: np.ndarray, start_time: float
+    ) -> Dict[str, Any]:
         """NumPy ハイブリッドモデル訓練（簡易実装）"""
         val_size = int(len(X) * self.config.validation_split)
         X_train, X_val = X[:-val_size], X[-val_size:]
         y_train, y_val = y[:-val_size], y[-val_size:]
 
-        best_loss = float('inf')
+        best_loss = float("inf")
 
         for epoch in range(min(self.config.epochs, 50)):
             # 簡易フォワードパス
@@ -693,14 +761,14 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         val_accuracy = self._calculate_accuracy(y_val, val_pred)
 
         return {
-            'final_loss': val_loss,
-            'best_loss': best_loss,
-            'epochs_run': epoch + 1,
-            'validation_metrics': {'mse': best_loss},
-            'convergence_achieved': True,
-            'training_time': training_time,
-            'training_accuracy': train_accuracy,
-            'validation_accuracy': val_accuracy
+            "final_loss": val_loss,
+            "best_loss": best_loss,
+            "epochs_run": epoch + 1,
+            "validation_metrics": {"mse": best_loss},
+            "convergence_achieved": True,
+            "training_time": training_time,
+            "training_accuracy": train_accuracy,
+            "validation_accuracy": val_accuracy,
         }
 
     def _numpy_hybrid_forward(self, X: np.ndarray) -> np.ndarray:
@@ -719,22 +787,24 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         combined = np.concatenate([lstm_out, transformer_out], axis=1)
 
         # 予測
-        predictions = np.dot(combined, self.model['fusion_weights'])
+        predictions = np.dot(combined, self.model["fusion_weights"])
 
         return predictions
 
-    def _numpy_hybrid_backward(self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray):
+    def _numpy_hybrid_backward(
+        self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray
+    ):
         """NumPy ハイブリッドモデル バックワードパス"""
         # 簡易勾配更新
         learning_rate = self.config.learning_rate * 0.01
         error = predictions - y
 
         # 重み更新（簡易）
-        self.model['fusion_weights'] -= learning_rate * error.mean() * 0.001
+        self.model["fusion_weights"] -= learning_rate * error.mean() * 0.001
 
     def _predict_internal(self, X: np.ndarray) -> np.ndarray:
         """内部予測メソッド"""
-        if PYTORCH_AVAILABLE and hasattr(self.model, 'parameters'):
+        if PYTORCH_AVAILABLE and hasattr(self.model, "parameters"):
             return self._predict_pytorch_hybrid(X)
         else:
             return self._numpy_hybrid_forward(X)
@@ -748,18 +818,21 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             predictions = self.model(X_tensor)
             return predictions.cpu().numpy()
 
-    def predict_with_uncertainty(self, data: pd.DataFrame,
-                                num_samples: int = None) -> PredictionResult:
+    def predict_with_uncertainty(
+        self, data: pd.DataFrame, num_samples: int = None
+    ) -> PredictionResult:
         """不確実性付き予測"""
         num_samples = num_samples or self.hybrid_config.monte_carlo_samples
 
         X, _ = self.prepare_data(data)
 
-        if PYTORCH_AVAILABLE and hasattr(self.model, 'parameters'):
+        if PYTORCH_AVAILABLE and hasattr(self.model, "parameters"):
             X_tensor = torch.FloatTensor(X).to(self.device)
 
             with torch.no_grad():
-                mean_pred, std_pred = self.model.forward_with_uncertainty(X_tensor, num_samples)
+                mean_pred, std_pred = self.model.forward_with_uncertainty(
+                    X_tensor, num_samples
+                )
                 mean_pred = mean_pred.cpu().numpy()
                 std_pred = std_pred.cpu().numpy()
 
@@ -770,7 +843,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
                 lower_bound=mean_pred - 1.96 * std_pred,
                 upper_bound=mean_pred + 1.96 * std_pred,
                 epistemic=float(np.mean(std_pred)),
-                aleatoric=0.1  # 仮の値
+                aleatoric=0.1,  # 仮の値
             )
 
             # 信頼度計算
@@ -782,7 +855,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
                 confidence=confidence,
                 uncertainty=uncertainty,
                 model_used="HybridLSTMTransformer",
-                metrics={'uncertainty_mean': uncertainty.mean}
+                metrics={"uncertainty_mean": uncertainty.mean},
             )
         else:
             # NumPy版は不確実性推定なし
@@ -792,13 +865,13 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             return PredictionResult(
                 predictions=predictions,
                 confidence=confidence,
-                model_used="HybridLSTMTransformer (NumPy)"
+                model_used="HybridLSTMTransformer (NumPy)",
             )
 
     def get_attention_analysis(self, data: pd.DataFrame) -> Dict[str, Any]:
         """アテンション重み分析"""
-        if not PYTORCH_AVAILABLE or not hasattr(self.model, 'parameters'):
-            return {'error': 'PyTorchモデルが利用できません'}
+        if not PYTORCH_AVAILABLE or not hasattr(self.model, "parameters"):
+            return {"error": "PyTorchモデルが利用できません"}
 
         X, _ = self.prepare_data(data)
         X_tensor = torch.FloatTensor(X).to(self.device)
@@ -808,18 +881,23 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             predictions, attention_info = self.model(X_tensor, return_attention=True)
 
         return {
-            'lstm_contribution': attention_info['lstm_contribution'],
-            'transformer_contribution': attention_info['transformer_contribution'],
-            'attention_balance': 'LSTM優位' if attention_info['lstm_contribution'] > 0.5 else 'Transformer優位',
-            'predictions': predictions.cpu().numpy(),
-            'analysis': 'アテンション重みによる特徴量重要度分析完了'
+            "lstm_contribution": attention_info["lstm_contribution"],
+            "transformer_contribution": attention_info["transformer_contribution"],
+            "attention_balance": "LSTM優位"
+            if attention_info["lstm_contribution"] > 0.5
+            else "Transformer優位",
+            "predictions": predictions.cpu().numpy(),
+            "analysis": "アテンション重みによる特徴量重要度分析完了",
         }
 
     def _calculate_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """精度計算（MAPE -> Accuracy変換）"""
         try:
             # MAPE計算
-            mape = np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8))) * 100
+            mape = (
+                np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8)))
+                * 100
+            )
 
             # MAPEから精度に変換（0-100%）
             accuracy = max(0, 100 - mape)
@@ -829,7 +907,9 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             return 0.0
 
 
-def create_hybrid_model(config: Optional[HybridModelConfig] = None) -> HybridLSTMTransformerEngine:
+def create_hybrid_model(
+    config: Optional[HybridModelConfig] = None,
+) -> HybridLSTMTransformerEngine:
     """ハイブリッドモデル作成ファクトリ関数"""
     if config is None:
         config = HybridModelConfig()
@@ -839,39 +919,39 @@ def create_hybrid_model(config: Optional[HybridModelConfig] = None) -> HybridLST
 
 # モジュール公開
 __all__ = [
-    'HybridModelConfig',
-    'HybridTrainingResult',
-    'HybridLSTMTransformerEngine',
-    'create_hybrid_model'
+    "HybridModelConfig",
+    "HybridTrainingResult",
+    "HybridLSTMTransformerEngine",
+    "create_hybrid_model",
 ]
 
 if __name__ == "__main__":
     # テスト実行
     logger.info("ハイブリッドLSTM-Transformerモデル テスト実行")
 
-    config = HybridModelConfig(
-        sequence_length=60,
-        prediction_horizon=5,
-        epochs=10
-    )
+    config = HybridModelConfig(sequence_length=60, prediction_horizon=5, epochs=10)
 
     model = create_hybrid_model(config)
 
     # ダミーデータでテスト
-    test_data = pd.DataFrame({
-        'Open': np.random.randn(1000) + 100,
-        'High': np.random.randn(1000) + 102,
-        'Low': np.random.randn(1000) + 98,
-        'Close': np.random.randn(1000) + 101,
-        'Volume': np.random.randint(1000, 10000, 1000)
-    })
+    test_data = pd.DataFrame(
+        {
+            "Open": np.random.randn(1000) + 100,
+            "High": np.random.randn(1000) + 102,
+            "Low": np.random.randn(1000) + 98,
+            "Close": np.random.randn(1000) + 101,
+            "Volume": np.random.randint(1000, 10000, 1000),
+        }
+    )
 
     logger.info("テストデータ作成完了")
 
     try:
         # 訓練テスト
         training_result = model.train(test_data)
-        logger.info(f"訓練完了: 精度={training_result.validation_metrics.get('mse', 0.0):.6f}")
+        logger.info(
+            f"訓練完了: 精度={training_result.validation_metrics.get('mse', 0.0):.6f}"
+        )
 
         # 予測テスト
         prediction_result = model.predict(test_data.tail(100))
@@ -880,15 +960,20 @@ if __name__ == "__main__":
         # 不確実性推定テスト
         if PYTORCH_AVAILABLE:
             uncertainty_result = model.predict_with_uncertainty(test_data.tail(50))
-            logger.info(f"不確実性推定完了: 平均不確実性={uncertainty_result.uncertainty.mean:.4f}")
+            logger.info(
+                f"不確実性推定完了: 平均不確実性={uncertainty_result.uncertainty.mean:.4f}"
+            )
 
             # アテンション分析テスト
             attention_analysis = model.get_attention_analysis(test_data.tail(20))
-            logger.info(f"アテンション分析完了: {attention_analysis.get('analysis', 'N/A')}")
+            logger.info(
+                f"アテンション分析完了: {attention_analysis.get('analysis', 'N/A')}"
+            )
 
         logger.info("ハイブリッドLSTM-Transformerモデル テスト成功")
 
     except Exception as e:
         logger.error(f"テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()

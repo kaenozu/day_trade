@@ -8,13 +8,14 @@ Memory Cache Provider
 
 import threading
 import time
-from typing import Any, Dict, Optional, List, Tuple
-from datetime import datetime, timedelta
 from collections import OrderedDict
-import weakref
+from typing import Any, Dict, List, Optional
 
-from ..interfaces.cache_interfaces import ICacheProvider, ICacheSerializer, ICacheEvictionPolicy
 from ..exceptions.risk_exceptions import CacheError
+from ..interfaces.cache_interfaces import (
+    ICacheProvider,
+)
+
 
 class CacheItem:
     """キャッシュアイテム"""
@@ -46,38 +47,39 @@ class CacheItem:
         """最終アクセスからの経過時間（秒）"""
         return time.time() - self.last_accessed
 
+
 class MemoryCacheProvider(ICacheProvider):
     """メモリキャッシュプロバイダー"""
 
     def __init__(self, config: Dict[str, Any]):
-        self.max_size = config.get('max_size', 1000)
-        self.default_ttl_seconds = config.get('ttl_seconds', 3600)
-        self.thread_safe = config.get('thread_safe', True)
-        self.cleanup_interval_seconds = config.get('cleanup_interval_seconds', 300)
-        self.enable_stats = config.get('enable_stats', True)
+        self.max_size = config.get("max_size", 1000)
+        self.default_ttl_seconds = config.get("ttl_seconds", 3600)
+        self.thread_safe = config.get("thread_safe", True)
+        self.cleanup_interval_seconds = config.get("cleanup_interval_seconds", 300)
+        self.enable_stats = config.get("enable_stats", True)
 
         # キャッシュストレージ
         self._cache: Dict[str, CacheItem] = OrderedDict()
 
         # 統計情報
         self._stats = {
-            'hits': 0,
-            'misses': 0,
-            'sets': 0,
-            'deletes': 0,
-            'evictions': 0,
-            'cleanups': 0,
-            'memory_usage_bytes': 0
+            "hits": 0,
+            "misses": 0,
+            "sets": 0,
+            "deletes": 0,
+            "evictions": 0,
+            "cleanups": 0,
+            "memory_usage_bytes": 0,
         }
 
         # スレッドセーフティ
         self._lock = threading.RLock() if self.thread_safe else None
 
         # 立ち退きポリシー
-        self._eviction_policy = config.get('eviction_policy')
+        self._eviction_policy = config.get("eviction_policy")
 
         # シリアライザー
-        self._serializer = config.get('serializer')
+        self._serializer = config.get("serializer")
 
         # バックグラウンドクリーンアップ
         self._cleanup_thread = None
@@ -92,7 +94,7 @@ class MemoryCacheProvider(ICacheProvider):
             try:
                 if key not in self._cache:
                     if self.enable_stats:
-                        self._stats['misses'] += 1
+                        self._stats["misses"] += 1
                     return None
 
                 item = self._cache[key]
@@ -101,7 +103,7 @@ class MemoryCacheProvider(ICacheProvider):
                 if item.is_expired():
                     del self._cache[key]
                     if self.enable_stats:
-                        self._stats['misses'] += 1
+                        self._stats["misses"] += 1
                     return None
 
                 # アクセス情報更新
@@ -111,7 +113,7 @@ class MemoryCacheProvider(ICacheProvider):
                 self._cache.move_to_end(key)
 
                 if self.enable_stats:
-                    self._stats['hits'] += 1
+                    self._stats["hits"] += 1
 
                 return item.value
 
@@ -121,7 +123,7 @@ class MemoryCacheProvider(ICacheProvider):
                     cache_key=key,
                     operation="get",
                     cache_provider="memory",
-                    cause=e
+                    cause=e,
                 )
 
     def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> bool:
@@ -144,7 +146,7 @@ class MemoryCacheProvider(ICacheProvider):
                 self._cache.move_to_end(key)
 
                 if self.enable_stats:
-                    self._stats['sets'] += 1
+                    self._stats["sets"] += 1
                     self._update_memory_usage()
 
                 return True
@@ -155,7 +157,7 @@ class MemoryCacheProvider(ICacheProvider):
                     cache_key=key,
                     operation="set",
                     cache_provider="memory",
-                    cause=e
+                    cause=e,
                 )
 
     def delete(self, key: str) -> bool:
@@ -165,7 +167,7 @@ class MemoryCacheProvider(ICacheProvider):
                 if key in self._cache:
                     del self._cache[key]
                     if self.enable_stats:
-                        self._stats['deletes'] += 1
+                        self._stats["deletes"] += 1
                         self._update_memory_usage()
                     return True
                 return False
@@ -176,7 +178,7 @@ class MemoryCacheProvider(ICacheProvider):
                     cache_key=key,
                     operation="delete",
                     cache_provider="memory",
-                    cause=e
+                    cause=e,
                 )
 
     def exists(self, key: str) -> bool:
@@ -198,7 +200,7 @@ class MemoryCacheProvider(ICacheProvider):
             try:
                 self._cache.clear()
                 if self.enable_stats:
-                    self._stats['memory_usage_bytes'] = 0
+                    self._stats["memory_usage_bytes"] = 0
                 return True
 
             except Exception as e:
@@ -206,7 +208,7 @@ class MemoryCacheProvider(ICacheProvider):
                     "Failed to clear cache",
                     operation="clear",
                     cache_provider="memory",
-                    cause=e
+                    cause=e,
                 )
 
     def keys(self, pattern: Optional[str] = None) -> List[str]:
@@ -219,6 +221,7 @@ class MemoryCacheProvider(ICacheProvider):
 
             # 簡易パターンマッチング
             import fnmatch
+
             return [key for key in all_keys if fnmatch.fnmatch(key, pattern)]
 
     def size(self) -> int:
@@ -229,13 +232,15 @@ class MemoryCacheProvider(ICacheProvider):
         """統計情報取得"""
         with self._get_lock():
             stats = self._stats.copy()
-            stats.update({
-                'cache_size': len(self._cache),
-                'max_size': self.max_size,
-                'hit_rate': self._calculate_hit_rate(),
-                'expired_items': self._count_expired_items(),
-                'average_age_seconds': self._calculate_average_age()
-            })
+            stats.update(
+                {
+                    "cache_size": len(self._cache),
+                    "max_size": self.max_size,
+                    "hit_rate": self._calculate_hit_rate(),
+                    "expired_items": self._count_expired_items(),
+                    "average_age_seconds": self._calculate_average_age(),
+                }
+            )
             return stats
 
     def cleanup_expired(self) -> int:
@@ -251,7 +256,7 @@ class MemoryCacheProvider(ICacheProvider):
                 del self._cache[key]
 
             if self.enable_stats:
-                self._stats['cleanups'] += 1
+                self._stats["cleanups"] += 1
                 self._update_memory_usage()
 
             return len(expired_keys)
@@ -271,10 +276,10 @@ class MemoryCacheProvider(ICacheProvider):
                 total_size += sys.getsizeof(item.value)
 
             return {
-                'total_bytes': total_size,
-                'item_count': item_count,
-                'average_item_size': total_size // item_count if item_count > 0 else 0,
-                'overhead_bytes': sys.getsizeof(self._cache)
+                "total_bytes": total_size,
+                "item_count": item_count,
+                "average_item_size": total_size // item_count if item_count > 0 else 0,
+                "overhead_bytes": sys.getsizeof(self._cache),
             }
 
     def close(self):
@@ -291,11 +296,12 @@ class MemoryCacheProvider(ICacheProvider):
         else:
             # ダミーコンテキストマネージャー
             from contextlib import nullcontext
+
             return nullcontext()
 
     def _evict_items(self, count: int):
         """アイテム立ち退き"""
-        if self._eviction_policy and hasattr(self._eviction_policy, 'evict'):
+        if self._eviction_policy and hasattr(self._eviction_policy, "evict"):
             # カスタム立ち退きポリシー使用
             keys_to_evict = self._eviction_policy.evict(self._cache, count)
         else:
@@ -306,14 +312,14 @@ class MemoryCacheProvider(ICacheProvider):
             if key in self._cache:
                 del self._cache[key]
                 if self.enable_stats:
-                    self._stats['evictions'] += 1
+                    self._stats["evictions"] += 1
 
     def _calculate_hit_rate(self) -> float:
         """ヒット率計算"""
-        total_requests = self._stats['hits'] + self._stats['misses']
+        total_requests = self._stats["hits"] + self._stats["misses"]
         if total_requests == 0:
             return 0.0
-        return self._stats['hits'] / total_requests
+        return self._stats["hits"] / total_requests
 
     def _count_expired_items(self) -> int:
         """期限切れアイテム数カウント"""
@@ -337,10 +343,11 @@ class MemoryCacheProvider(ICacheProvider):
     def _update_memory_usage(self):
         """メモリ使用量更新"""
         memory_info = self.get_memory_usage()
-        self._stats['memory_usage_bytes'] = memory_info['total_bytes']
+        self._stats["memory_usage_bytes"] = memory_info["total_bytes"]
 
     def _start_cleanup_thread(self):
         """バックグラウンドクリーンアップ開始"""
+
         def cleanup_worker():
             while not self._stop_cleanup.is_set():
                 try:
@@ -351,9 +358,7 @@ class MemoryCacheProvider(ICacheProvider):
                     pass
 
         self._cleanup_thread = threading.Thread(
-            target=cleanup_worker,
-            daemon=True,
-            name="MemoryCacheCleanup"
+            target=cleanup_worker, daemon=True, name="MemoryCacheCleanup"
         )
         self._cleanup_thread.start()
 

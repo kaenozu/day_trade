@@ -4,7 +4,8 @@ LSTM予測結果可視化
 LSTM時系列予測の結果を詳細に可視化
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -15,8 +16,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:

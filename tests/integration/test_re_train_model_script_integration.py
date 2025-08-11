@@ -6,19 +6,18 @@ from pathlib import Path
 # MLflowのインポートをモック化
 # MLflowがインストールされていない環境でもテストが実行できるように
 # ただし、MLflowのログ記録のテストは、実際のMLflow環境が必要
-from unittest.mock import MagicMock # 追加
-
-from unittest.mock import MagicMock # 追加
+from unittest.mock import MagicMock  # 追加  # 追加
 
 # MLflowのインポートをモック化
 # MLflowがインストールされていない環境でもテストが実行できるように
 # ただし、MLflowのログ記録のテストは、実際のMLflow環境が必要
 try:
     import mlflow
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
-    mlflow = MagicMock() # ダミーのmlflowオブジェクト
+    mlflow = MagicMock()  # ダミーのmlflowオブジェクト
 
 # テスト用のディレクトリ
 MLRUNS_DIR = Path("mlruns")
@@ -68,7 +67,7 @@ class TestReTrainModelScriptIntegration(unittest.TestCase):
         runs_found = False
         for exp_dir in experiments:
             runs_dir = exp_dir / "runs"
-            if runs_dir.exists() and any(runs_dir.iterdir()): # SIM102 修正
+            if runs_dir.exists() and any(runs_dir.iterdir()):  # SIM102 修正
                 runs_found = True
                 break
         self.assertTrue(runs_found, "No MLflow runs found.")

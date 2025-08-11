@@ -6,13 +6,13 @@ Cache Eviction Policies
 メモリ制限時のキャッシュアイテム立ち退き戦略
 """
 
-import time
 import random
-from typing import Dict, List, Any, Optional
+import time
 from collections import OrderedDict
-from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 
 from ..interfaces.cache_interfaces import ICacheEvictionPolicy
+
 
 class LRUEvictionPolicy(ICacheEvictionPolicy):
     """LRU（Least Recently Used）立ち退きポリシー"""
@@ -32,11 +32,11 @@ class LRUEvictionPolicy(ICacheEvictionPolicy):
             # 最終アクセス時刻でソート
             items_with_access_time = []
             for key, item in cache_items.items():
-                if hasattr(item, 'last_accessed'):
+                if hasattr(item, "last_accessed"):
                     items_with_access_time.append((key, item.last_accessed))
                 else:
                     # アクセス時刻がない場合は作成時刻を使用
-                    access_time = getattr(item, 'created_at', time.time())
+                    access_time = getattr(item, "created_at", time.time())
                     items_with_access_time.append((key, access_time))
 
             # アクセス時刻の古い順にソート
@@ -45,18 +45,21 @@ class LRUEvictionPolicy(ICacheEvictionPolicy):
 
         return keys_to_evict
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
-        max_size = self.config.get('max_size', 1000)
+        max_size = self.config.get("max_size", 1000)
         return len(cache_items) >= max_size
 
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'LRU',
-            'description': 'Least Recently Used eviction policy',
-            'config': self.config
+            "name": "LRU",
+            "description": "Least Recently Used eviction policy",
+            "config": self.config,
         }
+
 
 class LFUEvictionPolicy(ICacheEvictionPolicy):
     """LFU（Least Frequently Used）立ち退きポリシー"""
@@ -72,13 +75,13 @@ class LFUEvictionPolicy(ICacheEvictionPolicy):
         # アクセス回数でソート
         items_with_frequency = []
         for key, item in cache_items.items():
-            if hasattr(item, 'access_count'):
+            if hasattr(item, "access_count"):
                 frequency = item.access_count
             else:
                 frequency = 1  # デフォルトは1回
 
             # 同じ頻度の場合は最終アクセス時刻で決定
-            last_accessed = getattr(item, 'last_accessed', time.time())
+            last_accessed = getattr(item, "last_accessed", time.time())
             items_with_frequency.append((key, frequency, last_accessed))
 
         # 使用頻度の少ない順、同じ頻度なら古いアクセス順
@@ -87,18 +90,21 @@ class LFUEvictionPolicy(ICacheEvictionPolicy):
 
         return keys_to_evict
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
-        max_size = self.config.get('max_size', 1000)
+        max_size = self.config.get("max_size", 1000)
         return len(cache_items) >= max_size
 
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'LFU',
-            'description': 'Least Frequently Used eviction policy',
-            'config': self.config
+            "name": "LFU",
+            "description": "Least Frequently Used eviction policy",
+            "config": self.config,
         }
+
 
 class FIFOEvictionPolicy(ICacheEvictionPolicy):
     """FIFO（First In First Out）立ち退きポリシー"""
@@ -114,7 +120,7 @@ class FIFOEvictionPolicy(ICacheEvictionPolicy):
         # 作成時刻でソート
         items_with_creation_time = []
         for key, item in cache_items.items():
-            if hasattr(item, 'created_at'):
+            if hasattr(item, "created_at"):
                 created_at = item.created_at
             else:
                 created_at = time.time()  # 現在時刻をデフォルト
@@ -127,26 +133,31 @@ class FIFOEvictionPolicy(ICacheEvictionPolicy):
 
         return keys_to_evict
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
-        max_size = self.config.get('max_size', 1000)
+        max_size = self.config.get("max_size", 1000)
         return len(cache_items) >= max_size
 
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'FIFO',
-            'description': 'First In First Out eviction policy',
-            'config': self.config
+            "name": "FIFO",
+            "description": "First In First Out eviction policy",
+            "config": self.config,
         }
+
 
 class TTLEvictionPolicy(ICacheEvictionPolicy):
     """TTL（Time To Live）ベース立ち退きポリシー"""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.default_ttl = config.get('default_ttl_seconds', 3600)
-        self.cleanup_threshold = config.get('cleanup_threshold', 0.8)  # 80%でクリーンアップ開始
+        self.default_ttl = config.get("default_ttl_seconds", 3600)
+        self.cleanup_threshold = config.get(
+            "cleanup_threshold", 0.8
+        )  # 80%でクリーンアップ開始
 
     def evict(self, cache_items: Dict[str, Any], count: int) -> List[str]:
         """期限切れまたは期限切れ間近のアイテムを立ち退き"""
@@ -157,9 +168,9 @@ class TTLEvictionPolicy(ICacheEvictionPolicy):
         items_with_expiry = []
 
         for key, item in cache_items.items():
-            if hasattr(item, 'expires_at') and item.expires_at:
+            if hasattr(item, "expires_at") and item.expires_at:
                 expires_at = item.expires_at
-            elif hasattr(item, 'created_at') and hasattr(item, 'ttl_seconds'):
+            elif hasattr(item, "created_at") and hasattr(item, "ttl_seconds"):
                 expires_at = item.created_at + (item.ttl_seconds or self.default_ttl)
             else:
                 # TTL情報がない場合は現在時刻＋デフォルトTTL
@@ -175,9 +186,11 @@ class TTLEvictionPolicy(ICacheEvictionPolicy):
 
         return keys_to_evict
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
-        max_size = self.config.get('max_size', 1000)
+        max_size = self.config.get("max_size", 1000)
         current_size = len(cache_items)
 
         # サイズ制限チェック
@@ -195,9 +208,9 @@ class TTLEvictionPolicy(ICacheEvictionPolicy):
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'TTL',
-            'description': 'Time To Live based eviction policy',
-            'config': self.config
+            "name": "TTL",
+            "description": "Time To Live based eviction policy",
+            "config": self.config,
         }
 
     def _count_expired_items(self, cache_items: Dict[str, Any]) -> int:
@@ -206,20 +219,21 @@ class TTLEvictionPolicy(ICacheEvictionPolicy):
         expired_count = 0
 
         for item in cache_items.values():
-            if hasattr(item, 'is_expired') and item.is_expired():
+            if hasattr(item, "is_expired") and item.is_expired():
                 expired_count += 1
-            elif hasattr(item, 'expires_at') and item.expires_at:
+            elif hasattr(item, "expires_at") and item.expires_at:
                 if current_time > item.expires_at:
                     expired_count += 1
 
         return expired_count
+
 
 class RandomEvictionPolicy(ICacheEvictionPolicy):
     """ランダム立ち退きポリシー"""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.seed = config.get('random_seed')
+        self.seed = config.get("random_seed")
         if self.seed is not None:
             random.seed(self.seed)
 
@@ -233,26 +247,33 @@ class RandomEvictionPolicy(ICacheEvictionPolicy):
 
         return random.sample(all_keys, evict_count)
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
-        max_size = self.config.get('max_size', 1000)
+        max_size = self.config.get("max_size", 1000)
         return len(cache_items) >= max_size
 
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'Random',
-            'description': 'Random eviction policy',
-            'config': self.config
+            "name": "Random",
+            "description": "Random eviction policy",
+            "config": self.config,
         }
+
 
 class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
     """サイズベース立ち退きポリシー"""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.max_memory_bytes = config.get('max_memory_bytes', 100 * 1024 * 1024)  # 100MB
-        self.size_estimation_method = config.get('size_estimation_method', 'sys.getsizeof')
+        self.max_memory_bytes = config.get(
+            "max_memory_bytes", 100 * 1024 * 1024
+        )  # 100MB
+        self.size_estimation_method = config.get(
+            "size_estimation_method", "sys.getsizeof"
+        )
 
     def evict(self, cache_items: Dict[str, Any], count: int) -> List[str]:
         """サイズの大きいアイテムを優先的に立ち退き"""
@@ -263,14 +284,14 @@ class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
 
         items_with_size = []
         for key, item in cache_items.items():
-            if self.size_estimation_method == 'sys.getsizeof':
+            if self.size_estimation_method == "sys.getsizeof":
                 size = sys.getsizeof(item)
             else:
                 # カスタムサイズ計算
                 size = self._estimate_size(item)
 
             # アクセス頻度も考慮（大きくて使用頻度の低いものを優先）
-            access_count = getattr(item, 'access_count', 1)
+            access_count = getattr(item, "access_count", 1)
             priority_score = size / access_count  # サイズを使用頻度で割る
 
             items_with_size.append((key, size, priority_score))
@@ -281,7 +302,9 @@ class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
 
         return keys_to_evict
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """立ち退きが必要かどうか判定"""
         current_memory = self._calculate_total_memory(cache_items)
         new_item_size = self._estimate_size(new_item_value)
@@ -291,18 +314,18 @@ class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
     def get_metadata(self) -> Dict[str, Any]:
         """ポリシーメタデータ取得"""
         return {
-            'name': 'SizeBased',
-            'description': 'Size based eviction policy',
-            'config': self.config
+            "name": "SizeBased",
+            "description": "Size based eviction policy",
+            "config": self.config,
         }
 
     def _estimate_size(self, obj: Any) -> int:
         """オブジェクトサイズ推定"""
         import sys
 
-        if self.size_estimation_method == 'sys.getsizeof':
+        if self.size_estimation_method == "sys.getsizeof":
             return sys.getsizeof(obj)
-        elif hasattr(obj, '__sizeof__'):
+        elif hasattr(obj, "__sizeof__"):
             return obj.__sizeof__()
         else:
             # 推定値
@@ -315,6 +338,7 @@ class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
             total_memory += self._estimate_size(item)
         return total_memory
 
+
 class CompositeEvictionPolicy(ICacheEvictionPolicy):
     """複合立ち退きポリシー"""
 
@@ -324,11 +348,11 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
         self.weights = []
 
         # 子ポリシー作成
-        policy_configs = config.get('policies', [])
+        policy_configs = config.get("policies", [])
         for policy_config in policy_configs:
-            policy_type = policy_config['type']
-            policy_weight = policy_config.get('weight', 1.0)
-            policy_params = policy_config.get('config', {})
+            policy_type = policy_config["type"]
+            policy_weight = policy_config.get("weight", 1.0)
+            policy_params = policy_config.get("config", {})
 
             policy = self._create_policy(policy_type, policy_params)
             self.policies.append(policy)
@@ -336,10 +360,7 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
 
         if not self.policies:
             # デフォルトポリシー（LRU + TTL）
-            self.policies = [
-                LRUEvictionPolicy({}),
-                TTLEvictionPolicy({})
-            ]
+            self.policies = [LRUEvictionPolicy({}), TTLEvictionPolicy({})]
             self.weights = [0.7, 0.3]
 
     def evict(self, cache_items: Dict[str, Any], count: int) -> List[str]:
@@ -359,19 +380,21 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
                     candidate_scores[key] = 0
 
                 # 順位に基づくスコア（低い順位ほど高スコア）
-                score = weight * (len(policy_candidates) - rank) / len(policy_candidates)
+                score = (
+                    weight * (len(policy_candidates) - rank) / len(policy_candidates)
+                )
                 candidate_scores[key] += score
 
         # スコアの高い順にソートして指定数を返す
         sorted_candidates = sorted(
-            candidate_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
+            candidate_scores.items(), key=lambda x: x[1], reverse=True
         )
 
         return [key for key, _ in sorted_candidates[:count]]
 
-    def should_evict(self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any) -> bool:
+    def should_evict(
+        self, cache_items: Dict[str, Any], new_item_key: str, new_item_value: Any
+    ) -> bool:
         """いずれかのポリシーが立ち退きを推奨する場合は立ち退き"""
         return any(
             policy.should_evict(cache_items, new_item_key, new_item_value)
@@ -382,22 +405,24 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
         """ポリシーメタデータ取得"""
         sub_policies = [policy.get_metadata() for policy in self.policies]
         return {
-            'name': 'Composite',
-            'description': 'Composite eviction policy',
-            'sub_policies': sub_policies,
-            'weights': self.weights,
-            'config': self.config
+            "name": "Composite",
+            "description": "Composite eviction policy",
+            "sub_policies": sub_policies,
+            "weights": self.weights,
+            "config": self.config,
         }
 
-    def _create_policy(self, policy_type: str, config: Dict[str, Any]) -> ICacheEvictionPolicy:
+    def _create_policy(
+        self, policy_type: str, config: Dict[str, Any]
+    ) -> ICacheEvictionPolicy:
         """ポリシーインスタンス作成"""
         policy_classes = {
-            'lru': LRUEvictionPolicy,
-            'lfu': LFUEvictionPolicy,
-            'fifo': FIFOEvictionPolicy,
-            'ttl': TTLEvictionPolicy,
-            'random': RandomEvictionPolicy,
-            'size': SizeBasedEvictionPolicy
+            "lru": LRUEvictionPolicy,
+            "lfu": LFUEvictionPolicy,
+            "fifo": FIFOEvictionPolicy,
+            "ttl": TTLEvictionPolicy,
+            "random": RandomEvictionPolicy,
+            "size": SizeBasedEvictionPolicy,
         }
 
         policy_class = policy_classes.get(policy_type.lower())
@@ -406,24 +431,28 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
 
         return policy_class(config)
 
+
 # ポリシーファクトリー関数
 
-def create_eviction_policy(policy_type: str, config: Dict[str, Any]) -> ICacheEvictionPolicy:
+
+def create_eviction_policy(
+    policy_type: str, config: Dict[str, Any]
+) -> ICacheEvictionPolicy:
     """立ち退きポリシー作成"""
 
     policy_classes = {
-        'lru': LRUEvictionPolicy,
-        'lfu': LFUEvictionPolicy,
-        'fifo': FIFOEvictionPolicy,
-        'ttl': TTLEvictionPolicy,
-        'random': RandomEvictionPolicy,
-        'size': SizeBasedEvictionPolicy,
-        'composite': CompositeEvictionPolicy
+        "lru": LRUEvictionPolicy,
+        "lfu": LFUEvictionPolicy,
+        "fifo": FIFOEvictionPolicy,
+        "ttl": TTLEvictionPolicy,
+        "random": RandomEvictionPolicy,
+        "size": SizeBasedEvictionPolicy,
+        "composite": CompositeEvictionPolicy,
     }
 
     policy_class = policy_classes.get(policy_type.lower())
     if not policy_class:
-        available_policies = ', '.join(policy_classes.keys())
+        available_policies = ", ".join(policy_classes.keys())
         raise ValueError(
             f"Unknown eviction policy type: {policy_type}. "
             f"Available policies: {available_policies}"

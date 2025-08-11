@@ -7,28 +7,34 @@ Slack、Email、SMS等の各種通知チャネルに対応した抽象インタ�
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Union, Callable
-from datetime import datetime, timedelta
-from enum import Enum
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 
 class AlertSeverity(Enum):
     """アラート重要度"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
+
 class AlertStatus(Enum):
     """アラートステータス"""
+
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
     SUPPRESSED = "suppressed"
     EXPIRED = "expired"
 
+
 class NotificationChannel(Enum):
     """通知チャネル"""
+
     SLACK = "slack"
     EMAIL = "email"
     SMS = "sms"
@@ -36,9 +42,11 @@ class NotificationChannel(Enum):
     DASHBOARD = "dashboard"
     PUSH_NOTIFICATION = "push"
 
+
 @dataclass
 class AlertRule:
     """アラートルール"""
+
     rule_id: str
     name: str
     description: str
@@ -58,9 +66,11 @@ class AlertRule:
         except Exception:
             return False
 
+
 @dataclass
 class Alert:
     """アラート"""
+
     alert_id: str
     rule_id: str
     title: str
@@ -78,9 +88,11 @@ class Alert:
     tags: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class NotificationMessage:
     """通知メッセージ"""
+
     title: str
     body: str
     channel: NotificationChannel
@@ -88,6 +100,7 @@ class NotificationMessage:
     priority: AlertSeverity
     attachments: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
 
 class INotificationChannel(ABC):
     """通知チャネルインターフェース"""
@@ -117,6 +130,7 @@ class INotificationChannel(ABC):
         """ヘルスチェック"""
         pass
 
+
 class IAlertRule(ABC):
     """アラートルールインターフェース"""
 
@@ -140,6 +154,7 @@ class IAlertRule(ABC):
         """スロットリング判定"""
         pass
 
+
 class IAlertProcessor(ABC):
     """アラート処理器インターフェース"""
 
@@ -150,33 +165,25 @@ class IAlertProcessor(ABC):
 
     @abstractmethod
     async def acknowledge_alert(
-        self,
-        alert_id: str,
-        acknowledged_by: str,
-        comment: Optional[str] = None
+        self, alert_id: str, acknowledged_by: str, comment: Optional[str] = None
     ) -> bool:
         """アラート承認"""
         pass
 
     @abstractmethod
     async def resolve_alert(
-        self,
-        alert_id: str,
-        resolved_by: str,
-        comment: Optional[str] = None
+        self, alert_id: str, resolved_by: str, comment: Optional[str] = None
     ) -> bool:
         """アラート解決"""
         pass
 
     @abstractmethod
     async def suppress_alert(
-        self,
-        alert_id: str,
-        duration_minutes: int,
-        reason: str
+        self, alert_id: str, duration_minutes: int, reason: str
     ) -> bool:
         """アラート抑制"""
         pass
+
 
 class IAlertStorage(ABC):
     """アラートストレージインターフェース"""
@@ -196,7 +203,7 @@ class IAlertStorage(ABC):
         self,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Alert]:
         """アラート一覧取得"""
         pass
@@ -206,7 +213,7 @@ class IAlertStorage(ABC):
         self,
         alert_id: str,
         status: AlertStatus,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """アラートステータス更新"""
         pass
@@ -218,12 +225,11 @@ class IAlertStorage(ABC):
 
     @abstractmethod
     async def get_alert_statistics(
-        self,
-        start_time: datetime,
-        end_time: datetime
+        self, start_time: datetime, end_time: datetime
     ) -> Dict[str, Any]:
         """アラート統計取得"""
         pass
+
 
 class IEscalationManager(ABC):
     """エスカレーション管理インターフェース"""
@@ -234,11 +240,7 @@ class IEscalationManager(ABC):
         pass
 
     @abstractmethod
-    async def escalate_alert(
-        self,
-        alert: Alert,
-        escalation_level: int
-    ) -> bool:
+    async def escalate_alert(self, alert: Alert, escalation_level: int) -> bool:
         """アラートエスカレーション"""
         pass
 
@@ -247,25 +249,20 @@ class IEscalationManager(ABC):
         """エスカレーションルール取得"""
         pass
 
+
 class IAlertTemplateEngine(ABC):
     """アラートテンプレートエンジンインターフェース"""
 
     @abstractmethod
     async def render_message(
-        self,
-        template_name: str,
-        context: Dict[str, Any],
-        channel: NotificationChannel
+        self, template_name: str, context: Dict[str, Any], channel: NotificationChannel
     ) -> NotificationMessage:
         """メッセージレンダリング"""
         pass
 
     @abstractmethod
     async def register_template(
-        self,
-        template_name: str,
-        template_content: str,
-        channel: NotificationChannel
+        self, template_name: str, template_content: str, channel: NotificationChannel
     ) -> bool:
         """テンプレート登録"""
         pass
@@ -275,7 +272,9 @@ class IAlertTemplateEngine(ABC):
         """利用可能テンプレート一覧取得"""
         pass
 
+
 # ヘルパー関数
+
 
 def create_alert_id(source: str, timestamp: datetime) -> str:
     """アラートID生成"""
@@ -285,17 +284,18 @@ def create_alert_id(source: str, timestamp: datetime) -> str:
     data = f"{source}:{timestamp.isoformat()}:{uuid.uuid4()}"
     return hashlib.sha256(data.encode()).hexdigest()[:16]
 
+
 def calculate_alert_priority(
     severity: AlertSeverity,
     affected_resources_count: int,
-    business_impact_score: float = 0.5
+    business_impact_score: float = 0.5,
 ) -> int:
     """アラート優先度計算"""
     severity_weights = {
         AlertSeverity.LOW: 1,
         AlertSeverity.MEDIUM: 2,
         AlertSeverity.HIGH: 4,
-        AlertSeverity.CRITICAL: 8
+        AlertSeverity.CRITICAL: 8,
     }
 
     base_score = severity_weights.get(severity, 1)
@@ -304,37 +304,31 @@ def calculate_alert_priority(
 
     return int(base_score * (1 + resource_factor + business_factor))
 
-def is_alert_suppressed(
-    alert: Alert,
-    suppression_rules: List[Dict[str, Any]]
-) -> bool:
+
+def is_alert_suppressed(alert: Alert, suppression_rules: List[Dict[str, Any]]) -> bool:
     """アラート抑制判定"""
-    for rule in suppression_rules:
-        if _matches_suppression_rule(alert, rule):
-            return True
-    return False
+    return any(_matches_suppression_rule(alert, rule) for rule in suppression_rules)
+
 
 def _matches_suppression_rule(alert: Alert, rule: Dict[str, Any]) -> bool:
     """抑制ルールマッチング判定"""
     # 実装例：タグベースの抑制判定
-    required_tags = rule.get('tags', {})
+    required_tags = rule.get("tags", {})
     for key, value in required_tags.items():
         if alert.tags.get(key) != value:
             return False
 
     # 時間ベースの抑制判定
-    if 'time_window' in rule:
-        window = rule['time_window']
+    if "time_window" in rule:
+        window = rule["time_window"]
         current_hour = datetime.now().hour
-        if not (window['start'] <= current_hour <= window['end']):
+        if not (window["start"] <= current_hour <= window["end"]):
             return False
 
     return True
 
-def format_alert_message(
-    alert: Alert,
-    template: str = "{title}: {message}"
-) -> str:
+
+def format_alert_message(alert: Alert, template: str = "{title}: {message}") -> str:
     """アラートメッセージフォーマット"""
     try:
         return template.format(
@@ -342,8 +336,8 @@ def format_alert_message(
             message=alert.message,
             severity=alert.severity.value,
             status=alert.status.value,
-            created_at=alert.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            alert_id=alert.alert_id
+            created_at=alert.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            alert_id=alert.alert_id,
         )
     except Exception:
         return f"{alert.title}: {alert.message}"

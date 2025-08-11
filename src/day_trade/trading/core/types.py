@@ -16,10 +16,10 @@ from ...models.enums import TradeType
 class TradeStatus(Enum):
     """取引ステータス"""
 
-    PENDING = "pending"      # 注文中
-    EXECUTED = "executed"    # 約定済み
+    PENDING = "pending"  # 注文中
+    EXECUTED = "executed"  # 約定済み
     CANCELLED = "cancelled"  # キャンセル
-    PARTIAL = "partial"      # 一部約定
+    PARTIAL = "partial"  # 一部約定
 
 
 @dataclass

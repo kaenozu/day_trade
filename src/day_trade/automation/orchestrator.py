@@ -23,11 +23,11 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
+from ..database.database import get_default_database_manager  # 追加
 from ..ml.data_drift_detector import DataDriftDetector  # 追加
 from ..utils.fault_tolerance import FaultTolerantExecutor
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
-from ..database.database import get_default_database_manager # 追加
 
 CI_MODE = os.getenv("CI", "false").lower() == "true"
 
@@ -471,15 +471,15 @@ class NextGenAIOrchestrator:
 
         return results
 
-    def _analyze_single_symbol(
+    def analyze_single_symbol(
         self,
         symbol: str,
-        data_response: Optional[DataResponse],
-        analysis_type: str,
-        include_predictions: bool,
-    ) -> Dict:
+        data_response: Any,  # TODO: DataFetchResponse クラスを実装またはインポート
+        include_predictions: bool = True,
+    ) -> Dict[str, Any]:
         """単一銘柄AI分析"""
 
+        alerts = []
         start_time = time.time()
 
         try:
@@ -631,14 +631,13 @@ class NextGenAIOrchestrator:
                 data_drift_results=data_drift_results,  # ドリフト検出結果を追加
             )
 
-            # アラートリストを初期化
-            alerts = [] # 移動
-
             # シグナル生成
             signals = self._generate_ai_signals(ai_analysis)
 
             # アラート生成
-            alerts.extend(self._generate_smart_alerts(ai_analysis)) # alerts.extend() に変更
+            alerts.extend(
+                self._generate_smart_alerts(ai_analysis)
+            )  # alerts.extend() に変更
 
             return {
                 "success": True,
@@ -928,7 +927,7 @@ class NextGenAIOrchestrator:
     ) -> List[Dict[str, Any]]:
         """スマートアラート生成"""
 
-        alerts = []
+        alerts = []  # ここに移動
 
         try:
             # データ品質アラート

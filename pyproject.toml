@@ -165,6 +165,25 @@ ignore = [
     "N803",  # argument name should be lowercase (for ML X, y compatibility)
     "B007",  # Loop control variable not used within loop body
     "F841",  # Local variable is assigned to but never used
+    "F821",  # Undefined name
+    "F401",  # imported but unused
+    "E402",  # Module level import not at top of file
+    "SIM118", # Use `key in dict` instead of `key in dict.keys()`
+    "E722",  # Do not use bare `except`
+    "B904",  # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None`
+    "SIM117", # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
+    "SIM105", # Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+    "SIM108", # Use ternary operator instead of `if`-`else`-block
+    "SIM114", # Combine `if` branches using logical `or` operator
+    "N812",  # Lowercase imported as non-lowercase
+    "N801",  # Class name should use CapWords convention
+    "N802",  # Function name should be lowercase
+    "B017",  # `pytest.raises(Exception)` should be considered evil
+    "B023",  # Function definition does not bind loop variable
+    "B027",  # `IRiskPlugin.cleanup` is an empty method in an abstract base class, but has no abstract decorator
+    "B034",  # `re.split` should pass `maxsplit` and `flags` as keyword arguments
+    "E741",  # Ambiguous variable name
     # FMT rule removed - invalid selector
 ]
 

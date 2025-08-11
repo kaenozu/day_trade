@@ -4,7 +4,8 @@
 出来高パターン・価格出来高関係・流動性分析の可視化
 """
 
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -15,8 +16,8 @@ logger = get_context_logger(__name__)
 
 # 依存パッケージチェック
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
     from matplotlib.patches import Rectangle
 
     MATPLOTLIB_AVAILABLE = True
@@ -163,7 +164,9 @@ class VolumeAnalysis(ChartRenderer):
             ax, title=f"{symbol} 価格・出来高", xlabel="時間", ylabel="価格"
         )
 
-    def _plot_volume_profile(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_profile(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高プロファイルプロット
 
@@ -247,7 +250,9 @@ class VolumeAnalysis(ChartRenderer):
                 alpha=0.7,
             )
 
-        self.apply_common_styling(ax, title="出来高プロファイル", xlabel="出来高", ylabel="価格")
+        self.apply_common_styling(
+            ax, title="出来高プロファイル", xlabel="出来高", ylabel="価格"
+        )
 
     def _plot_volume_indicators(
         self, ax, data: pd.DataFrame, volume_analysis: Dict
@@ -524,7 +529,9 @@ class VolumeAnalysis(ChartRenderer):
                 label=f"中央値: {median_volume:,.0f}",
             )
 
-            self.apply_common_styling(ax, title="出来高分布", xlabel="出来高", ylabel="頻度")
+            self.apply_common_styling(
+                ax, title="出来高分布", xlabel="出来高", ylabel="頻度"
+            )
 
     def _plot_volume_price_correlation(
         self, ax, data: pd.DataFrame, volume_analysis: Dict

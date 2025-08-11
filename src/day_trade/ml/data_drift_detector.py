@@ -63,10 +63,10 @@ class DataDriftDetector:
                 )
                 continue
 
-            new_data_series = new_data[feature].dropna()
+            new_data_series = new_data[_feature].dropna()
             if new_data_series.empty:
                 logger.warning(
-                    f"新しいデータの特徴量 '{feature}' が空です。スキップします。"
+                    f"新しいデータの特徴量 '{_feature}' が空です。スキップします。"
                 )
                 continue
 
@@ -83,7 +83,7 @@ class DataDriftDetector:
                     if drift_detected:
                         overall_drift_detected = True
 
-                    drift_results[feature] = {
+                    drift_results[_feature] = {
                         "drift_detected": drift_detected,
                         "p_value": p_value,
                         "statistic": statistic,
@@ -93,13 +93,13 @@ class DataDriftDetector:
                         "new_std": new_data_series.std(),
                     }
                 except ValueError as e:
-                    logger.error(f"KS検定エラー for feature '{feature}': {e}")
-                    drift_results[feature] = {"drift_detected": False, "error": str(e)}
+                    logger.error(f"KS検定エラー for feature '{_feature}': {e}")
+                    drift_results[_feature] = {"drift_detected": False, "error": str(e)}
             else:
                 logger.info(
-                    f"特徴量 '{feature}' は数値データではないため、KS検定をスキップします。"
+                    f"特徴量 '{_feature}' は数値データではないため、KS検定をスキップします。"
                 )
-                drift_results[feature] = {
+                drift_results[_feature] = {
                     "drift_detected": False,
                     "reason": "非数値データ",
                 }
@@ -144,13 +144,13 @@ class DataDriftDetector:
         try:
             # NumPy配列をPythonのリストに変換
             serializable_stats = {}
-            for feature, stat in self.baseline_stats.items():
+            for _feature, stat in self.baseline_stats.items():
                 serializable_stat = stat.copy()
                 if "values" in serializable_stat:
                     serializable_stat["values"] = [
                         float(v) for v in serializable_stat["values"]
                     ]
-                serializable_stats[feature] = serializable_stat
+                serializable_stats[_feature] = serializable_stat
 
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(serializable_stats, f, ensure_ascii=False, indent=4)
@@ -170,7 +170,7 @@ class DataDriftDetector:
                 loaded_stats = json.load(f)
 
             # リストをNumPy配列に戻す（必要であれば）
-            for feature, stat in loaded_stats.items():
+            for _feature, stat in loaded_stats.items():
                 if "values" in stat:
                     stat["values"] = np.array(stat["values"])
 

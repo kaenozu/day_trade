@@ -4,13 +4,14 @@
 モジュラー設計による高性能・高信頼性データ取得インターフェース
 """
 
-from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
+
 import pandas as pd
 
 from ..utils.logging_config import get_context_logger
-from .cache import DataCache, CachePerformanceMonitor
-from .fetchers import YFinanceFetcher, BulkFetcher
+from .cache import CachePerformanceMonitor
+from .fetchers import BulkFetcher, YFinanceFetcher
 
 logger = get_context_logger(__name__)
 
@@ -101,7 +102,7 @@ class StockFetcher:
                 self.performance_monitor.record_function_call(
                     "get_current_price",
                     cache_hit=(result is not None),
-                    response_time=0.0  # 実際の実装では応答時間を測定
+                    response_time=0.0,  # 実際の実装では応答時間を測定
                 )
 
             return result
@@ -110,10 +111,7 @@ class StockFetcher:
             logger.error(f"現在価格取得エラー: {code} - {e}")
             if self.performance_monitor:
                 self.performance_monitor.record_function_call(
-                    "get_current_price",
-                    cache_hit=False,
-                    response_time=0.0,
-                    error=e
+                    "get_current_price", cache_hit=False, response_time=0.0, error=e
                 )
             return None
 
@@ -183,7 +181,7 @@ class StockFetcher:
     def bulk_get_company_info(
         self,
         codes: List[str],
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """複数銘柄の企業情報を一括取得"""
         return self.bulk_fetcher.bulk_get_company_info(codes, progress_callback)
@@ -251,7 +249,9 @@ class StockFetcher:
                 "optimization_timestamp": datetime.now().isoformat(),
             }
 
-            logger.info(f"パフォーマンス最適化完了: {len(applied_optimizations)}項目適用")
+            logger.info(
+                f"パフォーマンス最適化完了: {len(applied_optimizations)}項目適用"
+            )
             return optimization_result
 
         except Exception as e:
@@ -327,9 +327,15 @@ class StockFetcher:
                     "overall_stats": self.performance_monitor.get_overall_performance(),
                     "function_stats": {
                         func: self.performance_monitor.get_function_performance(func)
-                        for func in ["get_current_price", "get_historical_data", "get_company_info"]
+                        for func in [
+                            "get_current_price",
+                            "get_historical_data",
+                            "get_company_info",
+                        ]
                     },
-                    "performance_trend": self.performance_monitor.get_performance_trend(30),
+                    "performance_trend": self.performance_monitor.get_performance_trend(
+                        30
+                    ),
                 }
 
             return system_stats

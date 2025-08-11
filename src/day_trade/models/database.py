@@ -33,14 +33,11 @@ from ..utils.performance_config import get_performance_config
 from .base import Base
 
 # Global Trading Engine モデル追加
-from .forex_models import ForexPrice
-from .crypto_models import CryptoPrice
-from .global_models import GlobalMarketData
 
 logger = get_context_logger(__name__)
 
 # グローバルデータベースマネージャー（シングルトン）
-_global_db_manager: Optional['DatabaseManager'] = None
+_global_db_manager: Optional["DatabaseManager"] = None
 
 # テスト用のデータベースURL
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -319,19 +316,30 @@ class DatabaseManager:
             cursor.execute("PRAGMA foreign_keys=ON")
 
             # 各PRAGMA設定値の安全性検証と実行
-            self._execute_safe_pragma(cursor, "journal_mode", self.config.sqlite_journal_mode)
-            self._execute_safe_pragma(cursor, "synchronous", self.config.sqlite_synchronous)
-            self._execute_safe_pragma(cursor, "cache_size", self.config.sqlite_cache_size)
-            self._execute_safe_pragma(cursor, "temp_store", self.config.sqlite_temp_store)
+            self._execute_safe_pragma(
+                cursor, "journal_mode", self.config.sqlite_journal_mode
+            )
+            self._execute_safe_pragma(
+                cursor, "synchronous", self.config.sqlite_synchronous
+            )
+            self._execute_safe_pragma(
+                cursor, "cache_size", self.config.sqlite_cache_size
+            )
+            self._execute_safe_pragma(
+                cursor, "temp_store", self.config.sqlite_temp_store
+            )
             self._execute_safe_pragma(cursor, "mmap_size", self.config.sqlite_mmap_size)
 
-            logger.debug("SQLite PRAGMA設定完了", extra={
-                "journal_mode": self.config.sqlite_journal_mode,
-                "synchronous": self.config.sqlite_synchronous,
-                "cache_size": self.config.sqlite_cache_size,
-                "temp_store": self.config.sqlite_temp_store,
-                "mmap_size": self.config.sqlite_mmap_size
-            })
+            logger.debug(
+                "SQLite PRAGMA設定完了",
+                extra={
+                    "journal_mode": self.config.sqlite_journal_mode,
+                    "synchronous": self.config.sqlite_synchronous,
+                    "cache_size": self.config.sqlite_cache_size,
+                    "temp_store": self.config.sqlite_temp_store,
+                    "mmap_size": self.config.sqlite_mmap_size,
+                },
+            )
 
         except Exception as e:
             logger.error(f"SQLite PRAGMA設定エラー: {e}")
@@ -388,7 +396,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"journal_mode無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"journal_mode無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "WAL"  # デフォルト安全値
 
         elif pragma_name == "synchronous":
@@ -397,7 +407,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"synchronous無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"synchronous無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "NORMAL"  # デフォルト安全値
 
         elif pragma_name == "cache_size":
@@ -408,7 +420,9 @@ class DatabaseManager:
                 if -1000000 <= cache_size <= 1000000:
                     return str(cache_size)
                 else:
-                    logger.warning(f"cache_size範囲外: {pragma_value}, 範囲: -1000000~1000000")
+                    logger.warning(
+                        f"cache_size範囲外: {pragma_value}, 範囲: -1000000~1000000"
+                    )
                     return "10000"  # デフォルト安全値
             except (ValueError, TypeError):
                 logger.warning(f"cache_size無効形式: {pragma_value}")
@@ -420,7 +434,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"temp_store無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"temp_store無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "MEMORY"  # デフォルト安全値
 
         elif pragma_name == "mmap_size":
@@ -431,7 +447,9 @@ class DatabaseManager:
                 if 0 <= mmap_size <= 1073741824:  # 1GB = 1024^3
                     return str(mmap_size)
                 else:
-                    logger.warning(f"mmap_size範囲外: {pragma_value}, 範囲: 0~1073741824")
+                    logger.warning(
+                        f"mmap_size範囲外: {pragma_value}, 範囲: 0~1073741824"
+                    )
                     return "268435456"  # デフォルト安全値（256MB）
             except (ValueError, TypeError):
                 logger.warning(f"mmap_size無効形式: {pragma_value}")
@@ -624,7 +642,7 @@ class DatabaseManager:
 
         # 許可された検索ベースディレクトリ
         allowed_base_dirs = [
-            Path.cwd(),                           # 現在の作業ディレクトリ
+            Path.cwd(),  # 現在の作業ディレクトリ
             Path(__file__).parent.parent.parent,  # プロジェクトルート
         ]
 
@@ -675,9 +693,16 @@ class DatabaseManager:
             # 2. 危険なパスパターンの検出
             path_str = str(path_obj).lower()
             dangerous_patterns = [
-                "/etc/", "/usr/", "/var/", "/root/", "/boot/",  # Unix系システムディレクトリ
-                "c:\\windows\\", "c:\\program files\\",        # Windowsシステムディレクトリ
-                "\\\\", "/..", "\\..",                         # UNCパス・パストラバーサル
+                "/etc/",
+                "/usr/",
+                "/var/",
+                "/root/",
+                "/boot/",  # Unix系システムディレクトリ
+                "c:\\windows\\",
+                "c:\\program files\\",  # Windowsシステムディレクトリ
+                "\\\\",
+                "/..",
+                "\\..",  # UNCパス・パストラバーサル
             ]
 
             for pattern in dangerous_patterns:
@@ -690,15 +715,15 @@ class DatabaseManager:
 
             # 3. 許可されたベースディレクトリ内かチェック
             allowed_base_dirs = [
-                Path.cwd().resolve(),                           # 現在の作業ディレクトリ
-                Path(__file__).parent.parent.parent.resolve(), # プロジェクトルート
+                Path.cwd().resolve(),  # 現在の作業ディレクトリ
+                Path(__file__).parent.parent.parent.resolve(),  # プロジェクトルート
             ]
 
             is_allowed = False
             for allowed_base in allowed_base_dirs:
                 try:
                     # 許可されたベースディレクトリ内またはその配下かチェック
-                    if (path_obj == allowed_base or allowed_base in path_obj.parents):
+                    if path_obj == allowed_base or allowed_base in path_obj.parents:
                         is_allowed = True
                         break
                 except Exception:
@@ -757,11 +782,13 @@ class DatabaseManager:
             # ファイルサイズ制限（設定ファイルが異常に大きい場合を検出）
             stat_info = file_path.stat()
             if stat_info.st_size > 10 * 1024 * 1024:  # 10MB制限
-                logger.warning(f"設定ファイルが大きすぎます: {file_path} ({stat_info.st_size} bytes)")
+                logger.warning(
+                    f"設定ファイルが大きすぎます: {file_path} ({stat_info.st_size} bytes)"
+                )
                 return False
 
             # 読み取り権限の確認
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 # ファイルの先頭を少し読んで読み取り可能性を確認
                 f.read(1)
 
@@ -1282,6 +1309,7 @@ def create_database_manager(
         config_manager=config_manager,
     )
 
+
 # Global Trading Engine用のグローバル関数
 def get_global_db_manager() -> DatabaseManager:
     """グローバルデータベースマネージャー取得"""
@@ -1290,9 +1318,11 @@ def get_global_db_manager() -> DatabaseManager:
         _global_db_manager = create_database_manager()
     return _global_db_manager
 
+
 def get_session() -> Session:
     """データベースセッション取得（グローバル）"""
     return get_global_db_manager().get_session()
+
 
 def init_global_database():
     """グローバルデータベース初期化"""

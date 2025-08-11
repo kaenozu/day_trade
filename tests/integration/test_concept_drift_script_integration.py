@@ -10,10 +10,11 @@ from unittest.mock import MagicMock
 
 try:
     import mlflow
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
-    mlflow = MagicMock() # ダミーのmlflowオブジェクト
+    mlflow = MagicMock()  # ダミーのmlflowオブジェクト
 
 # テスト用のディレクトリ
 MLRUNS_DIR = Path("mlruns")
@@ -63,7 +64,7 @@ class TestConceptDriftScriptIntegration(unittest.TestCase):
         runs_found = False
         for exp_dir in experiments:
             runs_dir = exp_dir / "runs"
-            if runs_dir.exists() and any(runs_dir.iterdir()): # SIM102 修正
+            if runs_dir.exists() and any(runs_dir.iterdir()):  # SIM102 修正
                 runs_found = True
                 break
         self.assertTrue(runs_found, "No MLflow runs found.")

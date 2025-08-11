@@ -16,6 +16,28 @@ from typing import Dict, List
 
 import numpy as np
 
+# TensorFlow可用性チェック
+try:
+    import tensorflow as tf
+
+    TF_AVAILABLE = True
+except ImportError:
+    TF_AVAILABLE = False
+    warnings.warn(
+        "TensorFlow未インストール - LSTMモデル利用不可", ImportWarning, stacklevel=2
+    )
+
+# Scikit-learn可用性チェック
+try:
+    from sklearn.metrics import r2_score
+
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    warnings.warn(
+        "Scikit-learn未インストール - 一部ML機能利用不可", ImportWarning, stacklevel=2
+    )
+
 try:
     import mlflow
     import mlflow.keras
@@ -29,7 +51,6 @@ except ImportError:
     )
 
 try:
-
     from ..utils.logging_config import get_context_logger
     from ..utils.unified_cache_manager import (
         UnifiedCacheManager,
@@ -62,37 +83,6 @@ logger = get_context_logger(__name__)
 # 警告抑制
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
-
-# 依存関係チェック
-try:
-    import pandas_ta as ta
-
-    PANDAS_TA_AVAILABLE = True
-except ImportError:
-    PANDAS_TA_AVAILABLE = False
-    logger.warning("pandas-ta未インストール - 技術指標計算が制限されます")
-
-try:
-    from sklearn.ensemble import (
-        GradientBoostingRegressor,
-        RandomForestRegressor,
-    )
-    from sklearn.linear_model import LinearRegression
-    from sklearn.metrics import mean_squared_error, r2_score
-
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
-    logger.error("scikit-learn未インストール - ML機能利用不可")
-
-try:
-    import tensorflow as tf
-    from tensorflow import keras
-
-    TF_AVAILABLE = True
-except ImportError:
-    TF_AVAILABLE = False
-    logger.warning("TensorFlow未インストール - LSTM機能利用不可")
 
 
 @dataclass
@@ -136,6 +126,11 @@ class AdvancedFeatureSet:
     multiframe_features: Dict[str, float]
     feature_count: int
     processing_time: float
+
+
+from src.day_trade.data.advanced_parallel_ml_engine import (
+    AdvancedParallelMLEngine,
+)
 
 
 class AdvancedMLModels:

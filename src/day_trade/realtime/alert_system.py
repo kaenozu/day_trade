@@ -7,34 +7,37 @@ AI予測・リスク・市場異常の統合アラートシステム
 """
 
 import asyncio
-import time
 import json
+import smtplib
+import time
 import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any, Callable, Union
 from datetime import datetime, timedelta
-from enum import Enum
-import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 # プロジェクト内インポート
 from ..utils.logging_config import get_context_logger
 from .live_prediction_engine import LivePrediction
-from .websocket_stream import MarketTick
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 class AlertLevel(Enum):
     """アラートレベル"""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
     EMERGENCY = "emergency"
 
+
 class AlertType(Enum):
     """アラートタイプ"""
+
     TRADING_SIGNAL = "trading_signal"
     RISK_ALERT = "risk_alert"
     SYSTEM_ERROR = "system_error"
@@ -42,9 +45,11 @@ class AlertType(Enum):
     PERFORMANCE_ALERT = "performance_alert"
     DATA_QUALITY = "data_quality"
 
+
 @dataclass
 class AlertConfig:
     """アラート設定"""
+
     # 通知設定
     enable_email: bool = True
     enable_console: bool = True
@@ -75,9 +80,11 @@ class AlertConfig:
     critical_symbols: List[str] = field(default_factory=list)
     vip_alert_threshold: float = 0.9
 
+
 @dataclass
 class Alert:
     """アラート"""
+
     id: str
     timestamp: datetime
     level: AlertLevel
@@ -103,20 +110,21 @@ class Alert:
     def to_dict(self) -> Dict:
         """辞書形式変換"""
         return {
-            'id': self.id,
-            'timestamp': self.timestamp.isoformat(),
-            'level': self.level.value,
-            'type': self.alert_type.value,
-            'title': self.title,
-            'message': self.message,
-            'symbol': self.symbol,
-            'confidence': self.confidence,
-            'data': self.data,
-            'sent': self.sent,
-            'acknowledged': self.acknowledged,
-            'resolved': self.resolved,
-            'channels': self.channels
+            "id": self.id,
+            "timestamp": self.timestamp.isoformat(),
+            "level": self.level.value,
+            "type": self.alert_type.value,
+            "title": self.title,
+            "message": self.message,
+            "symbol": self.symbol,
+            "confidence": self.confidence,
+            "data": self.data,
+            "sent": self.sent,
+            "acknowledged": self.acknowledged,
+            "resolved": self.resolved,
+            "channels": self.channels,
         }
+
 
 class EmailNotifier:
     """Email通知システム"""
@@ -124,10 +132,10 @@ class EmailNotifier:
     def __init__(self, config: AlertConfig):
         self.config = config
         self.enabled = (
-            config.enable_email and
-            config.email_username and
-            config.email_password and
-            config.email_recipients
+            config.enable_email
+            and config.email_username
+            and config.email_password
+            and config.email_recipients
         )
 
         if not self.enabled:
@@ -147,7 +155,7 @@ class EmailNotifier:
             success = await self._send_email(
                 subject=f"[{alert.level.value.upper()}] {alert.title}",
                 html_content=html_message,
-                recipients=self.config.email_recipients
+                recipients=self.config.email_recipients,
             )
 
             if success:
@@ -169,7 +177,7 @@ class EmailNotifier:
             AlertLevel.INFO: "#2196F3",
             AlertLevel.WARNING: "#FF9800",
             AlertLevel.CRITICAL: "#F44336",
-            AlertLevel.EMERGENCY: "#9C27B0"
+            AlertLevel.EMERGENCY: "#9C27B0",
         }
 
         color = level_colors.get(alert.level, "#666666")
@@ -254,7 +262,9 @@ class EmailNotifier:
             else:
                 formatted_value = str(value)
 
-            rows += f"<tr><td><strong>{key}</strong></td><td>{formatted_value}</td></tr>"
+            rows += (
+                f"<tr><td><strong>{key}</strong></td><td>{formatted_value}</td></tr>"
+            )
 
         return f"""
         <table class="data-table">
@@ -267,28 +277,25 @@ class EmailNotifier:
         </table>
         """
 
-    async def _send_email(self, subject: str, html_content: str, recipients: List[str]) -> bool:
+    async def _send_email(
+        self, subject: str, html_content: str, recipients: List[str]
+    ) -> bool:
         """Email送信実行"""
 
         try:
             # MIMEメッセージ作成
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = self.config.email_username
-            msg['To'] = ', '.join(recipients)
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.config.email_username
+            msg["To"] = ", ".join(recipients)
 
             # HTML部分添付
-            html_part = MIMEText(html_content, 'html')
+            html_part = MIMEText(html_content, "html")
             msg.attach(html_part)
 
             # SMTP送信
             loop = asyncio.get_event_loop()
-            success = await loop.run_in_executor(
-                None,
-                self._smtp_send,
-                msg,
-                recipients
-            )
+            success = await loop.run_in_executor(None, self._smtp_send, msg, recipients)
 
             return success
 
@@ -313,6 +320,7 @@ class EmailNotifier:
             logger.error(f"SMTP send error: {e}")
             return False
 
+
 class WebhookNotifier:
     """Webhook通知システム"""
 
@@ -334,29 +342,33 @@ class WebhookNotifier:
 
             # Webhook ペイロード作成
             payload = {
-                'alert': alert.to_dict(),
-                'timestamp': datetime.now().isoformat(),
-                'source': 'NextGenAI_TradingEngine'
+                "alert": alert.to_dict(),
+                "timestamp": datetime.now().isoformat(),
+                "source": "NextGenAI_TradingEngine",
             }
 
             # HTTP POST送信
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.config.webhook_timeout)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=self.config.webhook_timeout)
+            ) as session:
                 async with session.post(
                     self.config.webhook_url,
                     json=payload,
-                    headers={'Content-Type': 'application/json'}
+                    headers={"Content-Type": "application/json"},
                 ) as response:
-
                     if response.status == 200:
                         logger.info(f"Webhook alert sent successfully: {alert.id}")
                         return True
                     else:
-                        logger.error(f"Webhook failed with status {response.status}: {alert.id}")
+                        logger.error(
+                            f"Webhook failed with status {response.status}: {alert.id}"
+                        )
                         return False
 
         except Exception as e:
             logger.error(f"Webhook notification error: {e}")
             return False
+
 
 class ConsoleNotifier:
     """コンソール通知システム"""
@@ -377,7 +389,7 @@ class ConsoleNotifier:
                 AlertLevel.INFO: "ℹ️",
                 AlertLevel.WARNING: "⚠️",
                 AlertLevel.CRITICAL: "🚨",
-                AlertLevel.EMERGENCY: "🔴"
+                AlertLevel.EMERGENCY: "🔴",
             }
 
             icon = level_icons.get(alert.level, "📢")
@@ -411,6 +423,7 @@ class ConsoleNotifier:
             logger.error(f"Console notification error: {e}")
             return False
 
+
 class AlertManager:
     """アラート管理システム"""
 
@@ -432,10 +445,10 @@ class AlertManager:
 
         # 統計
         self.stats = {
-            'total_alerts': 0,
-            'sent_alerts': 0,
-            'failed_alerts': 0,
-            'suppressed_alerts': 0
+            "total_alerts": 0,
+            "sent_alerts": 0,
+            "failed_alerts": 0,
+            "suppressed_alerts": 0,
         }
 
         logger.info("Alert Manager initialized")
@@ -446,17 +459,17 @@ class AlertManager:
         # レート制限チェック
         if not self._check_rate_limit():
             logger.warning(f"Alert rate limit exceeded, skipping: {alert.id}")
-            self.stats['suppressed_alerts'] += 1
+            self.stats["suppressed_alerts"] += 1
             return False
 
         # 重複チェック
         if self._is_duplicate_alert(alert):
             logger.debug(f"Duplicate alert suppressed: {alert.id}")
-            self.stats['suppressed_alerts'] += 1
+            self.stats["suppressed_alerts"] += 1
             return False
 
         try:
-            self.stats['total_alerts'] += 1
+            self.stats["total_alerts"] += 1
 
             # 通知チャンネル決定
             channels = self._determine_channels(alert)
@@ -487,10 +500,12 @@ class AlertManager:
 
             if success:
                 alert.sent = True
-                self.stats['sent_alerts'] += 1
-                logger.info(f"Alert sent successfully: {alert.id} ({success_count}/{total_channels} channels)")
+                self.stats["sent_alerts"] += 1
+                logger.info(
+                    f"Alert sent successfully: {alert.id} ({success_count}/{total_channels} channels)"
+                )
             else:
-                self.stats['failed_alerts'] += 1
+                self.stats["failed_alerts"] += 1
                 logger.error(f"Alert sending failed: {alert.id}")
 
             # アラート記録
@@ -505,7 +520,7 @@ class AlertManager:
 
         except Exception as e:
             logger.error(f"Alert sending error: {e}")
-            self.stats['failed_alerts'] += 1
+            self.stats["failed_alerts"] += 1
             return False
 
     def _check_rate_limit(self) -> bool:
@@ -534,7 +549,8 @@ class AlertManager:
 
         # 既存の重複記録をクリーンアップ
         self.duplicate_cache = {
-            key: timestamp for key, timestamp in self.duplicate_cache.items()
+            key: timestamp
+            for key, timestamp in self.duplicate_cache.items()
             if timestamp > cutoff_time
         }
 
@@ -611,26 +627,23 @@ class AlertManager:
 
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
-        return [
-            alert for alert in self.alert_history
-            if alert.timestamp > cutoff_time
-        ]
+        return [alert for alert in self.alert_history if alert.timestamp > cutoff_time]
 
     def get_statistics(self) -> Dict:
         """統計情報取得"""
 
         active_count = len(self.active_alerts)
-        unacknowledged_count = len([
-            alert for alert in self.active_alerts.values()
-            if not alert.acknowledged
-        ])
+        unacknowledged_count = len(
+            [alert for alert in self.active_alerts.values() if not alert.acknowledged]
+        )
 
         return {
             **self.stats,
-            'active_alerts': active_count,
-            'unacknowledged_alerts': unacknowledged_count,
-            'alert_history_size': len(self.alert_history)
+            "active_alerts": active_count,
+            "unacknowledged_alerts": unacknowledged_count,
+            "alert_history_size": len(self.alert_history),
         }
+
 
 class TradingAlertGenerator:
     """取引アラート生成器"""
@@ -639,7 +652,9 @@ class TradingAlertGenerator:
         self.alert_manager = alert_manager
         self.config = config
 
-    async def generate_trading_signal_alert(self, prediction: LivePrediction) -> Optional[Alert]:
+    async def generate_trading_signal_alert(
+        self, prediction: LivePrediction
+    ) -> Optional[Alert]:
         """取引シグナルアラート生成"""
 
         if prediction.action_confidence < self.config.trading_signal_threshold:
@@ -661,25 +676,35 @@ class TradingAlertGenerator:
             alert_type=AlertType.TRADING_SIGNAL,
             title=f"Trading Signal: {prediction.final_action} {prediction.symbol}",
             message=f"AI recommends {prediction.final_action} for {prediction.symbol} "
-                   f"with {prediction.action_confidence:.1%} confidence. "
-                   f"Target: ${prediction.predicted_price:.2f} "
-                   f"(Position size: {prediction.position_size_recommendation:.1%})",
+            f"with {prediction.action_confidence:.1%} confidence. "
+            f"Target: ${prediction.predicted_price:.2f} "
+            f"(Position size: {prediction.position_size_recommendation:.1%})",
             symbol=prediction.symbol,
             confidence=prediction.action_confidence,
             data={
-                'action': prediction.final_action,
-                'predicted_price': prediction.predicted_price,
-                'predicted_return': prediction.predicted_return,
-                'position_size': prediction.position_size_recommendation,
-                'ml_confidence': prediction.ml_prediction.get('confidence', 0) if prediction.ml_prediction else 0,
-                'rl_confidence': prediction.rl_decision.get('confidence', 0) if prediction.rl_decision else 0,
-                'sentiment_score': prediction.sentiment_analysis.get('sentiment_score', 0) if prediction.sentiment_analysis else 0
-            }
+                "action": prediction.final_action,
+                "predicted_price": prediction.predicted_price,
+                "predicted_return": prediction.predicted_return,
+                "position_size": prediction.position_size_recommendation,
+                "ml_confidence": prediction.ml_prediction.get("confidence", 0)
+                if prediction.ml_prediction
+                else 0,
+                "rl_confidence": prediction.rl_decision.get("confidence", 0)
+                if prediction.rl_decision
+                else 0,
+                "sentiment_score": prediction.sentiment_analysis.get(
+                    "sentiment_score", 0
+                )
+                if prediction.sentiment_analysis
+                else 0,
+            },
         )
 
         return alert
 
-    async def generate_risk_alert(self, symbol: str, risk_level: float, risk_type: str, details: Dict) -> Alert:
+    async def generate_risk_alert(
+        self, symbol: str, risk_level: float, risk_type: str, details: Dict
+    ) -> Alert:
         """リスクアラート生成"""
 
         # リスクレベル別アラートレベル
@@ -699,18 +724,24 @@ class TradingAlertGenerator:
             alert_type=AlertType.RISK_ALERT,
             title=f"Risk Alert: {risk_type} - {symbol}",
             message=f"High risk detected for {symbol}: {risk_type} "
-                   f"(Risk Level: {risk_level:.1%})",
+            f"(Risk Level: {risk_level:.1%})",
             symbol=symbol,
             confidence=risk_level,
-            data=details
+            data=details,
         )
 
         return alert
 
-    async def generate_market_anomaly_alert(self, symbol: str, anomaly_score: float, details: Dict) -> Alert:
+    async def generate_market_anomaly_alert(
+        self, symbol: str, anomaly_score: float, details: Dict
+    ) -> Alert:
         """市場異常アラート生成"""
 
-        level = AlertLevel.WARNING if anomaly_score >= self.config.market_anomaly_threshold else AlertLevel.INFO
+        level = (
+            AlertLevel.WARNING
+            if anomaly_score >= self.config.market_anomaly_threshold
+            else AlertLevel.INFO
+        )
 
         alert = Alert(
             id=f"anomaly_{symbol}_{int(time.time())}",
@@ -719,22 +750,24 @@ class TradingAlertGenerator:
             alert_type=AlertType.MARKET_ANOMALY,
             title=f"Market Anomaly: {symbol}",
             message=f"Unusual market behavior detected for {symbol} "
-                   f"(Anomaly Score: {anomaly_score:.2f}σ)",
+            f"(Anomaly Score: {anomaly_score:.2f}σ)",
             symbol=symbol,
             confidence=min(anomaly_score / 3.0, 1.0),  # 3σを最大として正規化
-            data=details
+            data=details,
         )
 
         return alert
 
-    async def generate_system_alert(self, component: str, error_message: str, severity: str = "warning") -> Alert:
+    async def generate_system_alert(
+        self, component: str, error_message: str, severity: str = "warning"
+    ) -> Alert:
         """システムアラート生成"""
 
         level_map = {
             "info": AlertLevel.INFO,
             "warning": AlertLevel.WARNING,
             "critical": AlertLevel.CRITICAL,
-            "emergency": AlertLevel.EMERGENCY
+            "emergency": AlertLevel.EMERGENCY,
         }
 
         level = level_map.get(severity.lower(), AlertLevel.WARNING)
@@ -748,25 +781,28 @@ class TradingAlertGenerator:
             message=f"System issue detected in {component}: {error_message}",
             confidence=1.0,
             data={
-                'component': component,
-                'error_message': error_message,
-                'severity': severity
-            }
+                "component": component,
+                "error_message": error_message,
+                "severity": severity,
+            },
         )
 
         return alert
 
+
 # 便利関数
-def create_alert_system(email_config: Optional[Dict] = None) -> Tuple[AlertManager, TradingAlertGenerator]:
+def create_alert_system(
+    email_config: Optional[Dict] = None,
+) -> Tuple[AlertManager, TradingAlertGenerator]:
     """アラートシステム作成"""
 
     # 設定作成
     config = AlertConfig()
 
     if email_config:
-        config.email_username = email_config.get('username')
-        config.email_password = email_config.get('password')
-        config.email_recipients = email_config.get('recipients', [])
+        config.email_username = email_config.get("username")
+        config.email_password = email_config.get("password")
+        config.email_recipients = email_config.get("recipients", [])
         config.enable_email = bool(config.email_username and config.email_password)
 
     # アラートマネージャー作成
@@ -776,6 +812,7 @@ def create_alert_system(email_config: Optional[Dict] = None) -> Tuple[AlertManag
     trading_alert_generator = TradingAlertGenerator(alert_manager, config)
 
     return alert_manager, trading_alert_generator
+
 
 if __name__ == "__main__":
     # アラートシステムテスト
@@ -797,10 +834,10 @@ if __name__ == "__main__":
                 symbol="AAPL",
                 confidence=0.85,
                 data={
-                    'test_value': 123.45,
-                    'test_string': "Hello World",
-                    'test_dict': {'nested': 'value'}
-                }
+                    "test_value": 123.45,
+                    "test_string": "Hello World",
+                    "test_dict": {"nested": "value"},
+                },
             )
 
             # アラート送信
@@ -827,6 +864,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Test error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # テスト実行

@@ -1,22 +1,24 @@
 import shutil
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import (
+    MagicMock,  # 追加
+    patch,
+)
 
 import numpy as np
 import pandas as pd
-
-from unittest.mock import MagicMock # 追加
 
 # MLflowのインポートをモック化
 # MLflowがインストールされていない環境でもテストが実行できるように
 # ただし、MLflowのログ記録のテストは、実際のMLflow環境が必要
 try:
     import mlflow
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
-    mlflow = MagicMock() # ダミーのmlflowオブジェクト
+    mlflow = MagicMock()  # ダミーのmlflowオブジェクト
 
 # テスト対象のモジュール
 from src.day_trade.automation.orchestrator import (
@@ -139,7 +141,7 @@ class TestDataDriftOrchestratorIntegration(unittest.TestCase):
         symbols = ["7203"]
 
         # 最初の実行 - ベースラインが生成されるはず
-        _report = orchestrator.run_advanced_analysis(symbols=symbols) # _report に変更
+        _report = orchestrator.run_advanced_analysis(symbols=symbols)  # _report に変更
 
         self.assertTrue(_report.successful_symbols > 0)
         self.assertTrue(BASELINE_STATS_PATH.exists())
@@ -152,9 +154,9 @@ class TestDataDriftOrchestratorIntegration(unittest.TestCase):
         )  # feature1はダミーデータから
 
         # AIAnalysisResultにドリフト結果が含まれていないことを確認（初回なので）
-        self.assertIsNotNone(report.ai_analysis_results)
-        self.assertEqual(len(report.ai_analysis_results), 1)
-        self.assertIsNone(report.ai_analysis_results[0].data_drift_results)
+        self.assertIsNotNone(_report.ai_analysis_results)
+        self.assertEqual(len(_report.ai_analysis_results), 1)
+        self.assertIsNone(_report.ai_analysis_results[0].data_drift_results)
 
     def test_data_drift_detection_and_alert(self):
         """2回目以降の実行でドリフトが検出され、アラートが生成されることをテスト"""

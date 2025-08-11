@@ -6,16 +6,18 @@ Unified Data Models
 リスク管理システム全体で使用される標準化されたデータモデル
 """
 
-from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 # 基本データ型定義
 
+
 class AssetType(Enum):
     """資産タイプ"""
+
     STOCK = "stock"
     FOREX = "forex"
     CRYPTO = "crypto"
@@ -23,14 +25,18 @@ class AssetType(Enum):
     BOND = "bond"
     DERIVATIVE = "derivative"
 
+
 class PositionType(Enum):
     """ポジションタイプ"""
+
     LONG = "long"
     SHORT = "short"
     NEUTRAL = "neutral"
 
+
 class RiskLevel(Enum):
     """リスクレベル"""
+
     VERY_LOW = "very_low"
     LOW = "low"
     MEDIUM = "medium"
@@ -38,19 +44,24 @@ class RiskLevel(Enum):
     VERY_HIGH = "very_high"
     CRITICAL = "critical"
 
+
 class AnalysisStatus(Enum):
     """分析ステータス"""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 # 基本エンティティモデル
+
 
 @dataclass
 class Asset:
     """資産情報"""
+
     symbol: str
     asset_type: AssetType
     exchange: Optional[str] = None
@@ -63,9 +74,11 @@ class Asset:
     def __post_init__(self):
         self.symbol = self.symbol.upper()
 
+
 @dataclass
 class MarketData:
     """市場データ"""
+
     symbol: str
     timestamp: datetime
     price: Decimal
@@ -78,9 +91,11 @@ class MarketData:
     close_price: Optional[Decimal] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class Position:
     """ポジション情報"""
+
     position_id: str
     asset: Asset
     position_type: PositionType
@@ -108,13 +123,15 @@ class Position:
 
         return self.quantity * price_diff
 
+
 @dataclass
 class Portfolio:
     """ポートフォリオ"""
+
     portfolio_id: str
     name: str
     positions: List[Position] = field(default_factory=list)
-    cash: Decimal = Decimal('0')
+    cash: Decimal = Decimal("0")
     currency: str = "USD"
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
@@ -128,13 +145,16 @@ class Portfolio:
     @property
     def total_unrealized_pnl(self) -> Decimal:
         """総含み損益"""
-        return sum(pos.unrealized_pnl or Decimal('0') for pos in self.positions)
+        return sum(pos.unrealized_pnl or Decimal("0") for pos in self.positions)
+
 
 # リスク分析関連モデル
+
 
 @dataclass
 class RiskMetrics:
     """リスクメトリクス"""
+
     risk_level: RiskLevel
     confidence_score: float  # 0.0 - 1.0
     value_at_risk: Optional[Decimal] = None
@@ -149,9 +169,11 @@ class RiskMetrics:
         if not 0.0 <= self.confidence_score <= 1.0:
             raise ValueError("confidence_score must be between 0.0 and 1.0")
 
+
 @dataclass
 class RiskFactor:
     """リスク要因"""
+
     factor_id: str
     name: str
     description: str
@@ -172,9 +194,11 @@ class RiskFactor:
         """リスクスコア計算"""
         return self.probability * self.impact_score
 
+
 @dataclass
 class RiskAlert:
     """リスクアラート"""
+
     alert_id: str
     risk_level: RiskLevel
     title: str
@@ -188,9 +212,11 @@ class RiskAlert:
     resolved: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AnalysisResult:
     """分析結果"""
+
     analysis_id: str
     analyzer_name: str
     status: AnalysisStatus
@@ -210,11 +236,14 @@ class AnalysisResult:
             return None
         return (self.completed_at - self.started_at).total_seconds()
 
+
 # バッチ処理関連モデル
+
 
 @dataclass
 class BatchJob:
     """バッチジョブ"""
+
     job_id: str
     job_type: str
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -227,9 +256,11 @@ class BatchJob:
     result: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ProcessingStats:
     """処理統計"""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -239,7 +270,9 @@ class ProcessingStats:
     errors_by_type: Dict[str, int] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
 
+
 # バリデーション関連
+
 
 class ValidationResult:
     """バリデーション結果"""
@@ -258,57 +291,71 @@ class ValidationResult:
         """警告追加"""
         self.warnings.append(message)
 
-    def merge(self, other: 'ValidationResult'):
+    def merge(self, other: "ValidationResult"):
         """他の結果とマージ"""
         if not other.is_valid:
             self.is_valid = False
         self.errors.extend(other.errors)
         self.warnings.extend(other.warnings)
 
+
 # データ変換ヘルパー
+
 
 def asset_from_dict(data: Dict[str, Any]) -> Asset:
     """辞書からAssetオブジェクト作成"""
     return Asset(
-        symbol=data['symbol'],
-        asset_type=AssetType(data['asset_type']),
-        exchange=data.get('exchange'),
-        currency=data.get('currency', 'USD'),
-        name=data.get('name'),
-        sector=data.get('sector'),
-        country=data.get('country'),
-        metadata=data.get('metadata', {})
+        symbol=data["symbol"],
+        asset_type=AssetType(data["asset_type"]),
+        exchange=data.get("exchange"),
+        currency=data.get("currency", "USD"),
+        name=data.get("name"),
+        sector=data.get("sector"),
+        country=data.get("country"),
+        metadata=data.get("metadata", {}),
     )
+
 
 def position_from_dict(data: Dict[str, Any]) -> Position:
     """辞書からPositionオブジェクト作成"""
     return Position(
-        position_id=data['position_id'],
-        asset=asset_from_dict(data['asset']),
-        position_type=PositionType(data['position_type']),
-        quantity=Decimal(str(data['quantity'])),
-        entry_price=Decimal(str(data['entry_price'])),
-        current_price=Decimal(str(data['current_price'])) if data.get('current_price') else None,
-        timestamp=datetime.fromisoformat(data.get('timestamp', datetime.now().isoformat())),
-        metadata=data.get('metadata', {})
+        position_id=data["position_id"],
+        asset=asset_from_dict(data["asset"]),
+        position_type=PositionType(data["position_type"]),
+        quantity=Decimal(str(data["quantity"])),
+        entry_price=Decimal(str(data["entry_price"])),
+        current_price=Decimal(str(data["current_price"]))
+        if data.get("current_price")
+        else None,
+        timestamp=datetime.fromisoformat(
+            data.get("timestamp", datetime.now().isoformat())
+        ),
+        metadata=data.get("metadata", {}),
     )
+
 
 def portfolio_from_dict(data: Dict[str, Any]) -> Portfolio:
     """辞書からPortfolioオブジェクト作成"""
-    positions = [position_from_dict(pos_data) for pos_data in data.get('positions', [])]
+    positions = [position_from_dict(pos_data) for pos_data in data.get("positions", [])]
 
     return Portfolio(
-        portfolio_id=data['portfolio_id'],
-        name=data['name'],
+        portfolio_id=data["portfolio_id"],
+        name=data["name"],
         positions=positions,
-        cash=Decimal(str(data.get('cash', '0'))),
-        currency=data.get('currency', 'USD'),
-        created_at=datetime.fromisoformat(data.get('created_at', datetime.now().isoformat())),
-        updated_at=datetime.fromisoformat(data.get('updated_at', datetime.now().isoformat())),
-        metadata=data.get('metadata', {})
+        cash=Decimal(str(data.get("cash", "0"))),
+        currency=data.get("currency", "USD"),
+        created_at=datetime.fromisoformat(
+            data.get("created_at", datetime.now().isoformat())
+        ),
+        updated_at=datetime.fromisoformat(
+            data.get("updated_at", datetime.now().isoformat())
+        ),
+        metadata=data.get("metadata", {}),
     )
 
+
 # バリデーター関数
+
 
 def validate_asset(asset: Asset) -> ValidationResult:
     """Asset検証"""
@@ -324,6 +371,7 @@ def validate_asset(asset: Asset) -> ValidationResult:
         result.add_warning("Currency should be 3-letter ISO code")
 
     return result
+
 
 def validate_position(position: Position) -> ValidationResult:
     """Position検証"""
@@ -346,6 +394,7 @@ def validate_position(position: Position) -> ValidationResult:
 
     return result
 
+
 def validate_portfolio(portfolio: Portfolio) -> ValidationResult:
     """Portfolio検証"""
     result = ValidationResult()
@@ -364,6 +413,7 @@ def validate_portfolio(portfolio: Portfolio) -> ValidationResult:
 
     return result
 
+
 def validate_risk_metrics(metrics: RiskMetrics) -> ValidationResult:
     """RiskMetrics検証"""
     result = ValidationResult()
@@ -379,7 +429,9 @@ def validate_risk_metrics(metrics: RiskMetrics) -> ValidationResult:
 
     return result
 
+
 # モデル変換ユーティリティ
+
 
 class ModelConverter:
     """モデル変換ユーティリティ"""
@@ -387,7 +439,7 @@ class ModelConverter:
     @staticmethod
     def to_dict(obj: Any) -> Dict[str, Any]:
         """オブジェクトを辞書に変換"""
-        if hasattr(obj, '__dataclass_fields__'):
+        if hasattr(obj, "__dataclass_fields__"):
             result = {}
             for field_name, field_info in obj.__dataclass_fields__.items():
                 value = getattr(obj, field_name)
@@ -399,8 +451,10 @@ class ModelConverter:
                 elif isinstance(value, Decimal):
                     result[field_name] = str(value)
                 elif isinstance(value, list):
-                    result[field_name] = [ModelConverter.to_dict(item) for item in value]
-                elif hasattr(value, '__dataclass_fields__'):
+                    result[field_name] = [
+                        ModelConverter.to_dict(item) for item in value
+                    ]
+                elif hasattr(value, "__dataclass_fields__"):
                     result[field_name] = ModelConverter.to_dict(value)
                 else:
                     result[field_name] = value

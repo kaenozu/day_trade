@@ -27,9 +27,11 @@ class TestConceptDriftDetector(unittest.TestCase):
         # 履歴サイズ制限のテスト
         for i in range(15):
             self.detector.add_performance_data(predictions, actuals)
-        for _i in range(15): # _i に変更
+        for _i in range(15):  # _i に変更
             self.detector.add_performance_data(predictions, actuals)
-        self.assertEqual(len(self.detector.performance_history), 10) # window_sizeに制限される
+        self.assertEqual(
+            len(self.detector.performance_history), 10
+        )  # window_sizeに制限される
 
     def test_detect_drift_no_drift(self):
         # 安定した性能データを追加

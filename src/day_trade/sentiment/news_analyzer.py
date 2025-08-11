@@ -6,29 +6,30 @@ Next-Gen AI News Analyzer
 多言語ニュース収集・感情解析・重要度判定・リアルタイム処理
 """
 
-import time
 import asyncio
-import warnings
-import re
 import json
+import re
+import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Any, Union
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from datetime import datetime, timedelta
-from urllib.parse import urlparse
 
 # ウェブスクレイピング・API
 try:
     import requests
     from bs4 import BeautifulSoup
+
     SCRAPING_AVAILABLE = True
 except ImportError:
     SCRAPING_AVAILABLE = False
 
 try:
     import feedparser
+
     RSS_AVAILABLE = True
 except ImportError:
     RSS_AVAILABLE = False
@@ -36,42 +37,63 @@ except ImportError:
 # NewsAPI対応
 try:
     from newsapi import NewsApiClient
+
     NEWSAPI_AVAILABLE = True
 except ImportError:
     NEWSAPI_AVAILABLE = False
 
-from .sentiment_engine import SentimentEngine, SentimentResult, create_sentiment_engine
 from ..utils.logging_config import get_context_logger
+from .sentiment_engine import SentimentResult, create_sentiment_engine
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 @dataclass
 class NewsConfig:
     """ニュース分析設定"""
+
     # API設定
     newsapi_key: Optional[str] = None
     max_articles_per_source: int = 50
 
     # ソース設定
-    enabled_sources: List[str] = field(default_factory=lambda: [
-        "reuters", "bloomberg", "financial-times", "wall-street-journal",
-        "cnbc", "marketwatch", "yahoo-finance", "seeking-alpha"
-    ])
+    enabled_sources: List[str] = field(
+        default_factory=lambda: [
+            "reuters",
+            "bloomberg",
+            "financial-times",
+            "wall-street-journal",
+            "cnbc",
+            "marketwatch",
+            "yahoo-finance",
+            "seeking-alpha",
+        ]
+    )
 
     # RSS設定
-    rss_feeds: List[str] = field(default_factory=lambda: [
-        "https://feeds.bloomberg.com/markets/news.rss",
-        "https://feeds.reuters.com/reuters/businessNews",
-        "https://rss.cnn.com/rss/money_latest.rss",
-        "https://feeds.finance.yahoo.com/rss/2.0/headlines"
-    ])
+    rss_feeds: List[str] = field(
+        default_factory=lambda: [
+            "https://feeds.bloomberg.com/markets/news.rss",
+            "https://feeds.reuters.com/reuters/businessNews",
+            "https://rss.cnn.com/rss/money_latest.rss",
+            "https://feeds.finance.yahoo.com/rss/2.0/headlines",
+        ]
+    )
 
     # 検索設定
-    search_keywords: List[str] = field(default_factory=lambda: [
-        "stock market", "financial market", "investment", "trading",
-        "earnings", "economic", "finance", "market analysis"
-    ])
+    search_keywords: List[str] = field(
+        default_factory=lambda: [
+            "stock market",
+            "financial market",
+            "investment",
+            "trading",
+            "earnings",
+            "economic",
+            "finance",
+            "market analysis",
+        ]
+    )
 
     # フィルタリング設定
     min_relevance_score: float = 0.3
@@ -83,9 +105,11 @@ class NewsConfig:
     request_delay: float = 1.0  # レート制限対応
     timeout: int = 10
 
+
 @dataclass
 class NewsSource:
     """ニュースソース定義"""
+
     name: str
     url: str
     source_type: str  # "rss", "api", "scrape"
@@ -93,9 +117,11 @@ class NewsSource:
     language: str = "en"
     update_frequency: int = 60  # 分
 
+
 @dataclass
 class NewsArticle:
     """ニュース記事"""
+
     title: str
     content: str
     url: str
@@ -114,9 +140,11 @@ class NewsArticle:
     fetched_at: datetime = field(default_factory=datetime.now)
     language: str = "en"
 
+
 @dataclass
 class NewsSentimentResult:
     """ニュースセンチメント分析結果"""
+
     articles: List[NewsArticle]
     overall_sentiment: float
     sentiment_distribution: Dict[str, int]
@@ -125,6 +153,7 @@ class NewsSentimentResult:
     time_analysis: Dict[str, float]
     confidence_score: float
     analysis_timestamp: datetime = field(default_factory=datetime.now)
+
 
 class NewsAnalyzer:
     """高度ニュース分析システム"""
@@ -152,22 +181,26 @@ class NewsAnalyzer:
             "total_fetched": 0,
             "successful_fetches": 0,
             "failed_fetches": 0,
-            "cache_hits": 0
+            "cache_hits": 0,
         }
 
         logger.info("News Analyzer 初期化完了")
 
-    async def fetch_news(self,
-                        keywords: List[str] = None,
-                        sources: List[str] = None,
-                        hours_back: int = None) -> List[NewsArticle]:
+    async def fetch_news(
+        self,
+        keywords: List[str] = None,
+        sources: List[str] = None,
+        hours_back: int = None,
+    ) -> List[NewsArticle]:
         """ニュース記事取得"""
 
         keywords = keywords or self.config.search_keywords
         sources = sources or self.config.enabled_sources
         hours_back = hours_back or self.config.max_age_hours
 
-        logger.info(f"ニュース取得開始: {len(keywords)} キーワード, {len(sources)} ソース")
+        logger.info(
+            f"ニュース取得開始: {len(keywords)} キーワード, {len(sources)} ソース"
+        )
 
         all_articles = []
 
@@ -203,7 +236,9 @@ class NewsAnalyzer:
 
         return filtered_articles
 
-    async def _fetch_from_newsapi(self, keywords: List[str], sources: List[str], hours_back: int) -> List[NewsArticle]:
+    async def _fetch_from_newsapi(
+        self, keywords: List[str], sources: List[str], hours_back: int
+    ) -> List[NewsArticle]:
         """NewsAPI経由での記事取得"""
 
         if not self.newsapi:
@@ -220,15 +255,15 @@ class NewsAnalyzer:
                     # 記事検索
                     response = self.newsapi.get_everything(
                         q=keyword,
-                        sources=','.join(sources[:10]),  # 最大10ソース
-                        from_param=from_date.strftime('%Y-%m-%d'),
+                        sources=",".join(sources[:10]),  # 最大10ソース
+                        from_param=from_date.strftime("%Y-%m-%d"),
                         language=self.config.language,
-                        sort_by='publishedAt',
-                        page_size=self.config.max_articles_per_source
+                        sort_by="publishedAt",
+                        page_size=self.config.max_articles_per_source,
                     )
 
-                    if response['status'] == 'ok':
-                        for article_data in response['articles']:
+                    if response["status"] == "ok":
+                        for article_data in response["articles"]:
                             article = self._parse_newsapi_article(article_data, keyword)
                             if article:
                                 articles.append(article)
@@ -261,7 +296,7 @@ class NewsAnalyzer:
             if feed.bozo:
                 logger.warning(f"RSS解析警告: {feed_url}")
 
-            for entry in feed.entries[:self.config.max_articles_per_source]:
+            for entry in feed.entries[: self.config.max_articles_per_source]:
                 article = self._parse_rss_entry(entry, feed_url)
                 if article:
                     articles.append(article)
@@ -271,38 +306,42 @@ class NewsAnalyzer:
 
         return articles
 
-    def _parse_newsapi_article(self, article_data: Dict, keyword: str) -> Optional[NewsArticle]:
+    def _parse_newsapi_article(
+        self, article_data: Dict, keyword: str
+    ) -> Optional[NewsArticle]:
         """NewsAPI記事データ解析"""
 
         try:
             # 必須フィールドチェック
-            if not article_data.get('title') or not article_data.get('url'):
+            if not article_data.get("title") or not article_data.get("url"):
                 return None
 
             # 重複チェック
-            url = article_data['url']
+            url = article_data["url"]
             if url in self.processed_urls:
                 return None
 
             # 日時解析
             published_at = None
-            if article_data.get('publishedAt'):
+            if article_data.get("publishedAt"):
                 try:
                     published_at = datetime.fromisoformat(
-                        article_data['publishedAt'].replace('Z', '+00:00')
+                        article_data["publishedAt"].replace("Z", "+00:00")
                     )
                 except:
                     pass
 
             # 記事作成
             article = NewsArticle(
-                title=article_data.get('title', ''),
-                content=article_data.get('description', '') + ' ' + article_data.get('content', ''),
+                title=article_data.get("title", ""),
+                content=article_data.get("description", "")
+                + " "
+                + article_data.get("content", ""),
                 url=url,
-                source=article_data.get('source', {}).get('name', 'unknown'),
-                author=article_data.get('author'),
+                source=article_data.get("source", {}).get("name", "unknown"),
+                author=article_data.get("author"),
                 published_at=published_at,
-                keywords=[keyword]
+                keywords=[keyword],
             )
 
             self.processed_urls.add(url)
@@ -317,7 +356,7 @@ class NewsAnalyzer:
 
         try:
             # 必須フィールドチェック
-            if not hasattr(entry, 'title') or not hasattr(entry, 'link'):
+            if not hasattr(entry, "title") or not hasattr(entry, "link"):
                 return None
 
             # 重複チェック
@@ -327,7 +366,7 @@ class NewsAnalyzer:
 
             # 日時解析
             published_at = None
-            if hasattr(entry, 'published_parsed') and entry.published_parsed:
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
                 try:
                     published_at = datetime(*entry.published_parsed[:6])
                 except:
@@ -335,14 +374,14 @@ class NewsAnalyzer:
 
             # コンテンツ抽出
             content = ""
-            if hasattr(entry, 'summary'):
+            if hasattr(entry, "summary"):
                 content = entry.summary
-            elif hasattr(entry, 'description'):
+            elif hasattr(entry, "description"):
                 content = entry.description
 
             # HTMLタグ除去
             if content:
-                content = re.sub(r'<[^>]+>', '', content)
+                content = re.sub(r"<[^>]+>", "", content)
 
             # ソース名抽出
             source_name = urlparse(feed_url).netloc
@@ -352,7 +391,7 @@ class NewsAnalyzer:
                 content=content,
                 url=url,
                 source=source_name,
-                published_at=published_at
+                published_at=published_at,
             )
 
             self.processed_urls.add(url)
@@ -375,14 +414,16 @@ class NewsAnalyzer:
                 continue
 
             # タイトル類似度チェック（簡易）
-            title_key = re.sub(r'[^\w\s]', '', article.title.lower())
+            title_key = re.sub(r"[^\w\s]", "", article.title.lower())
             title_words = set(title_key.split())
 
             is_similar = False
             for seen_title in seen_titles:
                 seen_words = set(seen_title.split())
                 if title_words and seen_words:
-                    jaccard = len(title_words & seen_words) / len(title_words | seen_words)
+                    jaccard = len(title_words & seen_words) / len(
+                        title_words | seen_words
+                    )
                     if jaccard > 0.8:  # 80%以上類似
                         is_similar = True
                         break
@@ -394,7 +435,9 @@ class NewsAnalyzer:
 
         return unique_articles
 
-    def _filter_articles(self, articles: List[NewsArticle], keywords: List[str]) -> List[NewsArticle]:
+    def _filter_articles(
+        self, articles: List[NewsArticle], keywords: List[str]
+    ) -> List[NewsArticle]:
         """記事フィルタリング"""
 
         filtered = []
@@ -431,8 +474,19 @@ class NewsAnalyzer:
 
         # 金融関連キーワード
         financial_keywords = [
-            'stock', 'market', 'trading', 'investment', 'finance', 'economic',
-            'earnings', 'profit', 'revenue', 'growth', 'decline', 'bull', 'bear'
+            "stock",
+            "market",
+            "trading",
+            "investment",
+            "finance",
+            "economic",
+            "earnings",
+            "profit",
+            "revenue",
+            "growth",
+            "decline",
+            "bull",
+            "bear",
         ]
 
         financial_matches = 0
@@ -483,9 +537,27 @@ class NewsAnalyzer:
 
         # センチメント分布
         sentiment_distribution = {
-            'positive': len([s for s in analyzed_articles if s.sentiment_result.sentiment_label == 'positive']),
-            'negative': len([s for s in analyzed_articles if s.sentiment_result.sentiment_label == 'negative']),
-            'neutral': len([s for s in analyzed_articles if s.sentiment_result.sentiment_label == 'neutral'])
+            "positive": len(
+                [
+                    s
+                    for s in analyzed_articles
+                    if s.sentiment_result.sentiment_label == "positive"
+                ]
+            ),
+            "negative": len(
+                [
+                    s
+                    for s in analyzed_articles
+                    if s.sentiment_result.sentiment_label == "negative"
+                ]
+            ),
+            "neutral": len(
+                [
+                    s
+                    for s in analyzed_articles
+                    if s.sentiment_result.sentiment_label == "neutral"
+                ]
+            ),
         }
 
         # キーワード集計
@@ -497,7 +569,9 @@ class NewsAnalyzer:
         for keyword in all_keywords:
             keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
 
-        top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+        top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[
+            :20
+        ]
 
         # ソース別分析
         source_breakdown = self._analyze_by_source(analyzed_articles)
@@ -516,7 +590,7 @@ class NewsAnalyzer:
             top_keywords=top_keywords,
             source_breakdown=source_breakdown,
             time_analysis=time_analysis,
-            confidence_score=confidence_score
+            confidence_score=confidence_score,
         )
 
         logger.info(f"記事分析完了: 全体センチメント={overall_sentiment:.3f}")
@@ -537,12 +611,12 @@ class NewsAnalyzer:
 
         # ソース信頼性（簡易）
         source_weights = {
-            'reuters': 1.0,
-            'bloomberg': 1.0,
-            'financial-times': 0.9,
-            'wall-street-journal': 0.9,
-            'cnbc': 0.8,
-            'marketwatch': 0.7
+            "reuters": 1.0,
+            "bloomberg": 1.0,
+            "financial-times": 0.9,
+            "wall-street-journal": 0.9,
+            "cnbc": 0.8,
+            "marketwatch": 0.7,
         }
 
         source_weight = source_weights.get(article.source.lower(), 0.5)
@@ -550,7 +624,9 @@ class NewsAnalyzer:
 
         # 新しさ
         if article.published_at:
-            hours_old = (datetime.now() - article.published_at.replace(tzinfo=None)).total_seconds() / 3600
+            hours_old = (
+                datetime.now() - article.published_at.replace(tzinfo=None)
+            ).total_seconds() / 3600
             freshness = max(0, 1 - hours_old / 24)  # 24時間で線形減衰
             importance += freshness * 0.1
 
@@ -561,9 +637,23 @@ class NewsAnalyzer:
 
         # 金融関連キーワード
         financial_terms = [
-            'stock', 'market', 'trading', 'investment', 'earnings', 'profit',
-            'revenue', 'growth', 'decline', 'bull', 'bear', 'volatility',
-            'portfolio', 'dividend', 'bond', 'currency', 'commodity'
+            "stock",
+            "market",
+            "trading",
+            "investment",
+            "earnings",
+            "profit",
+            "revenue",
+            "growth",
+            "decline",
+            "bull",
+            "bear",
+            "volatility",
+            "portfolio",
+            "dividend",
+            "bond",
+            "currency",
+            "commodity",
         ]
 
         text_lower = text.lower()
@@ -574,14 +664,16 @@ class NewsAnalyzer:
                 found_keywords.append(term)
 
         # 企業名抽出（大文字で始まる単語）
-        words = re.findall(r'\b[A-Z][a-z]+\b', text)
+        words = re.findall(r"\b[A-Z][a-z]+\b", text)
         for word in words[:5]:  # 最初の5つまで
-            if len(word) > 3 and word.lower() not in ['the', 'and', 'but', 'for']:
+            if len(word) > 3 and word.lower() not in ["the", "and", "but", "for"]:
                 found_keywords.append(word.lower())
 
         return found_keywords[:max_keywords]
 
-    def _analyze_by_source(self, articles: List[NewsArticle]) -> Dict[str, Dict[str, Any]]:
+    def _analyze_by_source(
+        self, articles: List[NewsArticle]
+    ) -> Dict[str, Dict[str, Any]]:
         """ソース別分析"""
 
         source_data = {}
@@ -590,21 +682,27 @@ class NewsAnalyzer:
             source = article.source
             if source not in source_data:
                 source_data[source] = {
-                    'count': 0,
-                    'sentiments': [],
-                    'importance_scores': []
+                    "count": 0,
+                    "sentiments": [],
+                    "importance_scores": [],
                 }
 
-            source_data[source]['count'] += 1
+            source_data[source]["count"] += 1
             if article.sentiment_result:
-                source_data[source]['sentiments'].append(article.sentiment_result.sentiment_score)
-            source_data[source]['importance_scores'].append(article.importance_score)
+                source_data[source]["sentiments"].append(
+                    article.sentiment_result.sentiment_score
+                )
+            source_data[source]["importance_scores"].append(article.importance_score)
 
         # 統計計算
         for source, data in source_data.items():
-            data['avg_sentiment'] = np.mean(data['sentiments']) if data['sentiments'] else 0.0
-            data['avg_importance'] = np.mean(data['importance_scores'])
-            data['sentiment_std'] = np.std(data['sentiments']) if len(data['sentiments']) > 1 else 0.0
+            data["avg_sentiment"] = (
+                np.mean(data["sentiments"]) if data["sentiments"] else 0.0
+            )
+            data["avg_importance"] = np.mean(data["importance_scores"])
+            data["sentiment_std"] = (
+                np.std(data["sentiments"]) if len(data["sentiments"]) > 1 else 0.0
+            )
 
         return source_data
 
@@ -624,7 +722,7 @@ class NewsAnalyzer:
         # 平均計算
         hourly_averages = {}
         for hour, sentiments in hourly_sentiments.items():
-            hourly_averages[f'hour_{hour:02d}'] = np.mean(sentiments)
+            hourly_averages[f"hour_{hour:02d}"] = np.mean(sentiments)
 
         return hourly_averages
 
@@ -633,14 +731,16 @@ class NewsAnalyzer:
         return NewsSentimentResult(
             articles=[],
             overall_sentiment=0.0,
-            sentiment_distribution={'positive': 0, 'negative': 0, 'neutral': 0},
+            sentiment_distribution={"positive": 0, "negative": 0, "neutral": 0},
             top_keywords=[],
             source_breakdown={},
             time_analysis={},
-            confidence_score=0.0
+            confidence_score=0.0,
         )
 
-    def get_trending_topics(self, articles: List[NewsArticle], limit: int = 10) -> List[Dict[str, Any]]:
+    def get_trending_topics(
+        self, articles: List[NewsArticle], limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """トレンディングトピック抽出"""
 
         if not articles:
@@ -653,36 +753,42 @@ class NewsAnalyzer:
             for keyword in article.keywords:
                 if keyword not in keyword_data:
                     keyword_data[keyword] = {
-                        'count': 0,
-                        'total_importance': 0.0,
-                        'sentiments': [],
-                        'articles': []
+                        "count": 0,
+                        "total_importance": 0.0,
+                        "sentiments": [],
+                        "articles": [],
                     }
 
-                keyword_data[keyword]['count'] += 1
-                keyword_data[keyword]['total_importance'] += article.importance_score
+                keyword_data[keyword]["count"] += 1
+                keyword_data[keyword]["total_importance"] += article.importance_score
                 if article.sentiment_result:
-                    keyword_data[keyword]['sentiments'].append(article.sentiment_result.sentiment_score)
-                keyword_data[keyword]['articles'].append(article.title)
+                    keyword_data[keyword]["sentiments"].append(
+                        article.sentiment_result.sentiment_score
+                    )
+                keyword_data[keyword]["articles"].append(article.title)
 
         # トレンドスコア計算
         trending_topics = []
         for keyword, data in keyword_data.items():
-            if data['count'] >= 2:  # 最低2記事
-                trend_score = (data['count'] * data['total_importance'] / data['count'])
-                avg_sentiment = np.mean(data['sentiments']) if data['sentiments'] else 0.0
+            if data["count"] >= 2:  # 最低2記事
+                trend_score = data["count"] * data["total_importance"] / data["count"]
+                avg_sentiment = (
+                    np.mean(data["sentiments"]) if data["sentiments"] else 0.0
+                )
 
-                trending_topics.append({
-                    'keyword': keyword,
-                    'trend_score': trend_score,
-                    'article_count': data['count'],
-                    'avg_sentiment': avg_sentiment,
-                    'avg_importance': data['total_importance'] / data['count'],
-                    'sample_articles': data['articles'][:3]
-                })
+                trending_topics.append(
+                    {
+                        "keyword": keyword,
+                        "trend_score": trend_score,
+                        "article_count": data["count"],
+                        "avg_sentiment": avg_sentiment,
+                        "avg_importance": data["total_importance"] / data["count"],
+                        "sample_articles": data["articles"][:3],
+                    }
+                )
 
         # スコア順ソート
-        trending_topics.sort(key=lambda x: x['trend_score'], reverse=True)
+        trending_topics.sort(key=lambda x: x["trend_score"], reverse=True)
 
         return trending_topics[:limit]
 
@@ -703,13 +809,17 @@ class NewsAnalyzer:
                     {
                         "title": article.title,
                         "source": article.source,
-                        "sentiment_label": article.sentiment_result.sentiment_label if article.sentiment_result else None,
-                        "sentiment_score": article.sentiment_result.sentiment_score if article.sentiment_result else 0,
+                        "sentiment_label": article.sentiment_result.sentiment_label
+                        if article.sentiment_result
+                        else None,
+                        "sentiment_score": article.sentiment_result.sentiment_score
+                        if article.sentiment_result
+                        else 0,
                         "importance_score": article.importance_score,
-                        "url": article.url
+                        "url": article.url,
                     }
                     for article in result.articles
-                ]
+                ],
             }
 
             return json.dumps(export_data, indent=2, ensure_ascii=False)
@@ -718,17 +828,27 @@ class NewsAnalyzer:
             # CSV形式（記事一覧）
             df_data = []
             for article in result.articles:
-                df_data.append({
-                    "title": article.title,
-                    "source": article.source,
-                    "published_at": article.published_at.isoformat() if article.published_at else "",
-                    "sentiment_label": article.sentiment_result.sentiment_label if article.sentiment_result else "",
-                    "sentiment_score": article.sentiment_result.sentiment_score if article.sentiment_result else 0,
-                    "confidence": article.sentiment_result.confidence if article.sentiment_result else 0,
-                    "importance_score": article.importance_score,
-                    "relevance_score": article.relevance_score,
-                    "url": article.url
-                })
+                df_data.append(
+                    {
+                        "title": article.title,
+                        "source": article.source,
+                        "published_at": article.published_at.isoformat()
+                        if article.published_at
+                        else "",
+                        "sentiment_label": article.sentiment_result.sentiment_label
+                        if article.sentiment_result
+                        else "",
+                        "sentiment_score": article.sentiment_result.sentiment_score
+                        if article.sentiment_result
+                        else 0,
+                        "confidence": article.sentiment_result.confidence
+                        if article.sentiment_result
+                        else 0,
+                        "importance_score": article.importance_score,
+                        "relevance_score": article.relevance_score,
+                        "url": article.url,
+                    }
+                )
 
             df = pd.DataFrame(df_data)
             return df.to_csv(index=False)
@@ -736,8 +856,11 @@ class NewsAnalyzer:
         else:
             raise ValueError(f"未対応のエクスポート形式: {format}")
 
+
 # 便利関数
-def analyze_financial_news(keywords: List[str] = None, hours_back: int = 24) -> NewsSentimentResult:
+def analyze_financial_news(
+    keywords: List[str] = None, hours_back: int = 24
+) -> NewsSentimentResult:
     """金融ニュース分析（簡易インターフェース）"""
 
     async def _analyze():
@@ -746,6 +869,7 @@ def analyze_financial_news(keywords: List[str] = None, hours_back: int = 24) -> 
         return analyzer.analyze_articles(articles)
 
     return asyncio.run(_analyze())
+
 
 if __name__ == "__main__":
     # ニュース分析テスト
@@ -768,7 +892,7 @@ if __name__ == "__main__":
             # 分析実行
             result = analyzer.analyze_articles(articles[:10])  # 最初の10記事
 
-            print(f"\n分析結果:")
+            print("\n分析結果:")
             print(f"全体センチメント: {result.overall_sentiment:.3f}")
             print(f"信頼度: {result.confidence_score:.3f}")
             print(f"センチメント分布: {result.sentiment_distribution}")
@@ -776,9 +900,11 @@ if __name__ == "__main__":
 
             # トレンディングトピック
             trending = analyzer.get_trending_topics(articles[:10])
-            print(f"\nトレンディングトピック:")
+            print("\nトレンディングトピック:")
             for topic in trending[:3]:
-                print(f"  {topic['keyword']}: スコア={topic['trend_score']:.3f}, 記事数={topic['article_count']}")
+                print(
+                    f"  {topic['keyword']}: スコア={topic['trend_score']:.3f}, 記事数={topic['article_count']}"
+                )
 
             # エクスポートテスト
             json_export = analyzer.export_analysis(result, "json")
