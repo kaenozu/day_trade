@@ -671,11 +671,7 @@ class PortfolioManager:
         if np.any(weights < self.config.minimum_allocation - 1e-6):
             return False
 
-        if np.any(weights > self.config.maximum_allocation + 1e-6):
-            return False
-
-        # 資産クラス制約（実装簡易版）
-        return True
+        return not (np.any(weights > self.config.maximum_allocation + 1e-6))
 
     def _calculate_objective_value(
         self, weights: np.ndarray, expected_returns: np.ndarray, cov_matrix: np.ndarray

@@ -530,7 +530,7 @@ class VolatilityPredictionEngine:
         data: pd.DataFrame,
         symbol: str = "UNKNOWN",
         target_horizon: int = 5,
-        model_types: List[str] = ["random_forest", "gradient_boosting"],
+        model_types: Optional[List[str]] = None,
     ) -> Optional[Dict]:
         """
         ボラティリティ予測機械学習モデル訓練
@@ -547,6 +547,9 @@ class VolatilityPredictionEngine:
         if not SKLEARN_AVAILABLE:
             logger.error("scikit-learn が利用できません")
             return None
+
+        if model_types is None:
+            model_types = ["random_forest", "gradient_boosting"]
 
         try:
             # 特徴量準備
@@ -759,7 +762,7 @@ class VolatilityPredictionEngine:
             return None
 
     def create_volatility_regime_classifier(
-        self, data: pd.DataFrame, thresholds: Dict[str, float] = None
+        self, data: pd.DataFrame, thresholds: Optional[Dict[str, float]] = None
     ) -> pd.Series:
         """
         ボラティリティレジーム分類

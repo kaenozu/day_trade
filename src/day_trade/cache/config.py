@@ -250,7 +250,9 @@ class CacheConfig:
         env_value = os.getenv(env_key)
         if env_value is not None:
             try:
-                if type_converter == bool:
+                if isinstance(type_converter, type) and issubclass(
+                    type_converter, bool
+                ):
                     # 真偽値の特別な処理
                     return env_value.lower() in ("true", "1", "yes", "on")
                 return type_converter(env_value)

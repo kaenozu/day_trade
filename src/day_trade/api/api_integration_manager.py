@@ -648,11 +648,7 @@ class APIIntegrationManager:
         # 基本データ検証
         if data.close_price is not None and data.close_price <= 0:
             return False
-
-        if data.volume is not None and data.volume < 0:
-            return False
-
-        return True
+        return not (data.volume is not None and data.volume < 0)
 
     async def _cache_data(self, data: UnifiedMarketData) -> None:
         """データキャッシュ"""

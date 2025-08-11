@@ -949,11 +949,9 @@ class InvestmentOpportunityAlertSystem:
         ):
             return False
 
-        # 市場センチメントフィルター
-        if self.market_condition.market_sentiment < self.config.min_market_sentiment:
-            return False
-
-        return True
+        return not (
+            self.market_condition.market_sentiment < self.config.min_market_sentiment
+        )
 
     async def _passes_quality_filter(self, opportunity: InvestmentOpportunity) -> bool:
         """品質フィルター"""
@@ -965,11 +963,7 @@ class InvestmentOpportunityAlertSystem:
         if opportunity.profit_potential < self.config.min_profit_potential:
             return False
 
-        # 最低リスクリワード比チェック
-        if opportunity.risk_reward_ratio < self.config.min_risk_reward_ratio:
-            return False
-
-        return True
+        return not (opportunity.risk_reward_ratio < self.config.min_risk_reward_ratio)
 
     async def _generate_opportunity_alert(
         self,
@@ -1012,10 +1006,7 @@ class InvestmentOpportunityAlertSystem:
             ]
         )
 
-        if hourly_count >= self.config.max_opportunities_per_hour:
-            return False
-
-        return True
+        return not (hourly_count >= self.config.max_opportunities_per_hour)
 
     async def _execute_opportunity_handlers(
         self,

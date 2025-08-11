@@ -176,10 +176,7 @@ class DataFrameOptimizer:
         total_count = len(series)
 
         # ユニーク値の比率が30%未満の場合はカテゴリ型候補
-        if unique_count / total_count < 0.3 and unique_count < 1000:
-            return True
-
-        return False
+        return unique_count / total_count < 0.3 and unique_count < 1000
 
     def _get_optimal_numeric_dtype(self, series: pd.Series) -> str:
         """最適な数値データ型を取得"""

@@ -254,10 +254,7 @@ class AdaptiveLoadBalancer:
         if task_type == "ml_computation" and data_size_mb > 10:
             return True
 
-        if data_size_mb > 50:  # 大量データ
-            return True
-
-        return False
+        return data_size_mb > 50
 
     def estimate_task_complexity(self, symbol: str, data: pd.DataFrame) -> float:
         """タスク複雑度推定"""
