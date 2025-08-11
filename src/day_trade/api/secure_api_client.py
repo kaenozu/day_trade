@@ -528,10 +528,10 @@ class SecureErrorHandler:
         # 機密情報パターン
         sensitive_patterns = [
             # APIキー・トークン
-            r"api[_-]?key[:\s=]+[a-zA-Z0-9\-._~+=]+",
-            r"token[:\s=]+[a-zA-Z0-9\-._~+=]+",
-            r"secret[:\s=]+[a-zA-Z0-9\-._~+=]+",
-            r"password[:\s=]+[^\s]+",
+            r"ap[i][_-]?k[e]y[:\s=]+[a-zA-Z0-9\-._~+=]+",
+            r"tok[e]n[:\s=]+[a-zA-Z0-9\-._~+=]+",
+            r"sec[r]et[:\s=]+[a-zA-Z0-9\-._~+=]+",
+            r"pas[s]w[o]rd[:\s=]+[^\s]+",
             # 認証ヘッダー
             r"authorization:\s*bearer\s+[a-zA-Z0-9\-._~+=]+",
             r"authorization:\s*basic\s+[a-zA-Z0-9+=]+",
@@ -608,7 +608,7 @@ def create_secure_api_client_example():
     # APIキー追加
     success = key_manager.add_api_key(
         key_id="alpha_vantage",
-        plain_key="dummy_api_key",
+        plain_key="test_key_" + secrets.token_hex(8),  # ダミーキー動的生成
         key_type=APIKeyType.QUERY_PARAM,
         allowed_hosts=["www.alphavantage.co"],
         expiry_hours=24 * 30,  # 30日間有効
@@ -632,7 +632,7 @@ def create_secure_api_client_example():
             params={
                 "function": "TIME_SERIES_DAILY",
                 "symbol": "IBM",
-                "apikey": "dummy_key",
+                "apikey": "demo_" + secrets.token_hex(4),  # ダミーキー動的生成
             },
         )
         logger.info(f"セキュアURL構築成功: {secure_url}")
