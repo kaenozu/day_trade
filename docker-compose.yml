@@ -1,93 +1,179 @@
+#==============================================================================
+# Docker Compose - Issue #441
+# Multi-environment container orchestration for Day Trade HFT System
+#==============================================================================
+
 version: '3.8'
 
 services:
-  # メインアプリケーション
-  day-trade:
+  #------------------------------------------------------------------------------
+  # Production Day Trade Application
+  #------------------------------------------------------------------------------
+  day-trade-prod:
     build:
       context: .
-      target: development
-    volumes:
-      - .:/app
-      - pip-cache:/home/appuser/.cache/pip
-      - pre-commit-cache:/home/appuser/.cache/pre-commit
-    environment:
-      - ENVIRONMENT=development
-      - PYTHONPATH=/app/src
+      target: production
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE:-2024-01-01T00:00:00Z}
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    image: daytrade:prod
+    container_name: day-trade-prod
+    restart: unless-stopped
     ports:
       - "8000:8000"
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - ENABLE_DEBUG=false
+      - PYTHONPATH=/app/src
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.path.insert(0, 'src'); import day_trade; print('OK')"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/cache
+    cap_drop:
+      - ALL
     networks:
       - day-trade-network
 
-  # データベース（開発用）
-  postgres:
-    image: postgres:15-alpine
+  #------------------------------------------------------------------------------
+  # Development Environment
+  #------------------------------------------------------------------------------
+  day-trade-dev:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    image: daytrade:dev
+    container_name: day-trade-dev
+    profiles: ["dev"]
+    ports:
+      - "8000:8000"
+      - "8080:8080"
     environment:
-      POSTGRES_DB: day_trade_dev
-      POSTGRES_USER: dev_user
-      POSTGRES_PASSWORD: dev_password
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - ENABLE_DEBUG=true
+      - PYTHONPATH=/app/src
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - .:/app:cached
+      - /app/src/day_trade.egg-info  # Exclude egg-info
+    networks:
+      - day-trade-network
+
+  #------------------------------------------------------------------------------
+  # HFT Ultra-Low Latency System
+  #------------------------------------------------------------------------------
+  day-trade-hft:
+    build:
+      context: .
+      target: hft-optimized
+      dockerfile: Dockerfile
+    image: daytrade:hft
+    container_name: day-trade-hft
+    profiles: ["hft"]
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=production
+      - HFT_MODE=enabled
+      - ULTRA_LOW_LATENCY=true
+      - TARGET_LATENCY_US=10
+      - CPU_AFFINITY=2,3
+      - MEMORY_PREALLOC_MB=512
+      - LOG_LEVEL=WARN  # Minimize logging overhead
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Resource limits for guaranteed performance
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '2.0'
+          memory: 1G
+    networks:
+      - day-trade-network
+
+  #------------------------------------------------------------------------------
+  # Database (PostgreSQL)
+  #------------------------------------------------------------------------------
+  database:
+    image: postgres:15-alpine
+    container_name: day-trade-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: daytrade
+      POSTGRES_USER: daytrade
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_change_me}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
       - "5432:5432"
-    networks:
-      - day-trade-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dev_user -d day_trade_dev"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Redis（キャッシュ用）
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - day-trade-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # テスト実行用
-  test:
-    build:
-      context: .
-      target: development
     volumes:
-      - .:/app
-      - pip-cache:/home/appuser/.cache/pip
-    environment:
-      - ENVIRONMENT=test
-      - PYTHONPATH=/app/src
-    command: ["pytest", "tests/", "-v", "--cov=src/day_trade"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - day-trade-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
 
-  # コード品質チェック用
-  quality:
-    build:
-      context: .
-      target: development
-    volumes:
-      - .:/app
-      - pre-commit-cache:/home/appuser/.cache/pre-commit
-    command: ["pre-commit", "run", "--all-files"]
-    networks:
-      - day-trade-network
-
-volumes:
-  postgres-data:
-  pip-cache:
-  pre-commit-cache:
-
+#------------------------------------------------------------------------------
+# Networks
+#------------------------------------------------------------------------------
 networks:
   day-trade-network:
     driver: bridge
+    name: day-trade-network
+    driver_opts:
+      com.docker.network.bridge.name: day-trade-br
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+#------------------------------------------------------------------------------
+# Volumes
+#------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: day-trade-postgres-data
+    driver: local
+
+#==============================================================================
+# Usage Examples:
+#
+# Production environment:
+#   docker-compose up day-trade-prod database
+#
+# Development environment:
+#   docker-compose --profile dev up day-trade-dev database
+#
+# HFT optimized environment:
+#   docker-compose --profile hft up day-trade-hft database
+#
+# Build all images:
+#   docker-compose build
+#
+# Size analysis:
+#   docker images | grep daytrade
+#==============================================================================

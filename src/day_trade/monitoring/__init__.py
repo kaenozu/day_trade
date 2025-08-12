@@ -2,6 +2,7 @@
 Day Trade 監視システム統合パッケージ
 Issue #370: リアルタイムメトリクス・アラートシステム
 Issue #417: ログ集約・分析とリアルタイムパフォーマンスダッシュボード
+Issue #436: 本番運用監視システム完成 - 24/7安定運用のためのアラート精度向上とダッシュボード完成
 
 Components:
 - prometheus_metrics: カスタムメトリクス収集システム
@@ -14,6 +15,7 @@ Components:
 - performance_dashboard: Grafana風パフォーマンスダッシュボード
 - alert_system: 統合アラート・通知システム
 - performance_optimization_system: AI駆動最適化推奨システム
+- production_monitoring_system: 本番運用監視システム（APM・オブザーバビリティ統合基盤）
 """
 
 from .metrics import (
@@ -112,6 +114,29 @@ try:
 except ImportError:
     INTEGRATED_MONITORING_AVAILABLE = False
 
+# Issue #436: 本番運用監視システム
+try:
+    from .production_monitoring_system import (
+        ProductionMonitoringSystem,
+        DistributedTracer,
+        AnomalyDetector,
+        SLOManager,
+        TraceSpan,
+        AlertSeverity,
+        MonitoringScope,
+        HealthStatus,
+        SLOConfig,
+        SLOStatus as ProductionSLOStatus,
+        MetricPoint as ProductionMetricPoint,
+        LogEntry as ProductionLogEntry,
+        Alert as ProductionAlert,
+    )
+
+    PRODUCTION_MONITORING_AVAILABLE = True
+
+except ImportError:
+    PRODUCTION_MONITORING_AVAILABLE = False
+
 __all__ = [
     # 既存監視システム
     "AdvancedMonitoringSystem",
@@ -136,6 +161,7 @@ __all__ = [
     "get_registry",
     "REALTIME_MONITORING_AVAILABLE",
     "INTEGRATED_MONITORING_AVAILABLE",
+    "PRODUCTION_MONITORING_AVAILABLE",
 ]
 
 if REALTIME_MONITORING_AVAILABLE:
@@ -209,5 +235,25 @@ if INTEGRATED_MONITORING_AVAILABLE:
             "Priority",
             "ImpactLevel",
             "get_optimization_manager",
+        ]
+    )
+
+if PRODUCTION_MONITORING_AVAILABLE:
+    __all__.extend(
+        [
+            # Issue #436: 本番運用監視システム
+            "ProductionMonitoringSystem",
+            "DistributedTracer",
+            "AnomalyDetector",
+            "SLOManager",
+            "TraceSpan",
+            "AlertSeverity",
+            "MonitoringScope",
+            "HealthStatus",
+            "SLOConfig",
+            "ProductionSLOStatus",
+            "ProductionMetricPoint",
+            "ProductionLogEntry",
+            "ProductionAlert",
         ]
     )

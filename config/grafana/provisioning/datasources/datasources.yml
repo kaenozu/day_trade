@@ -1,0 +1,276 @@
+#==============================================================================
+# Grafana Datasources 設定 - Issue #442 Phase 3
+# 統合ダッシュボード用データソース設定
+#==============================================================================
+
+apiVersion: 1
+
+# データソース設定リスト
+datasources:
+  # === Prometheus (メトリクス) ===
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus-apm:9090
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      httpMethod: POST
+      queryTimeout: 60s
+      timeInterval: "15s"
+      # HFT対応の高頻度クエリ
+      customQueryParameters: ""
+      manageAlerts: true
+      alertmanagerUid: alertmanager
+      prometheusType: Prometheus
+      prometheusVersion: 2.47.0
+      cacheLevel: High
+      disableMetricsLookup: false
+      incrementalQuerying: true
+      # 並列クエリ実行
+      maxConcurrentShardRequests: 256
+    secureJsonData: {}
+
+  # === Jaeger (分散トレーシング) ===
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger-all-in-one:16686
+    version: 1
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: 'loki'
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [
+          { key: 'service.name', value: 'service' },
+          { key: 'service.instance.id', value: 'instance' }
+        ]
+        mapTagNamesEnabled: true
+        filterByTraceID: true
+        filterBySpanID: true
+        lokiSearch: true
+      tracesToMetrics:
+        datasourceUid: 'prometheus'
+        tags: [
+          { key: 'service.name', value: 'service' },
+          { key: 'job' }
+        ]
+        queries: [
+          {
+            name: 'Sample query',
+            query: 'sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m]))'
+          }
+        ]
+      nodeGraph:
+        enabled: true
+      # HFT用設定
+      spanBar:
+        type: 'Tag'
+        tag: 'http.status_code'
+
+  # === Elasticsearch (ログ) ===
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "day-trade-logs-*"
+    version: 1
+    editable: true
+    jsonData:
+      index: "day-trade-logs-*"
+      timeField: "@timestamp"
+      esVersion: "8.10.0"
+      maxConcurrentShardRequests: 5
+      # ログクエリ最適化
+      includeFrozen: false
+      logMessageField: "message"
+      logLevelField: "level"
+    secureJsonData: {}
+
+  # === Loki (構造化ログ) ===
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    version: 1
+    editable: true
+    jsonData:
+      # ログとトレーシング連携
+      derivedFields: [
+        {
+          name: "TraceID",
+          label: "TraceID",
+          regex: "trace_id=([\\w]+)",
+          url: "$${__value.raw}",
+          datasourceUid: "jaeger"
+        }
+      ]
+      maxLines: 1000
+      # HFT用高速ログクエリ
+      timeout: "60s"
+
+  # === AlertManager (アラート) ===
+  - name: AlertManager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    version: 1
+    editable: true
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: true
+      # アラート通知設定
+      httpMethod: GET
+    uid: alertmanager
+
+  # === PostgreSQL (ビジネスデータ) ===
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: daytrade
+    user: postgres
+    version: 1
+    editable: true
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 2
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 15
+      timescaledb: false
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+
+  # === Redis (キャッシュメトリクス) ===
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://redis:6379
+    version: 1
+    editable: true
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 10
+      pingInterval: 0
+      pipelineWindow: 0
+    secureJsonData:
+      password: ${REDIS_PASSWORD}
+
+  # === InfluxDB (時系列データ) ===
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: daytrade
+    user: admin
+    version: 1
+    editable: true
+    jsonData:
+      version: InfluxQL
+      timeInterval: "5s"
+      # HFT対応の高精度時系列
+      httpMode: GET
+      httpTimeout: 30
+    secureJsonData:
+      password: ${INFLUXDB_PASSWORD}
+
+  # === Tempo (分散トレーシング - 代替) ===
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    version: 1
+    editable: true
+    jsonData:
+      # トレースtoログ連携
+      tracesToLogs:
+        datasourceUid: 'loki'
+        tags: ['job', 'instance']
+        mappedTags: [
+          { key: 'service.name', value: 'service' }
+        ]
+        filterByTraceID: true
+        filterBySpanID: true
+      # トレースtoメトリクス連携
+      tracesToMetrics:
+        datasourceUid: 'prometheus'
+        tags: [
+          { key: 'service.name', value: 'service' },
+          { key: 'job' }
+        ]
+        queries: [
+          {
+            name: 'Sample query',
+            query: 'sum(rate(tempo_spanmetrics_latency_bucket{$$__tags}[5m]))'
+          }
+        ]
+      serviceMap:
+        datasourceUid: 'prometheus'
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true
+      # Lokiバックエンド連携
+      lokiSearch:
+        datasourceUid: 'loki'
+
+  # === CloudWatch (AWS環境用) ===
+  - name: CloudWatch
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      authType: default
+      defaultRegion: us-west-2
+      customMetricsNamespaces: "DayTrade/HFT,DayTrade/Business"
+      assumeRoleArn: "${AWS_ROLE_ARN}"
+    version: 1
+    editable: true
+
+  # === TestData (開発・テスト用) ===
+  - name: TestData
+    type: testdata
+    access: proxy
+    version: 1
+    editable: true
+    jsonData:
+      # サンプルデータ生成設定
+    isDefault: false
+
+#==============================================================================
+# Datasources 特化機能:
+#
+# 🔗 統合連携:
+#   - Traces → Logs 自動リンク
+#   - Traces → Metrics 相関分析
+#   - Logs → Traces 双方向連携
+#   - アラート統合表示
+#
+# ⚡ HFT最適化:
+#   - 高頻度クエリ対応
+#   - 低レイテンシデータ取得
+#   - 並列処理最適化
+#   - キャッシュ活用
+#
+# 📊 多様なデータソース:
+#   - 時系列メトリクス (Prometheus, InfluxDB)
+#   - 分散トレーシング (Jaeger, Tempo)
+#   - 構造化ログ (Elasticsearch, Loki)
+#   - ビジネスデータ (PostgreSQL)
+#
+# 🛡️ セキュリティ:
+#   - 認証情報の安全な管理
+#   - 接続プール最適化
+#   - タイムアウト設定
+#   - SSL/TLS対応
+#
+# 🎯 運用効率:
+#   - 自動プロビジョニング
+#   - 設定の標準化
+#   - 環境変数活用
+#   - バージョン管理
+#==============================================================================
