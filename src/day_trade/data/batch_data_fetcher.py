@@ -531,46 +531,192 @@ class AdvancedBatchDataFetcher:
         return data
 
     def _calculate_data_quality(self, data: pd.DataFrame) -> float:
-        """データ品質スコア計算（0-100）"""
+        """データ品質スコア計算（0-100） - Issue #576対応改善版"""
 
         if data is None or data.empty:
             return 0.0
 
-        quality_score = 100.0
-
         try:
-            # 欠損値チェック
-            missing_ratio = data.isnull().sum().sum() / (len(data) * len(data.columns))
-            quality_score -= missing_ratio * 30
+            quality_metrics = self._calculate_quality_metrics(data)
+            quality_score = self._compute_weighted_quality_score(quality_metrics, data)
 
-            # データ完整性チェック
-            if "終値" in data.columns:
-                # 異常値チェック（極端な価格変動）
-                returns = data["終値"].pct_change().abs()
-                extreme_moves = (returns > 0.2).sum()  # 20%以上の変動
-                quality_score -= min(extreme_moves * 5, 20)
-
-                # ゼロ価格チェック
-                zero_prices = (data["終値"] <= 0).sum()
-                quality_score -= zero_prices * 10
-
-            # データ量チェック
-            if len(data) < 30:  # 30日未満
-                quality_score -= 20
-            elif len(data) < 10:  # 10日未満
-                quality_score -= 40
-
-            # 重複データチェック
-            if data.index.duplicated().any():
-                quality_score -= 15
-
+            # 最終スコアの範囲正規化
             quality_score = max(0.0, min(100.0, quality_score))
+
+            logger.debug(f"データ品質スコア: {quality_score:.1f} (metrics: {quality_metrics})")
+            return quality_score
 
         except Exception as e:
             logger.error(f"データ品質計算エラー: {e}")
-            quality_score = 50.0  # デフォルト
+            return 50.0  # 安全なデフォルト値
 
-        return quality_score
+    def _calculate_quality_metrics(self, data: pd.DataFrame) -> dict:
+        """データ品質メトリクス計算 - Issue #576対応"""
+        metrics = {}
+
+        try:
+            # 1. 欠損値率
+            total_cells = len(data) * len(data.columns)
+            missing_cells = data.isnull().sum().sum()
+            metrics['missing_ratio'] = missing_cells / total_cells if total_cells > 0 else 0.0
+
+            # 2. データ量品質
+            metrics['data_volume'] = len(data)
+            metrics['column_count'] = len(data.columns)
+
+            # 3. 重複データ
+            metrics['duplicate_ratio'] = data.index.duplicated().sum() / len(data) if len(data) > 0 else 0.0
+
+            # 4. 数値データの品質チェック
+            numeric_columns = data.select_dtypes(include=[np.number]).columns
+            if len(numeric_columns) > 0:
+                # 無限値、NaNのチェック
+                invalid_count = 0
+                for col in numeric_columns:
+                    invalid_count += (~np.isfinite(data[col])).sum()
+                metrics['invalid_numeric_ratio'] = invalid_count / (len(data) * len(numeric_columns))
+            else:
+                metrics['invalid_numeric_ratio'] = 0.0
+
+            # 5. 価格データ固有のチェック
+            if '終値' in data.columns:
+                metrics.update(self._calculate_price_quality_metrics(data['終値']))
+            else:
+                # 価格データがない場合のデフォルト値
+                metrics.update({
+                    'extreme_move_ratio': 0.0,
+                    'zero_price_ratio': 0.0,
+                    'price_continuity': 1.0
+                })
+
+            # 6. 出来高データのチェック
+            if '出来高' in data.columns:
+                volume_data = data['出来高']
+                metrics['zero_volume_ratio'] = (volume_data <= 0).sum() / len(volume_data) if len(volume_data) > 0 else 0.0
+            else:
+                metrics['zero_volume_ratio'] = 0.0
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"品質メトリクス計算エラー: {e}")
+            return self._get_default_quality_metrics()
+
+    def _calculate_price_quality_metrics(self, price_series: pd.Series) -> dict:
+        """価格データ固有の品質メトリクス - Issue #576対応"""
+        metrics = {}
+
+        try:
+            # 異常変動チェック（閾値を設定可能に）
+            returns = price_series.pct_change().abs()
+            extreme_threshold = 0.15  # 15%以上を異常と判定（緊縮）
+            metrics['extreme_move_ratio'] = (returns > extreme_threshold).sum() / len(returns) if len(returns) > 0 else 0.0
+
+            # ゼロ価格チェック
+            metrics['zero_price_ratio'] = (price_series <= 0).sum() / len(price_series) if len(price_series) > 0 else 0.0
+
+            # 価格連続性チェック（急激なギャップの検出）
+            price_gaps = price_series.diff().abs() / price_series.shift(1)
+            gap_threshold = 0.5  # 50%以上のギャップ
+            gap_count = (price_gaps > gap_threshold).sum()
+            metrics['price_continuity'] = 1.0 - (gap_count / len(price_series) if len(price_series) > 0 else 0.0)
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"価格品質メトリクスエラー: {e}")
+            return {
+                'extreme_move_ratio': 0.0,
+                'zero_price_ratio': 0.0,
+                'price_continuity': 1.0
+            }
+
+    def _compute_weighted_quality_score(self, metrics: dict, data: pd.DataFrame) -> float:
+        """重み付き品質スコア計算 - Issue #576対応"""
+        base_score = 100.0
+
+        try:
+            # 重み付け設定（総計100%）
+            weights = {
+                'missing_penalty': 25.0,      # 欠損値ペナルティ
+                'volume_penalty': 20.0,       # データ量ペナルティ
+                'validity_penalty': 20.0,     # データ有効性ペナルティ
+                'price_quality_penalty': 15.0, # 価格品質ペナルティ
+                'duplicate_penalty': 10.0,    # 重複ペナルティ
+                'continuity_penalty': 10.0    # 連続性ペナルティ
+            }
+
+            # 1. 欠損値ペナルティ (最大-25点)
+            missing_penalty = min(weights['missing_penalty'], metrics['missing_ratio'] * weights['missing_penalty'] * 2)
+            base_score -= missing_penalty
+
+            # 2. データ量ペナルティ (最大-20点) - 段階的ペナルティ
+            volume_penalty = self._calculate_volume_penalty(metrics['data_volume'], weights['volume_penalty'])
+            base_score -= volume_penalty
+
+            # 3. 数値データ有効性ペナルティ (最大-20点)
+            validity_penalty = min(weights['validity_penalty'], metrics['invalid_numeric_ratio'] * weights['validity_penalty'] * 3)
+            base_score -= validity_penalty
+
+            # 4. 価格品質ペナルティ (最大-15点)
+            price_penalty = self._calculate_price_penalty(metrics, weights['price_quality_penalty'])
+            base_score -= price_penalty
+
+            # 5. 重複データペナルティ (最大-10点)
+            duplicate_penalty = min(weights['duplicate_penalty'], metrics['duplicate_ratio'] * weights['duplicate_penalty'] * 2)
+            base_score -= duplicate_penalty
+
+            # 6. 連続性ペナルティ (最大-10点)
+            continuity_penalty = weights['continuity_penalty'] * (1.0 - metrics.get('price_continuity', 1.0))
+            base_score -= continuity_penalty
+
+            return base_score
+
+        except Exception as e:
+            logger.error(f"重み付きスコア計算エラー: {e}")
+            return 50.0
+
+    def _calculate_volume_penalty(self, data_volume: int, max_penalty: float) -> float:
+        """データ量ペナルティ計算 - Issue #576対応"""
+        if data_volume >= 60:  # 60日以上：ペナルティなし
+            return 0.0
+        elif data_volume >= 30:  # 30-59日：軽微ペナルティ
+            return max_penalty * 0.2
+        elif data_volume >= 14:  # 14-29日：中程度ペナルティ
+            return max_penalty * 0.5
+        elif data_volume >= 7:   # 7-13日：高ペナルティ
+            return max_penalty * 0.8
+        else:  # 7日未満：最大ペナルティ
+            return max_penalty
+
+    def _calculate_price_penalty(self, metrics: dict, max_penalty: float) -> float:
+        """価格品質ペナルティ計算 - Issue #576対応"""
+        penalty = 0.0
+
+        # 異常変動ペナルティ
+        penalty += min(max_penalty * 0.4, metrics.get('extreme_move_ratio', 0.0) * max_penalty)
+
+        # ゼロ価格ペナルティ
+        penalty += min(max_penalty * 0.4, metrics.get('zero_price_ratio', 0.0) * max_penalty * 2)
+
+        # ボリュームペナルティ
+        penalty += min(max_penalty * 0.2, metrics.get('zero_volume_ratio', 0.0) * max_penalty)
+
+        return penalty
+
+    def _get_default_quality_metrics(self) -> dict:
+        """デフォルト品質メトリクス - Issue #576対応"""
+        return {
+            'missing_ratio': 0.0,
+            'data_volume': 0,
+            'column_count': 0,
+            'duplicate_ratio': 0.0,
+            'invalid_numeric_ratio': 0.0,
+            'extreme_move_ratio': 0.0,
+            'zero_price_ratio': 0.0,
+            'zero_volume_ratio': 0.0,
+            'price_continuity': 1.0
+        }
 
     def _get_from_redis_cache(self, request: DataRequest) -> Optional[pd.DataFrame]:
         """Redisキャッシュからデータ取得"""
