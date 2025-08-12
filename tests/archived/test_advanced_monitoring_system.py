@@ -112,7 +112,9 @@ class MonitoringSystemTester:
         collector = MetricsCollector()
 
         # メトリクス記録テスト
-        collector.record_metric("test_counter", 10.0, MetricType.COUNTER, {"app": "test"})
+        collector.record_metric(
+            "test_counter", 10.0, MetricType.COUNTER, {"app": "test"}
+        )
         collector.record_metric("test_gauge", 50.5, MetricType.GAUGE, {"type": "cpu"})
 
         # データ確認
@@ -167,7 +169,10 @@ class MonitoringSystemTester:
             return False
 
         sent_alert = mock_channel.sent_alerts[0]
-        if sent_alert.title != "テストアラート" or sent_alert.level != AlertLevel.WARNING:
+        if (
+            sent_alert.title != "テストアラート"
+            or sent_alert.level != AlertLevel.WARNING
+        ):
             return False
 
         # アクティブアラート取得テスト
@@ -246,7 +251,9 @@ class MonitoringSystemTester:
             return False
 
         # アプリケーションメトリクス記録テスト
-        system.record_application_metric("test_api_requests", 100.0, {"endpoint": "/api/test"})
+        system.record_application_metric(
+            "test_api_requests", 100.0, {"endpoint": "/api/test"}
+        )
 
         # 監視停止
         system.stop_monitoring()
@@ -305,7 +312,9 @@ class MonitoringSystemTester:
         # 大量アラート作成
         for i in range(50):
             system.create_manual_alert(
-                AlertLevel.INFO, f"負荷テストアラート {i}", f"負荷テスト用アラート番号 {i}"
+                AlertLevel.INFO,
+                f"負荷テストアラート {i}",
+                f"負荷テスト用アラート番号 {i}",
             )
 
         execution_time = time.time() - start_time
@@ -381,7 +390,9 @@ class MonitoringSystemTester:
         print(f"成功: {self.test_results['passed_tests']}")
         print(f"失敗: {self.test_results['failed_tests']}")
 
-        success_rate = (self.test_results["passed_tests"] / self.test_results["total_tests"]) * 100
+        success_rate = (
+            self.test_results["passed_tests"] / self.test_results["total_tests"]
+        ) * 100
         print(f"成功率: {success_rate:.1f}%")
 
         if self.test_results["failed_tests"] == 0:

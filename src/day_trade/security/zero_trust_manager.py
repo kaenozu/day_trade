@@ -738,11 +738,13 @@ class ZeroTrustManager:
         # レート制限チェック
         rate_limit_ok, rate_limit_reason = self.check_rate_limit(
             access_request.device_context.ip_address,
-            access_request.user_context.user_id
+            access_request.user_context.user_id,
         )
 
         if not rate_limit_ok:
-            logger.warning(f"レート制限違反: {access_request.user_context.user_id} - {rate_limit_reason}")
+            logger.warning(
+                f"レート制限違反: {access_request.user_context.user_id} - {rate_limit_reason}"
+            )
             return {
                 "request_id": access_request.request_id,
                 "decision": AccessDecision.DENY.value,
@@ -861,7 +863,9 @@ class ZeroTrustManager:
             session_id=str(uuid.uuid4()),
             created_at=time.time(),
             last_activity=time.time(),
-            authentication_methods=metadata.get("auth_methods", ["password"]) if metadata else ["password"],
+            authentication_methods=(
+                metadata.get("auth_methods", ["password"]) if metadata else ["password"]
+            ),
             mfa_verified=metadata.get("mfa_verified", False) if metadata else False,
         )
 
@@ -918,7 +922,8 @@ class ZeroTrustManager:
 
         # 古いリクエストをクリーンアップ
         self.rate_limiter[key] = [
-            timestamp for timestamp in self.rate_limiter[key]
+            timestamp
+            for timestamp in self.rate_limiter[key]
             if current_time - timestamp < window_size
         ]
 
@@ -940,7 +945,8 @@ class ZeroTrustManager:
 
         # 古い失敗記録をクリーンアップ
         self.failed_login_attempts[user_id] = [
-            timestamp for timestamp in self.failed_login_attempts[user_id]
+            timestamp
+            for timestamp in self.failed_login_attempts[user_id]
             if current_time - timestamp < failure_window
         ]
 
@@ -1001,7 +1007,7 @@ class ZeroTrustManager:
             "top_failed_users": sorted(
                 self.access_stats["failed_logins_by_user"].items(),
                 key=lambda x: x[1],
-                reverse=True
+                reverse=True,
             )[:10],
             "config": {
                 "minimum_trust_level": self.config.minimum_trust_level.value,
@@ -1023,7 +1029,8 @@ class ZeroTrustManager:
 
         for key in list(self.rate_limiter.keys()):
             self.rate_limiter[key] = [
-                timestamp for timestamp in self.rate_limiter[key]
+                timestamp
+                for timestamp in self.rate_limiter[key]
                 if current_time - timestamp < window_size
             ]
             if not self.rate_limiter[key]:
@@ -1038,7 +1045,8 @@ class ZeroTrustManager:
 
         for user_id in list(self.failed_login_attempts.keys()):
             self.failed_login_attempts[user_id] = [
-                timestamp for timestamp in self.failed_login_attempts[user_id]
+                timestamp
+                for timestamp in self.failed_login_attempts[user_id]
                 if current_time - timestamp < failure_window
             ]
             if not self.failed_login_attempts[user_id]:

@@ -35,7 +35,7 @@ def generate_sample_data(days=500, base_price=2800):
     # 日付範囲作成
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
-    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    dates = pd.date_range(start=start_date, end=end_date, freq="D")
 
     np.random.seed(42)
 
@@ -75,15 +75,17 @@ def generate_sample_data(days=500, base_price=2800):
         low_price = min(open_price, close_price) * np.random.uniform(0.985, 1.000)
         volume = np.random.randint(500000, 8000000)
 
-        data.append({
-            'Open': open_price,
-            'High': high_price,
-            'Low': low_price,
-            'Close': close_price,
-            'Volume': volume
-        })
+        data.append(
+            {
+                "Open": open_price,
+                "High": high_price,
+                "Low": low_price,
+                "Close": close_price,
+                "Volume": volume,
+            }
+        )
 
-    df = pd.DataFrame(data, index=dates[:len(data)])
+    df = pd.DataFrame(data, index=dates[: len(data)])
 
     print(f"[OK] Sample data generated: {len(df)} records")
     return df
@@ -100,9 +102,13 @@ def test_ml_integration():
     test_symbol = "TEST_ML_STOCK"
 
     print(f"\nTest Symbol: {test_symbol}")
-    print(f"Data Period: {sample_data.index[0].strftime('%Y-%m-%d')} - {sample_data.index[-1].strftime('%Y-%m-%d')}")
+    print(
+        f"Data Period: {sample_data.index[0].strftime('%Y-%m-%d')} - {sample_data.index[-1].strftime('%Y-%m-%d')}"
+    )
     print(f"Data Count: {len(sample_data)} records")
-    print(f"Price Range: {sample_data['Close'].min():.0f} - {sample_data['Close'].max():.0f}")
+    print(
+        f"Price Range: {sample_data['Close'].min():.0f} - {sample_data['Close'].max():.0f}"
+    )
 
     # 各コンポーネントのテスト結果を保存
     results = {}
@@ -117,7 +123,7 @@ def test_ml_integration():
             sequence_length=30,
             prediction_horizon=5,
             lstm_units=[64, 32],
-            dropout_rate=0.3
+            dropout_rate=0.3,
         )
 
         # LSTM訓練
@@ -128,7 +134,7 @@ def test_ml_integration():
             validation_split=0.2,
             epochs=15,  # テスト用に短縮
             batch_size=32,
-            early_stopping_patience=5
+            early_stopping_patience=5,
         )
 
         if training_result:
@@ -140,18 +146,20 @@ def test_ml_integration():
             # LSTM予測実行
             print("LSTM prediction execution...")
             prediction_result = lstm_model.predict_future_prices(
-                symbol=test_symbol,
-                data=sample_data,
-                steps_ahead=5
+                symbol=test_symbol, data=sample_data, steps_ahead=5
             )
 
             if prediction_result:
                 print("[OK] LSTM prediction completed")
                 print(f"   Current Price: {prediction_result['current_price']:.0f}")
-                print(f"   5-day Prediction: {prediction_result['predicted_prices'][-1]:.0f}")
-                print(f"   Predicted Return: {prediction_result['predicted_returns'][-1]:+.2f}%")
+                print(
+                    f"   5-day Prediction: {prediction_result['predicted_prices'][-1]:.0f}"
+                )
+                print(
+                    f"   Predicted Return: {prediction_result['predicted_returns'][-1]:+.2f}%"
+                )
                 print(f"   Confidence: {prediction_result['confidence_score']:.1f}%")
-                results['lstm'] = prediction_result
+                results["lstm"] = prediction_result
             else:
                 print("[NG] LSTM prediction failed")
         else:
@@ -171,27 +179,29 @@ def test_ml_integration():
         # 一目均衡表
         print("Ichimoku Cloud calculation...")
         ichimoku_result = technical_analyzer.calculate_ichimoku_cloud(sample_data)
-        if ichimoku_result and 'signal' in ichimoku_result:
-            print(f"[OK] Ichimoku: {ichimoku_result['signal']} (Strength: {ichimoku_result.get('signal_strength', 'N/A')})")
-            results['ichimoku'] = ichimoku_result
+        if ichimoku_result and "signal" in ichimoku_result:
+            print(
+                f"[OK] Ichimoku: {ichimoku_result['signal']} (Strength: {ichimoku_result.get('signal_strength', 'N/A')})"
+            )
+            results["ichimoku"] = ichimoku_result
 
         # フィボナッチ分析
         print("Fibonacci analysis...")
         fibonacci_result = technical_analyzer.analyze_fibonacci_levels(sample_data)
-        if fibonacci_result and 'levels' in fibonacci_result:
-            levels = fibonacci_result['levels']
+        if fibonacci_result and "levels" in fibonacci_result:
+            levels = fibonacci_result["levels"]
             print(f"[OK] Fibonacci levels: {len(levels)} levels identified")
             print(f"   Key Support: {fibonacci_result.get('key_support', 'N/A')}")
             print(f"   Key Resistance: {fibonacci_result.get('key_resistance', 'N/A')}")
-            results['fibonacci'] = fibonacci_result
+            results["fibonacci"] = fibonacci_result
 
         # エリオット波動
         print("Elliott Wave analysis...")
         elliott_result = technical_analyzer.detect_elliott_waves(sample_data)
-        if elliott_result and 'current_wave' in elliott_result:
+        if elliott_result and "current_wave" in elliott_result:
             print(f"[OK] Elliott Wave: {elliott_result['current_wave']}")
             print(f"   Wave Phase: {elliott_result.get('wave_phase', 'N/A')}")
-            results['elliott'] = elliott_result
+            results["elliott"] = elliott_result
 
     except Exception as e:
         print(f"[NG] Advanced technical indicators test error: {e}")
@@ -210,30 +220,30 @@ def test_ml_integration():
         if mf_result:
             print("[OK] Multi-timeframe analysis completed")
 
-            timeframes = mf_result.get('timeframes', {})
+            timeframes = mf_result.get("timeframes", {})
             for tf_key, tf_data in timeframes.items():
-                tf_name = tf_data.get('timeframe', tf_key)
-                trend = tf_data.get('trend_direction', 'unknown')
-                strength = tf_data.get('trend_strength', 0)
+                tf_name = tf_data.get("timeframe", tf_key)
+                trend = tf_data.get("trend_direction", "unknown")
+                strength = tf_data.get("trend_strength", 0)
                 print(f"   {tf_name}: {trend} (Strength: {strength:.1f})")
 
-            integrated = mf_result.get('integrated_analysis', {})
+            integrated = mf_result.get("integrated_analysis", {})
             if integrated:
-                overall_trend = integrated.get('overall_trend', 'unknown')
-                confidence = integrated.get('trend_confidence', 0)
-                consistency = integrated.get('consistency_score', 0)
+                overall_trend = integrated.get("overall_trend", "unknown")
+                confidence = integrated.get("trend_confidence", 0)
+                consistency = integrated.get("consistency_score", 0)
 
                 print(f"   Integrated Trend: {overall_trend}")
                 print(f"   Confidence: {confidence:.1f}%")
                 print(f"   Consistency: {consistency:.1f}%")
 
-                signal = integrated.get('integrated_signal', {})
+                signal = integrated.get("integrated_signal", {})
                 if signal:
-                    action = signal.get('action', 'HOLD')
-                    strength = signal.get('strength', 'WEAK')
+                    action = signal.get("action", "HOLD")
+                    strength = signal.get("strength", "WEAK")
                     print(f"   Integrated Signal: {action} ({strength})")
 
-            results['multiframe'] = mf_result
+            results["multiframe"] = mf_result
         else:
             print("[NG] Multi-timeframe analysis failed")
 
@@ -254,30 +264,30 @@ def test_ml_integration():
         if vol_result:
             print("[OK] Volatility prediction completed")
 
-            current_metrics = vol_result.get('current_metrics', {})
+            current_metrics = vol_result.get("current_metrics", {})
             if current_metrics:
-                realized_vol = current_metrics.get('realized_volatility', 0) * 100
-                vix_like = current_metrics.get('vix_like_indicator', 0)
-                regime = current_metrics.get('volatility_regime', 'unknown')
+                realized_vol = current_metrics.get("realized_volatility", 0) * 100
+                vix_like = current_metrics.get("vix_like_indicator", 0)
+                regime = current_metrics.get("volatility_regime", "unknown")
 
                 print(f"   Realized Volatility: {realized_vol:.1f}%")
                 print(f"   VIX-like Indicator: {vix_like:.1f}")
                 print(f"   Volatility Regime: {regime}")
 
-            ensemble = vol_result.get('ensemble_forecast', {})
+            ensemble = vol_result.get("ensemble_forecast", {})
             if ensemble:
-                ensemble_vol = ensemble.get('ensemble_volatility', 0)
-                confidence = ensemble.get('ensemble_confidence', 0)
+                ensemble_vol = ensemble.get("ensemble_volatility", 0)
+                confidence = ensemble.get("ensemble_confidence", 0)
                 print(f"   Ensemble Prediction: {ensemble_vol:.1f}%")
                 print(f"   Prediction Confidence: {confidence:.2f}")
 
-            risk_assessment = vol_result.get('risk_assessment', {})
+            risk_assessment = vol_result.get("risk_assessment", {})
             if risk_assessment:
-                risk_level = risk_assessment.get('risk_level', 'UNKNOWN')
-                risk_score = risk_assessment.get('risk_score', 0)
+                risk_level = risk_assessment.get("risk_level", "UNKNOWN")
+                risk_score = risk_assessment.get("risk_score", 0)
                 print(f"   Risk Level: {risk_level} ({risk_score} points)")
 
-            results['volatility'] = vol_result
+            results["volatility"] = vol_result
         else:
             print("[NG] Volatility prediction failed")
 
@@ -297,25 +307,25 @@ def test_ml_integration():
         # 個別チャート作成
         charts_created = 0
 
-        if 'lstm' in results:
+        if "lstm" in results:
             lstm_chart = visualizer.create_lstm_prediction_chart(
-                sample_data, results['lstm'], symbol=test_symbol
+                sample_data, results["lstm"], symbol=test_symbol
             )
             if lstm_chart:
                 charts_created += 1
                 print(f"   [OK] LSTM Chart: {Path(lstm_chart).name}")
 
-        if 'volatility' in results:
+        if "volatility" in results:
             vol_chart = visualizer.create_volatility_forecast_chart(
-                sample_data, results['volatility'], symbol=test_symbol
+                sample_data, results["volatility"], symbol=test_symbol
             )
             if vol_chart:
                 charts_created += 1
                 print(f"   [OK] Volatility Chart: {Path(vol_chart).name}")
 
-        if 'multiframe' in results:
+        if "multiframe" in results:
             mf_chart = visualizer.create_multiframe_analysis_chart(
-                sample_data, results['multiframe'], symbol=test_symbol
+                sample_data, results["multiframe"], symbol=test_symbol
             )
             if mf_chart:
                 charts_created += 1
@@ -324,10 +334,10 @@ def test_ml_integration():
         # 総合ダッシュボード作成
         dashboard = visualizer.create_comprehensive_dashboard(
             sample_data,
-            lstm_results=results.get('lstm'),
-            volatility_results=results.get('volatility'),
-            multiframe_results=results.get('multiframe'),
-            symbol=test_symbol
+            lstm_results=results.get("lstm"),
+            volatility_results=results.get("volatility"),
+            multiframe_results=results.get("multiframe"),
+            symbol=test_symbol,
         )
         if dashboard:
             charts_created += 1
@@ -339,7 +349,9 @@ def test_ml_integration():
             charts_created += 1
             print(f"   [OK] Analysis Report: {Path(report).name}")
 
-        print(f"[OK] Visualization system test completed: {charts_created} files generated")
+        print(
+            f"[OK] Visualization system test completed: {charts_created} files generated"
+        )
 
     except Exception as e:
         print(f"[NG] Visualization system test error: {e}")
@@ -356,35 +368,35 @@ def test_ml_integration():
     for component, result in results.items():
         print(f"\n[{component.upper()}]")
 
-        if component == 'lstm':
-            if 'confidence_score' in result:
+        if component == "lstm":
+            if "confidence_score" in result:
                 print(f"  Prediction Confidence: {result['confidence_score']:.1f}%")
-            if 'predicted_returns' in result:
-                avg_return = np.mean(result['predicted_returns'])
+            if "predicted_returns" in result:
+                avg_return = np.mean(result["predicted_returns"])
                 print(f"  Average Predicted Return: {avg_return:+.2f}%")
 
-        elif component == 'volatility':
-            current_metrics = result.get('current_metrics', {})
+        elif component == "volatility":
+            current_metrics = result.get("current_metrics", {})
             if current_metrics:
-                vol = current_metrics.get('realized_volatility', 0) * 100
+                vol = current_metrics.get("realized_volatility", 0) * 100
                 print(f"  Current Volatility: {vol:.1f}%")
 
-            risk_assessment = result.get('risk_assessment', {})
+            risk_assessment = result.get("risk_assessment", {})
             if risk_assessment:
-                risk_level = risk_assessment.get('risk_level', 'UNKNOWN')
+                risk_level = risk_assessment.get("risk_level", "UNKNOWN")
                 print(f"  Risk Level: {risk_level}")
 
-        elif component == 'multiframe':
-            integrated = result.get('integrated_analysis', {})
+        elif component == "multiframe":
+            integrated = result.get("integrated_analysis", {})
             if integrated:
-                trend = integrated.get('overall_trend', 'unknown')
-                confidence = integrated.get('trend_confidence', 0)
+                trend = integrated.get("overall_trend", "unknown")
+                confidence = integrated.get("trend_confidence", 0)
                 print(f"  Overall Trend: {trend}")
                 print(f"  Trend Confidence: {confidence:.1f}%")
 
-                signal = integrated.get('integrated_signal', {})
+                signal = integrated.get("integrated_signal", {})
                 if signal:
-                    action = signal.get('action', 'HOLD')
+                    action = signal.get("action", "HOLD")
                     print(f"  Integrated Signal: {action}")
 
     # 最終統合判定
@@ -394,42 +406,44 @@ def test_ml_integration():
 
     # シグナル統合
     signals = []
-    if 'lstm' in results:
-        lstm_result = results['lstm']
-        if 'predicted_returns' in lstm_result:
-            avg_return = np.mean(lstm_result['predicted_returns'])
+    if "lstm" in results:
+        lstm_result = results["lstm"]
+        if "predicted_returns" in lstm_result:
+            avg_return = np.mean(lstm_result["predicted_returns"])
             if avg_return > 1:
-                signals.append('BUY')
+                signals.append("BUY")
             elif avg_return < -1:
-                signals.append('SELL')
+                signals.append("SELL")
             else:
-                signals.append('HOLD')
+                signals.append("HOLD")
 
-    if 'multiframe' in results:
-        mf_result = results['multiframe']
-        integrated = mf_result.get('integrated_analysis', {})
-        signal_info = integrated.get('integrated_signal', {})
-        action = signal_info.get('action', 'HOLD')
+    if "multiframe" in results:
+        mf_result = results["multiframe"]
+        integrated = mf_result.get("integrated_analysis", {})
+        signal_info = integrated.get("integrated_signal", {})
+        action = signal_info.get("action", "HOLD")
         signals.append(action)
 
     # 統合判定
-    buy_count = signals.count('BUY')
-    sell_count = signals.count('SELL')
-    hold_count = signals.count('HOLD')
+    buy_count = signals.count("BUY")
+    sell_count = signals.count("SELL")
+    hold_count = signals.count("HOLD")
 
     if buy_count > sell_count and buy_count > hold_count:
-        final_signal = 'BUY'
+        final_signal = "BUY"
         signal_strength = buy_count / len(signals)
     elif sell_count > buy_count and sell_count > hold_count:
-        final_signal = 'SELL'
+        final_signal = "SELL"
         signal_strength = sell_count / len(signals)
     else:
-        final_signal = 'HOLD'
+        final_signal = "HOLD"
         signal_strength = hold_count / len(signals) if signals else 0
 
     print(f"Integrated Signal: {final_signal}")
     print(f"Signal Strength: {signal_strength:.1%}")
-    print(f"Signal Distribution: BUY({buy_count}) SELL({sell_count}) HOLD({hold_count})")
+    print(
+        f"Signal Distribution: BUY({buy_count}) SELL({sell_count}) HOLD({hold_count})"
+    )
 
     # テスト成功率
     success_rate = components_tested / 4 * 100
@@ -457,4 +471,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[ERROR] Integration test error: {e}")
         import traceback
+
         traceback.print_exc()

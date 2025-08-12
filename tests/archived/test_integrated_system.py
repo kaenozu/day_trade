@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 # パス調整
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.day_trade.simulation.integrated_trading_system import (
     IntegratedSystemConfig,
@@ -32,10 +32,7 @@ async def run_integrated_system_test():
         symbols = ["AAPL", "MSFT", "GOOGL"]
 
         system = await create_integrated_trading_system(
-            symbols=symbols,
-            hft_workers=2,
-            backtest_workers=2,
-            event_workers=2
+            symbols=symbols, hft_workers=2, backtest_workers=2, event_workers=2
         )
 
         print("   統合システム初期化完了")
@@ -49,7 +46,7 @@ async def run_integrated_system_test():
         print(f"   初期化状態: {status['running']}")
         print(f"   統合システム数: {len(status['systems'])}")
 
-        for name, sys_status in status['systems'].items():
+        for name, sys_status in status["systems"].items():
             print(f"   - {name}: {sys_status['type']} (初期化済み)")
 
         # 3. 統合システム開始
@@ -86,10 +83,14 @@ async def run_integrated_system_test():
             event_summary = event_results.get("simulation_summary", {})
             print("\n   イベント駆動シミュレーション:")
             print(f"   - 処理イベント数: {event_summary.get('total_events', 0):,}")
-            print(f"   - イベント処理率: {event_summary.get('events_per_second', 0):.0f} イベント/秒")
+            print(
+                f"   - イベント処理率: {event_summary.get('events_per_second', 0):.0f} イベント/秒"
+            )
 
             performance = event_results.get("performance", {})
-            print(f"   - 平均処理時間: {performance.get('avg_event_processing_us', 0):.1f}μs")
+            print(
+                f"   - 平均処理時間: {performance.get('avg_event_processing_us', 0):.1f}μs"
+            )
             print(f"   - 成功率: {performance.get('event_success_rate', 0):.1%}")
 
         # 高頻度取引結果
@@ -97,20 +98,30 @@ async def run_integrated_system_test():
         if hft_results:
             print("\n   高頻度取引エンジン:")
             print(f"   - 処理注文数: {hft_results.get('total_orders_processed', 0):,}")
-            print(f"   - 平均遅延: {hft_results.get('average_latency_microseconds', 0):.1f}μs")
-            print(f"   - スループット: {hft_results.get('peak_throughput_orders_per_second', 0):.0f} 注文/秒")
+            print(
+                f"   - 平均遅延: {hft_results.get('average_latency_microseconds', 0):.1f}μs"
+            )
+            print(
+                f"   - スループット: {hft_results.get('peak_throughput_orders_per_second', 0):.0f} 注文/秒"
+            )
 
         # システム間統合結果
         integration_stats = demo_results.get("integration_stats", {})
         print("\n   システム間統合:")
-        print(f"   - ブリッジイベント数: {integration_stats.get('events_bridged', 0):,}")
+        print(
+            f"   - ブリッジイベント数: {integration_stats.get('events_bridged', 0):,}"
+        )
         print(f"   - 接続システム数: {integration_stats.get('systems_connected', 0)}")
 
         # 6. パフォーマンス評価
         print("\n6. パフォーマンス評価:")
 
         # イベント処理評価
-        event_rate = event_summary.get('events_per_second', 0) if 'event_summary' in locals() else 0
+        event_rate = (
+            event_summary.get("events_per_second", 0)
+            if "event_summary" in locals()
+            else 0
+        )
         if event_rate > 5000:
             event_grade = "S (超高速)"
             event_emoji = "🚀"
@@ -121,10 +132,14 @@ async def run_integrated_system_test():
             event_grade = "B (良好)"
             event_emoji = "✅"
 
-        print(f"   {event_emoji} イベント処理: {event_grade} ({event_rate:.0f} イベント/秒)")
+        print(
+            f"   {event_emoji} イベント処理: {event_grade} ({event_rate:.0f} イベント/秒)"
+        )
 
         # 高頻度取引評価
-        hft_latency = hft_results.get('average_latency_microseconds', 0) if hft_results else 1000
+        hft_latency = (
+            hft_results.get("average_latency_microseconds", 0) if hft_results else 1000
+        )
         if hft_latency < 100:
             hft_grade = "S (超低遅延)"
             hft_emoji = "🌟"
@@ -138,7 +153,7 @@ async def run_integrated_system_test():
         print(f"   {hft_emoji} 高頻度取引: {hft_grade} ({hft_latency:.0f}μs遅延)")
 
         # 統合効果評価
-        bridge_events = integration_stats.get('events_bridged', 0)
+        bridge_events = integration_stats.get("events_bridged", 0)
         if bridge_events > 1000:
             integration_grade = "S (完全統合)"
             integration_emoji = "🔗"
@@ -149,7 +164,9 @@ async def run_integrated_system_test():
             integration_grade = "B (基本統合)"
             integration_emoji = "↔️"
 
-        print(f"   {integration_emoji} システム統合: {integration_grade} ({bridge_events} ブリッジ)")
+        print(
+            f"   {integration_emoji} システム統合: {integration_grade} ({bridge_events} ブリッジ)"
+        )
 
         # 総合評価
         grades = [event_rate > 1000, hft_latency < 500, bridge_events > 100]
@@ -183,6 +200,7 @@ async def run_integrated_system_test():
     except Exception as e:
         print(f"\n統合テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

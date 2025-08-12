@@ -49,7 +49,9 @@ class BasicRiskTest:
 
         for module_path, class_name in modules:
             try:
-                module = __import__(f"src.day_trade.{module_path}", fromlist=[class_name])
+                module = __import__(
+                    f"src.day_trade.{module_path}", fromlist=[class_name]
+                )
                 getattr(module, class_name)
                 print(f"  OK: {module_path}")
                 success += 1
@@ -68,7 +70,12 @@ class BasicRiskTest:
 
         try:
             # Simple risk calculation
-            data = {"amount": 5000000, "hour": 14, "volatility": 0.25, "balance": 10000000}
+            data = {
+                "amount": 5000000,
+                "hour": 14,
+                "volatility": 0.25,
+                "balance": 10000000,
+            }
 
             risk_score = await self._calc_risk(data)
 
@@ -76,7 +83,11 @@ class BasicRiskTest:
                 level = (
                     "CRITICAL"
                     if risk_score >= 0.8
-                    else "HIGH" if risk_score >= 0.6 else "MEDIUM" if risk_score >= 0.3 else "LOW"
+                    else (
+                        "HIGH"
+                        if risk_score >= 0.6
+                        else "MEDIUM" if risk_score >= 0.3 else "LOW"
+                    )
                 )
 
                 print(f"  Risk Score: {risk_score:.3f}")
@@ -137,7 +148,11 @@ class BasicRiskTest:
             accuracy = correct / total * 100
             print(f"  Accuracy: {correct}/{total} ({accuracy:.1f}%)")
 
-            self.test_results["fraud"] = {"success": True, "accuracy": accuracy, "correct": correct}
+            self.test_results["fraud"] = {
+                "success": True,
+                "accuracy": accuracy,
+                "correct": correct,
+            }
 
         except Exception as e:
             print(f"  FAIL: {e}")

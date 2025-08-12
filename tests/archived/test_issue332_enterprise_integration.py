@@ -73,7 +73,7 @@ async def test_orchestration_engine() -> Dict[str, Any]:
             enable_monitoring_alerts=True,
             enable_data_management=True,
             enable_advanced_analytics=True,
-            max_concurrent_operations=10
+            max_concurrent_operations=10,
         )
 
         # オーケストレーター初期化
@@ -84,9 +84,9 @@ async def test_orchestration_engine() -> Dict[str, Any]:
 
         if not init_success:
             return {
-                'phase': 'Phase 1: 統合オーケストレーションエンジン',
-                'success': False,
-                'error': 'システム初期化失敗'
+                "phase": "Phase 1: 統合オーケストレーションエンジン",
+                "success": False,
+                "error": "システム初期化失敗",
             }
 
         # システム概要取得テスト
@@ -94,7 +94,7 @@ async def test_orchestration_engine() -> Dict[str, Any]:
         component_details = orchestrator.get_component_details()
 
         # 統合分析テストシンボル
-        test_symbols = ['7203', '8306', '9984']
+        test_symbols = ["7203", "8306", "9984"]
 
         # 運用開始テスト
         await orchestrator.start_enterprise_operations()
@@ -103,7 +103,9 @@ async def test_orchestration_engine() -> Dict[str, Any]:
         await asyncio.sleep(5)
 
         # 統合分析レポート生成テスト
-        analysis_report = await orchestrator.get_integrated_analysis_report(test_symbols)
+        analysis_report = await orchestrator.get_integrated_analysis_report(
+            test_symbols
+        )
 
         # 運用停止テスト
         await orchestrator.stop_enterprise_operations()
@@ -112,48 +114,63 @@ async def test_orchestration_engine() -> Dict[str, Any]:
 
         # オーケストレーション機能検証
         orchestration_features = {
-            'system_initialization': init_success,
-            'component_management': len(component_details) > 0,
-            'enterprise_operations': True,  # 運用開始・停止が成功
-            'integrated_analysis': len(analysis_report.get('analysis_results', {})) > 0,
-            'safe_mode_compliance': system_overview.get('safe_mode_status', {}).get('safe_mode', False)
+            "system_initialization": init_success,
+            "component_management": len(component_details) > 0,
+            "enterprise_operations": True,  # 運用開始・停止が成功
+            "integrated_analysis": len(analysis_report.get("analysis_results", {})) > 0,
+            "safe_mode_compliance": system_overview.get("safe_mode_status", {}).get(
+                "safe_mode", False
+            ),
         }
 
         # システム性能指標
         performance_metrics = {
-            'initialization_time_ms': processing_time,
-            'registered_components': len(component_details),
-            'healthy_components': system_overview.get('components', {}).get('healthy', 0),
-            'total_components': system_overview.get('components', {}).get('total', 0),
-            'health_ratio': system_overview.get('components', {}).get('health_ratio', 0.0)
+            "initialization_time_ms": processing_time,
+            "registered_components": len(component_details),
+            "healthy_components": system_overview.get("components", {}).get(
+                "healthy", 0
+            ),
+            "total_components": system_overview.get("components", {}).get("total", 0),
+            "health_ratio": system_overview.get("components", {}).get(
+                "health_ratio", 0.0
+            ),
         }
 
         # 統合分析結果評価
         analysis_evaluation = {
-            'symbols_analyzed': len(test_symbols),
-            'successful_analysis': sum(1 for symbol, result in analysis_report.get('analysis_results', {}).items() if 'error' not in result),
-            'analysis_success_rate': 0.0
+            "symbols_analyzed": len(test_symbols),
+            "successful_analysis": sum(
+                1
+                for symbol, result in analysis_report.get(
+                    "analysis_results", {}
+                ).items()
+                if "error" not in result
+            ),
+            "analysis_success_rate": 0.0,
         }
 
-        if analysis_evaluation['symbols_analyzed'] > 0:
-            analysis_evaluation['analysis_success_rate'] = analysis_evaluation['successful_analysis'] / analysis_evaluation['symbols_analyzed']
+        if analysis_evaluation["symbols_analyzed"] > 0:
+            analysis_evaluation["analysis_success_rate"] = (
+                analysis_evaluation["successful_analysis"]
+                / analysis_evaluation["symbols_analyzed"]
+            )
 
         return {
-            'phase': 'Phase 1: 統合オーケストレーションエンジン',
-            'success': True,
-            'orchestration_features': orchestration_features,
-            'performance_metrics': performance_metrics,
-            'analysis_evaluation': analysis_evaluation,
-            'system_overview': system_overview,
-            'test_time_ms': processing_time,
-            'symbols_tested': len(test_symbols)
+            "phase": "Phase 1: 統合オーケストレーションエンジン",
+            "success": True,
+            "orchestration_features": orchestration_features,
+            "performance_metrics": performance_metrics,
+            "analysis_evaluation": analysis_evaluation,
+            "system_overview": system_overview,
+            "test_time_ms": processing_time,
+            "symbols_tested": len(test_symbols),
         }
 
     except Exception as e:
         return {
-            'phase': 'Phase 1: 統合オーケストレーションエンジン',
-            'success': False,
-            'error': str(e)
+            "phase": "Phase 1: 統合オーケストレーションエンジン",
+            "success": False,
+            "error": str(e),
         }
 
 
@@ -166,8 +183,7 @@ async def test_dashboard_system() -> Dict[str, Any]:
 
         # オーケストレーター初期化（ダッシュボード用）
         orchestration_config = OrchestrationConfig(
-            operation_mode=OperationMode.SAFE_MODE,
-            enable_api_integration=True
+            operation_mode=OperationMode.SAFE_MODE, enable_api_integration=True
         )
         orchestrator = EnterpriseIntegrationOrchestrator(orchestration_config)
         await orchestrator.initialize_enterprise_system()
@@ -178,7 +194,7 @@ async def test_dashboard_system() -> Dict[str, Any]:
             enable_real_time_updates=True,
             auto_refresh_interval_seconds=5,
             host="localhost",
-            port=8081  # テスト用ポート
+            port=8081,  # テスト用ポート
         )
 
         # ダッシュボード初期化
@@ -186,12 +202,12 @@ async def test_dashboard_system() -> Dict[str, Any]:
 
         # ダッシュボード機能テスト
         dashboard_features = {
-            'orchestrator_integration': orchestrator is not None,
-            'fastapi_app_creation': dashboard.app is not None,
-            'websocket_management': hasattr(dashboard, 'websocket_connections'),
-            'template_system': hasattr(dashboard, 'templates'),
-            'chart_generation': True,  # チャート生成機能
-            'real_time_updates': dashboard_config.enable_real_time_updates
+            "orchestrator_integration": orchestrator is not None,
+            "fastapi_app_creation": dashboard.app is not None,
+            "websocket_management": hasattr(dashboard, "websocket_connections"),
+            "template_system": hasattr(dashboard, "templates"),
+            "chart_generation": True,  # チャート生成機能
+            "real_time_updates": dashboard_config.enable_real_time_updates,
         }
 
         # チャート生成テスト
@@ -199,22 +215,32 @@ async def test_dashboard_system() -> Dict[str, Any]:
         performance_chart = await dashboard._generate_performance_chart()
 
         chart_generation_results = {
-            'system_status_chart_generated': len(system_status_chart) > 100,
-            'performance_chart_generated': len(performance_chart) > 100,
-            'chart_format': 'HTML/Plotly'
+            "system_status_chart_generated": len(system_status_chart) > 100,
+            "performance_chart_generated": len(performance_chart) > 100,
+            "chart_format": "HTML/Plotly",
         }
 
         # 包括レポート生成テスト
-        test_symbols = ['7203', '8306', '9984']
-        comprehensive_report = await dashboard.generate_comprehensive_report(test_symbols)
+        test_symbols = ["7203", "8306", "9984"]
+        comprehensive_report = await dashboard.generate_comprehensive_report(
+            test_symbols
+        )
 
         report_quality = {
-            'report_structure_complete': all(key in comprehensive_report for key in [
-                'report_id', 'generated_at', 'system_overview', 'analysis_results', 'charts', 'summary'
-            ]),
-            'symbols_in_report': len(comprehensive_report.get('analysis_results', {})),
-            'charts_included': len(comprehensive_report.get('charts', {})),
-            'summary_metrics': len(comprehensive_report.get('summary', {}))
+            "report_structure_complete": all(
+                key in comprehensive_report
+                for key in [
+                    "report_id",
+                    "generated_at",
+                    "system_overview",
+                    "analysis_results",
+                    "charts",
+                    "summary",
+                ]
+            ),
+            "symbols_in_report": len(comprehensive_report.get("analysis_results", {})),
+            "charts_included": len(comprehensive_report.get("charts", {})),
+            "summary_metrics": len(comprehensive_report.get("summary", {})),
         }
 
         # システムクリーンアップ
@@ -224,28 +250,29 @@ async def test_dashboard_system() -> Dict[str, Any]:
 
         # 可視化システム評価
         visualization_evaluation = {
-            'dashboard_features_ratio': sum(1 for v in dashboard_features.values() if v) / len(dashboard_features),
-            'chart_generation_success': all(chart_generation_results.values()),
-            'comprehensive_report_quality': report_quality['report_structure_complete'],
-            'real_time_capability': dashboard_config.enable_real_time_updates
+            "dashboard_features_ratio": sum(1 for v in dashboard_features.values() if v)
+            / len(dashboard_features),
+            "chart_generation_success": all(chart_generation_results.values()),
+            "comprehensive_report_quality": report_quality["report_structure_complete"],
+            "real_time_capability": dashboard_config.enable_real_time_updates,
         }
 
         return {
-            'phase': 'Phase 2: エンタープライズダッシュボードシステム',
-            'success': True,
-            'dashboard_features': dashboard_features,
-            'chart_generation_results': chart_generation_results,
-            'report_quality': report_quality,
-            'visualization_evaluation': visualization_evaluation,
-            'test_time_ms': processing_time,
-            'symbols_tested': len(test_symbols)
+            "phase": "Phase 2: エンタープライズダッシュボードシステム",
+            "success": True,
+            "dashboard_features": dashboard_features,
+            "chart_generation_results": chart_generation_results,
+            "report_quality": report_quality,
+            "visualization_evaluation": visualization_evaluation,
+            "test_time_ms": processing_time,
+            "symbols_tested": len(test_symbols),
         }
 
     except Exception as e:
         return {
-            'phase': 'Phase 2: エンタープライズダッシュボードシステム',
-            'success': False,
-            'error': str(e)
+            "phase": "Phase 2: エンタープライズダッシュボードシステム",
+            "success": False,
+            "error": str(e),
         }
 
 
@@ -258,15 +285,15 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
 
         # フルシステム統合テストシナリオ
         integration_scenario = {
-            'scenario': 'enterprise_full_system_integration',
-            'components': [
-                'enterprise_orchestrator',
-                'api_integration_manager',
-                'dashboard_system',
-                'monitoring_alerts',
-                'data_management'
+            "scenario": "enterprise_full_system_integration",
+            "components": [
+                "enterprise_orchestrator",
+                "api_integration_manager",
+                "dashboard_system",
+                "monitoring_alerts",
+                "data_management",
             ],
-            'test_duration_seconds': 30
+            "test_duration_seconds": 30,
         }
 
         # エンタープライズシステム完全初期化
@@ -275,7 +302,7 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
             enable_api_integration=True,
             enable_monitoring_alerts=True,
             enable_data_management=True,
-            enable_advanced_analytics=True
+            enable_advanced_analytics=True,
         )
 
         orchestrator = EnterpriseIntegrationOrchestrator(config)
@@ -283,15 +310,14 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
 
         if not init_success:
             return {
-                'phase': 'Phase 3: 統合システム運用',
-                'success': False,
-                'error': 'システム初期化失敗'
+                "phase": "Phase 3: 統合システム運用",
+                "success": False,
+                "error": "システム初期化失敗",
             }
 
         # ダッシュボード統合
         dashboard_config = DashboardConfig(
-            enable_real_time_updates=True,
-            auto_refresh_interval_seconds=2
+            enable_real_time_updates=True, auto_refresh_interval_seconds=2
         )
         dashboard = EnterpriseDashboardSystem(orchestrator, dashboard_config)
 
@@ -299,7 +325,7 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
         await orchestrator.start_enterprise_operations()
 
         # 統合運用テスト実行
-        test_symbols = ['7203', '8306', '9984', '4502', '7182']
+        test_symbols = ["7203", "8306", "9984", "4502", "7182"]
 
         # パフォーマンステスト
         performance_results = []
@@ -308,37 +334,60 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
             test_start = time.time()
 
             # 統合分析実行
-            analysis_result = await orchestrator.get_integrated_analysis_report(test_symbols)
+            analysis_result = await orchestrator.get_integrated_analysis_report(
+                test_symbols
+            )
 
             # ダッシュボードレポート生成
-            dashboard_report = await dashboard.generate_comprehensive_report(test_symbols[:3])
+            dashboard_report = await dashboard.generate_comprehensive_report(
+                test_symbols[:3]
+            )
 
             test_duration = (time.time() - test_start) * 1000
 
-            performance_results.append({
-                'iteration': i + 1,
-                'analysis_duration_ms': test_duration,
-                'symbols_processed': len(test_symbols),
-                'dashboard_report_generated': 'report_id' in dashboard_report,
-                'system_health': orchestrator.get_system_overview()['components']['health_ratio']
-            })
+            performance_results.append(
+                {
+                    "iteration": i + 1,
+                    "analysis_duration_ms": test_duration,
+                    "symbols_processed": len(test_symbols),
+                    "dashboard_report_generated": "report_id" in dashboard_report,
+                    "system_health": orchestrator.get_system_overview()["components"][
+                        "health_ratio"
+                    ],
+                }
+            )
 
             await asyncio.sleep(2)  # 2秒間隔
 
         # システム信頼性テスト
         reliability_metrics = {
-            'system_uptime_consistency': all(r['system_health'] > 0.8 for r in performance_results),
-            'performance_consistency': max(r['analysis_duration_ms'] for r in performance_results) - min(r['analysis_duration_ms'] for r in performance_results) < 2000,
-            'report_generation_success_rate': sum(1 for r in performance_results if r['dashboard_report_generated']) / len(performance_results),
-            'average_processing_time_ms': sum(r['analysis_duration_ms'] for r in performance_results) / len(performance_results)
+            "system_uptime_consistency": all(
+                r["system_health"] > 0.8 for r in performance_results
+            ),
+            "performance_consistency": max(
+                r["analysis_duration_ms"] for r in performance_results
+            )
+            - min(r["analysis_duration_ms"] for r in performance_results)
+            < 2000,
+            "report_generation_success_rate": sum(
+                1 for r in performance_results if r["dashboard_report_generated"]
+            )
+            / len(performance_results),
+            "average_processing_time_ms": sum(
+                r["analysis_duration_ms"] for r in performance_results
+            )
+            / len(performance_results),
         }
 
         # エンドツーエンド統合評価
         integration_quality = {
-            'orchestrator_dashboard_integration': True,  # 正常に統合動作
-            'multi_component_coordination': len(orchestrator.get_component_details()) >= 3,
-            'real_time_data_flow': reliability_metrics['performance_consistency'],
-            'enterprise_grade_stability': reliability_metrics['system_uptime_consistency']
+            "orchestrator_dashboard_integration": True,  # 正常に統合動作
+            "multi_component_coordination": len(orchestrator.get_component_details())
+            >= 3,
+            "real_time_data_flow": reliability_metrics["performance_consistency"],
+            "enterprise_grade_stability": reliability_metrics[
+                "system_uptime_consistency"
+            ],
         }
 
         # システム停止
@@ -348,31 +397,38 @@ async def test_integrated_system_operations() -> Dict[str, Any]:
 
         # 最終統合スコア計算
         integration_score = {
-            'reliability_score': sum(1 for v in reliability_metrics.values() if (isinstance(v, bool) and v) or (isinstance(v, float) and v > 0.8)) / len(reliability_metrics),
-            'integration_quality_score': sum(1 for v in integration_quality.values() if v) / len(integration_quality),
-            'overall_integration_score': 0.0
+            "reliability_score": sum(
+                1
+                for v in reliability_metrics.values()
+                if (isinstance(v, bool) and v) or (isinstance(v, float) and v > 0.8)
+            )
+            / len(reliability_metrics),
+            "integration_quality_score": sum(
+                1 for v in integration_quality.values() if v
+            )
+            / len(integration_quality),
+            "overall_integration_score": 0.0,
         }
 
-        integration_score['overall_integration_score'] = (integration_score['reliability_score'] + integration_score['integration_quality_score']) / 2
+        integration_score["overall_integration_score"] = (
+            integration_score["reliability_score"]
+            + integration_score["integration_quality_score"]
+        ) / 2
 
         return {
-            'phase': 'Phase 3: 統合システム運用',
-            'success': True,
-            'integration_scenario': integration_scenario,
-            'performance_results': performance_results,
-            'reliability_metrics': reliability_metrics,
-            'integration_quality': integration_quality,
-            'integration_score': integration_score,
-            'test_time_ms': processing_time,
-            'symbols_tested': len(test_symbols)
+            "phase": "Phase 3: 統合システム運用",
+            "success": True,
+            "integration_scenario": integration_scenario,
+            "performance_results": performance_results,
+            "reliability_metrics": reliability_metrics,
+            "integration_quality": integration_quality,
+            "integration_score": integration_score,
+            "test_time_ms": processing_time,
+            "symbols_tested": len(test_symbols),
         }
 
     except Exception as e:
-        return {
-            'phase': 'Phase 3: 統合システム運用',
-            'success': False,
-            'error': str(e)
-        }
+        return {"phase": "Phase 3: 統合システム運用", "success": False, "error": str(e)}
 
 
 async def main():
@@ -404,8 +460,8 @@ async def main():
     total_tests = len(test_results)
 
     for i, result in enumerate(test_results, 1):
-        phase_name = result.get('phase', f'テスト{i}')
-        success = result['success']
+        phase_name = result.get("phase", f"テスト{i}")
+        success = result["success"]
         status = "OK" if success else "NG"
 
         print(f"\n{i}. {phase_name}: {status}")
@@ -414,25 +470,33 @@ async def main():
             successful_tests += 1
 
             # 成功時の詳細情報
-            if 'orchestration_features' in result:
-                features = result['orchestration_features']
-                feature_success_rate = sum(1 for v in features.values() if v) / len(features)
+            if "orchestration_features" in result:
+                features = result["orchestration_features"]
+                feature_success_rate = sum(1 for v in features.values() if v) / len(
+                    features
+                )
                 print(f"   オーケストレーション機能: {feature_success_rate:.1%}")
-                print(f"   健全コンポーネント: {result['performance_metrics']['healthy_components']}/{result['performance_metrics']['total_components']}")
+                print(
+                    f"   健全コンポーネント: {result['performance_metrics']['healthy_components']}/{result['performance_metrics']['total_components']}"
+                )
 
-            if 'dashboard_features' in result:
-                features = result['dashboard_features']
-                feature_success_rate = sum(1 for v in features.values() if v) / len(features)
+            if "dashboard_features" in result:
+                features = result["dashboard_features"]
+                feature_success_rate = sum(1 for v in features.values() if v) / len(
+                    features
+                )
                 print(f"   ダッシュボード機能: {feature_success_rate:.1%}")
-                print(f"   可視化評価: {result['visualization_evaluation']['dashboard_features_ratio']:.1%}")
+                print(
+                    f"   可視化評価: {result['visualization_evaluation']['dashboard_features_ratio']:.1%}"
+                )
 
-            if 'integration_score' in result:
-                score = result['integration_score']
+            if "integration_score" in result:
+                score = result["integration_score"]
                 print(f"   統合スコア: {score['overall_integration_score']:.3f}")
                 print(f"   信頼性スコア: {score['reliability_score']:.3f}")
                 print(f"   品質スコア: {score['integration_quality_score']:.3f}")
 
-            if 'symbols_tested' in result:
+            if "symbols_tested" in result:
                 print(f"   テスト銘柄数: {result['symbols_tested']}")
         else:
             print(f"   エラー: {result.get('error', '不明なエラー')}")
@@ -446,32 +510,50 @@ async def main():
     print("\nIssue #332 成功条件検証:")
 
     # Phase 1: オーケストレーション機能 (85%以上)
-    orchestration_result = next((r for r in test_results if 'orchestration_features' in r), None)
-    if orchestration_result and orchestration_result['success']:
-        features = orchestration_result['orchestration_features']
-        orchestration_success_rate = sum(1 for v in features.values() if v) / len(features)
+    orchestration_result = next(
+        (r for r in test_results if "orchestration_features" in r), None
+    )
+    if orchestration_result and orchestration_result["success"]:
+        features = orchestration_result["orchestration_features"]
+        orchestration_success_rate = sum(1 for v in features.values() if v) / len(
+            features
+        )
         orchestration_target_met = orchestration_success_rate >= 0.85
-        print(f"  1. オーケストレーション機能85%以上: {orchestration_success_rate:.1%} {'OK' if orchestration_target_met else 'NG'}")
+        print(
+            f"  1. オーケストレーション機能85%以上: {orchestration_success_rate:.1%} {'OK' if orchestration_target_met else 'NG'}"
+        )
     else:
         orchestration_target_met = False
         print("  1. オーケストレーション機能85%以上: データなし NG")
 
     # Phase 2: ダッシュボード品質 (90%以上)
-    dashboard_result = next((r for r in test_results if 'dashboard_features' in r), None)
-    if dashboard_result and dashboard_result['success']:
-        dashboard_quality = dashboard_result['visualization_evaluation']['dashboard_features_ratio']
+    dashboard_result = next(
+        (r for r in test_results if "dashboard_features" in r), None
+    )
+    if dashboard_result and dashboard_result["success"]:
+        dashboard_quality = dashboard_result["visualization_evaluation"][
+            "dashboard_features_ratio"
+        ]
         dashboard_target_met = dashboard_quality >= 0.90
-        print(f"  2. ダッシュボード品質90%以上: {dashboard_quality:.1%} {'OK' if dashboard_target_met else 'NG'}")
+        print(
+            f"  2. ダッシュボード品質90%以上: {dashboard_quality:.1%} {'OK' if dashboard_target_met else 'NG'}"
+        )
     else:
         dashboard_target_met = False
         print("  2. ダッシュボード品質90%以上: データなし NG")
 
     # Phase 3: 統合システム運用品質 (85%以上)
-    integration_result = next((r for r in test_results if 'integration_score' in r), None)
-    if integration_result and integration_result['success']:
-        integration_quality = integration_result['integration_score']['overall_integration_score']
+    integration_result = next(
+        (r for r in test_results if "integration_score" in r), None
+    )
+    if integration_result and integration_result["success"]:
+        integration_quality = integration_result["integration_score"][
+            "overall_integration_score"
+        ]
         integration_target_met = integration_quality >= 0.85
-        print(f"  3. 統合システム運用85%以上: {integration_quality:.3f} {'OK' if integration_target_met else 'NG'}")
+        print(
+            f"  3. 統合システム運用85%以上: {integration_quality:.3f} {'OK' if integration_target_met else 'NG'}"
+        )
     else:
         integration_target_met = False
         print("  3. 統合システム運用85%以上: データなし NG")
@@ -479,13 +561,22 @@ async def main():
     # エンタープライズ級品質 (全体90%以上)
     enterprise_quality = success_rate
     enterprise_target_met = enterprise_quality >= 0.90
-    print(f"  4. エンタープライズ級品質90%以上: {enterprise_quality:.1%} {'OK' if enterprise_target_met else 'NG'}")
+    print(
+        f"  4. エンタープライズ級品質90%以上: {enterprise_quality:.1%} {'OK' if enterprise_target_met else 'NG'}"
+    )
 
     # 最終判定
-    targets_met = [orchestration_target_met, dashboard_target_met, integration_target_met, enterprise_target_met]
+    targets_met = [
+        orchestration_target_met,
+        dashboard_target_met,
+        integration_target_met,
+        enterprise_target_met,
+    ]
     issue_success_rate = sum(targets_met) / len(targets_met)
 
-    print(f"\nIssue #332 達成条件: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})")
+    print(
+        f"\nIssue #332 達成条件: {sum(targets_met)}/{len(targets_met)} ({issue_success_rate:.1%})"
+    )
 
     if issue_success_rate >= 0.75:
         print("判定: OK Issue #332 エンタープライズ級完全統合システム実装成功")
@@ -513,4 +604,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"統合テストエラー: {e}")
         import traceback
+
         traceback.print_exc()

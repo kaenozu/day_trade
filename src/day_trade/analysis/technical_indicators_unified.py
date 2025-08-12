@@ -97,7 +97,10 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
                 if hasattr(self, method_name):
                     calc_start = time.time()
                     method = getattr(self, method_name)
-                    result = method(data, **kwargs)
+
+                    # 各指標に適切なパラメータを渡す
+                    filtered_kwargs = self._filter_kwargs_for_method(indicator, **kwargs)
+                    result = method(data, **filtered_kwargs)
                     calc_time = time.time() - calc_start
 
                     results[indicator] = IndicatorResult(
@@ -120,6 +123,49 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             self.record_execution(execution_time, False)
             logger.error(f"指標計算エラー: {e}")
             raise
+
+    def _filter_kwargs_for_method(self, indicator: str, **kwargs) -> dict:
+        """各指標メソッドに適切なパラメータのみを抽出"""
+        # 指標ごとの有効なパラメータ定義
+        indicator_params = {
+            'sma': ['period'],
+            'ema': ['period'],
+            'rsi': ['period'],
+            'bollinger_bands': ['period', 'std_dev'],
+            'macd': ['fast_period', 'slow_period', 'signal_period'],
+            'ichimoku': ['conversion_period', 'base_period', 'leading_span_b_period', 'lagging_span_period'],
+            'fibonacci_retracement': ['period']
+        }
+
+        valid_params = indicator_params.get(indicator.lower(), [])
+        filtered = {}
+
+        # 共通パラメータ 'period' の変換
+        if 'period' in kwargs and 'period' in valid_params:
+            filtered['period'] = kwargs['period']
+
+        # MACD用のデフォルトパラメータ
+        if indicator.lower() == 'macd':
+            filtered.update({
+                'fast_period': kwargs.get('fast_period', 12),
+                'slow_period': kwargs.get('slow_period', 26),
+                'signal_period': kwargs.get('signal_period', 9)
+            })
+
+        # Bollinger Bands用のデフォルトパラメータ
+        elif indicator.lower() == 'bollinger_bands':
+            filtered.update({
+                'period': kwargs.get('period', 20),
+                'std_dev': kwargs.get('std_dev', 2.0)
+            })
+
+        # その他の指標用のパラメータ
+        else:
+            for param in valid_params:
+                if param in kwargs:
+                    filtered[param] = kwargs[param]
+
+        return filtered
 
     # 基本指標計算メソッド（共通）
     def calculate_sma(
@@ -652,16 +698,16 @@ try:
         def get_strategy_name(self) -> str:
             return f"DummyTechnicalIndicators-{self.config.level.value}"
 
-    # 戦略登録
+    # 戦略登録（実際の実装を使用）
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.STANDARD,
-        DummyTechnicalIndicatorsStrategy,
+        StandardTechnicalIndicators,
     )
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.OPTIMIZED,
-        DummyTechnicalIndicatorsStrategy,
+        OptimizedTechnicalIndicators,
     )
 
     logger.info("テクニカル指標戦略の自動登録完了")

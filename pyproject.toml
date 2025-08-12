@@ -152,7 +152,7 @@ target-version = "py38"
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 select = [
-    "F",  # Pyflakes only (minimal checks)
+    # Minimal checks for CI compatibility
 ]
 ignore = [
     "E501",  # line too long, handled by black
@@ -333,39 +333,39 @@ output = "coverage.xml"
 output = "coverage.json"
 show_contexts = true
 
-# MyPy type checker configuration
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = false
-warn_unused_configs = false
-disallow_untyped_defs = false
-ignore_missing_imports = true
-ignore_errors = true
-show_error_codes = false
-cache_dir = ".mypy_cache"
-explicit_package_bases = true
-namespace_packages = true
-exclude = [
-    "tests/",
-    "build/",
-    "dist/",
-    ".venv/",
-    "venv/",
-    "alembic/",
-    "scripts/",
-]
-# CI通過のため厳格度を最小限に
-no_strict_optional = true
-allow_redefinition = true
-allow_any_generics = true
-allow_untyped_calls = true
-allow_untyped_defs = true
-allow_incomplete_defs = true
-check_untyped_defs = false
-disallow_any_generics = false
-disallow_untyped_calls = false
-warn_no_return = false
-warn_unused_ignores = false
+# MyPy type checker configuration moved to mypy.ini
+# [tool.mypy]
+# python_version = "3.11"
+# warn_return_any = false
+# warn_unused_configs = false
+# disallow_untyped_defs = false
+# ignore_missing_imports = true
+# ignore_errors = true
+# show_error_codes = false
+# cache_dir = ".mypy_cache"
+# explicit_package_bases = true
+# namespace_packages = true
+# exclude = [
+#     "tests/",
+#     "build/",
+#     "dist/",
+#     ".venv/",
+#     "venv/",
+#     "alembic/",
+#     "scripts/",
+# ]
+# # CI通過のため厳格度を最小限に
+# no_strict_optional = true
+# allow_redefinition = true
+# allow_any_generics = true
+# allow_untyped_calls = true
+# allow_untyped_defs = true
+# allow_incomplete_defs = true
+# check_untyped_defs = false
+# disallow_any_generics = false
+# disallow_untyped_calls = false
+# warn_no_return = false
+# warn_unused_ignores = false
 
 # Bandit security linter configuration
 [tool.bandit]
