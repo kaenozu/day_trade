@@ -7,7 +7,8 @@ Issue #388 と #387 の修正を検証
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 def test_exception_sanitization():
     """例外サニタイズ機能のテスト"""
@@ -21,7 +22,7 @@ def test_exception_sanitization():
         "Database error: password=[DUMMY_PWD] connection failed",
         "API error: api_key=[DUMMY_KEY] token=bearer_[DUMMY_TOKEN]",
         "Connection failed to postgresql://user:[DUMMY_PASS]@localhost:5432/db",
-        "Normal error message without sensitive data"
+        "Normal error message without sensitive data",
     ]
 
     for i, test_input in enumerate(test_cases, 1):
@@ -34,7 +35,7 @@ def test_exception_sanitization():
     error = DayTradeError(
         message="Database connection failed: password=[REDACTED]",
         error_code="DB_ERROR",
-        details={"connection_string": "postgresql://user:[REDACTED]@host/db"}
+        details={"connection_string": "postgresql://user:[REDACTED]@host/db"},
     )
 
     print("DayTradeError サニタイズテスト:")
@@ -42,6 +43,7 @@ def test_exception_sanitization():
     print("安全な詳細:", error.get_safe_details())
 
     return True
+
 
 def test_password_validation():
     """パスワード強度検証のテスト"""
@@ -53,11 +55,11 @@ def test_password_validation():
 
     # パスワードテストケース
     passwords = [
-        "weak",                    # 短すぎる
-        "password123",            # 弱い
-        "StrongPass123!",         # 良い
-        "VeryStr0ng&Secure!2024", # 非常に良い
-        "aaaa1111",              # 同じ文字の連続
+        "weak",  # 短すぎる
+        "password123",  # 弱い
+        "StrongPass123!",  # 良い
+        "VeryStr0ng&Secure!2024",  # 非常に良い
+        "aaaa1111",  # 同じ文字の連続
     ]
 
     for i, pwd in enumerate(passwords, 1):
@@ -71,6 +73,7 @@ def test_password_validation():
 
     return True
 
+
 def test_security_config():
     """セキュリティ設定のテスト"""
     print("=== セキュリティ設定テスト ===")
@@ -82,7 +85,7 @@ def test_security_config():
         "api_key": "dummy_test_key_123",
         "password": "test_weak_pwd",
         "database_url": "postgresql://testuser:testpwd@localhost/testdb",
-        "normal_setting": "normal_value"
+        "normal_setting": "normal_value",
     }
 
     config_manager = SecureConfigManager()
@@ -101,6 +104,7 @@ def test_security_config():
 
     return True
 
+
 def main():
     """メインテスト実行"""
     print("セキュリティ修正テスト開始")
@@ -118,8 +122,10 @@ def main():
     except Exception as e:
         print(f"\n[ERROR] テスト中にエラーが発生しました: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
+
 
 if __name__ == "__main__":
     exit_code = main()

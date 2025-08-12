@@ -10,7 +10,8 @@ import sys
 from datetime import datetime
 
 # パスを追加
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 async def test_dashboard_components():
     """ダッシュボードコンポーネントのテスト"""
@@ -20,6 +21,7 @@ async def test_dashboard_components():
 
     try:
         from day_trade.dashboard.core.metrics_collector import MetricsCollector
+
         print("[OK] MetricsCollector import success")
     except Exception as e:
         print(f"[ERROR] MetricsCollector import failed: {e}")
@@ -27,6 +29,7 @@ async def test_dashboard_components():
 
     try:
         from day_trade.dashboard.core.feature_store_monitor import FeatureStoreMonitor
+
         print("[OK] FeatureStoreMonitor import success")
     except Exception as e:
         print(f"[ERROR] FeatureStoreMonitor import failed: {e}")
@@ -34,6 +37,7 @@ async def test_dashboard_components():
 
     try:
         from day_trade.dashboard.core.realtime_stream import RealtimeStream
+
         print("[OK] RealtimeStream import success")
     except Exception as e:
         print(f"[ERROR] RealtimeStream import failed: {e}")
@@ -47,10 +51,12 @@ async def test_dashboard_components():
         collector = MetricsCollector(collection_interval=1.0)
         current_metrics = collector.get_current_metrics()
 
-        if current_metrics and 'cpu' in current_metrics:
-            cpu_usage = current_metrics['cpu']['usage_percent']
-            memory_usage = current_metrics['memory']['usage_percent']
-            print(f"[OK] System Metrics - CPU: {cpu_usage:.1f}%, Memory: {memory_usage:.1f}%")
+        if current_metrics and "cpu" in current_metrics:
+            cpu_usage = current_metrics["cpu"]["usage_percent"]
+            memory_usage = current_metrics["memory"]["usage_percent"]
+            print(
+                f"[OK] System Metrics - CPU: {cpu_usage:.1f}%, Memory: {memory_usage:.1f}%"
+            )
         else:
             print("[WARNING] Could not get system metrics")
 
@@ -62,7 +68,7 @@ async def test_dashboard_components():
         print(f"[OK] Metrics history collected: {len(history)} samples")
 
         health_report = collector.generate_health_report()
-        health_score = health_report.get('overall_health', 0)
+        health_score = health_report.get("overall_health", 0)
         print(f"[OK] System health score: {health_score}/100")
 
         await collector.stop_collection()
@@ -85,18 +91,20 @@ async def test_dashboard_components():
 
         # テスト用の統計データ生成（Feature Store内部statsを直接操作）
         # 実際のFeatureStoreの使用をシミュレート
-        feature_store.stats['cache_hits'] = 5
-        feature_store.stats['cache_misses'] = 2
-        feature_store.stats['cache_size'] = 3
+        feature_store.stats["cache_hits"] = 5
+        feature_store.stats["cache_misses"] = 2
+        feature_store.stats["cache_size"] = 3
         print("   [INFO] Generated test statistics for Feature Store")
 
         await asyncio.sleep(1)  # 監視データ収集待機
 
         metrics = monitor.get_current_metrics()
         if metrics:
-            hit_rate = metrics.get('hit_rate', 0)
-            total_requests = metrics.get('total_requests', 0)
-            print(f"[OK] Feature Store - Hit Rate: {hit_rate}%, Requests: {total_requests}")
+            hit_rate = metrics.get("hit_rate", 0)
+            total_requests = metrics.get("total_requests", 0)
+            print(
+                f"[OK] Feature Store - Hit Rate: {hit_rate}%, Requests: {total_requests}"
+            )
 
         health = monitor.get_health_status()
         print(f"[OK] Feature Store health: {health.get('status', 'unknown')}")

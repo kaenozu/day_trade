@@ -23,14 +23,24 @@ def test_parallel_ml_performance():
 
     # テスト用銘柄（10銘柄）
     test_symbols = [
-        "7203", "8306", "9984", "6758", "4689",
-        "9434", "8001", "7267", "6861", "4563"
+        "7203",
+        "8306",
+        "9984",
+        "6758",
+        "4689",
+        "9434",
+        "8001",
+        "7267",
+        "6861",
+        "4563",
     ]
 
     # データ取得
     print("1. Data fetching...")
     fetcher = BatchDataFetcher()
-    stock_data = fetcher.fetch_multiple_symbols(test_symbols, period="30d", use_parallel=True)
+    stock_data = fetcher.fetch_multiple_symbols(
+        test_symbols, period="30d", use_parallel=True
+    )
 
     if not stock_data:
         print("Data fetch failed!")
@@ -66,7 +76,9 @@ def test_parallel_ml_performance():
     print("\n3. Parallel ML processing (4 workers)...")
     parallel_engine = ParallelMLEngine(max_workers=4)
 
-    parallel_results, parallel_time = parallel_engine.batch_analyze_with_timing(stock_data)
+    parallel_results, parallel_time = parallel_engine.batch_analyze_with_timing(
+        stock_data
+    )
 
     print(f"   - Parallel time: {parallel_time:.2f}s")
     print(f"   - Per stock: {parallel_time/len(parallel_results):.3f}s")
@@ -80,7 +92,9 @@ def test_parallel_ml_performance():
     print("\n4. Parallel ML processing (8 workers)...")
     parallel_engine_8 = ParallelMLEngine(max_workers=8)
 
-    parallel_8_results, parallel_8_time = parallel_engine_8.batch_analyze_with_timing(stock_data)
+    parallel_8_results, parallel_8_time = parallel_engine_8.batch_analyze_with_timing(
+        stock_data
+    )
 
     print(f"   - Parallel 8 time: {parallel_8_time:.2f}s")
     print(f"   - Per stock: {parallel_8_time/len(parallel_8_results):.3f}s")
@@ -92,7 +106,9 @@ def test_parallel_ml_performance():
 
     # 85銘柄予測
     print("\n5. 85 stocks estimation...")
-    best_parallel_time = min(parallel_time, parallel_8_time) if parallel_8_time > 0 else parallel_time
+    best_parallel_time = (
+        min(parallel_time, parallel_8_time) if parallel_8_time > 0 else parallel_time
+    )
     best_workers = 8 if parallel_8_time < parallel_time else 4
 
     if best_parallel_time > 0:
@@ -118,9 +134,15 @@ def test_parallel_ml_performance():
         par_advice = parallel_results.get(sample_symbol, {})
 
         print(f"   Sample ({sample_symbol}):")
-        print(f"     Sequential: {seq_advice.get('advice', 'N/A')} ({seq_advice.get('confidence', 0):.1f}%)")
-        print(f"     Parallel:   {par_advice.get('advice', 'N/A')} ({par_advice.get('confidence', 0):.1f}%)")
-        print(f"     Match: {'YES' if seq_advice.get('advice') == par_advice.get('advice') else 'NO'}")
+        print(
+            f"     Sequential: {seq_advice.get('advice', 'N/A')} ({seq_advice.get('confidence', 0):.1f}%)"
+        )
+        print(
+            f"     Parallel:   {par_advice.get('advice', 'N/A')} ({par_advice.get('confidence', 0):.1f}%)"
+        )
+        print(
+            f"     Match: {'YES' if seq_advice.get('advice') == par_advice.get('advice') else 'NO'}"
+        )
 
 
 def main():

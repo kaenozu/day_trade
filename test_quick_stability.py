@@ -57,7 +57,9 @@ class QuickStabilityTest:
                     elapsed = current_time - start_time
                     progress = (elapsed / self.test_duration_seconds) * 100
                     current_memory = self._get_memory_mb()
-                    print(f"[{elapsed:.0f}秒] 進捗:{progress:.0f}% メモリ:{current_memory:.0f}MB 操作:{self.operation_count}")
+                    print(
+                        f"[{elapsed:.0f}秒] 進捗:{progress:.0f}% メモリ:{current_memory:.0f}MB 操作:{self.operation_count}"
+                    )
                     last_report = current_time
 
                 # ガベージコレクション
@@ -121,7 +123,9 @@ class QuickStabilityTest:
             self.operation_count += 1
 
             if self.operation_count % 5 == 0:
-                print(f"[操作{self.operation_count}] 平均:{avg:.1f} {trend} ({duration_ms:.1f}ms)")
+                print(
+                    f"[操作{self.operation_count}] 平均:{avg:.1f} {trend} ({duration_ms:.1f}ms)"
+                )
 
         except:
             self.error_count += 1
@@ -131,16 +135,22 @@ class QuickStabilityTest:
         print("\n=== 結果評価 ===")
 
         # 統計計算
-        avg_memory = sum(self.memory_readings) / len(self.memory_readings) if self.memory_readings else 0
+        avg_memory = (
+            sum(self.memory_readings) / len(self.memory_readings)
+            if self.memory_readings
+            else 0
+        )
         max_memory = max(self.memory_readings) if self.memory_readings else 0
-        avg_cpu = sum(self.cpu_readings) / len(self.cpu_readings) if self.cpu_readings else 0
+        avg_cpu = (
+            sum(self.cpu_readings) / len(self.cpu_readings) if self.cpu_readings else 0
+        )
         max_cpu = max(self.cpu_readings) if self.cpu_readings else 0
 
         # 評価基準
         memory_ok = avg_memory <= 300  # 300MB以下
-        cpu_ok = avg_cpu <= 25        # 25%以下
+        cpu_ok = avg_cpu <= 25  # 25%以下
         operations_ok = self.operation_count >= 10  # 最低10回操作
-        errors_ok = self.error_count <= 2          # 最大2回エラー
+        errors_ok = self.error_count <= 2  # 最大2回エラー
 
         print(f"メモリ使用量: 平均{avg_memory:.0f}MB (最大{max_memory:.0f}MB)")
         print(f"CPU使用率: 平均{avg_cpu:.1f}% (最大{max_cpu:.1f}%)")
@@ -148,10 +158,18 @@ class QuickStabilityTest:
         print(f"エラー数: {self.error_count}回")
 
         print("\n評価結果:")
-        print(f"  [{'OK' if memory_ok else 'NG'}] メモリ効率: {'良好' if memory_ok else '要改善'}")
-        print(f"  [{'OK' if cpu_ok else 'NG'}] CPU効率: {'良好' if cpu_ok else '要改善'}")
-        print(f"  [{'OK' if operations_ok else 'NG'}] 操作実行: {'十分' if operations_ok else '不十分'}")
-        print(f"  [{'OK' if errors_ok else 'NG'}] エラー率: {'許容範囲' if errors_ok else '過多'}")
+        print(
+            f"  [{'OK' if memory_ok else 'NG'}] メモリ効率: {'良好' if memory_ok else '要改善'}"
+        )
+        print(
+            f"  [{'OK' if cpu_ok else 'NG'}] CPU効率: {'良好' if cpu_ok else '要改善'}"
+        )
+        print(
+            f"  [{'OK' if operations_ok else 'NG'}] 操作実行: {'十分' if operations_ok else '不十分'}"
+        )
+        print(
+            f"  [{'OK' if errors_ok else 'NG'}] エラー率: {'許容範囲' if errors_ok else '過多'}"
+        )
 
         passed_count = sum([memory_ok, cpu_ok, operations_ok, errors_ok])
         overall_success = passed_count >= 3  # 4項目中3項目以上
@@ -166,6 +184,7 @@ class QuickStabilityTest:
             print("基本的な問題があります")
 
         return overall_success
+
 
 def main():
     """メイン実行"""
@@ -192,6 +211,7 @@ def main():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = main()

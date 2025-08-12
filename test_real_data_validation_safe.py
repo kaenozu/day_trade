@@ -18,6 +18,7 @@ print("REAL MARKET DATA VALIDATION TEST - Windows Safe")
 print("Issue #321: 実データでの最終動作確認テスト")
 print("=" * 60)
 
+
 def test_network_connectivity():
     """ネットワーク接続テスト"""
     print("\n=== Network Connectivity Test ===")
@@ -37,6 +38,7 @@ def test_network_connectivity():
         # Yahoo Finance API接続テスト
         try:
             import yfinance as yf
+
             ticker = yf.Ticker("AAPL")  # 米国株で確実にテスト
             info = ticker.info
             if info:
@@ -78,6 +80,7 @@ def test_network_connectivity():
         print(f"Network connectivity test error: {e}")
         return False
 
+
 def test_simple_data_quality():
     """簡単なデータ品質テスト"""
     print("\n=== Simple Data Quality Test ===")
@@ -112,13 +115,13 @@ def test_simple_data_quality():
                 issues = 0
 
                 # 負の価格チェック
-                for col in ['Open', 'High', 'Low', 'Close']:
+                for col in ["Open", "High", "Low", "Close"]:
                     if col in hist.columns and (hist[col] <= 0).any():
                         issues += 1
 
                 # High >= Low チェック
-                if 'High' in hist.columns and 'Low' in hist.columns:
-                    if (hist['High'] < hist['Low']).any():
+                if "High" in hist.columns and "Low" in hist.columns:
+                    if (hist["High"] < hist["Low"]).any():
                         issues += 1
 
                 # データ欠損チェック
@@ -154,8 +157,10 @@ def test_simple_data_quality():
     except Exception as e:
         print(f"Data quality test error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_large_scale_data_fetch():
     """大規模データ取得テスト"""
@@ -166,10 +171,26 @@ def test_large_scale_data_fetch():
 
         # TOPIX Core30の一部（20銘柄）でテスト
         test_symbols = [
-            "7203.T", "8306.T", "9984.T", "6758.T", "9432.T",
-            "8001.T", "6861.T", "8058.T", "4502.T", "7974.T",
-            "8411.T", "8316.T", "8031.T", "8053.T", "7751.T",
-            "6981.T", "9983.T", "4568.T", "6367.T", "6954.T"
+            "7203.T",
+            "8306.T",
+            "9984.T",
+            "6758.T",
+            "9432.T",
+            "8001.T",
+            "6861.T",
+            "8058.T",
+            "4502.T",
+            "7974.T",
+            "8411.T",
+            "8316.T",
+            "8031.T",
+            "8053.T",
+            "7751.T",
+            "6981.T",
+            "9983.T",
+            "4568.T",
+            "6367.T",
+            "6954.T",
         ]
 
         print(f"Testing large scale fetch: {len(test_symbols)} symbols")
@@ -210,7 +231,7 @@ def test_large_scale_data_fetch():
         success_conditions = [
             successful_count >= len(test_symbols) * 0.8,  # 80%以上成功
             fetch_time <= 60,  # 60秒以内
-            total_records >= 100  # 100レコード以上取得
+            total_records >= 100,  # 100レコード以上取得
         ]
 
         success = all(success_conditions)
@@ -221,7 +242,9 @@ def test_large_scale_data_fetch():
         else:
             print("[NG] Large scale data fetch test: FAILED")
             if successful_count < len(test_symbols) * 0.8:
-                print(f"  - Success rate too low: {successful_count/len(test_symbols)*100:.1f}%")
+                print(
+                    f"  - Success rate too low: {successful_count/len(test_symbols)*100:.1f}%"
+                )
             if fetch_time > 60:
                 print(f"  - Fetch time too long: {fetch_time:.1f}s")
             if total_records < 100:
@@ -232,6 +255,7 @@ def test_large_scale_data_fetch():
     except Exception as e:
         print(f"Large scale data fetch test error: {e}")
         return False
+
 
 def test_data_consistency():
     """データ整合性テスト"""
@@ -257,19 +281,19 @@ def test_data_consistency():
         issues = []
 
         # 1. OHLC関係の整合性
-        if all(col in hist.columns for col in ['Open', 'High', 'Low', 'Close']):
+        if all(col in hist.columns for col in ["Open", "High", "Low", "Close"]):
             # High >= Low
-            invalid_hl = (hist['High'] < hist['Low']).sum()
+            invalid_hl = (hist["High"] < hist["Low"]).sum()
             if invalid_hl > 0:
                 consistency_score -= 20
                 issues.append(f"Invalid High/Low relationship: {invalid_hl} cases")
 
             # Open, Close が High, Low の範囲内
             ohlc_violations = (
-                (hist['Open'] > hist['High']) |
-                (hist['Open'] < hist['Low']) |
-                (hist['Close'] > hist['High']) |
-                (hist['Close'] < hist['Low'])
+                (hist["Open"] > hist["High"])
+                | (hist["Open"] < hist["Low"])
+                | (hist["Close"] > hist["High"])
+                | (hist["Close"] < hist["Low"])
             ).sum()
 
             if ohlc_violations > 0:
@@ -277,7 +301,7 @@ def test_data_consistency():
                 issues.append(f"OHLC range violations: {ohlc_violations} cases")
 
         # 2. 価格の妥当性
-        for col in ['Open', 'High', 'Low', 'Close']:
+        for col in ["Open", "High", "Low", "Close"]:
             if col in hist.columns:
                 negative_prices = (hist[col] <= 0).sum()
                 if negative_prices > 0:
@@ -285,8 +309,8 @@ def test_data_consistency():
                     issues.append(f"Negative prices in {col}: {negative_prices} cases")
 
         # 3. 出来高の妥当性
-        if 'Volume' in hist.columns:
-            negative_volume = (hist['Volume'] < 0).sum()
+        if "Volume" in hist.columns:
+            negative_volume = (hist["Volume"] < 0).sum()
             if negative_volume > 0:
                 consistency_score -= 10
                 issues.append(f"Negative volume: {negative_volume} cases")
@@ -324,6 +348,7 @@ def test_data_consistency():
     except Exception as e:
         print(f"Data consistency test error: {e}")
         return False
+
 
 def main():
     """メイン実行"""
@@ -387,6 +412,7 @@ def main():
         print("  - Consider using VPN if access is restricted")
 
         return False
+
 
 if __name__ == "__main__":
     success = main()

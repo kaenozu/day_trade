@@ -94,7 +94,9 @@ class TestDaytradeAnalysisCompatibility:
             from daytrade import CLIValidationError, validate_config_file
 
             # 一時的な有効な設定ファイルを作成
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 f.write('{"test": "config"}')
                 temp_config = f.name
 
@@ -107,7 +109,9 @@ class TestDaytradeAnalysisCompatibility:
                 # 存在しないファイルテスト
                 try:
                     validate_config_file("nonexistent.json")
-                    raise AssertionError("存在しないファイルでエラーが発生しませんでした")
+                    raise AssertionError(
+                        "存在しないファイルでエラーが発生しませんでした"
+                    )
                 except CLIValidationError:
                     print("[OK] 存在しないファイル検証: 正常にエラー検出")
 
@@ -131,6 +135,7 @@ class TestAlternativeRecommendations:
         # 分析専用エンジンの可用性テスト
         try:
             from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+
             AnalysisOnlyEngine(["7203"], update_interval=60.0)
             print("[OK] AnalysisOnlyEngine: 利用可能")
         except Exception as e:
@@ -147,6 +152,7 @@ class TestAlternativeRecommendations:
             from src.day_trade.analysis.enhanced_report_manager import (
                 EnhancedReportManager,
             )
+
             EnhancedReportManager()
             print("[OK] EnhancedReportManager: 利用可能")
         except Exception as e:
@@ -161,7 +167,7 @@ class TestAlternativeRecommendations:
             "run_analysis_dashboard.py - Webダッシュボード起動",
             "test_coverage_analysis_system.py - システム包括テスト",
             "test_dashboard_basic.py - ダッシュボード基本テスト",
-            "test_analysis_system.py - 分析システムテスト"
+            "test_analysis_system.py - 分析システムテスト",
         ]
 
         print("[RECOMMENDED] 安全な代替システム:")
@@ -177,7 +183,9 @@ class TestAlternativeRecommendations:
         print("  python test_coverage_analysis_system.py")
         print()
         print("  # プログラマティック使用")
-        print("  from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine")
+        print(
+            "  from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine"
+        )
 
 
 def run_daytrade_analysis_tests():
@@ -229,6 +237,7 @@ def run_daytrade_analysis_tests():
         print(f"❌ テスト失敗: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         return False
 

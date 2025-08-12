@@ -237,7 +237,9 @@ class AdvancedCachePerformanceTester:
         concurrent_time = time.time() - start_time
         results["concurrent_time"] = concurrent_time
         results["concurrent_success_rate"] = total_success / results["total_operations"]
-        results["concurrent_ops_per_sec"] = results["total_operations"] / concurrent_time
+        results["concurrent_ops_per_sec"] = (
+            results["total_operations"] / concurrent_time
+        )
 
         print(f"  並行処理時間: {concurrent_time:.2f}秒")
         print(f"  成功率: {results['concurrent_success_rate']:.2%}")
@@ -283,7 +285,9 @@ class AdvancedCachePerformanceTester:
                 random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=10000)
             ),  # ランダムテキスト
             "binary_structured": bytes(range(256)) * 100,  # 構造化バイナリ
-            "binary_random": bytes(random.getrandbits(8) for _ in range(10000)),  # ランダムバイナリ
+            "binary_random": bytes(
+                random.getrandbits(8) for _ in range(10000)
+            ),  # ランダムバイナリ
         }
 
         compression_results = {}
@@ -314,9 +318,15 @@ class AdvancedCachePerformanceTester:
         stats = cache_manager.get_enhanced_stats()
         compression_stats = stats.get("compression_savings", {})
 
-        print(f"  平均圧縮率: {compression_stats.get('avg_compression_ratio', 1.0):.3f}")
-        print(f"  平均圧縮時間: {compression_stats.get('compression_time_avg_ms', 0):.2f}ms")
-        print(f"  平均展開時間: {compression_stats.get('decompression_time_avg_ms', 0):.2f}ms")
+        print(
+            f"  平均圧縮率: {compression_stats.get('avg_compression_ratio', 1.0):.3f}"
+        )
+        print(
+            f"  平均圧縮時間: {compression_stats.get('compression_time_avg_ms', 0):.2f}ms"
+        )
+        print(
+            f"  平均展開時間: {compression_stats.get('decompression_time_avg_ms', 0):.2f}ms"
+        )
 
         for data_type, result in compression_results.items():
             print(f"  {data_type}:")
@@ -424,9 +434,15 @@ class AdvancedCachePerformanceTester:
             compression = stats.get("compression_savings", {})
             if compression:
                 print("\n[圧縮効率]")
-                print(f"  平均圧縮率: {compression.get('avg_compression_ratio', 1.0):.3f}")
-                print(f"  圧縮時間: {compression.get('compression_time_avg_ms', 0):.2f}ms")
-                print(f"  展開時間: {compression.get('decompression_time_avg_ms', 0):.2f}ms")
+                print(
+                    f"  平均圧縮率: {compression.get('avg_compression_ratio', 1.0):.3f}"
+                )
+                print(
+                    f"  圧縮時間: {compression.get('compression_time_avg_ms', 0):.2f}ms"
+                )
+                print(
+                    f"  展開時間: {compression.get('decompression_time_avg_ms', 0):.2f}ms"
+                )
 
             # パフォーマンスサマリー
             print("\n[パフォーマンスサマリー]")

@@ -26,6 +26,7 @@ print("REAL MARKET DATA VALIDATION TEST")
 print("Issue #321: 実データでの最終動作確認テスト")
 print("=" * 60)
 
+
 def test_real_data_validation():
     """実市場データ検証テスト"""
     print("\n=== 実市場データ検証テスト ===")
@@ -65,8 +66,8 @@ def test_real_data_validation():
         # 成功条件確認
         success_conditions = [
             len(validation_results) >= 80,  # 80銘柄以上検証完了
-            usable_count >= 60,             # 60銘柄以上利用可能
-            validation_time <= 300,         # 5分以内で完了
+            usable_count >= 60,  # 60銘柄以上利用可能
+            validation_time <= 300,  # 5分以内で完了
         ]
 
         if all(success_conditions):
@@ -77,16 +78,30 @@ def test_real_data_validation():
             return True
         else:
             print("❌ 実市場データ検証テスト: 失敗")
-            print(f"  - 検証銘柄数不足: {len(validation_results)} < 80" if len(validation_results) < 80 else "")
-            print(f"  - 利用可能銘柄不足: {usable_count} < 60" if usable_count < 60 else "")
-            print(f"  - 検証時間超過: {validation_time:.1f}s > 300s" if validation_time > 300 else "")
+            print(
+                f"  - 検証銘柄数不足: {len(validation_results)} < 80"
+                if len(validation_results) < 80
+                else ""
+            )
+            print(
+                f"  - 利用可能銘柄不足: {usable_count} < 60"
+                if usable_count < 60
+                else ""
+            )
+            print(
+                f"  - 検証時間超過: {validation_time:.1f}s > 300s"
+                if validation_time > 300
+                else ""
+            )
             return False
 
     except Exception as e:
         print(f"実市場データ検証テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_data_quality_analysis():
     """データ品質分析テスト"""
@@ -121,18 +136,24 @@ def test_data_quality_analysis():
 
         if success:
             print("✅ データ品質分析テスト: 成功")
-            print(f"  - 高品質率: {total_high_quality}/{len(test_symbols)} ({total_high_quality/len(test_symbols)*100:.1f}%)")
+            print(
+                f"  - 高品質率: {total_high_quality}/{len(test_symbols)} ({total_high_quality/len(test_symbols)*100:.1f}%)"
+            )
         else:
             print("❌ データ品質分析テスト: 失敗")
-            print(f"  - 高品質率不足: {total_high_quality}/{len(test_symbols)} ({total_high_quality/len(test_symbols)*100:.1f}%)")
+            print(
+                f"  - 高品質率不足: {total_high_quality}/{len(test_symbols)} ({total_high_quality/len(test_symbols)*100:.1f}%)"
+            )
 
         return success
 
     except Exception as e:
         print(f"データ品質分析テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_network_connectivity():
     """ネットワーク接続テスト"""
@@ -189,6 +210,7 @@ def test_network_connectivity():
         print(f"ネットワーク接続テストエラー: {e}")
         return False
 
+
 def main():
     """メイン実行"""
     print("実市場データ検証テスト開始...")
@@ -234,6 +256,7 @@ def main():
         print("\n⚠️ 一部テストに失敗しました")
         print("問題を解決してから次のステップに進んでください")
         return False
+
 
 if __name__ == "__main__":
     success = main()

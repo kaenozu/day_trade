@@ -1179,8 +1179,8 @@ class TestBacktestEngine:
         if expected_pnl > 0:
             assert profitable_trades == 1, "Should detect profit from float conversion"
             # Float精度の制限により、多少の誤差は許容
-            assert (
-                abs(avg_win - expected_pnl) < Decimal("0.001")
+            assert abs(avg_win - expected_pnl) < Decimal(
+                "0.001"
             ), f"Float conversion should maintain reasonable precision: {avg_win} vs {expected_pnl}"
 
         print("Decimal conversion from float test passed:")
@@ -3239,9 +3239,11 @@ class TestAdvancedBacktestScenarios:
 
             # 手数料が利益に与える影響の確認
             gross_profit = sum(
-                (trade.price * trade.quantity - trade.commission)
-                if trade.action == TradeType.SELL
-                else -(trade.price * trade.quantity + trade.commission)
+                (
+                    (trade.price * trade.quantity - trade.commission)
+                    if trade.action == TradeType.SELL
+                    else -(trade.price * trade.quantity + trade.commission)
+                )
                 for trade in result.trades
             )
             commission_ratio = (

@@ -5,7 +5,7 @@ HFT最適化エンジン簡易テスト
 
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 import numpy as np
 
@@ -37,8 +37,8 @@ def main():
 
     for i in range(10):
         result = optimizer.predict_ultra_fast(prices, volumes)
-        latencies.append(result['latency_us'])
-        predictions.append(result['prediction'])
+        latencies.append(result["latency_us"])
+        predictions.append(result["prediction"])
 
         if i == 0:
             print(f"First prediction: {result['prediction']:.4f}")
@@ -69,6 +69,7 @@ def main():
     print("Test completed successfully")
 
     return avg_latency < config.target_latency_us * 2  # Success if avg < 2x target
+
 
 if __name__ == "__main__":
     success = main()

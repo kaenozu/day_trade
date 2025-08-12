@@ -31,32 +31,33 @@ print("REAL DATA PORTFOLIO OPTIMIZATION TEST")
 print("Issue #321: Real data final operation verification")
 print("=" * 60)
 
+
 class RealDataPortfolioTester:
     """実データポートフォリオ最適化テスター"""
 
     def __init__(self):
         # 優良銘柄20銘柄（ポートフォリオ最適化用）
         self.portfolio_symbols = [
-            "7203.T",   # トヨタ自動車
-            "8306.T",   # 三菱UFJフィナンシャル・グループ
-            "9984.T",   # ソフトバンクグループ
-            "6758.T",   # ソニーグループ
-            "9432.T",   # 日本電信電話
-            "8001.T",   # 伊藤忠商事
-            "6861.T",   # キーエンス
-            "8058.T",   # 三菱商事
-            "4502.T",   # 武田薬品工業
-            "7974.T",   # 任天堂
-            "8411.T",   # みずほフィナンシャルグループ
-            "8316.T",   # 三井住友フィナンシャルグループ
-            "8031.T",   # 三井物産
-            "8053.T",   # 住友商事
-            "7751.T",   # キヤノン
-            "6981.T",   # 村田製作所
-            "9983.T",   # ファーストリテイリング
-            "4568.T",   # 第一三共
-            "6367.T",   # ダイキン工業
-            "6954.T"    # ファナック
+            "7203.T",  # トヨタ自動車
+            "8306.T",  # 三菱UFJフィナンシャル・グループ
+            "9984.T",  # ソフトバンクグループ
+            "6758.T",  # ソニーグループ
+            "9432.T",  # 日本電信電話
+            "8001.T",  # 伊藤忠商事
+            "6861.T",  # キーエンス
+            "8058.T",  # 三菱商事
+            "4502.T",  # 武田薬品工業
+            "7974.T",  # 任天堂
+            "8411.T",  # みずほフィナンシャルグループ
+            "8316.T",  # 三井住友フィナンシャルグループ
+            "8031.T",  # 三井物産
+            "8053.T",  # 住友商事
+            "7751.T",  # キヤノン
+            "6981.T",  # 村田製作所
+            "9983.T",  # ファーストリテイリング
+            "4568.T",  # 第一三共
+            "6367.T",  # ダイキン工業
+            "6954.T",  # ファナック
         ]
 
         self.optimization_target_time = 2.0  # 2秒目標
@@ -71,7 +72,9 @@ class RealDataPortfolioTester:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        print(f"Data period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        print(
+            f"Data period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        )
 
         portfolio_data = {}
         successful_fetches = 0
@@ -85,7 +88,9 @@ class RealDataPortfolioTester:
                     portfolio_data[symbol] = hist
                     successful_fetches += 1
                 else:
-                    print(f"  [SKIP] {symbol}: Insufficient data ({len(hist) if not hist.empty else 0} days)")
+                    print(
+                        f"  [SKIP] {symbol}: Insufficient data ({len(hist) if not hist.empty else 0} days)"
+                    )
 
                 time.sleep(0.1)  # API制限対策
 
@@ -93,21 +98,27 @@ class RealDataPortfolioTester:
                 print(f"  [ERROR] {symbol}: {e}")
 
         print("Portfolio data fetch results:")
-        print(f"  Successful: {successful_fetches}/{len(self.portfolio_symbols)} symbols")
-        print(f"  Data coverage: {successful_fetches/len(self.portfolio_symbols)*100:.1f}%")
+        print(
+            f"  Successful: {successful_fetches}/{len(self.portfolio_symbols)} symbols"
+        )
+        print(
+            f"  Data coverage: {successful_fetches/len(self.portfolio_symbols)*100:.1f}%"
+        )
 
         return portfolio_data
 
-    def calculate_returns_and_covariance(self, portfolio_data: Dict[str, pd.DataFrame]) -> Tuple[pd.Series, pd.DataFrame]:
+    def calculate_returns_and_covariance(
+        self, portfolio_data: Dict[str, pd.DataFrame]
+    ) -> Tuple[pd.Series, pd.DataFrame]:
         """リターンと共分散行列計算"""
         print("\n=== Returns and Covariance Calculation ===")
 
         # 価格データ統合
         price_data = {}
         for symbol, hist in portfolio_data.items():
-            price_data[symbol] = hist['Close']
+            price_data[symbol] = hist["Close"]
 
-        prices = pd.DataFrame(price_data).fillna(method='ffill').dropna()
+        prices = pd.DataFrame(price_data).fillna(method="ffill").dropna()
 
         # 日次リターン計算
         returns = prices.pct_change().dropna()
@@ -121,18 +132,28 @@ class RealDataPortfolioTester:
         print("Returns calculation completed:")
         print(f"  Data points: {len(returns)} days")
         print(f"  Symbols: {len(expected_returns)} stocks")
-        print(f"  Date range: {returns.index.min().strftime('%Y-%m-%d')} to {returns.index.max().strftime('%Y-%m-%d')}")
+        print(
+            f"  Date range: {returns.index.min().strftime('%Y-%m-%d')} to {returns.index.max().strftime('%Y-%m-%d')}"
+        )
 
         # 基本統計表示
-        print(f"  Average return: {expected_returns.mean():.3f} ({expected_returns.mean()*100:.1f}% annually)")
-        print(f"  Return range: {expected_returns.min():.3f} to {expected_returns.max():.3f}")
+        print(
+            f"  Average return: {expected_returns.mean():.3f} ({expected_returns.mean()*100:.1f}% annually)"
+        )
+        print(
+            f"  Return range: {expected_returns.min():.3f} to {expected_returns.max():.3f}"
+        )
         print(f"  Average volatility: {np.sqrt(np.diag(cov_matrix)).mean():.3f}")
 
         return expected_returns, cov_matrix
 
-    def optimize_portfolio(self, expected_returns: pd.Series, cov_matrix: pd.DataFrame) -> Dict:
+    def optimize_portfolio(
+        self, expected_returns: pd.Series, cov_matrix: pd.DataFrame
+    ) -> Dict:
         """ポートフォリオ最適化実行"""
-        print(f"\n=== Portfolio Optimization (Target: {self.optimization_target_time}s) ===")
+        print(
+            f"\n=== Portfolio Optimization (Target: {self.optimization_target_time}s) ==="
+        )
 
         start_time = time.time()
 
@@ -145,65 +166,88 @@ class RealDataPortfolioTester:
         equal_risk = np.sqrt(np.dot(equal_weights, np.dot(cov_matrix, equal_weights)))
         equal_sharpe = equal_return / equal_risk if equal_risk > 0 else 0
 
-        optimization_results['equal_weight'] = {
-            'weights': equal_weights,
-            'expected_return': equal_return,
-            'volatility': equal_risk,
-            'sharpe_ratio': equal_sharpe
+        optimization_results["equal_weight"] = {
+            "weights": equal_weights,
+            "expected_return": equal_return,
+            "volatility": equal_risk,
+            "sharpe_ratio": equal_sharpe,
         }
 
         # 2. 最小分散ポートフォリオ
         min_var_weights = self._minimize_variance(cov_matrix)
         min_var_return = np.dot(min_var_weights, expected_returns)
-        min_var_risk = np.sqrt(np.dot(min_var_weights, np.dot(cov_matrix, min_var_weights)))
+        min_var_risk = np.sqrt(
+            np.dot(min_var_weights, np.dot(cov_matrix, min_var_weights))
+        )
         min_var_sharpe = min_var_return / min_var_risk if min_var_risk > 0 else 0
 
-        optimization_results['min_variance'] = {
-            'weights': min_var_weights,
-            'expected_return': min_var_return,
-            'volatility': min_var_risk,
-            'sharpe_ratio': min_var_sharpe
+        optimization_results["min_variance"] = {
+            "weights": min_var_weights,
+            "expected_return": min_var_return,
+            "volatility": min_var_risk,
+            "sharpe_ratio": min_var_sharpe,
         }
 
         # 3. 最大シャープレシオポートフォリオ
         max_sharpe_weights = self._maximize_sharpe_ratio(expected_returns, cov_matrix)
         max_sharpe_return = np.dot(max_sharpe_weights, expected_returns)
-        max_sharpe_risk = np.sqrt(np.dot(max_sharpe_weights, np.dot(cov_matrix, max_sharpe_weights)))
-        max_sharpe_sharpe = max_sharpe_return / max_sharpe_risk if max_sharpe_risk > 0 else 0
+        max_sharpe_risk = np.sqrt(
+            np.dot(max_sharpe_weights, np.dot(cov_matrix, max_sharpe_weights))
+        )
+        max_sharpe_sharpe = (
+            max_sharpe_return / max_sharpe_risk if max_sharpe_risk > 0 else 0
+        )
 
-        optimization_results['max_sharpe'] = {
-            'weights': max_sharpe_weights,
-            'expected_return': max_sharpe_return,
-            'volatility': max_sharpe_risk,
-            'sharpe_ratio': max_sharpe_sharpe
+        optimization_results["max_sharpe"] = {
+            "weights": max_sharpe_weights,
+            "expected_return": max_sharpe_return,
+            "volatility": max_sharpe_risk,
+            "sharpe_ratio": max_sharpe_sharpe,
         }
 
         optimization_time = time.time() - start_time
 
         # 結果表示
         print("Portfolio optimization completed:")
-        print(f"  Optimization time: {optimization_time:.3f}s (target: {self.optimization_target_time:.1f}s)")
-        print(f"  Performance ratio: {optimization_time / self.optimization_target_time:.2f}x")
+        print(
+            f"  Optimization time: {optimization_time:.3f}s (target: {self.optimization_target_time:.1f}s)"
+        )
+        print(
+            f"  Performance ratio: {optimization_time / self.optimization_target_time:.2f}x"
+        )
 
         print("\nOptimization Results:")
         for strategy, result in optimization_results.items():
             print(f"  {strategy.upper()}:")
-            print(f"    Expected Return: {result['expected_return']:.3f} ({result['expected_return']*100:.1f}% annually)")
-            print(f"    Volatility: {result['volatility']:.3f} ({result['volatility']*100:.1f}% annually)")
+            print(
+                f"    Expected Return: {result['expected_return']:.3f} ({result['expected_return']*100:.1f}% annually)"
+            )
+            print(
+                f"    Volatility: {result['volatility']:.3f} ({result['volatility']*100:.1f}% annually)"
+            )
             print(f"    Sharpe Ratio: {result['sharpe_ratio']:.3f}")
-            print(f"    Max Weight: {result['weights'].max():.3f} ({result['weights'].max()*100:.1f}%)")
-            print(f"    Min Weight: {result['weights'].min():.3f} ({result['weights'].min()*100:.1f}%)")
+            print(
+                f"    Max Weight: {result['weights'].max():.3f} ({result['weights'].max()*100:.1f}%)"
+            )
+            print(
+                f"    Min Weight: {result['weights'].min():.3f} ({result['weights'].min()*100:.1f}%)"
+            )
 
         # パフォーマンス評価
         time_success = optimization_time <= self.optimization_target_time
 
         # 最適化品質評価
-        best_sharpe = max(result['sharpe_ratio'] for result in optimization_results.values())
+        best_sharpe = max(
+            result["sharpe_ratio"] for result in optimization_results.values()
+        )
         quality_success = best_sharpe > 0.5  # 合理的なシャープレシオ
 
         # 分散化評価（改良版）
-        best_strategy = max(optimization_results.keys(), key=lambda k: optimization_results[k]['sharpe_ratio'])
-        best_weights = optimization_results[best_strategy]['weights']
+        best_strategy = max(
+            optimization_results.keys(),
+            key=lambda k: optimization_results[k]["sharpe_ratio"],
+        )
+        best_weights = optimization_results[best_strategy]["weights"]
         diversification = 1 / np.sum(best_weights**2)  # 有効銘柄数
         max_weight = best_weights.max()
         # より厳しい分散化基準
@@ -212,22 +256,32 @@ class RealDataPortfolioTester:
         overall_success = time_success and quality_success and diversification_success
 
         print("\nOptimization Evaluation:")
-        print(f"  [{'OK' if time_success else 'NG'}] Time Performance: {'ACHIEVED' if time_success else 'MISSED'}")
-        print(f"  [{'OK' if quality_success else 'NG'}] Optimization Quality: {'GOOD' if quality_success else 'POOR'}")
-        print(f"  [{'OK' if diversification_success else 'NG'}] Diversification: {'ADEQUATE' if diversification_success else 'INSUFFICIENT'}")
-        print(f"  [{'OK' if overall_success else 'NG'}] Overall: {'PASSED' if overall_success else 'FAILED'}")
+        print(
+            f"  [{'OK' if time_success else 'NG'}] Time Performance: {'ACHIEVED' if time_success else 'MISSED'}"
+        )
+        print(
+            f"  [{'OK' if quality_success else 'NG'}] Optimization Quality: {'GOOD' if quality_success else 'POOR'}"
+        )
+        print(
+            f"  [{'OK' if diversification_success else 'NG'}] Diversification: {'ADEQUATE' if diversification_success else 'INSUFFICIENT'}"
+        )
+        print(
+            f"  [{'OK' if overall_success else 'NG'}] Overall: {'PASSED' if overall_success else 'FAILED'}"
+        )
 
         print(f"\nBest Strategy: {best_strategy.upper()}")
-        print(f"  Sharpe Ratio: {optimization_results[best_strategy]['sharpe_ratio']:.3f}")
+        print(
+            f"  Sharpe Ratio: {optimization_results[best_strategy]['sharpe_ratio']:.3f}"
+        )
         print(f"  Effective Stocks: {diversification:.1f}")
         print(f"  Max Position: {max_weight:.1%}")
         print("  Diversification Target: >=6 effective stocks, <=20% max position")
 
         self.portfolio_results = {
-            'optimization_results': optimization_results,
-            'optimization_time': optimization_time,
-            'best_strategy': best_strategy,
-            'overall_success': overall_success
+            "optimization_results": optimization_results,
+            "optimization_time": optimization_time,
+            "best_strategy": best_strategy,
+            "overall_success": overall_success,
         }
 
         return self.portfolio_results
@@ -244,14 +298,16 @@ class RealDataPortfolioTester:
                 return np.dot(weights, np.dot(cov_matrix, weights))
 
             # 制約条件
-            constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+            constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
             bounds = tuple((0, 0.25) for _ in range(n))  # 各銘柄25%上限（分散化強化）
 
             # 初期値
             x0 = np.ones(n) / n
 
             # 最適化実行
-            result = minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=constraints)
+            result = minimize(
+                objective, x0, method="SLSQP", bounds=bounds, constraints=constraints
+            )
 
             if result.success:
                 return result.x
@@ -265,7 +321,9 @@ class RealDataPortfolioTester:
             weights = np.dot(inv_cov, ones) / np.dot(ones, np.dot(inv_cov, ones))
             return np.clip(weights, 0, 0.25) / np.sum(np.clip(weights, 0, 0.25))
 
-    def _maximize_sharpe_ratio(self, expected_returns: pd.Series, cov_matrix: pd.DataFrame) -> np.ndarray:
+    def _maximize_sharpe_ratio(
+        self, expected_returns: pd.Series, cov_matrix: pd.DataFrame
+    ) -> np.ndarray:
         """最大シャープレシオポートフォリオ計算（分散化制約強化版）"""
         try:
             from scipy.optimize import minimize
@@ -276,7 +334,9 @@ class RealDataPortfolioTester:
             def objective(weights):
                 portfolio_return = np.dot(weights, expected_returns)
                 portfolio_risk = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights)))
-                sharpe_ratio = portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
+                sharpe_ratio = (
+                    portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
+                )
 
                 # 分散化ペナルティ：集中度が高いほどペナルティ
                 concentration_penalty = np.sum(weights**2) * 0.1  # 軽いペナルティ
@@ -285,8 +345,11 @@ class RealDataPortfolioTester:
 
             # 制約条件：投資額100% + 最小分散化制約
             constraints = [
-                {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},  # 投資額100%
-                {'type': 'ineq', 'fun': lambda w: 1.0 / np.sum(w**2) - 6.0}  # 有効銘柄数6以上
+                {"type": "eq", "fun": lambda w: np.sum(w) - 1},  # 投資額100%
+                {
+                    "type": "ineq",
+                    "fun": lambda w: 1.0 / np.sum(w**2) - 6.0,
+                },  # 有効銘柄数6以上
             ]
             bounds = tuple((0, 0.18) for _ in range(n))  # 各銘柄18%上限（より厳格）
 
@@ -294,7 +357,9 @@ class RealDataPortfolioTester:
             x0 = np.ones(n) / n
 
             # 最適化実行
-            result = minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=constraints)
+            result = minimize(
+                objective, x0, method="SLSQP", bounds=bounds, constraints=constraints
+            )
 
             if result.success:
                 return result.x
@@ -332,12 +397,12 @@ class RealDataPortfolioTester:
             print("No portfolio optimization results available")
             return {}
 
-        optimization_results = self.portfolio_results['optimization_results']
-        best_strategy = self.portfolio_results['best_strategy']
+        optimization_results = self.portfolio_results["optimization_results"]
+        best_strategy = self.portfolio_results["best_strategy"]
 
         # 最適ポートフォリオの詳細分析
         best_portfolio = optimization_results[best_strategy]
-        weights = best_portfolio['weights']
+        weights = best_portfolio["weights"]
 
         # 重み分析
         sorted_weights = sorted(enumerate(weights), key=lambda x: x[1], reverse=True)
@@ -355,51 +420,56 @@ class RealDataPortfolioTester:
 
         # リスク・リターン特性
         characteristics = {
-            'best_strategy': best_strategy,
-            'annual_return': best_portfolio['expected_return'],
-            'annual_volatility': best_portfolio['volatility'],
-            'sharpe_ratio': best_portfolio['sharpe_ratio'],
-            'max_weight': weights.max(),
-            'concentration': np.sum(weights**2),  # ハーフィンダール指数
-            'effective_stocks': 1 / np.sum(weights**2),
-            'top_5_concentration': sum(weight for _, weight in sorted_weights[:5])
+            "best_strategy": best_strategy,
+            "annual_return": best_portfolio["expected_return"],
+            "annual_volatility": best_portfolio["volatility"],
+            "sharpe_ratio": best_portfolio["sharpe_ratio"],
+            "max_weight": weights.max(),
+            "concentration": np.sum(weights**2),  # ハーフィンダール指数
+            "effective_stocks": 1 / np.sum(weights**2),
+            "top_5_concentration": sum(weight for _, weight in sorted_weights[:5]),
         }
 
         print("\nPortfolio Risk Characteristics:")
         print(f"  Concentration Index: {characteristics['concentration']:.3f}")
         print(f"  Effective Stocks: {characteristics['effective_stocks']:.1f}")
-        print(f"  Top 5 Concentration: {characteristics['top_5_concentration']*100:.1f}%")
+        print(
+            f"  Top 5 Concentration: {characteristics['top_5_concentration']*100:.1f}%"
+        )
         print(f"  Maximum Position: {characteristics['max_weight']*100:.1f}%")
 
         # リスク・リターン効率性評価
         efficiency_score = 0
-        if characteristics['sharpe_ratio'] > 1.0:
+        if characteristics["sharpe_ratio"] > 1.0:
             efficiency_score += 40
-        elif characteristics['sharpe_ratio'] > 0.5:
+        elif characteristics["sharpe_ratio"] > 0.5:
             efficiency_score += 25
 
-        if characteristics['annual_return'] > 0.08:  # 8%以上
+        if characteristics["annual_return"] > 0.08:  # 8%以上
             efficiency_score += 30
-        elif characteristics['annual_return'] > 0.05:  # 5%以上
+        elif characteristics["annual_return"] > 0.05:  # 5%以上
             efficiency_score += 20
 
-        if characteristics['effective_stocks'] > len(self.portfolio_symbols) * 0.4:
+        if characteristics["effective_stocks"] > len(self.portfolio_symbols) * 0.4:
             efficiency_score += 20
-        elif characteristics['effective_stocks'] > len(self.portfolio_symbols) * 0.2:
+        elif characteristics["effective_stocks"] > len(self.portfolio_symbols) * 0.2:
             efficiency_score += 10
 
-        if characteristics['max_weight'] < 0.20:  # 20%未満
+        if characteristics["max_weight"] < 0.20:  # 20%未満
             efficiency_score += 10
 
         print(f"\nPortfolio Efficiency Score: {efficiency_score}/100")
 
         efficiency_passed = efficiency_score >= 60
-        print(f"Efficiency Assessment: [{'OK' if efficiency_passed else 'NG'}] {'PASSED' if efficiency_passed else 'NEEDS_IMPROVEMENT'}")
+        print(
+            f"Efficiency Assessment: [{'OK' if efficiency_passed else 'NG'}] {'PASSED' if efficiency_passed else 'NEEDS_IMPROVEMENT'}"
+        )
 
-        characteristics['efficiency_score'] = efficiency_score
-        characteristics['efficiency_passed'] = efficiency_passed
+        characteristics["efficiency_score"] = efficiency_score
+        characteristics["efficiency_passed"] = efficiency_passed
 
         return characteristics
+
 
 def main():
     """メイン実行"""
@@ -416,7 +486,9 @@ def main():
             return False
 
         # 2. リターン・共分散計算
-        expected_returns, cov_matrix = tester.calculate_returns_and_covariance(portfolio_data)
+        expected_returns, cov_matrix = tester.calculate_returns_and_covariance(
+            portfolio_data
+        )
 
         # 3. ポートフォリオ最適化実行
         optimization_results = tester.optimize_portfolio(expected_returns, cov_matrix)
@@ -431,10 +503,18 @@ def main():
 
         evaluation_criteria = [
             ("Data Coverage", len(portfolio_data) >= 15),
-            ("Optimization Performance", optimization_results['optimization_time'] <= tester.optimization_target_time),
-            ("Portfolio Quality", optimization_results['overall_success']),
-            ("Risk-Return Efficiency", characteristics.get('efficiency_passed', False)),
-            ("Diversification", characteristics.get('effective_stocks', 0) >= 6 and characteristics.get('max_weight', 1.0) <= 0.20)
+            (
+                "Optimization Performance",
+                optimization_results["optimization_time"]
+                <= tester.optimization_target_time,
+            ),
+            ("Portfolio Quality", optimization_results["overall_success"]),
+            ("Risk-Return Efficiency", characteristics.get("efficiency_passed", False)),
+            (
+                "Diversification",
+                characteristics.get("effective_stocks", 0) >= 6
+                and characteristics.get("max_weight", 1.0) <= 0.20,
+            ),
         ]
 
         passed_criteria = 0
@@ -451,9 +531,15 @@ def main():
         if overall_success:
             print("[SUCCESS] Real Data Portfolio Optimization: PASSED")
             print(f"  - Optimized portfolio with {len(portfolio_data)} symbols")
-            print(f"  - Optimization time: {optimization_results['optimization_time']:.3f}s (target: {tester.optimization_target_time:.1f}s)")
-            print(f"  - Best Sharpe ratio: {characteristics.get('sharpe_ratio', 0):.3f}")
-            print(f"  - Expected annual return: {characteristics.get('annual_return', 0)*100:.2f}%")
+            print(
+                f"  - Optimization time: {optimization_results['optimization_time']:.3f}s (target: {tester.optimization_target_time:.1f}s)"
+            )
+            print(
+                f"  - Best Sharpe ratio: {characteristics.get('sharpe_ratio', 0):.3f}"
+            )
+            print(
+                f"  - Expected annual return: {characteristics.get('annual_return', 0)*100:.2f}%"
+            )
             print("  - Ready for production portfolio management")
 
             return True
@@ -467,8 +553,10 @@ def main():
     except Exception as e:
         print(f"Real data portfolio optimization test error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = main()

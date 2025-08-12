@@ -79,10 +79,16 @@ def create_mock_historical_data(
     # トレンドに基づく価格生成
     if trend == "up":
         # 上昇トレンド（年率15%程度）
-        prices = [base_price * (1 + 0.15 * (i / days) + random.gauss(0, 0.02)) for i in range(days)]
+        prices = [
+            base_price * (1 + 0.15 * (i / days) + random.gauss(0, 0.02))
+            for i in range(days)
+        ]
     elif trend == "down":
         # 下降トレンド（年率-10%程度）
-        prices = [base_price * (1 - 0.10 * (i / days) + random.gauss(0, 0.02)) for i in range(days)]
+        prices = [
+            base_price * (1 - 0.10 * (i / days) + random.gauss(0, 0.02))
+            for i in range(days)
+        ]
     elif trend == "sideways":
         # 横ばいトレンド
         prices = [base_price + random.gauss(0, base_price * 0.05) for _ in range(days)]
@@ -91,7 +97,9 @@ def create_mock_historical_data(
         prices = [base_price]
         for _i in range(1, days):
             change = random.gauss(0, 0.04)  # 4%の標準偏差
-            prices.append(max(prices[-1] * (1 + change), base_price * 0.5))  # 最低50%まで
+            prices.append(
+                max(prices[-1] * (1 + change), base_price * 0.5)
+            )  # 最低50%まで
     else:
         # ランダムウォーク
         prices = [base_price]
@@ -304,7 +312,9 @@ def demo_strategy_comparison():
             volume_ma = current_data["Volume"].rolling(window=20).mean()
 
             if len(short_ma) >= 2 and len(long_ma) >= 2:
-                volume_spike = current_data["Volume"].iloc[-1] > volume_ma.iloc[-1] * 1.5
+                volume_spike = (
+                    current_data["Volume"].iloc[-1] > volume_ma.iloc[-1] * 1.5
+                )
 
                 if (
                     short_ma.iloc[-1] > long_ma.iloc[-1]
@@ -367,7 +377,9 @@ def demo_strategy_comparison():
             "total_trades": result.total_trades,
         }
 
-    comparison_table = create_comparison_table(comparison_data, "📊 戦略パフォーマンス比較")
+    comparison_table = create_comparison_table(
+        comparison_data, "📊 戦略パフォーマンス比較"
+    )
     console.print(comparison_table)
 
     return results
@@ -380,7 +392,9 @@ def demo_portfolio_analysis(result):
     # メトリクスカード表示
     metrics = {
         "最終資産": (
-            int(result.portfolio_value.iloc[-1]) if not result.portfolio_value.empty else 0
+            int(result.portfolio_value.iloc[-1])
+            if not result.portfolio_value.empty
+            else 0
         ),
         "総リターン": f"{float(result.total_return * 100):.1f}%",
         "年率リターン": f"{float(result.annualized_return * 100):.1f}%",
@@ -390,7 +404,9 @@ def demo_portfolio_analysis(result):
     }
 
     metric_cards = create_metric_cards(metrics, columns=3)
-    console.print(Panel(metric_cards, title="💼 ポートフォリオメトリクス", border_style="yellow"))
+    console.print(
+        Panel(metric_cards, title="💼 ポートフォリオメトリクス", border_style="yellow")
+    )
 
     # パフォーマンスチャート
     if not result.portfolio_value.empty and len(result.portfolio_value) > 1:
@@ -399,7 +415,9 @@ def demo_portfolio_analysis(result):
             portfolio_values, width=60, height=12, title="📈 ポートフォリオ価値推移"
         )
 
-        console.print(Panel(chart, title="📊 パフォーマンスチャート", border_style="blue"))
+        console.print(
+            Panel(chart, title="📊 パフォーマンスチャート", border_style="blue")
+        )
 
     # 取引履歴（最新10件）
     if result.trades:
@@ -485,7 +503,9 @@ def interactive_demo():
     """インタラクティブデモ"""
     console.print(Rule("[bold green]インタラクティブバックテスト", style="green"))
 
-    console.print("[yellow]リアルタイムでバックテストの進行状況を表示します...[/yellow]")
+    console.print(
+        "[yellow]リアルタイムでバックテストの進行状況を表示します...[/yellow]"
+    )
     console.print("[dim]Ctrl+C で終了[/dim]\n")
 
     mock_fetcher = MockStockFetcher()
@@ -519,7 +539,9 @@ def interactive_demo():
 
         # 下部：簡易チャート（最新データ）
         chart_data = [float(portfolio_value)] * 20  # プレースホルダー
-        mini_chart = create_ascii_chart(chart_data, width=40, height=6, title="ポートフォリオ推移")
+        mini_chart = create_ascii_chart(
+            chart_data, width=40, height=6, title="ポートフォリオ推移"
+        )
 
         layout.split_column(
             Layout(progress_info, size=6),
@@ -537,11 +559,17 @@ def interactive_demo():
             # 短いデモバックテスト
             for day in range(30):
                 current_date = config.start_date + timedelta(days=day)
-                current_value = int(config.initial_capital * (1 + random.gauss(0.1, 0.2)))
+                current_value = int(
+                    config.initial_capital * (1 + random.gauss(0.1, 0.2))
+                )
                 trades_count = random.randint(0, day + 1)
 
                 if live:  # Liveが有効な場合のみ更新
-                    live.update(create_progress_display(current_date, current_value, trades_count))
+                    live.update(
+                        create_progress_display(
+                            current_date, current_value, trades_count
+                        )
+                    )
                 time.sleep(0.3)
 
         console.print("\n[green]インタラクティブデモが完了しました！[/green]")
@@ -561,7 +589,9 @@ def main():
         )
     )
 
-    console.print("\n[yellow]各デモを順番に実行します。Enterキーで次に進んでください...[/yellow]")
+    console.print(
+        "\n[yellow]各デモを順番に実行します。Enterキーで次に進んでください...[/yellow]"
+    )
 
     demos = [
         ("基本バックテスト", demo_basic_backtest),

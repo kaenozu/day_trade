@@ -19,17 +19,22 @@ async def test_basic_quality_gates():
         "bandit_security_check": False,
         "test_coverage": False,
         "dependency_check": False,
-        "overall_status": False
+        "overall_status": False,
     }
 
     # 1. MyPy型チェック
     print("\n1. MyPy型チェック実行中...")
     try:
         result = subprocess.run(
-            ["mypy", "src/day_trade/core", "--ignore-missing-imports", "--show-error-codes"],
+            [
+                "mypy",
+                "src/day_trade/core",
+                "--ignore-missing-imports",
+                "--show-error-codes",
+            ],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
         if result.returncode == 0:
@@ -50,7 +55,7 @@ async def test_basic_quality_gates():
             ["bandit", "-r", "src/day_trade/core", "-q"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         if result.returncode == 0:
@@ -66,17 +71,26 @@ async def test_basic_quality_gates():
     print("\n3. テストカバレッジチェック実行中...")
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", "--cov=src/day_trade/core", "--cov-report=term", "-q", "tests/", "--maxfail=1"],
+            [
+                "python",
+                "-m",
+                "pytest",
+                "--cov=src/day_trade/core",
+                "--cov-report=term",
+                "-q",
+                "tests/",
+                "--maxfail=1",
+            ],
             capture_output=True,
             text=True,
-            timeout=90
+            timeout=90,
         )
 
         # カバレッジパーセンテージを抽出
         output = result.stdout
-        for line in output.split('\n'):
-            if 'TOTAL' in line and '%' in line:
-                coverage_str = line.split()[-1].replace('%', '')
+        for line in output.split("\n"):
+            if "TOTAL" in line and "%" in line:
+                coverage_str = line.split()[-1].replace("%", "")
                 try:
                     coverage_pct = float(coverage_str)
                     print(f"   [統計] テストカバレッジ: {coverage_pct}%")
@@ -101,7 +115,7 @@ async def test_basic_quality_gates():
             ["pip-audit", "--desc", "--format=json"],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
         if result.returncode == 0:
@@ -158,6 +172,7 @@ async def test_basic_quality_gates():
     print("\n=== テスト完了 ===")
 
     return test_results
+
 
 # メイン実行
 if __name__ == "__main__":

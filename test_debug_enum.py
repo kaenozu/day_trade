@@ -14,5 +14,9 @@ for mode in TradingMode:
     print(f"{mode.name} = {mode.value!r}")
 
 print(f"\nTradingMode.ANALYSIS_ONLY.value = {TradingMode.ANALYSIS_ONLY.value!r}")
-print(f"TradingMode.ANALYSIS_ONLY == 'analysis_only': {TradingMode.ANALYSIS_ONLY == 'analysis_only'}")
-print(f"TradingMode.ANALYSIS_ONLY.value == 'analysis_only': {TradingMode.ANALYSIS_ONLY.value == 'analysis_only'}")
+print(
+    f"TradingMode.ANALYSIS_ONLY == 'analysis_only': {TradingMode.ANALYSIS_ONLY == 'analysis_only'}"
+)
+print(
+    f"TradingMode.ANALYSIS_ONLY.value == 'analysis_only': {TradingMode.ANALYSIS_ONLY.value == 'analysis_only'}"
+)

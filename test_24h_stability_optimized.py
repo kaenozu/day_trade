@@ -149,7 +149,9 @@ class MemoryOptimizedStabilityTest:
             # 履歴保存（制限付き）
             self.metrics_history.append(metrics)
             if len(self.metrics_history) > self.max_metrics_history:
-                self.metrics_history = self.metrics_history[-self.max_metrics_history // 2 :]
+                self.metrics_history = self.metrics_history[
+                    -self.max_metrics_history // 2 :
+                ]
 
             # 異常検知
             if memory_usage > 1024:  # 1GB超過で警告
@@ -217,7 +219,9 @@ class MemoryOptimizedStabilityTest:
             current_memory = psutil.virtual_memory().used / (1024 * 1024)
 
             if collected > 0:
-                print(f"[GC] {collected}オブジェクト回収, メモリ: {current_memory:.1f}MB")
+                print(
+                    f"[GC] {collected}オブジェクト回収, メモリ: {current_memory:.1f}MB"
+                )
 
         except Exception as e:
             print(f"[クリーンアップエラー] {e}")
@@ -254,7 +258,9 @@ class MemoryOptimizedStabilityTest:
 
         # 2. メモリ使用量チェック（1GB以下）
         memory_ok = peak_memory <= 1024
-        success_conditions.append(("メモリ使用量", memory_ok, f"ピーク {peak_memory:.1f}MB"))
+        success_conditions.append(
+            ("メモリ使用量", memory_ok, f"ピーク {peak_memory:.1f}MB")
+        )
 
         # 3. CPU使用率チェック
         cpu_ok = avg_cpu <= 30
@@ -268,9 +274,12 @@ class MemoryOptimizedStabilityTest:
         # 5. 操作実行チェック
         operations_ok = (
             self.operation_count
-            >= (self.test_duration_minutes * 60 // self.operation_interval_seconds) * 0.8
+            >= (self.test_duration_minutes * 60 // self.operation_interval_seconds)
+            * 0.8
         )
-        success_conditions.append(("操作実行", operations_ok, f"{self.operation_count}回"))
+        success_conditions.append(
+            ("操作実行", operations_ok, f"{self.operation_count}回")
+        )
 
         # 結果表示
         print(f"\n実行時間: {total_duration/60:.1f}分 / {self.test_duration_minutes}分")

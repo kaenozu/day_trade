@@ -11,6 +11,7 @@ from pathlib import Path
 # プロジェクトルートをパスに追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+
 def test_ultra_low_latency_basic():
     """基本的な超低レイテンシテスト"""
     print("=== Ultra Low Latency Basic Test ===")
@@ -33,8 +34,8 @@ def test_ultra_low_latency_basic():
 
             result = core.execute_trade_ultra_fast("USDJPY", "buy", 10000, 150.0)
 
-            if result and result.get('success', False):
-                latency_us = result['latency_us']
+            if result and result.get("success", False):
+                latency_us = result["latency_us"]
                 results.append(latency_us)
 
                 if i % 10 == 0:
@@ -54,12 +55,16 @@ def test_ultra_low_latency_basic():
             print(f"Average latency: {avg_latency:.2f}μs")
             print(f"Min latency: {min_latency:.2f}μs")
             print(f"Max latency: {max_latency:.2f}μs")
-            print(f"Under 10μs target: {under_target}/{len(results)} ({under_target/len(results)*100:.1f}%)")
+            print(
+                f"Under 10μs target: {under_target}/{len(results)} ({under_target/len(results)*100:.1f}%)"
+            )
 
             # パフォーマンスレポート
             try:
                 report = core.get_performance_report()
-                print(f"Performance report available: {report.get('total_trades', 0)} trades tracked")
+                print(
+                    f"Performance report available: {report.get('total_trades', 0)} trades tracked"
+                )
             except Exception as e:
                 print(f"Performance report error: {e}")
         else:
@@ -95,7 +100,7 @@ def test_system_optimization():
         status = optimizer.get_system_status()
 
         print(f"Platform: {status.get('platform', 'unknown')}")
-        optimizations = status.get('applied_optimizations', [])
+        optimizations = status.get("applied_optimizations", [])
         print(f"Applied optimizations: {len(optimizations)}")
 
         for opt in optimizations[:5]:  # 最初の5つのみ表示
@@ -128,7 +133,7 @@ def test_performance_capabilities():
         info = get_performance_info()
         print(f"Performance system version: {info['version']}")
 
-        systems = info.get('systems', {})
+        systems = info.get("systems", {})
         for name, desc in systems.items():
             print(f"  {name}: {desc}")
 
@@ -139,7 +144,7 @@ def test_performance_capabilities():
             status = "Available" if available else "Not Available"
             print(f"  {capability}: {status}")
 
-        return capabilities.get('ultra_low_latency', False)
+        return capabilities.get("ultra_low_latency", False)
 
     except ImportError as e:
         print(f"Performance module not available: {e}")
@@ -157,13 +162,13 @@ def main():
     results = {}
 
     # 基本的な超低レイテンシテスト
-    results['basic_test'] = test_ultra_low_latency_basic()
+    results["basic_test"] = test_ultra_low_latency_basic()
 
     # システム最適化テスト
-    results['system_test'] = test_system_optimization()
+    results["system_test"] = test_system_optimization()
 
     # パフォーマンス能力テスト
-    results['capabilities_test'] = test_performance_capabilities()
+    results["capabilities_test"] = test_performance_capabilities()
 
     # 結果サマリー
     print("\n" + "=" * 50)

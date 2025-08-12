@@ -39,6 +39,7 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class RealtimeMonitoringSystemTester:
     """リアルタイム監視システムテスター"""
 
@@ -102,10 +103,12 @@ class RealtimeMonitoringSystemTester:
         try:
             # 基本メトリクス収集
             result = self.metrics_collector.collect_all_metrics()
-            assert result['status'] == 'success', "メトリクス収集失敗"
+            assert result["status"] == "success", "メトリクス収集失敗"
 
             # リアルタイムメトリクス記録
-            self.metrics_collector.record_realtime_data_latency("test_source", "AAPL", 0.05)
+            self.metrics_collector.record_realtime_data_latency(
+                "test_source", "AAPL", 0.05
+            )
             self.metrics_collector.update_websocket_connections("trading", 5)
             self.metrics_collector.record_market_data_update("AAPL", "price")
             self.metrics_collector.update_prediction_confidence("lstm", "AAPL", 0.85)
@@ -121,20 +124,24 @@ class RealtimeMonitoringSystemTester:
             # AIメトリクス記録（サンプルデータ）
             # self.ai_metrics のメソッドを実装時に追加
 
-            self.test_results.append({
-                'test': 'metrics_collection',
-                'status': 'PASS',
-                'message': 'メトリクス収集正常動作'
-            })
+            self.test_results.append(
+                {
+                    "test": "metrics_collection",
+                    "status": "PASS",
+                    "message": "メトリクス収集正常動作",
+                }
+            )
 
             logger.info("[OK] メトリクス収集テスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'metrics_collection',
-                'status': 'FAIL',
-                'message': f'メトリクス収集エラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "metrics_collection",
+                    "status": "FAIL",
+                    "message": f"メトリクス収集エラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] メトリクス収集テスト失敗: {e}")
 
     async def _test_notification_system(self):
@@ -147,34 +154,42 @@ class RealtimeMonitoringSystemTester:
             test_notifications = []
 
             async def test_slack_handler(alert):
-                test_notifications.append(('slack', alert.name))
+                test_notifications.append(("slack", alert.name))
                 logger.info(f"テストSlack通知: {alert.name}")
 
             def test_email_handler(alert):
-                test_notifications.append(('email', alert.name))
+                test_notifications.append(("email", alert.name))
                 logger.info(f"テストEmail通知: {alert.name}")
 
             # 通知設定追加
-            self.notification_system.add_config(NotificationConfig(
-                channel=NotificationChannel.SLACK,
-                enabled=True,
-                settings={'webhook_url': 'http://test.example.com/slack'}
-            ))
+            self.notification_system.add_config(
+                NotificationConfig(
+                    channel=NotificationChannel.SLACK,
+                    enabled=True,
+                    settings={"webhook_url": "http://test.example.com/slack"},
+                )
+            )
 
-            self.notification_system.add_config(NotificationConfig(
-                channel=NotificationChannel.EMAIL,
-                enabled=True,
-                settings={
-                    'smtp_server': 'test.smtp.com',
-                    'username': 'test@example.com',
-                    'password': 'test',
-                    'to_addresses': ['alert@example.com']
-                }
-            ))
+            self.notification_system.add_config(
+                NotificationConfig(
+                    channel=NotificationChannel.EMAIL,
+                    enabled=True,
+                    settings={
+                        "smtp_server": "test.smtp.com",
+                        "username": "test@example.com",
+                        "password": "test",
+                        "to_addresses": ["alert@example.com"],
+                    },
+                )
+            )
 
             # ハンドラー登録
-            self.alert_engine.add_notification_handler(NotificationChannel.SLACK, test_slack_handler)
-            self.alert_engine.add_notification_handler(NotificationChannel.EMAIL, test_email_handler)
+            self.alert_engine.add_notification_handler(
+                NotificationChannel.SLACK, test_slack_handler
+            )
+            self.alert_engine.add_notification_handler(
+                NotificationChannel.EMAIL, test_email_handler
+            )
 
             # テスト用アラート作成（直接送信テスト）
             from src.day_trade.monitoring.alert_engine import (
@@ -190,26 +205,30 @@ class RealtimeMonitoringSystemTester:
                 severity=AlertSeverity.WARNING,
                 status=AlertStatus.FIRING,
                 start_time=datetime.now(),
-                description="通知システムテスト用アラート"
+                description="通知システムテスト用アラート",
             )
 
             # 通知テスト実行（実際の外部通信はスキップ）
             # await self.notification_system.send_notification(test_alert, NotificationChannel.SLACK)
 
-            self.test_results.append({
-                'test': 'notification_system',
-                'status': 'PASS',
-                'message': '通知システム設定完了'
-            })
+            self.test_results.append(
+                {
+                    "test": "notification_system",
+                    "status": "PASS",
+                    "message": "通知システム設定完了",
+                }
+            )
 
             logger.info("[OK] 通知システムテスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'notification_system',
-                'status': 'FAIL',
-                'message': f'通知システムエラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "notification_system",
+                    "status": "FAIL",
+                    "message": f"通知システムエラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] 通知システムテスト失敗: {e}")
 
     async def _test_alert_engine(self):
@@ -236,20 +255,24 @@ class RealtimeMonitoringSystemTester:
             logger.info(f"アクティブアラート数: {alert_summary['active_alerts']}")
             logger.info(f"有効ルール数: {alert_summary['enabled_rules']}")
 
-            self.test_results.append({
-                'test': 'alert_engine',
-                'status': 'PASS',
-                'message': f'アラートエンジン動作確認完了 (アクティブ: {alert_summary["active_alerts"]})'
-            })
+            self.test_results.append(
+                {
+                    "test": "alert_engine",
+                    "status": "PASS",
+                    "message": f'アラートエンジン動作確認完了 (アクティブ: {alert_summary["active_alerts"]})',
+                }
+            )
 
             logger.info("[OK] アラートエンジンテスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'alert_engine',
-                'status': 'FAIL',
-                'message': f'アラートエンジンエラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "alert_engine",
+                    "status": "FAIL",
+                    "message": f"アラートエンジンエラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] アラートエンジンテスト失敗: {e}")
 
     async def _test_anomaly_detection(self):
@@ -266,7 +289,9 @@ class RealtimeMonitoringSystemTester:
 
             # 異常データ送信
             anomaly_value = 95.0
-            anomaly_result = await self.ml_anomaly_system.detect_anomaly("cpu_usage", anomaly_value)
+            anomaly_result = await self.ml_anomaly_system.detect_anomaly(
+                "cpu_usage", anomaly_value
+            )
 
             # モデル訓練テスト
             trained_models = await self.ml_anomaly_system.train_all_models()
@@ -277,20 +302,24 @@ class RealtimeMonitoringSystemTester:
             logger.info(f"訓練済みモデル数: {trained_models}")
             logger.info(f"総検知回数: {detection_summary['total_detections']}")
 
-            self.test_results.append({
-                'test': 'anomaly_detection',
-                'status': 'PASS',
-                'message': f'異常検知システム動作確認 (検知回数: {detection_summary["total_detections"]})'
-            })
+            self.test_results.append(
+                {
+                    "test": "anomaly_detection",
+                    "status": "PASS",
+                    "message": f'異常検知システム動作確認 (検知回数: {detection_summary["total_detections"]})',
+                }
+            )
 
             logger.info("[OK] 異常検知システムテスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'anomaly_detection',
-                'status': 'FAIL',
-                'message': f'異常検知システムエラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "anomaly_detection",
+                    "status": "FAIL",
+                    "message": f"異常検知システムエラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] 異常検知システムテスト失敗: {e}")
 
     async def _test_performance_optimization(self):
@@ -302,28 +331,36 @@ class RealtimeMonitoringSystemTester:
             # パフォーマンスシステム状態確認
             system_status = self.performance_system.get_system_status()
 
-            logger.info(f"パフォーマンスシステム稼働中: {system_status['system_running']}")
-            logger.info(f"メトリクス履歴サイズ: {system_status['metrics_history_size']}")
+            logger.info(
+                f"パフォーマンスシステム稼働中: {system_status['system_running']}"
+            )
+            logger.info(
+                f"メトリクス履歴サイズ: {system_status['metrics_history_size']}"
+            )
 
             # SLA状態確認
-            sla_statuses = system_status['sla_statuses']
+            sla_statuses = system_status["sla_statuses"]
             for service_name, status in sla_statuses.items():
                 logger.info(f"SLA状態 {service_name}: {status['overall_status']}")
 
-            self.test_results.append({
-                'test': 'performance_optimization',
-                'status': 'PASS',
-                'message': 'パフォーマンス最適化システム動作確認'
-            })
+            self.test_results.append(
+                {
+                    "test": "performance_optimization",
+                    "status": "PASS",
+                    "message": "パフォーマンス最適化システム動作確認",
+                }
+            )
 
             logger.info("[OK] パフォーマンス最適化テスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'performance_optimization',
-                'status': 'FAIL',
-                'message': f'パフォーマンス最適化エラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "performance_optimization",
+                    "status": "FAIL",
+                    "message": f"パフォーマンス最適化エラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] パフォーマンス最適化テスト失敗: {e}")
 
     async def _test_realtime_data_flow(self):
@@ -339,12 +376,16 @@ class RealtimeMonitoringSystemTester:
                 for symbol in symbols:
                     # 市場データ更新シミュレート
                     latency = random.uniform(0.001, 0.1)
-                    self.metrics_collector.record_realtime_data_latency("market_data", symbol, latency)
+                    self.metrics_collector.record_realtime_data_latency(
+                        "market_data", symbol, latency
+                    )
                     self.metrics_collector.record_market_data_update(symbol, "price")
 
                     # AI予測シミュレート
                     confidence = random.uniform(0.6, 0.95)
-                    self.metrics_collector.update_prediction_confidence("hybrid_model", symbol, confidence)
+                    self.metrics_collector.update_prediction_confidence(
+                        "hybrid_model", symbol, confidence
+                    )
 
                     await asyncio.sleep(0.05)
 
@@ -353,20 +394,24 @@ class RealtimeMonitoringSystemTester:
 
             logger.info(f"リアルタイムスナップショット数: {len(snapshots)}")
 
-            self.test_results.append({
-                'test': 'realtime_data_flow',
-                'status': 'PASS',
-                'message': f'リアルタイムデータ流通確認 (スナップショット: {len(snapshots)})'
-            })
+            self.test_results.append(
+                {
+                    "test": "realtime_data_flow",
+                    "status": "PASS",
+                    "message": f"リアルタイムデータ流通確認 (スナップショット: {len(snapshots)})",
+                }
+            )
 
             logger.info("[OK] リアルタイムデータ流通テスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'realtime_data_flow',
-                'status': 'FAIL',
-                'message': f'リアルタイムデータ流通エラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "realtime_data_flow",
+                    "status": "FAIL",
+                    "message": f"リアルタイムデータ流通エラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] リアルタイムデータ流通テスト失敗: {e}")
 
     async def _test_integration_scenarios(self):
@@ -385,7 +430,9 @@ class RealtimeMonitoringSystemTester:
             self.alert_engine.update_metric_value("day_trade_memory_usage_bytes", 0.95)
 
             # 高レスポンス時間
-            self.alert_engine.update_metric_value("day_trade_realtime_data_latency_seconds", 2.0)
+            self.alert_engine.update_metric_value(
+                "day_trade_realtime_data_latency_seconds", 2.0
+            )
 
             await asyncio.sleep(1)
 
@@ -394,7 +441,9 @@ class RealtimeMonitoringSystemTester:
 
             for i in range(5):
                 low_accuracy = random.uniform(0.3, 0.6)
-                await self.ml_anomaly_system.detect_anomaly("prediction_accuracy", low_accuracy)
+                await self.ml_anomaly_system.detect_anomaly(
+                    "prediction_accuracy", low_accuracy
+                )
                 await asyncio.sleep(0.2)
 
             # シナリオ3: システム回復
@@ -412,33 +461,39 @@ class RealtimeMonitoringSystemTester:
 
             logger.info(f"統合テスト後 - アクティブアラート: {len(active_alerts)}")
             logger.info(f"統合テスト後 - アラート履歴: {len(alert_history)}")
-            logger.info(f"統合テスト後 - 異常検知回数: {detection_summary['total_detections']}")
+            logger.info(
+                f"統合テスト後 - 異常検知回数: {detection_summary['total_detections']}"
+            )
 
-            self.test_results.append({
-                'test': 'integration_scenarios',
-                'status': 'PASS',
-                'message': '統合シナリオテスト完了'
-            })
+            self.test_results.append(
+                {
+                    "test": "integration_scenarios",
+                    "status": "PASS",
+                    "message": "統合シナリオテスト完了",
+                }
+            )
 
             logger.info("[OK] 統合シナリオテスト成功")
 
         except Exception as e:
-            self.test_results.append({
-                'test': 'integration_scenarios',
-                'status': 'FAIL',
-                'message': f'統合シナリオエラー: {e}'
-            })
+            self.test_results.append(
+                {
+                    "test": "integration_scenarios",
+                    "status": "FAIL",
+                    "message": f"統合シナリオエラー: {e}",
+                }
+            )
             logger.error(f"[ERROR] 統合シナリオテスト失敗: {e}")
 
     async def _print_test_summary(self):
         """テスト結果サマリー出力"""
 
-        logger.info("\n" + "="*60)
+        logger.info("\n" + "=" * 60)
         logger.info("[SUMMARY] リアルタイム監視・アラートシステム テスト結果サマリー")
-        logger.info("="*60)
+        logger.info("=" * 60)
 
         total_tests = len(self.test_results)
-        passed_tests = len([r for r in self.test_results if r['status'] == 'PASS'])
+        passed_tests = len([r for r in self.test_results if r["status"] == "PASS"])
         failed_tests = total_tests - passed_tests
 
         logger.info(f"総テスト数: {total_tests}")
@@ -448,7 +503,7 @@ class RealtimeMonitoringSystemTester:
 
         logger.info("\n[DETAILS] 詳細結果:")
         for result in self.test_results:
-            status_icon = "[PASS]" if result['status'] == 'PASS' else "[FAIL]"
+            status_icon = "[PASS]" if result["status"] == "PASS" else "[FAIL]"
             logger.info(f"{status_icon} {result['test']}: {result['message']}")
 
         logger.info("\n[STATUS] Issue #370 実装状況:")
@@ -461,7 +516,8 @@ class RealtimeMonitoringSystemTester:
         logger.info("- [DONE] リアルタイム監視統合")
 
         logger.info("\n[READY] 本番環境展開準備完了!")
-        logger.info("="*60)
+        logger.info("=" * 60)
+
 
 async def main():
     """メイン実行"""
@@ -494,7 +550,9 @@ async def main():
 
     return exit_code
 
+
 if __name__ == "__main__":
     import sys
+
     exit_code = asyncio.run(main())
     sys.exit(exit_code)

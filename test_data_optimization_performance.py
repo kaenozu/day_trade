@@ -52,7 +52,7 @@ def create_test_dataset(rows: int = 10000, add_noise: bool = True) -> pd.DataFra
     np.random.seed(42)  # 再現性のため
 
     # 日付インデックス
-    dates = pd.date_range('2020-01-01', periods=rows, freq='1min')
+    dates = pd.date_range("2020-01-01", periods=rows, freq="1min")
 
     # 株価データ
     base_price = 1000.0
@@ -70,16 +70,20 @@ def create_test_dataset(rows: int = 10000, add_noise: bool = True) -> pd.DataFra
     volumes = np.random.lognormal(10, 1, rows).astype(int)
 
     # DataFrame作成（メモリ効率の悪いデータ型を意図的に使用）
-    data = pd.DataFrame({
-        'timestamp': dates,
-        '始値': prices.astype('float64'),      # 最適化前: float64
-        '高値': highs.astype('float64'),       # 最適化前: float64
-        '安値': lows.astype('float64'),        # 最適化前: float64
-        '終値': prices.astype('float64'),      # 最適化前: float64
-        '出来高': volumes.astype('int64'),     # 最適化前: int64
-        '市場区分': ['東証1部'] * rows,        # 最適化前: object
-        'セクター': np.random.choice(['金融', 'IT', '製造', '小売'], rows),  # category候補
-    })
+    data = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "始値": prices.astype("float64"),  # 最適化前: float64
+            "高値": highs.astype("float64"),  # 最適化前: float64
+            "安値": lows.astype("float64"),  # 最適化前: float64
+            "終値": prices.astype("float64"),  # 最適化前: float64
+            "出来高": volumes.astype("int64"),  # 最適化前: int64
+            "市場区分": ["東証1部"] * rows,  # 最適化前: object
+            "セクター": np.random.choice(
+                ["金融", "IT", "製造", "小売"], rows
+            ),  # category候補
+        }
+    )
 
     return data
 
@@ -113,13 +117,13 @@ def test_dtype_optimization_performance():
         optimization_stats = optimizer.get_optimization_stats()
 
         result = {
-            'size': size,
-            'memory_before_mb': round(memory_before, 3),
-            'memory_after_mb': round(memory_after, 3),
-            'memory_saved_mb': round(memory_saved, 3),
-            'reduction_percent': round(reduction_percent, 1),
-            'optimization_time_ms': round(optimization_time * 1000, 2),
-            'optimizations_applied': optimization_stats['dtype_optimizations']
+            "size": size,
+            "memory_before_mb": round(memory_before, 3),
+            "memory_after_mb": round(memory_after, 3),
+            "memory_saved_mb": round(memory_saved, 3),
+            "reduction_percent": round(reduction_percent, 1),
+            "optimization_time_ms": round(optimization_time * 1000, 2),
+            "optimizations_applied": optimization_stats["dtype_optimizations"],
         }
         results.append(result)
 
@@ -140,24 +144,80 @@ def test_vectorization_performance():
 
     # テクニカル指標操作の定義
     technical_operations = [
-        {'type': 'technical_indicator', 'indicator': 'sma', 'column': '終値', 'period': 20},
-        {'type': 'technical_indicator', 'indicator': 'ema', 'column': '終値', 'period': 12},
-        {'type': 'technical_indicator', 'indicator': 'rsi', 'column': '終値', 'period': 14},
-        {'type': 'technical_indicator', 'indicator': 'bollinger_bands', 'column': '終値', 'period': 20},
-        {'type': 'technical_indicator', 'indicator': 'macd', 'column': '終値'},
+        {
+            "type": "technical_indicator",
+            "indicator": "sma",
+            "column": "終値",
+            "period": 20,
+        },
+        {
+            "type": "technical_indicator",
+            "indicator": "ema",
+            "column": "終値",
+            "period": 12,
+        },
+        {
+            "type": "technical_indicator",
+            "indicator": "rsi",
+            "column": "終値",
+            "period": 14,
+        },
+        {
+            "type": "technical_indicator",
+            "indicator": "bollinger_bands",
+            "column": "終値",
+            "period": 20,
+        },
+        {"type": "technical_indicator", "indicator": "macd", "column": "終値"},
     ]
 
     rolling_operations = [
-        {'type': 'rolling_calculation', 'column': '終値', 'window': 20, 'calculation': 'std'},
-        {'type': 'rolling_calculation', 'column': '終値', 'window': 50, 'calculation': 'min'},
-        {'type': 'rolling_calculation', 'column': '終値', 'window': 50, 'calculation': 'max'},
-        {'type': 'rolling_calculation', 'column': '出来高', 'window': 20, 'calculation': 'mean'},
+        {
+            "type": "rolling_calculation",
+            "column": "終値",
+            "window": 20,
+            "calculation": "std",
+        },
+        {
+            "type": "rolling_calculation",
+            "column": "終値",
+            "window": 50,
+            "calculation": "min",
+        },
+        {
+            "type": "rolling_calculation",
+            "column": "終値",
+            "window": 50,
+            "calculation": "max",
+        },
+        {
+            "type": "rolling_calculation",
+            "column": "出来高",
+            "window": 20,
+            "calculation": "mean",
+        },
     ]
 
     mathematical_operations = [
-        {'type': 'mathematical_operation', 'operation': 'percentage_change', 'columns': ['終値'], 'result_column': '終値_変化率'},
-        {'type': 'mathematical_operation', 'operation': 'log_return', 'columns': ['終値'], 'result_column': '終値_対数収益'},
-        {'type': 'mathematical_operation', 'operation': 'z_score', 'columns': ['終値'], 'window': 20, 'result_column': '終値_Zスコア'},
+        {
+            "type": "mathematical_operation",
+            "operation": "percentage_change",
+            "columns": ["終値"],
+            "result_column": "終値_変化率",
+        },
+        {
+            "type": "mathematical_operation",
+            "operation": "log_return",
+            "columns": ["終値"],
+            "result_column": "終値_対数収益",
+        },
+        {
+            "type": "mathematical_operation",
+            "operation": "z_score",
+            "columns": ["終値"],
+            "window": 20,
+            "result_column": "終値_Zスコア",
+        },
     ]
 
     all_operations = technical_operations + rolling_operations + mathematical_operations
@@ -187,11 +247,13 @@ def test_vectorization_performance():
     print(f"  ベクトル化適用数: {optimization_stats['vectorizations']}")
 
     return {
-        'total_operations': len(all_operations),
-        'vectorization_time_ms': round(vectorization_time * 1000, 2),
-        'features_added': added_features,
-        'avg_time_per_operation_ms': round(vectorization_time * 1000 / len(all_operations), 2),
-        'vectorizations_applied': optimization_stats['vectorizations']
+        "total_operations": len(all_operations),
+        "vectorization_time_ms": round(vectorization_time * 1000, 2),
+        "features_added": added_features,
+        "avg_time_per_operation_ms": round(
+            vectorization_time * 1000 / len(all_operations), 2
+        ),
+        "vectorizations_applied": optimization_stats["vectorizations"],
     }
 
 
@@ -207,9 +269,11 @@ def test_chunk_processing_performance():
     def simple_feature_calculation(chunk_data: pd.DataFrame) -> pd.DataFrame:
         """シンプルな特徴量計算"""
         result = chunk_data.copy()
-        result['SMA_20'] = chunk_data['終値'].rolling(window=20, min_periods=1).mean()
-        result['Returns'] = chunk_data['終値'].pct_change()
-        result['Volatility_10'] = result['Returns'].rolling(window=10, min_periods=1).std()
+        result["SMA_20"] = chunk_data["終値"].rolling(window=20, min_periods=1).mean()
+        result["Returns"] = chunk_data["終値"].pct_change()
+        result["Volatility_10"] = (
+            result["Returns"].rolling(window=10, min_periods=1).std()
+        )
         return result
 
     print(f"大規模データ処理テスト: {len(large_data)}行")
@@ -228,10 +292,10 @@ def test_chunk_processing_performance():
     print(f"  行あたり処理時間: {chunk_processing_time*1000/len(processed_data):.4f}ms")
 
     return {
-        'data_size': len(large_data),
-        'chunk_processing_time_ms': round(chunk_processing_time * 1000, 2),
-        'processed_shape': processed_data.shape,
-        'time_per_row_ms': round(chunk_processing_time * 1000 / len(processed_data), 4)
+        "data_size": len(large_data),
+        "chunk_processing_time_ms": round(chunk_processing_time * 1000, 2),
+        "processed_shape": processed_data.shape,
+        "time_per_row_ms": round(chunk_processing_time * 1000 / len(processed_data), 4),
     }
 
 
@@ -258,7 +322,7 @@ def test_feature_engineering_integration():
             enable_caching=True,
             cache_size_limit=1000,
             performance_monitoring=True,
-            optimization_level=level
+            optimization_level=level,
         )
 
         feature_config = FeatureConfig(
@@ -275,13 +339,13 @@ def test_feature_engineering_integration():
 
         # パフォーマンス測定
         start_time = time.perf_counter()
-        memory_before = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024  # MB
+        memory_before = (
+            psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+        )  # MB
 
         # 特徴量生成実行
         feature_result = generate_features(
-            test_data,
-            feature_config=feature_config,
-            optimization_config=opt_config
+            test_data, feature_config=feature_config, optimization_config=opt_config
         )
 
         processing_time = time.perf_counter() - start_time
@@ -290,13 +354,13 @@ def test_feature_engineering_integration():
 
         # 結果記録
         result = {
-            'level': level_name,
-            'processing_time_ms': round(processing_time * 1000, 2),
-            'memory_used_mb': round(memory_used, 2),
-            'input_shape': test_data.shape,
-            'output_shape': feature_result.features.shape,
-            'features_generated': len(feature_result.feature_names),
-            'strategy_used': feature_result.strategy_used
+            "level": level_name,
+            "processing_time_ms": round(processing_time * 1000, 2),
+            "memory_used_mb": round(memory_used, 2),
+            "input_shape": test_data.shape,
+            "output_shape": feature_result.features.shape,
+            "features_generated": len(feature_result.feature_names),
+            "strategy_used": feature_result.strategy_used,
         }
         results.append(result)
 
@@ -314,24 +378,32 @@ def test_feature_engineering_integration():
     return results
 
 
-def generate_performance_report(dtype_results, vectorization_result, chunk_result, integration_results):
+def generate_performance_report(
+    dtype_results, vectorization_result, chunk_result, integration_results
+):
     """パフォーマンスレポート生成"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("データI/O最適化パフォーマンステストレポート")
     print("Issue #378: データI/Oとデータ処理の最適化 - データ構造と操作の効率化")
-    print("="*80)
+    print("=" * 80)
 
     print("\n1. データ型最適化結果:")
-    print("  | データサイズ | 最適化前(MB) | 最適化後(MB) | 削減(MB) | 削減率(%) | 処理時間(ms) |")
+    print(
+        "  | データサイズ | 最適化前(MB) | 最適化後(MB) | 削減(MB) | 削減率(%) | 処理時間(ms) |"
+    )
     print("  |---|---|---|---|---|---|")
     for result in dtype_results:
-        print(f"  | {result['size']:,}行 | {result['memory_before_mb']:.3f} | {result['memory_after_mb']:.3f} | {result['memory_saved_mb']:.3f} | {result['reduction_percent']:.1f} | {result['optimization_time_ms']:.2f} |")
+        print(
+            f"  | {result['size']:,}行 | {result['memory_before_mb']:.3f} | {result['memory_after_mb']:.3f} | {result['memory_saved_mb']:.3f} | {result['reduction_percent']:.1f} | {result['optimization_time_ms']:.2f} |"
+        )
 
     print("\n2. ベクトル化操作結果:")
     print(f"  - 総操作数: {vectorization_result['total_operations']}")
     print(f"  - 処理時間: {vectorization_result['vectorization_time_ms']:.2f}ms")
     print(f"  - 生成特徴量数: {vectorization_result['features_added']}")
-    print(f"  - 操作あたり平均時間: {vectorization_result['avg_time_per_operation_ms']:.2f}ms")
+    print(
+        f"  - 操作あたり平均時間: {vectorization_result['avg_time_per_operation_ms']:.2f}ms"
+    )
 
     print("\n3. チャンク処理結果:")
     print(f"  - データサイズ: {chunk_result['data_size']:,}行")
@@ -342,27 +414,37 @@ def generate_performance_report(dtype_results, vectorization_result, chunk_resul
     print("  | 最適化レベル | 処理時間(ms) | メモリ使用(MB) | 特徴量数 | 戦略 |")
     print("  |---|---|---|---|---|")
     for result in integration_results:
-        print(f"  | {result['level']} | {result['processing_time_ms']:.2f} | {result['memory_used_mb']:.2f} | {result['features_generated']} | {result['strategy_used']} |")
+        print(
+            f"  | {result['level']} | {result['processing_time_ms']:.2f} | {result['memory_used_mb']:.2f} | {result['features_generated']} | {result['strategy_used']} |"
+        )
 
     print("\n5. パフォーマンス改善効果:")
     if len(integration_results) >= 2:
-        standard_time = integration_results[0]['processing_time_ms']
-        optimized_time = integration_results[-1]['processing_time_ms']
+        standard_time = integration_results[0]["processing_time_ms"]
+        optimized_time = integration_results[-1]["processing_time_ms"]
         speedup = standard_time / optimized_time if optimized_time > 0 else 0
 
-        standard_memory = integration_results[0]['memory_used_mb']
-        optimized_memory = integration_results[-1]['memory_used_mb']
-        memory_improvement = (standard_memory - optimized_memory) / standard_memory * 100 if standard_memory > 0 else 0
+        standard_memory = integration_results[0]["memory_used_mb"]
+        optimized_memory = integration_results[-1]["memory_used_mb"]
+        memory_improvement = (
+            (standard_memory - optimized_memory) / standard_memory * 100
+            if standard_memory > 0
+            else 0
+        )
 
         print(f"  - 処理速度向上: {speedup:.2f}x 高速化")
         print(f"  - メモリ効率向上: {memory_improvement:.1f}% 削減")
 
     # 総合評価
-    avg_memory_reduction = np.mean([r['reduction_percent'] for r in dtype_results])
+    avg_memory_reduction = np.mean([r["reduction_percent"] for r in dtype_results])
     print("\n6. 総合評価:")
     print(f"  - データ型最適化によるメモリ削減: 平均{avg_memory_reduction:.1f}%")
-    print(f"  - ベクトル化操作による高速化: {vectorization_result['total_operations']}操作を{vectorization_result['vectorization_time_ms']:.2f}msで実行")
-    print(f"  - チャンク処理による大規模データ対応: {chunk_result['data_size']:,}行を{chunk_result['chunk_processing_time_ms']:.2f}msで処理")
+    print(
+        f"  - ベクトル化操作による高速化: {vectorization_result['total_operations']}操作を{vectorization_result['vectorization_time_ms']:.2f}msで実行"
+    )
+    print(
+        f"  - チャンク処理による大規模データ対応: {chunk_result['data_size']:,}行を{chunk_result['chunk_processing_time_ms']:.2f}msで処理"
+    )
     print("  - 統合システムの最適化効果: 全レベルで正常動作確認")
 
 
@@ -387,10 +469,7 @@ def main():
 
         # レポート生成
         generate_performance_report(
-            dtype_results,
-            vectorization_result,
-            chunk_result,
-            integration_results
+            dtype_results, vectorization_result, chunk_result, integration_results
         )
 
         print("\n✅ データI/O最適化パフォーマンステスト完了")
@@ -405,6 +484,7 @@ def main():
     except Exception as e:
         print(f"\n❌ テスト実行中にエラーが発生: {e}")
         import traceback
+
         traceback.print_exc()
 
 

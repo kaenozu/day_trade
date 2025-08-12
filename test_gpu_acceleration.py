@@ -35,7 +35,7 @@ class GPUAccelerationTester:
     def _generate_test_data(self) -> pd.DataFrame:
         """テストデータ生成"""
         np.random.seed(42)
-        dates = pd.date_range('2023-01-01', periods=1000, freq='D')
+        dates = pd.date_range("2023-01-01", periods=1000, freq="D")
 
         # 実際の株価データを模した時系列データ生成
         returns = np.random.normal(0.001, 0.02, 1000)
@@ -44,19 +44,23 @@ class GPUAccelerationTester:
         for ret in returns[:-1]:
             prices.append(prices[-1] * (1 + ret))
 
-        return pd.DataFrame({
-            'Date': dates,
-            'Open': [p * (1 + np.random.normal(0, 0.005)) for p in prices],
-            'High': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
-            'Low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(100000, 1000000, 1000)
-        }).set_index('Date')
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": [p * (1 + np.random.normal(0, 0.005)) for p in prices],
+                "High": [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
+                "Low": [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(100000, 1000000, 1000),
+            }
+        ).set_index("Date")
 
     def test_device_detection(self):
         """デバイス検出テスト"""
         print("[DEVICE] デバイス検出テスト")
-        print(f"利用可能バックエンド: {[b.value for b in self.gpu_engine.available_backends]}")
+        print(
+            f"利用可能バックエンド: {[b.value for b in self.gpu_engine.available_backends]}"
+        )
 
         for device in self.gpu_engine.devices:
             print(f"  - {device.name} ({device.backend.value})")
@@ -70,7 +74,7 @@ class GPUAccelerationTester:
         """基本テクニカル指標テスト"""
         print("[BASIC] 基本テクニカル指標テスト")
 
-        indicators = ['sma', 'ema', 'rsi']
+        indicators = ["sma", "ema", "rsi"]
 
         try:
             start_time = time.time()
@@ -87,7 +91,9 @@ class GPUAccelerationTester:
             # 結果検証
             for indicator, values in result.result.items():
                 if isinstance(values, dict):
-                    print(f"  {indicator}: {len(list(values.values())[0])}データポイント")
+                    print(
+                        f"  {indicator}: {len(list(values.values())[0])}データポイント"
+                    )
                 else:
                     print(f"  {indicator}: {len(values)}データポイント")
 
@@ -102,7 +108,7 @@ class GPUAccelerationTester:
         """高度テクニカル指標テスト"""
         print("[ADVANCED] 高度テクニカル指標テスト")
 
-        indicators = ['bollinger_bands', 'macd', 'stochastic']
+        indicators = ["bollinger_bands", "macd", "stochastic"]
 
         try:
             start_time = time.time()
@@ -144,9 +150,9 @@ class GPUAccelerationTester:
             print(f"デバイス: {benchmark_result['device_info']['name']}")
 
             # 性能評価
-            if benchmark_result['speedup_ratio'] > 1.5:
+            if benchmark_result["speedup_ratio"] > 1.5:
                 print("[EXCELLENT] 優秀な高速化性能!")
-            elif benchmark_result['speedup_ratio'] > 1.0:
+            elif benchmark_result["speedup_ratio"] > 1.0:
                 print("[GOOD] 高速化効果あり")
             else:
                 print("[WARNING] 高速化効果限定的（CPU最適化済み、またはGPU未利用）")
@@ -166,7 +172,7 @@ class GPUAccelerationTester:
         large_data = self._generate_large_test_data(10000)
         print(f"テストデータサイズ: {len(large_data)}行")
 
-        indicators = ['sma', 'ema', 'rsi', 'bollinger_bands']
+        indicators = ["sma", "ema", "rsi", "bollinger_bands"]
 
         try:
             start_time = time.time()
@@ -193,7 +199,7 @@ class GPUAccelerationTester:
     def _generate_large_test_data(self, size: int) -> pd.DataFrame:
         """大規模テストデータ生成"""
         np.random.seed(42)
-        dates = pd.date_range('2020-01-01', periods=size, freq='D')
+        dates = pd.date_range("2020-01-01", periods=size, freq="D")
 
         returns = np.random.normal(0.001, 0.02, size)
         prices = [100.0]
@@ -201,14 +207,16 @@ class GPUAccelerationTester:
         for ret in returns[:-1]:
             prices.append(prices[-1] * (1 + ret))
 
-        return pd.DataFrame({
-            'Date': dates,
-            'Open': [p * (1 + np.random.normal(0, 0.005)) for p in prices],
-            'High': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
-            'Low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
-            'Close': prices,
-            'Volume': np.random.randint(100000, 1000000, size)
-        }).set_index('Date')
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": [p * (1 + np.random.normal(0, 0.005)) for p in prices],
+                "High": [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
+                "Low": [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
+                "Close": prices,
+                "Volume": np.random.randint(100000, 1000000, size),
+            }
+        ).set_index("Date")
 
     def test_memory_management(self):
         """メモリ管理テスト"""
@@ -234,7 +242,7 @@ class GPUAccelerationTester:
 
         try:
             result = self.gpu_engine.accelerate_technical_indicators(
-                invalid_data, ['sma']
+                invalid_data, ["sma"]
             )
             print("[WARNING] 空データでもエラーが発生しませんでした")
         except Exception as e:
@@ -243,7 +251,7 @@ class GPUAccelerationTester:
         # 無効な指標でのテスト
         try:
             result = self.gpu_engine.accelerate_technical_indicators(
-                self.test_data, ['invalid_indicator']
+                self.test_data, ["invalid_indicator"]
             )
             print("[WARNING] 無効な指標でもエラーが発生しませんでした")
         except Exception as e:
@@ -279,27 +287,31 @@ class GPUAccelerationTester:
             print(f"最大高速化比率: {benchmark_result['speedup_ratio']:.2f}倍")
 
         # 総合評価
-        success_count = sum([
-            basic_result is not None,
-            advanced_result is not None,
-            benchmark_result is not None,
-            large_data_result is not None
-        ])
+        success_count = sum(
+            [
+                basic_result is not None,
+                advanced_result is not None,
+                benchmark_result is not None,
+                large_data_result is not None,
+            ]
+        )
 
         print(f"\n[RESULT] テスト成功率: {success_count}/4 ({success_count/4:.0%})")
 
         if success_count == 4:
-            print("[SUCCESS] すべてのテストが成功！GPU並列処理エンジンは正常動作中です。")
+            print(
+                "[SUCCESS] すべてのテストが成功！GPU並列処理エンジンは正常動作中です。"
+            )
         elif success_count >= 2:
             print("[GOOD] 主要テストが成功。一部制限がありますが動作可能です。")
         else:
             print("[WARNING] 多くのテストが失敗。設定や依存関係を確認してください。")
 
         return {
-            'success_count': success_count,
-            'total_tests': 4,
-            'performance_summary': performance_summary,
-            'benchmark_result': benchmark_result
+            "success_count": success_count,
+            "total_tests": 4,
+            "performance_summary": performance_summary,
+            "benchmark_result": benchmark_result,
         }
 
 
@@ -316,21 +328,32 @@ def main():
         serializable_result = {}
         for key, value in result.items():
             if isinstance(value, dict):
-                serializable_result[key] = {k: str(v) if not isinstance(v, (int, float, str, bool, type(None))) else v
-                                          for k, v in value.items()}
+                serializable_result[key] = {
+                    k: (
+                        str(v)
+                        if not isinstance(v, (int, float, str, bool, type(None)))
+                        else v
+                    )
+                    for k, v in value.items()
+                }
             else:
-                serializable_result[key] = value if isinstance(value, (int, float, str, bool, type(None))) else str(value)
+                serializable_result[key] = (
+                    value
+                    if isinstance(value, (int, float, str, bool, type(None)))
+                    else str(value)
+                )
 
-        with open('gpu_test_results.json', 'w', encoding='utf-8') as f:
+        with open("gpu_test_results.json", "w", encoding="utf-8") as f:
             json.dump(serializable_result, f, indent=2, ensure_ascii=False)
 
         print("\n[SAVE] テスト結果をgpu_test_results.jsonに保存しました。")
 
-        return 0 if result['success_count'] >= 2 else 1
+        return 0 if result["success_count"] >= 2 else 1
 
     except Exception as e:
         print(f"[ERROR] テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -35,6 +35,7 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class GenerativeAIRiskSystemDemo:
     """生成AI統合リスク管理システムデモ"""
 
@@ -45,7 +46,7 @@ class GenerativeAIRiskSystemDemo:
             anthropic_api_key="demo_key",  # 実際はos.getenv("ANTHROPIC_API_KEY")
             temperature=0.3,
             max_tokens=800,
-            enable_caching=True
+            enable_caching=True,
         )
 
         self.generative_ai_engine = GenerativeAIRiskEngine(self.ai_config)
@@ -57,7 +58,7 @@ class GenerativeAIRiskSystemDemo:
             monitoring_interval_seconds=3,
             batch_analysis_interval_minutes=2,
             alert_cooldown_minutes=1,
-            enable_auto_response=True
+            enable_auto_response=True,
         )
         self.realtime_monitor = RealTimeRiskMonitor(self.monitor_config)
 
@@ -72,9 +73,9 @@ class GenerativeAIRiskSystemDemo:
     async def run_comprehensive_demo(self):
         """包括的デモンストレーション実行"""
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("🤖 生成AI統合リスク管理システム - 包括的デモンストレーション")
-        print("="*80)
+        print("=" * 80)
         print(f"📅 実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("🎯 目標: 95%精度, 1秒以内検知, 10億円損失防止")
         print()
@@ -111,15 +112,15 @@ class GenerativeAIRiskSystemDemo:
                 "volatility": 0.28,
                 "rsi": 25,  # 売られ過ぎ
                 "macd_signal": "bullish",
-                "market_sentiment": "cautious"
+                "market_sentiment": "cautious",
             },
             user_profile={
                 "user_id": "premium_001",
                 "risk_tolerance": "moderate",
                 "experience_level": "advanced",
                 "portfolio_value": 50000000,
-                "investment_horizon": "long_term"
-            }
+                "investment_horizon": "long_term",
+            },
         )
 
         try:
@@ -128,7 +129,7 @@ class GenerativeAIRiskSystemDemo:
                 test_request,
                 use_gpt4=False,  # デモではダミーキーなので無効
                 use_claude=False,  # デモではダミーキーなので無効
-                use_ensemble=True
+                use_ensemble=True,
             )
 
             processing_time = time.time() - start_time
@@ -141,19 +142,16 @@ class GenerativeAIRiskSystemDemo:
             print(f"   処理時間: {result.processing_time:.3f}秒")
 
             # 結果保存
-            self.test_results['ai_analysis'] = {
-                'success': True,
-                'processing_time': processing_time,
-                'risk_score': result.risk_score,
-                'confidence': result.confidence
+            self.test_results["ai_analysis"] = {
+                "success": True,
+                "processing_time": processing_time,
+                "risk_score": result.risk_score,
+                "confidence": result.confidence,
             }
 
         except Exception as e:
             print(f"❌ AI分析エラー: {e}")
-            self.test_results['ai_analysis'] = {
-                'success': False,
-                'error': str(e)
-            }
+            self.test_results["ai_analysis"] = {"success": False, "error": str(e)}
 
         print()
 
@@ -178,18 +176,21 @@ class GenerativeAIRiskSystemDemo:
                 "type": "mobile",
                 "os": "android",
                 "is_new_device": True,  # 新規デバイス
-                "ip_location": "suspicious_region"
+                "ip_location": "suspicious_region",
             },
             transaction_history=[
                 {"amount": 50000, "timestamp": "2025-01-01T02:00:00"},
                 {"amount": 100000, "timestamp": "2025-01-01T02:15:00"},
-                {"amount": 200000, "timestamp": "2025-01-01T02:25:00"}  # エスカレーション
+                {
+                    "amount": 200000,
+                    "timestamp": "2025-01-01T02:25:00",
+                },  # エスカレーション
             ],
             market_conditions={
                 "volatility": 0.45,  # 高ボラティリティ
                 "volume": 300000,  # 低取引量
-                "trend": "bearish"
-            }
+                "trend": "bearish",
+            },
         )
 
         try:
@@ -198,7 +199,9 @@ class GenerativeAIRiskSystemDemo:
 
             processing_time = time.time() - start_time
 
-            print(f"{'🚨' if fraud_result.is_fraud else '✅'} 不正検知完了 ({processing_time:.2f}秒)")
+            print(
+                f"{'🚨' if fraud_result.is_fraud else '✅'} 不正検知完了 ({processing_time:.2f}秒)"
+            )
             print(f"   不正判定: {'はい' if fraud_result.is_fraud else 'いいえ'}")
             print(f"   不正確率: {fraud_result.fraud_probability:.3f}")
             print(f"   信頼度: {fraud_result.confidence:.3f}")
@@ -207,20 +210,17 @@ class GenerativeAIRiskSystemDemo:
             print(f"   推奨アクション: {fraud_result.recommended_action}")
 
             # 結果保存
-            self.test_results['fraud_detection'] = {
-                'success': True,
-                'processing_time': processing_time,
-                'is_fraud': fraud_result.is_fraud,
-                'fraud_probability': fraud_result.fraud_probability,
-                'confidence': fraud_result.confidence
+            self.test_results["fraud_detection"] = {
+                "success": True,
+                "processing_time": processing_time,
+                "is_fraud": fraud_result.is_fraud,
+                "fraud_probability": fraud_result.fraud_probability,
+                "confidence": fraud_result.confidence,
             }
 
         except Exception as e:
             print(f"❌ 不正検知エラー: {e}")
-            self.test_results['fraud_detection'] = {
-                'success': False,
-                'error': str(e)
-            }
+            self.test_results["fraud_detection"] = {"success": False, "error": str(e)}
 
         print()
 
@@ -241,21 +241,23 @@ class GenerativeAIRiskSystemDemo:
             "user_id": "trader_007",
             "account_balance": 8000000,
             "location": "domestic",
-            "device_info": {
-                "type": "desktop",
-                "os": "windows",
-                "is_new_device": False
-            },
+            "device_info": {"type": "desktop", "os": "windows", "is_new_device": False},
             "history": [
-                {"amount": 1000000, "timestamp": (datetime.now() - timedelta(hours=1)).isoformat()},
-                {"amount": 2000000, "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat()}
+                {
+                    "amount": 1000000,
+                    "timestamp": (datetime.now() - timedelta(hours=1)).isoformat(),
+                },
+                {
+                    "amount": 2000000,
+                    "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat(),
+                },
             ],
             "market_conditions": {
                 "volatility": 0.35,
                 "volume": 1800000,
                 "trend": "volatile",
-                "news_sentiment": "negative"
-            }
+                "news_sentiment": "negative",
+            },
         }
 
         try:
@@ -265,7 +267,7 @@ class GenerativeAIRiskSystemDemo:
                 market_context=complex_transaction["market_conditions"],
                 user_profile={"risk_tolerance": "aggressive"},
                 enable_ai_analysis=True,
-                enable_fraud_detection=True
+                enable_fraud_detection=True,
             )
 
             processing_time = time.time() - start_time
@@ -276,7 +278,9 @@ class GenerativeAIRiskSystemDemo:
             print(f"   信頼度: {assessment.confidence_score:.3f}")
             print(f"   分析手法: {', '.join(assessment.analysis_methods)}")
             print(f"   主要リスク要因: {', '.join(assessment.key_risk_factors[:3])}")
-            print(f"   推定損失ポテンシャル: ¥{assessment.estimated_loss_potential:,.0f}")
+            print(
+                f"   推定損失ポテンシャル: ¥{assessment.estimated_loss_potential:,.0f}"
+            )
             print(f"   処理時間合計: {assessment.processing_time_total:.3f}秒")
 
             # 推奨事項表示
@@ -286,19 +290,19 @@ class GenerativeAIRiskSystemDemo:
                     print(f"     {i}. {rec}")
 
             # 結果保存
-            self.test_results['integrated_assessment'] = {
-                'success': True,
-                'processing_time': processing_time,
-                'risk_score': assessment.overall_risk_score,
-                'risk_category': assessment.risk_category,
-                'confidence': assessment.confidence_score
+            self.test_results["integrated_assessment"] = {
+                "success": True,
+                "processing_time": processing_time,
+                "risk_score": assessment.overall_risk_score,
+                "risk_category": assessment.risk_category,
+                "confidence": assessment.confidence_score,
             }
 
         except Exception as e:
             print(f"❌ 統合評価エラー: {e}")
-            self.test_results['integrated_assessment'] = {
-                'success': False,
-                'error': str(e)
+            self.test_results["integrated_assessment"] = {
+                "success": False,
+                "error": str(e),
             }
 
         print()
@@ -310,27 +314,27 @@ class GenerativeAIRiskSystemDemo:
         print("-" * 50)
 
         # テスト用自動応答ハンドラー
-        response_count = {'critical': 0, 'high': 0, 'medium': 0}
+        response_count = {"critical": 0, "high": 0, "medium": 0}
 
         async def critical_handler(assessment):
-            response_count['critical'] += 1
+            response_count["critical"] += 1
             print(f"   🚨 重要リスク自動応答実行: {assessment.request_id}")
 
         async def high_handler(assessment):
-            response_count['high'] += 1
+            response_count["high"] += 1
             print(f"   ⚠️ 高リスク自動応答実行: {assessment.request_id}")
 
         async def medium_handler(assessment):
-            response_count['medium'] += 1
+            response_count["medium"] += 1
             print(f"   📊 中程度リスク自動応答実行: {assessment.request_id}")
 
         # ハンドラー登録
-        self.realtime_monitor.register_response_handler('critical', critical_handler)
-        self.realtime_monitor.register_response_handler('high', high_handler)
-        self.realtime_monitor.register_response_handler('medium', medium_handler)
+        self.realtime_monitor.register_response_handler("critical", critical_handler)
+        self.realtime_monitor.register_response_handler("high", high_handler)
+        self.realtime_monitor.register_response_handler("medium", medium_handler)
 
         # テスト銘柄
-        test_symbols = ['7203', '6758', '9984']  # トヨタ、ソニー、ソフトバンク
+        test_symbols = ["7203", "6758", "9984"]  # トヨタ、ソニー、ソフトバンク
 
         print(f"監視銘柄: {', '.join(test_symbols)}")
         print("リアルタイム監視開始（15秒間）...")
@@ -355,22 +359,26 @@ class GenerativeAIRiskSystemDemo:
         status = self.realtime_monitor.get_monitoring_status()
 
         print(f"✅ リアルタイム監視完了 ({processing_time:.1f}秒)")
-        print(f"   監視サイクル数: {status['performance_stats']['total_monitoring_cycles']}")
+        print(
+            f"   監視サイクル数: {status['performance_stats']['total_monitoring_cycles']}"
+        )
         print(f"   リスク分析数: {status['performance_stats']['total_risk_analyses']}")
         print(f"   送信アラート数: {status['performance_stats']['total_alerts_sent']}")
         print(f"   自動応答実行数: {sum(response_count.values())}")
         print(f"   システムヘルス: {status['system_health']}")
-        print(f"   平均サイクル時間: {status['performance_stats']['avg_cycle_time']:.3f}秒")
+        print(
+            f"   平均サイクル時間: {status['performance_stats']['avg_cycle_time']:.3f}秒"
+        )
 
         # 結果保存
-        self.test_results['realtime_monitoring'] = {
-            'success': True,
-            'monitoring_time': processing_time,
-            'monitoring_cycles': status['performance_stats']['total_monitoring_cycles'],
-            'risk_analyses': status['performance_stats']['total_risk_analyses'],
-            'alerts_sent': status['performance_stats']['total_alerts_sent'],
-            'auto_responses': sum(response_count.values()),
-            'system_health': status['system_health']
+        self.test_results["realtime_monitoring"] = {
+            "success": True,
+            "monitoring_time": processing_time,
+            "monitoring_cycles": status["performance_stats"]["total_monitoring_cycles"],
+            "risk_analyses": status["performance_stats"]["total_risk_analyses"],
+            "alerts_sent": status["performance_stats"]["total_alerts_sent"],
+            "auto_responses": sum(response_count.values()),
+            "system_health": status["system_health"],
         }
 
         print()
@@ -386,40 +394,36 @@ class GenerativeAIRiskSystemDemo:
         print("（実際のブラウザでアクセスしてください）")
 
         # ダッシュボードを5秒間起動
-        dashboard_task = asyncio.create_task(
-            self.dashboard.run_dashboard()
-        )
+        dashboard_task = asyncio.create_task(self.dashboard.run_dashboard())
 
         try:
             await asyncio.wait_for(dashboard_task, timeout=5)
         except asyncio.TimeoutError:
             print("✅ ダッシュボードデモ完了（5秒間起動）")
 
-            self.test_results['dashboard'] = {
-                'success': True,
-                'startup_time': 5.0,
-                'url': 'http://localhost:8888'
+            self.test_results["dashboard"] = {
+                "success": True,
+                "startup_time": 5.0,
+                "url": "http://localhost:8888",
             }
         except Exception as e:
             print(f"❌ ダッシュボードエラー: {e}")
-            self.test_results['dashboard'] = {
-                'success': False,
-                'error': str(e)
-            }
+            self.test_results["dashboard"] = {"success": False, "error": str(e)}
 
         print()
 
     def _display_comprehensive_results(self):
         """総合結果表示"""
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("📊 生成AI統合リスク管理システム - 総合結果")
-        print("="*80)
+        print("=" * 80)
 
         # 成功率計算
         total_tests = len(self.test_results)
-        successful_tests = sum(1 for result in self.test_results.values()
-                             if result.get('success', False))
+        successful_tests = sum(
+            1 for result in self.test_results.values() if result.get("success", False)
+        )
         success_rate = (successful_tests / total_tests) * 100 if total_tests > 0 else 0
 
         print(f"🎯 総合成功率: {success_rate:.1f}% ({successful_tests}/{total_tests})")
@@ -427,20 +431,20 @@ class GenerativeAIRiskSystemDemo:
 
         # 各コンポーネント結果
         for component, result in self.test_results.items():
-            status = "✅ 成功" if result.get('success') else "❌ 失敗"
+            status = "✅ 成功" if result.get("success") else "❌ 失敗"
             print(f"{component.replace('_', ' ').title()}: {status}")
 
-            if result.get('success'):
-                if 'processing_time' in result:
+            if result.get("success"):
+                if "processing_time" in result:
                     print(f"  処理時間: {result['processing_time']:.3f}秒")
-                if 'risk_score' in result:
+                if "risk_score" in result:
                     print(f"  リスクスコア: {result['risk_score']:.3f}")
-                if 'confidence' in result:
+                if "confidence" in result:
                     print(f"  信頼度: {result['confidence']:.3f}")
-                if 'monitoring_cycles' in result:
+                if "monitoring_cycles" in result:
                     print(f"  監視サイクル: {result['monitoring_cycles']}")
             else:
-                if 'error' in result:
+                if "error" in result:
                     print(f"  エラー: {result['error']}")
             print()
 
@@ -448,8 +452,11 @@ class GenerativeAIRiskSystemDemo:
         print("⚡ パフォーマンス要約:")
 
         # 平均処理時間
-        processing_times = [r.get('processing_time', 0) for r in self.test_results.values()
-                          if r.get('processing_time')]
+        processing_times = [
+            r.get("processing_time", 0)
+            for r in self.test_results.values()
+            if r.get("processing_time")
+        ]
         if processing_times:
             avg_time = np.mean(processing_times)
             print(f"  平均処理時間: {avg_time:.3f}秒")
@@ -474,10 +481,12 @@ class GenerativeAIRiskSystemDemo:
         print("\n⚖️ 統合コーディネーター統計:")
         print(f"  総評価数: {coordinator_stats.get('total_assessments', 0)}")
         print(f"  成功率: {coordinator_stats.get('success_rate', 0):.1%}")
-        print(f"  平均処理時間: {coordinator_stats.get('avg_processing_time', 0):.3f}秒")
+        print(
+            f"  平均処理時間: {coordinator_stats.get('avg_processing_time', 0):.3f}秒"
+        )
 
         # 結論
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         if success_rate >= 80:
             print("🎉 生成AI統合リスク管理システム デモ成功!")
             print("   システムは期待通りに動作しています。")
@@ -493,7 +502,8 @@ class GenerativeAIRiskSystemDemo:
         print("   - 深層学習による不正検知")
         print("   - リアルタイム監視・自動対応")
         print("   - 直感的ダッシュボード")
-        print("="*80)
+        print("=" * 80)
+
 
 async def main():
     """メイン実行関数"""
@@ -508,7 +518,9 @@ async def main():
     except Exception as e:
         print(f"\n\nデモエラー: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     print("🚀 生成AI統合リスク管理システム - 統合デモ起動中...")

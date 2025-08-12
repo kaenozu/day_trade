@@ -31,6 +31,7 @@ print("ダッシュボードシステム統合テスト")
 print("Issue #324: プロダクション運用監視ダッシュボード構築")
 print("=" * 60)
 
+
 def test_dashboard_core():
     """ダッシュボードコア機能テスト"""
     print("\n=== ダッシュボードコア機能テスト ===")
@@ -58,7 +59,7 @@ def test_dashboard_core():
         # 現在ステータス確認
         status = dashboard.get_current_status()
 
-        required_keys = ['portfolio', 'system', 'trading', 'risk']
+        required_keys = ["portfolio", "system", "trading", "risk"]
         for key in required_keys:
             if key in status and status[key]:
                 print(f"[OK] {key}データ収集成功")
@@ -67,7 +68,7 @@ def test_dashboard_core():
                 return False
 
         # 履歴データ確認
-        history = dashboard.get_historical_data('portfolio', hours=1)
+        history = dashboard.get_historical_data("portfolio", hours=1)
         if len(history) > 0:
             print(f"[OK] 履歴データ取得成功: {len(history)}件")
         else:
@@ -91,8 +92,10 @@ def test_dashboard_core():
     except Exception as e:
         print(f"[ERROR] ダッシュボードコアテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_visualization_engine():
     """可視化エンジンテスト"""
@@ -105,42 +108,57 @@ def test_visualization_engine():
 
         # サンプルデータ生成
         import random
+
         current_time = datetime.now()
         sample_data = []
 
         for i in range(12):  # 12時間分のデータ
-            timestamp = current_time - timedelta(hours=11-i)
-            sample_data.append({
-                'timestamp': timestamp.isoformat(),
-                'total_value': 1000000 + random.uniform(-30000, 30000),
-                'cpu_usage': random.uniform(20, 70),
-                'memory_usage_mb': random.uniform(1024, 2048),
-                'processing_time_ms': random.uniform(100, 400),
-                'error_count': random.randint(0, 2),
-                'trades_today': random.randint(5, 15),
-                'successful_trades': random.randint(4, 12),
-                'failed_trades': random.randint(0, 3),
-                'win_rate': random.uniform(0.7, 0.9),
-                'current_drawdown': random.uniform(-0.05, 0),
-                'portfolio_var_95': random.uniform(-0.03, -0.01),
-                'portfolio_volatility': random.uniform(0.1, 0.25),
-                'concentration_risk': random.uniform(0.4, 0.7),
-                'leverage_ratio': random.uniform(0.9, 1.1)
-            })
+            timestamp = current_time - timedelta(hours=11 - i)
+            sample_data.append(
+                {
+                    "timestamp": timestamp.isoformat(),
+                    "total_value": 1000000 + random.uniform(-30000, 30000),
+                    "cpu_usage": random.uniform(20, 70),
+                    "memory_usage_mb": random.uniform(1024, 2048),
+                    "processing_time_ms": random.uniform(100, 400),
+                    "error_count": random.randint(0, 2),
+                    "trades_today": random.randint(5, 15),
+                    "successful_trades": random.randint(4, 12),
+                    "failed_trades": random.randint(0, 3),
+                    "win_rate": random.uniform(0.7, 0.9),
+                    "current_drawdown": random.uniform(-0.05, 0),
+                    "portfolio_var_95": random.uniform(-0.03, -0.01),
+                    "portfolio_volatility": random.uniform(0.1, 0.25),
+                    "concentration_risk": random.uniform(0.4, 0.7),
+                    "leverage_ratio": random.uniform(0.9, 1.1),
+                }
+            )
 
         sample_positions = {
             "7203.T": {"quantity": 100, "price": 2500, "value": 250000, "pnl": 8000},
             "8306.T": {"quantity": 800, "price": 850, "value": 680000, "pnl": -3000},
-            "9984.T": {"quantity": 40, "price": 5200, "value": 208000, "pnl": 12000}
+            "9984.T": {"quantity": 40, "price": 5200, "value": 208000, "pnl": 12000},
         }
 
         # チャート作成テスト
         chart_tests = [
-            ("ポートフォリオ価値チャート", engine.create_portfolio_value_chart, sample_data),
-            ("システムメトリクスチャート", engine.create_system_metrics_chart, sample_data),
-            ("取引パフォーマンスチャート", engine.create_trading_performance_chart, sample_data),
+            (
+                "ポートフォリオ価値チャート",
+                engine.create_portfolio_value_chart,
+                sample_data,
+            ),
+            (
+                "システムメトリクスチャート",
+                engine.create_system_metrics_chart,
+                sample_data,
+            ),
+            (
+                "取引パフォーマンスチャート",
+                engine.create_trading_performance_chart,
+                sample_data,
+            ),
             ("リスクヒートマップ", engine.create_risk_metrics_heatmap, sample_data),
-            ("ポジション円グラフ", engine.create_positions_pie_chart, sample_positions)
+            ("ポジション円グラフ", engine.create_positions_pie_chart, sample_positions),
         ]
 
         created_charts = []
@@ -191,8 +209,10 @@ def test_visualization_engine():
     except Exception as e:
         print(f"[ERROR] 可視化エンジンテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_web_dashboard():
     """Webダッシュボードテスト"""
@@ -204,7 +224,7 @@ def test_web_dashboard():
         print("[OK] Webダッシュボード初期化成功")
 
         # テンプレートファイル確認
-        template_path = Path(web_dashboard.app.template_folder) / 'dashboard.html'
+        template_path = Path(web_dashboard.app.template_folder) / "dashboard.html"
         if template_path.exists():
             print("[OK] HTMLテンプレート作成成功")
         else:
@@ -212,7 +232,7 @@ def test_web_dashboard():
             return False
 
         # 静的ファイル確認
-        static_files = ['dashboard.css', 'dashboard.js']
+        static_files = ["dashboard.css", "dashboard.js"]
         for file_name in static_files:
             file_path = Path(web_dashboard.app.static_folder) / file_name
             if file_path.exists():
@@ -237,7 +257,7 @@ def test_web_dashboard():
             response = requests.get(f"{base_url}/api/status", timeout=5)
             if response.status_code == 200:
                 status_data = response.json()
-                if status_data.get('success'):
+                if status_data.get("success"):
                     print("[OK] ステータスAPI成功")
                 else:
                     print("[NG] ステータスAPI データ取得失敗")
@@ -251,7 +271,9 @@ def test_web_dashboard():
 
         # 履歴API テスト
         try:
-            response = requests.get(f"{base_url}/api/history/portfolio?hours=1", timeout=5)
+            response = requests.get(
+                f"{base_url}/api/history/portfolio?hours=1", timeout=5
+            )
             if response.status_code == 200:
                 print("[OK] 履歴API成功")
             else:
@@ -266,7 +288,10 @@ def test_web_dashboard():
             response = requests.get(f"{base_url}/api/report", timeout=5)
             if response.status_code == 200:
                 report_data = response.json()
-                if report_data.get('success') and len(report_data.get('report', '')) > 50:
+                if (
+                    report_data.get("success")
+                    and len(report_data.get("report", "")) > 50
+                ):
                     print("[OK] レポートAPI成功")
                 else:
                     print("[NG] レポートAPI データ不正")
@@ -279,13 +304,15 @@ def test_web_dashboard():
             return False
 
         # チャートAPI テスト（軽量版のみ）
-        chart_types = ['portfolio']  # 1つのみテスト
+        chart_types = ["portfolio"]  # 1つのみテスト
         for chart_type in chart_types:
             try:
-                response = requests.get(f"{base_url}/api/chart/{chart_type}?hours=1", timeout=10)
+                response = requests.get(
+                    f"{base_url}/api/chart/{chart_type}?hours=1", timeout=10
+                )
                 if response.status_code == 200:
                     chart_data = response.json()
-                    if chart_data.get('success') and chart_data.get('chart_data'):
+                    if chart_data.get("success") and chart_data.get("chart_data"):
                         print(f"[OK] {chart_type}チャートAPI成功")
                     else:
                         print(f"[NG] {chart_type}チャートAPI データ不正")
@@ -306,8 +333,10 @@ def test_web_dashboard():
     except Exception as e:
         print(f"[ERROR] Webダッシュボードテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_integration_performance():
     """統合パフォーマンステスト"""
@@ -326,7 +355,7 @@ def test_integration_performance():
 
         for _ in range(10):
             status = dashboard.get_current_status()
-            if status.get('portfolio'):
+            if status.get("portfolio"):
                 data_points += 1
             time.sleep(1)
 
@@ -349,6 +378,7 @@ def test_integration_performance():
 
         # メモリ使用量確認
         import psutil
+
         process = psutil.Process()
         memory_usage = process.memory_info().rss / 1024 / 1024  # MB
 
@@ -366,6 +396,7 @@ def test_integration_performance():
         print(f"[ERROR] パフォーマンステストエラー: {e}")
         return False
 
+
 def main():
     """メイン実行"""
     print("ダッシュボードシステムの統合テストを開始します")
@@ -377,7 +408,7 @@ def main():
         ("ダッシュボードコア", test_dashboard_core),
         ("可視化エンジン", test_visualization_engine),
         ("Webダッシュボード", test_web_dashboard),
-        ("統合パフォーマンス", test_integration_performance)
+        ("統合パフォーマンス", test_integration_performance),
     ]
 
     for test_name, test_function in tests:
@@ -422,20 +453,22 @@ def main():
 
         # 結果保存
         result_data = {
-            'test_date': datetime.now().isoformat(),
-            'system': 'production_monitoring_dashboard',
-            'test_results': [{'name': name, 'passed': passed} for name, passed in test_results],
-            'success_rate': success_rate,
-            'status': 'READY' if success_rate >= 0.75 else 'NEEDS_IMPROVEMENT',
-            'next_steps': [
-                'Webダッシュボード本格運用',
-                'リアルタイム監視確認',
-                'アラート機能テスト',
-                'カスタムメトリクス追加'
-            ]
+            "test_date": datetime.now().isoformat(),
+            "system": "production_monitoring_dashboard",
+            "test_results": [
+                {"name": name, "passed": passed} for name, passed in test_results
+            ],
+            "success_rate": success_rate,
+            "status": "READY" if success_rate >= 0.75 else "NEEDS_IMPROVEMENT",
+            "next_steps": [
+                "Webダッシュボード本格運用",
+                "リアルタイム監視確認",
+                "アラート機能テスト",
+                "カスタムメトリクス追加",
+            ],
         }
 
-        with open('dashboard_system_test_results.json', 'w', encoding='utf-8') as f:
+        with open("dashboard_system_test_results.json", "w", encoding="utf-8") as f:
             json.dump(result_data, f, indent=2, ensure_ascii=False)
 
         return True
@@ -443,6 +476,7 @@ def main():
         print("\n[FAILED] 一部機能に問題があります")
         print("問題の解決後に再テストしてください")
         return False
+
 
 if __name__ == "__main__":
     success = main()

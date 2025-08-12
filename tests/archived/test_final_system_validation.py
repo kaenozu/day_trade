@@ -41,6 +41,7 @@ print("実データでの最終動作確認テスト")
 print("Issue #321: 最優先：実データでの最終動作確認テスト")
 print("=" * 60)
 
+
 class SystemValidationFramework:
     """システム検証フレームワーク"""
 
@@ -57,11 +58,11 @@ class SystemValidationFramework:
 
         # パフォーマンス基準
         self.performance_thresholds = {
-            'max_memory_mb': 1024,      # 最大メモリ1GB
-            'max_cpu_percent': 80,      # 最大CPU80%
-            'max_response_time_ms': 500, # 最大応答時間500ms
-            'min_success_rate': 0.95,   # 最小成功率95%
-            'max_error_rate': 0.05      # 最大エラー率5%
+            "max_memory_mb": 1024,  # 最大メモリ1GB
+            "max_cpu_percent": 80,  # 最大CPU80%
+            "max_response_time_ms": 500,  # 最大応答時間500ms
+            "min_success_rate": 0.95,  # 最小成功率95%
+            "max_error_rate": 0.05,  # 最大エラー率5%
         }
 
         try:
@@ -81,16 +82,21 @@ class SystemValidationFramework:
             # DayTradeシステム初期化テスト
             print("DayTradeシステム初期化テスト...")
 
-            with self.perf_monitor.monitor("core_system_init") if self.perf_monitor else nullcontext():
+            context_manager = (
+                self.perf_monitor.monitor("core_system_init")
+                if self.perf_monitor
+                else nullcontext()
+            )
+            with context_manager:
                 daytrade = DayTrade()
 
-                if hasattr(daytrade, 'config_manager'):
+                if hasattr(daytrade, "config_manager"):
                     print("[OK] ConfigManager初期化成功")
                 else:
                     print("[NG] ConfigManager初期化失敗")
                     return False
 
-                if hasattr(daytrade, 'stock_fetcher'):
+                if hasattr(daytrade, "stock_fetcher"):
                     print("[OK] StockFetcher初期化成功")
                 else:
                     print("[NG] StockFetcher初期化失敗")
@@ -112,9 +118,9 @@ class SystemValidationFramework:
                     print(f"[NG] 銘柄データ取得エラー: {e}")
                     return False
 
-            self.test_results['core_system'] = {
-                'status': 'passed',
-                'timestamp': datetime.now().isoformat()
+            self.test_results["core_system"] = {
+                "status": "passed",
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] コアシステム機能テスト成功")
@@ -122,10 +128,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] コアシステム機能テストエラー: {e}")
-            self.test_results['core_system'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["core_system"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -151,10 +157,10 @@ class SystemValidationFramework:
 
             # サンプル特徴量データ
             feature_data = np.random.randn(n_samples, n_features)
-            feature_names = [f'feature_{i}' for i in range(n_features)]
+            feature_names = [f"feature_{i}" for i in range(n_features)]
 
             test_data = pd.DataFrame(feature_data, columns=feature_names)
-            test_data['target'] = np.random.choice([0, 1], n_samples)
+            test_data["target"] = np.random.choice([0, 1], n_samples)
 
             start_time = time.time()
 
@@ -165,7 +171,9 @@ class SystemValidationFramework:
                 ml_processing_time = time.time() - start_time
 
                 if predictions is not None and len(predictions) > 0:
-                    print(f"[OK] ML予測成功: {len(predictions)}件, 処理時間: {ml_processing_time:.3f}秒")
+                    print(
+                        f"[OK] ML予測成功: {len(predictions)}件, 処理時間: {ml_processing_time:.3f}秒"
+                    )
 
                     # パフォーマンス評価
                     if ml_processing_time < 5.0:  # 5秒以内
@@ -180,11 +188,11 @@ class SystemValidationFramework:
                 print(f"[NG] ML処理エラー: {e}")
                 return False
 
-            self.test_results['ml_performance'] = {
-                'status': 'passed',
-                'processing_time': ml_processing_time,
-                'predictions_count': len(predictions),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["ml_performance"] = {
+                "status": "passed",
+                "processing_time": ml_processing_time,
+                "predictions_count": len(predictions),
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] ML処理パフォーマンステスト成功")
@@ -192,10 +200,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] ML処理パフォーマンステストエラー: {e}")
-            self.test_results['ml_performance'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["ml_performance"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -222,10 +230,18 @@ class SystemValidationFramework:
                 print("[NG] 実データ取得失敗")
                 return False
 
-            successful_symbols = len([s for s in self.test_symbols if s in real_data and not real_data[s].empty])
+            successful_symbols = len(
+                [
+                    s
+                    for s in self.test_symbols
+                    if s in real_data and not real_data[s].empty
+                ]
+            )
             success_rate = successful_symbols / len(self.test_symbols)
 
-            print(f"[INFO] データ取得成功率: {success_rate:.1%} ({successful_symbols}/{len(self.test_symbols)})")
+            print(
+                f"[INFO] データ取得成功率: {success_rate:.1%} ({successful_symbols}/{len(self.test_symbols)})"
+            )
             print(f"[INFO] データ取得時間: {data_fetch_time:.2f}秒")
 
             if success_rate >= 0.8:  # 80%以上成功
@@ -244,8 +260,10 @@ class SystemValidationFramework:
                     continue
 
                 # 基本的なデータ品質チェック
-                required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-                missing_columns = [col for col in required_columns if col not in data.columns]
+                required_columns = ["Open", "High", "Low", "Close", "Volume"]
+                missing_columns = [
+                    col for col in required_columns if col not in data.columns
+                ]
 
                 if missing_columns:
                     quality_issues += 1
@@ -273,13 +291,13 @@ class SystemValidationFramework:
             else:
                 print("[WARNING] データ品質に問題あり")
 
-            self.test_results['real_data_integration'] = {
-                'status': 'passed',
-                'success_rate': success_rate,
-                'quality_score': quality_score,
-                'fetch_time': data_fetch_time,
-                'symbols_count': successful_symbols,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["real_data_integration"] = {
+                "status": "passed",
+                "success_rate": success_rate,
+                "quality_score": quality_score,
+                "fetch_time": data_fetch_time,
+                "symbols_count": successful_symbols,
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] 実データ統合テスト成功")
@@ -287,10 +305,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] 実データ統合テストエラー: {e}")
-            self.test_results['real_data_integration'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["real_data_integration"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -314,7 +332,7 @@ class SystemValidationFramework:
             status = dashboard.get_current_status()
 
             # 必須データ確認
-            required_sections = ['portfolio', 'system', 'trading', 'risk']
+            required_sections = ["portfolio", "system", "trading", "risk"]
             missing_sections = []
 
             for section in required_sections:
@@ -328,7 +346,7 @@ class SystemValidationFramework:
                 return False
 
             # 履歴データテスト
-            history = dashboard.get_historical_data('portfolio', hours=1)
+            history = dashboard.get_historical_data("portfolio", hours=1)
 
             if len(history) > 0:
                 print(f"[OK] 履歴データ取得成功: {len(history)}件")
@@ -347,12 +365,12 @@ class SystemValidationFramework:
 
             dashboard.stop_monitoring()
 
-            self.test_results['dashboard_integration'] = {
-                'status': 'passed',
-                'data_sections': len(required_sections) - len(missing_sections),
-                'history_count': len(history),
-                'report_length': len(report),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["dashboard_integration"] = {
+                "status": "passed",
+                "data_sections": len(required_sections) - len(missing_sections),
+                "history_count": len(history),
+                "report_length": len(report),
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] ダッシュボード統合テスト成功")
@@ -360,10 +378,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] ダッシュボード統合テストエラー: {e}")
-            self.test_results['dashboard_integration'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["dashboard_integration"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -425,20 +443,24 @@ class SystemValidationFramework:
             successful_tasks = len([r for r in results if "Success" in r])
             success_rate = successful_tasks / len(results)
 
-            print(f"タスク成功率: {success_rate:.1%} ({successful_tasks}/{len(results)})")
+            print(
+                f"タスク成功率: {success_rate:.1%} ({successful_tasks}/{len(results)})"
+            )
 
             # パフォーマンス評価
             performance_ok = True
 
-            if final_memory > self.performance_thresholds['max_memory_mb'] / 100 * psutil.virtual_memory().total / (1024**3):
+            if final_memory > self.performance_thresholds[
+                "max_memory_mb"
+            ] / 100 * psutil.virtual_memory().total / (1024**3):
                 print(f"[WARNING] メモリ使用量が高い: {final_memory:.1f}%")
                 performance_ok = False
 
-            if final_cpu > self.performance_thresholds['max_cpu_percent']:
+            if final_cpu > self.performance_thresholds["max_cpu_percent"]:
                 print(f"[WARNING] CPU使用率が高い: {final_cpu:.1f}%")
                 performance_ok = False
 
-            if success_rate < self.performance_thresholds['min_success_rate']:
+            if success_rate < self.performance_thresholds["min_success_rate"]:
                 print(f"[WARNING] タスク成功率が低い: {success_rate:.1%}")
                 performance_ok = False
 
@@ -447,15 +469,15 @@ class SystemValidationFramework:
             else:
                 print("[WARNING] システムパフォーマンスに課題あり")
 
-            self.test_results['performance_stress'] = {
-                'status': 'passed' if performance_ok else 'warning',
-                'initial_memory': initial_memory,
-                'final_memory': final_memory,
-                'initial_cpu': initial_cpu,
-                'final_cpu': final_cpu,
-                'stress_duration': stress_duration,
-                'success_rate': success_rate,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["performance_stress"] = {
+                "status": "passed" if performance_ok else "warning",
+                "initial_memory": initial_memory,
+                "final_memory": final_memory,
+                "initial_cpu": initial_cpu,
+                "final_cpu": final_cpu,
+                "stress_duration": stress_duration,
+                "success_rate": success_rate,
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] システムパフォーマンス・ストレステスト完了")
@@ -463,10 +485,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] システムパフォーマンス・ストレステストエラー: {e}")
-            self.test_results['performance_stress'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["performance_stress"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -500,7 +522,9 @@ class SystemValidationFramework:
                         print(f"[OK] {scenario_name}: 適切にハンドリング")
                         handled_errors += 1
                     else:
-                        print(f"[INFO] {scenario_name}: データ取得成功（予期しない結果）")
+                        print(
+                            f"[INFO] {scenario_name}: データ取得成功（予期しない結果）"
+                        )
                         handled_errors += 1  # 成功も許容
 
                 except Exception as e:
@@ -518,12 +542,12 @@ class SystemValidationFramework:
                 print("[NG] エラーハンドリングに問題")
                 resilience_ok = False
 
-            self.test_results['error_handling'] = {
-                'status': 'passed' if resilience_ok else 'failed',
-                'handling_rate': error_handling_rate,
-                'scenarios_tested': total_scenarios,
-                'scenarios_handled': handled_errors,
-                'timestamp': datetime.now().isoformat()
+            self.test_results["error_handling"] = {
+                "status": "passed" if resilience_ok else "failed",
+                "handling_rate": error_handling_rate,
+                "scenarios_tested": total_scenarios,
+                "scenarios_handled": handled_errors,
+                "timestamp": datetime.now().isoformat(),
             }
 
             print("[OK] エラーハンドリング・復元力テスト完了")
@@ -531,10 +555,10 @@ class SystemValidationFramework:
 
         except Exception as e:
             print(f"[ERROR] エラーハンドリング・復元力テストエラー: {e}")
-            self.test_results['error_handling'] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            self.test_results["error_handling"] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
             return False
 
@@ -547,7 +571,9 @@ class SystemValidationFramework:
         report_lines.append("実データでの最終動作確認テスト - 統合レポート")
         report_lines.append("=" * 80)
 
-        report_lines.append(f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(
+            f"テスト実行日時: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         report_lines.append(f"総実行時間: {total_duration}")
         report_lines.append(f"テスト対象銘柄: {', '.join(self.test_symbols)}")
 
@@ -559,41 +585,53 @@ class SystemValidationFramework:
 
         for test_name, result in self.test_results.items():
             total_tests += 1
-            status = result.get('status', 'unknown')
+            status = result.get("status", "unknown")
 
-            if status == 'passed':
+            if status == "passed":
                 status_symbol = "[OK]"
                 passed_tests += 1
-            elif status == 'warning':
+            elif status == "warning":
                 status_symbol = "[WARNING]"
                 passed_tests += 0.5  # 警告は半分としてカウント
             else:
                 status_symbol = "[NG]"
 
-            report_lines.append(f"  {status_symbol} {test_name.replace('_', ' ').title()}")
+            report_lines.append(
+                f"  {status_symbol} {test_name.replace('_', ' ').title()}"
+            )
 
             # 追加情報
-            if 'error' in result:
+            if "error" in result:
                 report_lines.append(f"    エラー: {result['error']}")
 
             # 個別メトリクス
-            if test_name == 'real_data_integration':
-                if 'success_rate' in result:
-                    report_lines.append(f"    データ取得成功率: {result['success_rate']:.1%}")
-                if 'quality_score' in result:
-                    report_lines.append(f"    データ品質スコア: {result['quality_score']:.1%}")
+            if test_name == "real_data_integration":
+                if "success_rate" in result:
+                    report_lines.append(
+                        f"    データ取得成功率: {result['success_rate']:.1%}"
+                    )
+                if "quality_score" in result:
+                    report_lines.append(
+                        f"    データ品質スコア: {result['quality_score']:.1%}"
+                    )
 
-            if test_name == 'performance_stress':
-                if 'success_rate' in result:
-                    report_lines.append(f"    タスク成功率: {result['success_rate']:.1%}")
-                if 'final_memory' in result:
-                    report_lines.append(f"    最終メモリ使用率: {result['final_memory']:.1f}%")
+            if test_name == "performance_stress":
+                if "success_rate" in result:
+                    report_lines.append(
+                        f"    タスク成功率: {result['success_rate']:.1%}"
+                    )
+                if "final_memory" in result:
+                    report_lines.append(
+                        f"    最終メモリ使用率: {result['final_memory']:.1f}%"
+                    )
 
         # 総合評価
         success_rate = (passed_tests / total_tests) if total_tests > 0 else 0
 
         report_lines.append("\n【総合評価】")
-        report_lines.append(f"成功率: {passed_tests}/{total_tests} ({success_rate:.1%})")
+        report_lines.append(
+            f"成功率: {passed_tests}/{total_tests} ({success_rate:.1%})"
+        )
 
         if success_rate >= 0.9:
             overall_status = "優秀"
@@ -614,7 +652,9 @@ class SystemValidationFramework:
         # システム情報
         report_lines.append("\n【システム情報】")
         report_lines.append(f"Python バージョン: {sys.version.split()[0]}")
-        report_lines.append(f"メモリ総量: {psutil.virtual_memory().total / (1024**3):.1f}GB")
+        report_lines.append(
+            f"メモリ総量: {psutil.virtual_memory().total / (1024**3):.1f}GB"
+        )
         report_lines.append(f"CPU コア数: {psutil.cpu_count()}")
 
         return "\n".join(report_lines)
@@ -623,20 +663,20 @@ class SystemValidationFramework:
         """テスト結果保存"""
         try:
             result_data = {
-                'test_date': self.start_time.isoformat(),
-                'total_duration': str(datetime.now() - self.start_time),
-                'test_symbols': self.test_symbols,
-                'performance_thresholds': self.performance_thresholds,
-                'test_results': self.test_results,
-                'system_info': {
-                    'python_version': sys.version.split()[0],
-                    'total_memory_gb': psutil.virtual_memory().total / (1024**3),
-                    'cpu_count': psutil.cpu_count(),
-                    'platform': sys.platform
-                }
+                "test_date": self.start_time.isoformat(),
+                "total_duration": str(datetime.now() - self.start_time),
+                "test_symbols": self.test_symbols,
+                "performance_thresholds": self.performance_thresholds,
+                "test_results": self.test_results,
+                "system_info": {
+                    "python_version": sys.version.split()[0],
+                    "total_memory_gb": psutil.virtual_memory().total / (1024**3),
+                    "cpu_count": psutil.cpu_count(),
+                    "platform": sys.platform,
+                },
             }
 
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(result_data, f, indent=2, ensure_ascii=False)
 
             print(f"テスト結果保存完了: {filepath}")
@@ -670,7 +710,7 @@ def main():
         ("実データ統合", validator.test_real_data_integration),
         ("ダッシュボード統合", validator.test_dashboard_integration),
         ("システムパフォーマンス・ストレス", validator.test_system_performance_stress),
-        ("エラーハンドリング・復元力", validator.test_error_handling_resilience)
+        ("エラーハンドリング・復元力", validator.test_error_handling_resilience),
     ]
 
     print(f"\n{len(test_suite)}個のテストを実行します...")
@@ -683,10 +723,10 @@ def main():
             test_function()
         except Exception as e:
             print(f"[CRITICAL ERROR] {test_name}で予期しないエラー: {e}")
-            validator.test_results[test_name.lower().replace(' ', '_')] = {
-                'status': 'failed',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+            validator.test_results[test_name.lower().replace(" ", "_")] = {
+                "status": "failed",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
             }
 
     # 最終レポート生成・表示
@@ -695,22 +735,25 @@ def main():
     print(final_report)
 
     # 結果保存
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = f"final_system_validation_results_{timestamp}.json"
     validator.save_results(results_file)
 
     # テキストレポート保存
     report_file = f"final_system_validation_report_{timestamp}.txt"
     try:
-        with open(report_file, 'w', encoding='utf-8') as f:
+        with open(report_file, "w", encoding="utf-8") as f:
             f.write(final_report)
         print(f"最終レポート保存完了: {report_file}")
     except Exception as e:
         print(f"レポート保存エラー: {e}")
 
     # 総合判定
-    passed_count = sum(1 for result in validator.test_results.values()
-                      if result.get('status') == 'passed')
+    passed_count = sum(
+        1
+        for result in validator.test_results.values()
+        if result.get("status") == "passed"
+    )
     total_count = len(validator.test_results)
     success_rate = passed_count / total_count if total_count > 0 else 0
 

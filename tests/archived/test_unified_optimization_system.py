@@ -27,6 +27,7 @@ try:
         OptimizationStrategyFactory,
         get_optimized_implementation,
     )
+
     OPTIMIZATION_STRATEGY_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: optimization_strategy import failed: {e}")
@@ -37,6 +38,7 @@ try:
     from src.day_trade.analysis.technical_indicators_unified import (
         TechnicalIndicatorsManager,
     )
+
     TECHNICAL_INDICATORS_AVAILABLE = True
 except ImportError:
     TECHNICAL_INDICATORS_AVAILABLE = False
@@ -46,18 +48,22 @@ try:
         FeatureConfig,
         FeatureEngineeringManager,
     )
+
     FEATURE_ENGINEERING_AVAILABLE = True
 except ImportError:
     FEATURE_ENGINEERING_AVAILABLE = False
 
 try:
     from src.day_trade.models.database_unified import DatabaseManager
+
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
 
 
-@pytest.mark.skipif(not OPTIMIZATION_STRATEGY_AVAILABLE, reason="optimization_strategy not available")
+@pytest.mark.skipif(
+    not OPTIMIZATION_STRATEGY_AVAILABLE, reason="optimization_strategy not available"
+)
 class TestUnifiedOptimizationSystem:
     """統合最適化システムテストクラス"""
 
@@ -73,15 +79,18 @@ class TestUnifiedOptimizationSystem:
     def _generate_test_data() -> pd.DataFrame:
         """テスト用データ生成"""
         np.random.seed(42)
-        dates = pd.date_range('2023-01-01', periods=200, freq='D')
+        dates = pd.date_range("2023-01-01", periods=200, freq="D")
         prices = 1000 + np.cumsum(np.random.randn(200) * 10)
 
-        return pd.DataFrame({
-            '終値': prices,
-            '高値': prices + np.random.rand(200) * 5,
-            '安値': prices - np.random.rand(200) * 5,
-            '出来高': np.random.randint(1000, 10000, 200)
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "終値": prices,
+                "高値": prices + np.random.rand(200) * 5,
+                "安値": prices - np.random.rand(200) * 5,
+                "出来高": np.random.randint(1000, 10000, 200),
+            },
+            index=dates,
+        )
 
     def test_optimization_config_creation(self):
         """最適化設定の作成テスト"""
@@ -123,7 +132,9 @@ class TestUnifiedOptimizationSystem:
             assert component in components
             assert "standard" in components[component]
 
-    @pytest.mark.skipif(not TECHNICAL_INDICATORS_AVAILABLE, reason="Technical indicators not available")
+    @pytest.mark.skipif(
+        not TECHNICAL_INDICATORS_AVAILABLE, reason="Technical indicators not available"
+    )
     def test_technical_indicators_unified(self):
         """統合テクニカル指標テスト"""
         # 標準実装テスト
@@ -143,7 +154,9 @@ class TestUnifiedOptimizationSystem:
         manager_opt = TechnicalIndicatorsManager(self.config_optimized)
 
         start_time = time.time()
-        results_opt = manager_opt.calculate_indicators(self.test_data, indicators, period=20)
+        results_opt = manager_opt.calculate_indicators(
+            self.test_data, indicators, period=20
+        )
         optimized_time = time.time() - start_time
 
         assert len(results_opt) == len(indicators)
@@ -152,7 +165,9 @@ class TestUnifiedOptimizationSystem:
             assert results_opt[indicator].strategy_used == "最適化テクニカル指標"
 
         # パフォーマンス比較
-        print(f"テクニカル指標処理時間 - 標準: {standard_time:.3f}秒, 最適化: {optimized_time:.3f}秒")
+        print(
+            f"テクニカル指標処理時間 - 標準: {standard_time:.3f}秒, 最適化: {optimized_time:.3f}秒"
+        )
 
         # パフォーマンス指標確認
         standard_metrics = manager.get_performance_summary()
@@ -163,7 +178,9 @@ class TestUnifiedOptimizationSystem:
         assert standard_metrics["execution_count"] > 0
         assert optimized_metrics["execution_count"] > 0
 
-    @pytest.mark.skipif(not FEATURE_ENGINEERING_AVAILABLE, reason="Feature engineering not available")
+    @pytest.mark.skipif(
+        not FEATURE_ENGINEERING_AVAILABLE, reason="Feature engineering not available"
+    )
     def test_feature_engineering_unified(self):
         """統合特徴量エンジニアリングテスト"""
         # 標準実装テスト
@@ -192,7 +209,9 @@ class TestUnifiedOptimizationSystem:
         assert result_opt.strategy_used == "最適化特徴量エンジニアリング"
 
         # パフォーマンス比較
-        print(f"特徴量生成処理時間 - 標準: {standard_time:.3f}秒, 最適化: {optimized_time:.3f}秒")
+        print(
+            f"特徴量生成処理時間 - 標準: {standard_time:.3f}秒, 最適化: {optimized_time:.3f}秒"
+        )
 
         # 特徴量数の比較
         assert result.features.shape[1] > 0
@@ -232,13 +251,12 @@ class TestUnifiedOptimizationSystem:
         if TECHNICAL_INDICATORS_AVAILABLE:
             strategy = get_optimized_implementation("technical_indicators", config)
             assert strategy is not None
-            assert hasattr(strategy, 'get_strategy_name')
+            assert hasattr(strategy, "get_strategy_name")
 
     def test_fallback_mechanism(self):
         """フォールバック機能テスト"""
         config = OptimizationConfig(
-            level=OptimizationLevel.OPTIMIZED,
-            auto_fallback=True
+            level=OptimizationLevel.OPTIMIZED, auto_fallback=True
         )
 
         # 利用不可能なコンポーネントでのフォールバック
@@ -274,13 +292,13 @@ class TestUnifiedOptimizationSystem:
             "auto_fallback": True,
             "performance_monitoring": True,
             "cache_enabled": True,
-            "batch_size": 500
+            "batch_size": 500,
         }
 
         config_file = "test_optimization_config.json"
 
         try:
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 json.dump(test_config, f)
 
             # 設定ファイルからの読み込みテスト
@@ -296,10 +314,7 @@ class TestUnifiedOptimizationSystem:
 
     def test_memory_and_cache_management(self):
         """メモリとキャッシュ管理テスト"""
-        config = OptimizationConfig(
-            cache_enabled=True,
-            memory_limit_mb=256
-        )
+        config = OptimizationConfig(cache_enabled=True, memory_limit_mb=256)
 
         if TECHNICAL_INDICATORS_AVAILABLE:
             manager = TechnicalIndicatorsManager(config)
@@ -319,7 +334,9 @@ class TestUnifiedOptimizationSystem:
 
             # キャッシュ効果の確認（2回目が著しく高速である必要はないが、実行は成功すべき）
             assert len(results1) == len(results2)
-            print(f"キャッシュテスト - 初回: {first_time:.3f}秒, 2回目: {second_time:.3f}秒")
+            print(
+                f"キャッシュテスト - 初回: {first_time:.3f}秒, 2回目: {second_time:.3f}秒"
+            )
 
 
 def run_integration_test():
@@ -358,19 +375,33 @@ def run_integration_test():
 
     # コンポーネント別テストの追加
     if TECHNICAL_INDICATORS_AVAILABLE:
-        test_methods.append(("テクニカル指標統合テスト", test_instance.test_technical_indicators_unified))
+        test_methods.append(
+            (
+                "テクニカル指標統合テスト",
+                test_instance.test_technical_indicators_unified,
+            )
+        )
 
     if FEATURE_ENGINEERING_AVAILABLE:
-        test_methods.append(("特徴量エンジニアリング統合テスト", test_instance.test_feature_engineering_unified))
+        test_methods.append(
+            (
+                "特徴量エンジニアリング統合テスト",
+                test_instance.test_feature_engineering_unified,
+            )
+        )
 
     if DATABASE_AVAILABLE:
-        test_methods.append(("データベース統合テスト", test_instance.test_database_unified))
+        test_methods.append(
+            ("データベース統合テスト", test_instance.test_database_unified)
+        )
 
     # 追加テスト
-    test_methods.extend([
-        ("適応的レベル選択テスト", test_instance.test_adaptive_level_selection),
-        ("フォールバック機能テスト", test_instance.test_fallback_mechanism),
-    ])
+    test_methods.extend(
+        [
+            ("適応的レベル選択テスト", test_instance.test_adaptive_level_selection),
+            ("フォールバック機能テスト", test_instance.test_fallback_mechanism),
+        ]
+    )
 
     # テスト実行
     passed = 0
@@ -411,5 +442,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Fatal error during test execution: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

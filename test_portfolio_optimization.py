@@ -75,17 +75,23 @@ def test_portfolio_optimization_basic():
                 ml_advice = allocation.get("ml_advice", "N/A")
                 ml_confidence = allocation.get("ml_confidence", 0)
 
-                print(f"     {symbol}: {weight:.1%} ({amount:,.0f}円) "
-                      f"ML: {ml_advice}({ml_confidence:.0f}%)")
+                print(
+                    f"     {symbol}: {weight:.1%} ({amount:,.0f}円) "
+                    f"ML: {ml_advice}({ml_confidence:.0f}%)"
+                )
 
             # ポートフォリオ指標
             if "portfolio_metrics" in portfolio:
                 metrics = portfolio["portfolio_metrics"]
                 print("\n   ポートフォリオ指標:")
                 print(f"     期待リターン: {metrics.get('expected_return', 0):.2%}")
-                print(f"     ボラティリティ: {metrics.get('portfolio_volatility', 0):.2%}")
+                print(
+                    f"     ボラティリティ: {metrics.get('portfolio_volatility', 0):.2%}"
+                )
                 print(f"     シャープレシオ: {metrics.get('sharpe_ratio', 0):.2f}")
-                print(f"     実効ポジション数: {metrics.get('effective_positions', 0):.1f}")
+                print(
+                    f"     実効ポジション数: {metrics.get('effective_positions', 0):.1f}"
+                )
 
             return True
 
@@ -135,7 +141,9 @@ def test_risk_analysis():
                 sector_weights = sector_info.get("sector_weights", {})
                 print(f"   セクター分散: {len(sector_weights)}セクター")
 
-                for sector, weight in sorted(sector_weights.items(), key=lambda x: x[1], reverse=True)[:3]:
+                for sector, weight in sorted(
+                    sector_weights.items(), key=lambda x: x[1], reverse=True
+                )[:3]:
                     print(f"     {sector}: {weight:.1%}")
 
             # 健全性スコア
@@ -177,8 +185,16 @@ def test_rebalancing():
 
     # 目標銘柄（より分散）
     target_symbols = [
-        "7203", "8306", "9984", "6758", "4563",
-        "3655", "4592", "7779", "4475", "3692"
+        "7203",
+        "8306",
+        "9984",
+        "6758",
+        "4563",
+        "3655",
+        "4592",
+        "7779",
+        "4475",
+        "3692",
     ]
 
     try:
@@ -209,7 +225,9 @@ def test_rebalancing():
                 buy_trades = summary.get("buy_trades", 0)
                 sell_trades = summary.get("sell_trades", 0)
 
-                print(f"   予定取引: {total_trades}件 (買い: {buy_trades}, 売り: {sell_trades})")
+                print(
+                    f"   予定取引: {total_trades}件 (買い: {buy_trades}, 売り: {sell_trades})"
+                )
 
                 # 主要取引表示
                 if "prioritized_trades" in proposal:

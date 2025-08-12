@@ -113,7 +113,9 @@ def demo_advanced_numbers():
         ]
     )
 
-    console.print(Panel(content, title="💹 大きな数値の自動フォーマット", border_style="cyan"))
+    console.print(
+        Panel(content, title="💹 大きな数値の自動フォーマット", border_style="cyan")
+    )
 
 
 def demo_ascii_charts():
@@ -129,9 +131,13 @@ def demo_ascii_charts():
         price_data.append(new_price)
 
     # ASCIIチャート作成
-    chart = create_ascii_chart(price_data, width=50, height=12, title="🏪 30日間の株価推移チャート")
+    chart = create_ascii_chart(
+        price_data, width=50, height=12, title="🏪 30日間の株価推移チャート"
+    )
 
-    console.print(Panel(chart, title="📊 フルサイズASCIIチャート", border_style="yellow"))
+    console.print(
+        Panel(chart, title="📊 フルサイズASCIIチャート", border_style="yellow")
+    )
 
     # スパークライン例
     sparklines_content = []
@@ -181,7 +187,9 @@ def demo_heatmap():
         title="📊 セクター別パフォーマンス ヒートマップ",
     )
 
-    console.print(Panel(heatmap, title="🔥 セクター別パフォーマンス分析", border_style="red"))
+    console.print(
+        Panel(heatmap, title="🔥 セクター別パフォーマンス分析", border_style="red")
+    )
 
 
 def demo_progress_and_status():
@@ -261,7 +269,9 @@ def demo_comparison_table():
         },
     }
 
-    comparison_table = create_comparison_table(stock_comparison, title="📊 主要銘柄比較分析")
+    comparison_table = create_comparison_table(
+        stock_comparison, title="📊 主要銘柄比較分析"
+    )
 
     console.print(comparison_table)
 
@@ -281,7 +291,9 @@ def demo_metric_cards():
     }
 
     metric_cards = create_metric_cards(portfolio_metrics, columns=3)
-    console.print(Panel(metric_cards, title="💼 ポートフォリオ メトリクス", border_style="red"))
+    console.print(
+        Panel(metric_cards, title="💼 ポートフォリオ メトリクス", border_style="red")
+    )
 
 
 def demo_trend_indicators():
@@ -329,7 +341,9 @@ def demo_distribution_chart():
         returns, bins=15, title="📊 日次リターン分布 (過去1000日)"
     )
 
-    console.print(Panel(distribution, title="📈 リターン分布分析", border_style="yellow"))
+    console.print(
+        Panel(distribution, title="📈 リターン分布分析", border_style="yellow")
+    )
 
 
 def demo_stock_tables():
@@ -380,7 +394,9 @@ def demo_stock_tables():
 def interactive_demo():
     """インタラクティブなリアルタイムデモ"""
     console.print(Rule("[bold green]リアルタイム表示デモ", style="green"))
-    console.print("[yellow]リアルタイムで更新されるダッシュボードのデモを開始します...[/yellow]")
+    console.print(
+        "[yellow]リアルタイムで更新されるダッシュボードのデモを開始します...[/yellow]"
+    )
     console.print("[dim]Ctrl+C で終了[/dim]\n")
 
     def create_dashboard():
@@ -408,14 +424,18 @@ def interactive_demo():
             data = [random.randint(80, 120) for _ in range(20)]
             sparkline = create_sparkline(data, width=20)
             color = ["green", "blue", "yellow", "magenta"][i]
-            sparkline_content.append(f"[white]{stock:6}[/white] [{color}]{sparkline}[/{color}]")
+            sparkline_content.append(
+                f"[white]{stock:6}[/white] [{color}]{sparkline}[/{color}]"
+            )
 
         layout.split_column(
             Layout(
                 Panel(metric_cards, title="📊 市場メトリクス", border_style="blue"),
                 size=8,
             ),
-            Layout(Panel(chart, title="📈 チャート表示", border_style="green"), size=12),
+            Layout(
+                Panel(chart, title="📈 チャート表示", border_style="green"), size=12
+            ),
             Layout(
                 Panel(
                     "\n".join(sparkline_content),
@@ -429,7 +449,9 @@ def interactive_demo():
         return layout
 
     try:
-        with safe_live_context(create_dashboard(), refresh_per_second=2, screen=True) as live:
+        with safe_live_context(
+            create_dashboard(), refresh_per_second=2, screen=True
+        ) as live:
             while True:
                 time.sleep(0.5)
                 if live:  # Liveが有効な場合のみ更新

@@ -40,7 +40,9 @@ class SimpleAPMTest:
         self.test_dir = tempfile.mkdtemp(prefix="apm_simple_test_")
         print(f"Test directory: {self.test_dir}")
 
-    def log_test_result(self, test_name: str, success: bool, details: Dict[str, Any] = None):
+    def log_test_result(
+        self, test_name: str, success: bool, details: Dict[str, Any] = None
+    ):
         """テスト結果をログ"""
         self.results["test_results"][test_name] = {
             "success": success,
@@ -75,7 +77,9 @@ class SimpleAPMTest:
 
                 if exists:
                     results[config_file]["size_bytes"] = file_path.stat().st_size
-                    print(f"  [OK] {config_file} - {results[config_file]['size_bytes']} bytes")
+                    print(
+                        f"  [OK] {config_file} - {results[config_file]['size_bytes']} bytes"
+                    )
                 else:
                     print(f"  [MISSING] {config_file}")
 
@@ -128,7 +132,9 @@ class SimpleAPMTest:
                     }
                     print(f"  [ERROR] {module_name}: {e}")
 
-            successful_imports = sum(1 for result in import_results.values() if result["success"])
+            successful_imports = sum(
+                1 for result in import_results.values() if result["success"]
+            )
             total_imports = len(import_results)
             success = successful_imports > 0  # 最低1つインポートできれば成功
 
@@ -166,7 +172,9 @@ class SimpleAPMTest:
                             "id": 1,
                             "title": "Test Metric",
                             "type": "graph",
-                            "targets": [{"expr": "up", "legendFormat": "Service Status"}],
+                            "targets": [
+                                {"expr": "up", "legendFormat": "Service Status"}
+                            ],
                         }
                     ],
                     "time": {"from": "now-1h", "to": "now"},
@@ -180,19 +188,26 @@ class SimpleAPMTest:
                 json.dump(basic_dashboard, f, indent=2, ensure_ascii=False)
 
             # ファイル存在と内容確認
-            success = test_dashboard_path.exists() and test_dashboard_path.stat().st_size > 100
+            success = (
+                test_dashboard_path.exists()
+                and test_dashboard_path.stat().st_size > 100
+            )
 
             dashboard_info = {
                 "file_created": test_dashboard_path.exists(),
                 "file_size": (
-                    test_dashboard_path.stat().st_size if test_dashboard_path.exists() else 0
+                    test_dashboard_path.stat().st_size
+                    if test_dashboard_path.exists()
+                    else 0
                 ),
                 "panels_count": len(basic_dashboard["dashboard"]["panels"]),
                 "dashboard_title": basic_dashboard["dashboard"]["title"],
             }
 
             if success:
-                print(f"  [OK] ダッシュボード生成成功: {dashboard_info['file_size']} bytes")
+                print(
+                    f"  [OK] ダッシュボード生成成功: {dashboard_info['file_size']} bytes"
+                )
             else:
                 print("  [FAIL] ダッシュボード生成失敗")
 
@@ -249,7 +264,9 @@ class SimpleAPMTest:
                 "all_slos_have_targets": all(
                     "target_percentage" in slo for slo in slo_config["slos"]
                 ),
-                "all_slos_have_queries": all("sli_query" in slo for slo in slo_config["slos"]),
+                "all_slos_have_queries": all(
+                    "sli_query" in slo for slo in slo_config["slos"]
+                ),
                 "config_size_bytes": (
                     slo_config_path.stat().st_size if slo_config_path.exists() else 0
                 ),
@@ -265,7 +282,9 @@ class SimpleAPMTest:
             )
 
             if success:
-                print(f"  [OK] SLO設定検証成功: {validation_results['slo_count']} SLOs configured")
+                print(
+                    f"  [OK] SLO設定検証成功: {validation_results['slo_count']} SLOs configured"
+                )
             else:
                 print("  [FAIL] SLO設定検証失敗")
 
@@ -275,7 +294,9 @@ class SimpleAPMTest:
 
         except Exception as e:
             self.log_test_result(
-                "SLO設定検証", False, {"error": str(e), "traceback": traceback.format_exc()}
+                "SLO設定検証",
+                False,
+                {"error": str(e), "traceback": traceback.format_exc()},
             )
             return False
 
@@ -348,9 +369,13 @@ class SimpleAPMTest:
             # 成功率計算
             total_tests = len(self.results["test_results"])
             successful_tests = sum(
-                1 for result in self.results["test_results"].values() if result["success"]
+                1
+                for result in self.results["test_results"].values()
+                if result["success"]
             )
-            success_rate = (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            success_rate = (
+                (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            )
 
             # システム状態評価
             system_status = {
@@ -412,17 +437,23 @@ class SimpleAPMTest:
 
             print("\n" + "=" * 50)
             print("APM統合基盤シンプルテスト完了")
-            print(f"成功率: {final_report['system_status']['success_rate_percentage']:.1f}%")
+            print(
+                f"成功率: {final_report['system_status']['success_rate_percentage']:.1f}%"
+            )
             print(f"成功: {final_report['system_status']['successful_tests']}")
             print(f"失敗: {final_report['system_status']['failed_tests']}")
-            print(f"総合評価: {final_report['system_status']['overall_health'].upper()}")
+            print(
+                f"総合評価: {final_report['system_status']['overall_health'].upper()}"
+            )
 
             # 準備状況表示
             readiness = final_report["system_status"]["readiness_assessment"]
             print("\n準備状況:")
             print(f"  基本機能: {'OK' if readiness['basic_functionality'] else 'NG'}")
             print(f"  本番準備: {'OK' if readiness['production_ready'] else 'NG'}")
-            print(f"  包括監視: {'OK' if readiness['comprehensive_monitoring'] else 'NG'}")
+            print(
+                f"  包括監視: {'OK' if readiness['comprehensive_monitoring'] else 'NG'}"
+            )
 
             return final_report
 

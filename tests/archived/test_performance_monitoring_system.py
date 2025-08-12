@@ -124,7 +124,9 @@ def test_performance_summary():
     ]
 
     for op_name, sleep_time in test_operations:
-        with monitor.monitor(op_name, expected_time=3.6 if "ml_analysis" in op_name else 2.0):
+        with monitor.monitor(
+            op_name, expected_time=3.6 if "ml_analysis" in op_name else 2.0
+        ):
             time.sleep(sleep_time)
 
     # パフォーマンス要約取得
@@ -141,7 +143,9 @@ def test_performance_summary():
     if "baseline_comparison" in summary:
         print("  基準値比較:")
         for process, data in summary["baseline_comparison"].items():
-            status_emoji = {"good": "✅", "warning": "⚠️", "critical": "❌"}.get(data["status"], "❓")
+            status_emoji = {"good": "✅", "warning": "⚠️", "critical": "❌"}.get(
+                data["status"], "❓"
+            )
             print(f"    {process}: {data['performance_ratio']:.2f}x {status_emoji}")
 
     print("✅ パフォーマンス要約テスト完了")
@@ -167,7 +171,7 @@ def test_bottleneck_analysis():
             time.sleep(sleep_time)
             if "memory_heavy" in op_name:
                 # メモリ消費をシミュレート
-                data = [i ** 2 for i in range(50000)]
+                data = [i**2 for i in range(50000)]
                 ctx.update_peak_memory()
                 del data
 
@@ -208,9 +212,20 @@ def test_decorator_functionality():
 
     # グローバル監視インスタンスの確認
     global_monitor = get_performance_monitor()
-    assert len(global_monitor.metrics_history) >= 2, "グローバル監視インスタンスが正しく動作していません"
+    assert (
+        len(global_monitor.metrics_history) >= 2
+    ), "グローバル監視インスタンスが正しく動作していません"
 
-    print("  デコレートされた関数の実行回数:", len([m for m in global_monitor.metrics_history if "decorated_function" in m.process_name]))
+    print(
+        "  デコレートされた関数の実行回数:",
+        len(
+            [
+                m
+                for m in global_monitor.metrics_history
+                if "decorated_function" in m.process_name
+            ]
+        ),
+    )
     print("✅ デコレータ機能テスト完了")
 
 
@@ -234,7 +249,9 @@ def test_dashboard_creation():
         dashboard = PerformanceDashboard(output_dir="test_dashboard_output")
 
         dashboard_path = dashboard.create_realtime_dashboard()
-        assert dashboard_path.exists(), f"ダッシュボードファイルが作成されていません: {dashboard_path}"
+        assert (
+            dashboard_path.exists()
+        ), f"ダッシュボードファイルが作成されていません: {dashboard_path}"
 
         print(f"  ダッシュボード作成完了: {dashboard_path}")
         print(f"  ファイルサイズ: {dashboard_path.stat().st_size / 1024:.1f}KB")
@@ -265,16 +282,25 @@ def test_export_import_functionality():
 
     # メトリクスエクスポート
     export_path = monitor.export_metrics()
-    assert export_path.exists(), f"エクスポートファイルが作成されていません: {export_path}"
+    assert (
+        export_path.exists()
+    ), f"エクスポートファイルが作成されていません: {export_path}"
 
     # エクスポート内容確認
     import json
-    with open(export_path, encoding='utf-8') as f:
+
+    with open(export_path, encoding="utf-8") as f:
         export_data = json.load(f)
 
-    assert "performance_metrics" in export_data, "エクスポートデータにパフォーマンスメトリクスが含まれていません"
-    assert "baseline_metrics" in export_data, "エクスポートデータに基準値が含まれていません"
-    assert export_data["metrics_count"] >= 3, "エクスポートされたメトリクス数が不足しています"
+    assert (
+        "performance_metrics" in export_data
+    ), "エクスポートデータにパフォーマンスメトリクスが含まれていません"
+    assert (
+        "baseline_metrics" in export_data
+    ), "エクスポートデータに基準値が含まれていません"
+    assert (
+        export_data["metrics_count"] >= 3
+    ), "エクスポートされたメトリクス数が不足しています"
 
     print(f"  エクスポートファイル: {export_path}")
     print(f"  エクスポートされたメトリクス数: {export_data['metrics_count']}")
@@ -314,10 +340,15 @@ def test_concurrent_monitoring():
         thread.join()
 
     assert len(results) == 5, "並行タスクが正しく完了していません"
-    assert len([m for m in monitor.metrics_history if "concurrent_task" in m.process_name]) == 5, "並行監視データが正しく記録されていません"
+    assert (
+        len([m for m in monitor.metrics_history if "concurrent_task" in m.process_name])
+        == 5
+    ), "並行監視データが正しく記録されていません"
 
     print(f"  並行タスク完了数: {len(results)}")
-    print(f"  監視データ記録数: {len([m for m in monitor.metrics_history if 'concurrent_task' in m.process_name])}")
+    print(
+        f"  監視データ記録数: {len([m for m in monitor.metrics_history if 'concurrent_task' in m.process_name])}"
+    )
     print("✅ 並行監視テスト完了")
 
 
@@ -364,6 +395,7 @@ def run_comprehensive_test():
     except Exception as e:
         print(f"❌ テスト失敗: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

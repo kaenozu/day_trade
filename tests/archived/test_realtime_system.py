@@ -28,6 +28,7 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class RealTimeSystemTester:
     """リアルタイムシステムテスター"""
 
@@ -52,37 +53,37 @@ class RealTimeSystemTester:
             # 1. システム初期化テスト
             logger.info("Test 1: System initialization")
             init_result = await self.test_system_initialization()
-            test_results['initialization'] = init_result
+            test_results["initialization"] = init_result
 
             # 2. データストリーミングテスト
             logger.info("Test 2: Data streaming")
             streaming_result = await self.test_data_streaming()
-            test_results['streaming'] = streaming_result
+            test_results["streaming"] = streaming_result
 
             # 3. AI予測テスト
             logger.info("Test 3: AI prediction")
             prediction_result = await self.test_ai_prediction()
-            test_results['prediction'] = prediction_result
+            test_results["prediction"] = prediction_result
 
             # 4. パフォーマンス監視テスト
             logger.info("Test 4: Performance monitoring")
             monitoring_result = await self.test_performance_monitoring()
-            test_results['monitoring'] = monitoring_result
+            test_results["monitoring"] = monitoring_result
 
             # 5. アラートシステムテスト
             logger.info("Test 5: Alert system")
             alert_result = await self.test_alert_system()
-            test_results['alert'] = alert_result
+            test_results["alert"] = alert_result
 
             # 6. ダッシュボードテスト
             logger.info("Test 6: Dashboard system")
             dashboard_result = await self.test_dashboard_system()
-            test_results['dashboard'] = dashboard_result
+            test_results["dashboard"] = dashboard_result
 
             # 7. 統合運用テスト
             logger.info("Test 7: Integrated operation")
             integration_result = await self.test_integrated_operation()
-            test_results['integration'] = integration_result
+            test_results["integration"] = integration_result
 
             # テスト結果レポート
             self.generate_test_report(test_results)
@@ -90,6 +91,7 @@ class RealTimeSystemTester:
         except Exception as e:
             logger.error(f"Full integration test failed: {e}")
             import traceback
+
             traceback.print_exc()
 
         return test_results
@@ -98,10 +100,10 @@ class RealTimeSystemTester:
         """システム初期化テスト"""
 
         result = {
-            'status': 'pending',
-            'components_initialized': 0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "components_initialized": 0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -115,7 +117,7 @@ class RealTimeSystemTester:
                 enable_monitoring=True,
                 enable_alerts=True,
                 enable_dashboard=False,  # テスト用に無効化
-                update_interval=1.0
+                update_interval=1.0,
             )
 
             manager = RealTimeIntegrationManager(config)
@@ -124,23 +126,31 @@ class RealTimeSystemTester:
             await manager.initialize_system()
 
             # コンポーネント確認
-            components = ['stream_manager', 'prediction_engine', 'performance_monitor', 'alert_manager']
+            components = [
+                "stream_manager",
+                "prediction_engine",
+                "performance_monitor",
+                "alert_manager",
+            ]
             initialized_count = 0
 
             for component_name in components:
-                if hasattr(manager, component_name) and getattr(manager, component_name) is not None:
+                if (
+                    hasattr(manager, component_name)
+                    and getattr(manager, component_name) is not None
+                ):
                     initialized_count += 1
                     logger.info(f"✓ {component_name} initialized")
                 else:
                     logger.warning(f"✗ {component_name} not initialized")
 
-            result['components_initialized'] = initialized_count
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed' if initialized_count >= 3 else 'failed'
+            result["components_initialized"] = initialized_count
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed" if initialized_count >= 3 else "failed"
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Initialization test error: {e}")
 
         return result
@@ -149,11 +159,11 @@ class RealTimeSystemTester:
         """データストリーミングテスト"""
 
         result = {
-            'status': 'pending',
-            'data_received': 0,
-            'stream_quality': 0.0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "data_received": 0,
+            "stream_quality": 0.0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -171,7 +181,7 @@ class RealTimeSystemTester:
                         symbol=symbol,
                         timestamp=datetime.now(),
                         price=100 + np.random.uniform(-5, 5),
-                        volume=1000 + int(np.random.uniform(0, 500))
+                        volume=1000 + int(np.random.uniform(0, 500)),
                     )
                     for symbol in self.test_symbols
                 ]
@@ -182,16 +192,16 @@ class RealTimeSystemTester:
                 # 短時間待機
                 await asyncio.sleep(0.1)
 
-            result['data_received'] = data_count
-            result['stream_quality'] = 1.0  # 模擬データなので品質は100%
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed' if data_count > 0 else 'failed'
+            result["data_received"] = data_count
+            result["stream_quality"] = 1.0  # 模擬データなので品質は100%
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed" if data_count > 0 else "failed"
 
             logger.info(f"Streaming test: {data_count} data points generated")
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Streaming test error: {e}")
 
         return result
@@ -200,12 +210,12 @@ class RealTimeSystemTester:
         """AI予測テスト"""
 
         result = {
-            'status': 'pending',
-            'predictions_generated': 0,
-            'average_confidence': 0.0,
-            'prediction_latency_ms': 0.0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "predictions_generated": 0,
+            "average_confidence": 0.0,
+            "prediction_latency_ms": 0.0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -224,7 +234,7 @@ class RealTimeSystemTester:
                     symbol="AAPL",
                     timestamp=datetime.now() - timedelta(minutes=i),
                     price=150.0 + np.random.uniform(-2, 2),
-                    volume=1000
+                    volume=1000,
                 )
                 for i in range(30)
             ]
@@ -238,20 +248,24 @@ class RealTimeSystemTester:
                 confidences = [pred.confidence for pred in predictions.values()]
                 latencies = [pred.processing_time_ms for pred in predictions.values()]
 
-                result['predictions_generated'] = len(predictions)
-                result['average_confidence'] = np.mean(confidences)
-                result['prediction_latency_ms'] = np.mean(latencies)
+                result["predictions_generated"] = len(predictions)
+                result["average_confidence"] = np.mean(confidences)
+                result["prediction_latency_ms"] = np.mean(latencies)
 
-                logger.info(f"Generated {len(predictions)} predictions with avg confidence {np.mean(confidences):.2%}")
+                logger.info(
+                    f"Generated {len(predictions)} predictions with avg confidence {np.mean(confidences):.2%}"
+                )
 
             await engine.cleanup()
 
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed' if result['predictions_generated'] > 0 else 'failed'
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = (
+                "passed" if result["predictions_generated"] > 0 else "failed"
+            )
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"AI prediction test error: {e}")
 
         return result
@@ -260,11 +274,11 @@ class RealTimeSystemTester:
         """パフォーマンス監視テスト"""
 
         result = {
-            'status': 'pending',
-            'metrics_collected': 0,
-            'monitoring_active': False,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "metrics_collected": 0,
+            "monitoring_active": False,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -286,9 +300,9 @@ class RealTimeSystemTester:
             # 統計取得
             status = monitor.get_comprehensive_status()
 
-            if status and status.get('monitoring_active'):
-                result['monitoring_active'] = True
-                result['metrics_collected'] = 1
+            if status and status.get("monitoring_active"):
+                result["monitoring_active"] = True
+                result["metrics_collected"] = 1
                 logger.info("Performance monitoring is active")
 
             # 監視停止
@@ -300,12 +314,12 @@ class RealTimeSystemTester:
             except asyncio.CancelledError:
                 pass
 
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed' if result['monitoring_active'] else 'failed'
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed" if result["monitoring_active"] else "failed"
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Performance monitoring test error: {e}")
 
         return result
@@ -314,11 +328,11 @@ class RealTimeSystemTester:
         """アラートシステムテスト"""
 
         result = {
-            'status': 'pending',
-            'alerts_generated': 0,
-            'alerts_sent': 0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "alerts_generated": 0,
+            "alerts_sent": 0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -338,28 +352,30 @@ class RealTimeSystemTester:
                 confidence=0.85,
                 final_action="BUY",
                 action_confidence=0.9,
-                position_size_recommendation=0.1
+                position_size_recommendation=0.1,
             )
 
             # アラート生成
-            alert = await trading_alert_generator.generate_trading_signal_alert(mock_prediction)
+            alert = await trading_alert_generator.generate_trading_signal_alert(
+                mock_prediction
+            )
 
             if alert:
-                result['alerts_generated'] = 1
+                result["alerts_generated"] = 1
 
                 # アラート送信テスト
                 success = await alert_manager.send_alert(alert)
 
                 if success:
-                    result['alerts_sent'] = 1
+                    result["alerts_sent"] = 1
                     logger.info(f"Alert generated and sent: {alert.title}")
 
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed' if result['alerts_generated'] > 0 else 'failed'
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed" if result["alerts_generated"] > 0 else "failed"
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Alert system test error: {e}")
 
         return result
@@ -368,11 +384,11 @@ class RealTimeSystemTester:
         """ダッシュボードシステムテスト"""
 
         result = {
-            'status': 'pending',
-            'dashboard_started': False,
-            'websocket_connections': 0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "dashboard_started": False,
+            "websocket_connections": 0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -399,15 +415,15 @@ class RealTimeSystemTester:
             except asyncio.CancelledError:
                 pass
 
-            result['dashboard_started'] = True
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed'
+            result["dashboard_started"] = True
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed"
 
             logger.info("Dashboard system test completed")
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Dashboard system test error: {e}")
 
         return result
@@ -416,12 +432,12 @@ class RealTimeSystemTester:
         """統合運用テスト"""
 
         result = {
-            'status': 'pending',
-            'operation_duration_seconds': 0,
-            'total_predictions': 0,
-            'system_stability': 0.0,
-            'errors': [],
-            'duration_ms': 0
+            "status": "pending",
+            "operation_duration_seconds": 0,
+            "total_predictions": 0,
+            "system_stability": 0.0,
+            "errors": [],
+            "duration_ms": 0,
         }
 
         try:
@@ -435,7 +451,7 @@ class RealTimeSystemTester:
                 enable_monitoring=True,
                 enable_alerts=True,
                 enable_dashboard=False,  # テスト用に無効化
-                update_interval=2.0
+                update_interval=2.0,
             )
 
             manager = RealTimeIntegrationManager(config)
@@ -451,9 +467,9 @@ class RealTimeSystemTester:
             status = manager.get_system_status()
             predictions = manager.get_latest_predictions()
 
-            result['operation_duration_seconds'] = operation_duration
-            result['total_predictions'] = len(predictions)
-            result['system_stability'] = 0.9  # 安定動作想定
+            result["operation_duration_seconds"] = operation_duration
+            result["total_predictions"] = len(predictions)
+            result["system_stability"] = 0.9  # 安定動作想定
 
             # システム停止
             await manager.stop_system()
@@ -464,14 +480,16 @@ class RealTimeSystemTester:
             except asyncio.CancelledError:
                 pass
 
-            result['duration_ms'] = (time.time() - start_time) * 1000
-            result['status'] = 'passed'
+            result["duration_ms"] = (time.time() - start_time) * 1000
+            result["status"] = "passed"
 
-            logger.info(f"Integrated operation completed: {len(predictions)} predictions generated")
+            logger.info(
+                f"Integrated operation completed: {len(predictions)} predictions generated"
+            )
 
         except Exception as e:
-            result['status'] = 'failed'
-            result['errors'].append(str(e))
+            result["status"] = "failed"
+            result["errors"].append(str(e))
             logger.error(f"Integrated operation test error: {e}")
 
         return result
@@ -482,7 +500,9 @@ class RealTimeSystemTester:
         logger.info("=== REAL-TIME SYSTEM TEST REPORT ===")
 
         total_tests = len(test_results)
-        passed_tests = sum(1 for result in test_results.values() if result.get('status') == 'passed')
+        passed_tests = sum(
+            1 for result in test_results.values() if result.get("status") == "passed"
+        )
         failed_tests = total_tests - passed_tests
 
         logger.info(f"Total Tests: {total_tests}")
@@ -493,13 +513,15 @@ class RealTimeSystemTester:
         logger.info("\n--- Individual Test Results ---")
 
         for test_name, result in test_results.items():
-            status_emoji = "✓" if result.get('status') == 'passed' else "✗"
-            duration = result.get('duration_ms', 0)
+            status_emoji = "✓" if result.get("status") == "passed" else "✗"
+            duration = result.get("duration_ms", 0)
 
-            logger.info(f"{status_emoji} {test_name}: {result.get('status', 'unknown')} ({duration:.0f}ms)")
+            logger.info(
+                f"{status_emoji} {test_name}: {result.get('status', 'unknown')} ({duration:.0f}ms)"
+            )
 
-            if result.get('errors'):
-                for error in result['errors']:
+            if result.get("errors"):
+                for error in result["errors"]:
                     logger.error(f"  Error: {error}")
 
         # 詳細レポート
@@ -512,17 +534,22 @@ class RealTimeSystemTester:
         if failed_tests == 0:
             logger.info("✓ All tests passed! System ready for production deployment.")
         elif failed_tests <= 2:
-            logger.warning("⚠ Minor issues detected. Review failed tests before deployment.")
+            logger.warning(
+                "⚠ Minor issues detected. Review failed tests before deployment."
+            )
         else:
-            logger.error("✗ Major issues detected. System requires debugging before deployment.")
+            logger.error(
+                "✗ Major issues detected. System requires debugging before deployment."
+            )
 
         return {
-            'total_tests': total_tests,
-            'passed_tests': passed_tests,
-            'failed_tests': failed_tests,
-            'success_rate': passed_tests / total_tests,
-            'test_details': test_results
+            "total_tests": total_tests,
+            "passed_tests": passed_tests,
+            "failed_tests": failed_tests,
+            "success_rate": passed_tests / total_tests,
+            "test_details": test_results,
         }
+
 
 async def main():
     """メイン実行"""
@@ -548,8 +575,10 @@ async def main():
     except Exception as e:
         print(f"\nTest execution failed: {e}")
         import traceback
+
         traceback.print_exc()
         return None
+
 
 if __name__ == "__main__":
     # 統合テスト実行

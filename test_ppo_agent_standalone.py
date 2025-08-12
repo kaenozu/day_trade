@@ -16,6 +16,7 @@ import pandas as pd
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
+
 def test_ppo_components():
     """PPOコンポーネントの基本テスト"""
     print("=== PPO コンポーネントテスト ===")
@@ -23,6 +24,7 @@ def test_ppo_components():
     # 基本インポートテスト
     try:
         from src.day_trade.rl.ppo_agent import PPOConfig, PPOExperience
+
         print("✓ PPO設定クラス読み込み成功")
 
         # 設定テスト
@@ -52,6 +54,7 @@ def test_ppo_components():
 
     return True
 
+
 def test_trading_environment_basic():
     """取引環境の基本機能テスト"""
     print("\n=== 取引環境基本テスト ===")
@@ -63,13 +66,14 @@ def test_trading_environment_basic():
             TradingAction,
             TradingReward,
         )
+
         print("✓ 取引環境データクラス読み込み成功")
 
         # TradingActionテスト
         action = TradingAction(
             position_size=0.5,
             asset_allocation={"STOCK_A": 0.6, "STOCK_B": 0.4},
-            risk_level=0.3
+            risk_level=0.3,
         )
         assert action.position_size == 0.5
         assert len(action.asset_allocation) == 2
@@ -80,9 +84,14 @@ def test_trading_environment_basic():
             profit_loss=100.0,
             risk_adjusted_return=50.0,
             drawdown_penalty=-10.0,
-            trading_costs=-5.0
+            trading_costs=-5.0,
         )
-        reward.total_reward = reward.profit_loss + reward.risk_adjusted_return + reward.drawdown_penalty + reward.trading_costs
+        reward.total_reward = (
+            reward.profit_loss
+            + reward.risk_adjusted_return
+            + reward.drawdown_penalty
+            + reward.trading_costs
+        )
         assert reward.total_reward == 135.0
         print("✓ TradingReward計算成功")
 
@@ -95,12 +104,14 @@ def test_trading_environment_basic():
 
     return True
 
+
 def test_ml_engine_integration():
     """ML Engineとの統合テスト"""
     print("\n=== ML Engine統合テスト ===")
 
     try:
         from src.day_trade.data.advanced_ml_engine import AdvancedMLEngine, ModelConfig
+
         print("✓ Advanced ML Engine読み込み成功")
 
         # 基本設定テスト
@@ -108,7 +119,7 @@ def test_ml_engine_integration():
             lstm_hidden_size=128,
             transformer_d_model=256,
             sequence_length=60,
-            num_features=20
+            num_features=20,
         )
         print("✓ ML Engine設定作成成功")
 
@@ -128,6 +139,7 @@ def test_ml_engine_integration():
 
     return True
 
+
 def test_batch_data_fetcher():
     """バッチデータフェッチャーテスト"""
     print("\n=== バッチデータフェッチャーテスト ===")
@@ -138,14 +150,12 @@ def test_batch_data_fetcher():
             DataRequest,
             DataResponse,
         )
+
         print("✓ バッチデータフェッチャー読み込み成功")
 
         # データリクエスト作成テスト
         request = DataRequest(
-            symbol="TEST_STOCK",
-            period="30d",
-            preprocessing=True,
-            priority=3
+            symbol="TEST_STOCK", period="30d", preprocessing=True, priority=3
         )
         assert request.symbol == "TEST_STOCK"
         assert request.preprocessing
@@ -157,22 +167,20 @@ def test_batch_data_fetcher():
             data=None,
             success=False,
             error_message="テスト用",
-            data_quality_score=85.0
+            data_quality_score=85.0,
         )
         assert response.data_quality_score == 85.0
         print("✓ データレスポンス作成成功")
 
         # フェッチャーインスタンス作成（依存関係なしモード）
         fetcher = AdvancedBatchDataFetcher(
-            max_workers=2,
-            enable_kafka=False,
-            enable_redis=False
+            max_workers=2, enable_kafka=False, enable_redis=False
         )
         print("✓ バッチデータフェッチャーインスタンス作成成功")
 
         # 統計取得テスト
         stats = fetcher.get_pipeline_stats()
-        assert hasattr(stats, 'total_requests')
+        assert hasattr(stats, "total_requests")
         print("✓ パイプライン統計取得成功")
 
     except ImportError as e:
@@ -184,6 +192,7 @@ def test_batch_data_fetcher():
 
     return True
 
+
 def test_integration_workflow():
     """統合ワークフローテスト"""
     print("\n=== 統合ワークフローテスト ===")
@@ -191,22 +200,28 @@ def test_integration_workflow():
     try:
         # テスト用データ生成
         np.random.seed(42)
-        test_data = pd.DataFrame({
-            '終値': 1000 + np.cumsum(np.random.randn(100) * 10),
-            '高値': 1000 + np.cumsum(np.random.randn(100) * 10) + np.random.rand(100) * 5,
-            '安値': 1000 + np.cumsum(np.random.randn(100) * 10) - np.random.rand(100) * 5,
-            '出来高': np.random.randint(1000, 10000, 100)
-        })
+        test_data = pd.DataFrame(
+            {
+                "終値": 1000 + np.cumsum(np.random.randn(100) * 10),
+                "高値": 1000
+                + np.cumsum(np.random.randn(100) * 10)
+                + np.random.rand(100) * 5,
+                "安値": 1000
+                + np.cumsum(np.random.randn(100) * 10)
+                - np.random.rand(100) * 5,
+                "出来高": np.random.randint(1000, 10000, 100),
+            }
+        )
         print(f"✓ テストデータ生成成功: {test_data.shape}")
 
         # データ品質チェック
         assert not test_data.isnull().any().any()
         assert len(test_data) == 100
-        assert test_data['終値'].min() > 0
+        assert test_data["終値"].min() > 0
         print("✓ データ品質検証成功")
 
         # 基本統計計算
-        returns = test_data['終値'].pct_change().dropna()
+        returns = test_data["終値"].pct_change().dropna()
         volatility = returns.std() * np.sqrt(252)  # 年率ボラティリティ
         sharpe_ratio = returns.mean() / returns.std() * np.sqrt(252)
 
@@ -229,6 +244,7 @@ def test_integration_workflow():
 
     return True
 
+
 def main():
     """メインテスト実行"""
     print("Next-Gen AI Trading System - PPO Agent スタンドアロンテスト")
@@ -243,7 +259,7 @@ def main():
         ("取引環境基本テスト", test_trading_environment_basic),
         ("ML Engine統合テスト", test_ml_engine_integration),
         ("バッチデータフェッチャーテスト", test_batch_data_fetcher),
-        ("統合ワークフローテスト", test_integration_workflow)
+        ("統合ワークフローテスト", test_integration_workflow),
     ]
 
     for test_name, test_func in tests:
@@ -285,6 +301,7 @@ def main():
 
     return passed == total
 
+
 if __name__ == "__main__":
     try:
         success = main()
@@ -292,5 +309,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n致命的エラー: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

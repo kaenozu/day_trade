@@ -8,7 +8,8 @@ import os
 import sys
 
 # パスを追加
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 def test_secure_api_client():
     """セキュアAPIクライアント機能テスト"""
@@ -25,6 +26,7 @@ def test_secure_api_client():
             SecurityLevel,
             URLSecurityPolicy,
         )
+
         print("[OK] Import successful")
     except ImportError as e:
         print(f"[ERROR] Import failed: {e}")
@@ -38,16 +40,20 @@ def test_secure_api_client():
             key_id="test_provider",
             plain_key="test_key_12345",
             key_type=APIKeyType.QUERY_PARAM,
-            allowed_hosts=["api.example.com"]
+            allowed_hosts=["api.example.com"],
         )
         print(f"[OK] Key addition: {success}")
 
         retrieved_key = key_manager.get_api_key("test_provider", "api.example.com")
-        print(f"[OK] Key retrieval: {'Success' if retrieved_key == 'test_key_12345' else 'Failed'}")
+        print(
+            f"[OK] Key retrieval: {'Success' if retrieved_key == 'test_key_12345' else 'Failed'}"
+        )
 
         # 不正なホストテスト
         invalid_key = key_manager.get_api_key("test_provider", "malicious.com")
-        print(f"[OK] Security validation: {'Success' if invalid_key is None else 'Failed'}")
+        print(
+            f"[OK] Security validation: {'Success' if invalid_key is None else 'Failed'}"
+        )
 
     except Exception as e:
         print(f"[ERROR] Key manager test failed: {e}")
@@ -59,14 +65,13 @@ def test_secure_api_client():
         policy = URLSecurityPolicy(
             allowed_schemes=["https"],
             allowed_hosts=[".example.com"],
-            max_url_length=2048
+            max_url_length=2048,
         )
         url_builder = SecureURLBuilder(policy)
 
         # 正常なURL
         secure_url = url_builder.build_secure_url(
-            "https://api.example.com/data",
-            params={"symbol": "AAPL", "apikey": "test"}
+            "https://api.example.com/data", params={"symbol": "AAPL", "apikey": "test"}
         )
         print(f"[OK] URL building: {len(secure_url)} chars")
 

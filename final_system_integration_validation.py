@@ -45,7 +45,9 @@ class FinalSystemIntegrationTest:
         self.test_dir = tempfile.mkdtemp(prefix="final_integration_test_")
         print(f"Final Integration Test Directory: {self.test_dir}")
 
-    def log_test_result(self, test_name: str, success: bool, details: Dict[str, Any] = None):
+    def log_test_result(
+        self, test_name: str, success: bool, details: Dict[str, Any] = None
+    ):
         """テスト結果をログ"""
         self.results["test_results"][test_name] = {
             "success": success,
@@ -105,7 +107,9 @@ class FinalSystemIntegrationTest:
                                     "content_check"
                                 ] = "valid_yaml_syntax"
                         except Exception as e:
-                            validation_results[config_path]["content_check"] = f"error: {str(e)}"
+                            validation_results[config_path][
+                                "content_check"
+                            ] = f"error: {str(e)}"
 
                     print(f"  [OK] {description}: {file_size} bytes")
                 else:
@@ -135,7 +139,11 @@ class FinalSystemIntegrationTest:
                 {
                     "total_configs": len(config_files),
                     "present_configs": len(
-                        [r for r in validation_results.values() if r.get("status") == "present"]
+                        [
+                            r
+                            for r in validation_results.values()
+                            if r.get("status") == "present"
+                        ]
                     ),
                     "missing_configs": len(critical_missing),
                     "critical_missing": critical_missing,
@@ -147,7 +155,9 @@ class FinalSystemIntegrationTest:
 
         except Exception as e:
             self.log_test_result(
-                "包括的設定検証", False, {"error": str(e), "traceback": traceback.format_exc()}
+                "包括的設定検証",
+                False,
+                {"error": str(e), "traceback": traceback.format_exc()},
             )
             return False
 
@@ -189,7 +199,13 @@ class FinalSystemIntegrationTest:
                 with open(docker_obs_path, encoding="utf-8") as f:
                     docker_content = f.read()
 
-                services = ["jaeger", "elasticsearch", "prometheus", "grafana", "alertmanager"]
+                services = [
+                    "jaeger",
+                    "elasticsearch",
+                    "prometheus",
+                    "grafana",
+                    "alertmanager",
+                ]
                 service_presence = {svc: svc in docker_content for svc in services}
 
                 content_results["docker_observability"] = {
@@ -243,7 +259,9 @@ class FinalSystemIntegrationTest:
                         )
 
                         # 環境変数確認
-                        component_config["has_environment"] = "environment:" in compose_content
+                        component_config["has_environment"] = (
+                            "environment:" in compose_content
+                        )
 
                     readiness_results[component] = {
                         "present": component_present,
@@ -487,7 +505,10 @@ class FinalSystemIntegrationTest:
                         ready_count += 1
                         print(f"    [Ready] {description}")
                     else:
-                        category_results[item_path] = {"status": "missing", "type": "unknown"}
+                        category_results[item_path] = {
+                            "status": "missing",
+                            "type": "unknown",
+                        }
                         print(f"    [Missing] {description}")
 
                 deployment_results[category] = {
@@ -503,7 +524,11 @@ class FinalSystemIntegrationTest:
                 "deployment_guide": any(
                     [
                         (project_root / f).exists()
-                        for f in ["DEPLOYMENT.md", "DEPLOYMENT_GUIDE.md", "docs/DEPLOYMENT.md"]
+                        for f in [
+                            "DEPLOYMENT.md",
+                            "DEPLOYMENT_GUIDE.md",
+                            "docs/DEPLOYMENT.md",
+                        ]
                     ]
                 ),
                 "api_docs": (project_root / "docs").exists(),
@@ -530,7 +555,9 @@ class FinalSystemIntegrationTest:
                     critical_readiness.append(cat_readiness)
 
             critical_avg = (
-                sum(critical_readiness) / len(critical_readiness) if critical_readiness else 0
+                sum(critical_readiness) / len(critical_readiness)
+                if critical_readiness
+                else 0
             )
 
             # 成功判定: 全体70%以上かつ重要カテゴリ80%以上
@@ -569,9 +596,13 @@ class FinalSystemIntegrationTest:
             # 成功率計算
             total_tests = len(self.results["test_results"])
             successful_tests = sum(
-                1 for result in self.results["test_results"].values() if result["success"]
+                1
+                for result in self.results["test_results"].values()
+                if result["success"]
             )
-            success_rate = (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            success_rate = (
+                (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            )
 
             # システム準備度評価
             system_readiness = {
@@ -581,7 +612,9 @@ class FinalSystemIntegrationTest:
                     else "good" if success_rate >= 70 else "needs_improvement"
                 ),
                 "monitoring_readiness": "ready" if success_rate >= 80 else "partial",
-                "integration_readiness": "ready" if success_rate >= 75 else "needs_work",
+                "integration_readiness": (
+                    "ready" if success_rate >= 75 else "needs_work"
+                ),
                 "production_readiness": "ready" if success_rate >= 85 else "not_ready",
                 "overall_system_health": (
                     "excellent"
@@ -647,7 +680,9 @@ class FinalSystemIntegrationTest:
                 "quality_metrics": quality_metrics,
                 "apm_assessment": apm_assessment,
                 "next_steps": next_steps,
-                "deployment_recommendation": "proceed" if success_rate >= 85 else "improve_first",
+                "deployment_recommendation": (
+                    "proceed" if success_rate >= 85 else "improve_first"
+                ),
             }
 
             self.results["final_assessment"] = final_assessment
@@ -668,8 +703,14 @@ class FinalSystemIntegrationTest:
             test_sequence = [
                 ("包括的設定検証", self.test_comprehensive_config_validation),
                 ("監視インフラ準備状況", self.test_monitoring_infrastructure_readiness),
-                ("アプリケーション統合準備状況", self.test_application_integration_readiness),
-                ("本番環境デプロイメント準備状況", self.test_production_deployment_readiness),
+                (
+                    "アプリケーション統合準備状況",
+                    self.test_application_integration_readiness,
+                ),
+                (
+                    "本番環境デプロイメント準備状況",
+                    self.test_production_deployment_readiness,
+                ),
             ]
 
             for test_name, test_func in test_sequence:
@@ -712,13 +753,17 @@ class FinalSystemIntegrationTest:
 
                 apm = assessment["apm_assessment"]
                 print("\nAPM・監視基盤評価:")
-                print(f"  監視基盤準備: {'OK' if apm['observability_platform_ready'] else 'NG'}")
+                print(
+                    f"  監視基盤準備: {'OK' if apm['observability_platform_ready'] else 'NG'}"
+                )
                 print(f"  SLO監視準備: {'OK' if apm['slo_monitoring_ready'] else 'NG'}")
                 print(
                     f"  ダッシュボード準備: {'OK' if apm['dashboard_generation_ready'] else 'NG'}"
                 )
                 print(f"  アラート準備: {'OK' if apm['alert_system_ready'] else 'NG'}")
-                print(f"  本番監視準備: {'OK' if apm['production_monitoring_ready'] else 'NG'}")
+                print(
+                    f"  本番監視準備: {'OK' if apm['production_monitoring_ready'] else 'NG'}"
+                )
 
                 recommendation = assessment["deployment_recommendation"]
                 print(f"\n配置推奨: {recommendation.upper()}")

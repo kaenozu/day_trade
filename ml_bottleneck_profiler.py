@@ -50,7 +50,9 @@ class SimpleProfiler:
         self.results = {}
         tracemalloc.start()
 
-    def profile_method(self, component_name: str, method_name: str, func, *args, **kwargs):
+    def profile_method(
+        self, component_name: str, method_name: str, func, *args, **kwargs
+    ):
         """Profile a single method execution"""
         # Initial memory
         initial_memory = tracemalloc.get_traced_memory()[0] / 1024 / 1024
@@ -88,7 +90,9 @@ class SimpleProfiler:
         }
 
         status = "[OK]" if success else "[ERROR]"
-        print(f"  {method_name}: {execution_time:.2f}s, {memory_increase:.1f}MB {status}")
+        print(
+            f"  {method_name}: {execution_time:.2f}s, {memory_increase:.1f}MB {status}"
+        )
 
         if not success:
             print(f"    Error: {error_msg}")
@@ -101,7 +105,9 @@ class SimpleProfiler:
 
         for key, data in self.results.items():
             if data["success"] and data["execution_time"] > threshold_seconds:
-                bottlenecks.append((key, data["execution_time"], data["memory_increase"]))
+                bottlenecks.append(
+                    (key, data["execution_time"], data["memory_increase"])
+                )
 
         # Sort by execution time
         bottlenecks.sort(key=lambda x: x[1], reverse=True)
@@ -152,9 +158,7 @@ OPTIMIZATION RECOMMENDATIONS:
         if bottlenecks:
             for method, exec_time, memory in bottlenecks[:3]:
                 if "prepare_ml_features" in method:
-                    report += (
-                        "- Feature preparation: Optimize pandas operations, use vectorization\n"
-                    )
+                    report += "- Feature preparation: Optimize pandas operations, use vectorization\n"
                 elif "train_" in method:
                     report += "- Model training: Consider hyperparameter tuning, early stopping\n"
                 elif "lstm" in method.lower():
@@ -188,8 +192,14 @@ def generate_test_data(days: int = 200) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Open": [p * np.random.uniform(0.995, 1.005) for p in prices],
-            "High": [max(o, c) * np.random.uniform(1.000, 1.02) for o, c in zip(prices, prices)],
-            "Low": [min(o, c) * np.random.uniform(0.98, 1.000) for o, c in zip(prices, prices)],
+            "High": [
+                max(o, c) * np.random.uniform(1.000, 1.02)
+                for o, c in zip(prices, prices)
+            ],
+            "Low": [
+                min(o, c) * np.random.uniform(0.98, 1.000)
+                for o, c in zip(prices, prices)
+            ],
             "Close": prices,
             "Volume": np.random.randint(1000000, 10000000, days),
         },

@@ -15,7 +15,7 @@ def test_performance_monitoring():
     """パフォーマンス監視機能のテスト"""
     print("=== パフォーマンス監視機能テスト ===")
 
-    symbols = ['7203', '6758']
+    symbols = ["7203", "6758"]
     monitor = get_performance_monitor()
 
     # テスト用の処理実行
@@ -38,8 +38,10 @@ def test_performance_monitoring():
 
     # ボトルネック分析
     bottlenecks = monitor.get_bottleneck_analysis(limit=5)
-    if bottlenecks['slowest_by_average']:
-        print(f"最も遅いプロセス: {bottlenecks['slowest_by_average'][0]['process_name']}")
+    if bottlenecks["slowest_by_average"]:
+        print(
+            f"最も遅いプロセス: {bottlenecks['slowest_by_average'][0]['process_name']}"
+        )
         print(f"平均実行時間: {bottlenecks['slowest_by_average'][0]['avg_time']:.3f}秒")
 
     print("=== パフォーマンス監視機能テスト完了 ===")
@@ -49,7 +51,7 @@ async def test_analysis_engine_with_monitoring():
     """監視機能付き分析エンジンのテスト"""
     print("=== 監視機能付き分析エンジンテスト ===")
 
-    symbols = ['7203']
+    symbols = ["7203"]
     engine = AnalysisOnlyEngine(symbols)
     monitor = get_performance_monitor()
 
@@ -61,7 +63,7 @@ async def test_analysis_engine_with_monitoring():
 
     # パフォーマンスサマリー確認
     summary = monitor.get_performance_summary(hours=1)
-    if summary['total_processes'] > 0:
+    if summary["total_processes"] > 0:
         print("パフォーマンス監視データ収集: OK")
         print(f"監視済みプロセス: {summary['total_processes']}個")
     else:
@@ -78,6 +80,7 @@ def test_alert_system():
 
     # カスタムアラートハンドラー
     alerts_received = []
+
     def test_alert_handler(alert):
         alerts_received.append(alert)
         print(f"アラート受信: {alert.alert_type} - {alert.message}")
@@ -119,6 +122,7 @@ def main():
     except Exception as e:
         print(f"❌ テスト失敗: {e}")
         import traceback
+
         traceback.print_exc()
 
 

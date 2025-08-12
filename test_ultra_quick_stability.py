@@ -76,8 +76,8 @@ def test_ultra_quick_stability():
 
         # 評価基準
         operations_ok = operation_count >= 15  # 最低15回操作
-        errors_ok = error_count <= 2          # 最大2回エラー
-        memory_ok = avg_memory <= 200         # 200MB以下
+        errors_ok = error_count <= 2  # 最大2回エラー
+        memory_ok = avg_memory <= 200  # 200MB以下
 
         passed = sum([operations_ok, errors_ok, memory_ok])
 
@@ -102,6 +102,7 @@ def test_ultra_quick_stability():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = test_ultra_quick_stability()

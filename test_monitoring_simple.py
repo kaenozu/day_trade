@@ -9,9 +9,10 @@ import time
 from datetime import datetime
 
 print("リアルタイムメトリクス・アラートシステム - 簡易テスト")
-print("="*60)
+print("=" * 60)
 print(f"実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print()
+
 
 async def test_basic_imports():
     """基本インポートテスト"""
@@ -24,6 +25,7 @@ async def test_basic_imports():
             get_metrics_collector,
             get_risk_metrics,
         )
+
         print("  OK メトリクス収集器インポート成功")
 
         collector = get_metrics_collector()
@@ -37,6 +39,7 @@ async def test_basic_imports():
     except Exception as e:
         print(f"  NG インポートエラー: {e}")
         return False
+
 
 async def test_metrics_collection():
     """メトリクス収集テスト"""
@@ -62,7 +65,7 @@ async def test_metrics_collection():
         print(f"  結果ステータス: {result.get('status', 'unknown')}")
 
         # リスクスコア更新テスト
-        risk_metrics.update_risk_score('test_component', 'TEST_SYMBOL', 0.75)
+        risk_metrics.update_risk_score("test_component", "TEST_SYMBOL", 0.75)
         print("  OK リスクスコア更新テスト完了")
 
         return True
@@ -70,6 +73,7 @@ async def test_metrics_collection():
     except Exception as e:
         print(f"  NG メトリクス収集エラー: {e}")
         return False
+
 
 async def test_metrics_server():
     """メトリクスサーバーテスト"""
@@ -100,6 +104,7 @@ async def test_metrics_server():
         print(f"  NG メトリクスサーバーエラー: {e}")
         return False
 
+
 async def main():
     """メイン実行"""
 
@@ -117,9 +122,9 @@ async def main():
         results.append(result3)
 
         # 結果表示
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("テスト結果サマリー")
-        print("="*60)
+        print("=" * 60)
 
         success_count = sum(results)
         total_count = len(results)
@@ -137,10 +142,11 @@ async def main():
         else:
             print("いくつかのテストが失敗しました。設定を確認してください。")
 
-        print("="*60)
+        print("=" * 60)
 
     except Exception as e:
         print(f"テスト実行エラー: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

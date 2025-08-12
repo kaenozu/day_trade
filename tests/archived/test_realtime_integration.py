@@ -20,6 +20,7 @@ try:
         RealtimeDataFeed,
         WebSocketClient,
     )
+
     REALTIME_AVAILABLE = True
 except ImportError:
     REALTIME_AVAILABLE = False
@@ -47,7 +48,7 @@ class MockWebSocketServer:
             "symbol": "7203",
             "price": 2850.0,
             "volume": 1000,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         for client in self.clients:
@@ -84,7 +85,7 @@ async def test_websocket_connection():
         client = WebSocketClient(config)
 
         # 接続はモック化（実際のサーバーがないため）
-        with patch.object(client, 'websocket') as mock_ws:
+        with patch.object(client, "websocket") as mock_ws:
             mock_ws.connect = Mock(return_value=asyncio.create_future())
             mock_ws.connect.return_value.set_result(mock_ws)
 
@@ -121,7 +122,7 @@ async def test_data_normalization():
             "price": "2850.0",
             "volume": "1000",
             "change": "+50.0",
-            "timestamp": "1234567890"
+            "timestamp": "1234567890",
         }
 
         # 正規化実行
@@ -172,7 +173,7 @@ async def test_realtime_feed():
         config = {
             "websocket_url": "ws://localhost:8765",
             "reconnect_attempts": 3,
-            "heartbeat_interval": 30
+            "heartbeat_interval": 30,
         }
 
         # フィード作成
@@ -186,7 +187,7 @@ async def test_realtime_feed():
             print(f"受信データ: {data.symbol} - {data.price}")
 
         # テスト実行（モック化）
-        with patch.object(feed, '_websocket_client') as mock_client:
+        with patch.object(feed, "_websocket_client") as mock_client:
             mock_client.connect = Mock(return_value=asyncio.create_future())
             mock_client.connect.return_value.set_result(True)
 
@@ -198,10 +199,7 @@ async def test_realtime_feed():
 
             # テストデータ送信（シミュレート）
             test_data = MarketData(
-                symbol="7203",
-                price=2850.0,
-                volume=1000,
-                timestamp=time.time()
+                symbol="7203", price=2850.0, volume=1000, timestamp=time.time()
             )
 
             # コールバック実行
@@ -237,7 +235,7 @@ async def test_performance_benchmark():
             "symbol": f"TEST{i%10}",
             "price": 1000.0 + i,
             "volume": 100 + i,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         # JSON serialize/deserialize (実際の処理をシミュレート)
@@ -334,16 +332,18 @@ def create_test_report(error: str = None):
     ]
 
     if error:
-        report.extend([
-            "",
-            "## エラー詳細",
-            "",
-            "```",
-            f"{error}",
-            "```",
-            "",
-            "**注:** エラーは開発環境の制限によるものであり、基本機能は確認済みです。"
-        ])
+        report.extend(
+            [
+                "",
+                "## エラー詳細",
+                "",
+                "```",
+                f"{error}",
+                "```",
+                "",
+                "**注:** エラーは開発環境の制限によるものであり、基本機能は確認済みです。",
+            ]
+        )
 
     with open("websocket_test_report.md", "w", encoding="utf-8") as f:
         f.write("\n".join(report))
@@ -354,10 +354,12 @@ def create_test_report(error: str = None):
 if __name__ == "__main__":
     # Windows環境での文字エンコーディング対応
     import sys
-    if sys.platform.startswith('win'):
+
+    if sys.platform.startswith("win"):
         import locale
+
         with contextlib.suppress(builtins.BaseException):
-            locale.setlocale(locale.LC_ALL, 'Japanese_Japan.932')
+            locale.setlocale(locale.LC_ALL, "Japanese_Japan.932")
 
     # テスト実行
     asyncio.run(main())

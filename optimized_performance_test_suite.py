@@ -237,7 +237,9 @@ class OptimizedPerformanceTestSuite:
             # 10,000行のテストデータ
             data = pd.DataFrame(
                 {
-                    "timestamp": pd.date_range("2023-01-01", periods=10000, freq="1min"),
+                    "timestamp": pd.date_range(
+                        "2023-01-01", periods=10000, freq="1min"
+                    ),
                     "price": np.random.uniform(100, 200, 10000),
                     "volume": np.random.randint(1000, 100000, 10000),
                 }
@@ -252,7 +254,9 @@ class OptimizedPerformanceTestSuite:
 
             return len(aggregated)
 
-        return self.run_performance_test("データ読み込み・処理", load_test_data, iterations=50)
+        return self.run_performance_test(
+            "データ読み込み・処理", load_test_data, iterations=50
+        )
 
     def test_computation_performance(self) -> PerformanceMetrics:
         """計算性能テスト"""
@@ -278,7 +282,9 @@ class OptimizedPerformanceTestSuite:
 
             return stats["mean"]
 
-        return self.run_performance_test("数値計算処理", computation_test, iterations=20)
+        return self.run_performance_test(
+            "数値計算処理", computation_test, iterations=20
+        )
 
     def test_concurrent_processing(self) -> PerformanceMetrics:
         """並行処理性能テスト"""
@@ -336,7 +342,8 @@ class OptimizedPerformanceTestSuite:
                 # JSON データ書き込み
                 test_data = {
                     "records": [
-                        {"id": i, "value": i * 1.5, "flag": i % 2 == 0} for i in range(1000)
+                        {"id": i, "value": i * 1.5, "flag": i % 2 == 0}
+                        for i in range(1000)
                     ]
                 }
                 json.dump(test_data, f)
@@ -384,7 +391,9 @@ class OptimizedPerformanceTestSuite:
         # メモリ使用量分析
         memory_heavy = [m for m in metrics if m.memory_usage_mb > 100]  # 100MB以上
         if memory_heavy:
-            bottlenecks.append(f"メモリ使用量: {len(memory_heavy)}個のテストが100MB以上")
+            bottlenecks.append(
+                f"メモリ使用量: {len(memory_heavy)}個のテストが100MB以上"
+            )
 
         # CPU使用率分析
         cpu_intensive = [m for m in metrics if m.cpu_usage_percent > 80]
@@ -394,12 +403,16 @@ class OptimizedPerformanceTestSuite:
         # スループット分析
         low_throughput = [m for m in metrics if m.throughput < 10]  # 10 ops/sec未満
         if low_throughput:
-            bottlenecks.append(f"スループット: {len(low_throughput)}個のテストが10ops/sec未満")
+            bottlenecks.append(
+                f"スループット: {len(low_throughput)}個のテストが10ops/sec未満"
+            )
 
         # レイテンシ分析
         high_latency = [m for m in metrics if m.latency_p95 > 0.1]  # P95が100ms以上
         if high_latency:
-            bottlenecks.append(f"レイテンシ: {len(high_latency)}個のテストでP95が100ms以上")
+            bottlenecks.append(
+                f"レイテンシ: {len(high_latency)}個のテストでP95が100ms以上"
+            )
 
         return bottlenecks
 
@@ -434,7 +447,9 @@ class OptimizedPerformanceTestSuite:
             )
 
         if any("スループット" in b for b in bottlenecks):
-            recommendations.extend(["バッチ処理の導入", "接続プールの最適化", "I/O待機の削減"])
+            recommendations.extend(
+                ["バッチ処理の導入", "接続プールの最適化", "I/O待機の削減"]
+            )
 
         if any("レイテンシ" in b for b in bottlenecks):
             recommendations.extend(
@@ -511,7 +526,9 @@ class OptimizedPerformanceTestSuite:
 
         # 分析
         bottlenecks = self.analyze_bottlenecks(test_metrics)
-        recommendations = self.generate_optimization_recommendations(test_metrics, bottlenecks)
+        recommendations = self.generate_optimization_recommendations(
+            test_metrics, bottlenecks
+        )
 
         total_time = time.time() - start_time
 
@@ -577,7 +594,9 @@ CPU使用率: {result.system_resources.cpu_percent:.1f}%
 
         return report
 
-    def save_performance_report(self, result: PerformanceTestResult, filename: str = None) -> str:
+    def save_performance_report(
+        self, result: PerformanceTestResult, filename: str = None
+    ) -> str:
         """パフォーマンスレポート保存"""
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -66,7 +66,9 @@ class AIBacktestEngine:
         self.trades: List[Trade] = []
         self.equity_curve: List[float] = []
 
-    def generate_test_data(self, symbols: List[str], days: int = 150) -> Dict[str, pd.DataFrame]:
+    def generate_test_data(
+        self, symbols: List[str], days: int = 150
+    ) -> Dict[str, pd.DataFrame]:
         """Generate test market data"""
 
         data = {}
@@ -95,7 +97,13 @@ class AIBacktestEngine:
             volumes = np.random.randint(1000, 50000, days)
 
             data[symbol] = pd.DataFrame(
-                {"Open": opens, "High": highs, "Low": lows, "Close": closes, "Volume": volumes},
+                {
+                    "Open": opens,
+                    "High": highs,
+                    "Low": lows,
+                    "Close": closes,
+                    "Volume": volumes,
+                },
                 index=dates,
             )
 
@@ -196,7 +204,9 @@ class AIBacktestEngine:
             current_prices = {}
             for symbol in symbols:
                 if current_date in historical_data[symbol].index:
-                    current_prices[symbol] = historical_data[symbol].loc[current_date, "Close"]
+                    current_prices[symbol] = historical_data[symbol].loc[
+                        current_date, "Close"
+                    ]
 
             # AI decision & trade execution
             for symbol in symbols:
@@ -207,8 +217,13 @@ class AIBacktestEngine:
                 ai_decision = self.ai_decision(symbol, historical_data[symbol], i)
 
                 # Execute trade
-                if ai_decision["action"] in ["BUY", "SELL"] and ai_decision["confidence"] > 0.5:
-                    self.execute_trade(symbol, ai_decision, current_prices[symbol], current_date)
+                if (
+                    ai_decision["action"] in ["BUY", "SELL"]
+                    and ai_decision["confidence"] > 0.5
+                ):
+                    self.execute_trade(
+                        symbol, ai_decision, current_prices[symbol], current_date
+                    )
 
             # Update portfolio value
             portfolio_value = self.calculate_portfolio_value(current_prices)
@@ -230,7 +245,9 @@ class AIBacktestEngine:
 
         return result
 
-    def execute_trade(self, symbol: str, decision: Dict, price: float, timestamp: datetime):
+    def execute_trade(
+        self, symbol: str, decision: Dict, price: float, timestamp: datetime
+    ):
         """Execute trade"""
 
         confidence = decision["confidence"]
@@ -288,7 +305,9 @@ class AIBacktestEngine:
 
         # Basic statistics
         final_value = self.equity_curve[-1]
-        total_return = (final_value - self.config.initial_capital) / self.config.initial_capital
+        total_return = (
+            final_value - self.config.initial_capital
+        ) / self.config.initial_capital
 
         # Return series
         returns = pd.Series(self.equity_curve).pct_change().dropna()
@@ -411,7 +430,9 @@ def test_ai_backtest_system():
 
         success_rate = criteria_met / total_criteria
 
-        print(f"\nCriteria Achievement Rate: {criteria_met}/{total_criteria} ({success_rate:.1%})")
+        print(
+            f"\nCriteria Achievement Rate: {criteria_met}/{total_criteria} ({success_rate:.1%})"
+        )
 
         if success_rate >= 0.8:
             print("SUCCESS: Backtest system validation complete!")

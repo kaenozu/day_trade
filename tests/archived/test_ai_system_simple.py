@@ -33,7 +33,10 @@ def test_system_components():
         from src.day_trade.data.advanced_ml_engine import ModelConfig
 
         config = ModelConfig(
-            lstm_hidden_size=32, transformer_d_model=64, sequence_length=20, num_features=5
+            lstm_hidden_size=32,
+            transformer_d_model=64,
+            sequence_length=20,
+            num_features=5,
         )
         test_results.append(("MLエンジン初期化", True, "設定作成成功"))
         print("      成功: ML設定作成")
@@ -81,7 +84,9 @@ def test_system_components():
         sentiment_engine = create_sentiment_engine()
 
         # テスト分析
-        test_text = "The stock market shows positive momentum today with strong earnings."
+        test_text = (
+            "The stock market shows positive momentum today with strong earnings."
+        )
         result = sentiment_engine.analyze_text(test_text)
 
         test_results.append(
@@ -91,7 +96,9 @@ def test_system_components():
                 f"分析成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})",
             )
         )
-        print(f"      成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})")
+        print(
+            f"      成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})"
+        )
     except Exception as e:
         test_results.append(("センチメント分析", False, str(e)))
         print(f"      失敗: {e}")
@@ -105,7 +112,9 @@ def test_system_components():
         )
 
         request = DataRequest(symbol="TEST", period="30d", preprocessing=True)
-        fetcher = AdvancedBatchDataFetcher(max_workers=2, enable_kafka=False, enable_redis=False)
+        fetcher = AdvancedBatchDataFetcher(
+            max_workers=2, enable_kafka=False, enable_redis=False
+        )
 
         stats = fetcher.get_pipeline_stats()
 
@@ -201,14 +210,18 @@ def test_end_to_end_pipeline():
         }
 
         pipeline_results["ml_prediction"] = ml_prediction
-        print(f"ML予測: 現在価格={last_price:.2f}, 予測価格={ml_prediction['predicted_price']:.2f}")
+        print(
+            f"ML予測: 現在価格={last_price:.2f}, 予測価格={ml_prediction['predicted_price']:.2f}"
+        )
 
         # Step 3: センチメント分析
         print("Step 3: センチメント分析実行中...")
         from src.day_trade.sentiment.sentiment_engine import create_sentiment_engine
 
         sentiment_engine = create_sentiment_engine()
-        test_news = "Market shows positive trends with strong investor confidence today."
+        test_news = (
+            "Market shows positive trends with strong investor confidence today."
+        )
         sentiment_result = sentiment_engine.analyze_text(test_news)
 
         pipeline_results["sentiment_analysis"] = {
@@ -226,7 +239,9 @@ def test_end_to_end_pipeline():
 
         ml_signal = 1 if predicted_return > 0 else -1
         sentiment_signal = 1 if sentiment_result.sentiment_score > 0 else -1
-        confidence_weight = (ml_prediction["confidence"] + sentiment_result.confidence) / 2
+        confidence_weight = (
+            ml_prediction["confidence"] + sentiment_result.confidence
+        ) / 2
 
         final_signal = (ml_signal * 0.6 + sentiment_signal * 0.4) * confidence_weight
 

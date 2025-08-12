@@ -56,7 +56,9 @@ def demo_rich_interface():
     header_text.append(" | 最終更新: 2025-08-01 15:30:45", style="dim")
     header_text.append(" | 表示: dashboard", style="yellow")
 
-    layout["header"].update(Panel(Align.center(header_text), box=box.ROUNDED, style="blue"))
+    layout["header"].update(
+        Panel(Align.center(header_text), box=box.ROUNDED, style="blue")
+    )
 
     # メイン左側 - 市場サマリー
     market_table = Table(title="📈 市場サマリー", box=box.ROUNDED)
@@ -97,10 +99,14 @@ def demo_rich_interface():
     # フッター
     footer_text = Text()
     footer_text.append("操作: ", style="bold")
-    footer_text.append("[1]Dashboard [2]Watchlist [3]Portfolio [4]Alerts ", style="cyan")
+    footer_text.append(
+        "[1]Dashboard [2]Watchlist [3]Portfolio [4]Alerts ", style="cyan"
+    )
     footer_text.append("[R]更新 [H]ヘルプ [Q]終了", style="yellow")
 
-    layout["footer"].update(Panel(Align.center(footer_text), box=box.ROUNDED, style="green"))
+    layout["footer"].update(
+        Panel(Align.center(footer_text), box=box.ROUNDED, style="green")
+    )
 
     # 静的表示
     console.print(layout)
@@ -117,7 +123,9 @@ def demo_rich_interface():
             current_time = time.strftime("%H:%M:%S")
 
             demo_text = Text()
-            demo_text.append(f"リアルタイム更新デモ: {current_time}\n", style="bold green")
+            demo_text.append(
+                f"リアルタイム更新デモ: {current_time}\n", style="bold green"
+            )
             demo_text.append(f"更新回数: {i + 1}/10\n", style="cyan")
             demo_text.append("データ取得中", style="yellow")
 

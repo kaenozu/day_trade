@@ -42,24 +42,20 @@ async def test_nextgen_backtest_comprehensive():
         initial_capital=10000000.0,  # 1000万円
         max_position_size=0.15,  # 最大15%ポジション
         transaction_cost=0.001,  # 0.1%取引コスト
-
         # AI設定
         enable_ml_engine=True,
         enable_rl_agent=True,
         enable_sentiment=True,
-
         # ML設定
         ml_sequence_length=30,  # 短縮
         ml_prediction_threshold=0.5,
-
         # RL設定
         rl_training_episodes=20,  # 短縮
         rl_exploration_rate=0.1,
-
         # リスク管理
         max_drawdown=0.20,
         stop_loss=0.08,
-        take_profit=0.15
+        take_profit=0.15,
     )
 
     print("テスト設定:")
@@ -139,7 +135,9 @@ async def test_nextgen_backtest_comprehensive():
             risk_grade = "D (危険)"
 
         # AI統合評価
-        ai_avg_score = (result.ml_accuracy + result.rl_success_rate + result.sentiment_correlation) / 3
+        ai_avg_score = (
+            result.ml_accuracy + result.rl_success_rate + result.sentiment_correlation
+        ) / 3
         if ai_avg_score > 0.8:
             ai_grade = "A (優秀)"
         elif ai_avg_score > 0.7:
@@ -158,21 +156,33 @@ async def test_nextgen_backtest_comprehensive():
         if result.trades:
             print("📋 取引詳細（最初の5件）:")
             for i, trade in enumerate(result.trades[:5]):
-                ml_conf = trade.ml_prediction.get('confidence', 0) if trade.ml_prediction else 0
-                rl_conf = trade.rl_decision.get('confidence', 0) if trade.rl_decision else 0
-                sent_score = trade.sentiment_analysis.get('score', 0) if trade.sentiment_analysis else 0
+                ml_conf = (
+                    trade.ml_prediction.get("confidence", 0)
+                    if trade.ml_prediction
+                    else 0
+                )
+                rl_conf = (
+                    trade.rl_decision.get("confidence", 0) if trade.rl_decision else 0
+                )
+                sent_score = (
+                    trade.sentiment_analysis.get("score", 0)
+                    if trade.sentiment_analysis
+                    else 0
+                )
 
-                print(f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
-                      f"{trade.action} {trade.symbol} "
-                      f"qty:{trade.quantity:.1f} @¥{trade.price:.0f} "
-                      f"(ML:{ml_conf:.2f} RL:{rl_conf:.2f} 感情:{sent_score:+.2f})")
+                print(
+                    f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
+                    f"{trade.action} {trade.symbol} "
+                    f"qty:{trade.quantity:.1f} @¥{trade.price:.0f} "
+                    f"(ML:{ml_conf:.2f} RL:{rl_conf:.2f} 感情:{sent_score:+.2f})"
+                )
 
         # 成功判定
         overall_success = (
-            result.total_return > 0 and
-            result.max_drawdown < 0.25 and
-            result.total_trades > 0 and
-            result.backtest_duration < 300  # 5分以内
+            result.total_return > 0
+            and result.max_drawdown < 0.25
+            and result.total_trades > 0
+            and result.backtest_duration < 300  # 5分以内
         )
 
         print()
@@ -191,8 +201,10 @@ async def test_nextgen_backtest_comprehensive():
     except Exception as e:
         print(f"❌ Next-Gen AIバックテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 async def test_individual_components():
     """個別コンポーネントテスト"""
@@ -218,7 +230,7 @@ async def test_individual_components():
             initial_capital=5000000.0,
             enable_ml_engine=False,
             enable_rl_agent=True,
-            enable_sentiment=True
+            enable_sentiment=True,
         )
         custom_engine = NextGenBacktestEngine(custom_config)
         print("   ✅ カスタム設定成功")
@@ -240,7 +252,7 @@ async def test_individual_components():
             action="BUY",
             quantity=100,
             price=1000.0,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         trade_value = test_trade.get_trade_value()
@@ -253,6 +265,7 @@ async def test_individual_components():
 
     print("✅ 全個別コンポーネントテスト合格")
     return True
+
 
 async def main():
     """メイン実行関数"""
@@ -292,6 +305,7 @@ async def main():
         print("   ログを確認して改善してください。")
 
     return overall_success
+
 
 if __name__ == "__main__":
     success = asyncio.run(main())

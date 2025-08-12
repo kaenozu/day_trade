@@ -35,10 +35,16 @@ def test_safe_mode_configuration():
     safe_mode = is_safe_mode()
 
     print(f"Safe mode: {'ENABLED' if safe_mode else 'DISABLED'}")
-    print(f"Auto trading: {'DISABLED' if not config.enable_automatic_trading else 'ENABLED'}")
-    print(f"Order execution: {'DISABLED' if not config.enable_order_execution else 'ENABLED'}")
+    print(
+        f"Auto trading: {'DISABLED' if not config.enable_automatic_trading else 'ENABLED'}"
+    )
+    print(
+        f"Order execution: {'DISABLED' if not config.enable_order_execution else 'ENABLED'}"
+    )
     print(f"Order API: {'DISABLED' if config.disable_order_api else 'ENABLED'}")
-    print(f"Manual confirmation: {'REQUIRED' if config.require_manual_confirmation else 'NOT REQUIRED'}")
+    print(
+        f"Manual confirmation: {'REQUIRED' if config.require_manual_confirmation else 'NOT REQUIRED'}"
+    )
 
     validation = config.validate_configuration()
     print("\nConfiguration validation:")
@@ -71,14 +77,16 @@ def test_trading_engine_safety():
         print(f"Trading disabled: {'YES' if status['trading_disabled'] else 'NO'}")
         print(f"Monitored symbols: {status['monitored_symbols']}")
 
-        assert status['safe_mode'], "TradingEngine is not in safe mode"
-        assert status['trading_disabled'], "Trading functionality is enabled"
+        assert status["safe_mode"], "TradingEngine is not in safe mode"
+        assert status["trading_disabled"], "Trading functionality is enabled"
 
         print("\n[OK] TradingEngine safety test: PASSED")
 
     except ValueError as e:
         if "safe mode" in str(e).lower():
-            print("\n[OK] TradingEngine safety check: Works correctly (initialization rejected)")
+            print(
+                "\n[OK] TradingEngine safety check: Works correctly (initialization rejected)"
+            )
         else:
             raise e
 
@@ -100,8 +108,8 @@ def test_analysis_only_engine():
         print(f"Safe mode: {'ENABLED' if status['safe_mode'] else 'DISABLED'}")
         print(f"Trading disabled: {'YES' if status['trading_disabled'] else 'NO'}")
 
-        assert status['safe_mode'], "Analysis engine is not in safe mode"
-        assert status['trading_disabled'], "Trading functionality is enabled"
+        assert status["safe_mode"], "Analysis engine is not in safe mode"
+        assert status["trading_disabled"], "Trading functionality is enabled"
 
         recommendations = engine.get_symbol_recommendations("7203")
         print("\n7203 recommendations:")

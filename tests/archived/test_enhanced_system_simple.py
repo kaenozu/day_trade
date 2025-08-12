@@ -36,7 +36,7 @@ async def test_advanced_order_manager():
         order_type=OrderType.LIMIT,
         side=TradeType.BUY,
         quantity=100,
-        price=Decimal("2500.0")
+        price=Decimal("2500.0"),
     )
 
     start_time = time.time()
@@ -58,7 +58,7 @@ async def test_advanced_order_manager():
         order_type=OrderType.LIMIT,
         side=TradeType.SELL,
         quantity=50,
-        price=Decimal("3000.0")
+        price=Decimal("3000.0"),
     )
 
     secondary = Order(
@@ -66,18 +66,22 @@ async def test_advanced_order_manager():
         order_type=OrderType.STOP,
         side=TradeType.SELL,
         quantity=50,
-        stop_price=Decimal("2800.0")
+        stop_price=Decimal("2800.0"),
     )
 
     start_time = time.time()
     primary_id, secondary_id = await manager.submit_oco_order(primary, secondary)
     oco_time = time.time() - start_time
 
-    print(f"[+] OCO order submit: {primary_id[:8]}/{secondary_id[:8]} - time: {oco_time*1000:.1f}ms")
+    print(
+        f"[+] OCO order submit: {primary_id[:8]}/{secondary_id[:8]} - time: {oco_time*1000:.1f}ms"
+    )
 
     # 統計確認
     stats = manager.get_execution_statistics()
-    print(f"[*] Order stats: submitted={stats['orders_submitted']}, cancelled={stats['orders_cancelled']}")
+    print(
+        f"[*] Order stats: submitted={stats['orders_submitted']}, cancelled={stats['orders_cancelled']}"
+    )
 
     print("[+] AdvancedOrderManager test completed\n")
 
@@ -90,9 +94,36 @@ def test_portfolio_manager():
 
     # 取引追加のパフォーマンステスト
     trades = [
-        Trade("t1", "7203", TradeType.BUY, 100, Decimal("2500.0"), time=None, commission=Decimal("25.0"), status="executed"),
-        Trade("t2", "6758", TradeType.BUY, 200, Decimal("3000.0"), time=None, commission=Decimal("50.0"), status="executed"),
-        Trade("t3", "9984", TradeType.SELL, 50, Decimal("8000.0"), time=None, commission=Decimal("40.0"), status="executed"),
+        Trade(
+            "t1",
+            "7203",
+            TradeType.BUY,
+            100,
+            Decimal("2500.0"),
+            time=None,
+            commission=Decimal("25.0"),
+            status="executed",
+        ),
+        Trade(
+            "t2",
+            "6758",
+            TradeType.BUY,
+            200,
+            Decimal("3000.0"),
+            time=None,
+            commission=Decimal("50.0"),
+            status="executed",
+        ),
+        Trade(
+            "t3",
+            "9984",
+            TradeType.SELL,
+            50,
+            Decimal("8000.0"),
+            time=None,
+            commission=Decimal("40.0"),
+            status="executed",
+        ),
     ]
 
     start_time = time.time()
@@ -121,7 +152,9 @@ def test_portfolio_manager():
     summary_time = time.time() - start_time
 
     print(f"✅ サマリー取得 - 実行時間: {summary_time*1000:.1f}ms")
-    print(f"📊 ポートフォリオ: 総資産={summary.total_equity:,}, ポジション数={summary.total_positions}")
+    print(
+        f"📊 ポートフォリオ: 総資産={summary.total_equity:,}, ポジション数={summary.total_positions}"
+    )
 
     # リスクチェック
     start_time = time.time()
@@ -129,7 +162,9 @@ def test_portfolio_manager():
     risk_time = time.time() - start_time
 
     print(f"✅ リスクチェック - 実行時間: {risk_time*1000:.1f}ms")
-    print(f"📊 リスク: 違反={risk_check['total_violations']}, スコア={risk_check['risk_score']:.2f}")
+    print(
+        f"📊 リスク: 違反={risk_check['total_violations']}, スコア={risk_check['risk_score']:.2f}"
+    )
 
     print("✅ PortfolioManager テスト完了\n")
 
@@ -143,7 +178,7 @@ async def test_enhanced_trading_engine():
         symbols=["7203", "6758"],
         execution_mode=ExecutionMode.BALANCED,
         initial_cash=Decimal("500000"),
-        update_interval=0.5  # テスト用短縮
+        update_interval=0.5,  # テスト用短縮
     )
 
     print(f"✅ エンジン初期化: {len(engine.symbols)}銘柄監視")
@@ -194,7 +229,11 @@ def test_execution_modes():
     """実行モード比較テスト"""
     print("⚖️ ExecutionMode 比較テスト")
 
-    modes = [ExecutionMode.CONSERVATIVE, ExecutionMode.BALANCED, ExecutionMode.AGGRESSIVE]
+    modes = [
+        ExecutionMode.CONSERVATIVE,
+        ExecutionMode.BALANCED,
+        ExecutionMode.AGGRESSIVE,
+    ]
 
     for mode in modes:
         engine = EnhancedTradingEngine(
@@ -227,7 +266,7 @@ async def performance_stress_test():
             order_type=OrderType.LIMIT,
             side=TradeType.BUY if i % 2 == 0 else TradeType.SELL,
             quantity=100,
-            price=Decimal("2500.0")
+            price=Decimal("2500.0"),
         )
         orders.append(order)
 
@@ -255,7 +294,9 @@ async def performance_stress_test():
 
     # 統計確認
     stats = manager.get_execution_statistics()
-    print(f"📊 最終統計: 提出={stats['orders_submitted']}, キャンセル={stats['orders_cancelled']}")
+    print(
+        f"📊 最終統計: 提出={stats['orders_submitted']}, キャンセル={stats['orders_cancelled']}"
+    )
 
     print("✅ パフォーマンス負荷テスト完了\n")
 
@@ -283,6 +324,7 @@ async def main():
     except Exception as e:
         print(f"❌ テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
 
 

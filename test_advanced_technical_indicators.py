@@ -54,15 +54,25 @@ async def test_bollinger_bands_optimized():
 
         # 結果検証
         assert hasattr(result, "signal"), "Signal attribute missing"
-        assert result.signal in ["BUY", "SELL", "HOLD"], f"Invalid signal: {result.signal}"
+        assert result.signal in [
+            "BUY",
+            "SELL",
+            "HOLD",
+        ], f"Invalid signal: {result.signal}"
         assert 0 <= result.confidence <= 1, f"Invalid confidence: {result.confidence}"
-        assert 0 <= result.bb_position <= 1, f"Invalid BB position: {result.bb_position}"
-        assert result.squeeze_ratio > 0, f"Invalid squeeze ratio: {result.squeeze_ratio}"
+        assert (
+            0 <= result.bb_position <= 1
+        ), f"Invalid BB position: {result.bb_position}"
+        assert (
+            result.squeeze_ratio > 0
+        ), f"Invalid squeeze ratio: {result.squeeze_ratio}"
         assert (
             0 <= result.performance_score <= 1
         ), f"Invalid performance score: {result.performance_score}"
 
-        print(f"[OK] BB Analysis: {result.signal} (confidence: {result.confidence:.2%})")
+        print(
+            f"[OK] BB Analysis: {result.signal} (confidence: {result.confidence:.2%})"
+        )
         print(
             f"[OK] BB Position: {result.bb_position:.3f}, Squeeze Ratio: {result.squeeze_ratio:.3f}"
         )
@@ -116,7 +126,9 @@ async def test_ichimoku_cloud_optimized():
         print("[OK] Ichimoku analyzer initialization success")
 
         # 分析実行
-        result = await analyzer.analyze_ichimoku_cloud_optimized(test_data, "TEST_ICHIMOKU")
+        result = await analyzer.analyze_ichimoku_cloud_optimized(
+            test_data, "TEST_ICHIMOKU"
+        )
 
         # 結果検証
         assert hasattr(result, "overall_signal"), "Overall signal attribute missing"
@@ -144,8 +156,12 @@ async def test_ichimoku_cloud_optimized():
             f"[OK] Ichimoku Analysis: {result.overall_signal} (confidence: {result.confidence:.2%})"
         )
         print(f"[OK] Price vs Cloud: {result.price_vs_cloud}")
-        print(f"[OK] TK Cross: {result.tk_cross}, Chikou Signal: {result.chikou_signal}")
-        print(f"[OK] Cloud Color: {result.cloud_color}, Thickness: {result.cloud_thickness:.2f}")
+        print(
+            f"[OK] TK Cross: {result.tk_cross}, Chikou Signal: {result.chikou_signal}"
+        )
+        print(
+            f"[OK] Cloud Color: {result.cloud_color}, Thickness: {result.cloud_thickness:.2f}"
+        )
         print(f"[OK] Trend Strength: {result.trend_strength:.3f}")
         print(f"[OK] Performance Score: {result.performance_score:.3f}")
 
@@ -176,10 +192,16 @@ async def test_batch_analysis():
 
             test_data = pd.DataFrame(
                 {
-                    "Open": np.random.uniform(base_price * 0.98, base_price * 1.02, 120),
-                    "High": np.random.uniform(base_price * 1.01, base_price * 1.05, 120),
+                    "Open": np.random.uniform(
+                        base_price * 0.98, base_price * 1.02, 120
+                    ),
+                    "High": np.random.uniform(
+                        base_price * 1.01, base_price * 1.05, 120
+                    ),
                     "Low": np.random.uniform(base_price * 0.95, base_price * 0.99, 120),
-                    "Close": np.random.uniform(base_price * 0.99, base_price * 1.01, 120),
+                    "Close": np.random.uniform(
+                        base_price * 0.99, base_price * 1.01, 120
+                    ),
                     "Volume": np.random.randint(300000, 1500000, 120),
                 },
                 index=dates,
@@ -210,7 +232,9 @@ async def test_batch_analysis():
             if "bollinger_bands" in symbol_results:
                 bb_result = symbol_results["bollinger_bands"]
                 assert hasattr(bb_result, "signal"), f"BB signal missing for {symbol}"
-                print(f"[OK] {symbol} BB: {bb_result.signal} ({bb_result.confidence:.1%})")
+                print(
+                    f"[OK] {symbol} BB: {bb_result.signal} ({bb_result.confidence:.1%})"
+                )
 
             if "ichimoku_cloud" in symbol_results:
                 ichimoku_result = symbol_results["ichimoku_cloud"]
@@ -264,7 +288,9 @@ async def test_performance_stats():
         print(f"[STATS] Total analyses: {stats['total_analyses']}")
         print(f"[STATS] Cache hit rate: {stats['cache_hit_rate']:.1%}")
         print(f"[STATS] Parallel usage rate: {stats['parallel_usage_rate']:.1%}")
-        print(f"[STATS] Average processing time: {stats['avg_processing_time_ms']:.1f}ms")
+        print(
+            f"[STATS] Average processing time: {stats['avg_processing_time_ms']:.1f}ms"
+        )
 
         # 最適化効果
         benefits = stats["optimization_benefits"]
@@ -306,11 +332,15 @@ async def test_cache_functionality():
         analyzer_cached = AdvancedTechnicalIndicatorsOptimized(enable_cache=True)
 
         # 初回分析（キャッシュミス）
-        result1 = await analyzer_cached.analyze_bollinger_bands_optimized(test_data, "CACHE_TEST")
+        result1 = await analyzer_cached.analyze_bollinger_bands_optimized(
+            test_data, "CACHE_TEST"
+        )
         stats_after_first = analyzer_cached.get_optimization_performance_stats()
 
         # 同一分析（キャッシュヒット期待）
-        result2 = await analyzer_cached.analyze_bollinger_bands_optimized(test_data, "CACHE_TEST")
+        result2 = await analyzer_cached.analyze_bollinger_bands_optimized(
+            test_data, "CACHE_TEST"
+        )
         stats_after_second = analyzer_cached.get_optimization_performance_stats()
 
         # キャッシュヒット検証
@@ -318,8 +348,12 @@ async def test_cache_functionality():
             stats_after_second["cache_hit_rate"] > stats_after_first["cache_hit_rate"]
         )
 
-        print(f"[OK] First analysis cache hit rate: {stats_after_first['cache_hit_rate']:.1%}")
-        print(f"[OK] Second analysis cache hit rate: {stats_after_second['cache_hit_rate']:.1%}")
+        print(
+            f"[OK] First analysis cache hit rate: {stats_after_first['cache_hit_rate']:.1%}"
+        )
+        print(
+            f"[OK] Second analysis cache hit rate: {stats_after_second['cache_hit_rate']:.1%}"
+        )
         print(f"[OK] Cache hit rate increased: {cache_hit_increased}")
         print(f"[OK] Results consistency: {result1.signal == result2.signal}")
 
@@ -339,7 +373,9 @@ async def main():
     test_results = []
 
     # 各テスト実行
-    test_results.append(("Bollinger Bands最適化", await test_bollinger_bands_optimized()))
+    test_results.append(
+        ("Bollinger Bands最適化", await test_bollinger_bands_optimized())
+    )
     test_results.append(("Ichimoku Cloud最適化", await test_ichimoku_cloud_optimized()))
     test_results.append(("バッチ分析", await test_batch_analysis()))
     test_results.append(("パフォーマンス統計", await test_performance_stats()))
