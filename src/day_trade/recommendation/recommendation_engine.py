@@ -31,11 +31,11 @@ logger = get_context_logger(__name__)
 
 class RecommendationAction(Enum):
     """推奨アクション"""
-    STRONG_BUY = "🔥 今すぐ買い"
-    BUY = "📈 買い"
-    HOLD = "⏸️ 様子見"
-    SELL = "📉 売り"
-    STRONG_SELL = "⚠️ 今すぐ売り"
+    STRONG_BUY = "[STRONG_BUY] 今すぐ買い"
+    BUY = "[BUY] 買い"
+    HOLD = "[HOLD] 様子見"
+    SELL = "[SELL] 売り"
+    STRONG_SELL = "[STRONG_SELL] 今すぐ売り"
 
 
 @dataclass
