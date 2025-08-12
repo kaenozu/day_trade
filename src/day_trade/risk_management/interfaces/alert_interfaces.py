@@ -3,7 +3,7 @@
 Alert Management Interfaces
 アラート管理インターフェース
 
-Slack、Email、SMS等の各種通知チャネルに対応した抽象インターフェース
+Slack、Email、Webhook等の各種通知チャネルに対応した抽象インターフェース
 """
 
 from abc import ABC, abstractmethod
@@ -37,10 +37,7 @@ class NotificationChannel(Enum):
 
     SLACK = "slack"
     EMAIL = "email"
-    SMS = "sms"
     WEBHOOK = "webhook"
-    DASHBOARD = "dashboard"
-    PUSH_NOTIFICATION = "push"
 
 
 @dataclass

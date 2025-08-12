@@ -23,13 +23,7 @@ class NotificationChannelType(Enum):
 
     EMAIL = "email"
     SLACK = "slack"
-    DISCORD = "discord"
-    TEAMS = "teams"
-    SMS = "sms"
     WEBHOOK = "webhook"
-    TELEGRAM = "telegram"
-    PUSH_NOTIFICATION = "push_notification"
-    PLUGIN = "plugin"
 
 
 class AlertSeverity(Enum):
@@ -104,18 +98,6 @@ class AlertChannelFactory:
                 },
             )
 
-            # Discord通知
-            self.register_channel(
-                NotificationChannelType.DISCORD,
-                "src.day_trade.risk_management.notifications.discord_channel",
-                "DiscordNotificationChannel",
-                {
-                    "webhook_url": {"type": str, "required": True},
-                    "username": {"type": str, "default": "Risk Alert"},
-                    "avatar_url": {"type": str, "required": False},
-                    "color": {"type": int, "default": 16711680},  # Red
-                },
-            )
 
             # Webhook通知
             self.register_channel(
@@ -139,35 +121,6 @@ class AlertChannelFactory:
                 },
             )
 
-            # SMS通知
-            self.register_channel(
-                NotificationChannelType.SMS,
-                "src.day_trade.risk_management.notifications.sms_channel",
-                "SMSNotificationChannel",
-                {
-                    "provider": {
-                        "type": str,
-                        "default": "twilio",
-                    },  # "twilio", "aws_sns"
-                    "api_key": {"type": str, "required": True},
-                    "api_secret": {"type": str, "required": True},
-                    "from_number": {"type": str, "required": True},
-                    "region": {"type": str, "default": "us-east-1"},
-                },
-            )
-
-            # Telegram通知
-            self.register_channel(
-                NotificationChannelType.TELEGRAM,
-                "src.day_trade.risk_management.notifications.telegram_channel",
-                "TelegramNotificationChannel",
-                {
-                    "bot_token": {"type": str, "required": True},
-                    "default_chat_id": {"type": str, "required": True},
-                    "parse_mode": {"type": str, "default": "HTML"},
-                    "disable_notification": {"type": bool, "default": False},
-                },
-            )
 
         except Exception as e:
             import logging

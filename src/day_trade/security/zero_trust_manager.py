@@ -20,11 +20,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
-    import jwt
-    import pyotp
-    from cryptography.fernet import Fernet
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    import jwt  # type: ignore
+    import pyotp  # type: ignore
+    from cryptography.fernet import Fernet  # type: ignore
+    from cryptography.hazmat.primitives import hashes  # type: ignore
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # type: ignore
 
     CRYPTO_AVAILABLE = True
 except ImportError:
@@ -284,15 +284,18 @@ class RiskAssessment:
 
         # 簡略実装 - 実際は過去のアクセス履歴と比較
         country = geo.get("country", "unknown")
-        return country not in ["JP", "US"]  # 日本・米国以外は異常とみなす
+        allowed_countries = ["JP", "US", "GB", "CA", "AU"]  # 許可国を拡張
+        return country not in allowed_countries
 
     def _is_off_hours_access(self, request: AccessRequest) -> bool:
         """営業時間外アクセスかチェック"""
         access_time = datetime.fromtimestamp(request.timestamp)
         hour = access_time.hour
 
-        # 営業時間を9-18時とする
-        return hour < 9 or hour > 18
+        # 営業時間を9-18時とする（設定可能にする）
+        business_start = 9
+        business_end = 18
+        return hour < business_start or hour > business_end
 
     def _is_privileged_access(self, request: AccessRequest) -> bool:
         """特権アクセスかチェック"""
@@ -302,6 +305,12 @@ class RiskAssessment:
     def _has_recent_auth_failures(self, request: AccessRequest) -> bool:
         """最近の認証失敗があるかチェック"""
         # 簡略実装 - 実際は認証失敗履歴を参照
+        # TODO: データベースから認証失敗履歴を取得して判定
+        user_id = request.user_context.user_id
+        current_time = time.time()
+        failure_window = 3600  # 1時間以内の失敗をチェック
+
+        # プレースホルダー: 実際の実装では永続化されたデータを使用
         return False
 
 
@@ -519,7 +528,9 @@ class PolicyEngine:
         if dt.weekday() >= 5:  # 土日
             return False
 
-        return 9 <= dt.hour <= 18
+        business_start = 9
+        business_end = 18
+        return business_start <= dt.hour <= business_end
 
 
 class MultiFactorAuthenticator:
@@ -558,12 +569,16 @@ class MultiFactorAuthenticator:
 
     def generate_backup_codes(self, user_id: str, count: int = 8) -> List[str]:
         """バックアップコード生成"""
+        if count <= 0 or count > 20:
+            raise ValueError("バックアップコード数は1-20の範囲で指定してください")
+
         codes = []
         for _ in range(count):
             code = secrets.token_hex(4).upper()  # 8文字のコード
             codes.append(code)
 
         # 実際の実装では暗号化して保存
+        logger.info(f"バックアップコード生成: ユーザー={user_id}, 数={count}")
         return codes
 
 
@@ -682,7 +697,7 @@ class SessionManager:
 class ZeroTrustManager:
     """ゼロトラストセキュリティマネージャー"""
 
-    def __init__(self, config: ZeroTrustConfig = None):
+    def __init__(self, config: Optional[ZeroTrustConfig] = None):
         self.config = config or ZeroTrustConfig()
         self.risk_assessor = RiskAssessment()
         self.policy_engine = PolicyEngine()
@@ -696,7 +711,18 @@ class ZeroTrustManager:
             "denied_requests": 0,
             "challenged_requests": 0,
             "high_risk_requests": 0,
+            "blocked_ips": set(),
+            "failed_logins_by_user": {},
+            "suspicious_activities": 0,
         }
+
+        # レート制限
+        self.rate_limiter = {}
+        self.blocked_ips = set()
+        self.failed_login_attempts = {}
+
+        # 定期クリーンアップタスク初期化
+        self._last_cleanup = time.time()
 
         logger.info("ゼロトラストマネージャー初期化完了")
 
@@ -708,6 +734,22 @@ class ZeroTrustManager:
 
         # 統計更新
         self.access_stats["total_requests"] += 1
+
+        # レート制限チェック
+        rate_limit_ok, rate_limit_reason = self.check_rate_limit(
+            access_request.device_context.ip_address,
+            access_request.user_context.user_id
+        )
+
+        if not rate_limit_ok:
+            logger.warning(f"レート制限違反: {access_request.user_context.user_id} - {rate_limit_reason}")
+            return {
+                "request_id": access_request.request_id,
+                "decision": AccessDecision.DENY.value,
+                "trust_level": TrustLevel.DENIED.value,
+                "reason": rate_limit_reason,
+                "evaluated_at": time.time(),
+            }
 
         try:
             # 1. リスク評価
@@ -805,7 +847,7 @@ class ZeroTrustManager:
         device_info: Dict[str, Any],
         resource_info: Dict[str, Any],
         action: str,
-        metadata: Dict[str, Any] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> AccessRequest:
         """アクセス要求作成"""
 
@@ -814,13 +856,13 @@ class ZeroTrustManager:
             user_id=user_id,
             username=username,
             roles=roles,
-            groups=metadata.get("groups", []),
-            attributes=metadata.get("user_attributes", {}),
+            groups=metadata.get("groups", []) if metadata else [],
+            attributes=metadata.get("user_attributes", {}) if metadata else {},
             session_id=str(uuid.uuid4()),
             created_at=time.time(),
             last_activity=time.time(),
-            authentication_methods=metadata.get("auth_methods", ["password"]),
-            mfa_verified=metadata.get("mfa_verified", False),
+            authentication_methods=metadata.get("auth_methods", ["password"]) if metadata else ["password"],
+            mfa_verified=metadata.get("mfa_verified", False) if metadata else False,
         )
 
         # デバイスコンテキスト
@@ -854,10 +896,80 @@ class ZeroTrustManager:
             resource_context=resource_context,
             requested_action=action,
             timestamp=time.time(),
-            request_metadata=metadata or {},
+            request_metadata=metadata if metadata is not None else {},
         )
 
         return access_request
+
+    def check_rate_limit(self, ip_address: str, user_id: str) -> Tuple[bool, str]:
+        """レート制限チェック"""
+        current_time = time.time()
+        window_size = 3600  # 1時間
+        max_requests_per_hour = 100  # 1時間あたり最大100リクエスト
+
+        # IPベースのレート制限
+        if ip_address in self.blocked_ips:
+            return False, "ブロックされた IP アドレス"
+
+        # リクエスト数チェック
+        key = f"{ip_address}:{user_id}"
+        if key not in self.rate_limiter:
+            self.rate_limiter[key] = []
+
+        # 古いリクエストをクリーンアップ
+        self.rate_limiter[key] = [
+            timestamp for timestamp in self.rate_limiter[key]
+            if current_time - timestamp < window_size
+        ]
+
+        if len(self.rate_limiter[key]) >= max_requests_per_hour:
+            return False, "レート制限超過"
+
+        self.rate_limiter[key].append(current_time)
+        return True, "OK"
+
+    def record_failed_login(self, ip_address: str, user_id: str) -> None:
+        """ログイン失敗記録"""
+        current_time = time.time()
+        max_failures = 5  # 最大失敗回数
+        failure_window = 3600  # 1時間
+
+        # 失敗記録初期化
+        if user_id not in self.failed_login_attempts:
+            self.failed_login_attempts[user_id] = []
+
+        # 古い失敗記録をクリーンアップ
+        self.failed_login_attempts[user_id] = [
+            timestamp for timestamp in self.failed_login_attempts[user_id]
+            if current_time - timestamp < failure_window
+        ]
+
+        # 新しい失敗を記録
+        self.failed_login_attempts[user_id].append(current_time)
+
+        # 統計更新
+        if user_id not in self.access_stats["failed_logins_by_user"]:
+            self.access_stats["failed_logins_by_user"][user_id] = 0
+        self.access_stats["failed_logins_by_user"][user_id] += 1
+
+        # 失敗回数が上限を超えた場合IPをブロック
+        if len(self.failed_login_attempts[user_id]) >= max_failures:
+            self.blocked_ips.add(ip_address)
+            self.access_stats["blocked_ips"].add(ip_address)
+            self.access_stats["suspicious_activities"] += 1
+            logger.warning(
+                f"IPブロック: {ip_address} (ユーザー: {user_id}, 失敗回数: {len(self.failed_login_attempts[user_id])})"
+            )
+
+    def unblock_ip(self, ip_address: str) -> bool:
+        """手動IPブロック解除"""
+        if ip_address in self.blocked_ips:
+            self.blocked_ips.remove(ip_address)
+            if ip_address in self.access_stats["blocked_ips"]:
+                self.access_stats["blocked_ips"].remove(ip_address)
+            logger.info(f"IPブロック解除: {ip_address}")
+            return True
+        return False
 
     def get_security_dashboard(self) -> Dict[str, Any]:
         """セキュリティダッシュボード情報"""
@@ -884,6 +996,13 @@ class ZeroTrustManager:
             "high_risk_rate": (self.access_stats["high_risk_requests"] / total_requests)
             * 100,
             "active_sessions": len(self.session_manager.active_sessions),
+            "blocked_ips_count": len(self.access_stats["blocked_ips"]),
+            "suspicious_activities": self.access_stats["suspicious_activities"],
+            "top_failed_users": sorted(
+                self.access_stats["failed_logins_by_user"].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10],
             "config": {
                 "minimum_trust_level": self.config.minimum_trust_level.value,
                 "require_mfa": self.config.require_mfa,
@@ -893,7 +1012,42 @@ class ZeroTrustManager:
 
     async def cleanup_resources(self):
         """リソースクリーンアップ"""
+        current_time = time.time()
+
+        # セッションクリーンアップ
         self.session_manager.cleanup_expired_sessions()
+
+        # レート制限データクリーンアップ
+        window_size = 3600  # 1時間
+        keys_to_remove = []
+
+        for key in list(self.rate_limiter.keys()):
+            self.rate_limiter[key] = [
+                timestamp for timestamp in self.rate_limiter[key]
+                if current_time - timestamp < window_size
+            ]
+            if not self.rate_limiter[key]:
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del self.rate_limiter[key]
+
+        # 失敗ログインデータクリーンアップ
+        failure_window = 3600  # 1時間
+        users_to_clean = []
+
+        for user_id in list(self.failed_login_attempts.keys()):
+            self.failed_login_attempts[user_id] = [
+                timestamp for timestamp in self.failed_login_attempts[user_id]
+                if current_time - timestamp < failure_window
+            ]
+            if not self.failed_login_attempts[user_id]:
+                users_to_clean.append(user_id)
+
+        for user_id in users_to_clean:
+            del self.failed_login_attempts[user_id]
+
+        self._last_cleanup = current_time
         logger.info("ゼロトラストマネージャーリソースクリーンアップ完了")
 
 

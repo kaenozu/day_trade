@@ -106,7 +106,7 @@ class AlertConfig:
     # 通知チャネル設定
     email_config: Dict[str, str] = field(default_factory=dict)
     slack_config: Dict[str, str] = field(default_factory=dict)
-    sms_config: Dict[str, str] = field(default_factory=dict)
+    webhook_config: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_env(cls) -> "AlertConfig":
