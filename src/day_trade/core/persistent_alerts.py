@@ -24,7 +24,9 @@ logger = get_context_logger(__name__)
 class PersistentAlertManager(AlertManager):
     """永続化対応アラートマネージャー"""
 
-    def __init__(self, stock_fetcher: Optional[StockFetcher] = None, db_manager_instance=None):
+    def __init__(
+        self, stock_fetcher: Optional[StockFetcher] = None, db_manager_instance=None
+    ):
         """
         Args:
             stock_fetcher: 株価データ取得インスタンス
@@ -68,7 +70,9 @@ class PersistentAlertManager(AlertManager):
                     condition = condition_model.to_alert_condition()
                     self.alert_conditions[condition.alert_id] = condition
 
-                logger.info(f"データベースから {len(conditions)} 件のアラート条件をロードしました")
+                logger.info(
+                    f"データベースから {len(conditions)} 件のアラート条件をロードしました"
+                )
 
         except Exception as e:
             logger.error(f"アラート条件のロード中にエラーが発生: {e}")
@@ -130,7 +134,9 @@ class PersistentAlertManager(AlertManager):
                     logger.info(f"アラート条件を更新: {condition.alert_id}")
                 else:
                     # 新規作成
-                    condition_model = AlertConditionModel.from_alert_condition(condition)
+                    condition_model = AlertConditionModel.from_alert_condition(
+                        condition
+                    )
                     session.add(condition_model)
                     logger.info(f"アラート条件を追加: {condition.alert_id}")
 
@@ -146,7 +152,11 @@ class PersistentAlertManager(AlertManager):
         """アラート条件を削除（データベースからも削除）"""
         try:
             with self.db_manager.session_scope() as session:
-                condition = session.query(AlertConditionModel).filter_by(alert_id=alert_id).first()
+                condition = (
+                    session.query(AlertConditionModel)
+                    .filter_by(alert_id=alert_id)
+                    .first()
+                )
 
                 if condition:
                     session.delete(condition)
@@ -156,7 +166,9 @@ class PersistentAlertManager(AlertManager):
                     logger.info(f"アラート条件を削除: {alert_id}")
                     return True
                 else:
-                    logger.warning(f"削除対象のアラート条件が見つかりません: {alert_id}")
+                    logger.warning(
+                        f"削除対象のアラート条件が見つかりません: {alert_id}"
+                    )
                     return False
 
         except Exception as e:
@@ -213,7 +225,9 @@ class PersistentAlertManager(AlertManager):
                 if symbol:
                     query = query.filter(AlertTriggerModel.symbol == symbol)
 
-                trigger_models = query.order_by(AlertTriggerModel.trigger_time.desc()).all()
+                trigger_models = query.order_by(
+                    AlertTriggerModel.trigger_time.desc()
+                ).all()
 
                 # DataclassのAlertTriggerに変換
                 return [model.to_alert_trigger() for model in trigger_models]

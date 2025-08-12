@@ -66,7 +66,9 @@ class Metric:
         if labels:
             combined_labels.update(labels)
 
-        sample = MetricSample(timestamp=datetime.utcnow(), value=value, labels=combined_labels)
+        sample = MetricSample(
+            timestamp=datetime.utcnow(), value=value, labels=combined_labels
+        )
         self.samples.append(sample)
 
 
@@ -194,7 +196,9 @@ class ApplicationMetricsCollector(MetricCollector):
         # ここでは例として基本的な実装を提供
         return self.metrics
 
-    def record_request(self, endpoint: str, method: str, duration: float, status_code: int):
+    def record_request(
+        self, endpoint: str, method: str, duration: float, status_code: int
+    ):
         """HTTPリクエストを記録"""
         labels = {"endpoint": endpoint, "method": method, "status": str(status_code)}
 
@@ -239,11 +243,15 @@ class MLModelMetricsCollector(MetricCollector):
         """MLモデルメトリクス収集"""
         return self.metrics
 
-    def record_prediction(self, model_name: str, duration: float, accuracy: float = None):
+    def record_prediction(
+        self, model_name: str, duration: float, accuracy: float = None
+    ):
         """予測実行を記録"""
         labels = {"model": model_name}
 
-        self.get_metric("model_prediction_duration_seconds").add_sample(duration, labels)
+        self.get_metric("model_prediction_duration_seconds").add_sample(
+            duration, labels
+        )
         self.get_metric("model_predictions_total").add_sample(1, labels)
 
         if accuracy is not None:
@@ -331,7 +339,9 @@ class MetricsStorage:
         """メトリクスをクエリ"""
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
-                query = "SELECT timestamp, value, labels FROM metrics WHERE metric_name = ?"
+                query = (
+                    "SELECT timestamp, value, labels FROM metrics WHERE metric_name = ?"
+                )
                 params = [metric_name]
 
                 if start_time:
@@ -353,7 +363,9 @@ class MetricsStorage:
                     sample_labels = json.loads(row[2]) if row[2] else {}
 
                     # ラベルフィルタリング
-                    if labels and not all(sample_labels.get(k) == v for k, v in labels.items()):
+                    if labels and not all(
+                        sample_labels.get(k) == v for k, v in labels.items()
+                    ):
                         continue
 
                     results.append((timestamp, value, sample_labels))
@@ -412,7 +424,9 @@ class MetricsExporter:
 class MetricsCollectionSystem:
     """メトリクス収集システム"""
 
-    def __init__(self, storage_path: str = "metrics.db", collection_interval: float = 30.0):
+    def __init__(
+        self, storage_path: str = "metrics.db", collection_interval: float = 30.0
+    ):
         self.collectors: List[MetricCollector] = []
         self.storage = MetricsStorage(storage_path)
         self.exporter = MetricsExporter(self.storage)

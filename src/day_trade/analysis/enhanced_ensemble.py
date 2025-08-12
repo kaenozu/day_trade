@@ -254,11 +254,17 @@ class EnhancedEnsembleStrategy:
         clean_data = data.dropna()
 
         # 2. 市場コンテキスト分析
-        market_context = self.market_analyzer.analyze_market_context(clean_data, market_data)
+        market_context = self.market_analyzer.analyze_market_context(
+            clean_data, market_data
+        )
 
         # 3. 特徴量エンジニアリング
-        volume_data = clean_data.get("Volume", None) if "Volume" in clean_data.columns else None
-        feature_data = self.feature_engineer.generate_all_features(clean_data, volume_data)
+        volume_data = (
+            clean_data.get("Volume", None) if "Volume" in clean_data.columns else None
+        )
+        feature_data = self.feature_engineer.generate_all_features(
+            clean_data, volume_data
+        )
 
         if market_data:
             feature_data = self.feature_engineer._generate_market_features(
@@ -271,7 +277,9 @@ class EnhancedEnsembleStrategy:
         # 5. 機械学習予測
         ml_predictions = {}
         if self.enable_ml_models and self.ml_ensemble:
-            ml_predictions = self._generate_ml_predictions(feature_data, prediction_horizon)
+            ml_predictions = self._generate_ml_predictions(
+                feature_data, prediction_horizon
+            )
 
         # 6. アンサンブル統合
         ensemble_signal = self._integrate_signals(
@@ -347,7 +355,9 @@ class EnhancedEnsembleStrategy:
                 # 最新データのみで予測
                 X.tail(1)
                 try:
-                    prediction_value = float(np.random.randn() * 0.02)  # -2%から+2%の予測
+                    prediction_value = float(
+                        np.random.randn() * 0.02
+                    )  # -2%から+2%の予測
                     ml_predictions["ensemble_ml"] = prediction_value
 
                     logger.debug(
@@ -360,7 +370,9 @@ class EnhancedEnsembleStrategy:
                     ml_predictions["ensemble_ml"] = 0.0
             else:
                 # MLModelManagerの実装が完了していないため、一時的に無効化
-                logger.info("機械学習予測は一時的に無効化されています", section="ml_prediction")
+                logger.info(
+                    "機械学習予測は一時的に無効化されています", section="ml_prediction"
+                )
                 return ml_predictions
 
         except Exception as e:
@@ -402,7 +414,9 @@ class EnhancedEnsembleStrategy:
         ml_weight = strategy_weights.get("ml_ensemble", 0.3)
         for _model_name, prediction_value in ml_predictions.items():
             # 予測値を売買シグナルに変換
-            confidence = min(abs(prediction_value) * 1000, 80.0)  # 予測値から信頼度算出（上限80%）
+            confidence = min(
+                abs(prediction_value) * 1000, 80.0
+            )  # 予測値から信頼度算出（上限80%）
 
             if prediction_value > 0.02:  # 2%以上の上昇予測
                 buy_score += confidence * ml_weight
@@ -461,7 +475,9 @@ class EnhancedEnsembleStrategy:
             risk_score=risk_score,
         )
 
-    def _calculate_adaptive_weights(self, market_context: MarketContext) -> Dict[str, float]:
+    def _calculate_adaptive_weights(
+        self, market_context: MarketContext
+    ) -> Dict[str, float]:
         """適応型重み計算"""
         base_weights = {
             "conservative": 0.2,
@@ -515,7 +531,9 @@ class EnhancedEnsembleStrategy:
         # 正規化
         total_weight = sum(adjusted_weights.values())
         if total_weight > 0:
-            adjusted_weights = {k: v / total_weight for k, v in adjusted_weights.items()}
+            adjusted_weights = {
+                k: v / total_weight for k, v in adjusted_weights.items()
+            }
 
         return adjusted_weights
 
@@ -560,7 +578,9 @@ class EnhancedEnsembleStrategy:
 
         return min(uncertainty, 100.0)
 
-    def _calculate_risk_score(self, market_context: MarketContext, uncertainty: float) -> float:
+    def _calculate_risk_score(
+        self, market_context: MarketContext, uncertainty: float
+    ) -> float:
         """リスクスコア計算"""
         risk_score = 0.0
 
@@ -600,8 +620,10 @@ class EnhancedEnsembleStrategy:
         """機械学習モデルの訓練"""
 
         # 再訓練間隔チェック
-        if self.last_training_time and datetime.now() - self.last_training_time < timedelta(
-            hours=retrain_interval_hours
+        if (
+            self.last_training_time
+            and datetime.now() - self.last_training_time
+            < timedelta(hours=retrain_interval_hours)
         ):
             logger.info("再訓練間隔に達していないため、スキップ", section="ml_training")
             return False
@@ -618,9 +640,13 @@ class EnhancedEnsembleStrategy:
 
             # 特徴量エンジニアリング
             volume_data = (
-                training_data.get("Volume", None) if "Volume" in training_data.columns else None
+                training_data.get("Volume", None)
+                if "Volume" in training_data.columns
+                else None
             )
-            feature_data = self.feature_engineer.generate_all_features(training_data, volume_data)
+            feature_data = self.feature_engineer.generate_all_features(
+                training_data, volume_data
+            )
 
             # 特徴量とターゲットの準備
             feature_cols = [
@@ -637,7 +663,9 @@ class EnhancedEnsembleStrategy:
 
             # ターゲット変数作成（未来のリターン）
             if target_column not in feature_data.columns:
-                feature_data[target_column] = feature_data["Close"].pct_change(5).shift(-5)
+                feature_data[target_column] = (
+                    feature_data["Close"].pct_change(5).shift(-5)
+                )
 
             y = feature_data[target_column].fillna(0)
 
@@ -653,12 +681,16 @@ class EnhancedEnsembleStrategy:
                     samples_count=len(X),
                 )
             else:
-                logger.warning("MLモデル訓練メソッドが利用できません", section="ml_training")
+                logger.warning(
+                    "MLモデル訓練メソッドが利用できません", section="ml_training"
+                )
 
             return True
 
         except Exception as e:
-            logger.error("機械学習モデル訓練エラー", section="ml_training", error=str(e))
+            logger.error(
+                "機械学習モデル訓練エラー", section="ml_training", error=str(e)
+            )
             return False
 
 

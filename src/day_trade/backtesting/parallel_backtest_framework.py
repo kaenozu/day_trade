@@ -68,13 +68,19 @@ class ParameterSpace:
             return self.values
 
         if self.step_size:
-            return list(np.arange(self.min_value, self.max_value + self.step_size, self.step_size))
+            return list(
+                np.arange(
+                    self.min_value, self.max_value + self.step_size, self.step_size
+                )
+            )
 
         if self.distribution == "uniform":
             return list(np.linspace(self.min_value, self.max_value, num_samples))
         elif self.distribution == "log_uniform":
             return list(
-                np.logspace(np.log10(self.min_value), np.log10(self.max_value), num_samples)
+                np.logspace(
+                    np.log10(self.min_value), np.log10(self.max_value), num_samples
+                )
             )
         else:
             return list(np.linspace(self.min_value, self.max_value, num_samples))
@@ -140,7 +146,9 @@ class ParameterOptimizer:
     def __init__(self, config: ParallelBacktestConfig):
         self.config = config
         self.memory_pool = (
-            MemoryPool(config.memory_pool_size_mb) if config.enable_memory_pool else None
+            MemoryPool(config.memory_pool_size_mb)
+            if config.enable_memory_pool
+            else None
         )
 
     def generate_parameter_combinations(
@@ -230,7 +238,9 @@ class WorkerProcess:
         self.worker_id = worker_id
         self.config = config
         self.memory_pool = (
-            MemoryPool(config.memory_pool_size_mb) if config.enable_memory_pool else None
+            MemoryPool(config.memory_pool_size_mb)
+            if config.enable_memory_pool
+            else None
         )
         self.processed_tasks = 0
         self.total_execution_time = 0.0
@@ -253,7 +263,9 @@ class WorkerProcess:
                 return task
 
             # 戦略関数作成（パラメータ適用）
-            strategy_func = self._create_strategy_function(task.parameters, task.strategy_config)
+            strategy_func = self._create_strategy_function(
+                task.parameters, task.strategy_config
+            )
 
             # バックテスト実行
             results = engine.execute_backtest(historical_data, strategy_func)
@@ -293,7 +305,10 @@ class WorkerProcess:
             for symbol, data in lookback_data.items():
                 if len(data) >= momentum_window:
                     # モメンタム計算
-                    returns = data["Close"].iloc[-1] / data["Close"].iloc[-momentum_window] - 1
+                    returns = (
+                        data["Close"].iloc[-1] / data["Close"].iloc[-momentum_window]
+                        - 1
+                    )
 
                     # シグナル生成
                     if returns > buy_threshold:
@@ -315,7 +330,9 @@ class WorkerProcess:
     def get_worker_stats(self) -> Dict[str, Any]:
         """ワーカー統計取得"""
         avg_execution_time = (
-            self.total_execution_time / self.processed_tasks if self.processed_tasks > 0 else 0
+            self.total_execution_time / self.processed_tasks
+            if self.processed_tasks > 0
+            else 0
         )
 
         return {
@@ -346,7 +363,9 @@ class ParallelBacktestFramework:
         # コンポーネント
         self.optimizer = ParameterOptimizer(config)
         self.memory_pool = (
-            MemoryPool(config.memory_pool_size_mb) if config.enable_memory_pool else None
+            MemoryPool(config.memory_pool_size_mb)
+            if config.enable_memory_pool
+            else None
         )
 
         # 実行統計
@@ -360,7 +379,9 @@ class ParallelBacktestFramework:
             "memory_efficiency": 0.0,
         }
 
-        logger.info(f"並列バックテストフレームワーク初期化完了: {config.max_workers}ワーカー")
+        logger.info(
+            f"並列バックテストフレームワーク初期化完了: {config.max_workers}ワーカー"
+        )
 
     def run_parameter_optimization(
         self,
@@ -372,7 +393,9 @@ class ParallelBacktestFramework:
         initial_capital: float = 1000000,
     ) -> Dict[str, Any]:
         """パラメータ最適化実行"""
-        logger.info(f"パラメータ最適化開始: {len(symbols)}銘柄, {len(parameter_spaces)}パラメータ")
+        logger.info(
+            f"パラメータ最適化開始: {len(symbols)}銘柄, {len(parameter_spaces)}パラメータ"
+        )
 
         start_time = MicrosecondTimer.now_ns()
 
@@ -420,7 +443,9 @@ class ParallelBacktestFramework:
                     "total_execution_time_ms": total_time_ms,
                     "avg_task_time_ms": total_time_ms / len(tasks) if tasks else 0,
                     "throughput_tasks_per_sec": (
-                        len(completed_tasks) / (total_time_ms / 1000) if total_time_ms > 0 else 0
+                        len(completed_tasks) / (total_time_ms / 1000)
+                        if total_time_ms > 0
+                        else 0
                     ),
                 }
             )
@@ -436,7 +461,9 @@ class ParallelBacktestFramework:
             logger.error(f"パラメータ最適化エラー: {e}")
             raise
 
-    def _execute_parallel_backtest(self, tasks: List[BacktestTask]) -> List[BacktestTask]:
+    def _execute_parallel_backtest(
+        self, tasks: List[BacktestTask]
+    ) -> List[BacktestTask]:
         """並列バックテスト実行"""
         if self.config.parallel_mode == ParallelMode.MULTIPROCESSING:
             return self._execute_multiprocessing(tasks)
@@ -455,11 +482,14 @@ class ParallelBacktestFramework:
         with ProcessPoolExecutor(max_workers=self.config.max_workers) as executor:
             # タスク投入
             future_to_task = {
-                executor.submit(execute_single_backtest, data): data[0] for data in task_data
+                executor.submit(execute_single_backtest, data): data[0]
+                for data in task_data
             }
 
             # 結果収集
-            for future in as_completed(future_to_task, timeout=self.config.task_timeout_seconds):
+            for future in as_completed(
+                future_to_task, timeout=self.config.task_timeout_seconds
+            ):
                 try:
                     result = future.result(timeout=self.config.task_timeout_seconds)
                     completed_tasks.append(result)
@@ -494,7 +524,9 @@ class ParallelBacktestFramework:
                 # 進捗表示
                 if (i + 1) % max(1, len(tasks) // 10) == 0:
                     progress = (i + 1) / len(tasks) * 100
-                    logger.info(f"シーケンシャル実行進捗: {progress:.1f}% ({i+1}/{len(tasks)})")
+                    logger.info(
+                        f"シーケンシャル実行進捗: {progress:.1f}% ({i+1}/{len(tasks)})"
+                    )
 
             except Exception as e:
                 logger.error(f"タスク実行エラー: {e}")
@@ -511,7 +543,9 @@ class ParallelBacktestFramework:
             return {"error": "実行完了タスクなし"}
 
         # 成功したタスクのみ分析
-        successful_tasks = [task for task in completed_tasks if task.result and not task.error]
+        successful_tasks = [
+            task for task in completed_tasks if task.result and not task.error
+        ]
 
         if not successful_tasks:
             return {"error": "成功タスクなし"}

@@ -36,7 +36,9 @@ class PortfolioPosition:
         """価格更新"""
         self.current_price = new_price
         self.market_value = self.quantity * new_price
-        self.unrealized_pnl = self.market_value - (self.quantity * self.avg_purchase_price)
+        self.unrealized_pnl = self.market_value - (
+            self.quantity * self.avg_purchase_price
+        )
         self.unrealized_pnl_pct = (
             self.unrealized_pnl / (self.quantity * self.avg_purchase_price) * 100
         )
@@ -157,7 +159,9 @@ class PortfolioTracker:
 
             # 資金チェック
             if total_cost > self.cash_balance:
-                logger.warning(f"資金不足: 必要¥{total_cost:,.0f} > 残高¥{self.cash_balance:,.0f}")
+                logger.warning(
+                    f"資金不足: 必要¥{total_cost:,.0f} > 残高¥{self.cash_balance:,.0f}"
+                )
                 return None
 
             # 取引実行
@@ -215,7 +219,9 @@ class PortfolioTracker:
 
             position = self.positions[symbol]
             if position.quantity < quantity:
-                logger.warning(f"保有株数不足: {symbol} 要求{quantity} > 保有{position.quantity}")
+                logger.warning(
+                    f"保有株数不足: {symbol} 要求{quantity} > 保有{position.quantity}"
+                )
                 return None
 
             # 売却計算
@@ -312,7 +318,9 @@ class PortfolioTracker:
                 position.quantity * position.avg_purchase_price
             )
             position.unrealized_pnl_pct = (
-                position.unrealized_pnl / (position.quantity * position.avg_purchase_price) * 100
+                position.unrealized_pnl
+                / (position.quantity * position.avg_purchase_price)
+                * 100
             )
 
     def update_market_prices(self, price_data: Dict[str, float]):
@@ -331,8 +339,12 @@ class PortfolioTracker:
         """ポートフォリオ指標計算"""
         try:
             # 基本指標
-            total_market_value = sum(pos.market_value for pos in self.positions.values())
-            total_unrealized_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
+            total_market_value = sum(
+                pos.market_value for pos in self.positions.values()
+            )
+            total_unrealized_pnl = sum(
+                pos.unrealized_pnl for pos in self.positions.values()
+            )
             total_portfolio_value = self.cash_balance + total_market_value
 
             # 収益率
@@ -348,7 +360,9 @@ class PortfolioTracker:
                 ]
                 if daily_returns:
                     volatility = np.std(daily_returns)
-                    sharpe_ratio = np.mean(daily_returns) / volatility if volatility > 0 else 0
+                    sharpe_ratio = (
+                        np.mean(daily_returns) / volatility if volatility > 0 else 0
+                    )
                 else:
                     volatility = 0
                     sharpe_ratio = 0
@@ -407,11 +421,15 @@ class PortfolioTracker:
             )
 
             daily_pnl = metrics["total_portfolio_value"] - previous_value
-            daily_pnl_pct = daily_pnl / previous_value * 100 if previous_value > 0 else 0
+            daily_pnl_pct = (
+                daily_pnl / previous_value * 100 if previous_value > 0 else 0
+            )
 
             # 本日の取引数
             today = datetime.now().date()
-            today_transactions = [t for t in self.transactions if t.timestamp.date() == today]
+            today_transactions = [
+                t for t in self.transactions if t.timestamp.date() == today
+            ]
 
             performance = DailyPerformance(
                 date=datetime.now(),
@@ -465,7 +483,9 @@ class PortfolioTracker:
 
         return {
             "total_positions": len(self.positions),
-            "positions": sorted(positions_data, key=lambda x: x["market_value"], reverse=True),
+            "positions": sorted(
+                positions_data, key=lambda x: x["market_value"], reverse=True
+            ),
         }
 
     def generate_performance_report(self) -> Dict:
@@ -475,14 +495,22 @@ class PortfolioTracker:
             position_summary = self.get_position_summary()
 
             # 取引統計
-            buy_transactions = [t for t in self.transactions if t.transaction_type == "BUY"]
-            sell_transactions = [t for t in self.transactions if t.transaction_type == "SELL"]
+            buy_transactions = [
+                t for t in self.transactions if t.transaction_type == "BUY"
+            ]
+            sell_transactions = [
+                t for t in self.transactions if t.transaction_type == "SELL"
+            ]
             profitable_trades = [t for t in sell_transactions if t.pnl > 0]
 
             win_rate = (
-                len(profitable_trades) / len(sell_transactions) * 100 if sell_transactions else 0
+                len(profitable_trades) / len(sell_transactions) * 100
+                if sell_transactions
+                else 0
             )
-            avg_profit = np.mean([t.pnl for t in profitable_trades]) if profitable_trades else 0
+            avg_profit = (
+                np.mean([t.pnl for t in profitable_trades]) if profitable_trades else 0
+            )
             avg_loss = np.mean([t.pnl for t in sell_transactions if t.pnl < 0])
             avg_loss = avg_loss if not np.isnan(avg_loss) else 0
 
@@ -498,7 +526,9 @@ class PortfolioTracker:
                     "profitable_trades": len(profitable_trades),
                     "avg_profit": avg_profit,
                     "avg_loss": avg_loss,
-                    "profit_loss_ratio": abs(avg_profit / avg_loss) if avg_loss != 0 else 0,
+                    "profit_loss_ratio": (
+                        abs(avg_profit / avg_loss) if avg_loss != 0 else 0
+                    ),
                 },
                 "recent_performance": [
                     p.to_dict() for p in self.daily_performance[-10:]  # 直近10日
@@ -560,12 +590,16 @@ if __name__ == "__main__":
     # メトリクス確認
     metrics = tracker.calculate_portfolio_metrics()
     print(f"総資産: ¥{metrics['total_portfolio_value']:,.0f}")
-    print(f"総収益: ¥{metrics['total_return']:,.0f} ({metrics['total_return_pct']:+.2f}%)")
+    print(
+        f"総収益: ¥{metrics['total_return']:,.0f} ({metrics['total_return_pct']:+.2f}%)"
+    )
 
     # 売り取引
     sell_txn = tracker.execute_sell_transaction("7203", 500, 2600, "PROFIT_TAKING")
     if sell_txn:
-        print(f"売り取引: {sell_txn.symbol} {sell_txn.quantity}株 損益¥{sell_txn.pnl:,.0f}")
+        print(
+            f"売り取引: {sell_txn.symbol} {sell_txn.quantity}株 損益¥{sell_txn.pnl:,.0f}"
+        )
 
     # 日次記録
     daily_perf = tracker.record_daily_performance()

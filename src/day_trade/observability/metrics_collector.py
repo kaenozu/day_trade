@@ -83,7 +83,9 @@ class MetricsCollector:
 
         # リクエスト数
         self._counters["requests_total"] = self.meter.create_counter(
-            name="day_trade_requests_total", description="Total number of requests", unit="1"
+            name="day_trade_requests_total",
+            description="Total number of requests",
+            unit="1",
         )
 
         # レスポンス時間
@@ -95,14 +97,18 @@ class MetricsCollector:
 
         # エラー数
         self._counters["errors_total"] = self.meter.create_counter(
-            name="day_trade_errors_total", description="Total number of errors", unit="1"
+            name="day_trade_errors_total",
+            description="Total number of errors",
+            unit="1",
         )
 
         # === HFTビジネスメトリクス ===
 
         # 取引数
         self._counters["trades_total"] = self.meter.create_counter(
-            name="day_trade_trades_total", description="Total number of trades executed", unit="1"
+            name="day_trade_trades_total",
+            description="Total number of trades executed",
+            unit="1",
         )
 
         # 取引レイテンシ（マイクロ秒）
@@ -114,12 +120,16 @@ class MetricsCollector:
 
         # 利益・損失
         self._histograms["pnl"] = self.meter.create_histogram(
-            name="day_trade_pnl_dollars", description="Profit and Loss in dollars", unit="USD"
+            name="day_trade_pnl_dollars",
+            description="Profit and Loss in dollars",
+            unit="USD",
         )
 
         # ポジション数
         self._gauges["positions_count"] = self.meter.create_gauge(
-            name="day_trade_positions_count", description="Current number of positions", unit="1"
+            name="day_trade_positions_count",
+            description="Current number of positions",
+            unit="1",
         )
 
         # === システムメトリクス ===
@@ -195,7 +205,9 @@ class MetricsCollector:
             )
 
         # OpenTelemetryメトリクスにも記録
-        self.record_histogram("trade_latency", latency_microseconds, {"operation": operation})
+        self.record_histogram(
+            "trade_latency", latency_microseconds, {"operation": operation}
+        )
 
     def get_hft_latency_percentiles(
         self, operation: str, percentiles: List[float] = None
@@ -206,7 +218,8 @@ class MetricsCollector:
 
         with self._metric_locks[f"hft_latency_{operation}"]:
             latencies = [
-                item["latency_us"] for item in self._hft_metrics[f"hft_latency_{operation}"]
+                item["latency_us"]
+                for item in self._hft_metrics[f"hft_latency_{operation}"]
             ]
 
         if not latencies:
@@ -224,10 +237,14 @@ class MetricsCollector:
         """SLO設定登録"""
         self._slo_configs[slo_config.name] = slo_config
         self.logger.info(
-            "SLO registered", slo_name=slo_config.name, target=slo_config.target_percentage
+            "SLO registered",
+            slo_name=slo_config.name,
+            target=slo_config.target_percentage,
         )
 
-    def record_sli_event(self, slo_name: str, success: bool, value: Optional[float] = None) -> None:
+    def record_sli_event(
+        self, slo_name: str, success: bool, value: Optional[float] = None
+    ) -> None:
         """SLIイベント記録"""
         timestamp = time.time()
 
@@ -236,7 +253,9 @@ class MetricsCollector:
         with self._metric_locks[f"sli_{slo_name}"]:
             self._sli_data[slo_name].append(sli_event)
 
-    def calculate_sli(self, slo_name: str, time_window_seconds: Optional[int] = None) -> float:
+    def calculate_sli(
+        self, slo_name: str, time_window_seconds: Optional[int] = None
+    ) -> float:
         """SLI計算"""
         if slo_name not in self._slo_configs:
             raise ValueError(f"SLO '{slo_name}' not registered")
@@ -247,7 +266,9 @@ class MetricsCollector:
 
         with self._metric_locks[f"sli_{slo_name}"]:
             recent_events = [
-                event for event in self._sli_data[slo_name] if event["timestamp"] >= cutoff_time
+                event
+                for event in self._sli_data[slo_name]
+                if event["timestamp"] >= cutoff_time
             ]
 
         if not recent_events:
@@ -258,14 +279,16 @@ class MetricsCollector:
             success_count = sum(
                 1
                 for event in recent_events
-                if event["value"] is not None and event["value"] < slo_config.threshold_value
+                if event["value"] is not None
+                and event["value"] < slo_config.threshold_value
             )
         elif slo_config.comparison_operator == ">":
             # スループット系SLO
             success_count = sum(
                 1
                 for event in recent_events
-                if event["value"] is not None and event["value"] > slo_config.threshold_value
+                if event["value"] is not None
+                and event["value"] > slo_config.threshold_value
             )
         else:
             # ブール系SLO
@@ -295,7 +318,9 @@ class MetricsCollector:
     # === コンテキストマネージャー ===
 
     @contextmanager
-    def measure_operation(self, operation_name: str, attributes: Optional[Dict[str, Any]] = None):
+    def measure_operation(
+        self, operation_name: str, attributes: Optional[Dict[str, Any]] = None
+    ):
         """操作時間測定"""
         start_time = time.perf_counter()
         start_time_us = time.time_ns() / 1000  # マイクロ秒
@@ -307,13 +332,18 @@ class MetricsCollector:
             yield
 
             # 成功時の処理
-            self.increment_counter("requests_total", attributes={**attributes, "status": "success"})
+            self.increment_counter(
+                "requests_total", attributes={**attributes, "status": "success"}
+            )
 
         except Exception as e:
             # エラー時の処理
-            self.increment_counter("requests_total", attributes={**attributes, "status": "error"})
             self.increment_counter(
-                "errors_total", attributes={**attributes, "error_type": type(e).__name__}
+                "requests_total", attributes={**attributes, "status": "error"}
+            )
+            self.increment_counter(
+                "errors_total",
+                attributes={**attributes, "error_type": type(e).__name__},
             )
 
             # SLIエラーイベント記録
@@ -339,7 +369,9 @@ class MetricsCollector:
             # SLIイベント記録（レスポンス時間）
             for slo_name, slo_config in self._slo_configs.items():
                 if "latency" in slo_name.lower():
-                    self.record_sli_event(slo_name, success=True, value=duration_microseconds)
+                    self.record_sli_event(
+                        slo_name, success=True, value=duration_microseconds
+                    )
 
     # === 便利メソッド ===
 

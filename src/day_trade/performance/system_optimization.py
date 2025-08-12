@@ -95,7 +95,9 @@ class SystemOptimizer:
             # カーネル最適化
             results["kernel_optimization"] = self._optimize_kernel()
 
-            logger.info(f"システム最適化適用完了: {sum(results.values())}/{len(results)}項目成功")
+            logger.info(
+                f"システム最適化適用完了: {sum(results.values())}/{len(results)}項目成功"
+            )
 
         except Exception as e:
             logger.error(f"システム最適化適用エラー: {e}")
@@ -207,7 +209,9 @@ class SystemOptimizer:
                         os.sched_setscheduler(0, os.SCHED_RR, param)
 
                     self.applied_optimizations.append("realtime_scheduler")
-                    logger.info(f"リアルタイムスケジューラ設定: {self.config.scheduler_policy}")
+                    logger.info(
+                        f"リアルタイムスケジューラ設定: {self.config.scheduler_policy}"
+                    )
                     return True
 
                 except Exception as e:
@@ -289,9 +293,7 @@ class SystemOptimizer:
     def _set_cpu_governor(self, governor: str) -> bool:
         """CPUガバナー設定"""
         try:
-            cmd = (
-                f"echo {governor} | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
-            )
+            cmd = f"echo {governor} | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -313,7 +315,9 @@ class SystemOptimizer:
 
             # GRUB設定更新が必要（再起動後有効）
             isolcpus = ",".join(map(str, self.config.cpu_cores))
-            grub_params = f"isolcpus={isolcpus} nohz_full={isolcpus} rcu_nocbs={isolcpus}"
+            grub_params = (
+                f"isolcpus={isolcpus} nohz_full={isolcpus} rcu_nocbs={isolcpus}"
+            )
 
             logger.info(f"CPU分離パラメータ: {grub_params}")
             logger.warning("CPU分離には/etc/default/grubの更新と再起動が必要です")
@@ -327,7 +331,9 @@ class SystemOptimizer:
     def _set_transparent_hugepages(self, setting: str) -> bool:
         """Transparent Huge Pages設定"""
         try:
-            cmd = f"echo {setting} | sudo tee /sys/kernel/mm/transparent_hugepage/enabled"
+            cmd = (
+                f"echo {setting} | sudo tee /sys/kernel/mm/transparent_hugepage/enabled"
+            )
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -418,11 +424,20 @@ class SystemOptimizer:
 
             for interface in interfaces:
                 # 各種オフロード無効化
-                offloads = ["gro", "lro", "gso", "tso", "rx-checksumming", "tx-checksumming"]
+                offloads = [
+                    "gro",
+                    "lro",
+                    "gso",
+                    "tso",
+                    "rx-checksumming",
+                    "tx-checksumming",
+                ]
 
                 for offload in offloads:
                     cmd = f"sudo ethtool -K {interface} {offload} off"
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    result = subprocess.run(
+                        cmd, shell=True, capture_output=True, text=True
+                    )
 
                     if result.returncode != 0:
                         logger.debug(f"オフロード無効化スキップ: {interface} {offload}")
@@ -460,7 +475,9 @@ class SystemOptimizer:
             if PSUTIL_AVAILABLE:
                 return list(psutil.net_if_addrs().keys())
             else:
-                result = subprocess.run("ip link show", shell=True, capture_output=True, text=True)
+                result = subprocess.run(
+                    "ip link show", shell=True, capture_output=True, text=True
+                )
                 interfaces = []
 
                 for line in result.stdout.split("\n"):
@@ -490,7 +507,9 @@ class SystemOptimizer:
         """電源管理無効化"""
         try:
             # C-state無効化
-            cmd = "echo 1 | sudo tee /sys/devices/system/cpu/cpu*/cpuidle/state*/disable"
+            cmd = (
+                "echo 1 | sudo tee /sys/devices/system/cpu/cpu*/cpuidle/state*/disable"
+            )
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -518,7 +537,9 @@ class SystemOptimizer:
             if PSUTIL_AVAILABLE:
                 status["system_metrics"] = {
                     "cpu_count": psutil.cpu_count(),
-                    "cpu_freq": psutil.cpu_freq()._asdict() if psutil.cpu_freq() else None,
+                    "cpu_freq": (
+                        psutil.cpu_freq()._asdict() if psutil.cpu_freq() else None
+                    ),
                     "memory_total": psutil.virtual_memory().total,
                     "memory_available": psutil.virtual_memory().available,
                 }
@@ -582,7 +603,8 @@ class SystemOptimizer:
         """ネットワーク情報取得"""
         try:
             info = {
-                "interrupts_optimized": "network_interrupts" in self.applied_optimizations,
+                "interrupts_optimized": "network_interrupts"
+                in self.applied_optimizations,
                 "offloads_disabled": "network_offloads" in self.applied_optimizations,
                 "interfaces": self._get_network_interfaces(),
             }

@@ -83,7 +83,11 @@ class DashboardGenerator:
         return panel_id
 
     def _create_base_dashboard(
-        self, title: str, dashboard_type: DashboardType, tags: List[str] = None, refresh: str = "5s"
+        self,
+        title: str,
+        dashboard_type: DashboardType,
+        tags: List[str] = None,
+        refresh: str = "5s",
     ) -> Dict[str, Any]:
         """基本ダッシュボード構造作成"""
         return {
@@ -110,7 +114,17 @@ class DashboardGenerator:
                         "2h",
                         "1d",
                     ],
-                    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"],
+                    "time_options": [
+                        "5m",
+                        "15m",
+                        "1h",
+                        "6h",
+                        "12h",
+                        "24h",
+                        "2d",
+                        "7d",
+                        "30d",
+                    ],
                 },
                 "templating": {"list": self._create_template_variables()},
                 "annotations": {"list": self._create_annotations()},
@@ -207,11 +221,18 @@ class DashboardGenerator:
             "type": config.panel_type.value,
             "datasource": {
                 "type": (
-                    "prometheus" if config.datasource == "Prometheus" else config.datasource.lower()
+                    "prometheus"
+                    if config.datasource == "Prometheus"
+                    else config.datasource.lower()
                 ),
                 "uid": config.datasource.lower(),
             },
-            "gridPos": {"h": config.height, "w": config.width, "x": config.x, "y": config.y},
+            "gridPos": {
+                "h": config.height,
+                "w": config.width,
+                "x": config.x,
+                "y": config.y,
+            },
             "targets": config.targets,
             "options": config.options,
             "fieldConfig": config.fieldConfig,
@@ -388,7 +409,11 @@ class DashboardGenerator:
                 y=y_pos,
                 width=12,
                 height=8,
-                options={"yAxis": {"unit": "µs"}, "color": {"mode": "spectrum"}, "calculate": True},
+                options={
+                    "yAxis": {"unit": "µs"},
+                    "color": {"mode": "spectrum"},
+                    "calculate": True,
+                },
             ),
             PanelConfig(
                 title="Latency Percentiles",
@@ -422,7 +447,11 @@ class DashboardGenerator:
                 fieldConfig={
                     "defaults": {
                         "unit": "µs",
-                        "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10},
+                        "custom": {
+                            "drawStyle": "line",
+                            "lineWidth": 2,
+                            "fillOpacity": 10,
+                        },
                     }
                 },
             ),
@@ -662,7 +691,13 @@ def generate_dashboards(output_dir: str = None) -> List[str]:
     """ダッシュボード一括生成"""
     if output_dir is None:
         output_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "config", "grafana", "dashboards"
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "config",
+            "grafana",
+            "dashboards",
         )
 
     generator = DashboardGenerator(output_dir)

@@ -163,7 +163,9 @@ class LoggingConfig:
             # 標準のStreamHandlerを設定
             stream_handler = logging.StreamHandler(sys.stdout)
             stream_handler.setFormatter(
-                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
             )
 
             # QueueListenerを設定し、別スレッドでログを処理
@@ -286,7 +288,9 @@ def log_api_call(
         logger.debug(f"API call: {method} {endpoint}", extra=log_data)
 
 
-def log_performance_metric(metric_name: str, value: float, unit: str = "", **kwargs) -> None:
+def log_performance_metric(
+    metric_name: str, value: float, unit: str = "", **kwargs
+) -> None:
     """パフォーマンスメトリクスログ出力"""
     logger = get_performance_logger(__name__)
 

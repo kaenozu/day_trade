@@ -328,7 +328,9 @@ async def start_analysis():
     global analysis_engine
 
     if not analysis_engine:
-        raise HTTPException(status_code=500, detail="分析エンジンが初期化されていません")
+        raise HTTPException(
+            status_code=500, detail="分析エンジンが初期化されていません"
+        )
 
     if analysis_engine.status.value == "running":
         return {"message": "分析エンジンは既に実行中です", "status": "already_running"}
@@ -354,7 +356,9 @@ async def stop_analysis():
     global analysis_engine
 
     if not analysis_engine:
-        raise HTTPException(status_code=500, detail="分析エンジンが初期化されていません")
+        raise HTTPException(
+            status_code=500, detail="分析エンジンが初期化されていません"
+        )
 
     if analysis_engine.status.value == "stopped":
         return {"message": "分析エンジンは既に停止中です", "status": "already_stopped"}
@@ -379,7 +383,9 @@ async def get_analysis_report():
     global analysis_engine
 
     if not analysis_engine:
-        raise HTTPException(status_code=500, detail="分析エンジンが初期化されていません")
+        raise HTTPException(
+            status_code=500, detail="分析エンジンが初期化されていません"
+        )
 
     # 市場サマリー取得
     market_summary = analysis_engine.get_market_summary()
@@ -433,7 +439,9 @@ async def create_price_chart(request: dict):
     global chart_manager, analysis_engine
 
     if not chart_manager or not analysis_engine:
-        raise HTTPException(status_code=503, detail="チャートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
 
     try:
         # サンプルデータ（実際の実装では分析エンジンからデータ取得）
@@ -476,7 +484,9 @@ async def create_price_chart(request: dict):
 
     except Exception as e:
         logger.error(f"価格チャート作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/charts/performance")
@@ -485,7 +495,9 @@ async def create_performance_chart(request: dict):
     global chart_manager
 
     if not chart_manager:
-        raise HTTPException(status_code=503, detail="チャートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
 
     try:
         symbols = request.get("symbols", ["7203.T"])
@@ -516,7 +528,9 @@ async def create_performance_chart(request: dict):
 
     except Exception as e:
         logger.error(f"パフォーマンスチャート作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/analysis/risk")
@@ -544,7 +558,9 @@ async def get_risk_analysis(request: dict):
 
     except Exception as e:
         logger.error(f"リスク分析データ取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/charts/risk-scatter")
@@ -553,7 +569,9 @@ async def create_risk_scatter_chart(risk_data: dict):
     global chart_manager
 
     if not chart_manager:
-        raise HTTPException(status_code=503, detail="チャートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
 
     try:
         chart_data = chart_manager.create_risk_analysis_chart(
@@ -563,7 +581,9 @@ async def create_risk_scatter_chart(risk_data: dict):
 
     except Exception as e:
         logger.error(f"リスク散布図作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/charts/risk-radar")
@@ -572,7 +592,9 @@ async def create_risk_radar_chart(risk_data: dict):
     global chart_manager
 
     if not chart_manager:
-        raise HTTPException(status_code=503, detail="チャートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
 
     try:
         chart_data = chart_manager.create_risk_analysis_chart(
@@ -582,7 +604,9 @@ async def create_risk_radar_chart(risk_data: dict):
 
     except Exception as e:
         logger.error(f"リスクレーダーチャート作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/charts/market-overview")
@@ -591,7 +615,9 @@ async def get_market_overview():
     global chart_manager
 
     if not chart_manager:
-        raise HTTPException(status_code=503, detail="チャートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="チャートマネージャーが初期化されていません"
+        )
 
     try:
         # モック市場データ
@@ -627,7 +653,9 @@ async def get_market_overview():
 
     except Exception as e:
         logger.error(f"市場概要ダッシュボード作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"ダッシュボード作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"ダッシュボード作成エラー: {str(e)}"
+        ) from e
 
 
 # === 強化ダッシュボードページ ===
@@ -658,7 +686,9 @@ async def create_custom_report(request: dict):
     global report_manager, analysis_engine
 
     if not report_manager:
-        raise HTTPException(status_code=503, detail="レポートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
 
     try:
         template = request.get("template", "standard")
@@ -692,7 +722,9 @@ async def create_custom_report(request: dict):
 
     except Exception as e:
         logger.error(f"カスタムレポート作成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/reports/export")
@@ -701,7 +733,9 @@ async def export_report(request: dict):
     global report_manager
 
     if not report_manager:
-        raise HTTPException(status_code=503, detail="レポートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
 
     try:
         report_data = request.get("report_data")
@@ -709,7 +743,9 @@ async def export_report(request: dict):
         filename = request.get("filename")
 
         if not report_data:
-            raise HTTPException(status_code=400, detail="レポートデータが提供されていません")
+            raise HTTPException(
+                status_code=400, detail="レポートデータが提供されていません"
+            )
 
         if export_format == "json":
             filepath = report_manager.export_to_json(report_data, filename)
@@ -723,7 +759,9 @@ async def export_report(request: dict):
                     status_code=501, detail="PDFエクスポートライブラリが利用できません"
                 ) from import_error
         else:
-            raise HTTPException(status_code=400, detail="サポートされていないエクスポート形式")
+            raise HTTPException(
+                status_code=400, detail="サポートされていないエクスポート形式"
+            )
 
         return {
             "success": True,
@@ -734,7 +772,9 @@ async def export_report(request: dict):
 
     except Exception as e:
         logger.error(f"レポートエクスポートエラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/reports/templates")
@@ -743,7 +783,9 @@ async def get_report_templates():
     global report_manager
 
     if not report_manager:
-        raise HTTPException(status_code=503, detail="レポートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
 
     try:
         templates = report_manager.get_available_templates()
@@ -751,7 +793,9 @@ async def get_report_templates():
 
     except Exception as e:
         logger.error(f"テンプレート取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/reports/metrics")
@@ -760,7 +804,9 @@ async def get_available_metrics():
     global report_manager
 
     if not report_manager:
-        raise HTTPException(status_code=503, detail="レポートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
 
     try:
         metrics = report_manager.get_available_metrics()
@@ -768,7 +814,9 @@ async def get_available_metrics():
 
     except Exception as e:
         logger.error(f"指標取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/reports/schedule")
@@ -777,7 +825,9 @@ async def schedule_periodic_report(request: dict):
     global report_manager
 
     if not report_manager:
-        raise HTTPException(status_code=503, detail="レポートマネージャーが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="レポートマネージャーが初期化されていません"
+        )
 
     try:
         template = request.get("template", "standard")
@@ -795,7 +845,9 @@ async def schedule_periodic_report(request: dict):
 
     except Exception as e:
         logger.error(f"定期レポートスケジュール設定エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 # === 教育システムAPI ===
@@ -807,7 +859,9 @@ async def get_term_explanation(term: str):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         explanation = educational_system.get_term_explanation(term)
@@ -818,7 +872,9 @@ async def get_term_explanation(term: str):
 
     except Exception as e:
         logger.error(f"用語解説取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/education/glossary")
@@ -827,7 +883,9 @@ async def search_glossary(query: str = "", category: str = None):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         if query:
@@ -841,7 +899,9 @@ async def search_glossary(query: str = "", category: str = None):
 
     except Exception as e:
         logger.error(f"用語集検索エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/education/strategies/{strategy}")
@@ -850,7 +910,9 @@ async def get_strategy_guide(strategy: str):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         guide = educational_system.get_strategy_guide(strategy)
@@ -864,7 +926,9 @@ async def get_strategy_guide(strategy: str):
 
     except Exception as e:
         logger.error(f"戦略ガイド取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/education/case-studies/{case}")
@@ -873,7 +937,9 @@ async def get_case_study(case: str):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         study = educational_system.get_case_study(case)
@@ -887,7 +953,9 @@ async def get_case_study(case: str):
 
     except Exception as e:
         logger.error(f"事例分析取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/education/learning/{module}")
@@ -896,7 +964,9 @@ async def get_learning_module(module: str):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         learning_module = educational_system.get_learning_module(module)
@@ -910,7 +980,9 @@ async def get_learning_module(module: str):
 
     except Exception as e:
         logger.error(f"学習モジュール取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"学習モジュール取得エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"学習モジュール取得エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/education/quiz")
@@ -919,7 +991,9 @@ async def generate_quiz(request: dict):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         topic = request.get("topic")
@@ -927,7 +1001,9 @@ async def generate_quiz(request: dict):
         count = request.get("count", 5)
 
         if count > 20:
-            raise HTTPException(status_code=400, detail="問題数は20問以下にしてください")
+            raise HTTPException(
+                status_code=400, detail="問題数は20問以下にしてください"
+            )
 
         questions = educational_system.get_quiz_questions(
             topic=topic, difficulty=difficulty, count=count
@@ -942,7 +1018,9 @@ async def generate_quiz(request: dict):
 
     except Exception as e:
         logger.error(f"クイズ生成エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.get("/api/education/progress/{user_id}")
@@ -951,7 +1029,9 @@ async def get_learning_progress(user_id: str):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         progress = educational_system.get_learning_progress(user_id)
@@ -966,7 +1046,9 @@ async def get_learning_progress(user_id: str):
 
     except Exception as e:
         logger.error(f"学習進捗取得エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 @app.post("/api/education/progress/{user_id}")
@@ -975,7 +1057,9 @@ async def update_learning_progress(user_id: str, request: dict):
     global educational_system
 
     if not educational_system:
-        raise HTTPException(status_code=503, detail="教育システムが初期化されていません")
+        raise HTTPException(
+            status_code=503, detail="教育システムが初期化されていません"
+        )
 
     try:
         module = request.get("module")
@@ -993,7 +1077,9 @@ async def update_learning_progress(user_id: str, request: dict):
 
     except Exception as e:
         logger.error(f"学習進捗更新エラー: {e}")
-        raise HTTPException(status_code=500, detail=f"チャート作成エラー: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"チャート作成エラー: {str(e)}"
+        ) from e
 
 
 if __name__ == "__main__":

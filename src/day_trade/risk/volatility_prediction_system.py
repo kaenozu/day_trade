@@ -243,7 +243,9 @@ class VolatilityPredictionSystem:
                 return cached_result
 
         try:
-            logger.info(f"GARCH ボラティリティ予測開始: {symbol} ({self.garch_model_type})")
+            logger.info(
+                f"GARCH ボラティリティ予測開始: {symbol} ({self.garch_model_type})"
+            )
 
             # リターン計算
             returns = data["Close"].pct_change().dropna()
@@ -263,7 +265,9 @@ class VolatilityPredictionSystem:
             # 予測実行
             forecast = model.forecast(horizon=self.forecast_horizon)
             forecast_variance = forecast.variance.values[-1, :]
-            forecast_volatility = np.sqrt(forecast_variance.mean()) * np.sqrt(252)  # 年率化
+            forecast_volatility = np.sqrt(forecast_variance.mean()) * np.sqrt(
+                252
+            )  # 年率化
 
             # 現在ボラティリティ
             current_volatility = returns.rolling(20).std().iloc[-1] * np.sqrt(252)
@@ -282,7 +286,9 @@ class VolatilityPredictionSystem:
             model_params = {
                 "omega": float(model.params["omega"]),
                 "alpha": float(model.params["alpha[1]"]),
-                "beta": float(model.params["beta[1]"]) if "beta[1]" in model.params else 0.0,
+                "beta": (
+                    float(model.params["beta[1]"]) if "beta[1]" in model.params else 0.0
+                ),
             }
 
             result = GARCHVolatilityResult(
@@ -521,7 +527,9 @@ class VolatilityPredictionSystem:
             )
 
             # 統合ボラティリティ予測
-            final_volatility = await self._integrate_volatility_forecasts(garch_result, vix_result)
+            final_volatility = await self._integrate_volatility_forecasts(
+                garch_result, vix_result
+            )
 
             # 統合リスクスコア（0-1スケール）
             integrated_risk = await self._calculate_integrated_risk_score(
@@ -618,7 +626,9 @@ class VolatilityPredictionSystem:
             processing_time=0.0,
         )
 
-    async def _analyze_volatility_trend(self, current_vol: float, forecast_vol: float) -> str:
+    async def _analyze_volatility_trend(
+        self, current_vol: float, forecast_vol: float
+    ) -> str:
         """ボラティリティトレンド分析"""
         change_ratio = (forecast_vol - current_vol) / current_vol
 
@@ -708,12 +718,16 @@ class VolatilityPredictionSystem:
         fear_adjustment = 1.0 - (market_fear * 0.5)
 
         # 相関による調整（負の相関が強いほど少し有利）
-        correlation_adjustment = 1.0 + (abs(correlation) * 0.1 if correlation < 0 else 0)
+        correlation_adjustment = 1.0 + (
+            abs(correlation) * 0.1 if correlation < 0 else 0
+        )
 
         final_factor = base_factor * fear_adjustment * correlation_adjustment
         return max(0.1, min(2.0, final_factor))
 
-    async def _determine_recommended_action(self, risk_regime: str, risk_adjustment: float) -> str:
+    async def _determine_recommended_action(
+        self, risk_regime: str, risk_adjustment: float
+    ) -> str:
         """推奨アクション決定"""
         if risk_adjustment > 1.1:
             return "increase"
@@ -731,7 +745,9 @@ class VolatilityPredictionSystem:
 
         return float(abs(returns.quantile(1 - confidence)))
 
-    async def _calculate_expected_shortfall(self, returns: pd.Series, confidence: float) -> float:
+    async def _calculate_expected_shortfall(
+        self, returns: pd.Series, confidence: float
+    ) -> float:
         """Expected Shortfall計算"""
         var_threshold = returns.quantile(1 - confidence)
         tail_returns = returns[returns <= var_threshold]
@@ -741,7 +757,9 @@ class VolatilityPredictionSystem:
 
         return float(abs(tail_returns.mean()))
 
-    async def _forecast_max_drawdown(self, returns: pd.Series, forecast_vol: float) -> float:
+    async def _forecast_max_drawdown(
+        self, returns: pd.Series, forecast_vol: float
+    ) -> float:
         """最大ドローダウン予測"""
         # 過去の最大ドローダウンを参考に、予測ボラティリティで調整
         cumulative = (1 + returns).cumprod()
@@ -757,14 +775,18 @@ class VolatilityPredictionSystem:
         forecast_dd = historical_max_dd * vol_adjustment
         return max(0.05, min(0.8, forecast_dd))  # 5%-80%の範囲
 
-    async def _forecast_sharpe_ratio(self, returns: pd.Series, forecast_vol: float) -> float:
+    async def _forecast_sharpe_ratio(
+        self, returns: pd.Series, forecast_vol: float
+    ) -> float:
         """シャープレシオ予測"""
         annual_return = returns.mean() * 252
 
         if forecast_vol <= 0:
             return 0.0
 
-        forecast_sharpe = (annual_return - self.risk_parameters["risk_free_rate"]) / forecast_vol
+        forecast_sharpe = (
+            annual_return - self.risk_parameters["risk_free_rate"]
+        ) / forecast_vol
         return max(-2.0, min(3.0, forecast_sharpe))  # -2~3の範囲
 
     async def _calculate_position_size_multiplier(
@@ -865,7 +887,9 @@ class VolatilityPredictionSystem:
         self, volatility: float, sharpe_forecast: float
     ) -> float:
         """リスク調整リターン予測"""
-        expected_return = self.risk_parameters["risk_free_rate"] + sharpe_forecast * volatility
+        expected_return = (
+            self.risk_parameters["risk_free_rate"] + sharpe_forecast * volatility
+        )
         return max(-0.5, min(1.0, expected_return))  # -50%~100%の範囲
 
     async def _calculate_overall_confidence(
@@ -927,7 +951,9 @@ class VolatilityPredictionSystem:
             processing_time=0.0,
         )
 
-    def _create_default_integrated_result(self, symbol: str) -> IntegratedVolatilityForecast:
+    def _create_default_integrated_result(
+        self, symbol: str
+    ) -> IntegratedVolatilityForecast:
         """デフォルト統合結果作成"""
         garch_default = self._create_default_garch_result(symbol)
         vix_default = self._create_default_vix_result(symbol)
@@ -950,7 +976,8 @@ class VolatilityPredictionSystem:
         """パフォーマンス統計取得"""
         return {
             "total_forecasts": self.stats["total_forecasts"],
-            "cache_hit_rate": self.stats["cache_hits"] / max(1, self.stats["total_forecasts"]),
+            "cache_hit_rate": self.stats["cache_hits"]
+            / max(1, self.stats["total_forecasts"]),
             "garch_forecasts": self.stats["garch_forecasts"],
             "vix_assessments": self.stats["vix_assessments"],
             "avg_processing_time": self.stats["avg_processing_time"],

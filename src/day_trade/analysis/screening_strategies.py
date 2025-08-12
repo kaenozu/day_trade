@@ -98,7 +98,9 @@ class RSIOverboughtStrategy(ScreeningStrategy):
 
             rsi = indicators["RSI"].iloc[-1]
             if pd.notna(rsi) and rsi >= threshold:
-                score = (rsi - threshold) / (100 - threshold) * 100  # RSIが高いほど高スコア
+                score = (
+                    (rsi - threshold) / (100 - threshold) * 100
+                )  # RSIが高いほど高スコア
                 return True, min(score, 100)
 
         except Exception as e:
@@ -123,7 +125,10 @@ class MACDBullishStrategy(ScreeningStrategy):
         **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
+            if (
+                "MACD" not in indicators.columns
+                or "MACD_Signal" not in indicators.columns
+            ):
                 return False, 0.0
 
             macd = indicators["MACD"].iloc[-2:]
@@ -163,7 +168,10 @@ class MACDBearishStrategy(ScreeningStrategy):
         **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "MACD" not in indicators.columns or "MACD_Signal" not in indicators.columns:
+            if (
+                "MACD" not in indicators.columns
+                or "MACD_Signal" not in indicators.columns
+            ):
                 return False, 0.0
 
             macd = indicators["MACD"].iloc[-2:]
@@ -217,7 +225,9 @@ class GoldenCrossStrategy(ScreeningStrategy):
                 and sma20.iloc[-1] > sma50.iloc[-1]
             ):
                 # 20日線が50日線を上抜け
-                cross_strength = (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
+                cross_strength = (
+                    (sma20.iloc[-1] - sma50.iloc[-1]) / sma50.iloc[-1] * 100
+                )
                 score = min(cross_strength * 50, 100)
                 return True, score
 
@@ -257,7 +267,9 @@ class DeadCrossStrategy(ScreeningStrategy):
                 and sma20.iloc[-1] < sma50.iloc[-1]
             ):
                 # 20日線が50日線を下抜け
-                cross_strength = (sma50.iloc[-1] - sma20.iloc[-1]) / sma50.iloc[-1] * 100
+                cross_strength = (
+                    (sma50.iloc[-1] - sma20.iloc[-1]) / sma50.iloc[-1] * 100
+                )
                 score = min(cross_strength * 50, 100)
                 return True, score
 
@@ -344,7 +356,10 @@ class BollingerBreakoutStrategy(ScreeningStrategy):
         **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns:
+            if (
+                "BB_Upper" not in indicators.columns
+                or "BB_Lower" not in indicators.columns
+            ):
                 return False, 0.0
 
             current_price = df["Close"].iloc[-1]
@@ -385,7 +400,10 @@ class BollingerSqueezeStrategy(ScreeningStrategy):
         **kwargs,
     ) -> Tuple[bool, float]:
         try:
-            if "BB_Upper" not in indicators.columns or "BB_Lower" not in indicators.columns:
+            if (
+                "BB_Upper" not in indicators.columns
+                or "BB_Lower" not in indicators.columns
+            ):
                 return False, 0.0
 
             bb_upper = indicators["BB_Upper"].iloc[-1]
@@ -461,7 +479,9 @@ class PriceNearResistanceStrategy(ScreeningStrategy):
             recent_highs = df["High"].iloc[-lookback_days:].nlargest(3)
             resistance_level = recent_highs.mean()
 
-            distance_to_resistance = abs(current_price - resistance_level) / resistance_level
+            distance_to_resistance = (
+                abs(current_price - resistance_level) / resistance_level
+            )
 
             if distance_to_resistance <= threshold:
                 # レジスタンスに近いほど高スコア
@@ -500,7 +520,9 @@ class ReversalPatternStrategy(ScreeningStrategy):
 
             if len(rsi_values) >= 5 and len(price_values) >= 5:
                 # RSIが底を打って上昇し、価格も底を打って上昇
-                rsi_trend = rsi_values.iloc[-1] > rsi_values.iloc[-3] > rsi_values.iloc[-5]
+                rsi_trend = (
+                    rsi_values.iloc[-1] > rsi_values.iloc[-3] > rsi_values.iloc[-5]
+                )
                 price_low = price_values.min()
                 current_price = price_values.iloc[-1]
 

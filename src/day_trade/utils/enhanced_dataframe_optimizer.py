@@ -123,7 +123,9 @@ class IntelligentDataTypeOptimizer:
         original_memory = self._calculate_memory_usage(df)
         original_dtypes = {col: str(df[col].dtype) for col in df.columns}
 
-        optimized_df = df.copy() if not aggressive else df  # インプレース最適化オプション
+        optimized_df = (
+            df.copy() if not aggressive else df
+        )  # インプレース最適化オプション
         operations_applied = []
 
         # 整数型最適化
@@ -165,14 +167,18 @@ class IntelligentDataTypeOptimizer:
                 # 日時形式検出・変換
                 if self._is_datetime_column(optimized_df[col]):
                     try:
-                        optimized_df[col] = pd.to_datetime(optimized_df[col], errors="coerce")
+                        optimized_df[col] = pd.to_datetime(
+                            optimized_df[col], errors="coerce"
+                        )
                         operations_applied.append(f"datetime_conversion_{col}")
                     except Exception:
                         pass  # 変換失敗時はスキップ
 
         # 最適化後状態記録
         optimized_memory = self._calculate_memory_usage(optimized_df)
-        optimized_dtypes = {col: str(optimized_df[col].dtype) for col in optimized_df.columns}
+        optimized_dtypes = {
+            col: str(optimized_df[col].dtype) for col in optimized_df.columns
+        }
 
         optimization_time = (time.perf_counter() - start_time) * 1000  # ms
         memory_reduction = (
@@ -183,7 +189,9 @@ class IntelligentDataTypeOptimizer:
 
         # 統計更新
         self.optimization_stats["dataframes_optimized"] += 1
-        self.optimization_stats["total_memory_saved_mb"] += original_memory - optimized_memory
+        self.optimization_stats["total_memory_saved_mb"] += (
+            original_memory - optimized_memory
+        )
         self.optimization_stats["avg_memory_reduction_percent"] = (
             self.optimization_stats["avg_memory_reduction_percent"]
             * (self.optimization_stats["dataframes_optimized"] - 1)
@@ -399,7 +407,9 @@ class MemoryOptimizedDataFrameFactory:
             optimized_sample, _ = self.dtype_optimizer.optimize_dataframe(sample_df)
 
             # 推定されたデータ型を使用して全体読み込み
-            inferred_dtypes = {col: optimized_sample[col].dtype for col in optimized_sample.columns}
+            inferred_dtypes = {
+                col: optimized_sample[col].dtype for col in optimized_sample.columns
+            }
 
             # 特別な処理が必要な型の調整
             for col, dtype in inferred_dtypes.items():
@@ -506,8 +516,12 @@ class DataFramePerformanceMonitor:
         total_memory_delta = sum(log["memory_delta_mb"] for log in self.operation_logs)
         avg_time = total_time / len(self.operation_logs)
 
-        slowest_operation = max(self.operation_logs, key=lambda x: x["execution_time_ms"])
-        highest_memory_operation = max(self.operation_logs, key=lambda x: x["memory_delta_mb"])
+        slowest_operation = max(
+            self.operation_logs, key=lambda x: x["execution_time_ms"]
+        )
+        highest_memory_operation = max(
+            self.operation_logs, key=lambda x: x["memory_delta_mb"]
+        )
 
         report = {
             "monitoring_summary": {
@@ -638,7 +652,9 @@ def optimize_dataframe(
     return optimizer.optimize_existing_dataframe(df, aggressive=aggressive)
 
 
-def create_optimized_dataframe(data: Any, columns: Optional[List[str]] = None) -> pd.DataFrame:
+def create_optimized_dataframe(
+    data: Any, columns: Optional[List[str]] = None
+) -> pd.DataFrame:
     """最適化DataFrameクイック生成"""
     optimizer = EnhancedDataFrameOptimizer()
     optimized_df, _ = optimizer.create_optimized_dataframe(data, columns)
@@ -674,13 +690,17 @@ if __name__ == "__main__":
 
     # 最適化実行
     optimizer = EnhancedDataFrameOptimizer()
-    optimized_df, results = optimizer.optimize_existing_dataframe(original_df, aggressive=True)
+    optimized_df, results = optimizer.optimize_existing_dataframe(
+        original_df, aggressive=True
+    )
 
     optimized_memory = optimized_df.memory_usage(deep=True).sum() / 1024 / 1024
 
     print("\n最適化結果:")
     print(f"最適化DataFrame: {optimized_memory:.2f}MB")
-    print(f"メモリ削減: {((original_memory - optimized_memory) / original_memory) * 100:.1f}%")
+    print(
+        f"メモリ削減: {((original_memory - optimized_memory) / original_memory) * 100:.1f}%"
+    )
     print(f"最適化データ型: {dict(optimized_df.dtypes)}")
 
     # 統合統計

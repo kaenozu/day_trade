@@ -185,7 +185,9 @@ class DependencyGraph:
 
     def record_access(self, key: str, operation: str = "get"):
         """アクセス記録（パターン学習用）"""
-        self.access_history.append({"key": key, "operation": operation, "timestamp": time.time()})
+        self.access_history.append(
+            {"key": key, "operation": operation, "timestamp": time.time()}
+        )
 
     def analyze_access_patterns(self) -> Dict[str, List[str]]:
         """アクセスパターン分析（自動依存関係推定）"""
@@ -209,13 +211,17 @@ class DependencyGraph:
         """依存グラフ統計"""
         with self.lock:
             return {
-                "total_dependencies": sum(len(deps) for deps in self.dependencies.values()),
+                "total_dependencies": sum(
+                    len(deps) for deps in self.dependencies.values()
+                ),
                 "total_dependents": sum(len(deps) for deps in self.dependents.values()),
                 "keys_with_dependencies": len(self.dependencies),
                 "keys_with_dependents": len(self.dependents),
                 "access_history_size": len(self.access_history),
                 "max_fanout": (
-                    max(len(deps) for deps in self.dependents.values()) if self.dependents else 0
+                    max(len(deps) for deps in self.dependents.values())
+                    if self.dependents
+                    else 0
                 ),
                 "max_fanin": (
                     max(len(deps) for deps in self.dependencies.values())
@@ -265,9 +271,9 @@ class SmartCacheInvalidator:
 
     def add_rule(self, rule: DependencyRule) -> str:
         """依存性ルール追加"""
-        rule_id = hashlib.md5(f"{rule.source_pattern}:{rule.target_patterns}".encode()).hexdigest()[
-            :8
-        ]
+        rule_id = hashlib.md5(
+            f"{rule.source_pattern}:{rule.target_patterns}".encode()
+        ).hexdigest()[:8]
 
         with self.lock:
             self.rules[rule_id] = rule
@@ -294,7 +300,9 @@ class SmartCacheInvalidator:
         cascade: bool = True,
     ) -> str:
         """キー無効化実行"""
-        event_id = f"{int(time.time() * 1000)}_{hashlib.md5(key.encode()).hexdigest()[:8]}"
+        event_id = (
+            f"{int(time.time() * 1000)}_{hashlib.md5(key.encode()).hexdigest()[:8]}"
+        )
 
         with self.lock:
             # 影響を受けるキー特定
@@ -384,7 +392,9 @@ class SmartCacheInvalidator:
         for cache in self.cache_instances:
             if hasattr(cache, "set_metadata"):
                 for key in event.affected_keys:
-                    cache.set_metadata(key, {"lazy_invalid": True, "invalid_since": time.time()})
+                    cache.set_metadata(
+                        key, {"lazy_invalid": True, "invalid_since": time.time()}
+                    )
 
         self.stats.lazy_invalidations += 1
         event.processed = True
@@ -429,7 +439,9 @@ class SmartCacheInvalidator:
 
         # パターン分析タスク
         if self.enable_auto_dependency_detection:
-            self.pattern_analyzer_task = asyncio.create_task(self._pattern_analyzer_loop())
+            self.pattern_analyzer_task = asyncio.create_task(
+                self._pattern_analyzer_loop()
+            )
 
         logger.info("バックグラウンド処理開始")
 
@@ -574,7 +586,9 @@ class SmartCacheInvalidator:
                 "batch_invalidations": self.stats.batch_invalidations,
                 "cascade_invalidations": self.stats.cascade_invalidations,
                 "failed_invalidations": self.stats.failed_invalidations,
-                "success_rate": (self.stats.total_events - self.stats.failed_invalidations)
+                "success_rate": (
+                    self.stats.total_events - self.stats.failed_invalidations
+                )
                 / max(self.stats.total_events, 1)
                 * 100,
                 "average_processing_time_ms": self.stats.average_processing_time_ms,
@@ -583,10 +597,14 @@ class SmartCacheInvalidator:
             "rules": {
                 "total_rules": len(self.rules),
                 "auto_generated_rules": sum(
-                    1 for rule in self.rules.values() if rule.metadata.get("auto_generated")
+                    1
+                    for rule in self.rules.values()
+                    if rule.metadata.get("auto_generated")
                 ),
                 "manual_rules": sum(
-                    1 for rule in self.rules.values() if not rule.metadata.get("auto_generated")
+                    1
+                    for rule in self.rules.values()
+                    if not rule.metadata.get("auto_generated")
                 ),
             },
             "processing": {
@@ -641,7 +659,9 @@ async def test_smart_cache_invalidation():
         cache2.put("user_list", ["123", "456"])
 
         # 無効化システム初期化
-        invalidator = SmartCacheInvalidator([cache1, cache2], batch_processing_interval=2.0)
+        invalidator = SmartCacheInvalidator(
+            [cache1, cache2], batch_processing_interval=2.0
+        )
 
         print("\n1. スマートキャッシュ無効化システム初期化完了")
 

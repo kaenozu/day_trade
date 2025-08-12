@@ -138,7 +138,9 @@ def watchlist_list(group: str, prices: bool):
             return
 
         # 価格情報付きテーブル
-        title = f"ウォッチリスト（{group}）" if group else "ウォッチリスト（全グループ）"
+        title = (
+            f"ウォッチリスト（{group}）" if group else "ウォッチリスト（全グループ）"
+        )
         table = Table(title=title)
         table.add_column("コード", style="cyan")
         table.add_column("銘柄名", style="white")
@@ -180,7 +182,9 @@ def watchlist_list(group: str, prices: bool):
             )
             return
 
-        title = f"ウォッチリスト（{group}）" if group else "ウォッチリスト（全グループ）"
+        title = (
+            f"ウォッチリスト（{group}）" if group else "ウォッチリスト（全グループ）"
+        )
         table = Table(title=title)
         table.add_column("コード", style="cyan")
         table.add_column("銘柄名", style="white")
@@ -194,7 +198,11 @@ def watchlist_list(group: str, prices: bool):
                 item["stock_name"],
                 item["group_name"],
                 item["memo"][:30] + "..." if len(item["memo"]) > 30 else item["memo"],
-                (item["added_date"].strftime("%Y-%m-%d") if item["added_date"] else "N/A"),
+                (
+                    item["added_date"].strftime("%Y-%m-%d")
+                    if item["added_date"]
+                    else "N/A"
+                ),
             )
 
     console.print(table)
@@ -285,7 +293,9 @@ def watchlist_move(code: str, to_group: str, from_group: str):
 
     if manager.move_to_group(code, from_group, to_group):
         console.print(
-            create_success_panel(f"銘柄 {code} を {from_group} から {to_group} に移動しました。")
+            create_success_panel(
+                f"銘柄 {code} を {from_group} から {to_group} に移動しました。"
+            )
         )
     else:
         console.print(

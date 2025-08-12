@@ -402,9 +402,15 @@ class ConsistencyCheck(MonitorCheck):
 
         try:
             # センチメント データの整合性
-            if "positive_ratio" in data and "negative_ratio" in data and "neutral_ratio" in data:
+            if (
+                "positive_ratio" in data
+                and "negative_ratio" in data
+                and "neutral_ratio" in data
+            ):
                 total_ratio = (
-                    data["positive_ratio"] + data["negative_ratio"] + data["neutral_ratio"]
+                    data["positive_ratio"]
+                    + data["negative_ratio"]
+                    + data["neutral_ratio"]
                 )
                 if abs(total_ratio - 1.0) > 0.01:  # 許容誤差1%
                     violations.append(f"センチメント比率合計異常: {total_ratio:.3f}")
@@ -422,7 +428,9 @@ class ConsistencyCheck(MonitorCheck):
                 if field in data and isinstance(data[field], (int, float)):
                     value = data[field]
                     if not (min_val <= value <= max_val):
-                        violations.append(f"{field}範囲外: {value} (範囲: {min_val}-{max_val})")
+                        violations.append(
+                            f"{field}範囲外: {value} (範囲: {min_val}-{max_val})"
+                        )
 
         except Exception as e:
             violations.append(f"辞書整合性チェックエラー: {str(e)}")
@@ -709,13 +717,13 @@ class DataFreshnessMonitor:
             generated_alert = None
 
             if rule.rule_type == "freshness" and "freshness" in self.checks:
-                check_passed, generated_alert = await self.checks["freshness"].execute_check(
-                    data_source, data, context
-                )
+                check_passed, generated_alert = await self.checks[
+                    "freshness"
+                ].execute_check(data_source, data, context)
             elif rule.rule_type == "consistency" and "consistency" in self.checks:
-                check_passed, generated_alert = await self.checks["consistency"].execute_check(
-                    data_source, data, context
-                )
+                check_passed, generated_alert = await self.checks[
+                    "consistency"
+                ].execute_check(data_source, data, context)
 
             # アラート処理
             if not check_passed and generated_alert:
@@ -727,7 +735,9 @@ class DataFreshnessMonitor:
         except Exception as e:
             logger.error(f"データソースチェックエラー {data_source}: {e}")
 
-    async def _fetch_data_for_monitoring(self, data_source: str) -> Tuple[Any, Dict[str, Any]]:
+    async def _fetch_data_for_monitoring(
+        self, data_source: str
+    ) -> Tuple[Any, Dict[str, Any]]:
         """監視用データ取得（模擬実装）"""
         try:
             # 実際の実装では、各データソースから最新データを取得
@@ -834,7 +844,9 @@ class DataFreshnessMonitor:
                 # データ年齢計算
                 data_timestamp = context.get("data_timestamp")
                 if data_timestamp:
-                    health.data_age_minutes = (current_time - data_timestamp).total_seconds() / 60
+                    health.data_age_minutes = (
+                        current_time - data_timestamp
+                    ).total_seconds() / 60
 
                 # 品質スコア更新（移動平均）
                 if check_passed:
@@ -853,7 +865,9 @@ class DataFreshnessMonitor:
                 # レスポンス時間更新
                 response_time = context.get("response_time_ms", 0)
                 if response_time > 0:
-                    health.response_time_ms = health.response_time_ms * 0.8 + response_time * 0.2
+                    health.response_time_ms = (
+                        health.response_time_ms * 0.8 + response_time * 0.2
+                    )
 
                 # ヘルス状態判定
                 if health.consecutive_failures >= 5:
@@ -882,14 +896,18 @@ class DataFreshnessMonitor:
                         AlertType.DATA_MISSING,
                         AlertType.SYSTEM_ERROR,
                     ]:
-                        sla.current_availability = max(0.0, sla.current_availability - 0.001)
+                        sla.current_availability = max(
+                            0.0, sla.current_availability - 0.001
+                        )
 
                     # 鮮度の更新
                     if (
                         alert.alert_type == AlertType.DATA_STALE
                         and "data_age_minutes" in alert.metadata
                     ):
-                        sla.current_freshness_minutes = alert.metadata["data_age_minutes"]
+                        sla.current_freshness_minutes = alert.metadata[
+                            "data_age_minutes"
+                        ]
 
                     break
 
@@ -910,7 +928,9 @@ class DataFreshnessMonitor:
             }
 
             # 実際の実装では、メール、Slack、Teams等への通知
-            logger.info(f"アラート通知: {json.dumps(notification_message, ensure_ascii=False)}")
+            logger.info(
+                f"アラート通知: {json.dumps(notification_message, ensure_ascii=False)}"
+            )
 
         except Exception as e:
             logger.error(f"アラート通知送信エラー: {e}")
@@ -928,22 +948,30 @@ class DataFreshnessMonitor:
                 try:
                     if action == RecoveryAction.RETRY_FETCH:
                         # データ再取得試行
-                        logger.info(f"回復アクション実行: データ再取得 ({alert.data_source})")
+                        logger.info(
+                            f"回復アクション実行: データ再取得 ({alert.data_source})"
+                        )
                         executed_actions.append("retry_fetch")
 
                     elif action == RecoveryAction.USE_FALLBACK:
                         # フォールバックデータ使用
-                        logger.info(f"回復アクション実行: フォールバック使用 ({alert.data_source})")
+                        logger.info(
+                            f"回復アクション実行: フォールバック使用 ({alert.data_source})"
+                        )
                         executed_actions.append("use_fallback")
 
                     elif action == RecoveryAction.AUTO_FIX:
                         # 自動修正実行
-                        logger.info(f"回復アクション実行: 自動修正 ({alert.data_source})")
+                        logger.info(
+                            f"回復アクション実行: 自動修正 ({alert.data_source})"
+                        )
                         executed_actions.append("auto_fix")
 
                     elif action == RecoveryAction.NOTIFY_ADMIN:
                         # 管理者通知
-                        logger.info(f"回復アクション実行: 管理者通知 ({alert.data_source})")
+                        logger.info(
+                            f"回復アクション実行: 管理者通知 ({alert.data_source})"
+                        )
                         executed_actions.append("notify_admin")
 
                 except Exception as e:
@@ -968,7 +996,9 @@ class DataFreshnessMonitor:
                 "message": alert.message,
                 "data_source": alert.data_source,
                 "triggered_at": alert.triggered_at.isoformat(),
-                "resolved_at": alert.resolved_at.isoformat() if alert.resolved_at else None,
+                "resolved_at": (
+                    alert.resolved_at.isoformat() if alert.resolved_at else None
+                ),
                 "acknowledged_at": (
                     alert.acknowledged_at.isoformat() if alert.acknowledged_at else None
                 ),
@@ -1010,7 +1040,10 @@ class DataFreshnessMonitor:
             # 平均品質スコア
             if self.data_source_health:
                 avg_quality = np.mean(
-                    [health.quality_score for health in self.data_source_health.values()]
+                    [
+                        health.quality_score
+                        for health in self.data_source_health.values()
+                    ]
                 )
                 self.metrics_history["avg_quality_score"].append(
                     {"timestamp": current_time, "value": avg_quality}
@@ -1023,7 +1056,9 @@ class DataFreshnessMonitor:
         """期限切れアラートクリーンアップ"""
         try:
             current_time = datetime.utcnow()
-            retention_threshold = current_time - timedelta(days=self.alert_retention_days)
+            retention_threshold = current_time - timedelta(
+                days=self.alert_retention_days
+            )
 
             # 期限切れアラート特定
             expired_alert_ids = []
@@ -1036,7 +1071,9 @@ class DataFreshnessMonitor:
                 del self.active_alerts[alert_id]
 
             if expired_alert_ids:
-                logger.info(f"期限切れアラートクリーンアップ: {len(expired_alert_ids)}件")
+                logger.info(
+                    f"期限切れアラートクリーンアップ: {len(expired_alert_ids)}件"
+                )
 
         except Exception as e:
             logger.error(f"アラートクリーンアップエラー: {e}")
@@ -1085,7 +1122,10 @@ class DataFreshnessMonitor:
                     health_stats["by_status"][health.health_status] += 1
 
                 health_stats["avg_quality_score"] = np.mean(
-                    [health.quality_score for health in self.data_source_health.values()]
+                    [
+                        health.quality_score
+                        for health in self.data_source_health.values()
+                    ]
                 )
                 health_stats["avg_availability"] = np.mean(
                     [health.availability for health in self.data_source_health.values()]
@@ -1127,7 +1167,9 @@ class DataFreshnessMonitor:
                     "check_interval_seconds": self.check_interval_seconds,
                     "alert_retention_days": self.alert_retention_days,
                     "total_rules": len(self.monitor_rules),
-                    "active_rules": sum(1 for rule in self.monitor_rules.values() if rule.enabled),
+                    "active_rules": sum(
+                        1 for rule in self.monitor_rules.values() if rule.enabled
+                    ),
                 },
             }
 
@@ -1289,10 +1331,18 @@ if __name__ == "__main__":
             dashboard = monitor.get_system_dashboard()
 
             print(f"   監視状態: {dashboard['monitor_status']}")
-            print(f"   アクティブアラート: {dashboard['alert_statistics']['total_active']}件")
-            print(f"   データソース数: {dashboard['health_statistics']['total_sources']}")
-            print(f"   平均品質スコア: {dashboard['health_statistics']['avg_quality_score']:.3f}")
-            print(f"   平均可用性: {dashboard['health_statistics']['avg_availability']:.3f}")
+            print(
+                f"   アクティブアラート: {dashboard['alert_statistics']['total_active']}件"
+            )
+            print(
+                f"   データソース数: {dashboard['health_statistics']['total_sources']}"
+            )
+            print(
+                f"   平均品質スコア: {dashboard['health_statistics']['avg_quality_score']:.3f}"
+            )
+            print(
+                f"   平均可用性: {dashboard['health_statistics']['avg_availability']:.3f}"
+            )
 
             # SLA状況
             print("\n   SLA状況:")

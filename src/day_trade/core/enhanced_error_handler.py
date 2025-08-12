@@ -127,7 +127,9 @@ class MultiLanguageErrorMessages:
             },
         }
 
-    def get_message(self, category: ErrorCategory, error_type: str, language: str = "ja") -> str:
+    def get_message(
+        self, category: ErrorCategory, error_type: str, language: str = "ja"
+    ) -> str:
         """エラーメッセージ取得"""
         try:
             return self.messages[language][category.value][error_type]
@@ -151,7 +153,9 @@ class AutoRecoveryManager:
         """復旧試行"""
         if error_context.category in self.recovery_strategies:
             try:
-                return self.recovery_strategies[error_context.category](error_context, **kwargs)
+                return self.recovery_strategies[error_context.category](
+                    error_context, **kwargs
+                )
             except Exception as e:
                 logger.error(f"自動復旧失敗: {e}")
                 return False
@@ -283,7 +287,9 @@ class ErrorAnalyzer:
             },
         }
 
-    def analyze_error(self, exception: Exception, context: Dict[str, Any]) -> ErrorContext:
+    def analyze_error(
+        self, exception: Exception, context: Dict[str, Any]
+    ) -> ErrorContext:
         """エラー分析"""
         error_message = str(exception)
         error_type = type(exception).__name__
@@ -353,7 +359,9 @@ class ErrorAnalyzer:
         """技術的詳細取得"""
         return traceback.format_exc()
 
-    def _assess_user_impact(self, category: ErrorCategory, severity: ErrorSeverity) -> str:
+    def _assess_user_impact(
+        self, category: ErrorCategory, severity: ErrorSeverity
+    ) -> str:
         """ユーザー影響評価"""
         impact_matrix = {
             (
@@ -380,7 +388,9 @@ class ErrorAnalyzer:
 
         return impact_matrix.get((category, severity), "システムに影響が生じています")
 
-    def _generate_suggestions(self, category: ErrorCategory, error_type: str) -> List[str]:
+    def _generate_suggestions(
+        self, category: ErrorCategory, error_type: str
+    ) -> List[str]:
         """改善提案生成"""
         suggestions_db = {
             ErrorCategory.DATA_ERROR: {
@@ -407,7 +417,9 @@ class ErrorAnalyzer:
 
         if category in suggestions_db:
             if isinstance(suggestions_db[category], dict):
-                return suggestions_db[category].get(error_type, ["専門家にお問い合わせください"])
+                return suggestions_db[category].get(
+                    error_type, ["専門家にお問い合わせください"]
+                )
             else:
                 return suggestions_db[category]
 
@@ -417,7 +429,9 @@ class ErrorAnalyzer:
 class EnhancedErrorHandler:
     """強化エラーハンドリングシステム"""
 
-    def __init__(self, config: Optional[OptimizationConfig] = None, language: str = "ja"):
+    def __init__(
+        self, config: Optional[OptimizationConfig] = None, language: str = "ja"
+    ):
         self.config = config or OptimizationConfig()
         self.language = language
 
@@ -521,9 +535,13 @@ class EnhancedErrorHandler:
             category_counts[category] = category_counts.get(category, 0) + 1
 
         # 自動復旧成功率
-        recovery_attempts = sum(1 for ec in self.error_history if ec.auto_recovery_attempted)
+        recovery_attempts = sum(
+            1 for ec in self.error_history if ec.auto_recovery_attempted
+        )
         if recovery_attempts > 0:
-            recovery_successes = sum(1 for ec in self.error_history if ec.recovery_successful)
+            recovery_successes = sum(
+                1 for ec in self.error_history if ec.recovery_successful
+            )
             recovery_success_rate = recovery_successes / recovery_attempts
 
         return {
@@ -532,7 +550,11 @@ class EnhancedErrorHandler:
             "category_distribution": category_counts,
             "recovery_success_rate": recovery_success_rate,
             "recent_errors": len(
-                [ec for ec in self.error_history if (datetime.now() - ec.timestamp).days <= 1]
+                [
+                    ec
+                    for ec in self.error_history
+                    if (datetime.now() - ec.timestamp).days <= 1
+                ]
             ),
         }
 
@@ -549,7 +571,9 @@ def get_global_error_handler(language: str = "ja") -> EnhancedErrorHandler:
     return _global_error_handler
 
 
-def handle_error_gracefully(operation_name: str, component_name: str = "unknown") -> Callable:
+def handle_error_gracefully(
+    operation_name: str, component_name: str = "unknown"
+) -> Callable:
     """デコレータ: エラーをグレースフルに処理"""
 
     def decorator(func: Callable) -> Callable:

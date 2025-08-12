@@ -327,7 +327,9 @@ class WebSocketStreamingClient:
 
         return True
 
-    async def _establish_connection_and_subscribe(self, subscription: StreamSubscription) -> None:
+    async def _establish_connection_and_subscribe(
+        self, subscription: StreamSubscription
+    ) -> None:
         """接続確立・購読開始"""
         provider = subscription.provider
 
@@ -389,7 +391,9 @@ class WebSocketStreamingClient:
                 connection_state.connection_errors += 1
                 self.stats["connection_errors"] += 1
 
-                logger.error(f"WebSocket接続エラー {provider.value} (試行 {retry_count}): {e}")
+                logger.error(
+                    f"WebSocket接続エラー {provider.value} (試行 {retry_count}): {e}"
+                )
 
                 if retry_count < connection_state.max_reconnect_attempts:
                     delay = self._calculate_reconnect_delay(retry_count)
@@ -405,12 +409,16 @@ class WebSocketStreamingClient:
 
         if provider in self.websockets:
             del self.websockets[provider]
-            self.stats["active_connections"] = max(0, self.stats["active_connections"] - 1)
+            self.stats["active_connections"] = max(
+                0, self.stats["active_connections"] - 1
+            )
 
     async def _authenticate(self, websocket, subscription: StreamSubscription) -> None:
         """WebSocket認証"""
         if not subscription.api_key:
-            raise ValueError(f"APIキーが設定されていません: {subscription.provider.value}")
+            raise ValueError(
+                f"APIキーが設定されていません: {subscription.provider.value}"
+            )
 
         # プロバイダー別認証メッセージ
         if subscription.provider == StreamProvider.FINNHUB:
@@ -457,7 +465,9 @@ class WebSocketStreamingClient:
             }
             await websocket.send(json.dumps(subscribe_message))
 
-        logger.info(f"購読メッセージ送信: {provider.value} ({len(subscription.symbols)} 銘柄)")
+        logger.info(
+            f"購読メッセージ送信: {provider.value} ({len(subscription.symbols)} 銘柄)"
+        )
 
     async def _send_unsubscribe_message(self, subscription: StreamSubscription) -> None:
         """購読解除メッセージ送信"""
@@ -496,7 +506,9 @@ class WebSocketStreamingClient:
                 try:
                     # メッセージ解析
                     message_data = (
-                        json.loads(raw_message) if isinstance(raw_message, str) else raw_message
+                        json.loads(raw_message)
+                        if isinstance(raw_message, str)
+                        else raw_message
                     )
 
                     # ストリームメッセージ作成
@@ -538,9 +550,13 @@ class WebSocketStreamingClient:
             elif provider == StreamProvider.FINNHUB:
                 messages = await self._parse_finnhub_message(message_data, raw_message)
             elif provider == StreamProvider.ALPHA_VANTAGE:
-                messages = await self._parse_alpha_vantage_message(message_data, raw_message)
+                messages = await self._parse_alpha_vantage_message(
+                    message_data, raw_message
+                )
             else:
-                messages = await self._parse_generic_message(provider, message_data, raw_message)
+                messages = await self._parse_generic_message(
+                    provider, message_data, raw_message
+                )
 
         except Exception as e:
             logger.error(f"メッセージ解析エラー {provider.value}: {e}")
@@ -738,7 +754,9 @@ class WebSocketStreamingClient:
 
         return {
             "total_subscriptions": len(self.subscriptions),
-            "active_subscriptions": len([s for s in self.subscriptions.values() if s.active]),
+            "active_subscriptions": len(
+                [s for s in self.subscriptions.values() if s.active]
+            ),
             "subscriptions": active_subscriptions,
         }
 
@@ -753,7 +771,9 @@ class WebSocketStreamingClient:
                 "connection_errors": state.connection_errors,
                 "reconnect_attempts": state.reconnect_attempts,
                 "last_connected": (
-                    state.last_connected_at.isoformat() if state.last_connected_at else None
+                    state.last_connected_at.isoformat()
+                    if state.last_connected_at
+                    else None
                 ),
                 "last_message": (
                     state.last_message_at.isoformat() if state.last_message_at else None
@@ -764,13 +784,17 @@ class WebSocketStreamingClient:
 
     def get_streaming_statistics(self) -> Dict[str, Any]:
         """ストリーミング統計取得"""
-        buffer_sizes = {sub_id: len(buffer) for sub_id, buffer in self.message_buffer.items()}
+        buffer_sizes = {
+            sub_id: len(buffer) for sub_id, buffer in self.message_buffer.items()
+        }
 
         return {
             **self.stats,
             "message_buffer_sizes": buffer_sizes,
             "total_buffer_messages": sum(buffer_sizes.values()),
-            "active_subscriptions": len([s for s in self.subscriptions.values() if s.active]),
+            "active_subscriptions": len(
+                [s for s in self.subscriptions.values() if s.active]
+            ),
             "is_running": self._running,
         }
 
@@ -779,7 +803,9 @@ class WebSocketStreamingClient:
         return {
             "status": "healthy" if self._running else "stopped",
             "active_connections": self.stats["active_connections"],
-            "active_subscriptions": len([s for s in self.subscriptions.values() if s.active]),
+            "active_subscriptions": len(
+                [s for s in self.subscriptions.values() if s.active]
+            ),
             "messages_processed_rate": self.stats["messages_processed"],
             "error_rate": self.stats["connection_errors"],
             "timestamp": datetime.now().isoformat(),

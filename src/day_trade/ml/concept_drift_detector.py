@@ -42,7 +42,9 @@ class ConceptDriftDetector:
             timestamp (datetime): データが生成されたタイムスタンプ
         """
         if len(predictions) != len(actuals):
-            logger.warning("予測値と実際の値の長さが一致しません。性能データをスキップします。")
+            logger.warning(
+                "予測値と実際の値の長さが一致しません。性能データをスキップします。"
+            )
             return
         if len(predictions) == 0:
             logger.warning("予測値または実際の値が空です。性能データをスキップします。")
@@ -84,7 +86,9 @@ class ConceptDriftDetector:
         if self.baseline_metric is None:
             # 最初の数データポイントの平均をベースラインとする
             if len(self.performance_history) >= 5:
-                self.baseline_metric = np.mean([d["mae"] for d in self.performance_history[:5]])
+                self.baseline_metric = np.mean(
+                    [d["mae"] for d in self.performance_history[:5]]
+                )
                 logger.info(
                     f"コンセプトドリフト検出器: ベースラインMAEを設定しました: {self.baseline_metric:.4f}"
                 )
@@ -97,7 +101,9 @@ class ConceptDriftDetector:
         # ベースラインからの性能低下をチェック
         # MAEは小さいほど良いので、増加をドリフトとみなす
         if self.baseline_metric > 0:  # ゼロ除算回避
-            mae_increase_ratio = (latest_mae - self.baseline_metric) / self.baseline_metric
+            mae_increase_ratio = (
+                latest_mae - self.baseline_metric
+            ) / self.baseline_metric
         else:
             mae_increase_ratio = 0  # ベースラインが0の場合はドリフトなし
 
@@ -116,7 +122,9 @@ class ConceptDriftDetector:
             logger.warning(
                 f"コンセプトドリフト検出: MAEがベースラインから {mae_increase_ratio:.2%} 増加しました。"
             )
-            result["reason"] = f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
+            result["reason"] = (
+                f"MAEが閾値 ({self.metric_threshold:.2%}) を超えて増加しました。"
+            )
         else:
             logger.info(f"コンセプトドリフトなし: MAE増加率 {mae_increase_ratio:.2%}")
             result["reason"] = "性能は安定しています"

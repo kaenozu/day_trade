@@ -94,7 +94,9 @@ class ConfigLoader:
                 logger.error("有効な銘柄リストが見つかりません")
                 return False
 
-            logger.info("設定の整合性チェック完了", extra={"symbols_count": len(symbols)})
+            logger.info(
+                "設定の整合性チェック完了", extra={"symbols_count": len(symbols)}
+            )
             return True
 
         except Exception as e:

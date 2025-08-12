@@ -32,7 +32,9 @@ class EnsembleVisualizer(ChartRenderer):
     複数ML手法の統合結果とアンサンブル予測の詳細可視化を提供
     """
 
-    def __init__(self, output_dir: str = "output/ensemble_charts", theme: str = "default"):
+    def __init__(
+        self, output_dir: str = "output/ensemble_charts", theme: str = "default"
+    ):
         """
         初期化
 
@@ -43,7 +45,9 @@ class EnsembleVisualizer(ChartRenderer):
         super().__init__(output_dir, theme)
         logger.info("アンサンブル可視化システム初期化完了")
 
-    def render(self, data: pd.DataFrame, ensemble_results: Dict, **kwargs) -> Optional[str]:
+    def render(
+        self, data: pd.DataFrame, ensemble_results: Dict, **kwargs
+    ) -> Optional[str]:
         """
         アンサンブル予測チャート描画
 
@@ -125,7 +129,9 @@ class EnsembleVisualizer(ChartRenderer):
             upper_bound = ci.get("upper", [])
 
             if lower_bound and upper_bound:
-                pred_x = range(len(actual_prices) - len(lower_bound), len(actual_prices))
+                pred_x = range(
+                    len(actual_prices) - len(lower_bound), len(actual_prices)
+                )
                 ax.fill_between(
                     pred_x,
                     lower_bound,
@@ -197,7 +203,9 @@ class EnsembleVisualizer(ChartRenderer):
 
             for i, (model_name, prediction) in enumerate(individual_preds.items()):
                 color = self.palette.get_color(
-                    model_colors[i % len(model_colors)] if i < len(model_colors) else "neutral"
+                    model_colors[i % len(model_colors)]
+                    if i < len(model_colors)
+                    else "neutral"
                 )
 
                 if len(data) >= len(prediction):
@@ -227,7 +235,9 @@ class EnsembleVisualizer(ChartRenderer):
                     linewidth=3,
                 )
 
-        self.apply_common_styling(ax, title="個別モデル予測比較", xlabel="時間", ylabel="予測価格")
+        self.apply_common_styling(
+            ax, title="個別モデル予測比較", xlabel="時間", ylabel="予測価格"
+        )
 
     def _plot_model_weights(self, ax, ensemble_results: Dict) -> None:
         """
@@ -271,7 +281,9 @@ class EnsembleVisualizer(ChartRenderer):
                         linewidth=2,
                     )
 
-                self.apply_common_styling(ax, title="動的モデル重み", xlabel="時間", ylabel="重み")
+                self.apply_common_styling(
+                    ax, title="動的モデル重み", xlabel="時間", ylabel="重み"
+                )
 
         elif "model_performance" in ensemble_results:
             # パフォーマンスベースの重み可視化
@@ -295,7 +307,9 @@ class EnsembleVisualizer(ChartRenderer):
                         va="bottom",
                     )
 
-                self.apply_common_styling(ax, title="モデルパフォーマンス", ylabel="スコア")
+                self.apply_common_styling(
+                    ax, title="モデルパフォーマンス", ylabel="スコア"
+                )
                 plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
 
     def _plot_prediction_uncertainty(self, ax, ensemble_results: Dict) -> None:
@@ -414,7 +428,9 @@ class EnsembleVisualizer(ChartRenderer):
         ax_stats = fig.add_subplot(gs[2, 2])
         self._plot_ensemble_statistics(ax_stats, ensemble_results)
 
-        plt.suptitle(f"{symbol} アンサンブル分析ダッシュボード", fontsize=16, fontweight="bold")
+        plt.suptitle(
+            f"{symbol} アンサンブル分析ダッシュボード", fontsize=16, fontweight="bold"
+        )
         plt.tight_layout()
 
         filename = f"ensemble_dashboard_{symbol}.png"
@@ -566,7 +582,9 @@ class EnsembleVisualizer(ChartRenderer):
                 exported_files["main_chart"] = main_chart
 
             # ダッシュボード
-            dashboard = self.create_ensemble_analysis_dashboard(data, ensemble_results, symbol)
+            dashboard = self.create_ensemble_analysis_dashboard(
+                data, ensemble_results, symbol
+            )
             if dashboard:
                 exported_files["dashboard"] = dashboard
 
@@ -577,7 +595,9 @@ class EnsembleVisualizer(ChartRenderer):
             if diversity_chart:
                 exported_files["diversity_analysis"] = diversity_chart
 
-            logger.info(f"アンサンブル分析レポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"アンサンブル分析レポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

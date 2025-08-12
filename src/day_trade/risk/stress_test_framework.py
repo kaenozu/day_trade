@@ -229,7 +229,9 @@ class AdvancedStressTestFramework:
                 raise ValueError(f"未定義のシナリオ: {scenario}")
 
             # 初期ポートフォリオ価値計算
-            initial_value = self._calculate_portfolio_value(portfolio_weights, price_data)
+            initial_value = self._calculate_portfolio_value(
+                portfolio_weights, price_data
+            )
 
             # Monte Carloシミュレーション実行
             simulation_results = self._run_monte_carlo_simulation(
@@ -253,7 +255,9 @@ class AdvancedStressTestFramework:
             # CVaR（Expected Shortfall）
             tail_values = sorted_values[:var_index]
             stressed_cvar_95 = (
-                initial_value - np.mean(tail_values) if len(tail_values) > 0 else stressed_var_95
+                initial_value - np.mean(tail_values)
+                if len(tail_values) > 0
+                else stressed_var_95
             )
 
             # ボラティリティ
@@ -264,7 +268,9 @@ class AdvancedStressTestFramework:
             max_drawdown = percentage_loss * 1.2  # 保守的見積もり
 
             # 最悪・最良パフォーマー特定
-            avg_individual_impacts = {k: np.mean(v) for k, v in individual_impacts.items()}
+            avg_individual_impacts = {
+                k: np.mean(v) for k, v in individual_impacts.items()
+            }
             sorted_impacts = sorted(avg_individual_impacts.items(), key=lambda x: x[1])
 
             worst_performers = sorted_impacts[:3]  # 下位3つ
@@ -272,7 +278,9 @@ class AdvancedStressTestFramework:
 
             # 回復時間推定
             recovery_time = self._estimate_recovery_time(params, percentage_loss)
-            recovery_probability = self._estimate_recovery_probability(params, percentage_loss)
+            recovery_probability = self._estimate_recovery_probability(
+                params, percentage_loss
+            )
 
             result = StressTestResult(
                 scenario_name=params.name,
@@ -343,7 +351,8 @@ class AdvancedStressTestFramework:
 
             # ポートフォリオ価値計算
             portfolio_return = sum(
-                portfolio_weights.get(symbol, 0) * ret for symbol, ret in stressed_returns.items()
+                portfolio_weights.get(symbol, 0) * ret
+                for symbol, ret in stressed_returns.items()
             )
 
             initial_value = 1000000  # 基準値
@@ -404,7 +413,9 @@ class AdvancedStressTestFramework:
             stressed_volatility = base_volatility * stress_multiplier
 
             # リターンショック適用
-            return_shock = params.return_shock.get(symbol, params.return_shock.get("default", 0))
+            return_shock = params.return_shock.get(
+                symbol, params.return_shock.get("default", 0)
+            )
 
             # 正規分布からサンプリング（簡略版）
             random_component = np.random.normal(0, stressed_volatility)
@@ -414,7 +425,9 @@ class AdvancedStressTestFramework:
 
         return stressed_returns
 
-    def _estimate_recovery_time(self, params: ScenarioParameters, loss_percentage: float) -> int:
+    def _estimate_recovery_time(
+        self, params: ScenarioParameters, loss_percentage: float
+    ) -> int:
         """回復時間推定"""
         # 簡単な経験則ベースの推定
         base_recovery_days = params.duration_days * 3  # 3倍の時間
@@ -463,7 +476,9 @@ class AdvancedStressTestFramework:
 
         return results
 
-    def generate_stress_test_report(self, results: Dict[StressScenario, StressTestResult]) -> str:
+    def generate_stress_test_report(
+        self, results: Dict[StressScenario, StressTestResult]
+    ) -> str:
         """ストレステストレポート生成"""
         if not results:
             return "ストレステスト結果がありません。"
@@ -486,7 +501,9 @@ class AdvancedStressTestFramework:
 
         for scenario, result in results.items():
             recovery_time = (
-                f"{result.recovery_time_estimate}日" if result.recovery_time_estimate else "N/A"
+                f"{result.recovery_time_estimate}日"
+                if result.recovery_time_estimate
+                else "N/A"
             )
 
             report_lines.append(
@@ -506,7 +523,9 @@ class AdvancedStressTestFramework:
         )
         report_lines.append(f"VaR(95%): {worst_scenario.stressed_var_95:,.0f}円")
         report_lines.append(f"CVaR(95%): {worst_scenario.stressed_cvar_95:,.0f}円")
-        report_lines.append(f"ストレス下ボラティリティ: {worst_scenario.stressed_volatility:.1%}")
+        report_lines.append(
+            f"ストレス下ボラティリティ: {worst_scenario.stressed_volatility:.1%}"
+        )
 
         if worst_scenario.worst_performers:
             report_lines.append("\n最悪パフォーマンス銘柄:")

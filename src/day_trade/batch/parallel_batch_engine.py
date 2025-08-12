@@ -176,7 +176,9 @@ class AdaptiveResourceManager:
             stats.success_rate > 0.8,  # 成功率が良好
         ]
 
-        return all(conditions[:3]) and any(conditions[2:])  # リソースOK かつ 性能要求あり
+        return all(conditions[:3]) and any(
+            conditions[2:]
+        )  # リソースOK かつ 性能要求あり
 
     def should_scale_down(self, current_workers: int, stats: EngineStats) -> bool:
         """スケールダウン判定"""
@@ -284,7 +286,9 @@ class ParallelBatchEngine:
         self._initialize_workers(self.resource_manager.initial_workers)
 
         # バックグラウンドスレッド開始
-        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.monitor_thread = threading.Thread(
+            target=self._monitoring_loop, daemon=True
+        )
         self.result_processor_thread = threading.Thread(
             target=self._result_processing_loop, daemon=True
         )
@@ -346,7 +350,9 @@ class ParallelBatchEngine:
             raise RuntimeError("エンジンが開始されていません")
 
         if task_id is None:
-            task_id = f"task_{int(time.time() * 1000)}_{self.stats.total_tasks_submitted}"
+            task_id = (
+                f"task_{int(time.time() * 1000)}_{self.stats.total_tasks_submitted}"
+            )
 
         task = BatchTask(
             task_id=task_id,
@@ -529,7 +535,9 @@ class ParallelBatchEngine:
 
     def _worker_loop(self):
         """ワーカーループ"""
-        worker_id = f"worker_{threading.current_thread().name}_{id(threading.current_thread())}"
+        worker_id = (
+            f"worker_{threading.current_thread().name}_{id(threading.current_thread())}"
+        )
 
         while self.running:
             try:
@@ -662,7 +670,9 @@ class ParallelBatchEngine:
                         self.stats.total_tasks_completed + self.stats.total_tasks_failed
                     )
                     if total_finished > 0:
-                        self.stats.success_rate = self.stats.total_tasks_completed / total_finished
+                        self.stats.success_rate = (
+                            self.stats.total_tasks_completed / total_finished
+                        )
 
                     # 平均実行時間更新
                     if result.execution_time > 0:
@@ -725,7 +735,9 @@ class ParallelBatchEngine:
             )
 
             if optimal_workers != self.current_workers:
-                logger.info(f"ワーカー数調整: {self.current_workers} -> {optimal_workers}")
+                logger.info(
+                    f"ワーカー数調整: {self.current_workers} -> {optimal_workers}"
+                )
                 self._adjust_workers(optimal_workers)
 
     def _adjust_workers(self, target_workers: int):

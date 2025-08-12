@@ -232,7 +232,9 @@ class WebSocketClient:
         self.status = ConnectionStatus.RECONNECTING
         self.reconnect_count += 1
 
-        logger.info(f"再接続試行 {self.reconnect_count}/{self.config.max_reconnect_attempts}")
+        logger.info(
+            f"再接続試行 {self.reconnect_count}/{self.config.max_reconnect_attempts}"
+        )
 
         # 既存接続をクリーンアップ
         if self.websocket:
@@ -263,7 +265,9 @@ class DataNormalizer:
     """データ正規化処理"""
 
     @staticmethod
-    def normalize_market_data(raw_data: Dict[str, Any], source: DataSource) -> Optional[MarketData]:
+    def normalize_market_data(
+        raw_data: Dict[str, Any], source: DataSource
+    ) -> Optional[MarketData]:
         """市場データ正規化"""
         try:
             if source == DataSource.MOCK:
@@ -300,7 +304,9 @@ class DataNormalizer:
             symbol=data.get("symbol", "UNKNOWN"),
             price=float(data.get("regularMarketPrice", 0.0)),
             volume=int(data.get("regularMarketVolume", 0)),
-            timestamp=datetime.fromtimestamp(data.get("regularMarketTime", time.time())),
+            timestamp=datetime.fromtimestamp(
+                data.get("regularMarketTime", time.time())
+            ),
             bid=data.get("bid"),
             ask=data.get("ask"),
             high=data.get("regularMarketDayHigh"),
@@ -381,7 +387,9 @@ class RealtimeDataFeed:
         """市場データ処理"""
         try:
             # データ正規化
-            market_data = DataNormalizer.normalize_market_data(raw_data, self.data_source)
+            market_data = DataNormalizer.normalize_market_data(
+                raw_data, self.data_source
+            )
 
             if market_data:
                 # バッファに追加

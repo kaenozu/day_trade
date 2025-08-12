@@ -126,9 +126,13 @@ class LoggingConfig(BaseModel):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="ログフォーマット",
     )
-    enable_file_logging: bool = Field(default=True, description="ファイルロギングを有効にする")
+    enable_file_logging: bool = Field(
+        default=True, description="ファイルロギングを有効にする"
+    )
     log_directory: str = Field(default="logs", description="ログディレクトリ")
-    max_file_size_mb: int = Field(default=10, description="ログファイル最大サイズ（MB）")
+    max_file_size_mb: int = Field(
+        default=10, description="ログファイル最大サイズ（MB）"
+    )
     backup_count: int = Field(default=5, description="ログファイルバックアップ数")
 
 
@@ -137,7 +141,9 @@ class SecurityConfig(BaseModel):
 
     enable_encryption: bool = Field(default=True, description="暗号化を有効にする")
     api_key_length: int = Field(default=32, description="APIキーの長さ")
-    session_timeout_minutes: int = Field(default=60, description="セッションタイムアウト（分）")
+    session_timeout_minutes: int = Field(
+        default=60, description="セッションタイムアウト（分）"
+    )
 
 
 class UnifiedAppConfig(BaseModel):
@@ -210,7 +216,9 @@ class UnifiedConfigManager:
             self.logger.info(f"統合設定ファイル保存成功: {str(self.config_path)}")
 
         except Exception as e:
-            self.logger.error(f"設定ファイル保存失敗: {str(self.config_path)} - {str(e)}")
+            self.logger.error(
+                f"設定ファイル保存失敗: {str(self.config_path)} - {str(e)}"
+            )
             raise
 
     def get_trading_config(self) -> TradingConfig:

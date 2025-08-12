@@ -132,9 +132,9 @@ class PerformanceProfiler:
             "total_execution_time": total_time,
             "average_memory_usage_mb": avg_memory,
             "peak_memory_usage_mb": max_memory,
-            "slowest_functions": sorted(self.metrics, key=lambda x: x.execution_time, reverse=True)[
-                :5
-            ],
+            "slowest_functions": sorted(
+                self.metrics, key=lambda x: x.execution_time, reverse=True
+            )[:5],
             "memory_intensive_functions": sorted(
                 self.metrics, key=lambda x: x.memory_usage_mb, reverse=True
             )[:5],
@@ -157,7 +157,9 @@ class DataFetchOptimizer:
             try:
                 # 同期関数を非同期で実行
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(None, lambda: fetch_func(symbol, **kwargs))
+                result = await loop.run_in_executor(
+                    None, lambda: fetch_func(symbol, **kwargs)
+                )
                 return symbol, result
             except Exception as e:
                 return symbol, e
@@ -191,13 +193,17 @@ class DataFetchOptimizer:
         errors = {}
 
         # チャンク分割
-        chunks = [symbols[i : i + self.chunk_size] for i in range(0, len(symbols), self.chunk_size)]
+        chunks = [
+            symbols[i : i + self.chunk_size]
+            for i in range(0, len(symbols), self.chunk_size)
+        ]
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # チャンク単位で並列実行
             for chunk in chunks:
                 future_to_symbol = {
-                    executor.submit(fetch_func, symbol, **kwargs): symbol for symbol in chunk
+                    executor.submit(fetch_func, symbol, **kwargs): symbol
+                    for symbol in chunk
                 }
 
                 for future in as_completed(future_to_symbol):
@@ -229,9 +235,13 @@ class DataFetchOptimizer:
                 # 一括取得を試行
                 return bulk_fetch_func(symbols, **kwargs)
             except Exception as e:
-                warnings.warn(f"一括取得に失敗、個別取得にフォールバック: {e}", stacklevel=2)
+                warnings.warn(
+                    f"一括取得に失敗、個別取得にフォールバック: {e}", stacklevel=2
+                )
                 # 個別取得にフォールバック
-                return self.fetch_multiple_threaded(symbols, single_fetch_func, **kwargs)
+                return self.fetch_multiple_threaded(
+                    symbols, single_fetch_func, **kwargs
+                )
         else:
             # 少数の場合は個別取得
             return self.fetch_multiple_threaded(symbols, single_fetch_func, **kwargs)
@@ -356,7 +366,9 @@ class CalculationOptimizer:
                 if signal.get("action") == "buy":
                     # 買い処理
                     shares = portfolio_value * 0.1 / signal["price"]  # 10%投資
-                    positions[signal["symbol"]] = positions.get(signal["symbol"], 0) + shares
+                    positions[signal["symbol"]] = (
+                        positions.get(signal["symbol"], 0) + shares
+                    )
                     portfolio_value -= shares * signal["price"]
                     trades.append(
                         {
@@ -388,8 +400,12 @@ class CalculationOptimizer:
             "final_portfolio_value": portfolio_value,
             "total_trades": len(trades),
             "execution_time": execution_time,
-            "trades_per_second": len(trades) / execution_time if execution_time > 0 else 0,
-            "return_percentage": (portfolio_value - initial_capital) / initial_capital * 100,
+            "trades_per_second": (
+                len(trades) / execution_time if execution_time > 0 else 0
+            ),
+            "return_percentage": (portfolio_value - initial_capital)
+            / initial_capital
+            * 100,
         }
 
 

@@ -128,7 +128,9 @@ class PluginManager:
             with open(self.config_file, encoding="utf-8") as f:
                 config = json.load(f)
                 self._plugin_configs = config.get("plugins", {})
-                logger.info(f"プラグイン設定読み込み完了: {len(self._plugin_configs)}件")
+                logger.info(
+                    f"プラグイン設定読み込み完了: {len(self._plugin_configs)}件"
+                )
         except Exception as e:
             logger.error(f"設定読み込みエラー: {e}")
 
@@ -880,14 +882,20 @@ class NewsSentimentPlugin(IRiskPlugin):
                     return
 
             # モジュール動的読み込み
-            spec = importlib.util.spec_from_file_location(f"plugin_{plugin_name}", plugin_file)
+            spec = importlib.util.spec_from_file_location(
+                f"plugin_{plugin_name}", plugin_file
+            )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
             # プラグインクラス検索
             plugin_class = None
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, IRiskPlugin) and obj != IRiskPlugin and not name.startswith("I"):
+                if (
+                    issubclass(obj, IRiskPlugin)
+                    and obj != IRiskPlugin
+                    and not name.startswith("I")
+                ):
                     plugin_class = obj
                     break
 
@@ -921,7 +929,9 @@ class NewsSentimentPlugin(IRiskPlugin):
         try:
             self._observer = Observer()
             event_handler = PluginEventHandler(self)
-            self._observer.schedule(event_handler, str(self.plugins_dir), recursive=False)
+            self._observer.schedule(
+                event_handler, str(self.plugins_dir), recursive=False
+            )
             self._observer.start()
             logger.info("ホットリロード開始")
         except Exception as e:

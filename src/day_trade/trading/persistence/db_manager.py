@@ -159,7 +159,9 @@ class TradeDatabaseManager:
         try:
             with self.db.get_session() as session:
                 # 既存取引ID取得
-                existing_ids = set(trade_id[0] for trade_id in session.query(DBTrade.id).all())
+                existing_ids = set(
+                    trade_id[0] for trade_id in session.query(DBTrade.id).all()
+                )
 
                 for trade in trades:
                     if trade.id in existing_ids:
@@ -203,7 +205,9 @@ class TradeDatabaseManager:
                     return 0
 
                 # 関連取引削除
-                deleted_count = session.query(DBTrade).filter_by(stock_id=stock.id).delete()
+                deleted_count = (
+                    session.query(DBTrade).filter_by(stock_id=stock.id).delete()
+                )
                 session.commit()
 
                 logger.info(f"銘柄{symbol}の取引データ削除完了: {deleted_count}件")
@@ -283,17 +287,27 @@ class TradeDatabaseManager:
                 total_stocks = session.query(Stock).count()
 
                 # 取引タイプ別件数
-                buy_count = session.query(DBTrade).filter_by(trade_type=TradeType.BUY.value).count()
+                buy_count = (
+                    session.query(DBTrade)
+                    .filter_by(trade_type=TradeType.BUY.value)
+                    .count()
+                )
                 sell_count = (
-                    session.query(DBTrade).filter_by(trade_type=TradeType.SELL.value).count()
+                    session.query(DBTrade)
+                    .filter_by(trade_type=TradeType.SELL.value)
+                    .count()
                 )
 
                 # 最新・最古取引日時
                 latest_trade = (
-                    session.query(DBTrade.timestamp).order_by(DBTrade.timestamp.desc()).first()
+                    session.query(DBTrade.timestamp)
+                    .order_by(DBTrade.timestamp.desc())
+                    .first()
                 )
                 earliest_trade = (
-                    session.query(DBTrade.timestamp).order_by(DBTrade.timestamp.asc()).first()
+                    session.query(DBTrade.timestamp)
+                    .order_by(DBTrade.timestamp.asc())
+                    .first()
                 )
 
                 statistics = {
@@ -301,7 +315,9 @@ class TradeDatabaseManager:
                     "total_stocks": total_stocks,
                     "buy_trades": buy_count,
                     "sell_trades": sell_count,
-                    "latest_trade_date": latest_trade[0].isoformat() if latest_trade else None,
+                    "latest_trade_date": (
+                        latest_trade[0].isoformat() if latest_trade else None
+                    ),
                     "earliest_trade_date": (
                         earliest_trade[0].isoformat() if earliest_trade else None
                     ),

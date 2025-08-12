@@ -120,7 +120,9 @@ class PortfolioManager:
 
             # 4. セクター制約適用
             logger.info("セクター制約チェック中...")
-            initial_weights = portfolio_recommendation["optimal_portfolio"]["allocations"]
+            initial_weights = portfolio_recommendation["optimal_portfolio"][
+                "allocations"
+            ]
             weights_dict = {k: v["weight"] for k, v in initial_weights.items()}
 
             sector_optimization = self.sector_analyzer.optimize_sector_allocation(
@@ -197,10 +199,14 @@ class PortfolioManager:
             )
 
             # セクター分析
-            sector_analysis = self.sector_analyzer.analyze_sector_allocation(current_holdings)
+            sector_analysis = self.sector_analyzer.analyze_sector_allocation(
+                current_holdings
+            )
 
             # パフォーマンス分析
-            performance_metrics = self._analyze_portfolio_performance(current_holdings, price_data)
+            performance_metrics = self._analyze_portfolio_performance(
+                current_holdings, price_data
+            )
 
             portfolio_analysis = {
                 "timestamp": datetime.now(),
@@ -268,8 +274,11 @@ class PortfolioManager:
                 "rebalancing_proposal": rebalancing_proposal,
                 "deviation_analysis": deviation_analysis,
                 "rebalancing_necessity": {
-                    "is_required": deviation_analysis["max_deviation"] > self.rebalancing_threshold,
-                    "urgency_level": self._assess_rebalancing_urgency(deviation_analysis),
+                    "is_required": deviation_analysis["max_deviation"]
+                    > self.rebalancing_threshold,
+                    "urgency_level": self._assess_rebalancing_urgency(
+                        deviation_analysis
+                    ),
                     "estimated_benefit": self._estimate_rebalancing_benefit(
                         current_holdings, target_weights_dict
                     ),
@@ -288,7 +297,9 @@ class PortfolioManager:
             logger.error(f"リバランシング計画エラー: {e}")
             return {"error": str(e)}
 
-    def save_portfolio_report(self, portfolio_data: Dict, output_dir: str = "reports") -> str:
+    def save_portfolio_report(
+        self, portfolio_data: Dict, output_dir: str = "reports"
+    ) -> str:
         """
         ポートフォリオレポート保存
 
@@ -320,7 +331,9 @@ class PortfolioManager:
             logger.error(f"レポート保存エラー: {e}")
             return ""
 
-    def _calculate_returns_data(self, price_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    def _calculate_returns_data(
+        self, price_data: Dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
         """価格データから収益率データを計算"""
         returns_dict = {}
         for symbol, data in price_data.items():
@@ -398,8 +411,12 @@ class PortfolioManager:
             if len(available_symbols) >= 2:
                 portfolio_returns = returns_data[available_symbols].mean() * 252
 
-                weights_available = [allocations[s]["weight"] for s in available_symbols]
-                weights_normalized = [w / sum(weights_available) for w in weights_available]
+                weights_available = [
+                    allocations[s]["weight"] for s in available_symbols
+                ]
+                weights_normalized = [
+                    w / sum(weights_available) for w in weights_available
+                ]
 
                 expected_return = sum(
                     w * portfolio_returns.loc[s]
@@ -410,7 +427,9 @@ class PortfolioManager:
                 ).std() * (252**0.5)
 
                 sharpe_ratio = (
-                    expected_return / portfolio_volatility if portfolio_volatility > 0 else 0
+                    expected_return / portfolio_volatility
+                    if portfolio_volatility > 0
+                    else 0
                 )
             else:
                 expected_return = 0.08
@@ -456,7 +475,9 @@ class PortfolioManager:
 
         # ML信号評価
         if ml_signals:
-            buy_signals = len([s for s in ml_signals.values() if s.get("advice") == "BUY"])
+            buy_signals = len(
+                [s for s in ml_signals.values() if s.get("advice") == "BUY"]
+            )
             total_signals = len(ml_signals)
             buy_ratio = buy_signals / total_signals if total_signals > 0 else 0
 
@@ -502,7 +523,9 @@ class PortfolioManager:
             weights = [holdings[s] for s in available_symbols]
             weights_normalized = [w / sum(weights) for w in weights]
 
-            portfolio_returns = (returns_data[available_symbols] * weights_normalized).sum(axis=1)
+            portfolio_returns = (
+                returns_data[available_symbols] * weights_normalized
+            ).sum(axis=1)
 
             # パフォーマンス指標
             total_return = (1 + portfolio_returns).prod() - 1
@@ -573,7 +596,9 @@ class PortfolioManager:
 
             # 制約適合スコア
             if "compliance" in sector_analysis:
-                compliance_score = 90 if sector_analysis["compliance"]["is_compliant"] else 50
+                compliance_score = (
+                    90 if sector_analysis["compliance"]["is_compliant"] else 50
+                )
                 scores["compliance"] = compliance_score
                 weights["compliance"] = 0.2
 
@@ -581,7 +606,8 @@ class PortfolioManager:
             if scores and weights:
                 total_weight = sum(weights.values())
                 weighted_score = (
-                    sum(scores[k] * weights[k] for k in scores if k in weights) / total_weight
+                    sum(scores[k] * weights[k] for k in scores if k in weights)
+                    / total_weight
                 )
 
                 # スコアレベル判定
@@ -626,7 +652,9 @@ class PortfolioManager:
             "overall_risk_level" in risk_analysis
             and risk_analysis["overall_risk_level"] == "HIGH_RISK"
         ):
-            suggestions.append("リスクレベルが高いため、ポジションサイズの見直しを検討してください")
+            suggestions.append(
+                "リスクレベルが高いため、ポジションサイズの見直しを検討してください"
+            )
 
         # 分散改善
         n_positions = len(holdings)
@@ -636,7 +664,9 @@ class PortfolioManager:
         # ポジションサイズ改善
         max_weight = max(holdings.values()) if holdings else 0
         if max_weight > 0.20:
-            suggestions.append("単一銘柄への集中度が高いため、分散投資を検討してください")
+            suggestions.append(
+                "単一銘柄への集中度が高いため、分散投資を検討してください"
+            )
 
         if not suggestions:
             suggestions.append("現在のポートフォリオ構成は良好です")
@@ -668,7 +698,9 @@ class PortfolioManager:
             "symbol_deviations": deviations,
             "max_deviation": max(absolute_deviations) if absolute_deviations else 0,
             "average_deviation": (
-                sum(absolute_deviations) / len(absolute_deviations) if absolute_deviations else 0
+                sum(absolute_deviations) / len(absolute_deviations)
+                if absolute_deviations
+                else 0
             ),
             "total_absolute_deviation": sum(absolute_deviations),
         }
@@ -695,8 +727,12 @@ class PortfolioManager:
             for s in set(current.keys()) | set(target.keys())
         )
 
-        expected_risk_reduction = min(0.05, deviation_reduction * 0.1)  # 最大5%リスク削減
-        expected_return_improvement = min(0.02, deviation_reduction * 0.05)  # 最大2%リターン改善
+        expected_risk_reduction = min(
+            0.05, deviation_reduction * 0.1
+        )  # 最大5%リスク削減
+        expected_return_improvement = min(
+            0.02, deviation_reduction * 0.05
+        )  # 最大2%リターン改善
 
         return {
             "expected_risk_reduction": expected_risk_reduction,
@@ -704,7 +740,9 @@ class PortfolioManager:
             "deviation_reduction": deviation_reduction,
         }
 
-    def _generate_execution_recommendations(self, rebalancing_proposal: Dict) -> List[str]:
+    def _generate_execution_recommendations(
+        self, rebalancing_proposal: Dict
+    ) -> List[str]:
         """実行推奨事項生成"""
         recommendations = []
         summary = rebalancing_proposal.get("summary", {})
@@ -725,7 +763,9 @@ class PortfolioManager:
         # コスト管理
         cost_estimate = rebalancing_proposal.get("cost_estimate", {})
         if cost_estimate.get("cost_percentage", 0) > 0.5:
-            recommendations.append("取引コストが高いため、実行タイミングを検討してください")
+            recommendations.append(
+                "取引コストが高いため、実行タイミングを検討してください"
+            )
 
         return recommendations
 
@@ -742,7 +782,11 @@ class PortfolioManager:
                     result[k] = self._prepare_data_for_json(v)
                 elif isinstance(v, list):
                     result[k] = [
-                        self._prepare_data_for_json(item) if isinstance(item, dict) else item
+                        (
+                            self._prepare_data_for_json(item)
+                            if isinstance(item, dict)
+                            else item
+                        )
                         for item in v
                     ]
                 else:
@@ -813,8 +857,12 @@ if __name__ == "__main__":
 
         if "error" not in comprehensive_portfolio:
             print("\n=== ポートフォリオ配分 ===")
-            for symbol, allocation in comprehensive_portfolio["portfolio_allocations"].items():
-                print(f"{symbol}: {allocation['weight']:.1%} ({allocation['amount']:,.0f}円)")
+            for symbol, allocation in comprehensive_portfolio[
+                "portfolio_allocations"
+            ].items():
+                print(
+                    f"{symbol}: {allocation['weight']:.1%} ({allocation['amount']:,.0f}円)"
+                )
 
             print("\n=== ポートフォリオ指標 ===")
             metrics = comprehensive_portfolio["portfolio_metrics"]

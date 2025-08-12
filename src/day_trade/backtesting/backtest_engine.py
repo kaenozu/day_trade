@@ -181,7 +181,9 @@ class BacktestEngine:
                     successful_loads += 1
 
                 else:
-                    print(f"データ不足: {symbol} - {len(data) if not data.empty else 0}日分")
+                    print(
+                        f"データ不足: {symbol} - {len(data) if not data.empty else 0}日分"
+                    )
 
             except Exception as e:
                 print(f"データ読み込みエラー: {symbol} - {e}")
@@ -215,12 +217,16 @@ class BacktestEngine:
             if len(all_dates) < 30:
                 raise ValueError(f"データが不足しています: {len(all_dates)}日分")
 
-            print(f"バックテスト期間: {all_dates[0]} - {all_dates[-1]} ({len(all_dates)}日)")
+            print(
+                f"バックテスト期間: {all_dates[0]} - {all_dates[-1]} ({len(all_dates)}日)"
+            )
 
             # 日次バックテスト実行
             for i, current_date in enumerate(all_dates):
                 # 現在の市場データ取得
-                current_prices = self._get_prices_for_date(historical_data, current_date)
+                current_prices = self._get_prices_for_date(
+                    historical_data, current_date
+                )
 
                 # ポジション評価更新
                 self._update_positions(current_prices)
@@ -234,7 +240,9 @@ class BacktestEngine:
 
                     if lookback_data:
                         signals = strategy_function(lookback_data, current_prices)
-                        self._execute_trading_signals(signals, current_prices, current_date)
+                        self._execute_trading_signals(
+                            signals, current_prices, current_date
+                        )
 
                 # ポートフォリオ状態記録
                 portfolio_value = self._calculate_portfolio_value(current_prices)
@@ -255,7 +263,9 @@ class BacktestEngine:
             )
             return results
 
-    def _get_common_dates(self, historical_data: Dict[str, pd.DataFrame]) -> pd.DatetimeIndex:
+    def _get_common_dates(
+        self, historical_data: Dict[str, pd.DataFrame]
+    ) -> pd.DatetimeIndex:
         """共通の取引日インデックス取得"""
         if not historical_data:
             return pd.DatetimeIndex([])
@@ -333,7 +343,9 @@ class BacktestEngine:
 
             current_price = current_prices[symbol]
             target_value = portfolio_value * target_weight
-            target_quantity = int(target_value / current_price) if current_price > 0 else 0
+            target_quantity = (
+                int(target_value / current_price) if current_price > 0 else 0
+            )
 
             # 現在のポジション
             current_quantity = self.positions.get(
@@ -345,13 +357,17 @@ class BacktestEngine:
 
             if abs(trade_quantity) > 0:
                 if trade_quantity > 0:
-                    self._execute_buy_order(symbol, trade_quantity, current_price, current_date)
+                    self._execute_buy_order(
+                        symbol, trade_quantity, current_price, current_date
+                    )
                 else:
                     self._execute_sell_order(
                         symbol, abs(trade_quantity), current_price, current_date
                     )
 
-    def _execute_buy_order(self, symbol: str, quantity: int, price: float, date: pd.Timestamp):
+    def _execute_buy_order(
+        self, symbol: str, quantity: int, price: float, date: pd.Timestamp
+    ):
         """買い注文実行"""
         # 取引コスト計算
         gross_amount = quantity * price
@@ -368,7 +384,9 @@ class BacktestEngine:
             if affordable_quantity <= 0:
                 return
             quantity = affordable_quantity
-            total_cost = quantity * price * (1 + self.commission_rate + self.slippage_rate)
+            total_cost = (
+                quantity * price * (1 + self.commission_rate + self.slippage_rate)
+            )
 
         # 現金減少
         self.cash -= total_cost
@@ -378,7 +396,9 @@ class BacktestEngine:
             position = self.positions[symbol]
             total_quantity = position.quantity + quantity
             total_cost_basis = position.quantity * position.avg_price + quantity * price
-            new_avg_price = total_cost_basis / total_quantity if total_quantity > 0 else price
+            new_avg_price = (
+                total_cost_basis / total_quantity if total_quantity > 0 else price
+            )
 
             position.quantity = total_quantity
             position.avg_price = new_avg_price
@@ -408,7 +428,9 @@ class BacktestEngine:
             }
         )
 
-    def _execute_sell_order(self, symbol: str, quantity: int, price: float, date: pd.Timestamp):
+    def _execute_sell_order(
+        self, symbol: str, quantity: int, price: float, date: pd.Timestamp
+    ):
         """売り注文実行"""
         if symbol not in self.positions:
             return
@@ -472,7 +494,9 @@ class BacktestEngine:
         # デイリーリターン計算
         daily_return = 0.0
         if self.portfolio_values:
-            daily_return = (portfolio_value - self.portfolio_values[-1]) / self.portfolio_values[-1]
+            daily_return = (
+                portfolio_value - self.portfolio_values[-1]
+            ) / self.portfolio_values[-1]
 
         self.portfolio_values.append(portfolio_value)
         self.daily_returns.append(daily_return)
@@ -483,12 +507,15 @@ class BacktestEngine:
             positions=self.positions.copy(),
             total_value=portfolio_value,
             daily_return=daily_return,
-            cumulative_return=(portfolio_value - self.initial_capital) / self.initial_capital,
+            cumulative_return=(portfolio_value - self.initial_capital)
+            / self.initial_capital,
         )
 
         self.portfolio_history.append(portfolio)
 
-    def _analyze_results(self, start_date: pd.Timestamp, end_date: pd.Timestamp) -> BacktestResults:
+    def _analyze_results(
+        self, start_date: pd.Timestamp, end_date: pd.Timestamp
+    ) -> BacktestResults:
         """結果分析"""
         if not self.portfolio_values:
             raise ValueError("バックテストデータが不足しています")
@@ -507,7 +534,9 @@ class BacktestEngine:
 
         # シャープレシオ計算（リスクフリーレート2%と仮定）
         risk_free_rate = 0.02
-        sharpe_ratio = (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0
+        sharpe_ratio = (
+            (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0
+        )
 
         # 最大ドローダウン計算
         peak = np.maximum.accumulate(self.portfolio_values)
@@ -516,7 +545,9 @@ class BacktestEngine:
 
         # 取引統計
         total_trades = len(self.trades)
-        profitable_trades = sum(1 for trade in self.trades if trade.get("realized_pnl", 0) > 0)
+        profitable_trades = sum(
+            1 for trade in self.trades if trade.get("realized_pnl", 0) > 0
+        )
         win_rate = profitable_trades / total_trades if total_trades > 0 else 0
 
         trade_returns = [

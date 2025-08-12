@@ -171,7 +171,9 @@ class MLBasedStrategy(BaseStrategy):
                 signals.append(signal)
 
             # テクニカル分析補強
-            technical_signals = self._generate_technical_signals(symbol, data, current_price)
+            technical_signals = self._generate_technical_signals(
+                symbol, data, current_price
+            )
             signals.extend(technical_signals)
 
             return signals
@@ -243,7 +245,9 @@ class MLBasedStrategy(BaseStrategy):
         try:
             # 基本投資額（信頼度調整）
             confidence_multiplier = signal.confidence
-            risk_adjusted_size = self.parameters.max_position_size * confidence_multiplier
+            risk_adjusted_size = (
+                self.parameters.max_position_size * confidence_multiplier
+            )
 
             # 投資金額
             investment_amount = current_capital * risk_adjusted_size
@@ -277,9 +281,9 @@ class MomentumStrategy(BaseStrategy):
             if len(data) < period + 1:
                 return signals
 
-            momentum = (current_price - data["Close"].iloc[-(period + 1)]) / data["Close"].iloc[
-                -(period + 1)
-            ]
+            momentum = (current_price - data["Close"].iloc[-(period + 1)]) / data[
+                "Close"
+            ].iloc[-(period + 1)]
 
             # 出来高確認
             avg_volume = data["Volume"].rolling(20).mean().iloc[-1]
@@ -288,7 +292,9 @@ class MomentumStrategy(BaseStrategy):
 
             # モメンタムシグナル
             if momentum > self.parameters.momentum_threshold and volume_ratio > 1.2:
-                confidence = min(0.9, abs(momentum) * 10)  # モメンタム強度に応じた信頼度
+                confidence = min(
+                    0.9, abs(momentum) * 10
+                )  # モメンタム強度に応じた信頼度
 
                 signal = TradingSignal(
                     symbol=symbol,
@@ -365,7 +371,9 @@ class HybridStrategy(BaseStrategy):
             all_signals = []
 
             # 各戦略からシグナル取得
-            ml_signals = self.ml_strategy.generate_signals(symbol, data, ml_recommendation)
+            ml_signals = self.ml_strategy.generate_signals(
+                symbol, data, ml_recommendation
+            )
             momentum_signals = self.momentum_strategy.generate_signals(symbol, data)
 
             # シグナル統合
@@ -406,7 +414,9 @@ class HybridStrategy(BaseStrategy):
                 combined_confidence = np.mean([s.confidence for s in buy_signals])
 
                 # ML重み調整
-                ml_buy_signals = [s for s in buy_signals if s.strategy == StrategyType.ML_BASED]
+                ml_buy_signals = [
+                    s for s in buy_signals if s.strategy == StrategyType.ML_BASED
+                ]
                 if ml_buy_signals:
                     ml_confidence = np.mean([s.confidence for s in ml_buy_signals])
                     combined_confidence = (
@@ -426,7 +436,11 @@ class HybridStrategy(BaseStrategy):
                         "component_signals": len(buy_signals),
                         "ml_signals": len(ml_buy_signals),
                         "momentum_signals": len(
-                            [s for s in buy_signals if s.strategy == StrategyType.MOMENTUM]
+                            [
+                                s
+                                for s in buy_signals
+                                if s.strategy == StrategyType.MOMENTUM
+                            ]
                         ),
                         "ml_recommendation": ml_recommendation,
                     },
@@ -500,7 +514,9 @@ class StrategyExecutor:
         self.active_signals: List[TradingSignal] = []
         self.signal_history: List[TradingSignal] = []
 
-        logger.info(f"戦略実行エンジン初期化: {strategy_parameters.strategy_type.value}")
+        logger.info(
+            f"戦略実行エンジン初期化: {strategy_parameters.strategy_type.value}"
+        )
 
     def _create_strategy(self, strategy_type: StrategyType) -> BaseStrategy:
         """戦略インスタンス生成"""
@@ -622,7 +638,9 @@ if __name__ == "__main__":
     }
 
     # テスト実行
-    signals = executor.execute_strategy({"TEST": sample_data}, {"TEST": sample_ml_rec}, 1000000)
+    signals = executor.execute_strategy(
+        {"TEST": sample_data}, {"TEST": sample_ml_rec}, 1000000
+    )
 
     print("=== 戦略テスト結果 ===")
     print(f"生成シグナル数: {len(signals)}")

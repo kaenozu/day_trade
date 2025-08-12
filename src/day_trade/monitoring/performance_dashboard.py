@@ -141,7 +141,9 @@ class DataProcessor:
         # データを時間バケットに分割
         buckets = {}
         for timestamp, value in data:
-            bucket_key = int(timestamp.timestamp() // interval_seconds) * interval_seconds
+            bucket_key = (
+                int(timestamp.timestamp() // interval_seconds) * interval_seconds
+            )
             bucket_time = datetime.utcfromtimestamp(bucket_key)
 
             if bucket_time not in buckets:
@@ -213,7 +215,9 @@ class DashboardEngine:
         """ダッシュボード一覧を取得"""
         return list(self.dashboards.values())
 
-    async def execute_query(self, query: DashboardQuery) -> List[Tuple[datetime, float]]:
+    async def execute_query(
+        self, query: DashboardQuery
+    ) -> List[Tuple[datetime, float]]:
         """クエリを実行してデータを取得"""
         start_time, end_time = self.data_processor.get_time_range_bounds(
             query.time_range, query.custom_start_time, query.custom_end_time
@@ -287,7 +291,10 @@ class DashboardEngine:
             widget_data["series"].append(
                 {
                     "name": series_name,
-                    "data": [{"timestamp": ts.isoformat(), "value": value} for ts, value in data],
+                    "data": [
+                        {"timestamp": ts.isoformat(), "value": value}
+                        for ts, value in data
+                    ],
                 }
             )
 

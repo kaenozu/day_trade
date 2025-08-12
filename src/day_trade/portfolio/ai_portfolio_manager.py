@@ -223,7 +223,9 @@ class PortfolioManager:
         start_time = datetime.now()
 
         try:
-            logger.info(f"ポートフォリオ最適化開始: {self.config.optimization_method.value}")
+            logger.info(
+                f"ポートフォリオ最適化開始: {self.config.optimization_method.value}"
+            )
 
             # 期待リターン予測
             expected_returns = await self._predict_expected_returns()
@@ -233,15 +235,23 @@ class PortfolioManager:
 
             # 最適化実行
             if self.config.optimization_method == OptimizationMethod.AI_ENHANCED:
-                weights = await self._ai_enhanced_optimization(expected_returns, covariance_matrix)
+                weights = await self._ai_enhanced_optimization(
+                    expected_returns, covariance_matrix
+                )
             elif self.config.optimization_method == OptimizationMethod.MEAN_VARIANCE:
-                weights = self._mean_variance_optimization(expected_returns, covariance_matrix)
+                weights = self._mean_variance_optimization(
+                    expected_returns, covariance_matrix
+                )
             elif self.config.optimization_method == OptimizationMethod.RISK_PARITY:
                 weights = self._risk_parity_optimization(covariance_matrix)
             elif self.config.optimization_method == OptimizationMethod.BLACK_LITTERMAN:
-                weights = self._black_litterman_optimization(expected_returns, covariance_matrix)
+                weights = self._black_litterman_optimization(
+                    expected_returns, covariance_matrix
+                )
             else:
-                raise ValueError(f"未対応の最適化手法: {self.config.optimization_method}")
+                raise ValueError(
+                    f"未対応の最適化手法: {self.config.optimization_method}"
+                )
 
             # 配分結果作成
             allocations = self._create_allocations(weights, expected_returns)
@@ -252,7 +262,9 @@ class PortfolioManager:
             )
 
             # リスク寄与度計算
-            risk_contributions = self._calculate_risk_contributions(weights, covariance_matrix)
+            risk_contributions = self._calculate_risk_contributions(
+                weights, covariance_matrix
+            )
 
             # 制約チェック
             constraints_satisfied = self._check_constraints(weights)
@@ -330,14 +342,18 @@ class PortfolioManager:
                 if len(X) > 0:
                     prediction = self.ml_engine.predict(X[-1:])
                     expected_return = (
-                        prediction.predictions[0] if len(prediction.predictions) > 0 else 0.08
+                        prediction.predictions[0]
+                        if len(prediction.predictions) > 0
+                        else 0.08
                     )
                 else:
                     expected_return = 0.08
             else:
                 # 過去データ基準
                 returns = self.historical_data[symbol]["終値"].pct_change().dropna()
-                expected_return = returns.mean() * 252 if len(returns) > 0 else 0.08  # 年率化
+                expected_return = (
+                    returns.mean() * 252 if len(returns) > 0 else 0.08
+                )  # 年率化
 
             expected_returns.append(expected_return)
 
@@ -441,7 +457,10 @@ class PortfolioManager:
             portfolio_return = np.dot(weights, expected_returns)
             portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
             # 効用 = リターン - (リスク回避度/2) * 分散
-            utility = portfolio_return - (1 / (2 * self.config.risk_tolerance)) * portfolio_variance
+            utility = (
+                portfolio_return
+                - (1 / (2 * self.config.risk_tolerance)) * portfolio_variance
+            )
             return -utility  # 最小化のため符号反転
 
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
@@ -556,7 +575,9 @@ class PortfolioManager:
                 weight=weights[i],
                 expected_return=expected_returns[i],
                 risk=(
-                    np.sqrt(self.historical_data[symbol]["終値"].pct_change().var() * 252)
+                    np.sqrt(
+                        self.historical_data[symbol]["終値"].pct_change().var() * 252
+                    )
                     if symbol in self.historical_data
                     else 0.15
                 ),

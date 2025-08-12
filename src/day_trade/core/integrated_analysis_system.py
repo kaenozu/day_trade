@@ -86,7 +86,9 @@ class IntegratedAnalysisSystem:
         # 設定状況をログ出力
         log_current_configuration()
 
-    async def start_comprehensive_analysis(self, analysis_interval: float = 60.0) -> None:
+    async def start_comprehensive_analysis(
+        self, analysis_interval: float = 60.0
+    ) -> None:
         """包括的分析システム開始"""
         if self.is_running:
             logger.warning("統合分析システムは既に実行中です")
@@ -145,15 +147,21 @@ class IntegratedAnalysisSystem:
                     self.system_stats["market_data_updates"] += 1
 
                 # 2. 包括的市場分析
-                market_analysis = await self.market_analysis.perform_comprehensive_market_analysis(
-                    market_data
+                market_analysis = (
+                    await self.market_analysis.perform_comprehensive_market_analysis(
+                        market_data
+                    )
                 )
 
                 # 3. 手動取引支援情報生成
-                trading_suggestions = await self._generate_trading_suggestions(market_data)
+                trading_suggestions = await self._generate_trading_suggestions(
+                    market_data
+                )
 
                 # 4. リスク分析・警告
-                risk_alerts = await self._perform_risk_analysis(market_data, market_analysis)
+                risk_alerts = await self._perform_risk_analysis(
+                    market_data, market_analysis
+                )
 
                 # 5. 統合レポート生成
                 integrated_report = await self._generate_integrated_report(
@@ -172,7 +180,8 @@ class IntegratedAnalysisSystem:
 
                 if cycle_count % 10 == 0:  # 10サイクルごとに詳細ログ
                     logger.info(
-                        f"分析サイクル {cycle_count} 完了 " f"(実行時間: {cycle_duration:.2f}秒)"
+                        f"分析サイクル {cycle_count} 完了 "
+                        f"(実行時間: {cycle_duration:.2f}秒)"
                     )
 
                 # インターバル待機
@@ -208,15 +217,19 @@ class IntegratedAnalysisSystem:
             logger.error(f"市場データ取得エラー: {e}")
             return {}
 
-    async def _generate_trading_suggestions(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _generate_trading_suggestions(
+        self, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """手動取引支援情報生成"""
         try:
             suggestions = {}
 
             for symbol in self.symbols:
                 if symbol in market_data and market_data[symbol]:
-                    suggestion = self.manual_trading_support.generate_trading_suggestion(
-                        symbol, market_data
+                    suggestion = (
+                        self.manual_trading_support.generate_trading_suggestion(
+                            symbol, market_data
+                        )
                     )
                     suggestions[symbol] = suggestion
 
@@ -326,13 +339,18 @@ class IntegratedAnalysisSystem:
             # 市場センチメント判定
             if market_analysis and "market_overview" in market_analysis:
                 market_overview = market_analysis["market_overview"]
-                summary["market_sentiment"] = market_overview.get("overall_sentiment", "中立")
+                summary["market_sentiment"] = market_overview.get(
+                    "overall_sentiment", "中立"
+                )
 
             # 機会数算出
             if trading_suggestions:
                 buy_candidates = 0
                 for suggestion in trading_suggestions.values():
-                    if isinstance(suggestion, dict) and "trading_suggestions" in suggestion:
+                    if (
+                        isinstance(suggestion, dict)
+                        and "trading_suggestions" in suggestion
+                    ):
                         suggestions_text = " ".join(suggestion["trading_suggestions"])
                         if "買い検討" in suggestions_text:
                             buy_candidates += 1
@@ -351,7 +369,9 @@ class IntegratedAnalysisSystem:
             # 重要な推奨事項
             if market_analysis and "recommendation_summary" in market_analysis:
                 recommendations = market_analysis["recommendation_summary"]
-                summary["key_recommendations"] = recommendations.get("general_advice", [])
+                summary["key_recommendations"] = recommendations.get(
+                    "general_advice", []
+                )
 
             # 重要アラート
             summary["important_alerts"] = [
@@ -371,7 +391,9 @@ class IntegratedAnalysisSystem:
                 summary = integrated_report["summary"]
 
                 logger.info("=== 分析結果サマリー ===")
-                logger.info(f"市場センチメント: {summary.get('market_sentiment', 'N/A')}")
+                logger.info(
+                    f"市場センチメント: {summary.get('market_sentiment', 'N/A')}"
+                )
                 logger.info(f"投資機会: {summary.get('active_opportunities', 0)}件")
                 logger.info(f"リスクレベル: {summary.get('risk_level', 'N/A')}")
 
@@ -406,7 +428,9 @@ class IntegratedAnalysisSystem:
                     "running": self.is_running,
                     "monitored_symbols": len(self.symbols),
                     "last_analysis": (
-                        self.last_analysis_time.isoformat() if self.last_analysis_time else None
+                        self.last_analysis_time.isoformat()
+                        if self.last_analysis_time
+                        else None
                     ),
                 },
                 "statistics": self.system_stats.copy(),

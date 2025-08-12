@@ -34,7 +34,9 @@ class IntegrationConfig:
     """統合システム設定"""
 
     # 基本設定
-    symbols: List[str] = field(default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"])
+    symbols: List[str] = field(
+        default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"]
+    )
     update_interval: float = 1.0  # 1秒間隔
 
     # コンポーネント有効化
@@ -103,7 +105,9 @@ class RealTimeIntegrationManager:
                 logger.info("Initializing streaming system...")
                 from .websocket_stream import create_realtime_stream_manager
 
-                self.stream_manager = await create_realtime_stream_manager(self.config.symbols)
+                self.stream_manager = await create_realtime_stream_manager(
+                    self.config.symbols
+                )
                 # データコールバック設定
                 self.stream_manager.add_data_callback(self._handle_stream_data)
 
@@ -112,7 +116,9 @@ class RealTimeIntegrationManager:
                 logger.info("Initializing prediction engine...")
                 from .live_prediction_engine import create_live_prediction_engine
 
-                self.prediction_engine = await create_live_prediction_engine(self.config.symbols)
+                self.prediction_engine = await create_live_prediction_engine(
+                    self.config.symbols
+                )
 
             # 3. パフォーマンス監視
             if self.config.enable_monitoring:
@@ -146,7 +152,9 @@ class RealTimeIntegrationManager:
             # 6. システム統合設定
             if self.prediction_engine and self.performance_monitor:
                 # 予測結果をパフォーマンス監視に登録
-                self.prediction_engine.add_prediction_callback(self._handle_prediction_result)
+                self.prediction_engine.add_prediction_callback(
+                    self._handle_prediction_result
+                )
 
             logger.info("System initialization completed successfully")
 
@@ -228,7 +236,9 @@ class RealTimeIntegrationManager:
 
         # パフォーマンス監視
         if self.performance_monitor:
-            monitoring_task = asyncio.create_task(self.performance_monitor.start_monitoring())
+            monitoring_task = asyncio.create_task(
+                self.performance_monitor.start_monitoring()
+            )
             tasks.append(("monitoring", monitoring_task))
 
         # ダッシュボード（別プロセスで起動）
@@ -335,7 +345,9 @@ class RealTimeIntegrationManager:
 
                     # 履歴サイズ制限（最新100件）
                     if len(self.latest_market_data[symbol]) > 100:
-                        self.latest_market_data[symbol] = self.latest_market_data[symbol][-50:]
+                        self.latest_market_data[symbol] = self.latest_market_data[
+                            symbol
+                        ][-50:]
 
                 # 予測エンジンに市場データ更新
                 if self.prediction_engine:
@@ -360,7 +372,9 @@ class RealTimeIntegrationManager:
 
         try:
             # ニュース・ソーシャルデータ取得
-            latest_data = self.stream_manager.get_latest_data() if self.stream_manager else {}
+            latest_data = (
+                self.stream_manager.get_latest_data() if self.stream_manager else {}
+            )
             news_items = latest_data.get("news_items", [])
             social_posts = latest_data.get("social_posts", [])
 
@@ -420,7 +434,9 @@ class RealTimeIntegrationManager:
         """予測アラート生成"""
 
         try:
-            alert = await self.trading_alert_generator.generate_trading_signal_alert(prediction)
+            alert = await self.trading_alert_generator.generate_trading_signal_alert(
+                prediction
+            )
 
             if alert and self.alert_manager:
                 success = await self.alert_manager.send_alert(alert)
@@ -434,7 +450,9 @@ class RealTimeIntegrationManager:
         """システム統計更新"""
 
         if self.start_time:
-            self.stats["uptime_seconds"] = (datetime.now() - self.start_time).total_seconds()
+            self.stats["uptime_seconds"] = (
+                datetime.now() - self.start_time
+            ).total_seconds()
 
     async def _log_performance_if_needed(self):
         """必要に応じてパフォーマンスログ出力"""
@@ -470,7 +488,9 @@ class RealTimeIntegrationManager:
 
             # コンポーネント別統計
             if self.performance_monitor:
-                comprehensive_status = self.performance_monitor.get_comprehensive_status()
+                comprehensive_status = (
+                    self.performance_monitor.get_comprehensive_status()
+                )
                 performance_log["system_status"] = comprehensive_status
 
             logger.info(f"System Performance: {json.dumps(performance_log, indent=2)}")
@@ -568,7 +588,9 @@ def create_integration_manager(
     return RealTimeIntegrationManager(config)
 
 
-async def start_complete_trading_system(symbols: List[str] = None, dashboard_port: int = 8000):
+async def start_complete_trading_system(
+    symbols: List[str] = None, dashboard_port: int = 8000
+):
     """完全なトレーディングシステム起動"""
 
     logger.info("Starting Next-Gen AI Trading Engine Complete System...")

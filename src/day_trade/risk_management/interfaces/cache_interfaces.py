@@ -156,7 +156,9 @@ class IDistributedLock(ABC):
     """分散ロックインターフェース"""
 
     @abstractmethod
-    async def acquire(self, key: str, timeout_seconds: int = 10, ttl_seconds: int = 60) -> bool:
+    async def acquire(
+        self, key: str, timeout_seconds: int = 10, ttl_seconds: int = 60
+    ) -> bool:
         """ロック取得"""
         pass
 
@@ -229,7 +231,9 @@ class ICacheMiddleware(ABC):
 # ヘルパー関数
 
 
-def create_cache_key(namespace: str, identifier: str, version: Optional[str] = None) -> str:
+def create_cache_key(
+    namespace: str, identifier: str, version: Optional[str] = None
+) -> str:
     """キャッシュキー作成"""
     parts = [namespace, identifier]
     if version:

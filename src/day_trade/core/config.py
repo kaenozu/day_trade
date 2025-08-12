@@ -110,7 +110,9 @@ class ConfigManager:
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
 
-            self.logger.info("設定ファイル保存成功", extra={"config_path": str(self.config_path)})
+            self.logger.info(
+                "設定ファイル保存成功", extra={"config_path": str(self.config_path)}
+            )
 
         except PermissionError as e:
             self.logger.error(
@@ -194,7 +196,9 @@ class ConfigManager:
             self.logger.info("設定エクスポート成功", extra={"export_path": str(path)})
 
         except PermissionError as e:
-            self.logger.error("設定エクスポート失敗: 権限不足", export_path=str(path), error=str(e))
+            self.logger.error(
+                "設定エクスポート失敗: 権限不足", export_path=str(path), error=str(e)
+            )
             raise
         except OSError as e:
             self.logger.error(
@@ -235,7 +239,9 @@ class ConfigManager:
             )
             raise
         except PermissionError as e:
-            self.logger.error("設定インポート失敗: 権限不足", import_path=str(path), error=str(e))
+            self.logger.error(
+                "設定インポート失敗: 権限不足", import_path=str(path), error=str(e)
+            )
             raise
         except json.JSONDecodeError as e:
             self.logger.error(

@@ -69,7 +69,9 @@ class PerformanceDashboard:
 
             # 4x2のレイアウトでダッシュボード作成
             fig, axes = plt.subplots(2, 4, figsize=(20, 10))
-            fig.suptitle("📊 パフォーマンス監視ダッシュボード", fontsize=16, fontweight="bold")
+            fig.suptitle(
+                "📊 パフォーマンス監視ダッシュボード", fontsize=16, fontweight="bold"
+            )
 
             # 1. 処理時間の推移
             self._plot_execution_time_trend(axes[0, 0])
@@ -117,7 +119,8 @@ class PerformanceDashboard:
             recent_metrics = [
                 m
                 for m in self.monitor.metrics_history
-                if m.timestamp.timestamp() > (datetime.now() - timedelta(hours=6)).timestamp()
+                if m.timestamp.timestamp()
+                > (datetime.now() - timedelta(hours=6)).timestamp()
             ]
 
             if not recent_metrics:
@@ -163,7 +166,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"処理時間推移プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_memory_usage_trend(self, ax):
         """メモリ使用量推移のプロット"""
@@ -171,7 +176,8 @@ class PerformanceDashboard:
             recent_metrics = [
                 m
                 for m in self.monitor.metrics_history
-                if m.timestamp.timestamp() > (datetime.now() - timedelta(hours=6)).timestamp()
+                if m.timestamp.timestamp()
+                > (datetime.now() - timedelta(hours=6)).timestamp()
             ]
 
             if not recent_metrics:
@@ -193,7 +199,9 @@ class PerformanceDashboard:
             ax.scatter(timestamps, memory_usage, c="red", s=20, alpha=0.6)
 
             # 警告線
-            ax.axhline(y=1000, color="orange", linestyle="--", alpha=0.7, label="警告閾値: 1GB")
+            ax.axhline(
+                y=1000, color="orange", linestyle="--", alpha=0.7, label="警告閾値: 1GB"
+            )
 
             ax.set_title("💾 メモリ使用量推移 (6時間)")
             ax.set_ylabel("メモリ使用量 (MB)")
@@ -203,7 +211,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"メモリ使用量推移プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_cpu_usage_trend(self, ax):
         """CPU使用率推移のプロット"""
@@ -212,7 +222,8 @@ class PerformanceDashboard:
             recent_system = [
                 s
                 for s in self.monitor.system_history
-                if s.timestamp.timestamp() > (datetime.now() - timedelta(hours=6)).timestamp()
+                if s.timestamp.timestamp()
+                > (datetime.now() - timedelta(hours=6)).timestamp()
             ]
 
             if not recent_system:
@@ -234,7 +245,9 @@ class PerformanceDashboard:
             ax.scatter(timestamps, cpu_usage, c="green", s=20, alpha=0.6)
 
             # 警告線
-            ax.axhline(y=80, color="orange", linestyle="--", alpha=0.7, label="警告閾値: 80%")
+            ax.axhline(
+                y=80, color="orange", linestyle="--", alpha=0.7, label="警告閾値: 80%"
+            )
 
             ax.set_title("🖥️ CPU使用率推移 (6時間)")
             ax.set_ylabel("CPU使用率 (%)")
@@ -244,7 +257,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"CPU使用率推移プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_success_rate(self, ax, summary: Dict):
         """成功率の表示"""
@@ -264,7 +279,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"成功率プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_slow_processes(self, ax, bottlenecks: Dict):
         """遅いプロセス Top 5"""
@@ -305,7 +322,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"遅いプロセスプロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_memory_heavy_processes(self, ax, bottlenecks: Dict):
         """メモリ消費プロセス Top 5"""
@@ -346,7 +365,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"メモリ消費プロセスプロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_baseline_comparison(self, ax, summary: Dict):
         """基準値比較"""
@@ -394,7 +415,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"基準値比較プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _plot_system_overview(self, ax, summary: Dict):
         """システム概要"""
@@ -446,7 +469,9 @@ class PerformanceDashboard:
 
         except Exception as e:
             logger.debug(f"システム概要プロットエラー: {e}")
-            ax.text(0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "エラー発生", ha="center", va="center", transform=ax.transAxes
+            )
 
     def _create_empty_dashboard(self) -> Path:
         """空のダッシュボード作成"""
@@ -621,7 +646,9 @@ class PerformanceDashboard:
                 )
 
             if not recommendations:
-                recommendations.append("✅ 現在のところ、大きな問題は検出されていません。")
+                recommendations.append(
+                    "✅ 現在のところ、大きな問題は検出されていません。"
+                )
 
             for rec in recommendations:
                 html_content += f"<p>{rec}</p>"

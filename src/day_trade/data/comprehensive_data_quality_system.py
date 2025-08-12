@@ -314,7 +314,9 @@ class ComprehensiveDataQualitySystem:
                 report.data_volume = len(data)
 
             # ステージ4: データ変換・エンリッチメント
-            enriched_data, enrichment_report = await self._enrich_data(data, dataset_id, metadata)
+            enriched_data, enrichment_report = await self._enrich_data(
+                data, dataset_id, metadata
+            )
             data = enriched_data
             report.stage_scores["enrichment"] = enrichment_report["score"]
 
@@ -352,7 +354,9 @@ class ComprehensiveDataQualitySystem:
             report.recommendations = self._generate_recommendations(report)
 
             # データリネージュ記録
-            report.lineage = await self._record_data_lineage(dataset_id, source, metadata)
+            report.lineage = await self._record_data_lineage(
+                dataset_id, source, metadata
+            )
 
             # レポート保存
             await self._save_quality_report(report)
@@ -409,7 +413,9 @@ class ComprehensiveDataQualitySystem:
         else:
             raise ValueError(f"サポートされていないファイル形式: {path.suffix}")
 
-    async def _validate_data(self, data: pd.DataFrame, dataset_id: str) -> Dict[str, Any]:
+    async def _validate_data(
+        self, data: pd.DataFrame, dataset_id: str
+    ) -> Dict[str, Any]:
         """データバリデーション"""
         try:
             if self.validation_pipeline:
@@ -478,13 +484,15 @@ class ComprehensiveDataQualitySystem:
                     upper_bound = Q3 + 1.5 * IQR
 
                     outliers_count = (
-                        (cleaned_data[col] < lower_bound) | (cleaned_data[col] > upper_bound)
+                        (cleaned_data[col] < lower_bound)
+                        | (cleaned_data[col] > upper_bound)
                     ).sum()
 
                     if outliers_count > 0:
                         # 外れ値をNaNに置換
                         cleaned_data.loc[
-                            (cleaned_data[col] < lower_bound) | (cleaned_data[col] > upper_bound),
+                            (cleaned_data[col] < lower_bound)
+                            | (cleaned_data[col] > upper_bound),
                             col,
                         ] = np.nan
                         issues_fixed += outliers_count
@@ -503,7 +511,9 @@ class ComprehensiveDataQualitySystem:
                         issues_fixed += changes
 
             # 基本統計による品質スコア計算
-            completeness = (1 - cleaned_data.isnull().sum().sum() / cleaned_data.size) * 100
+            completeness = (
+                1 - cleaned_data.isnull().sum().sum() / cleaned_data.size
+            ) * 100
             uniqueness = (
                 (1 - cleaned_data.duplicated().sum() / len(cleaned_data)) * 100
                 if len(cleaned_data) > 0
@@ -568,7 +578,9 @@ class ComprehensiveDataQualitySystem:
 
             # エンリッチメント品質スコア
             enrichment_ratio = (
-                len(enriched_data.columns) / len(data.columns) if len(data.columns) > 0 else 1
+                len(enriched_data.columns) / len(data.columns)
+                if len(data.columns) > 0
+                else 1
             )
             score = min(100, 50 + (enrichment_ratio - 1) * 50)
 
@@ -584,7 +596,9 @@ class ComprehensiveDataQualitySystem:
             self.logger.error(f"データエンリッチメントエラー: {e}")
             return data, {"score": 50.0, "columns_added": 0, "error": str(e)}
 
-    async def _calculate_final_quality(self, data: pd.DataFrame, dataset_id: str) -> Dict[str, Any]:
+    async def _calculate_final_quality(
+        self, data: pd.DataFrame, dataset_id: str
+    ) -> Dict[str, Any]:
         """最終品質評価"""
         try:
             if self.quality_manager:
@@ -602,14 +616,18 @@ class ComprehensiveDataQualitySystem:
 
             # 一意性 (Uniqueness)
             duplicates = data.duplicated().sum()
-            uniqueness = ((len(data) - duplicates) / len(data)) * 100 if len(data) > 0 else 100
+            uniqueness = (
+                ((len(data) - duplicates) / len(data)) * 100 if len(data) > 0 else 100
+            )
 
             # 一貫性 (Consistency) - データ型の一貫性
             consistency_score = 100
             for col in data.columns:
                 if data[col].notna().any():
                     # 各列のデータ型の一貫性をチェック
-                    unique_types = set(type(x).__name__ for x in data[col].dropna().values)
+                    unique_types = set(
+                        type(x).__name__ for x in data[col].dropna().values
+                    )
                     if len(unique_types) > 1:
                         consistency_score -= 5  # 複数の型が混在している場合減点
 
@@ -628,9 +646,13 @@ class ComprehensiveDataQualitySystem:
                     lower_bound = Q1 - 1.5 * IQR
                     upper_bound = Q3 + 1.5 * IQR
 
-                    outliers = ((data[col] < lower_bound) | (data[col] > upper_bound)).sum()
+                    outliers = (
+                        (data[col] < lower_bound) | (data[col] > upper_bound)
+                    ).sum()
                     outlier_ratio = (
-                        outliers / len(data[col].dropna()) if len(data[col].dropna()) > 0 else 0
+                        outliers / len(data[col].dropna())
+                        if len(data[col].dropna()) > 0
+                        else 0
                     )
 
                     validity_score -= outlier_ratio * 20  # 外れ値の割合に応じて減点
@@ -681,18 +703,25 @@ class ComprehensiveDataQualitySystem:
         recommendations = []
 
         if report.overall_score < 50:
-            recommendations.append("データ品質が非常に低いです。データソースの見直しを推奨します。")
+            recommendations.append(
+                "データ品質が非常に低いです。データソースの見直しを推奨します。"
+            )
 
         if "重複レコード" in str(report.issues_found):
             recommendations.append("重複データの除去処理を実装してください。")
 
         if "欠損値" in str(report.issues_found):
-            recommendations.append("欠損値の補完またはフィルタリング処理を検討してください。")
+            recommendations.append(
+                "欠損値の補完またはフィルタリング処理を検討してください。"
+            )
 
         if report.overall_score < 70:
             recommendations.append("データクリーニング処理の強化を推奨します。")
 
-        if "validation" in report.stage_scores and report.stage_scores["validation"] < 80:
+        if (
+            "validation" in report.stage_scores
+            and report.stage_scores["validation"] < 80
+        ):
             recommendations.append("データバリデーションルールの見直しが必要です。")
 
         return recommendations
@@ -895,7 +924,8 @@ class ComprehensiveDataQualitySystem:
                     },
                     "quality_trend": quality_trend,
                     "processing_stats": [
-                        {"stage": ps[0], "status": ps[1], "count": ps[2]} for ps in processing_stats
+                        {"stage": ps[0], "status": ps[1], "count": ps[2]}
+                        for ps in processing_stats
                     ],
                     "system_stats": self.processing_stats,
                     "generated_at": datetime.now(timezone.utc).isoformat(),

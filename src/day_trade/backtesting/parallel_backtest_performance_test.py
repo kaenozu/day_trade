@@ -167,7 +167,9 @@ class ParallelBacktestPerformanceTester:
         print("  パラメータ最適化性能テスト実行")
 
         if not PARALLEL_BACKTEST_AVAILABLE:
-            return self._create_mock_result("parameter_optimization", "並列システム未利用")
+            return self._create_mock_result(
+                "parameter_optimization", "並列システム未利用"
+            )
 
         try:
             # パラメータ空間定義
@@ -201,7 +203,9 @@ class ParallelBacktestPerformanceTester:
                 parallel_efficiency=speedup / self.max_workers,
             )
 
-            print(f"    パラメータ最適化: {combinations}組み合わせ, {speedup:.1f}x高速化")
+            print(
+                f"    パラメータ最適化: {combinations}組み合わせ, {speedup:.1f}x高速化"
+            )
 
             return result
 
@@ -240,7 +244,11 @@ class ParallelBacktestPerformanceTester:
         # 最良効率計算
         best_efficiency = max([r["efficiency"] for r in scalability_results.values()])
         optimal_workers = next(
-            (k for k, v in scalability_results.items() if v["efficiency"] == best_efficiency),
+            (
+                k
+                for k, v in scalability_results.items()
+                if v["efficiency"] == best_efficiency
+            ),
             "workers_1",
         )
 
@@ -270,14 +278,18 @@ class ParallelBacktestPerformanceTester:
             "memory_pool_enabled_mb": memory_pool_enabled,
             "memory_pool_disabled_mb": memory_pool_disabled,
             "memory_improvement_percent": memory_improvement,
-            "memory_efficiency_assessment": "良好" if memory_improvement > 10 else "要改善",
+            "memory_efficiency_assessment": (
+                "良好" if memory_improvement > 10 else "要改善"
+            ),
         }
 
         print(f"    メモリプール効果: {memory_improvement:.1f}%改善")
 
         return result
 
-    def _run_sequential_simulation(self, num_tasks: int, task_duration_ms: int) -> float:
+    def _run_sequential_simulation(
+        self, num_tasks: int, task_duration_ms: int
+    ) -> float:
         """シーケンシャル実行シミュレーション"""
         start_time = time.perf_counter()
 
@@ -298,7 +310,9 @@ class ParallelBacktestPerformanceTester:
 
         # 並列実行
         with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [executor.submit(simulate_backtest_task, i) for i in range(num_tasks)]
+            futures = [
+                executor.submit(simulate_backtest_task, i) for i in range(num_tasks)
+            ]
 
             for future in as_completed(futures):
                 try:
@@ -322,7 +336,9 @@ class ParallelBacktestPerformanceTester:
         else:
             return base_memory
 
-    def _create_mock_result(self, test_name: str, mode: str) -> BacktestPerformanceResult:
+    def _create_mock_result(
+        self, test_name: str, mode: str
+    ) -> BacktestPerformanceResult:
         """モック結果生成"""
         return BacktestPerformanceResult(
             test_name=test_name,
@@ -387,14 +403,18 @@ if __name__ == "__main__":
     print("\n【性能テスト結果サマリー】")
     summary = results["performance_summary"]
 
-    print(f"システム利用可能性: {'利用可能' if summary['system_availability'] else '制限モード'}")
+    print(
+        f"システム利用可能性: {'利用可能' if summary['system_availability'] else '制限モード'}"
+    )
     print(f"最大ワーカー数: {summary['max_workers']}プロセス")
 
     perf_metrics = summary["performance_metrics"]
     print(f"平均高速化倍率: {perf_metrics['average_speedup_factor']:.1f}x")
     print(f"最大高速化倍率: {perf_metrics['max_speedup_factor']:.1f}x")
     print(f"平均並列効率: {perf_metrics['average_efficiency']:.2f}")
-    print(f"平均スループット: {perf_metrics['average_throughput_tasks_per_sec']:.1f} タスク/秒")
+    print(
+        f"平均スループット: {perf_metrics['average_throughput_tasks_per_sec']:.1f} タスク/秒"
+    )
 
     print("\n【主要発見】")
     for finding in summary["key_findings"]:
@@ -415,7 +435,9 @@ if __name__ == "__main__":
     if "memory_efficiency" in results:
         memory = results["memory_efficiency"]
         print("\n【メモリ効率】")
-        print(f"メモリプール改善効果: {memory.get('memory_improvement_percent', 0):.1f}%")
+        print(
+            f"メモリプール改善効果: {memory.get('memory_improvement_percent', 0):.1f}%"
+        )
         print(f"効率評価: {memory.get('memory_efficiency_assessment', 'N/A')}")
 
     print("\n=== Issue #382 並列バックテストフレームワーク検証完了 ===")

@@ -43,7 +43,9 @@ class CryptoPrice(Base):
     market_cap = Column(Numeric(precision=30, scale=2), nullable=True)
 
     # 価格変動データ
-    price_change_24h = Column(Numeric(precision=8, scale=4), nullable=True)  # パーセント
+    price_change_24h = Column(
+        Numeric(precision=8, scale=4), nullable=True
+    )  # パーセント
     price_change_7d = Column(Numeric(precision=8, scale=4), nullable=True)
     price_change_30d = Column(Numeric(precision=8, scale=4), nullable=True)
 
@@ -120,9 +122,7 @@ class CryptoDailyStats(Base):
     )
 
     def __repr__(self):
-        return (
-            f"<CryptoDailyStats(symbol={self.symbol}, date={self.date}, close={self.close_price})>"
-        )
+        return f"<CryptoDailyStats(symbol={self.symbol}, date={self.date}, close={self.close_price})>"
 
 
 class CryptoOrderBook(Base):
@@ -176,7 +176,9 @@ class CryptoNews(Base):
     related_symbols = Column(JSON, nullable=True)  # ["BTC", "ETH", ...]
 
     # センチメント分析結果
-    sentiment_score = Column(Numeric(precision=6, scale=4), nullable=True)  # -1.0 to 1.0
+    sentiment_score = Column(
+        Numeric(precision=6, scale=4), nullable=True
+    )  # -1.0 to 1.0
     sentiment_label = Column(String(20), nullable=True)  # positive/negative/neutral
 
     # メタデータ
@@ -228,7 +230,9 @@ class CryptoWhaleTransaction(Base):
     transaction_type = Column(
         String(50), nullable=True
     )  # exchange_inflow, exchange_outflow, wallet_to_wallet
-    importance_score = Column(Numeric(precision=6, scale=4), nullable=True)  # 0.0 to 1.0
+    importance_score = Column(
+        Numeric(precision=6, scale=4), nullable=True
+    )  # 0.0 to 1.0
 
     # インデックス設定
     __table_args__ = (

@@ -245,13 +245,19 @@ class PasswordSecurityTest(SecurityTest):
         if len(password) < getattr(policy, "min_length", 8):
             return False
 
-        if getattr(policy, "require_uppercase", False) and not any(c.isupper() for c in password):
+        if getattr(policy, "require_uppercase", False) and not any(
+            c.isupper() for c in password
+        ):
             return False
 
-        if getattr(policy, "require_lowercase", False) and not any(c.islower() for c in password):
+        if getattr(policy, "require_lowercase", False) and not any(
+            c.islower() for c in password
+        ):
             return False
 
-        if getattr(policy, "require_numbers", False) and not any(c.isdigit() for c in password):
+        if getattr(policy, "require_numbers", False) and not any(
+            c.isdigit() for c in password
+        ):
             return False
 
         return not (
@@ -393,7 +399,9 @@ class InputValidationTest(SecurityTest):
 
             # 各攻撃パターンのテスト
             for payload in sql_injection_payloads:
-                if self._test_input_vulnerability(payload, "SQL Injection", input_validators):
+                if self._test_input_vulnerability(
+                    payload, "SQL Injection", input_validators
+                ):
                     vulnerabilities.append(f"SQLインジェクション: {payload}")
 
             for payload in xss_payloads:
@@ -401,7 +409,9 @@ class InputValidationTest(SecurityTest):
                     vulnerabilities.append(f"XSS: {payload}")
 
             for payload in path_traversal_payloads:
-                if self._test_input_vulnerability(payload, "Path Traversal", input_validators):
+                if self._test_input_vulnerability(
+                    payload, "Path Traversal", input_validators
+                ):
                     vulnerabilities.append(f"パストラバーサル: {payload}")
 
             if vulnerabilities:
@@ -428,7 +438,9 @@ class InputValidationTest(SecurityTest):
                 remediation="入力検証システムの設定を確認してください",
             )
 
-    def _test_input_vulnerability(self, payload: str, attack_type: str, validators) -> bool:
+    def _test_input_vulnerability(
+        self, payload: str, attack_type: str, validators
+    ) -> bool:
         """入力脆弱性テスト"""
         # 実際の実装では、アプリケーションの入力検証機能をテストする
         # ここでは基本的なパターンマッチングで脆弱性を検出
@@ -482,7 +494,9 @@ class EncryptionTest(SecurityTest):
             TestSeverity.HIGH,
         )
 
-    async def execute(self, data_protection_manager=None, **kwargs) -> SecurityTestResult:
+    async def execute(
+        self, data_protection_manager=None, **kwargs
+    ) -> SecurityTestResult:
         """暗号化テスト実行"""
         try:
             if not data_protection_manager:
@@ -515,7 +529,8 @@ class EncryptionTest(SecurityTest):
                 if hasattr(encrypted_data, "algorithm"):
                     weak_algorithms = ["des", "md5", "sha1", "rc4"]
                     if any(
-                        weak in encrypted_data.algorithm.value.lower() for weak in weak_algorithms
+                        weak in encrypted_data.algorithm.value.lower()
+                        for weak in weak_algorithms
                     ):
                         issues.append(
                             f"弱い暗号化アルゴリズムが使用されています: {encrypted_data.algorithm.value}"
@@ -529,12 +544,16 @@ class EncryptionTest(SecurityTest):
                 key_manager = data_protection_manager.key_manager
 
                 # キーローテーションチェック
-                keys = key_manager.list_keys() if hasattr(key_manager, "list_keys") else []
+                keys = (
+                    key_manager.list_keys() if hasattr(key_manager, "list_keys") else []
+                )
                 for key_info in keys:
                     if "rotation_due" in key_info:
                         rotation_due = datetime.fromisoformat(key_info["rotation_due"])
                         if datetime.utcnow() > rotation_due:
-                            issues.append(f"キーローテーションが必要: {key_info['key_id']}")
+                            issues.append(
+                                f"キーローテーションが必要: {key_info['key_id']}"
+                            )
 
             if issues:
                 return self.create_result(
@@ -601,7 +620,9 @@ class NetworkSecurityTest(SecurityTest):
 
             for port in open_ports:
                 if port in dangerous_ports:
-                    issues.append(f"ポート {port} が開放されています: {dangerous_ports[port]}")
+                    issues.append(
+                        f"ポート {port} が開放されています: {dangerous_ports[port]}"
+                    )
 
             # SSL/TLS設定テスト（HTTPS対応ポートのみ）
             ssl_ports = [443, 8443, 993, 995]
@@ -668,7 +689,9 @@ class NetworkSecurityTest(SecurityTest):
                 # プロトコルバージョンチェック
                 protocol = ssl_object.version()
                 if protocol in ["SSLv2", "SSLv3", "TLSv1", "TLSv1.1"]:
-                    issues.append(f"古いSSL/TLSプロトコルが使用されています: {protocol}")
+                    issues.append(
+                        f"古いSSL/TLSプロトコルが使用されています: {protocol}"
+                    )
 
                 # 証明書有効期限チェック
                 cert = ssl_object.getpeercert()
@@ -732,13 +755,22 @@ class ComplianceTest(SecurityTest):
             password_policy = getattr(security_config, "password_policy", None)
             if password_policy:
                 if password_policy.min_length < 8:
-                    compliance_issues.append("パスワード最小長が8文字未満（業界標準要件）")
+                    compliance_issues.append(
+                        "パスワード最小長が8文字未満（業界標準要件）"
+                    )
 
                 if password_policy.max_age_days > 180:
-                    compliance_issues.append("パスワード有効期限が180日を超過（金融業界要件）")
+                    compliance_issues.append(
+                        "パスワード有効期限が180日を超過（金融業界要件）"
+                    )
 
-                if not password_policy.require_uppercase or not password_policy.require_lowercase:
-                    compliance_issues.append("パスワードの大文字小文字要件未設定（NIST要件）")
+                if (
+                    not password_policy.require_uppercase
+                    or not password_policy.require_lowercase
+                ):
+                    compliance_issues.append(
+                        "パスワードの大文字小文字要件未設定（NIST要件）"
+                    )
 
             # セッション管理コンプライアンス
             session_policy = getattr(security_config, "session_policy", None)
@@ -749,13 +781,17 @@ class ComplianceTest(SecurityTest):
                     )
 
                 if not session_policy.session_rotation_enabled:
-                    compliance_issues.append("セッションローテーションが無効（OWASP要件）")
+                    compliance_issues.append(
+                        "セッションローテーションが無効（OWASP要件）"
+                    )
 
             # MFAコンプライアンス
             mfa_policy = getattr(security_config, "mfa_policy", None)
             if mfa_policy:
                 if not mfa_policy.required_for_admin:
-                    compliance_issues.append("管理者アカウントでMFAが必須でない（PCI DSS要件）")
+                    compliance_issues.append(
+                        "管理者アカウントでMFAが必須でない（PCI DSS要件）"
+                    )
 
             # 監査ログコンプライアンス
             audit_policy = getattr(security_config, "audit_policy", None)
@@ -914,7 +950,9 @@ class SecurityTestFramework:
 
         return report
 
-    async def _run_single_test(self, test: SecurityTest, **test_context) -> SecurityTestResult:
+    async def _run_single_test(
+        self, test: SecurityTest, **test_context
+    ) -> SecurityTestResult:
         """単一テスト実行"""
         logger.info(f"テスト実行開始: {test.test_name}")
         start_time = datetime.utcnow()
@@ -931,7 +969,9 @@ class SecurityTestFramework:
             logger.error(f"テスト実行エラー: {test.test_name} - {e}")
             error_result = test.create_result(TestStatus.ERROR, error_message=str(e))
             error_result.end_time = datetime.utcnow()
-            error_result.duration_seconds = (error_result.end_time - start_time).total_seconds()
+            error_result.duration_seconds = (
+                error_result.end_time - start_time
+            ).total_seconds()
             return error_result
 
     def _generate_comprehensive_report(
@@ -941,9 +981,15 @@ class SecurityTestFramework:
         # 統計情報
         stats = {
             "total_tests": len(self.test_results),
-            "passed": sum(1 for r in self.test_results if r.status == TestStatus.PASSED),
-            "failed": sum(1 for r in self.test_results if r.status == TestStatus.FAILED),
-            "skipped": sum(1 for r in self.test_results if r.status == TestStatus.SKIPPED),
+            "passed": sum(
+                1 for r in self.test_results if r.status == TestStatus.PASSED
+            ),
+            "failed": sum(
+                1 for r in self.test_results if r.status == TestStatus.FAILED
+            ),
+            "skipped": sum(
+                1 for r in self.test_results if r.status == TestStatus.SKIPPED
+            ),
             "errors": sum(1 for r in self.test_results if r.status == TestStatus.ERROR),
         }
 
@@ -953,8 +999,12 @@ class SecurityTestFramework:
             severity_results = [r for r in self.test_results if r.severity == severity]
             severity_stats[severity.value] = {
                 "total": len(severity_results),
-                "failed": sum(1 for r in severity_results if r.status == TestStatus.FAILED),
-                "passed": sum(1 for r in severity_results if r.status == TestStatus.PASSED),
+                "failed": sum(
+                    1 for r in severity_results if r.status == TestStatus.FAILED
+                ),
+                "passed": sum(
+                    1 for r in severity_results if r.status == TestStatus.PASSED
+                ),
             }
 
         # カテゴリ別統計
@@ -964,8 +1014,12 @@ class SecurityTestFramework:
             if category_results:
                 category_stats[category.value] = {
                     "total": len(category_results),
-                    "failed": sum(1 for r in category_results if r.status == TestStatus.FAILED),
-                    "passed": sum(1 for r in category_results if r.status == TestStatus.PASSED),
+                    "failed": sum(
+                        1 for r in category_results if r.status == TestStatus.FAILED
+                    ),
+                    "passed": sum(
+                        1 for r in category_results if r.status == TestStatus.PASSED
+                    ),
                 }
 
         # 失敗したテストの詳細
@@ -997,7 +1051,9 @@ class SecurityTestFramework:
             "failed_tests": failed_tests,
             "detailed_results": [r.to_dict() for r in self.test_results],
             "recommendations": self._generate_recommendations(),
-            "executive_summary": self._generate_executive_summary(stats, security_score),
+            "executive_summary": self._generate_executive_summary(
+                stats, security_score
+            ),
         }
 
         return report
@@ -1030,7 +1086,9 @@ class SecurityTestFramework:
             elif result.status == TestStatus.SKIPPED:
                 max_possible_score -= weight  # スキップは計算から除外
 
-        return (total_score / max_possible_score * 100) if max_possible_score > 0 else 0.0
+        return (
+            (total_score / max_possible_score * 100) if max_possible_score > 0 else 0.0
+        )
 
     def _generate_recommendations(self) -> List[str]:
         """推奨事項生成"""
@@ -1039,7 +1097,9 @@ class SecurityTestFramework:
         failed_results = [r for r in self.test_results if r.status == TestStatus.FAILED]
 
         # 重要度別推奨事項
-        critical_failures = [r for r in failed_results if r.severity == TestSeverity.CRITICAL]
+        critical_failures = [
+            r for r in failed_results if r.severity == TestSeverity.CRITICAL
+        ]
         if critical_failures:
             recommendations.append(
                 f"🚨 {len(critical_failures)}件の重大なセキュリティ問題を直ちに修正してください"
@@ -1070,10 +1130,14 @@ class SecurityTestFramework:
 
         return recommendations
 
-    def _generate_executive_summary(self, stats: Dict[str, int], security_score: float) -> str:
+    def _generate_executive_summary(
+        self, stats: Dict[str, int], security_score: float
+    ) -> str:
         """エグゼクティブサマリー生成"""
         pass_rate = (
-            (stats["passed"] / stats["total_tests"] * 100) if stats["total_tests"] > 0 else 0
+            (stats["passed"] / stats["total_tests"] * 100)
+            if stats["total_tests"] > 0
+            else 0
         )
 
         summary = f"""セキュリティテスト実行結果サマリー
@@ -1261,7 +1325,9 @@ if __name__ == "__main__":
                 **test_context,
             )
 
-            print(f"認証テスト完了: {auth_report['statistics']['total_tests']}テスト実行")
+            print(
+                f"認証テスト完了: {auth_report['statistics']['total_tests']}テスト実行"
+            )
             print(f"認証テストスコア: {auth_report['security_score']:.1f}/100")
 
         except Exception as e:

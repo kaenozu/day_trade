@@ -116,7 +116,9 @@ class DashboardWidget:
     component_type: DashboardComponentType
     data_source: str
     refresh_interval: int = 300  # 秒
-    position: Dict[str, int] = field(default_factory=lambda: {"x": 0, "y": 0, "w": 4, "h": 4})
+    position: Dict[str, int] = field(
+        default_factory=lambda: {"x": 0, "y": 0, "w": 4, "h": 4}
+    )
     config: Dict[str, Any] = field(default_factory=dict)
     filters: List[Dict[str, Any]] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -225,7 +227,9 @@ class DataQualityDashboard:
             )
 
             # データバリデーション
-            self.data_validator = create_real_data_validator(cache_manager=self.cache_manager)
+            self.data_validator = create_real_data_validator(
+                cache_manager=self.cache_manager
+            )
 
             logger.info("データ品質コンポーネント初期化完了")
 
@@ -437,7 +441,9 @@ class DataQualityDashboard:
         )
         self.quality_kpis[sla_kpi.kpi_id] = sla_kpi
 
-    async def get_dashboard_data(self, layout_id: str = "main_dashboard") -> Dict[str, Any]:
+    async def get_dashboard_data(
+        self, layout_id: str = "main_dashboard"
+    ) -> Dict[str, Any]:
         """ダッシュボードデータ取得"""
         logger.info(f"ダッシュボードデータ取得: {layout_id}")
 
@@ -493,7 +499,9 @@ class DataQualityDashboard:
             cache_key = f"widget_{widget.widget_id}_{widget.data_source}"
             last_refresh = self.last_refresh_time.get(cache_key, datetime.min)
 
-            if (datetime.utcnow() - last_refresh).total_seconds() < widget.refresh_interval:
+            if (
+                datetime.utcnow() - last_refresh
+            ).total_seconds() < widget.refresh_interval:
                 if cache_key in self.dashboard_data_cache:
                     return self.dashboard_data_cache[cache_key]
 
@@ -648,7 +656,9 @@ class DataQualityDashboard:
 
                 # トレンド付きランダムデータ
                 base_quality = 0.85 + 0.1 * np.sin(i * 0.2)
-                overall_quality.append(max(0.7, min(1.0, base_quality + np.random.normal(0, 0.02))))
+                overall_quality.append(
+                    max(0.7, min(1.0, base_quality + np.random.normal(0, 0.02)))
+                )
                 completeness.append(
                     max(0.8, min(1.0, base_quality + 0.05 + np.random.normal(0, 0.015)))
                 )
@@ -674,7 +684,9 @@ class DataQualityDashboard:
     async def _get_datasource_health_data(self) -> Dict[str, Any]:
         """データソースヘルスデータ取得"""
         try:
-            if self.freshness_monitor and hasattr(self.freshness_monitor, "data_source_health"):
+            if self.freshness_monitor and hasattr(
+                self.freshness_monitor, "data_source_health"
+            ):
                 health_data = []
                 for (
                     source_id,
@@ -730,7 +742,9 @@ class DataQualityDashboard:
     async def _get_recent_alerts_data(self) -> Dict[str, Any]:
         """最近のアラートデータ取得"""
         try:
-            if self.freshness_monitor and hasattr(self.freshness_monitor, "alert_history"):
+            if self.freshness_monitor and hasattr(
+                self.freshness_monitor, "alert_history"
+            ):
                 alerts = []
                 for alert in list(self.freshness_monitor.alert_history)[-10:]:
                     alerts.append(
@@ -790,7 +804,9 @@ class DataQualityDashboard:
                     "status": kpi.status,
                     "trend": kpi.trend,
                     "achievement_rate": (
-                        (kpi.current_value / kpi.target_value) * 100 if kpi.target_value > 0 else 0
+                        (kpi.current_value / kpi.target_value) * 100
+                        if kpi.target_value > 0
+                        else 0
                     ),
                 }
 
@@ -829,7 +845,9 @@ class DataQualityDashboard:
         """MDM品質データ取得"""
         try:
             if self.mdm_manager:
-                quality_metrics = await self.mdm_manager._calculate_global_quality_metrics()
+                quality_metrics = (
+                    await self.mdm_manager._calculate_global_quality_metrics()
+                )
 
                 # 品質分布ヒストグラム用データ生成
                 avg_quality = quality_metrics.get("average_quality_score", 0.85)
@@ -1000,7 +1018,9 @@ class DataQualityDashboard:
             return {
                 "overall_quality_score": quality_data.get("overall_quality_score", 0),
                 "quality_trend": (
-                    "improving" if quality_data.get("overall_quality_score", 0) > 0.85 else "stable"
+                    "improving"
+                    if quality_data.get("overall_quality_score", 0) > 0.85
+                    else "stable"
                 ),
                 "total_alerts": alert_data.get("active_alerts_count", 0),
                 "critical_issues": alert_data.get("critical_alerts", 0),
@@ -1143,7 +1163,9 @@ class DataQualityDashboard:
             dashboard_data = await self.get_dashboard_data(layout_id)
 
             export_file = (
-                self.storage_path / "exports" / f"dashboard_{layout_id}_{int(time.time())}.{format}"
+                self.storage_path
+                / "exports"
+                / f"dashboard_{layout_id}_{int(time.time())}.{format}"
             )
 
             if format == "json":
@@ -1231,7 +1253,9 @@ if __name__ == "__main__":
             # ダッシュボードレイアウト確認
             print("\n2. ダッシュボードレイアウト確認...")
             for layout_id, layout in dashboard.dashboard_layouts.items():
-                print(f"   {layout_id}: {layout.name} (ウィジェット数: {len(layout.widgets)})")
+                print(
+                    f"   {layout_id}: {layout.name} (ウィジェット数: {len(layout.widgets)})"
+                )
 
             # メインダッシュボードデータ取得
             print("\n3. メインダッシュボードデータ取得...")
@@ -1245,7 +1269,9 @@ if __name__ == "__main__":
                 # 主要メトリクス表示
                 if "global_metrics" in main_data:
                     global_metrics = main_data["global_metrics"]
-                    print(f"   総データポイント: {global_metrics.get('total_data_points', 0):,}")
+                    print(
+                        f"   総データポイント: {global_metrics.get('total_data_points', 0):,}"
+                    )
                     print(
                         f"   今日の品質チェック: {global_metrics.get('quality_checks_today', 0):,}"
                     )
@@ -1304,8 +1330,12 @@ if __name__ == "__main__":
 
                 if "executive_summary" in report_data:
                     summary = report_data["executive_summary"]
-                    print(f"   総合品質スコア: {summary.get('overall_quality_score', 0):.3f}")
-                    print(f"   主要達成事項: {len(summary.get('key_achievements', []))}件")
+                    print(
+                        f"   総合品質スコア: {summary.get('overall_quality_score', 0):.3f}"
+                    )
+                    print(
+                        f"   主要達成事項: {len(summary.get('key_achievements', []))}件"
+                    )
 
                 if "recommendations" in report_data:
                     recommendations = report_data["recommendations"]

@@ -51,7 +51,9 @@ class PriceAboveStrategy(AlertEvaluationStrategy):
     ) -> tuple[bool, str, Any]:
         try:
             target_price = Decimal(str(condition_value))
-            is_triggered = self._compare_values(current_price, target_price, comparison_operator)
+            is_triggered = self._compare_values(
+                current_price, target_price, comparison_operator
+            )
 
             if is_triggered:
                 message = f"価格が {target_price} を上回りました (現在価格: ¥{current_price:,})"
@@ -87,7 +89,9 @@ class PriceBelowStrategy(AlertEvaluationStrategy):
     ) -> tuple[bool, str, Any]:
         try:
             target_price = Decimal(str(condition_value))
-            is_triggered = self._compare_values(current_price, target_price, comparison_operator)
+            is_triggered = self._compare_values(
+                current_price, target_price, comparison_operator
+            )
 
             if is_triggered:
                 message = f"価格が {target_price} を下回りました (現在価格: ¥{current_price:,})"
@@ -153,9 +157,7 @@ class ChangePercentDownStrategy(AlertEvaluationStrategy):
             is_triggered = change_percent <= target_percent
 
             if is_triggered:
-                message = (
-                    f"下落率が {abs(target_percent)}% を超えました (現在: {change_percent:.2f}%)"
-                )
+                message = f"下落率が {abs(target_percent)}% を超えました (現在: {change_percent:.2f}%)"
                 return True, message, change_percent
 
         except (ValueError, TypeError) as e:
@@ -184,8 +186,12 @@ class VolumeSpikeStrategy(AlertEvaluationStrategy):
             target_ratio = float(condition_value)
 
             # 過去20日の平均出来高を計算
-            window_size = custom_parameters.get("volume_window", 20) if custom_parameters else 20
-            avg_volume = historical_data["Volume"].rolling(window=window_size).mean().iloc[-1]
+            window_size = (
+                custom_parameters.get("volume_window", 20) if custom_parameters else 20
+            )
+            avg_volume = (
+                historical_data["Volume"].rolling(window=window_size).mean().iloc[-1]
+            )
 
             if avg_volume <= 0:
                 return False, "", 1.0
@@ -226,7 +232,9 @@ class RSIOverBoughtStrategy(AlertEvaluationStrategy):
             target_rsi = float(condition_value)
 
             # RSI期間をカスタムパラメーターから取得
-            rsi_period = custom_parameters.get("rsi_period", 14) if custom_parameters else 14
+            rsi_period = (
+                custom_parameters.get("rsi_period", 14) if custom_parameters else 14
+            )
 
             rsi = self.technical_indicators.calculate_rsi(
                 historical_data["Close"], period=rsi_period
@@ -271,7 +279,9 @@ class RSIOverSoldStrategy(AlertEvaluationStrategy):
             target_rsi = float(condition_value)
 
             # RSI期間をカスタムパラメーターから取得
-            rsi_period = custom_parameters.get("rsi_period", 14) if custom_parameters else 14
+            rsi_period = (
+                custom_parameters.get("rsi_period", 14) if custom_parameters else 14
+            )
 
             rsi = self.technical_indicators.calculate_rsi(
                 historical_data["Close"], period=rsi_period

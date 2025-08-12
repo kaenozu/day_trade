@@ -162,7 +162,9 @@ class SecurityMonitoringCollector:
         """セキュリティシステム初期化"""
         if SECURITY_AVAILABLE:
             try:
-                self.security_systems["vulnerability_manager"] = DependencyVulnerabilityManager()
+                self.security_systems["vulnerability_manager"] = (
+                    DependencyVulnerabilityManager()
+                )
                 self.security_systems["coding_enforcer"] = SecureCodingEnforcer()
                 self.security_systems["data_protection"] = DataProtectionSystem()
                 self.security_systems["access_control"] = AccessControlAuditor()
@@ -202,7 +204,9 @@ class SecurityMonitoringCollector:
                         SecurityEventSeverity.MEDIUM,
                     ),
                     title=f"脆弱性検出: {vulnerability.get('package_name', 'Unknown')}",
-                    description=vulnerability.get("description", "脆弱性が検出されました"),
+                    description=vulnerability.get(
+                        "description", "脆弱性が検出されました"
+                    ),
                     source_component="dependency_vulnerability_manager",
                     affected_resources=[vulnerability.get("package_name", "unknown")],
                     risk_score=vulnerability.get("risk_score", 5.0),
@@ -244,7 +248,9 @@ class SecurityMonitoringCollector:
                         else SecurityEventSeverity.MEDIUM
                     ),
                     title=f"アクセス制御違反: {violation.get('resource', 'Unknown')}",
-                    description=violation.get("description", "不正なアクセス試行が検出されました"),
+                    description=violation.get(
+                        "description", "不正なアクセス試行が検出されました"
+                    ),
                     source_component="access_control_auditor",
                     user_id=violation.get("user_id"),
                     session_id=violation.get("session_id"),
@@ -295,7 +301,9 @@ class SecurityMonitoringCollector:
                         SecurityEventSeverity.MEDIUM,
                     ),
                     title=f"データ保護イベント: {event_data.get('event_type', 'Unknown')}",
-                    description=event_data.get("description", "データ保護イベントが発生しました"),
+                    description=event_data.get(
+                        "description", "データ保護イベントが発生しました"
+                    ),
                     source_component="data_protection_system",
                     user_id=event_data.get("user_id"),
                     affected_resources=[event_data.get("resource", "unknown")],
@@ -374,7 +382,9 @@ class SecurityMonitoringCollector:
         ]
 
         try:
-            event_results = await asyncio.gather(*event_collectors, return_exceptions=True)
+            event_results = await asyncio.gather(
+                *event_collectors, return_exceptions=True
+            )
 
             for result in event_results:
                 if isinstance(result, list):
@@ -392,7 +402,9 @@ class SecurityMonitoringCollector:
             self.logger.error(f"セキュリティイベント収集エラー: {e}")
             return []
 
-    def calculate_security_metrics(self, events: List[SecurityEvent]) -> SecurityMetrics:
+    def calculate_security_metrics(
+        self, events: List[SecurityEvent]
+    ) -> SecurityMetrics:
         """セキュリティメトリクス計算"""
         metrics = SecurityMetrics()
 
@@ -428,12 +440,16 @@ class SecurityMonitoringCollector:
                 metrics.resolved_security_incidents += 1
 
                 if event.resolved_at:
-                    resolution_time = (event.resolved_at - event.timestamp).total_seconds() / 3600
+                    resolution_time = (
+                        event.resolved_at - event.timestamp
+                    ).total_seconds() / 3600
                     metrics.average_incident_resolution_time += resolution_time
 
         # 平均解決時間計算
         if metrics.resolved_security_incidents > 0:
-            metrics.average_incident_resolution_time /= metrics.resolved_security_incidents
+            metrics.average_incident_resolution_time /= (
+                metrics.resolved_security_incidents
+            )
 
         return metrics
 
@@ -505,13 +521,17 @@ class SecurityMonitoringDashboard:
         """セキュリティデータ収集・処理"""
         try:
             # セキュリティイベント収集
-            security_events = await self.security_collector.collect_all_security_events()
+            security_events = (
+                await self.security_collector.collect_all_security_events()
+            )
 
             # イベント保存
             await self._store_security_events(security_events)
 
             # メトリクス計算
-            security_metrics = self.security_collector.calculate_security_metrics(security_events)
+            security_metrics = self.security_collector.calculate_security_metrics(
+                security_events
+            )
 
             # メトリクス保存
             await self._store_security_metrics(security_metrics)
@@ -654,7 +674,9 @@ class SecurityMonitoringDashboard:
         }
         return mapping.get(severity, LogLevel.WARNING)
 
-    async def _correlate_with_anomaly_detection(self, security_events: List[SecurityEvent]):
+    async def _correlate_with_anomaly_detection(
+        self, security_events: List[SecurityEvent]
+    ):
         """異常検知との相関分析"""
         if not self.anomaly_detection:
             return
@@ -905,7 +927,9 @@ class IntegratedMonitoringSystem:
             try:
                 # セキュリティデータ収集・処理
                 if self.security_dashboard:
-                    result = await self.security_dashboard.collect_and_process_security_data()
+                    result = (
+                        await self.security_dashboard.collect_and_process_security_data()
+                    )
 
                     if result["integration_success"]:
                         self.logger.info(
@@ -934,7 +958,9 @@ class IntegratedMonitoringSystem:
 
             # セキュリティダッシュボードデータ
             if self.security_dashboard:
-                security_data = await self.security_dashboard.get_security_dashboard_data()
+                security_data = (
+                    await self.security_dashboard.get_security_dashboard_data()
+                )
                 dashboard_data["systems"]["security"] = security_data
 
             # ELK Stack健全性
@@ -1003,7 +1029,9 @@ if __name__ == "__main__":
                     await integrated_system.security_dashboard.collect_and_process_security_data()
                 )
 
-                print(f"   収集イベント数: {collection_result.get('events_collected', 0)}")
+                print(
+                    f"   収集イベント数: {collection_result.get('events_collected', 0)}"
+                )
                 print(
                     f"   メトリクス計算: {'成功' if collection_result.get('metrics_calculated') else '失敗'}"
                 )
@@ -1032,7 +1060,9 @@ if __name__ == "__main__":
             for system_name, system_data in systems.items():
                 status = "unknown"
                 if isinstance(system_data, dict):
-                    status = system_data.get("status", system_data.get("overall_status", "unknown"))
+                    status = system_data.get(
+                        "status", system_data.get("overall_status", "unknown")
+                    )
 
                 print(f"   {system_name}: {status}")
 

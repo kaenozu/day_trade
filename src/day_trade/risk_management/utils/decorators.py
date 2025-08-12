@@ -130,7 +130,9 @@ def timeout_handler(timeout_seconds: float, error_message: Optional[str] = None)
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             try:
-                return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
+                return await asyncio.wait_for(
+                    func(*args, **kwargs), timeout=timeout_seconds
+                )
             except asyncio.TimeoutError:
                 message = (
                     error_message
@@ -343,7 +345,9 @@ def cache_result(
     return decorator
 
 
-def rate_limit(max_calls: int, window_seconds: int, key_func: Optional[Callable] = None):
+def rate_limit(
+    max_calls: int, window_seconds: int, key_func: Optional[Callable] = None
+):
     """レート制限デコレーター"""
 
     # レート制限状態を保持する辞書
@@ -371,7 +375,9 @@ def rate_limit(max_calls: int, window_seconds: int, key_func: Optional[Callable]
 
             # 古い記録をクリーンアップ
             cutoff_time = current_time - window_seconds
-            state["calls"] = [call_time for call_time in state["calls"] if call_time > cutoff_time]
+            state["calls"] = [
+                call_time for call_time in state["calls"] if call_time > cutoff_time
+            ]
 
             # レート制限チェック
             if len(state["calls"]) >= max_calls:
@@ -406,7 +412,9 @@ def rate_limit(max_calls: int, window_seconds: int, key_func: Optional[Callable]
 
             state = _rate_limit_state[limit_key]
             cutoff_time = current_time - window_seconds
-            state["calls"] = [call_time for call_time in state["calls"] if call_time > cutoff_time]
+            state["calls"] = [
+                call_time for call_time in state["calls"] if call_time > cutoff_time
+            ]
 
             if len(state["calls"]) >= max_calls:
                 oldest_call = min(state["calls"])

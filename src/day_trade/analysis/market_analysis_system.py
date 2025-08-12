@@ -71,7 +71,9 @@ class MarketAnalysisSystem:
                 "trend_analysis": await self._analyze_market_trends(market_data),
                 "volatility_analysis": await self._analyze_volatility(market_data),
                 "correlation_analysis": await self._analyze_correlations(market_data),
-                "recommendation_summary": await self._generate_recommendations(market_data),
+                "recommendation_summary": await self._generate_recommendations(
+                    market_data
+                ),
             }
 
             # 履歴に保存
@@ -97,7 +99,9 @@ class MarketAnalysisSystem:
                 "status": "分析失敗",
             }
 
-    async def _analyze_market_overview(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_market_overview(
+        self, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """市場全体の概要分析"""
         try:
             overview = {
@@ -125,7 +129,9 @@ class MarketAnalysisSystem:
                         overview["overall_sentiment"] = "弱気"
 
                     # ボラティリティ判定
-                    volatility = sum(abs(change) for change in price_changes) / len(price_changes)
+                    volatility = sum(abs(change) for change in price_changes) / len(
+                        price_changes
+                    )
                     if volatility > 2.0:
                         overview["market_volatility"] = "高"
                     elif volatility > 1.0:
@@ -154,7 +160,9 @@ class MarketAnalysisSystem:
                         "price_change_pct": data.get("price_change_pct", "N/A"),
                         "volume": data.get("volume", "N/A"),
                         "analysis_summary": self._generate_symbol_summary(symbol, data),
-                        "support_resistance": self._identify_support_resistance(symbol, data),
+                        "support_resistance": self._identify_support_resistance(
+                            symbol, data
+                        ),
                         "trend_direction": self._determine_trend(symbol, data),
                     }
 
@@ -190,7 +198,9 @@ class MarketAnalysisSystem:
         except Exception:
             return f"{symbol}: 分析エラー"
 
-    def _identify_support_resistance(self, symbol: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _identify_support_resistance(
+        self, symbol: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """サポート・レジスタンス分析"""
         try:
             current_price = data.get("current_price", 0)
@@ -224,7 +234,9 @@ class MarketAnalysisSystem:
         except Exception:
             return "判定不可"
 
-    async def _analyze_market_trends(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_market_trends(
+        self, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """市場トレンド分析"""
         try:
             trend_analysis = {
@@ -300,7 +312,9 @@ class MarketAnalysisSystem:
             logger.error(f"ボラティリティ分析エラー: {e}")
             return {"error": str(e)}
 
-    async def _analyze_correlations(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_correlations(
+        self, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """相関分析"""
         try:
             correlation_analysis = {
@@ -319,7 +333,9 @@ class MarketAnalysisSystem:
             logger.error(f"相関分析エラー: {e}")
             return {"error": str(e)}
 
-    async def _generate_recommendations(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _generate_recommendations(
+        self, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """推奨事項生成"""
         try:
             recommendations = {
@@ -335,17 +351,25 @@ class MarketAnalysisSystem:
                     price_change_pct = data.get("price_change_pct", 0)
 
                     if price_change_pct > 3.0:
-                        recommendations["risk_warnings"].append(f"{symbol}: 急激な上昇 - 利確検討")
+                        recommendations["risk_warnings"].append(
+                            f"{symbol}: 急激な上昇 - 利確検討"
+                        )
                     elif price_change_pct < -3.0:
                         recommendations["risk_warnings"].append(
                             f"{symbol}: 急激な下落 - 損切り検討"
                         )
                     elif 1.0 < price_change_pct <= 2.0:
-                        recommendations["buy_candidates"].append(f"{symbol}: 安定上昇 - 買い検討")
+                        recommendations["buy_candidates"].append(
+                            f"{symbol}: 安定上昇 - 買い検討"
+                        )
                     elif -2.0 <= price_change_pct < -1.0:
-                        recommendations["sell_candidates"].append(f"{symbol}: 下落傾向 - 売り検討")
+                        recommendations["sell_candidates"].append(
+                            f"{symbol}: 下落傾向 - 売り検討"
+                        )
                     else:
-                        recommendations["hold_recommendations"].append(f"{symbol}: 様子見")
+                        recommendations["hold_recommendations"].append(
+                            f"{symbol}: 様子見"
+                        )
 
             # 一般的なアドバイス
             recommendations["general_advice"] = [
@@ -378,7 +402,9 @@ class MarketAnalysisSystem:
                 },
                 "statistics": self.analysis_stats.copy(),
                 "last_analysis": (
-                    self.market_analysis_history[-1] if self.market_analysis_history else None
+                    self.market_analysis_history[-1]
+                    if self.market_analysis_history
+                    else None
                 ),
                 "enabled_features": self.trading_config.get_enabled_features(),
                 "disabled_features": self.trading_config.get_disabled_features(),
@@ -391,7 +417,11 @@ class MarketAnalysisSystem:
     def get_recent_analyses(self, limit: int = 10) -> List[Dict[str, Any]]:
         """最近の分析履歴取得"""
         try:
-            return self.market_analysis_history[-limit:] if self.market_analysis_history else []
+            return (
+                self.market_analysis_history[-limit:]
+                if self.market_analysis_history
+                else []
+            )
 
         except Exception as e:
             logger.error(f"分析履歴取得エラー: {e}")
@@ -427,9 +457,13 @@ class ManualTradingSupport:
                 "timestamp": suggestion_time,
                 "symbol": symbol,
                 "market_analysis": self._analyze_current_situation(symbol, market_data),
-                "trading_suggestions": self._generate_specific_suggestions(symbol, market_data),
+                "trading_suggestions": self._generate_specific_suggestions(
+                    symbol, market_data
+                ),
                 "risk_assessment": self._assess_risk(symbol, market_data),
-                "position_sizing": self._suggest_position_size(symbol, market_data, portfolio_info),
+                "position_sizing": self._suggest_position_size(
+                    symbol, market_data, portfolio_info
+                ),
                 "timing_advice": self._provide_timing_advice(symbol, market_data),
                 "important_notes": [
                     "これは情報提供のみです",
@@ -485,7 +519,9 @@ class ManualTradingSupport:
         except Exception:
             return "不明"
 
-    def _generate_specific_suggestions(self, symbol: str, market_data: Dict[str, Any]) -> List[str]:
+    def _generate_specific_suggestions(
+        self, symbol: str, market_data: Dict[str, Any]
+    ) -> List[str]:
         """具体的な取引提案"""
         try:
             suggestions = []
@@ -597,7 +633,9 @@ class ManualTradingSupport:
         except Exception as e:
             return {"error": str(e)}
 
-    def _provide_timing_advice(self, symbol: str, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _provide_timing_advice(
+        self, symbol: str, market_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """タイミングアドバイス"""
         try:
             advice = {

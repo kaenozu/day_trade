@@ -191,7 +191,9 @@ class YFinanceFetcher(BaseFetcher):
             if result["previous_close"] > 0:
                 price_change = result["current_price"] - result["previous_close"]
                 result["price_change"] = price_change
-                result["price_change_percent"] = (price_change / result["previous_close"]) * 100
+                result["price_change_percent"] = (
+                    price_change / result["previous_close"]
+                ) * 100
 
             log_performance_metric(
                 "current_price_success",
@@ -511,9 +513,15 @@ class YFinanceFetcher(BaseFetcher):
         """キャッシュパフォーマンスレポートを取得"""
         try:
             # 各キャッシュデコレータの統計を取得
-            current_price_stats = getattr(self.get_current_price, "get_stats", lambda: {})()
-            historical_stats = getattr(self.get_historical_data, "get_stats", lambda: {})()
-            company_info_stats = getattr(self.get_company_info, "get_stats", lambda: {})()
+            current_price_stats = getattr(
+                self.get_current_price, "get_stats", lambda: {}
+            )()
+            historical_stats = getattr(
+                self.get_historical_data, "get_stats", lambda: {}
+            )()
+            company_info_stats = getattr(
+                self.get_company_info, "get_stats", lambda: {}
+            )()
 
             return {
                 "current_price_cache": current_price_stats,

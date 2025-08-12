@@ -196,7 +196,9 @@ class BatchOptimizer:
             )
 
             if success:
-                stats["success_rate"] = stats["success_rate"] * (1 - alpha) + 1.0 * alpha
+                stats["success_rate"] = (
+                    stats["success_rate"] * (1 - alpha) + 1.0 * alpha
+                )
 
                 # 最適バッチサイズの動的調整
                 current_optimal = stats["optimal_batch_size"]
@@ -300,7 +302,9 @@ class BatchDataProcessor:
         if not self.batch_queue.put(request):
             raise RuntimeError("バッチキューが満杯です")
 
-        logger.debug(f"バッチリクエスト送信: {request.request_id} ({request.operation_type.value})")
+        logger.debug(
+            f"バッチリクエスト送信: {request.request_id} ({request.operation_type.value})"
+        )
         return request.request_id
 
     def bulk_fetch_prices(
@@ -443,7 +447,9 @@ class BatchDataProcessor:
                 processing_time_ms=processing_time_ms,
             )
 
-    def _process_price_fetch(self, codes: List[str]) -> Tuple[Dict[str, Any], int, int, int]:
+    def _process_price_fetch(
+        self, codes: List[str]
+    ) -> Tuple[Dict[str, Any], int, int, int]:
         """価格取得処理"""
         if not codes:
             return {}, 0, 0, 0
@@ -466,7 +472,9 @@ class BatchDataProcessor:
         api_calls = 0
 
         # バッチサイズの最適化
-        optimal_batch_size = self.optimizer.get_optimal_batch_size(BatchOperationType.PRICE_FETCH)
+        optimal_batch_size = self.optimizer.get_optimal_batch_size(
+            BatchOperationType.PRICE_FETCH
+        )
 
         # バッチごとに処理
         for i in range(0, len(codes), optimal_batch_size):
@@ -531,7 +539,9 @@ class BatchDataProcessor:
             # フォールバックとして従来の個別取得
             for code in codes:
                 try:
-                    historical_data = fetcher.get_historical_data(code, period, interval)
+                    historical_data = fetcher.get_historical_data(
+                        code, period, interval
+                    )
                     if historical_data is not None:
                         results[code] = historical_data
                         api_calls += 1
@@ -577,7 +587,8 @@ class BatchDataProcessor:
             alpha = 0.1
             self.stats["total_processing_time_ms"] += result.processing_time_ms
             self.stats["avg_batch_size"] = (
-                self.stats["avg_batch_size"] * (1 - alpha) + result.items_processed * alpha
+                self.stats["avg_batch_size"] * (1 - alpha)
+                + result.items_processed * alpha
             )
 
             if result.items_processed > 0:

@@ -430,7 +430,9 @@ class TradingEngine:
         self.pending_orders.clear()
 
         logger.critical("緊急停止完了 - 市場分析エンジンが停止されました")
-        logger.critical("※ 注意: 実際の取引ポジションがある場合は手動で確認・対処してください")
+        logger.critical(
+            "※ 注意: 実際の取引ポジションがある場合は手動で確認・対処してください"
+        )
 
     def add_manual_trade(self, trade: Trade) -> None:
         """手動取引の追加（分析用）"""

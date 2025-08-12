@@ -142,7 +142,9 @@ class IntegratedDataQualityPlatform:
                     self.quality_system = ComprehensiveDataQualitySystem()
 
                 if self.config.enable_version_control:
-                    dvc_config = DVCConfig(quality_check_enabled=self.config.auto_quality_checks)
+                    dvc_config = DVCConfig(
+                        quality_check_enabled=self.config.auto_quality_checks
+                    )
                     self.version_control = EnhancedDataVersionControl(dvc_config)
 
                 if self.config.enable_freshness_monitoring:
@@ -153,7 +155,9 @@ class IntegratedDataQualityPlatform:
 
                 self.logger.info("全コンポーネント初期化完了")
             else:
-                self.logger.warning("コンポーネントライブラリが利用できません - 基本機能のみ提供")
+                self.logger.warning(
+                    "コンポーネントライブラリが利用できません - 基本機能のみ提供"
+                )
 
         except Exception as e:
             self.logger.error(f"コンポーネント初期化エラー: {e}")
@@ -236,8 +240,12 @@ class IntegratedDataQualityPlatform:
                 "overall_success": workflow_result.get("success", False),
                 "quality_report": workflow_result.get("quality_report"),
                 "version_id": workflow_result.get("version_id"),
-                "monitoring_registered": workflow_result.get("monitoring_registered", False),
-                "master_data_processed": workflow_result.get("master_data_processed", False),
+                "monitoring_registered": workflow_result.get(
+                    "monitoring_registered", False
+                ),
+                "master_data_processed": workflow_result.get(
+                    "master_data_processed", False
+                ),
                 "alerts_generated": workflow_result.get("alerts_generated", []),
                 "recommendations": workflow_result.get("recommendations", []),
                 "processed_at": datetime.now(timezone.utc).isoformat(),
@@ -246,7 +254,9 @@ class IntegratedDataQualityPlatform:
             # メトリクス更新
             await self._update_platform_metrics(result)
 
-            self.logger.info(f"データセット包括的処理完了: {dataset_id} ({processing_time:.2f}秒)")
+            self.logger.info(
+                f"データセット包括的処理完了: {dataset_id} ({processing_time:.2f}秒)"
+            )
 
             return result
 
@@ -259,7 +269,9 @@ class IntegratedDataQualityPlatform:
                 "processed_at": datetime.now(timezone.utc).isoformat(),
             }
 
-    async def execute_workflow(self, workflow_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_workflow(
+        self, workflow_id: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """ワークフロー実行"""
         if workflow_id not in self.workflows:
             raise ValueError(f"ワークフローが見つかりません: {workflow_id}")
@@ -284,7 +296,9 @@ class IntegratedDataQualityPlatform:
                 self.logger.debug(f"ワークフローステップ実行: {module}.{action}")
 
                 # ステップ実行
-                step_result = await self._execute_workflow_step(module, action, context, results)
+                step_result = await self._execute_workflow_step(
+                    module, action, context, results
+                )
 
                 if step_result.get("success", False):
                     results[f"{module}_{action}"] = step_result
@@ -316,16 +330,18 @@ class IntegratedDataQualityPlatform:
                 "recommendations": recommendations,
                 "results": results,
                 "errors": workflow.errors,
-                "quality_report": results.get("data_quality_validate_and_clean", {}).get(
-                    "quality_report"
+                "quality_report": results.get(
+                    "data_quality_validate_and_clean", {}
+                ).get("quality_report"),
+                "version_id": results.get("version_control_create_version", {}).get(
+                    "version_id"
                 ),
-                "version_id": results.get("version_control_create_version", {}).get("version_id"),
-                "monitoring_registered": results.get("freshness_monitor_register_source", {}).get(
-                    "success", False
-                ),
-                "master_data_processed": results.get("master_data_mgmt_register_if_master", {}).get(
-                    "success", False
-                ),
+                "monitoring_registered": results.get(
+                    "freshness_monitor_register_source", {}
+                ).get("success", False),
+                "master_data_processed": results.get(
+                    "master_data_mgmt_register_if_master", {}
+                ).get("success", False),
             }
 
         except Exception as e:
@@ -352,13 +368,21 @@ class IntegratedDataQualityPlatform:
         """ワークフローステップ実行"""
         try:
             if module == "data_quality":
-                return await self._execute_data_quality_step(action, context, previous_results)
+                return await self._execute_data_quality_step(
+                    action, context, previous_results
+                )
             elif module == "version_control":
-                return await self._execute_version_control_step(action, context, previous_results)
+                return await self._execute_version_control_step(
+                    action, context, previous_results
+                )
             elif module == "freshness_monitor":
-                return await self._execute_freshness_monitor_step(action, context, previous_results)
+                return await self._execute_freshness_monitor_step(
+                    action, context, previous_results
+                )
             elif module == "master_data_mgmt":
-                return await self._execute_master_data_step(action, context, previous_results)
+                return await self._execute_master_data_step(
+                    action, context, previous_results
+                )
             else:
                 return {"success": False, "error": f"未知のモジュール: {module}"}
 
@@ -562,7 +586,8 @@ class IntegratedDataQualityPlatform:
 
                     # 移動平均計算
                     new_avg = (
-                        (current_avg * (total_processed - 1)) + quality_report.overall_score
+                        (current_avg * (total_processed - 1))
+                        + quality_report.overall_score
                     ) / total_processed
                     self.metrics.average_quality_score = new_avg
 
@@ -588,7 +613,9 @@ class IntegratedDataQualityPlatform:
                 health_factors.append(92.0)  # マスターデータ管理稼働
 
             if health_factors:
-                self.metrics.system_health_score = sum(health_factors) / len(health_factors)
+                self.metrics.system_health_score = sum(health_factors) / len(
+                    health_factors
+                )
 
             self.metrics.last_updated = datetime.now(timezone.utc)
 
@@ -603,11 +630,17 @@ class IntegratedDataQualityPlatform:
 
             if self.quality_system:
                 try:
-                    quality_dashboard = await self.quality_system.get_quality_dashboard_data(days=1)
+                    quality_dashboard = (
+                        await self.quality_system.get_quality_dashboard_data(days=1)
+                    )
                     component_status["data_quality"] = {
                         "status": "active",
-                        "total_datasets": quality_dashboard["summary"]["total_datasets"],
-                        "average_score": quality_dashboard["summary"]["average_quality_score"],
+                        "total_datasets": quality_dashboard["summary"][
+                            "total_datasets"
+                        ],
+                        "average_score": quality_dashboard["summary"][
+                            "average_quality_score"
+                        ],
                     }
                 except Exception as e:
                     component_status["data_quality"] = {
@@ -631,13 +664,15 @@ class IntegratedDataQualityPlatform:
 
             if self.freshness_monitor:
                 try:
-                    monitor_dashboard = await self.freshness_monitor.get_monitoring_dashboard(
-                        hours=1
+                    monitor_dashboard = (
+                        await self.freshness_monitor.get_monitoring_dashboard(hours=1)
                     )
                     component_status["freshness_monitor"] = {
                         "status": "active",
                         "total_sources": monitor_dashboard["overview"]["total_sources"],
-                        "active_monitoring": monitor_dashboard["overview"]["active_monitoring"],
+                        "active_monitoring": monitor_dashboard["overview"][
+                            "active_monitoring"
+                        ],
                     }
                 except Exception as e:
                     component_status["freshness_monitor"] = {
@@ -678,7 +713,9 @@ class IntegratedDataQualityPlatform:
                 },
                 "metrics": {
                     "total_datasets_processed": self.metrics.total_datasets_processed,
-                    "average_quality_score": round(self.metrics.average_quality_score, 2),
+                    "average_quality_score": round(
+                        self.metrics.average_quality_score, 2
+                    ),
                     "total_versions_created": self.metrics.total_versions_created,
                     "active_monitoring_sources": self.metrics.active_monitoring_sources,
                     "master_data_entities": self.metrics.master_data_entities,
@@ -731,7 +768,9 @@ class IntegratedDataQualityPlatform:
                     total_components += 1
                     try:
                         # 簡易健全性チェック
-                        if hasattr(component, "stats") or hasattr(component, "monitoring_stats"):
+                        if hasattr(component, "stats") or hasattr(
+                            component, "monitoring_stats"
+                        ):
                             health_status["components"][name] = {"status": "healthy"}
                             healthy_components += 1
                         else:
@@ -741,7 +780,9 @@ class IntegratedDataQualityPlatform:
                             "status": "error",
                             "error": str(e),
                         }
-                        health_status["issues"].append(f"コンポーネント {name} でエラー: {str(e)}")
+                        health_status["issues"].append(
+                            f"コンポーネント {name} でエラー: {str(e)}"
+                        )
                 else:
                     health_status["components"][name] = {"status": "disabled"}
 
@@ -750,7 +791,9 @@ class IntegratedDataQualityPlatform:
                 health_status["overall_status"] = "healthy"
             elif healthy_components >= total_components * 0.7:
                 health_status["overall_status"] = "degraded"
-                health_status["recommendations"].append("一部コンポーネントに問題があります")
+                health_status["recommendations"].append(
+                    "一部コンポーネントに問題があります"
+                )
             else:
                 health_status["overall_status"] = "unhealthy"
                 health_status["recommendations"].append(

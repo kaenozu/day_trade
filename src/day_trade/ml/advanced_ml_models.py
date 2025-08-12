@@ -235,7 +235,9 @@ class AdvancedMLModels:
         # キャッシュチェック
         cache_key = None
         if self.enable_cache:
-            cache_key = generate_unified_cache_key("advanced_features", symbol, str(len(data)))
+            cache_key = generate_unified_cache_key(
+                "advanced_features", symbol, str(len(data))
+            )
             cached_result = self.cache_manager.get(cache_key)
             if cached_result:
                 logger.info(f"高度特徴量キャッシュヒット: {symbol}")
@@ -353,7 +355,9 @@ class AdvancedMLModels:
             confidence = await self._calculate_lstm_confidence(predictions, lstm_data)
             trend_direction = await self._analyze_trend_direction(predictions)
             volatility_forecast = await self._forecast_volatility(predictions, data)
-            feature_importance = await self._calculate_feature_importance(model, feature_set)
+            feature_importance = await self._calculate_feature_importance(
+                model, feature_set
+            )
 
             # モデルスコア計算
             model_score = await self._calculate_model_score(
@@ -428,7 +432,9 @@ class AdvancedMLModels:
                 return cached_result
 
         try:
-            logger.info(f"アンサンブル学習予測開始: {symbol} ({self.ensemble_models}モデル)")
+            logger.info(
+                f"アンサンブル学習予測開始: {symbol} ({self.ensemble_models}モデル)"
+            )
 
             # データ準備
             X, y = await self._prepare_ensemble_data(data, feature_set)
@@ -453,7 +459,9 @@ class AdvancedMLModels:
             )
 
             # コンセンサス強度計算
-            consensus_strength = await self._calculate_consensus_strength(individual_predictions)
+            consensus_strength = await self._calculate_consensus_strength(
+                individual_predictions
+            )
 
             # 外れ値検出
             outlier_models = await self._detect_outlier_models(individual_predictions)
@@ -507,7 +515,9 @@ class AdvancedMLModels:
             # RSI
             rsi = ta.rsi(data["Close"])
             features["rsi_current"] = float(rsi.iloc[-1]) if not rsi.empty else 50.0
-            features["rsi_sma"] = float(rsi.rolling(14).mean().iloc[-1]) if len(rsi) >= 14 else 50.0
+            features["rsi_sma"] = (
+                float(rsi.rolling(14).mean().iloc[-1]) if len(rsi) >= 14 else 50.0
+            )
 
             # MACD
             macd_line, macd_signal, macd_hist = (
@@ -515,9 +525,15 @@ class AdvancedMLModels:
                 ta.macd(data["Close"]).iloc[:, 1],
                 ta.macd(data["Close"]).iloc[:, 2],
             )
-            features["macd_line"] = float(macd_line.iloc[-1]) if not macd_line.empty else 0.0
-            features["macd_signal"] = float(macd_signal.iloc[-1]) if not macd_signal.empty else 0.0
-            features["macd_histogram"] = float(macd_hist.iloc[-1]) if not macd_hist.empty else 0.0
+            features["macd_line"] = (
+                float(macd_line.iloc[-1]) if not macd_line.empty else 0.0
+            )
+            features["macd_signal"] = (
+                float(macd_signal.iloc[-1]) if not macd_signal.empty else 0.0
+            )
+            features["macd_histogram"] = (
+                float(macd_hist.iloc[-1]) if not macd_hist.empty else 0.0
+            )
 
             # Bollinger Bands
             bb_upper, bb_middle, bb_lower = (
@@ -526,16 +542,20 @@ class AdvancedMLModels:
                 ta.bbands(data["Close"]).iloc[:, 2],
             )
             if not bb_upper.empty:
-                features["bb_position"] = (data["Close"].iloc[-1] - bb_lower.iloc[-1]) / (
+                features["bb_position"] = (
+                    data["Close"].iloc[-1] - bb_lower.iloc[-1]
+                ) / (bb_upper.iloc[-1] - bb_lower.iloc[-1])
+                features["bb_width"] = (
                     bb_upper.iloc[-1] - bb_lower.iloc[-1]
-                )
-                features["bb_width"] = (bb_upper.iloc[-1] - bb_lower.iloc[-1]) / bb_middle.iloc[-1]
+                ) / bb_middle.iloc[-1]
 
         except Exception as e:
             logger.warning(f"テクニカル指標特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_technical_features processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_technical_features processed in {processing_time:.4f} seconds"
+        )
         return features
 
     async def _extract_price_patterns(self, data: pd.DataFrame) -> Dict[str, float]:
@@ -565,17 +585,23 @@ class AdvancedMLModels:
 
             # Gap分析
             if len(data) >= 2:
-                gap = (data["Open"].iloc[-1] - data["Close"].iloc[-2]) / data["Close"].iloc[-2]
+                gap = (data["Open"].iloc[-1] - data["Close"].iloc[-2]) / data[
+                    "Close"
+                ].iloc[-2]
                 features["gap_ratio"] = float(gap)
 
         except Exception as e:
             logger.warning(f"価格パターン特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_price_patterns processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_price_patterns processed in {processing_time:.4f} seconds"
+        )
         return features
 
-    async def _extract_volatility_features(self, data: pd.DataFrame) -> Dict[str, float]:
+    async def _extract_volatility_features(
+        self, data: pd.DataFrame
+    ) -> Dict[str, float]:
         """ボラティリティ特徴量抽出"""
         start_time = time.time()
         features = {}
@@ -585,8 +611,12 @@ class AdvancedMLModels:
 
             if len(returns) >= 20:
                 # 実現ボラティリティ
-                features["realized_vol_5d"] = float(returns.rolling(5).std() * np.sqrt(252))
-                features["realized_vol_20d"] = float(returns.rolling(20).std() * np.sqrt(252))
+                features["realized_vol_5d"] = float(
+                    returns.rolling(5).std() * np.sqrt(252)
+                )
+                features["realized_vol_20d"] = float(
+                    returns.rolling(20).std() * np.sqrt(252)
+                )
 
                 # GARCH風ボラティリティ
                 features["vol_ratio"] = (
@@ -597,14 +627,20 @@ class AdvancedMLModels:
 
                 # 価格レンジ
                 price_range = (data["High"] - data["Low"]) / data["Close"]
-                features["avg_price_range_5d"] = float(price_range.rolling(5).mean().iloc[-1])
-                features["avg_price_range_20d"] = float(price_range.rolling(20).mean().iloc[-1])
+                features["avg_price_range_5d"] = float(
+                    price_range.rolling(5).mean().iloc[-1]
+                )
+                features["avg_price_range_20d"] = float(
+                    price_range.rolling(20).mean().iloc[-1]
+                )
 
         except Exception as e:
             logger.warning(f"ボラティリティ特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_volatility_features processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_volatility_features processed in {processing_time:.4f} seconds"
+        )
         return features
 
     async def _extract_momentum_features(self, data: pd.DataFrame) -> Dict[str, float]:
@@ -639,7 +675,9 @@ class AdvancedMLModels:
             logger.warning(f"モメンタム特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_momentum_features processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_momentum_features processed in {processing_time:.4f} seconds"
+        )
         return features
 
     async def _extract_volume_features(self, data: pd.DataFrame) -> Dict[str, float]:
@@ -653,9 +691,13 @@ class AdvancedMLModels:
             volume_sma_20 = data["Volume"].rolling(20).mean()
 
             if len(volume_sma_5) >= 5:
-                features["volume_ratio_5d"] = data["Volume"].iloc[-1] / volume_sma_5.iloc[-1]
+                features["volume_ratio_5d"] = (
+                    data["Volume"].iloc[-1] / volume_sma_5.iloc[-1]
+                )
             if len(volume_sma_20) >= 20:
-                features["volume_ratio_20d"] = data["Volume"].iloc[-1] / volume_sma_20.iloc[-1]
+                features["volume_ratio_20d"] = (
+                    data["Volume"].iloc[-1] / volume_sma_20.iloc[-1]
+                )
 
             # 価格・出来高相関
             if len(data) >= 20:
@@ -670,10 +712,14 @@ class AdvancedMLModels:
             logger.warning(f"出来高特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_volume_features processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_volume_features processed in {processing_time:.4f} seconds"
+        )
         return features
 
-    async def _extract_multiframe_features(self, data: pd.DataFrame) -> Dict[str, float]:
+    async def _extract_multiframe_features(
+        self, data: pd.DataFrame
+    ) -> Dict[str, float]:
         """マルチフレーム特徴量抽出"""
         start_time = time.time()
         features = {}
@@ -693,13 +739,17 @@ class AdvancedMLModels:
             for period in [5, 10, 20]:
                 if len(returns) >= period:
                     vol = returns.rolling(period).std().iloc[-1]
-                    features[f"volatility_{period}d"] = float(vol) if not np.isnan(vol) else 0.0
+                    features[f"volatility_{period}d"] = (
+                        float(vol) if not np.isnan(vol) else 0.0
+                    )
 
         except Exception as e:
             logger.warning(f"マルチフレーム特徴量抽出エラー: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"_extract_multiframe_features processed in {processing_time:.4f} seconds")
+        logger.info(
+            f"_extract_multiframe_features processed in {processing_time:.4f} seconds"
+        )
         return features
 
     def _create_default_feature_set(self, symbol: str) -> AdvancedFeatureSet:
@@ -748,7 +798,9 @@ class AdvancedMLModels:
         """LSTM用データ準備"""
         # 簡易実装（実際はより複雑な前処理が必要）
         if len(data) < self.lstm_sequence_length + 20:
-            raise ValueError(f"データ不足: {len(data)} < {self.lstm_sequence_length + 20}")
+            raise ValueError(
+                f"データ不足: {len(data)} < {self.lstm_sequence_length + 20}"
+            )
 
         # 特徴量マトリックス作成
         features = []
@@ -772,7 +824,9 @@ class AdvancedMLModels:
 
         return {
             "X_train": X[:split_idx].reshape(split_idx, self.lstm_sequence_length, 1),
-            "X_test": X[split_idx:].reshape(len(X) - split_idx, self.lstm_sequence_length, 1),
+            "X_test": X[split_idx:].reshape(
+                len(X) - split_idx, self.lstm_sequence_length, 1
+            ),
             "y_train": y[:split_idx],
             "y_test": y[split_idx:],
             "feature_names": feature_names,
@@ -849,7 +903,9 @@ class AdvancedMLModels:
         else:
             return "sideways"
 
-    async def _forecast_volatility(self, predictions: np.ndarray, data: pd.DataFrame) -> float:
+    async def _forecast_volatility(
+        self, predictions: np.ndarray, data: pd.DataFrame
+    ) -> float:
         """ボラティリティ予測"""
         if len(predictions) < 2:
             return 0.0
@@ -877,7 +933,9 @@ class AdvancedMLModels:
         importance = 1.0 / len(all_features)
         return {feature: importance for feature in all_features}
 
-    async def _calculate_model_score(self, model, X_test: np.ndarray, y_test: np.ndarray) -> float:
+    async def _calculate_model_score(
+        self, model, X_test: np.ndarray, y_test: np.ndarray
+    ) -> float:
         """モデルスコア計算"""
         try:
             predictions = model.predict(X_test)
@@ -929,9 +987,9 @@ class AdvancedMLModels:
             X.append(feature_values)
             # ターゲット（次期リターン）
             if i < len(data) - 1:
-                next_return = (data["Close"].iloc[i] - data["Close"].iloc[i - 1]) / data[
-                    "Close"
-                ].iloc[i - 1]
+                next_return = (
+                    data["Close"].iloc[i] - data["Close"].iloc[i - 1]
+                ) / data["Close"].iloc[i - 1]
                 y.append(next_return)
             else:
                 y.append(0.0)
@@ -951,7 +1009,9 @@ class AdvancedMLModels:
             models["random_forest"] = rf
 
             # 2. Gradient Boosting
-            gb = GradientBoostingRegressor(n_estimators=50, random_state=42, max_depth=3)
+            gb = GradientBoostingRegressor(
+                n_estimators=50, random_state=42, max_depth=3
+            )
             gb.fit(X_train, y_train)
             models["gradient_boosting"] = gb
 
@@ -1003,11 +1063,15 @@ class AdvancedMLModels:
             weight = 1.0 / len(models)
             weights = {name: weight for name in models}
         else:
-            weights = {name: score / total_score for name, score in model_scores.items()}
+            weights = {
+                name: score / total_score for name, score in model_scores.items()
+            }
 
         return weights
 
-    async def _calculate_consensus_strength(self, predictions: Dict[str, float]) -> float:
+    async def _calculate_consensus_strength(
+        self, predictions: Dict[str, float]
+    ) -> float:
         """コンセンサス強度計算"""
         if len(predictions) < 2:
             return 0.0
@@ -1051,7 +1115,9 @@ class AdvancedMLModels:
         """重み付き信頼度計算"""
         # 重みの分散（低いほど信頼性が高い）
         weight_values = list(model_weights.values())
-        weight_entropy = -sum(w * np.log(w + 1e-10) for w in weight_values)  # エントロピー
+        weight_entropy = -sum(
+            w * np.log(w + 1e-10) for w in weight_values
+        )  # エントロピー
 
         # 正規化エントロピー
         max_entropy = np.log(len(weight_values))
@@ -1065,7 +1131,8 @@ class AdvancedMLModels:
         """パフォーマンス統計取得"""
         return {
             "total_predictions": self.stats["total_predictions"],
-            "cache_hit_rate": self.stats["cache_hits"] / max(1, self.stats["total_predictions"]),
+            "cache_hit_rate": self.stats["cache_hits"]
+            / max(1, self.stats["total_predictions"]),
             "lstm_predictions": self.stats["lstm_predictions"],
             "ensemble_predictions": self.stats["ensemble_predictions"],
             "avg_processing_time": self.stats["avg_processing_time"],

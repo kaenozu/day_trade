@@ -153,7 +153,9 @@ class DatabaseBase(OptimizationStrategy):
             )
 
         self.engine = create_engine(database_url, **engine_kwargs)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
 
         # イベントハンドラーの設定
         self._setup_event_handlers()
@@ -247,7 +249,9 @@ class DatabaseBase(OptimizationStrategy):
 
         return {"affected_rows": table_count}
 
-    def _execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """クエリ実行"""
         with self.get_session() as session:
             result = session.execute(text(query), params or {})
@@ -257,7 +261,9 @@ class DatabaseBase(OptimizationStrategy):
             else:
                 return {"affected_rows": result.rowcount}
 
-    def _bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """バルクインサート"""
         if not data:
             return {"affected_rows": 0}
@@ -336,7 +342,9 @@ class OptimizedDatabase(DatabaseBase):
     def get_strategy_name(self) -> str:
         return "最適化データベース"
 
-    def _execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """キャッシュ機能付きクエリ実行"""
         if not self.db_config.enable_query_cache:
             return super()._execute_query(query, params)
@@ -377,7 +385,9 @@ class OptimizedDatabase(DatabaseBase):
 
         return result
 
-    def _bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """最適化バルクインサート"""
         if not data:
             return {"affected_rows": 0}
@@ -391,7 +401,9 @@ class OptimizedDatabase(DatabaseBase):
         else:
             return super()._bulk_insert(table_name, data)
 
-    def _optimized_bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _optimized_bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """最適化されたバルクインサート"""
         total_inserted = 0
         batch_size = self.db_config.batch_size
@@ -468,7 +480,9 @@ class OptimizedDatabase(DatabaseBase):
                 if not index_exists:
                     # インデックス作成
                     session.execute(
-                        text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column})")
+                        text(
+                            f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({column})"
+                        )
                     )
                     logger.info(f"インデックス作成: {index_name}")
 
@@ -513,7 +527,9 @@ class DatabaseManager:
         strategy = self.get_strategy()
         return strategy.execute("execute_query", query, params)
 
-    def bulk_insert(self, table_name: str, data: List[Dict[str, Any]]) -> DatabaseOperationResult:
+    def bulk_insert(
+        self, table_name: str, data: List[Dict[str, Any]]
+    ) -> DatabaseOperationResult:
         """バルクインサート"""
         strategy = self.get_strategy()
         return strategy.execute("bulk_insert", table_name, data)

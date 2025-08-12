@@ -127,7 +127,9 @@ class BackupDisasterRecoverySystem:
 
     def __init__(self, config: Optional[BackupConfig] = None):
         self.config = config or BackupConfig()
-        self.executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_backups)
+        self.executor = ThreadPoolExecutor(
+            max_workers=self.config.max_concurrent_backups
+        )
 
         # 状態管理
         self.backup_catalog: Dict[str, BackupMetadata] = {}
@@ -238,9 +240,13 @@ class BackupDisasterRecoverySystem:
             if metadata.backup_type == BackupType.FULL:
                 await self._create_full_backup(backup_id, source_paths, backup_file)
             elif metadata.backup_type == BackupType.INCREMENTAL:
-                await self._create_incremental_backup(backup_id, source_paths, backup_file)
+                await self._create_incremental_backup(
+                    backup_id, source_paths, backup_file
+                )
             elif metadata.backup_type == BackupType.DIFFERENTIAL:
-                await self._create_differential_backup(backup_id, source_paths, backup_file)
+                await self._create_differential_backup(
+                    backup_id, source_paths, backup_file
+                )
             elif metadata.backup_type == BackupType.SNAPSHOT:
                 await self._create_snapshot_backup(backup_id, source_paths, backup_file)
 
@@ -276,7 +282,9 @@ class BackupDisasterRecoverySystem:
             backup_file,
             "w",
             compression=(
-                zipfile.ZIP_DEFLATED if self.config.enable_compression else zipfile.ZIP_STORED
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
             ),
             compresslevel=self.config.compression_level,
         ) as zf:
@@ -326,7 +334,9 @@ class BackupDisasterRecoverySystem:
             backup_file,
             "w",
             compression=(
-                zipfile.ZIP_DEFLATED if self.config.enable_compression else zipfile.ZIP_STORED
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
             ),
             compresslevel=self.config.compression_level,
         ) as zf:
@@ -338,7 +348,10 @@ class BackupDisasterRecoverySystem:
 
                 if source.is_file():
                     # 変更時刻チェック
-                    if datetime.fromtimestamp(source.stat().st_mtime) > last_backup_time:
+                    if (
+                        datetime.fromtimestamp(source.stat().st_mtime)
+                        > last_backup_time
+                    ):
                         zf.write(source, source.name)
                         total_size += source.stat().st_size
                         file_count += 1
@@ -348,7 +361,8 @@ class BackupDisasterRecoverySystem:
                     for file_path in source.rglob("*"):
                         if (
                             file_path.is_file()
-                            and datetime.fromtimestamp(file_path.stat().st_mtime) > last_backup_time
+                            and datetime.fromtimestamp(file_path.stat().st_mtime)
+                            > last_backup_time
                         ):
                             arcname = file_path.relative_to(source.parent)
                             zf.write(file_path, str(arcname))
@@ -381,7 +395,9 @@ class BackupDisasterRecoverySystem:
             backup_file,
             "w",
             compression=(
-                zipfile.ZIP_DEFLATED if self.config.enable_compression else zipfile.ZIP_STORED
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
             ),
             compresslevel=self.config.compression_level,
         ) as zf:
@@ -395,7 +411,8 @@ class BackupDisasterRecoverySystem:
                     for file_path in source.rglob("*"):
                         if (
                             file_path.is_file()
-                            and datetime.fromtimestamp(file_path.stat().st_mtime) > last_full_time
+                            and datetime.fromtimestamp(file_path.stat().st_mtime)
+                            > last_full_time
                         ):
                             arcname = file_path.relative_to(source.parent)
                             zf.write(file_path, str(arcname))
@@ -455,12 +472,16 @@ class BackupDisasterRecoverySystem:
         """バックアップ複製"""
         try:
             # セカンダリ場所へ複製
-            secondary_file = Path(self.config.secondary_backup_location) / backup_file.name
+            secondary_file = (
+                Path(self.config.secondary_backup_location) / backup_file.name
+            )
             shutil.copy2(backup_file, secondary_file)
 
             # オフサイト場所へ複製（重要なバックアップのみ）
             if self.backup_catalog[backup_id].backup_type == BackupType.FULL:
-                offsite_file = Path(self.config.offsite_backup_location) / backup_file.name
+                offsite_file = (
+                    Path(self.config.offsite_backup_location) / backup_file.name
+                )
                 shutil.copy2(backup_file, offsite_file)
 
             logger.info(f"バックアップ複製完了: {backup_id}")
@@ -556,7 +577,9 @@ class BackupDisasterRecoverySystem:
 
         return int(base_time * complexity_factor)
 
-    def _generate_recovery_steps(self, required_backups: List[str]) -> List[Dict[str, Any]]:
+    def _generate_recovery_steps(
+        self, required_backups: List[str]
+    ) -> List[Dict[str, Any]]:
         """復旧手順生成"""
         steps = []
 
@@ -753,11 +776,15 @@ class BackupDisasterRecoverySystem:
         # バックアップファイル存在確認
         if not backup_file.exists():
             # セカンダリ場所確認
-            secondary_file = Path(self.config.secondary_backup_location) / backup_file.name
+            secondary_file = (
+                Path(self.config.secondary_backup_location) / backup_file.name
+            )
             if secondary_file.exists():
                 backup_file = secondary_file
             else:
-                raise FileNotFoundError(f"バックアップファイルが見つかりません: {backup_id}")
+                raise FileNotFoundError(
+                    f"バックアップファイルが見つかりません: {backup_id}"
+                )
 
         # 復元実行
         with zipfile.ZipFile(backup_file, "r") as zf:
@@ -837,7 +864,9 @@ class BackupDisasterRecoverySystem:
         if not last_backup:
             return False
 
-        hours_since_last = (current_time - last_backup.start_time).total_seconds() / 3600
+        hours_since_last = (
+            current_time - last_backup.start_time
+        ).total_seconds() / 3600
         return hours_since_last >= self.config.incremental_backup_interval_hours
 
     async def _should_run_differential_backup(self, current_time: datetime) -> bool:
@@ -857,14 +886,20 @@ class BackupDisasterRecoverySystem:
     async def _schedule_incremental_backup(self) -> None:
         """増分バックアップスケジュール"""
         source_paths = ["data", "config"]  # 設定可能にする
-        await self.create_backup(BackupType.INCREMENTAL, source_paths, "scheduled_incremental")
+        await self.create_backup(
+            BackupType.INCREMENTAL, source_paths, "scheduled_incremental"
+        )
 
     async def _schedule_differential_backup(self) -> None:
         """差分バックアップスケジュール"""
         source_paths = ["data", "config"]  # 設定可能にする
-        await self.create_backup(BackupType.DIFFERENTIAL, source_paths, "scheduled_differential")
+        await self.create_backup(
+            BackupType.DIFFERENTIAL, source_paths, "scheduled_differential"
+        )
 
-    def _find_last_backup(self, backup_types: List[BackupType]) -> Optional[BackupMetadata]:
+    def _find_last_backup(
+        self, backup_types: List[BackupType]
+    ) -> Optional[BackupMetadata]:
         """最新バックアップ検索"""
         candidates = [
             metadata
@@ -898,7 +933,9 @@ class BackupDisasterRecoverySystem:
 
             elif metadata.backup_type == BackupType.DIFFERENTIAL:
                 weeks_old = (current_time - metadata.start_time).days / 7
-                should_delete = weeks_old > self.config.differential_backup_retention_weeks
+                should_delete = (
+                    weeks_old > self.config.differential_backup_retention_weeks
+                )
 
             if should_delete:
                 to_delete.append(backup_id)
@@ -933,7 +970,9 @@ class BackupDisasterRecoverySystem:
 
         logger.info(f"古いバックアップ削除: {backup_id}")
 
-    def _generate_backup_id(self, backup_type: BackupType, backup_name: Optional[str]) -> str:
+    def _generate_backup_id(
+        self, backup_type: BackupType, backup_name: Optional[str]
+    ) -> str:
         """バックアップID生成"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if backup_name:
@@ -968,7 +1007,9 @@ class BackupDisasterRecoverySystem:
                         status=BackupStatus(data["status"]),
                         start_time=datetime.fromisoformat(data["start_time"]),
                         end_time=(
-                            datetime.fromisoformat(data["end_time"]) if data["end_time"] else None
+                            datetime.fromisoformat(data["end_time"])
+                            if data["end_time"]
+                            else None
                         ),
                         backup_size_bytes=data["backup_size_bytes"],
                         compressed_size_bytes=data["compressed_size_bytes"],
@@ -979,7 +1020,9 @@ class BackupDisasterRecoverySystem:
                         metadata=data.get("metadata", {}),
                     )
 
-                logger.info(f"バックアップカタログ読み込み完了: {len(self.backup_catalog)}件")
+                logger.info(
+                    f"バックアップカタログ読み込み完了: {len(self.backup_catalog)}件"
+                )
 
             except Exception as e:
                 logger.error(f"バックアップカタログ読み込みエラー: {e}")
@@ -997,7 +1040,9 @@ class BackupDisasterRecoverySystem:
                     "backup_type": metadata.backup_type.value,
                     "status": metadata.status.value,
                     "start_time": metadata.start_time.isoformat(),
-                    "end_time": metadata.end_time.isoformat() if metadata.end_time else None,
+                    "end_time": (
+                        metadata.end_time.isoformat() if metadata.end_time else None
+                    ),
                     "backup_size_bytes": metadata.backup_size_bytes,
                     "compressed_size_bytes": metadata.compressed_size_bytes,
                     "file_count": metadata.file_count,

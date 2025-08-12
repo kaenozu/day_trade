@@ -146,7 +146,9 @@ class EnterpriseDashboardSystem:
         @self.app.get("/api/analysis/{symbol}")
         async def get_symbol_analysis(symbol: str):
             """銘柄分析API"""
-            analysis_report = await self.orchestrator.get_integrated_analysis_report([symbol])
+            analysis_report = await self.orchestrator.get_integrated_analysis_report(
+                [symbol]
+            )
             return analysis_report["analysis_results"].get(symbol, {})
 
         @self.app.get("/api/charts/system_status")
@@ -458,7 +460,9 @@ class EnterpriseDashboardSystem:
         except WebSocketDisconnect:
             if websocket in self.websocket_connections:
                 self.websocket_connections.remove(websocket)
-                logger.info(f"WebSocket接続削除: {len(self.websocket_connections)} 接続")
+                logger.info(
+                    f"WebSocket接続削除: {len(self.websocket_connections)} 接続"
+                )
         except Exception as e:
             logger.error(f"WebSocket処理エラー: {e}")
             if websocket in self.websocket_connections:
@@ -468,8 +472,12 @@ class EnterpriseDashboardSystem:
         """システム状態チャート生成"""
         try:
             # データ準備
-            timestamps = [datetime.now() - timedelta(minutes=i) for i in range(30, 0, -1)]
-            health_scores = [np.random.uniform(0.8, 1.0) for _ in timestamps]  # 模擬データ
+            timestamps = [
+                datetime.now() - timedelta(minutes=i) for i in range(30, 0, -1)
+            ]
+            health_scores = [
+                np.random.uniform(0.8, 1.0) for _ in timestamps
+            ]  # 模擬データ
 
             # Plotly チャート作成
             fig = go.Figure()
@@ -504,7 +512,9 @@ class EnterpriseDashboardSystem:
         """パフォーマンスチャート生成"""
         try:
             # 模擬パフォーマンスデータ
-            timestamps = [datetime.now() - timedelta(minutes=i) for i in range(30, 0, -1)]
+            timestamps = [
+                datetime.now() - timedelta(minutes=i) for i in range(30, 0, -1)
+            ]
             cpu_usage = [np.random.uniform(20, 60) for _ in timestamps]
             memory_usage = [np.random.uniform(100, 500) for _ in timestamps]
 
@@ -634,8 +644,12 @@ class EnterpriseDashboardSystem:
 
         # 銘柄別分析
         for symbol in symbols:
-            analysis_report = await self.orchestrator.get_integrated_analysis_report([symbol])
-            report["analysis_results"][symbol] = analysis_report["analysis_results"].get(symbol, {})
+            analysis_report = await self.orchestrator.get_integrated_analysis_report(
+                [symbol]
+            )
+            report["analysis_results"][symbol] = analysis_report[
+                "analysis_results"
+            ].get(symbol, {})
 
         # チャート生成
         report["charts"]["system_status"] = await self._generate_system_status_chart()
@@ -644,12 +658,17 @@ class EnterpriseDashboardSystem:
         # サマリー計算
         report["summary"] = {
             "total_symbols_analyzed": len(symbols),
-            "healthy_components_ratio": self.orchestrator.get_system_overview()["components"][
-                "health_ratio"
-            ],
-            "system_uptime_hours": self.orchestrator.get_system_overview()["uptime_seconds"] / 3600,
+            "healthy_components_ratio": self.orchestrator.get_system_overview()[
+                "components"
+            ]["health_ratio"],
+            "system_uptime_hours": self.orchestrator.get_system_overview()[
+                "uptime_seconds"
+            ]
+            / 3600,
             "overall_system_health": (
-                "healthy" if report["summary"]["healthy_components_ratio"] > 0.8 else "degraded"
+                "healthy"
+                if report["summary"]["healthy_components_ratio"] > 0.8
+                else "degraded"
             ),
         }
 

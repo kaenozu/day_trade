@@ -22,7 +22,9 @@ from .logging_config import get_context_logger
 class ExceptionContext:
     """例外コンテキスト管理クラス"""
 
-    def __init__(self, component: str, operation: str, logger_name: Optional[str] = None):
+    def __init__(
+        self, component: str, operation: str, logger_name: Optional[str] = None
+    ):
         self.component = component
         self.operation = operation
         self.logger = get_context_logger(logger_name or f"{component}.{operation}")
@@ -143,7 +145,9 @@ def log_exception(
         logger.critical("システムエラー発生", extra=log_data)
 
 
-def with_exception_handling(component: str, operation: str, reraise: bool = True) -> Callable:
+def with_exception_handling(
+    component: str, operation: str, reraise: bool = True
+) -> Callable:
     """
     例外処理デコレータ
 
@@ -210,7 +214,9 @@ class ErrorRecoveryStrategy:
     def __init__(self):
         self.recovery_strategies = {}
 
-    def register_strategy(self, error_type: Type[Exception], strategy: Callable[[Exception], Any]):
+    def register_strategy(
+        self, error_type: Type[Exception], strategy: Callable[[Exception], Any]
+    ):
         """
         エラータイプに対する回復戦略を登録
 

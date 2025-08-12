@@ -76,9 +76,13 @@ class CacheConfig:
                 cache_settings = getattr(self._config_manager, "cache_settings", {})
                 if hasattr(self._config_manager, "get"):
                     # より一般的なget方式も試行
-                    cache_settings = self._config_manager.get("cache", {}) or cache_settings
+                    cache_settings = (
+                        self._config_manager.get("cache", {}) or cache_settings
+                    )
             except Exception as e:
-                logger.warning(f"Failed to load cache settings from config_manager: {e}")
+                logger.warning(
+                    f"Failed to load cache settings from config_manager: {e}"
+                )
 
         # 設定値の決定（優先度: config_manager > 環境変数 > デフォルト）
         self.max_key_length = self._get_config_value(
@@ -246,7 +250,9 @@ class CacheConfig:
         env_value = os.getenv(env_key)
         if env_value is not None:
             try:
-                if isinstance(type_converter, type) and issubclass(type_converter, bool):
+                if isinstance(type_converter, type) and issubclass(
+                    type_converter, bool
+                ):
                     # 真偽値の特別な処理
                     return env_value.lower() in ("true", "1", "yes", "on")
                 return type_converter(env_value)

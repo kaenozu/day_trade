@@ -167,7 +167,9 @@ class EnterpriseIntegrationOrchestrator:
 
         # セーフモード強制確認
         if not is_safe_mode():
-            raise RuntimeError("エンタープライズシステムはセーフモードでのみ実行可能です")
+            raise RuntimeError(
+                "エンタープライズシステムはセーフモードでのみ実行可能です"
+            )
 
         # システム状態
         self.status = SystemStatus.INITIALIZING
@@ -181,7 +183,9 @@ class EnterpriseIntegrationOrchestrator:
         }
 
         # 非同期制御
-        self.executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_operations)
+        self.executor = ThreadPoolExecutor(
+            max_workers=self.config.max_concurrent_operations
+        )
         self.process_pool = ProcessPoolExecutor(max_workers=4)
 
         # イベントループ管理
@@ -252,7 +256,9 @@ class EnterpriseIntegrationOrchestrator:
 
         # パフォーマンスモニター
         self.performance_monitor = PerformanceMonitor()
-        await self._register_component("performance_monitor", "core", self.performance_monitor)
+        await self._register_component(
+            "performance_monitor", "core", self.performance_monitor
+        )
 
     async def _initialize_api_data_systems(self) -> None:
         """API・データ統合システム初期化"""
@@ -295,11 +301,15 @@ class EnterpriseIntegrationOrchestrator:
         self.health_monitor = SystemHealthMonitor()
         await self.health_monitor.start_monitoring()
 
-        await self._register_component("health_monitor", "monitoring", self.health_monitor)
+        await self._register_component(
+            "health_monitor", "monitoring", self.health_monitor
+        )
 
         # パフォーマンスアラート
         perf_alert_system = PerformanceAlertSystem()
-        await self._register_component("performance_alerts", "monitoring", perf_alert_system)
+        await self._register_component(
+            "performance_alerts", "monitoring", perf_alert_system
+        )
 
     async def _initialize_advanced_analytics(self) -> None:
         """高度分析システム初期化"""
@@ -374,7 +384,9 @@ class EnterpriseIntegrationOrchestrator:
                 if component.healthy:
                     healthy_components += 1
 
-                logger.info(f"コンポーネント {name}: {'✅' if component.healthy else '❌'}")
+                logger.info(
+                    f"コンポーネント {name}: {'✅' if component.healthy else '❌'}"
+                )
 
             except Exception as e:
                 component.healthy = False
@@ -383,9 +395,13 @@ class EnterpriseIntegrationOrchestrator:
                 logger.error(f"コンポーネント {name} ヘルスチェック失敗: {e}")
 
         self.last_health_check = datetime.now()
-        health_ratio = healthy_components / total_components if total_components > 0 else 0
+        health_ratio = (
+            healthy_components / total_components if total_components > 0 else 0
+        )
 
-        logger.info(f"システムヘルス: {healthy_components}/{total_components} ({health_ratio:.1%})")
+        logger.info(
+            f"システムヘルス: {healthy_components}/{total_components} ({health_ratio:.1%})"
+        )
 
         # 80%以上のコンポーネントが健全であればシステム健全と判定
         return health_ratio >= 0.8
@@ -564,7 +580,9 @@ class EnterpriseIntegrationOrchestrator:
                 "enabled": component.enabled,
                 "healthy": component.healthy,
                 "last_health_check": (
-                    component.last_health_check.isoformat() if component.last_health_check else None
+                    component.last_health_check.isoformat()
+                    if component.last_health_check
+                    else None
                 ),
                 "performance": {
                     "processing_time_ms": component.processing_time_ms,
@@ -575,7 +593,9 @@ class EnterpriseIntegrationOrchestrator:
                     "count": component.error_count,
                     "last_error": component.last_error,
                     "last_error_time": (
-                        component.last_error_time.isoformat() if component.last_error_time else None
+                        component.last_error_time.isoformat()
+                        if component.last_error_time
+                        else None
                     ),
                 },
                 "dependencies": component.dependencies,
@@ -584,7 +604,9 @@ class EnterpriseIntegrationOrchestrator:
 
         return details
 
-    async def get_integrated_analysis_report(self, symbols: List[str]) -> Dict[str, Any]:
+    async def get_integrated_analysis_report(
+        self, symbols: List[str]
+    ) -> Dict[str, Any]:
         """統合分析レポート取得"""
         report = {
             "timestamp": datetime.now().isoformat(),
@@ -677,7 +699,9 @@ async def test_enterprise_integration():
 
         # テスト用分析実行
         test_symbols = ["7203", "8306", "9984"]
-        analysis_report = await orchestrator.get_integrated_analysis_report(test_symbols)
+        analysis_report = await orchestrator.get_integrated_analysis_report(
+            test_symbols
+        )
 
         print("\n📈 統合分析結果:")
         for symbol, analysis in analysis_report["analysis_results"].items():
@@ -690,7 +714,9 @@ async def test_enterprise_integration():
         # 最終システム状態確認
         final_overview = orchestrator.get_system_overview()
         print("\n🎯 最終システム状態:")
-        print(f"  健全コンポーネント率: {final_overview['components']['health_ratio']:.1%}")
+        print(
+            f"  健全コンポーネント率: {final_overview['components']['health_ratio']:.1%}"
+        )
 
         return True
 

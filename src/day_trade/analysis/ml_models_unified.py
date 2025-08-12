@@ -77,7 +77,9 @@ warnings.filterwarnings("ignore")
 class ModelConfig:
     """統合モデル設定"""
 
-    model_type: str = "random_forest"  # random_forest, gradient_boosting, xgboost, lightgbm
+    model_type: str = (
+        "random_forest"  # random_forest, gradient_boosting, xgboost, lightgbm
+    )
     n_estimators: int = 100
     max_depth: int = 5
     learning_rate: float = 0.1
@@ -158,7 +160,9 @@ class PerformanceCache:
         """キャッシュに保存"""
         if len(self.cache) >= self.max_size:
             # LRU削除
-            oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
+            oldest_key = min(
+                self.access_times.keys(), key=lambda k: self.access_times[k]
+            )
             del self.cache[oldest_key]
             del self.access_times[oldest_key]
 
@@ -311,7 +315,9 @@ class MLModelsBase(OptimizationStrategy):
             cross_validation_scores=cv_scores,
         )
 
-    def _predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def _predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """予測実行"""
         start_time = time.time()
 
@@ -337,7 +343,9 @@ class MLModelsBase(OptimizationStrategy):
         computation_time = time.time() - start_time
 
         return ModelPrediction(
-            prediction=float(prediction[0] if len(prediction) == 1 else prediction.mean()),
+            prediction=float(
+                prediction[0] if len(prediction) == 1 else prediction.mean()
+            ),
             confidence=confidence,
             model_name=type(model).__name__,
             computation_time=computation_time,
@@ -427,7 +435,9 @@ class OptimizedMLModels(MLModelsBase):
 
         return result
 
-    def _train_model_parallel(self, X: pd.DataFrame, y: pd.Series) -> ModelTrainingResult:
+    def _train_model_parallel(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> ModelTrainingResult:
         """並列モデル訓練"""
         model_types = ["random_forest", "gradient_boosting"]
         if XGBOOST_AVAILABLE:
@@ -459,7 +469,9 @@ class OptimizedMLModels(MLModelsBase):
                     if result.validation_score > best_score:
                         best_score = result.validation_score
                         best_result = result
-                        logger.info(f"最良モデル更新: {futures[future]} (score: {best_score:.4f})")
+                        logger.info(
+                            f"最良モデル更新: {futures[future]} (score: {best_score:.4f})"
+                        )
                 except Exception as e:
                     logger.warning(f"並列訓練エラー {futures[future]}: {e}")
 
@@ -470,7 +482,9 @@ class OptimizedMLModels(MLModelsBase):
 
         return best_result
 
-    def _predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def _predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """キャッシュ機能付き予測"""
         start_time = time.time()
 
@@ -535,7 +549,9 @@ class MLModelsManager:
         strategy = self.get_strategy()
         return strategy.execute("train", X, y, model_config)
 
-    def predict(self, X: pd.DataFrame, model_key: Optional[str] = None) -> ModelPrediction:
+    def predict(
+        self, X: pd.DataFrame, model_key: Optional[str] = None
+    ) -> ModelPrediction:
         """予測実行"""
         strategy = self.get_strategy()
         return strategy.execute("predict", X, model_key)

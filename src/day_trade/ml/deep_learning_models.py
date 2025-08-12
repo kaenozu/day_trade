@@ -23,7 +23,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    warnings.warn("PyTorch未インストール - 深層学習モデル利用不可", ImportWarning, stacklevel=2)
+    warnings.warn(
+        "PyTorch未インストール - 深層学習モデル利用不可", ImportWarning, stacklevel=2
+    )
 
 from ..core.optimization_strategy import (
     OptimizationConfig,
@@ -180,7 +182,9 @@ class BaseDeepLearningModel(ABC):
         """内部訓練メソッド"""
         pass
 
-    def prepare_training_data(self, data: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+    def prepare_training_data(
+        self, data: pd.DataFrame
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """訓練データ準備"""
         return self.prepare_data(data)
 
@@ -263,7 +267,9 @@ class BaseDeepLearningModel(ABC):
             shuffled_pred = self._predict_internal(X_shuffled)
             shuffled_error = np.mean((shuffled_pred - baseline_pred) ** 2)
 
-            importance = max(0, shuffled_error - baseline_error) / (baseline_error + 1e-8)
+            importance = max(0, shuffled_error - baseline_error) / (
+                baseline_error + 1e-8
+            )
             feature_importance[feature_name] = float(importance)
 
         # 正規化
@@ -291,7 +297,10 @@ class BaseDeepLearningModel(ABC):
         # シーケンスデータ作成
         X, y = [], []
         for i in range(
-            len(features) - self.config.sequence_length - self.config.prediction_horizon + 1
+            len(features)
+            - self.config.sequence_length
+            - self.config.prediction_horizon
+            + 1
         ):
             X.append(features[i : i + self.config.sequence_length])
             if target_column in data.columns:
@@ -356,7 +365,9 @@ class TransformerModel(BaseDeepLearningModel):
             logger.info("PyTorch未利用のため、NumPy Transformerを使用")
             return self._build_numpy_transformer(input_shape)
 
-    def _build_pytorch_transformer(self, input_shape: Tuple[int, ...]) -> "torch.nn.Module":
+    def _build_pytorch_transformer(
+        self, input_shape: Tuple[int, ...]
+    ) -> "torch.nn.Module":
         """PyTorch Transformerモデル"""
         import torch.nn as nn
 
@@ -422,7 +433,10 @@ class TransformerModel(BaseDeepLearningModel):
             "query_weights": np.random.randn(n_features, hidden_size) * 0.1,
             "key_weights": np.random.randn(n_features, hidden_size) * 0.1,
             "value_weights": np.random.randn(n_features, hidden_size) * 0.1,
-            "output_weights": np.random.randn(hidden_size, self.config.prediction_horizon) * 0.1,
+            "output_weights": np.random.randn(
+                hidden_size, self.config.prediction_horizon
+            )
+            * 0.1,
             "layer_norm_weights": np.ones(hidden_size),
             "layer_norm_bias": np.zeros(hidden_size),
         }
@@ -531,7 +545,9 @@ class TransformerModel(BaseDeepLearningModel):
             train_pred = self.model(X_train)
             val_pred = self.model(X_val)
 
-            train_accuracy = self._calculate_accuracy(y_train.numpy(), train_pred.numpy())
+            train_accuracy = self._calculate_accuracy(
+                y_train.numpy(), train_pred.numpy()
+            )
             val_accuracy = self._calculate_accuracy(y_val.numpy(), val_pred.numpy())
 
         return TrainingResult(
@@ -546,7 +562,9 @@ class TransformerModel(BaseDeepLearningModel):
             convergence_achieved=patience_counter < self.config.early_stopping_patience,
         )
 
-    def _train_numpy_model(self, X: np.ndarray, y: np.ndarray, start_time: float) -> TrainingResult:
+    def _train_numpy_model(
+        self, X: np.ndarray, y: np.ndarray, start_time: float
+    ) -> TrainingResult:
         """NumPy Transformer訓練（簡易実装）"""
         val_size = int(len(X) * self.config.validation_split)
         X_train, X_val = X[:-val_size], X[-val_size:]
@@ -606,7 +624,9 @@ class TransformerModel(BaseDeepLearningModel):
         )
 
         # Attention計算
-        attention_scores = np.matmul(Q, K.transpose(0, 2, 1)) / np.sqrt(self.config.hidden_size)
+        attention_scores = np.matmul(Q, K.transpose(0, 2, 1)) / np.sqrt(
+            self.config.hidden_size
+        )
         attention_weights = self._softmax(attention_scores)
         attention_output = np.matmul(attention_weights, V)
 
@@ -616,7 +636,9 @@ class TransformerModel(BaseDeepLearningModel):
 
         return predictions
 
-    def _numpy_backward_pass(self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray):
+    def _numpy_backward_pass(
+        self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray
+    ):
         """NumPy バックワード パス（簡易実装）"""
         learning_rate = self.config.learning_rate
         batch_size = X.shape[0]
@@ -698,7 +720,10 @@ class TransformerModel(BaseDeepLearningModel):
     def _calculate_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """精度計算（MAPE）"""
         try:
-            mape = np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8))) * 100
+            mape = (
+                np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8)))
+                * 100
+            )
             accuracy = max(0, 100 - mape)  # MAPEから精度に変換
             return min(accuracy, 100) / 100  # 0-1範囲に正規化
         except:
@@ -780,19 +805,26 @@ class LSTMModel(BaseDeepLearningModel):
             "weights": self._initialize_lstm_weights(n_features, hidden_size),
         }
 
-    def _initialize_lstm_weights(self, n_features: int, hidden_size: int) -> Dict[str, np.ndarray]:
+    def _initialize_lstm_weights(
+        self, n_features: int, hidden_size: int
+    ) -> Dict[str, np.ndarray]:
         """LSTMパラメータ初期化"""
         # LSTM重み行列（簡易実装）
         return {
-            "W_f": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,  # 忘却ゲート
-            "W_i": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,  # 入力ゲート
-            "W_o": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,  # 出力ゲート
-            "W_c": np.random.randn(n_features + hidden_size, hidden_size) * 0.1,  # セル状態
+            "W_f": np.random.randn(n_features + hidden_size, hidden_size)
+            * 0.1,  # 忘却ゲート
+            "W_i": np.random.randn(n_features + hidden_size, hidden_size)
+            * 0.1,  # 入力ゲート
+            "W_o": np.random.randn(n_features + hidden_size, hidden_size)
+            * 0.1,  # 出力ゲート
+            "W_c": np.random.randn(n_features + hidden_size, hidden_size)
+            * 0.1,  # セル状態
             "b_f": np.zeros(hidden_size),
             "b_i": np.zeros(hidden_size),
             "b_o": np.zeros(hidden_size),
             "b_c": np.zeros(hidden_size),
-            "W_output": np.random.randn(hidden_size, self.config.prediction_horizon) * 0.1,
+            "W_output": np.random.randn(hidden_size, self.config.prediction_horizon)
+            * 0.1,
         }
 
     def _train_internal(self, X: np.ndarray, y: np.ndarray) -> Dict[str, Any]:
@@ -887,7 +919,9 @@ class LSTMModel(BaseDeepLearningModel):
         with torch.no_grad():
             train_pred = self.model(X_train)
             val_pred = self.model(X_val)
-            train_accuracy = self._calculate_accuracy(y_train.numpy(), train_pred.numpy())
+            train_accuracy = self._calculate_accuracy(
+                y_train.numpy(), train_pred.numpy()
+            )
             val_accuracy = self._calculate_accuracy(y_val.numpy(), val_pred.numpy())
 
         return TrainingResult(
@@ -902,7 +936,9 @@ class LSTMModel(BaseDeepLearningModel):
             convergence_achieved=patience_counter < self.config.early_stopping_patience,
         )
 
-    def _train_numpy_lstm(self, X: np.ndarray, y: np.ndarray, start_time: float) -> TrainingResult:
+    def _train_numpy_lstm(
+        self, X: np.ndarray, y: np.ndarray, start_time: float
+    ) -> TrainingResult:
         """NumPy LSTM訓練（簡易実装）"""
         val_size = int(len(X) * self.config.validation_split)
         X_train, X_val = X[:-val_size], X[-val_size:]
@@ -957,10 +993,18 @@ class LSTMModel(BaseDeepLearningModel):
             input_combined = np.concatenate([x_t, h], axis=1)
 
             # LSTMゲート計算
-            f_gate = self._sigmoid(np.dot(input_combined, weights["W_f"]) + weights["b_f"])
-            i_gate = self._sigmoid(np.dot(input_combined, weights["W_i"]) + weights["b_i"])
-            o_gate = self._sigmoid(np.dot(input_combined, weights["W_o"]) + weights["b_o"])
-            c_candidate = np.tanh(np.dot(input_combined, weights["W_c"]) + weights["b_c"])
+            f_gate = self._sigmoid(
+                np.dot(input_combined, weights["W_f"]) + weights["b_f"]
+            )
+            i_gate = self._sigmoid(
+                np.dot(input_combined, weights["W_i"]) + weights["b_i"]
+            )
+            o_gate = self._sigmoid(
+                np.dot(input_combined, weights["W_o"]) + weights["b_o"]
+            )
+            c_candidate = np.tanh(
+                np.dot(input_combined, weights["W_c"]) + weights["b_c"]
+            )
 
             # セル状態・隠れ状態更新
             c = f_gate * c + i_gate * c_candidate
@@ -970,7 +1014,9 @@ class LSTMModel(BaseDeepLearningModel):
         output = np.dot(h, weights["W_output"])
         return output
 
-    def _numpy_lstm_backward(self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray):
+    def _numpy_lstm_backward(
+        self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray
+    ):
         """NumPy LSTM バックワードパス（簡易実装）"""
         learning_rate = self.config.learning_rate * 0.1
 
@@ -1004,7 +1050,10 @@ class LSTMModel(BaseDeepLearningModel):
     def _calculate_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """精度計算"""
         try:
-            mape = np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8))) * 100
+            mape = (
+                np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8)))
+                * 100
+            )
             accuracy = max(0, 100 - mape)
             return min(accuracy, 100) / 100
         except:
@@ -1178,7 +1227,9 @@ class DeepLearningAcceleratedModels(OptimizationStrategy):
     def get_strategy_name(self) -> str:
         return "深層学習加速MLモデル (Transformer+LSTM)"
 
-    def execute(self, data: pd.DataFrame, model_types: Optional[List[str]] = None, **kwargs) -> Any:
+    def execute(
+        self, data: pd.DataFrame, model_types: Optional[List[str]] = None, **kwargs
+    ) -> Any:
         """深層学習実行"""
         model_types = model_types or ["transformer", "lstm"]
         target_column = kwargs.get("target_column", "Close")

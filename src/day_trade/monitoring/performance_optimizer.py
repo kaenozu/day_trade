@@ -177,12 +177,16 @@ class PerformanceMonitor:
 
         self.baseline_metrics = {
             "cpu_usage": sum(m.cpu_usage for m in recent_metrics) / len(recent_metrics),
-            "memory_usage": sum(m.memory_usage for m in recent_metrics) / len(recent_metrics),
-            "disk_usage": sum(m.disk_usage for m in recent_metrics) / len(recent_metrics),
+            "memory_usage": sum(m.memory_usage for m in recent_metrics)
+            / len(recent_metrics),
+            "disk_usage": sum(m.disk_usage for m in recent_metrics)
+            / len(recent_metrics),
             "response_time_avg": sum(m.response_time_avg for m in recent_metrics)
             / len(recent_metrics),
-            "throughput": sum(m.throughput for m in recent_metrics) / len(recent_metrics),
-            "error_rate": sum(m.error_rate for m in recent_metrics) / len(recent_metrics),
+            "throughput": sum(m.throughput for m in recent_metrics)
+            / len(recent_metrics),
+            "error_rate": sum(m.error_rate for m in recent_metrics)
+            / len(recent_metrics),
         }
 
         logger.info("ベースラインメトリクス計算完了")
@@ -195,7 +199,9 @@ class PerformanceMonitor:
 
         return self.metrics_history[-1]
 
-    def get_metrics_history(self, duration_minutes: int = 60) -> List[PerformanceMetrics]:
+    def get_metrics_history(
+        self, duration_minutes: int = 60
+    ) -> List[PerformanceMetrics]:
         """メトリクス履歴取得"""
 
         cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
@@ -322,7 +328,9 @@ class SLAMonitor:
             return {"error": "SLA target not found"}
 
         current_violations = [
-            v for v in self.current_violations.values() if v.service_name == service_name
+            v
+            for v in self.current_violations.values()
+            if v.service_name == service_name
         ]
 
         if not current_violations:
@@ -429,7 +437,9 @@ class PerformanceOptimizer:
 
         return recommendations
 
-    async def apply_optimization(self, recommendation: OptimizationRecommendation) -> bool:
+    async def apply_optimization(
+        self, recommendation: OptimizationRecommendation
+    ) -> bool:
         """最適化適用"""
 
         optimization_id = f"{recommendation.target_component}_{int(time.time())}"
@@ -440,7 +450,9 @@ class PerformanceOptimizer:
             success = False
 
             if recommendation.action == OptimizationAction.SCALE_UP:
-                success = await self._scale_up_resources(recommendation.target_component)
+                success = await self._scale_up_resources(
+                    recommendation.target_component
+                )
             elif recommendation.action == OptimizationAction.CACHE_CLEAR:
                 success = await self._clear_cache()
             elif recommendation.action == OptimizationAction.RESTART_SERVICE:
@@ -572,7 +584,9 @@ class IntegratedPerformanceSystem:
         logger.info("統合パフォーマンスシステム開始")
 
         # パフォーマンス監視開始
-        monitoring_task = asyncio.create_task(self.performance_monitor.start_monitoring())
+        monitoring_task = asyncio.create_task(
+            self.performance_monitor.start_monitoring()
+        )
 
         # 定期SLAチェック＆最適化ループ
         optimization_task = asyncio.create_task(self._optimization_loop())
@@ -594,11 +608,15 @@ class IntegratedPerformanceSystem:
                         )
 
                         if violations:
-                            logger.warning(f"SLA違反検出 ({service_name}): {len(violations)}件")
+                            logger.warning(
+                                f"SLA違反検出 ({service_name}): {len(violations)}件"
+                            )
 
                     # パフォーマンス問題分析
-                    recommendations = self.performance_optimizer.analyze_performance_issues(
-                        current_metrics, self.performance_monitor.baseline_metrics
+                    recommendations = (
+                        self.performance_optimizer.analyze_performance_issues(
+                            current_metrics, self.performance_monitor.baseline_metrics
+                        )
                     )
 
                     # 高優先度の最適化を実行
@@ -633,7 +651,9 @@ class IntegratedPerformanceSystem:
             "current_metrics": asdict(current_metrics) if current_metrics else None,
             "baseline_metrics": self.performance_monitor.baseline_metrics,
             "sla_statuses": sla_statuses,
-            "recent_optimizations": list(self.performance_optimizer.optimization_history)[-10:],
+            "recent_optimizations": list(
+                self.performance_optimizer.optimization_history
+            )[-10:],
             "metrics_history_size": len(self.performance_monitor.metrics_history),
         }
 

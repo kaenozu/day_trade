@@ -23,7 +23,9 @@ def test_api_request_consolidator() -> Dict[str, Any]:
     """APIリクエスト統合システムクイックテスト"""
     print("APIリクエスト統合システムテスト開始...")
 
-    consolidator = create_consolidator(batch_size=20, max_workers=2, enable_caching=True)
+    consolidator = create_consolidator(
+        batch_size=20, max_workers=2, enable_caching=True
+    )
 
     consolidator.start()
 
@@ -58,7 +60,9 @@ def test_api_request_consolidator() -> Dict[str, Any]:
 
         print(f"  ✓ リクエスト投入成功: {request_id}")
         print(f"  ✓ レスポンス受信: {len(responses_received)}")
-        print(f"  ✓ 統計: requests={stats.total_requests}, success_rate={stats.success_rate:.1%}")
+        print(
+            f"  ✓ 統計: requests={stats.total_requests}, success_rate={stats.success_rate:.1%}"
+        )
 
         return result
 
@@ -120,7 +124,8 @@ def test_database_bulk_optimizer() -> Dict[str, Any]:
         optimizer.close()
 
         result = {
-            "success": insert_result.success_rate > 0.8 and upsert_result.success_rate > 0.8,
+            "success": insert_result.success_rate > 0.8
+            and upsert_result.success_rate > 0.8,
             "insert_processed": insert_result.processed_records,
             "insert_success_rate": insert_result.success_rate,
             "upsert_processed": upsert_result.processed_records,

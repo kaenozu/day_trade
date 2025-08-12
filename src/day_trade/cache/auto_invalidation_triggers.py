@@ -168,7 +168,9 @@ class TriggerHandler(ABC):
             affected_keys = await self._find_affected_cache_keys(event)
 
             for key in affected_keys:
-                self.invalidator.invalidate(key, self.config.invalidation_type, cascade=True)
+                self.invalidator.invalidate(
+                    key, self.config.invalidation_type, cascade=True
+                )
 
             event.cache_keys_affected = affected_keys
             event.processed = True
@@ -177,7 +179,9 @@ class TriggerHandler(ABC):
             self.stats["cache_keys_invalidated"] += len(affected_keys)
             self.last_triggered = time.time()
 
-            logger.info(f"トリガー実行完了: {event_id} ({len(affected_keys)}キー無効化)")
+            logger.info(
+                f"トリガー実行完了: {event_id} ({len(affected_keys)}キー無効化)"
+            )
 
         except Exception as e:
             self.stats["errors"] += 1
@@ -225,7 +229,9 @@ class TimeBasedTrigger(TriggerHandler):
         else:
             # 固定間隔スケジュール
             interval = self.config.metadata.get("interval_seconds", 3600)
-            self.scheduler_task = asyncio.create_task(self._interval_scheduler(interval))
+            self.scheduler_task = asyncio.create_task(
+                self._interval_scheduler(interval)
+            )
 
         logger.info(f"時間ベーストリガー開始: {self.config.trigger_id}")
 
@@ -281,7 +287,9 @@ class FileSystemTrigger(TriggerHandler):
     async def start(self):
         """ファイル監視開始"""
         if not WATCHDOG_AVAILABLE:
-            logger.warning("watchdogライブラリが利用できません。ファイル監視をスキップします。")
+            logger.warning(
+                "watchdogライブラリが利用できません。ファイル監視をスキップします。"
+            )
             return
 
         if self.observer:
@@ -442,7 +450,9 @@ class MemoryPressureTrigger(TriggerHandler):
     async def start(self):
         """メモリ監視開始"""
         if not PSUTIL_AVAILABLE:
-            logger.warning("psutilライブラリが利用できません。メモリ監視をスキップします。")
+            logger.warning(
+                "psutilライブラリが利用できません。メモリ監視をスキップします。"
+            )
             return
 
         if self.running:
@@ -517,7 +527,9 @@ class AutoInvalidationTriggerManager:
             if self.running:
                 asyncio.create_task(handler.start())
 
-            logger.info(f"トリガー追加: {config.trigger_id} ({config.trigger_type.value})")
+            logger.info(
+                f"トリガー追加: {config.trigger_id} ({config.trigger_type.value})"
+            )
 
         return config.trigger_id
 

@@ -32,7 +32,9 @@ try:
     DASK_AVAILABLE = True
 except ImportError:
     DASK_AVAILABLE = False
-    warnings.warn("Daskが利用できません。分散処理機能は制限されます。", UserWarning, stacklevel=2)
+    warnings.warn(
+        "Daskが利用できません。分散処理機能は制限されます。", UserWarning, stacklevel=2
+    )
 
 # プロジェクトモジュール
 try:
@@ -107,7 +109,9 @@ class DaskDataProcessor:
             chunk_size: データチャンクサイズ
         """
         if not DASK_AVAILABLE:
-            logger.warning("Daskが利用できないため、シングルスレッド処理にフォールバック")
+            logger.warning(
+                "Daskが利用できないため、シングルスレッド処理にフォールバック"
+            )
             enable_distributed = False
 
         self.enable_distributed = enable_distributed
@@ -246,7 +250,9 @@ class DaskDataProcessor:
 
         try:
             # 並列計算実行
-            results = compute(*delayed_tasks, scheduler="distributed" if self.client else "threads")
+            results = compute(
+                *delayed_tasks, scheduler="distributed" if self.client else "threads"
+            )
 
             # 結果統合
             valid_results = [r for r in results if r is not None and not r.empty]
@@ -355,7 +361,9 @@ class DaskDataProcessor:
         """中間結果保存"""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"dask_processing_results_{timestamp}_{len(symbols)}symbols.parquet"
+            filename = (
+                f"dask_processing_results_{timestamp}_{len(symbols)}symbols.parquet"
+            )
             filepath = self.temp_dir / filename
 
             # Parquet形式で高効率保存
@@ -430,7 +438,9 @@ class DaskDataProcessor:
             # 結果計算
             if output_path:
                 # ファイル出力
-                processed_df.to_parquet(output_path, compression="snappy", write_index=False)
+                processed_df.to_parquet(
+                    output_path, compression="snappy", write_index=False
+                )
 
                 result = output_path
                 logger.info(f"結果をファイル出力: {output_path}")
@@ -513,7 +523,9 @@ class DaskDataProcessor:
 
             # 価格データ長を統一
             min_length = min(len(prices) for prices in valid_data.values())
-            aligned_data = {symbol: prices[-min_length:] for symbol, prices in valid_data.items()}
+            aligned_data = {
+                symbol: prices[-min_length:] for symbol, prices in valid_data.items()
+            }
 
             # 相関マトリックス計算（分散）
             symbols_list = list(aligned_data.keys())
@@ -605,7 +617,9 @@ class DaskDataProcessor:
 
             # 最小長に合わせる
             min_length = min(len(prices) for prices in price_data.values())
-            aligned_data = {symbol: prices[-min_length:] for symbol, prices in price_data.items()}
+            aligned_data = {
+                symbol: prices[-min_length:] for symbol, prices in price_data.items()
+            }
 
             # 相関計算
             df = pd.DataFrame(aligned_data)
@@ -721,7 +735,9 @@ class DaskStockAnalyzer:
     ) -> Dict[str, Any]:
         """分散ポートフォリオパフォーマンス分析"""
 
-        logger.info(f"分散ポートフォリオ分析: {len(portfolio_symbols)}銘柄 vs {benchmark_symbol}")
+        logger.info(
+            f"分散ポートフォリオ分析: {len(portfolio_symbols)}銘柄 vs {benchmark_symbol}"
+        )
 
         try:
             all_symbols = portfolio_symbols + [benchmark_symbol]
@@ -798,7 +814,8 @@ class DaskStockAnalyzer:
 
             # 各銘柄のメトリクス並列計算
             metric_tasks = [
-                calculate_symbol_metrics(symbol, group) for symbol, group in symbol_groups
+                calculate_symbol_metrics(symbol, group)
+                for symbol, group in symbol_groups
             ]
 
             metric_results = compute(*metric_tasks)
@@ -816,17 +833,19 @@ class DaskStockAnalyzer:
 
             # ポートフォリオ全体統計
             if portfolio_metrics:
-                portfolio_total_return = sum(m["total_return"] for m in portfolio_metrics) / len(
-                    portfolio_metrics
-                )
-                portfolio_avg_volatility = sum(m["volatility"] for m in portfolio_metrics) / len(
-                    portfolio_metrics
-                )
-                portfolio_avg_sharpe = sum(m["sharpe_ratio"] for m in portfolio_metrics) / len(
-                    portfolio_metrics
-                )
+                portfolio_total_return = sum(
+                    m["total_return"] for m in portfolio_metrics
+                ) / len(portfolio_metrics)
+                portfolio_avg_volatility = sum(
+                    m["volatility"] for m in portfolio_metrics
+                ) / len(portfolio_metrics)
+                portfolio_avg_sharpe = sum(
+                    m["sharpe_ratio"] for m in portfolio_metrics
+                ) / len(portfolio_metrics)
             else:
-                portfolio_total_return = portfolio_avg_volatility = portfolio_avg_sharpe = 0
+                portfolio_total_return = portfolio_avg_volatility = (
+                    portfolio_avg_sharpe
+                ) = 0
 
             analysis_results = {
                 "analysis_timestamp": datetime.now().isoformat(),
@@ -889,7 +908,11 @@ class DaskStockAnalyzer:
                     metrics = {
                         "symbol": symbol,
                         "total_return": (prices.iloc[-1] / prices.iloc[0] - 1) * 100,
-                        "volatility": returns.std() * np.sqrt(252) * 100 if len(returns) > 1 else 0,
+                        "volatility": (
+                            returns.std() * np.sqrt(252) * 100
+                            if len(returns) > 1
+                            else 0
+                        ),
                         "data_points": len(prices),
                     }
 
@@ -948,20 +971,26 @@ class DaskBatchProcessor:
 
             # ステップ2: テクニカル分析
             if "technical_analysis" in pipeline_steps and not raw_data.empty:
-                enhanced_data = await self._apply_technical_analysis_distributed(raw_data)
+                enhanced_data = await self._apply_technical_analysis_distributed(
+                    raw_data
+                )
             else:
                 enhanced_data = raw_data
 
             # ステップ3: データクリーニング
             if "data_cleaning" in pipeline_steps and not enhanced_data.empty:
-                cleaned_data = await self._apply_data_cleaning_distributed(enhanced_data)
+                cleaned_data = await self._apply_data_cleaning_distributed(
+                    enhanced_data
+                )
             else:
                 cleaned_data = enhanced_data
 
             # ステップ4: 出力
             output_path = None
             if not cleaned_data.empty and output_format:
-                output_path = await self._save_pipeline_output(cleaned_data, output_format)
+                output_path = await self._save_pipeline_output(
+                    cleaned_data, output_format
+                )
 
             results = {
                 "pipeline_timestamp": datetime.now().isoformat(),
@@ -979,7 +1008,9 @@ class DaskBatchProcessor:
             logger.error(f"市場データパイプラインエラー: {e}")
             return {"error": str(e), "processing_successful": False}
 
-    async def _apply_technical_analysis_distributed(self, data: pd.DataFrame) -> pd.DataFrame:
+    async def _apply_technical_analysis_distributed(
+        self, data: pd.DataFrame
+    ) -> pd.DataFrame:
         """分散テクニカル分析適用"""
 
         if not DASK_AVAILABLE:
@@ -1007,7 +1038,9 @@ class DaskBatchProcessor:
 
             # 結果統合
             if analyzed_results:
-                return pd.concat([r for r in analyzed_results if not r.empty], ignore_index=True)
+                return pd.concat(
+                    [r for r in analyzed_results if not r.empty], ignore_index=True
+                )
             else:
                 return data
 
@@ -1024,7 +1057,9 @@ class DaskBatchProcessor:
             logger.error(f"シーケンシャルテクニカル分析エラー: {e}")
             return data
 
-    async def _apply_data_cleaning_distributed(self, data: pd.DataFrame) -> pd.DataFrame:
+    async def _apply_data_cleaning_distributed(
+        self, data: pd.DataFrame
+    ) -> pd.DataFrame:
         """分散データクリーニング"""
 
         if not DASK_AVAILABLE or data.empty:
@@ -1055,7 +1090,9 @@ class DaskBatchProcessor:
 
             # データを適当なチャンクに分割
             chunk_size = max(1000, len(data) // (self.dask_processor.n_workers * 4))
-            data_chunks = [data.iloc[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
+            data_chunks = [
+                data.iloc[i : i + chunk_size] for i in range(0, len(data), chunk_size)
+            ]
 
             # 分散クリーニング実行
             cleaning_tasks = [clean_data_chunk(chunk) for chunk in data_chunks]
@@ -1093,16 +1130,23 @@ class DaskBatchProcessor:
             logger.error(f"シーケンシャルデータクリーニングエラー: {e}")
             return data
 
-    async def _save_pipeline_output(self, data: pd.DataFrame, output_format: str) -> Optional[str]:
+    async def _save_pipeline_output(
+        self, data: pd.DataFrame, output_format: str
+    ) -> Optional[str]:
         """パイプライン出力保存"""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             if output_format.lower() == "parquet":
-                output_path = self.dask_processor.temp_dir / f"pipeline_output_{timestamp}.parquet"
+                output_path = (
+                    self.dask_processor.temp_dir
+                    / f"pipeline_output_{timestamp}.parquet"
+                )
                 data.to_parquet(output_path, compression="snappy", index=False)
             elif output_format.lower() == "csv":
-                output_path = self.dask_processor.temp_dir / f"pipeline_output_{timestamp}.csv"
+                output_path = (
+                    self.dask_processor.temp_dir / f"pipeline_output_{timestamp}.csv"
+                )
                 data.to_csv(output_path, index=False)
             else:
                 logger.warning(f"サポートされていない出力形式: {output_format}")
@@ -1121,7 +1165,9 @@ def create_dask_data_processor(
     enable_distributed: bool = True, n_workers: int = None, **kwargs
 ) -> DaskDataProcessor:
     """DaskDataProcessorファクトリ関数"""
-    return DaskDataProcessor(enable_distributed=enable_distributed, n_workers=n_workers, **kwargs)
+    return DaskDataProcessor(
+        enable_distributed=enable_distributed, n_workers=n_workers, **kwargs
+    )
 
 
 if __name__ == "__main__":
@@ -1151,10 +1197,14 @@ if __name__ == "__main__":
             # 2. 相関分析テスト
             print("\n2. 分散相関分析テスト")
             analyzer = DaskStockAnalyzer(processor)
-            portfolio_analysis = await analyzer.analyze_portfolio_performance_distributed(
-                test_symbols[:3], benchmark_symbol=test_symbols[-1]
+            portfolio_analysis = (
+                await analyzer.analyze_portfolio_performance_distributed(
+                    test_symbols[:3], benchmark_symbol=test_symbols[-1]
+                )
             )
-            print(f"ポートフォリオ分析結果: {portfolio_analysis.get('portfolio_summary', {})}")
+            print(
+                f"ポートフォリオ分析結果: {portfolio_analysis.get('portfolio_summary', {})}"
+            )
 
             # 3. バッチパイプラインテスト
             print("\n3. バッチパイプラインテスト")
@@ -1165,7 +1215,9 @@ if __name__ == "__main__":
                 start_date,
                 end_date,
             )
-            print(f"パイプライン結果: {pipeline_result.get('records_processed', 0)}レコード処理")
+            print(
+                f"パイプライン結果: {pipeline_result.get('records_processed', 0)}レコード処理"
+            )
 
             # 統計情報
             print("\n4. パフォーマンス統計")

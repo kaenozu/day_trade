@@ -289,7 +289,10 @@ class NextGenHFTEngine:
 
         # ステージ2: リスク分析
         risk_analysis_stage = DataflowStage(
-            name="risk_analysis", function=self._batch_risk_analysis, parallel=True, timeout=10
+            name="risk_analysis",
+            function=self._batch_risk_analysis,
+            parallel=True,
+            timeout=10,
         )
 
         # ステージ3: 実行最適化
@@ -610,7 +613,9 @@ class NextGenHFTEngine:
             return
 
         avg_latency = self.stats["total_latency_us"] / self.stats["orders_processed"]
-        success_rate = self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        success_rate = (
+            self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        )
         cache_hit_rate = self.stats["cache_hits"] / self.stats["orders_processed"] * 100
 
         logger.info(
@@ -703,7 +708,9 @@ class NextGenHFTEngine:
             return {"status": "no_data"}
 
         avg_latency = self.stats["total_latency_us"] / self.stats["orders_processed"]
-        success_rate = self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        success_rate = (
+            self.stats["successful_executions"] / self.stats["orders_processed"] * 100
+        )
 
         return {
             "engine_id": self.engine_id,
@@ -717,7 +724,10 @@ class NextGenHFTEngine:
                 "avg_latency_us": round(avg_latency, 2),
                 "success_rate_percent": round(success_rate, 2),
                 "cache_hit_rate_percent": round(
-                    self.stats["cache_hits"] / max(1, self.stats["orders_processed"]) * 100, 2
+                    self.stats["cache_hits"]
+                    / max(1, self.stats["orders_processed"])
+                    * 100,
+                    2,
                 ),
             },
             "optimizations": {
@@ -761,7 +771,9 @@ async def _batch_preprocess_orders(
     return processed_orders
 
 
-async def _batch_risk_analysis(orders: List[NextGenExecutionOrder]) -> List[NextGenExecutionOrder]:
+async def _batch_risk_analysis(
+    orders: List[NextGenExecutionOrder],
+) -> List[NextGenExecutionOrder]:
     """リスク分析（バッチ処理用）"""
     approved_orders = []
 
@@ -826,9 +838,15 @@ if __name__ == "__main__":
         summary = await engine.get_performance_summary()
         print("\n=== パフォーマンス要約 ===")
         print(f"エンジンID: {summary.get('engine_id', 'N/A')}")
-        print(f"処理オーダー数: {summary.get('performance', {}).get('orders_processed', 0)}")
-        print(f"平均レイテンシー: {summary.get('performance', {}).get('avg_latency_us', 0):.1f}μs")
-        print(f"成功率: {summary.get('performance', {}).get('success_rate_percent', 0):.1f}%")
+        print(
+            f"処理オーダー数: {summary.get('performance', {}).get('orders_processed', 0)}"
+        )
+        print(
+            f"平均レイテンシー: {summary.get('performance', {}).get('avg_latency_us', 0):.1f}μs"
+        )
+        print(
+            f"成功率: {summary.get('performance', {}).get('success_rate_percent', 0):.1f}%"
+        )
         print(
             f"キャッシュヒット率: {summary.get('performance', {}).get('cache_hit_rate_percent', 0):.1f}%"
         )

@@ -125,7 +125,9 @@ class ICacheManager(ABC):
         pass
 
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> bool:
+    async def set(
+        self, key: str, value: Any, ttl_seconds: Optional[int] = None
+    ) -> bool:
         """キャッシュ設定"""
         pass
 
@@ -209,7 +211,9 @@ class IConfigManager(ABC):
         pass
 
     @abstractmethod
-    def subscribe_to_changes(self, callback: callable, key_pattern: Optional[str] = None) -> str:
+    def subscribe_to_changes(
+        self, callback: callable, key_pattern: Optional[str] = None
+    ) -> str:
         """設定変更購読"""
         pass
 

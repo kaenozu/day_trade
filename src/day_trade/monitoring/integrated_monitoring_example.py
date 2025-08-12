@@ -139,7 +139,9 @@ async def demo_dashboard_data():
     # システム概要ダッシュボードのデータ取得
     try:
         system_data = await dashboard_manager.get_dashboard_data("system_overview")
-        print(f"  - システム概要ダッシュボード: {len(system_data['widgets'])}個のウィジェット")
+        print(
+            f"  - システム概要ダッシュボード: {len(system_data['widgets'])}個のウィジェット"
+        )
 
         for widget in system_data["widgets"]:
             series_count = len(widget["data"]["series"])

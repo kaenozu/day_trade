@@ -126,11 +126,15 @@ class MasterSlaveReplication(CacheReplicationStrategy):
             replication_tasks = []
             for slave_node in self.slave_nodes:
                 if slave_node in nodes:
-                    task = asyncio.create_task(self._replicate_to_slave(entry, slave_node))
+                    task = asyncio.create_task(
+                        self._replicate_to_slave(entry, slave_node)
+                    )
                     replication_tasks.append(task)
 
             if replication_tasks:
-                results = await asyncio.gather(*replication_tasks, return_exceptions=True)
+                results = await asyncio.gather(
+                    *replication_tasks, return_exceptions=True
+                )
                 success_count += sum(1 for r in results if r is True)
 
             # マスター書き込み成功で成功とみなす（非同期レプリケーション）
@@ -158,7 +162,9 @@ class MasterSlaveReplication(CacheReplicationStrategy):
             if inconsistent_slaves:
                 logger.warning(f"一貫性不整合検出 {key}: slaves={inconsistent_slaves}")
                 # 不整合スレーブの修復
-                await self._repair_inconsistent_slaves(key, master_value, inconsistent_slaves)
+                await self._repair_inconsistent_slaves(
+                    key, master_value, inconsistent_slaves
+                )
 
             return len(inconsistent_slaves) == 0
 
@@ -257,7 +263,9 @@ class EventualConsistencyReplication(CacheReplicationStrategy):
 
         try:
             results = await asyncio.gather(*read_tasks, return_exceptions=True)
-            values = [r for r in results if not isinstance(r, Exception) and r is not None]
+            values = [
+                r for r in results if not isinstance(r, Exception) and r is not None
+            ]
 
             if not values:
                 return True  # 値が存在しない場合は一貫
@@ -274,7 +282,9 @@ class EventualConsistencyReplication(CacheReplicationStrategy):
             is_consistent = consistency_ratio >= 0.6  # 60%以上で一貫とみなす
 
             if not is_consistent:
-                logger.warning(f"結果整合性違反 {key}: consistency_ratio={consistency_ratio}")
+                logger.warning(
+                    f"結果整合性違反 {key}: consistency_ratio={consistency_ratio}"
+                )
 
             return is_consistent
 
@@ -282,7 +292,9 @@ class EventualConsistencyReplication(CacheReplicationStrategy):
             logger.error(f"結果整合性検証失敗 {key}: {e}")
             return False
 
-    async def _write_with_retry(self, entry: CacheEntry, node: str, max_retries: int = 2) -> bool:
+    async def _write_with_retry(
+        self, entry: CacheEntry, node: str, max_retries: int = 2
+    ) -> bool:
         """リトライ付き書き込み"""
         for attempt in range(max_retries + 1):
             try:
@@ -317,8 +329,8 @@ class MicroservicesCacheOrchestrator:
         consistency_check_interval: int = 60,  # seconds
     ):
         self.cache_nodes = cache_nodes or ["redis://localhost:6379"]
-        self.replication_strategy = replication_strategy or EventualConsistencyReplication(
-            self.cache_nodes
+        self.replication_strategy = (
+            replication_strategy or EventualConsistencyReplication(self.cache_nodes)
         )
         self.consistency_check_interval = consistency_check_interval
 
@@ -396,7 +408,9 @@ class MicroservicesCacheOrchestrator:
                 enable_fallback=True,
             )
 
-            logger.info(f"サービス専用キャッシュ作成: {service_name} (DB={cache_config['db']})")
+            logger.info(
+                f"サービス専用キャッシュ作成: {service_name} (DB={cache_config['db']})"
+            )
 
         return self.service_caches[service_name]
 
@@ -456,9 +470,13 @@ class MicroservicesCacheOrchestrator:
                 success = local_success
 
             if success:
-                logger.debug(f"キャッシュ設定成功 [{region.value}] {service_name}:{key}")
+                logger.debug(
+                    f"キャッシュ設定成功 [{region.value}] {service_name}:{key}"
+                )
             else:
-                logger.warning(f"キャッシュ設定失敗 [{region.value}] {service_name}:{key}")
+                logger.warning(
+                    f"キャッシュ設定失敗 [{region.value}] {service_name}:{key}"
+                )
 
             return success
 
@@ -487,7 +505,9 @@ class MicroservicesCacheOrchestrator:
 
                 # エントリ構造の場合は値を抽出
                 if isinstance(cached_entry, dict) and "value" in cached_entry:
-                    logger.debug(f"キャッシュヒット [{region.value}] {service_name}:{key}")
+                    logger.debug(
+                        f"キャッシュヒット [{region.value}] {service_name}:{key}"
+                    )
                     return cached_entry["value"]
                 else:
                     return cached_entry
@@ -502,7 +522,9 @@ class MicroservicesCacheOrchestrator:
                     with self._stats_lock:
                         self.stats["cache_hits"] += 1
 
-                    logger.debug(f"分散キャッシュヒット [{region.value}] {service_name}:{key}")
+                    logger.debug(
+                        f"分散キャッシュヒット [{region.value}] {service_name}:{key}"
+                    )
                     return distributed_value
 
             with self._stats_lock:
@@ -535,7 +557,9 @@ class MicroservicesCacheOrchestrator:
             success = local_success or distributed_success
 
             if success:
-                logger.debug(f"キャッシュ削除成功 [{region.value}] {service_name}:{key}")
+                logger.debug(
+                    f"キャッシュ削除成功 [{region.value}] {service_name}:{key}"
+                )
 
             return success
 
@@ -610,12 +634,15 @@ class MicroservicesCacheOrchestrator:
             / max(base_stats["cache_hits"] + base_stats["cache_misses"], 1),
             "replication_success_rate": base_stats["replication_successes"]
             / max(
-                base_stats["replication_successes"] + base_stats["replication_failures"],
+                base_stats["replication_successes"]
+                + base_stats["replication_failures"],
                 1,
             ),
         }
 
-    def _generate_cache_key(self, key: str, region: CacheRegion, service_name: str) -> str:
+    def _generate_cache_key(
+        self, key: str, region: CacheRegion, service_name: str
+    ) -> str:
         """統合キャッシュキー生成"""
         return f"{region.value}:{service_name}:{key}"
 
@@ -730,7 +757,9 @@ def microservice_cache(
             # キャッシュキー生成
             cache_key = (
                 f"{func.__name__}:"
-                + hashlib.sha256(str(args).encode() + str(kwargs).encode()).hexdigest()[:16]
+                + hashlib.sha256(str(args).encode() + str(kwargs).encode()).hexdigest()[
+                    :16
+                ]
             )
 
             # キャッシュ取得試行
@@ -774,11 +803,15 @@ def microservice_cache(
 if __name__ == "__main__":
     # テスト実行
     async def main():
-        print("=== Issue #377 + #418 マイクロサービス対応キャッシュオーケストレーター ===")
+        print(
+            "=== Issue #377 + #418 マイクロサービス対応キャッシュオーケストレーター ==="
+        )
 
         # 1. オーケストレーター初期化
         cache_nodes = ["redis://localhost:6379", "redis://localhost:6380"]
-        replication_strategy = EventualConsistencyReplication(cache_nodes, min_success_ratio=0.5)
+        replication_strategy = EventualConsistencyReplication(
+            cache_nodes, min_success_ratio=0.5
+        )
 
         orchestrator = MicroservicesCacheOrchestrator(
             cache_nodes=cache_nodes,
@@ -843,7 +876,9 @@ if __name__ == "__main__":
 
         print("\n3. デコレータテスト")
 
-        @microservice_cache(CacheRegion.ANALYSIS_RESULTS, "analysis-service", ttl_seconds=300)
+        @microservice_cache(
+            CacheRegion.ANALYSIS_RESULTS, "analysis-service", ttl_seconds=300
+        )
         async def complex_analysis(symbol: str, timeframe: str):
             await asyncio.sleep(0.1)  # 複雑な分析をシミュレート
             return {

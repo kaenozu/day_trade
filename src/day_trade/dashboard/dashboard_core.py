@@ -569,14 +569,18 @@ class ProductionDashboard:
                 "risk_metrics",
             ]
             for table in tables:
-                cursor.execute(f"DELETE FROM {table} WHERE timestamp < ?", (cutoff_str,))
+                cursor.execute(
+                    f"DELETE FROM {table} WHERE timestamp < ?", (cutoff_str,)
+                )
 
             conn.commit()
 
     def get_current_status(self) -> Dict[str, Any]:
         """現在のステータス取得"""
         return {
-            "portfolio": asdict(self.latest_portfolio) if self.latest_portfolio else None,
+            "portfolio": (
+                asdict(self.latest_portfolio) if self.latest_portfolio else None
+            ),
             "system": asdict(self.latest_system) if self.latest_system else None,
             "trading": asdict(self.latest_trading) if self.latest_trading else None,
             "risk": asdict(self.latest_risk) if self.latest_risk else None,
@@ -584,7 +588,9 @@ class ProductionDashboard:
             "last_updated": datetime.now().isoformat(),
         }
 
-    def get_historical_data(self, metric_type: str, hours: int = 24) -> List[Dict[str, Any]]:
+    def get_historical_data(
+        self, metric_type: str, hours: int = 24
+    ) -> List[Dict[str, Any]]:
         """過去データ取得"""
         start_time = datetime.now() - timedelta(hours=hours)
         start_str = start_time.isoformat()
@@ -661,7 +667,9 @@ class ProductionDashboard:
             report.append(f"  VaR(95%): {r['portfolio_var_95']:.2%}")
             report.append(f"  ボラティリティ: {r['portfolio_volatility']:.2%}")
 
-        report.append(f"\n監視状態: {'稼働中' if status['monitoring_active'] else '停止中'}")
+        report.append(
+            f"\n監視状態: {'稼働中' if status['monitoring_active'] else '停止中'}"
+        )
 
         return "\n".join(report)
 

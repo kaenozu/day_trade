@@ -158,13 +158,17 @@ class TradingSimulator:
             successful_symbols = [s for s, data in stock_data.items() if not data.empty]
             data_fetch_time = time.time() - start_time
 
-            logger.info(f"データ取得完了: {len(successful_symbols)}銘柄 ({data_fetch_time:.2f}秒)")
+            logger.info(
+                f"データ取得完了: {len(successful_symbols)}銘柄 ({data_fetch_time:.2f}秒)"
+            )
 
             # メインシミュレーションループ
             simulation_results = []
 
             for day in range(simulation_days):
-                daily_result = self._simulate_trading_day(successful_symbols, stock_data, day)
+                daily_result = self._simulate_trading_day(
+                    successful_symbols, stock_data, day
+                )
                 simulation_results.append(daily_result)
 
                 # 進捗表示
@@ -206,13 +210,17 @@ class TradingSimulator:
 
             if hasattr(self.ml_engine, "batch_ultra_fast_analysis"):
                 # UltraFastMLEngine使用
-                ml_recommendations = self.ml_engine.batch_ultra_fast_analysis(stock_data)
+                ml_recommendations = self.ml_engine.batch_ultra_fast_analysis(
+                    stock_data
+                )
             else:
                 # AdvancedMLEngine使用
                 ml_recommendations = {}
                 for symbol, data in stock_data.items():
                     if not data.empty:
-                        advice = self.ml_engine.generate_fast_investment_advice(symbol, data)
+                        advice = self.ml_engine.generate_fast_investment_advice(
+                            symbol, data
+                        )
                         ml_recommendations[symbol] = advice
 
             ml_time = time.time() - ml_start
@@ -287,10 +295,14 @@ class TradingSimulator:
 
             for symbol in symbols:
                 ml_advice = ml_recommendations.get(symbol, {})
-                portfolio_weight = optimization_result.get("optimal_portfolio", {}).get(symbol, 0.0)
+                portfolio_weight = optimization_result.get("optimal_portfolio", {}).get(
+                    symbol, 0.0
+                )
 
                 # 統合判定ロジック
-                if ml_advice.get("advice") == "BUY" and portfolio_weight > 0.01:  # 1%以上
+                if (
+                    ml_advice.get("advice") == "BUY" and portfolio_weight > 0.01
+                ):  # 1%以上
                     integrated_recommendations[symbol] = {
                         "action": "BUY",
                         "ml_confidence": ml_advice.get("confidence", 50),
@@ -374,8 +386,12 @@ class TradingSimulator:
         try:
             # 投資金額計算
             max_investment = self.current_capital * self.max_position_per_stock
-            portfolio_weight = recommendation.get("portfolio_weight", 0.05)  # デフォルト5%
-            target_investment = min(max_investment, self.current_capital * portfolio_weight)
+            portfolio_weight = recommendation.get(
+                "portfolio_weight", 0.05
+            )  # デフォルト5%
+            target_investment = min(
+                max_investment, self.current_capital * portfolio_weight
+            )
 
             if target_investment < price * 100:  # 最小100株
                 return None
@@ -394,7 +410,9 @@ class TradingSimulator:
             if symbol in self.positions:
                 pos = self.positions[symbol]
                 new_quantity = pos.quantity + quantity
-                new_avg_price = ((pos.avg_price * pos.quantity) + (price * quantity)) / new_quantity
+                new_avg_price = (
+                    (pos.avg_price * pos.quantity) + (price * quantity)
+                ) / new_quantity
                 pos.quantity = new_quantity
                 pos.avg_price = new_avg_price
                 pos.update_price(price)
@@ -484,7 +502,9 @@ class TradingSimulator:
                 # 損切り判定
                 loss_pct = (pos.avg_price - current_price) / pos.avg_price
                 if loss_pct >= self.stop_loss_pct:
-                    trade = self._execute_sell_order(symbol, current_price, {"action": "STOP_LOSS"})
+                    trade = self._execute_sell_order(
+                        symbol, current_price, {"action": "STOP_LOSS"}
+                    )
                     if trade:
                         risk_actions.append(f"STOP_LOSS_{symbol}")
                         logger.info(f"損切り執行: {symbol} 損失{loss_pct:.1%}")
@@ -518,7 +538,9 @@ class TradingSimulator:
 
             # 実現損益（本日の取引）
             today_trades = [
-                t for t in self.trade_history if t.timestamp.date() == datetime.now().date()
+                t
+                for t in self.trade_history
+                if t.timestamp.date() == datetime.now().date()
             ]
             realized_pnl = sum(t.pnl for t in today_trades)
 
@@ -541,7 +563,9 @@ class TradingSimulator:
             sell_trades = [t for t in self.trade_history if t.side == "SELL"]
 
             profitable_trades = [t for t in sell_trades if t.pnl > 0]
-            win_rate = len(profitable_trades) / len(sell_trades) * 100 if sell_trades else 0
+            win_rate = (
+                len(profitable_trades) / len(sell_trades) * 100 if sell_trades else 0
+            )
 
             # パフォーマンス統計
             processing_times = [
@@ -553,7 +577,9 @@ class TradingSimulator:
 
             # 日次損益統計
             daily_returns = np.array(self.daily_pnl)
-            max_drawdown = np.min(np.cumsum(daily_returns)) if len(daily_returns) > 0 else 0
+            max_drawdown = (
+                np.min(np.cumsum(daily_returns)) if len(daily_returns) > 0 else 0
+            )
 
             report = {
                 "simulation_summary": {
@@ -576,7 +602,9 @@ class TradingSimulator:
                 },
                 "performance_metrics": {
                     "avg_processing_time_seconds": avg_processing_time,
-                    "total_ml_time": sum(r.get("ml_time", 0) for r in simulation_results),
+                    "total_ml_time": sum(
+                        r.get("ml_time", 0) for r in simulation_results
+                    ),
                     "total_portfolio_time": sum(
                         r.get("portfolio_time", 0) for r in simulation_results
                     ),
@@ -627,7 +655,9 @@ if __name__ == "__main__":
 
     test_symbols = ["7203", "8306", "9984", "6758", "4689"]
 
-    result = simulator.run_simulation(symbols=test_symbols, simulation_days=10, data_period="30d")
+    result = simulator.run_simulation(
+        symbols=test_symbols, simulation_days=10, data_period="30d"
+    )
 
     print("=== シミュレーション結果 ===")
     if "simulation_summary" in result:

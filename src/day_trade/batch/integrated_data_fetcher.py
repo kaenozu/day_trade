@@ -54,7 +54,9 @@ class IntegratedDataRequest:
     symbols: List[str]
     period: str = "60d"
     interval: str = "1d"
-    data_sources: List[DataSource] = field(default_factory=lambda: [DataSource.YFINANCE])
+    data_sources: List[DataSource] = field(
+        default_factory=lambda: [DataSource.YFINANCE]
+    )
     priority: RequestPriority = RequestPriority.NORMAL
     enable_fallback: bool = True
     max_age_seconds: int = 3600  # キャッシュ最大経過時間
@@ -185,7 +187,9 @@ class IntegratedDataFetcher:
 
             # フォールバック処理
             if enable_fallback and response.success_count < len(symbols):
-                fallback_response = self._fetch_fallback_data(request, response, timeout / 2)
+                fallback_response = self._fetch_fallback_data(
+                    request, response, timeout / 2
+                )
                 response = self._merge_responses(response, fallback_response)
 
             # 統計更新
@@ -309,7 +313,10 @@ class IntegratedDataFetcher:
 
             # 結果待機
             start_wait = time.time()
-            while not result_container["completed"] and (time.time() - start_wait) < timeout:
+            while (
+                not result_container["completed"]
+                and (time.time() - start_wait) < timeout
+            ):
                 time.sleep(0.01)
 
             # データ処理
@@ -334,11 +341,15 @@ class IntegratedDataFetcher:
         response.failed_symbols = [s for s in request.symbols if s not in response.data]
 
         # キャッシュヒット率
-        response.cache_hit_rate = cache_hits / total_requests if total_requests > 0 else 0.0
+        response.cache_hit_rate = (
+            cache_hits / total_requests if total_requests > 0 else 0.0
+        )
 
         return response
 
-    def _fetch_via_advanced_batch(self, request: IntegratedDataRequest) -> IntegratedDataResponse:
+    def _fetch_via_advanced_batch(
+        self, request: IntegratedDataRequest
+    ) -> IntegratedDataResponse:
         """高度バッチフェッチャー経由でデータ取得"""
         if not self.advanced_batch_fetcher:
             return IntegratedDataResponse(symbols=request.symbols)
@@ -378,10 +389,14 @@ class IntegratedDataFetcher:
                 else:
                     response.failed_symbols.append(symbol)
 
-            response.cache_hit_rate = cache_hits / len(batch_responses) if batch_responses else 0.0
+            response.cache_hit_rate = (
+                cache_hits / len(batch_responses) if batch_responses else 0.0
+            )
 
             # データ品質平均
-            quality_scores = [r.data_quality_score for r in batch_responses.values() if r.success]
+            quality_scores = [
+                r.data_quality_score for r in batch_responses.values() if r.success
+            ]
             response.average_data_quality = (
                 sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
             )
@@ -390,7 +405,9 @@ class IntegratedDataFetcher:
 
         except Exception as e:
             logger.error(f"高度バッチフェッチャーエラー: {e}")
-            return IntegratedDataResponse(symbols=request.symbols, failed_symbols=request.symbols)
+            return IntegratedDataResponse(
+                symbols=request.symbols, failed_symbols=request.symbols
+            )
 
     def _fetch_fallback_data(
         self,
@@ -435,7 +452,9 @@ class IntegratedDataFetcher:
                         response.data_sources_used[symbol] = []
                     response.data_sources_used[symbol].append("fallback_yfinance")
 
-            response.failed_symbols = [s for s in failed_symbols if s not in response.data]
+            response.failed_symbols = [
+                s for s in failed_symbols if s not in response.data
+            ]
 
         except Exception as e:
             logger.error(f"フォールバック処理エラー: {e}")
@@ -447,7 +466,9 @@ class IntegratedDataFetcher:
         self, primary: IntegratedDataResponse, secondary: IntegratedDataResponse
     ) -> IntegratedDataResponse:
         """レスポンス統合"""
-        merged = IntegratedDataResponse(symbols=list(set(primary.symbols + secondary.symbols)))
+        merged = IntegratedDataResponse(
+            symbols=list(set(primary.symbols + secondary.symbols))
+        )
 
         # データ統合
         merged.data.update(primary.data)
@@ -516,15 +537,21 @@ class IntegratedDataFetcher:
             "total_requests": self.total_requests,
             "successful_requests": self.successful_requests,
             "success_rate": (
-                self.successful_requests / self.total_requests if self.total_requests > 0 else 0.0
+                self.successful_requests / self.total_requests
+                if self.total_requests > 0
+                else 0.0
             ),
             "cache_hits": self.cache_hits,
             "cache_hit_rate": (
-                self.cache_hits / self.total_requests if self.total_requests > 0 else 0.0
+                self.cache_hits / self.total_requests
+                if self.total_requests > 0
+                else 0.0
             ),
             "fallback_uses": self.fallback_uses,
             "fallback_rate": (
-                self.fallback_uses / self.total_requests if self.total_requests > 0 else 0.0
+                self.fallback_uses / self.total_requests
+                if self.total_requests > 0
+                else 0.0
             ),
             "average_response_time": self.average_response_time,
             "active_requests": len(self.active_requests),

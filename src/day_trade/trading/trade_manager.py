@@ -142,15 +142,21 @@ class TradeManager:
                     quantity=quantity,
                     price=price,
                     timestamp=datetime.now(),
-                    commission=self.risk_calculator.calculate_commission(quantity, price),
+                    commission=self.risk_calculator.calculate_commission(
+                        quantity, price
+                    ),
                     notes=notes,
                 )
 
                 # データ検証
                 if self.enable_validation:
-                    validation_result = self.trade_validator.validate_single_trade(temp_trade)
+                    validation_result = self.trade_validator.validate_single_trade(
+                        temp_trade
+                    )
                     if not validation_result["is_valid"]:
-                        logger.error(f"取引検証失敗: {symbol} - {validation_result['errors']}")
+                        logger.error(
+                            f"取引検証失敗: {symbol} - {validation_result['errors']}"
+                        )
                         return None
 
                 # コンプライアンスチェック
@@ -236,11 +242,15 @@ class TradeManager:
             )
 
             efficiency = self.portfolio_analyzer.analyze_trade_efficiency(trade_history)
-            risk_metrics = self.portfolio_analyzer.calculate_risk_metrics(trade_history, positions)
+            risk_metrics = self.portfolio_analyzer.calculate_risk_metrics(
+                trade_history, positions
+            )
 
             status = {
                 "timestamp": datetime.now().isoformat(),
-                "positions": {symbol: pos.to_dict() for symbol, pos in positions.items()},
+                "positions": {
+                    symbol: pos.to_dict() for symbol, pos in positions.items()
+                },
                 "portfolio_summary": portfolio_summary,
                 "performance_metrics": performance,
                 "efficiency_metrics": efficiency,
@@ -290,20 +300,26 @@ class TradeManager:
                     report_data, "portfolio", f"portfolio_{period_days}days", formats
                 )
 
-                generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
+                generated_files.update(
+                    {fmt: path for fmt, path in zip(formats, file_paths)}
+                )
 
             elif report_type == "tax":
                 # 税務レポート
                 trades = self.trade_executor.get_trade_history()
                 current_year = datetime.now().year
 
-                tax_data = self.tax_calculator.generate_tax_report_data(trades, current_year)
+                tax_data = self.tax_calculator.generate_tax_report_data(
+                    trades, current_year
+                )
 
                 file_paths = self.report_exporter.export_multiple_formats(
                     tax_data, "tax", f"tax_report_{current_year}", formats
                 )
 
-                generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
+                generated_files.update(
+                    {fmt: path for fmt, path in zip(formats, file_paths)}
+                )
 
             elif report_type == "performance":
                 # パフォーマンスレポート
@@ -313,13 +329,17 @@ class TradeManager:
                     status, "portfolio", f"performance_{period_days}days", formats
                 )
 
-                generated_files.update({fmt: path for fmt, path in zip(formats, file_paths)})
+                generated_files.update(
+                    {fmt: path for fmt, path in zip(formats, file_paths)}
+                )
 
             else:
                 logger.error(f"未サポートのレポートタイプ: {report_type}")
                 return {}
 
-            logger.info(f"レポート生成完了: {report_type} - {len(generated_files)}ファイル")
+            logger.info(
+                f"レポート生成完了: {report_type} - {len(generated_files)}ファイル"
+            )
             return generated_files
 
         except Exception as e:
@@ -384,7 +404,9 @@ class TradeManager:
 
             # 既存データとマージ
             existing_trade_ids = set(trade.id for trade in self.trade_executor.trades)
-            new_trades = [trade for trade in db_trades if trade.id not in existing_trade_ids]
+            new_trades = [
+                trade for trade in db_trades if trade.id not in existing_trade_ids
+            ]
 
             # 新規取引を追加
             for trade in new_trades:
@@ -448,7 +470,9 @@ class TradeManager:
                 "cleanup_timestamp": datetime.now().isoformat(),
             }
 
-            logger.info(f"データクリーンアップ完了: {cleaning_result.get('final_count', 0)}件残存")
+            logger.info(
+                f"データクリーンアップ完了: {cleaning_result.get('final_count', 0)}件残存"
+            )
             return result
 
         except Exception as e:
@@ -484,13 +508,17 @@ class TradeManager:
                     "report_exporter": "active",
                     "db_manager": "active" if self.db_manager else "disabled",
                     "trade_validator": "active" if self.trade_validator else "disabled",
-                    "compliance_checker": "active" if self.compliance_checker else "disabled",
+                    "compliance_checker": (
+                        "active" if self.compliance_checker else "disabled"
+                    ),
                 },
             }
 
             # データベース統計（有効な場合）
             if self.enable_persistence and self.db_manager:
-                status["database_statistics"] = self.db_manager.get_database_statistics()
+                status["database_statistics"] = (
+                    self.db_manager.get_database_statistics()
+                )
 
             # ID生成統計
             status["id_generator_statistics"] = self.id_generator.get_id_statistics()

@@ -216,7 +216,9 @@ class StagedCacheUpdater:
         self.cache_instances[name] = cache_instance
         logger.info(f"キャッシュインスタンス登録: {name}")
 
-    async def start_staged_update(self, config: UpdateConfig, new_data: Dict[str, Any]) -> str:
+    async def start_staged_update(
+        self, config: UpdateConfig, new_data: Dict[str, Any]
+    ) -> str:
         """段階的更新開始"""
         with self.lock:
             if config.update_id in self.active_updates:
@@ -333,7 +335,9 @@ class StagedCacheUpdater:
             )
 
             # カナリアユーザーをGreen環境に誘導
-            await self._switch_canary_traffic(config, green_caches, config.canary_percentage)
+            await self._switch_canary_traffic(
+                config, green_caches, config.canary_percentage
+            )
 
             # ヘルスチェック
             await asyncio.sleep(config.health_check_interval)
@@ -377,7 +381,9 @@ class StagedCacheUpdater:
             )
 
             # カナリア対象選択
-            canary_keys = self._select_canary_keys(config.target_keys, config.canary_percentage)
+            canary_keys = self._select_canary_keys(
+                config.target_keys, config.canary_percentage
+            )
 
             # カナリア更新実行
             for key in canary_keys:
@@ -392,7 +398,9 @@ class StagedCacheUpdater:
             canary_metrics = await self._collect_canary_metrics(canary_keys)
 
             if canary_metrics.get("error_rate", 0) > 0.05:  # 5%以上のエラー率で停止
-                raise Exception(f"カナリアエラー率異常: {canary_metrics['error_rate']:.2%}")
+                raise Exception(
+                    f"カナリアエラー率異常: {canary_metrics['error_rate']:.2%}"
+                )
 
             # 残りの更新実行
             await self._emit_event(
@@ -458,7 +466,9 @@ class StagedCacheUpdater:
                 health_ok = await self._health_check_keys(target_keys)
 
                 if not health_ok:
-                    raise Exception(f"ローリング更新 {step_percent}% でヘルスチェック失敗")
+                    raise Exception(
+                        f"ローリング更新 {step_percent}% でヘルスチェック失敗"
+                    )
 
             await self._emit_event(
                 config.update_id,
@@ -485,7 +495,9 @@ class StagedCacheUpdater:
             )
 
             # A/B分割
-            a_keys, b_keys = self._split_keys_for_ab_test(config.target_keys, config.ab_split_ratio)
+            a_keys, b_keys = self._split_keys_for_ab_test(
+                config.target_keys, config.ab_split_ratio
+            )
 
             # Bグループに新データ適用
             for key in b_keys:
@@ -596,7 +608,9 @@ class StagedCacheUpdater:
         elif hasattr(cache, "set"):
             cache.set(key, value)
         else:
-            logger.warning(f"キャッシュ {type(cache)} は put/set メソッドをサポートしていません")
+            logger.warning(
+                f"キャッシュ {type(cache)} は put/set メソッドをサポートしていません"
+            )
 
     def _select_canary_keys(self, keys: List[str], percentage: float) -> List[str]:
         """カナリアキー選択"""
@@ -765,8 +779,12 @@ class StagedCacheUpdater:
                 },
                 "latest_event": (
                     {
-                        "phase": latest_event.phase.value if latest_event else "unknown",
-                        "status": latest_event.status.value if latest_event else "unknown",
+                        "phase": (
+                            latest_event.phase.value if latest_event else "unknown"
+                        ),
+                        "status": (
+                            latest_event.status.value if latest_event else "unknown"
+                        ),
                         "message": latest_event.message if latest_event else "",
                         "timestamp": latest_event.timestamp if latest_event else 0,
                     }
@@ -781,7 +799,9 @@ class StagedCacheUpdater:
         return {
             "active_updates": len(self.active_updates),
             "total_updates": len(self.update_metrics),
-            "updates": {uid: self.get_update_status(uid) for uid in self.update_metrics.keys()},
+            "updates": {
+                uid: self.get_update_status(uid) for uid in self.update_metrics.keys()
+            },
         }
 
 

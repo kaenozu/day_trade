@@ -62,9 +62,7 @@ class RiskManagementError(Exception):
         return f"[{self.error_code}] {self.message}"
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(message='{self.message}', error_code='{self.error_code}')"
-        )
+        return f"{self.__class__.__name__}(message='{self.message}', error_code='{self.error_code}')"
 
 
 class ConfigurationError(RiskManagementError):
@@ -93,7 +91,9 @@ class ConfigurationError(RiskManagementError):
                 {
                     "config_key": config_key,
                     "expected_type": expected_type,
-                    "actual_value": str(actual_value) if actual_value is not None else None,
+                    "actual_value": (
+                        str(actual_value) if actual_value is not None else None
+                    ),
                 }
             )
 
@@ -122,7 +122,9 @@ class ValidationError(RiskManagementError):
         self.details.update(
             {
                 "field_name": field_name,
-                "invalid_value": str(invalid_value) if invalid_value is not None else None,
+                "invalid_value": (
+                    str(invalid_value) if invalid_value is not None else None
+                ),
                 "validation_rules": validation_rules,
             }
         )
@@ -221,7 +223,9 @@ class AlertError(RiskManagementError):
 class SecurityError(RiskManagementError):
     """セキュリティ関連エラー"""
 
-    def __init__(self, message: str, security_context: Optional[Dict[str, Any]] = None, **kwargs):
+    def __init__(
+        self, message: str, security_context: Optional[Dict[str, Any]] = None, **kwargs
+    ):
         super().__init__(
             message,
             error_code=kwargs.get("error_code", "SECURITY_ERROR"),
@@ -236,7 +240,9 @@ class AuthenticationError(SecurityError):
     """認証エラー"""
 
     def __init__(self, message: str, username: Optional[str] = None, **kwargs):
-        super().__init__(message, error_code=kwargs.get("error_code", "AUTH_ERROR"), **kwargs)
+        super().__init__(
+            message, error_code=kwargs.get("error_code", "AUTH_ERROR"), **kwargs
+        )
         self.username = username
         self.details.update({"username": username})
 
@@ -251,11 +257,15 @@ class AuthorizationError(SecurityError):
         resource: Optional[str] = None,
         **kwargs,
     ):
-        super().__init__(message, error_code=kwargs.get("error_code", "AUTHZ_ERROR"), **kwargs)
+        super().__init__(
+            message, error_code=kwargs.get("error_code", "AUTHZ_ERROR"), **kwargs
+        )
         self.required_permission = required_permission
         self.resource = resource
 
-        self.details.update({"required_permission": required_permission, "resource": resource})
+        self.details.update(
+            {"required_permission": required_permission, "resource": resource}
+        )
 
 
 class TimeoutError(RiskManagementError):
@@ -277,7 +287,9 @@ class TimeoutError(RiskManagementError):
         self.operation = operation
         self.timeout_seconds = timeout_seconds
 
-        self.details.update({"operation": operation, "timeout_seconds": timeout_seconds})
+        self.details.update(
+            {"operation": operation, "timeout_seconds": timeout_seconds}
+        )
 
 
 class RateLimitError(RiskManagementError):
@@ -299,7 +311,9 @@ class RateLimitError(RiskManagementError):
         self.rate_limit = rate_limit
         self.retry_after_seconds = retry_after_seconds
 
-        self.details.update({"rate_limit": rate_limit, "retry_after_seconds": retry_after_seconds})
+        self.details.update(
+            {"rate_limit": rate_limit, "retry_after_seconds": retry_after_seconds}
+        )
 
 
 class DataIntegrityError(RiskManagementError):
@@ -386,7 +400,9 @@ class ResourceNotFoundError(RiskManagementError):
         self.resource_type = resource_type
         self.resource_id = resource_id
 
-        self.details.update({"resource_type": resource_type, "resource_id": resource_id})
+        self.details.update(
+            {"resource_type": resource_type, "resource_id": resource_id}
+        )
 
 
 class ConflictError(RiskManagementError):

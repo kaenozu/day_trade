@@ -112,7 +112,9 @@ class OptimizedDatabaseOperations:
                             extra={"error": str(e)},
                         )
 
-                        individual_result = self._handle_individual_inserts(model_class, chunk)
+                        individual_result = self._handle_individual_inserts(
+                            model_class, chunk
+                        )
                         total_processed += individual_result["success_count"]
                         failed_records.extend(individual_result["failed_records"])
 
@@ -169,9 +171,13 @@ class OptimizedDatabaseOperations:
                     try:
                         if update_changed_only:
                             # 変更されたレコードのみを更新
-                            filtered_chunk = self._filter_changed_records(model_class, chunk)
+                            filtered_chunk = self._filter_changed_records(
+                                model_class, chunk
+                            )
                             if filtered_chunk:
-                                self.session.bulk_update_mappings(model_class, filtered_chunk)
+                                self.session.bulk_update_mappings(
+                                    model_class, filtered_chunk
+                                )
                                 total_processed += len(filtered_chunk)
                         else:
                             # 全レコードを更新
@@ -185,7 +191,9 @@ class OptimizedDatabaseOperations:
                         )
 
                     except Exception as e:
-                        self.logger.warning("チャンク更新エラー", extra={"error": str(e)})
+                        self.logger.warning(
+                            "チャンク更新エラー", extra={"error": str(e)}
+                        )
                         failed_records.extend(chunk)
 
             execution_time = time.perf_counter() - start_time
@@ -242,16 +250,24 @@ class OptimizedDatabaseOperations:
 
                     if dialect_name == "postgresql":
                         # PostgreSQLのON CONFLICT構文を使用
-                        result = self._upsert_postgresql(model_class, chunk, conflict_columns)
+                        result = self._upsert_postgresql(
+                            model_class, chunk, conflict_columns
+                        )
                     elif dialect_name == "sqlite":
                         # SQLiteのINSERT OR REPLACE構文を使用
-                        result = self._upsert_sqlite(model_class, chunk, conflict_columns)
+                        result = self._upsert_sqlite(
+                            model_class, chunk, conflict_columns
+                        )
                     elif dialect_name == "mysql":
                         # MySQLのON DUPLICATE KEY UPDATE構文を使用
-                        result = self._upsert_mysql(model_class, chunk, conflict_columns)
+                        result = self._upsert_mysql(
+                            model_class, chunk, conflict_columns
+                        )
                     else:
                         # その他のデータベースでは個別処理
-                        result = self._upsert_fallback(model_class, chunk, conflict_columns)
+                        result = self._upsert_fallback(
+                            model_class, chunk, conflict_columns
+                        )
 
                     total_processed += result["processed_count"]
 
@@ -414,7 +430,9 @@ class OptimizedDatabaseOperations:
         ", ".join(conflict_columns)
 
         # 更新するカラムを動的に生成
-        update_columns = [col.name for col in table.columns if col.name not in conflict_columns]
+        update_columns = [
+            col.name for col in table.columns if col.name not in conflict_columns
+        ]
         ", ".join([f"{col} = EXCLUDED.{col}" for col in update_columns])
 
         # バルクアップサートクエリを実行
@@ -455,7 +473,9 @@ class OptimizedDatabaseOperations:
         for record in data:
             # 存在チェック
             filter_conditions = {col: record.get(col) for col in conflict_columns}
-            existing = self.session.query(model_class).filter_by(**filter_conditions).first()
+            existing = (
+                self.session.query(model_class).filter_by(**filter_conditions).first()
+            )
 
             if existing:
                 # 更新
@@ -508,7 +528,9 @@ class OptimizedDatabaseOperations:
                 "explain_output": [str(row) for row in explain_output],
                 "explain_execution_time": execution_time,
                 "query_execution_time": query_execution_time,
-                "optimization_suggestions": self._generate_optimization_suggestions(explain_output),
+                "optimization_suggestions": self._generate_optimization_suggestions(
+                    explain_output
+                ),
             }
 
         except Exception as e:
@@ -518,7 +540,9 @@ class OptimizedDatabaseOperations:
                 "optimization_suggestions": [],
             }
 
-    def _generate_optimization_suggestions(self, explain_output: List[Any]) -> List[str]:
+    def _generate_optimization_suggestions(
+        self, explain_output: List[Any]
+    ) -> List[str]:
         """EXPLAIN結果から最適化提案を生成"""
         suggestions = []
         explain_text = " ".join([str(row) for row in explain_output]).lower()
@@ -546,7 +570,9 @@ class OptimizedDatabaseOperations:
 
         return suggestions
 
-    def get_table_statistics(self, model_class: Type[DeclarativeMeta]) -> Dict[str, Any]:
+    def get_table_statistics(
+        self, model_class: Type[DeclarativeMeta]
+    ) -> Dict[str, Any]:
         """テーブル統計情報を取得"""
         table_name = model_class.__tablename__
 
@@ -564,7 +590,9 @@ class OptimizedDatabaseOperations:
                        pg_size_pretty(pg_total_relation_size('{table_name}') - pg_relation_size('{table_name}')) as index_size
                 """
             elif dialect_name == "sqlite":
-                size_query = f"SELECT COUNT(*) * 1024 as estimated_size FROM {table_name}"
+                size_query = (
+                    f"SELECT COUNT(*) * 1024 as estimated_size FROM {table_name}"
+                )
             else:
                 size_query = None
 
@@ -619,7 +647,8 @@ if __name__ == "__main__":
 
     # テストデータ生成
     test_data = [
-        {"symbol": f"TST{i:04d}", "name": f"Test Stock {i}", "price": 1000 + i} for i in range(1000)
+        {"symbol": f"TST{i:04d}", "name": f"Test Stock {i}", "price": 1000 + i}
+        for i in range(1000)
     ]
 
     print(f"📊 {len(test_data)}件のテストデータでバルク挿入テスト")

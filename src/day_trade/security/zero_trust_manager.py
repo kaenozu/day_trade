@@ -95,7 +95,9 @@ class ZeroTrustConfig:
 
     def __post_init__(self):
         if self.encryption_key is None:
-            self.encryption_key = Fernet.generate_key().decode() if CRYPTO_AVAILABLE else None
+            self.encryption_key = (
+                Fernet.generate_key().decode() if CRYPTO_AVAILABLE else None
+            )
         if self.jwt_secret is None:
             self.jwt_secret = secrets.token_urlsafe(32)
 
@@ -216,7 +218,9 @@ class RiskAssessment:
             "behavioral_anomaly": {"weight": 0.3, "base_risk": 0.4},
         }
 
-    def assess_risk(self, access_request: AccessRequest) -> Tuple[RiskLevel, float, Dict[str, Any]]:
+    def assess_risk(
+        self, access_request: AccessRequest
+    ) -> Tuple[RiskLevel, float, Dict[str, Any]]:
         """リスク評価実行"""
         risk_score = 0.0
         risk_factors_detected = {}
@@ -398,7 +402,11 @@ class PolicyEngine:
             if self._matches_policy(access_request, policy, risk_level):
                 logger.info(f"ポリシーマッチ: {policy.name} -> {policy.decision.value}")
 
-                return (policy.decision, policy.required_trust_level, policy.additional_controls)
+                return (
+                    policy.decision,
+                    policy.required_trust_level,
+                    policy.additional_controls,
+                )
 
         # デフォルトは拒否
         return AccessDecision.DENY, TrustLevel.DENIED, []
@@ -409,11 +417,15 @@ class PolicyEngine:
         """ポリシーマッチング"""
 
         # ユーザー条件チェック
-        if not self._matches_user_conditions(request.user_context, policy.user_conditions):
+        if not self._matches_user_conditions(
+            request.user_context, policy.user_conditions
+        ):
             return False
 
         # デバイス条件チェック
-        if not self._matches_device_conditions(request.device_context, policy.device_conditions):
+        if not self._matches_device_conditions(
+            request.device_context, policy.device_conditions
+        ):
             return False
 
         # リソース条件チェック
@@ -430,7 +442,9 @@ class PolicyEngine:
 
         return True
 
-    def _matches_user_conditions(self, user: UserContext, conditions: Dict[str, Any]) -> bool:
+    def _matches_user_conditions(
+        self, user: UserContext, conditions: Dict[str, Any]
+    ) -> bool:
         """ユーザー条件マッチング"""
         if not conditions:
             return True
@@ -448,7 +462,9 @@ class PolicyEngine:
 
         return True
 
-    def _matches_device_conditions(self, device: DeviceContext, conditions: Dict[str, Any]) -> bool:
+    def _matches_device_conditions(
+        self, device: DeviceContext, conditions: Dict[str, Any]
+    ) -> bool:
         """デバイス条件マッチング"""
         if not conditions:
             return True
@@ -565,7 +581,9 @@ class SessionManager:
         if CRYPTO_AVAILABLE and config.encryption_key:
             self.session_cipher = Fernet(config.encryption_key.encode())
 
-    def create_session(self, user_context: UserContext, device_context: DeviceContext) -> str:
+    def create_session(
+        self, user_context: UserContext, device_context: DeviceContext
+    ) -> str:
         """セッション作成"""
         session_token = secrets.token_urlsafe(32)
 
@@ -579,7 +597,9 @@ class SessionManager:
 
         # セッションデータ暗号化
         if self.session_cipher:
-            encrypted_data = self.session_cipher.encrypt(json.dumps(session_data).encode())
+            encrypted_data = self.session_cipher.encrypt(
+                json.dumps(session_data).encode()
+            )
             self.active_sessions[session_token] = encrypted_data
         else:
             self.active_sessions[session_token] = session_data
@@ -613,7 +633,9 @@ class SessionManager:
             session_data["last_activity"] = time.time()
 
             if self.session_cipher:
-                encrypted_data = self.session_cipher.encrypt(json.dumps(session_data).encode())
+                encrypted_data = self.session_cipher.encrypt(
+                    json.dumps(session_data).encode()
+                )
                 self.active_sessions[session_token] = encrypted_data
             else:
                 self.active_sessions[session_token] = session_data
@@ -681,7 +703,9 @@ class ZeroTrustManager:
 
         logger.info("ゼロトラストマネージャー初期化完了")
 
-    async def evaluate_access_request(self, access_request: AccessRequest) -> Dict[str, Any]:
+    async def evaluate_access_request(
+        self, access_request: AccessRequest
+    ) -> Dict[str, Any]:
         """アクセス要求評価"""
         logger.info(f"アクセス要求評価開始: {access_request.request_id}")
 
@@ -690,14 +714,18 @@ class ZeroTrustManager:
 
         try:
             # 1. リスク評価
-            risk_level, risk_score, risk_factors = self.risk_assessor.assess_risk(access_request)
+            risk_level, risk_score, risk_factors = self.risk_assessor.assess_risk(
+                access_request
+            )
 
             if risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]:
                 self.access_stats["high_risk_requests"] += 1
 
             # 2. ポリシー評価
-            decision, trust_level, additional_controls = self.policy_engine.evaluate_policies(
-                access_request, (risk_level, risk_score, risk_factors)
+            decision, trust_level, additional_controls = (
+                self.policy_engine.evaluate_policies(
+                    access_request, (risk_level, risk_score, risk_factors)
+                )
             )
 
             # 3. 統計更新
@@ -730,7 +758,9 @@ class ZeroTrustManager:
                 )
                 evaluation_result["session_token"] = session_token
 
-            logger.info(f"アクセス評価完了: {decision.value} (リスク: {risk_level.value})")
+            logger.info(
+                f"アクセス評価完了: {decision.value} (リスク: {risk_level.value})"
+            )
 
             return evaluation_result
 
@@ -746,9 +776,7 @@ class ZeroTrustManager:
 
     def generate_device_fingerprint(self, device_context: DeviceContext) -> str:
         """デバイスフィンガープリント生成"""
-        fingerprint_data = (
-            f"{device_context.device_type}:{device_context.os_info}:{device_context.browser_info}"
-        )
+        fingerprint_data = f"{device_context.device_type}:{device_context.os_info}:{device_context.browser_info}"
 
         fingerprint = hashlib.sha256(fingerprint_data.encode()).hexdigest()[:16]
         device_context.device_fingerprint = fingerprint
@@ -762,7 +790,9 @@ class ZeroTrustManager:
             device_context.last_seen = time.time()
 
             # 実際の実装では永続化が必要
-            logger.info(f"信頼済みデバイス登録: {device_context.device_id} (ユーザー: {user_id})")
+            logger.info(
+                f"信頼済みデバイス登録: {device_context.device_id} (ユーザー: {user_id})"
+            )
 
             return True
 
@@ -848,9 +878,14 @@ class ZeroTrustManager:
         return {
             "status": "運用中",
             "access_stats": self.access_stats,
-            "success_rate": (self.access_stats["allowed_requests"] / total_requests) * 100,
-            "challenge_rate": (self.access_stats["challenged_requests"] / total_requests) * 100,
-            "high_risk_rate": (self.access_stats["high_risk_requests"] / total_requests) * 100,
+            "success_rate": (self.access_stats["allowed_requests"] / total_requests)
+            * 100,
+            "challenge_rate": (
+                self.access_stats["challenged_requests"] / total_requests
+            )
+            * 100,
+            "high_risk_rate": (self.access_stats["high_risk_requests"] / total_requests)
+            * 100,
             "active_sessions": len(self.session_manager.active_sessions),
             "config": {
                 "minimum_trust_level": self.config.minimum_trust_level.value,
@@ -871,7 +906,9 @@ if __name__ == "__main__":
         print("=== ゼロトラストセキュリティマネージャー ===")
 
         config = ZeroTrustConfig(
-            minimum_trust_level=TrustLevel.CONDITIONAL, require_mfa=True, session_timeout_minutes=30
+            minimum_trust_level=TrustLevel.CONDITIONAL,
+            require_mfa=True,
+            session_timeout_minutes=30,
         )
 
         zt_manager = ZeroTrustManager(config)
@@ -913,7 +950,9 @@ if __name__ == "__main__":
         print(f"リスクスコア: {evaluation['risk_assessment']['risk_score']:.2f}")
 
         if evaluation["risk_assessment"]["risk_factors"]:
-            print(f"リスク要因: {list(evaluation['risk_assessment']['risk_factors'].keys())}")
+            print(
+                f"リスク要因: {list(evaluation['risk_assessment']['risk_factors'].keys())}"
+            )
 
         if evaluation["additional_controls"]:
             print(f"追加制御: {evaluation['additional_controls']}")

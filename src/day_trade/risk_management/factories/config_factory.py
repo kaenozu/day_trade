@@ -239,10 +239,12 @@ class ConfigProviderFactory:
             self._plugin_registry[plugin_name] = provider_class
 
             if config_schema:
-                self._config_schemas[ConfigProviderType.PLUGIN] = self._config_schemas.get(
-                    ConfigProviderType.PLUGIN, {}
+                self._config_schemas[ConfigProviderType.PLUGIN] = (
+                    self._config_schemas.get(ConfigProviderType.PLUGIN, {})
                 )
-                self._config_schemas[ConfigProviderType.PLUGIN][plugin_name] = config_schema
+                self._config_schemas[ConfigProviderType.PLUGIN][
+                    plugin_name
+                ] = config_schema
 
             return True
 
@@ -332,7 +334,9 @@ class ConfigProviderFactory:
 
     def create_encrypted_provider(
         self, base_provider: Any, encryption_key: str
-    ) -> "EncryptedConfigProvider":  # TODO: EncryptedConfigProvider クラスを実装 # type: ignore
+    ) -> (
+        "EncryptedConfigProvider"
+    ):  # TODO: EncryptedConfigProvider クラスを実装 # type: ignore
         """暗号化設定プロバイダー作成"""
 
         # 暗号化プロバイダー作成
@@ -346,7 +350,9 @@ class ConfigProviderFactory:
 
     def create_cached_provider(
         self, base_provider: Any, cache_ttl: int = 300
-    ) -> "CachedConfigProvider":  # TODO: CachedConfigProvider クラスを実装 # type: ignore
+    ) -> (
+        "CachedConfigProvider"
+    ):  # TODO: CachedConfigProvider クラスを実装 # type: ignore
         """キャッシュ設定プロバイダー作成"""
 
         # キャッシュプロバイダー作成
@@ -524,7 +530,9 @@ class ConfigProviderFactory:
 
         # スキーマ取得
         if provider_type == ConfigProviderType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(ConfigProviderType.PLUGIN, {}).get(plugin_name, {})
+            schema = self._config_schemas.get(ConfigProviderType.PLUGIN, {}).get(
+                plugin_name, {}
+            )
         else:
             schema = self._config_schemas.get(provider_type, {})
 
@@ -658,7 +666,9 @@ def create_config_provider(
 # 設定ヘルパー関数
 
 
-def load_config_from_file(file_path: str, format_type: Optional[str] = None) -> Dict[str, Any]:
+def load_config_from_file(
+    file_path: str, format_type: Optional[str] = None
+) -> Dict[str, Any]:
     """ファイルから設定読み込み"""
 
     if format_type is None:

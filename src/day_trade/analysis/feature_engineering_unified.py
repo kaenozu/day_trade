@@ -190,7 +190,9 @@ if NUMBA_AVAILABLE:
         for i in range(max_period, n):
             for j, period in enumerate(periods):
                 if i >= period:
-                    features[i, j] = (prices[i] - prices[i - period]) / prices[i - period] * 100
+                    features[i, j] = (
+                        (prices[i] - prices[i - period]) / prices[i - period] * 100
+                    )
 
         return features
 
@@ -307,7 +309,9 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
         # ボラティリティ
         for window in self.feature_config.volatility_windows:
-            features[f"volatility_{window}"] = prices.pct_change().rolling(window=window).std()
+            features[f"volatility_{window}"] = (
+                prices.pct_change().rolling(window=window).std()
+            )
 
         # モメンタム
         for period in self.feature_config.momentum_periods:
@@ -324,7 +328,9 @@ class FeatureEngineeringBase(OptimizationStrategy):
 
         # 価格統計
         for window in [10, 20, 50]:
-            features[f"price_percentile_{window}"] = prices.rolling(window=window).rank(pct=True)
+            features[f"price_percentile_{window}"] = prices.rolling(window=window).rank(
+                pct=True
+            )
             features[f"price_zscore_{window}"] = (
                 prices - prices.rolling(window=window).mean()
             ) / prices.rolling(window=window).std()
@@ -411,7 +417,9 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
 
     def _generate_features_chunked(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """チャンク処理による特徴量生成"""
-        logger.info(f"チャンク処理開始: {len(data)}行 -> {self.feature_config.chunk_size}行ずつ")
+        logger.info(
+            f"チャンク処理開始: {len(data)}行 -> {self.feature_config.chunk_size}行ずつ"
+        )
 
         chunk_results = []
         for i in range(0, len(data), self.feature_config.chunk_size):
@@ -426,11 +434,15 @@ class OptimizedFeatureEngineering(FeatureEngineeringBase):
         close_col = self._get_price_column(data)
         prices = data[close_col].values
 
-        with ThreadPoolExecutor(max_workers=self.feature_config.max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.feature_config.max_workers
+        ) as executor:
             # 並列タスクを投入
             future_sma = executor.submit(self._calculate_sma_parallel, prices)
             future_ema = executor.submit(self._calculate_ema_parallel, prices)
-            future_volatility = executor.submit(self._calculate_volatility_parallel, prices)
+            future_volatility = executor.submit(
+                self._calculate_volatility_parallel, prices
+            )
 
             # 結果を収集
             features = pd.DataFrame(index=data.index)
@@ -504,7 +516,9 @@ class FeatureEngineeringManager:
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
         if self._strategy is None:
-            self._strategy = get_optimized_implementation("feature_engineering", self.config)
+            self._strategy = get_optimized_implementation(
+                "feature_engineering", self.config
+            )
         return self._strategy
 
     def generate_features(
@@ -541,7 +555,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         # データ最適化機能の初期化
         if DATA_OPTIMIZATION_AVAILABLE:
             self.data_optimizer = DataFrameOptimizer()
-            self.chunk_processor = ChunkedDataProcessor(chunk_size=self.feature_config.chunk_size)
+            self.chunk_processor = ChunkedDataProcessor(
+                chunk_size=self.feature_config.chunk_size
+            )
             logger.info("データ最適化特徴量エンジニアリング初期化完了")
 
     def get_strategy_name(self) -> str:
@@ -552,7 +568,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         """データ最適化された特徴量生成"""
         if not DATA_OPTIMIZATION_AVAILABLE:
             # フォールバック: 最適化版を使用
-            logger.warning("データ最適化ユーティリティ未利用 - 最適化版にフォールバック")
+            logger.warning(
+                "データ最適化ユーティリティ未利用 - 最適化版にフォールバック"
+            )
             return super()._generate_features(data, **kwargs)
 
         start_time = time.time()
@@ -576,7 +594,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         # 5. 不必要コピーの回避
         if self.feature_config.enable_copy_elimination:
             copy_operations = ["drop_duplicates", "fillna", "sort_values"]
-            features = self.data_optimizer.eliminate_unnecessary_copies(features, copy_operations)
+            features = self.data_optimizer.eliminate_unnecessary_copies(
+                features, copy_operations
+            )
 
         optimization_time = time.time() - start_time
         logger.info(
@@ -596,7 +616,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
     ) -> pd.DataFrame:
         """チャンク処理による大規模データ対応"""
 
-        def chunk_feature_generation(chunk_data: pd.DataFrame, **chunk_kwargs) -> pd.DataFrame:
+        def chunk_feature_generation(
+            chunk_data: pd.DataFrame, **chunk_kwargs
+        ) -> pd.DataFrame:
             """チャンク単位の特徴量生成"""
             return self._calculate_optimized_features(chunk_data, **chunk_kwargs)
 
@@ -614,7 +636,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         return result
 
-    def _calculate_optimized_features(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def _calculate_optimized_features(
+        self, data: pd.DataFrame, **kwargs
+    ) -> pd.DataFrame:
         """最適化された特徴量計算"""
         close_col = self._get_price_column(data)
         features = pd.DataFrame(index=data.index)
@@ -622,7 +646,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
         # ベクトル化されたテクニカル指標の計算
         technical_operations = self._prepare_technical_indicator_operations(close_col)
         if technical_operations:
-            features = self.data_optimizer.vectorize_operations(data, technical_operations)
+            features = self.data_optimizer.vectorize_operations(
+                data, technical_operations
+            )
 
         # 統計的特徴量
         if self.feature_config.enable_statistical_features:
@@ -641,7 +667,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         return features
 
-    def _prepare_technical_indicator_operations(self, price_column: str) -> List[Dict[str, Any]]:
+    def _prepare_technical_indicator_operations(
+        self, price_column: str
+    ) -> List[Dict[str, Any]]:
         """テクニカル指標操作の準備"""
         operations = []
 
@@ -698,7 +726,9 @@ class FeatureEngineeringDataOptimized(FeatureEngineeringBase):
 
         return operations
 
-    def _calculate_statistical_features_optimized(self, data: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_statistical_features_optimized(
+        self, data: pd.DataFrame
+    ) -> pd.DataFrame:
         """最適化された統計的特徴量計算"""
         close_col = self._get_price_column(data)
         operations = []

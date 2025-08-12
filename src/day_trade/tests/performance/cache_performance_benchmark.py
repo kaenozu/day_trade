@@ -268,9 +268,9 @@ class BenchmarkRunner:
                 # キャッシュ統計追加
                 try:
                     cache_stats = fetcher.get_cache_stats()
-                    metrics.cache_hit_rate = cache_stats.get("performance_stats", {}).get(
-                        "cache_hit_rate", 0
-                    )
+                    metrics.cache_hit_rate = cache_stats.get(
+                        "performance_stats", {}
+                    ).get("cache_hit_rate", 0)
                     metrics.cache_stats = cache_stats
                 except Exception as e:
                     logger.warning(f"キャッシュ統計取得失敗: {e}")
@@ -380,7 +380,9 @@ class BenchmarkRunner:
             code = f"{random.randint(10000, 99999)}"
             return fetcher.get_current_price(code)
 
-        return self.run_memory_benchmark(eviction_test, "キャッシュ退避", iterations=300)
+        return self.run_memory_benchmark(
+            eviction_test, "キャッシュ退避", iterations=300
+        )
 
     def generate_report(self, output_file: str = None) -> Dict[str, Any]:
         """ベンチマーク結果レポート生成"""
@@ -413,7 +415,9 @@ class BenchmarkRunner:
             memory_stats = {
                 "max_memory_usage": df["memory_usage_mb"].max(),
                 "avg_memory_delta": df["memory_delta_mb"].mean(),
-                "high_memory_operations": df[df["memory_delta_mb"] > 10]["operation_name"].tolist(),
+                "high_memory_operations": df[df["memory_delta_mb"] > 10][
+                    "operation_name"
+                ].tolist(),
             }
             summary["memory_analysis"] = memory_stats
 
@@ -523,14 +527,20 @@ def run_cache_performance_analysis():
             print("\n💾 キャッシュ効果:")
             print(f"  平均ヒット率: {cache_effectiveness.get('avg_hit_rate', 0):.2%}")
             print(f"  最高性能設定: {cache_effectiveness.get('best_cache_config')}")
-            print(f"  性能向上倍率: {cache_effectiveness.get('cache_performance_impact', 1):.1f}x")
+            print(
+                f"  性能向上倍率: {cache_effectiveness.get('cache_performance_impact', 1):.1f}x"
+            )
 
         # メモリ分析
         memory_analysis = report.get("memory_analysis", {})
         if memory_analysis:
             print("\n🧠 メモリ分析:")
-            print(f"  最大メモリ使用量: {memory_analysis.get('max_memory_usage', 0):.1f} MB")
-            print(f"  平均メモリ増加: {memory_analysis.get('avg_memory_delta', 0):.1f} MB")
+            print(
+                f"  最大メモリ使用量: {memory_analysis.get('max_memory_usage', 0):.1f} MB"
+            )
+            print(
+                f"  平均メモリ増加: {memory_analysis.get('avg_memory_delta', 0):.1f} MB"
+            )
 
         # 推奨事項
         recommendations = report.get("recommendations", [])

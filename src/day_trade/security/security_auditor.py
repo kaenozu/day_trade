@@ -232,9 +232,15 @@ class CodeSecurityAnalyzer:
                     bandit_data = json.loads(result.stdout)
 
                     for issue in bandit_data.get("results", []):
-                        severity_map = {"HIGH": "high", "MEDIUM": "medium", "LOW": "low"}
+                        severity_map = {
+                            "HIGH": "high",
+                            "MEDIUM": "medium",
+                            "LOW": "low",
+                        }
 
-                        severity = severity_map.get(issue.get("issue_severity", "MEDIUM"), "medium")
+                        severity = severity_map.get(
+                            issue.get("issue_severity", "MEDIUM"), "medium"
+                        )
                         confidence = issue.get("issue_confidence", "MEDIUM")
 
                         # 信頼度が低い場合は重要度を下げる
@@ -244,7 +250,9 @@ class CodeSecurityAnalyzer:
                         finding = AuditFinding(
                             finding_id=f"BANDIT-{issue.get('test_id', 'UNKNOWN')}",
                             title=issue.get("test_name", "Security Issue"),
-                            description=issue.get("issue_text", "Security vulnerability detected"),
+                            description=issue.get(
+                                "issue_text", "Security vulnerability detected"
+                            ),
                             severity=severity,
                             category="static_analysis",
                             audit_scope=AuditScope.CODE_ANALYSIS,
@@ -263,7 +271,9 @@ class CodeSecurityAnalyzer:
                             references=[
                                 f"https://bandit.readthedocs.io/en/latest/plugins/{issue.get('test_id', '').lower()}.html"
                             ],
-                            risk_rating=self._calculate_bandit_risk_rating(severity, confidence),
+                            risk_rating=self._calculate_bandit_risk_rating(
+                                severity, confidence
+                            ),
                             discovered_at=datetime.now().isoformat(),
                         )
 
@@ -321,7 +331,9 @@ class CodeSecurityAnalyzer:
                                 "Review security advisories for the package",
                                 "Consider alternative packages if updates are not available",
                             ],
-                            references=[f"https://pyup.io/vulnerabilities/{vulnerability_id}/"],
+                            references=[
+                                f"https://pyup.io/vulnerabilities/{vulnerability_id}/"
+                            ],
                             risk_rating=8.0,  # 依存関係の脆弱性は高リスク
                             discovered_at=datetime.now().isoformat(),
                         )
@@ -407,7 +419,9 @@ class CodeSecurityAnalyzer:
                                 "Avoid dangerous functions like eval() and exec()",
                             ],
                             references=[],
-                            risk_rating=self._get_custom_rule_risk_rating(rule["severity"]),
+                            risk_rating=self._get_custom_rule_risk_rating(
+                                rule["severity"]
+                            ),
                             discovered_at=datetime.now().isoformat(),
                         )
 
@@ -480,7 +494,10 @@ class InfrastructureSecurityAnalyzer:
                             audit_scope=AuditScope.INFRASTRUCTURE,
                             compliance_frameworks=[ComplianceFramework.CIS_CONTROLS],
                             result=AuditResult.FAIL,
-                            evidence=[f"Container: {container.name}", "Privileged: true"],
+                            evidence=[
+                                f"Container: {container.name}",
+                                "Privileged: true",
+                            ],
                             remediation_steps=[
                                 "Remove --privileged flag from container",
                                 "Use specific capabilities instead of privileged mode",
@@ -558,7 +575,10 @@ class InfrastructureSecurityAnalyzer:
                                 audit_scope=AuditScope.INFRASTRUCTURE,
                                 compliance_frameworks=[ComplianceFramework.NIST_CSF],
                                 result=AuditResult.FAIL,
-                                evidence=[f"File: {file_path}", f"Permissions: {permissions}"],
+                                evidence=[
+                                    f"File: {file_path}",
+                                    f"Permissions: {permissions}",
+                                ],
                                 remediation_steps=[
                                     "Set appropriate file permissions (e.g., 640 or 600)",
                                     "Remove world-writable permissions",
@@ -571,7 +591,9 @@ class InfrastructureSecurityAnalyzer:
                         )
 
                 except Exception as e:
-                    logger.debug(f"ファイルパーミッションチェックエラー {file_path}: {e}")
+                    logger.debug(
+                        f"ファイルパーミッションチェックエラー {file_path}: {e}"
+                    )
 
         return findings
 
@@ -589,7 +611,10 @@ class InfrastructureSecurityAnalyzer:
 
         for var_name, var_value in os.environ.items():
             # 本番環境での危険な設定
-            if any(pattern in f"{var_name}={var_value}" for pattern in dangerous_env_patterns):
+            if any(
+                pattern in f"{var_name}={var_value}"
+                for pattern in dangerous_env_patterns
+            ):
                 findings.append(
                     AuditFinding(
                         finding_id=f"ENV-{var_name}",
@@ -636,7 +661,9 @@ class ComplianceAssessor:
     ) -> Dict[str, Any]:
         """フレームワーク別コンプライアンス評価"""
 
-        relevant_findings = [f for f in findings if framework in f.compliance_frameworks]
+        relevant_findings = [
+            f for f in findings if framework in f.compliance_frameworks
+        ]
 
         critical_count = len([f for f in relevant_findings if f.severity == "critical"])
         high_count = len([f for f in relevant_findings if f.severity == "high"])
@@ -668,7 +695,9 @@ class ComplianceAssessor:
             "recommendations": self._get_framework_recommendations(framework, findings),
         }
 
-    def _get_compliance_criteria(self, framework: ComplianceFramework) -> Dict[str, Any]:
+    def _get_compliance_criteria(
+        self, framework: ComplianceFramework
+    ) -> Dict[str, Any]:
         """コンプライアンス基準取得"""
         criteria = {
             ComplianceFramework.NIST_CSF: {
@@ -703,7 +732,9 @@ class ComplianceAssessor:
             },
         }
 
-        return criteria.get(framework, {"minimum_score": 70, "max_critical": 0, "max_high": 10})
+        return criteria.get(
+            framework, {"minimum_score": 70, "max_critical": 0, "max_high": 10}
+        )
 
     def _calculate_compliance_score(
         self, critical: int, high: int, medium: int, low: int, criteria: Dict[str, Any]
@@ -748,8 +779,12 @@ class ComplianceAssessor:
         """フレームワーク固有の推奨事項"""
         recommendations = []
 
-        relevant_findings = [f for f in findings if framework in f.compliance_frameworks]
-        critical_high = [f for f in relevant_findings if f.severity in ["critical", "high"]]
+        relevant_findings = [
+            f for f in findings if framework in f.compliance_frameworks
+        ]
+        critical_high = [
+            f for f in relevant_findings if f.severity in ["critical", "high"]
+        ]
 
         if critical_high:
             recommendations.append(
@@ -858,14 +893,19 @@ class SecurityAuditor:
 
         # レポート生成
         report = self._generate_security_report(
-            sorted_findings, compliance_results, risk_assessment, time.time() - start_time
+            sorted_findings,
+            compliance_results,
+            risk_assessment,
+            time.time() - start_time,
         )
 
         logger.info(f"セキュリティ監査完了: {len(sorted_findings)}件の発見事項")
 
         return report
 
-    def _convert_pentest_results(self, pentest_result: Dict[str, Any]) -> List[AuditFinding]:
+    def _convert_pentest_results(
+        self, pentest_result: Dict[str, Any]
+    ) -> List[AuditFinding]:
         """ペネトレーションテスト結果を監査発見事項に変換"""
         findings = []
 
@@ -879,7 +919,10 @@ class SecurityAuditor:
                 audit_scope=AuditScope.APPLICATION,
                 compliance_frameworks=[ComplianceFramework.OWASP_TOP10],
                 result=AuditResult.FAIL,
-                evidence=[vuln_data.get("evidence", ""), vuln_data.get("attack_vector", "")],
+                evidence=[
+                    vuln_data.get("evidence", ""),
+                    vuln_data.get("attack_vector", ""),
+                ],
                 remediation_steps=[vuln_data.get("remediation", "")],
                 references=[],
                 risk_rating=vuln_data.get("cvss_score", 5.0),
@@ -908,7 +951,13 @@ class SecurityAuditor:
 
     def _get_severity_priority(self, severity: str) -> int:
         """深刻度の優先度値取得"""
-        priority_map = {"critical": 5, "high": 4, "medium": 3, "low": 2, "informational": 1}
+        priority_map = {
+            "critical": 5,
+            "high": 4,
+            "medium": 3,
+            "low": 2,
+            "informational": 1,
+        }
         return priority_map.get(severity, 1)
 
     def _perform_risk_assessment(self, findings: List[AuditFinding]) -> Dict[str, Any]:
@@ -922,14 +971,22 @@ class SecurityAuditor:
             }
 
         # リスクスコア計算
-        severity_weights = {"critical": 10, "high": 7, "medium": 4, "low": 2, "informational": 1}
+        severity_weights = {
+            "critical": 10,
+            "high": 7,
+            "medium": 4,
+            "low": 2,
+            "informational": 1,
+        }
         total_weighted_score = sum(
             severity_weights.get(f.severity, 1) * f.risk_rating for f in findings
         )
 
         max_possible_score = len(findings) * 10 * 10  # max severity * max risk rating
         risk_score = (
-            (total_weighted_score / max_possible_score) * 100 if max_possible_score > 0 else 0
+            (total_weighted_score / max_possible_score) * 100
+            if max_possible_score > 0
+            else 0
         )
 
         # リスクレベル判定
@@ -991,9 +1048,17 @@ class SecurityAuditor:
         """セキュリティレポート生成"""
 
         # 発見事項のカウント
-        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "informational": 0}
+        severity_counts = {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "informational": 0,
+        }
         for finding in findings:
-            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            severity_counts[finding.severity] = (
+                severity_counts.get(finding.severity, 0) + 1
+            )
 
         # エグゼクティブサマリー生成
         executive_summary = self._generate_executive_summary(findings, risk_assessment)
@@ -1051,9 +1116,13 @@ class SecurityAuditor:
         """主要なカテゴリ取得"""
         category_counts = {}
         for finding in findings:
-            category_counts[finding.category] = category_counts.get(finding.category, 0) + 1
+            category_counts[finding.category] = (
+                category_counts.get(finding.category, 0) + 1
+            )
 
-        top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_categories = sorted(
+            category_counts.items(), key=lambda x: x[1], reverse=True
+        )[:3]
         return "、".join([cat for cat, _ in top_categories])
 
     def _generate_recommendations(self, findings: List[AuditFinding]) -> List[str]:
@@ -1062,7 +1131,9 @@ class SecurityAuditor:
 
         # 発見事項に基づく推奨事項
         for finding in findings:
-            recommendations.update(finding.remediation_steps[:2])  # 上位2つの修復ステップ
+            recommendations.update(
+                finding.remediation_steps[:2]
+            )  # 上位2つの修復ステップ
 
         # 一般的な推奨事項
         if findings:
@@ -1073,7 +1144,9 @@ class SecurityAuditor:
 
         return list(recommendations)[:10]  # 上位10件
 
-    def _generate_remediation_roadmap(self, findings: List[AuditFinding]) -> List[Dict[str, Any]]:
+    def _generate_remediation_roadmap(
+        self, findings: List[AuditFinding]
+    ) -> List[Dict[str, Any]]:
         """修復ロードマップ生成"""
         roadmap = []
 

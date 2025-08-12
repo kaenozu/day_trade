@@ -169,9 +169,7 @@ class GlobalMarketEvent(Base):
     )
 
     def __repr__(self):
-        return (
-            f"<GlobalMarketEvent(title={self.title[:50]}..., importance={self.importance_level})>"
-        )
+        return f"<GlobalMarketEvent(title={self.title[:50]}..., importance={self.importance_level})>"
 
 
 class TradingSession(Base):
@@ -182,7 +180,9 @@ class TradingSession(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # セッション情報
-    session_name = Column(String(100), nullable=False)  # "Tokyo", "London", "New York", "Sydney"
+    session_name = Column(
+        String(100), nullable=False
+    )  # "Tokyo", "London", "New York", "Sydney"
     market_type = Column(Enum(MarketType), nullable=False)
 
     # 時間情報
@@ -240,7 +240,9 @@ class SystemPerformanceMetrics(Base):
     )  # "ml_engine", "data_collector", etc.
 
     # メタデータ
-    environment = Column(String(50), default="production")  # production, development, test
+    environment = Column(
+        String(50), default="production"
+    )  # production, development, test
     version = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

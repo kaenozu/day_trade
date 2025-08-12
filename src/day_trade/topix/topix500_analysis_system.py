@@ -257,7 +257,9 @@ class TOPIX500AnalysisSystem:
         logger.info(f"  - 処理タイムアウト: {self.processing_timeout}秒")
         logger.info(f"  - バッチサイズ: {self.batch_size}")
 
-    async def load_topix500_master_data(self, master_data_path: Optional[str] = None) -> bool:
+    async def load_topix500_master_data(
+        self, master_data_path: Optional[str] = None
+    ) -> bool:
         """
         TOPIX500マスターデータ読み込み
 
@@ -298,7 +300,9 @@ class TOPIX500AnalysisSystem:
                     self.sector_mapping[symbol.sector] = []
                 self.sector_mapping[symbol.sector].append(symbol.symbol)
 
-            logger.info(f"TOPIX500マスターデータ読み込み完了: {len(self.topix500_symbols)}銘柄")
+            logger.info(
+                f"TOPIX500マスターデータ読み込み完了: {len(self.topix500_symbols)}銘柄"
+            )
             logger.info(f"セクター数: {len(self.sector_mapping)}")
 
             # セクター別銘柄数表示
@@ -330,7 +334,9 @@ class TOPIX500AnalysisSystem:
         # キャッシュチェック
         cache_key = None
         if self.enable_cache:
-            cache_key = generate_unified_cache_key("topix500_comprehensive", symbol, str(len(data)))
+            cache_key = generate_unified_cache_key(
+                "topix500_comprehensive", symbol, str(len(data))
+            )
             cached_result = self.cache_manager.get(cache_key)
             if cached_result:
                 logger.debug(f"包括分析キャッシュヒット: {symbol}")
@@ -346,7 +352,9 @@ class TOPIX500AnalysisSystem:
                 tasks = [
                     self.multiframe_analyzer.analyze_multi_timeframe(data, symbol),
                     self.ml_models.extract_advanced_features(data, symbol),
-                    self.volatility_predictor.integrated_volatility_forecast(data, symbol),
+                    self.volatility_predictor.integrated_volatility_forecast(
+                        data, symbol
+                    ),
                 ]
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -364,7 +372,9 @@ class TOPIX500AnalysisSystem:
                     features_result = None
 
                 if isinstance(volatility_result, Exception):
-                    logger.warning(f"ボラティリティ予測エラー: {symbol} - {volatility_result}")
+                    logger.warning(
+                        f"ボラティリティ予測エラー: {symbol} - {volatility_result}"
+                    )
                     volatility_result = None
 
                 # ML予測（特徴量が取得できた場合のみ）
@@ -390,19 +400,29 @@ class TOPIX500AnalysisSystem:
                 "symbol": symbol,
                 "analysis_timestamp": datetime.now().isoformat(),
                 "data_length": len(data),
-                "multiframe_analysis": asdict(multiframe_result) if multiframe_result else None,
-                "advanced_features": asdict(features_result) if features_result else None,
-                "volatility_prediction": asdict(volatility_result) if volatility_result else None,
-                "ml_ensemble": asdict(ml_ensemble_result) if ml_ensemble_result else None,
+                "multiframe_analysis": (
+                    asdict(multiframe_result) if multiframe_result else None
+                ),
+                "advanced_features": (
+                    asdict(features_result) if features_result else None
+                ),
+                "volatility_prediction": (
+                    asdict(volatility_result) if volatility_result else None
+                ),
+                "ml_ensemble": (
+                    asdict(ml_ensemble_result) if ml_ensemble_result else None
+                ),
                 "processing_time": time.time() - start_time,
             }
 
             # 統合スコア計算
-            comprehensive_result["integrated_score"] = await self._calculate_integrated_score(
-                multiframe_result,
-                features_result,
-                volatility_result,
-                ml_ensemble_result,
+            comprehensive_result["integrated_score"] = (
+                await self._calculate_integrated_score(
+                    multiframe_result,
+                    features_result,
+                    volatility_result,
+                    ml_ensemble_result,
+                )
             )
 
             # キャッシュ保存
@@ -479,7 +499,9 @@ class TOPIX500AnalysisSystem:
             else:
                 # 順次実行
                 for symbol, data in symbols_data.items():
-                    result = await self.analyze_single_symbol_comprehensive(symbol, data)
+                    result = await self.analyze_single_symbol_comprehensive(
+                        symbol, data
+                    )
                     symbol_results[symbol] = result
 
             # セクター統計計算
@@ -504,7 +526,11 @@ class TOPIX500AnalysisSystem:
                 if symbol in symbols_data:
                     data = symbols_data[symbol]
                     if len(data) > 1:
-                        ret = (data["Close"].iloc[-1] / data["Close"].iloc[0] - 1) * 252 / len(data)
+                        ret = (
+                            (data["Close"].iloc[-1] / data["Close"].iloc[0] - 1)
+                            * 252
+                            / len(data)
+                        )
                         returns.append(ret)
 
                 scores.append(result.get("integrated_score", 0.0))
@@ -519,7 +545,9 @@ class TOPIX500AnalysisSystem:
             sector_momentum = np.mean(top_scores) if top_scores else 0.0
 
             # リスクレベル判定
-            risk_level = await self._determine_sector_risk_level(avg_volatility, avg_score)
+            risk_level = await self._determine_sector_risk_level(
+                avg_volatility, avg_score
+            )
 
             # 推奨配分
             recommended_allocation = await self._calculate_sector_allocation(
@@ -586,7 +614,9 @@ class TOPIX500AnalysisSystem:
 
             # 分析対象銘柄決定
             if target_symbols:
-                target_data = {s: symbols_data[s] for s in target_symbols if s in symbols_data}
+                target_data = {
+                    s: symbols_data[s] for s in target_symbols if s in symbols_data
+                }
             else:
                 target_data = symbols_data
 
@@ -623,7 +653,10 @@ class TOPIX500AnalysisSystem:
                         return sector, await task
 
                 results = await asyncio.gather(
-                    *[analyze_sector_with_semaphore(sector, task) for sector, task in sector_tasks],
+                    *[
+                        analyze_sector_with_semaphore(sector, task)
+                        for sector, task in sector_tasks
+                    ],
                     return_exceptions=True,
                 )
 
@@ -640,7 +673,9 @@ class TOPIX500AnalysisSystem:
                 # 順次セクター分析
                 for sector, sector_symbols_data in sector_data.items():
                     try:
-                        sector_result = await self.analyze_sector_batch(sector, sector_symbols_data)
+                        sector_result = await self.analyze_sector_batch(
+                            sector, sector_symbols_data
+                        )
                         sector_results[sector] = sector_result
                         successful_analyses += sector_result.symbol_count
                     except Exception as e:
@@ -648,7 +683,9 @@ class TOPIX500AnalysisSystem:
                         failed_analyses += len(sector_symbols_data)
 
             # 上位推奨銘柄抽出
-            top_recommendations = await self._extract_top_recommendations(sector_results)
+            top_recommendations = await self._extract_top_recommendations(
+                sector_results
+            )
 
             # 市場全体概観
             market_overview = await self._calculate_market_overview(sector_results)
@@ -664,9 +701,12 @@ class TOPIX500AnalysisSystem:
                     if sector_results
                     else 0.0
                 ),
-                "symbols_per_second": successful_analyses / max(time.time() - start_time, 0.001),
-                "cache_hit_rate": self.stats["cache_hits"] / max(self.stats["total_analyses"], 1),
-                "success_rate": successful_analyses / max(successful_analyses + failed_analyses, 1),
+                "symbols_per_second": successful_analyses
+                / max(time.time() - start_time, 0.001),
+                "cache_hit_rate": self.stats["cache_hits"]
+                / max(self.stats["total_analyses"], 1),
+                "success_rate": successful_analyses
+                / max(successful_analyses + failed_analyses, 1),
             }
 
             # 統計更新
@@ -675,7 +715,9 @@ class TOPIX500AnalysisSystem:
             self.stats["sector_analyses"] += len(sector_results)
             self.stats["successful_symbols"] += successful_analyses
             self.stats["failed_symbols"] += failed_analyses
-            self.stats["processing_times"].append(processing_performance["total_processing_time"])
+            self.stats["processing_times"].append(
+                processing_performance["total_processing_time"]
+            )
 
             result = TOPIX500AnalysisResult(
                 analysis_timestamp=analysis_timestamp,
@@ -693,7 +735,9 @@ class TOPIX500AnalysisSystem:
             logger.info(
                 f"TOPIX500包括分析完了: {successful_analyses}銘柄成功, {failed_analyses}銘柄失敗 ({result.total_processing_time:.1f}s)"
             )
-            logger.info(f"処理性能: {processing_performance['symbols_per_second']:.1f}銘柄/秒")
+            logger.info(
+                f"処理性能: {processing_performance['symbols_per_second']:.1f}銘柄/秒"
+            )
 
             return result
 
@@ -807,7 +851,9 @@ class TOPIX500AnalysisSystem:
 
         # 特徴量品質（20%）
         if features_result:
-            feature_score = min(1.0, features_result.feature_count / 30)  # 30特徴量で満点
+            feature_score = min(
+                1.0, features_result.feature_count / 30
+            )  # 30特徴量で満点
             score += feature_score * 0.2
             components += 0.2
 
@@ -817,7 +863,9 @@ class TOPIX500AnalysisSystem:
 
         return max(0.0, min(1.0, score))
 
-    async def _determine_sector_risk_level(self, avg_volatility: float, avg_score: float) -> str:
+    async def _determine_sector_risk_level(
+        self, avg_volatility: float, avg_score: float
+    ) -> str:
         """セクターリスクレベル判定"""
         if avg_volatility < 0.15 and avg_score > 0.7:
             return "low"
@@ -844,7 +892,9 @@ class TOPIX500AnalysisSystem:
         # 銘柄数調整（分散効果）
         size_multiplier = min(1.5, 1.0 + symbol_count / 50)
 
-        allocation = base_allocation * score_multiplier * risk_multiplier * size_multiplier
+        allocation = (
+            base_allocation * score_multiplier * risk_multiplier * size_multiplier
+        )
         return max(0.01, min(0.3, allocation))  # 1%-30%の範囲
 
     async def _generate_sector_rotation_signal(
@@ -895,22 +945,28 @@ class TOPIX500AnalysisSystem:
 
         # 加重平均計算
         weighted_volatility = (
-            sum(r.avg_volatility * r.symbol_count for r in sector_results.values()) / total_symbols
+            sum(r.avg_volatility * r.symbol_count for r in sector_results.values())
+            / total_symbols
         )
 
         weighted_return = (
-            sum(r.avg_return * r.symbol_count for r in sector_results.values()) / total_symbols
+            sum(r.avg_return * r.symbol_count for r in sector_results.values())
+            / total_symbols
         )
 
         # セクター分散
         overweight_count = sum(
-            1 for r in sector_results.values() if r.sector_rotation_signal == "overweight"
+            1
+            for r in sector_results.values()
+            if r.sector_rotation_signal == "overweight"
         )
         neutral_count = sum(
             1 for r in sector_results.values() if r.sector_rotation_signal == "neutral"
         )
         underweight_count = sum(
-            1 for r in sector_results.values() if r.sector_rotation_signal == "underweight"
+            1
+            for r in sector_results.values()
+            if r.sector_rotation_signal == "underweight"
         )
 
         return {
@@ -935,7 +991,9 @@ class TOPIX500AnalysisSystem:
 
         return risk_counts
 
-    def _create_default_sector_result(self, sector: str, symbol_count: int) -> SectorAnalysisResult:
+    def _create_default_sector_result(
+        self, sector: str, symbol_count: int
+    ) -> SectorAnalysisResult:
         """デフォルトセクター結果作成"""
         return SectorAnalysisResult(
             sector=sector,
@@ -956,13 +1014,16 @@ class TOPIX500AnalysisSystem:
             "total_analyses": self.stats["total_analyses"],
             "batch_analyses": self.stats["batch_analyses"],
             "sector_analyses": self.stats["sector_analyses"],
-            "cache_hit_rate": self.stats["cache_hits"] / max(self.stats["total_analyses"], 1),
+            "cache_hit_rate": self.stats["cache_hits"]
+            / max(self.stats["total_analyses"], 1),
             "successful_symbols": self.stats["successful_symbols"],
             "failed_symbols": self.stats["failed_symbols"],
             "success_rate": self.stats["successful_symbols"]
             / max(self.stats["successful_symbols"] + self.stats["failed_symbols"], 1),
             "avg_processing_time": (
-                np.mean(self.stats["processing_times"]) if self.stats["processing_times"] else 0.0
+                np.mean(self.stats["processing_times"])
+                if self.stats["processing_times"]
+                else 0.0
             ),
             "system_status": {
                 "cache_enabled": self.enable_cache,
@@ -1014,7 +1075,11 @@ class TOPIX500AnalysisSystem:
             # データ検証
             valid_stock_data = {}
             for symbol, data in stock_data.items():
-                if isinstance(data, pd.DataFrame) and not data.empty and len(data) >= 10:
+                if (
+                    isinstance(data, pd.DataFrame)
+                    and not data.empty
+                    and len(data) >= 10
+                ):
                     valid_stock_data[symbol] = data
                 else:
                     logger.warning(f"無効データスキップ: {symbol}")
@@ -1041,7 +1106,9 @@ class TOPIX500AnalysisSystem:
                         result = {
                             "success": True,
                             "features": {
-                                "price_change_pct": (data["Close"].iloc[-1] - data["Close"].iloc[0])
+                                "price_change_pct": (
+                                    data["Close"].iloc[-1] - data["Close"].iloc[0]
+                                )
                                 / data["Close"].iloc[0]
                                 * 100
                             },
@@ -1069,7 +1136,9 @@ class TOPIX500AnalysisSystem:
                     sector_analysis = {}
 
             # 統計計算
-            successful_count = sum(1 for r in symbol_results.values() if r.get("success", False))
+            successful_count = sum(
+                1 for r in symbol_results.values() if r.get("success", False)
+            )
             failed_count = len(symbol_results) - successful_count
             cache_hit_rate = getattr(self.parallel_engine, "processing_stats", {}).get(
                 "cache_hit_rate", 0.0
@@ -1084,7 +1153,9 @@ class TOPIX500AnalysisSystem:
                 failed_symbols=failed_count,
                 processing_time_seconds=total_time,
                 avg_time_per_symbol_ms=(
-                    (total_time / len(stock_data) * 1000) if len(stock_data) > 0 else 0.0
+                    (total_time / len(stock_data) * 1000)
+                    if len(stock_data) > 0
+                    else 0.0
                 ),
                 peak_memory_mb=peak_memory - initial_memory,
                 cache_hit_rate=cache_hit_rate,
@@ -1117,7 +1188,9 @@ class TOPIX500AnalysisSystem:
                     "successful_symbols": successful_count,
                     "failed_symbols": failed_count,
                     "success_rate": (
-                        successful_count / len(stock_data) if len(stock_data) > 0 else 0.0
+                        successful_count / len(stock_data)
+                        if len(stock_data) > 0
+                        else 0.0
                     ),
                     "processing_time_seconds": total_time,
                     "sectors_analyzed": len(sector_analysis),
@@ -1190,7 +1263,9 @@ class TOPIX500AnalysisSystem:
                     if result.get("success", False):
                         # 特徴量から簡易スコア計算
                         features = result.get("features", {})
-                        score = features.get("price_change_pct", 0.0) / 100.0  # -1.0 to 1.0
+                        score = (
+                            features.get("price_change_pct", 0.0) / 100.0
+                        )  # -1.0 to 1.0
                         sector_scores.append(score)
                         successful_symbols.append(symbol)
 
@@ -1231,7 +1306,9 @@ class TOPIX500AnalysisSystem:
                         "total_symbols": len(symbols),
                         "successful_symbols": len(successful_symbols),
                         "success_rate": (
-                            len(successful_symbols) / len(symbols) if len(symbols) > 0 else 0.0
+                            len(successful_symbols) / len(symbols)
+                            if len(symbols) > 0
+                            else 0.0
                         ),
                     },
                 )

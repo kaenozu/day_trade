@@ -277,7 +277,9 @@ class IntelligentAlertEngine:
 
             try:
                 # 条件評価
-                conditions_met = await self._evaluate_conditions(rule.conditions, current_time)
+                conditions_met = await self._evaluate_conditions(
+                    rule.conditions, current_time
+                )
 
                 if conditions_met:
                     await self._fire_alert(rule, current_time)
@@ -306,8 +308,12 @@ class IntelligentAlertEngine:
             return False
 
         # 指定期間内の値をチェック
-        duration_threshold = current_time - timedelta(seconds=condition.duration_seconds)
-        recent_values = [item for item in buffer if item["timestamp"] >= duration_threshold]
+        duration_threshold = current_time - timedelta(
+            seconds=condition.duration_seconds
+        )
+        recent_values = [
+            item for item in buffer if item["timestamp"] >= duration_threshold
+        ]
 
         if not recent_values:
             return False
@@ -393,7 +399,9 @@ class IntelligentAlertEngine:
                 continue
 
             # 条件が解決されているかチェック
-            conditions_met = await self._evaluate_conditions(rule.conditions, current_time)
+            conditions_met = await self._evaluate_conditions(
+                rule.conditions, current_time
+            )
 
             if not conditions_met:
                 alert.status = AlertStatus.RESOLVED
@@ -430,7 +438,9 @@ class IntelligentAlertEngine:
 
         return current_time < self.suppressed_alerts[rule_id]
 
-    async def _send_notifications(self, alert: Alert, channels: List[NotificationChannel]):
+    async def _send_notifications(
+        self, alert: Alert, channels: List[NotificationChannel]
+    ):
         """通知送信"""
 
         for channel in channels:
@@ -447,7 +457,9 @@ class IntelligentAlertEngine:
                 except Exception as e:
                     logger.error(f"通知送信エラー ({channel.value}): {e}")
 
-    def update_metric_value(self, metric_name: str, value: float, labels: Dict[str, str] = None):
+    def update_metric_value(
+        self, metric_name: str, value: float, labels: Dict[str, str] = None
+    ):
         """メトリクス値更新"""
 
         timestamp = datetime.now()
@@ -478,7 +490,9 @@ class IntelligentAlertEngine:
             "active_alerts": active_count,
             "severity_breakdown": dict(severity_counts),
             "total_rules": len(self.alert_rules),
-            "enabled_rules": sum(1 for rule in self.alert_rules.values() if rule.enabled),
+            "enabled_rules": sum(
+                1 for rule in self.alert_rules.values() if rule.enabled
+            ),
             "suppressed_rules": len(self.suppressed_alerts),
             "last_evaluation": datetime.now().isoformat(),
         }

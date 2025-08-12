@@ -244,7 +244,10 @@ class CacheCircuitBreaker:
                 "half_open_calls": self._half_open_calls,
                 "last_failure_time": self._last_failure_time,
                 "time_until_half_open": (
-                    max(0, self.recovery_timeout - (time.time() - self._last_failure_time))
+                    max(
+                        0,
+                        self.recovery_timeout - (time.time() - self._last_failure_time),
+                    )
                     if self._state == CircuitBreakerState.OPEN
                     else 0
                 ),

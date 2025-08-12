@@ -261,9 +261,9 @@ class AnomalyEvaluator(AlertEvaluator):
         # ベースラインの統計計算
         baseline_values = [row[1] for row in baseline_data]
         baseline_mean = sum(baseline_values) / len(baseline_values)
-        baseline_variance = sum((x - baseline_mean) ** 2 for x in baseline_values) / len(
-            baseline_values
-        )
+        baseline_variance = sum(
+            (x - baseline_mean) ** 2 for x in baseline_values
+        ) / len(baseline_values)
         baseline_std = baseline_variance**0.5
 
         if baseline_std == 0:
@@ -664,7 +664,11 @@ class AlertManager:
                     alert.message,
                     json.dumps(alert.details),
                     alert.triggered_at.isoformat(),
-                    alert.acknowledged_at.isoformat() if alert.acknowledged_at else None,
+                    (
+                        alert.acknowledged_at.isoformat()
+                        if alert.acknowledged_at
+                        else None
+                    ),
                     alert.resolved_at.isoformat() if alert.resolved_at else None,
                     alert.acknowledged_by,
                 ),

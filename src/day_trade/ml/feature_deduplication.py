@@ -81,7 +81,9 @@ class FeatureDeduplicationManager:
         self.active_tasks: Dict[str, ComputationTask] = {}
 
         # 完了したタスクのキャッシュ（弱参照で自動クリーンアップ）
-        self.completed_tasks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        self.completed_tasks: weakref.WeakValueDictionary = (
+            weakref.WeakValueDictionary()
+        )
 
         # 待機中の重複リクエスト管理
         self.waiting_requests: Dict[str, List[str]] = defaultdict(list)
@@ -100,7 +102,9 @@ class FeatureDeduplicationManager:
             },
         )
 
-    def _generate_task_key(self, symbol: str, data_hash: str, feature_config: FeatureConfig) -> str:
+    def _generate_task_key(
+        self, symbol: str, data_hash: str, feature_config: FeatureConfig
+    ) -> str:
         """タスクキーの生成（重複検出用）"""
         # 設定のハッシュ化
         config_dict = {
@@ -140,8 +144,12 @@ class FeatureDeduplicationManager:
             # 数値データのハッシュ
             numeric_cols = sample_data.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 0:
-                sample_values = sample_data[numeric_cols].values.flatten()[:50]  # 最大50値
-                values_str = ",".join([f"{v:.6f}" for v in sample_values if not np.isnan(v)])
+                sample_values = sample_data[numeric_cols].values.flatten()[
+                    :50
+                ]  # 最大50値
+                values_str = ",".join(
+                    [f"{v:.6f}" for v in sample_values if not np.isnan(v)]
+                )
             else:
                 values_str = "no_numeric_data"
         except:
@@ -196,7 +204,9 @@ class FeatureDeduplicationManager:
                         "symbol": symbol,
                         "task_key": task_key[:8],
                         "cached_result_available": completed_task.result is not None,
-                        "age_seconds": round(time.time() - completed_task.created_at, 2),
+                        "age_seconds": round(
+                            time.time() - completed_task.created_at, 2
+                        ),
                     },
                 )
 
@@ -406,7 +416,9 @@ class FeatureDeduplicationManager:
                 "completed_computations": self.stats.completed_computations,
                 "failed_computations": self.stats.failed_computations,
                 "success_rate_percent": round(self.stats.success_rate, 2),
-                "avg_computation_time_seconds": round(self.stats.avg_computation_time, 3),
+                "avg_computation_time_seconds": round(
+                    self.stats.avg_computation_time, 3
+                ),
                 "time_saved_by_dedup_seconds": round(self.stats.time_saved_by_dedup, 2),
                 "active_tasks_count": len(self.active_tasks),
                 "cached_results_count": len(self.completed_tasks),

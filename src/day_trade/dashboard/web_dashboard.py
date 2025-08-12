@@ -47,7 +47,9 @@ class WebDashboard:
         secret_key = os.environ.get("FLASK_SECRET_KEY")
         if not secret_key:
             secret_key = secrets.token_urlsafe(32)
-            logger.warning("FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。")
+            logger.warning(
+                "FLASK_SECRET_KEY環境変数が未設定です。ランダムキーを生成しました。"
+            )
             logger.info(
                 f"本番環境では環境変数を設定してください: export FLASK_SECRET_KEY='{secret_key}'"
             )
@@ -136,7 +138,9 @@ class WebDashboard:
 
         for pattern in sensitive_patterns:
             if pattern in error_str:
-                return "システム内部エラーが発生しました。管理者にお問い合わせください。"
+                return (
+                    "システム内部エラーが発生しました。管理者にお問い合わせください。"
+                )
 
         # デバッグモード時のみ詳細表示
         if self.debug:
@@ -167,7 +171,9 @@ class WebDashboard:
         # 1時間から30日間（720時間）までを許可
         return 1 <= hours <= 720
 
-    def _create_secure_file(self, file_path: Path, content: str, permissions: int = 0o644):
+    def _create_secure_file(
+        self, file_path: Path, content: str, permissions: int = 0o644
+    ):
         """セキュアなファイル作成"""
         try:
             with open(file_path, "w", encoding="utf-8") as f:
@@ -178,7 +184,9 @@ class WebDashboard:
                 os.chmod(file_path, permissions)
                 logger.info(f"ファイル権限設定: {file_path} -> {oct(permissions)}")
             else:
-                logger.info(f"ファイル作成: {file_path} (Windows環境のため権限設定スキップ)")
+                logger.info(
+                    f"ファイル作成: {file_path} (Windows環境のため権限設定スキップ)"
+                )
 
         except Exception as e:
             logger.error(f"セキュアファイル作成エラー {file_path}: {e}")
@@ -304,36 +312,59 @@ class WebDashboard:
 
                 if chart_type == "portfolio":
                     data = self.dashboard_core.get_historical_data("portfolio", hours)
-                    chart_path = self.visualization_engine.create_portfolio_value_chart(data)
+                    chart_path = self.visualization_engine.create_portfolio_value_chart(
+                        data
+                    )
                 elif chart_type == "system":
                     data = self.dashboard_core.get_historical_data("system", hours)
-                    chart_path = self.visualization_engine.create_system_metrics_chart(data)
+                    chart_path = self.visualization_engine.create_system_metrics_chart(
+                        data
+                    )
                 elif chart_type == "trading":
                     data = self.dashboard_core.get_historical_data("trading", hours)
-                    chart_path = self.visualization_engine.create_trading_performance_chart(data)
+                    chart_path = (
+                        self.visualization_engine.create_trading_performance_chart(data)
+                    )
                 elif chart_type == "risk":
                     data = self.dashboard_core.get_historical_data("risk", hours)
-                    chart_path = self.visualization_engine.create_risk_metrics_heatmap(data)
+                    chart_path = self.visualization_engine.create_risk_metrics_heatmap(
+                        data
+                    )
                 elif chart_type == "comprehensive":
-                    portfolio_data = self.dashboard_core.get_historical_data("portfolio", hours)
-                    system_data = self.dashboard_core.get_historical_data("system", hours)
-                    trading_data = self.dashboard_core.get_historical_data("trading", hours)
+                    portfolio_data = self.dashboard_core.get_historical_data(
+                        "portfolio", hours
+                    )
+                    system_data = self.dashboard_core.get_historical_data(
+                        "system", hours
+                    )
+                    trading_data = self.dashboard_core.get_historical_data(
+                        "trading", hours
+                    )
                     risk_data = self.dashboard_core.get_historical_data("risk", hours)
 
                     # 現在のポジション情報取得
                     current_status = self.dashboard_core.get_current_status()
-                    positions_data = current_status.get("portfolio", {}).get("positions", {})
+                    positions_data = current_status.get("portfolio", {}).get(
+                        "positions", {}
+                    )
 
-                    chart_path = self.visualization_engine.create_comprehensive_dashboard(
-                        portfolio_data,
-                        system_data,
-                        trading_data,
-                        risk_data,
-                        positions_data,
+                    chart_path = (
+                        self.visualization_engine.create_comprehensive_dashboard(
+                            portfolio_data,
+                            system_data,
+                            trading_data,
+                            risk_data,
+                            positions_data,
+                        )
                     )
                 else:
                     return (
-                        jsonify({"success": False, "error": f"Unknown chart type: {chart_type}"}),
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": f"Unknown chart type: {chart_type}",
+                            }
+                        ),
                         400,
                     )
 
@@ -609,7 +640,9 @@ class WebDashboard:
 </html>"""
 
         # セキュアなファイル作成
-        self._create_secure_file(templates_dir / "dashboard.html", dashboard_html, 0o644)
+        self._create_secure_file(
+            templates_dir / "dashboard.html", dashboard_html, 0o644
+        )
 
     def _create_static_files(self):
         """静的ファイル作成"""
@@ -916,7 +949,9 @@ function showAlert(message, type = 'info') {
         try:
             self.start_monitoring()
             logger.info(f"Webダッシュボードサーバー開始: http://localhost:{self.port}")
-            self.socketio.run(self.app, host="0.0.0.0", port=self.port, debug=self.debug)
+            self.socketio.run(
+                self.app, host="0.0.0.0", port=self.port, debug=self.debug
+            )
         except KeyboardInterrupt:
             logger.info("\nサーバー停止中...")
             self.stop_monitoring()

@@ -272,7 +272,11 @@ class SLOManager:
     # === SLI データ記録 ===
 
     def record_sli_data(
-        self, slo_name: str, value: float, success: bool, tags: Optional[Dict[str, str]] = None
+        self,
+        slo_name: str,
+        value: float,
+        success: bool,
+        tags: Optional[Dict[str, str]] = None,
     ) -> None:
         """SLI データポイント記録"""
         if slo_name not in self.slo_definitions:
@@ -299,7 +303,9 @@ class SLOManager:
         window_start = current_time - (slo_def.time_window_hours * 3600)
 
         # 時間窓内のデータ取得
-        recent_data = [dp for dp in self.sli_data[slo_name] if dp.timestamp >= window_start]
+        recent_data = [
+            dp for dp in self.sli_data[slo_name] if dp.timestamp >= window_start
+        ]
 
         if len(recent_data) < slo_def.min_sample_size:
             self.logger.debug(
@@ -313,7 +319,9 @@ class SLOManager:
         # SLI統計計算
         total_samples = len(recent_data)
         successful_samples = sum(1 for dp in recent_data if dp.success)
-        sli_current = (successful_samples / total_samples) * 100 if total_samples > 0 else 0
+        sli_current = (
+            (successful_samples / total_samples) * 100 if total_samples > 0 else 0
+        )
 
         # エラーバジェット計算
         error_budget_total = (100 - slo_def.target_percentage) * total_samples / 100
@@ -326,7 +334,10 @@ class SLOManager:
 
         # ステータス判定
         status = self._determine_slo_status(
-            sli_current, slo_def.target_percentage, error_budget_consumption_rate, slo_def
+            sli_current,
+            slo_def.target_percentage,
+            error_budget_consumption_rate,
+            slo_def,
         )
         alert_severity = self._determine_alert_severity(
             status, error_budget_consumption_rate, slo_def
@@ -405,7 +416,10 @@ class SLOManager:
         return None
 
     def _predict_budget_exhaustion(
-        self, recent_data: List[SLIDataPoint], remaining_budget: float, slo_def: SLODefinition
+        self,
+        recent_data: List[SLIDataPoint],
+        remaining_budget: float,
+        slo_def: SLODefinition,
     ) -> Optional[float]:
         """エラーバジェット枯渇時刻予測"""
 
@@ -432,7 +446,9 @@ class SLOManager:
         # 現在のエラー率で継続した場合の枯渇予測
         expected_errors_per_hour = error_rate * len(recent_hour_data)
         hours_to_exhaustion = (
-            remaining_budget / expected_errors_per_hour if expected_errors_per_hour > 0 else None
+            remaining_budget / expected_errors_per_hour
+            if expected_errors_per_hour > 0
+            else None
         )
 
         if hours_to_exhaustion and hours_to_exhaustion > 0:
@@ -525,7 +541,9 @@ class SLOManager:
             attributes={
                 "slo_name": report.slo_name,
                 "status": report.status.value,
-                "severity": report.alert_severity.value if report.alert_severity else "none",
+                "severity": (
+                    report.alert_severity.value if report.alert_severity else "none"
+                ),
             },
         )
 
@@ -534,7 +552,9 @@ class SLOManager:
             try:
                 callback(report)
             except Exception as e:
-                self.logger.error("Alert callback failed", error=e, slo_name=report.slo_name)
+                self.logger.error(
+                    "Alert callback failed", error=e, slo_name=report.slo_name
+                )
 
     # === 品質ゲート ===
 
@@ -555,7 +575,9 @@ class SLOManager:
         for slo_name in target_slos:
             report = self.calculate_slo(slo_name)
             if not report:
-                failure_reasons.append(f"SLO {slo_name}: Insufficient data for evaluation")
+                failure_reasons.append(
+                    f"SLO {slo_name}: Insufficient data for evaluation"
+                )
                 continue
 
             reports[slo_name] = report
@@ -598,7 +620,9 @@ class SLOManager:
             )
             self._evaluation_tasks[slo_name] = task
 
-        self.logger.info("Automatic SLO evaluation started", slo_count=len(self._evaluation_tasks))
+        self.logger.info(
+            "Automatic SLO evaluation started", slo_count=len(self._evaluation_tasks)
+        )
 
     async def stop_automatic_evaluation(self) -> None:
         """自動評価ループ停止"""
@@ -607,7 +631,9 @@ class SLOManager:
 
         # 全タスクの完了を待機
         if self._evaluation_tasks:
-            await asyncio.gather(*self._evaluation_tasks.values(), return_exceptions=True)
+            await asyncio.gather(
+                *self._evaluation_tasks.values(), return_exceptions=True
+            )
 
         self._evaluation_tasks.clear()
 
@@ -624,7 +650,9 @@ class SLOManager:
                 if report:
                     # メトリクス更新
                     self.metrics_collector.set_gauge(
-                        "slo_current_sli", report.sli_current, attributes={"slo_name": slo_name}
+                        "slo_current_sli",
+                        report.sli_current,
+                        attributes={"slo_name": slo_name},
                     )
 
                     self.metrics_collector.set_gauge(
@@ -639,7 +667,9 @@ class SLOManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                self.logger.error("SLO evaluation loop error", error=e, slo_name=slo_name)
+                self.logger.error(
+                    "SLO evaluation loop error", error=e, slo_name=slo_name
+                )
                 await asyncio.sleep(min(interval_seconds, 60))  # エラー時は最大1分待機
 
     # === レポート・エクスポート ===
@@ -647,7 +677,11 @@ class SLOManager:
     def get_slo_summary(self) -> Dict[str, Any]:
         """SLO概要取得"""
 
-        summary = {"timestamp": time.time(), "total_slos": len(self.slo_definitions), "slos": {}}
+        summary = {
+            "timestamp": time.time(),
+            "total_slos": len(self.slo_definitions),
+            "slos": {},
+        }
 
         status_counts = defaultdict(int)
 
@@ -657,7 +691,9 @@ class SLOManager:
                 "sli_current": report.sli_current,
                 "sli_target": report.sli_target,
                 "error_budget_consumption_rate": report.error_budget_consumption_rate,
-                "alert_severity": report.alert_severity.value if report.alert_severity else None,
+                "alert_severity": (
+                    report.alert_severity.value if report.alert_severity else None
+                ),
             }
 
             status_counts[report.status.value] += 1
@@ -669,7 +705,11 @@ class SLOManager:
     def export_slo_config(self, filepath: str) -> None:
         """SLO設定エクスポート"""
 
-        config = {"version": "1.0", "timestamp": datetime.now(timezone.utc).isoformat(), "slos": []}
+        config = {
+            "version": "1.0",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "slos": [],
+        }
 
         for slo_name, slo_def in self.slo_definitions.items():
             config["slos"].append(

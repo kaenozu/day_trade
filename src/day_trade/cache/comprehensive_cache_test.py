@@ -203,7 +203,9 @@ class CachePerformanceBenchmark:
         results["hit_rate"] = (hits / len(test_keys)) * 100 if test_keys else 0
         results["total_time"] = time.time() - start_time
         results["ops_per_second"] = (
-            (len(test_keys) * 2) / results["total_time"] if results["total_time"] > 0 else 0
+            (len(test_keys) * 2) / results["total_time"]
+            if results["total_time"] > 0
+            else 0
         )
 
         # 統計サマリー
@@ -237,7 +239,9 @@ class CachePerformanceBenchmark:
         operations_per_user: int = 100,
     ):
         """同時アクセスベンチマーク"""
-        print(f"\n=== {cache_name} 同時アクセステスト (ユーザー数: {concurrent_users}) ===")
+        print(
+            f"\n=== {cache_name} 同時アクセステスト (ユーザー数: {concurrent_users}) ==="
+        )
 
         async def user_simulation(user_id: int):
             """ユーザーシミュレーション"""
@@ -303,7 +307,9 @@ class CachePerformanceBenchmark:
             "total_time": total_time,
             "ops_per_second": len(all_ops) / total_time if total_time > 0 else 0,
             "avg_response_time": (
-                statistics.mean([op["time"] for op in successful_ops]) if successful_ops else 0
+                statistics.mean([op["time"] for op in successful_ops])
+                if successful_ops
+                else 0
             ),
             "p95_response_time": (
                 statistics.quantiles([op["time"] for op in successful_ops], n=20)[18]
@@ -391,7 +397,9 @@ class IntegrationTestSuite:
                 rule_id = invalidator.add_rule(rule)
 
                 # 無効化テスト
-                event_id = invalidator.invalidate("user:test", InvalidationType.IMMEDIATE)
+                event_id = invalidator.invalidate(
+                    "user:test", InvalidationType.IMMEDIATE
+                )
 
                 invalidation_stats = invalidator.get_comprehensive_stats()
                 test_results["tests"]["smart_invalidation"] = invalidation_stats
@@ -461,8 +469,12 @@ class IntegrationTestSuite:
 
             # 統計計算
             successful_ops = [op for op in mixed_workload_ops if op["success"]]
-            avg_put_time = statistics.mean([op["put_time"] for op in mixed_workload_ops])
-            avg_get_time = statistics.mean([op["get_time"] for op in mixed_workload_ops])
+            avg_put_time = statistics.mean(
+                [op["put_time"] for op in mixed_workload_ops]
+            )
+            avg_get_time = statistics.mean(
+                [op["get_time"] for op in mixed_workload_ops]
+            )
 
             performance_summary = {
                 "total_operations": len(mixed_workload_ops) * 2,
@@ -492,9 +504,15 @@ class IntegrationTestSuite:
                 "overall_success": True,
                 "key_metrics": {
                     "persistent_cache_hit_rate": persistent_results.get("hit_rate", 0),
-                    "concurrent_success_rate": concurrent_results.get("success_rate", 0),
-                    "overall_ops_per_second": performance_summary.get("ops_per_second", 0),
-                    "avg_response_time_ms": performance_summary.get("combined_avg_time_ms", 0),
+                    "concurrent_success_rate": concurrent_results.get(
+                        "success_rate", 0
+                    ),
+                    "overall_ops_per_second": performance_summary.get(
+                        "ops_per_second", 0
+                    ),
+                    "avg_response_time_ms": performance_summary.get(
+                        "combined_avg_time_ms", 0
+                    ),
                 },
             }
 

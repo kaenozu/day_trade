@@ -116,7 +116,9 @@ class TechnicalIndicatorEngine:
         # 指標登録
         self._register_all_indicators()
 
-        logger.info(f"テクニカル指標エンジン初期化完了: {len(self.indicators)}指標登録済み")
+        logger.info(
+            f"テクニカル指標エンジン初期化完了: {len(self.indicators)}指標登録済み"
+        )
 
     def _register_all_indicators(self):
         """全指標登録"""
@@ -508,7 +510,9 @@ class TechnicalIndicatorEngine:
                         values = indicator_info["func"](price_data)
 
                         if hasattr(values, "__len__") and len(values) > 0:
-                            signals = self._calculate_signals(values, indicator_info["signal_func"])
+                            signals = self._calculate_signals(
+                                values, indicator_info["signal_func"]
+                            )
                             signal_strength = self._evaluate_signal_strength(signals)
                             confidence = self._calculate_confidence(values, signals)
                         else:
@@ -516,12 +520,18 @@ class TechnicalIndicatorEngine:
                             signal_strength = SignalStrength.NEUTRAL
                             confidence = 0.0
 
-                        calculation_time = (datetime.now() - indicator_start).total_seconds()
+                        calculation_time = (
+                            datetime.now() - indicator_start
+                        ).total_seconds()
 
                         result = IndicatorResult(
                             name=indicator_info["name"],
                             category=indicator_info["category"],
-                            values=values if hasattr(values, "__len__") else np.array([values]),
+                            values=(
+                                values
+                                if hasattr(values, "__len__")
+                                else np.array([values])
+                            ),
                             signals=signals,
                             signal_strength=signal_strength,
                             confidence=confidence,
@@ -537,11 +547,16 @@ class TechnicalIndicatorEngine:
                         self.performance_metrics["cache_misses"] += 1
 
                         # パフォーマンス記録
-                        if indicator_name not in self.performance_metrics["calculation_times"]:
-                            self.performance_metrics["calculation_times"][indicator_name] = []
-                        self.performance_metrics["calculation_times"][indicator_name].append(
-                            calculation_time
-                        )
+                        if (
+                            indicator_name
+                            not in self.performance_metrics["calculation_times"]
+                        ):
+                            self.performance_metrics["calculation_times"][
+                                indicator_name
+                            ] = []
+                        self.performance_metrics["calculation_times"][
+                            indicator_name
+                        ].append(calculation_time)
 
                     results[symbol].append(result)
 
@@ -703,8 +718,12 @@ class TechnicalIndicatorEngine:
         )
 
         # ADX計算
-        di_plus = 100 * pd.Series(dm_plus).rolling(period).mean() / tr.rolling(period).mean()
-        di_minus = 100 * pd.Series(dm_minus).rolling(period).mean() / tr.rolling(period).mean()
+        di_plus = (
+            100 * pd.Series(dm_plus).rolling(period).mean() / tr.rolling(period).mean()
+        )
+        di_minus = (
+            100 * pd.Series(dm_minus).rolling(period).mean() / tr.rolling(period).mean()
+        )
 
         dx = 100 * abs(di_plus - di_minus) / (di_plus + di_minus)
         adx = dx.rolling(period).mean()
@@ -801,9 +820,13 @@ class TechnicalIndicatorEngine:
 
     def _parabolic_sar(self, data: pd.DataFrame) -> np.ndarray:
         """簡易 Parabolic SAR"""
-        return data.iloc[:, 3].values if not isinstance(data, pd.Series) else data.values
+        return (
+            data.iloc[:, 3].values if not isinstance(data, pd.Series) else data.values
+        )
 
-    def _keltner_channels(self, data: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _keltner_channels(
+        self, data: pd.DataFrame
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """簡易 Keltner Channels"""
         if isinstance(data, pd.Series):
             middle = data.rolling(20).mean()
@@ -834,7 +857,11 @@ class TechnicalIndicatorEngine:
 
     def _vroc(self, data: pd.DataFrame, period: int = 10) -> np.ndarray:
         """Volume Rate of Change"""
-        volume = data["Volume"] if "Volume" in data.columns else pd.Series(np.ones(len(data)))
+        volume = (
+            data["Volume"]
+            if "Volume" in data.columns
+            else pd.Series(np.ones(len(data)))
+        )
         return self._roc(volume, period)
 
     def _ad_line(self, data: pd.DataFrame) -> np.ndarray:
@@ -1029,7 +1056,9 @@ class TechnicalIndicatorEngine:
         stability = max(0, min(1, stability))
 
         # シグナルの一貫性
-        consistency = abs(np.mean(signals[-10:])) if len(signals) >= 10 else abs(np.mean(signals))
+        consistency = (
+            abs(np.mean(signals[-10:])) if len(signals) >= 10 else abs(np.mean(signals))
+        )
 
         confidence = (stability + consistency) / 2
         return max(0.1, min(0.9, confidence))
@@ -1041,7 +1070,9 @@ class TechnicalIndicatorEngine:
         cache_misses = self.performance_metrics["cache_misses"]
 
         cache_hit_rate = (
-            cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0
+            cache_hits / (cache_hits + cache_misses)
+            if (cache_hits + cache_misses) > 0
+            else 0
         )
 
         avg_times = {}

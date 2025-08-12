@@ -36,7 +36,9 @@ class TransactionPatterns:
         # 操作ログテーブルで重複実行を防ぐ
         # (実際の実装では専用のoperation_logテーブルを使用)
 
-        operation_logger = logger.bind(pattern="idempotent_operation", operation_key=operation_key)
+        operation_logger = logger.bind(
+            pattern="idempotent_operation", operation_key=operation_key
+        )
 
         try:
             # 操作が既に実行済みかチェック
@@ -125,7 +127,9 @@ class TransactionPatterns:
                 return False
 
             session.flush()
-            update_logger.info("楽観的ロック更新成功", extra={"new_version": current_version + 1})
+            update_logger.info(
+                "楽観的ロック更新成功", extra={"new_version": current_version + 1}
+            )
             return True
 
         except Exception as e:
@@ -169,11 +173,15 @@ class TransactionPatterns:
                 for record_data in batch:
                     # 一意キーで既存レコードを検索
                     filter_conditions = {
-                        key: record_data[key] for key in unique_keys if key in record_data
+                        key: record_data[key]
+                        for key in unique_keys
+                        if key in record_data
                     }
 
                     existing_record = (
-                        session.query(model_class).filter_by(**filter_conditions).first()
+                        session.query(model_class)
+                        .filter_by(**filter_conditions)
+                        .first()
                     )
 
                     if existing_record:
@@ -231,7 +239,9 @@ class TransactionPatterns:
             saga_logger.info("Sagaトランザクション正常完了")
 
         except Exception as e:
-            saga_logger.error("Sagaトランザクション失敗、補償処理開始", extra={"error": str(e)})
+            saga_logger.error(
+                "Sagaトランザクション失敗、補償処理開始", extra={"error": str(e)}
+            )
 
             # 補償フェーズ（実行済みステップを逆順で取り消し）
             for step_index in reversed(executed_steps):

@@ -68,7 +68,9 @@ class CircuitBreaker:
                     self.state = "HALF_OPEN"
                     logger.info(f"サーキットブレーカー {self.name} - HALF_OPEN状態")
                 else:
-                    raise Exception(f"サーキットブレーカー {self.name} - OPEN状態（呼び出し拒否）")
+                    raise Exception(
+                        f"サーキットブレーカー {self.name} - OPEN状態（呼び出し拒否）"
+                    )
 
             try:
                 result = func(*args, **kwargs)
@@ -207,7 +209,9 @@ def with_timeout(timeout_seconds: float):
             import signal
 
             def timeout_handler(signum, frame):
-                raise TimeoutError(f"関数 {func.__name__} がタイムアウト（{timeout_seconds}秒）")
+                raise TimeoutError(
+                    f"関数 {func.__name__} がタイムアウト（{timeout_seconds}秒）"
+                )
 
             # Windowsでは利用できない場合がある
             try:
@@ -322,7 +326,9 @@ if __name__ == "__main__":
             raise ValueError("ランダム失敗")
 
     # サーキットブレーカーテスト
-    circuit_breaker = CircuitBreaker("test_cb", CircuitBreakerConfig(failure_threshold=2))
+    circuit_breaker = CircuitBreaker(
+        "test_cb", CircuitBreakerConfig(failure_threshold=2)
+    )
 
     @circuit_breaker
     def circuit_test_function(should_fail: bool = False):

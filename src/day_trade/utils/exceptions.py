@@ -63,7 +63,9 @@ def _sanitize_sensitive_info(text: str) -> str:
 
     sanitized_text = text
     for pattern, replacement in sensitive_patterns:
-        sanitized_text = re.sub(pattern, replacement, sanitized_text, flags=re.IGNORECASE)
+        sanitized_text = re.sub(
+            pattern, replacement, sanitized_text, flags=re.IGNORECASE
+        )
 
     return sanitized_text
 

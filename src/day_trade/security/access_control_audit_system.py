@@ -305,7 +305,11 @@ class AccessControlAuditor:
                     user_access.email,
                     json.dumps(user_access.roles),
                     json.dumps(user_access.direct_permissions),
-                    user_access.last_login.isoformat() if user_access.last_login else None,
+                    (
+                        user_access.last_login.isoformat()
+                        if user_access.last_login
+                        else None
+                    ),
                     user_access.login_count,
                     user_access.failed_login_attempts,
                     user_access.account_locked,
@@ -478,7 +482,9 @@ class AccessControlAuditor:
 
         return findings
 
-    def _check_excessive_permissions(self, user: UserAccess) -> List[AccessAuditFinding]:
+    def _check_excessive_permissions(
+        self, user: UserAccess
+    ) -> List[AccessAuditFinding]:
         """過剰権限チェック"""
         findings = []
 
@@ -591,7 +597,9 @@ class AccessControlAuditor:
                     evidence={
                         "created_at": user.created_at.isoformat(),
                         "account_age_days": account_age,
-                        "admin_roles": [role for role in user.roles if role in admin_roles],
+                        "admin_roles": [
+                            role for role in user.roles if role in admin_roles
+                        ],
                     },
                     recommendations=[
                         "権限付与プロセスの見直し",
@@ -622,7 +630,9 @@ class AccessControlAuditor:
                 evidence={
                     "username": user.username,
                     "login_count": user.login_count,
-                    "matched_patterns": [p for p in shared_patterns if p in user.username.lower()],
+                    "matched_patterns": [
+                        p for p in shared_patterns if p in user.username.lower()
+                    ],
                 },
                 recommendations=[
                     "個別アカウントへの移行",
@@ -875,7 +885,11 @@ class AccessControlAuditor:
                     json.dumps(finding.recommendations),
                     finding.status,
                     finding.detected_at.isoformat(),
-                    finding.acknowledged_at.isoformat() if finding.acknowledged_at else None,
+                    (
+                        finding.acknowledged_at.isoformat()
+                        if finding.acknowledged_at
+                        else None
+                    ),
                     finding.acknowledged_by,
                     finding.remediation_notes,
                 ),
@@ -921,7 +935,9 @@ class AccessControlAuditor:
                     recommendations=json.loads(row[8]) if row[8] else [],
                     status=row[9],
                     detected_at=datetime.fromisoformat(row[10]),
-                    acknowledged_at=datetime.fromisoformat(row[11]) if row[11] else None,
+                    acknowledged_at=(
+                        datetime.fromisoformat(row[11]) if row[11] else None
+                    ),
                     acknowledged_by=row[12],
                     remediation_notes=row[13],
                 )
@@ -929,7 +945,9 @@ class AccessControlAuditor:
 
         return findings
 
-    def acknowledge_finding(self, finding_id: str, acknowledged_by: str, notes: str = ""):
+    def acknowledge_finding(
+        self, finding_id: str, acknowledged_by: str, notes: str = ""
+    ):
         """監査所見を確認済みとしてマーク"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(

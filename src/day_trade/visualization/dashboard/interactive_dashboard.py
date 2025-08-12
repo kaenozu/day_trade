@@ -33,7 +33,9 @@ class InteractiveDashboard(ChartRenderer):
     Plotlyを使用した動的・双方向の分析ダッシュボードを提供
     """
 
-    def __init__(self, output_dir: str = "output/interactive_dashboards", theme: str = "default"):
+    def __init__(
+        self, output_dir: str = "output/interactive_dashboards", theme: str = "default"
+    ):
         """
         初期化
 
@@ -44,7 +46,9 @@ class InteractiveDashboard(ChartRenderer):
         super().__init__(output_dir, theme)
         logger.info("インタラクティブダッシュボードシステム初期化完了")
 
-    def render(self, data: pd.DataFrame, analysis_results: Dict, **kwargs) -> Optional[str]:
+    def render(
+        self, data: pd.DataFrame, analysis_results: Dict, **kwargs
+    ) -> Optional[str]:
         """
         インタラクティブダッシュボード描画
 
@@ -57,7 +61,9 @@ class InteractiveDashboard(ChartRenderer):
             保存されたファイルパス
         """
         if not PLOTLY_AVAILABLE:
-            logger.error("plotly未インストール - インタラクティブダッシュボード作成不可")
+            logger.error(
+                "plotly未インストール - インタラクティブダッシュボード作成不可"
+            )
             return None
 
         symbol = kwargs.get("symbol", "UNKNOWN")
@@ -459,7 +465,9 @@ class InteractiveDashboard(ChartRenderer):
             confidence_data.append(("GARCH", garch_conf))
 
         if "ensemble_prediction" in analysis_results:
-            ensemble_conf = analysis_results["ensemble_prediction"].get("confidence", 0.5)
+            ensemble_conf = analysis_results["ensemble_prediction"].get(
+                "confidence", 0.5
+            )
             confidence_data.append(("Ensemble", ensemble_conf))
 
         if confidence_data:
@@ -491,7 +499,9 @@ class InteractiveDashboard(ChartRenderer):
 
             # 信頼度閾値線
             fig.add_hline(y=0.8, line_dash="dash", line_color="green", row=row, col=col)
-            fig.add_hline(y=0.6, line_dash="dash", line_color="orange", row=row, col=col)
+            fig.add_hline(
+                y=0.6, line_dash="dash", line_color="orange", row=row, col=col
+            )
 
     def _add_risk_indicators_chart(
         self, fig: go.Figure, analysis_results: Dict, row: int, col: int
@@ -901,7 +911,9 @@ class InteractiveDashboard(ChartRenderer):
             if comparison_dashboard:
                 exported_files["comparison_dashboard"] = comparison_dashboard
 
-            logger.info(f"インタラクティブレポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"インタラクティブレポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

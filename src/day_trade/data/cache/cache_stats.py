@@ -73,8 +73,12 @@ class CacheStats:
                 "errors": self.errors,
                 "total_requests": total_requests,
                 "hit_rate": self.hits / total_requests if total_requests > 0 else 0.0,
-                "miss_rate": self.misses / total_requests if total_requests > 0 else 0.0,
-                "fallback_rate": self.fallbacks / total_requests if total_requests > 0 else 0.0,
+                "miss_rate": (
+                    self.misses / total_requests if total_requests > 0 else 0.0
+                ),
+                "fallback_rate": (
+                    self.fallbacks / total_requests if total_requests > 0 else 0.0
+                ),
                 "error_rate": (
                     self.errors / (total_requests + self.errors)
                     if total_requests + self.errors > 0
@@ -114,7 +118,9 @@ class CachePerformanceMonitor:
 
         self.alerts: List[Dict[str, Any]] = []
 
-        logger.info(f"パフォーマンス監視初期化: ウィンドウ={window_size}s, 間隔={sample_interval}s")
+        logger.info(
+            f"パフォーマンス監視初期化: ウィンドウ={window_size}s, 間隔={sample_interval}s"
+        )
 
     def record_function_call(
         self,
@@ -174,7 +180,9 @@ class CachePerformanceMonitor:
             stats = self.function_stats[function_name].to_dict()
 
             # 最近のパフォーマンスデータ
-            recent_calls = [p for p in self.performance_history if p["function"] == function_name]
+            recent_calls = [
+                p for p in self.performance_history if p["function"] == function_name
+            ]
 
             if recent_calls:
                 response_times = [p["response_time"] for p in recent_calls]
@@ -223,14 +231,17 @@ class CachePerformanceMonitor:
                         "total_functions": len(self.function_stats),
                         "recent_calls": len(self.performance_history),
                         "avg_response_time": sum(response_times) / len(response_times),
-                        "recent_hit_rate": len(cache_hits) / len(self.performance_history),
+                        "recent_hit_rate": len(cache_hits)
+                        / len(self.performance_history),
                         "active_alerts": len(self.alerts),
                     }
                 )
 
             return overall_stats
 
-    def get_top_functions(self, limit: int = 10, sort_by: str = "hits") -> List[Dict[str, Any]]:
+    def get_top_functions(
+        self, limit: int = 10, sort_by: str = "hits"
+    ) -> List[Dict[str, Any]]:
         """
         トップ関数リストを取得
 
@@ -257,7 +268,9 @@ class CachePerformanceMonitor:
             elif sort_by == "errors":
                 function_performances.sort(key=lambda x: x["errors"], reverse=True)
             elif sort_by == "calls":
-                function_performances.sort(key=lambda x: x["total_requests"], reverse=True)
+                function_performances.sort(
+                    key=lambda x: x["total_requests"], reverse=True
+                )
             else:
                 function_performances.sort(
                     key=lambda x: x.get("avg_response_time", 0), reverse=True
@@ -286,7 +299,10 @@ class CachePerformanceMonitor:
                 )
 
             # エラー率アラート
-            if overall_perf.get("error_rate", 0) > self.alert_thresholds["error_rate_max"]:
+            if (
+                overall_perf.get("error_rate", 0)
+                > self.alert_thresholds["error_rate_max"]
+            ):
                 new_alerts.append(
                     {
                         "type": "high_error_rate",
@@ -317,7 +333,9 @@ class CachePerformanceMonitor:
 
             # 古いアラートを削除（24時間以上前）
             cutoff_time = current_time - timedelta(hours=24)
-            self.alerts = [alert for alert in self.alerts if alert["timestamp"] > cutoff_time]
+            self.alerts = [
+                alert for alert in self.alerts if alert["timestamp"] > cutoff_time
+            ]
 
         if new_alerts:
             logger.warning(f"新しいパフォーマンスアラート: {len(new_alerts)}件")
@@ -336,7 +354,9 @@ class CachePerformanceMonitor:
         """
         with self._lock:
             cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
-            recent_history = [p for p in self.performance_history if p["timestamp"] > cutoff_time]
+            recent_history = [
+                p for p in self.performance_history if p["timestamp"] > cutoff_time
+            ]
 
             if not recent_history:
                 return {"trend": "insufficient_data", "data_points": 0}
@@ -360,7 +380,9 @@ class CachePerformanceMonitor:
                 if bucket_data:
                     hits = sum(1 for p in bucket_data if p["cache_hit"])
                     hit_rate = hits / len(bucket_data)
-                    avg_response = sum(p["response_time"] for p in bucket_data) / len(bucket_data)
+                    avg_response = sum(p["response_time"] for p in bucket_data) / len(
+                        bucket_data
+                    )
 
                     hit_rates.append(hit_rate)
                     response_times.append(avg_response)
@@ -409,11 +431,19 @@ class CachePerformanceMonitor:
 
         # 全体統計
         report_lines.append("【全体統計】")
-        report_lines.append(f"総リクエスト数: {overall_perf.get('total_requests', 0):,}")
-        report_lines.append(f"キャッシュヒット率: {overall_perf.get('hit_rate', 0):.2%}")
+        report_lines.append(
+            f"総リクエスト数: {overall_perf.get('total_requests', 0):,}"
+        )
+        report_lines.append(
+            f"キャッシュヒット率: {overall_perf.get('hit_rate', 0):.2%}"
+        )
         report_lines.append(f"エラー率: {overall_perf.get('error_rate', 0):.2%}")
-        report_lines.append(f"平均応答時間: {overall_perf.get('avg_response_time', 0):.3f}s")
-        report_lines.append(f"アクティブアラート: {overall_perf.get('active_alerts', 0)}件")
+        report_lines.append(
+            f"平均応答時間: {overall_perf.get('avg_response_time', 0):.3f}s"
+        )
+        report_lines.append(
+            f"アクティブアラート: {overall_perf.get('active_alerts', 0)}件"
+        )
         report_lines.append("")
 
         # トップ関数
@@ -432,18 +462,23 @@ class CachePerformanceMonitor:
             report_lines.append("【トレンド分析】")
             report_lines.append(f"分析データ数: {trend_analysis['data_points']}")
             report_lines.append(f"ヒット率トレンド: {trend_analysis['hit_rate_trend']}")
-            report_lines.append(f"応答時間トレンド: {trend_analysis['response_time_trend']}")
+            report_lines.append(
+                f"応答時間トレンド: {trend_analysis['response_time_trend']}"
+            )
             report_lines.append("")
 
         # アクティブアラート
         recent_alerts = [
-            a for a in self.alerts if (datetime.now() - a["timestamp"]).total_seconds() < 3600
+            a
+            for a in self.alerts
+            if (datetime.now() - a["timestamp"]).total_seconds() < 3600
         ]
         if recent_alerts:
             report_lines.append("【直近のアラート】")
             for alert in recent_alerts[-5:]:  # 最新5件
                 report_lines.append(
-                    f"- {alert['message']} " f"({alert['timestamp'].strftime('%H:%M:%S')})"
+                    f"- {alert['message']} "
+                    f"({alert['timestamp'].strftime('%H:%M:%S')})"
                 )
 
         report_lines.append("")
@@ -480,12 +515,14 @@ class CachePerformanceMonitor:
                 "export_timestamp": datetime.now().isoformat(),
                 "overall_performance": self.get_overall_performance(),
                 "function_stats": {
-                    name: self.get_function_performance(name) for name in self.function_stats.keys()
+                    name: self.get_function_performance(name)
+                    for name in self.function_stats.keys()
                 },
                 "recent_alerts": self.alerts,
                 "alert_thresholds": self.alert_thresholds,
                 "performance_history": [
-                    {**p, "timestamp": p["timestamp"].isoformat()} for p in self.performance_history
+                    {**p, "timestamp": p["timestamp"].isoformat()}
+                    for p in self.performance_history
                 ],
             }
 

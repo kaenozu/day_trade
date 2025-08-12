@@ -34,7 +34,9 @@ def _sanitize_error_message(self, error_message: str, error_type: str) -> str:
 
     for pattern in sensitive_patterns:
         if re.search(pattern, error_message, re.IGNORECASE):
-            logger.warning(f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}")
+            logger.warning(
+                f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}"
+            )
             # より汎用的なメッセージにさらに変更
             return f"{safe_message} (詳細はシステムログを確認してください)"
 

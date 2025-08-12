@@ -95,7 +95,9 @@ class ChartRenderer(ABC):
         fig, ax = plt.subplots(figsize=figsize, **kwargs)
         return fig, ax
 
-    def create_subplots(self, rows: int, cols: int = 1, figsize: Tuple[int, int] = (12, 10)) -> Any:
+    def create_subplots(
+        self, rows: int, cols: int = 1, figsize: Tuple[int, int] = (12, 10)
+    ) -> Any:
         """
         サブプロット作成
 
@@ -135,7 +137,9 @@ class ChartRenderer(ABC):
         up_color = self.palette.get_color("bullish")
         down_color = self.palette.get_color("bearish")
 
-        for i, (open_price, close_price, high, low) in enumerate(zip(opens, closes, highs, lows)):
+        for i, (open_price, close_price, high, low) in enumerate(
+            zip(opens, closes, highs, lows)
+        ):
             color = up_color if close_price > open_price else down_color
 
             # ヒゲ
@@ -162,7 +166,9 @@ class ChartRenderer(ABC):
         volume_color = self.palette.get_color("volume")
         ax.bar(range(len(data)), data["Volume"], color=volume_color, alpha=0.6)
 
-    def add_moving_average(self, ax, data: pd.DataFrame, periods: List[int], **kwargs) -> None:
+    def add_moving_average(
+        self, ax, data: pd.DataFrame, periods: List[int], **kwargs
+    ) -> None:
         """
         移動平均線追加
 
@@ -211,7 +217,9 @@ class ChartRenderer(ABC):
         ax.plot(lower_band, color=bb_color, linestyle="--", alpha=0.7, label="BB Lower")
 
         # バンド間の塗りつぶし
-        ax.fill_between(range(len(data)), upper_band, lower_band, color=bb_color, alpha=0.1)
+        ax.fill_between(
+            range(len(data)), upper_band, lower_band, color=bb_color, alpha=0.1
+        )
 
     def add_rsi(self, ax, data: pd.DataFrame, period: int = 14, **kwargs) -> None:
         """
@@ -280,7 +288,9 @@ class ChartRenderer(ABC):
 
         return go.Figure(**kwargs)
 
-    def save_plotly_figure(self, fig: go.Figure, filename: str, format: str = "html") -> str:
+    def save_plotly_figure(
+        self, fig: go.Figure, filename: str, format: str = "html"
+    ) -> str:
         """
         Plotly図保存
 
@@ -319,7 +329,9 @@ class ChartRenderer(ABC):
         logger.info(f"Plotlyチャート保存完了: {filepath}")
         return str(filepath)
 
-    def apply_common_styling(self, ax, title: str = "", xlabel: str = "", ylabel: str = "") -> None:
+    def apply_common_styling(
+        self, ax, title: str = "", xlabel: str = "", ylabel: str = ""
+    ) -> None:
         """
         共通スタイル適用
 

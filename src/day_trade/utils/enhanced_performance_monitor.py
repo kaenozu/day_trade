@@ -147,7 +147,9 @@ class EnhancedPerformanceMonitor:
 
         self._system_monitor_interval = interval
         self._monitoring_active = True
-        self._monitoring_thread = threading.Thread(target=self._system_monitoring_loop, daemon=True)
+        self._monitoring_thread = threading.Thread(
+            target=self._system_monitoring_loop, daemon=True
+        )
         self._monitoring_thread.start()
         logger.info(f"システム監視を開始しました (間隔: {interval}秒)")
 
@@ -209,7 +211,9 @@ class EnhancedPerformanceMonitor:
         start_time = time.time()
         start_memory = self._get_memory_usage()
         start_cpu = psutil.cpu_percent()
-        start_gc = sum(gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats())))
+        start_gc = sum(
+            gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats()))
+        )
 
         success = True
         error_message = None
@@ -225,7 +229,9 @@ class EnhancedPerformanceMonitor:
             execution_time = time.time() - start_time
             end_memory = self._get_memory_usage()
             end_cpu = psutil.cpu_percent()
-            end_gc = sum(gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats())))
+            end_gc = sum(
+                gc.get_stats()[i]["collections"] for i in range(len(gc.get_stats()))
+            )
 
             metrics = PerformanceMetrics(
                 timestamp=datetime.now(),
@@ -256,7 +262,9 @@ class EnhancedPerformanceMonitor:
         process = psutil.Process()
         return process.memory_info().rss / 1024 / 1024
 
-    def _update_process_stats(self, process_name: str, execution_time: float, success: bool):
+    def _update_process_stats(
+        self, process_name: str, execution_time: float, success: bool
+    ):
         """プロセス統計情報を更新"""
         stats = self.process_stats[process_name]
         stats["total_calls"] += 1
@@ -271,7 +279,9 @@ class EnhancedPerformanceMonitor:
         stats["max_time"] = max(stats["max_time"], execution_time)
         stats["min_time"] = min(stats["min_time"], execution_time)
 
-    def _check_performance_alerts(self, metrics: PerformanceMetrics, category: Optional[str]):
+    def _check_performance_alerts(
+        self, metrics: PerformanceMetrics, category: Optional[str]
+    ):
         """パフォーマンスアラートをチェック"""
         alerts = []
 
@@ -285,7 +295,9 @@ class EnhancedPerformanceMonitor:
                     timestamp=metrics.timestamp,
                     alert_type="EXECUTION_TIME",
                     severity=(
-                        "HIGH" if metrics.execution_time > execution_threshold * 2 else "MEDIUM"
+                        "HIGH"
+                        if metrics.execution_time > execution_threshold * 2
+                        else "MEDIUM"
                     ),
                     process_name=metrics.process_name,
                     message=f"実行時間が閾値を超過: {metrics.execution_time:.2f}秒",
@@ -304,7 +316,9 @@ class EnhancedPerformanceMonitor:
                 PerformanceAlert(
                     timestamp=metrics.timestamp,
                     alert_type="MEMORY_USAGE",
-                    severity="HIGH" if current_memory > memory_threshold * 2 else "MEDIUM",
+                    severity=(
+                        "HIGH" if current_memory > memory_threshold * 2 else "MEDIUM"
+                    ),
                     process_name=metrics.process_name,
                     message=f"メモリ使用量が閾値を超過: {current_memory:.2f}MB",
                     metrics=asdict(metrics),
@@ -327,7 +341,10 @@ class EnhancedPerformanceMonitor:
         alerts = []
 
         # メモリ使用率チェック
-        if system_metrics.memory_usage_percent > self.thresholds.system["memory_percent"]:
+        if (
+            system_metrics.memory_usage_percent
+            > self.thresholds.system["memory_percent"]
+        ):
             alerts.append(
                 PerformanceAlert(
                     timestamp=system_metrics.timestamp,
@@ -365,7 +382,9 @@ class EnhancedPerformanceMonitor:
                 except Exception as e:
                     logger.error(f"システムアラートコールバックエラー: {e}")
 
-    def _log_performance_metrics(self, metrics: PerformanceMetrics, category: Optional[str]):
+    def _log_performance_metrics(
+        self, metrics: PerformanceMetrics, category: Optional[str]
+    ):
         """パフォーマンスメトリクスをログ出力"""
         log_data = {
             "process_name": metrics.process_name,
@@ -381,7 +400,9 @@ class EnhancedPerformanceMonitor:
             else:
                 logger.debug("パフォーマンスメトリクス", extra=log_data)
         else:
-            logger.error("プロセス実行失敗", extra={**log_data, "error": metrics.error_message})
+            logger.error(
+                "プロセス実行失敗", extra={**log_data, "error": metrics.error_message}
+            )
 
     def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]):
         """アラートコールバックを追加"""
@@ -401,7 +422,9 @@ class EnhancedPerformanceMonitor:
         # 統計計算
         total_processes = len(recent_metrics)
         successful_processes = len([m for m in recent_metrics if m.success])
-        avg_execution_time = sum(m.execution_time for m in recent_metrics) / total_processes
+        avg_execution_time = (
+            sum(m.execution_time for m in recent_metrics) / total_processes
+        )
         max_execution_time = max(m.execution_time for m in recent_metrics)
         total_memory_usage = sum(m.memory_usage for m in recent_metrics)
 
@@ -420,7 +443,9 @@ class EnhancedPerformanceMonitor:
             }
 
         # 最新のシステムメトリクス
-        latest_system = self.system_metrics_history[-1] if self.system_metrics_history else None
+        latest_system = (
+            self.system_metrics_history[-1] if self.system_metrics_history else None
+        )
 
         return {
             "period": f"{hours}時間",
@@ -430,7 +455,9 @@ class EnhancedPerformanceMonitor:
             "max_execution_time": max_execution_time,
             "total_memory_delta": total_memory_usage,
             "process_summary": process_summary,
-            "recent_alerts": len([a for a in self.alerts_history if a.timestamp >= cutoff_time]),
+            "recent_alerts": len(
+                [a for a in self.alerts_history if a.timestamp >= cutoff_time]
+            ),
             "system_status": asdict(latest_system) if latest_system else None,
         }
 
@@ -452,14 +479,14 @@ class EnhancedPerformanceMonitor:
                 )
 
         # 平均実行時間でソート
-        slowest_by_avg = sorted(process_performance, key=lambda x: x["avg_time"], reverse=True)[
-            :limit
-        ]
+        slowest_by_avg = sorted(
+            process_performance, key=lambda x: x["avg_time"], reverse=True
+        )[:limit]
 
         # 最大実行時間でソート
-        slowest_by_max = sorted(process_performance, key=lambda x: x["max_time"], reverse=True)[
-            :limit
-        ]
+        slowest_by_max = sorted(
+            process_performance, key=lambda x: x["max_time"], reverse=True
+        )[:limit]
 
         # 総実行時間でソート
         heaviest_by_total = sorted(

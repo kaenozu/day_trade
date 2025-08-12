@@ -101,7 +101,9 @@ class DatabaseConfig:
             "database_url", database_url, "DATABASE_URL", "sqlite:///./day_trade.db"
         )
         self.echo = self._get_config_value("echo", echo, "DB_ECHO", False, bool)
-        self.pool_size = self._get_config_value("pool_size", pool_size, "DB_POOL_SIZE", 5, int)
+        self.pool_size = self._get_config_value(
+            "pool_size", pool_size, "DB_POOL_SIZE", 5, int
+        )
         self.max_overflow = self._get_config_value(
             "max_overflow", max_overflow, "DB_MAX_OVERFLOW", 10, int
         )
@@ -165,7 +167,9 @@ class DatabaseConfig:
 
                 if config_value is not None:
                     return (
-                        type_converter(config_value) if type_converter is not str else config_value
+                        type_converter(config_value)
+                        if type_converter is not str
+                        else config_value
                     )
             except Exception:
                 pass  # ConfigManagerが利用できない場合は無視
@@ -312,10 +316,18 @@ class DatabaseManager:
             cursor.execute("PRAGMA foreign_keys=ON")
 
             # 各PRAGMA設定値の安全性検証と実行
-            self._execute_safe_pragma(cursor, "journal_mode", self.config.sqlite_journal_mode)
-            self._execute_safe_pragma(cursor, "synchronous", self.config.sqlite_synchronous)
-            self._execute_safe_pragma(cursor, "cache_size", self.config.sqlite_cache_size)
-            self._execute_safe_pragma(cursor, "temp_store", self.config.sqlite_temp_store)
+            self._execute_safe_pragma(
+                cursor, "journal_mode", self.config.sqlite_journal_mode
+            )
+            self._execute_safe_pragma(
+                cursor, "synchronous", self.config.sqlite_synchronous
+            )
+            self._execute_safe_pragma(
+                cursor, "cache_size", self.config.sqlite_cache_size
+            )
+            self._execute_safe_pragma(
+                cursor, "temp_store", self.config.sqlite_temp_store
+            )
             self._execute_safe_pragma(cursor, "mmap_size", self.config.sqlite_mmap_size)
 
             logger.debug(
@@ -384,7 +396,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"journal_mode無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"journal_mode無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "WAL"  # デフォルト安全値
 
         elif pragma_name == "synchronous":
@@ -393,7 +407,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"synchronous無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"synchronous無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "NORMAL"  # デフォルト安全値
 
         elif pragma_name == "cache_size":
@@ -404,7 +420,9 @@ class DatabaseManager:
                 if -1000000 <= cache_size <= 1000000:
                     return str(cache_size)
                 else:
-                    logger.warning(f"cache_size範囲外: {pragma_value}, 範囲: -1000000~1000000")
+                    logger.warning(
+                        f"cache_size範囲外: {pragma_value}, 範囲: -1000000~1000000"
+                    )
                     return "10000"  # デフォルト安全値
             except (ValueError, TypeError):
                 logger.warning(f"cache_size無効形式: {pragma_value}")
@@ -416,7 +434,9 @@ class DatabaseManager:
             if value_str in allowed_values:
                 return value_str
             else:
-                logger.warning(f"temp_store無効値: {pragma_value}, 許可値: {allowed_values}")
+                logger.warning(
+                    f"temp_store無効値: {pragma_value}, 許可値: {allowed_values}"
+                )
                 return "MEMORY"  # デフォルト安全値
 
         elif pragma_name == "mmap_size":
@@ -427,7 +447,9 @@ class DatabaseManager:
                 if 0 <= mmap_size <= 1073741824:  # 1GB = 1024^3
                     return str(mmap_size)
                 else:
-                    logger.warning(f"mmap_size範囲外: {pragma_value}, 範囲: 0~1073741824")
+                    logger.warning(
+                        f"mmap_size範囲外: {pragma_value}, 範囲: 0~1073741824"
+                    )
                     return "268435456"  # デフォルト安全値（256MB）
             except (ValueError, TypeError):
                 logger.warning(f"mmap_size無効形式: {pragma_value}")
@@ -787,11 +809,15 @@ class DatabaseManager:
         """Alembicの初期化（初回マイグレーション作成）"""
         try:
             alembic_cfg = self.get_alembic_config()
-            command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
+            command.revision(
+                alembic_cfg, autogenerate=True, message="Initial migration"
+            )
             logger.info("Alembic initialized successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {"operation": "alembic_initialization"})
+            log_error_with_context(
+                converted_error, {"operation": "alembic_initialization"}
+            )
             raise converted_error from e
 
     def migrate(self, message: str = "Auto migration"):
@@ -844,7 +870,9 @@ class DatabaseManager:
                 return context.get_current_revision() or "None"
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {"operation": "current_revision_retrieval"})
+            log_error_with_context(
+                converted_error, {"operation": "current_revision_retrieval"}
+            )
             raise converted_error from e
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
@@ -1052,7 +1080,9 @@ class DatabaseManager:
         with self.engine.connect() as connection:
             result = connection.execute(query, params or {})
             results = result.fetchall()
-            operation_logger.info("Query executed", extra={"result_count": len(results)})
+            operation_logger.info(
+                "Query executed", extra={"result_count": len(results)}
+            )
             return results
 
     def optimize_database(self):
@@ -1287,11 +1317,15 @@ def _add_enhanced_features():
         try:
             from .performance_database import PerformanceOptimizedDatabaseManager
 
-            config = DatabaseConfig(config_manager=config_manager, use_performance_config=True)
+            config = DatabaseConfig(
+                config_manager=config_manager, use_performance_config=True
+            )
 
             return PerformanceOptimizedDatabaseManager(config)
         except ImportError:
-            logger.warning("パフォーマンス最適化モジュールが利用できません。通常版を使用します。")
+            logger.warning(
+                "パフォーマンス最適化モジュールが利用できません。通常版を使用します。"
+            )
             return self.create_factory(config_manager)
 
     # メソッドを動的に追加
@@ -1324,11 +1358,15 @@ def create_database_manager(
         try:
             from .performance_database import PerformanceOptimizedDatabaseManager
 
-            config = DatabaseConfig(config_manager=config_manager, use_performance_config=True)
+            config = DatabaseConfig(
+                config_manager=config_manager, use_performance_config=True
+            )
 
             return PerformanceOptimizedDatabaseManager(config)
         except ImportError:
-            logger.warning("パフォーマンス最適化モジュールが利用できません。通常版を使用します。")
+            logger.warning(
+                "パフォーマンス最適化モジュールが利用できません。通常版を使用します。"
+            )
 
     return DatabaseManager(
         config=DatabaseConfig(config_manager=config_manager),

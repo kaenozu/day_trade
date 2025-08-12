@@ -103,7 +103,9 @@ class QueryCache:
 
         # キャッシュサイズ制限
         if len(self.cache) >= self.max_size:
-            oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
+            oldest_key = min(
+                self.access_times.keys(), key=lambda k: self.access_times[k]
+            )
             del self.cache[oldest_key]
             del self.access_times[oldest_key]
 
@@ -149,7 +151,9 @@ class BatchProcessor:
     def get_batch_operations(self, operation_type: str = None) -> List[Dict]:
         """バッチ操作取得"""
         if operation_type:
-            return [op for op in self.pending_operations if op["type"] == operation_type]
+            return [
+                op for op in self.pending_operations if op["type"] == operation_type
+            ]
         return self.pending_operations.copy()
 
     def clear_operations(self, operation_type: str = None):
@@ -222,7 +226,9 @@ class OptimizedDatabaseManager(DatabaseManager):
             index_optimization_enabled=self.optimization_config.enable_index_optimization,
         )
 
-    def _create_optimized_config(self, base_config: Optional[DatabaseConfig]) -> DatabaseConfig:
+    def _create_optimized_config(
+        self, base_config: Optional[DatabaseConfig]
+    ) -> DatabaseConfig:
         """最適化済みデータベース設定作成"""
 
         if base_config is None:
@@ -250,7 +256,9 @@ class OptimizedDatabaseManager(DatabaseManager):
             if self.optimization_config.auto_create_indexes:
                 self._create_performance_indexes()
 
-            logger.info("インデックス最適化初期化完了", extra={"section": "index_optimization"})
+            logger.info(
+                "インデックス最適化初期化完了", extra={"section": "index_optimization"}
+            )
 
         except Exception as e:
             logger.warning(
@@ -490,7 +498,9 @@ class OptimizedDatabaseManager(DatabaseManager):
                 # 1. 統計情報更新（SQLiteの場合）
                 if self.config.is_sqlite():
                     session.execute(text(f"ANALYZE {table_name}"))
-                    optimization_results["optimizations_applied"].append("analyze_table")
+                    optimization_results["optimizations_applied"].append(
+                        "analyze_table"
+                    )
 
                 # 2. インデックス使用状況分析
                 index_analysis = self._analyze_table_indexes(session, table_name)
@@ -515,7 +525,9 @@ class OptimizedDatabaseManager(DatabaseManager):
 
         return optimization_results
 
-    def _analyze_table_indexes(self, session: Session, table_name: str) -> Dict[str, Any]:
+    def _analyze_table_indexes(
+        self, session: Session, table_name: str
+    ) -> Dict[str, Any]:
         """テーブルインデックス分析"""
 
         index_analysis = {
@@ -539,7 +551,9 @@ class OptimizedDatabaseManager(DatabaseManager):
             ]
 
         except Exception as e:
-            logger.warning(f"インデックス分析エラー: {e}", extra={"section": "index_analysis"})
+            logger.warning(
+                f"インデックス分析エラー: {e}", extra={"section": "index_analysis"}
+            )
 
         return index_analysis
 
@@ -560,10 +574,14 @@ class OptimizedDatabaseManager(DatabaseManager):
                     plan_result = session.execute(text(f"EXPLAIN QUERY PLAN {query}"))
                     plan = [row for row in plan_result.fetchall()]
 
-                    plan_analysis["sample_queries"].append({"query": query, "plan": str(plan)})
+                    plan_analysis["sample_queries"].append(
+                        {"query": query, "plan": str(plan)}
+                    )
 
         except Exception as e:
-            logger.warning(f"クエリプラン分析エラー: {e}", extra={"section": "query_plan_analysis"})
+            logger.warning(
+                f"クエリプラン分析エラー: {e}", extra={"section": "query_plan_analysis"}
+            )
 
         return plan_analysis
 
@@ -585,10 +603,14 @@ class OptimizedDatabaseManager(DatabaseManager):
         # クエリ統計
         if self.query_metrics:
             total_time = sum(m.execution_time for m in self.query_metrics)
-            stats["query_metrics"]["avg_execution_time"] = total_time / len(self.query_metrics)
+            stats["query_metrics"]["avg_execution_time"] = total_time / len(
+                self.query_metrics
+            )
 
             cache_hits = sum(1 for m in self.query_metrics if m.cache_hit)
-            stats["query_metrics"]["cache_hit_rate"] = cache_hits / len(self.query_metrics) * 100
+            stats["query_metrics"]["cache_hit_rate"] = (
+                cache_hits / len(self.query_metrics) * 100
+            )
 
             # 最も遅いクエリ
             sorted_metrics = sorted(
@@ -722,7 +744,9 @@ if __name__ == "__main__":
         db_manager.create_tables()
 
         # クエリ最適化テスト
-        result = db_manager.execute_optimized_query("SELECT 1 as test_column", use_cache=True)
+        result = db_manager.execute_optimized_query(
+            "SELECT 1 as test_column", use_cache=True
+        )
 
         # パフォーマンス統計
         perf_stats = db_manager.get_performance_statistics()

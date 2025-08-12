@@ -91,7 +91,9 @@ class IntegratedPerformanceTest:
         optimization_time = time.perf_counter() - start_time
 
         optimized_memory = optimized_df.memory_usage(deep=True).sum() / 1024 / 1024
-        memory_reduction = ((original_memory - optimized_memory) / original_memory) * 100
+        memory_reduction = (
+            (original_memory - optimized_memory) / original_memory
+        ) * 100
 
         return {
             "original_memory_mb": original_memory,
@@ -167,7 +169,9 @@ class IntegratedPerformanceTest:
             "memory_reduction_percent", 0.0
         )
         vectorization_speedup = (
-            self.test_results.get("vectorization", {}).get("summary", {}).get("avg_speedup", 1.0)
+            self.test_results.get("vectorization", {})
+            .get("summary", {})
+            .get("avg_speedup", 1.0)
         )
         memory_reduction = self.test_results.get("memory_optimization", {}).get(
             "memory_reduction_percent", 0.0
@@ -241,13 +245,23 @@ if __name__ == "__main__":
     summary = results.get("performance_summary", {})
 
     print("\n[最適化結果サマリー]")
-    print(f"データ型最適化: {summary.get('dtype_memory_reduction_percent', 0):.1f}%メモリ削減")
-    print(f"ベクトル化: {summary.get('vectorization_avg_speedup', 1):.1f}倍平均速度向上")
-    print(f"メモリコピー最適化: {summary.get('memory_copy_reduction_percent', 0):.1f}%メモリ削減")
-    print(f"統合最適化: {summary.get('integrated_total_reduction_percent', 0):.1f}%総メモリ削減")
+    print(
+        f"データ型最適化: {summary.get('dtype_memory_reduction_percent', 0):.1f}%メモリ削減"
+    )
+    print(
+        f"ベクトル化: {summary.get('vectorization_avg_speedup', 1):.1f}倍平均速度向上"
+    )
+    print(
+        f"メモリコピー最適化: {summary.get('memory_copy_reduction_percent', 0):.1f}%メモリ削減"
+    )
+    print(
+        f"統合最適化: {summary.get('integrated_total_reduction_percent', 0):.1f}%総メモリ削減"
+    )
 
     print("\n[総合評価]")
-    print(f"パフォーマンススコア: {summary.get('overall_performance_score', 0):.1f}/100")
+    print(
+        f"パフォーマンススコア: {summary.get('overall_performance_score', 0):.1f}/100"
+    )
     print(f"グレード: {summary.get('performance_grade', 'N/A')}")
 
     print("\n[提案事項]")

@@ -186,7 +186,9 @@ class AIMarketPredictor:
             "accurate_predictions": 0,
         }
 
-        logger.info(f"AIMarketPredictor 初期化完了: {len(symbols)} symbols, {model_type.value}")
+        logger.info(
+            f"AIMarketPredictor 初期化完了: {len(symbols)} symbols, {model_type.value}"
+        )
 
     def _init_models(self):
         """予測モデル初期化"""
@@ -282,7 +284,9 @@ class AIMarketPredictor:
     def _init_cache(self):
         """キャッシュシステム初期化"""
         try:
-            self.cache = RedisEnhancedCache(host="localhost", port=6379, ttl=50)  # 50ms TTL
+            self.cache = RedisEnhancedCache(
+                host="localhost", port=6379, ttl=50
+            )  # 50ms TTL
             logger.info("予測キャッシュシステム初期化完了")
         except Exception as e:
             logger.warning(f"キャッシュ初期化失敗: {e}")
@@ -304,7 +308,9 @@ class AIMarketPredictor:
                 return None
 
             # キャッシュ確認
-            cached_prediction = await self._get_cached_prediction(symbol, market_data.timestamp_us)
+            cached_prediction = await self._get_cached_prediction(
+                symbol, market_data.timestamp_us
+            )
             if cached_prediction:
                 self.stats["cache_hits"] += 1
                 return cached_prediction
@@ -327,7 +333,9 @@ class AIMarketPredictor:
 
             # パフォーマンスチェック
             if inference_time > self.inference_timeout_us:
-                logger.warning(f"推論時間超過: {inference_time}μs > {self.inference_timeout_us}μs")
+                logger.warning(
+                    f"推論時間超過: {inference_time}μs > {self.inference_timeout_us}μs"
+                )
 
             return prediction
 
@@ -343,7 +351,9 @@ class AIMarketPredictor:
             return None  # データ不足
 
         try:
-            features = MarketFeatureSet(symbol=symbol, timestamp_us=market_data.timestamp_us)
+            features = MarketFeatureSet(
+                symbol=symbol, timestamp_us=market_data.timestamp_us
+            )
 
             # 直近データ取得
             recent_data = list(self.market_data_buffer[symbol])[-20:]
@@ -356,29 +366,53 @@ class AIMarketPredictor:
                 returns = np.diff(prices) / prices[:-1]
                 features.price_features = {
                     "price_return_1": returns[-1] if len(returns) > 0 else 0.0,
-                    "price_return_5": np.mean(returns[-5:]) if len(returns) >= 5 else 0.0,
-                    "price_return_10": np.mean(returns[-10:]) if len(returns) >= 10 else 0.0,
-                    "price_volatility_5": np.std(returns[-5:]) if len(returns) >= 5 else 0.0,
-                    "price_volatility_10": np.std(returns[-10:]) if len(returns) >= 10 else 0.0,
-                    "price_momentum_3": (prices[-1] / prices[-4] - 1) if len(prices) >= 4 else 0.0,
-                    "price_momentum_7": (prices[-1] / prices[-8] - 1) if len(prices) >= 8 else 0.0,
+                    "price_return_5": (
+                        np.mean(returns[-5:]) if len(returns) >= 5 else 0.0
+                    ),
+                    "price_return_10": (
+                        np.mean(returns[-10:]) if len(returns) >= 10 else 0.0
+                    ),
+                    "price_volatility_5": (
+                        np.std(returns[-5:]) if len(returns) >= 5 else 0.0
+                    ),
+                    "price_volatility_10": (
+                        np.std(returns[-10:]) if len(returns) >= 10 else 0.0
+                    ),
+                    "price_momentum_3": (
+                        (prices[-1] / prices[-4] - 1) if len(prices) >= 4 else 0.0
+                    ),
+                    "price_momentum_7": (
+                        (prices[-1] / prices[-8] - 1) if len(prices) >= 8 else 0.0
+                    ),
                 }
 
             # スプレッド特徴量
             features.technical_features = {
-                "spread_bps": spreads[-1] / prices[-1] * 10000 if prices[-1] > 0 else 0.0,
-                "spread_ma_5": np.mean(spreads[-5:]) if len(spreads) >= 5 else spreads[-1],
+                "spread_bps": (
+                    spreads[-1] / prices[-1] * 10000 if prices[-1] > 0 else 0.0
+                ),
+                "spread_ma_5": (
+                    np.mean(spreads[-5:]) if len(spreads) >= 5 else spreads[-1]
+                ),
                 "spread_volatility": np.std(spreads[-5:]) if len(spreads) >= 5 else 0.0,
             }
 
             # ボリューム特徴量
             features.volume_features = {
-                "volume_ma_5": np.mean(volumes[-5:]) if len(volumes) >= 5 else volumes[-1],
-                "volume_ma_10": np.mean(volumes[-10:]) if len(volumes) >= 10 else np.mean(volumes),
-                "volume_ratio": volumes[-1] / np.mean(volumes[:-1]) if len(volumes) > 1 else 1.0,
+                "volume_ma_5": (
+                    np.mean(volumes[-5:]) if len(volumes) >= 5 else volumes[-1]
+                ),
+                "volume_ma_10": (
+                    np.mean(volumes[-10:]) if len(volumes) >= 10 else np.mean(volumes)
+                ),
+                "volume_ratio": (
+                    volumes[-1] / np.mean(volumes[:-1]) if len(volumes) > 1 else 1.0
+                ),
                 "volume_volatility": np.std(volumes[-5:]) if len(volumes) >= 5 else 0.0,
                 "volume_trend": (
-                    np.polyfit(range(len(volumes)), volumes, 1)[0] if len(volumes) >= 3 else 0.0
+                    np.polyfit(range(len(volumes)), volumes, 1)[0]
+                    if len(volumes) >= 3
+                    else 0.0
                 ),
             }
 
@@ -387,7 +421,9 @@ class AIMarketPredictor:
                 "orderbook_imbalance": (market_data.bid_size - market_data.ask_size)
                 / (market_data.bid_size + market_data.ask_size),
                 "orderbook_pressure": (
-                    market_data.bid_size / market_data.ask_size if market_data.ask_size > 0 else 1.0
+                    market_data.bid_size / market_data.ask_size
+                    if market_data.ask_size > 0
+                    else 1.0
                 ),
                 "bid_ask_ratio": (
                     market_data.bid_price / market_data.ask_price
@@ -413,7 +449,9 @@ class AIMarketPredictor:
                     else np.std(returns) * np.sqrt(len(returns))
                 ),
                 "jump_intensity": (
-                    np.sum(np.abs(returns) > 3 * np.std(returns)) if len(returns) > 0 else 0.0
+                    np.sum(np.abs(returns) > 3 * np.std(returns))
+                    if len(returns) > 0
+                    else 0.0
                 ),
             }
 
@@ -424,17 +462,27 @@ class AIMarketPredictor:
                     "rsi_5": rsi,
                     "macd_signal": self._calculate_macd_signal(prices),
                     "bb_position": self._calculate_bollinger_position(prices),
-                    "momentum_1min": (prices[-1] / prices[-20] - 1) if len(prices) >= 20 else 0.0,
+                    "momentum_1min": (
+                        (prices[-1] / prices[-20] - 1) if len(prices) >= 20 else 0.0
+                    ),
                     "momentum_5min": (prices[-1] / prices[-min(100, len(prices))] - 1),
                     "aggressive_buy_ratio": 0.5,  # 簡易値
                     "aggressive_sell_ratio": 0.5,  # 簡易値
-                    "net_flow_5min": np.sum(volumes[-5:]) if len(volumes) >= 5 else volumes[-1],
+                    "net_flow_5min": (
+                        np.sum(volumes[-5:]) if len(volumes) >= 5 else volumes[-1]
+                    ),
                     "flow_acceleration": 0.0,  # 簡易値
                     "volatility_regime": (
-                        1.0 if features.price_features.get("price_volatility_10", 0) > 0.01 else 0.0
+                        1.0
+                        if features.price_features.get("price_volatility_10", 0) > 0.01
+                        else 0.0
                     ),
-                    "trend_strength": abs(features.price_features.get("price_momentum_7", 0)),
-                    "mean_reversion": -features.price_features.get("price_momentum_3", 0)
+                    "trend_strength": abs(
+                        features.price_features.get("price_momentum_7", 0)
+                    ),
+                    "mean_reversion": -features.price_features.get(
+                        "price_momentum_3", 0
+                    )
                     * features.price_features.get("price_momentum_7", 0),
                 }
 
@@ -485,11 +533,13 @@ class AIMarketPredictor:
 
         # 特徴量正規化
         if len(features) != len(self.feature_names):
-            features = np.pad(features, (0, max(0, len(self.feature_names) - len(features))))[
-                : len(self.feature_names)
-            ]
+            features = np.pad(
+                features, (0, max(0, len(self.feature_names) - len(features)))
+            )[: len(self.feature_names)]
 
-        features_scaled = self.scalers[symbol].fit_transform(features.reshape(1, -1)).flatten()
+        features_scaled = (
+            self.scalers[symbol].fit_transform(features.reshape(1, -1)).flatten()
+        )
 
         # テンソル変換
         input_tensor = torch.FloatTensor(features_scaled).unsqueeze(0)
@@ -549,7 +599,9 @@ class AIMarketPredictor:
             return self._generate_simple_prediction(symbol, None, features)
 
         # 特徴量スケーリング
-        features_scaled = self.scalers[symbol].fit_transform(features.reshape(1, -1)).flatten()
+        features_scaled = (
+            self.scalers[symbol].fit_transform(features.reshape(1, -1)).flatten()
+        )
 
         # 簡易予測（モック）
         price_change = np.mean(features_scaled[:5]) * 0.001  # 簡易価格変化予測
@@ -585,7 +637,10 @@ class AIMarketPredictor:
         )
 
     def _generate_simple_prediction(
-        self, symbol: str, features: Optional[MarketFeatureSet], feature_array: np.ndarray
+        self,
+        symbol: str,
+        features: Optional[MarketFeatureSet],
+        feature_array: np.ndarray,
     ) -> MarketPrediction:
         """シンプル予測（フォールバック）"""
         # 基本的なランダムウォーク + トレンド予測
@@ -645,7 +700,9 @@ class AIMarketPredictor:
 
         return ema_12 - ema_26
 
-    def _calculate_bollinger_position(self, prices: List[float], period: int = 20) -> float:
+    def _calculate_bollinger_position(
+        self, prices: List[float], period: int = 20
+    ) -> float:
         """ボリンジャーバンド位置計算"""
         if len(prices) < period:
             return 0.5
@@ -712,7 +769,9 @@ class AIMarketPredictor:
         if self.stats["predictions_made"] == 0:
             return {"status": "no_predictions"}
 
-        avg_inference_time = self.stats["total_inference_time_us"] / self.stats["predictions_made"]
+        avg_inference_time = (
+            self.stats["total_inference_time_us"] / self.stats["predictions_made"]
+        )
         cache_hit_rate = self.stats["cache_hits"] / self.stats["predictions_made"] * 100
 
         return {
@@ -821,7 +880,9 @@ if __name__ == "__main__":
         print(
             f"キャッシュヒット率: {summary.get('performance', {}).get('cache_hit_rate_percent', 0):.1f}%"
         )
-        print(f"PyTorch利用可能: {summary.get('performance', {}).get('torch_available', False)}")
+        print(
+            f"PyTorch利用可能: {summary.get('performance', {}).get('torch_available', False)}"
+        )
 
         print("\n✅ AIMarketPredictor テスト完了")
 

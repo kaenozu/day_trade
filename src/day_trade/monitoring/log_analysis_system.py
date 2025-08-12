@@ -101,10 +101,14 @@ class LogParser:
             "json": re.compile(r"^{.*}$"),
             # エラーパターン
             "error_traceback": re.compile(r"Traceback \(most recent call last\):"),
-            "exception": re.compile(r"(?P<exception>\w*Error|Exception):\s*(?P<message>.*)"),
+            "exception": re.compile(
+                r"(?P<exception>\w*Error|Exception):\s*(?P<message>.*)"
+            ),
         }
 
-    def parse_log_line(self, line: str, line_number: int, file_path: str) -> Optional[LogEntry]:
+    def parse_log_line(
+        self, line: str, line_number: int, file_path: str
+    ) -> Optional[LogEntry]:
         """ログ行パース"""
         line = line.strip()
         if not line:
@@ -286,7 +290,9 @@ class PatternDetector:
             # キーワードベースのパターン生成
             keywords = [w for w in words if len(w) > 3][:3]
             if keywords:
-                pattern_id = f"auto_{hashlib.md5('_'.join(keywords).encode()).hexdigest()[:8]}"
+                pattern_id = (
+                    f"auto_{hashlib.md5('_'.join(keywords).encode()).hexdigest()[:8]}"
+                )
 
                 if pattern_id not in self.known_patterns:
                     self.known_patterns[pattern_id] = LogPattern(
@@ -366,7 +372,9 @@ class AnomalyDetector:
                 severity=LogLevel.CRITICAL,
                 description=f"エラー急増検知: {latest_count}件/5分 (平均: {avg_count:.1f}件)",
                 timestamp=datetime.now(),
-                affected_components=self._get_affected_components(log_entries, LogLevel.ERROR),
+                affected_components=self._get_affected_components(
+                    log_entries, LogLevel.ERROR
+                ),
                 metrics={"error_count": latest_count, "avg_count": avg_count},
                 evidence=[
                     f"エラー数: {latest_count}",
@@ -401,7 +409,9 @@ class AnomalyDetector:
 
         return anomalies
 
-    def _detect_performance_degradation(self, log_entries: List[LogEntry]) -> Optional[Anomaly]:
+    def _detect_performance_degradation(
+        self, log_entries: List[LogEntry]
+    ) -> Optional[Anomaly]:
         """パフォーマンス劣化検知"""
         perf_keywords = ["slow", "timeout", "delay", "latency", "performance"]
         perf_count = 0
@@ -449,7 +459,9 @@ class AnomalyDetector:
 
         security_logs = []
         for entry in log_entries:
-            if any(indicator in entry.message.lower() for indicator in security_indicators):
+            if any(
+                indicator in entry.message.lower() for indicator in security_indicators
+            ):
                 security_logs.append(entry)
 
         if len(security_logs) > 5:  # セキュリティ関連ログが5件以上
@@ -509,7 +521,9 @@ class LogAnalysisSystem:
                     log_files.extend(files)
 
         # ファイルサイズでソート（大きいファイルを優先）
-        log_files.sort(key=lambda f: f.stat().st_size if f.exists() else 0, reverse=True)
+        log_files.sort(
+            key=lambda f: f.stat().st_size if f.exists() else 0, reverse=True
+        )
 
         return log_files[:max_files]
 
@@ -586,7 +600,9 @@ class LogAnalysisSystem:
             # 履歴保存
             self.analysis_history.append(analysis_result)
 
-            print(f"[COMPLETE] ログ分析完了 ({analysis_result['execution_time']:.2f}秒)")
+            print(
+                f"[COMPLETE] ログ分析完了 ({analysis_result['execution_time']:.2f}秒)"
+            )
 
             return analysis_result
 

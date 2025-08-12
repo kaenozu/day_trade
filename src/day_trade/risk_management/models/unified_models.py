@@ -324,8 +324,12 @@ def position_from_dict(data: Dict[str, Any]) -> Position:
         position_type=PositionType(data["position_type"]),
         quantity=Decimal(str(data["quantity"])),
         entry_price=Decimal(str(data["entry_price"])),
-        current_price=Decimal(str(data["current_price"])) if data.get("current_price") else None,
-        timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now().isoformat())),
+        current_price=(
+            Decimal(str(data["current_price"])) if data.get("current_price") else None
+        ),
+        timestamp=datetime.fromisoformat(
+            data.get("timestamp", datetime.now().isoformat())
+        ),
         metadata=data.get("metadata", {}),
     )
 
@@ -340,8 +344,12 @@ def portfolio_from_dict(data: Dict[str, Any]) -> Portfolio:
         positions=positions,
         cash=Decimal(str(data.get("cash", "0"))),
         currency=data.get("currency", "USD"),
-        created_at=datetime.fromisoformat(data.get("created_at", datetime.now().isoformat())),
-        updated_at=datetime.fromisoformat(data.get("updated_at", datetime.now().isoformat())),
+        created_at=datetime.fromisoformat(
+            data.get("created_at", datetime.now().isoformat())
+        ),
+        updated_at=datetime.fromisoformat(
+            data.get("updated_at", datetime.now().isoformat())
+        ),
         metadata=data.get("metadata", {}),
     )
 
@@ -443,7 +451,9 @@ class ModelConverter:
                 elif isinstance(value, Decimal):
                     result[field_name] = str(value)
                 elif isinstance(value, list):
-                    result[field_name] = [ModelConverter.to_dict(item) for item in value]
+                    result[field_name] = [
+                        ModelConverter.to_dict(item) for item in value
+                    ]
                 elif hasattr(value, "__dataclass_fields__"):
                     result[field_name] = ModelConverter.to_dict(value)
                 else:

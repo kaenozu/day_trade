@@ -235,7 +235,9 @@ class IntegratedSecurityDashboard:
             },
             "executive_summary": {
                 "overall_security_score": overall_security_score,
-                "total_vulnerabilities": vulnerability_data.get("total_vulnerabilities", 0),
+                "total_vulnerabilities": vulnerability_data.get(
+                    "total_vulnerabilities", 0
+                ),
                 "critical_vulnerabilities": vulnerability_data.get("critical_count", 0),
                 "security_incidents": threat_analysis.get("incident_count", 0),
                 "compliance_score": compliance_status.get("average_score", 0),
@@ -267,14 +269,18 @@ class IntegratedSecurityDashboard:
 
                 return {
                     "total_vulnerabilities": dashboard_data.get("total_active", 0),
-                    "critical_count": dashboard_data.get("vulnerability_summary", {}).get(
-                        "critical", 0
+                    "critical_count": dashboard_data.get(
+                        "vulnerability_summary", {}
+                    ).get("critical", 0),
+                    "high_count": dashboard_data.get("vulnerability_summary", {}).get(
+                        "high", 0
                     ),
-                    "high_count": dashboard_data.get("vulnerability_summary", {}).get("high", 0),
                     "medium_count": dashboard_data.get("vulnerability_summary", {}).get(
                         "medium", 0
                     ),
-                    "low_count": dashboard_data.get("vulnerability_summary", {}).get("low", 0),
+                    "low_count": dashboard_data.get("vulnerability_summary", {}).get(
+                        "low", 0
+                    ),
                     "latest_scan": dashboard_data.get("latest_scans", {}),
                     "component": "dependency_vulnerability_manager",
                 }
@@ -292,9 +298,15 @@ class IntegratedSecurityDashboard:
 
                 return {
                     "total_violations": summary.get("total_open_violations", 0),
-                    "critical_violations": summary.get("severity_summary", {}).get("critical", 0),
-                    "high_violations": summary.get("severity_summary", {}).get("high", 0),
-                    "medium_violations": summary.get("severity_summary", {}).get("medium", 0),
+                    "critical_violations": summary.get("severity_summary", {}).get(
+                        "critical", 0
+                    ),
+                    "high_violations": summary.get("severity_summary", {}).get(
+                        "high", 0
+                    ),
+                    "medium_violations": summary.get("severity_summary", {}).get(
+                        "medium", 0
+                    ),
                     "category_breakdown": summary.get("category_summary", {}),
                     "latest_scan": summary.get("scan_info", {}).get("latest_scan"),
                     "component": "secure_coding_enforcer",
@@ -313,9 +325,15 @@ class IntegratedSecurityDashboard:
 
                 return {
                     "total_secrets": metrics.get("secrets_summary", {}).get("total", 0),
-                    "expired_secrets": metrics.get("secrets_summary", {}).get("expired", 0),
-                    "successful_accesses": metrics.get("access_summary", {}).get("successful", 0),
-                    "failed_accesses": metrics.get("access_summary", {}).get("failed", 0),
+                    "expired_secrets": metrics.get("secrets_summary", {}).get(
+                        "expired", 0
+                    ),
+                    "successful_accesses": metrics.get("access_summary", {}).get(
+                        "successful", 0
+                    ),
+                    "failed_accesses": metrics.get("access_summary", {}).get(
+                        "failed", 0
+                    ),
                     "encryption_algorithm": metrics.get("security_features", {}).get(
                         "encryption_algorithm"
                     ),
@@ -338,11 +356,15 @@ class IntegratedSecurityDashboard:
 
                 return {
                     "total_findings": summary.get("total_open_findings", 0),
-                    "critical_findings": summary.get("risk_summary", {}).get("critical", 0),
+                    "critical_findings": summary.get("risk_summary", {}).get(
+                        "critical", 0
+                    ),
                     "high_findings": summary.get("risk_summary", {}).get("high", 0),
                     "finding_types": summary.get("finding_types", {}),
                     "latest_audit": summary.get("audit_info", {}).get("latest_audit"),
-                    "users_audited": summary.get("audit_info", {}).get("total_users_audited", 0),
+                    "users_audited": summary.get("audit_info", {}).get(
+                        "total_users_audited", 0
+                    ),
                     "component": "access_control_auditor",
                 }
             else:
@@ -362,7 +384,9 @@ class IntegratedSecurityDashboard:
                     "critical_findings": dashboard_data.get("severity_summary", {}).get(
                         "critical", 0
                     ),
-                    "high_findings": dashboard_data.get("severity_summary", {}).get("high", 0),
+                    "high_findings": dashboard_data.get("severity_summary", {}).get(
+                        "high", 0
+                    ),
                     "test_type_summary": dashboard_data.get("test_type_summary", {}),
                     "latest_campaign": dashboard_data.get("campaign_info", {}).get(
                         "latest_campaign"
@@ -429,7 +453,9 @@ class IntegratedSecurityDashboard:
         # アクセス制御問題
         critical_access = access_data.get("critical_findings", 0)
         if critical_access > 0:
-            threat_indicators.append(f"{critical_access} 個のクリティカルアクセス制御問題")
+            threat_indicators.append(
+                f"{critical_access} 個のクリティカルアクセス制御問題"
+            )
             incident_count += critical_access
 
         # セキュリティテストでの発見
@@ -495,7 +521,9 @@ class IntegratedSecurityDashboard:
             ),
         }
 
-    def _generate_security_recommendations(self, *component_data) -> List[Dict[str, Any]]:
+    def _generate_security_recommendations(
+        self, *component_data
+    ) -> List[Dict[str, Any]]:
         """セキュリティ推奨事項を生成"""
         recommendations = []
 
@@ -559,7 +587,9 @@ class IntegratedSecurityDashboard:
 
         # 優先度順に並び替え
         priority_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-        recommendations.sort(key=lambda x: priority_order.get(x.get("priority", "LOW"), 3))
+        recommendations.sort(
+            key=lambda x: priority_order.get(x.get("priority", "LOW"), 3)
+        )
 
         return recommendations[:10]  # 上位10件の推奨事項
 
@@ -828,14 +858,22 @@ class IntegratedSecurityDashboard:
         dashboard_data = {
             "timestamp": datetime.utcnow().isoformat(),
             "overall_status": (
-                "HEALTHY" if latest_snapshot and latest_snapshot[2] > 80 else "ATTENTION_REQUIRED"
+                "HEALTHY"
+                if latest_snapshot and latest_snapshot[2] > 80
+                else "ATTENTION_REQUIRED"
             ),
             "active_alerts": active_alerts_count,
             "latest_snapshot": (
                 {
-                    "overall_security_score": latest_snapshot[2] if latest_snapshot else 0,
-                    "total_vulnerabilities": latest_snapshot[3] if latest_snapshot else 0,
-                    "critical_vulnerabilities": latest_snapshot[4] if latest_snapshot else 0,
+                    "overall_security_score": (
+                        latest_snapshot[2] if latest_snapshot else 0
+                    ),
+                    "total_vulnerabilities": (
+                        latest_snapshot[3] if latest_snapshot else 0
+                    ),
+                    "critical_vulnerabilities": (
+                        latest_snapshot[4] if latest_snapshot else 0
+                    ),
                     "compliance_score": latest_snapshot[6] if latest_snapshot else 0,
                 }
                 if latest_snapshot

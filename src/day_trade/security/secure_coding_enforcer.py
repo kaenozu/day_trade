@@ -114,7 +114,9 @@ class SecureCodingRules:
                 severity=ViolationSeverity.HIGH,
                 pattern=r'password\s*=\s*["\'][^"\']{6,}["\']|passwd\s*=\s*["\'][^"\']{6,}["\']',
                 remediation="環境変数または秘密管理システムを使用",
-                owasp_references=["A07:2021 – Identification and Authentication Failures"],
+                owasp_references=[
+                    "A07:2021 – Identification and Authentication Failures"
+                ],
                 cwe_ids=[259, 798],
             ),
             SecurityRule(
@@ -137,7 +139,9 @@ class SecureCodingRules:
                 severity=ViolationSeverity.MEDIUM,
                 pattern=r"(log|print|logger)\s*.*\b(password|passwd|secret|token|key|ssn|credit_card)\b",
                 remediation="機密データをログに出力せず、マスキングを実装",
-                owasp_references=["A09:2021 – Security Logging and Monitoring Failures"],
+                owasp_references=[
+                    "A09:2021 – Security Logging and Monitoring Failures"
+                ],
                 cwe_ids=[532, 200],
             ),
             SecurityRule(
@@ -172,7 +176,9 @@ class SecureCodingRules:
                 severity=ViolationSeverity.LOW,
                 pattern=r"except.*:\s*\n\s*(print|return|raise).*traceback|except.*as.*:\s*\n\s*return.*str\(.*\)",
                 remediation="一般的なエラーメッセージを使用し、詳細はログのみに出力",
-                owasp_references=["A09:2021 – Security Logging and Monitoring Failures"],
+                owasp_references=[
+                    "A09:2021 – Security Logging and Monitoring Failures"
+                ],
                 cwe_ids=[209, 497],
             ),
             # 6. アクセス制御
@@ -196,7 +202,9 @@ class SecureCodingRules:
                 severity=ViolationSeverity.MEDIUM,
                 pattern=r"def\s+(login|logout|delete|admin|create_user|change_password)\s*\([^)]*\):\s*(?!.*log)",
                 remediation="重要な操作には監査ログを実装",
-                owasp_references=["A09:2021 – Security Logging and Monitoring Failures"],
+                owasp_references=[
+                    "A09:2021 – Security Logging and Monitoring Failures"
+                ],
                 cwe_ids=[778],
             ),
         ]
@@ -253,8 +261,14 @@ class PythonASTAnalyzer(ast.NodeVisitor):
         for target in node.targets:
             if isinstance(target, ast.Name):
                 var_name = target.id.lower()
-                if "password" in var_name or "passwd" in var_name or "secret" in var_name:
-                    if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                if (
+                    "password" in var_name
+                    or "passwd" in var_name
+                    or "secret" in var_name
+                ):
+                    if isinstance(node.value, ast.Constant) and isinstance(
+                        node.value.value, str
+                    ):
                         if len(node.value.value) > 5:  # 5文字以上の文字列
                             self._add_violation(
                                 rule_id="hardcoded_password_check",
@@ -279,7 +293,8 @@ class PythonASTAnalyzer(ast.NodeVisitor):
                 if (
                     isinstance(child, ast.Call)
                     and isinstance(child.func, ast.Attribute)
-                    and child.func.attr in ["info", "warning", "error", "debug", "critical"]
+                    and child.func.attr
+                    in ["info", "warning", "error", "debug", "critical"]
                 ):
                     has_logging = True
                     break
@@ -425,7 +440,9 @@ class SecureCodingEnforcer:
 
             conn.commit()
 
-    def scan_directory(self, directory_path: str, extensions: List[str] = None) -> Dict[str, Any]:
+    def scan_directory(
+        self, directory_path: str, extensions: List[str] = None
+    ) -> Dict[str, Any]:
         """ディレクトリ全体のセキュリティスキャン"""
         if extensions is None:
             extensions = [".py"]
@@ -459,7 +476,9 @@ class SecureCodingEnforcer:
                             content = f.read()
 
                         # 正規表現チェック
-                        regex_violations = self.regex_checker.check_file(str(file_path), content)
+                        regex_violations = self.regex_checker.check_file(
+                            str(file_path), content
+                        )
 
                         # ASTチェック（Pythonファイルのみ）
                         if ext == ".py":

@@ -154,8 +154,12 @@ class SecurityManager:
         if self.vulnerability_manager:
             try:
                 logger.info("脆弱性スキャン実行中...")
-                scan_results = await self.vulnerability_manager.run_comprehensive_scan(".")
-                vulnerability_report = await self.vulnerability_manager.generate_security_report()
+                scan_results = await self.vulnerability_manager.run_comprehensive_scan(
+                    "."
+                )
+                vulnerability_report = (
+                    await self.vulnerability_manager.generate_security_report()
+                )
                 assessment_results["vulnerability_scan"] = vulnerability_report
             except Exception as e:
                 logger.error(f"脆弱性スキャンエラー: {e}")
@@ -196,7 +200,9 @@ class SecurityManager:
         if self.data_protection_manager:
             try:
                 logger.info("データ保護状態確認中...")
-                data_protection_report = self.data_protection_manager.get_security_report()
+                data_protection_report = (
+                    self.data_protection_manager.get_security_report()
+                )
                 assessment_results["data_protection_status"] = data_protection_report
             except Exception as e:
                 logger.error(f"データ保護状態確認エラー: {e}")
@@ -208,13 +214,13 @@ class SecurityManager:
         assessment_results["duration_seconds"] = (end_time - start_time).total_seconds()
 
         # 総合セキュリティスコア計算
-        assessment_results["overall_security_score"] = self._calculate_overall_security_score(
-            assessment_results
+        assessment_results["overall_security_score"] = (
+            self._calculate_overall_security_score(assessment_results)
         )
 
         # 推奨事項生成
-        assessment_results["recommendations"] = self._generate_comprehensive_recommendations(
-            assessment_results
+        assessment_results["recommendations"] = (
+            self._generate_comprehensive_recommendations(assessment_results)
         )
 
         # エグゼクティブサマリー生成
@@ -263,7 +269,9 @@ class SecurityManager:
                 status["vulnerability_manager"]["vulnerabilities_count"] = summary[
                     "total_vulnerabilities"
                 ]
-                status["vulnerability_manager"]["critical_open"] = summary["critical_open"]
+                status["vulnerability_manager"]["critical_open"] = summary[
+                    "critical_open"
+                ]
             except Exception:
                 pass
 
@@ -273,7 +281,11 @@ class SecurityManager:
                     self.access_control_manager.users
                 )
                 status["access_control_manager"]["active_sessions"] = len(
-                    [s for s in self.access_control_manager.sessions.values() if s.is_valid()]
+                    [
+                        s
+                        for s in self.access_control_manager.sessions.values()
+                        if s.is_valid()
+                    ]
                 )
             except Exception:
                 pass
@@ -371,7 +383,11 @@ class SecurityManager:
             data_data = assessment["data_protection_status"]
             if "encryption_status" in data_data:
                 encryption_status = data_data["encryption_status"]
-                data_score = 100 if encryption_status.get("crypto_library_available", False) else 50
+                data_score = (
+                    100
+                    if encryption_status.get("crypto_library_available", False)
+                    else 50
+                )
 
                 scores.append(data_score)
                 weights.append(10)
@@ -384,7 +400,9 @@ class SecurityManager:
 
         return 0.0
 
-    def _generate_comprehensive_recommendations(self, assessment: Dict[str, Any]) -> List[str]:
+    def _generate_comprehensive_recommendations(
+        self, assessment: Dict[str, Any]
+    ) -> List[str]:
         """包括的推奨事項生成"""
         recommendations = []
 
@@ -395,27 +413,41 @@ class SecurityManager:
                 "🚨 セキュリティ状況が危険です。直ちに包括的なセキュリティ改善が必要です。"
             )
         elif overall_score < 70:
-            recommendations.append("⚠️ セキュリティ改善が必要です。優先的に対応してください。")
+            recommendations.append(
+                "⚠️ セキュリティ改善が必要です。優先的に対応してください。"
+            )
         elif overall_score < 90:
-            recommendations.append("🟡 セキュリティは概ね良好ですが、いくつかの改善点があります。")
+            recommendations.append(
+                "🟡 セキュリティは概ね良好ですが、いくつかの改善点があります。"
+            )
         else:
-            recommendations.append("✅ 優秀なセキュリティ実装です。現在の状態を維持してください。")
+            recommendations.append(
+                "✅ 優秀なセキュリティ実装です。現在の状態を維持してください。"
+            )
 
         # 各コンポーネントからの推奨事項統合
         if assessment.get("vulnerability_scan", {}).get("recommendations"):
             recommendations.extend(assessment["vulnerability_scan"]["recommendations"])
 
         if assessment.get("security_test_results", {}).get("recommendations"):
-            recommendations.extend(assessment["security_test_results"]["recommendations"])
+            recommendations.extend(
+                assessment["security_test_results"]["recommendations"]
+            )
 
         if assessment.get("configuration_analysis", {}).get("recommendations"):
-            recommendations.extend(assessment["configuration_analysis"]["recommendations"])
+            recommendations.extend(
+                assessment["configuration_analysis"]["recommendations"]
+            )
 
         if assessment.get("access_control_audit", {}).get("recommendations"):
-            recommendations.extend(assessment["access_control_audit"]["recommendations"])
+            recommendations.extend(
+                assessment["access_control_audit"]["recommendations"]
+            )
 
         if assessment.get("data_protection_status", {}).get("recommendations"):
-            recommendations.extend(assessment["data_protection_status"]["recommendations"])
+            recommendations.extend(
+                assessment["data_protection_status"]["recommendations"]
+            )
 
         # 重複除去
         unique_recommendations = list(dict.fromkeys(recommendations))
@@ -442,7 +474,9 @@ class SecurityManager:
         active_components = sum(1 for comp in components.values() if comp["available"])
         total_components = len(components)
 
-        summary += f"アクティブコンポーネント: {active_components}/{total_components}\n\n"
+        summary += (
+            f"アクティブコンポーネント: {active_components}/{total_components}\n\n"
+        )
 
         # 主要結果サマリー
         if assessment.get("vulnerability_scan"):
@@ -468,18 +502,20 @@ class SecurityManager:
         # 総合評価
         if overall_score >= 90:
             summary += "🟢 優秀 - セキュリティ実装は業界最高水準です。\n"
-            summary += "現在の高いセキュリティ水準を維持し、定期的な評価を継続してください。"
+            summary += (
+                "現在の高いセキュリティ水準を維持し、定期的な評価を継続してください。"
+            )
         elif overall_score >= 70:
             summary += "🟡 良好 - セキュリティは適切ですが改善の余地があります。\n"
             summary += "検出された問題を順次解決し、より高いセキュリティレベルを目指してください。"
         elif overall_score >= 50:
             summary += "🟠 要改善 - 重要なセキュリティ問題があります。\n"
-            summary += "高リスクの問題を優先的に解決し、包括的なセキュリティ強化が必要です。"
+            summary += (
+                "高リスクの問題を優先的に解決し、包括的なセキュリティ強化が必要です。"
+            )
         else:
             summary += "🔴 危険 - 深刻なセキュリティ脆弱性が存在します。\n"
-            summary += (
-                "直ちに緊急対応を実施し、システム全体のセキュリティを根本的に見直してください。"
-            )
+            summary += "直ちに緊急対応を実施し、システム全体のセキュリティを根本的に見直してください。"
 
         return summary
 
@@ -561,7 +597,9 @@ class SecurityManager:
             try:
                 data_report = self.data_protection_manager.get_security_report()
                 dashboard["metrics"]["data_protection"] = {
-                    "key_count": data_report.get("key_management", {}).get("total_keys", 0),
+                    "key_count": data_report.get("key_management", {}).get(
+                        "total_keys", 0
+                    ),
                     "rotation_needed": data_report.get("key_management", {}).get(
                         "rotation_needed", 0
                     ),
@@ -586,7 +624,9 @@ class SecurityManager:
         logger.info("SecurityManager クリーンアップ開始")
 
         # 各コンポーネントのクリーンアップ
-        if self.vulnerability_manager and hasattr(self.vulnerability_manager, "cleanup"):
+        if self.vulnerability_manager and hasattr(
+            self.vulnerability_manager, "cleanup"
+        ):
             await self.vulnerability_manager.cleanup()
 
         if self.config_manager:
@@ -648,7 +688,9 @@ if __name__ == "__main__":
             print("\n=== セキュリティ評価結果 ===")
             print(f"評価ID: {assessment['assessment_id']}")
             print(f"実行時間: {assessment['duration_seconds']:.2f}秒")
-            print(f"総合セキュリティスコア: {assessment['overall_security_score']:.1f}/100")
+            print(
+                f"総合セキュリティスコア: {assessment['overall_security_score']:.1f}/100"
+            )
 
             print("\nコンポーネント実行状況:")
             for component, status in assessment["components_status"].items():
@@ -679,6 +721,8 @@ if __name__ == "__main__":
         print("✅ セキュリティ設定管理 (security_config.py)")
         print("✅ セキュリティテストフレームワーク (security_test_framework.py)")
         print("✅ 統合セキュリティ管理システム (security_manager.py)")
-        print("✅ CI/CD セキュリティスキャンワークフロー (.github/workflows/security-scan.yml)")
+        print(
+            "✅ CI/CD セキュリティスキャンワークフロー (.github/workflows/security-scan.yml)"
+        )
 
     asyncio.run(main())

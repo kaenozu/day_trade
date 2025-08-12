@@ -122,13 +122,17 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             raise
 
     # 基本指標計算メソッド（共通）
-    def calculate_sma(self, data: pd.DataFrame, period: int = 20) -> Dict[str, np.ndarray]:
+    def calculate_sma(
+        self, data: pd.DataFrame, period: int = 20
+    ) -> Dict[str, np.ndarray]:
         """単純移動平均"""
         close = data["終値"] if "終値" in data.columns else data["Close"]
         sma = close.rolling(window=period).mean()
         return {"sma": sma.values, "period": period}
 
-    def calculate_ema(self, data: pd.DataFrame, period: int = 20) -> Dict[str, np.ndarray]:
+    def calculate_ema(
+        self, data: pd.DataFrame, period: int = 20
+    ) -> Dict[str, np.ndarray]:
         """指数移動平均"""
         close = data["終値"] if "終値" in data.columns else data["Close"]
         ema = close.ewm(span=period).mean()
@@ -153,7 +157,9 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             "std_dev": std_dev,
         }
 
-    def calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, np.ndarray]:
+    def calculate_rsi(
+        self, data: pd.DataFrame, period: int = 14
+    ) -> Dict[str, np.ndarray]:
         """RSI計算"""
         close = data["終値"] if "終値" in data.columns else data["Close"]
         delta = close.diff()
@@ -219,7 +225,8 @@ class StandardTechnicalIndicators(TechnicalIndicatorsBase):
 
         # 基準線 (Base Line)
         base_line = (
-            high.rolling(window=base_period).max() + low.rolling(window=base_period).min()
+            high.rolling(window=base_period).max()
+            + low.rolling(window=base_period).min()
         ) / 2
 
         # 先行スパン1 (Leading Span A)
@@ -375,7 +382,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 # 高速計算
                 conv_max, conv_min = rolling_max_min(high.values, conversion_period)
                 base_max, base_min = rolling_max_min(high.values, base_period)
-                span_b_max, span_b_min = rolling_max_min(high.values, leading_span_b_period)
+                span_b_max, span_b_min = rolling_max_min(
+                    high.values, leading_span_b_period
+                )
 
                 conversion_line = (conv_max + conv_min) / 2
                 base_line = (base_max + base_min) / 2
@@ -387,7 +396,8 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                     + low.rolling(window=conversion_period).min()
                 ) / 2
                 base_line = (
-                    high.rolling(window=base_period).max() + low.rolling(window=base_period).min()
+                    high.rolling(window=base_period).max()
+                    + low.rolling(window=base_period).min()
                 ) / 2
 
             # 先行スパン計算
@@ -417,18 +427,30 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 if isinstance(conversion_line, np.ndarray)
                 else conversion_line.values
             ),
-            "base_line": base_line if isinstance(base_line, np.ndarray) else base_line.values,
+            "base_line": (
+                base_line if isinstance(base_line, np.ndarray) else base_line.values
+            ),
             "leading_span_a": (
-                leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values
+                leading_span_a
+                if isinstance(leading_span_a, np.ndarray)
+                else leading_span_a.values
             ),
             "leading_span_b": leading_span_b.values,
             "lagging_span": lagging_span.values,
             "cloud_top": np.maximum(
-                leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
             "cloud_bottom": np.minimum(
-                leading_span_a if isinstance(leading_span_a, np.ndarray) else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
         }
@@ -449,7 +471,11 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 # 価格データの特徴抽出
                 features = {
                     "price_data": close.tail(period).values,
-                    "volatility": close.pct_change().rolling(20).std().tail(period).values,
+                    "volatility": close.pct_change()
+                    .rolling(20)
+                    .std()
+                    .tail(period)
+                    .values,
                     "volume": data.get("出来高", data.get("Volume", pd.Series()))
                     .tail(period)
                     .values,
@@ -488,7 +514,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                 logger.warning(f"ML強化フィボナッチ分析失敗: {e}, 標準計算使用")
                 return super().calculate_fibonacci_retracement(data, period)
 
-    async def _detect_key_levels_async(self, features: Dict[str, np.ndarray]) -> List[float]:
+    async def _detect_key_levels_async(
+        self, features: Dict[str, np.ndarray]
+    ) -> List[float]:
         """ML非同期重要レベル検出"""
         try:
             # 簡単化された重要レベル検出アルゴリズム
@@ -513,7 +541,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
                     troughs.append(price_data[i])
 
             # 上位5つの重要レベルを返す
-            key_levels = sorted(peaks + troughs, key=lambda x: abs(x - price_data[-1]))[:5]
+            key_levels = sorted(peaks + troughs, key=lambda x: abs(x - price_data[-1]))[
+                :5
+            ]
             return key_levels
 
         except Exception as e:
@@ -532,7 +562,9 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             # MLで検出されたレベルとの近接性
             ml_proximity = 0.0
             if ml_levels:
-                min_distance = min(abs(level_price - ml_level) for ml_level in ml_levels)
+                min_distance = min(
+                    abs(level_price - ml_level) for ml_level in ml_levels
+                )
                 max_price_range = price_history.max() - price_history.min()
                 ml_proximity = max(0, 1.0 - (min_distance / max_price_range))
 
@@ -555,7 +587,9 @@ class TechnicalIndicatorsManager:
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
         if self._strategy is None:
-            self._strategy = get_optimized_implementation("technical_indicators", self.config)
+            self._strategy = get_optimized_implementation(
+                "technical_indicators", self.config
+            )
         return self._strategy
 
     def calculate_indicators(

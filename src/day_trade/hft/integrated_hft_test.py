@@ -388,7 +388,9 @@ class IntegratedHFTTestSuite:
                         sequence_number=i,
                     )
 
-                    ai_recommendation = await ai_predictor.predict_market(symbol, mock_market_data)
+                    ai_recommendation = await ai_predictor.predict_market(
+                        symbol, mock_market_data
+                    )
 
                 # オーダー作成
                 order = NextGenExecutionOrder(
@@ -396,7 +398,10 @@ class IntegratedHFTTestSuite:
                     symbol=symbol,
                     side=(
                         "BUY"
-                        if (not ai_recommendation or ai_recommendation.recommended_action == "BUY")
+                        if (
+                            not ai_recommendation
+                            or ai_recommendation.recommended_action == "BUY"
+                        )
                         else (
                             "SELL"
                             if ai_recommendation.recommended_action == "SELL"
@@ -426,7 +431,10 @@ class IntegratedHFTTestSuite:
                     await asyncio.sleep(order_interval)
 
                 # 早期終了チェック
-                if time.time() * 1_000_000 - start_time > scenario.duration_seconds * 1_000_000:
+                if (
+                    time.time() * 1_000_000 - start_time
+                    > scenario.duration_seconds * 1_000_000
+                ):
                     break
 
             # 結果更新
@@ -462,15 +470,23 @@ class IntegratedHFTTestSuite:
                     market_data = HFTMarketData(
                         symbol=symbol,
                         timestamp_us=int(time.time() * 1_000_000),
-                        bid_price=150.0 + np.random.normal(0, 2.0) + np.sin(sequence * 0.1) * 0.5,
-                        ask_price=150.1 + np.random.normal(0, 2.0) + np.sin(sequence * 0.1) * 0.5,
+                        bid_price=150.0
+                        + np.random.normal(0, 2.0)
+                        + np.sin(sequence * 0.1) * 0.5,
+                        ask_price=150.1
+                        + np.random.normal(0, 2.0)
+                        + np.sin(sequence * 0.1) * 0.5,
                         bid_size=100 + np.random.randint(0, 200),
                         ask_size=100 + np.random.randint(0, 200),
-                        last_price=150.05 + np.random.normal(0, 1.5) + np.sin(sequence * 0.1) * 0.5,
+                        last_price=150.05
+                        + np.random.normal(0, 1.5)
+                        + np.sin(sequence * 0.1) * 0.5,
                         volume=1000 + np.random.randint(0, 2000),
                         sequence_number=sequence,
                         market_regime=(
-                            MarketRegime.NORMAL if sequence % 100 < 80 else MarketRegime.VOLATILE
+                            MarketRegime.NORMAL
+                            if sequence % 100 < 80
+                            else MarketRegime.VOLATILE
                         ),
                     )
 
@@ -511,7 +527,9 @@ class IntegratedHFTTestSuite:
 
                 if "accuracy" in ai_summary:
                     acc = ai_summary["accuracy"]
-                    result.ai_prediction_accuracy = acc.get("accuracy_rate_percent", 0.0)
+                    result.ai_prediction_accuracy = acc.get(
+                        "accuracy_rate_percent", 0.0
+                    )
 
             logger.debug(f"パフォーマンス統計収集完了: {result.test_name}")
 
@@ -545,7 +563,9 @@ class IntegratedHFTTestSuite:
         if result.error_messages:
             logger.warning(f"  エラー数: {len(result.error_messages)}")
 
-    async def _generate_comprehensive_report(self, total_test_time: float) -> Dict[str, Any]:
+    async def _generate_comprehensive_report(
+        self, total_test_time: float
+    ) -> Dict[str, Any]:
         """総合レポート生成"""
         passed_tests = sum(1 for r in self.test_results if r.success)
         total_tests = len(self.test_results)
@@ -592,7 +612,9 @@ class IntegratedHFTTestSuite:
                 "overall_success_rate_percent": round(
                     total_successful / max(total_orders, 1) * 100, 1
                 ),
-                "average_throughput_ops_per_sec": round(total_orders / max(total_test_time, 1), 0),
+                "average_throughput_ops_per_sec": round(
+                    total_orders / max(total_test_time, 1), 0
+                ),
             },
             "latency_analysis": latency_stats,
             "optimization_effects": optimization_analysis,
@@ -620,20 +642,31 @@ class IntegratedHFTTestSuite:
     def _analyze_optimization_effects(self) -> Dict[str, Any]:
         """最適化効果分析"""
         # バッチ最適化の効果
-        batch_enabled_tests = [r for r in self.test_results if "batch" in r.test_name and r.success]
+        batch_enabled_tests = [
+            r for r in self.test_results if "batch" in r.test_name and r.success
+        ]
         no_batch_tests = [
-            r for r in self.test_results if "ultra_low_latency" in r.test_name and r.success
+            r
+            for r in self.test_results
+            if "ultra_low_latency" in r.test_name and r.success
         ]
 
         batch_effect = {}
         if batch_enabled_tests and no_batch_tests:
-            batch_avg_latency = statistics.mean([r.avg_latency_us for r in batch_enabled_tests])
-            no_batch_avg_latency = statistics.mean([r.avg_latency_us for r in no_batch_tests])
+            batch_avg_latency = statistics.mean(
+                [r.avg_latency_us for r in batch_enabled_tests]
+            )
+            no_batch_avg_latency = statistics.mean(
+                [r.avg_latency_us for r in no_batch_tests]
+            )
 
             latency_impact = 0.0
             if no_batch_avg_latency > 0:
                 latency_impact = round(
-                    (batch_avg_latency - no_batch_avg_latency) / no_batch_avg_latency * 100, 1
+                    (batch_avg_latency - no_batch_avg_latency)
+                    / no_batch_avg_latency
+                    * 100,
+                    1,
                 )
 
             batch_effect = {
@@ -645,26 +678,36 @@ class IntegratedHFTTestSuite:
                 },
                 "no_batch_optimization": {
                     "avg_latency_us": no_batch_avg_latency,
-                    "avg_throughput": statistics.mean([r.throughput_ops for r in no_batch_tests]),
+                    "avg_throughput": statistics.mean(
+                        [r.throughput_ops for r in no_batch_tests]
+                    ),
                 },
                 "latency_impact_percent": latency_impact,
             }
 
         # AI統合の効果
-        ai_enabled_tests = [r for r in self.test_results if "ai" in r.test_name and r.success]
+        ai_enabled_tests = [
+            r for r in self.test_results if "ai" in r.test_name and r.success
+        ]
         ai_effect = {}
         if ai_enabled_tests:
             ai_accuracies = [
-                r.ai_prediction_accuracy for r in ai_enabled_tests if r.ai_prediction_accuracy > 0
+                r.ai_prediction_accuracy
+                for r in ai_enabled_tests
+                if r.ai_prediction_accuracy > 0
             ]
-            ai_accuracy_avg = round(statistics.mean(ai_accuracies), 1) if ai_accuracies else 0.0
+            ai_accuracy_avg = (
+                round(statistics.mean(ai_accuracies), 1) if ai_accuracies else 0.0
+            )
             ai_effect = {
                 "ai_prediction_accuracy_avg": ai_accuracy_avg,
                 "ai_impact_on_latency": "minimal",  # 簡易分析
             }
 
         # キャッシュ性能
-        cache_rates = [r.cache_hit_rate for r in self.test_results if r.cache_hit_rate > 0]
+        cache_rates = [
+            r.cache_hit_rate for r in self.test_results if r.cache_hit_rate > 0
+        ]
         cache_avg = round(statistics.mean(cache_rates), 1) if cache_rates else 0.0
 
         return {
@@ -689,7 +732,9 @@ class IntegratedHFTTestSuite:
         print("\nパフォーマンス概要:")
         print(f"  総処理オーダー: {perf['total_orders_processed']:,}")
         print(f"  全体成功率: {perf['overall_success_rate_percent']}%")
-        print(f"  平均スループット: {perf['average_throughput_ops_per_sec']:,.0f} orders/sec")
+        print(
+            f"  平均スループット: {perf['average_throughput_ops_per_sec']:,.0f} orders/sec"
+        )
 
         if "latency_analysis" in report and report["latency_analysis"]:
             lat = report["latency_analysis"]

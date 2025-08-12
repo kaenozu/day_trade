@@ -39,7 +39,9 @@ class PickleSerializer(ICacheSerializer):
         try:
             return pickle.loads(data)
         except Exception as e:
-            raise CacheError("Failed to pickle deserialize data", operation="deserialize", cause=e)
+            raise CacheError(
+                "Failed to pickle deserialize data", operation="deserialize", cause=e
+            )
 
     def get_content_type(self) -> str:
         """コンテンツタイプ取得"""
@@ -77,7 +79,9 @@ class JsonSerializer(ICacheSerializer):
             json_str = data.decode("utf-8")
             return json.loads(json_str, object_hook=self._json_deserializer)
         except Exception as e:
-            raise CacheError("Failed to JSON deserialize data", operation="deserialize", cause=e)
+            raise CacheError(
+                "Failed to JSON deserialize data", operation="deserialize", cause=e
+            )
 
     def get_content_type(self) -> str:
         """コンテンツタイプ取得"""
@@ -150,7 +154,9 @@ class MsgPackSerializer(ICacheSerializer):
     def serialize(self, obj: Any) -> bytes:
         """オブジェクトをMessagePackバイト列にシリアライズ"""
         try:
-            return self.msgpack.packb(obj, default=self._msgpack_serializer, use_bin_type=True)
+            return self.msgpack.packb(
+                obj, default=self._msgpack_serializer, use_bin_type=True
+            )
         except Exception as e:
             raise CacheError(
                 f"Failed to msgpack serialize object: {type(obj)}",
@@ -161,9 +167,13 @@ class MsgPackSerializer(ICacheSerializer):
     def deserialize(self, data: bytes) -> Any:
         """MessagePackバイト列からオブジェクトにデシリアライズ"""
         try:
-            return self.msgpack.unpackb(data, object_hook=self._msgpack_deserializer, raw=False)
+            return self.msgpack.unpackb(
+                data, object_hook=self._msgpack_deserializer, raw=False
+            )
         except Exception as e:
-            raise CacheError("Failed to msgpack deserialize data", operation="deserialize", cause=e)
+            raise CacheError(
+                "Failed to msgpack deserialize data", operation="deserialize", cause=e
+            )
 
     def get_content_type(self) -> str:
         """コンテンツタイプ取得"""
@@ -214,7 +224,9 @@ class CompressionSerializer(ICacheSerializer):
                     operation="init",
                 )
         else:
-            raise CacheError(f"Unsupported compression type: {compression}", operation="init")
+            raise CacheError(
+                f"Unsupported compression type: {compression}", operation="init"
+            )
 
     def serialize(self, obj: Any) -> bytes:
         """オブジェクトを圧縮バイト列にシリアライズ"""
@@ -320,7 +332,9 @@ class EncryptionSerializer(ICacheSerializer):
             decrypted_data = self.fernet.decrypt(data)
             return self.base_serializer.deserialize(decrypted_data)
         except Exception as e:
-            raise CacheError("Failed to decrypt deserialize data", operation="deserialize", cause=e)
+            raise CacheError(
+                "Failed to decrypt deserialize data", operation="deserialize", cause=e
+            )
 
     def get_content_type(self) -> str:
         """コンテンツタイプ取得"""
@@ -355,7 +369,11 @@ class TypedSerializer(ICacheSerializer):
         try:
             typed_data = self.base_serializer.deserialize(data)
 
-            if isinstance(typed_data, dict) and "type" in typed_data and "data" in typed_data:
+            if (
+                isinstance(typed_data, dict)
+                and "type" in typed_data
+                and "data" in typed_data
+            ):
                 # 型検証（オプション）
                 expected_type = typed_data["type"]
                 actual_data = typed_data["data"]
@@ -372,7 +390,9 @@ class TypedSerializer(ICacheSerializer):
                 return typed_data
 
         except Exception as e:
-            raise CacheError("Failed to typed deserialize data", operation="deserialize", cause=e)
+            raise CacheError(
+                "Failed to typed deserialize data", operation="deserialize", cause=e
+            )
 
     def get_content_type(self) -> str:
         """コンテンツタイプ取得"""

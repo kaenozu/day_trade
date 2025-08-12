@@ -169,13 +169,17 @@ class RiskParityOptimizer:
 
             # 最適化実行
             if self.config.method == RiskParityMethod.EQUAL_RISK_CONTRIBUTION:
-                result = self._equal_risk_contribution_optimization(cov_matrix, asset_names)
+                result = self._equal_risk_contribution_optimization(
+                    cov_matrix, asset_names
+                )
             elif self.config.method == RiskParityMethod.RISK_BUDGETING:
                 result = self._risk_budgeting_optimization(cov_matrix, asset_names)
             elif self.config.method == RiskParityMethod.HIERARCHICAL_RISK_PARITY:
                 result = self._hierarchical_risk_parity(returns_data, asset_names)
             else:
-                result = self._equal_risk_contribution_optimization(cov_matrix, asset_names)
+                result = self._equal_risk_contribution_optimization(
+                    cov_matrix, asset_names
+                )
 
             # 結果検証・調整
             result = self._validate_and_adjust_result(result, cov_matrix, asset_names)
@@ -253,7 +257,9 @@ class RiskParityOptimizer:
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]  # 重み合計=1
 
         # 境界条件
-        bounds = [(self.config.min_weight, self.config.max_weight) for _ in range(n_assets)]
+        bounds = [
+            (self.config.min_weight, self.config.max_weight) for _ in range(n_assets)
+        ]
 
         # 初期値
         initial_weights = np.ones(n_assets) / n_assets
@@ -314,7 +320,10 @@ class RiskParityOptimizer:
             return np.sum((risk_contrib - target_contrib) ** 2)
 
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
-        bounds = [(self.config.min_weight, self.config.max_weight) for _ in range(len(asset_names))]
+        bounds = [
+            (self.config.min_weight, self.config.max_weight)
+            for _ in range(len(asset_names))
+        ]
 
         initial_weights = target_contrib / np.sum(target_contrib)
 
@@ -358,10 +367,14 @@ class RiskParityOptimizer:
 
             # 階層クラスタリング
             condensed_distances = squareform(distance_matrix, checks=False)
-            linkage_matrix = linkage(condensed_distances, method=self.config.clustering_method)
+            linkage_matrix = linkage(
+                condensed_distances, method=self.config.clustering_method
+            )
 
             # クラスタ配分
-            clusters = fcluster(linkage_matrix, self.config.n_clusters, criterion="maxclust")
+            clusters = fcluster(
+                linkage_matrix, self.config.n_clusters, criterion="maxclust"
+            )
 
             # 各クラスタ内で等リスク寄与度配分
             cov_matrix = self._estimate_covariance_matrix(returns_data)
@@ -427,7 +440,9 @@ class RiskParityOptimizer:
         else:
             risk_contrib = np.zeros_like(weights)
 
-        risk_contributions = {name: contrib for name, contrib in zip(asset_names, risk_contrib)}
+        risk_contributions = {
+            name: contrib for name, contrib in zip(asset_names, risk_contrib)
+        }
 
         # デフォルトリスクバジェット
         n_assets = len(asset_names)
@@ -436,7 +451,9 @@ class RiskParityOptimizer:
         # 分散化比率
         individual_vols = np.sqrt(np.diag(cov_matrix))
         weighted_avg_vol = np.sum(weights * individual_vols)
-        diversification_ratio = weighted_avg_vol / portfolio_vol if portfolio_vol > 0 else 1.0
+        diversification_ratio = (
+            weighted_avg_vol / portfolio_vol if portfolio_vol > 0 else 1.0
+        )
 
         # 集中度指標
         concentration_index = np.sum(weights**2)  # ハーフィンダール指数
@@ -476,11 +493,15 @@ class RiskParityOptimizer:
             weights_array /= np.sum(weights_array)
 
         # 最小・最大重み制約
-        weights_array = np.clip(weights_array, self.config.min_weight, self.config.max_weight)
+        weights_array = np.clip(
+            weights_array, self.config.min_weight, self.config.max_weight
+        )
         weights_array /= np.sum(weights_array)  # 再正規化
 
         # 結果更新
-        result.weights = {name: weight for name, weight in zip(asset_names, weights_array)}
+        result.weights = {
+            name: weight for name, weight in zip(asset_names, weights_array)
+        }
 
         # リスク寄与度再計算
         portfolio_vol = np.sqrt(weights_array.T @ cov_matrix @ weights_array)
@@ -555,13 +576,17 @@ class RiskParityOptimizer:
 
         # リスクバジェット偏差
         for asset, actual_contrib in result.risk_contributions.items():
-            target_budget = result.risk_budgets.get(asset, 1.0 / len(result.risk_budgets))
+            target_budget = result.risk_budgets.get(
+                asset, 1.0 / len(result.risk_budgets)
+            )
             deviation = abs(actual_contrib - target_budget)
             analysis["risk_budget_deviation"][asset] = {
                 "actual": actual_contrib,
                 "target": target_budget,
                 "deviation": deviation,
-                "relative_deviation": deviation / target_budget if target_budget > 0 else 0,
+                "relative_deviation": (
+                    deviation / target_budget if target_budget > 0 else 0
+                ),
             }
 
         return analysis
@@ -583,7 +608,9 @@ class RiskParityOptimizer:
             1 for r in self.optimization_history if r.optimization_success
         )
         success_rate = (
-            successful_optimizations / total_optimizations if total_optimizations > 0 else 0
+            successful_optimizations / total_optimizations
+            if total_optimizations > 0
+            else 0
         )
 
         return {
@@ -601,7 +628,9 @@ class RiskParityOptimizer:
                 "avg_optimization_time": avg_optimization_time,
                 "method": self.config.method.value,
                 "last_optimization": (
-                    self.last_optimization.isoformat() if self.last_optimization else None
+                    self.last_optimization.isoformat()
+                    if self.last_optimization
+                    else None
                 ),
             },
             "configuration": {

@@ -44,7 +44,9 @@ def format_currency(
 
     if decimal_places is None:
         config = get_unified_config_manager()
-        decimal_places = config.get_screening_config().formatting.get("currency_precision", 0)
+        decimal_places = config.get_screening_config().formatting.get(
+            "currency_precision", 0
+        )
 
     if isinstance(amount, Decimal):
         amount = float(amount)
@@ -76,7 +78,9 @@ def format_percentage(
 
     if decimal_places is None:
         config = get_unified_config_manager()
-        decimal_places = config.get_screening_config().formatting.get("percentage_precision", 2)
+        decimal_places = config.get_screening_config().formatting.get(
+            "percentage_precision", 2
+        )
 
     if isinstance(value, Decimal):
         value = float(value)
@@ -150,7 +154,9 @@ def format_large_number(number: Union[int, float, Decimal], precision: int = 1) 
         return f"{sign}{abs_number:.{precision}f}"
 
 
-def format_datetime(dt: Union[datetime, date, str], format_type: str = "default") -> str:
+def format_datetime(
+    dt: Union[datetime, date, str], format_type: str = "default"
+) -> str:
     """
     日時フォーマット
 
@@ -324,12 +330,18 @@ def _apply_default_format(column_name: str, value: Any) -> str:
     column_lower = column_name.lower()
 
     # 価格系
-    if any(keyword in column_lower for keyword in ["price", "cost", "value", "金額", "価格"]):
+    if any(
+        keyword in column_lower
+        for keyword in ["price", "cost", "value", "金額", "価格"]
+    ):
         if isinstance(value, (int, float, Decimal)):
             return format_currency(value)
 
     # パーセンテージ系
-    elif any(keyword in column_lower for keyword in ["rate", "ratio", "percent", "率", "比率"]):
+    elif any(
+        keyword in column_lower
+        for keyword in ["rate", "ratio", "percent", "率", "比率"]
+    ):
         if isinstance(value, (int, float, Decimal)):
             return format_percentage(value)
 
@@ -340,7 +352,11 @@ def _apply_default_format(column_name: str, value: Any) -> str:
 
     # 日時系
     elif any(keyword in column_lower for keyword in ["date", "time", "日時", "時刻"]):
-        if isinstance(value, (datetime, date)) or isinstance(value, str) and "T" in value:
+        if (
+            isinstance(value, (datetime, date))
+            or isinstance(value, str)
+            and "T" in value
+        ):
             return format_datetime(value)
 
     # 数値系（大きな数値）
@@ -396,10 +412,14 @@ def create_summary_panel(
         return Panel(columns_obj, title=title, border_style=panel_style)
     else:
         content = "\n".join(metric_lines)
-        return Panel(Text(content, style="white"), title=title, border_style=panel_style)
+        return Panel(
+            Text(content, style="white"), title=title, border_style=panel_style
+        )
 
 
-def create_status_table(status_data: Dict[str, Dict[str, Any]], title: str = "ステータス") -> Table:
+def create_status_table(
+    status_data: Dict[str, Dict[str, Any]], title: str = "ステータス"
+) -> Table:
     """
     ステータステーブル作成
 
@@ -441,7 +461,9 @@ def create_status_table(status_data: Dict[str, Dict[str, Any]], title: str = "�
 # 後方互換性のためのエイリアス
 def create_stock_info_table(stock_data: dict) -> Table:
     """株価情報テーブル作成（後方互換性）"""
-    return create_unified_table([stock_data], title=f"銘柄情報: {stock_data.get('symbol', 'N/A')}")
+    return create_unified_table(
+        [stock_data], title=f"銘柄情報: {stock_data.get('symbol', 'N/A')}"
+    )
 
 
 def create_error_panel(

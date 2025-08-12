@@ -137,7 +137,9 @@ if PYTORCH_AVAILABLE:
 
         # Transformer分岐
         self.positional_encoding = PositionalEncoding(config.transformer_d_model)
-        self.input_projection = nn.Linear(config.num_features, config.transformer_d_model)
+        self.input_projection = nn.Linear(
+            config.num_features, config.transformer_d_model
+        )
 
         transformer_layer = nn.TransformerEncoderLayer(
             d_model=config.transformer_d_model,
@@ -146,7 +148,9 @@ if PYTORCH_AVAILABLE:
             dropout=config.transformer_dropout,
             batch_first=True,
         )
-        self.transformer = nn.TransformerEncoder(transformer_layer, config.transformer_num_layers)
+        self.transformer = nn.TransformerEncoder(
+            transformer_layer, config.transformer_num_layers
+        )
 
         # Feature Fusion Layer
         lstm_output_size = config.lstm_hidden_size * 2  # 双方向
@@ -215,7 +219,9 @@ if PYTORCH_AVAILABLE:
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+        )
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -294,7 +300,9 @@ class AdvancedMLEngine:
 
         if feature_columns is None:
             # 数値カラムを自動選択
-            numeric_columns = market_data.select_dtypes(include=[np.number]).columns.tolist()
+            numeric_columns = market_data.select_dtypes(
+                include=[np.number]
+            ).columns.tolist()
             feature_columns = [col for col in numeric_columns if col != target_column]
 
         # 特徴量エンジニアリング
@@ -311,7 +319,9 @@ class AdvancedMLEngine:
         logger.info(f"前処理完了: {sequences.shape} -> {targets.shape}")
         return sequences, targets
 
-    def _engineer_features(self, data: pd.DataFrame, feature_columns: List[str]) -> pd.DataFrame:
+    def _engineer_features(
+        self, data: pd.DataFrame, feature_columns: List[str]
+    ) -> pd.DataFrame:
         """高度特徴量エンジニアリング"""
 
         result = data[feature_columns + ["終値"]].copy()
@@ -325,8 +335,12 @@ class AdvancedMLEngine:
                     result[f"{col}_EMA_{period}"] = result[col].ewm(span=period).mean()
 
                 # ボラティリティ指標
-                result[f"{col}_volatility_10"] = result[col].pct_change().rolling(10).std()
-                result[f"{col}_volatility_20"] = result[col].pct_change().rolling(20).std()
+                result[f"{col}_volatility_10"] = (
+                    result[col].pct_change().rolling(10).std()
+                )
+                result[f"{col}_volatility_20"] = (
+                    result[col].pct_change().rolling(20).std()
+                )
 
                 # モメンタム指標
                 for period in [5, 10, 20]:
@@ -342,7 +356,9 @@ class AdvancedMLEngine:
 
         # MACD
         if "終値" in result.columns:
-            macd_line, macd_signal, macd_histogram = self._calculate_macd(result["終値"])
+            macd_line, macd_signal, macd_histogram = self._calculate_macd(
+                result["終値"]
+            )
             result["MACD"] = macd_line
             result["MACD_Signal"] = macd_signal
             result["MACD_Histogram"] = macd_histogram
@@ -388,7 +404,9 @@ class AdvancedMLEngine:
 
         # 特徴量選択（相関による）
         if len(numeric_columns) > self.config.num_features:
-            correlation_with_target = result.corr()["終値"].abs().sort_values(ascending=False)
+            correlation_with_target = (
+                result.corr()["終値"].abs().sort_values(ascending=False)
+            )
             selected_features = correlation_with_target.head(
                 self.config.num_features
             ).index.tolist()
@@ -436,13 +454,17 @@ class AdvancedMLEngine:
 
         # 設定更新
         self.config.num_features = X_train.shape[-1]
-        self.config.prediction_horizon = y_train.shape[-1] if len(y_train.shape) > 1 else 1
+        self.config.prediction_horizon = (
+            y_train.shape[-1] if len(y_train.shape) > 1 else 1
+        )
 
         # モデル初期化
         self.model = LSTMTransformerHybrid(self.config).to(self.device)
 
         # オプティマイザーとロス関数
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config.learning_rate)
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=self.config.learning_rate
+        )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
 
         criterion = nn.MSELoss()
@@ -452,7 +474,9 @@ class AdvancedMLEngine:
             torch.FloatTensor(X_train).to(self.device),
             torch.FloatTensor(y_train).to(self.device),
         )
-        train_loader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
+        train_loader = DataLoader(
+            train_dataset, batch_size=self.config.batch_size, shuffle=True
+        )
 
         val_loader = None
         if X_val is not None and y_val is not None:
@@ -573,7 +597,9 @@ class AdvancedMLEngine:
         logger.info(f"モデル訓練完了: {training_result}")
         return training_result
 
-    def predict(self, X: np.ndarray, return_confidence: bool = True) -> PredictionResult:
+    def predict(
+        self, X: np.ndarray, return_confidence: bool = True
+    ) -> PredictionResult:
         """予測実行"""
 
         if self.model is None:
@@ -611,7 +637,9 @@ class AdvancedMLEngine:
         )
 
         self.performance_history.append(performance_metrics)
-        logger.info(f"予測完了: {X.shape} -> {predictions.shape}, 処理時間: {inference_time:.3f}秒")
+        logger.info(
+            f"予測完了: {X.shape} -> {predictions.shape}, 処理時間: {inference_time:.3f}秒"
+        )
 
         return result
 
@@ -677,7 +705,9 @@ class AdvancedMLEngine:
         lower = middle - (std * std_dev)
         return upper, middle, lower
 
-    def _extract_fft_features(self, prices: pd.Series, n_features: int = 10) -> List[pd.Series]:
+    def _extract_fft_features(
+        self, prices: pd.Series, n_features: int = 10
+    ) -> List[pd.Series]:
         """FFT特徴量抽出"""
         fft = np.fft.fft(prices.dropna().values)
         fft_features = []
@@ -697,7 +727,9 @@ class AdvancedMLEngine:
             return {"status": "モデル未初期化"}
 
         total_params = sum(p.numel() for p in self.model.parameters())
-        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        trainable_params = sum(
+            p.numel() for p in self.model.parameters() if p.requires_grad
+        )
 
         return {
             "model_version": self.model_metadata["version"],
@@ -869,16 +901,21 @@ class NextGenAITradingEngine:
                 "total_training_time": total_training_time,
                 "models_trained": list(results.keys()),
                 "target_achievement": {
-                    "accuracy_target_95%": performance_summary.get("accuracy", 0) >= 0.95,
+                    "accuracy_target_95%": performance_summary.get("accuracy", 0)
+                    >= 0.95,
                     "mae_target_0.6": performance_summary.get("mae", 1.0) <= 0.6,
                     "rmse_target_0.8": performance_summary.get("rmse", 1.0) <= 0.8,
-                    "inference_time_100ms": performance_summary.get("avg_inference_time", 1000)
+                    "inference_time_100ms": performance_summary.get(
+                        "avg_inference_time", 1000
+                    )
                     <= 100,
                 },
             }
 
             logger.info(f"次世代モデル訓練完了: {total_training_time:.2f}秒")
-            logger.info(f"目標達成状況: {sum(final_result['target_achievement'].values())}/4")
+            logger.info(
+                f"目標達成状況: {sum(final_result['target_achievement'].values())}/4"
+            )
 
             return final_result
 
@@ -911,7 +948,9 @@ class NextGenAITradingEngine:
                     "confidence": hybrid_result.confidence,
                     "model_used": hybrid_result.model_used,
                     "uncertainty": (
-                        hybrid_result.uncertainty.__dict__ if hybrid_result.uncertainty else None
+                        hybrid_result.uncertainty.__dict__
+                        if hybrid_result.uncertainty
+                        else None
                     ),
                 }
             }
@@ -932,7 +971,9 @@ class NextGenAITradingEngine:
             inference_time = time.time() - start_time
 
             # 性能メトリクス更新
-            self.performance_metrics["inference_times"].append(inference_time * 1000)  # ms変換
+            self.performance_metrics["inference_times"].append(
+                inference_time * 1000
+            )  # ms変換
 
             final_result = {
                 "predictions": predictions,
@@ -987,7 +1028,11 @@ class NextGenAITradingEngine:
                 mae = np.mean(np.abs(y_true - predictions))
                 rmse = np.sqrt(np.mean((y_true - predictions) ** 2))
                 mape = (
-                    np.mean(np.abs((y_true - predictions) / np.where(y_true != 0, y_true, 1e-8)))
+                    np.mean(
+                        np.abs(
+                            (y_true - predictions) / np.where(y_true != 0, y_true, 1e-8)
+                        )
+                    )
                     * 100
                 )
                 accuracy = max(0, 100 - mape) / 100
@@ -1083,7 +1128,9 @@ class NextGenAITradingEngine:
             },
             "system_status": {
                 "hybrid_model_initialized": self.hybrid_model is not None,
-                "model_trained": self.hybrid_model.is_trained if self.hybrid_model else False,
+                "model_trained": (
+                    self.hybrid_model.is_trained if self.hybrid_model else False
+                ),
                 "dl_manager_available": self.dl_manager is not None,
                 "pytorch_available": PYTORCH_AVAILABLE,
                 "metrics_integration": self.metrics_integration,

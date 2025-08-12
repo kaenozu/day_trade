@@ -305,7 +305,11 @@ class RedisCacheProvider(ICacheProvider):
             # プレフィックスを除去
             prefix_len = len(self.key_prefix)
             return [
-                key.decode("utf-8")[prefix_len:] if isinstance(key, bytes) else key[prefix_len:]
+                (
+                    key.decode("utf-8")[prefix_len:]
+                    if isinstance(key, bytes)
+                    else key[prefix_len:]
+                )
                 for key in redis_keys
             ]
 
@@ -353,7 +357,9 @@ class RedisCacheProvider(ICacheProvider):
                     "used_memory_human": redis_info.get("used_memory_human"),
                     "keyspace_hits": redis_info.get("keyspace_hits"),
                     "keyspace_misses": redis_info.get("keyspace_misses"),
-                    "instantaneous_ops_per_sec": redis_info.get("instantaneous_ops_per_sec"),
+                    "instantaneous_ops_per_sec": redis_info.get(
+                        "instantaneous_ops_per_sec"
+                    ),
                     "cache_size": self.size(),
                     "hit_rate": self._calculate_hit_rate(),
                 }
@@ -460,7 +466,9 @@ class RedisCacheProvider(ICacheProvider):
                 cause=e,
             )
 
-    def multi_set(self, mapping: Dict[str, Any], ttl_seconds: Optional[int] = None) -> bool:
+    def multi_set(
+        self, mapping: Dict[str, Any], ttl_seconds: Optional[int] = None
+    ) -> bool:
         """複数キー一括設定"""
         if ttl_seconds is None:
             ttl_seconds = self.default_ttl_seconds
@@ -536,7 +544,9 @@ class RedisCacheProvider(ICacheProvider):
                 cause=e,
             )
 
-    async def set_async(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> bool:
+    async def set_async(
+        self, key: str, value: Any, ttl_seconds: Optional[int] = None
+    ) -> bool:
         """非同期キー設定"""
         if self._async_redis is None:
             self._async_redis = aioredis.Redis(
@@ -550,7 +560,9 @@ class RedisCacheProvider(ICacheProvider):
             if ttl_seconds is None:
                 ttl_seconds = self.default_ttl_seconds
 
-            result = await self._async_redis.setex(full_key, ttl_seconds, serialized_value)
+            result = await self._async_redis.setex(
+                full_key, ttl_seconds, serialized_value
+            )
             return bool(result)
 
         except Exception as e:

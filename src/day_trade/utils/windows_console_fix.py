@@ -89,9 +89,13 @@ def safe_console_context():
 
             # UTF-8でエラー時は置換するTextIOWrapperを作成
             if hasattr(sys.stdout, "buffer"):
-                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+                sys.stdout = io.TextIOWrapper(
+                    sys.stdout.buffer, encoding="utf-8", errors="replace"
+                )
             if hasattr(sys.stderr, "buffer"):
-                sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+                sys.stderr = io.TextIOWrapper(
+                    sys.stderr.buffer, encoding="utf-8", errors="replace"
+                )
 
         yield
 
@@ -144,14 +148,18 @@ def create_safe_live_context():
                 return
 
             # Liveインスタンスカウンターを増加
-            safe_live_context._active_count = getattr(safe_live_context, "_active_count", 0) + 1
+            safe_live_context._active_count = (
+                getattr(safe_live_context, "_active_count", 0) + 1
+            )
 
             # Liveコンテキストを開始
             with Live(*args, **kwargs) as live:
                 yield live
 
         except Exception as e:
-            logger.warning("Rich Live表示エラー", error=str(e), fallback="通常出力で継続")
+            logger.warning(
+                "Rich Live表示エラー", error=str(e), fallback="通常出力で継続"
+            )
             yield None
 
         finally:
@@ -178,7 +186,9 @@ def safe_rich_print(content, **kwargs):
             # Windows環境では文字列をASCII互換に変換
             if isinstance(content, str):
                 # Unicode文字をASCII互換文字に置換
-                content = content.replace("✓", "OK").replace("✗", "NG").replace("●", "*")
+                content = (
+                    content.replace("✓", "OK").replace("✗", "NG").replace("●", "*")
+                )
                 # その他の特殊文字も置換
                 content = content.encode("ascii", errors="replace").decode("ascii")
 

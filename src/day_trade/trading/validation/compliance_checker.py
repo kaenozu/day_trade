@@ -163,7 +163,9 @@ class ComplianceChecker:
             # 各コンプライアンスルールをチェック
             checks = {
                 "single_trade_limit": self._check_single_trade_limit(trade),
-                "daily_trade_limit": self._check_daily_trade_limit(trade, existing_trades),
+                "daily_trade_limit": self._check_daily_trade_limit(
+                    trade, existing_trades
+                ),
                 "position_concentration": self._check_position_concentration(
                     trade, existing_trades, portfolio_value
                 ),
@@ -176,7 +178,9 @@ class ComplianceChecker:
 
             # 結果分類
             for rule_id, (is_compliant, message, level) in checks.items():
-                rule = next((r for r in self.compliance_rules if r.rule_id == rule_id), None)
+                rule = next(
+                    (r for r in self.compliance_rules if r.rule_id == rule_id), None
+                )
 
                 if not rule or not rule.enabled:
                     continue
@@ -245,7 +249,9 @@ class ComplianceChecker:
 
         return (True, "単一取引限度額OK", ComplianceLevel.HIGH)
 
-    def _check_daily_trade_limit(self, trade: Trade, existing_trades: List[Trade]) -> tuple:
+    def _check_daily_trade_limit(
+        self, trade: Trade, existing_trades: List[Trade]
+    ) -> tuple:
         """日次取引限度額チェック"""
         trade_date = trade.timestamp.date()
 
@@ -472,7 +478,9 @@ class ComplianceChecker:
         self.restricted_periods.append(restriction)
         logger.info(f"制限期間追加: {symbol} {start_date} - {end_date} ({reason})")
 
-    def get_compliance_summary(self, compliance_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def get_compliance_summary(
+        self, compliance_results: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         コンプライアンスサマリー取得
 
@@ -484,7 +492,9 @@ class ComplianceChecker:
         """
         try:
             total_checks = len(compliance_results)
-            compliant_trades = sum(1 for r in compliance_results if r["overall_compliant"])
+            compliant_trades = sum(
+                1 for r in compliance_results if r["overall_compliant"]
+            )
 
             violation_count = 0
             warning_count = 0
@@ -542,7 +552,9 @@ class ComplianceChecker:
         else:
             return "重大"
 
-    def generate_compliance_report(self, compliance_results: List[Dict[str, Any]]) -> str:
+    def generate_compliance_report(
+        self, compliance_results: List[Dict[str, Any]]
+    ) -> str:
         """
         コンプライアンスレポート生成
 
@@ -559,7 +571,9 @@ class ComplianceChecker:
             report_lines.append("=" * 60)
             report_lines.append("コンプライアンスチェックレポート")
             report_lines.append("=" * 60)
-            report_lines.append(f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+            report_lines.append(
+                f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}"
+            )
             report_lines.append("")
 
             # サマリー
@@ -577,7 +591,9 @@ class ComplianceChecker:
             if summary.get("most_common_violations"):
                 report_lines.append("【頻出違反】")
                 for rule_id, count in summary["most_common_violations"]:
-                    rule = next((r for r in self.compliance_rules if r.rule_id == rule_id), None)
+                    rule = next(
+                        (r for r in self.compliance_rules if r.rule_id == rule_id), None
+                    )
                     rule_name = rule.name if rule else rule_id
                     report_lines.append(f"  {rule_name}: {count}件")
                 report_lines.append("")

@@ -25,7 +25,9 @@ except ImportError:
                 self.dtype = dtype
 
             def sample(self):
-                return np.random.uniform(self.low, self.high, self.shape).astype(self.dtype)
+                return np.random.uniform(self.low, self.high, self.shape).astype(
+                    self.dtype
+                )
 
 
 import copy
@@ -138,7 +140,9 @@ class MultiAssetTradingEnvironment:
         self.reward_history = []
 
         logger.info("Multi-Asset Trading Environment initialized")
-        logger.info(f"Target assets: {symbols}, Initial balance: {initial_balance:,.0f}")
+        logger.info(
+            f"Target assets: {symbols}, Initial balance: {initial_balance:,.0f}"
+        )
         logger.info("Safe mode - No real trading functionality")
 
     def reset(self) -> np.ndarray:
@@ -161,7 +165,9 @@ class MultiAssetTradingEnvironment:
         logger.debug("取引環境リセット完了")
         return observation
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+    def step(
+        self, action: np.ndarray
+    ) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """環境ステップ実行"""
 
         self.current_step += 1
@@ -227,10 +233,15 @@ class MultiAssetTradingEnvironment:
         market_sentiment = {symbol: np.random.uniform(-1, 1) for symbol in self.symbols}
 
         # 初期ボラティリティ
-        volatility = {symbol: 0.2 + np.random.exponential(0.1) for symbol in self.symbols}
+        volatility = {
+            symbol: 0.2 + np.random.exponential(0.1) for symbol in self.symbols
+        }
 
         # 初期出来高
-        volume = {symbol: 1000000 * (1 + np.random.exponential(0.5)) for symbol in self.symbols}
+        volume = {
+            symbol: 1000000 * (1 + np.random.exponential(0.5))
+            for symbol in self.symbols
+        }
 
         # マクロ経済指標（シミュレーション）
         macro_indicators = {
@@ -276,7 +287,8 @@ class MultiAssetTradingEnvironment:
         asset_allocation = exp_allocation / np.sum(exp_allocation)
 
         allocation_dict = {
-            symbol: float(alloc) for symbol, alloc in zip(self.symbols, asset_allocation)
+            symbol: float(alloc)
+            for symbol, alloc in zip(self.symbols, asset_allocation)
         }
 
         # リスクレベル
@@ -328,7 +340,9 @@ class MultiAssetTradingEnvironment:
         market_sentiment = {}
         for symbol in self.symbols:
             prev_sentiment = (
-                self.state_history[-1].market_sentiment[symbol] if self.state_history else 0
+                self.state_history[-1].market_sentiment[symbol]
+                if self.state_history
+                else 0
             )
             sentiment_change = np.random.normal(-0.1 * prev_sentiment, 0.2)  # 平均回帰
             market_sentiment[symbol] = np.clip(prev_sentiment + sentiment_change, -1, 1)
@@ -336,7 +350,9 @@ class MultiAssetTradingEnvironment:
         # ボラティリティ更新（GARCH風）
         volatility = {}
         for symbol in self.symbols:
-            prev_vol = self.state_history[-1].volatility[symbol] if self.state_history else 0.2
+            prev_vol = (
+                self.state_history[-1].volatility[symbol] if self.state_history else 0.2
+            )
             vol_shock = np.random.exponential(0.05)
             volatility[symbol] = max(0.05, min(1.0, 0.9 * prev_vol + 0.1 * vol_shock))
 
@@ -345,7 +361,9 @@ class MultiAssetTradingEnvironment:
         for symbol in self.symbols:
             base_volume = 1000000
             vol_multiplier = 1 + volatility[symbol] + abs(market_sentiment[symbol])
-            volume[symbol] = base_volume * vol_multiplier * (1 + np.random.exponential(0.3))
+            volume[symbol] = (
+                base_volume * vol_multiplier * (1 + np.random.exponential(0.3))
+            )
 
         # マクロ指標（ゆっくり変化）
         if self.state_history:
@@ -370,7 +388,9 @@ class MultiAssetTradingEnvironment:
         portfolio_state = {
             "total_value": total_value,
             "cash_ratio": cash_value / total_value if total_value > 0 else 1.0,
-            "equity_ratio": (total_value - cash_value) / total_value if total_value > 0 else 0.0,
+            "equity_ratio": (
+                (total_value - cash_value) / total_value if total_value > 0 else 0.0
+            ),
             "leverage_ratio": self._calculate_leverage_ratio(),
             "diversification_score": self._calculate_diversification_score(),
         }
@@ -386,7 +406,9 @@ class MultiAssetTradingEnvironment:
             timestamp=datetime.now(),
         )
 
-    def _execute_trade(self, action: TradingAction, market_state: MarketState) -> Dict[str, Any]:
+    def _execute_trade(
+        self, action: TradingAction, market_state: MarketState
+    ) -> Dict[str, Any]:
         """取引実行（シミュレーション）"""
 
         trades_executed = []
@@ -400,7 +422,9 @@ class MultiAssetTradingEnvironment:
                     current_position = self.positions[symbol]
 
                     # 目標ポジション計算
-                    target_position_value = self.balance * action.position_size * allocation
+                    target_position_value = (
+                        self.balance * action.position_size * allocation
+                    )
                     target_shares = target_position_value / current_price
 
                     # 取引量計算
@@ -434,7 +458,9 @@ class MultiAssetTradingEnvironment:
                             # 売却可能チェック
                             if abs(trade_shares) <= current_position:
                                 # 取引実行
-                                self.positions[symbol] += trade_shares  # trade_sharesは負値
+                                self.positions[
+                                    symbol
+                                ] += trade_shares  # trade_sharesは負値
                                 self.balance += trade_value - cost
                                 total_cost += cost
 
@@ -491,7 +517,9 @@ class MultiAssetTradingEnvironment:
         # 前ステップからのリターン
         if self.performance_history:
             prev_value = self.performance_history[-1]["total_value"]
-            raw_return = (current_value - prev_value) / prev_value if prev_value > 0 else 0
+            raw_return = (
+                (current_value - prev_value) / prev_value if prev_value > 0 else 0
+            )
         else:
             raw_return = (current_value - self.initial_balance) / self.initial_balance
 
@@ -502,7 +530,9 @@ class MultiAssetTradingEnvironment:
         if len(self.performance_history) >= self.volatility_window:
             recent_returns = [
                 p["total_value"] / self.performance_history[i - 1]["total_value"] - 1
-                for i, p in enumerate(self.performance_history[-self.volatility_window :])
+                for i, p in enumerate(
+                    self.performance_history[-self.volatility_window :]
+                )
                 if i > 0
             ]
 
@@ -523,7 +553,9 @@ class MultiAssetTradingEnvironment:
         # 3. ドローダウンペナルティ (15%)
         self.peak_balance = max(self.peak_balance, current_value)
         current_drawdown = (
-            (self.peak_balance - current_value) / self.peak_balance if self.peak_balance > 0 else 0
+            (self.peak_balance - current_value) / self.peak_balance
+            if self.peak_balance > 0
+            else 0
         )
         self.max_drawdown = max(self.max_drawdown, current_drawdown)
 
@@ -531,11 +563,15 @@ class MultiAssetTradingEnvironment:
 
         # 4. 取引コスト (10%)
         trading_costs = (
-            -trade_result["total_cost"] / current_value * 10.0 if current_value > 0 else 0
+            -trade_result["total_cost"] / current_value * 10.0
+            if current_value > 0
+            else 0
         )
 
         # 総合報酬
-        total_reward = profit_loss + risk_adjusted_return + drawdown_penalty + trading_costs
+        total_reward = (
+            profit_loss + risk_adjusted_return + drawdown_penalty + trading_costs
+        )
 
         # スケーリング
         total_reward *= self.reward_scaling
@@ -548,7 +584,9 @@ class MultiAssetTradingEnvironment:
             total_reward=total_reward,
         )
 
-    def _update_portfolio(self, trade_result: Dict[str, Any], market_state: MarketState):
+    def _update_portfolio(
+        self, trade_result: Dict[str, Any], market_state: MarketState
+    ):
         """ポートフォリオ更新"""
 
         # ポートフォリオ統計更新（既に_execute_tradeで実行済み）
@@ -670,10 +708,13 @@ class MultiAssetTradingEnvironment:
                 "trading_costs": reward.trading_costs,
             },
             "max_drawdown": self.max_drawdown,
-            "portfolio_return": (current_value - self.initial_balance) / self.initial_balance,
+            "portfolio_return": (current_value - self.initial_balance)
+            / self.initial_balance,
         }
 
-    def _calculate_total_portfolio_value(self, market_state: Optional[MarketState] = None) -> float:
+    def _calculate_total_portfolio_value(
+        self, market_state: Optional[MarketState] = None
+    ) -> float:
         """現在のポートフォリオ総価値計算"""
 
         if market_state is None:
@@ -682,7 +723,9 @@ class MultiAssetTradingEnvironment:
 
         return self._calculate_total_portfolio_value_with_prices(market_state.prices)
 
-    def _calculate_total_portfolio_value_with_prices(self, prices: Dict[str, float]) -> float:
+    def _calculate_total_portfolio_value_with_prices(
+        self, prices: Dict[str, float]
+    ) -> float:
         """価格指定でのポートフォリオ総価値計算"""
 
         total_value = self.balance
@@ -719,7 +762,9 @@ class MultiAssetTradingEnvironment:
         # ハーフィンダール指数ベースの分散化スコア
         weights = []
         for symbol in self.symbols:
-            position_value = self.positions[symbol] * self.state_history[-1].prices[symbol]
+            position_value = (
+                self.positions[symbol] * self.state_history[-1].prices[symbol]
+            )
             weight = position_value / (total_value - self.balance)
             weights.append(weight**2)
 
@@ -776,7 +821,9 @@ class MultiAssetTradingEnvironment:
             total_return = (current_value - self.initial_balance) / self.initial_balance
             volatility = np.std(returns) if returns else 0
             sharpe_ratio = (
-                (np.mean(returns) - self.risk_free_rate / 252) / volatility if volatility > 0 else 0
+                (np.mean(returns) - self.risk_free_rate / 252) / volatility
+                if volatility > 0
+                else 0
             )
         else:
             total_return = 0
@@ -821,7 +868,9 @@ class MultiAssetTradingEnvironment:
 
 
 # 環境ファクトリー関数
-def create_trading_environment(symbols: List[str] = None, **kwargs) -> MultiAssetTradingEnvironment:
+def create_trading_environment(
+    symbols: List[str] = None, **kwargs
+) -> MultiAssetTradingEnvironment:
     """取引環境作成"""
 
     if symbols is None:

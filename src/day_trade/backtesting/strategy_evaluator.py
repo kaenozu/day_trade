@@ -115,7 +115,9 @@ class StrategyEvaluator:
         ranked_strategies = self._rank_strategies(strategy_results)
 
         # 最高戦略特定
-        best_strategy = ranked_strategies[0].strategy_name if ranked_strategies else None
+        best_strategy = (
+            ranked_strategies[0].strategy_name if ranked_strategies else None
+        )
 
         # ベンチマーク比較
         benchmark_comparison = None
@@ -202,7 +204,9 @@ class StrategyEvaluator:
         try:
             # バックテスト実行
             engine = BacktestEngine(self.initial_capital)
-            backtest_results = engine.execute_backtest(historical_data, strategy_function)
+            backtest_results = engine.execute_backtest(
+                historical_data, strategy_function
+            )
 
             # リスクメトリクス計算
             risk_metrics = self.risk_calculator.calculate_metrics(
@@ -231,13 +235,17 @@ class StrategyEvaluator:
     ) -> float:
         """戦略スコア計算"""
         # リターン評価 (0-100点)
-        return_score = min(100, max(0, (risk_metrics.annualized_return + 0.1) / 0.3 * 100))
+        return_score = min(
+            100, max(0, (risk_metrics.annualized_return + 0.1) / 0.3 * 100)
+        )
 
         # リスク評価 (0-100点, 低リスクほど高得点)
         risk_score = min(100, max(0, (0.3 - risk_metrics.volatility) / 0.3 * 100))
 
         # 安定性評価 (0-100点, 低ドローダウンほど高得点)
-        stability_score = min(100, max(0, (0.3 - abs(risk_metrics.maximum_drawdown)) / 0.3 * 100))
+        stability_score = min(
+            100, max(0, (0.3 - abs(risk_metrics.maximum_drawdown)) / 0.3 * 100)
+        )
 
         # 効率性評価 (シャープレシオベース)
         efficiency_score = min(100, max(0, (risk_metrics.sharpe_ratio + 1) / 3 * 100))
@@ -257,7 +265,9 @@ class StrategyEvaluator:
     ) -> List[StrategyComparison]:
         """戦略ランキング"""
         # スコア順でソート
-        sorted_strategies = sorted(strategy_results, key=lambda x: x.score, reverse=True)
+        sorted_strategies = sorted(
+            strategy_results, key=lambda x: x.score, reverse=True
+        )
 
         # ランク付け
         for i, strategy in enumerate(sorted_strategies):
@@ -299,7 +309,9 @@ class StrategyEvaluator:
             "strategy_comparisons": comparisons,
         }
 
-    def _get_common_dates(self, historical_data: Dict[str, pd.DataFrame]) -> pd.DatetimeIndex:
+    def _get_common_dates(
+        self, historical_data: Dict[str, pd.DataFrame]
+    ) -> pd.DatetimeIndex:
         """共通日付取得"""
         common_dates = None
         for data in historical_data.values():
@@ -349,10 +361,14 @@ class StrategyEvaluator:
             report.append(f"\n■ {strategy.strategy_name} (第{strategy.rank}位)")
             report.append(f"  総合スコア: {strategy.score:.1f}/100")
             report.append(f"  総リターン: {strategy.backtest_results.total_return:.2%}")
-            report.append(f"  年率リターン: {strategy.risk_metrics.annualized_return:.2%}")
+            report.append(
+                f"  年率リターン: {strategy.risk_metrics.annualized_return:.2%}"
+            )
             report.append(f"  ボラティリティ: {strategy.risk_metrics.volatility:.2%}")
             report.append(f"  シャープレシオ: {strategy.risk_metrics.sharpe_ratio:.3f}")
-            report.append(f"  最大ドローダウン: {strategy.risk_metrics.maximum_drawdown:.2%}")
+            report.append(
+                f"  最大ドローダウン: {strategy.risk_metrics.maximum_drawdown:.2%}"
+            )
             report.append(f"  勝率: {strategy.backtest_results.win_rate:.2%}")
             report.append(f"  総取引数: {strategy.backtest_results.total_trades}回")
 
@@ -360,7 +376,9 @@ class StrategyEvaluator:
         if evaluation.benchmark_comparison:
             report.append("\n【ベンチマーク比較】")
             benchmark = evaluation.benchmark_comparison["benchmark_metrics"]
-            report.append(f"ベンチマーク年率リターン: {benchmark['annualized_return']:.2%}")
+            report.append(
+                f"ベンチマーク年率リターン: {benchmark['annualized_return']:.2%}"
+            )
             report.append(f"ベンチマークボラティリティ: {benchmark['volatility']:.2%}")
 
             report.append("\n各戦略のベンチマーク超過成果:")
@@ -368,11 +386,15 @@ class StrategyEvaluator:
                 "strategy_comparisons"
             ].items():
                 status = "✓" if comparison["outperformed"] else "✗"
-                report.append(f"  {status} {strategy_name}: +{comparison['excess_return']:.2%}")
+                report.append(
+                    f"  {status} {strategy_name}: +{comparison['excess_return']:.2%}"
+                )
 
         return "\n".join(report)
 
-    def save_evaluation_results(self, evaluation: StrategyEvaluationReport, file_path: str):
+    def save_evaluation_results(
+        self, evaluation: StrategyEvaluationReport, file_path: str
+    ):
         """評価結果保存"""
         try:
             # JSON形式で詳細結果保存
@@ -515,7 +537,9 @@ if __name__ == "__main__":
             print(report)
 
             # 結果保存
-            evaluator.save_evaluation_results(evaluation, "strategy_evaluation_test.json")
+            evaluator.save_evaluation_results(
+                evaluation, "strategy_evaluation_test.json"
+            )
 
         else:
             print("テストデータが取得できませんでした")

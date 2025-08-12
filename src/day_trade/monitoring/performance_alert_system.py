@@ -218,7 +218,9 @@ class PerformanceAlertSystem:
 
     def add_threshold(self, threshold: PerformanceThreshold) -> None:
         """しきい値追加"""
-        threshold_key = f"{threshold.metric_type.value}_{threshold.condition_type.value}"
+        threshold_key = (
+            f"{threshold.metric_type.value}_{threshold.condition_type.value}"
+        )
         self.thresholds[threshold_key] = threshold
         logger.info(f"パフォーマンスしきい値追加: {threshold_key}")
 
@@ -320,7 +322,9 @@ class PerformanceAlertSystem:
                     continue
 
                 # しきい値判定
-                alert_severity = await self._evaluate_threshold(threshold, current_value)
+                alert_severity = await self._evaluate_threshold(
+                    threshold, current_value
+                )
 
                 if alert_severity:
                     await self._generate_alert(threshold, current_value, alert_severity)
@@ -545,7 +549,9 @@ class PerformanceAlertSystem:
         }
 
         metric_name = metric_names.get(metric_type, metric_type.value)
-        condition_desc = condition_descriptions.get(condition_type, "で異常が発生しました")
+        condition_desc = condition_descriptions.get(
+            condition_type, "で異常が発生しました"
+        )
         severity_label = severity_labels.get(severity, severity.value.upper())
 
         if condition_type in [
@@ -588,7 +594,9 @@ class PerformanceAlertSystem:
 
     async def _cleanup_alert_history(self) -> None:
         """アラート履歴クリーンアップ"""
-        cutoff_time = datetime.now() - timedelta(days=self.config.alert_history_retention_days)
+        cutoff_time = datetime.now() - timedelta(
+            days=self.config.alert_history_retention_days
+        )
 
         # アラート履歴クリーンアップ
         self.alerts = [alert for alert in self.alerts if alert.timestamp > cutoff_time]
@@ -658,9 +666,13 @@ class PerformanceAlertSystem:
         if len(self.performance_history) > max_history_size:
             self.performance_history = self.performance_history[-max_history_size:]
 
-        logger.debug(f"パフォーマンス指標追加: {metric.metric_type.value}={metric.value}")
+        logger.debug(
+            f"パフォーマンス指標追加: {metric.metric_type.value}={metric.value}"
+        )
 
-    async def resolve_alert(self, alert_id: str, resolution_note: Optional[str] = None) -> bool:
+    async def resolve_alert(
+        self, alert_id: str, resolution_note: Optional[str] = None
+    ) -> bool:
         """アラート解決"""
         for alert in self.alerts:
             if alert.alert_id == alert_id and not alert.resolved:
@@ -681,7 +693,9 @@ class PerformanceAlertSystem:
         active_alerts = [alert for alert in self.alerts if not alert.resolved]
 
         if severity:
-            active_alerts = [alert for alert in active_alerts if alert.severity == severity]
+            active_alerts = [
+                alert for alert in active_alerts if alert.severity == severity
+            ]
 
         return sorted(active_alerts, key=lambda a: a.timestamp, reverse=True)
 
@@ -710,7 +724,9 @@ class PerformanceAlertSystem:
             "resolved_alerts": len([alert for alert in self.alerts if alert.resolved]),
             "monitoring_status": {
                 "is_running": self._is_running,
-                "active_thresholds": len([t for t in self.thresholds.values() if t.enabled]),
+                "active_thresholds": len(
+                    [t for t in self.thresholds.values() if t.enabled]
+                ),
                 "total_thresholds": len(self.thresholds),
             },
         }

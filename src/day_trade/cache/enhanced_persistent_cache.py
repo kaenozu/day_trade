@@ -205,14 +205,18 @@ class SQLitePersistentBackend(PersistentCacheBackend):
             )
 
             # インデックス作成
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_hash_key ON persistent_cache(hash_key)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_hash_key ON persistent_cache(hash_key)"
+            )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_last_accessed ON persistent_cache(last_accessed)"
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_expires_at ON persistent_cache(expires_at)"
             )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_priority ON persistent_cache(priority)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_priority ON persistent_cache(priority)"
+            )
 
             conn.commit()
 
@@ -284,7 +288,9 @@ class SQLitePersistentBackend(PersistentCacheBackend):
 
                 # 非同期でアクセス情報更新
                 asyncio.create_task(
-                    self._update_access_stats(key, entry.last_accessed, entry.access_count)
+                    self._update_access_stats(
+                        key, entry.last_accessed, entry.access_count
+                    )
                 )
 
                 self._stats["hits"] += 1
@@ -363,7 +369,9 @@ class SQLitePersistentBackend(PersistentCacheBackend):
 
             conn = self._get_connection()
             try:
-                cursor = conn.execute("DELETE FROM persistent_cache WHERE key = ?", (key,))
+                cursor = conn.execute(
+                    "DELETE FROM persistent_cache WHERE key = ?", (key,)
+                )
                 conn.commit()
                 return cursor.rowcount > 0
 
@@ -460,7 +468,9 @@ class SQLitePersistentBackend(PersistentCacheBackend):
             backup_count=row["backup_count"],
         )
 
-    async def _update_access_stats(self, key: str, last_accessed: float, access_count: int):
+    async def _update_access_stats(
+        self, key: str, last_accessed: float, access_count: int
+    ):
         """アクセス統計更新（非同期）"""
         try:
             conn = self._get_connection()
@@ -490,7 +500,9 @@ class EnhancedPersistentCache:
         if self.config.strategy == PersistentStrategy.SQLITE:
             self.backend = SQLitePersistentBackend(self.config)
         else:
-            raise NotImplementedError(f"Strategy {self.config.strategy} not implemented")
+            raise NotImplementedError(
+                f"Strategy {self.config.strategy} not implemented"
+            )
 
         # 統計情報
         self.operation_stats = {
@@ -602,7 +614,9 @@ class EnhancedPersistentCache:
 
     def _calculate_hit_rate(self) -> float:
         """ヒット率計算"""
-        total = self.operation_stats["cache_hits"] + self.operation_stats["cache_misses"]
+        total = (
+            self.operation_stats["cache_hits"] + self.operation_stats["cache_misses"]
+        )
         if total == 0:
             return 0.0
         return (self.operation_stats["cache_hits"] / total) * 100
@@ -720,7 +734,9 @@ def create_enhanced_persistent_cache(
     """強化永続化キャッシュ作成"""
 
     config = PersistentCacheConfig(
-        storage_path=Path(storage_path) if storage_path else Path("data/persistent_cache"),
+        storage_path=(
+            Path(storage_path) if storage_path else Path("data/persistent_cache")
+        ),
         max_memory_mb=max_memory_mb,
         max_disk_mb=max_disk_mb,
         compression_enabled=compression_enabled,

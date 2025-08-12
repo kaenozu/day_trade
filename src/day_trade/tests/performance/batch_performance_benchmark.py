@@ -62,7 +62,9 @@ except ImportError:
 
     async def execute_stock_batch_pipeline(*args, **kwargs):
         await asyncio.sleep(1)
-        return type("MockResult", (), {"success": True, "total_processing_time_ms": 1000})()
+        return type(
+            "MockResult", (), {"success": True, "total_processing_time_ms": 1000}
+        )()
 
 
 logger = get_context_logger(__name__)
@@ -175,7 +177,9 @@ class BatchPerformanceBenchmark:
             tracemalloc.stop()
 
             # 結果解析
-            if hasattr(result, "success") and hasattr(result, "total_processing_time_ms"):
+            if hasattr(result, "success") and hasattr(
+                result, "total_processing_time_ms"
+            ):
                 # BatchProcessingEngine結果
                 success_count = 1 if result.success else 0
                 failed_count = 1 if not result.success else 0
@@ -292,7 +296,9 @@ class BatchPerformanceBenchmark:
 
         return result
 
-    async def benchmark_unified_api_adapter(self, symbols: List[str]) -> BenchmarkResult:
+    async def benchmark_unified_api_adapter(
+        self, symbols: List[str]
+    ) -> BenchmarkResult:
         """統一APIアダプターベンチマーク"""
 
         async def unified_api_test():
@@ -314,11 +320,15 @@ class BatchPerformanceBenchmark:
         def async_wrapper():
             return asyncio.run(unified_api_test())
 
-        result = self.run_memory_benchmark(async_wrapper, f"unified_api_{len(symbols)}symbols")
+        result = self.run_memory_benchmark(
+            async_wrapper, f"unified_api_{len(symbols)}symbols"
+        )
         result.system_type = "unified_api"
         return result
 
-    async def benchmark_batch_processing_engine(self, symbols: List[str]) -> BenchmarkResult:
+    async def benchmark_batch_processing_engine(
+        self, symbols: List[str]
+    ) -> BenchmarkResult:
         """バッチ処理エンジンベンチマーク"""
 
         async def batch_engine_test():
@@ -345,7 +355,9 @@ class BatchPerformanceBenchmark:
         def async_wrapper():
             return asyncio.run(batch_engine_test())
 
-        result = self.run_memory_benchmark(async_wrapper, f"batch_engine_{len(symbols)}symbols")
+        result = self.run_memory_benchmark(
+            async_wrapper, f"batch_engine_{len(symbols)}symbols"
+        )
         result.system_type = "batch_engine"
         return result
 
@@ -357,7 +369,9 @@ class BatchPerformanceBenchmark:
 
         # データサイズ別テスト
         for dataset_name, symbols in self.test_datasets.items():
-            logger.info(f"\n{dataset_name.upper()}データセットテスト: {len(symbols)}銘柄")
+            logger.info(
+                f"\n{dataset_name.upper()}データセットテスト: {len(symbols)}銘柄"
+            )
 
             dataset_results = []
 
@@ -385,7 +399,9 @@ class BatchPerformanceBenchmark:
             legacy_ops = legacy_result.operations_per_second
             for result in dataset_results[1:]:  # 従来システム以外
                 if legacy_ops > 0:
-                    result.throughput_improvement_factor = result.operations_per_second / legacy_ops
+                    result.throughput_improvement_factor = (
+                        result.operations_per_second / legacy_ops
+                    )
 
             comprehensive_results[dataset_name] = dataset_results
 
@@ -432,7 +448,9 @@ class BatchPerformanceBenchmark:
                     "cache_hit_rate": result.cache_hit_rate,
                 }
 
-                report["dataset_results"][dataset_name]["system_comparisons"].append(comparison)
+                report["dataset_results"][dataset_name]["system_comparisons"].append(
+                    comparison
+                )
                 all_results.append(result)
 
         # 総合パフォーマンス分析
@@ -459,15 +477,23 @@ class BatchPerformanceBenchmark:
             system_performance[result.system_type]["avg_improvement_factor"].append(
                 result.throughput_improvement_factor
             )
-            system_performance[result.system_type]["error_rates"].append(result.error_rate)
+            system_performance[result.system_type]["error_rates"].append(
+                result.error_rate
+            )
 
         # 統計計算
         for system, metrics in system_performance.items():
             report["performance_summary"][system] = {
-                "avg_operations_per_second": statistics.mean(metrics["avg_ops_per_second"]),
-                "avg_response_time_ms": statistics.mean(metrics["avg_response_time_ms"]),
+                "avg_operations_per_second": statistics.mean(
+                    metrics["avg_ops_per_second"]
+                ),
+                "avg_response_time_ms": statistics.mean(
+                    metrics["avg_response_time_ms"]
+                ),
                 "avg_memory_usage_mb": statistics.mean(metrics["avg_memory_usage_mb"]),
-                "avg_improvement_factor": statistics.mean(metrics["avg_improvement_factor"]),
+                "avg_improvement_factor": statistics.mean(
+                    metrics["avg_improvement_factor"]
+                ),
                 "avg_error_rate": statistics.mean(metrics["error_rates"]),
                 "reliability_score": 1.0 - statistics.mean(metrics["error_rates"]),
             }
@@ -571,7 +597,9 @@ async def run_batch_performance_analysis():
             for i, rec in enumerate(recommendations, 1):
                 print(f"  {i}. {rec}")
 
-        print(f"\n📄 詳細レポート: {benchmark.results_dir}/batch_performance_report.json")
+        print(
+            f"\n📄 詳細レポート: {benchmark.results_dir}/batch_performance_report.json"
+        )
 
     else:
         print(f"❌ ベンチマーク実行エラー: {report['error']}")

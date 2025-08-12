@@ -341,7 +341,9 @@ class APIIntegrationManager:
 
                 # 優先度順にデータ取得試行
                 for source_info in sources:
-                    data = await self._fetch_from_source(symbol, data_type, source_info, **kwargs)
+                    data = await self._fetch_from_source(
+                        symbol, data_type, source_info, **kwargs
+                    )
 
                     if data and self._validate_data_quality(data):
                         # 成功時の処理
@@ -418,7 +420,9 @@ class APIIntegrationManager:
             if source_type == DataSource.WEBSOCKET_STREAM:
                 return await self._fetch_from_websocket(symbol, data_type, config)
             elif source_type == DataSource.REST_API:
-                return await self._fetch_from_rest_api(symbol, data_type, config, **kwargs)
+                return await self._fetch_from_rest_api(
+                    symbol, data_type, config, **kwargs
+                )
             elif source_type == DataSource.CACHE:
                 return await self._fetch_from_cache(symbol, data_type, config)
             else:
@@ -467,7 +471,9 @@ class APIIntegrationManager:
                 api_provider = RestAPIProvider.MOCK_PROVIDER
 
             # API呼び出し
-            response = await self.rest_client.fetch_stock_data(symbol, api_provider, **kwargs)
+            response = await self.rest_client.fetch_stock_data(
+                symbol, api_provider, **kwargs
+            )
 
             if response and response.success and response.normalized_data is not None:
                 # 統合データ変換
@@ -542,7 +548,9 @@ class APIIntegrationManager:
 
             # データ品質評価
             age_seconds = (datetime.now() - unified_data.timestamp).total_seconds()
-            unified_data.quality = self._evaluate_data_quality(unified_data, age_seconds)
+            unified_data.quality = self._evaluate_data_quality(
+                unified_data, age_seconds
+            )
             unified_data.freshness = self._evaluate_data_freshness(age_seconds)
 
             return unified_data
@@ -558,7 +566,9 @@ class APIIntegrationManager:
             freshness=DataFreshness.UNKNOWN,
         )
 
-    def _evaluate_data_quality(self, data: UnifiedMarketData, age_seconds: float) -> DataQuality:
+    def _evaluate_data_quality(
+        self, data: UnifiedMarketData, age_seconds: float
+    ) -> DataQuality:
         """データ品質評価"""
         if not self.config.enable_data_quality_scoring:
             return DataQuality.UNKNOWN
@@ -656,7 +666,9 @@ class APIIntegrationManager:
             ttl = self.config.default_cache_ttl_seconds // 4
 
         # キャッシュエントリ作成
-        entry = CacheEntry(key=cache_key, data=data, created_at=datetime.now(), ttl_seconds=ttl)
+        entry = CacheEntry(
+            key=cache_key, data=data, created_at=datetime.now(), ttl_seconds=ttl
+        )
 
         self.cache[cache_key] = entry
         self.cache_stats["total_size"] = len(self.cache)
@@ -737,7 +749,9 @@ class APIIntegrationManager:
 
         return subscription_ids
 
-    async def stop_real_time_streaming(self, symbols: Optional[List[str]] = None) -> None:
+    async def stop_real_time_streaming(
+        self, symbols: Optional[List[str]] = None
+    ) -> None:
         """リアルタイムストリーミング停止"""
         if not self.websocket_client:
             return
@@ -770,7 +784,9 @@ class APIIntegrationManager:
 
         tasks = []
         for symbol in symbols:
-            task = asyncio.create_task(self.get_market_data(symbol, data_type, prefer_real_time))
+            task = asyncio.create_task(
+                self.get_market_data(symbol, data_type, prefer_real_time)
+            )
             tasks.append((symbol, task))
 
         results = {}
@@ -858,7 +874,9 @@ class APIIntegrationManager:
         try:
             if self.rest_client:
                 rest_status = await self.rest_client.health_check()
-                rest_health = "healthy" if rest_status.get("session_active") else "unhealthy"
+                rest_health = (
+                    "healthy" if rest_status.get("session_active") else "unhealthy"
+                )
         except Exception:
             rest_health = "unhealthy"
 
@@ -935,7 +953,9 @@ async def test_integrated_market_data():
         multiple_data = await manager.get_multiple_market_data(symbols)
 
         for symbol, data in multiple_data.items():
-            print(f"  {symbol}: ¥{data.close_price:.2f} 信頼度{data.confidence_score:.2f}")
+            print(
+                f"  {symbol}: ¥{data.close_price:.2f} 信頼度{data.confidence_score:.2f}"
+            )
 
         # 統計情報表示
         stats = manager.get_integration_statistics()
@@ -943,7 +963,9 @@ async def test_integrated_market_data():
         print(f"  総リクエスト: {stats['integration_stats']['total_requests']}")
         print(f"  成功率: {stats['integration_stats']['success_rate_percent']:.1f}%")
         print(f"  キャッシュヒット率: {stats['cache_stats']['hit_rate_percent']:.1f}%")
-        print(f"  アクティブストリーミング: {stats['streaming_stats']['active_subscriptions']}")
+        print(
+            f"  アクティブストリーミング: {stats['streaming_stats']['active_subscriptions']}"
+        )
 
         # データ品質レポート
         quality_report = manager.get_data_quality_report()

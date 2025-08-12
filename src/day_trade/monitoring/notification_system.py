@@ -462,13 +462,17 @@ class NotificationSystem:
             "by_channel": by_channel,
             "by_severity": by_severity,
             "success_rate": (
-                (successful / total_notifications) * 100 if total_notifications > 0 else 0.0
+                (successful / total_notifications) * 100
+                if total_notifications > 0
+                else 0.0
             ),
             "last_24h": len(
                 [
                     r
                     for r in self.notification_history
-                    if (datetime.now() - datetime.fromisoformat(r["timestamp"])).total_seconds()
+                    if (
+                        datetime.now() - datetime.fromisoformat(r["timestamp"])
+                    ).total_seconds()
                     < 86400
                 ]
             ),

@@ -418,7 +418,9 @@ class ProductionMonitoringConfig:
         if os.getenv("ALERT_EMAIL_PASSWORD"):
             config.alerts.email_password = os.getenv("ALERT_EMAIL_PASSWORD")
         if os.getenv("ALERT_EMAIL_RECIPIENTS"):
-            config.alerts.email_recipients = os.getenv("ALERT_EMAIL_RECIPIENTS").split(",")
+            config.alerts.email_recipients = os.getenv("ALERT_EMAIL_RECIPIENTS").split(
+                ","
+            )
 
         if os.getenv("SLACK_WEBHOOK_URL"):
             config.alerts.slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
@@ -428,11 +430,15 @@ class ProductionMonitoringConfig:
         if os.getenv("JWT_SECRET"):
             config.security.jwt_secret = os.getenv("JWT_SECRET")
         if os.getenv("API_KEY_REQUIRED"):
-            config.security.api_key_required = os.getenv("API_KEY_REQUIRED").lower() == "true"
+            config.security.api_key_required = (
+                os.getenv("API_KEY_REQUIRED").lower() == "true"
+            )
 
         # パフォーマンス設定
         if os.getenv("MAX_MEMORY_USAGE_MB"):
-            config.performance.max_memory_usage_mb = int(os.getenv("MAX_MEMORY_USAGE_MB"))
+            config.performance.max_memory_usage_mb = int(
+                os.getenv("MAX_MEMORY_USAGE_MB")
+            )
         if os.getenv("MONITORING_THREADS"):
             config.performance.monitoring_threads = int(os.getenv("MONITORING_THREADS"))
 
@@ -541,7 +547,9 @@ class ProductionMonitoringConfig:
         # SLO設定チェック
         for slo in self.slo.slos:
             if not (0.0 <= slo.target_percentage <= 100.0):
-                errors.append(f"SLO {slo.name} target percentage must be between 0 and 100")
+                errors.append(
+                    f"SLO {slo.name} target percentage must be between 0 and 100"
+                )
             if slo.time_window_hours < 1:
                 errors.append(f"SLO {slo.name} time window must be >= 1 hour")
 
@@ -566,7 +574,9 @@ def load_config(
     # 設定の妥当性チェック
     validation_errors = config.validate()
     if validation_errors:
-        raise ValueError(f"Configuration validation failed: {', '.join(validation_errors)}")
+        raise ValueError(
+            f"Configuration validation failed: {', '.join(validation_errors)}"
+        )
 
     return config
 

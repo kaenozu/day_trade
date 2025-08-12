@@ -178,8 +178,12 @@ class ErrorMetrics:
         self._error_counts = ThreadSafeCounter()
         self._recovery_attempts = ThreadSafeCounter()
         self._successful_recoveries = ThreadSafeCounter()
-        self._category_counts = {category: ThreadSafeCounter() for category in ErrorCategory}
-        self._severity_counts = {severity: ThreadSafeCounter() for severity in ErrorSeverity}
+        self._category_counts = {
+            category: ThreadSafeCounter() for category in ErrorCategory
+        }
+        self._severity_counts = {
+            severity: ThreadSafeCounter() for severity in ErrorSeverity
+        }
         self._lock = threading.RLock()
 
     def record_error(self, context: UnifiedErrorContext) -> None:
@@ -204,18 +208,22 @@ class ErrorMetrics:
             successful_recoveries = self._successful_recoveries.get()
 
             category_stats = {
-                cat.value: counter.get() for cat, counter in self._category_counts.items()
+                cat.value: counter.get()
+                for cat, counter in self._category_counts.items()
             }
 
             severity_stats = {
-                sev.value: counter.get() for sev, counter in self._severity_counts.items()
+                sev.value: counter.get()
+                for sev, counter in self._severity_counts.items()
             }
 
             return {
                 "total_errors": total_errors,
                 "total_recovery_attempts": total_recoveries,
                 "successful_recoveries": successful_recoveries,
-                "recovery_success_rate": (successful_recoveries / max(total_recoveries, 1)),
+                "recovery_success_rate": (
+                    successful_recoveries / max(total_recoveries, 1)
+                ),
                 "category_distribution": category_stats,
                 "severity_distribution": severity_stats,
             }
@@ -242,8 +250,12 @@ class UnifiedErrorHandler:
         try:
             perf_config = self.config_manager.get_performance_config()
             self.max_retry_attempts = perf_config.max_retry_attempts
-            self.circuit_breaker_threshold = getattr(perf_config, "circuit_breaker_threshold", 5)
-            self.circuit_breaker_timeout = getattr(perf_config, "circuit_breaker_timeout", 60.0)
+            self.circuit_breaker_threshold = getattr(
+                perf_config, "circuit_breaker_threshold", 5
+            )
+            self.circuit_breaker_timeout = getattr(
+                perf_config, "circuit_breaker_timeout", 60.0
+            )
         except Exception as e:
             logger.warning(f"設定読み込みに失敗、デフォルト値を使用: {e}")
             self.max_retry_attempts = 3
@@ -479,7 +491,9 @@ def unified_error_handling(
 
                 # 自動リカバリ試行
                 if auto_recovery:
-                    recovery_result = handler.attempt_recovery(context, func, *args, **kwargs)
+                    recovery_result = handler.attempt_recovery(
+                        context, func, *args, **kwargs
+                    )
                     if recovery_result is not None:
                         return recovery_result
 

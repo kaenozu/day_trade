@@ -284,7 +284,9 @@ class DataQualityAlertSystem:
             del self.quality_rules[rule_id]
             logger.info(f"データ品質ルール削除: {rule_id}")
 
-    def register_alert_handler(self, severity: AlertSeverity, handler: Callable) -> None:
+    def register_alert_handler(
+        self, severity: AlertSeverity, handler: Callable
+    ) -> None:
         """アラートハンドラー登録"""
         self.alert_handlers[severity].append(handler)
         logger.info(f"品質アラートハンドラー登録: {severity.value}")
@@ -354,10 +356,14 @@ class DataQualityAlertSystem:
 
                 if quality_score is not None:
                     # しきい値評価
-                    severity = await self._evaluate_quality_threshold(rule, quality_score)
+                    severity = await self._evaluate_quality_threshold(
+                        rule, quality_score
+                    )
 
                     if severity:
-                        await self._generate_quality_issue(rule, quality_score, severity)
+                        await self._generate_quality_issue(
+                            rule, quality_score, severity
+                        )
 
             except Exception as e:
                 logger.error(f"品質チェックエラー {rule_id}: {e}")
@@ -552,7 +558,9 @@ class DataQualityAlertSystem:
 
         logger.warning(f"データ品質問題検出: {issue.message}")
 
-    def _get_threshold_score(self, rule: DataQualityRule, severity: AlertSeverity) -> float:
+    def _get_threshold_score(
+        self, rule: DataQualityRule, severity: AlertSeverity
+    ) -> float:
         """しきい値スコア取得"""
         if severity == AlertSeverity.WARNING:
             return rule.warning_threshold
@@ -591,7 +599,9 @@ class DataQualityAlertSystem:
         severity_label = severity_labels.get(severity, severity.value.upper())
         quality_name = quality_names.get(rule.quality_metric, rule.quality_metric.value)
 
-        impact_percentage = (affected_records / total_records) * 100 if total_records > 0 else 0
+        impact_percentage = (
+            (affected_records / total_records) * 100 if total_records > 0 else 0
+        )
 
         message = (
             f"[{severity_label}] {rule.table_name}テーブルの{quality_name}が低下: "
@@ -659,7 +669,9 @@ class DataQualityAlertSystem:
 
     async def _cleanup_quality_history(self) -> None:
         """品質履歴クリーンアップ"""
-        cutoff_time = datetime.now() - timedelta(days=self.config.alert_history_retention_days)
+        cutoff_time = datetime.now() - timedelta(
+            days=self.config.alert_history_retention_days
+        )
 
         # 問題履歴クリーンアップ
         self.issues = [issue for issue in self.issues if issue.timestamp > cutoff_time]
@@ -679,7 +691,9 @@ class DataQualityAlertSystem:
             if timestamp > recent_cutoff
         }
 
-    async def calculate_overall_quality_score(self, table_name: str) -> DataQualityScore:
+    async def calculate_overall_quality_score(
+        self, table_name: str
+    ) -> DataQualityScore:
         """総合品質スコア算出"""
         current_time = datetime.now()
 
@@ -709,12 +723,16 @@ class DataQualityAlertSystem:
         overall_score = (
             quality_scores.get(QualityMetricType.COMPLETENESS, 0.8)
             * self.config.completeness_weight
-            + quality_scores.get(QualityMetricType.ACCURACY, 0.8) * self.config.accuracy_weight
+            + quality_scores.get(QualityMetricType.ACCURACY, 0.8)
+            * self.config.accuracy_weight
             + quality_scores.get(QualityMetricType.CONSISTENCY, 0.8)
             * self.config.consistency_weight
-            + quality_scores.get(QualityMetricType.VALIDITY, 0.8) * self.config.validity_weight
-            + quality_scores.get(QualityMetricType.TIMELINESS, 0.8) * self.config.timeliness_weight
-            + quality_scores.get(QualityMetricType.UNIQUENESS, 0.8) * self.config.uniqueness_weight
+            + quality_scores.get(QualityMetricType.VALIDITY, 0.8)
+            * self.config.validity_weight
+            + quality_scores.get(QualityMetricType.TIMELINESS, 0.8)
+            * self.config.timeliness_weight
+            + quality_scores.get(QualityMetricType.UNIQUENESS, 0.8)
+            * self.config.uniqueness_weight
         )
 
         # 問題数カウント
@@ -769,7 +787,9 @@ class DataQualityAlertSystem:
 
         return quality_score
 
-    async def resolve_issue(self, issue_id: str, resolution_note: Optional[str] = None) -> bool:
+    async def resolve_issue(
+        self, issue_id: str, resolution_note: Optional[str] = None
+    ) -> bool:
         """品質問題解決"""
         for issue in self.issues:
             if issue.issue_id == issue_id and not issue.resolved:
@@ -790,10 +810,14 @@ class DataQualityAlertSystem:
         active_issues = [issue for issue in self.issues if not issue.resolved]
 
         if table_name:
-            active_issues = [issue for issue in active_issues if issue.table_name == table_name]
+            active_issues = [
+                issue for issue in active_issues if issue.table_name == table_name
+            ]
 
         if severity:
-            active_issues = [issue for issue in active_issues if issue.severity == severity]
+            active_issues = [
+                issue for issue in active_issues if issue.severity == severity
+            ]
 
         return sorted(active_issues, key=lambda i: i.timestamp, reverse=True)
 
@@ -905,7 +929,9 @@ class DataQualityAlertSystem:
 
         correlation = np.corrcoef(x, y)[0, 1] if len(scores) > 1 else 0
         trend = (
-            "improving" if correlation > 0.1 else "degrading" if correlation < -0.1 else "stable"
+            "improving"
+            if correlation > 0.1
+            else "degrading" if correlation < -0.1 else "stable"
         )
 
         return {
@@ -929,11 +955,15 @@ class DataQualityAlertSystem:
 
         # 重要な問題に基づく推奨事項
         critical_issues = [
-            i for i in issues if i.severity in [AlertSeverity.CRITICAL, AlertSeverity.EMERGENCY]
+            i
+            for i in issues
+            if i.severity in [AlertSeverity.CRITICAL, AlertSeverity.EMERGENCY]
         ]
 
         if critical_issues:
-            recommendations.append("重要な品質問題が検出されています。緊急対応が必要です。")
+            recommendations.append(
+                "重要な品質問題が検出されています。緊急対応が必要です。"
+            )
 
         # 品質指標別推奨事項
         if quality_score.completeness_score < 0.8:
@@ -952,7 +982,9 @@ class DataQualityAlertSystem:
             )
 
         if quality_score.uniqueness_score < 0.9:
-            recommendations.append("重複データが検出されています。重複除去処理の実装を推奨します。")
+            recommendations.append(
+                "重複データが検出されています。重複除去処理の実装を推奨します。"
+            )
 
         # 問題タイプ別推奨事項
         issue_types = set(issue.issue_type for issue in issues)
@@ -1028,9 +1060,15 @@ async def setup_data_quality_monitoring() -> DataQualityAlertSystem:
     alert_system = DataQualityAlertSystem(config)
 
     # アラートハンドラー登録
-    alert_system.register_alert_handler(AlertSeverity.WARNING, console_quality_alert_handler)
-    alert_system.register_alert_handler(AlertSeverity.CRITICAL, log_quality_alert_handler)
-    alert_system.register_alert_handler(AlertSeverity.EMERGENCY, file_quality_alert_handler)
+    alert_system.register_alert_handler(
+        AlertSeverity.WARNING, console_quality_alert_handler
+    )
+    alert_system.register_alert_handler(
+        AlertSeverity.CRITICAL, log_quality_alert_handler
+    )
+    alert_system.register_alert_handler(
+        AlertSeverity.EMERGENCY, file_quality_alert_handler
+    )
 
     return alert_system
 
@@ -1044,7 +1082,9 @@ if __name__ == "__main__":
         await alert_system.start_monitoring()
 
         # 品質スコア計算テスト
-        quality_score = await alert_system.calculate_overall_quality_score("stock_prices")
+        quality_score = await alert_system.calculate_overall_quality_score(
+            "stock_prices"
+        )
         print(f"品質スコア: {quality_score.overall_score:.3f}")
 
         # 10秒間監視実行

@@ -85,9 +85,13 @@ class CacheConfig:
                 cache_settings = getattr(self._config_manager, "cache_settings", {})
                 if hasattr(self._config_manager, "get"):
                     # より一般的なget方式も試行
-                    cache_settings = self._config_manager.get("cache", {}) or cache_settings
+                    cache_settings = (
+                        self._config_manager.get("cache", {}) or cache_settings
+                    )
             except Exception as e:
-                logger.warning(f"Failed to load cache settings from config_manager: {e}")
+                logger.warning(
+                    f"Failed to load cache settings from config_manager: {e}"
+                )
 
         # 設定値の決定（優先度: config_manager > 環境変数 > デフォルト）
         self.max_key_length = self._get_config_value(
@@ -394,7 +398,10 @@ class CacheCircuitBreaker:
                     self._state = "HALF_OPEN"
                     self._half_open_calls = 0
 
-            elif self._state == "HALF_OPEN" and self._half_open_calls >= self.half_open_max_calls:
+            elif (
+                self._state == "HALF_OPEN"
+                and self._half_open_calls >= self.half_open_max_calls
+            ):
                 raise CacheCircuitBreakerError(
                     "Circuit breaker HALF_OPEN limit exceeded",
                     self._state,
@@ -426,7 +433,10 @@ class CacheCircuitBreaker:
             self._failure_count += 1
             self._last_failure_time = time.time()
 
-            if self._failure_count >= self.failure_threshold or self._state == "HALF_OPEN":
+            if (
+                self._failure_count >= self.failure_threshold
+                or self._state == "HALF_OPEN"
+            ):
                 self._state = "OPEN"
 
     @property
@@ -518,13 +528,19 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
                 "depth": adaptive_depth,
             }
 
-            serialized = json.dumps(serializable_data, sort_keys=True, default=_json_serializer)
+            serialized = json.dumps(
+                serializable_data, sort_keys=True, default=_json_serializer
+            )
             cache_key = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
             # 処理時間の監視
             elapsed_time = time.time() - start_time
-            if elapsed_time > cache_config.serialization_timeout * 0.8:  # 80%を超えたら警告
-                logger.warning(f"Cache key generation took {elapsed_time:.3f}s for {func_name}")
+            if (
+                elapsed_time > cache_config.serialization_timeout * 0.8
+            ):  # 80%を超えたら警告
+                logger.warning(
+                    f"Cache key generation took {elapsed_time:.3f}s for {func_name}"
+                )
 
             # パフォーマンス最適化: デバッグログの条件付き出力
             if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
@@ -536,7 +552,9 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
 
         except (TypeError, ValueError, OverflowError) as e:
             # 予期される例外: シリアライゼーションエラー
-            logger.warning(f"JSON serialization failed for cache key, using fallback: {e}")
+            logger.warning(
+                f"JSON serialization failed for cache key, using fallback: {e}"
+            )
             try:
                 return _generate_fallback_cache_key(func_name, args, kwargs)
             except Exception as fallback_error:
@@ -559,7 +577,9 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
         except Exception as e:
             # 予期しない例外
             if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.ERROR):
-                logger.error(f"Unexpected error in cache key generation: {e}", exc_info=True)
+                logger.error(
+                    f"Unexpected error in cache key generation: {e}", exc_info=True
+                )
             raise CacheError(
                 f"キャッシュキー生成で予期しないエラーが発生しました: {e}",
                 "CACHE_KEY_UNEXPECTED_ERROR",
@@ -578,7 +598,9 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
         return circuit_breaker.call(_generate_key_internal)
     except CacheCircuitBreakerError:
         # サーキットブレーカーが開いている場合は緊急フォールバック
-        logger.error(f"Circuit breaker is open, using emergency fallback for {func_name}")
+        logger.error(
+            f"Circuit breaker is open, using emergency fallback for {func_name}"
+        )
         return _generate_emergency_cache_key(func_name, args, kwargs)
     except Exception as e:
         # その他のエラーもサーキットブレーカーに記録される
@@ -670,7 +692,9 @@ def _normalize_arguments(
                 seen_objects.add(obj_id)
             else:
                 # セットが大きくなりすぎた場合は警告
-                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.WARNING):
+                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
+                    logging.WARNING
+                ):
                     logger.warning(
                         f"Circular reference detection set is too large ({len(seen_objects)}), skipping detection for {type(args).__name__}"
                     )
@@ -678,14 +702,20 @@ def _normalize_arguments(
     except Exception as e:
         # id()の取得に失敗した場合はデバッグログに記録
         if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Failed to get object id for circular reference detection: {e}")
+            logger.debug(
+                f"Failed to get object id for circular reference detection: {e}"
+            )
         # 循環参照チェックをスキップして処理を続行
 
     # Pydanticモデル
     if PYDANTIC_AVAILABLE and isinstance(args, BaseModel):
         try:
-            model_data = args.model_dump() if hasattr(args, "model_dump") else args.dict()
-            return _normalize_arguments(model_data, max_depth, current_depth + 1, seen_objects)
+            model_data = (
+                args.model_dump() if hasattr(args, "model_dump") else args.dict()
+            )
+            return _normalize_arguments(
+                model_data, max_depth, current_depth + 1, seen_objects
+            )
         except Exception:
             return f"<pydantic model: {args.__class__.__name__}>"
 
@@ -704,7 +734,9 @@ def _normalize_arguments(
             for i, arg in enumerate(args):
                 try:
                     normalized_items.append(
-                        _normalize_arguments(arg, max_depth, current_depth + 1, seen_objects)
+                        _normalize_arguments(
+                            arg, max_depth, current_depth + 1, seen_objects
+                        )
                     )
                 except CacheError:
                     # CacheErrorは再発生
@@ -715,7 +747,9 @@ def _normalize_arguments(
 
                 # 巨大なコレクションの処理を制限
                 if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:  # 制限値を再利用
-                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
+                    normalized_items.append(
+                        f"<truncated: {len(args) - i - 1} more items>"
+                    )
                     break
 
             return normalized_items
@@ -760,7 +794,9 @@ def _normalize_arguments(
             for i, item in enumerate(args):
                 try:
                     normalized_items.append(
-                        _normalize_arguments(item, max_depth, current_depth + 1, seen_objects)
+                        _normalize_arguments(
+                            item, max_depth, current_depth + 1, seen_objects
+                        )
                     )
                 except CacheError:
                     raise
@@ -769,7 +805,9 @@ def _normalize_arguments(
 
                 # セットサイズの制限
                 if i >= CacheConstants.DEFAULT_MAX_OPERATION_HISTORY:
-                    normalized_items.append(f"<truncated: {len(args) - i - 1} more items>")
+                    normalized_items.append(
+                        f"<truncated: {len(args) - i - 1} more items>"
+                    )
                     break
 
             return {"__set__": sorted(normalized_items, key=str)}
@@ -788,7 +826,9 @@ def _normalize_arguments(
             # __dict__の存在と内容をチェック
             obj_dict = getattr(args, "__dict__", {})
             if obj_dict:
-                return _normalize_arguments(obj_dict, max_depth, current_depth + 1, seen_objects)
+                return _normalize_arguments(
+                    obj_dict, max_depth, current_depth + 1, seen_objects
+                )
             else:
                 return f"<empty_object: {args.__class__.__name__}>"
         except CacheError:
@@ -825,7 +865,10 @@ def _normalize_arguments(
             if args is None:
                 return None
             # 文字列の場合は長さをチェック
-            elif isinstance(args, str) and len(args) > CacheConstants.DEFAULT_MAX_KEY_LENGTH:
+            elif (
+                isinstance(args, str)
+                and len(args) > CacheConstants.DEFAULT_MAX_KEY_LENGTH
+            ):
                 return f"<long_string: {len(args)} chars>"
             else:
                 return args
@@ -913,7 +956,9 @@ def _json_serializer(obj: Any) -> Any:
                     "__datetime__": iso_string,
                     "__type__": obj.__class__.__name__,
                     "__timezone__": (
-                        str(getattr(obj, "tzinfo", None)) if hasattr(obj, "tzinfo") else None
+                        str(getattr(obj, "tzinfo", None))
+                        if hasattr(obj, "tzinfo")
+                        else None
                     ),
                 }
             except Exception:
@@ -1128,18 +1173,26 @@ class CacheStats:
                     return operation_func()
                 except Exception as e:
                     # 操作実行中のエラー
-                    if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.ERROR):
+                    if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
+                        logging.ERROR
+                    ):
                         logger.error(f"CacheStats operation failed: {e}", exc_info=True)
                     return default_value
                 finally:
                     try:
                         self._lock.release()
                     except Exception as release_error:
-                        if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.ERROR):
-                            logger.error(f"Failed to release CacheStats lock: {release_error}")
+                        if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
+                            logging.ERROR
+                        ):
+                            logger.error(
+                                f"Failed to release CacheStats lock: {release_error}"
+                            )
             else:
                 # ロック取得タイムアウト
-                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.WARNING):
+                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
+                    logging.WARNING
+                ):
                     logger.warning(
                         f"CacheStats lock timeout ({self._lock_timeout}s) - returning default value"
                     )
@@ -1242,8 +1295,12 @@ class CacheStats:
 
             # オーバーフロー検査（Python の int は無限精度だが、異常に大きな値をチェック）
             if new_value > CacheConstants.MAX_COUNTER_VALUE:
-                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(logging.WARNING):
-                    logger.warning(f"Counter '{counter_name}' approaching overflow, resetting to 0")
+                if hasattr(logger, "isEnabledFor") and logger.isEnabledFor(
+                    logging.WARNING
+                ):
+                    logger.warning(
+                        f"Counter '{counter_name}' approaching overflow, resetting to 0"
+                    )
                 setattr(self, counter_name, 0)
             else:
                 setattr(self, counter_name, new_value)
@@ -1317,8 +1374,12 @@ class CacheStats:
                 "uptime_seconds": uptime,
                 "time_since_reset_seconds": time_since_reset,
                 # 高度な指標
-                "error_rate": self._errors / total_requests if total_requests > 0 else 0.0,
-                "eviction_rate": self._evictions / self._sets if self._sets > 0 else 0.0,
+                "error_rate": (
+                    self._errors / total_requests if total_requests > 0 else 0.0
+                ),
+                "eviction_rate": (
+                    self._evictions / self._sets if self._sets > 0 else 0.0
+                ),
                 "efficiency_score": self._calculate_efficiency_score(
                     hit_rate,
                     self._errors / total_requests if total_requests > 0 else 0.0,
@@ -1366,7 +1427,9 @@ class CacheStats:
             cutoff_time = current_time - window_seconds
 
             # 指定時間内の操作数をカウント
-            recent_ops = sum(1 for op_time in self._operation_times if op_time >= cutoff_time)
+            recent_ops = sum(
+                1 for op_time in self._operation_times if op_time >= cutoff_time
+            )
 
             return recent_ops / window_seconds if window_seconds > 0 else 0.0
 
@@ -1394,7 +1457,9 @@ class CacheStats:
 
                 window_end = window_start + window_seconds
                 ops_in_window = sum(
-                    1 for op_time in self._operation_times if window_start <= op_time <= window_end
+                    1
+                    for op_time in self._operation_times
+                    if window_start <= op_time <= window_end
                 )
 
                 ops_per_second = ops_in_window / window_seconds
@@ -1638,7 +1703,9 @@ class HighPerformanceCache:
     最小限のロックと最適化されたデータ構造を使用
     """
 
-    def __init__(self, max_size: Optional[int] = None, config: Optional["CacheConfig"] = None):
+    def __init__(
+        self, max_size: Optional[int] = None, config: Optional["CacheConfig"] = None
+    ):
         import threading
         import time
 
@@ -1648,7 +1715,9 @@ class HighPerformanceCache:
         self._max_size = max_size or self._config.high_perf_cache_size
         self._lock = threading.Lock()  # RLockより高速
         self._time = time.time
-        self._cleanup_threshold = self._max_size * CacheConstants.DEFAULT_CLEANUP_THRESHOLD_RATIO
+        self._cleanup_threshold = (
+            self._max_size * CacheConstants.DEFAULT_CLEANUP_THRESHOLD_RATIO
+        )
 
     def get(self, key: str):
         """超高速get操作"""

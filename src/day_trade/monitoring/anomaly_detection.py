@@ -198,7 +198,9 @@ class LSTMAnomalyDetector:
             return False, 0.0, "モデル未訓練"
 
         # 統計的手法で代替実装
-        is_anomaly, confidence, explanation = self.statistical_detector.detect_anomaly(value)
+        is_anomaly, confidence, explanation = self.statistical_detector.detect_anomaly(
+            value
+        )
 
         return is_anomaly, confidence, f"LSTM(統計代替): {explanation}"
 
@@ -238,18 +240,22 @@ class EnsembleAnomalyDetector:
             results = {}
 
             # 統計的検知
-            is_anom_stat, conf_stat, exp_stat = self.detectors["statistical"].detect_anomaly(value)
+            is_anom_stat, conf_stat, exp_stat = self.detectors[
+                "statistical"
+            ].detect_anomaly(value)
             results["statistical"] = (is_anom_stat, conf_stat, exp_stat)
 
             # Isolation Forest検知
             detect_features = features if features is not None else np.array([value])
-            is_anom_if, conf_if, exp_if = self.detectors["isolation_forest"].detect_anomaly(
-                detect_features
-            )
+            is_anom_if, conf_if, exp_if = self.detectors[
+                "isolation_forest"
+            ].detect_anomaly(detect_features)
             results["isolation_forest"] = (is_anom_if, conf_if, exp_if)
 
             # LSTM検知
-            is_anom_lstm, conf_lstm, exp_lstm = self.detectors["lstm"].detect_anomaly(value)
+            is_anom_lstm, conf_lstm, exp_lstm = self.detectors["lstm"].detect_anomaly(
+                value
+            )
             results["lstm"] = (is_anom_lstm, conf_lstm, exp_lstm)
 
             # アンサンブル結果計算
@@ -452,7 +458,9 @@ class MLAnomalyDetectionSystem:
             "by_metric": dict(by_metric),
             "last_24h": last_24h,
             "active_detectors": len(self.detectors),
-            "enabled_metrics": sum(1 for config in self.configs.values() if config.enabled),
+            "enabled_metrics": sum(
+                1 for config in self.configs.values() if config.enabled
+            ),
         }
 
     def get_detection_history(self, limit: int = 100) -> List[Dict[str, Any]]:
@@ -465,7 +473,9 @@ class MLAnomalyDetectionSystem:
 
         if metric_name in self.configs:
             self.configs[metric_name].enabled = enabled
-            logger.info(f"メトリクス検知 {metric_name}: {'有効' if enabled else '無効'}")
+            logger.info(
+                f"メトリクス検知 {metric_name}: {'有効' if enabled else '無効'}"
+            )
 
     async def train_all_models(self):
         """全モデル訓練"""

@@ -95,14 +95,18 @@ class MultiTimeframeAnalyzer:
             # NaN値を削除
             resampled = resampled.dropna()
 
-            logger.info(f"{timeframe}リサンプリング完了: {len(data)} → {len(resampled)}期間")
+            logger.info(
+                f"{timeframe}リサンプリング完了: {len(data)} → {len(resampled)}期間"
+            )
             return resampled
 
         except Exception as e:
             logger.error(f"リサンプリングエラー ({timeframe}): {e}")
             return data.copy()
 
-    def calculate_timeframe_indicators(self, data: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    def calculate_timeframe_indicators(
+        self, data: pd.DataFrame, timeframe: str
+    ) -> pd.DataFrame:
         """
         指定時間軸でテクニカル指標を計算
 
@@ -148,7 +152,9 @@ class MultiTimeframeAnalyzer:
                 ema_fast = df["Close"].ewm(span=periods["macd"]["fast"]).mean()
                 ema_slow = df["Close"].ewm(span=periods["macd"]["slow"]).mean()
                 df["macd"] = ema_fast - ema_slow
-                df["macd_signal"] = df["macd"].ewm(span=periods["macd"]["signal"]).mean()
+                df["macd_signal"] = (
+                    df["macd"].ewm(span=periods["macd"]["signal"]).mean()
+                )
                 df["macd_histogram"] = df["macd"] - df["macd_signal"]
 
             # ボリンジャーバンド
@@ -235,7 +241,9 @@ class MultiTimeframeAnalyzer:
 
                 # MACD判定
                 if "macd" in df.columns and "macd_signal" in df.columns:
-                    if pd.notna(df["macd"].iloc[i]) and pd.notna(df["macd_signal"].iloc[i]):
+                    if pd.notna(df["macd"].iloc[i]) and pd.notna(
+                        df["macd_signal"].iloc[i]
+                    ):
                         if df["macd"].iloc[i] > df["macd_signal"].iloc[i]:
                             score += 1
                         else:
@@ -277,9 +285,9 @@ class MultiTimeframeAnalyzer:
 
                 # 価格モメンタム
                 if i >= 10:
-                    price_change = (df["Close"].iloc[i] - df["Close"].iloc[i - 10]) / df[
-                        "Close"
-                    ].iloc[i - 10]
+                    price_change = (
+                        df["Close"].iloc[i] - df["Close"].iloc[i - 10]
+                    ) / df["Close"].iloc[i - 10]
                     strength += price_change * 500  # スケール調整
 
                 # RSI強度
@@ -289,7 +297,9 @@ class MultiTimeframeAnalyzer:
                         strength += 20  # 極端なRSIは強いトレンド
 
                 # MACD histogram
-                if "macd_histogram" in df.columns and pd.notna(df["macd_histogram"].iloc[i]):
+                if "macd_histogram" in df.columns and pd.notna(
+                    df["macd_histogram"].iloc[i]
+                ):
                     macd_hist = df["macd_histogram"].iloc[i]
                     strength += abs(macd_hist) * 1000  # MACD histogramの絶対値
 
@@ -300,7 +310,9 @@ class MultiTimeframeAnalyzer:
                         strength += min(20, volatility * 500)  # 高ボラは強いトレンド
 
                 # 一目均衡表雲の厚さ
-                if "cloud_thickness" in df.columns and pd.notna(df["cloud_thickness"].iloc[i]):
+                if "cloud_thickness" in df.columns and pd.notna(
+                    df["cloud_thickness"].iloc[i]
+                ):
                     cloud_thickness = df["cloud_thickness"].iloc[i]
                     current_price = df["Close"].iloc[i]
                     if current_price > 0:
@@ -319,7 +331,9 @@ class MultiTimeframeAnalyzer:
             logger.error(f"トレンド強度計算エラー: {e}")
             return pd.Series([50] * len(df), index=df.index)
 
-    def _identify_support_resistance_levels(self, df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    def _identify_support_resistance_levels(
+        self, df: pd.DataFrame, timeframe: str
+    ) -> pd.DataFrame:
         """サポート・レジスタンスレベル特定"""
         try:
             # 時間軸に応じた検出期間
@@ -361,7 +375,9 @@ class MultiTimeframeAnalyzer:
             df["resistance_level"] = np.nan
 
             df.iloc[lookback:, df.columns.get_loc("support_level")] = support_levels
-            df.iloc[lookback:, df.columns.get_loc("resistance_level")] = resistance_levels
+            df.iloc[lookback:, df.columns.get_loc("resistance_level")] = (
+                resistance_levels
+            )
 
             # サポート・レジスタンス突破の検出
             df["support_break"] = (df["Close"] < df["support_level"]) & (
@@ -423,41 +439,59 @@ class MultiTimeframeAnalyzer:
                         "timeframe": tf_info["name"],
                         "data_points": len(tf_indicators),
                         "current_price": float(latest_data["Close"]),
-                        "trend_direction": latest_data.get("trend_direction", "unknown"),
+                        "trend_direction": latest_data.get(
+                            "trend_direction", "unknown"
+                        ),
                         "trend_strength": float(latest_data.get("trend_strength", 50)),
                         "technical_indicators": {},
                     }
 
                     # 主要テクニカル指標
                     if "rsi" in latest_data and pd.notna(latest_data["rsi"]):
-                        tf_analysis["technical_indicators"]["rsi"] = float(latest_data["rsi"])
+                        tf_analysis["technical_indicators"]["rsi"] = float(
+                            latest_data["rsi"]
+                        )
 
                     if "macd" in latest_data and pd.notna(latest_data["macd"]):
-                        tf_analysis["technical_indicators"]["macd"] = float(latest_data["macd"])
+                        tf_analysis["technical_indicators"]["macd"] = float(
+                            latest_data["macd"]
+                        )
 
-                    if "bb_position" in latest_data and pd.notna(latest_data["bb_position"]):
+                    if "bb_position" in latest_data and pd.notna(
+                        latest_data["bb_position"]
+                    ):
                         tf_analysis["technical_indicators"]["bb_position"] = float(
                             latest_data["bb_position"]
                         )
 
                     # サポート・レジスタンス
-                    if "support_level" in latest_data and pd.notna(latest_data["support_level"]):
-                        tf_analysis["support_level"] = float(latest_data["support_level"])
+                    if "support_level" in latest_data and pd.notna(
+                        latest_data["support_level"]
+                    ):
+                        tf_analysis["support_level"] = float(
+                            latest_data["support_level"]
+                        )
 
                     if "resistance_level" in latest_data and pd.notna(
                         latest_data["resistance_level"]
                     ):
-                        tf_analysis["resistance_level"] = float(latest_data["resistance_level"])
+                        tf_analysis["resistance_level"] = float(
+                            latest_data["resistance_level"]
+                        )
 
                     # 一目均衡表シグナル
                     if "ichimoku_signal" in latest_data:
-                        tf_analysis["ichimoku_signal"] = str(latest_data["ichimoku_signal"])
+                        tf_analysis["ichimoku_signal"] = str(
+                            latest_data["ichimoku_signal"]
+                        )
 
                     analysis_results["timeframes"][tf_key] = tf_analysis
 
             # 統合分析実行
             if len(analysis_results["timeframes"]) >= 2:
-                integrated = self._perform_integrated_analysis(analysis_results["timeframes"])
+                integrated = self._perform_integrated_analysis(
+                    analysis_results["timeframes"]
+                )
                 analysis_results["integrated_analysis"] = integrated
 
                 logger.info(f"マルチタイムフレーム分析完了: {symbol}")
@@ -481,7 +515,9 @@ class MultiTimeframeAnalyzer:
                 "analysis_timestamp": datetime.now().isoformat(),
             }
 
-    def _perform_integrated_analysis(self, timeframe_results: Dict[str, Dict]) -> Dict[str, any]:
+    def _perform_integrated_analysis(
+        self, timeframe_results: Dict[str, Dict]
+    ) -> Dict[str, any]:
         """統合分析実行"""
         try:
             # トレンド方向の統合判定
@@ -539,14 +575,18 @@ class MultiTimeframeAnalyzer:
                 "integrated_signal": integrated_signal,
                 "risk_assessment": risk_assessment,
                 "investment_recommendation": investment_recommendation,
-                "timeframe_agreement": self._analyze_timeframe_agreement(timeframe_results),
+                "timeframe_agreement": self._analyze_timeframe_agreement(
+                    timeframe_results
+                ),
             }
 
         except Exception as e:
             logger.error(f"統合分析エラー: {e}")
             return {"overall_trend": "error", "error": str(e)}
 
-    def _calculate_timeframe_consistency(self, timeframe_results: Dict[str, Dict]) -> float:
+    def _calculate_timeframe_consistency(
+        self, timeframe_results: Dict[str, Dict]
+    ) -> float:
         """時間軸間の整合性スコア計算（0-100）"""
         try:
             if len(timeframe_results) < 2:
@@ -657,7 +697,9 @@ class MultiTimeframeAnalyzer:
             ):
                 signal_action = "SELL"
                 signal_strength = "STRONG"
-            elif dominant_trend in ["strong_downtrend", "downtrend"] and confidence >= 40:
+            elif (
+                dominant_trend in ["strong_downtrend", "downtrend"] and confidence >= 40
+            ):
                 signal_action = "SELL"
                 signal_strength = "MODERATE"
             else:
@@ -702,7 +744,9 @@ class MultiTimeframeAnalyzer:
 
             if extreme_rsi_count >= 2:  # 複数時間軸で極端
                 if signal_action in ["BUY", "SELL"]:
-                    signal_strength = "MODERATE" if signal_strength == "STRONG" else "WEAK"
+                    signal_strength = (
+                        "MODERATE" if signal_strength == "STRONG" else "WEAK"
+                    )
 
             return {
                 "action": signal_action,
@@ -742,7 +786,9 @@ class MultiTimeframeAnalyzer:
                 base_score = 0
 
             # 強度による調整
-            strength_multiplier = {"STRONG": 1.0, "MODERATE": 0.7, "WEAK": 0.4}.get(strength, 0.4)
+            strength_multiplier = {"STRONG": 1.0, "MODERATE": 0.7, "WEAK": 0.4}.get(
+                strength, 0.4
+            )
 
             base_score *= strength_multiplier
 
@@ -750,7 +796,9 @@ class MultiTimeframeAnalyzer:
             confidence_adjustment = (confidence / 100) * 0.3
             consistency_adjustment = (consistency / 100) * 0.2
 
-            final_score = base_score * (1 + confidence_adjustment + consistency_adjustment)
+            final_score = base_score * (
+                1 + confidence_adjustment + consistency_adjustment
+            )
 
             return max(-100, min(100, final_score))
 
@@ -758,7 +806,9 @@ class MultiTimeframeAnalyzer:
             logger.error(f"シグナルスコア計算エラー: {e}")
             return 0
 
-    def _assess_multi_timeframe_risk(self, timeframe_results: Dict[str, Dict]) -> Dict[str, any]:
+    def _assess_multi_timeframe_risk(
+        self, timeframe_results: Dict[str, Dict]
+    ) -> Dict[str, any]:
         """マルチタイムフレームリスク評価"""
         try:
             risk_factors = []
@@ -817,7 +867,9 @@ class MultiTimeframeAnalyzer:
                         risk_factors.append(f"{tf_data['timeframe']}サポート近接")
 
                 if resistance and current_price > 0:
-                    resistance_distance = abs(current_price - resistance) / current_price
+                    resistance_distance = (
+                        abs(current_price - resistance) / current_price
+                    )
                     if resistance_distance < 0.02:  # 2%以内
                         sr_risk += 1
                         risk_factors.append(f"{tf_data['timeframe']}レジスタンス近接")
@@ -884,7 +936,9 @@ class MultiTimeframeAnalyzer:
                     position_size = "SMALL"
                 elif position_size == "SMALL":
                     position_size = "MINIMAL"
-                    recommendation = f"CAUTIOUS_{action}" if action != "HOLD" else "HOLD"
+                    recommendation = (
+                        f"CAUTIOUS_{action}" if action != "HOLD" else "HOLD"
+                    )
 
             # 推奨理由生成
             reasons = []
@@ -931,9 +985,15 @@ class MultiTimeframeAnalyzer:
                 "position_size": position_size,
                 "confidence": integrated_signal.get("confidence", 0),
                 "reasons": reasons,
-                "holding_period": self._suggest_holding_period(timeframe_results, dominant_trend),
-                "stop_loss_suggestion": self._calculate_stop_loss(timeframe_results, action),
-                "take_profit_suggestion": self._calculate_take_profit(timeframe_results, action),
+                "holding_period": self._suggest_holding_period(
+                    timeframe_results, dominant_trend
+                ),
+                "stop_loss_suggestion": self._calculate_stop_loss(
+                    timeframe_results, action
+                ),
+                "take_profit_suggestion": self._calculate_take_profit(
+                    timeframe_results, action
+                ),
             }
 
         except Exception as e:
@@ -1042,7 +1102,9 @@ class MultiTimeframeAnalyzer:
             logger.error(f"利益確定計算エラー: {e}")
             return None
 
-    def _analyze_timeframe_agreement(self, timeframe_results: Dict[str, Dict]) -> Dict[str, any]:
+    def _analyze_timeframe_agreement(
+        self, timeframe_results: Dict[str, Dict]
+    ) -> Dict[str, any]:
         """時間軸合意分析"""
         try:
             agreements = {
@@ -1052,7 +1114,9 @@ class MultiTimeframeAnalyzer:
             }
 
             # トレンド合意
-            trends = [(tf, data["trend_direction"]) for tf, data in timeframe_results.items()]
+            trends = [
+                (tf, data["trend_direction"]) for tf, data in timeframe_results.items()
+            ]
             for i, (tf1, trend1) in enumerate(trends):
                 for tf2, trend2 in trends[i + 1 :]:
                     if trend1 == trend2:
@@ -1132,7 +1196,9 @@ if __name__ == "__main__":
         analyzer = MultiTimeframeAnalyzer()
 
         print(f"サンプルデータ: {len(sample_data)}日分")
-        print(f"価格範囲: {sample_data['Close'].min():.2f} - {sample_data['Close'].max():.2f}")
+        print(
+            f"価格範囲: {sample_data['Close'].min():.2f} - {sample_data['Close'].max():.2f}"
+        )
 
         # 各時間軸でのリサンプリングテスト
         print("\n1. 時間軸リサンプリングテスト")
@@ -1159,7 +1225,9 @@ if __name__ == "__main__":
 
         # マルチタイムフレーム統合分析テスト
         print("\n3. マルチタイムフレーム統合分析テスト")
-        integrated_analysis = analyzer.analyze_multiple_timeframes(sample_data, "TEST_STOCK")
+        integrated_analysis = analyzer.analyze_multiple_timeframes(
+            sample_data, "TEST_STOCK"
+        )
 
         if "error" not in integrated_analysis:
             print("✅ 統合分析完了")

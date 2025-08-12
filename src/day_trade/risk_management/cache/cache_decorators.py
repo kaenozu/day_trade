@@ -163,7 +163,9 @@ def cache_result(
     return decorator
 
 
-def invalidate_cache(key_pattern: str = "*", cache_provider: Optional[ICacheProvider] = None):
+def invalidate_cache(
+    key_pattern: str = "*", cache_provider: Optional[ICacheProvider] = None
+):
     """
     キャッシュ無効化デコレーター
 
@@ -291,7 +293,9 @@ def cache_aside(
     return decorator
 
 
-def cached_property(ttl_seconds: int = 3600, cache_provider: Optional[ICacheProvider] = None):
+def cached_property(
+    ttl_seconds: int = 3600, cache_provider: Optional[ICacheProvider] = None
+):
     """
     キャッシュ付きプロパティデコレーター
 
@@ -642,7 +646,9 @@ def get_cache_stats(func: Callable) -> Optional[Dict[str, Any]]:
         return None
 
 
-def clear_function_cache(func: Callable, cache_provider: Optional[ICacheProvider] = None):
+def clear_function_cache(
+    func: Callable, cache_provider: Optional[ICacheProvider] = None
+):
     """特定関数のキャッシュをクリア"""
 
     provider = cache_provider or get_default_cache_provider()

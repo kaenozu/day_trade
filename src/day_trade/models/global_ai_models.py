@@ -104,7 +104,9 @@ class ForexSpecializedLSTM(nn.Module):
 
         logger.info("Forex Specialized LSTM initialized")
 
-    def forward(self, x: torch.Tensor, pair_ids: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, pair_ids: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """
         Args:
             x: [batch_size, sequence_length, forex_features]
@@ -124,8 +126,12 @@ class ForexSpecializedLSTM(nn.Module):
             conv_outputs.append(conv_out)
 
         # 特徴量結合
-        conv_features = torch.cat(conv_outputs, dim=1)  # [batch_size, 64*3, sequence_length]
-        conv_features = conv_features.transpose(1, 2)  # [batch_size, sequence_length, 64*3]
+        conv_features = torch.cat(
+            conv_outputs, dim=1
+        )  # [batch_size, 64*3, sequence_length]
+        conv_features = conv_features.transpose(
+            1, 2
+        )  # [batch_size, sequence_length, 64*3]
 
         # ペアembeddingを各時点に追加
         pair_emb_expanded = pair_emb.unsqueeze(1).expand(-1, seq_len, -1)
@@ -238,14 +244,18 @@ class CryptoSpecializedTransformer(nn.Module):
         pe = torch.zeros(seq_len, d_model)
         position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
 
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+        )
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 
         return pe.unsqueeze(0)  # [1, seq_len, d_model]
 
-    def forward(self, x: torch.Tensor, crypto_ids: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, crypto_ids: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """
         Args:
             x: [batch_size, sequence_length, crypto_features]
@@ -267,7 +277,9 @@ class CryptoSpecializedTransformer(nn.Module):
         transformer_out = self.transformer_encoder(x_pos)
 
         # パターン認識
-        transformer_conv = transformer_out.transpose(1, 2)  # [batch_size, hidden_size, seq_len]
+        transformer_conv = transformer_out.transpose(
+            1, 2
+        )  # [batch_size, hidden_size, seq_len]
         pattern_features = []
 
         for pattern_layer in self.pattern_layers:
@@ -307,7 +319,9 @@ class CryptoSpecializedTransformer(nn.Module):
 
         # 全体ボラティリティ追加
         for horizon_pred in predictions.values():
-            horizon_pred["overall_volatility"] = torch.sigmoid(volatility_pred.squeeze())
+            horizon_pred["overall_volatility"] = torch.sigmoid(
+                volatility_pred.squeeze()
+            )
 
         return predictions
 
@@ -478,7 +492,9 @@ def test_global_models():
     # ダミーデータ
     batch_size = 4
     forex_data = torch.randn(batch_size, config.sequence_length, config.forex_features)
-    crypto_data = torch.randn(batch_size, config.sequence_length, config.crypto_features)
+    crypto_data = torch.randn(
+        batch_size, config.sequence_length, config.crypto_features
+    )
     forex_pair_ids = torch.randint(0, 10, (batch_size,))
     crypto_ids = torch.randint(0, 20, (batch_size,))
 
@@ -489,7 +505,9 @@ def test_global_models():
     print("Global AI Models Test Results:")
     print(f"Forex predictions: {len(results['forex_predictions'])} horizons")
     print(f"Crypto predictions: {len(results['crypto_predictions'])} horizons")
-    print(f"Cross-market correlation: {results['cross_market_analysis']['correlation'].mean():.4f}")
+    print(
+        f"Cross-market correlation: {results['cross_market_analysis']['correlation'].mean():.4f}"
+    )
     print(f"Model weights: {results['model_weights']}")
 
 

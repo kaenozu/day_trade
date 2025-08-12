@@ -67,7 +67,9 @@ class EnsembleSettings(BaseModel):
         default="balanced",
         description="戦略タイプ（conservative, aggressive, balanced, adaptive）",
     )
-    voting_type: str = Field(default="soft", description="投票タイプ（soft, hard, weighted）")
+    voting_type: str = Field(
+        default="soft", description="投票タイプ（soft, hard, weighted）"
+    )
     performance_file_path: str = Field(
         default="data/ensemble_performance.json",
         description="パフォーマンス履歴ファイルのパス",
@@ -92,7 +94,9 @@ class EnsembleSettings(BaseModel):
         description="各戦略タイプの信頼度閾値",
     )
     meta_learning_enabled: bool = Field(default=True, description="メタ学習の有効/無効")
-    adaptive_weights_enabled: bool = Field(default=True, description="適応型重み調整の有効/無効")
+    adaptive_weights_enabled: bool = Field(
+        default=True, description="適応型重み調整の有効/無効"
+    )
 
     @field_validator("strategy_type")
     @classmethod
@@ -119,12 +123,16 @@ class EnsembleSettings(BaseModel):
         # 重みの合計チェック
         total_weight = sum(v.values())
         if not (0.95 <= total_weight <= 1.05):  # 誤差許容範囲
-            raise ValueError(f"Sum of strategy weights must be close to 1.0, got {total_weight}")
+            raise ValueError(
+                f"Sum of strategy weights must be close to 1.0, got {total_weight}"
+            )
 
         # 個別重みの範囲チェック
         for strategy, weight in v.items():
             if not (0.0 <= weight <= 1.0):
-                raise ValueError(f"Weight for {strategy} must be between 0.0 and 1.0, got {weight}")
+                raise ValueError(
+                    f"Weight for {strategy} must be between 0.0 and 1.0, got {weight}"
+                )
 
         return v
 
@@ -200,8 +208,12 @@ class AutoOptimizerSettings(BaseModel):
     data_quality_threshold: float = Field(0.7)
     performance_threshold: float = Field(0.05)
     risk_tolerance: float = Field(0.7)
-    fallback_symbols: List[str] = Field(default_factory=lambda: ["7203", "8306", "9984"])
-    screening_strategies: List[str] = Field(default_factory=lambda: ["default", "momentum"])
+    fallback_symbols: List[str] = Field(
+        default_factory=lambda: ["7203", "8306", "9984"]
+    )
+    screening_strategies: List[str] = Field(
+        default_factory=lambda: ["default", "momentum"]
+    )
     backtest_period_months: int = Field(6)
     ml_training_enabled: bool = Field(False)
 
@@ -230,7 +242,9 @@ class ConfigManager:
             config_path: 設定ファイルのパス
         """
         if config_path is None:
-            config_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+            config_path = (
+                Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+            )
 
         self.config_path = Path(config_path)
         self.config: Dict[str, Any] = {}
@@ -279,7 +293,8 @@ class ConfigManager:
         """監視銘柄リストを取得"""
         # Pydanticモデルのバリデーションを利用
         return [
-            WatchlistSymbol(**symbol_data) for symbol_data in self.config["watchlist"]["symbols"]
+            WatchlistSymbol(**symbol_data)
+            for symbol_data in self.config["watchlist"]["symbols"]
         ]
 
     def get_symbol_codes(self) -> List[str]:
@@ -294,12 +309,16 @@ class ConfigManager:
     def get_technical_indicator_settings(self) -> TechnicalIndicatorSettings:
         """テクニカル指標設定を取得"""
         # Pydanticモデルのバリデーションを利用
-        return TechnicalIndicatorSettings(**self.config["analysis"]["technical_indicators"])
+        return TechnicalIndicatorSettings(
+            **self.config["analysis"]["technical_indicators"]
+        )
 
     def get_pattern_recognition_settings(self) -> PatternRecognitionSettings:
         """パターン認識設定を取得"""
         # Pydanticモデルのバリデーションを利用
-        return PatternRecognitionSettings(**self.config["analysis"]["pattern_recognition"])
+        return PatternRecognitionSettings(
+            **self.config["analysis"]["pattern_recognition"]
+        )
 
     def get_signal_generation_settings(self) -> SignalGenerationSettings:
         """シグナル生成設定を取得"""
@@ -357,11 +376,16 @@ class ConfigManager:
         market_hours = self.get_market_hours()
 
         # 営業時間内かチェック
-        if current_time_only < market_hours.start or current_time_only > market_hours.end:
+        if (
+            current_time_only < market_hours.start
+            or current_time_only > market_hours.end
+        ):
             return False
 
         # 昼休み時間かチェック
-        return not market_hours.lunch_start <= current_time_only <= market_hours.lunch_end
+        return (
+            not market_hours.lunch_start <= current_time_only <= market_hours.lunch_end
+        )
 
     def get_high_priority_symbols(self) -> List[str]:
         """高優先度銘柄のコードリストを取得"""
@@ -375,7 +399,9 @@ class ConfigManager:
             self.config["watchlist"]["symbols"] = [
                 s.model_dump() for s in self.get_watchlist_symbols()
             ]
-            self.config["watchlist"]["market_hours"] = self.get_market_hours().model_dump()
+            self.config["watchlist"][
+                "market_hours"
+            ] = self.get_market_hours().model_dump()
             self.config["analysis"][
                 "technical_indicators"
             ] = self.get_technical_indicator_settings().model_dump()
@@ -385,15 +411,21 @@ class ConfigManager:
             self.config["analysis"][
                 "signal_generation"
             ] = self.get_signal_generation_settings().model_dump()
-            self.config["analysis"]["ensemble"] = self.get_ensemble_settings().model_dump()
+            self.config["analysis"][
+                "ensemble"
+            ] = self.get_ensemble_settings().model_dump()
             self.config["alerts"] = self.get_alert_settings().model_dump()
             self.config["backtest"] = self.get_backtest_settings().model_dump()
             self.config["reports"] = self.get_report_settings().model_dump()
             self.config["execution"] = self.get_execution_settings().model_dump()
             self.config["database"] = self.get_database_settings().model_dump()
-            self.config["auto_optimizer"] = self.get_auto_optimizer_settings().model_dump()
+            self.config["auto_optimizer"] = (
+                self.get_auto_optimizer_settings().model_dump()
+            )
             # エラーハンドリング設定の追加
-            self.config["error_handling"] = self.get_error_handler_settings().model_dump()
+            self.config["error_handling"] = (
+                self.get_error_handler_settings().model_dump()
+            )
 
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
@@ -414,13 +446,17 @@ class ConfigManager:
                 found = True
                 break
         if not found:
-            raise ValueError(f"ウォッチリストに銘柄コード '{symbol_code}' が見つかりません。")
+            raise ValueError(
+                f"ウォッチリストに銘柄コード '{symbol_code}' が見つかりません。"
+            )
         # 更新したリストをConfigManagerの内部辞書に反映（save_configでまとめて行うためここでは不要）
         # self.config["watchlist"]["symbols"] = [s.model_dump() for s in watchlist_symbols]
 
     def add_symbol(self, code: str, name: str, group: str, priority: str = "medium"):
         """新しい銘柄を追加"""
-        new_symbol = WatchlistSymbol(code=code, name=name, group=group, priority=priority)
+        new_symbol = WatchlistSymbol(
+            code=code, name=name, group=group, priority=priority
+        )
         # Pydanticモデルのリストに追加（save_configでまとめて反映）
         watchlist_symbols = self.get_watchlist_symbols()
         watchlist_symbols.append(new_symbol)
@@ -508,4 +544,6 @@ if __name__ == "__main__":
             logger.error(f"銘柄操作テストエラー: {e}")
 
     except Exception as e:
-        logger.error("設定管理システムテストエラー", error=str(e), error_type=type(e).__name__)
+        logger.error(
+            "設定管理システムテストエラー", error=str(e), error_type=type(e).__name__
+        )

@@ -94,7 +94,9 @@ class UnifiedStockScreener:
             スクリーニングレポート
         """
         start_time = datetime.now()
-        logger.info(f"スクリーニング開始: {len(symbols)}銘柄, 基準数: {len(criteria or [])}")
+        logger.info(
+            f"スクリーニング開始: {len(symbols)}銘柄, 基準数: {len(criteria or [])}"
+        )
 
         # デフォルト基準を使用
         if not criteria:
@@ -272,8 +274,12 @@ class UnifiedStockScreener:
             indicators["rsi"] = self.technical_indicators.rsi(data, period=14).iloc[-1]
 
             # 移動平均
-            indicators["sma_20"] = self.technical_indicators.sma(data, period=20).iloc[-1]
-            indicators["sma_50"] = self.technical_indicators.sma(data, period=50).iloc[-1]
+            indicators["sma_20"] = self.technical_indicators.sma(data, period=20).iloc[
+                -1
+            ]
+            indicators["sma_50"] = self.technical_indicators.sma(data, period=50).iloc[
+                -1
+            ]
 
             # MACD
             macd_data = self.technical_indicators.macd(data)
@@ -352,14 +358,16 @@ class UnifiedStockScreener:
         condition_counts = {}
         for result in results:
             for condition in result.matched_conditions:
-                condition_counts[condition.value] = condition_counts.get(condition.value, 0) + 1
+                condition_counts[condition.value] = (
+                    condition_counts.get(condition.value, 0) + 1
+                )
 
         return {
             "average_score": avg_score,
             "max_score": max_score,
-            "top_conditions": sorted(condition_counts.items(), key=lambda x: x[1], reverse=True)[
-                :3
-            ],
+            "top_conditions": sorted(
+                condition_counts.items(), key=lambda x: x[1], reverse=True
+            )[:3],
             "price_range": (
                 {
                     "min": min(r.last_price for r in results if r.last_price),
@@ -385,7 +393,9 @@ class UnifiedStockScreener:
             lines.append("【上位銘柄】")
             lines.append("-" * 40)
             for i, result in enumerate(report.results[:10], 1):
-                price_str = format_currency(result.last_price) if result.last_price else "N/A"
+                price_str = (
+                    format_currency(result.last_price) if result.last_price else "N/A"
+                )
                 volume_str = format_volume(result.volume) if result.volume else "N/A"
                 lines.append(
                     f"{i:2d}. {result.symbol:>6} | "
@@ -404,7 +414,9 @@ class UnifiedStockScreener:
         return "\n".join(lines)
 
 
-def create_screening_report(results: List[ScreenerResult], criteria: List[ScreenerCriteria]) -> str:
+def create_screening_report(
+    results: List[ScreenerResult], criteria: List[ScreenerCriteria]
+) -> str:
     """
     スクリーニングレポートを作成（後方互換性関数）
 

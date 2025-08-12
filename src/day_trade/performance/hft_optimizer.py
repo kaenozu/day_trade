@@ -93,7 +93,9 @@ class MemoryPool:
             "allocation_time_ns": [],
         }
 
-        logger.info(f"メモリプール初期化完了: {pool_size_mb}MB (huge_pages={use_huge_pages})")
+        logger.info(
+            f"メモリプール初期化完了: {pool_size_mb}MB (huge_pages={use_huge_pages})"
+        )
 
     def _init_memory_pool(self):
         """メモリプール初期化"""
@@ -113,7 +115,9 @@ class MemoryPool:
                     self.memory_pool = mmap.mmap(
                         -1,
                         self.pool_size,
-                        mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS | getattr(mmap, "MAP_HUGETLB", 0),
+                        mmap.MAP_PRIVATE
+                        | mmap.MAP_ANONYMOUS
+                        | getattr(mmap, "MAP_HUGETLB", 0),
                         mmap.PROT_READ | mmap.PROT_WRITE,
                     )
                     logger.info("Huge Pages メモリプール初期化完了")
@@ -152,7 +156,10 @@ class MemoryPool:
                     # ブロック使用
                     if block_size > aligned_size:
                         # 残りを新しいフリーブロックとして追加
-                        self.free_blocks[i] = (offset + aligned_size, block_size - aligned_size)
+                        self.free_blocks[i] = (
+                            offset + aligned_size,
+                            block_size - aligned_size,
+                        )
                     else:
                         # ブロック完全使用
                         del self.free_blocks[i]
@@ -164,7 +171,8 @@ class MemoryPool:
                     self.stats["total_allocations"] += 1
                     self.stats["current_usage_bytes"] += aligned_size
                     self.stats["peak_usage_bytes"] = max(
-                        self.stats["peak_usage_bytes"], self.stats["current_usage_bytes"]
+                        self.stats["peak_usage_bytes"],
+                        self.stats["current_usage_bytes"],
                     )
 
                     allocation_time = time.perf_counter_ns() - start_time
@@ -183,7 +191,8 @@ class MemoryPool:
                     self.stats["total_allocations"] += 1
                     self.stats["current_usage_bytes"] += aligned_size
                     self.stats["peak_usage_bytes"] = max(
-                        self.stats["peak_usage_bytes"], self.stats["current_usage_bytes"]
+                        self.stats["peak_usage_bytes"],
+                        self.stats["current_usage_bytes"],
                     )
 
                     return offset
@@ -250,7 +259,8 @@ class MemoryPool:
         """統計情報取得"""
         with self.allocation_lock:
             avg_allocation_time = (
-                sum(self.stats["allocation_time_ns"]) / len(self.stats["allocation_time_ns"])
+                sum(self.stats["allocation_time_ns"])
+                / len(self.stats["allocation_time_ns"])
                 if self.stats["allocation_time_ns"]
                 else 0
             )
@@ -267,7 +277,9 @@ class MemoryPool:
 if NUMBA_AVAILABLE:
 
     @jit(nopython=True, nogil=True, cache=True)
-    def vectorized_feature_calculation(prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
+    def vectorized_feature_calculation(
+        prices: np.ndarray, volumes: np.ndarray
+    ) -> np.ndarray:
         """SIMD最適化特徴量計算"""
         n = len(prices)
         features = np.empty((n, 8), dtype=np.float64)
@@ -340,7 +352,9 @@ if NUMBA_AVAILABLE:
 
 else:
 
-    def vectorized_feature_calculation(prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
+    def vectorized_feature_calculation(
+        prices: np.ndarray, volumes: np.ndarray
+    ) -> np.ndarray:
         """フォールバック特徴量計算"""
         logger.warning("Numba未利用のためフォールバック実行")
         n = len(prices)
@@ -386,7 +400,9 @@ class HFTOptimizer:
         }
         self._stats_lock = threading.RLock()
 
-        logger.info(f"HFT最適化エンジン初期化完了 (目標: {self.config.target_latency_us}μs)")
+        logger.info(
+            f"HFT最適化エンジン初期化完了 (目標: {self.config.target_latency_us}μs)"
+        )
 
     def _setup_system_optimization(self):
         """システムレベル最適化"""
@@ -429,11 +445,16 @@ class HFTOptimizer:
         """スレッドピニング設定"""
         # 実装は環境依存のため、基本的な準備のみ
         self.thread_affinity_map = {}
-        if self.config.cpu_affinity and len(self.config.cpu_affinity) >= self.config.max_threads:
+        if (
+            self.config.cpu_affinity
+            and len(self.config.cpu_affinity) >= self.config.max_threads
+        ):
             for i in range(self.config.max_threads):
                 self.thread_affinity_map[i] = self.config.cpu_affinity[i]
 
-    def predict_ultra_fast(self, prices: np.ndarray, volumes: np.ndarray) -> Dict[str, Any]:
+    def predict_ultra_fast(
+        self, prices: np.ndarray, volumes: np.ndarray
+    ) -> Dict[str, Any]:
         """超高速予測実行（メイン処理）"""
         start_time = time.perf_counter_ns()
 
@@ -446,7 +467,9 @@ class HFTOptimizer:
             # 2. 最新の特徴量で予測
             prediction_start = time.perf_counter_ns()
             latest_features = features[-1] if len(features) > 0 else np.zeros(8)
-            prediction = ultra_fast_price_prediction(latest_features, self.model_weights)
+            prediction = ultra_fast_price_prediction(
+                latest_features, self.model_weights
+            )
             prediction_time = time.perf_counter_ns() - prediction_start
 
             # 3. 総実行時間計算
@@ -515,7 +538,9 @@ class HFTOptimizer:
 
             results.update(batch_results)
 
-            logger.debug(f"バッチ処理完了: {len(batch_results)}銘柄, {batch_latency:.2f}μs")
+            logger.debug(
+                f"バッチ処理完了: {len(batch_results)}銘柄, {batch_latency:.2f}μs"
+            )
 
         total_batch_time = (time.perf_counter_ns() - batch_start_time) / 1000.0
 
@@ -527,7 +552,12 @@ class HFTOptimizer:
                 "avg_latency_per_symbol_us": np.mean(latencies) if latencies else 0,
                 "max_latency_us": np.max(latencies) if latencies else 0,
                 "under_target_rate": (
-                    np.mean([1 if lat < self.config.target_latency_us else 0 for lat in latencies])
+                    np.mean(
+                        [
+                            1 if lat < self.config.target_latency_us else 0
+                            for lat in latencies
+                        ]
+                    )
                     if latencies
                     else 0
                 ),
@@ -552,14 +582,19 @@ class HFTOptimizer:
 
             # 目標達成率更新
             under_target_count = np.sum(
-                self.performance_stats["latency_histogram"][: int(self.config.target_latency_us)]
+                self.performance_stats["latency_histogram"][
+                    : int(self.config.target_latency_us)
+                ]
             )
             self.performance_stats["under_target_percentage"] = (
                 under_target_count / total_preds * 100.0
             )
 
             # プロファイリング
-            if self.config.enable_profiling and total_preds % self.config.profile_every_n_ops == 0:
+            if (
+                self.config.enable_profiling
+                and total_preds % self.config.profile_every_n_ops == 0
+            ):
                 self._log_performance_profile()
 
     def _log_performance_profile(self):
@@ -573,7 +608,9 @@ class HFTOptimizer:
             logger.info(f"平均レイテンシ: {stats['avg_latency_us']:.2f}μs")
             logger.info(f"目標達成率: {stats['under_target_percentage']:.1f}%")
             logger.info(f"メモリ使用率: {memory_stats['pool_utilization']:.1f}%")
-            logger.info(f"メモリ平均割り当て時間: {memory_stats['avg_allocation_time_ns']:.0f}ns")
+            logger.info(
+                f"メモリ平均割り当て時間: {memory_stats['avg_allocation_time_ns']:.0f}ns"
+            )
 
     def get_optimization_report(self) -> Dict[str, Any]:
         """最適化レポート生成"""
@@ -670,7 +707,9 @@ def hft_optimized(target_latency_us: float = 50.0):
             execution_time_us = (time.perf_counter_ns() - start_time) / 1000.0
 
             if execution_time_us > target_latency_us:
-                logger.warning(f"関数 {func.__name__} レイテンシ超過: {execution_time_us:.2f}μs")
+                logger.warning(
+                    f"関数 {func.__name__} レイテンシ超過: {execution_time_us:.2f}μs"
+                )
 
             return result
 

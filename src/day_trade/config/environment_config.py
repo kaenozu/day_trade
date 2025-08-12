@@ -78,7 +78,9 @@ class EnvironmentConfigManager:
         # 設定ディレクトリ作成
         self.config_dir.mkdir(exist_ok=True)
 
-        self.logger.info(f"環境設定管理システム初期化完了 - 環境: {self.current_environment.value}")
+        self.logger.info(
+            f"環境設定管理システム初期化完了 - 環境: {self.current_environment.value}"
+        )
 
     def _detect_environment(self) -> Environment:
         """環境自動検出"""
@@ -140,7 +142,9 @@ class EnvironmentConfigManager:
             return config
 
         except json.JSONDecodeError as e:
-            raise ConfigurationError(f"設定ファイル形式エラー: {e}", str(config_file), env.value)
+            raise ConfigurationError(
+                f"設定ファイル形式エラー: {e}", str(config_file), env.value
+            )
         except Exception as e:
             raise ConfigurationError(
                 f"設定ファイル読み込みエラー: {e}", str(config_file), env.value
@@ -281,7 +285,9 @@ class EnvironmentConfigManager:
 
         return current
 
-    def get_system_config(self, environment: Optional[Environment] = None) -> SystemConfig:
+    def get_system_config(
+        self, environment: Optional[Environment] = None
+    ) -> SystemConfig:
         """システム設定取得"""
         config = self.load_config(environment)
         system_config = config.get("system", {})
@@ -290,30 +296,44 @@ class EnvironmentConfigManager:
             performance_target_seconds=system_config.get("performance", {}).get(
                 "ml_analysis_target_seconds", 3.6
             ),
-            memory_limit_mb=system_config.get("performance", {}).get("memory_limit_mb", 2048),
-            cpu_limit_percent=system_config.get("performance", {}).get("cpu_limit_percent", 80),
+            memory_limit_mb=system_config.get("performance", {}).get(
+                "memory_limit_mb", 2048
+            ),
+            cpu_limit_percent=system_config.get("performance", {}).get(
+                "cpu_limit_percent", 80
+            ),
             logging_level=system_config.get("logging", {}).get("level", "INFO"),
             monitoring_enabled=system_config.get("monitoring", {}).get("enabled", True),
         )
 
-    def get_security_config(self, environment: Optional[Environment] = None) -> SecurityConfig:
+    def get_security_config(
+        self, environment: Optional[Environment] = None
+    ) -> SecurityConfig:
         """セキュリティ設定取得"""
         config = self.load_config(environment)
         security_config = config.get("security", {})
 
         return SecurityConfig(
-            api_keys_encrypted=security_config.get("api_keys", {}).get("encryption", True),
-            access_control_enabled=security_config.get("access_control", {}).get("enabled", True),
+            api_keys_encrypted=security_config.get("api_keys", {}).get(
+                "encryption", True
+            ),
+            access_control_enabled=security_config.get("access_control", {}).get(
+                "enabled", True
+            ),
             data_encryption_enabled=security_config.get("data_protection", {}).get(
                 "encryption_at_rest", True
             ),
-            allowed_ips=security_config.get("access_control", {}).get("allowed_ips", []),
+            allowed_ips=security_config.get("access_control", {}).get(
+                "allowed_ips", []
+            ),
             rate_limit_rpm=security_config.get("access_control", {})
             .get("rate_limiting", {})
             .get("requests_per_minute", 60),
         )
 
-    def get_trading_config(self, environment: Optional[Environment] = None) -> TradingConfig:
+    def get_trading_config(
+        self, environment: Optional[Environment] = None
+    ) -> TradingConfig:
         """取引設定取得"""
         config = self.load_config(environment)
         trading_config = config.get("daytrading", {})
@@ -327,7 +347,9 @@ class EnvironmentConfigManager:
             paper_trading=trading_config.get("paper_trading", False),
         )
 
-    def save_config(self, config: Dict[str, Any], environment: Optional[Environment] = None):
+    def save_config(
+        self, config: Dict[str, Any], environment: Optional[Environment] = None
+    ):
         """設定ファイル保存"""
         env = environment or self.current_environment
         config_file = self.config_dir / f"{env.value}.json"
@@ -348,7 +370,9 @@ class EnvironmentConfigManager:
             self.logger.info(f"設定ファイル保存完了: {config_file}")
 
         except Exception as e:
-            raise ConfigurationError(f"設定ファイル保存エラー: {e}", str(config_file), env.value)
+            raise ConfigurationError(
+                f"設定ファイル保存エラー: {e}", str(config_file), env.value
+            )
 
     def clear_cache(self):
         """設定キャッシュクリア"""
@@ -366,7 +390,9 @@ class EnvironmentConfigManager:
                 if f.stem not in ["settings"]  # デフォルト設定を除外
             ],
             "environment_variables": {
-                key: value for key, value in os.environ.items() if key.startswith("DAYTRADE_")
+                key: value
+                for key, value in os.environ.items()
+                if key.startswith("DAYTRADE_")
             },
             "cache_status": {
                 "cached_environments": list(self.config_cache.keys()),
@@ -387,7 +413,9 @@ def get_environment_config_manager() -> EnvironmentConfigManager:
     return _global_config_manager
 
 
-def get_env_config(key_path: str, default: Any = None, environment: Optional[str] = None) -> Any:
+def get_env_config(
+    key_path: str, default: Any = None, environment: Optional[str] = None
+) -> Any:
     """環境設定値取得（便利関数）"""
     env = Environment(environment) if environment else None
     return get_environment_config_manager().get_config(key_path, default, env)
@@ -416,7 +444,9 @@ if __name__ == "__main__":
         # 設定読み込みテスト
         config = config_mgr.load_config()
         print("\nConfiguration loaded successfully")
-        print(f"Watchlist symbols: {len(config.get('watchlist', {}).get('symbols', []))}")
+        print(
+            f"Watchlist symbols: {len(config.get('watchlist', {}).get('symbols', []))}"
+        )
 
         # 構造化設定取得テスト
         system_config = config_mgr.get_system_config()
@@ -440,7 +470,9 @@ if __name__ == "__main__":
         print(f"  Paper Trading: {trading_config.paper_trading}")
 
         # 個別設定値取得テスト
-        target_seconds = get_env_config("system.performance.ml_analysis_target_seconds", 5.0)
+        target_seconds = get_env_config(
+            "system.performance.ml_analysis_target_seconds", 5.0
+        )
         print(f"\nML Analysis Target: {target_seconds}s")
 
         print("\nEnvironment Configuration Manager test completed successfully!")

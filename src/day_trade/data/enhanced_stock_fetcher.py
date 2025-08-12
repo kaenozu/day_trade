@@ -345,15 +345,20 @@ class MultiLayerCacheManager:
     def get_stats(self) -> Dict[str, Any]:
         """キャッシュ統計取得"""
         with self._lock:
-            total_hits = self.stats["l1_hits"] + self.stats["l2_hits"] + self.stats["l3_hits"]
+            total_hits = (
+                self.stats["l1_hits"] + self.stats["l2_hits"] + self.stats["l3_hits"]
+            )
             total_misses = (
-                self.stats["l1_misses"] + self.stats["l2_misses"] + self.stats["l3_misses"]
+                self.stats["l1_misses"]
+                + self.stats["l2_misses"]
+                + self.stats["l3_misses"]
             )
 
             stats = {
                 **self.stats,
                 "l1_cache_size": len(self.l1_cache),
-                "l1_hit_rate": self.stats["l1_hits"] / max(self.stats["total_requests"], 1),
+                "l1_hit_rate": self.stats["l1_hits"]
+                / max(self.stats["total_requests"], 1),
                 "overall_hit_rate": total_hits / max(total_hits + total_misses, 1),
                 "cache_layers_active": sum(
                     [
@@ -414,7 +419,9 @@ class EnhancedStockFetcher(BaseStockFetcher):
             "Enhanced Stock Fetcher 初期化完了",
             extra={
                 "advanced_cache_available": ADVANCED_CACHE_AVAILABLE,
-                "multi_layer_enabled": self.cache_config.get("enable_multi_layer_cache"),
+                "multi_layer_enabled": self.cache_config.get(
+                    "enable_multi_layer_cache"
+                ),
             },
         )
 
@@ -489,7 +496,8 @@ class EnhancedStockFetcher(BaseStockFetcher):
         # 移動平均でレスポンス時間更新
         alpha = 0.1
         self.performance_stats["avg_response_time_ms"] = (
-            self.performance_stats["avg_response_time_ms"] * (1 - alpha) + elapsed_ms * alpha
+            self.performance_stats["avg_response_time_ms"] * (1 - alpha)
+            + elapsed_ms * alpha
         )
 
         # キャッシュヒット率更新
@@ -502,7 +510,9 @@ class EnhancedStockFetcher(BaseStockFetcher):
     def get_current_price(self, code: str) -> Optional[Dict[str, float]]:
         """現在価格取得（キャッシュ強化版）"""
         ttl = self.cache_config.get("price_ttl_seconds")
-        return self._cached_operation("get_current_price", super().get_current_price, ttl, code)
+        return self._cached_operation(
+            "get_current_price", super().get_current_price, ttl, code
+        )
 
     def get_historical_data(
         self, code: str, period: str = "1mo", interval: str = "1d"
@@ -540,7 +550,9 @@ class EnhancedStockFetcher(BaseStockFetcher):
     def get_company_info(self, code: str) -> Optional[Dict[str, Any]]:
         """企業情報取得（キャッシュ強化版）"""
         ttl = self.cache_config.get("company_info_ttl_seconds")
-        return self._cached_operation("get_company_info", super().get_company_info, ttl, code)
+        return self._cached_operation(
+            "get_company_info", super().get_company_info, ttl, code
+        )
 
     def bulk_get_current_prices(
         self, codes: List[str], batch_size: int = 50, delay: float = 0.1
@@ -578,9 +590,7 @@ class EnhancedStockFetcher(BaseStockFetcher):
             # 個別にキャッシュ保存
             for code, result in bulk_results.items():
                 if result is not None:
-                    cache_key = (
-                        f"get_current_price:{self._generate_cache_key('get_current_price', code)}"
-                    )
+                    cache_key = f"get_current_price:{self._generate_cache_key('get_current_price', code)}"
                     self.cache_manager.set(cache_key, result, ttl)
                 results[code] = result
 
@@ -627,10 +637,16 @@ class EnhancedStockFetcher(BaseStockFetcher):
             "performance_stats": self.performance_stats,
             "cache_stats": cache_stats,
             "cache_config": {
-                "multi_layer_enabled": self.cache_config.get("enable_multi_layer_cache"),
+                "multi_layer_enabled": self.cache_config.get(
+                    "enable_multi_layer_cache"
+                ),
                 "persistent_enabled": self.cache_config.get("persistent_cache_enabled"),
-                "distributed_enabled": self.cache_config.get("distributed_cache_enabled"),
-                "smart_invalidation_enabled": self.cache_config.get("smart_invalidation_enabled"),
+                "distributed_enabled": self.cache_config.get(
+                    "distributed_cache_enabled"
+                ),
+                "smart_invalidation_enabled": self.cache_config.get(
+                    "smart_invalidation_enabled"
+                ),
             },
             "advanced_cache_available": ADVANCED_CACHE_AVAILABLE,
         }

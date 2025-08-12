@@ -231,7 +231,9 @@ class CodeVectorizer:
             "avg_speed_improvement": 1.0,
         }
 
-    def vectorize_apply_expression(self, apply_code: str) -> Optional[VectorizationResult]:
+    def vectorize_apply_expression(
+        self, apply_code: str
+    ) -> Optional[VectorizationResult]:
         """apply式のベクトル化変換"""
         pattern = self.pattern_library.find_matching_pattern(apply_code)
 
@@ -259,7 +261,9 @@ class CodeVectorizer:
             # 統計更新
             self.transformation_stats["total_transformations"] += 1
             self.transformation_stats["successful_transformations"] += 1
-            self.transformation_stats["total_speed_improvement"] += pattern.speed_improvement
+            self.transformation_stats[
+                "total_speed_improvement"
+            ] += pattern.speed_improvement
             self.transformation_stats["avg_speed_improvement"] = (
                 self.transformation_stats["total_speed_improvement"]
                 / self.transformation_stats["successful_transformations"]
@@ -410,7 +414,8 @@ class RuntimeVectorizer:
 
             with ThreadPoolExecutor(max_workers=n_workers) as executor:
                 futures = [
-                    executor.submit(lambda chunk: chunk.apply(func), chunk) for chunk in chunks
+                    executor.submit(lambda chunk: chunk.apply(func), chunk)
+                    for chunk in chunks
                 ]
                 results = [future.result() for future in futures]
 
@@ -428,7 +433,9 @@ class VectorizationBenchmark:
     def __init__(self):
         self.vectorizer = RuntimeVectorizer()
 
-    def benchmark_vectorization_performance(self, data_size: int = 100000) -> Dict[str, Any]:
+    def benchmark_vectorization_performance(
+        self, data_size: int = 100000
+    ) -> Dict[str, Any]:
         """ベクトル化パフォーマンスベンチマーク"""
 
         logger.info(f"ベクトル化ベンチマーク開始: {data_size}件")
@@ -436,21 +443,31 @@ class VectorizationBenchmark:
         # テストデータ生成
         np.random.seed(42)
         test_series = pd.Series(np.random.randn(data_size))
-        string_series = pd.Series([f"test_string_{i}" for i in range(min(data_size, 10000))])
+        string_series = pd.Series(
+            [f"test_string_{i}" for i in range(min(data_size, 10000))]
+        )
 
         benchmark_results = {}
 
         # 算術演算ベンチマーク
-        benchmark_results["arithmetic_operations"] = self._benchmark_arithmetic(test_series)
+        benchmark_results["arithmetic_operations"] = self._benchmark_arithmetic(
+            test_series
+        )
 
         # 数学関数ベンチマーク
-        benchmark_results["math_functions"] = self._benchmark_math_functions(test_series)
+        benchmark_results["math_functions"] = self._benchmark_math_functions(
+            test_series
+        )
 
         # 比較演算ベンチマーク
-        benchmark_results["comparison_operations"] = self._benchmark_comparisons(test_series)
+        benchmark_results["comparison_operations"] = self._benchmark_comparisons(
+            test_series
+        )
 
         # 文字列操作ベンチマーク
-        benchmark_results["string_operations"] = self._benchmark_string_operations(string_series)
+        benchmark_results["string_operations"] = self._benchmark_string_operations(
+            string_series
+        )
 
         # 総合統計
         all_improvements = []
@@ -495,7 +512,9 @@ class VectorizationBenchmark:
             "apply_time_ms": apply_time * 1000,
             "vectorized_time_ms": vectorized_time * 1000,
             "speedup": apply_time / vectorized_time if vectorized_time > 0 else 1.0,
-            "results_equal": np.allclose(apply_result, vectorized_result, equal_nan=True),
+            "results_equal": np.allclose(
+                apply_result, vectorized_result, equal_nan=True
+            ),
         }
 
         # 乗算テスト
@@ -511,7 +530,9 @@ class VectorizationBenchmark:
             "apply_time_ms": apply_time * 1000,
             "vectorized_time_ms": vectorized_time * 1000,
             "speedup": apply_time / vectorized_time if vectorized_time > 0 else 1.0,
-            "results_equal": np.allclose(apply_result, vectorized_result, equal_nan=True),
+            "results_equal": np.allclose(
+                apply_result, vectorized_result, equal_nan=True
+            ),
         }
 
         return results
@@ -533,7 +554,9 @@ class VectorizationBenchmark:
             "apply_time_ms": apply_time * 1000,
             "vectorized_time_ms": vectorized_time * 1000,
             "speedup": apply_time / vectorized_time if vectorized_time > 0 else 1.0,
-            "results_equal": np.allclose(apply_result, vectorized_result, equal_nan=True),
+            "results_equal": np.allclose(
+                apply_result, vectorized_result, equal_nan=True
+            ),
         }
 
         return results

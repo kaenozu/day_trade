@@ -161,7 +161,9 @@ class AdvancedBatchDataFetcher:
 
                 self.kafka_producer = KafkaProducer(
                     bootstrap_servers=self.kafka_config["bootstrap_servers"],
-                    value_serializer=lambda v: json.dumps(v, default=str).encode("utf-8"),
+                    value_serializer=lambda v: json.dumps(v, default=str).encode(
+                        "utf-8"
+                    ),
                     key_serializer=lambda k: k.encode("utf-8") if k else None,
                 )
                 logger.info("Kafka Producer初期化完了")
@@ -174,7 +176,9 @@ class AdvancedBatchDataFetcher:
             try:
                 import redis  # 遅延インポート
 
-                self.redis_client = redis.Redis(**self.redis_config, decode_responses=True)
+                self.redis_client = redis.Redis(
+                    **self.redis_config, decode_responses=True
+                )
                 self.redis_client.ping()
                 logger.info("Redis接続初期化完了")
             except Exception as e:
@@ -220,17 +224,22 @@ class AdvancedBatchDataFetcher:
         if self.enable_kafka:
             self._publish_to_kafka(results)
 
-        logger.info(f"Advanced バッチ取得完了: {len(results)} レスポンス ({elapsed_time:.2f}秒)")
+        logger.info(
+            f"Advanced バッチ取得完了: {len(results)} レスポンス ({elapsed_time:.2f}秒)"
+        )
         return results
 
-    def _fetch_parallel_advanced(self, requests: List[DataRequest]) -> Dict[str, DataResponse]:
+    def _fetch_parallel_advanced(
+        self, requests: List[DataRequest]
+    ) -> Dict[str, DataResponse]:
         """高度並列取得"""
         results = {}
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # 非同期タスク投入
             future_to_request = {
-                executor.submit(self._process_single_request, req): req for req in requests
+                executor.submit(self._process_single_request, req): req
+                for req in requests
             }
 
             # 結果回収
@@ -245,7 +254,9 @@ class AdvancedBatchDataFetcher:
                             f"並列取得成功: {request.symbol} ({response.record_count}レコード)"
                         )
                     else:
-                        logger.warning(f"並列取得失敗: {request.symbol} - {response.error_message}")
+                        logger.warning(
+                            f"並列取得失敗: {request.symbol} - {response.error_message}"
+                        )
 
                 except Exception as e:
                     logger.error(f"並列取得エラー {request.symbol}: {e}")
@@ -258,7 +269,9 @@ class AdvancedBatchDataFetcher:
 
         return results
 
-    def _fetch_sequential_advanced(self, requests: List[DataRequest]) -> Dict[str, DataResponse]:
+    def _fetch_sequential_advanced(
+        self, requests: List[DataRequest]
+    ) -> Dict[str, DataResponse]:
         """高度逐次取得"""
         results = {}
 
@@ -272,7 +285,9 @@ class AdvancedBatchDataFetcher:
                         f"逐次取得成功: {request.symbol} ({response.record_count}レコード)"
                     )
                 else:
-                    logger.warning(f"逐次取得失敗: {request.symbol} - {response.error_message}")
+                    logger.warning(
+                        f"逐次取得失敗: {request.symbol} - {response.error_message}"
+                    )
 
             except Exception as e:
                 logger.error(f"逐次取得エラー {request.symbol}: {e}")
@@ -362,7 +377,9 @@ class AdvancedBatchDataFetcher:
                 fetch_time=time.time() - start_time,
             )
 
-    def _preprocess_data(self, data: pd.DataFrame, request: DataRequest) -> pd.DataFrame:
+    def _preprocess_data(
+        self, data: pd.DataFrame, request: DataRequest
+    ) -> pd.DataFrame:
         """高度データ前処理（統合テクニカル指標マネージャー使用）"""
 
         result = data.copy()
@@ -388,7 +405,9 @@ class AdvancedBatchDataFetcher:
                 # フォールバック: 基本的な特徴量のみ
                 if "終値" in result.columns:
                     result["returns"] = result["終値"].pct_change()
-                    result["log_returns"] = np.log(result["終値"] / result["終値"].shift(1))
+                    result["log_returns"] = np.log(
+                        result["終値"] / result["終値"].shift(1)
+                    )
                     result["volatility_5d"] = result["returns"].rolling(5).std()
                     result["SMA_20"] = result["終値"].rolling(20).mean()
                     result["EMA_20"] = result["終値"].ewm(span=20).mean()
@@ -400,7 +419,8 @@ class AdvancedBatchDataFetcher:
                 result["volume_ma_20"] = result["出来高"].rolling(20).mean()
                 result["volume_ratio"] = result["出来高"] / result["volume_ma_20"]
                 result["volume_trend"] = (
-                    result["出来高"].rolling(5).mean() / result["出来高"].rolling(20).mean()
+                    result["出来高"].rolling(5).mean()
+                    / result["出来高"].rolling(20).mean()
                 )
 
             # カスタム特徴量（リクエストに基づく）
@@ -420,7 +440,9 @@ class AdvancedBatchDataFetcher:
 
         return result
 
-    def _add_custom_feature(self, data: pd.DataFrame, feature_name: str) -> pd.DataFrame:
+    def _add_custom_feature(
+        self, data: pd.DataFrame, feature_name: str
+    ) -> pd.DataFrame:
         """カスタム特徴量追加"""
 
         try:
@@ -450,8 +472,12 @@ class AdvancedBatchDataFetcher:
             ):
                 # ギャップ分析
                 prev_close = data["終値"].shift(1)
-                data["gap_up"] = ((data["始値"] - prev_close) / prev_close > 0.02).astype(int)
-                data["gap_down"] = ((prev_close - data["始値"]) / prev_close > 0.02).astype(int)
+                data["gap_up"] = (
+                    (data["始値"] - prev_close) / prev_close > 0.02
+                ).astype(int)
+                data["gap_down"] = (
+                    (prev_close - data["始値"]) / prev_close > 0.02
+                ).astype(int)
 
         except Exception as e:
             logger.warning(f"カスタム特徴量 {feature_name} 追加失敗: {e}")
@@ -507,7 +533,9 @@ class AdvancedBatchDataFetcher:
             return None
 
         try:
-            cache_key = f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            cache_key = (
+                f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            )
             cached_json = self.redis_client.get(cache_key)
 
             if cached_json:
@@ -530,7 +558,9 @@ class AdvancedBatchDataFetcher:
             return
 
         try:
-            cache_key = f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            cache_key = (
+                f"market_data:{request.symbol}:{request.period}:{request.interval}"
+            )
 
             # DataFrameをJSON形式で保存
             data_dict = {
@@ -603,7 +633,9 @@ class AdvancedBatchDataFetcher:
                 + sum(r.fetch_time for r in responses.values())
             ) / self.stats.total_requests
 
-            quality_scores = [r.data_quality_score for r in responses.values() if r.success]
+            quality_scores = [
+                r.data_quality_score for r in responses.values() if r.success
+            ]
             if quality_scores:
                 self.stats.avg_data_quality = (
                     self.stats.avg_data_quality
@@ -611,7 +643,9 @@ class AdvancedBatchDataFetcher:
                     + sum(quality_scores)
                 ) / self.stats.successful_requests
 
-        self.stats.throughput_rps = len(requests) / elapsed_time if elapsed_time > 0 else 0
+        self.stats.throughput_rps = (
+            len(requests) / elapsed_time if elapsed_time > 0 else 0
+        )
         self.stats.timestamp = time.time()
 
         # リクエスト履歴保存（最新1000件）
@@ -690,7 +724,9 @@ def fetch_advanced_batch(
     """高度バッチ取得（簡易インターフェース）"""
 
     requests = [
-        DataRequest(symbol=symbol, period=period, preprocessing=preprocessing, priority=priority)
+        DataRequest(
+            symbol=symbol, period=period, preprocessing=preprocessing, priority=priority
+        )
         for symbol in symbols
     ]
 
@@ -715,7 +751,8 @@ def preload_advanced_cache(
     try:
         for period in periods:
             requests = [
-                DataRequest(symbol=symbol, period=period, preprocessing=True) for symbol in symbols
+                DataRequest(symbol=symbol, period=period, preprocessing=True)
+                for symbol in symbols
             ]
 
             responses = fetcher.fetch_batch(requests)
@@ -743,7 +780,9 @@ if __name__ == "__main__":
             period="60d",
             preprocessing=True,
             features=["trend_strength", "momentum", "price_channel"],
-            priority=5 if symbol in ["7203", "8306"] else 3,  # トヨタ・三菱UFJは高優先度
+            priority=(
+                5 if symbol in ["7203", "8306"] else 3
+            ),  # トヨタ・三菱UFJは高優先度
             cache_ttl=1800,
         )
         for symbol in test_symbols

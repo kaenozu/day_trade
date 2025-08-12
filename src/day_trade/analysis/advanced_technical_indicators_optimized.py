@@ -244,7 +244,9 @@ class AdvancedTechnicalIndicatorsOptimized:
         logger.info("高度テクニカル指標システム（統合最適化版）初期化完了")
         logger.info(f"  - 統合キャッシュ: {'有効' if self.cache_enabled else '無効'}")
         logger.info(f"  - 並列処理: {'有効' if self.parallel_enabled else '無効'}")
-        logger.info(f"  - ML最適化: {'有効' if self.ml_optimization_enabled else '無効'}")
+        logger.info(
+            f"  - ML最適化: {'有効' if self.ml_optimization_enabled else '無効'}"
+        )
         logger.info(f"  - 最大並列数: {max_concurrent}")
         logger.info(f"  - 信頼度閾値: {confidence_threshold}")
 
@@ -287,7 +289,9 @@ class AdvancedTechnicalIndicatorsOptimized:
             high_prices = data["High"].copy()
             low_prices = data["Low"].copy()
             volume = (
-                data["Volume"].copy() if "Volume" in data.columns else pd.Series([1] * len(data))
+                data["Volume"].copy()
+                if "Volume" in data.columns
+                else pd.Series([1] * len(data))
             )
 
             # 最適化されたBollinger Bands計算
@@ -305,7 +309,9 @@ class AdvancedTechnicalIndicatorsOptimized:
 
             # 高度化されたBB位置計算
             bb_width = current_upper - current_lower
-            bb_position = (current_price - current_lower) / bb_width if bb_width > 0 else 0.5
+            bb_position = (
+                (current_price - current_lower) / bb_width if bb_width > 0 else 0.5
+            )
 
             # Issue #322: 多角的分析による高精度スクイーズ判定
             # ボラティリティ履歴分析
@@ -318,7 +324,9 @@ class AdvancedTechnicalIndicatorsOptimized:
             recent_volatility = close_prices.pct_change().tail(20).std()
             historical_volatility = close_prices.pct_change().tail(100).std()
             volatility_ratio = (
-                recent_volatility / historical_volatility if historical_volatility > 0 else 1.0
+                recent_volatility / historical_volatility
+                if historical_volatility > 0
+                else 1.0
             )
 
             # ボラティリティレジーム判定（高度化）
@@ -338,9 +346,9 @@ class AdvancedTechnicalIndicatorsOptimized:
 
             for period_len in trend_periods:
                 if len(close_prices) >= period_len:
-                    trend_direction = (current_price - sma.iloc[-period_len]) / sma.iloc[
-                        -period_len
-                    ]
+                    trend_direction = (
+                        current_price - sma.iloc[-period_len]
+                    ) / sma.iloc[-period_len]
                     trend_strengths.append(abs(trend_direction))
 
             trend_strength = np.mean(trend_strengths) * 5 if trend_strengths else 0
@@ -389,13 +397,16 @@ class AdvancedTechnicalIndicatorsOptimized:
             processing_time = time.time() - start_time
             self.performance_stats["total_analyses"] += 1
             self.performance_stats["avg_processing_time"] = (
-                self.performance_stats["avg_processing_time"] * 0.9 + processing_time * 0.1
+                self.performance_stats["avg_processing_time"] * 0.9
+                + processing_time * 0.1
             )
 
             metrics = self.performance_monitor.get_metrics(f"bollinger_bands_{symbol}")
             self.performance_monitor.stop_monitoring(f"bollinger_bands_{symbol}")
 
-            logger.info(f"Bollinger Bands最適化分析完了: {symbol} ({processing_time:.3f}s)")
+            logger.info(
+                f"Bollinger Bands最適化分析完了: {symbol} ({processing_time:.3f}s)"
+            )
             return analysis
 
         except Exception as e:
@@ -452,12 +463,20 @@ class AdvancedTechnicalIndicatorsOptimized:
             high = data["High"]
             low = data["Low"]
             close = data["Close"]
-            volume = data["Volume"] if "Volume" in data.columns else pd.Series([1] * len(data))
+            volume = (
+                data["Volume"]
+                if "Volume" in data.columns
+                else pd.Series([1] * len(data))
+            )
 
             # 最適化された一目均衡表計算
             # 転換線の高速計算
-            tenkan_high = high.rolling(tenkan_period, min_periods=tenkan_period // 2).max()
-            tenkan_low = low.rolling(tenkan_period, min_periods=tenkan_period // 2).min()
+            tenkan_high = high.rolling(
+                tenkan_period, min_periods=tenkan_period // 2
+            ).max()
+            tenkan_low = low.rolling(
+                tenkan_period, min_periods=tenkan_period // 2
+            ).min()
             tenkan_sen = (tenkan_high + tenkan_low) / 2
 
             # 基準線の高速計算
@@ -469,8 +488,12 @@ class AdvancedTechnicalIndicatorsOptimized:
             senkou_span_a = ((tenkan_sen + kijun_sen) / 2).shift(kijun_period)
 
             # 先行スパンB
-            senkou_b_high = high.rolling(senkou_b_period, min_periods=senkou_b_period // 2).max()
-            senkou_b_low = low.rolling(senkou_b_period, min_periods=senkou_b_period // 2).min()
+            senkou_b_high = high.rolling(
+                senkou_b_period, min_periods=senkou_b_period // 2
+            ).max()
+            senkou_b_low = low.rolling(
+                senkou_b_period, min_periods=senkou_b_period // 2
+            ).min()
             senkou_span_b = ((senkou_b_high + senkou_b_low) / 2).shift(kijun_period)
 
             # 遅行スパン
@@ -479,19 +502,29 @@ class AdvancedTechnicalIndicatorsOptimized:
             # 現在値取得（安全な取得）
             current_price = close.iloc[-1]
             current_tenkan = (
-                tenkan_sen.iloc[-1] if not pd.isna(tenkan_sen.iloc[-1]) else current_price
+                tenkan_sen.iloc[-1]
+                if not pd.isna(tenkan_sen.iloc[-1])
+                else current_price
             )
-            current_kijun = kijun_sen.iloc[-1] if not pd.isna(kijun_sen.iloc[-1]) else current_price
+            current_kijun = (
+                kijun_sen.iloc[-1] if not pd.isna(kijun_sen.iloc[-1]) else current_price
+            )
             current_senkou_a = (
-                senkou_span_a.iloc[-1] if not pd.isna(senkou_span_a.iloc[-1]) else current_price
+                senkou_span_a.iloc[-1]
+                if not pd.isna(senkou_span_a.iloc[-1])
+                else current_price
             )
             current_senkou_b = (
-                senkou_span_b.iloc[-1] if not pd.isna(senkou_span_b.iloc[-1]) else current_price
+                senkou_span_b.iloc[-1]
+                if not pd.isna(senkou_span_b.iloc[-1])
+                else current_price
             )
 
             # 遅行スパンの安全な取得
             chikou_index = max(0, len(chikou_span) - kijun_period - 1)
-            if chikou_index < len(chikou_span) and not pd.isna(chikou_span.iloc[chikou_index]):
+            if chikou_index < len(chikou_span) and not pd.isna(
+                chikou_span.iloc[chikou_index]
+            ):
                 current_chikou = chikou_span.iloc[chikou_index]
             else:
                 current_chikou = current_price
@@ -500,7 +533,9 @@ class AdvancedTechnicalIndicatorsOptimized:
             cloud_top = max(current_senkou_a, current_senkou_b)
             cloud_bottom = min(current_senkou_a, current_senkou_b)
             cloud_thickness = cloud_top - cloud_bottom
-            cloud_color = "bullish" if current_senkou_a > current_senkou_b else "bearish"
+            cloud_color = (
+                "bullish" if current_senkou_a > current_senkou_b else "bearish"
+            )
 
             # 価格vs雲の詳細位置分析
             if current_price > cloud_top + (cloud_thickness * 0.1):
@@ -516,10 +551,14 @@ class AdvancedTechnicalIndicatorsOptimized:
                 if len(tenkan_sen) > 2:
                     # 過去のクロス確認
                     prev_tenkan = (
-                        tenkan_sen.iloc[-2] if not pd.isna(tenkan_sen.iloc[-2]) else current_tenkan
+                        tenkan_sen.iloc[-2]
+                        if not pd.isna(tenkan_sen.iloc[-2])
+                        else current_tenkan
                     )
                     prev_kijun = (
-                        kijun_sen.iloc[-2] if not pd.isna(kijun_sen.iloc[-2]) else current_kijun
+                        kijun_sen.iloc[-2]
+                        if not pd.isna(kijun_sen.iloc[-2])
+                        else current_kijun
                     )
 
                     if prev_tenkan <= prev_kijun:
@@ -534,10 +573,14 @@ class AdvancedTechnicalIndicatorsOptimized:
             elif current_tenkan < current_kijun:
                 if len(tenkan_sen) > 2:
                     prev_tenkan = (
-                        tenkan_sen.iloc[-2] if not pd.isna(tenkan_sen.iloc[-2]) else current_tenkan
+                        tenkan_sen.iloc[-2]
+                        if not pd.isna(tenkan_sen.iloc[-2])
+                        else current_tenkan
                     )
                     prev_kijun = (
-                        kijun_sen.iloc[-2] if not pd.isna(kijun_sen.iloc[-2]) else current_kijun
+                        kijun_sen.iloc[-2]
+                        if not pd.isna(kijun_sen.iloc[-2])
+                        else current_kijun
                     )
 
                     if prev_tenkan >= prev_kijun:
@@ -676,13 +719,17 @@ class AdvancedTechnicalIndicatorsOptimized:
         if analysis_types is None:
             analysis_types = ["bb", "ichimoku", "ma"]
 
-        logger.info(f"バッチ分析開始: {len(symbols_data)}銘柄, {len(analysis_types)}種類")
+        logger.info(
+            f"バッチ分析開始: {len(symbols_data)}銘柄, {len(analysis_types)}種類"
+        )
         start_time = time.time()
 
         # Issue #323: 並列処理による高速バッチ実行
         if self.parallel_enabled and len(symbols_data) > 1:
             try:
-                results = await self._execute_parallel_batch_analysis(symbols_data, analysis_types)
+                results = await self._execute_parallel_batch_analysis(
+                    symbols_data, analysis_types
+                )
                 self.performance_stats["parallel_analyses"] += 1
             except Exception as e:
                 logger.warning(f"並列処理失敗、シーケンシャル実行: {e}")
@@ -690,7 +737,9 @@ class AdvancedTechnicalIndicatorsOptimized:
                     symbols_data, analysis_types
                 )
         else:
-            results = await self._execute_sequential_batch_analysis(symbols_data, analysis_types)
+            results = await self._execute_sequential_batch_analysis(
+                symbols_data, analysis_types
+            )
 
         processing_time = time.time() - start_time
         logger.info(f"バッチ分析完了: {len(results)}銘柄 ({processing_time:.2f}秒)")
@@ -707,13 +756,13 @@ class AdvancedTechnicalIndicatorsOptimized:
             symbol_results = {}
 
             if "bb" in analysis_types:
-                symbol_results["bollinger_bands"] = await self.analyze_bollinger_bands_optimized(
-                    data, symbol
+                symbol_results["bollinger_bands"] = (
+                    await self.analyze_bollinger_bands_optimized(data, symbol)
                 )
 
             if "ichimoku" in analysis_types:
-                symbol_results["ichimoku_cloud"] = await self.analyze_ichimoku_cloud_optimized(
-                    data, symbol
+                symbol_results["ichimoku_cloud"] = (
+                    await self.analyze_ichimoku_cloud_optimized(data, symbol)
                 )
 
             if "ma" in analysis_types:
@@ -722,7 +771,9 @@ class AdvancedTechnicalIndicatorsOptimized:
                 )
 
             if "fibonacci" in analysis_types:
-                symbol_results["fibonacci"] = await self._analyze_fibonacci_optimized(data, symbol)
+                symbol_results["fibonacci"] = await self._analyze_fibonacci_optimized(
+                    data, symbol
+                )
 
             results[symbol] = symbol_results
 
@@ -779,10 +830,14 @@ class AdvancedTechnicalIndicatorsOptimized:
             )
 
         if "ma" in analysis_types:
-            analysis_tasks.append(("complex_ma", self._analyze_complex_ma_optimized(data, symbol)))
+            analysis_tasks.append(
+                ("complex_ma", self._analyze_complex_ma_optimized(data, symbol))
+            )
 
         if "fibonacci" in analysis_types:
-            analysis_tasks.append(("fibonacci", self._analyze_fibonacci_optimized(data, symbol)))
+            analysis_tasks.append(
+                ("fibonacci", self._analyze_fibonacci_optimized(data, symbol))
+            )
 
         # 並列実行
         if analysis_tasks:
@@ -919,7 +974,10 @@ class AdvancedTechnicalIndicatorsOptimized:
 
         # 総合スコア
         performance_score = (
-            position_score * 0.4 + squeeze_score * 0.3 + trend_score * 0.2 + confidence * 0.1
+            position_score * 0.4
+            + squeeze_score * 0.3
+            + trend_score * 0.2
+            + confidence * 0.1
         )
 
         return max(0, min(1, performance_score))
@@ -939,7 +997,10 @@ class AdvancedTechnicalIndicatorsOptimized:
         cloud_score = min(1.0, cloud_ratio * 20)  # 雲の厚さ
 
         performance_score = (
-            signal_score * 0.3 + confidence_score * 0.3 + trend_score * 0.2 + cloud_score * 0.2
+            signal_score * 0.3
+            + confidence_score * 0.3
+            + trend_score * 0.2
+            + cloud_score * 0.2
         )
 
         return max(0, min(1, performance_score))
@@ -988,11 +1049,16 @@ class AdvancedTechnicalIndicatorsOptimized:
         return {
             "total_analyses": self.performance_stats["total_analyses"],
             "cache_hit_rate": self.performance_stats["cache_hits"] / total_requests,
-            "parallel_usage_rate": self.performance_stats["parallel_analyses"] / total_requests,
-            "ml_optimization_rate": self.performance_stats["ml_optimizations"] / total_requests,
-            "avg_processing_time_ms": self.performance_stats["avg_processing_time"] * 1000,
+            "parallel_usage_rate": self.performance_stats["parallel_analyses"]
+            / total_requests,
+            "ml_optimization_rate": self.performance_stats["ml_optimizations"]
+            / total_requests,
+            "avg_processing_time_ms": self.performance_stats["avg_processing_time"]
+            * 1000,
             "memory_efficiency_score": self.performance_stats["memory_efficiency"],
-            "accuracy_improvement_rate": self.performance_stats["accuracy_improvements"],
+            "accuracy_improvement_rate": self.performance_stats[
+                "accuracy_improvements"
+            ],
             "optimization_benefits": {
                 "cache_speedup": f"{98}%",  # Issue #324
                 "parallel_speedup": f"{100}x",  # Issue #323
@@ -1038,7 +1104,9 @@ if __name__ == "__main__":
 
         # 一目均衡表分析テスト
         print("\n☁️ 一目均衡表最適化分析テスト...")
-        ichimoku_result = await analyzer.analyze_ichimoku_cloud_optimized(test_data, "TEST")
+        ichimoku_result = await analyzer.analyze_ichimoku_cloud_optimized(
+            test_data, "TEST"
+        )
         print(
             f"総合シグナル: {ichimoku_result.overall_signal} (信頼度: {ichimoku_result.confidence:.2%})"
         )
@@ -1053,7 +1121,9 @@ if __name__ == "__main__":
             "TEST3": test_data.copy(),
         }
 
-        batch_results = await analyzer.batch_analyze_symbols(batch_data, ["bb", "ichimoku"])
+        batch_results = await analyzer.batch_analyze_symbols(
+            batch_data, ["bb", "ichimoku"]
+        )
         print(f"バッチ分析完了: {len(batch_results)}銘柄")
 
         # パフォーマンス統計

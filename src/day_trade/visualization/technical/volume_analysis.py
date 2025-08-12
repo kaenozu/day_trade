@@ -33,7 +33,9 @@ class VolumeAnalysis(ChartRenderer):
     出来高パターン・価格出来高関係・流動性分析の詳細可視化を提供
     """
 
-    def __init__(self, output_dir: str = "output/volume_charts", theme: str = "default"):
+    def __init__(
+        self, output_dir: str = "output/volume_charts", theme: str = "default"
+    ):
         """
         初期化
 
@@ -44,7 +46,9 @@ class VolumeAnalysis(ChartRenderer):
         super().__init__(output_dir, theme)
         logger.info("出来高分析可視化システム初期化完了")
 
-    def render(self, data: pd.DataFrame, volume_analysis: Dict, **kwargs) -> Optional[str]:
+    def render(
+        self, data: pd.DataFrame, volume_analysis: Dict, **kwargs
+    ) -> Optional[str]:
         """
         出来高分析チャート描画
 
@@ -156,9 +160,13 @@ class VolumeAnalysis(ChartRenderer):
                         linewidth=2,
                     )
 
-        self.apply_common_styling(ax, title=f"{symbol} 価格・出来高", xlabel="時間", ylabel="価格")
+        self.apply_common_styling(
+            ax, title=f"{symbol} 価格・出来高", xlabel="時間", ylabel="価格"
+        )
 
-    def _plot_volume_profile(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_profile(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高プロファイルプロット
 
@@ -242,9 +250,13 @@ class VolumeAnalysis(ChartRenderer):
                 alpha=0.7,
             )
 
-        self.apply_common_styling(ax, title="出来高プロファイル", xlabel="出来高", ylabel="価格")
+        self.apply_common_styling(
+            ax, title="出来高プロファイル", xlabel="出来高", ylabel="価格"
+        )
 
-    def _plot_volume_indicators(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_indicators(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高指標プロット
 
@@ -466,13 +478,17 @@ class VolumeAnalysis(ChartRenderer):
         ax_stats = fig.add_subplot(gs[2, 2])
         self._plot_volume_statistics(ax_stats, data, volume_analysis)
 
-        plt.suptitle(f"{symbol} 総合出来高分析ダッシュボード", fontsize=16, fontweight="bold")
+        plt.suptitle(
+            f"{symbol} 総合出来高分析ダッシュボード", fontsize=16, fontweight="bold"
+        )
         plt.tight_layout()
 
         filename = f"volume_dashboard_{symbol}.png"
         return self.save_figure(fig, filename, dpi=300)
 
-    def _plot_volume_distribution(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_distribution(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高分布プロット
 
@@ -513,9 +529,13 @@ class VolumeAnalysis(ChartRenderer):
                 label=f"中央値: {median_volume:,.0f}",
             )
 
-            self.apply_common_styling(ax, title="出来高分布", xlabel="出来高", ylabel="頻度")
+            self.apply_common_styling(
+                ax, title="出来高分布", xlabel="出来高", ylabel="頻度"
+            )
 
-    def _plot_volume_price_correlation(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_price_correlation(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高・価格相関プロット
 
@@ -548,9 +568,13 @@ class VolumeAnalysis(ChartRenderer):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8),
             )
 
-            self.apply_common_styling(ax, title="出来高・価格相関", xlabel="出来高", ylabel="価格")
+            self.apply_common_styling(
+                ax, title="出来高・価格相関", xlabel="出来高", ylabel="価格"
+            )
 
-    def _plot_volume_statistics(self, ax, data: pd.DataFrame, volume_analysis: Dict) -> None:
+    def _plot_volume_statistics(
+        self, ax, data: pd.DataFrame, volume_analysis: Dict
+    ) -> None:
         """
         出来高統計プロット
 
@@ -643,7 +667,9 @@ class VolumeAnalysis(ChartRenderer):
                 exported_files["main_chart"] = main_chart
 
             # 総合ダッシュボード
-            dashboard = self.create_comprehensive_volume_dashboard(data, volume_analysis, symbol)
+            dashboard = self.create_comprehensive_volume_dashboard(
+                data, volume_analysis, symbol
+            )
             if dashboard:
                 exported_files["dashboard"] = dashboard
 

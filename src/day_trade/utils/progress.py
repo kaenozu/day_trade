@@ -142,7 +142,9 @@ def set_progress_config(config: ProgressConfig) -> None:
     _progress_config = config
 
 
-def _create_progress_columns(progress_type: ProgressType, config: ProgressConfig) -> List[Any]:
+def _create_progress_columns(
+    progress_type: ProgressType, config: ProgressConfig
+) -> List[Any]:
     """進捗表示タイプに応じたカラム構成を作成"""
     columns = []
 
@@ -156,7 +158,9 @@ def _create_progress_columns(progress_type: ProgressType, config: ProgressConfig
                 columns.append(SpinnerColumn())
         except Exception:
             # スピナーでエラーが発生した場合はスキップ
-            logger.warning("スピナー列の作成でエラーが発生しました。スピナーなしで継続します。")
+            logger.warning(
+                "スピナー列の作成でエラーが発生しました。スピナーなしで継続します。"
+            )
 
     # テキスト列（常に表示）
     columns.append(TextColumn("[progress.description]{task.description}"))
@@ -188,7 +192,9 @@ def _create_progress_columns(progress_type: ProgressType, config: ProgressConfig
     return columns
 
 
-def _create_progress_instance(progress_type: ProgressType, config: ProgressConfig) -> Progress:
+def _create_progress_instance(
+    progress_type: ProgressType, config: ProgressConfig
+) -> Progress:
     """進捗表示インスタンスを作成"""
     columns = _create_progress_columns(progress_type, config)
 
@@ -211,7 +217,9 @@ class ProgressUpdater:
         try:
             if self._is_valid_task():
                 if description:
-                    self.progress.update(self.task_id, description=description, advance=advance)
+                    self.progress.update(
+                        self.task_id, description=description, advance=advance
+                    )
                 else:
                     self.progress.update(self.task_id, advance=advance)
         except Exception as e:
@@ -223,7 +231,9 @@ class ProgressUpdater:
             if self._is_valid_task() and total > 0:
                 self.progress.update(self.task_id, total=total)
         except Exception as e:
-            logger.warning(f"総数設定エラー (task_id: {self.task_id}, total: {total}): {e}")
+            logger.warning(
+                f"総数設定エラー (task_id: {self.task_id}, total: {total}): {e}"
+            )
 
     def complete(self):
         """完了状態に設定（エラーハンドリング付き）"""
@@ -326,7 +336,9 @@ def progress_context(
 class BatchProgressTracker:
     """バッチ処理用進捗トラッカー（堅牢化対応）"""
 
-    def __init__(self, batch_name: str, total_items: int, config: Optional[ProgressConfig] = None):
+    def __init__(
+        self, batch_name: str, total_items: int, config: Optional[ProgressConfig] = None
+    ):
         self.batch_name = batch_name
         self.total_items = max(total_items, 1)  # 最小値1を保証
         self.processed_items = 0
@@ -359,7 +371,9 @@ class BatchProgressTracker:
             self._update_display(item_name, is_error=False)
             self.last_update_time = current_time
 
-    def update_failure(self, item_name: Optional[str] = None, error: Optional[str] = None):
+    def update_failure(
+        self, item_name: Optional[str] = None, error: Optional[str] = None
+    ):
         """失敗時の更新（エラーハンドリング強化）"""
         self.processed_items += 1
         self.failed_items += 1
@@ -403,7 +417,9 @@ class BatchProgressTracker:
         elapsed_time = time.time() - self.start_time
         success_items = max(0, self.processed_items - self.failed_items)
         success_rate = (
-            success_items / self.processed_items * 100 if self.processed_items > 0 else 0.0
+            success_items / self.processed_items * 100
+            if self.processed_items > 0
+            else 0.0
         )
 
         return {
@@ -413,7 +429,9 @@ class BatchProgressTracker:
             "failed_items": self.failed_items,
             "success_rate": success_rate,
             "elapsed_time": elapsed_time,
-            "items_per_second": (self.processed_items / elapsed_time if elapsed_time > 0 else 0.0),
+            "items_per_second": (
+                self.processed_items / elapsed_time if elapsed_time > 0 else 0.0
+            ),
         }
 
     def is_complete(self) -> bool:
@@ -422,7 +440,11 @@ class BatchProgressTracker:
 
     def get_progress_percentage(self) -> float:
         """進捗率を取得"""
-        return (self.processed_items / self.total_items * 100) if self.total_items > 0 else 0.0
+        return (
+            (self.processed_items / self.total_items * 100)
+            if self.total_items > 0
+            else 0.0
+        )
 
 
 class MultiStepProgressTracker:
@@ -463,7 +485,9 @@ class MultiStepProgressTracker:
                         }
                         return task_id
 
-                    def update(self, task_id, advance=0, description=None, completed=None):
+                    def update(
+                        self, task_id, advance=0, description=None, completed=None
+                    ):
                         if task_id in self.tasks:
                             self.tasks[task_id]["completed"] += advance
                             if description:
@@ -488,11 +512,15 @@ class MultiStepProgressTracker:
                 else:
                     initial_description = self.overall_description
 
-                self.task_id = self.progress.add_task(initial_description, total=len(self.steps))
+                self.task_id = self.progress.add_task(
+                    initial_description, total=len(self.steps)
+                )
                 return self
             else:
                 # 通常のProgress作成システムを使用
-                self.progress = _create_progress_instance(ProgressType.MULTI_STEP, self.config)
+                self.progress = _create_progress_instance(
+                    ProgressType.MULTI_STEP, self.config
+                )
                 self.progress.__enter__()
 
                 if self.steps:
@@ -500,7 +528,9 @@ class MultiStepProgressTracker:
                 else:
                     initial_description = self.overall_description
 
-                self.task_id = self.progress.add_task(initial_description, total=len(self.steps))
+                self.task_id = self.progress.add_task(
+                    initial_description, total=len(self.steps)
+                )
                 return self
         except Exception as e:
             logger.error(f"マルチステップ進捗トラッカー初期化エラー: {e}")
@@ -576,7 +606,9 @@ class MultiStepProgressTracker:
         """進捗サマリーを取得"""
         try:
             elapsed_time = time.time() - self.start_time
-            progress_percentage = (self.current_step / len(self.steps) * 100) if self.steps else 0.0
+            progress_percentage = (
+                (self.current_step / len(self.steps) * 100) if self.steps else 0.0
+            )
 
             return {
                 "overall_description": self.overall_description,
@@ -668,7 +700,9 @@ def show_progress_summary(
             if isinstance(r.get("success_rate"), (int, float))
         ]
         avg_success_rate = (
-            sum(valid_success_rates) / len(valid_success_rates) if valid_success_rates else 0.0
+            sum(valid_success_rates) / len(valid_success_rates)
+            if valid_success_rates
+            else 0.0
         )
 
         # フォーマット設定に応じた数値表示
@@ -714,7 +748,11 @@ def show_progress_summary(
     except Exception as e:
         logger.error(f"進捗サマリー表示エラー: {e}")
         # フォールバック表示
-        console.print(Panel(f"サマリー表示中にエラーが発生しました: {e}", title=title, style="red"))
+        console.print(
+            Panel(
+                f"サマリー表示中にエラーが発生しました: {e}", title=title, style="red"
+            )
+        )
 
 
 # 便利な関数

@@ -137,14 +137,19 @@ class WebSecurityTester:
         self.vulnerabilities = []
 
         # HTTPセッション設定
-        retry_strategy = Retry(total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
+        retry_strategy = Retry(
+            total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504]
+        )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
         # カスタムヘッダー設定
         self.session.headers.update(
-            {"User-Agent": "PenTester/1.0 (Security Scanner)", **self.config.custom_headers}
+            {
+                "User-Agent": "PenTester/1.0 (Security Scanner)",
+                **self.config.custom_headers,
+            }
         )
 
         # プロキシ設定
@@ -177,7 +182,9 @@ class WebSecurityTester:
                     test_params[param_name] = payload
 
                     start_time = time.time()
-                    response = self.session.get(target_url, params=test_params, timeout=10)
+                    response = self.session.get(
+                        target_url, params=test_params, timeout=10
+                    )
                     response_time = time.time() - start_time
 
                     # SQLエラーパターン検出
@@ -260,7 +267,9 @@ class WebSecurityTester:
                     test_params = parameters.copy()
                     test_params[param_name] = payload
 
-                    response = self.session.get(target_url, params=test_params, timeout=10)
+                    response = self.session.get(
+                        target_url, params=test_params, timeout=10
+                    )
 
                     # ペイロードが反映されているかチェック
                     if payload in response.text and response.headers.get(
@@ -268,7 +277,9 @@ class WebSecurityTester:
                     ).startswith("text/html"):
                         # CSPヘッダーチェック
                         csp_header = response.headers.get("Content-Security-Policy", "")
-                        severity = SeverityLevel.LOW if csp_header else SeverityLevel.HIGH
+                        severity = (
+                            SeverityLevel.LOW if csp_header else SeverityLevel.HIGH
+                        )
 
                         vulnerabilities.append(
                             SecurityVulnerability(
@@ -280,7 +291,9 @@ class WebSecurityTester:
                                 attack_vector=f"GET parameter: {param_name}={payload}",
                                 evidence="Payload reflected in response without proper encoding",
                                 remediation="Implement proper input validation and output encoding",
-                                cvss_score=6.1 if severity == SeverityLevel.HIGH else 3.5,
+                                cvss_score=(
+                                    6.1 if severity == SeverityLevel.HIGH else 3.5
+                                ),
                             )
                         )
 
@@ -289,7 +302,9 @@ class WebSecurityTester:
 
         return vulnerabilities
 
-    async def test_authentication_bypass(self, target_url: str) -> List[SecurityVulnerability]:
+    async def test_authentication_bypass(
+        self, target_url: str
+    ) -> List[SecurityVulnerability]:
         """認証バイパステスト"""
         vulnerabilities = []
 
@@ -346,7 +361,9 @@ class WebSecurityTester:
 
         return vulnerabilities
 
-    async def test_sensitive_data_exposure(self, target_url: str) -> List[SecurityVulnerability]:
+    async def test_sensitive_data_exposure(
+        self, target_url: str
+    ) -> List[SecurityVulnerability]:
         """機密データ露出テスト"""
         vulnerabilities = []
 
@@ -410,7 +427,9 @@ class WebSecurityTester:
 
         return vulnerabilities
 
-    async def test_security_headers(self, target_url: str) -> List[SecurityVulnerability]:
+    async def test_security_headers(
+        self, target_url: str
+    ) -> List[SecurityVulnerability]:
         """セキュリティヘッダーテスト"""
         vulnerabilities = []
 
@@ -520,7 +539,9 @@ class NetworkSecurityTester:
 
                     # 弱い暗号スイートチェック
                     weak_ciphers = ["RC4", "DES", "MD5", "NULL"]
-                    if cipher and any(weak_cipher in str(cipher) for weak_cipher in weak_ciphers):
+                    if cipher and any(
+                        weak_cipher in str(cipher) for weak_cipher in weak_ciphers
+                    ):
                         vulnerabilities.append(
                             SecurityVulnerability(
                                 vulnerability_type=VulnerabilityType.WEAK_CRYPTOGRAPHY,
@@ -562,7 +583,9 @@ class NetworkSecurityTester:
                                 expiry_date = datetime.datetime.strptime(
                                     not_after, "%b %d %H:%M:%S %Y %Z"
                                 )
-                                days_until_expiry = (expiry_date - datetime.datetime.now()).days
+                                days_until_expiry = (
+                                    expiry_date - datetime.datetime.now()
+                                ).days
 
                                 if days_until_expiry < 30:
                                     severity = (
@@ -581,7 +604,9 @@ class NetworkSecurityTester:
                                             evidence=f"Expiry: {not_after}",
                                             remediation="Renew SSL certificate",
                                             cvss_score=(
-                                                5.0 if severity == SeverityLevel.HIGH else 3.0
+                                                5.0
+                                                if severity == SeverityLevel.HIGH
+                                                else 3.0
                                             ),
                                         )
                                     )
@@ -752,7 +777,9 @@ class PenetrationTester:
         # レポート生成
         report = self._generate_pentest_report(sorted_vulnerabilities, execution_time)
 
-        logger.info(f"ペネトレーションテスト完了: {len(sorted_vulnerabilities)}件の脆弱性発見")
+        logger.info(
+            f"ペネトレーションテスト完了: {len(sorted_vulnerabilities)}件の脆弱性発見"
+        )
 
         return report
 
@@ -771,7 +798,9 @@ class PenetrationTester:
             vulnerabilities.extend(sql_vulns)
 
             # XSSテスト
-            xss_vulns = await self.web_tester.test_xss(self.config.target_base_url, test_params)
+            xss_vulns = await self.web_tester.test_xss(
+                self.config.target_base_url, test_params
+            )
             vulnerabilities.extend(xss_vulns)
 
             # 認証バイパステスト
@@ -788,7 +817,9 @@ class PenetrationTester:
             vulnerabilities.extend(sensitive_vulns)
 
             # セキュリティヘッダーテスト
-            header_vulns = await self.web_tester.test_security_headers(self.config.target_base_url)
+            header_vulns = await self.web_tester.test_security_headers(
+                self.config.target_base_url
+            )
             vulnerabilities.extend(header_vulns)
 
         except Exception as e:
@@ -796,14 +827,18 @@ class PenetrationTester:
 
         return vulnerabilities
 
-    async def _run_network_security_tests(self, hostname: str) -> List[SecurityVulnerability]:
+    async def _run_network_security_tests(
+        self, hostname: str
+    ) -> List[SecurityVulnerability]:
         """ネットワークセキュリティテスト実行"""
         vulnerabilities = []
 
         try:
             # SSL/TLSテスト
             if self.config.target_base_url.startswith("https"):
-                ssl_vulns = await self.network_tester.test_ssl_tls_configuration(hostname)
+                ssl_vulns = await self.network_tester.test_ssl_tls_configuration(
+                    hostname
+                )
                 vulnerabilities.extend(ssl_vulns)
 
             # ポートスキャン（非攻撃的）
@@ -872,7 +907,9 @@ class PenetrationTester:
             "compliance_status": self._assess_compliance(vulnerabilities),
         }
 
-    def _calculate_risk_score(self, vulnerabilities: List[SecurityVulnerability]) -> float:
+    def _calculate_risk_score(
+        self, vulnerabilities: List[SecurityVulnerability]
+    ) -> float:
         """リスクスコア計算"""
         if not vulnerabilities:
             return 0.0
@@ -908,7 +945,9 @@ class PenetrationTester:
         else:
             return "MINIMAL"
 
-    def _generate_recommendations(self, vulnerabilities: List[SecurityVulnerability]) -> List[str]:
+    def _generate_recommendations(
+        self, vulnerabilities: List[SecurityVulnerability]
+    ) -> List[str]:
         """推奨事項生成"""
         recommendations = set()
 
@@ -929,15 +968,21 @@ class PenetrationTester:
 
         # 一般的な推奨事項
         if vulnerabilities:
-            recommendations.add("定期的なセキュリティ監査とペネトレーションテストの実施")
+            recommendations.add(
+                "定期的なセキュリティ監査とペネトレーションテストの実施"
+            )
             recommendations.add("セキュリティ教育とセキュアコーディング研修の実施")
             recommendations.add("インシデントレスポンス計画の策定と訓練")
 
         return list(recommendations)
 
-    def _assess_compliance(self, vulnerabilities: List[SecurityVulnerability]) -> Dict[str, Any]:
+    def _assess_compliance(
+        self, vulnerabilities: List[SecurityVulnerability]
+    ) -> Dict[str, Any]:
         """コンプライアンス評価"""
-        critical_count = sum(1 for v in vulnerabilities if v.severity == SeverityLevel.CRITICAL)
+        critical_count = sum(
+            1 for v in vulnerabilities if v.severity == SeverityLevel.CRITICAL
+        )
         high_count = sum(1 for v in vulnerabilities if v.severity == SeverityLevel.HIGH)
 
         # 簡単なコンプライアンス評価

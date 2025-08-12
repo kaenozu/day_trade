@@ -151,7 +151,9 @@ class User:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "password_changed_at": (
-                self.password_changed_at.isoformat() if self.password_changed_at else None
+                self.password_changed_at.isoformat()
+                if self.password_changed_at
+                else None
             ),
             "require_password_change": self.require_password_change,
             "session_timeout_minutes": self.session_timeout_minutes,
@@ -285,7 +287,9 @@ class PasswordValidator:
         if self.require_numbers and not any(c.isdigit() for c in password):
             errors.append("数字を含む必要があります")
 
-        if self.require_symbols and not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+        if self.require_symbols and not any(
+            c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password
+        ):
             errors.append("記号を含む必要があります")
 
         if password.lower() in self.common_passwords:
@@ -479,7 +483,8 @@ class AccessControlManager:
                         totp_secret=user_data.get("totp_secret"),
                         mfa_enabled=user_data.get("mfa_enabled", False),
                         mfa_methods=[
-                            AuthenticationMethod(m) for m in user_data.get("mfa_methods", [])
+                            AuthenticationMethod(m)
+                            for m in user_data.get("mfa_methods", [])
                         ],
                         backup_codes=user_data.get("backup_codes", []),
                         is_active=user_data.get("is_active", True),
@@ -501,7 +506,9 @@ class AccessControlManager:
                             if user_data.get("password_changed_at")
                             else None
                         ),
-                        require_password_change=user_data.get("require_password_change", False),
+                        require_password_change=user_data.get(
+                            "require_password_change", False
+                        ),
                         session_timeout_minutes=user_data.get(
                             "session_timeout_minutes", self.session_timeout_minutes
                         ),
@@ -566,7 +573,9 @@ class AccessControlManager:
                 if len(self.access_logs) > 1000:
                     self.access_logs = self.access_logs[-1000:]
 
-                logger.info(f"アクセスログ読み込み完了: {len(self.access_logs)}エントリ")
+                logger.info(
+                    f"アクセスログ読み込み完了: {len(self.access_logs)}エントリ"
+                )
 
             except Exception as e:
                 logger.error(f"アクセスログ読み込みエラー: {e}")
@@ -602,7 +611,9 @@ class AccessControlManager:
         # 重複チェック
         for user in self.users.values():
             if user.username == username or user.email == email:
-                logger.error(f"ユーザー名またはメールアドレスが既に使用されています: {username}")
+                logger.error(
+                    f"ユーザー名またはメールアドレスが既に使用されています: {username}"
+                )
                 return None
 
         # パスワード強度チェック
@@ -931,7 +942,9 @@ class AccessControlManager:
         """パスワード検証"""
         return hmac.compare_digest(self._hash_password(password, salt), stored_hash)
 
-    def _calculate_risk_score(self, user: User, ip_address: str, user_agent: str) -> float:
+    def _calculate_risk_score(
+        self, user: User, ip_address: str, user_agent: str
+    ) -> float:
         """リスクスコア計算"""
         risk_score = 0.0
 
@@ -948,8 +961,10 @@ class AccessControlManager:
             risk_score += 0.1
 
         # パスワード変更期限切れ
-        if user.password_changed_at and datetime.utcnow() - user.password_changed_at > timedelta(
-            days=self.password_expiry_days
+        if (
+            user.password_changed_at
+            and datetime.utcnow() - user.password_changed_at
+            > timedelta(days=self.password_expiry_days)
         ):
             risk_score += 0.2
 
@@ -1003,7 +1018,8 @@ class AccessControlManager:
                 1
                 for u in self.users.values()
                 if u.password_changed_at
-                and now - u.password_changed_at > timedelta(days=self.password_expiry_days - 7)
+                and now - u.password_changed_at
+                > timedelta(days=self.password_expiry_days - 7)
             ),
         }
 
@@ -1016,7 +1032,9 @@ class AccessControlManager:
         }
 
         # ログ統計（過去24時間）
-        recent_logs = [log for log in self.access_logs if log.timestamp > now - timedelta(hours=24)]
+        recent_logs = [
+            log for log in self.access_logs if log.timestamp > now - timedelta(hours=24)
+        ]
 
         log_stats = {
             "total_events_24h": len(recent_logs),
@@ -1113,7 +1131,9 @@ if __name__ == "__main__":
             )
 
             if test_user:
-                print(f"テストユーザー作成成功: {test_user.username} ({test_user.role.value})")
+                print(
+                    f"テストユーザー作成成功: {test_user.username} ({test_user.role.value})"
+                )
 
                 print("\n3. MFA設定テスト")
                 success, message, qr_code = manager.setup_mfa(test_user.user_id)
@@ -1127,7 +1147,9 @@ if __name__ == "__main__":
                     totp = pyotp.TOTP(test_user.totp_secret)
                     test_code = totp.now()
 
-                    mfa_success, mfa_message = manager.enable_mfa(test_user.user_id, test_code)
+                    mfa_success, mfa_message = manager.enable_mfa(
+                        test_user.user_id, test_code
+                    )
                     print(f"MFA有効化: {mfa_success} - {mfa_message}")
 
                 print("\n4. 認証テスト")
@@ -1143,15 +1165,21 @@ if __name__ == "__main__":
 
                 if auth_success and auth_user:
                     print("\n5. セッション作成・権限テスト")
-                    session = manager.create_session(auth_user, "127.0.0.1", "TestClient/1.0")
+                    session = manager.create_session(
+                        auth_user, "127.0.0.1", "TestClient/1.0"
+                    )
 
                     print(f"セッション作成: {session.session_id[:16]}...")
                     print(f"権限数: {len(session.permissions)}")
                     print(f"リスクスコア: {session.risk_score:.2f}")
 
                     # 権限チェックテスト
-                    can_trade = manager.check_permission(session, Permission.PLACE_ORDERS)
-                    can_manage = manager.check_permission(session, Permission.MANAGE_USERS)
+                    can_trade = manager.check_permission(
+                        session, Permission.PLACE_ORDERS
+                    )
+                    can_manage = manager.check_permission(
+                        session, Permission.MANAGE_USERS
+                    )
 
                     print(f"取引権限: {can_trade}")
                     print(f"管理権限: {can_manage}")

@@ -149,7 +149,9 @@ class SASTScanner:
                             description=f"Rule: {finding.get('check_id', 'unknown')} - {finding.get('extra', {}).get('message', '')}",
                             location=finding.get("path", ""),
                             line_number=finding.get("start", {}).get("line", 0),
-                            owasp_category=self._get_owasp_category(finding.get("check_id", "")),
+                            owasp_category=self._get_owasp_category(
+                                finding.get("check_id", "")
+                            ),
                             confidence="high",
                             remediation=finding.get("extra", {}).get("fix", ""),
                             references=[f"Rule ID: {finding.get('check_id', '')}"],
@@ -255,7 +257,9 @@ class SASTScanner:
                             test_type=TestType.SAST,
                             test_name="codeql",
                             target=file_path,
-                            severity=self._parse_codeql_severity(finding.get("level", "note")),
+                            severity=self._parse_codeql_severity(
+                                finding.get("level", "note")
+                            ),
                             title=rule_id,
                             description=message,
                             location=file_path,
@@ -328,7 +332,9 @@ class DASTScanner:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    async def run_zap_scan(self, target_url: str, scan_type: str = "baseline") -> TestSession:
+    async def run_zap_scan(
+        self, target_url: str, scan_type: str = "baseline"
+    ) -> TestSession:
         """OWASP ZAPによる動的解析"""
         session_id = f"zap_{scan_type}_{int(datetime.utcnow().timestamp())}"
         session = TestSession(
@@ -390,12 +396,15 @@ class DASTScanner:
                                 test_type=TestType.DAST,
                                 test_name=f"zap_{scan_type}",
                                 target=instance.get("uri", ""),
-                                severity=self._parse_zap_risk(alert.get("riskdesc", "Low")),
+                                severity=self._parse_zap_risk(
+                                    alert.get("riskdesc", "Low")
+                                ),
                                 title=alert.get("name", "Security Alert"),
                                 description=alert.get("desc", ""),
                                 cwe_id=(
                                     int(alert.get("cweid", 0))
-                                    if alert.get("cweid") and alert.get("cweid").isdigit()
+                                    if alert.get("cweid")
+                                    and alert.get("cweid").isdigit()
                                     else None
                                 ),
                                 confidence=alert.get("confidence", "Medium").lower(),
@@ -414,7 +423,9 @@ class DASTScanner:
 
             else:
                 session.status = TestStatus.FAILED
-                session.error_message = result.stderr or "ZAP scan produced no output file"
+                session.error_message = (
+                    result.stderr or "ZAP scan produced no output file"
+                )
 
         except subprocess.TimeoutExpired:
             session.status = TestStatus.FAILED
@@ -766,7 +777,9 @@ class SecurityTestOrchestrator:
 
             conn.commit()
 
-    def _generate_test_summary(self, results: List[SecurityTestResult]) -> Dict[str, Any]:
+    def _generate_test_summary(
+        self, results: List[SecurityTestResult]
+    ) -> Dict[str, Any]:
         """テスト結果サマリーを生成"""
         severity_counts = {level.value: 0 for level in SeverityLevel}
         test_type_counts = {test_type.value: 0 for test_type in TestType}
@@ -792,7 +805,9 @@ class SecurityTestOrchestrator:
             "top_owasp_categories": sorted(
                 owasp_categories.items(), key=lambda x: x[1], reverse=True
             )[:5],
-            "top_cwe_ids": sorted(cwe_counts.items(), key=lambda x: x[1], reverse=True)[:10],
+            "top_cwe_ids": sorted(cwe_counts.items(), key=lambda x: x[1], reverse=True)[
+                :10
+            ],
             "risk_score": self._calculate_risk_score(results),
         }
 
@@ -806,7 +821,9 @@ class SecurityTestOrchestrator:
             SeverityLevel.INFO: 1,
         }
 
-        total_score = sum(severity_weights.get(result.severity, 1) for result in results)
+        total_score = sum(
+            severity_weights.get(result.severity, 1) for result in results
+        )
         max_possible = len(results) * 10  # 全てCRITICALの場合
 
         return (total_score / max_possible) * 100 if max_possible > 0 else 0

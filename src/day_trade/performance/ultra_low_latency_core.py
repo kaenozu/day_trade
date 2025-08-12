@@ -154,7 +154,9 @@ class UltraLowLatencyCore:
         self._initialize_rust_core()
         self._initialize_memory_pool()
 
-        logger.info(f"超低レイテンシHFTコア初期化完了 (目標: {self.config.target_latency_ns}ns)")
+        logger.info(
+            f"超低レイテンシHFTコア初期化完了 (目標: {self.config.target_latency_ns}ns)"
+        )
 
     def _initialize_system_optimization(self):
         """システムレベル最適化"""
@@ -171,7 +173,10 @@ class UltraLowLatencyCore:
                 logger.info(f"プロセス優先度設定: {self.config.process_priority}")
 
             # スケジューラ設定（Linux）
-            if platform.system() == "Linux" and self.config.scheduler_policy == "SCHED_FIFO":
+            if (
+                platform.system() == "Linux"
+                and self.config.scheduler_policy == "SCHED_FIFO"
+            ):
                 try:
                     import sched
 
@@ -189,7 +194,9 @@ class UltraLowLatencyCore:
         try:
             # Rust共有ライブラリのパス
             lib_name = self._get_rust_lib_name()
-            lib_path = Path(__file__).parent / "rust_core" / "target" / "release" / lib_name
+            lib_path = (
+                Path(__file__).parent / "rust_core" / "target" / "release" / lib_name
+            )
 
             if lib_path.exists():
                 # Rust共有ライブラリロード
@@ -317,16 +324,24 @@ class UltraLowLatencyCore:
 
             # メモリプールポインター設定
             self.memory_pool_ptr = ctypes.cast(
-                ctypes.addressof(ctypes.c_char.from_buffer(self.shared_memory)), c_void_p
+                ctypes.addressof(ctypes.c_char.from_buffer(self.shared_memory)),
+                c_void_p,
             )
 
-            logger.info(f"共有メモリプール初期化完了: {self.config.preallocated_memory_mb}MB")
+            logger.info(
+                f"共有メモリプール初期化完了: {self.config.preallocated_memory_mb}MB"
+            )
 
         except Exception as e:
             logger.error(f"共有メモリプール初期化エラー: {e}")
 
     def execute_trade_ultra_fast(
-        self, symbol: str, side: str, quantity: float, price: float, order_type: str = "market"
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        price: float,
+        order_type: str = "market",
     ) -> Dict[str, Any]:
         """超高速取引実行 - <10μs目標"""
         if not self.rust_core_initialized:
@@ -334,7 +349,9 @@ class UltraLowLatencyCore:
 
         # 開始時間測定（RDTSC使用）
         start_cycles = (
-            self._get_rdtsc_cycles() if hasattr(self, "_get_rdtsc_cycles") else time.time_ns()
+            self._get_rdtsc_cycles()
+            if hasattr(self, "_get_rdtsc_cycles")
+            else time.time_ns()
         )
 
         # 取引リクエスト構造体作成
@@ -356,7 +373,9 @@ class UltraLowLatencyCore:
 
         # 終了時間測定
         end_cycles = (
-            self._get_rdtsc_cycles() if hasattr(self, "_get_rdtsc_cycles") else time.time_ns()
+            self._get_rdtsc_cycles()
+            if hasattr(self, "_get_rdtsc_cycles")
+            else time.time_ns()
         )
         total_latency_ns = end_cycles - start_cycles
 
@@ -447,7 +466,9 @@ class UltraLowLatencyCore:
                 )
 
         total_time = time.time_ns() - start_time
-        logger.debug(f"マーケットデータバッチ処理完了: {len(market_data_list)}件, {total_time}ns")
+        logger.debug(
+            f"マーケットデータバッチ処理完了: {len(market_data_list)}件, {total_time}ns"
+        )
 
         return results
 
@@ -477,7 +498,10 @@ class UltraLowLatencyCore:
 
         return {
             "total_trades": self.stats["total_trades"],
-            "success_rate": (self.stats["successful_trades"] / self.stats["total_trades"]) * 100,
+            "success_rate": (
+                self.stats["successful_trades"] / self.stats["total_trades"]
+            )
+            * 100,
             "latency_stats": {
                 "avg_us": round(avg_latency_us, 2),
                 "min_us": round(min_latency_us, 2),
@@ -506,7 +530,9 @@ class UltraLowLatencyCore:
             if self.shared_memory:
                 self.shared_memory.close()
 
-            if self.rust_core_initialized and hasattr(self.rust_lib, "cleanup_ultra_fast_core"):
+            if self.rust_core_initialized and hasattr(
+                self.rust_lib, "cleanup_ultra_fast_core"
+            ):
                 self.rust_lib.cleanup_ultra_fast_core()
 
             logger.info("超低レイテンシHFTコア クリーンアップ完了")
@@ -551,7 +577,9 @@ def benchmark_ultra_low_latency(iterations: int = 1000) -> Dict[str, Any]:
         )
 
         if i % 100 == 0:
-            print(f"Progress: {i}/{iterations} - Latest latency: {result['latency_us']:.2f}μs")
+            print(
+                f"Progress: {i}/{iterations} - Latest latency: {result['latency_us']:.2f}μs"
+            )
 
     total_time = time.time() - start_time
 
@@ -576,4 +604,6 @@ if __name__ == "__main__":
     print(f"最小レイテンシ: {benchmark_report['latency_stats']['min_us']}μs")
     print(f"最大レイテンシ: {benchmark_report['latency_stats']['max_us']}μs")
     print(f"P99レイテンシ: {benchmark_report['latency_stats']['p99_ns']/1000:.2f}μs")
-    print(f"目標(<10μs)達成率: {benchmark_report['performance']['target_achievement_rate']:.1f}%")
+    print(
+        f"目標(<10μs)達成率: {benchmark_report['performance']['target_achievement_rate']:.1f}%"
+    )

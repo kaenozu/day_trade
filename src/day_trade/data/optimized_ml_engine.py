@@ -117,7 +117,9 @@ class OptimizedMLEngine:
             df["bb_upper"], df["bb_mid"], df["bb_lower"] = ta.bbands(
                 df["Close"], length=20
             ).values.T
-            df["bb_position"] = (df["Close"] - df["bb_lower"]) / (df["bb_upper"] - df["bb_lower"])
+            df["bb_position"] = (df["Close"] - df["bb_lower"]) / (
+                df["bb_upper"] - df["bb_lower"]
+            )
 
             # ボラティリティ（軽量版）
             df["volatility_5d"] = df["returns_1d"].rolling(5).std()

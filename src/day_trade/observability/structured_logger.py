@@ -63,7 +63,10 @@ class StructuredLogger:
     """
 
     def __init__(
-        self, name: str = "day-trade", service_version: str = "1.0.0", environment: str = None
+        self,
+        name: str = "day-trade",
+        service_version: str = "1.0.0",
+        environment: str = None,
     ):
         self.name = name
         self.service_version = service_version
@@ -77,7 +80,9 @@ class StructuredLogger:
 
         # HFT最適化設定
         self.hft_mode = os.getenv("HFT_MODE", "false").lower() == "true"
-        self.enable_trace_logs = os.getenv("ENABLE_TRACE_LOGS", "false").lower() == "true"
+        self.enable_trace_logs = (
+            os.getenv("ENABLE_TRACE_LOGS", "false").lower() == "true"
+        )
 
         # ログサンプリング設定（HFT時）
         self._sampling_rate = float(os.getenv("LOG_SAMPLING_RATE", "1.0"))
@@ -174,7 +179,9 @@ class StructuredLogger:
                     obj = re.sub(cc_pattern, "****-****-****-****", obj)
 
                     # メールアドレス部分マスキング
-                    email_pattern = r"\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b"
+                    email_pattern = (
+                        r"\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b"
+                    )
                     obj = re.sub(email_pattern, r"***@\2", obj)
 
                 return obj
@@ -286,7 +293,9 @@ class StructuredLogger:
                     "error": {
                         "type": type(error).__name__,
                         "message": str(error),
-                        "stack_trace": str(error.__traceback__) if error.__traceback__ else None,
+                        "stack_trace": (
+                            str(error.__traceback__) if error.__traceback__ else None
+                        ),
                     }
                 }
             )
@@ -449,7 +458,9 @@ class StructuredLogger:
                     delattr(self._thread_local, "request_id")
 
     @contextmanager
-    def operation_context(self, operation_name: str, correlation_id: str = None, **context_data):
+    def operation_context(
+        self, operation_name: str, correlation_id: str = None, **context_data
+    ):
         """操作コンテキスト（相関ID + 操作情報）"""
         start_time = time.perf_counter()
         start_time_ns = time.time_ns()
@@ -535,7 +546,9 @@ def log_trade(
 ):
     """取引ログ便利関数"""
     logger = get_structured_logger()
-    logger.log_trade_execution(symbol, side, quantity, price, latency_us, success, **kwargs)
+    logger.log_trade_execution(
+        symbol, side, quantity, price, latency_us, success, **kwargs
+    )
 
 
 def log_api(method: str, path: str, status: int, response_time: float, **kwargs):

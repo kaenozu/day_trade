@@ -228,7 +228,9 @@ class RealtimePredictionAPI:
                 }
             )
 
-    def _execute_prediction(self, request: PredictionRequest) -> Optional[PredictionResponse]:
+    def _execute_prediction(
+        self, request: PredictionRequest
+    ) -> Optional[PredictionResponse]:
         """予測実行"""
         try:
             # キャッシュチェック
@@ -236,7 +238,9 @@ class RealtimePredictionAPI:
 
             if cache_key in self.prediction_cache:
                 cached_result = self.prediction_cache[cache_key]
-                cache_age = (datetime.now() - cached_result["timestamp"]).total_seconds()
+                cache_age = (
+                    datetime.now() - cached_result["timestamp"]
+                ).total_seconds()
 
                 # 5分以内のキャッシュは有効
                 if cache_age < 300:
@@ -535,12 +539,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 設定
-    opt_level = OptimizationLevel.GPU_ACCELERATED if args.gpu else OptimizationLevel.OPTIMIZED
+    opt_level = (
+        OptimizationLevel.GPU_ACCELERATED if args.gpu else OptimizationLevel.OPTIMIZED
+    )
     opt_config = OptimizationConfig(
         level=opt_level, performance_monitoring=True, cache_enabled=True
     )
 
-    dl_config = DeepLearningConfig(use_pytorch=True, sequence_length=60, prediction_horizon=5)
+    dl_config = DeepLearningConfig(
+        use_pytorch=True, sequence_length=60, prediction_horizon=5
+    )
 
     # API起動
     api = RealtimePredictionAPI(dl_config, opt_config)

@@ -119,7 +119,9 @@ class AdvancedFeatureEngineer:
                 if col not in optimized_price_data.columns
             ]
             if technical_cols:
-                features = pd.concat([features, vectorized_features[technical_cols]], axis=1)
+                features = pd.concat(
+                    [features, vectorized_features[technical_cols]], axis=1
+                )
 
             # 2. 複合テクニカル特徴量
             if self.config.enable_cross_features:
@@ -128,7 +130,9 @@ class AdvancedFeatureEngineer:
 
             # 3. 統計的特徴量
             if self.config.enable_statistical_features:
-                stat_features = self._generate_statistical_features(optimized_price_data)
+                stat_features = self._generate_statistical_features(
+                    optimized_price_data
+                )
                 features = pd.concat([features, stat_features], axis=1)
 
             # 4. 市場レジーム特徴量
@@ -138,12 +142,16 @@ class AdvancedFeatureEngineer:
 
             # 5. 出来高特徴量（最適化済みデータ使用）
             if volume_data is not None:
-                volume_features = self._generate_volume_features(optimized_price_data, volume_data)
+                volume_features = self._generate_volume_features(
+                    optimized_price_data, volume_data
+                )
                 features = pd.concat([features, volume_features], axis=1)
 
             # 6. 市場全体特徴量
             if market_data:
-                market_features = self._generate_market_features(optimized_price_data, market_data)
+                market_features = self._generate_market_features(
+                    optimized_price_data, market_data
+                )
                 features = pd.concat([features, market_features], axis=1)
 
             # 7. 時系列ラグ特徴量（最適化済みデータ使用）
@@ -171,7 +179,9 @@ class AdvancedFeatureEngineer:
 
         # リターン系特徴量
         features["returns_1d"] = price_data["Close"].pct_change()
-        features["returns_log"] = np.log(price_data["Close"] / price_data["Close"].shift(1))
+        features["returns_log"] = np.log(
+            price_data["Close"] / price_data["Close"].shift(1)
+        )
 
         # 価格レンジ特徴量
         features["true_range"] = np.maximum(
@@ -182,15 +192,21 @@ class AdvancedFeatureEngineer:
             ),
         )
 
-        features["price_range_pct"] = (price_data["High"] - price_data["Low"]) / price_data["Close"]
+        features["price_range_pct"] = (
+            price_data["High"] - price_data["Low"]
+        ) / price_data["Close"]
         features["body_to_range"] = abs(price_data["Close"] - price_data["Open"]) / (
             price_data["High"] - price_data["Low"] + 1e-8
         )
 
         # 複数期間のボラティリティ
         for window in self.config.volatility_windows:
-            features[f"volatility_{window}d"] = features["returns_1d"].rolling(window).std()
-            features[f"volatility_log_{window}d"] = features["returns_log"].rolling(window).std()
+            features[f"volatility_{window}d"] = (
+                features["returns_1d"].rolling(window).std()
+            )
+            features[f"volatility_log_{window}d"] = (
+                features["returns_log"].rolling(window).std()
+            )
 
         # 複数期間のモメンタム
         for period in self.config.momentum_periods:
@@ -214,7 +230,9 @@ class AdvancedFeatureEngineer:
                     short_ma = price_data["Close"].rolling(short_period).mean()
                     long_ma = price_data["Close"].rolling(long_period).mean()
 
-                    features[f"ma_cross_{short_period}_{long_period}"] = short_ma / long_ma - 1
+                    features[f"ma_cross_{short_period}_{long_period}"] = (
+                        short_ma / long_ma - 1
+                    )
                     features[f"ma_cross_momentum_{short_period}_{long_period}"] = (
                         short_ma / long_ma
                     ).pct_change()
@@ -245,8 +263,12 @@ class AdvancedFeatureEngineer:
                 upper_band - lower_band
             )
             features[f"bb_squeeze_{window}"] = (upper_band - lower_band) / sma
-            features[f"bb_breakout_upper_{window}"] = (price_data["Close"] > upper_band).astype(int)
-            features[f"bb_breakout_lower_{window}"] = (price_data["Close"] < lower_band).astype(int)
+            features[f"bb_breakout_upper_{window}"] = (
+                price_data["Close"] > upper_band
+            ).astype(int)
+            features[f"bb_breakout_lower_{window}"] = (
+                price_data["Close"] < lower_band
+            ).astype(int)
 
         return features
 
@@ -267,7 +289,9 @@ class AdvancedFeatureEngineer:
                 .rolling(window)
                 .apply(
                     lambda x: (
-                        stats.percentileofscore(x[:-1], x.iloc[-1]) / 100 if len(x) > 1 else 0.5
+                        stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
+                        if len(x) > 1
+                        else 0.5
                     )
                 )
             )
@@ -275,15 +299,17 @@ class AdvancedFeatureEngineer:
             # 最高値・最安値からの位置
             high_max = price_data["High"].rolling(window).max()
             low_min = price_data["Low"].rolling(window).min()
-            features[f"high_low_position_{window}d"] = (price_data["Close"] - low_min) / (
-                high_max - low_min + 1e-8
-            )
+            features[f"high_low_position_{window}d"] = (
+                price_data["Close"] - low_min
+            ) / (high_max - low_min + 1e-8)
 
             # トレンド強度（線形回帰の傾き）
             features[f"trend_strength_{window}d"] = (
                 price_data["Close"]
                 .rolling(window)
-                .apply(lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0)
+                .apply(
+                    lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
+                )
             )
 
         return features
@@ -304,7 +330,11 @@ class AdvancedFeatureEngineer:
             # ボラティリティレジーム
             vol = returns.rolling(window).std()
             vol_percentile = vol.rolling(window * 2).apply(
-                lambda x: stats.percentileofscore(x[:-1], x.iloc[-1]) / 100 if len(x) > 1 else 0.5
+                lambda x: (
+                    stats.percentileofscore(x[:-1], x.iloc[-1]) / 100
+                    if len(x) > 1
+                    else 0.5
+                )
             )
             features[f"vol_regime_high_{window}d"] = (vol_percentile > 0.75).astype(int)
             features[f"vol_regime_low_{window}d"] = (vol_percentile < 0.25).astype(int)
@@ -361,7 +391,9 @@ class AdvancedFeatureEngineer:
                 # 市場との相関
                 for window in [20, 50]:
                     correlation = returns.rolling(window).corr(market_returns)
-                    features[f"market_correlation_{market_name}_{window}d"] = correlation
+                    features[f"market_correlation_{market_name}_{window}d"] = (
+                        correlation
+                    )
 
                 # 市場に対するベータ
                 for window in [20, 50]:
@@ -427,10 +459,14 @@ class AdvancedFeatureEngineer:
                 fit_data = features[numeric_columns].dropna()
                 if len(fit_data) > 100:
                     self.scaler.fit(fit_data.iloc[:100])
-                    scaled_data = self.scaler.transform(features[numeric_columns].fillna(0))
+                    scaled_data = self.scaler.transform(
+                        features[numeric_columns].fillna(0)
+                    )
                     features[numeric_columns] = scaled_data
 
-        logger.info(f"特徴量前処理完了: {len(features.columns)}列, {features.shape[0]}行")
+        logger.info(
+            f"特徴量前処理完了: {len(features.columns)}列, {features.shape[0]}行"
+        )
         return features
 
     def select_important_features(
@@ -471,10 +507,14 @@ class AdvancedFeatureEngineer:
                 from sklearn.feature_selection import mutual_info_regression
 
                 mi_scores = mutual_info_regression(X.fillna(0), y, random_state=42)
-                feature_scores = pd.Series(mi_scores, index=X.columns).sort_values(ascending=False)
+                feature_scores = pd.Series(mi_scores, index=X.columns).sort_values(
+                    ascending=False
+                )
                 selected_features = feature_scores.head(top_k).index.tolist()
             except ImportError:
-                logger.warning("scikit-learnが利用できません。相関ベースの選択を使用します")
+                logger.warning(
+                    "scikit-learnが利用できません。相関ベースの選択を使用します"
+                )
                 correlations = X.corrwith(y).abs().sort_values(ascending=False)
                 selected_features = correlations.head(top_k).index.tolist()
 
@@ -526,7 +566,9 @@ class AdvancedFeatureEngineer:
         # スケーリング
         if self.scaler is not None and len(numeric_cols) > 0:
             try:
-                features[numeric_cols] = self.scaler.fit_transform(features[numeric_cols])
+                features[numeric_cols] = self.scaler.fit_transform(
+                    features[numeric_cols]
+                )
             except Exception as e:
                 logger.warning(f"スケーリングに失敗: {e}")
 
@@ -575,7 +617,9 @@ def create_target_variables(
     targets = {}
 
     # 将来リターン
-    future_returns = price_data["Close"].pct_change(prediction_horizon).shift(-prediction_horizon)
+    future_returns = (
+        price_data["Close"].pct_change(prediction_horizon).shift(-prediction_horizon)
+    )
     targets["future_returns"] = future_returns
 
     # 将来の方向性（上昇=1, 下降=0）
@@ -583,7 +627,9 @@ def create_target_variables(
 
     # 将来の大きな変動（閾値以上の変動=1）
     volatility_threshold = future_returns.rolling(100).std().median()
-    targets["future_high_volatility"] = (abs(future_returns) > volatility_threshold).astype(int)
+    targets["future_high_volatility"] = (
+        abs(future_returns) > volatility_threshold
+    ).astype(int)
 
     # 将来の最大ドローダウン
     future_prices = pd.concat(

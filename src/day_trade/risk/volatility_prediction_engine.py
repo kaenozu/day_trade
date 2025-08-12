@@ -59,7 +59,9 @@ class VolatilityPredictionEngine:
         Args:
             model_cache_dir: モデルキャッシュディレクトリ
         """
-        self.model_cache_dir = Path(model_cache_dir) if hasattr(Path, "__name__") else None
+        self.model_cache_dir = (
+            Path(model_cache_dir) if hasattr(Path, "__name__") else None
+        )
 
         # モデルキャッシュディレクトリ作成
         if self.model_cache_dir:
@@ -196,7 +198,9 @@ class VolatilityPredictionEngine:
             returns = np.log(data["Close"] / data["Close"].shift(1)).dropna()
 
             if len(returns) < 100:
-                logger.warning(f"GARCHモデルには最低100データポイントが必要: {len(returns)}")
+                logger.warning(
+                    f"GARCHモデルには最低100データポイントが必要: {len(returns)}"
+                )
                 return None
 
             # リターンをパーセンテージに変換（数値安定性のため）
@@ -226,7 +230,9 @@ class VolatilityPredictionEngine:
 
             # 1期先予測
             forecast = fitted_model.forecast(horizon=1, reindex=False)
-            next_period_vol = np.sqrt(forecast.variance.iloc[-1, 0]) / 100  # パーセンテージから戻す
+            next_period_vol = (
+                np.sqrt(forecast.variance.iloc[-1, 0]) / 100
+            )  # パーセンテージから戻す
 
             # モデル保存
             self.garch_models[symbol] = fitted_model
@@ -241,7 +247,8 @@ class VolatilityPredictionEngine:
                 "log_likelihood": float(log_likelihood),
                 "parameters": {k: float(v) for k, v in params.items()},
                 "next_period_volatility": float(next_period_vol),
-                "fitted_volatility": fitted_model.conditional_volatility / 100,  # 時系列
+                "fitted_volatility": fitted_model.conditional_volatility
+                / 100,  # 時系列
                 "data_points": len(returns),
                 "fitting_timestamp": datetime.now().isoformat(),
             }
@@ -278,7 +285,9 @@ class VolatilityPredictionEngine:
             forecast = fitted_model.forecast(horizon=horizon, reindex=False)
 
             # 分散予測を標準偏差（ボラティリティ）に変換
-            vol_forecast = np.sqrt(forecast.variance.iloc[-1] / 10000)  # パーセンテージ調整
+            vol_forecast = np.sqrt(
+                forecast.variance.iloc[-1] / 10000
+            )  # パーセンテージ調整
 
             # 信頼区間計算
             alpha = 1 - confidence_level
@@ -287,10 +296,16 @@ class VolatilityPredictionEngine:
             z_score = stats.norm.ppf(1 - alpha / 2)
 
             # 予測の不確実性（簡易版）
-            vol_std = vol_forecast.std() if len(vol_forecast) > 1 else vol_forecast.iloc[0] * 0.1
+            vol_std = (
+                vol_forecast.std()
+                if len(vol_forecast) > 1
+                else vol_forecast.iloc[0] * 0.1
+            )
 
             vol_upper = vol_forecast + z_score * vol_std
-            vol_lower = np.maximum(vol_forecast - z_score * vol_std, 0.001)  # 負の値を避ける
+            vol_lower = np.maximum(
+                vol_forecast - z_score * vol_std, 0.001
+            )  # 負の値を避ける
 
             result = {
                 "symbol": symbol,
@@ -334,7 +349,9 @@ class VolatilityPredictionEngine:
             returns = np.log(data["Close"] / data["Close"].shift(1)).dropna()
 
             if len(returns) < window:
-                logger.warning(f"VIX計算にはwindow以上のデータが必要: {len(returns)} < {window}")
+                logger.warning(
+                    f"VIX計算にはwindow以上のデータが必要: {len(returns)} < {window}"
+                )
                 return pd.Series([20] * len(data), index=data.index)
 
             # 簡易GARCH(1,1)による条件付きボラティリティ
@@ -357,7 +374,9 @@ class VolatilityPredictionEngine:
                         else unconditional_vol**2
                     )
 
-                    conditional_variance = omega + alpha * prev_return_sq + beta * prev_vol_sq
+                    conditional_variance = (
+                        omega + alpha * prev_return_sq + beta * prev_vol_sq
+                    )
                     conditional_vol.iloc[i] = np.sqrt(max(conditional_variance, 1e-6))
 
             # 前向き予測を追加（1期先）
@@ -430,7 +449,9 @@ class VolatilityPredictionEngine:
 
             # 価格レンジ指標
             features["high_low_ratio"] = (data["High"] - data["Low"]) / data["Close"]
-            features["open_close_ratio"] = np.abs(data["Open"] - data["Close"]) / data["Close"]
+            features["open_close_ratio"] = (
+                np.abs(data["Open"] - data["Close"]) / data["Close"]
+            )
 
             # 出来高関連特徴量
             features["volume"] = data["Volume"]
@@ -473,7 +494,9 @@ class VolatilityPredictionEngine:
             # ボリンジャーバンド
             sma_20 = data["Close"].rolling(20).mean()
             std_20 = data["Close"].rolling(20).std()
-            features["bb_position"] = (data["Close"] - (sma_20 - 2 * std_20)) / (4 * std_20)
+            features["bb_position"] = (data["Close"] - (sma_20 - 2 * std_20)) / (
+                4 * std_20
+            )
             features["bb_width"] = (4 * std_20) / sma_20
 
             # 時間系特徴量（曜日効果・月効果）
@@ -482,7 +505,9 @@ class VolatilityPredictionEngine:
             features["month"] = data.index.month
 
             # 季節調整項
-            features["seasonal_factor"] = np.sin(2 * np.pi * data.index.dayofyear / 365.25)
+            features["seasonal_factor"] = np.sin(
+                2 * np.pi * data.index.dayofyear / 365.25
+            )
 
             # ラグ特徴量の追加（時系列の記憶効果）
             for col in ["realized_vol_20", "vix_like", "high_low_ratio"]:
@@ -535,7 +560,9 @@ class VolatilityPredictionEngine:
                 return None
 
             # ターゲット変数: target_horizon日先の実現ボラティリティ
-            target_vol = self.calculate_realized_volatility(data, window=5, annualize=True)
+            target_vol = self.calculate_realized_volatility(
+                data, window=5, annualize=True
+            )
             target = target_vol.shift(-target_horizon)
 
             # 有効データのみ抽出
@@ -706,15 +733,17 @@ class VolatilityPredictionEngine:
             }
 
             # 現在の実現ボラティリティとの比較
-            current_vol = self.calculate_realized_volatility(data, window=20, annualize=True).iloc[
-                -1
-            ]
+            current_vol = self.calculate_realized_volatility(
+                data, window=20, annualize=True
+            ).iloc[-1]
 
             result = {
                 "symbol": symbol,
                 "prediction_horizon": horizon,
                 "predicted_volatility": float(best_pred),
-                "current_volatility": float(current_vol) if pd.notna(current_vol) else None,
+                "current_volatility": (
+                    float(current_vol) if pd.notna(current_vol) else None
+                ),
                 "volatility_change": (
                     float(best_pred - current_vol) if pd.notna(current_vol) else None
                 ),
@@ -755,7 +784,9 @@ class VolatilityPredictionEngine:
                 }
 
             # 実現ボラティリティ計算
-            realized_vol = self.calculate_realized_volatility(data, window=20, annualize=True)
+            realized_vol = self.calculate_realized_volatility(
+                data, window=20, annualize=True
+            )
 
             # レジーム分類
             regimes = pd.Series(index=data.index, dtype="object")
@@ -812,7 +843,9 @@ class VolatilityPredictionEngine:
             if len(data) >= 100:  # GARCH用最小データ
                 garch_fit = self.fit_garch_model(data, symbol=symbol)
                 if garch_fit:
-                    garch_result = self.predict_garch_volatility(symbol, horizon=forecast_horizon)
+                    garch_result = self.predict_garch_volatility(
+                        symbol, horizon=forecast_horizon
+                    )
                     if garch_result:
                         comprehensive_forecast["models"]["garch"] = garch_result
                         logger.info("GARCH予測を統合予測に追加")
@@ -820,7 +853,9 @@ class VolatilityPredictionEngine:
             # ML予測
             ml_result = None
             if len(data) >= 150:  # ML用最小データ
-                ml_train = self.train_volatility_ml_model(data, symbol=symbol, target_horizon=5)
+                ml_train = self.train_volatility_ml_model(
+                    data, symbol=symbol, target_horizon=5
+                )
                 if ml_train:
                     ml_result = self.predict_volatility_ml(data, symbol, horizon=5)
                     if ml_result:
@@ -839,13 +874,17 @@ class VolatilityPredictionEngine:
             }
 
             # 実現ボラティリティ
-            realized_vol = self.calculate_realized_volatility(data, window=20, annualize=True)
+            realized_vol = self.calculate_realized_volatility(
+                data, window=20, annualize=True
+            )
             current_realized = realized_vol.iloc[-1] if len(realized_vol) > 0 else 0.2
 
             comprehensive_forecast["current_metrics"] = {
                 "realized_volatility": float(current_realized),
                 "vix_like_indicator": float(current_vix),
-                "volatility_regime": self.create_volatility_regime_classifier(data).iloc[-1],
+                "volatility_regime": self.create_volatility_regime_classifier(
+                    data
+                ).iloc[-1],
             }
 
             # アンサンブル予測
@@ -855,7 +894,9 @@ class VolatilityPredictionEngine:
             comprehensive_forecast["ensemble_forecast"] = ensemble
 
             # リスク評価
-            risk_assessment = self._assess_volatility_risk(current_realized, current_vix, ensemble)
+            risk_assessment = self._assess_volatility_risk(
+                current_realized, current_vix, ensemble
+            )
             comprehensive_forecast["risk_assessment"] = risk_assessment
 
             # 投資への示唆
@@ -879,21 +920,29 @@ class VolatilityPredictionEngine:
         """VIX風指標の前方投影"""
         try:
             if len(vix_series) < 20:
-                return [vix_series.iloc[-1]] * horizon if len(vix_series) > 0 else [20] * horizon
+                return (
+                    [vix_series.iloc[-1]] * horizon
+                    if len(vix_series) > 0
+                    else [20] * horizon
+                )
 
             # 短期移動平均トレンド
             recent_trend = vix_series.rolling(5).mean().diff().iloc[-1]
             current_vix = vix_series.iloc[-1]
 
             # 平均回帰要素
-            long_term_mean = vix_series.rolling(60).mean().iloc[-1] if len(vix_series) >= 60 else 20
+            long_term_mean = (
+                vix_series.rolling(60).mean().iloc[-1] if len(vix_series) >= 60 else 20
+            )
             mean_reversion_rate = 0.1  # 平均回帰速度
 
             forecast = []
             for i in range(horizon):
                 # トレンド継続 + 平均回帰
                 trend_component = recent_trend * (0.9**i)  # トレンド減衰
-                mean_reversion = (long_term_mean - current_vix) * mean_reversion_rate * (i + 1)
+                mean_reversion = (
+                    (long_term_mean - current_vix) * mean_reversion_rate * (i + 1)
+                )
 
                 projected_vix = current_vix + trend_component + mean_reversion
                 projected_vix = max(5, min(projected_vix, 100))  # 範囲制限
@@ -935,7 +984,9 @@ class VolatilityPredictionEngine:
 
             # GARCH予測
             if garch_result and "volatility_forecast" in garch_result:
-                garch_vol = np.mean(garch_result["volatility_forecast"][:5])  # 最初の5日平均
+                garch_vol = np.mean(
+                    garch_result["volatility_forecast"][:5]
+                )  # 最初の5日平均
                 forecasts.append(garch_vol * 100)  # パーセンテージ変換
                 weights.append(0.35)
                 models.append("GARCH")
@@ -965,7 +1016,9 @@ class VolatilityPredictionEngine:
                 # 信頼度計算（予測の一致度）
                 forecast_std = np.std(forecasts) if len(forecasts) > 1 else 0
                 confidence = (
-                    max(0.2, 1 - (forecast_std / ensemble_vol)) if ensemble_vol > 0 else 0.5
+                    max(0.2, 1 - (forecast_std / ensemble_vol))
+                    if ensemble_vol > 0
+                    else 0.5
                 )
 
             return {
@@ -1023,7 +1076,8 @@ class VolatilityPredictionEngine:
             forecast_range = ensemble.get("forecast_range", {})
 
             if (
-                forecast_range.get("max", ensemble_vol) - forecast_range.get("min", ensemble_vol)
+                forecast_range.get("max", ensemble_vol)
+                - forecast_range.get("min", ensemble_vol)
                 > 10
             ):
                 risk_score += 20
@@ -1198,7 +1252,9 @@ if __name__ == "__main__":
     # OHLCV生成
     sample_data = pd.DataFrame(index=dates)
     sample_data["Close"] = prices[1:]  # 長さ調整
-    sample_data["Open"] = [p * np.random.uniform(0.998, 1.002) for p in sample_data["Close"]]
+    sample_data["Open"] = [
+        p * np.random.uniform(0.998, 1.002) for p in sample_data["Close"]
+    ]
     sample_data["High"] = [
         max(o, c) * np.random.uniform(1.000, 1.020)
         for o, c in zip(sample_data["Open"], sample_data["Close"])
@@ -1213,7 +1269,9 @@ if __name__ == "__main__":
         engine = VolatilityPredictionEngine()
 
         print(f"サンプルデータ: {len(sample_data)}日分")
-        print(f"価格範囲: {sample_data['Close'].min():.2f} - {sample_data['Close'].max():.2f}")
+        print(
+            f"価格範囲: {sample_data['Close'].min():.2f} - {sample_data['Close'].max():.2f}"
+        )
 
         # 1. 実現ボラティリティ計算テスト
         print("\n1. 実現ボラティリティ計算テスト")
@@ -1266,10 +1324,14 @@ if __name__ == "__main__":
             if garch_result:
                 print("✅ GARCHモデル適合完了")
                 print(f"   AIC: {garch_result['aic']:.2f}")
-                print(f"   次期予測ボラティリティ: {garch_result['next_period_volatility']:.3f}")
+                print(
+                    f"   次期予測ボラティリティ: {garch_result['next_period_volatility']:.3f}"
+                )
 
                 # GARCH予測テスト
-                garch_forecast = engine.predict_garch_volatility("TEST_STOCK", horizon=5)
+                garch_forecast = engine.predict_garch_volatility(
+                    "TEST_STOCK", horizon=5
+                )
                 if garch_forecast:
                     print("✅ GARCH予測完了")
                     print(f"   5日先予測: {garch_forecast['volatility_forecast']}")
@@ -1281,7 +1343,9 @@ if __name__ == "__main__":
         # 6. 機械学習モデルテスト（データが十分な場合）
         if SKLEARN_AVAILABLE and len(sample_data) >= 150:
             print("\n6. 機械学習モデルテスト")
-            ml_train_result = engine.train_volatility_ml_model(sample_data, symbol="TEST_STOCK")
+            ml_train_result = engine.train_volatility_ml_model(
+                sample_data, symbol="TEST_STOCK"
+            )
 
             if ml_train_result:
                 print("✅ ML訓練完了")
@@ -1294,12 +1358,16 @@ if __name__ == "__main__":
                 ml_forecast = engine.predict_volatility_ml(sample_data, "TEST_STOCK")
                 if ml_forecast:
                     print("✅ ML予測完了")
-                    print(f"   予測ボラティリティ: {ml_forecast['predicted_volatility']:.1f}%")
+                    print(
+                        f"   予測ボラティリティ: {ml_forecast['predicted_volatility']:.1f}%"
+                    )
                     print(f"   信頼区間: {ml_forecast['confidence_interval']}")
             else:
                 print("❌ ML訓練失敗")
         else:
-            print("\n6. 機械学習モデル - スキップ（sklearn未インストールまたはデータ不足）")
+            print(
+                "\n6. 機械学習モデル - スキップ（sklearn未インストールまたはデータ不足）"
+            )
 
         # 7. 総合予測テスト
         print("\n7. 総合ボラティリティ予測テスト")
@@ -1313,15 +1381,21 @@ if __name__ == "__main__":
             # 現在のメトリクス
             current = comprehensive.get("current_metrics", {})
             print("\n📊 現在の状況:")
-            print(f"   実現ボラティリティ: {current.get('realized_volatility', 0):.1f}%")
+            print(
+                f"   実現ボラティリティ: {current.get('realized_volatility', 0):.1f}%"
+            )
             print(f"   VIX風指標: {current.get('vix_like_indicator', 0):.1f}")
-            print(f"   ボラティリティレジーム: {current.get('volatility_regime', 'unknown')}")
+            print(
+                f"   ボラティリティレジーム: {current.get('volatility_regime', 'unknown')}"
+            )
 
             # アンサンブル予測
             ensemble = comprehensive.get("ensemble_forecast", {})
             if ensemble:
                 print("\n🔮 アンサンブル予測:")
-                print(f"   予測ボラティリティ: {ensemble.get('ensemble_volatility', 0):.1f}%")
+                print(
+                    f"   予測ボラティリティ: {ensemble.get('ensemble_volatility', 0):.1f}%"
+                )
                 print(f"   予測信頼度: {ensemble.get('ensemble_confidence', 0):.1f}")
 
                 individual = ensemble.get("individual_forecasts", {})
@@ -1336,7 +1410,9 @@ if __name__ == "__main__":
                 print("\n⚠️  リスク評価:")
                 print(f"   リスクレベル: {risk.get('risk_level', 'UNKNOWN')}")
                 print(f"   リスクスコア: {risk.get('risk_score', 0)}")
-                print(f"   ボラティリティ見通し: {risk.get('volatility_outlook', 'unknown')}")
+                print(
+                    f"   ボラティリティ見通し: {risk.get('volatility_outlook', 'unknown')}"
+                )
 
                 risk_factors = risk.get("risk_factors", [])
                 if risk_factors:

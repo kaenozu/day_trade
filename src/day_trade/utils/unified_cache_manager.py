@@ -145,7 +145,10 @@ class L1HotCache(CacheLayer):
                 self.current_size -= old_entry.size_bytes
 
             # 容量チェックと退避
-            while self.current_size + entry.size_bytes > self.max_memory_bytes and self.cache:
+            while (
+                self.current_size + entry.size_bytes > self.max_memory_bytes
+                and self.cache
+            ):
                 self._evict_lru()
 
             if self.current_size + entry.size_bytes <= self.max_memory_bytes:
@@ -199,7 +202,9 @@ class L2WarmCache(CacheLayer):
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
         self.ttl_seconds = ttl_seconds
         self.cache = {}
-        self.access_order = OrderedDict()  # O(1)での削除を可能にするためにOrderedDictを使用
+        self.access_order = (
+            OrderedDict()
+        )  # O(1)での削除を可能にするためにOrderedDictを使用
         self.frequency_counter = {}
         self.current_size = 0
         self.lock = threading.RLock()
@@ -243,7 +248,10 @@ class L2WarmCache(CacheLayer):
                 self._remove_entry(key)
 
             # 容量チェックと退避
-            while self.current_size + entry.size_bytes > self.max_memory_bytes and self.cache:
+            while (
+                self.current_size + entry.size_bytes > self.max_memory_bytes
+                and self.cache
+            ):
                 self._evict_lfu()
 
             if self.current_size + entry.size_bytes <= self.max_memory_bytes:
@@ -315,7 +323,9 @@ class L2WarmCache(CacheLayer):
                 "memory_usage_mb": self.current_size / 1024 / 1024,
                 "max_memory_mb": self.max_memory_bytes / 1024 / 1024,
                 "avg_frequency": (
-                    np.mean(list(self.frequency_counter.values())) if self.frequency_counter else 0
+                    np.mean(list(self.frequency_counter.values()))
+                    if self.frequency_counter
+                    else 0
                 ),
                 **self.stats,
             }
@@ -365,14 +375,18 @@ class L3ColdCache(CacheLayer):
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_entries(last_accessed)"
             )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_priority ON cache_entries(priority DESC)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_priority ON cache_entries(priority DESC)"
+            )
             conn.commit()
 
     def get(self, key: str) -> Optional[CacheEntry]:
         with self.lock:
             try:
                 with sqlite3.connect(str(self.db_path)) as conn:
-                    cursor = conn.execute("SELECT * FROM cache_entries WHERE key = ?", (key,))
+                    cursor = conn.execute(
+                        "SELECT * FROM cache_entries WHERE key = ?", (key,)
+                    )
                     row = cursor.fetchone()
 
                     if not row:
@@ -444,7 +458,10 @@ class L3ColdCache(CacheLayer):
 
                 with sqlite3.connect(str(self.db_path)) as conn:
                     # 容量チェックと退避
-                    while self._get_total_size(conn) + compressed_size > self.max_size_bytes:
+                    while (
+                        self._get_total_size(conn) + compressed_size
+                        > self.max_size_bytes
+                    ):
                         if not self._evict_oldest(conn):
                             break
 
@@ -479,7 +496,9 @@ class L3ColdCache(CacheLayer):
         with self.lock:
             try:
                 with sqlite3.connect(str(self.db_path)) as conn:
-                    cursor = conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
+                    cursor = conn.execute(
+                        "DELETE FROM cache_entries WHERE key = ?", (key,)
+                    )
                     conn.commit()
                     return cursor.rowcount > 0
             except Exception as e:
@@ -504,7 +523,9 @@ class L3ColdCache(CacheLayer):
 
     def _evict_oldest(self, conn) -> bool:
         """最古エントリ退避"""
-        cursor = conn.execute("SELECT key FROM cache_entries ORDER BY last_accessed ASC LIMIT 1")
+        cursor = conn.execute(
+            "SELECT key FROM cache_entries ORDER BY last_accessed ASC LIMIT 1"
+        )
         row = cursor.fetchone()
 
         if row:
@@ -527,7 +548,9 @@ class L3ColdCache(CacheLayer):
 
                     # ヒット率
                     total_requests = self.stats["hits"] + self.stats["misses"]
-                    hit_rate = self.stats["hits"] / total_requests if total_requests > 0 else 0
+                    hit_rate = (
+                        self.stats["hits"] / total_requests if total_requests > 0 else 0
+                    )
 
                     return {
                         "layer": "L3_Cold",
@@ -611,7 +634,9 @@ class UnifiedCacheManager:
             self._record_access_time(start_time)
             return default
 
-    def put(self, key: str, value: Any, priority: float = 1.0, target_layer: str = "auto") -> bool:
+    def put(
+        self, key: str, value: Any, priority: float = 1.0, target_layer: str = "auto"
+    ) -> bool:
         """階層化キャッシュにデータ保存"""
         try:
             # エントリ作成
@@ -697,7 +722,9 @@ class UnifiedCacheManager:
         l3_stats = self.l3_cache.get_stats()
 
         total_hits = (
-            self.global_stats.l1_hits + self.global_stats.l2_hits + self.global_stats.l3_hits
+            self.global_stats.l1_hits
+            + self.global_stats.l2_hits
+            + self.global_stats.l3_hits
         )
         total_requests = total_hits + self.global_stats.misses
 
@@ -710,13 +737,19 @@ class UnifiedCacheManager:
                 "total_requests": total_requests,
                 "avg_access_time_ms": avg_access_time,
                 "l1_hit_ratio": (
-                    self.global_stats.l1_hits / total_requests if total_requests > 0 else 0
+                    self.global_stats.l1_hits / total_requests
+                    if total_requests > 0
+                    else 0
                 ),
                 "l2_hit_ratio": (
-                    self.global_stats.l2_hits / total_requests if total_requests > 0 else 0
+                    self.global_stats.l2_hits / total_requests
+                    if total_requests > 0
+                    else 0
                 ),
                 "l3_hit_ratio": (
-                    self.global_stats.l3_hits / total_requests if total_requests > 0 else 0
+                    self.global_stats.l3_hits / total_requests
+                    if total_requests > 0
+                    else 0
                 ),
             },
             "layers": {"L1": l1_stats, "L2": l2_stats, "L3": l3_stats},
@@ -733,7 +766,9 @@ class UnifiedCacheManager:
             memory_percent = psutil.virtual_memory().percent
 
             if memory_percent > 85:  # 85%以上ならアグレッシブにクリア
-                logger.warning(f"高メモリ使用率検出: {memory_percent}% - L1キャッシュクリア")
+                logger.warning(
+                    f"高メモリ使用率検出: {memory_percent}% - L1キャッシュクリア"
+                )
                 self.l1_cache.clear()
 
                 if memory_percent > 90:  # 90%以上ならL2も部分クリア

@@ -95,7 +95,9 @@ class LSTMFraudModel(nn.Module):
         )
 
         # Attention メカニズム
-        self.attention = nn.MultiheadAttention(hidden_size * 2, num_heads=8, dropout=dropout)
+        self.attention = nn.MultiheadAttention(
+            hidden_size * 2, num_heads=8, dropout=dropout
+        )
 
         # 分類層
         self.classifier = nn.Sequential(
@@ -166,7 +168,9 @@ class TransformerAnomalyModel(nn.Module):
         pe = torch.zeros(max_len, model_dim)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
 
-        div_term = torch.exp(torch.arange(0, model_dim, 2).float() * (-np.log(10000.0) / model_dim))
+        div_term = torch.exp(
+            torch.arange(0, model_dim, 2).float() * (-np.log(10000.0) / model_dim)
+        )
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -254,7 +258,9 @@ class EnsembleFraudDetector:
                 total_loss += loss.item()
 
             if epoch % 10 == 0:
-                logger.info(f"LSTM Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}")
+                logger.info(
+                    f"LSTM Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}"
+                )
 
         self.models["lstm"].eval()
 
@@ -292,7 +298,9 @@ class EnsembleFraudDetector:
                 total_loss += loss.item()
 
             if epoch % 5 == 0:
-                logger.info(f"Transformer Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}")
+                logger.info(
+                    f"Transformer Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}"
+                )
 
         self.models["transformer"].eval()
 
@@ -410,7 +418,9 @@ class FraudDetectionEngine:
         except Exception as e:
             logger.error(f"モデル保存エラー: {e}")
 
-    async def detect_fraud(self, request: FraudDetectionRequest) -> FraudDetectionResult:
+    async def detect_fraud(
+        self, request: FraudDetectionRequest
+    ) -> FraudDetectionResult:
         """不正取引検知（メイン処理）"""
 
         start_time = time.time()
@@ -431,13 +441,17 @@ class FraudDetectionEngine:
             is_fraud = fraud_probability > 0.5
 
             # リスク要因分析
-            risk_factors = self._analyze_risk_factors(request, features, individual_predictions)
+            risk_factors = self._analyze_risk_factors(
+                request, features, individual_predictions
+            )
 
             # 説明文生成
             explanation = self._generate_explanation(fraud_probability, risk_factors)
 
             # 推奨アクション
-            recommended_action = self._get_recommended_action(fraud_probability, request)
+            recommended_action = self._get_recommended_action(
+                fraud_probability, request
+            )
 
             result = FraudDetectionResult(
                 transaction_id=request.transaction_id,
@@ -491,7 +505,8 @@ class FraudDetectionEngine:
             recent_transactions = [
                 t
                 for t in request.transaction_history
-                if (request.timestamp - datetime.fromisoformat(t["timestamp"])).days <= 1
+                if (request.timestamp - datetime.fromisoformat(t["timestamp"])).days
+                <= 1
             ]
             if len(recent_transactions) > 10:
                 risk_score += 0.3
@@ -544,7 +559,8 @@ class FraudDetectionEngine:
             [
                 t
                 for t in request.transaction_history
-                if (request.timestamp - datetime.fromisoformat(t["timestamp"])).hours <= 24
+                if (request.timestamp - datetime.fromisoformat(t["timestamp"])).hours
+                <= 24
             ]
         )
         risk_factors["frequency_risk"] = min(1.0, recent_count / 20)
@@ -573,7 +589,9 @@ class FraudDetectionEngine:
             "frequency_risk": "取引頻度",
         }
 
-        factors_text = ", ".join([factor_names.get(name, name) for name, _ in top_factors])
+        factors_text = ", ".join(
+            [factor_names.get(name, name) for name, _ in top_factors]
+        )
 
         return (
             f"不正取引の可能性: {severity} ({fraud_probability:.2f})\n"
@@ -641,13 +659,16 @@ class FraudDetectionEngine:
         # 処理時間更新
         total = self.stats["total_detections"]
         old_avg = self.stats["avg_processing_time"]
-        self.stats["avg_processing_time"] = (old_avg * (total - 1) + result.processing_time) / total
+        self.stats["avg_processing_time"] = (
+            old_avg * (total - 1) + result.processing_time
+        ) / total
 
     def get_stats(self) -> Dict[str, Any]:
         """統計取得"""
         return {
             **self.stats,
-            "fraud_rate": self.stats["fraud_detected"] / max(1, self.stats["total_detections"]),
+            "fraud_rate": self.stats["fraud_detected"]
+            / max(1, self.stats["total_detections"]),
             "models_loaded": self.models_loaded,
         }
 
@@ -675,7 +696,9 @@ class FeatureExtractor:
         # 取引履歴統計
         if request.transaction_history:
             amounts = [t.get("amount", 0) for t in request.transaction_history]
-            features.extend([np.mean(amounts), np.std(amounts), np.max(amounts), np.min(amounts)])
+            features.extend(
+                [np.mean(amounts), np.std(amounts), np.max(amounts), np.min(amounts)]
+            )
         else:
             features.extend([0, 0, 0, 0])
 
@@ -709,7 +732,9 @@ class FeatureExtractor:
 
         return features
 
-    def _extract_market_features(self, market_conditions: Dict[str, Any]) -> List[float]:
+    def _extract_market_features(
+        self, market_conditions: Dict[str, Any]
+    ) -> List[float]:
         """市場特徴量抽出"""
 
         features = []

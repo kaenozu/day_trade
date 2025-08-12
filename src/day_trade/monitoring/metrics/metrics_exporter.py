@@ -202,7 +202,9 @@ class MetricsExporter:
             raise
 
 
-def start_metrics_server(port: int = 8000, background: bool = True) -> Optional[MetricsExporter]:
+def start_metrics_server(
+    port: int = 8000, background: bool = True
+) -> Optional[MetricsExporter]:
     """メトリクスサーバー開始"""
 
     exporter = MetricsExporter(port)

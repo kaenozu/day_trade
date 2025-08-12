@@ -72,7 +72,8 @@ class TelemetryConfig:
             "JAEGER_ENDPOINT", "http://jaeger-all-in-one:14268/api/traces"
         )
         self.enable_console_export = (
-            enable_console_export or os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true"
+            enable_console_export
+            or os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true"
         )
 
         # HFT最適化設定
@@ -134,7 +135,9 @@ class TelemetryConfig:
                 ResourceAttributes.SERVICE_VERSION: self.service_version,
                 ResourceAttributes.DEPLOYMENT_ENVIRONMENT: self.environment,
                 ResourceAttributes.SERVICE_NAMESPACE: "day-trade",
-                ResourceAttributes.SERVICE_INSTANCE_ID: os.getenv("HOSTNAME", "unknown"),
+                ResourceAttributes.SERVICE_INSTANCE_ID: os.getenv(
+                    "HOSTNAME", "unknown"
+                ),
                 "service.language": "python",
                 "service.runtime": f"python-{sys.version_info.major}.{sys.version_info.minor}",
             }
@@ -151,7 +154,8 @@ class TelemetryConfig:
         # OTLP エクスポーター
         try:
             otlp_exporter = OTLPSpanExporter(
-                endpoint=self.otlp_endpoint, insecure=True  # 本番環境では適切なTLS設定を行う
+                endpoint=self.otlp_endpoint,
+                insecure=True,  # 本番環境では適切なTLS設定を行う
             )
             exporters.append(otlp_exporter)
         except Exception as e:
@@ -198,10 +202,14 @@ class TelemetryConfig:
 
         # OTLP メトリクスエクスポーター
         try:
-            otlp_metric_exporter = OTLPMetricExporter(endpoint=self.otlp_endpoint, insecure=True)
+            otlp_metric_exporter = OTLPMetricExporter(
+                endpoint=self.otlp_endpoint, insecure=True
+            )
             otlp_reader = PeriodicExportingMetricReader(
                 otlp_metric_exporter,
-                export_interval_millis=5000 if self.hft_mode else 10000,  # HFT用高頻度エクスポート
+                export_interval_millis=(
+                    5000 if self.hft_mode else 10000
+                ),  # HFT用高頻度エクスポート
             )
             readers.append(otlp_reader)
         except Exception as e:
@@ -321,14 +329,18 @@ class TelemetryConfig:
     def tracer(self) -> trace.Tracer:
         """トレーサー取得"""
         if not self._initialized:
-            raise RuntimeError("Telemetry not initialized. Call initialize_telemetry() first.")
+            raise RuntimeError(
+                "Telemetry not initialized. Call initialize_telemetry() first."
+            )
         return self._tracer
 
     @property
     def meter(self) -> metrics.Meter:
         """メーター取得"""
         if not self._initialized:
-            raise RuntimeError("Telemetry not initialized. Call initialize_telemetry() first.")
+            raise RuntimeError(
+                "Telemetry not initialized. Call initialize_telemetry() first."
+            )
         return self._meter
 
     @contextmanager
@@ -345,7 +357,9 @@ class TelemetryConfig:
         current_span = span or trace.get_current_span()
         if current_span:
             current_span.record_exception(exception)
-            current_span.set_status(trace.Status(trace.StatusCode.ERROR, str(exception)))
+            current_span.set_status(
+                trace.Status(trace.StatusCode.ERROR, str(exception))
+            )
 
 
 # グローバルテレメトリ設定インスタンス
@@ -370,7 +384,9 @@ def initialize_observability(
     if environment is None:
         environment = os.getenv("ENVIRONMENT", "production")
 
-    telemetry_config = TelemetryConfig(service_name=service_name, environment=environment)
+    telemetry_config = TelemetryConfig(
+        service_name=service_name, environment=environment
+    )
 
     telemetry_config.initialize_telemetry()
 

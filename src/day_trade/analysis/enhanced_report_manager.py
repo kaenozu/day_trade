@@ -124,7 +124,9 @@ class EnhancedReportManager:
         # 詳細分析実行
         trend_analysis = self._analyze_market_trends(all_analyses, target_symbols)
         correlation_analysis = self._analyze_correlations(all_analyses, target_symbols)
-        volatility_analysis = self._analyze_volatility_patterns(all_analyses, target_symbols)
+        volatility_analysis = self._analyze_volatility_patterns(
+            all_analyses, target_symbols
+        )
         signal_stats = self._calculate_signal_statistics(all_analyses, latest_report)
         educational_insights = self._generate_educational_insights(
             all_analyses, trend_analysis, signal_stats
@@ -307,7 +309,9 @@ class EnhancedReportManager:
                         "多くの銘柄が同方向（下降）にトレンドしています"
                     )
                 else:
-                    correlation_data["insights"].append("銘柄間でトレンド方向が分散しています")
+                    correlation_data["insights"].append(
+                        "銘柄間でトレンド方向が分散しています"
+                    )
 
         except Exception as e:
             logger.error(f"相関分析エラー: {e}")
@@ -616,7 +620,9 @@ class EnhancedReportManager:
                     "signal_analysis": {},
                     "recommendations": analysis.recommendations,
                     "risk_assessment": self._assess_individual_risk(analysis),
-                    "educational_notes": self._generate_individual_educational_notes(analysis),
+                    "educational_notes": self._generate_individual_educational_notes(
+                        analysis
+                    ),
                 }
 
                 # シグナル情報
@@ -718,7 +724,9 @@ class EnhancedReportManager:
         except Exception as e:
             return f"シグナル解釈エラー: {e}"
 
-    def _generate_individual_educational_notes(self, analysis: MarketAnalysis) -> List[str]:
+    def _generate_individual_educational_notes(
+        self, analysis: MarketAnalysis
+    ) -> List[str]:
         """個別銘柄の教育的ノート"""
         notes = [
             "📚 この銘柄の分析ポイント:",
@@ -776,7 +784,9 @@ class EnhancedReportManager:
 
         return notes
 
-    def _calculate_data_freshness(self, analyses: Dict[str, MarketAnalysis]) -> Dict[str, Any]:
+    def _calculate_data_freshness(
+        self, analyses: Dict[str, MarketAnalysis]
+    ) -> Dict[str, Any]:
         """データ鮮度計算"""
         if not analyses:
             return {"status": "no_data"}
@@ -816,7 +826,9 @@ class EnhancedReportManager:
         try:
             if format == ReportFormat.JSON:
                 with open(filepath, "w", encoding="utf-8") as f:
-                    json.dump(asdict(report), f, ensure_ascii=False, indent=2, default=str)
+                    json.dump(
+                        asdict(report), f, ensure_ascii=False, indent=2, default=str
+                    )
 
             elif format == ReportFormat.MARKDOWN:
                 self._export_as_markdown(report, filepath)
@@ -1013,8 +1025,12 @@ class EnhancedReportManager:
                 if "signal_analysis" in analysis and analysis["signal_analysis"]:
                     row.update(
                         {
-                            "シグナルタイプ": analysis["signal_analysis"].get("signal_type", "N/A"),
-                            "シグナル信頼度": analysis["signal_analysis"].get("confidence", "N/A"),
+                            "シグナルタイプ": analysis["signal_analysis"].get(
+                                "signal_type", "N/A"
+                            ),
+                            "シグナル信頼度": analysis["signal_analysis"].get(
+                                "confidence", "N/A"
+                            ),
                         }
                     )
 
@@ -1049,6 +1065,8 @@ class EnhancedReportManager:
             "safe_mode": is_safe_mode(),
             "export_directory": str(self.export_directory),
             "last_report_time": (
-                self.report_history[-1].generated_at.isoformat() if self.report_history else None
+                self.report_history[-1].generated_at.isoformat()
+                if self.report_history
+                else None
             ),
         }

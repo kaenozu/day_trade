@@ -78,13 +78,17 @@ class TradeValidator:
                 "symbol_format": self._validate_symbol_format(trade),
                 "quantity_positive": self._validate_quantity_positive(trade),
                 "price_positive": self._validate_price_positive(trade),
-                "commission_non_negative": self._validate_commission_non_negative(trade),
+                "commission_non_negative": self._validate_commission_non_negative(
+                    trade
+                ),
                 "timestamp_valid": self._validate_timestamp_valid(trade),
                 "trade_type_valid": self._validate_trade_type_valid(trade),
                 "unit_share_compliance": self._validate_unit_share_compliance(trade),
                 "price_range_check": self._validate_price_range(trade),
                 "weekend_trading_check": self._validate_weekend_trading(trade),
-                "commission_reasonableness": self._validate_commission_reasonableness(trade),
+                "commission_reasonableness": self._validate_commission_reasonableness(
+                    trade
+                ),
             }
 
             # 結果分類
@@ -96,7 +100,9 @@ class TradeValidator:
 
                 if not is_valid:
                     # ルールの重要度に基づいて分類
-                    rule = next((r for r in self.validation_rules if r.name == rule_name), None)
+                    rule = next(
+                        (r for r in self.validation_rules if r.name == rule_name), None
+                    )
                     severity = rule.severity if rule else "error"
 
                     if severity == "error":
@@ -113,7 +119,9 @@ class TradeValidator:
                     f"取引検証失敗: {trade.id} - {len(validation_result['errors'])}エラー"
                 )
             elif validation_result["warnings"]:
-                logger.info(f"取引検証注意: {trade.id} - {len(validation_result['warnings'])}警告")
+                logger.info(
+                    f"取引検証注意: {trade.id} - {len(validation_result['warnings'])}警告"
+                )
 
             return validation_result
 
@@ -292,7 +300,8 @@ class TradeValidator:
                 for warning in trade_result["warnings"]:
                     warning_type = warning.split(":")[0]
                     batch_result["summary"]["warning_types"][warning_type] = (
-                        batch_result["summary"]["warning_types"].get(warning_type, 0) + 1
+                        batch_result["summary"]["warning_types"].get(warning_type, 0)
+                        + 1
                     )
 
             # 最頻出エラー・警告
@@ -392,7 +401,9 @@ class TradeValidator:
             if sequence_result["sequence_valid"]:
                 logger.info("取引シーケンス検証成功")
             else:
-                logger.warning(f"取引シーケンス検証失敗: {len(sequence_result['issues'])}問題")
+                logger.warning(
+                    f"取引シーケンス検証失敗: {len(sequence_result['issues'])}問題"
+                )
 
             return sequence_result
 
@@ -417,14 +428,22 @@ class TradeValidator:
             report_lines.append("=" * 60)
             report_lines.append("取引データ検証レポート")
             report_lines.append("=" * 60)
-            report_lines.append(f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+            report_lines.append(
+                f"生成日時: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}"
+            )
             report_lines.append("")
 
             # サマリー
             report_lines.append("【検証サマリー】")
-            report_lines.append(f"総取引数: {validation_results.get('total_trades', 0):,}件")
-            report_lines.append(f"有効取引: {validation_results.get('valid_trades', 0):,}件")
-            report_lines.append(f"無効取引: {validation_results.get('invalid_trades', 0):,}件")
+            report_lines.append(
+                f"総取引数: {validation_results.get('total_trades', 0):,}件"
+            )
+            report_lines.append(
+                f"有効取引: {validation_results.get('valid_trades', 0):,}件"
+            )
+            report_lines.append(
+                f"無効取引: {validation_results.get('invalid_trades', 0):,}件"
+            )
             report_lines.append(
                 f"警告あり: {validation_results.get('trades_with_warnings', 0):,}件"
             )
@@ -469,7 +488,9 @@ class TradeValidator:
             logger.error(f"検証レポート生成エラー: {e}")
             return f"検証レポート生成エラー: {str(e)}"
 
-    def get_validation_statistics(self, validation_results: Dict[str, Any]) -> Dict[str, Any]:
+    def get_validation_statistics(
+        self, validation_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         検証統計情報取得
 
@@ -488,14 +509,24 @@ class TradeValidator:
                 "validation_success_rate": (
                     (valid_trades / total_trades * 100) if total_trades > 0 else 0
                 ),
-                "error_rate": (invalid_trades / total_trades * 100) if total_trades > 0 else 0,
+                "error_rate": (
+                    (invalid_trades / total_trades * 100) if total_trades > 0 else 0
+                ),
                 "warning_rate": (
-                    (validation_results.get("trades_with_warnings", 0) / total_trades * 100)
+                    (
+                        validation_results.get("trades_with_warnings", 0)
+                        / total_trades
+                        * 100
+                    )
                     if total_trades > 0
                     else 0
                 ),
-                "data_quality_score": self._calculate_data_quality_score(validation_results),
-                "most_critical_issue": self._identify_most_critical_issue(validation_results),
+                "data_quality_score": self._calculate_data_quality_score(
+                    validation_results
+                ),
+                "most_critical_issue": self._identify_most_critical_issue(
+                    validation_results
+                ),
             }
 
             return statistics
@@ -504,7 +535,9 @@ class TradeValidator:
             logger.error(f"検証統計取得エラー: {e}")
             return {}
 
-    def _calculate_data_quality_score(self, validation_results: Dict[str, Any]) -> float:
+    def _calculate_data_quality_score(
+        self, validation_results: Dict[str, Any]
+    ) -> float:
         """データ品質スコア計算"""
         total_trades = validation_results.get("total_trades", 0)
         if total_trades == 0:

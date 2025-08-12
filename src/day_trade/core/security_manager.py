@@ -245,7 +245,9 @@ class AuditLogger:
 
         return f"AUDIT_{uuid.uuid4().hex[:12]}"
 
-    def _sanitize_request_data(self, data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def _sanitize_request_data(
+        self, data: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """リクエストデータのサニタイズ（機密情報除去）"""
         if not data:
             return None
@@ -301,7 +303,9 @@ class AuditLogger:
                                 json_data = json.loads(line[json_start:])
 
                                 # フィルタリング
-                                log_time = datetime.fromisoformat(json_data["timestamp"])
+                                log_time = datetime.fromisoformat(
+                                    json_data["timestamp"]
+                                )
 
                                 if start_date and log_time < start_date:
                                     continue
@@ -369,7 +373,9 @@ class DataEncryption:
             logger.error(f"復号化エラー: {e}")
             raise
 
-    def hash_sensitive_data(self, data: str, salt: Optional[str] = None) -> Tuple[str, str]:
+    def hash_sensitive_data(
+        self, data: str, salt: Optional[str] = None
+    ) -> Tuple[str, str]:
         """機密データハッシュ化"""
         if salt is None:
             salt = secrets.token_urlsafe(16)
@@ -408,7 +414,9 @@ class SecurityManager:
         # デフォルト管理者ユーザー作成
         self._create_default_admin()
 
-        logger.info(f"セキュリティ管理システム初期化完了 (レベル: {security_level.value})")
+        logger.info(
+            f"セキュリティ管理システム初期化完了 (レベル: {security_level.value})"
+        )
 
     def _create_default_admin(self):
         """デフォルト管理者ユーザー作成"""
@@ -539,7 +547,9 @@ class SecurityManager:
                 return user
         return None
 
-    def create_user(self, username: str, access_level: AccessLevel, creator_user_id: str) -> User:
+    def create_user(
+        self, username: str, access_level: AccessLevel, creator_user_id: str
+    ) -> User:
         """ユーザー作成"""
         user_id = f"user_{secrets.token_urlsafe(8)}"
         user = User(
@@ -571,7 +581,8 @@ class SecurityManager:
             "active_users": len([u for u in self.users.values() if u.is_active]),
             "active_sessions": len(self.active_sessions),
             "audit_logs_enabled": True,
-            "token_expiry_hours": self.token_manager.token_expiry.total_seconds() / 3600,
+            "token_expiry_hours": self.token_manager.token_expiry.total_seconds()
+            / 3600,
             "last_security_check": datetime.utcnow().isoformat(),
         }
 
@@ -670,7 +681,9 @@ class SecurityManager:
                 "total_actions": total_actions,
                 "successful_actions": successful_actions,
                 "failed_actions": failed_actions,
-                "success_rate": successful_actions / total_actions if total_actions > 0 else 0,
+                "success_rate": (
+                    successful_actions / total_actions if total_actions > 0 else 0
+                ),
             },
             "action_breakdown": action_counts,
             "user_activity": user_activity,
@@ -694,7 +707,9 @@ def require_authentication(action: str, resource: str = "system"):
                 raise PermissionError("認証情報が不足しています")
 
             # 認可チェック
-            authorized, user = security_manager.authorize_action(token, action, resource)
+            authorized, user = security_manager.authorize_action(
+                token, action, resource
+            )
             if not authorized:
                 raise PermissionError(f"アクション '{action}' への権限がありません")
 

@@ -220,7 +220,8 @@ class TradingModeConfig:
             "api_disabled": self.disable_order_api,
             "manual_confirmation": self.require_manual_confirmation,
             "logging_enabled": self.log_all_activities,
-            "basic_functions_available": self.enable_market_data and self.enable_analysis,
+            "basic_functions_available": self.enable_market_data
+            and self.enable_analysis,
         }
 
         all_valid = all(validation_result.values())

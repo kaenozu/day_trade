@@ -230,7 +230,9 @@ class SimpleDataVersionManager:
                 description=row[9] or "",
             )
 
-    def list_versions(self, dataset_name: str = None, limit: int = 10) -> List[DataVersion]:
+    def list_versions(
+        self, dataset_name: str = None, limit: int = 10
+    ) -> List[DataVersion]:
         """バージョンリスト取得"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -327,7 +329,9 @@ class SimpleDataVersionManager:
             },
             "differences": {
                 "record_count_diff": version2.record_count - version1.record_count,
-                "size_diff_mb": (version2.size_bytes - version1.size_bytes) / 1024 / 1024,
+                "size_diff_mb": (version2.size_bytes - version1.size_bytes)
+                / 1024
+                / 1024,
                 "columns_added": list(set(version2.columns) - set(version1.columns)),
                 "columns_removed": list(set(version1.columns) - set(version2.columns)),
                 "same_hash": version1.data_hash == version2.data_hash,
@@ -348,7 +352,9 @@ class SimpleDataVersionManager:
 
             # データベースから削除
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("DELETE FROM data_versions WHERE version_id = ?", (version_id,))
+                conn.execute(
+                    "DELETE FROM data_versions WHERE version_id = ?", (version_id,)
+                )
                 conn.commit()
 
             logger.info(f"バージョン削除完了: {version_id}")
@@ -523,7 +529,9 @@ def demo_data_version_management():
 
     # バージョン比較
     print("\n4. バージョン比較:")
-    comparison = version_manager.compare_versions(version1.version_id, version2.version_id)
+    comparison = version_manager.compare_versions(
+        version1.version_id, version2.version_id
+    )
     print(f"   レコード数差: {comparison['differences']['record_count_diff']}")
     print(f"   サイズ差: {comparison['differences']['size_diff_mb']:.2f}MB")
     print(f"   同じデータ: {comparison['differences']['same_hash']}")

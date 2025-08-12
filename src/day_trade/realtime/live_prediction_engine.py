@@ -122,8 +122,12 @@ class LiveMarketState:
             features.extend(
                 [
                     returns[-1] if len(returns) > 0 else 0,  # 最新リターン
-                    np.mean(returns[-5:]) if len(returns) >= 5 else 0,  # 5期間平均リターン
-                    np.std(returns[-10:]) if len(returns) >= 10 else 0,  # 10期間ボラティリティ
+                    (
+                        np.mean(returns[-5:]) if len(returns) >= 5 else 0
+                    ),  # 5期間平均リターン
+                    (
+                        np.std(returns[-10:]) if len(returns) >= 10 else 0
+                    ),  # 10期間ボラティリティ
                 ]
             )
         else:
@@ -139,7 +143,9 @@ class LiveMarketState:
         )
 
         # センチメント
-        features.extend([self.news_sentiment, self.social_sentiment, self.market_sentiment])
+        features.extend(
+            [self.news_sentiment, self.social_sentiment, self.market_sentiment]
+        )
 
         return np.array(features, dtype=np.float32)
 
@@ -188,7 +194,9 @@ class LiveMLPredictor:
                 return self._simple_statistical_prediction(market_state)
 
             # ML予測実行（実際の実装では非同期処理）
-            prediction_result = await self._run_ml_inference(market_state, feature_vector)
+            prediction_result = await self._run_ml_inference(
+                market_state, feature_vector
+            )
 
             processing_time = (time.time() - start_time) * 1000
             prediction_result["processing_time_ms"] = processing_time
@@ -202,7 +210,9 @@ class LiveMLPredictor:
             logger.error(f"ML prediction error for {market_state.symbol}: {e}")
             return None
 
-    async def _run_ml_inference(self, market_state: LiveMarketState, features: np.ndarray) -> Dict:
+    async def _run_ml_inference(
+        self, market_state: LiveMarketState, features: np.ndarray
+    ) -> Dict:
         """ML推論実行"""
 
         # 実際の実装ではMLエンジンを使用
@@ -224,7 +234,9 @@ class LiveMLPredictor:
 
         # 信頼度（トレンド強度とボラティリティから計算）
         volatility = np.std(np.diff(prices) / prices[:-1]) if len(prices) > 1 else 0.01
-        confidence = min(abs(trend_strength) / volatility, 0.95) if volatility > 0 else 0.5
+        confidence = (
+            min(abs(trend_strength) / volatility, 0.95) if volatility > 0 else 0.5
+        )
 
         return {
             "predicted_price": predicted_price,
@@ -325,7 +337,9 @@ class LiveRLAgent:
             self.trading_env = None
             self.rl_agent = None
 
-    async def make_decision(self, market_states: Dict[str, LiveMarketState]) -> Optional[Dict]:
+    async def make_decision(
+        self, market_states: Dict[str, LiveMarketState]
+    ) -> Optional[Dict]:
         """RL意思決定"""
 
         if not self.config.enable_rl_decision or not self.rl_agent:
@@ -482,7 +496,9 @@ class LiveSentimentAnalyzer:
 
             # 市場心理分析実行（実際の実装では完全分析）
             # ここでは簡略化
-            sentiment_result = await self._quick_sentiment_analysis(news_items, social_posts)
+            sentiment_result = await self._quick_sentiment_analysis(
+                news_items, social_posts
+            )
 
             processing_time = (time.time() - start_time) * 1000
             sentiment_result["processing_time_ms"] = processing_time
@@ -676,7 +692,9 @@ class LivePredictionEngine:
 
             if std20 > 0:
                 bollinger_position = (prices[-1] - sma20) / (2 * std20) + 0.5
-                state.technical_indicators["bollinger_position"] = np.clip(bollinger_position, 0, 1)
+                state.technical_indicators["bollinger_position"] = np.clip(
+                    bollinger_position, 0, 1
+                )
 
     async def generate_predictions(
         self, news_items: List[NewsItem] = None, social_posts: List[SocialPost] = None
@@ -701,13 +719,17 @@ class LivePredictionEngine:
             tasks.append(("sentiment", sentiment_task))
 
             # RL意思決定（全体）
-            rl_task = asyncio.create_task(self.rl_agent.make_decision(self.market_states))
+            rl_task = asyncio.create_task(
+                self.rl_agent.make_decision(self.market_states)
+            )
             tasks.append(("rl", rl_task))
 
             # ML予測（銘柄別）
             for symbol, market_state in self.market_states.items():
                 if len(market_state.price_history) >= 10:  # 最小データ要件
-                    ml_task = asyncio.create_task(self.ml_predictor.predict(market_state))
+                    ml_task = asyncio.create_task(
+                        self.ml_predictor.predict(market_state)
+                    )
                     tasks.append((f"ml_{symbol}", ml_task))
 
             # 全タスク実行
@@ -820,7 +842,10 @@ class LivePredictionEngine:
         weights = []
 
         # ML信号
-        if ml_result and ml_result.get("confidence", 0) >= self.config.ml_prediction_threshold:
+        if (
+            ml_result
+            and ml_result.get("confidence", 0) >= self.config.ml_prediction_threshold
+        ):
             ml_return = ml_result.get("predicted_return", 0)
             if ml_return > 0.01:  # 1%以上の上昇予測
                 signals.append(1)  # BUY

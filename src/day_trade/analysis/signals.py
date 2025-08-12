@@ -159,7 +159,9 @@ class SignalRulesConfig:
 
     def get_rsi_thresholds(self) -> Dict[str, float]:
         """RSI閾値を取得"""
-        return self.config.get("rsi_default_thresholds", {"oversold": 30, "overbought": 70})
+        return self.config.get(
+            "rsi_default_thresholds", {"oversold": 30, "overbought": 70}
+        )
 
     def get_macd_settings(self) -> Dict[str, float]:
         """MACD設定を取得"""
@@ -288,7 +290,9 @@ class RSIOverboughtRule(SignalRule):
 class MACDCrossoverRule(SignalRule):
     """MACDクロスオーバールール"""
 
-    def __init__(self, lookback: int = 2, weight: float = 1.5, angle_multiplier: float = 20.0):
+    def __init__(
+        self, lookback: int = 2, weight: float = 1.5, angle_multiplier: float = 20.0
+    ):
         super().__init__("MACD Crossover", weight)
         self.lookback = lookback
         self.angle_multiplier = angle_multiplier
@@ -304,7 +308,9 @@ class MACDCrossoverRule(SignalRule):
             config = SignalRulesConfig()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
-        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+        angle_multiplier = config.get_confidence_multiplier(
+            "macd_angle", self.angle_multiplier
+        )
 
         if (
             "MACD" not in indicators.columns
@@ -321,7 +327,9 @@ class MACDCrossoverRule(SignalRule):
             return False, 0.0
 
         # ゴールデンクロスをチェック
-        crossed_above = (macd.iloc[-2] <= signal.iloc[-2]) and (macd.iloc[-1] > signal.iloc[-1])
+        crossed_above = (macd.iloc[-2] <= signal.iloc[-2]) and (
+            macd.iloc[-1] > signal.iloc[-1]
+        )
 
         if crossed_above:
             # クロスの角度から信頼度を計算
@@ -335,7 +343,9 @@ class MACDCrossoverRule(SignalRule):
 class MACDDeathCrossRule(SignalRule):
     """MACDデスクロスルール"""
 
-    def __init__(self, lookback: int = 2, weight: float = 1.5, angle_multiplier: float = 20.0):
+    def __init__(
+        self, lookback: int = 2, weight: float = 1.5, angle_multiplier: float = 20.0
+    ):
         super().__init__("MACD Death Cross", weight)
         self.lookback = lookback
         self.angle_multiplier = angle_multiplier
@@ -351,7 +361,9 @@ class MACDDeathCrossRule(SignalRule):
             config = SignalRulesConfig()
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
-        angle_multiplier = config.get_confidence_multiplier("macd_angle", self.angle_multiplier)
+        angle_multiplier = config.get_confidence_multiplier(
+            "macd_angle", self.angle_multiplier
+        )
 
         if (
             "MACD" not in indicators.columns
@@ -368,7 +380,9 @@ class MACDDeathCrossRule(SignalRule):
             return False, 0.0
 
         # デスクロスをチェック
-        crossed_below = (macd.iloc[-2] >= signal.iloc[-2]) and (macd.iloc[-1] < signal.iloc[-1])
+        crossed_below = (macd.iloc[-2] >= signal.iloc[-2]) and (
+            macd.iloc[-1] < signal.iloc[-1]
+        )
 
         if crossed_below:
             # クロスの角度から信頼度を計算
@@ -470,7 +484,10 @@ class PatternBreakoutRule(SignalRule):
             return False, 0.0
 
         if self.direction == "upward":
-            if "Upward_Breakout" in breakouts.columns and "Upward_Confidence" in breakouts.columns:
+            if (
+                "Upward_Breakout" in breakouts.columns
+                and "Upward_Confidence" in breakouts.columns
+            ):
                 latest_breakout = breakouts["Upward_Breakout"].iloc[-1]
                 confidence = breakouts["Upward_Confidence"].iloc[-1]
 
@@ -516,7 +533,9 @@ class GoldenCrossRule(SignalRule):
             # Look for the most recent golden cross (within last periods from config)
             if config is None:
                 config = SignalRulesConfig()
-            recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
+            recent_signal_lookback = config.get_signal_settings().get(
+                "recent_signal_lookback", 5
+            )
             lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Golden_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Golden_Confidence"].iloc[-lookback_window:]
@@ -552,7 +571,9 @@ class DeadCrossRule(SignalRule):
             # Look for the most recent dead cross (within last periods from config)
             if config is None:
                 config = SignalRulesConfig()
-            recent_signal_lookback = config.get_signal_settings().get("recent_signal_lookback", 5)
+            recent_signal_lookback = config.get_signal_settings().get(
+                "recent_signal_lookback", 5
+            )
             lookback_window = min(recent_signal_lookback, len(crosses))
             recent_crosses = crosses["Dead_Cross"].iloc[-lookback_window:]
             recent_confidences = crosses["Dead_Confidence"].iloc[-lookback_window:]
@@ -595,7 +616,9 @@ class TradingSignalGenerator:
         if not self.sell_rules:
             self._load_default_sell_rules()
 
-    def _create_rule_from_config(self, rule_config: Dict[str, Any]) -> Optional[SignalRule]:
+    def _create_rule_from_config(
+        self, rule_config: Dict[str, Any]
+    ) -> Optional[SignalRule]:
         """設定からルールオブジェクトを作成"""
         rule_type = rule_config.get("type")
         parameters = rule_config.get("parameters", {})
@@ -640,7 +663,9 @@ class TradingSignalGenerator:
             MACDCrossoverRule(
                 lookback=int(macd_settings["lookback_period"]),
                 weight=macd_settings["default_weight"],
-                angle_multiplier=self.config.get_confidence_multiplier("macd_angle", 20.0),
+                angle_multiplier=self.config.get_confidence_multiplier(
+                    "macd_angle", 20.0
+                ),
             ),
             BollingerBandRule(
                 position="lower",
@@ -649,7 +674,9 @@ class TradingSignalGenerator:
                     "bollinger_deviation", 10.0
                 ),
             ),
-            PatternBreakoutRule(direction="upward", weight=pattern_settings["default_weight"]),
+            PatternBreakoutRule(
+                direction="upward", weight=pattern_settings["default_weight"]
+            ),
             GoldenCrossRule(weight=cross_settings["default_weight"]),
         ]
 
@@ -671,7 +698,9 @@ class TradingSignalGenerator:
             MACDDeathCrossRule(
                 lookback=int(macd_settings["lookback_period"]),
                 weight=macd_settings["default_weight"],
-                angle_multiplier=self.config.get_confidence_multiplier("macd_angle", 20.0),
+                angle_multiplier=self.config.get_confidence_multiplier(
+                    "macd_angle", 20.0
+                ),
             ),
             BollingerBandRule(
                 position="upper",
@@ -680,7 +709,9 @@ class TradingSignalGenerator:
                     "bollinger_deviation", 10.0
                 ),
             ),
-            PatternBreakoutRule(direction="downward", weight=pattern_settings["default_weight"]),
+            PatternBreakoutRule(
+                direction="downward", weight=pattern_settings["default_weight"]
+            ),
             DeadCrossRule(weight=cross_settings["default_weight"]),
         ]
 
@@ -766,8 +797,14 @@ class TradingSignalGenerator:
                     total_sell_weight += rule.weight
 
             # シグナルの決定
-            buy_score = sum(buy_confidences) / total_buy_weight if total_buy_weight > 0 else 0
-            sell_score = sum(sell_confidences) / total_sell_weight if total_sell_weight > 0 else 0
+            buy_score = (
+                sum(buy_confidences) / total_buy_weight if total_buy_weight > 0 else 0
+            )
+            sell_score = (
+                sum(sell_confidences) / total_sell_weight
+                if total_sell_weight > 0
+                else 0
+            )
 
             # 最新の価格とタイムスタンプ
             latest_price = Decimal(str(df["Close"].iloc[-1]))
@@ -786,13 +823,17 @@ class TradingSignalGenerator:
                 signal_type = SignalType.BUY
                 confidence = buy_score
                 reasons = buy_reasons
-                conditions_met = self._merge_conditions_safely(buy_conditions, sell_conditions)
+                conditions_met = self._merge_conditions_safely(
+                    buy_conditions, sell_conditions
+                )
 
                 # 強度の判定
                 active_rules = sum(1 for v in buy_conditions.values() if v)
                 if confidence >= strong_threshold and active_rules >= strong_min_rules:
                     strength = SignalStrength.STRONG
-                elif confidence >= medium_threshold and active_rules >= medium_min_rules:
+                elif (
+                    confidence >= medium_threshold and active_rules >= medium_min_rules
+                ):
                     strength = SignalStrength.MEDIUM
                 else:
                     strength = SignalStrength.WEAK
@@ -802,13 +843,17 @@ class TradingSignalGenerator:
                 signal_type = SignalType.SELL
                 confidence = sell_score
                 reasons = sell_reasons
-                conditions_met = self._merge_conditions_safely(buy_conditions, sell_conditions)
+                conditions_met = self._merge_conditions_safely(
+                    buy_conditions, sell_conditions
+                )
 
                 # 強度の判定
                 active_rules = sum(1 for v in sell_conditions.values() if v)
                 if confidence >= strong_threshold and active_rules >= strong_min_rules:
                     strength = SignalStrength.STRONG
-                elif confidence >= medium_threshold and active_rules >= medium_min_rules:
+                elif (
+                    confidence >= medium_threshold and active_rules >= medium_min_rules
+                ):
                     strength = SignalStrength.MEDIUM
                 else:
                     strength = SignalStrength.WEAK
@@ -819,7 +864,9 @@ class TradingSignalGenerator:
                 confidence = 0
                 strength = SignalStrength.WEAK
                 reasons = ["明確なシグナルなし"]
-                conditions_met = self._merge_conditions_safely(buy_conditions, sell_conditions)
+                conditions_met = self._merge_conditions_safely(
+                    buy_conditions, sell_conditions
+                )
 
             return TradingSignal(
                 signal_type=signal_type,
@@ -837,7 +884,9 @@ class TradingSignalGenerator:
             )
             return None
 
-    def generate_signals_series(self, df: pd.DataFrame, lookback_window: int = 50) -> pd.DataFrame:
+    def generate_signals_series(
+        self, df: pd.DataFrame, lookback_window: int = 50
+    ) -> pd.DataFrame:
         """
         時系列でシグナルを生成
 
@@ -852,7 +901,9 @@ class TradingSignalGenerator:
             signals = []
 
             # 最低限必要なデータ数を設定から取得
-            config_min_period = self.config.get_signal_settings().get("min_data_period", 60)
+            config_min_period = self.config.get_signal_settings().get(
+                "min_data_period", 60
+            )
             min_required = max(lookback_window, config_min_period)
 
             if len(df) < min_required:
@@ -870,15 +921,21 @@ class TradingSignalGenerator:
             for i in range(min_required - 1, len(df)):
                 # 現在のウィンドウのデータと、対応する指標をスライス
                 window_df = df.iloc[i - lookback_window + 1 : i + 1].copy()
-                current_indicators = all_indicators.iloc[i - lookback_window + 1 : i + 1].copy()
+                current_indicators = all_indicators.iloc[
+                    i - lookback_window + 1 : i + 1
+                ].copy()
 
                 # パターンデータの簡素化されたスライス処理
                 # 改善されたpatterns.pyの構造により、シンプルな処理が可能
-                current_patterns = self._slice_patterns(all_patterns, i, lookback_window)
+                current_patterns = self._slice_patterns(
+                    all_patterns, i, lookback_window
+                )
 
                 # シグナルを生成
                 # indicatorsとpatternsを必須引数に変更
-                signal = self.generate_signal(window_df, current_indicators, current_patterns)
+                signal = self.generate_signal(
+                    window_df, current_indicators, current_patterns
+                )
 
                 if signal:
                     signals.append(
@@ -928,7 +985,9 @@ class TradingSignalGenerator:
             base_score = signal.confidence
 
             # 強度による調整係数を設定から取得
-            strength_config = self.config.get_signal_settings().get("strength_multipliers", {})
+            strength_config = self.config.get_signal_settings().get(
+                "strength_multipliers", {}
+            )
             strength_multipliers = {
                 SignalStrength.STRONG: strength_config.get("strong", 1.2),
                 SignalStrength.MEDIUM: strength_config.get("medium", 1.0),
@@ -937,7 +996,9 @@ class TradingSignalGenerator:
             base_score *= strength_multipliers.get(signal.strength, 1.0)
 
             # 複数条件の組み合わせによるボーナス
-            validation_config = self.config.get_signal_settings().get("validation_adjustments", {})
+            validation_config = self.config.get_signal_settings().get(
+                "validation_adjustments", {}
+            )
             multi_condition_bonus = validation_config.get("multi_condition_bonus", 1.15)
 
             active_conditions = sum(1 for v in signal.conditions_met.values() if v)
@@ -954,7 +1015,9 @@ class TradingSignalGenerator:
                 # 高ボラティリティ時は信頼度を下げる
                 high_vol_threshold = self.config.get_high_volatility_threshold()
                 if volatility > high_vol_threshold:
-                    volatile_penalty = validation_config.get("volatile_market_penalty", 0.85)
+                    volatile_penalty = validation_config.get(
+                        "volatile_market_penalty", 0.85
+                    )
                     base_score *= volatile_penalty
 
                 # トレンドとシグナルの整合性チェック
@@ -969,12 +1032,20 @@ class TradingSignalGenerator:
                     trend_direction != "neutral"
                     and signal.signal_type != SignalType.HOLD
                     and (
-                        (trend_direction == "upward" and signal.signal_type == SignalType.SELL)
-                        or (trend_direction == "downward" and signal.signal_type == SignalType.BUY)
+                        (
+                            trend_direction == "upward"
+                            and signal.signal_type == SignalType.SELL
+                        )
+                        or (
+                            trend_direction == "downward"
+                            and signal.signal_type == SignalType.BUY
+                        )
                     )
                 ):
                     # トレンドに逆らうシグナルは信頼度を下げる
-                    trend_penalty = validation_config.get("trend_continuation_penalty", 0.85)
+                    trend_penalty = validation_config.get(
+                        "trend_continuation_penalty", 0.85
+                    )
                     base_score *= trend_penalty
 
             # 過去のパフォーマンスデータによる調整
@@ -993,26 +1064,39 @@ class TradingSignalGenerator:
                         strong_signals = same_type_signals[
                             same_type_signals["Strength"] == "strong"
                         ]
-                        success_rate = len(strong_signals) / len(same_type_signals) * 0.7 + 0.3
+                        success_rate = (
+                            len(strong_signals) / len(same_type_signals) * 0.7 + 0.3
+                        )
 
                     # 成功率による調整（設定から取得）
-                    performance_config = validation_config.get("performance_multipliers", {})
+                    performance_config = validation_config.get(
+                        "performance_multipliers", {}
+                    )
                     multiplier_base = performance_config.get("base", 0.6)
                     multiplier_range = performance_config.get("range", 0.7)
-                    performance_multiplier = multiplier_base + multiplier_range * success_rate
+                    performance_multiplier = (
+                        multiplier_base + multiplier_range * success_rate
+                    )
                     base_score *= performance_multiplier
 
                     # 同じ強度の過去シグナルの成功率も考慮
                     same_strength = same_type_signals[
                         same_type_signals["Strength"] == signal.strength.value
                     ]
-                    if len(same_strength) > 0 and "Success" in historical_performance.columns:
+                    if (
+                        len(same_strength) > 0
+                        and "Success" in historical_performance.columns
+                    ):
                         strength_success_rate = same_strength["Success"].mean()
                         # 強度別成功率による微調整（設定から取得）
-                        strength_config = performance_config.get("strength_adjustment", {})
+                        strength_config = performance_config.get(
+                            "strength_adjustment", {}
+                        )
                         strength_base = strength_config.get("base", 0.9)
                         strength_range = strength_config.get("range", 0.2)
-                        base_score *= strength_base + strength_range * strength_success_rate
+                        base_score *= (
+                            strength_base + strength_range * strength_success_rate
+                        )
 
             # シグナルの新鮮度(タイムスタンプからの経過時間)による調整
             if hasattr(signal, "timestamp") and signal.timestamp:
@@ -1023,7 +1107,9 @@ class TradingSignalGenerator:
                 if signal_time.tzinfo is None:
                     signal_time = signal_time.replace(tzinfo=timezone.utc)
 
-                time_diff = (current_time - signal_time).total_seconds() / 3600  # 時間差
+                time_diff = (
+                    current_time - signal_time
+                ).total_seconds() / 3600  # 時間差
 
                 freshness = self.config.get_signal_freshness()
                 warning_hours = freshness.get("warning_hours", 24)
@@ -1041,7 +1127,9 @@ class TradingSignalGenerator:
             return min(max(base_score, 0), 100)  # 0-100の範囲に制限
 
         except Exception as e:
-            logger.error(f"シグナルの有効性検証中に予期せぬエラーが発生しました。詳細: {e}")
+            logger.error(
+                f"シグナルの有効性検証中に予期せぬエラーが発生しました。詳細: {e}"
+            )
             return 0.0
 
     def _merge_conditions_safely(
@@ -1107,7 +1195,9 @@ class TradingSignalGenerator:
 
             # 最新シグナルと総合信頼度はそのまま使用
             sliced_patterns["latest_signal"] = all_patterns.get("latest_signal")
-            sliced_patterns["overall_confidence"] = all_patterns.get("overall_confidence", 0)
+            sliced_patterns["overall_confidence"] = all_patterns.get(
+                "overall_confidence", 0
+            )
 
             return sliced_patterns
 
@@ -1145,13 +1235,19 @@ class VolumeSpikeBuyRule(SignalRule):
         volume_settings = config.get_volume_spike_settings()
 
         self.volume_factor = (
-            volume_factor if volume_factor is not None else volume_settings["volume_factor"]
+            volume_factor
+            if volume_factor is not None
+            else volume_settings["volume_factor"]
         )
         self.price_change = (
-            price_change if price_change is not None else volume_settings["price_change_threshold"]
+            price_change
+            if price_change is not None
+            else volume_settings["price_change_threshold"]
         )
         self.confidence_base = (
-            confidence_base if confidence_base is not None else volume_settings["confidence_base"]
+            confidence_base
+            if confidence_base is not None
+            else volume_settings["confidence_base"]
         )
         self.confidence_multiplier = (
             confidence_multiplier
@@ -1186,13 +1282,19 @@ class VolumeSpikeBuyRule(SignalRule):
         latest_volume = df["Volume"].iloc[-1]
 
         # 価格変化
-        price_change = (df["Close"].iloc[-1] - df["Close"].iloc[-2]) / df["Close"].iloc[-2]
+        price_change = (df["Close"].iloc[-1] - df["Close"].iloc[-2]) / df["Close"].iloc[
+            -2
+        ]
 
         # 出来高が平均の指定倍数以上かつ価格が指定%以上上昇
-        if latest_volume > avg_volume * volume_factor and price_change > price_change_threshold:
+        if (
+            latest_volume > avg_volume * volume_factor
+            and price_change > price_change_threshold
+        ):
             volume_ratio = latest_volume / avg_volume
             confidence = min(
-                (volume_ratio - volume_factor) * confidence_multiplier + confidence_base,
+                (volume_ratio - volume_factor) * confidence_multiplier
+                + confidence_base,
                 100,
             )
             return True, confidence
@@ -1260,7 +1362,9 @@ if __name__ == "__main__":
         market_context = {
             "volatility": float(df["Close"].pct_change().std()),
             "trend_direction": (
-                "upward" if df["Close"].iloc[-1] > df["Close"].iloc[-trend_period] else "downward"
+                "upward"
+                if df["Close"].iloc[-1] > df["Close"].iloc[-trend_period]
+                else "downward"
             ),
         }
         validity = generator.validate_signal(signal, market_context=market_context)
@@ -1294,7 +1398,9 @@ if __name__ == "__main__":
             "buy_signals": len(active_signals[active_signals["Signal"] == "buy"]),
             "sell_signals": len(active_signals[active_signals["Signal"] == "sell"]),
             "latest_signals": (
-                active_signals.tail(5).to_dict("records") if len(active_signals) > 0 else []
+                active_signals.tail(5).to_dict("records")
+                if len(active_signals) > 0
+                else []
             ),
         }
 
@@ -1306,7 +1412,9 @@ if __name__ == "__main__":
             "時系列シグナル表示",
             signal_count=len(active_signals),
             latest_signals=(
-                active_signals.tail(10).to_dict("records") if len(active_signals) > 0 else []
+                active_signals.tail(10).to_dict("records")
+                if len(active_signals) > 0
+                else []
             ),
         )
     else:

@@ -69,7 +69,9 @@ class DatabaseConfig:
             "database_url", database_url, "DATABASE_URL", "sqlite:///./day_trade.db"
         )
         self.echo = self._get_config_value("echo", echo, "DB_ECHO", False, bool)
-        self.pool_size = self._get_config_value("pool_size", pool_size, "DB_POOL_SIZE", 5, int)
+        self.pool_size = self._get_config_value(
+            "pool_size", pool_size, "DB_POOL_SIZE", 5, int
+        )
         self.max_overflow = self._get_config_value(
             "max_overflow", max_overflow, "DB_MAX_OVERFLOW", 10, int
         )
@@ -103,7 +105,9 @@ class DatabaseConfig:
     ):
         """設定値を優先順位に従って取得"""
         if explicit_value is not None and explicit_value != (
-            False if isinstance(type_converter, type) and issubclass(type_converter, bool) else 0
+            False
+            if isinstance(type_converter, type) and issubclass(type_converter, bool)
+            else 0
         ):
             return explicit_value
 
@@ -114,7 +118,8 @@ class DatabaseConfig:
                     return (
                         type_converter(config_value)
                         if not (
-                            isinstance(type_converter, type) and issubclass(type_converter, str)
+                            isinstance(type_converter, type)
+                            and issubclass(type_converter, str)
                         )
                         else config_value
                     )
@@ -124,7 +129,9 @@ class DatabaseConfig:
         env_value = os.environ.get(env_key)
         if env_value is not None:
             try:
-                if isinstance(type_converter, type) and issubclass(type_converter, bool):
+                if isinstance(type_converter, type) and issubclass(
+                    type_converter, bool
+                ):
                     return env_value.lower() in ("true", "1", "yes", "on")
                 return type_converter(env_value)
             except (ValueError, TypeError):
@@ -424,7 +431,9 @@ class DatabaseManager:
                 "alembic.ini",
                 "./alembic.ini",
                 os.path.join(os.getcwd(), "alembic.ini"),
-                os.path.join(os.path.dirname(__file__), "..", "..", "..", "alembic.ini"),
+                os.path.join(
+                    os.path.dirname(__file__), "..", "..", "..", "alembic.ini"
+                ),
             ]
 
             config_path = None
@@ -453,11 +462,15 @@ class DatabaseManager:
         """Alembicの初期化（初回マイグレーション作成）"""
         try:
             alembic_cfg = self.get_alembic_config()
-            command.revision(alembic_cfg, autogenerate=True, message="Initial migration")
+            command.revision(
+                alembic_cfg, autogenerate=True, message="Initial migration"
+            )
             logger.info("Alembic initialized successfully")
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {"operation": "alembic_initialization"})
+            log_error_with_context(
+                converted_error, {"operation": "alembic_initialization"}
+            )
             raise converted_error from e
 
     def migrate(self, message: str = "Auto migration"):
@@ -510,7 +523,9 @@ class DatabaseManager:
                 return context.get_current_revision() or "None"
         except Exception as e:
             converted_error = handle_database_exception(e)
-            log_error_with_context(converted_error, {"operation": "current_revision_retrieval"})
+            log_error_with_context(
+                converted_error, {"operation": "current_revision_retrieval"}
+            )
             raise converted_error from e
 
     def bulk_insert(self, model_class, data_list: list, batch_size: int = 1000):
@@ -669,7 +684,9 @@ class DatabaseManager:
         with self.engine.connect() as connection:
             result = connection.execute(query, params or {})
             results = result.fetchall()
-            operation_logger.info("Query executed", extra={"result_count": len(results)})
+            operation_logger.info(
+                "Query executed", extra={"result_count": len(results)}
+            )
             return results
 
     def optimize_database(self):

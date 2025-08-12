@@ -55,10 +55,14 @@ class DatabaseOptimizationStrategies:
         self.index_recommendations = []
         self.query_patterns = {}
 
-        logger.info("データベース最適化戦略初期化完了", section="optimization_strategies_init")
+        logger.info(
+            "データベース最適化戦略初期化完了", section="optimization_strategies_init"
+        )
 
     @profile_performance
-    def analyze_and_optimize_queries(self, query_log: List[str]) -> List[QueryOptimizationResult]:
+    def analyze_and_optimize_queries(
+        self, query_log: List[str]
+    ) -> List[QueryOptimizationResult]:
         """クエリ分析と最適化"""
 
         optimization_results = []
@@ -81,7 +85,9 @@ class DatabaseOptimizationStrategies:
 
                 if optimization_opportunities:
                     # 最適化適用
-                    result = self._apply_query_optimizations(query, optimization_opportunities)
+                    result = self._apply_query_optimizations(
+                        query, optimization_opportunities
+                    )
                     optimization_results.append(result)
 
             except Exception as e:
@@ -345,7 +351,9 @@ class DatabaseOptimizationStrategies:
                 "type": "btree",
                 "benefit": 60.0,
                 "cost": 2.0,
-                "queries": ["SELECT * FROM trades WHERE symbol = ? AND timestamp BETWEEN ? AND ?"],
+                "queries": [
+                    "SELECT * FROM trades WHERE symbol = ? AND timestamp BETWEEN ? AND ?"
+                ],
             },
             {
                 "table": "trades",
@@ -379,7 +387,9 @@ class DatabaseOptimizationStrategies:
                 "type": "btree",
                 "benefit": 70.0,
                 "cost": 1.5,
-                "queries": ["SELECT * FROM alerts WHERE symbol = ? AND is_active = true"],
+                "queries": [
+                    "SELECT * FROM alerts WHERE symbol = ? AND is_active = true"
+                ],
             },
         ]
 
@@ -429,9 +439,7 @@ class DatabaseOptimizationStrategies:
                 # インデックス作成SQL生成
                 index_name = f"idx_{rec.table_name}_{'_'.join(rec.column_names)}"
                 columns_str = ", ".join(rec.column_names)
-                create_sql = (
-                    f"CREATE INDEX IF NOT EXISTS {index_name} ON {rec.table_name} ({columns_str})"
-                )
+                create_sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {rec.table_name} ({columns_str})"
 
                 # インデックス作成実行
                 start_time = time.time()
@@ -460,7 +468,9 @@ class DatabaseOptimizationStrategies:
                 )
 
             except Exception as e:
-                error_msg = f"インデックス作成失敗: {rec.table_name}.{rec.column_names} - {e}"
+                error_msg = (
+                    f"インデックス作成失敗: {rec.table_name}.{rec.column_names} - {e}"
+                )
                 implementation_results["failed"].append(error_msg)
 
                 logger.error(error_msg, section="index_implementation")
@@ -551,7 +561,9 @@ class DatabaseOptimizationStrategies:
                 results["partitions_created"] += 1
 
             except Exception as e:
-                results["errors"].append(f"分割テーブル作成エラー {partition_table}: {e}")
+                results["errors"].append(
+                    f"分割テーブル作成エラー {partition_table}: {e}"
+                )
 
         return results
 
@@ -583,7 +595,9 @@ class DatabaseOptimizationStrategies:
                 results["partitions_created"] += 1
 
             except Exception as e:
-                results["errors"].append(f"年次分割テーブル作成エラー {partition_table}: {e}")
+                results["errors"].append(
+                    f"年次分割テーブル作成エラー {partition_table}: {e}"
+                )
 
         return results
 

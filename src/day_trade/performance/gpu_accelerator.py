@@ -112,12 +112,16 @@ class GPUMemoryManager:
             self.memory_pools["cupy"] = mempool
             self.memory_pools["pinned"] = pinned_mempool
 
-            logger.info(f"CuPy メモリプール初期化: {self.config.gpu_memory_limit_mb}MB制限")
+            logger.info(
+                f"CuPy メモリプール初期化: {self.config.gpu_memory_limit_mb}MB制限"
+            )
 
         except Exception as e:
             logger.error(f"CuPy メモリプール初期化失敗: {e}")
 
-    def allocate_gpu_array(self, shape: Tuple, dtype=np.float32) -> Optional["cp.ndarray"]:
+    def allocate_gpu_array(
+        self, shape: Tuple, dtype=np.float32
+    ) -> Optional["cp.ndarray"]:
         """GPU配列割り当て"""
         if not CUPY_AVAILABLE:
             return None
@@ -336,7 +340,9 @@ class CudaKernelManager:
             grid_size = (n + block_size - 1) // block_size
 
             # ストリーム選択
-            stream = self.streams[stream_id % len(self.streams)] if self.streams else None
+            stream = (
+                self.streams[stream_id % len(self.streams)] if self.streams else None
+            )
 
             # カーネル実行
             self.compiled_kernels["technical_features"](
@@ -372,7 +378,9 @@ class CudaKernelManager:
             grid_size = (n + block_size - 1) // block_size
 
             # ストリーム選択
-            stream = self.streams[stream_id % len(self.streams)] if self.streams else None
+            stream = (
+                self.streams[stream_id % len(self.streams)] if self.streams else None
+            )
 
             # カーネル実行
             self.compiled_kernels["linear_prediction"](
@@ -400,7 +408,9 @@ class GPUAccelerator:
 
         # GPU管理システム初期化
         self.memory_manager = GPUMemoryManager(self.config)
-        self.kernel_manager = CudaKernelManager(self.config) if self.gpu_available else None
+        self.kernel_manager = (
+            CudaKernelManager(self.config) if self.gpu_available else None
+        )
 
         # モデル管理
         self.models = {}
@@ -432,7 +442,9 @@ class GPUAccelerator:
                 device_count = cp.cuda.runtime.getDeviceCount()
                 cp.cuda.Device(self.config.device_id).use()
 
-                device_props = cp.cuda.runtime.getDeviceProperties(self.config.device_id)
+                device_props = cp.cuda.runtime.getDeviceProperties(
+                    self.config.device_id
+                )
                 logger.info(
                     f"CUDA デバイス検出: {device_count}台, 使用デバイス: {self.config.device_id}"
                 )

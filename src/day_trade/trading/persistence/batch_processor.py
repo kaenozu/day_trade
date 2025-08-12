@@ -64,14 +64,18 @@ class TradeBatchProcessor:
 
         try:
             # バッチに分割
-            batches = [trades[i : i + batch_size] for i in range(0, total_trades, batch_size)]
+            batches = [
+                trades[i : i + batch_size] for i in range(0, total_trades, batch_size)
+            ]
 
             logger.info(f"バッチ処理開始: {len(batches)}バッチ, 総{total_trades}取引")
 
             # 並列処理
             futures = []
             for batch_idx, batch in enumerate(batches):
-                future = self.executor.submit(self._process_single_batch, batch, batch_idx)
+                future = self.executor.submit(
+                    self._process_single_batch, batch, batch_idx
+                )
                 futures.append(future)
 
             # 結果収集
@@ -96,13 +100,19 @@ class TradeBatchProcessor:
                 "total_trades": total_trades,
                 "processed": processed,
                 "failed": failed,
-                "success_rate": (processed / total_trades * 100) if total_trades > 0 else 0,
+                "success_rate": (
+                    (processed / total_trades * 100) if total_trades > 0 else 0
+                ),
                 "processing_time_seconds": processing_time,
-                "trades_per_second": processed / processing_time if processing_time > 0 else 0,
+                "trades_per_second": (
+                    processed / processing_time if processing_time > 0 else 0
+                ),
                 "batches_count": len(batches),
             }
 
-            log_business_event(f"バッチ処理完了: {processed}件成功, {failed}件失敗", result)
+            log_business_event(
+                f"バッチ処理完了: {processed}件成功, {failed}件失敗", result
+            )
 
             return result
 
@@ -115,7 +125,9 @@ class TradeBatchProcessor:
                 "error": str(e),
             }
 
-    def _process_single_batch(self, batch: List[Trade], batch_idx: int) -> Dict[str, int]:
+    def _process_single_batch(
+        self, batch: List[Trade], batch_idx: int
+    ) -> Dict[str, int]:
         """
         単一バッチ処理
 
@@ -243,7 +255,9 @@ class TradeBatchProcessor:
                 "failed": failed_updates,
             }
 
-            logger.info(f"一括更新完了: {successful_updates}件成功, {failed_updates}件失敗")
+            logger.info(
+                f"一括更新完了: {successful_updates}件成功, {failed_updates}件失敗"
+            )
             return result
 
         except Exception as e:

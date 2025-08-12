@@ -111,7 +111,9 @@ class CryptoDataCollector:
         self.last_reset = time.time()
         self.weight_limit = 1200  # Binance制限
 
-        logger.info(f"Crypto Data Collector initialized for {len(self.all_symbols)} symbols")
+        logger.info(
+            f"Crypto Data Collector initialized for {len(self.all_symbols)} symbols"
+        )
 
     async def start_collection(self):
         """データ収集開始"""
@@ -182,7 +184,9 @@ class CryptoDataCollector:
             # ティック作成
             tick = CryptoTick(
                 symbol=symbol,
-                timestamp=datetime.fromtimestamp(data.get("E", 0) / 1000, tz=timezone.utc),
+                timestamp=datetime.fromtimestamp(
+                    data.get("E", 0) / 1000, tz=timezone.utc
+                ),
                 price=float(data.get("c", 0)),
                 volume_24h=float(data.get("v", 0)),
                 bid_price=float(data.get("b", 0)),
@@ -201,7 +205,8 @@ class CryptoDataCollector:
             await self._save_crypto_tick(tick)
 
             logger.debug(
-                f"Updated {symbol}: ${tick.price:.4f} " f"(24h: {tick.price_change_24h:+.2f}%)"
+                f"Updated {symbol}: ${tick.price:.4f} "
+                f"(24h: {tick.price_change_24h:+.2f}%)"
             )
 
         except Exception as e:
@@ -396,15 +401,21 @@ class CryptoDataCollector:
     def get_top_gainers(self, limit: int = 10) -> List[CryptoTick]:
         """上昇率上位取得"""
         ticks_with_change = [
-            tick for tick in self.latest_ticks.values() if tick.price_change_24h is not None
+            tick
+            for tick in self.latest_ticks.values()
+            if tick.price_change_24h is not None
         ]
 
-        return sorted(ticks_with_change, key=lambda x: x.price_change_24h, reverse=True)[:limit]
+        return sorted(
+            ticks_with_change, key=lambda x: x.price_change_24h, reverse=True
+        )[:limit]
 
     def get_top_losers(self, limit: int = 10) -> List[CryptoTick]:
         """下落率上位取得"""
         ticks_with_change = [
-            tick for tick in self.latest_ticks.values() if tick.price_change_24h is not None
+            tick
+            for tick in self.latest_ticks.values()
+            if tick.price_change_24h is not None
         ]
 
         return sorted(ticks_with_change, key=lambda x: x.price_change_24h)[:limit]
@@ -425,7 +436,9 @@ def create_crypto_collector(
     binance_api_key: Optional[str] = None, binance_secret: Optional[str] = None
 ) -> CryptoDataCollector:
     """Crypto Data Collector ファクトリー関数"""
-    return CryptoDataCollector(binance_api_key=binance_api_key, binance_secret=binance_secret)
+    return CryptoDataCollector(
+        binance_api_key=binance_api_key, binance_secret=binance_secret
+    )
 
 
 async def main():
@@ -458,7 +471,9 @@ async def main():
         print(f"  Total Volume 24h: ${metrics['total_volume_24h']:,.0f}")
         print(f"  Average Change 24h: {metrics['average_change_24h']:+.2f}%")
         print(f"  Market Volatility: {metrics['market_volatility']:.2f}")
-        print(f"  Bullish/Bearish: {metrics['bullish_symbols']}/{metrics['bearish_symbols']}")
+        print(
+            f"  Bullish/Bearish: {metrics['bullish_symbols']}/{metrics['bearish_symbols']}"
+        )
 
     # トップゲイナー・ルーザー
     gainers = collector.get_top_gainers(5)

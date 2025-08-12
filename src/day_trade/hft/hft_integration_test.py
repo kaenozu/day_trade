@@ -281,7 +281,9 @@ class HFTIntegrationTester:
                 "failed_tests": sum(1 for r in self.test_results if not r.success),
                 "benchmarks_run": len(self.benchmark_results),
                 "performance_compliance": compliance_report,
-                "test_results": [self._test_result_to_dict(r) for r in self.test_results],
+                "test_results": [
+                    self._test_result_to_dict(r) for r in self.test_results
+                ],
                 "benchmark_results": [
                     self._benchmark_result_to_dict(r) for r in self.benchmark_results
                 ],
@@ -481,8 +483,12 @@ class HFTIntegrationTester:
         else:
             avg_latency = p95_latency = p99_latency = 0.0
 
-        ops_per_second = total_operations / (total_time_ms / 1000) if total_time_ms > 0 else 0
-        success_rate = successful_operations / total_operations if total_operations > 0 else 0.0
+        ops_per_second = (
+            total_operations / (total_time_ms / 1000) if total_time_ms > 0 else 0
+        )
+        success_rate = (
+            successful_operations / total_operations if total_operations > 0 else 0.0
+        )
 
         # ベンチマーク結果
         benchmark_result = BenchmarkResult(
@@ -562,8 +568,12 @@ class HFTIntegrationTester:
 
         # 統計計算
         total_time_ms = (time.time() - start_time) * 1000
-        ops_per_second = total_operations / (total_time_ms / 1000) if total_time_ms > 0 else 0
-        success_rate = successful_operations / total_operations if total_operations > 0 else 0.0
+        ops_per_second = (
+            total_operations / (total_time_ms / 1000) if total_time_ms > 0 else 0
+        )
+        success_rate = (
+            successful_operations / total_operations if total_operations > 0 else 0.0
+        )
 
         # ベンチマーク結果
         benchmark_result = BenchmarkResult(
@@ -620,7 +630,9 @@ class HFTIntegrationTester:
 
             # 並列高負荷生成
             for i in range(50):  # 50並列タスク
-                task = asyncio.create_task(self._high_load_generator(i, stress_duration))
+                task = asyncio.create_task(
+                    self._high_load_generator(i, stress_duration)
+                )
                 high_load_tasks.append(task)
 
             # 全タスク完了待ち
@@ -646,7 +658,9 @@ class HFTIntegrationTester:
 
             await self.orchestrator.stop_trading()
 
-            success = len(errors) == 0 and measurements.get("task_success_rate", 0) > 0.9
+            success = (
+                len(errors) == 0 and measurements.get("task_success_rate", 0) > 0.9
+            )
 
         except Exception as e:
             errors.append(f"ストレステスト例外: {str(e)}")
@@ -707,7 +721,8 @@ class HFTIntegrationTester:
         # 全体的な適合性判定
         compliance_report["overall_compliance"] = (
             compliance_report["critical_failures"] == 0
-            and compliance_report["met_targets"] / compliance_report["total_targets"] >= 0.8
+            and compliance_report["met_targets"] / compliance_report["total_targets"]
+            >= 0.8
         )
 
         logger.info(
@@ -732,7 +747,9 @@ class HFTIntegrationTester:
                 performance_data["execution_success_rate"] = benchmark.success_rate
 
             elif benchmark.benchmark_name == "throughput_benchmark":
-                performance_data["execution_throughput"] = benchmark.operations_per_second
+                performance_data["execution_throughput"] = (
+                    benchmark.operations_per_second
+                )
                 performance_data["decision_throughput"] = (
                     benchmark.operations_per_second * 5
                 )  # 推定
@@ -742,7 +759,9 @@ class HFTIntegrationTester:
             if "cpu_usage" in test_result.measurements:
                 performance_data["cpu_usage"] = test_result.measurements["cpu_usage"]
             if "memory_usage" in test_result.measurements:
-                performance_data["memory_usage"] = test_result.measurements["memory_usage"]
+                performance_data["memory_usage"] = test_result.measurements[
+                    "memory_usage"
+                ]
 
         return performance_data
 
@@ -850,17 +869,25 @@ if __name__ == "__main__":
             # 性能適合性
             compliance = test_summary["performance_compliance"]
             print("\n=== 性能目標適合性 ===")
-            print(f"全体適合性: {'適合' if compliance['overall_compliance'] else '非適合'}")
-            print(f"達成目標: {compliance['met_targets']}/{compliance['total_targets']}")
+            print(
+                f"全体適合性: {'適合' if compliance['overall_compliance'] else '非適合'}"
+            )
+            print(
+                f"達成目標: {compliance['met_targets']}/{compliance['total_targets']}"
+            )
             print(f"重要な失敗: {compliance['critical_failures']}")
 
             # ベンチマーク結果概要
             print("\n=== ベンチマーク結果 ===")
             for benchmark in test_summary["benchmark_results"]:
                 print(f"{benchmark['benchmark_name']}:")
-                print(f"  スループット: {benchmark['operations_per_second']:.1f} ops/sec")
+                print(
+                    f"  スループット: {benchmark['operations_per_second']:.1f} ops/sec"
+                )
                 if benchmark["average_latency_us"] > 0:
-                    print(f"  平均レイテンシー: {benchmark['average_latency_us']:.1f}μs")
+                    print(
+                        f"  平均レイテンシー: {benchmark['average_latency_us']:.1f}μs"
+                    )
                 print(f"  成功率: {benchmark['success_rate']:.1%}")
 
             # 性能目標詳細
@@ -884,7 +911,9 @@ if __name__ == "__main__":
                         print(f"    エラー: {error}")
 
             # 最終判定
-            overall_success = test_summary["failed_tests"] == 0 and compliance["overall_compliance"]
+            overall_success = (
+                test_summary["failed_tests"] == 0 and compliance["overall_compliance"]
+            )
 
             print("\n=== 最終判定 ===")
             if overall_success:

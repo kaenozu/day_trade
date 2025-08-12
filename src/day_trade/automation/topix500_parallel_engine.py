@@ -44,7 +44,10 @@ except ImportError:
 
             def create_balanced_batches(self, batch_size):
                 symbols = self.get_all_active_symbols()
-                return [symbols[i : i + batch_size] for i in range(0, len(symbols), batch_size)]
+                return [
+                    symbols[i : i + batch_size]
+                    for i in range(0, len(symbols), batch_size)
+                ]
 
             def record_processing_performance(self, **kwargs):
                 pass
@@ -179,7 +182,9 @@ class TOPIX500ParallelEngine:
         logger.info(f"  バッチサイズ: {self.batch_size}")
         logger.info(f"  メモリ制限: {self.memory_limit_gb}GB")
 
-    def process_single_symbol_batch(self, symbols_batch: List[str]) -> List[ProcessingResult]:
+    def process_single_symbol_batch(
+        self, symbols_batch: List[str]
+    ) -> List[ProcessingResult]:
         """
         単一バッチの処理（プロセス内実行用）
 
@@ -223,7 +228,9 @@ class TOPIX500ParallelEngine:
                         "symbol": symbol,
                         "current_price": float(stock_data["Close"].iloc[-1]),
                         "volume": int(stock_data["Volume"].iloc[-1]),
-                        "price_change": float(stock_data["Close"].pct_change().iloc[-1]),
+                        "price_change": float(
+                            stock_data["Close"].pct_change().iloc[-1]
+                        ),
                         "volatility": float(
                             stock_data["Close"].pct_change().rolling(20).std().iloc[-1]
                         ),
@@ -309,7 +316,8 @@ class TOPIX500ParallelEngine:
         if len(symbols) != sum(len(batch) for batch in symbol_batches):
             # 必要に応じてバッチを再作成
             symbol_batches = [
-                symbols[i : i + self.batch_size] for i in range(0, len(symbols), self.batch_size)
+                symbols[i : i + self.batch_size]
+                for i in range(0, len(symbols), self.batch_size)
             ]
 
         logger.info(f"バッチ分割完了: {len(symbol_batches)}バッチ")
@@ -326,7 +334,9 @@ class TOPIX500ParallelEngine:
                     for i, batch in enumerate(symbol_batches)
                 }
 
-                for future in as_completed(future_to_batch, timeout=self.processing_timeout):
+                for future in as_completed(
+                    future_to_batch, timeout=self.processing_timeout
+                ):
                     batch_id = future_to_batch[future]
                     batch_start_time = time.time()
 
@@ -347,13 +357,21 @@ class TOPIX500ParallelEngine:
                                 failed_symbols=failed,
                                 processing_time=batch_time,
                                 memory_peak=max(r.memory_used for r in batch_results),
-                                avg_memory_per_symbol=sum(r.memory_used for r in batch_results)
+                                avg_memory_per_symbol=sum(
+                                    r.memory_used for r in batch_results
+                                )
                                 / len(batch_results),
-                                throughput=len(batch_results) / batch_time if batch_time > 0 else 0,
+                                throughput=(
+                                    len(batch_results) / batch_time
+                                    if batch_time > 0
+                                    else 0
+                                ),
                             )
                         )
 
-                        logger.info(f"バッチ{batch_id}完了: {successful}/{len(batch_results)}成功")
+                        logger.info(
+                            f"バッチ{batch_id}完了: {successful}/{len(batch_results)}成功"
+                        )
 
                     except Exception as e:
                         logger.error(f"バッチ{batch_id}処理エラー: {e}")
@@ -400,10 +418,12 @@ class TOPIX500ParallelEngine:
             "failed_symbols": len(failed_results),
             "success_rate": len(successful_results) / len(symbols) * 100,
             "total_processing_time": total_time,
-            "avg_time_per_symbol": sum(r.processing_time for r in all_results) / len(all_results),
+            "avg_time_per_symbol": sum(r.processing_time for r in all_results)
+            / len(all_results),
             "throughput": len(symbols) / total_time,
             "memory_usage": sum(r.memory_used for r in all_results),
-            "avg_memory_per_symbol": sum(r.memory_used for r in all_results) / len(all_results),
+            "avg_memory_per_symbol": sum(r.memory_used for r in all_results)
+            / len(all_results),
             "batch_count": len(symbol_batches),
             "batch_stats": batch_stats,
             "target_achieved": total_time <= 20.0,  # 20秒目標
@@ -424,7 +444,9 @@ class TOPIX500ParallelEngine:
             ),
         )
 
-        logger.info(f"並列処理完了: {total_time:.1f}秒, {statistics['success_rate']:.1f}%成功率")
+        logger.info(
+            f"並列処理完了: {total_time:.1f}秒, {statistics['success_rate']:.1f}%成功率"
+        )
 
         return all_results, statistics
 
@@ -488,9 +510,7 @@ TOPIX500並列処理パフォーマンスレポート
             report += "\nバッチ別詳細:\n"
             for batch_stat in statistics["batch_stats"]:
                 report += f"  バッチ{batch_stat.batch_id}: {batch_stat.successful_symbols}/{batch_stat.total_symbols}成功 "
-                report += (
-                    f"({batch_stat.processing_time:.1f}秒, {batch_stat.throughput:.1f}銘柄/秒)\n"
-                )
+                report += f"({batch_stat.processing_time:.1f}秒, {batch_stat.throughput:.1f}銘柄/秒)\n"
 
         if failed:
             report += "\n【失敗銘柄詳細】\n"
@@ -515,7 +535,9 @@ TOPIX500並列処理パフォーマンスレポート
 
         # 最適化提案計算
         optimal_workers = min(cpu_count, 12)  # 最大12並列
-        optimal_batch_size = max(25, min(100, 500 // optimal_workers))  # 動的バッチサイズ
+        optimal_batch_size = max(
+            25, min(100, 500 // optimal_workers)
+        )  # 動的バッチサイズ
 
         recommendations = {
             "current_workers": self.max_workers,
@@ -524,7 +546,9 @@ TOPIX500並列処理パフォーマンスレポート
             "optimal_batch_size": optimal_batch_size,
             "system_cpu_cores": cpu_count,
             "system_memory_gb": memory_info.total / 1024 / 1024 / 1024,
-            "recommended_memory_limit": min(2.0, memory_info.available / 1024 / 1024 / 1024 * 0.8),
+            "recommended_memory_limit": min(
+                2.0, memory_info.available / 1024 / 1024 / 1024 * 0.8
+            ),
             "optimization_tips": [
                 f"ワーカー数を{optimal_workers}に調整",
                 f"バッチサイズを{optimal_batch_size}に調整",

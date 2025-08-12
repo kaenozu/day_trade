@@ -445,7 +445,9 @@ class DashboardManager:
         await websocket.accept()
         self.active_connections.append(websocket)
 
-        logger.info(f"WebSocket connected. Active connections: {len(self.active_connections)}")
+        logger.info(
+            f"WebSocket connected. Active connections: {len(self.active_connections)}"
+        )
 
         try:
             while True:
@@ -579,19 +581,23 @@ class DashboardManager:
         try:
             # システム状況
             if self.performance_monitor:
-                comprehensive_status = self.performance_monitor.get_comprehensive_status()
+                comprehensive_status = (
+                    self.performance_monitor.get_comprehensive_status()
+                )
                 system_summary = comprehensive_status.get("system_summary", {})
                 data["system"] = {
                     "cpu_percent": system_summary.get("cpu", {}).get("current", 0),
-                    "memory_percent": system_summary.get("memory", {}).get("current", 0),
+                    "memory_percent": system_summary.get("memory", {}).get(
+                        "current", 0
+                    ),
                     "status": (
                         "healthy"
                         if system_summary.get("cpu", {}).get("current", 0) < 70
                         else "warning"
                     ),
-                    "active_tasks": comprehensive_status.get("monitoring_stats", {}).get(
-                        "total_monitoring_cycles", 0
-                    ),
+                    "active_tasks": comprehensive_status.get(
+                        "monitoring_stats", {}
+                    ).get("total_monitoring_cycles", 0),
                 }
 
                 # AI性能
@@ -600,7 +606,11 @@ class DashboardManager:
                     "total_predictions": ai_summary.get("total_predictions", 0),
                     "success_rate": ai_summary.get("success_rate", 0),
                     "average_latency": ai_summary.get("average_latency_ms", 0),
-                    "status": "healthy" if ai_summary.get("error_rate", 0) < 0.1 else "warning",
+                    "status": (
+                        "healthy"
+                        if ai_summary.get("error_rate", 0) < 0.1
+                        else "warning"
+                    ),
                 }
 
                 # 取引パフォーマンス

@@ -194,7 +194,9 @@ class IntegratedRiskManagementSystem:
             stress_results = self._run_key_stress_tests(portfolio_weights, price_data)
 
             # 5. 相関分析
-            correlation_level = self._calculate_portfolio_correlation(price_data, portfolio_weights)
+            correlation_level = self._calculate_portfolio_correlation(
+                price_data, portfolio_weights
+            )
 
             # 6. 総合リスクレベル判定
             overall_risk_level = self._determine_overall_risk_level(
@@ -226,7 +228,9 @@ class IntegratedRiskManagementSystem:
                     else 0
                 ),
                 stress_recovery_time=(
-                    max([r.recovery_time_estimate or 0 for r in stress_results.values()])
+                    max(
+                        [r.recovery_time_estimate or 0 for r in stress_results.values()]
+                    )
                     if stress_results
                     else None
                 ),
@@ -234,7 +238,9 @@ class IntegratedRiskManagementSystem:
                 correlation_level=correlation_level,
                 rebalancing_needed=rebalancing_signal is not None,
                 target_weights=(
-                    rebalancing_signal.target_weights if rebalancing_signal else portfolio_weights
+                    rebalancing_signal.target_weights
+                    if rebalancing_signal
+                    else portfolio_weights
                 ),
                 rebalancing_urgency=(
                     rebalancing_signal.rebalancing_strength if rebalancing_signal else 0
@@ -414,7 +420,10 @@ class IntegratedRiskManagementSystem:
         current_time = datetime.now()
 
         # ボラティリティアラート
-        if risk_metrics.portfolio_volatility > self.risk_thresholds["max_portfolio_volatility"]:
+        if (
+            risk_metrics.portfolio_volatility
+            > self.risk_thresholds["max_portfolio_volatility"]
+        ):
             alert = RiskAlert(
                 timestamp=current_time,
                 alert_type=AlertType.WARNING,
@@ -442,7 +451,10 @@ class IntegratedRiskManagementSystem:
             alerts.append(alert)
 
         # VaRアラート
-        if abs(risk_metrics.value_at_risk_95) > self.risk_thresholds["var_95_daily_alert"]:
+        if (
+            abs(risk_metrics.value_at_risk_95)
+            > self.risk_thresholds["var_95_daily_alert"]
+        ):
             alert = RiskAlert(
                 timestamp=current_time,
                 alert_type=AlertType.WARNING,
@@ -531,14 +543,18 @@ class IntegratedRiskManagementSystem:
             active_alerts=[],
         )
 
-    def generate_risk_management_report(self, risk_profile: PortfolioRiskProfile) -> str:
+    def generate_risk_management_report(
+        self, risk_profile: PortfolioRiskProfile
+    ) -> str:
         """リスク管理レポート生成"""
         report_lines = []
         report_lines.append("=" * 80)
         report_lines.append("統合リスク管理レポート")
         report_lines.append("=" * 80)
 
-        report_lines.append(f"評価日時: {risk_profile.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(
+            f"評価日時: {risk_profile.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         report_lines.append(f"リスク許容度設定: {self.risk_tolerance.upper()}")
 
         # 総合リスクレベル
@@ -552,7 +568,9 @@ class IntegratedRiskManagementSystem:
         }
 
         report_lines.append("\n【総合リスクレベル】")
-        report_lines.append(f"{risk_level_descriptions[risk_profile.overall_risk_level]}")
+        report_lines.append(
+            f"{risk_level_descriptions[risk_profile.overall_risk_level]}"
+        )
 
         # 基本リスクメトリクス
         report_lines.append("\n【基本リスクメトリクス】")
@@ -567,7 +585,9 @@ class IntegratedRiskManagementSystem:
         # 市場環境
         report_lines.append("\n【市場環境】")
         report_lines.append(f"市場レジーム: {risk_profile.market_regime.value}")
-        report_lines.append(f"ポートフォリオ内相関: {risk_profile.correlation_level:.2%}")
+        report_lines.append(
+            f"ポートフォリオ内相関: {risk_profile.correlation_level:.2%}"
+        )
 
         # ストレステスト結果
         report_lines.append("\n【ストレステスト結果】")
@@ -606,7 +626,9 @@ class IntegratedRiskManagementSystem:
         report_lines.append("\n【総合評価・推奨事項】")
 
         if risk_profile.overall_risk_level in [RiskLevel.VERY_LOW, RiskLevel.LOW]:
-            recommendation = "現在のポートフォリオは低リスクです。リターン向上の余地があります。"
+            recommendation = (
+                "現在のポートフォリオは低リスクです。リターン向上の余地があります。"
+            )
         elif risk_profile.overall_risk_level == RiskLevel.MODERATE:
             recommendation = (
                 "バランスの取れたポートフォリオです。定期的な見直しを継続してください。"
@@ -689,7 +711,9 @@ if __name__ == "__main__":
         if price_data:
             # 総合リスク評価実行
             print("\n総合リスク評価実行中...")
-            risk_profile = risk_system.assess_portfolio_risk(portfolio_weights, price_data)
+            risk_profile = risk_system.assess_portfolio_risk(
+                portfolio_weights, price_data
+            )
 
             # レポート生成・表示
             report = risk_system.generate_risk_management_report(risk_profile)

@@ -91,7 +91,9 @@ class TaxCalculator:
             ) = self._calculate_tax_amounts(taxable_income, tax_type)
 
             # 損失繰越
-            loss_carryover = max(Decimal("0") - (realized_gains - total_fees), Decimal("0"))
+            loss_carryover = max(
+                Decimal("0") - (realized_gains - total_fees), Decimal("0")
+            )
 
             tax_summary = {
                 "target_year": Decimal(str(target_year)),
@@ -116,7 +118,9 @@ class TaxCalculator:
                 "total_tax": income_tax + local_tax + special_reconstruction_tax,
                 "loss_carryover": loss_carryover,
                 "effective_tax_rate": (
-                    (income_tax + local_tax + special_reconstruction_tax) / taxable_income * 100
+                    (income_tax + local_tax + special_reconstruction_tax)
+                    / taxable_income
+                    * 100
                     if taxable_income > 0
                     else Decimal("0")
                 ),
@@ -182,7 +186,9 @@ class TaxCalculator:
                 positions[symbol]["quantity"] += trade.quantity
                 cost = trade.price * Decimal(trade.quantity) + trade.commission
                 positions[symbol]["total_cost"] += cost
-                positions[symbol]["purchase_dates"].extend([trade.timestamp] * trade.quantity)
+                positions[symbol]["purchase_dates"].extend(
+                    [trade.timestamp] * trade.quantity
+                )
 
             elif trade.trade_type == TradeType.SELL:
                 # 売却：FIFO法で実現損益計算
@@ -193,7 +199,9 @@ class TaxCalculator:
                     )
 
                     # 売却損益
-                    sell_proceeds = trade.price * Decimal(trade.quantity) - trade.commission
+                    sell_proceeds = (
+                        trade.price * Decimal(trade.quantity) - trade.commission
+                    )
                     cost_basis = avg_cost * Decimal(trade.quantity)
                     gain_loss = sell_proceeds - cost_basis
 
@@ -202,9 +210,9 @@ class TaxCalculator:
                     # ポジション更新
                     positions[symbol]["quantity"] -= trade.quantity
                     positions[symbol]["total_cost"] -= cost_basis
-                    positions[symbol]["purchase_dates"] = positions[symbol]["purchase_dates"][
-                        trade.quantity :
-                    ]
+                    positions[symbol]["purchase_dates"] = positions[symbol][
+                        "purchase_dates"
+                    ][trade.quantity :]
 
                     # ポジション完全売却
                     if positions[symbol]["quantity"] == 0:
@@ -235,7 +243,9 @@ class TaxCalculator:
 
         # 所得税（15.315%）
         income_tax_rate = Decimal("0.15315")
-        income_tax = (taxable_income * income_tax_rate).quantize(Decimal("1"), rounding=ROUND_DOWN)
+        income_tax = (taxable_income * income_tax_rate).quantize(
+            Decimal("1"), rounding=ROUND_DOWN
+        )
 
         # 住民税（5%）
         local_tax = (taxable_income * self.local_tax_rate).quantize(
@@ -244,9 +254,9 @@ class TaxCalculator:
 
         # 復興特別所得税（0.315%）
         special_reconstruction_rate = Decimal("0.00315")
-        special_reconstruction_tax = (taxable_income * special_reconstruction_rate).quantize(
-            Decimal("1"), rounding=ROUND_DOWN
-        )
+        special_reconstruction_tax = (
+            taxable_income * special_reconstruction_rate
+        ).quantize(Decimal("1"), rounding=ROUND_DOWN)
 
         return income_tax, local_tax, special_reconstruction_tax
 
@@ -303,7 +313,9 @@ class TaxCalculator:
                 "adjusted_gains": adjusted_gains,
                 "new_loss": new_loss,
                 "remaining_carryover": remaining_carryover,
-                "carryover_expires_year": Decimal(str(target_year + 3)),  # 3年間繰越可能
+                "carryover_expires_year": Decimal(
+                    str(target_year + 3)
+                ),  # 3年間繰越可能
             }
 
             logger.info(
@@ -348,13 +360,17 @@ class TaxCalculator:
             monthly_summary = self._generate_monthly_summary(trades, target_year)
 
             # 取引明細（確定申告添付用）
-            transaction_details = self._generate_transaction_details(trades, target_year)
+            transaction_details = self._generate_transaction_details(
+                trades, target_year
+            )
 
             report_data = {
                 "report_info": {
                     "target_year": target_year,
                     "generation_date": datetime.now().isoformat(),
-                    "total_transactions": len(self._filter_trades_by_year(trades, target_year)),
+                    "total_transactions": len(
+                        self._filter_trades_by_year(trades, target_year)
+                    ),
                 },
                 "tax_summary": tax_summary,
                 "loss_carryforward": loss_carryforward,
@@ -394,7 +410,9 @@ class TaxCalculator:
             buy_trades = [t for t in symbol_trades if t.trade_type == TradeType.BUY]
             sell_trades = [t for t in symbol_trades if t.trade_type == TradeType.SELL]
 
-            total_buy_amount = sum(t.price * Decimal(t.quantity) + t.commission for t in buy_trades)
+            total_buy_amount = sum(
+                t.price * Decimal(t.quantity) + t.commission for t in buy_trades
+            )
             total_sell_amount = sum(
                 t.price * Decimal(t.quantity) - t.commission for t in sell_trades
             )
@@ -428,7 +446,9 @@ class TaxCalculator:
             else:
                 month_end = datetime(year, month + 1, 1) - timedelta(seconds=1)
 
-            month_trades = [t for t in year_trades if month_start <= t.timestamp <= month_end]
+            month_trades = [
+                t for t in year_trades if month_start <= t.timestamp <= month_end
+            ]
 
             if month_trades:
                 monthly_data[month] = {
@@ -450,7 +470,9 @@ class TaxCalculator:
 
         return list(monthly_data.values())
 
-    def _generate_transaction_details(self, trades: List[Trade], year: int) -> List[Dict]:
+    def _generate_transaction_details(
+        self, trades: List[Trade], year: int
+    ) -> List[Dict]:
         """取引明細生成（確定申告添付用）"""
         year_trades = self._filter_trades_by_year(trades, year)
 
@@ -466,7 +488,11 @@ class TaxCalculator:
                 "commission": trade.commission,
                 "net_amount": (
                     trade.price * Decimal(trade.quantity)
-                    + (trade.commission if trade.trade_type == TradeType.BUY else -trade.commission)
+                    + (
+                        trade.commission
+                        if trade.trade_type == TradeType.BUY
+                        else -trade.commission
+                    )
                 ),
             }
             transaction_details.append(detail)
@@ -514,9 +540,9 @@ class TaxCalculator:
                 quarter_end = datetime(current_year, 12, 31)
             else:
                 # 翌月1日-1秒
-                quarter_end = datetime(current_year, quarter_end_month + 1, 1) - timedelta(
-                    seconds=1
-                )
+                quarter_end = datetime(
+                    current_year, quarter_end_month + 1, 1
+                ) - timedelta(seconds=1)
 
             # 四半期までの取引
             qtd_trades = [

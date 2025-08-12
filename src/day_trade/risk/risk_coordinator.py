@@ -123,7 +123,9 @@ class RiskAnalysisCoordinator:
 
             # 不正検知分析
             if enable_fraud_detection:
-                fraud_request = self._create_fraud_detection_request(request_id, transaction_data)
+                fraud_request = self._create_fraud_detection_request(
+                    request_id, transaction_data
+                )
                 analysis_tasks.append(self._run_fraud_analysis(fraud_request))
                 analysis_methods.append("FraudDetection")
 
@@ -132,7 +134,9 @@ class RiskAnalysisCoordinator:
             analysis_methods.append("RuleBasedAnalysis")
 
             # 並列実行
-            analysis_results = await asyncio.gather(*analysis_tasks, return_exceptions=True)
+            analysis_results = await asyncio.gather(
+                *analysis_tasks, return_exceptions=True
+            )
 
             # 結果統合
             summary = await self._integrate_analysis_results(
@@ -209,7 +213,9 @@ class RiskAnalysisCoordinator:
             market_conditions=transaction_data.get("market_conditions", {}),
         )
 
-    async def _run_ai_analysis(self, request: RiskAnalysisRequest) -> RiskAnalysisResult:
+    async def _run_ai_analysis(
+        self, request: RiskAnalysisRequest
+    ) -> RiskAnalysisResult:
         """AI分析実行"""
 
         try:
@@ -233,7 +239,9 @@ class RiskAnalysisCoordinator:
             logger.error(f"不正検知エラー: {e}")
             raise
 
-    async def _run_basic_risk_analysis(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_basic_risk_analysis(
+        self, transaction_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """基本リスク分析"""
 
         start_time = time.time()
@@ -252,7 +260,9 @@ class RiskAnalysisCoordinator:
                 risk_factors.append("高額取引")
 
             # 時間帯リスク
-            timestamp_str = transaction_data.get("timestamp", datetime.now().isoformat())
+            timestamp_str = transaction_data.get(
+                "timestamp", datetime.now().isoformat()
+            )
             timestamp = datetime.fromisoformat(timestamp_str)
             hour = timestamp.hour
 
@@ -351,7 +361,9 @@ class RiskAnalysisCoordinator:
                 confidences.append(result.confidence)
                 all_recommendations.extend(result.recommendations)
                 all_risk_factors.extend(
-                    result.risk_factors.keys() if hasattr(result, "risk_factors") else []
+                    result.risk_factors.keys()
+                    if hasattr(result, "risk_factors")
+                    else []
                 )
 
             elif hasattr(result, "fraud_probability"):
@@ -371,7 +383,9 @@ class RiskAnalysisCoordinator:
         if risk_scores:
             weighted_sum = sum(score * weight for score, weight in risk_scores)
             total_weight = sum(weight for _, weight in risk_scores)
-            overall_risk_score = weighted_sum / total_weight if total_weight > 0 else 0.5
+            overall_risk_score = (
+                weighted_sum / total_weight if total_weight > 0 else 0.5
+            )
         else:
             overall_risk_score = 0.5
 
@@ -391,7 +405,9 @@ class RiskAnalysisCoordinator:
 
         # メトリクス更新
         symbol = transaction_data.get("symbol", "unknown")
-        self.risk_metrics.update_risk_score("risk_coordinator", symbol, overall_risk_score)
+        self.risk_metrics.update_risk_score(
+            "risk_coordinator", symbol, overall_risk_score
+        )
 
         # アラートメトリクス記録
         if risk_category in ["high", "critical"]:
@@ -498,7 +514,9 @@ class RiskAnalysisCoordinator:
         old_avg = self.performance_stats["avg_processing_time"]
         new_time = summary.processing_time_total
 
-        self.performance_stats["avg_processing_time"] = (old_avg * (total - 1) + new_time) / total
+        self.performance_stats["avg_processing_time"] = (
+            old_avg * (total - 1) + new_time
+        ) / total
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンスサマリー取得"""
@@ -540,7 +558,9 @@ class RiskAnalysisCoordinator:
         valid_results = [r for r in results if not isinstance(r, Exception)]
         error_count = len(results) - len(valid_results)
 
-        logger.info(f"バッチ評価完了: 成功{len(valid_results)}件, エラー{error_count}件")
+        logger.info(
+            f"バッチ評価完了: 成功{len(valid_results)}件, エラー{error_count}件"
+        )
 
         return valid_results
 

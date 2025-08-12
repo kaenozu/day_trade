@@ -341,7 +341,9 @@ class EnhancedDataVersionControl:
 
             # 新バージョンID生成
             timestamp = datetime.now(timezone.utc)
-            version_id = f"{dataset_id}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{data_hash[:8]}"
+            version_id = (
+                f"{dataset_id}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{data_hash[:8]}"
+            )
 
             # 親バージョン取得
             parent_version = await self._get_branch_head(branch)
@@ -424,7 +426,9 @@ class EnhancedDataVersionControl:
             self.logger.error(f"バージョン作成エラー: {e}")
             raise
 
-    async def _find_version_by_hash(self, dataset_id: str, data_hash: str) -> Optional[str]:
+    async def _find_version_by_hash(
+        self, dataset_id: str, data_hash: str
+    ) -> Optional[str]:
         """ハッシュによるバージョン検索"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -528,7 +532,9 @@ class EnhancedDataVersionControl:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # ブランチ存在確認
-                cursor = conn.execute("SELECT 1 FROM branches WHERE branch_name = ?", (branch,))
+                cursor = conn.execute(
+                    "SELECT 1 FROM branches WHERE branch_name = ?", (branch,)
+                )
                 if not cursor.fetchone():
                     # 新ブランチ作成
                     conn.execute(
@@ -701,7 +707,9 @@ class EnhancedDataVersionControl:
     ) -> str:
         """ML実験追跡開始"""
         try:
-            experiment_id = f"exp_{int(time.time())}_{hash(experiment_name) % 10000:04d}"
+            experiment_id = (
+                f"exp_{int(time.time())}_{hash(experiment_name) % 10000:04d}"
+            )
 
             experiment = MLExperiment(
                 experiment_id=experiment_id,
@@ -872,7 +880,9 @@ class EnhancedDataVersionControl:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # バージョン統計
-                cursor = conn.execute("SELECT COUNT(*), SUM(size_bytes) FROM data_versions")
+                cursor = conn.execute(
+                    "SELECT COUNT(*), SUM(size_bytes) FROM data_versions"
+                )
                 version_count, total_size = cursor.fetchone()
 
                 # ブランチ統計
@@ -880,7 +890,9 @@ class EnhancedDataVersionControl:
                 branch_count = cursor.fetchone()[0]
 
                 # 実験統計
-                cursor = conn.execute("SELECT status, COUNT(*) FROM ml_experiments GROUP BY status")
+                cursor = conn.execute(
+                    "SELECT status, COUNT(*) FROM ml_experiments GROUP BY status"
+                )
                 experiment_stats = {row[0]: row[1] for row in cursor.fetchall()}
 
                 # 品質統計
@@ -901,7 +913,9 @@ class EnhancedDataVersionControl:
                     "branches": {"total_count": branch_count or 0},
                     "experiments": experiment_stats,
                     "quality": {
-                        "average_score": round(quality_stats[0], 2) if quality_stats[0] else None,
+                        "average_score": (
+                            round(quality_stats[0], 2) if quality_stats[0] else None
+                        ),
                         "min_score": quality_stats[1],
                         "max_score": quality_stats[2],
                     },
@@ -1082,7 +1096,9 @@ if __name__ == "__main__":
                     f"   親データセット数: {len(json.loads(lineage_info.get('parent_datasets', '[]')))}"
                 )
                 if lineage_info.get("parent_details"):
-                    print(f"   親データセット詳細: {len(lineage_info['parent_details'])}件")
+                    print(
+                        f"   親データセット詳細: {len(lineage_info['parent_details'])}件"
+                    )
 
             # システム統計取得
             print("\n10. システム統計...")

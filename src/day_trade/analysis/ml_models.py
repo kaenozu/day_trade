@@ -191,8 +191,12 @@ class BaseMLModel(ABC):
             raise ValueError("モデルが訓練されていません")
 
         # 特徴量の整合性チェック
-        if self.feature_names and not all(col in X.columns for col in self.feature_names):
-            missing_features = [col for col in self.feature_names if col not in X.columns]
+        if self.feature_names and not all(
+            col in X.columns for col in self.feature_names
+        ):
+            missing_features = [
+                col for col in self.feature_names if col not in X.columns
+            ]
             raise ValueError(f"必要な特徴量が不足しています: {missing_features}")
 
         # データの前処理
@@ -204,7 +208,9 @@ class BaseMLModel(ABC):
         predictions = self._predict_model(X_scaled)
         return predictions
 
-    def _preprocess_data(self, X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame, pd.Series]:
+    def _preprocess_data(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> Tuple[pd.DataFrame, pd.Series]:
         """データの前処理"""
         # 共通インデックスの取得
         common_index = X.index.intersection(y.index)
@@ -263,7 +269,11 @@ class BaseMLModel(ABC):
 
     def _validate_random(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
         """ランダム交差検証"""
-        scoring = "neg_mean_squared_error" if self.config.task_type == "regression" else "accuracy"
+        scoring = (
+            "neg_mean_squared_error"
+            if self.config.task_type == "regression"
+            else "accuracy"
+        )
         scores = cross_val_score(
             self._create_model(), X, y, cv=self.config.cv_folds, scoring=scoring
         )
@@ -276,7 +286,9 @@ class BaseMLModel(ABC):
 
     def _get_feature_importance(self) -> Optional[Dict[str, float]]:
         """特徴量重要度の取得"""
-        if not hasattr(self.model, "feature_importances_") and not hasattr(self.model, "coef_"):
+        if not hasattr(self.model, "feature_importances_") and not hasattr(
+            self.model, "coef_"
+        ):
             return None
 
         if hasattr(self.model, "feature_importances_"):
@@ -291,7 +303,9 @@ class BaseMLModel(ABC):
         if self.feature_names and len(importance) == len(self.feature_names):
             feature_importance = dict(zip(self.feature_names, importance))
             # 重要度順にソート
-            return dict(sorted(feature_importance.items(), key=lambda x: x[1], reverse=True))
+            return dict(
+                sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
+            )
 
         return None
 
@@ -636,7 +650,9 @@ def create_default_model_ensemble():
 # MLModelManager は既に 441行目で定義済み
 
 
-def evaluate_prediction_accuracy(predictions: List, actual_values: np.ndarray) -> Dict[str, float]:
+def evaluate_prediction_accuracy(
+    predictions: List, actual_values: np.ndarray
+) -> Dict[str, float]:
     """予測精度評価"""
     if len(predictions) == 0:
         return {"mse": 0.0, "mae": 0.0, "rmse": 0.0}
@@ -679,18 +695,26 @@ if __name__ == "__main__":
         manager = MLModelManager()
 
         # 回帰モデル
-        reg_config = ModelConfig(model_type="random_forest", task_type="regression", cv_folds=3)
+        reg_config = ModelConfig(
+            model_type="random_forest", task_type="regression", cv_folds=3
+        )
 
         manager.create_model("rf_regressor", reg_config)
         reg_result = manager.train_model("rf_regressor", X, y_reg)
-        print(f"回帰モデル訓練結果: {reg_result['validation_scores']['mean_score']:.4f}")
+        print(
+            f"回帰モデル訓練結果: {reg_result['validation_scores']['mean_score']:.4f}"
+        )
 
         # 分類モデル
-        clf_config = ModelConfig(model_type="random_forest", task_type="classification", cv_folds=3)
+        clf_config = ModelConfig(
+            model_type="random_forest", task_type="classification", cv_folds=3
+        )
 
         manager.create_model("rf_classifier", clf_config)
         clf_result = manager.train_model("rf_classifier", X, y_clf)
-        print(f"分類モデル訓練結果: {clf_result['validation_scores']['mean_score']:.4f}")
+        print(
+            f"分類モデル訓練結果: {clf_result['validation_scores']['mean_score']:.4f}"
+        )
 
         # 予測テスト
         test_x = X.iloc[:10]

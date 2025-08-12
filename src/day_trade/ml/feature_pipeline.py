@@ -153,10 +153,14 @@ class FeaturePipeline:
 
         # 日付範囲の取得
         start_date = (
-            data.index.min().strftime("%Y-%m-%d") if hasattr(data.index, "min") else "1900-01-01"
+            data.index.min().strftime("%Y-%m-%d")
+            if hasattr(data.index, "min")
+            else "1900-01-01"
         )
         end_date = (
-            data.index.max().strftime("%Y-%m-%d") if hasattr(data.index, "max") else "2100-01-01"
+            data.index.max().strftime("%Y-%m-%d")
+            if hasattr(data.index, "max")
+            else "2100-01-01"
         )
 
         # 強制再生成でなければキャッシュを試行
@@ -199,7 +203,8 @@ class FeaturePipeline:
         generation_time = time.time() - start_time
         self.pipeline_stats["total_requests"] += 1
         self.pipeline_stats["avg_generation_time"] = (
-            self.pipeline_stats["avg_generation_time"] * (self.pipeline_stats["total_requests"] - 1)
+            self.pipeline_stats["avg_generation_time"]
+            * (self.pipeline_stats["total_requests"] - 1)
             + generation_time
         ) / self.pipeline_stats["total_requests"]
 
@@ -226,7 +231,9 @@ class FeaturePipeline:
         processed_symbols = 0
 
         # バッチ処理
-        symbol_batches = self._create_batches(list(symbols_data.keys()), self.config.batch_size)
+        symbol_batches = self._create_batches(
+            list(symbols_data.keys()), self.config.batch_size
+        )
 
         for batch_idx, symbol_batch in enumerate(symbol_batches):
             batch_start_time = time.time()
@@ -241,10 +248,14 @@ class FeaturePipeline:
 
             if not force_regenerate:
                 # バッチキャッシュ確認・生成
-                batch_results = self._batch_process_with_cache(batch_data, feature_config)
+                batch_results = self._batch_process_with_cache(
+                    batch_data, feature_config
+                )
             else:
                 # 強制再生成
-                batch_results = self._batch_process_force_regenerate(batch_data, feature_config)
+                batch_results = self._batch_process_force_regenerate(
+                    batch_data, feature_config
+                )
 
             results.update(batch_results)
             processed_symbols += len(batch_results)
@@ -261,7 +272,9 @@ class FeaturePipeline:
 
         # 統計更新
         store_stats = self.feature_store.get_stats()
-        self.pipeline_stats["cache_efficiency"] = store_stats.get("cache_hit_rate_percent", 0)
+        self.pipeline_stats["cache_efficiency"] = store_stats.get(
+            "cache_hit_rate_percent", 0
+        )
 
         logger.info(
             "バッチ特徴量生成完了",
@@ -276,7 +289,11 @@ class FeaturePipeline:
         return results
 
     async def ultra_fast_prediction(
-        self, symbol: str, prices: np.ndarray, volumes: np.ndarray, model_weights: np.ndarray = None
+        self,
+        symbol: str,
+        prices: np.ndarray,
+        volumes: np.ndarray,
+        model_weights: np.ndarray = None,
     ) -> Dict[str, Any]:
         """超高速予測（HFT対応 <50μs目標）"""
         if not PERFORMANCE_OPTIMIZATION_AVAILABLE or self.hft_optimizer is None:
@@ -305,9 +322,13 @@ class FeaturePipeline:
 
                 # 目標達成率更新
                 under_target_count = sum(
-                    1 for _ in range(total_preds) if _ < self.config.hft_target_latency_us
+                    1
+                    for _ in range(total_preds)
+                    if _ < self.config.hft_target_latency_us
                 )
-                self.pipeline_stats["hft_under_target_rate"] = under_target_count / total_preds
+                self.pipeline_stats["hft_under_target_rate"] = (
+                    under_target_count / total_preds
+                )
 
             total_time_us = (time.perf_counter_ns() - start_time) / 1000.0
 
@@ -379,7 +400,9 @@ class FeaturePipeline:
             self.pipeline_stats["gpu_accelerated_operations"] += len(all_features)
 
             gpu_time = time.perf_counter() - start_time
-            logger.info(f"GPU特徴量生成完了: {len(all_features)}銘柄, {gpu_time*1000:.2f}ms")
+            logger.info(
+                f"GPU特徴量生成完了: {len(all_features)}銘柄, {gpu_time*1000:.2f}ms"
+            )
 
             return all_features
 
@@ -407,7 +430,9 @@ class FeaturePipeline:
                     features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
                     features[i, 2] = prices[i]  # 現在価格
                     features[i, 3] = volumes[i]  # 現在ボリューム
-                    features[i, 4] = (prices[i] - prices[i - 1]) / prices[i - 1]  # 変化率
+                    features[i, 4] = (prices[i] - prices[i - 1]) / prices[
+                        i - 1
+                    ]  # 変化率
 
                 results[symbol] = features
 

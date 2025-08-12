@@ -396,7 +396,9 @@ class SecuritySandbox:
 class PluginMonitor:
     """プラグイン実行監視"""
 
-    def __init__(self, plugin_name: str, max_memory_mb: int = 512, max_execution_time: int = 30):
+    def __init__(
+        self, plugin_name: str, max_memory_mb: int = 512, max_execution_time: int = 30
+    ):
         """
         初期化
 
@@ -435,7 +437,9 @@ class PluginMonitor:
             if self.violations:
                 logger.warning(f"プラグイン違反 {self.plugin_name}: {self.violations}")
             else:
-                logger.debug(f"プラグイン実行完了 {self.plugin_name}: {execution_time:.2f}秒")
+                logger.debug(
+                    f"プラグイン実行完了 {self.plugin_name}: {execution_time:.2f}秒"
+                )
 
     def check_memory_usage(self):
         """メモリ使用量チェック"""

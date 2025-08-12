@@ -78,13 +78,17 @@ class AdvancedBulkOperations:
         try:
             with self.db_manager.session_scope() as session:
                 if conflict_strategy == "ignore":
-                    stats = self._bulk_insert_ignore(session, model_class, data, chunk_size)
+                    stats = self._bulk_insert_ignore(
+                        session, model_class, data, chunk_size
+                    )
                 elif conflict_strategy == "update":
                     stats = self._bulk_upsert(
                         session, model_class, data, chunk_size, unique_columns
                     )
                 elif conflict_strategy == "error":
-                    stats = self._bulk_insert_strict(session, model_class, data, chunk_size)
+                    stats = self._bulk_insert_strict(
+                        session, model_class, data, chunk_size
+                    )
                 else:
                     raise BulkOperationError(
                         f"Unknown conflict strategy: {conflict_strategy}",
@@ -162,7 +166,9 @@ class AdvancedBulkOperations:
             chunk = data[i : i + chunk_size]
 
             # 既存レコードを特定
-            existing_keys = self._get_existing_keys(session, model_class, chunk, unique_columns)
+            existing_keys = self._get_existing_keys(
+                session, model_class, chunk, unique_columns
+            )
 
             inserts = []
             updates = []

@@ -360,7 +360,10 @@ class InvestmentOpportunityAlertSystem:
 
                 # 最短チェック間隔で実行（デフォルト5分）
                 min_interval = min(
-                    [config.check_interval_minutes for config in self.opportunity_configs.values()],
+                    [
+                        config.check_interval_minutes
+                        for config in self.opportunity_configs.values()
+                    ],
                     default=5,
                 )
                 await asyncio.sleep(min_interval * 60)
@@ -469,7 +472,9 @@ class InvestmentOpportunityAlertSystem:
                 indicators["MACD"] = indicators["EMA_12"] - indicators["EMA_26"]
                 macd_signal = pd.Series([indicators["MACD"]]).ewm(span=9).mean()
                 indicators["MACD_Signal"] = macd_signal.iloc[-1]
-                indicators["MACD_Histogram"] = indicators["MACD"] - indicators["MACD_Signal"]
+                indicators["MACD_Histogram"] = (
+                    indicators["MACD"] - indicators["MACD_Signal"]
+                )
 
                 # ボリンジャーバンド
                 bb_period = 20
@@ -483,13 +488,17 @@ class InvestmentOpportunityAlertSystem:
                 current_price = df["Close"].iloc[-1]
                 bb_width = indicators["BB_Upper"] - indicators["BB_Lower"]
                 if bb_width > 0:
-                    indicators["BB_Position"] = (current_price - indicators["BB_Lower"]) / bb_width
+                    indicators["BB_Position"] = (
+                        current_price - indicators["BB_Lower"]
+                    ) / bb_width
                 else:
                     indicators["BB_Position"] = 0.5
 
                 # 出来高指標
                 indicators["Volume_SMA"] = df["Volume"].rolling(20).mean().iloc[-1]
-                indicators["Volume_Ratio"] = df["Volume"].iloc[-1] / indicators["Volume_SMA"]
+                indicators["Volume_Ratio"] = (
+                    df["Volume"].iloc[-1] / indicators["Volume_SMA"]
+                )
 
                 # 価格変化率
                 indicators["Price_Change_1D"] = (
@@ -588,15 +597,25 @@ class InvestmentOpportunityAlertSystem:
 
         # 機会タイプ別分析
         if config.opportunity_type == OpportunityType.TECHNICAL_BREAKOUT:
-            return await self._analyze_technical_breakout(symbol, config, indicators, current_price)
+            return await self._analyze_technical_breakout(
+                symbol, config, indicators, current_price
+            )
         elif config.opportunity_type == OpportunityType.MOMENTUM_SIGNAL:
-            return await self._analyze_momentum_signal(symbol, config, indicators, current_price)
+            return await self._analyze_momentum_signal(
+                symbol, config, indicators, current_price
+            )
         elif config.opportunity_type == OpportunityType.REVERSAL_PATTERN:
-            return await self._analyze_reversal_pattern(symbol, config, indicators, current_price)
+            return await self._analyze_reversal_pattern(
+                symbol, config, indicators, current_price
+            )
         elif config.opportunity_type == OpportunityType.VOLUME_ANOMALY:
-            return await self._analyze_volume_anomaly(symbol, config, indicators, current_price)
+            return await self._analyze_volume_anomaly(
+                symbol, config, indicators, current_price
+            )
         elif config.opportunity_type == OpportunityType.VOLATILITY_SQUEEZE:
-            return await self._analyze_volatility_squeeze(symbol, config, indicators, current_price)
+            return await self._analyze_volatility_squeeze(
+                symbol, config, indicators, current_price
+            )
         else:
             # その他の機会タイプは基本的な分析
             return await self._analyze_generic_opportunity(
@@ -646,7 +665,8 @@ class InvestmentOpportunityAlertSystem:
                     time_horizon=config.time_horizon,
                     risk_level="medium",
                     risk_reward_ratio=profit_potential / config.stop_loss_percentage,
-                    stop_loss_price=current_price * (1 - config.stop_loss_percentage / 100),
+                    stop_loss_price=current_price
+                    * (1 - config.stop_loss_percentage / 100),
                     take_profit_price=current_price * (1 + profit_potential / 100),
                     technical_indicators=indicators,
                     message=f"{symbol} 上方ブレイクアウト機会検出",
@@ -698,7 +718,8 @@ class InvestmentOpportunityAlertSystem:
                     time_horizon=config.time_horizon,
                     risk_level="medium",
                     risk_reward_ratio=profit_potential / config.stop_loss_percentage,
-                    stop_loss_price=current_price * (1 - config.stop_loss_percentage / 100),
+                    stop_loss_price=current_price
+                    * (1 - config.stop_loss_percentage / 100),
                     take_profit_price=current_price * (1 + profit_potential / 100),
                     technical_indicators=indicators,
                     message=f"{symbol} 強い上昇モメンタム検出",
@@ -750,7 +771,8 @@ class InvestmentOpportunityAlertSystem:
                     time_horizon=config.time_horizon,
                     risk_level="high",  # 反転狙いはリスクが高い
                     risk_reward_ratio=profit_potential / config.stop_loss_percentage,
-                    stop_loss_price=current_price * (1 - config.stop_loss_percentage / 100),
+                    stop_loss_price=current_price
+                    * (1 - config.stop_loss_percentage / 100),
                     take_profit_price=current_price * (1 + profit_potential / 100),
                     technical_indicators=indicators,
                     message=f"{symbol} 過売り反転パターン検出",
@@ -798,14 +820,20 @@ class InvestmentOpportunityAlertSystem:
                     severity=OpportunitySeverity.HIGH,
                     recommended_action=action,
                     target_price=current_price
-                    * (1 + profit_potential / 100 * (1 if action == TradingAction.BUY else -1)),
+                    * (
+                        1
+                        + profit_potential
+                        / 100
+                        * (1 if action == TradingAction.BUY else -1)
+                    ),
                     current_price=current_price,
                     profit_potential=profit_potential,
                     confidence_score=confidence,
                     time_horizon=config.time_horizon,
                     risk_level="high",  # 出来高異常は高リスク
                     risk_reward_ratio=profit_potential / config.stop_loss_percentage,
-                    stop_loss_price=current_price * (1 - config.stop_loss_percentage / 100),
+                    stop_loss_price=current_price
+                    * (1 - config.stop_loss_percentage / 100),
                     technical_indicators=indicators,
                     message=f"{symbol} 異常出来高検出 ({volume_ratio:.1f}倍)",
                 )
@@ -885,7 +913,9 @@ class InvestmentOpportunityAlertSystem:
                 confidence >= config.confidence_threshold
                 and profit_potential >= config.profit_potential_threshold
             ):
-                action = TradingAction.BUY if price_change_5d > 0 else TradingAction.SELL
+                action = (
+                    TradingAction.BUY if price_change_5d > 0 else TradingAction.SELL
+                )
 
                 return InvestmentOpportunity(
                     opportunity_id=f"generic_{symbol}_{int(time.time())}",
@@ -919,7 +949,9 @@ class InvestmentOpportunityAlertSystem:
         ):
             return False
 
-        return not (self.market_condition.market_sentiment < self.config.min_market_sentiment)
+        return not (
+            self.market_condition.market_sentiment < self.config.min_market_sentiment
+        )
 
     async def _passes_quality_filter(self, opportunity: InvestmentOpportunity) -> bool:
         """品質フィルター"""
@@ -994,10 +1026,14 @@ class InvestmentOpportunityAlertSystem:
 
     async def _cleanup_opportunity_history(self) -> None:
         """機会履歴クリーンアップ"""
-        cutoff_time = datetime.now() - timedelta(days=self.config.alert_history_retention_days)
+        cutoff_time = datetime.now() - timedelta(
+            days=self.config.alert_history_retention_days
+        )
 
         # 機会履歴クリーンアップ
-        self.opportunities = [opp for opp in self.opportunities if opp.timestamp > cutoff_time]
+        self.opportunities = [
+            opp for opp in self.opportunities if opp.timestamp > cutoff_time
+        ]
 
         # 最近の機会記録クリーンアップ
         recent_cutoff = datetime.now() - timedelta(
@@ -1019,15 +1055,21 @@ class InvestmentOpportunityAlertSystem:
         active_opportunities = [opp for opp in self.opportunities if not opp.executed]
 
         if symbol:
-            active_opportunities = [opp for opp in active_opportunities if opp.symbol == symbol]
+            active_opportunities = [
+                opp for opp in active_opportunities if opp.symbol == symbol
+            ]
 
         if opportunity_type:
             active_opportunities = [
-                opp for opp in active_opportunities if opp.opportunity_type == opportunity_type
+                opp
+                for opp in active_opportunities
+                if opp.opportunity_type == opportunity_type
             ]
 
         if severity:
-            active_opportunities = [opp for opp in active_opportunities if opp.severity == severity]
+            active_opportunities = [
+                opp for opp in active_opportunities if opp.severity == severity
+            ]
 
         return sorted(active_opportunities, key=lambda o: o.timestamp, reverse=True)
 
@@ -1046,7 +1088,11 @@ class InvestmentOpportunityAlertSystem:
         type_counts = {}
         for opp_type in OpportunityType:
             type_counts[opp_type.value] = len(
-                [opp for opp in active_opportunities if opp.opportunity_type == opp_type]
+                [
+                    opp
+                    for opp in active_opportunities
+                    if opp.opportunity_type == opp_type
+                ]
             )
 
         # 銘柄別集計
@@ -1056,8 +1102,12 @@ class InvestmentOpportunityAlertSystem:
 
         # 統計情報
         if active_opportunities:
-            avg_confidence = mean([opp.confidence_score for opp in active_opportunities])
-            avg_profit_potential = mean([opp.profit_potential for opp in active_opportunities])
+            avg_confidence = mean(
+                [opp.confidence_score for opp in active_opportunities]
+            )
+            avg_profit_potential = mean(
+                [opp.profit_potential for opp in active_opportunities]
+            )
         else:
             avg_confidence = 0
             avg_profit_potential = 0
@@ -1074,23 +1124,35 @@ class InvestmentOpportunityAlertSystem:
                 "average_confidence_score": avg_confidence,
                 "average_profit_potential": avg_profit_potential,
                 "total_opportunities_generated": len(self.opportunities),
-                "executed_opportunities": len([opp for opp in self.opportunities if opp.executed]),
+                "executed_opportunities": len(
+                    [opp for opp in self.opportunities if opp.executed]
+                ),
             },
             "market_condition": {
                 "market_trend": (
-                    self.market_condition.market_trend if self.market_condition else None
+                    self.market_condition.market_trend
+                    if self.market_condition
+                    else None
                 ),
                 "volatility_level": (
-                    self.market_condition.volatility_level if self.market_condition else None
+                    self.market_condition.volatility_level
+                    if self.market_condition
+                    else None
                 ),
                 "market_sentiment": (
-                    self.market_condition.market_sentiment if self.market_condition else None
+                    self.market_condition.market_sentiment
+                    if self.market_condition
+                    else None
                 ),
             },
             "monitoring_status": {
                 "is_running": self._is_running,
                 "active_configs": len(
-                    [config for config in self.opportunity_configs.values() if config.enabled]
+                    [
+                        config
+                        for config in self.opportunity_configs.values()
+                        if config.enabled
+                    ]
                 ),
                 "total_configs": len(self.opportunity_configs),
             },
@@ -1103,7 +1165,10 @@ class InvestmentOpportunityAlertSystem:
     ) -> bool:
         """機会実行"""
         for opportunity in self.opportunities:
-            if opportunity.opportunity_id == opportunity_id and not opportunity.executed:
+            if (
+                opportunity.opportunity_id == opportunity_id
+                and not opportunity.executed
+            ):
                 opportunity.executed = True
                 opportunity.executed_at = datetime.now()
                 if execution_note:
@@ -1179,9 +1244,15 @@ async def setup_investment_opportunity_monitoring() -> InvestmentOpportunityAler
     alert_system = InvestmentOpportunityAlertSystem(config)
 
     # アラートハンドラー登録
-    alert_system.register_alert_handler(OpportunitySeverity.MEDIUM, console_opportunity_handler)
-    alert_system.register_alert_handler(OpportunitySeverity.HIGH, log_opportunity_handler)
-    alert_system.register_alert_handler(OpportunitySeverity.CRITICAL, file_opportunity_handler)
+    alert_system.register_alert_handler(
+        OpportunitySeverity.MEDIUM, console_opportunity_handler
+    )
+    alert_system.register_alert_handler(
+        OpportunitySeverity.HIGH, log_opportunity_handler
+    )
+    alert_system.register_alert_handler(
+        OpportunitySeverity.CRITICAL, file_opportunity_handler
+    )
 
     return alert_system
 
@@ -1201,12 +1272,16 @@ if __name__ == "__main__":
         summary = await alert_system.get_opportunity_summary()
         print(f"アクティブ投資機会数: {summary['total_active_opportunities']}")
         print(f"平均信頼度: {summary['statistics']['average_confidence_score']:.2f}")
-        print(f"平均利益可能性: {summary['statistics']['average_profit_potential']:.1f}%")
+        print(
+            f"平均利益可能性: {summary['statistics']['average_profit_potential']:.1f}%"
+        )
 
         # アクティブ機会表示
         active_opportunities = await alert_system.get_active_opportunities()
         for opp in active_opportunities[:5]:  # 上位5件
-            print(f"機会: {opp.message} ({opp.symbol}, 信頼度: {opp.confidence_score:.2f})")
+            print(
+                f"機会: {opp.message} ({opp.symbol}, 信頼度: {opp.confidence_score:.2f})"
+            )
 
         # 監視停止
         await alert_system.stop_monitoring()

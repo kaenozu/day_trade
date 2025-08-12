@@ -33,7 +33,9 @@ class CandlestickCharts(ChartRenderer):
     高度なローソク足パターン認識と詳細可視化を提供
     """
 
-    def __init__(self, output_dir: str = "output/candlestick_charts", theme: str = "default"):
+    def __init__(
+        self, output_dir: str = "output/candlestick_charts", theme: str = "default"
+    ):
         """
         初期化
 
@@ -79,7 +81,9 @@ class CandlestickCharts(ChartRenderer):
         filename = kwargs.get("filename", f"candlestick_analysis_{symbol}.png")
         return self.save_figure(fig, filename)
 
-    def _plot_main_candlesticks(self, ax, data: pd.DataFrame, patterns: Dict, symbol: str) -> None:
+    def _plot_main_candlesticks(
+        self, ax, data: pd.DataFrame, patterns: Dict, symbol: str
+    ) -> None:
         """
         メインローソク足プロット
 
@@ -139,7 +143,9 @@ class CandlestickCharts(ChartRenderer):
             ax, title=f"{symbol} ローソク足チャート", xlabel="時間", ylabel="価格"
         )
 
-    def _highlight_patterns(self, ax, data: pd.DataFrame, detected_patterns: List[Dict]) -> None:
+    def _highlight_patterns(
+        self, ax, data: pd.DataFrame, detected_patterns: List[Dict]
+    ) -> None:
         """
         検出パターンのハイライト
 
@@ -198,7 +204,9 @@ class CandlestickCharts(ChartRenderer):
                     fontsize=9,
                     ha="center",
                     bbox=dict(boxstyle="round,pad=0.3", facecolor=color, alpha=0.7),
-                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0", color=color),
+                    arrowprops=dict(
+                        arrowstyle="->", connectionstyle="arc3,rad=0", color=color
+                    ),
                 )
 
     def _plot_pattern_details(self, ax, data: pd.DataFrame, patterns: Dict) -> None:
@@ -221,8 +229,12 @@ class CandlestickCharts(ChartRenderer):
             )
 
             # 強度閾値線
-            ax.axhline(0.7, color=self.palette.get_color("bullish"), linestyle="--", alpha=0.7)
-            ax.axhline(0.3, color=self.palette.get_color("bearish"), linestyle="--", alpha=0.7)
+            ax.axhline(
+                0.7, color=self.palette.get_color("bullish"), linestyle="--", alpha=0.7
+            )
+            ax.axhline(
+                0.3, color=self.palette.get_color("bearish"), linestyle="--", alpha=0.7
+            )
 
         if "pattern_reliability" in patterns:
             reliability_data = patterns["pattern_reliability"]
@@ -300,7 +312,9 @@ class CandlestickCharts(ChartRenderer):
                         fontsize=9,
                     )
 
-                self.apply_common_styling(ax, title="検出パターン統計", ylabel="検出回数")
+                self.apply_common_styling(
+                    ax, title="検出パターン統計", ylabel="検出回数"
+                )
                 plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
 
     def create_pattern_recognition_dashboard(
@@ -527,11 +541,15 @@ class CandlestickCharts(ChartRenderer):
                 exported_files["main_chart"] = main_chart
 
             # パターン認識ダッシュボード
-            dashboard = self.create_pattern_recognition_dashboard(data, patterns, symbol)
+            dashboard = self.create_pattern_recognition_dashboard(
+                data, patterns, symbol
+            )
             if dashboard:
                 exported_files["dashboard"] = dashboard
 
-            logger.info(f"ローソク足分析レポート出力完了 - {len(exported_files)}ファイル")
+            logger.info(
+                f"ローソク足分析レポート出力完了 - {len(exported_files)}ファイル"
+            )
             return exported_files
 
         except Exception as e:

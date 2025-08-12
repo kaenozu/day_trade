@@ -135,7 +135,9 @@ class StructuredLogger:
     def _generate_correlation_id(self) -> str:
         """相関ID生成"""
         self.correlation_counter += 1
-        return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{self.correlation_counter:06d}"
+        return (
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{self.correlation_counter:06d}"
+        )
 
     def create_context(
         self, operation_name: str, user_id: str = None, parent_operation: str = None
@@ -317,7 +319,10 @@ class StructuredLogger:
 
         try:
             # ファイルサイズチェック・ローテーション
-            if file_path.exists() and file_path.stat().st_size > self.max_file_size_bytes:
+            if (
+                file_path.exists()
+                and file_path.stat().st_size > self.max_file_size_bytes
+            ):
                 self._rotate_log_file(file_path)
 
             # JSON Lines形式で出力
@@ -342,7 +347,9 @@ class StructuredLogger:
             rotated_path = file_path.parent / rotated_name
 
             file_path.rename(rotated_path)
-            base_logger.info(f"ログファイルローテーション: {file_path} -> {rotated_path}")
+            base_logger.info(
+                f"ログファイルローテーション: {file_path} -> {rotated_path}"
+            )
 
         except Exception as e:
             print(f"Log rotation error: {e}", file=sys.stderr)
@@ -355,7 +362,9 @@ class StructuredLogger:
             # コンパクトな表示形式
             timestamp = entry.timestamp[:19]  # 秒まで
             level = entry.level.value[:4]  # 短縮
-            correlation = entry.context.correlation_id[:8] if entry.context else "unknown"
+            correlation = (
+                entry.context.correlation_id[:8] if entry.context else "unknown"
+            )
 
             log_line = f"[{timestamp}] {level} [{correlation}] {entry.message}"
 
@@ -389,7 +398,9 @@ class StructuredLogger:
                     for line in f:
                         try:
                             entry = json.loads(line.strip())
-                            entry_time = datetime.fromisoformat(entry["timestamp"]).timestamp()
+                            entry_time = datetime.fromisoformat(
+                                entry["timestamp"]
+                            ).timestamp()
 
                             if entry_time < cutoff_time:
                                 continue
@@ -464,7 +475,9 @@ class StructuredLogger:
         return {
             "report_period_hours": hours,
             "error_count": len(error_logs),
-            "error_types": dict(sorted(error_types.items(), key=lambda x: x[1], reverse=True)),
+            "error_types": dict(
+                sorted(error_types.items(), key=lambda x: x[1], reverse=True)
+            ),
             "operation_failures": dict(
                 sorted(operation_failures.items(), key=lambda x: x[1], reverse=True)
             ),

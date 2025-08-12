@@ -90,13 +90,17 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
                 "depth": adaptive_depth,
             }
 
-            serialized = json.dumps(serializable_data, sort_keys=True, default=_json_serializer)
+            serialized = json.dumps(
+                serializable_data, sort_keys=True, default=_json_serializer
+            )
             cache_key = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
             # 処理時間の監視
             elapsed_time = time.time() - start_time
             if elapsed_time > config.serialization_timeout * 0.8:  # 80%を超えたら警告
-                logger.warning(f"Cache key generation took {elapsed_time:.3f}s for {func_name}")
+                logger.warning(
+                    f"Cache key generation took {elapsed_time:.3f}s for {func_name}"
+                )
 
             # キーの長さチェック
             final_key = f"{func_name}:{cache_key}"
@@ -116,7 +120,9 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
 
         except (TypeError, ValueError, OverflowError) as e:
             # 予期される例外: シリアライゼーションエラー
-            logger.warning(f"JSON serialization failed for cache key, using fallback: {e}")
+            logger.warning(
+                f"JSON serialization failed for cache key, using fallback: {e}"
+            )
             try:
                 return _generate_fallback_cache_key(func_name, args, kwargs)
             except Exception as fallback_error:
@@ -139,7 +145,9 @@ def generate_safe_cache_key(func_name: str, *args, **kwargs) -> str:
         except Exception as e:
             # 予期しない例外
             if logger.isEnabledFor(logging.ERROR):
-                logger.error(f"Unexpected error in cache key generation: {e}", exc_info=True)
+                logger.error(
+                    f"Unexpected error in cache key generation: {e}", exc_info=True
+                )
             raise CacheError(
                 f"キャッシュキー生成で予期しないエラーが発生しました: {e}",
                 "CACHE_KEY_GENERATION_UNEXPECTED",
@@ -249,14 +257,20 @@ def _normalize_arguments(
     except Exception as e:
         # id()の取得に失敗した場合はデバッグログに記録
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Failed to get object id for circular reference detection: {e}")
+            logger.debug(
+                f"Failed to get object id for circular reference detection: {e}"
+            )
         # 循環参照チェックをスキップして処理を続行
 
     # Pydanticモデル
     if PYDANTIC_AVAILABLE and isinstance(args, BaseModel):
         try:
-            model_data = args.model_dump() if hasattr(args, "model_dump") else args.dict()
-            return _normalize_arguments(model_data, max_depth, current_depth + 1, seen_objects)
+            model_data = (
+                args.model_dump() if hasattr(args, "model_dump") else args.dict()
+            )
+            return _normalize_arguments(
+                model_data, max_depth, current_depth + 1, seen_objects
+            )
         except Exception as e:
             logger.warning(f"Failed to serialize Pydantic model: {e}")
             return f"<PydanticModel:{type(args).__name__}>"
@@ -282,7 +296,9 @@ def _normalize_arguments(
     elif isinstance(args, dict):
         try:
             return {
-                str(key): _normalize_arguments(value, max_depth, current_depth + 1, seen_objects)
+                str(key): _normalize_arguments(
+                    value, max_depth, current_depth + 1, seen_objects
+                )
                 for key, value in args.items()
             }
         except Exception as e:
@@ -293,7 +309,9 @@ def _normalize_arguments(
             # セットを安全にソート
             return sorted(
                 [
-                    _normalize_arguments(item, max_depth, current_depth + 1, seen_objects)
+                    _normalize_arguments(
+                        item, max_depth, current_depth + 1, seen_objects
+                    )
                     for item in args
                 ],
                 key=str,
@@ -309,7 +327,9 @@ def _normalize_arguments(
             return f"<{type(args).__name__}:repr_failed>"
 
 
-def _estimate_data_complexity(data: Any, current_depth: int = 0, max_check_depth: int = 5) -> int:
+def _estimate_data_complexity(
+    data: Any, current_depth: int = 0, max_check_depth: int = 5
+) -> int:
     """
     データ構造の複雑度を推定（パフォーマンス考慮）
 

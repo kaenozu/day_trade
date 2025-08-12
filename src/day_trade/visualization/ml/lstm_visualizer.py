@@ -122,7 +122,9 @@ class LSTMVisualizer(ChartRenderer):
             upper_bound = intervals.get("upper", [])
 
             if lower_bound and upper_bound:
-                pred_x = range(len(actual_prices) - len(lower_bound), len(actual_prices))
+                pred_x = range(
+                    len(actual_prices) - len(lower_bound), len(actual_prices)
+                )
                 ax.fill_between(
                     pred_x,
                     lower_bound,
@@ -146,9 +148,13 @@ class LSTMVisualizer(ChartRenderer):
                 linestyle="--",
             )
 
-        self.apply_common_styling(ax, title=f"{symbol} LSTM価格予測", xlabel="時間", ylabel="価格")
+        self.apply_common_styling(
+            ax, title=f"{symbol} LSTM価格予測", xlabel="時間", ylabel="価格"
+        )
 
-    def _plot_prediction_accuracy(self, ax, data: pd.DataFrame, lstm_results: Dict) -> None:
+    def _plot_prediction_accuracy(
+        self, ax, data: pd.DataFrame, lstm_results: Dict
+    ) -> None:
         """
         予測精度プロット
 
@@ -181,7 +187,9 @@ class LSTMVisualizer(ChartRenderer):
                 label="移動平均精度",
             )
 
-        self.apply_common_styling(ax, title="LSTM予測精度", xlabel="時間", ylabel="誤差/精度")
+        self.apply_common_styling(
+            ax, title="LSTM予測精度", xlabel="時間", ylabel="誤差/精度"
+        )
 
     def _plot_attention_weights(self, ax, lstm_results: Dict) -> None:
         """
@@ -223,7 +231,9 @@ class LSTMVisualizer(ChartRenderer):
                     "feature_names", [f"特徴量{i + 1}" for i in range(len(importance))]
                 )
 
-                ax.barh(feature_names, importance, color=self.palette.get_color("neutral"))
+                ax.barh(
+                    feature_names, importance, color=self.palette.get_color("neutral")
+                )
                 self.apply_common_styling(
                     ax, title="特徴量重要度", xlabel="重要度", ylabel="特徴量"
                 )
@@ -338,7 +348,9 @@ class LSTMVisualizer(ChartRenderer):
             mean_pred = np.mean(predictions)
             std_pred = np.std(predictions)
 
-            ax.axvline(mean_pred, color="red", linestyle="--", label=f"平均: {mean_pred:.2f}")
+            ax.axvline(
+                mean_pred, color="red", linestyle="--", label=f"平均: {mean_pred:.2f}"
+            )
             ax.axvline(
                 mean_pred + std_pred,
                 color="orange",
@@ -354,7 +366,9 @@ class LSTMVisualizer(ChartRenderer):
                 label=f"-1σ: {mean_pred - std_pred:.2f}",
             )
 
-            self.apply_common_styling(ax, title="予測値分布", xlabel="予測価格", ylabel="頻度")
+            self.apply_common_styling(
+                ax, title="予測値分布", xlabel="予測価格", ylabel="頻度"
+            )
 
     def export_lstm_report(
         self, data: pd.DataFrame, lstm_results: Dict, symbol: str = "STOCK"

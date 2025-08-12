@@ -171,7 +171,9 @@ class OptimizedDataQualityEnhancer:
             cleaned_df = self._fill_missing_values_optimized(cleaned_df)
 
         if remove_outliers:
-            cleaned_df = self._remove_outliers_optimized(cleaned_df, method=outlier_method)
+            cleaned_df = self._remove_outliers_optimized(
+                cleaned_df, method=outlier_method
+            )
 
         if smooth_data:
             cleaned_df = self._smooth_data_optimized(cleaned_df)
@@ -207,7 +209,9 @@ class OptimizedDataQualityEnhancer:
 
         return df
 
-    def _remove_outliers_optimized(self, df: pd.DataFrame, method: str = "iqr") -> pd.DataFrame:
+    def _remove_outliers_optimized(
+        self, df: pd.DataFrame, method: str = "iqr"
+    ) -> pd.DataFrame:
         """外れ値除去（最適化済み）"""
         if method == "iqr":
             return self._remove_outliers_iqr_vectorized(df)
@@ -347,10 +351,14 @@ class OptimizedAdvancedFeatureEngineer:
 
         # Issue #383: スマート並列処理を利用
         if self.config.enable_smart_parallel and PARALLEL_MANAGER_AVAILABLE:
-            return self._generate_features_smart_parallel(data, indicators, enable_advanced)
+            return self._generate_features_smart_parallel(
+                data, indicators, enable_advanced
+            )
 
         # 従来の並列処理にフォールバック
-        return self._generate_features_legacy_parallel(data, indicators, enable_advanced)
+        return self._generate_features_legacy_parallel(
+            data, indicators, enable_advanced
+        )
 
     def _generate_features_smart_parallel(
         self,
@@ -364,7 +372,9 @@ class OptimizedAdvancedFeatureEngineer:
 
         # データをCPUバウンド処理用に適切にチャンク分割
         chunk_size = self.config.cpu_bound_chunk_size
-        chunks = [(i, data.iloc[i : i + chunk_size]) for i in range(0, len(data), chunk_size)]
+        chunks = [
+            (i, data.iloc[i : i + chunk_size]) for i in range(0, len(data), chunk_size)
+        ]
 
         # 並列実行タスクを準備
         tasks = []
@@ -378,7 +388,9 @@ class OptimizedAdvancedFeatureEngineer:
 
         # スマート並列実行マネージャーで実行
         parallel_manager = get_global_executor_manager()
-        results = parallel_manager.execute_batch(tasks, max_concurrent=self.config.max_workers)
+        results = parallel_manager.execute_batch(
+            tasks, max_concurrent=self.config.max_workers
+        )
 
         # 結果を順序保持して結合
         processed_chunks = []
@@ -479,7 +491,9 @@ class OptimizedAdvancedFeatureEngineer:
                 returns = np.full(len(prices), 0.0)
                 for i in range(period, len(prices)):
                     if prices[i - period] != 0:
-                        returns[i] = (prices[i] - prices[i - period]) / prices[i - period]
+                        returns[i] = (prices[i] - prices[i - period]) / prices[
+                            i - period
+                        ]
                 data[f"returns_{period}d"] = returns
 
             # 相対価格位置
@@ -490,7 +504,9 @@ class OptimizedAdvancedFeatureEngineer:
                     min_price = np.min(window_data)
                     max_price = np.max(window_data)
                     if max_price != min_price:
-                        rel_position[i] = (prices[i] - min_price) / (max_price - min_price)
+                        rel_position[i] = (prices[i] - min_price) / (
+                            max_price - min_price
+                        )
                 data[f"rel_position_{window}d"] = rel_position
         else:
             # pandas版（fallback）
@@ -514,14 +530,16 @@ class OptimizedAdvancedFeatureEngineer:
 
         for window in [5, 10, 20]:
             # 標準偏差ベース
-            data[f"realized_vol_{window}d"] = returns.rolling(window).std() * np.sqrt(252)
+            data[f"realized_vol_{window}d"] = returns.rolling(window).std() * np.sqrt(
+                252
+            )
 
             # Parkinson推定量（High-Low ベース）
             if all(col in data.columns for col in ["High", "Low"]):
                 hl_ratio = np.log(data["High"] / data["Low"]) ** 2
-                data[f"parkinson_vol_{window}d"] = hl_ratio.rolling(window).mean() * np.sqrt(
-                    252 / (4 * np.log(2))
-                )
+                data[f"parkinson_vol_{window}d"] = hl_ratio.rolling(
+                    window
+                ).mean() * np.sqrt(252 / (4 * np.log(2)))
 
         return data
 
@@ -561,7 +579,9 @@ class OptimizedAdvancedFeatureEngineer:
         """高度特徴量追加（最適化済み）"""
 
         # モメンタム指標（Numba最適化）
-        if self.config.enable_numba and all(col in data.columns for col in ["Close", "Volume"]):
+        if self.config.enable_numba and all(
+            col in data.columns for col in ["Close", "Volume"]
+        ):
             prices = data["Close"].values
             volumes = data["Volume"].values
 
@@ -571,16 +591,24 @@ class OptimizedAdvancedFeatureEngineer:
 
         # 時系列特徴量（軽量版）
         data["hour_sin"] = (
-            np.sin(2 * np.pi * data.index.hour / 24) if hasattr(data.index, "hour") else 0
+            np.sin(2 * np.pi * data.index.hour / 24)
+            if hasattr(data.index, "hour")
+            else 0
         )
         data["hour_cos"] = (
-            np.cos(2 * np.pi * data.index.hour / 24) if hasattr(data.index, "hour") else 0
+            np.cos(2 * np.pi * data.index.hour / 24)
+            if hasattr(data.index, "hour")
+            else 0
         )
         data["day_of_week_sin"] = (
-            np.sin(2 * np.pi * data.index.dayofweek / 7) if hasattr(data.index, "dayofweek") else 0
+            np.sin(2 * np.pi * data.index.dayofweek / 7)
+            if hasattr(data.index, "dayofweek")
+            else 0
         )
         data["day_of_week_cos"] = (
-            np.cos(2 * np.pi * data.index.dayofweek / 7) if hasattr(data.index, "dayofweek") else 0
+            np.cos(2 * np.pi * data.index.dayofweek / 7)
+            if hasattr(data.index, "dayofweek")
+            else 0
         )
 
         # 複合統計指標
@@ -614,9 +642,9 @@ class OptimizedAdvancedFeatureEngineer:
                 relative_perf = stock_returns - market_returns.reindex(
                     stock_returns.index, fill_value=0
                 )
-                feature_data[f"relative_performance_{market_name}"] = relative_perf.rolling(
-                    10
-                ).mean()
+                feature_data[f"relative_performance_{market_name}"] = (
+                    relative_perf.rolling(10).mean()
+                )
 
         return feature_data
 
@@ -675,7 +703,9 @@ if __name__ == "__main__":
 
     try:
         # テストデータ生成
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=5000, freq="1min")  # 軽量化
+        dates = pd.date_range(
+            end=pd.Timestamp.now(), periods=5000, freq="1min"
+        )  # 軽量化
         np.random.seed(42)
 
         base_price = 1000
@@ -699,7 +729,9 @@ if __name__ == "__main__":
         }
 
         # 最適化済みコンポーネント
-        config = OptimizationConfig(enable_parallel=True, enable_numba=True, chunk_size=1000)
+        config = OptimizationConfig(
+            enable_parallel=True, enable_numba=True, chunk_size=1000
+        )
 
         data_enhancer = OptimizedDataQualityEnhancer(config)
         feature_engineer = OptimizedAdvancedFeatureEngineer(config)
@@ -708,7 +740,9 @@ if __name__ == "__main__":
         clean_data = data_enhancer.clean_ohlcv_data(test_data)
 
         # 特徴量生成
-        feature_data = feature_engineer.generate_composite_features(clean_data, indicators)
+        feature_data = feature_engineer.generate_composite_features(
+            clean_data, indicators
+        )
 
         # メモリ最適化
         optimized_data = optimize_dataframe_memory(feature_data)

@@ -99,7 +99,9 @@ class GenerativeAIRiskEngine:
 
         # Anthropic クライアント初期化
         if ANTHROPIC_AVAILABLE and self.config.anthropic_api_key:
-            self.anthropic_client = AsyncAnthropic(api_key=self.config.anthropic_api_key)
+            self.anthropic_client = AsyncAnthropic(
+                api_key=self.config.anthropic_api_key
+            )
             logger.info("Anthropic Claude クライアント初期化完了")
         else:
             self.anthropic_client = None
@@ -159,7 +161,9 @@ class GenerativeAIRiskEngine:
             ai_models_used.append("heuristic-analyzer")
 
             # 並列実行
-            analysis_results = await asyncio.gather(*analysis_tasks, return_exceptions=True)
+            analysis_results = await asyncio.gather(
+                *analysis_tasks, return_exceptions=True
+            )
 
             # 結果統合
             if use_ensemble and len(analysis_results) > 1:
@@ -168,7 +172,9 @@ class GenerativeAIRiskEngine:
                 )
             else:
                 # 単一モデル結果使用
-                valid_results = [r for r in analysis_results if not isinstance(r, Exception)]
+                valid_results = [
+                    r for r in analysis_results if not isinstance(r, Exception)
+                ]
                 if valid_results:
                     final_result = valid_results[0]
                 else:
@@ -268,7 +274,9 @@ class GenerativeAIRiskEngine:
             logger.error(f"GPT-4 分析エラー: {e}")
             return self._create_fallback_response("gpt-4", str(e))
 
-    async def _analyze_with_claude(self, request: RiskAnalysisRequest) -> Dict[str, Any]:
+    async def _analyze_with_claude(
+        self, request: RiskAnalysisRequest
+    ) -> Dict[str, Any]:
         """Claudeによる高度リスク分析"""
 
         self.performance_stats["claude_calls"] += 1
@@ -321,7 +329,9 @@ class GenerativeAIRiskEngine:
             logger.error(f"Claude分析エラー: {e}")
             return self._create_fallback_response("claude-3-opus", str(e))
 
-    async def _basic_risk_analysis(self, request: RiskAnalysisRequest) -> Dict[str, Any]:
+    async def _basic_risk_analysis(
+        self, request: RiskAnalysisRequest
+    ) -> Dict[str, Any]:
         """基本的なヒューリスティックリスク分析"""
 
         risk_score = 0.0
@@ -387,7 +397,9 @@ class GenerativeAIRiskEngine:
     ) -> RiskAnalysisResult:
         """アンサンブル分析結果統合"""
 
-        valid_results = [r for r in results if isinstance(r, dict) and "risk_score" in r]
+        valid_results = [
+            r for r in results if isinstance(r, dict) and "risk_score" in r
+        ]
 
         if not valid_results:
             raise ValueError("有効な分析結果がありません")
@@ -440,7 +452,9 @@ class GenerativeAIRiskEngine:
             confidence=np.mean(confidences),
             explanation=combined_explanation,
             recommendations=list(set(all_recommendations)),  # 重複除去
-            risk_factors={f"factor_{i}": 1.0 for i, f in enumerate(set(all_risk_factors))},
+            risk_factors={
+                f"factor_{i}": 1.0 for i, f in enumerate(set(all_risk_factors))
+            },
             processing_time=time.time() - start_time,
             ai_models_used=models_used,
             timestamp=datetime.now(),
@@ -462,7 +476,9 @@ class GenerativeAIRiskEngine:
             risk_level=basic_result["risk_level"],
             confidence=0.6,  # フォールバック時は信頼度低下
             explanation=f"フォールバック分析: {basic_result['explanation']}",
-            recommendations=basic_result.get("recommendations", ["詳細分析を再実行してください"]),
+            recommendations=basic_result.get(
+                "recommendations", ["詳細分析を再実行してください"]
+            ),
             risk_factors={"fallback_analysis": 1.0},
             processing_time=time.time() - start_time,
             ai_models_used=["fallback-analyzer"],
@@ -510,9 +526,7 @@ class GenerativeAIRiskEngine:
         """リクエストハッシュ生成（キャッシュ用）"""
         import hashlib
 
-        hash_data = (
-            f"{request.transaction_id}-{request.symbol}-{request.amount}-{request.timestamp}"
-        )
+        hash_data = f"{request.transaction_id}-{request.symbol}-{request.amount}-{request.timestamp}"
         return hashlib.md5(hash_data.encode()).hexdigest()
 
     def _get_cached_result(self, request_hash: str) -> Optional[RiskAnalysisResult]:
@@ -525,7 +539,9 @@ class GenerativeAIRiskEngine:
         if not cache_time:
             return None
 
-        if datetime.now() - cache_time > timedelta(seconds=self.config.cache_ttl_seconds):
+        if datetime.now() - cache_time > timedelta(
+            seconds=self.config.cache_ttl_seconds
+        ):
             # 期限切れキャッシュ削除
             del self.analysis_cache[request_hash]
             del self.cache_timestamps[request_hash]
@@ -541,7 +557,9 @@ class GenerativeAIRiskEngine:
         # キャッシュサイズ制限（1000件）
         if len(self.analysis_cache) > 1000:
             # 最も古いキャッシュを削除
-            oldest_key = min(self.cache_timestamps.keys(), key=lambda k: self.cache_timestamps[k])
+            oldest_key = min(
+                self.cache_timestamps.keys(), key=lambda k: self.cache_timestamps[k]
+            )
             del self.analysis_cache[oldest_key]
             del self.cache_timestamps[oldest_key]
 

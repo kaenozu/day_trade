@@ -156,7 +156,9 @@ class ElasticsearchManager:
             if self.client.ping():
                 self.connection_status = ElasticSearchConnectionStatus.CONNECTED
                 cluster_health = self.client.cluster.health()
-                self.logger.info(f"Elasticsearch接続成功: {cluster_health['cluster_name']}")
+                self.logger.info(
+                    f"Elasticsearch接続成功: {cluster_health['cluster_name']}"
+                )
                 return True
             else:
                 self.connection_status = ElasticSearchConnectionStatus.ERROR
@@ -171,7 +173,10 @@ class ElasticsearchManager:
     async def create_index_template(self, template: ELKIndexTemplate) -> bool:
         """インデックステンプレート作成"""
         try:
-            if not self.client or self.connection_status != ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                not self.client
+                or self.connection_status != ElasticSearchConnectionStatus.CONNECTED
+            ):
                 self.logger.error("Elasticsearchに接続されていません")
                 return False
 
@@ -202,7 +207,10 @@ class ElasticsearchManager:
     async def index_log_entry(self, log_entry: LogEntry, index_name: str) -> bool:
         """ログエントリインデックス化"""
         try:
-            if not self.client or self.connection_status != ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                not self.client
+                or self.connection_status != ElasticSearchConnectionStatus.CONNECTED
+            ):
                 return False
 
             # Elasticsearch用ドキュメント作成
@@ -230,10 +238,15 @@ class ElasticsearchManager:
             self.logger.error(f"ログインデックス化エラー: {e}")
             return False
 
-    async def bulk_index_logs(self, log_entries: List[LogEntry], index_name: str) -> int:
+    async def bulk_index_logs(
+        self, log_entries: List[LogEntry], index_name: str
+    ) -> int:
         """ログエントリ一括インデックス化"""
         try:
-            if not self.client or self.connection_status != ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                not self.client
+                or self.connection_status != ElasticSearchConnectionStatus.CONNECTED
+            ):
                 return 0
 
             # バルクインデックス用データ準備
@@ -277,10 +290,15 @@ class ElasticsearchManager:
     ) -> Dict[str, Any]:
         """ログ検索"""
         try:
-            if not self.client or self.connection_status != ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                not self.client
+                or self.connection_status != ElasticSearchConnectionStatus.CONNECTED
+            ):
                 return {"hits": {"total": {"value": 0}, "hits": []}}
 
-            response = self.client.search(index=index_pattern, body=query, size=size, from_=from_)
+            response = self.client.search(
+                index=index_pattern, body=query, size=size, from_=from_
+            )
 
             return response
 
@@ -291,7 +309,10 @@ class ElasticsearchManager:
     async def get_cluster_health(self) -> Dict[str, Any]:
         """クラスター健全性取得"""
         try:
-            if not self.client or self.connection_status != ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                not self.client
+                or self.connection_status != ElasticSearchConnectionStatus.CONNECTED
+            ):
                 return {}
 
             health = self.client.cluster.health()
@@ -369,7 +390,9 @@ class LogstashIntegration:
                 import socket
 
                 sock_type = (
-                    socket.SOCK_STREAM if self.config.protocol == "tcp" else socket.SOCK_DGRAM
+                    socket.SOCK_STREAM
+                    if self.config.protocol == "tcp"
+                    else socket.SOCK_DGRAM
                 )
 
                 with socket.socket(socket.AF_INET, sock_type) as sock:
@@ -391,14 +414,18 @@ class LogstashIntegration:
                     return True
 
             else:
-                self.logger.error(f"サポートされていないプロトコル: {self.config.protocol}")
+                self.logger.error(
+                    f"サポートされていないプロトコル: {self.config.protocol}"
+                )
                 return False
 
         except Exception as e:
             self.logger.error(f"Logstash送信エラー: {e}")
             return False
 
-    def generate_logstash_config(self, elasticsearch_config: ElasticSearchConfig) -> str:
+    def generate_logstash_config(
+        self, elasticsearch_config: ElasticSearchConfig
+    ) -> str:
         """Logstash設定ファイル生成"""
         config_template = f"""
 input {{
@@ -485,16 +512,16 @@ class KibanaIntegration:
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-    async def create_index_pattern(self, pattern_name: str, time_field: str = "@timestamp") -> bool:
+    async def create_index_pattern(
+        self, pattern_name: str, time_field: str = "@timestamp"
+    ) -> bool:
         """Kibanaインデックスパターン作成"""
         try:
             if not REQUESTS_AVAILABLE:
                 self.logger.error("requestsライブラリが利用できません")
                 return False
 
-            base_url = (
-                f"http{'s' if self.config.use_ssl else ''}://{self.config.host}:{self.config.port}"
-            )
+            base_url = f"http{'s' if self.config.use_ssl else ''}://{self.config.host}:{self.config.port}"
             api_url = f"{base_url}/api/saved_objects/index-pattern/{pattern_name}"
 
             # リクエストヘッダー
@@ -506,7 +533,9 @@ class KibanaIntegration:
                 auth = (self.config.username, self.config.password)
 
             # インデックスパターン作成ペイロード
-            payload = {"attributes": {"title": pattern_name, "timeFieldName": time_field}}
+            payload = {
+                "attributes": {"title": pattern_name, "timeFieldName": time_field}
+            }
 
             response = requests.post(
                 api_url,
@@ -538,9 +567,7 @@ class KibanaIntegration:
             if not REQUESTS_AVAILABLE:
                 return False
 
-            base_url = (
-                f"http{'s' if self.config.use_ssl else ''}://{self.config.host}:{self.config.port}"
-            )
+            base_url = f"http{'s' if self.config.use_ssl else ''}://{self.config.host}:{self.config.port}"
 
             # 認証ヘッダー
             headers = {"Content-Type": "application/json", "kbn-xsrf": "true"}
@@ -560,9 +587,7 @@ class KibanaIntegration:
                 }
             }
 
-            api_url = (
-                f"{base_url}/api/saved_objects/dashboard/{dashboard_name.lower().replace(' ', '-')}"
-            )
+            api_url = f"{base_url}/api/saved_objects/dashboard/{dashboard_name.lower().replace(' ', '-')}"
 
             response = requests.post(
                 api_url, json=dashboard_payload, headers=headers, auth=auth, timeout=30
@@ -572,7 +597,9 @@ class KibanaIntegration:
                 self.logger.info(f"Kibanaダッシュボード作成成功: {dashboard_name}")
                 return True
             else:
-                self.logger.error(f"Kibanaダッシュボード作成失敗: {response.status_code}")
+                self.logger.error(
+                    f"Kibanaダッシュボード作成失敗: {response.status_code}"
+                )
                 return False
 
         except Exception as e:
@@ -713,7 +740,10 @@ class ELKStackIntegration:
             tasks = []
 
             # Elasticsearchに直接インデックス
-            if self.elasticsearch.connection_status == ElasticSearchConnectionStatus.CONNECTED:
+            if (
+                self.elasticsearch.connection_status
+                == ElasticSearchConnectionStatus.CONNECTED
+            ):
                 tasks.append(self.elasticsearch.index_log_entry(log_entry, index_name))
 
             # Logstashに送信（必要に応じて）
@@ -721,7 +751,9 @@ class ELKStackIntegration:
 
             if tasks:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                success_count = sum(1 for result in results if isinstance(result, bool) and result)
+                success_count = sum(
+                    1 for result in results if isinstance(result, bool) and result
+                )
 
                 return success_count > 0
             else:
@@ -741,11 +773,15 @@ class ELKStackIntegration:
             index_name = f"day-trade-logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
 
             # Elasticsearchに一括インデックス
-            success_count = await self.elasticsearch.bulk_index_logs(log_entries, index_name)
+            success_count = await self.elasticsearch.bulk_index_logs(
+                log_entries, index_name
+            )
 
             # 統計ログ出力
             if success_count > 0:
-                self.logger.info(f"ELK Stack一括処理完了: {success_count}/{len(log_entries)}件")
+                self.logger.info(
+                    f"ELK Stack一括処理完了: {success_count}/{len(log_entries)}件"
+                )
 
             return success_count
 
@@ -793,15 +829,21 @@ class ELKStackIntegration:
 
             # ログレベルフィルター
             if log_levels:
-                es_query["query"]["bool"]["filter"].append({"terms": {"level": log_levels}})
+                es_query["query"]["bool"]["filter"].append(
+                    {"terms": {"level": log_levels}}
+                )
 
             # コンポーネントフィルター
             if components:
-                es_query["query"]["bool"]["filter"].append({"terms": {"component": components}})
+                es_query["query"]["bool"]["filter"].append(
+                    {"terms": {"component": components}}
+                )
 
             # 検索実行
             index_pattern = "day-trade-logs-*"
-            response = await self.elasticsearch.search_logs(index_pattern, es_query, size=size)
+            response = await self.elasticsearch.search_logs(
+                index_pattern, es_query, size=size
+            )
 
             return response
 
@@ -823,7 +865,9 @@ class ELKStackIntegration:
             try:
                 es_health = await self.elasticsearch.get_cluster_health()
                 if es_health:
-                    health_status["elasticsearch"]["status"] = es_health.get("status", "unknown")
+                    health_status["elasticsearch"]["status"] = es_health.get(
+                        "status", "unknown"
+                    )
                     health_status["elasticsearch"]["details"] = es_health
                 else:
                     health_status["elasticsearch"]["status"] = "disconnected"
@@ -838,7 +882,9 @@ class ELKStackIntegration:
 
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                     sock.settimeout(5)
-                    result = sock.connect_ex((self.logstash.config.host, self.logstash.config.port))
+                    result = sock.connect_ex(
+                        (self.logstash.config.host, self.logstash.config.port)
+                    )
                     if result == 0:
                         health_status["logstash"]["status"] = "connected"
                     else:
@@ -928,7 +974,9 @@ if __name__ == "__main__":
             health_status = await elk_system.get_elk_stack_health()
 
             print(f"   総合ステータス: {health_status.get('overall_status')}")
-            print(f"   Elasticsearch: {health_status.get('elasticsearch', {}).get('status')}")
+            print(
+                f"   Elasticsearch: {health_status.get('elasticsearch', {}).get('status')}"
+            )
             print(f"   Logstash: {health_status.get('logstash', {}).get('status')}")
             print(f"   Kibana: {health_status.get('kibana', {}).get('status')}")
 

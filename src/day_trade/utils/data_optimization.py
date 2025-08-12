@@ -158,7 +158,9 @@ class DataFrameOptimizer:
                 "memory_before_mb": round(memory_before, 2),
                 "memory_after_mb": round(memory_after, 2),
                 "memory_saved_mb": round(memory_saved, 2),
-                "memory_reduction_percent": round((memory_saved / memory_before) * 100, 1),
+                "memory_reduction_percent": round(
+                    (memory_saved / memory_before) * 100, 1
+                ),
                 "optimizations_applied": optimizations_applied,
             },
         )
@@ -245,21 +247,27 @@ class DataFrameOptimizer:
 
             if op_type == "technical_indicator":
                 # テクニカル指標の計算
-                result = self._calculate_technical_indicator_vectorized(optimized_df, operation)
+                result = self._calculate_technical_indicator_vectorized(
+                    optimized_df, operation
+                )
                 if result is not None:
                     optimized_df = result
                     vectorizations_applied += 1
 
             elif op_type == "rolling_calculation":
                 # ローリング計算
-                result = self._apply_rolling_calculation_vectorized(optimized_df, operation)
+                result = self._apply_rolling_calculation_vectorized(
+                    optimized_df, operation
+                )
                 if result is not None:
                     optimized_df = result
                     vectorizations_applied += 1
 
             elif op_type == "mathematical_operation":
                 # 数学的操作
-                result = self._apply_mathematical_operation_vectorized(optimized_df, operation)
+                result = self._apply_mathematical_operation_vectorized(
+                    optimized_df, operation
+                )
                 if result is not None:
                     optimized_df = result
                     vectorizations_applied += 1
@@ -291,7 +299,9 @@ class DataFrameOptimizer:
         try:
             if indicator_type == "sma":
                 # 単純移動平均
-                df[f"SMA_{period}"] = df[column].rolling(window=period, min_periods=1).mean()
+                df[f"SMA_{period}"] = (
+                    df[column].rolling(window=period, min_periods=1).mean()
+                )
 
             elif indicator_type == "ema":
                 # 指数移動平均
@@ -362,7 +372,9 @@ class DataFrameOptimizer:
             elif calc_type == "volatility":
                 # 価格変化率の標準偏差（ボラティリティ）
                 returns = df[column].pct_change()
-                df[f"{column}_volatility_{window}"] = returns.rolling(window=window).std()
+                df[f"{column}_volatility_{window}"] = returns.rolling(
+                    window=window
+                ).std()
 
             return df
 
@@ -387,7 +399,9 @@ class DataFrameOptimizer:
             if operation_type == "ratio":
                 # 比率計算
                 if len(columns) == 2:
-                    df[result_column] = df[columns[0]] / df[columns[1]].replace(0, np.nan)
+                    df[result_column] = df[columns[0]] / df[columns[1]].replace(
+                        0, np.nan
+                    )
 
             elif operation_type == "difference":
                 # 差分計算
@@ -420,7 +434,9 @@ class DataFrameOptimizer:
             return None
 
     @memory_monitor
-    def eliminate_unnecessary_copies(self, df: pd.DataFrame, operations: List[str]) -> pd.DataFrame:
+    def eliminate_unnecessary_copies(
+        self, df: pd.DataFrame, operations: List[str]
+    ) -> pd.DataFrame:
         """
         不必要なデータコピーの回避
 
@@ -446,7 +462,9 @@ class DataFrameOptimizer:
                 # 欠損値処理（効率的な方法）
                 if optimized_df.isna().any().any():
                     # 数値列は前方穴埋め、その他は特定値で穴埋め
-                    numeric_cols = optimized_df.select_dtypes(include=[np.number]).columns
+                    numeric_cols = optimized_df.select_dtypes(
+                        include=[np.number]
+                    ).columns
                     categorical_cols = optimized_df.select_dtypes(
                         include=["category", "object"]
                     ).columns
@@ -456,9 +474,9 @@ class DataFrameOptimizer:
                             method="ffill"
                         )
                     if len(categorical_cols) > 0:
-                        optimized_df[categorical_cols] = optimized_df[categorical_cols].fillna(
-                            "Unknown"
-                        )
+                        optimized_df[categorical_cols] = optimized_df[
+                            categorical_cols
+                        ].fillna("Unknown")
                     copy_eliminations += 1
 
             elif operation == "sort_values":
@@ -547,7 +565,9 @@ class ChunkedDataProcessor:
         self.optimizer = DataFrameOptimizer()
 
     @memory_monitor
-    def process_large_dataframe(self, df: pd.DataFrame, processing_func, **kwargs) -> pd.DataFrame:
+    def process_large_dataframe(
+        self, df: pd.DataFrame, processing_func, **kwargs
+    ) -> pd.DataFrame:
         """
         大規模DataFrameのチャンク処理
 
@@ -606,7 +626,9 @@ class ChunkedDataProcessor:
         return result
 
 
-def create_optimized_dataframe(data: Dict[str, Any], optimize_dtypes: bool = True) -> pd.DataFrame:
+def create_optimized_dataframe(
+    data: Dict[str, Any], optimize_dtypes: bool = True
+) -> pd.DataFrame:
     """
     最適化されたDataFrameを作成
 
@@ -657,7 +679,9 @@ def benchmark_dataframe_operations(
                 if operation.get("type") == "dtype_optimization":
                     _ = optimizer.optimize_dtypes(df.copy())
                 elif operation.get("type") == "vectorization":
-                    _ = optimizer.vectorize_operations(df.copy(), operation.get("operations", []))
+                    _ = optimizer.vectorize_operations(
+                        df.copy(), operation.get("operations", [])
+                    )
 
                 elapsed_time = time.perf_counter() - start_time
                 operation_times.append(elapsed_time * 1000)  # ms

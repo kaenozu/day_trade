@@ -125,7 +125,9 @@ class MetricTimeSeries:
         self.timestamps.append(timestamp)
         self.last_updated = timestamp
 
-    def get_recent_values(self, minutes: int = 60) -> Tuple[List[float], List[datetime]]:
+    def get_recent_values(
+        self, minutes: int = 60
+    ) -> Tuple[List[float], List[datetime]]:
         """最近のデータ取得"""
         cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
 
@@ -176,14 +178,20 @@ class StatisticalAnomalyDetector:
 
         # 統計的外れ値検知
         anomalies.extend(
-            self._detect_statistical_outliers(time_series.metric_name, values, timestamps)
+            self._detect_statistical_outliers(
+                time_series.metric_name, values, timestamps
+            )
         )
 
         # スパイク検知
-        anomalies.extend(self._detect_spikes(time_series.metric_name, values, timestamps))
+        anomalies.extend(
+            self._detect_spikes(time_series.metric_name, values, timestamps)
+        )
 
         # トレンド変化検知
-        anomalies.extend(self._detect_trend_changes(time_series.metric_name, values, timestamps))
+        anomalies.extend(
+            self._detect_trend_changes(time_series.metric_name, values, timestamps)
+        )
 
         return anomalies
 
@@ -575,7 +583,9 @@ class AdvancedAnomalyAlertSystem:
         self.alert_history: deque = deque(maxlen=1000)
 
         # アラート設定
-        self.suppression_rules: Dict[str, timedelta] = defaultdict(lambda: timedelta(minutes=5))
+        self.suppression_rules: Dict[str, timedelta] = defaultdict(
+            lambda: timedelta(minutes=5)
+        )
         self.escalation_thresholds: Dict[AlertSeverity, int] = {
             AlertSeverity.INFO: 10,
             AlertSeverity.LOW: 5,
@@ -587,7 +597,9 @@ class AdvancedAnomalyAlertSystem:
 
         self.logger = logging.getLogger(__name__)
 
-    def ingest_metric(self, metric_name: str, value: float, timestamp: Optional[datetime] = None):
+    def ingest_metric(
+        self, metric_name: str, value: float, timestamp: Optional[datetime] = None
+    ):
         """メトリクス取り込み"""
         if metric_name not in self.time_series_data:
             self.time_series_data[metric_name] = MetricTimeSeries(metric_name)
@@ -627,7 +639,9 @@ class AdvancedAnomalyAlertSystem:
         severity = self._determine_severity(anomaly)
 
         # アラートID生成
-        alert_id = f"alert_{anomaly.metric_name}_{int(time.time())}_{hash(str(anomaly.value))}"
+        alert_id = (
+            f"alert_{anomaly.metric_name}_{int(time.time())}_{hash(str(anomaly.value))}"
+        )
 
         # タイトル・説明生成
         title = f"{anomaly.anomaly_type.value.replace('_', ' ').title()} - {anomaly.metric_name}"
@@ -683,7 +697,9 @@ class AdvancedAnomalyAlertSystem:
         """アラート作成判定"""
         # 抑制ルールチェック
         metric_name = alert.anomaly_score.metric_name
-        suppression_period = self.suppression_rules.get(metric_name, timedelta(minutes=5))
+        suppression_period = self.suppression_rules.get(
+            metric_name, timedelta(minutes=5)
+        )
 
         # 同じメトリクスの最近のアラートをチェック
         cutoff_time = datetime.utcnow() - suppression_period
@@ -743,7 +759,9 @@ class AdvancedAnomalyAlertSystem:
             return True
         return False
 
-    def get_active_alerts(self, severity: Optional[AlertSeverity] = None) -> List[Alert]:
+    def get_active_alerts(
+        self, severity: Optional[AlertSeverity] = None
+    ) -> List[Alert]:
         """アクティブアラート取得"""
         alerts = []
 
@@ -791,7 +809,11 @@ class AdvancedAnomalyAlertSystem:
         return {
             "active_alerts": {
                 "total": len(
-                    [a for a in self.active_alerts.values() if a.status == AlertStatus.ACTIVE]
+                    [
+                        a
+                        for a in self.active_alerts.values()
+                        if a.status == AlertStatus.ACTIVE
+                    ]
                 ),
                 "by_severity": dict(active_count_by_severity),
             },
@@ -883,7 +905,9 @@ if __name__ == "__main__":
             print("\n3. 異常データ注入テスト...")
 
             # スパイク異常
-            alert_system.ingest_metric("cpu_usage", 200, datetime.utcnow())  # 正常値の2倍
+            alert_system.ingest_metric(
+                "cpu_usage", 200, datetime.utcnow()
+            )  # 正常値の2倍
             await asyncio.sleep(0.1)
 
             # 統計的外れ値
@@ -943,11 +967,15 @@ if __name__ == "__main__":
                 first_alert = active_alerts[0]
 
                 # アラート確認
-                success = alert_system.acknowledge_alert(first_alert.alert_id, "test_user")
+                success = alert_system.acknowledge_alert(
+                    first_alert.alert_id, "test_user"
+                )
                 print(f"   アラート確認: {'成功' if success else '失敗'}")
 
                 # アラート抑制
-                success = alert_system.suppress_alert(first_alert.alert_id, timedelta(minutes=10))
+                success = alert_system.suppress_alert(
+                    first_alert.alert_id, timedelta(minutes=10)
+                )
                 print(f"   アラート抑制: {'成功' if success else '失敗'}")
 
             # 継続監視テスト
@@ -984,7 +1012,9 @@ if __name__ == "__main__":
                 alert_system.ingest_metric("performance_test", value)
 
             # 異常検知実行
-            perf_alerts = await alert_system.process_anomaly_detection("performance_test")
+            perf_alerts = await alert_system.process_anomaly_detection(
+                "performance_test"
+            )
 
             duration = time.time() - start_time
             print(f"   1000件処理時間: {duration:.3f}秒")

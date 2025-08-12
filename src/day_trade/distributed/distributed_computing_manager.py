@@ -27,7 +27,9 @@ try:
     DASK_AVAILABLE = True
     RAY_AVAILABLE = True
 except ImportError as e:
-    missing_lib = str(e).split("'")[1] if "'" in str(e) else "distributed computing library"
+    missing_lib = (
+        str(e).split("'")[1] if "'" in str(e) else "distributed computing library"
+    )
     warnings.warn(
         f"{missing_lib}が利用できません。該当機能は制限されます。",
         UserWarning,
@@ -161,7 +163,9 @@ class DistributedBackendManager(ABC):
         pass
 
     @abstractmethod
-    async def execute_batch(self, tasks: List[DistributedTask]) -> List[DistributedResult]:
+    async def execute_batch(
+        self, tasks: List[DistributedTask]
+    ) -> List[DistributedResult]:
         """バッチタスク実行"""
         pass
 
@@ -250,7 +254,9 @@ class DaskBackendManager(DistributedBackendManager):
                 backend_used=ComputingBackend.DASK,
             )
 
-    async def execute_batch(self, tasks: List[DistributedTask]) -> List[DistributedResult]:
+    async def execute_batch(
+        self, tasks: List[DistributedTask]
+    ) -> List[DistributedResult]:
         """Daskバッチ実行"""
         if not self.initialized or not DASK_AVAILABLE:
             return [await self.execute_task(task) for task in tasks]
@@ -373,7 +379,9 @@ class RayBackendManager(DistributedBackendManager):
                 success=True,
                 execution_time_seconds=execution_time,
                 backend_used=ComputingBackend.RAY,
-                worker_id=str(self.ray_context.get_worker_id()) if self.ray_context else None,
+                worker_id=(
+                    str(self.ray_context.get_worker_id()) if self.ray_context else None
+                ),
             )
 
         except Exception as e:
@@ -388,7 +396,9 @@ class RayBackendManager(DistributedBackendManager):
                 backend_used=ComputingBackend.RAY,
             )
 
-    async def execute_batch(self, tasks: List[DistributedTask]) -> List[DistributedResult]:
+    async def execute_batch(
+        self, tasks: List[DistributedTask]
+    ) -> List[DistributedResult]:
         """Rayバッチ実行"""
         if not self.initialized or not RAY_AVAILABLE:
             return [await self.execute_task(task) for task in tasks]
@@ -501,7 +511,9 @@ class SequentialBackendManager(DistributedBackendManager):
                 backend_used=ComputingBackend.SEQUENTIAL,
             )
 
-    async def execute_batch(self, tasks: List[DistributedTask]) -> List[DistributedResult]:
+    async def execute_batch(
+        self, tasks: List[DistributedTask]
+    ) -> List[DistributedResult]:
         """シーケンシャルバッチ実行"""
         return [await self.execute_task(task) for task in tasks]
 
@@ -616,7 +628,9 @@ class DistributedComputingManager:
         if not self.available_backends:
             self.available_backends.add(ComputingBackend.SEQUENTIAL)
             initialization_results[ComputingBackend.SEQUENTIAL] = True
-            logger.warning("全分散バックエンド初期化失敗。シーケンシャル処理にフォールバック")
+            logger.warning(
+                "全分散バックエンド初期化失敗。シーケンシャル処理にフォールバック"
+            )
 
         logger.info(
             f"初期化完了。利用可能バックエンド: {[b.value for b in self.available_backends]}"
@@ -669,7 +683,9 @@ class DistributedComputingManager:
         else:
             return ComputingBackend.SEQUENTIAL
 
-    async def execute_distributed_task(self, task: DistributedTask) -> DistributedResult:
+    async def execute_distributed_task(
+        self, task: DistributedTask
+    ) -> DistributedResult:
         """
         分散タスク実行
 
@@ -691,14 +707,20 @@ class DistributedComputingManager:
         try:
             # バックエンド別実行
             if selected_backend in self.backend_managers:
-                result = await self.backend_managers[selected_backend].execute_task(task)
+                result = await self.backend_managers[selected_backend].execute_task(
+                    task
+                )
             else:
                 # 標準並列処理フォールバック
-                result = await self._execute_with_parallel_executor(task, selected_backend)
+                result = await self._execute_with_parallel_executor(
+                    task, selected_backend
+                )
 
             # 統計更新
             execution_time = time.time() - start_time
-            self._update_performance_stats(selected_backend, execution_time, result.success)
+            self._update_performance_stats(
+                selected_backend, execution_time, result.success
+            )
 
             return result
 
@@ -707,7 +729,10 @@ class DistributedComputingManager:
             logger.error(f"分散タスク実行エラー {task.task_id}: {e}")
 
             # フォールバック処理
-            if self.fallback_strategy and selected_backend != ComputingBackend.SEQUENTIAL:
+            if (
+                self.fallback_strategy
+                and selected_backend != ComputingBackend.SEQUENTIAL
+            ):
                 logger.info(f"フォールバック実行: {task.task_id}")
                 fallback_task = DistributedTask(
                     task_id=f"{task.task_id}_fallback",
@@ -716,9 +741,9 @@ class DistributedComputingManager:
                     kwargs=task.kwargs,
                     task_type=task.task_type,
                 )
-                return await self.backend_managers[ComputingBackend.SEQUENTIAL].execute_task(
-                    fallback_task
-                )
+                return await self.backend_managers[
+                    ComputingBackend.SEQUENTIAL
+                ].execute_task(fallback_task)
 
             return DistributedResult(
                 task_id=task.task_id,
@@ -749,7 +774,9 @@ class DistributedComputingManager:
         if not tasks:
             return []
 
-        logger.info(f"分散バッチ実行開始: {len(tasks)}タスク, strategy={strategy.value}")
+        logger.info(
+            f"分散バッチ実行開始: {len(tasks)}タスク, strategy={strategy.value}"
+        )
 
         # 分散戦略に応じてタスクをグループ化
         task_groups = self._group_tasks_by_strategy(tasks, strategy)

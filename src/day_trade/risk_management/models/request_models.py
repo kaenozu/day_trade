@@ -246,7 +246,9 @@ class AlertRequest(BaseRequest):
     title: Optional[str] = None
     message: Optional[str] = None
     target: Optional[Union[Asset, Position, Portfolio]] = None
-    notification_channels: List[str] = field(default_factory=list)  # "email", "slack", "webhook"
+    notification_channels: List[str] = field(
+        default_factory=list
+    )  # "email", "slack", "webhook"
 
 
 # ストリーミング・リアルタイムリクエスト

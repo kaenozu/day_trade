@@ -832,7 +832,9 @@ def create_redis_enhanced_cache(
         password=password,
         max_connections=max_connections,
         strategy=(
-            RedisConnectionStrategy.CLUSTER if enable_cluster else RedisConnectionStrategy.SINGLE
+            RedisConnectionStrategy.CLUSTER
+            if enable_cluster
+            else RedisConnectionStrategy.SINGLE
         ),
         cluster_nodes=cluster_nodes or [],
     )

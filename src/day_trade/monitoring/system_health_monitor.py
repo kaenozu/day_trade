@@ -142,7 +142,9 @@ class SystemHealthMonitor:
 
         logger.info(f"コンポーネント登録: {component_id} ({component_type.value})")
 
-    def register_recovery_handler(self, component_id: str, recovery_function: Callable) -> None:
+    def register_recovery_handler(
+        self, component_id: str, recovery_function: Callable
+    ) -> None:
         """復旧ハンドラー登録"""
         self.recovery_handlers[component_id] = recovery_function
         logger.info(f"復旧ハンドラー登録: {component_id}")
@@ -191,7 +193,9 @@ class SystemHealthMonitor:
                 # 全コンポーネントヘルスチェック
                 check_tasks = []
                 for component_id in self.components.keys():
-                    task = asyncio.create_task(self._check_component_health(component_id))
+                    task = asyncio.create_task(
+                        self._check_component_health(component_id)
+                    )
                     check_tasks.append(task)
 
                 # 並列実行
@@ -201,7 +205,9 @@ class SystemHealthMonitor:
                     for i, result in enumerate(results):
                         if isinstance(result, Exception):
                             component_id = list(self.components.keys())[i]
-                            logger.error(f"ヘルスチェックエラー {component_id}: {result}")
+                            logger.error(
+                                f"ヘルスチェックエラー {component_id}: {result}"
+                            )
 
                 # 履歴クリーンアップ
                 await self._cleanup_health_history()
@@ -253,7 +259,9 @@ class SystemHealthMonitor:
 
         try:
             # ヘルスチェック実行
-            result = await self._execute_health_check(check_function, component_info["config"])
+            result = await self._execute_health_check(
+                check_function, component_info["config"]
+            )
             response_time = (time.time() - start_time) * 1000
 
             # 結果判定
@@ -322,7 +330,10 @@ class SystemHealthMonitor:
         current_time = datetime.now()
 
         # 復旧試行制限チェック
-        if self.recovery_attempts.get(component_id, 0) >= self.config.max_recovery_attempts:
+        if (
+            self.recovery_attempts.get(component_id, 0)
+            >= self.config.max_recovery_attempts
+        ):
             last_attempt = self.last_recovery_attempt.get(component_id)
             if last_attempt and current_time - last_attempt < timedelta(
                 minutes=self.config.recovery_cooldown_minutes
@@ -458,7 +469,9 @@ class SystemHealthMonitor:
 
     async def _cleanup_health_history(self) -> None:
         """ヘルス履歴クリーンアップ"""
-        cutoff_time = datetime.now() - timedelta(hours=self.config.health_history_retention_hours)
+        cutoff_time = datetime.now() - timedelta(
+            hours=self.config.health_history_retention_hours
+        )
 
         self.health_history = [
             result for result in self.health_history if result.timestamp > cutoff_time
@@ -504,13 +517,21 @@ class SystemHealthMonitor:
             "components": component_status,
             "resource_metrics": (
                 {
-                    "cpu_percent": latest_metrics.cpu_percent if latest_metrics else None,
-                    "memory_percent": latest_metrics.memory_percent if latest_metrics else None,
-                    "disk_percent": latest_metrics.disk_percent if latest_metrics else None,
+                    "cpu_percent": (
+                        latest_metrics.cpu_percent if latest_metrics else None
+                    ),
+                    "memory_percent": (
+                        latest_metrics.memory_percent if latest_metrics else None
+                    ),
+                    "disk_percent": (
+                        latest_metrics.disk_percent if latest_metrics else None
+                    ),
                     "network_connections": (
                         latest_metrics.network_connections if latest_metrics else None
                     ),
-                    "process_count": latest_metrics.process_count if latest_metrics else None,
+                    "process_count": (
+                        latest_metrics.process_count if latest_metrics else None
+                    ),
                 }
                 if latest_metrics
                 else {}
@@ -523,7 +544,9 @@ class SystemHealthMonitor:
             },
         }
 
-    def _determine_overall_status(self, component_status: Dict[str, Dict[str, Any]]) -> str:
+    def _determine_overall_status(
+        self, component_status: Dict[str, Dict[str, Any]]
+    ) -> str:
         """全体ステータス判定"""
         if not component_status:
             return "unknown"
@@ -554,7 +577,9 @@ class SystemHealthMonitor:
         # コンポーネント別統計
         component_stats = {}
         for component_id in self.components.keys():
-            component_history = [r for r in recent_history if r.component_id == component_id]
+            component_history = [
+                r for r in recent_history if r.component_id == component_id
+            ]
 
             if component_history:
                 total_checks = len(component_history)
@@ -573,15 +598,21 @@ class SystemHealthMonitor:
                 }
 
         # リソーストレンド
-        recent_resources = [m for m in self.resource_metrics if m.timestamp > cutoff_time]
+        recent_resources = [
+            m for m in self.resource_metrics if m.timestamp > cutoff_time
+        ]
         resource_trends = {}
 
         if recent_resources:
             resource_trends = {
                 "avg_cpu_percent": np.mean([m.cpu_percent for m in recent_resources]),
                 "max_cpu_percent": np.max([m.cpu_percent for m in recent_resources]),
-                "avg_memory_percent": np.mean([m.memory_percent for m in recent_resources]),
-                "max_memory_percent": np.max([m.memory_percent for m in recent_resources]),
+                "avg_memory_percent": np.mean(
+                    [m.memory_percent for m in recent_resources]
+                ),
+                "max_memory_percent": np.max(
+                    [m.memory_percent for m in recent_resources]
+                ),
                 "avg_disk_percent": np.mean([m.disk_percent for m in recent_resources]),
                 "samples": len(recent_resources),
             }
@@ -604,7 +635,10 @@ class SystemHealthMonitor:
             return [result]
         else:
             # 全コンポーネントチェック
-            tasks = [self._check_component_health(comp_id) for comp_id in self.components.keys()]
+            tasks = [
+                self._check_component_health(comp_id)
+                for comp_id in self.components.keys()
+            ]
             return await asyncio.gather(*tasks)
 
 

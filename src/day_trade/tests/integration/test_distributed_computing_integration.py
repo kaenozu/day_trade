@@ -177,7 +177,9 @@ class TestDistributedComputingIntegration:
         ]
 
         for strategy in strategies:
-            results = await distributed_manager.execute_distributed_batch(tasks, strategy=strategy)
+            results = await distributed_manager.execute_distributed_batch(
+                tasks, strategy=strategy
+            )
 
             assert len(results) == 6
             success_count = sum(1 for r in results if r.success)
@@ -267,7 +269,9 @@ class TestDistributedComputingIntegration:
             for i in range(min(3, len(correlation_df))):
                 if i < len(correlation_df) and i < len(correlation_df.columns):
                     diagonal_value = (
-                        correlation_df.iloc[i, i] if not pd.isna(correlation_df.iloc[i, i]) else 0
+                        correlation_df.iloc[i, i]
+                        if not pd.isna(correlation_df.iloc[i, i])
+                        else 0
                     )
                     assert abs(diagonal_value - 1.0) < 0.1 or diagonal_value == 0
 
@@ -341,7 +345,9 @@ class TestDistributedComputingIntegration:
 
         # パフォーマンス検証
         for size, metrics in performance_results.items():
-            assert metrics["success_count"] >= metrics["total_tasks"] * 0.8  # 80%以上成功
+            assert (
+                metrics["success_count"] >= metrics["total_tasks"] * 0.8
+            )  # 80%以上成功
             assert metrics["execution_time"] > 0
             logger.info(
                 f"Size {size}: {metrics['execution_time']:.3f}s, "
@@ -506,7 +512,9 @@ class TestDistributedComputingPerformance:
         manager = create_distributed_computing_manager()
 
         try:
-            await manager.initialize({"dask": {"n_workers": 2, "memory_limit": "500MB"}})
+            await manager.initialize(
+                {"dask": {"n_workers": 2, "memory_limit": "500MB"}}
+            )
 
             # メモリ集約的タスク
             def memory_intensive_task(size: int) -> List[int]:

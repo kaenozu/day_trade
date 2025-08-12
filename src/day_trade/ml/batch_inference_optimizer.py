@@ -232,7 +232,9 @@ class AdaptiveBatchSizer:
             )
 
             if optimal_size != self.current_batch_size:
-                logger.debug(f"バッチサイズ適応: {self.current_batch_size} → {optimal_size}")
+                logger.debug(
+                    f"バッチサイズ適応: {self.current_batch_size} → {optimal_size}"
+                )
                 self.current_batch_size = optimal_size
                 self.last_adaptation_time = time.time()
 
@@ -250,7 +252,9 @@ class AdaptiveBatchSizer:
         # 平均レイテンシーとバッチサイズの関係分析
         latency_by_size = defaultdict(list)
         for metric in metrics:
-            latency_by_size[metric.batch_size].append(metric.avg_request_latency_us / 1000)
+            latency_by_size[metric.batch_size].append(
+                metric.avg_request_latency_us / 1000
+            )
 
         # 最低レイテンシーのバッチサイズ選択
         best_size = self.current_batch_size
@@ -278,7 +282,9 @@ class AdaptiveBatchSizer:
         # スループットとバッチサイズの関係分析
         throughput_by_size = defaultdict(list)
         for metric in metrics:
-            throughput_by_size[metric.batch_size].append(metric.throughput_requests_per_sec)
+            throughput_by_size[metric.batch_size].append(
+                metric.throughput_requests_per_sec
+            )
 
         # 最高スループットのバッチサイズ選択
         best_size = self.current_batch_size
@@ -305,7 +311,9 @@ class AdaptiveBatchSizer:
         scores_by_size = defaultdict(list)
 
         for metric in metrics:
-            latency_score = 1.0 / (1.0 + metric.avg_request_latency_us / 10000)  # 正規化
+            latency_score = 1.0 / (
+                1.0 + metric.avg_request_latency_us / 10000
+            )  # 正規化
             throughput_score = metric.throughput_requests_per_sec / 1000  # 正規化
 
             # 重み付き合成スコア（レイテンシー:スループット = 0.6:0.4）
@@ -329,8 +337,12 @@ class AdaptiveBatchSizer:
         if not metrics:
             return self.current_batch_size
 
-        recent_latency = statistics.mean(self.latency_trend) if self.latency_trend else 50
-        recent_throughput = statistics.mean(self.throughput_trend) if self.throughput_trend else 100
+        recent_latency = (
+            statistics.mean(self.latency_trend) if self.latency_trend else 50
+        )
+        recent_throughput = (
+            statistics.mean(self.throughput_trend) if self.throughput_trend else 100
+        )
 
         # 現在の性能レベル判定
         latency_ok = recent_latency <= self.config.latency_threshold_ms
@@ -375,13 +387,19 @@ class BatchScheduler:
             try:
                 self.pending_requests[request.id] = request
 
-                if self.config.scheduling_policy == BatchSchedulingPolicy.PRIORITY_QUEUE:
+                if (
+                    self.config.scheduling_policy
+                    == BatchSchedulingPolicy.PRIORITY_QUEUE
+                ):
                     # 優先度キュー（負の値でheapqを最大ヒープとして使用）
                     heapq.heappush(
                         self.request_queue,
                         (-request.priority, request.created_at, request.id),
                     )
-                elif self.config.scheduling_policy == BatchSchedulingPolicy.SHORTEST_JOB_FIRST:
+                elif (
+                    self.config.scheduling_policy
+                    == BatchSchedulingPolicy.SHORTEST_JOB_FIRST
+                ):
                     # 推定処理時間順
                     heapq.heappush(
                         self.request_queue,
@@ -461,15 +479,23 @@ class BatchScheduler:
                 del self.pending_requests[request_id]
 
             # バッチサイズ制約チェック
-            if len(batch_requests) < self.config.min_batch_size and len(self.request_queue) == 0:
+            if (
+                len(batch_requests) < self.config.min_batch_size
+                and len(self.request_queue) == 0
+            ):
                 # 最小バッチサイズに達しないがキューが空 → 現在のバッチを処理
                 pass
             elif len(batch_requests) < self.config.min_batch_size:
                 # 最小バッチサイズに達しない → リクエストを戻してNoneを返す
                 for req in batch_requests:
                     self.pending_requests[req.id] = req
-                    if self.config.scheduling_policy == BatchSchedulingPolicy.PRIORITY_QUEUE:
-                        heapq.heappush(self.request_queue, (-req.priority, req.created_at, req.id))
+                    if (
+                        self.config.scheduling_policy
+                        == BatchSchedulingPolicy.PRIORITY_QUEUE
+                    ):
+                        heapq.heappush(
+                            self.request_queue, (-req.priority, req.created_at, req.id)
+                        )
                     else:
                         self.request_queue.appendleft(req.id)
                 return None
@@ -549,7 +575,9 @@ class BatchInferenceOptimizer:
 
         # バッチプロセッサー起動
         for i in range(self.config.max_concurrent_batches):
-            processor_task = asyncio.create_task(self._batch_processor_loop(f"processor_{i}"))
+            processor_task = asyncio.create_task(
+                self._batch_processor_loop(f"processor_{i}")
+            )
             self.batch_processors.append(processor_task)
 
     async def stop(self):
@@ -566,7 +594,9 @@ class BatchInferenceOptimizer:
 
         # 実行中タスク完了待ち
         if self.processing_tasks:
-            await asyncio.gather(*self.processing_tasks.values(), return_exceptions=True)
+            await asyncio.gather(
+                *self.processing_tasks.values(), return_exceptions=True
+            )
 
         self.batch_processors.clear()
         self.processing_tasks.clear()
@@ -581,7 +611,9 @@ class BatchInferenceOptimizer:
         max_latency_ms: Optional[int] = None,
     ) -> Union[InferenceResult, GPUInferenceResult]:
         """推論リクエスト送信"""
-        request_id = f"req_{int(time.time() * 1000000)}_{hash(input_data.tobytes()) & 0xFFFF}"
+        request_id = (
+            f"req_{int(time.time() * 1000000)}_{hash(input_data.tobytes()) & 0xFFFF}"
+        )
 
         request = BatchRequest(
             id=request_id,
@@ -601,7 +633,9 @@ class BatchInferenceOptimizer:
         # 結果待ち
         try:
             if max_latency_ms:
-                result = await asyncio.wait_for(request.future, timeout=max_latency_ms / 1000.0)
+                result = await asyncio.wait_for(
+                    request.future, timeout=max_latency_ms / 1000.0
+                )
             else:
                 result = await request.future
 
@@ -640,7 +674,9 @@ class BatchInferenceOptimizer:
                 logger.error(f"バッチプロセッサーエラー ({processor_name}): {e}")
                 await asyncio.sleep(0.1)  # エラー時の短時間待機
 
-    async def _process_batch(self, batch_requests: List[BatchRequest], processor_name: str):
+    async def _process_batch(
+        self, batch_requests: List[BatchRequest], processor_name: str
+    ):
         """バッチ処理実行"""
         batch_start_time = MicrosecondTimer.now_ns()
         batch_id = f"{processor_name}_{int(time.time() * 1000)}"
@@ -700,7 +736,9 @@ class BatchInferenceOptimizer:
                 try:
                     # 結果分割
                     batch_size = len(requests)
-                    predictions_per_request = batch_result.predictions.shape[0] // batch_size
+                    predictions_per_request = (
+                        batch_result.predictions.shape[0] // batch_size
+                    )
 
                     for i, request in enumerate(requests):
                         try:
@@ -710,19 +748,24 @@ class BatchInferenceOptimizer:
                             # 個別結果作成
                             if isinstance(batch_result, GPUInferenceResult):
                                 individual_result = GPUInferenceResult(
-                                    predictions=batch_result.predictions[start_idx:end_idx],
+                                    predictions=batch_result.predictions[
+                                        start_idx:end_idx
+                                    ],
                                     execution_time_us=batch_result.execution_time_us,
                                     batch_size=1,
                                     device_id=batch_result.device_id,
                                     backend_used=batch_result.backend_used,
-                                    gpu_memory_used_mb=batch_result.gpu_memory_used_mb / batch_size,
+                                    gpu_memory_used_mb=batch_result.gpu_memory_used_mb
+                                    / batch_size,
                                     gpu_utilization_percent=batch_result.gpu_utilization_percent,
                                     model_name=model_name,
                                     input_shape=request.input_data.shape,
                                 )
                             else:
                                 individual_result = InferenceResult(
-                                    predictions=batch_result.predictions[start_idx:end_idx],
+                                    predictions=batch_result.predictions[
+                                        start_idx:end_idx
+                                    ],
                                     execution_time_us=batch_result.execution_time_us,
                                     batch_size=1,
                                     backend_used=batch_result.backend_used,
@@ -752,7 +795,9 @@ class BatchInferenceOptimizer:
             total_processing_time = MicrosecondTimer.elapsed_us(batch_start_time)
 
             # パフォーマンス統計記録
-            avg_latency = total_processing_time / len(batch_requests) if batch_requests else 0
+            avg_latency = (
+                total_processing_time / len(batch_requests) if batch_requests else 0
+            )
             throughput = (
                 len(batch_requests) / (total_processing_time / 1_000_000)
                 if total_processing_time > 0
@@ -764,7 +809,9 @@ class BatchInferenceOptimizer:
                 batch_size=len(batch_requests),
                 total_processing_time_us=total_processing_time,
                 avg_request_latency_us=avg_latency,
-                memory_usage_mb=sum(req.memory_requirement_mb for req in batch_requests),
+                memory_usage_mb=sum(
+                    req.memory_requirement_mb for req in batch_requests
+                ),
                 throughput_requests_per_sec=throughput,
                 queue_wait_time_us=0,  # 簡略化
                 batch_formation_time_us=batch_formation_time,
@@ -798,7 +845,8 @@ class BatchInferenceOptimizer:
             # 移動平均更新
             self.performance_stats["total_batches"] += 1
             self.performance_stats["avg_batch_size"] = (
-                self.performance_stats["avg_batch_size"] * total_batches + metrics.batch_size
+                self.performance_stats["avg_batch_size"] * total_batches
+                + metrics.batch_size
             ) / (total_batches + 1)
             self.performance_stats["avg_latency_ms"] = (
                 self.performance_stats["avg_latency_ms"] * total_batches
@@ -817,7 +865,8 @@ class BatchInferenceOptimizer:
             if total_processed > 0:
                 batch_success_rate = metrics.success_count / total_processed
                 self.performance_stats["success_rate"] = (
-                    self.performance_stats["success_rate"] * total_batches + batch_success_rate
+                    self.performance_stats["success_rate"] * total_batches
+                    + batch_success_rate
                 ) / (total_batches + 1)
 
         except Exception as e:

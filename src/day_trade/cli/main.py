@@ -285,7 +285,9 @@ def config_set(key: str, value: str):
             typed_value = value
 
         config_manager.set(key, typed_value)
-        console.print(create_success_panel(f"設定を更新しました: {key} = {typed_value}"))
+        console.print(
+            create_success_panel(f"設定を更新しました: {key} = {typed_value}")
+        )
     except Exception as e:
         console.print(
             create_error_panel(

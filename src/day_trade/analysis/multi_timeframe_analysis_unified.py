@@ -139,7 +139,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
                 resampled_data = self._resample_to_timeframe(data, tf_config["period"])
 
                 if len(resampled_data) < tf_config["min_periods"]:
-                    logger.warning(f"{tf_name}タイムフレーム: データ不足 ({len(resampled_data)}行)")
+                    logger.warning(
+                        f"{tf_name}タイムフレーム: データ不足 ({len(resampled_data)}行)"
+                    )
                     continue
 
                 # タイムフレーム別分析
@@ -155,7 +157,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
             result.integrated_trend, result.confidence_score = self._integrate_trends(
                 result.timeframe_results
             )
-            result.trend_consistency = self._calculate_trend_consistency(result.timeframe_results)
+            result.trend_consistency = self._calculate_trend_consistency(
+                result.timeframe_results
+            )
 
         return result
 
@@ -218,8 +222,8 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
                 )
 
                 for indicator_name, indicator_result in indicators_result.items():
-                    tf_result["indicators"][indicator_name] = self._extract_indicator_values(
-                        indicator_result
+                    tf_result["indicators"][indicator_name] = (
+                        self._extract_indicator_values(indicator_result)
                     )
 
             except Exception as e:
@@ -237,7 +241,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
 
     def _extract_indicator_values(self, indicator_result) -> Dict[str, Any]:
         """指標結果から値を抽出"""
-        if hasattr(indicator_result, "values") and isinstance(indicator_result.values, dict):
+        if hasattr(indicator_result, "values") and isinstance(
+            indicator_result.values, dict
+        ):
             return indicator_result.values
         else:
             return {"raw_result": str(indicator_result)}
@@ -252,7 +258,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
         # 単純移動平均
         indicators["sma_20"] = close_prices.rolling(20).mean().iloc[-1]
         indicators["sma_50"] = (
-            close_prices.rolling(50).mean().iloc[-1] if len(close_prices) >= 50 else np.nan
+            close_prices.rolling(50).mean().iloc[-1]
+            if len(close_prices) >= 50
+            else np.nan
         )
 
         # RSI
@@ -271,7 +279,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
 
         return indicators
 
-    def _determine_trend(self, indicators: Dict[str, Any], data: pd.DataFrame) -> Tuple[str, float]:
+    def _determine_trend(
+        self, indicators: Dict[str, Any], data: pd.DataFrame
+    ) -> Tuple[str, float]:
         """トレンド判定"""
         trend_signals = []
 
@@ -323,7 +333,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
 
         return trend, strength
 
-    def _integrate_trends(self, timeframe_results: Dict[str, Dict[str, Any]]) -> Tuple[str, float]:
+    def _integrate_trends(
+        self, timeframe_results: Dict[str, Dict[str, Any]]
+    ) -> Tuple[str, float]:
         """各タイムフレームのトレンドを統合"""
         weighted_score = 0.0
         total_weight = 0.0
@@ -357,15 +369,21 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
 
         return integrated_trend, confidence
 
-    def _calculate_trend_consistency(self, timeframe_results: Dict[str, Dict[str, Any]]) -> float:
+    def _calculate_trend_consistency(
+        self, timeframe_results: Dict[str, Dict[str, Any]]
+    ) -> float:
         """トレンド一貫性の計算"""
-        trends = [result.get("trend", "neutral") for result in timeframe_results.values()]
+        trends = [
+            result.get("trend", "neutral") for result in timeframe_results.values()
+        ]
 
         if len(trends) <= 1:
             return 1.0
 
         # 各トレンドを数値化
-        trend_values = [self.timeframe_config.trend_weights.get(trend, 0.0) for trend in trends]
+        trend_values = [
+            self.timeframe_config.trend_weights.get(trend, 0.0) for trend in trends
+        ]
 
         # 標準偏差を基準とした一貫性スコア
         if len(trend_values) > 1:
@@ -410,7 +428,10 @@ class OptimizedMultiTimeframeAnalysis(MultiTimeframeAnalysisBase):
         self, data: pd.DataFrame, symbols: Optional[List[str]] = None, **kwargs
     ) -> MultiTimeframeResult:
         """並列処理による高速マルチタイムフレーム分析"""
-        if not self.config.parallel_processing or len(self.timeframe_config.timeframes) <= 2:
+        if (
+            not self.config.parallel_processing
+            or len(self.timeframe_config.timeframes) <= 2
+        ):
             # 標準処理にフォールバック
             return super()._analyze_multi_timeframe(data, symbols, **kwargs)
 
@@ -450,7 +471,9 @@ class OptimizedMultiTimeframeAnalysis(MultiTimeframeAnalysisBase):
             result.integrated_trend, result.confidence_score = self._integrate_trends(
                 result.timeframe_results
             )
-            result.trend_consistency = self._calculate_trend_consistency(result.timeframe_results)
+            result.trend_consistency = self._calculate_trend_consistency(
+                result.timeframe_results
+            )
 
         return result
 
@@ -502,7 +525,9 @@ class OptimizedMultiTimeframeAnalysis(MultiTimeframeAnalysisBase):
         # 非同期タスク作成
         tasks = []
         for tf_name, tf_config in self.timeframe_config.timeframes.items():
-            task = asyncio.create_task(self._analyze_timeframe_async(data, tf_name, tf_config))
+            task = asyncio.create_task(
+                self._analyze_timeframe_async(data, tf_name, tf_config)
+            )
             tasks.append((task, tf_name))
 
         # 並列実行
@@ -519,7 +544,9 @@ class OptimizedMultiTimeframeAnalysis(MultiTimeframeAnalysisBase):
             result.integrated_trend, result.confidence_score = self._integrate_trends(
                 result.timeframe_results
             )
-            result.trend_consistency = self._calculate_trend_consistency(result.timeframe_results)
+            result.trend_consistency = self._calculate_trend_consistency(
+                result.timeframe_results
+            )
 
         return result
 
@@ -559,7 +586,9 @@ class MultiTimeframeAnalysisManager:
     def get_strategy(self) -> OptimizationStrategy:
         """現在の戦略を取得"""
         if self._strategy is None:
-            self._strategy = get_optimized_implementation("multi_timeframe_analysis", self.config)
+            self._strategy = get_optimized_implementation(
+                "multi_timeframe_analysis", self.config
+            )
         return self._strategy
 
     def analyze_multi_timeframe(

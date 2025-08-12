@@ -103,7 +103,9 @@ class IncrementalUpdateSystem:
 
     def __init__(self, config: Optional[IncrementalConfig] = None):
         self.config = config or IncrementalConfig()
-        self.executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_streams)
+        self.executor = ThreadPoolExecutor(
+            max_workers=self.config.max_concurrent_streams
+        )
 
         # 状態管理
         self.change_log: List[ChangeRecord] = []
@@ -162,7 +164,9 @@ class IncrementalUpdateSystem:
                 # 初回取得：全てINSERT
                 for idx, row in current_data.iterrows():
                     change = ChangeRecord(
-                        change_id=self._generate_change_id(table_name, row[primary_key_column]),
+                        change_id=self._generate_change_id(
+                            table_name, row[primary_key_column]
+                        ),
                         change_type=ChangeType.INSERT,
                         table_name=table_name,
                         primary_key=str(row[primary_key_column]),
@@ -199,7 +203,9 @@ class IncrementalUpdateSystem:
                 # 削除データ（DELETE）
                 deleted_keys = previous_keys - current_keys
                 for key in deleted_keys:
-                    old_row = previous_data[previous_data[primary_key_column] == key].iloc[0]
+                    old_row = previous_data[
+                        previous_data[primary_key_column] == key
+                    ].iloc[0]
                     change = ChangeRecord(
                         change_id=self._generate_change_id(table_name, key),
                         change_type=ChangeType.DELETE,
@@ -216,12 +222,20 @@ class IncrementalUpdateSystem:
                 # 更新データ（UPDATE）
                 common_keys = current_keys & previous_keys
                 for key in common_keys:
-                    current_row = current_data[current_data[primary_key_column] == key].iloc[0]
-                    previous_row = previous_data[previous_data[primary_key_column] == key].iloc[0]
+                    current_row = current_data[
+                        current_data[primary_key_column] == key
+                    ].iloc[0]
+                    previous_row = previous_data[
+                        previous_data[primary_key_column] == key
+                    ].iloc[0]
 
                     # レコード比較
-                    current_checksum = self._calculate_record_checksum(current_row.to_dict())
-                    previous_checksum = self._calculate_record_checksum(previous_row.to_dict())
+                    current_checksum = self._calculate_record_checksum(
+                        current_row.to_dict()
+                    )
+                    previous_checksum = self._calculate_record_checksum(
+                        previous_row.to_dict()
+                    )
 
                     if current_checksum != previous_checksum:
                         change = ChangeRecord(
@@ -251,7 +265,9 @@ class IncrementalUpdateSystem:
             logger.error(f"変更検出エラー: {table_name}, {e}")
             return []
 
-    async def _deduplicate_changes(self, changes: List[ChangeRecord]) -> List[ChangeRecord]:
+    async def _deduplicate_changes(
+        self, changes: List[ChangeRecord]
+    ) -> List[ChangeRecord]:
         """重複排除"""
         deduplicated = []
         current_time = datetime.now()
@@ -304,7 +320,9 @@ class IncrementalUpdateSystem:
         try:
             # ストリームタスク作成
             stream_task = asyncio.create_task(
-                self._run_real_time_stream(stream_id, data_source, callback, filter_conditions)
+                self._run_real_time_stream(
+                    stream_id, data_source, callback, filter_conditions
+                )
             )
 
             self.active_streams[stream_id] = stream_task
@@ -331,7 +349,9 @@ class IncrementalUpdateSystem:
             while self._is_running and stream_id in self.active_streams:
                 try:
                     # データポーリング
-                    new_data = await self._poll_data_source(data_source, filter_conditions)
+                    new_data = await self._poll_data_source(
+                        data_source, filter_conditions
+                    )
 
                     if new_data:
                         # バッファ管理
@@ -410,22 +430,30 @@ class IncrementalUpdateSystem:
         else:
             return []
 
-    async def _poll_database(self, filter_conditions: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _poll_database(
+        self, filter_conditions: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """データベースポーリング"""
         # 実装例（実際のDBアクセスに置換）
         return []
 
-    async def _poll_api(self, filter_conditions: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _poll_api(
+        self, filter_conditions: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """APIポーリング"""
         # 実装例（実際のAPI呼び出しに置換）
         return []
 
-    async def _poll_file(self, filter_conditions: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _poll_file(
+        self, filter_conditions: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """ファイルポーリング"""
         # 実装例（実際のファイル監視に置換）
         return []
 
-    async def _poll_stream(self, filter_conditions: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _poll_stream(
+        self, filter_conditions: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """ストリームポーリング"""
         # 実装例（実際のストリーミングに置換）
         return []
@@ -436,10 +464,14 @@ class IncrementalUpdateSystem:
 
         # records_per_second計算
         if self.streaming_metrics.last_checkpoint:
-            time_diff = (current_time - self.streaming_metrics.last_checkpoint).total_seconds()
+            time_diff = (
+                current_time - self.streaming_metrics.last_checkpoint
+            ).total_seconds()
             if time_diff > 0:
                 # 簡易的な計算（実際の実装では移動平均などを使用）
-                self.streaming_metrics.records_per_second = self.config.batch_size / time_diff
+                self.streaming_metrics.records_per_second = (
+                    self.config.batch_size / time_diff
+                )
 
         self.streaming_metrics.last_checkpoint = current_time
 
@@ -482,7 +514,9 @@ class IncrementalUpdateSystem:
     def _generate_change_id(self, table_name: str, primary_key: Any) -> str:
         """変更ID生成"""
         timestamp = datetime.now().isoformat()
-        return hashlib.md5(f"{table_name}_{primary_key}_{timestamp}".encode()).hexdigest()
+        return hashlib.md5(
+            f"{table_name}_{primary_key}_{timestamp}".encode()
+        ).hexdigest()
 
     def _calculate_record_checksum(self, record: Dict[str, Any]) -> str:
         """レコードチェックサム計算"""
@@ -520,7 +554,8 @@ class IncrementalUpdateSystem:
             },
             "active_streams": len(self.active_streams),
             "buffer_sizes": {
-                stream_id: len(buffer) for stream_id, buffer in self.stream_buffers.items()
+                stream_id: len(buffer)
+                for stream_id, buffer in self.stream_buffers.items()
             },
         }
 

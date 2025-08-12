@@ -43,7 +43,9 @@ class WatchlistManager:
     def __init__(self):
         self.fetcher = StockFetcher()
 
-    def add_stock(self, stock_code: str, group_name: str = "default", memo: str = "") -> bool:
+    def add_stock(
+        self, stock_code: str, group_name: str = "default", memo: str = ""
+    ) -> bool:
         """
         銘柄をウォッチリストに追加
 
@@ -171,7 +173,9 @@ class WatchlistManager:
                     result.append(
                         {
                             "stock_code": item.stock_code,
-                            "stock_name": (item.stock.name if item.stock else item.stock_code),
+                            "stock_name": (
+                                item.stock.name if item.stock else item.stock_code
+                            ),
                             "group_name": item.group_name,
                             "memo": item.memo,
                             "added_date": item.created_at,
@@ -181,7 +185,9 @@ class WatchlistManager:
                 return result
 
         except Exception as e:
-            log_error_with_context(e, {"operation": "get_watchlist", "group_name": group_name})
+            log_error_with_context(
+                e, {"operation": "get_watchlist", "group_name": group_name}
+            )
             return []
 
     def get_groups(self) -> List[str]:
@@ -403,7 +409,9 @@ class WatchlistManager:
             )
             return False
 
-    def remove_alert(self, stock_code: str, alert_type: AlertType, threshold: float) -> bool:
+    def remove_alert(
+        self, stock_code: str, alert_type: AlertType, threshold: float
+    ) -> bool:
         """
         アラート条件を削除
 
@@ -488,7 +496,11 @@ class WatchlistManager:
                 for alert in alerts:
                     # 銘柄名を別途取得
                     try:
-                        stock = session.query(Stock).filter(Stock.code == alert.stock_code).first()
+                        stock = (
+                            session.query(Stock)
+                            .filter(Stock.code == alert.stock_code)
+                            .first()
+                        )
                         stock_name = stock.name if stock else alert.stock_code
                     except Exception:
                         stock_name = alert.stock_code
@@ -544,11 +556,15 @@ class WatchlistManager:
                     )
                     return True
                 else:
-                    logger.warning("Alert not found for toggle", extra={"alert_id": alert_id})
+                    logger.warning(
+                        "Alert not found for toggle", extra={"alert_id": alert_id}
+                    )
                     return False
 
         except Exception as e:
-            log_error_with_context(e, {"operation": "toggle_alert", "alert_id": alert_id})
+            log_error_with_context(
+                e, {"operation": "toggle_alert", "alert_id": alert_id}
+            )
             return False
 
     def check_alerts(self) -> List[AlertNotification]:
@@ -597,11 +613,17 @@ class WatchlistManager:
 
                         if is_triggered:
                             # 通知を作成
-                            notification = self._create_notification(alert, current_data)
+                            notification = self._create_notification(
+                                alert, current_data
+                            )
                             notifications.append(notification)
 
                             # データベースのトリガー日時を更新
-                            db_alert = session.query(Alert).filter(Alert.id == alert["id"]).first()
+                            db_alert = (
+                                session.query(Alert)
+                                .filter(Alert.id == alert["id"])
+                                .first()
+                            )
                             if db_alert:
                                 db_alert.last_triggered = datetime.now()
 
@@ -621,7 +643,9 @@ class WatchlistManager:
 
         return notifications
 
-    def _check_alert_condition(self, alert: Dict[str, Any], price_data: Dict[str, Any]) -> bool:
+    def _check_alert_condition(
+        self, alert: Dict[str, Any], price_data: Dict[str, Any]
+    ) -> bool:
         """
         個別のアラート条件をチェック
 
@@ -743,7 +767,9 @@ class WatchlistManager:
                 "groups": [],
             }
 
-    def export_watchlist_to_csv(self, filename: str, group_name: Optional[str] = None) -> bool:
+    def export_watchlist_to_csv(
+        self, filename: str, group_name: Optional[str] = None
+    ) -> bool:
         """
         ウォッチリストをCSVファイルにエクスポート
 
@@ -761,7 +787,9 @@ class WatchlistManager:
             watchlist_data = self.get_watchlist_with_prices(group_name)
 
             if not watchlist_data:
-                logger.warning("No data available for export", extra={"group_name": group_name})
+                logger.warning(
+                    "No data available for export", extra={"group_name": group_name}
+                )
                 return False
 
             # DataFrameに変換
@@ -854,7 +882,9 @@ class WatchlistManager:
                                 session.add(stock)
 
                         # ウォッチリストに追加
-                        watchlist_item = WatchlistItem(stock_code=code, group_name=group, memo=memo)
+                        watchlist_item = WatchlistItem(
+                            stock_code=code, group_name=group, memo=memo
+                        )
                         session.add(watchlist_item)
                         results[code] = True
 
@@ -881,7 +911,9 @@ class WatchlistManager:
 
         return results
 
-    def get_watchlist_optimized(self, group_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_watchlist_optimized(
+        self, group_name: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         最適化されたウォッチリスト取得（一括JOIN）
 
@@ -971,7 +1003,9 @@ class WatchlistManager:
                 return True
 
         except Exception as e:
-            log_error_with_context(e, {"operation": "clear_watchlist", "group_name": group_name})
+            log_error_with_context(
+                e, {"operation": "clear_watchlist", "group_name": group_name}
+            )
             return False
 
     def get_alert_manager(self):

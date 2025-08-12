@@ -141,7 +141,9 @@ class ComplianceRequirement:
 
     framework: ComplianceFramework
     requirements: List[str] = field(default_factory=list)
-    implementation_status: str = "planning"  # planning, implementing, compliant, non_compliant
+    implementation_status: str = (
+        "planning"  # planning, implementing, compliant, non_compliant
+    )
     last_assessment: Optional[datetime] = None
     next_assessment: Optional[datetime] = None
     evidence_documents: List[str] = field(default_factory=list)
@@ -181,7 +183,9 @@ class SecurityConfigManager:
         self.network_security_policy = NetworkSecurityPolicy()
 
         # コンプライアンス要件
-        self.compliance_requirements: Dict[ComplianceFramework, ComplianceRequirement] = {}
+        self.compliance_requirements: Dict[
+            ComplianceFramework, ComplianceRequirement
+        ] = {}
 
         # 設定読み込み
         self._load_configuration()
@@ -236,7 +240,9 @@ class SecurityConfigManager:
             history_count=data.get("history_count", 10),
             lockout_threshold=data.get("lockout_threshold", 5),
             lockout_duration_minutes=data.get("lockout_duration_minutes", 30),
-            require_change_on_first_login=data.get("require_change_on_first_login", True),
+            require_change_on_first_login=data.get(
+                "require_change_on_first_login", True
+            ),
         )
 
     def _load_session_policy(self, data: Dict[str, Any]):
@@ -335,17 +341,19 @@ class SecurityConfigManager:
             implementation_status="implementing",
         )
 
-        self.compliance_requirements[ComplianceFramework.ISO27001] = ComplianceRequirement(
-            framework=ComplianceFramework.ISO27001,
-            requirements=[
-                "情報セキュリティマネジメントシステム(ISMS)",
-                "リスクアセスメント",
-                "アクセス制御",
-                "暗号化管理",
-                "インシデント管理",
-                "事業継続計画",
-            ],
-            implementation_status="planning",
+        self.compliance_requirements[ComplianceFramework.ISO27001] = (
+            ComplianceRequirement(
+                framework=ComplianceFramework.ISO27001,
+                requirements=[
+                    "情報セキュリティマネジメントシステム(ISMS)",
+                    "リスクアセスメント",
+                    "アクセス制御",
+                    "暗号化管理",
+                    "インシデント管理",
+                    "事業継続計画",
+                ],
+                implementation_status="planning",
+            )
         )
 
     def _apply_security_level(self):
@@ -511,10 +519,14 @@ class SecurityConfigManager:
                 "requirements_count": len(requirement.requirements),
                 "implementation_status": requirement.implementation_status,
                 "last_assessment": (
-                    requirement.last_assessment.isoformat() if requirement.last_assessment else None
+                    requirement.last_assessment.isoformat()
+                    if requirement.last_assessment
+                    else None
                 ),
                 "next_assessment": (
-                    requirement.next_assessment.isoformat() if requirement.next_assessment else None
+                    requirement.next_assessment.isoformat()
+                    if requirement.next_assessment
+                    else None
                 ),
                 "requirements": requirement.requirements,
             }
@@ -650,13 +662,19 @@ class SecurityConfigManager:
         recommendations = []
 
         if validation_issues:
-            recommendations.append(f"🔧 {len(validation_issues)}件の設定問題を修正してください")
+            recommendations.append(
+                f"🔧 {len(validation_issues)}件の設定問題を修正してください"
+            )
 
         if self.security_level == SecurityLevel.LOW:
-            recommendations.append("🔒 本番環境ではセキュリティレベルをHIGH以上に設定してください")
+            recommendations.append(
+                "🔒 本番環境ではセキュリティレベルをHIGH以上に設定してください"
+            )
 
         if not self.mfa_policy.required_for_admin:
-            recommendations.append("🔐 管理者アカウントには多要素認証を必須にしてください")
+            recommendations.append(
+                "🔐 管理者アカウントには多要素認証を必須にしてください"
+            )
 
         # コンプライアンス状況チェック
         non_compliant_frameworks = [
@@ -696,7 +714,9 @@ if __name__ == "__main__":
 
             print(f"セキュリティレベル: {config_manager.security_level.value}")
             print(f"パスワード最小長: {config_manager.password_policy.min_length}文字")
-            print(f"セッションタイムアウト: {config_manager.session_policy.max_inactive_minutes}分")
+            print(
+                f"セッションタイムアウト: {config_manager.session_policy.max_inactive_minutes}分"
+            )
 
             print("\n2. 設定検証テスト")
             is_valid, issues = config_manager.validate_configuration()
@@ -718,7 +738,9 @@ if __name__ == "__main__":
             config_manager.security_level = SecurityLevel.CRITICAL
             config_manager._apply_security_level()
 
-            print(f"変更後パスワード最小長: {config_manager.password_policy.min_length}文字")
+            print(
+                f"変更後パスワード最小長: {config_manager.password_policy.min_length}文字"
+            )
             print(
                 f"変更後セッションタイムアウト: {config_manager.session_policy.max_inactive_minutes}分"
             )
