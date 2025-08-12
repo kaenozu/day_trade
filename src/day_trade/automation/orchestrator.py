@@ -22,7 +22,7 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
-# from ..utils.fault_tolerance import FaultTolerantExecutor  # クラスが存在しないためコメントアウト
+from ..models.database import get_default_database_manager
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
 
@@ -59,6 +59,9 @@ try:
     )
 
     PARALLEL_EXECUTOR_AVAILABLE = True
+    CONCURRENT_AVAILABLE = True
+    # concurrent.futuresもインポート（フォールバック用）
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 except ImportError:
     # フォールバック用レガシー並列処理
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -403,6 +406,9 @@ class NextGenAIOrchestrator:
         failed_symbols = 0
         errors = []
         actual_portfolio_summary = None
+        portfolio_summary = None
+        performance_stats = None
+        system_health = None
 
         try:
             # ポートフォリオ情報取得

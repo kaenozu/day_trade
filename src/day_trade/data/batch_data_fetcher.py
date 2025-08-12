@@ -390,7 +390,7 @@ class AdvancedBatchDataFetcher:
                 indicators_manager = TechnicalIndicatorsManager()
 
                 # テクニカル指標を計算
-                indicators_result = indicators_manager.calculate_all_indicators(
+                indicators_result = indicators_manager.calculate_indicators(
                     data=result,
                     indicators=["sma", "ema", "rsi", "bollinger_bands", "macd"],
                     periods={"sma": [5, 20, 50], "ema": [5, 20, 50], "rsi": 14},
