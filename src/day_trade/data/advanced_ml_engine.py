@@ -75,6 +75,7 @@ from ..ml.hybrid_lstm_transformer import (
     create_hybrid_model,
 )
 from ..utils.logging_config import get_context_logger
+from .macro_economic_features import MacroEconomicFeatures
 
 logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -294,6 +295,9 @@ class AdvancedMLEngine:
         # データ前処理パイプライン
         self.scaler = None
         self.feature_selector = None
+        
+        # マクロ経済特徴量エンジン
+        self.macro_features = MacroEconomicFeatures()
 
         # パフォーマンス監視
         self.performance_history = []
@@ -317,8 +321,16 @@ class AdvancedMLEngine:
             ).columns.tolist()
             feature_columns = [col for col in numeric_columns if col != target_column]
 
-        # 特徴量エンジニアリング
+        # 基本特徴量エンジニアリング
         processed_data = self._engineer_features(market_data, feature_columns)
+        
+        # マクロ経済特徴量の追加
+        try:
+            symbol = getattr(market_data, 'symbol', 'UNKNOWN')
+            processed_data = self.macro_features.add_macro_features(processed_data, symbol)
+            logger.info(f"マクロ経済特徴量統合完了: {symbol}")
+        except Exception as e:
+            logger.warning(f"マクロ経済特徴量統合スキップ: {e}")
 
         # 系列データ作成
         sequences, targets = self._create_sequences(
@@ -389,12 +401,78 @@ class AdvancedMLEngine:
                     bb_upper - bb_lower
                 )
 
+        # 高度テクニカル指標の追加
+        if "終値" in result.columns:
+            # Williams %R
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    highest_high = result[high_col].rolling(period).max()
+                    lowest_low = result[low_col].rolling(period).min()
+                    result[f"Williams_R_{period}"] = -100 * (highest_high - result["終値"]) / (highest_high - lowest_low)
+
+            # Stochastic Oscillator
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    lowest_low = result[low_col].rolling(period).min()
+                    highest_high = result[high_col].rolling(period).max()
+                    k_percent = 100 * (result["終値"] - lowest_low) / (highest_high - lowest_low)
+                    result[f"Stoch_K_{period}"] = k_percent
+                    result[f"Stoch_D_{period}"] = k_percent.rolling(3).mean()
+
+            # Commodity Channel Index (CCI)
+            for period in [14, 20]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    tp = (result[high_col] + result[low_col] + result["終値"]) / 3
+                    sma_tp = tp.rolling(period).mean()
+                    mad = tp.rolling(period).apply(lambda x: np.abs(x - x.mean()).mean())
+                    result[f"CCI_{period}"] = (tp - sma_tp) / (0.015 * mad)
+
+            # Average True Range (ATR)
+            for period in [14, 21]:
+                high_col = "高値" if "高値" in result.columns else "終値"
+                low_col = "安値" if "安値" in result.columns else "終値"
+                if high_col in result.columns and low_col in result.columns:
+                    high_low = result[high_col] - result[low_col]
+                    high_close_prev = np.abs(result[high_col] - result["終値"].shift(1))
+                    low_close_prev = np.abs(result[low_col] - result["終値"].shift(1))
+                    true_range = np.maximum(high_low, np.maximum(high_close_prev, low_close_prev))
+                    result[f"ATR_{period}"] = true_range.rolling(period).mean()
+
+            # VWAP (Volume Weighted Average Price)
+            volume_col = "出来高" if "出来高" in result.columns else None
+            if volume_col and volume_col in result.columns:
+                result["VWAP"] = (result["終値"] * result[volume_col]).cumsum() / result[volume_col].cumsum()
+                result["VWAP_ratio"] = result["終値"] / result["VWAP"]
+                
+                # Price-Volume Trend
+                price_change = (result["終値"] - result["終値"].shift(1)) / result["終値"].shift(1)
+                result["PVT"] = (price_change * result[volume_col]).cumsum()
+
         # 時系列分解特徴量
         if "終値" in result.columns:
             # 短期・中期・長期トレンド
             result["trend_short"] = result["終値"].rolling(20).mean()
             result["trend_medium"] = result["終値"].rolling(50).mean()
             result["trend_long"] = result["終値"].rolling(200).mean()
+
+            # 特徴量交差項（相互作用）
+            # RSI × ボラティリティ
+            if "RSI_14" in result.columns and "終値_volatility_20" in result.columns:
+                result["RSI_Vol_interaction"] = result["RSI_14"] * result["終値_volatility_20"]
+            
+            # MACD × 出来高比率
+            if "MACD" in result.columns:
+                volume_col = "出来高" if "出来高" in result.columns else None
+                if volume_col and volume_col in result.columns:
+                    vol_sma = result[volume_col].rolling(20).mean()
+                    vol_ratio = result[volume_col] / vol_sma
+                    result["MACD_Vol_interaction"] = result["MACD"] * vol_ratio
 
             # フーリエ変換特徴量（周期性検出）
             if len(result) >= 100:
