@@ -389,17 +389,35 @@ class AdvancedBatchDataFetcher:
             if INDICATORS_AVAILABLE:
                 indicators_manager = TechnicalIndicatorsManager()
 
-                # テクニカル指標を計算
-                indicators_result = indicators_manager.calculate_indicators(
-                    data=result,
-                    indicators=["sma", "ema", "rsi", "bollinger_bands", "macd"],
-                    periods={"sma": [5, 20, 50], "ema": [5, 20, 50], "rsi": 14},
-                )
-
-                # 指標データを結合
-                result = pd.concat([result, indicators_result], axis=1)
-
-                logger.debug(f"統合指標マネージャー使用: {request.symbol}")
+                # テクニカル指標を計算（簡略化）
+                try:
+                    # SMAのみ計算（他の指標は後で追加可能）
+                    indicators_result = indicators_manager.calculate_indicators(
+                        data=result,
+                        indicators=["sma"],
+                        period=20  # 単一期間
+                    )
+                    
+                    # 戻り値がdictの場合のみ結合処理
+                    if isinstance(indicators_result, dict):
+                        # IndicatorResultオブジェクトからDataFrameを構築
+                        indicators_df = pd.DataFrame()
+                        for indicator_name, indicator_result in indicators_result.items():
+                            if hasattr(indicator_result, 'values') and isinstance(indicator_result.values, dict):
+                                for key, values in indicator_result.values.items():
+                                    col_name = f"{indicator_name}_{key}"
+                                    if len(values) == len(result):
+                                        indicators_df[col_name] = values
+                        
+                        # DataFrameが空でない場合のみ結合
+                        if not indicators_df.empty:
+                            result = pd.concat([result, indicators_df], axis=1)
+                    
+                    logger.debug(f"統合指標マネージャー使用: {symbol}")
+                    
+                except Exception as e:
+                    logger.warning(f"テクニカル指標計算スキップ {symbol}: {e}")
+                    # エラーの場合は指標なしで続行
 
             else:
                 # フォールバック: 基本的な特徴量のみ

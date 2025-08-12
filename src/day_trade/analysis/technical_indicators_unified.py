@@ -652,16 +652,16 @@ try:
         def get_strategy_name(self) -> str:
             return f"DummyTechnicalIndicators-{self.config.level.value}"
 
-    # 戦略登録
+    # 戦略登録（実際の実装を使用）
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.STANDARD,
-        DummyTechnicalIndicatorsStrategy,
+        StandardTechnicalIndicators,
     )
     OptimizationStrategyFactory.register_strategy(
         "technical_indicators",
         OptimizationLevel.OPTIMIZED,
-        DummyTechnicalIndicatorsStrategy,
+        OptimizedTechnicalIndicators,
     )
 
     logger.info("テクニカル指標戦略の自動登録完了")
