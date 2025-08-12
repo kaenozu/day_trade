@@ -115,20 +115,128 @@ class OptimizationStrategy(ABC):
         pass
 
     def record_execution(self, execution_time: float, success: bool) -> None:
-        """実行記録"""
+        """実行記録（堅牢化）- Issue #636対応"""
+        # 入力値の検証
+        if not self._validate_execution_time(execution_time):
+            logger.warning(f"無効な実行時間: {execution_time}, 記録をスキップ")
+            return
+
+        # 基本メトリクスの更新
         self.performance_metrics["execution_count"] += 1
         self.performance_metrics["total_time"] += execution_time
 
+        # 成功/失敗カウントの更新
         if success:
             self.performance_metrics["success_count"] += 1
         else:
             self.performance_metrics["error_count"] += 1
 
-        # 平均時間の更新
-        self.performance_metrics["average_time"] = (
-            self.performance_metrics["total_time"]
-            / self.performance_metrics["execution_count"]
-        )
+        # 平均時間の安全な更新
+        self._update_average_time_safely(execution_time)
+
+    def _validate_execution_time(self, execution_time: float) -> bool:
+        """実行時間の妥当性検証
+
+        Args:
+            execution_time: 実行時間（秒）
+
+        Returns:
+            bool: 妥当な場合True
+        """
+        try:
+            # 基本的な数値検証
+            if not isinstance(execution_time, (int, float)):
+                return False
+
+            # NaN, Inf の検証
+            if not self._is_finite_positive(execution_time):
+                return False
+
+            # 合理的な範囲内か検証（0以上、1時間未満）
+            if execution_time < 0 or execution_time > 3600:
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"実行時間検証エラー: {e}")
+            return False
+
+    def _is_finite_positive(self, value: float) -> bool:
+        """有限で非負の数値かチェック
+
+        Args:
+            value: チェック対象の値
+
+        Returns:
+            bool: 有限で非負の場合True
+        """
+        import math
+        return math.isfinite(value) and value >= 0
+
+    def _update_average_time_safely(self, execution_time: float) -> None:
+        """平均時間の安全な更新（ZeroDivisionError対策）
+
+        Args:
+            execution_time: 新しい実行時間
+        """
+        try:
+            execution_count = self.performance_metrics["execution_count"]
+
+            # ゼロ除算の防止
+            if execution_count <= 0:
+                logger.warning("実行回数が0以下です。平均時間を0に設定")
+                self.performance_metrics["average_time"] = 0.0
+                return
+
+            # 指数移動平均の使用（外れ値に対してより堅牢）
+            if execution_count == 1:
+                # 初回実行時は単純に実行時間を設定
+                self.performance_metrics["average_time"] = execution_time
+            else:
+                # 指数移動平均を使用（α=0.1、最近の値により重みを置く）
+                alpha = self._calculate_smoothing_factor(execution_count)
+                current_avg = self.performance_metrics["average_time"]
+                self.performance_metrics["average_time"] = (
+                    alpha * execution_time + (1 - alpha) * current_avg
+                )
+
+        except Exception as e:
+            logger.error(f"平均時間更新エラー: {e}")
+            # フォールバック: 単純平均を使用
+            self._fallback_average_calculation()
+
+    def _calculate_smoothing_factor(self, execution_count: int) -> float:
+        """適応的な平滑化係数の計算
+
+        Args:
+            execution_count: 実行回数
+
+        Returns:
+            float: 平滑化係数（0.05-0.3の範囲）
+        """
+        # 実行回数が少ない場合は新しい値により重みを置く
+        if execution_count <= 5:
+            return 0.3  # 新しい値に30%の重み
+        elif execution_count <= 20:
+            return 0.15  # 新しい値に15%の重み
+        else:
+            return 0.05  # 新しい値に5%の重み（安定した平均）
+
+    def _fallback_average_calculation(self) -> None:
+        """フォールバック用の単純平均計算"""
+        try:
+            execution_count = self.performance_metrics["execution_count"]
+            total_time = self.performance_metrics["total_time"]
+
+            if execution_count > 0:
+                self.performance_metrics["average_time"] = total_time / execution_count
+            else:
+                self.performance_metrics["average_time"] = 0.0
+
+        except Exception as e:
+            logger.error(f"フォールバック平均計算エラー: {e}")
+            self.performance_metrics["average_time"] = 0.0
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """パフォーマンス指標の取得"""
