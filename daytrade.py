@@ -42,6 +42,38 @@ class CLIValidationError(Exception):
     pass
 
 
+def _safe_get_score_value(score_obj, score_type: str):
+    """MLスコアオブジェクトから安全に値を取得 - Issue #583対応"""
+    if score_obj is None:
+        return None
+
+    try:
+        score_value = getattr(score_obj, 'score_value', None)
+        if score_value is None:
+            return None
+
+        # 数値型変換と検証
+        if isinstance(score_value, (list, tuple)) and len(score_value) > 0:
+            score_value = score_value[0]
+
+        score_val = float(score_value)
+
+        # NaN/無限値チェック
+        if not (score_val == score_val and abs(score_val) != float('inf')):  # NaN/Inf check without numpy
+            return None
+
+        # 値の範囲チェック（0-100で正規化）
+        if score_val < 0:
+            return 0.0
+        elif score_val > 100:
+            return 100.0
+
+        return round(score_val, 1)
+
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return None
+
+
 def validate_symbols(symbols_str: str) -> List[str]:
     """
     銘柄コード文字列をバリデートし、リストに変換
@@ -698,12 +730,17 @@ def _run_analysis_mode(
                         None,
                     )
 
-                    trend_val = trend_score.score_value if trend_score else 0
-                    volatility_val = volatility_score.score_value if volatility_score else 0
-                    pattern_val = pattern_score.score_value if pattern_score else 0
+                    # Issue #583対応: MLスコア値の安全な取得と正規化
+                    trend_val = _safe_get_score_value(trend_score, "trend")
+                    volatility_val = _safe_get_score_value(volatility_score, "volatility")
+                    pattern_val = _safe_get_score_value(pattern_score, "pattern")
 
-                    # 総合判定
-                    avg_score = (trend_val + volatility_val + pattern_val) / 3
+                    # 総合判定 - ゼロ除算対策と入力検証付き
+                    valid_scores = [s for s in [trend_val, volatility_val, pattern_val] if s is not None]
+                    if valid_scores:
+                        avg_score = sum(valid_scores) / len(valid_scores)
+                    else:
+                        avg_score = 50.0  # デフォルト値
                     overall = (
                         "強い上昇"
                         if avg_score >= 70
@@ -809,12 +846,17 @@ def _print_educational_report_and_ml_scores(symbols, args, analyzer, all_results
                     None,
                 )
 
-                trend_val = trend_score.score_value if trend_score else 0
-                volatility_val = volatility_score.score_value if volatility_score else 0
-                pattern_val = pattern_score.score_value if pattern_score else 0
+                # Issue #583対応: MLスコア値の安全な取得と正規化
+                trend_val = _safe_get_score_value(trend_score, "trend")
+                volatility_val = _safe_get_score_value(volatility_score, "volatility")
+                pattern_val = _safe_get_score_value(pattern_score, "pattern")
 
-                # 総合判定
-                avg_score = (trend_val + volatility_val + pattern_val) / 3
+                # 総合判定 - ゼロ除算対策と入力検証付き
+                valid_scores = [s for s in [trend_val, volatility_val, pattern_val] if s is not None]
+                if valid_scores:
+                    avg_score = sum(valid_scores) / len(valid_scores)
+                else:
+                    avg_score = 50.0  # デフォルト値
                 overall = (
                     "強い上昇"
                     if avg_score >= 70

@@ -125,61 +125,61 @@ if PYTORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-        # LSTM分岐
-        self.lstm = nn.LSTM(
-            input_size=config.num_features,
-            hidden_size=config.lstm_hidden_size,
-            num_layers=config.lstm_num_layers,
-            dropout=config.lstm_dropout,
-            batch_first=True,
-            bidirectional=True,
-        )
+            # LSTM分岐
+            self.lstm = nn.LSTM(
+                input_size=config.num_features,
+                hidden_size=config.lstm_hidden_size,
+                num_layers=config.lstm_num_layers,
+                dropout=config.lstm_dropout,
+                batch_first=True,
+                bidirectional=True,
+            )
 
-        # Transformer分岐
-        self.positional_encoding = PositionalEncoding(config.transformer_d_model)
-        self.input_projection = nn.Linear(
-            config.num_features, config.transformer_d_model
-        )
+            # Transformer分岐
+            self.positional_encoding = PositionalEncoding(config.transformer_d_model)
+            self.input_projection = nn.Linear(
+                config.num_features, config.transformer_d_model
+            )
 
-        transformer_layer = nn.TransformerEncoderLayer(
-            d_model=config.transformer_d_model,
-            nhead=config.transformer_nhead,
-            dim_feedforward=config.transformer_dim_feedforward,
-            dropout=config.transformer_dropout,
-            batch_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(
-            transformer_layer, config.transformer_num_layers
-        )
+            transformer_layer = nn.TransformerEncoderLayer(
+                d_model=config.transformer_d_model,
+                nhead=config.transformer_nhead,
+                dim_feedforward=config.transformer_dim_feedforward,
+                dropout=config.transformer_dropout,
+                batch_first=True,
+            )
+            self.transformer = nn.TransformerEncoder(
+                transformer_layer, config.transformer_num_layers
+            )
 
-        # Feature Fusion Layer
-        lstm_output_size = config.lstm_hidden_size * 2  # 双方向
-        fusion_input_size = lstm_output_size + config.transformer_d_model
+            # Feature Fusion Layer
+            lstm_output_size = config.lstm_hidden_size * 2  # 双方向
+            fusion_input_size = lstm_output_size + config.transformer_d_model
 
-        self.fusion_layer = nn.Sequential(
-            nn.Linear(fusion_input_size, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
+            self.fusion_layer = nn.Sequential(
+                nn.Linear(fusion_input_size, 512),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+            )
 
-        # 予測ヘッド
-        self.prediction_head = nn.Sequential(
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(128, config.prediction_horizon),
-        )
+            # 予測ヘッド
+            self.prediction_head = nn.Sequential(
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(128, config.prediction_horizon),
+            )
 
-        # 信頼度推定ヘッド
-        self.confidence_head = nn.Sequential(
-            nn.Linear(256, 64),
-            nn.ReLU(),
-            nn.Linear(64, config.prediction_horizon),
-            nn.Sigmoid(),
-        )
+            # 信頼度推定ヘッド
+            self.confidence_head = nn.Sequential(
+                nn.Linear(256, 64),
+                nn.ReLU(),
+                nn.Linear(64, config.prediction_horizon),
+                nn.Sigmoid(),
+            )
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """順伝播"""
@@ -217,21 +217,21 @@ if PYTORCH_AVAILABLE:
 
             super().__init__()
 
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
-        )
+            pe = torch.zeros(max_len, d_model)
+            position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+            )
 
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+            pe = pe.unsqueeze(0).transpose(0, 1)
 
-        self.register_buffer("pe", pe)
+            self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """位置エンコーディング追加"""
-        return x + self.pe[: x.size(0), :].transpose(0, 1)
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """位置エンコーディング追加"""
+            return x + self.pe[: x.size(0), :].transpose(0, 1)
 
 
 class AdvancedMLEngine:
