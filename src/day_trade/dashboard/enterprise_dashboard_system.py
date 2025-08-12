@@ -665,9 +665,11 @@ class EnterpriseDashboardSystem:
                 "uptime_seconds"
             ]
             / 3600,
-            "overall_system_health": "healthy"
-            if report["summary"]["healthy_components_ratio"] > 0.8
-            else "degraded",
+            "overall_system_health": (
+                "healthy"
+                if report["summary"]["healthy_components_ratio"] > 0.8
+                else "degraded"
+            ),
         }
 
         return report

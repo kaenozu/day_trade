@@ -217,28 +217,34 @@ class IntegratedRiskManagementSystem:
                 sharpe_ratio=risk_metrics.sharpe_ratio,
                 var_95_daily=risk_metrics.value_at_risk_95,
                 cvar_95_daily=risk_metrics.expected_shortfall,
-                worst_case_loss=max(
-                    [r.percentage_loss for r in stress_results.values()]
-                )
-                if stress_results
-                else 0,
-                stress_var_95=max([r.stressed_var_95 for r in stress_results.values()])
-                if stress_results
-                else 0,
-                stress_recovery_time=max(
-                    [r.recovery_time_estimate or 0 for r in stress_results.values()]
-                )
-                if stress_results
-                else None,
+                worst_case_loss=(
+                    max([r.percentage_loss for r in stress_results.values()])
+                    if stress_results
+                    else 0
+                ),
+                stress_var_95=(
+                    max([r.stressed_var_95 for r in stress_results.values()])
+                    if stress_results
+                    else 0
+                ),
+                stress_recovery_time=(
+                    max(
+                        [r.recovery_time_estimate or 0 for r in stress_results.values()]
+                    )
+                    if stress_results
+                    else None
+                ),
                 market_regime=market_regime,
                 correlation_level=correlation_level,
                 rebalancing_needed=rebalancing_signal is not None,
-                target_weights=rebalancing_signal.target_weights
-                if rebalancing_signal
-                else portfolio_weights,
-                rebalancing_urgency=rebalancing_signal.rebalancing_strength
-                if rebalancing_signal
-                else 0,
+                target_weights=(
+                    rebalancing_signal.target_weights
+                    if rebalancing_signal
+                    else portfolio_weights
+                ),
+                rebalancing_urgency=(
+                    rebalancing_signal.rebalancing_strength if rebalancing_signal else 0
+                ),
                 active_alerts=active_alerts,
             )
 

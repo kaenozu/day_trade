@@ -886,9 +886,7 @@ if __name__ == "__main__":
         monitor = None
         try:
             # 監視システム初期化
-            monitor = create_microsecond_monitor(
-                monitoring_interval_ms=50  # 50ms間隔
-            )
+            monitor = create_microsecond_monitor(monitoring_interval_ms=50)  # 50ms間隔
 
             # アラートコールバック設定
             def alert_handler(alert: AlertEvent):

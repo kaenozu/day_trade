@@ -470,8 +470,8 @@ class MLPerformanceProfiler:
         """包括的レポート生成"""
         report = f"""
 ML処理パフォーマンス・プロファイリング レポート
-{'='*60}
-生成日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+{"=" * 60}
+生成日時: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 【概要】
 - 分析対象コンポーネント: {len(self.benchmark_results)}個
@@ -486,7 +486,7 @@ ML処理パフォーマンス・プロファイリング レポート
 {benchmark.component_name}:
   実行時間: {benchmark.total_execution_time:.2f}秒
   メモリ使用: {benchmark.total_memory_usage:.1f}MB
-  ボトルネック: {', '.join(benchmark.bottleneck_methods[:3]) or 'なし'}
+  ボトルネック: {", ".join(benchmark.bottleneck_methods[:3]) or "なし"}
 
   最適化提案:
 """
@@ -537,7 +537,7 @@ ML処理パフォーマンス・プロファイリング レポート
             for bottleneck in all_bottlenecks[:5]:  # 上位5つ
                 report += f"- {bottleneck}\n"
 
-        report += f"\n{'='*60}\n"
+        report += f"\n{'=' * 60}\n"
 
         return report
 

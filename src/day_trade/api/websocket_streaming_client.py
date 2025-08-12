@@ -770,12 +770,14 @@ class WebSocketStreamingClient:
                 "messages_received": state.messages_received,
                 "connection_errors": state.connection_errors,
                 "reconnect_attempts": state.reconnect_attempts,
-                "last_connected": state.last_connected_at.isoformat()
-                if state.last_connected_at
-                else None,
-                "last_message": state.last_message_at.isoformat()
-                if state.last_message_at
-                else None,
+                "last_connected": (
+                    state.last_connected_at.isoformat()
+                    if state.last_connected_at
+                    else None
+                ),
+                "last_message": (
+                    state.last_message_at.isoformat() if state.last_message_at else None
+                ),
             }
 
         return connection_info

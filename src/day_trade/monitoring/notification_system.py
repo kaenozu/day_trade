@@ -461,9 +461,11 @@ class NotificationSystem:
             "total_notifications": total_notifications,
             "by_channel": by_channel,
             "by_severity": by_severity,
-            "success_rate": (successful / total_notifications) * 100
-            if total_notifications > 0
-            else 0.0,
+            "success_rate": (
+                (successful / total_notifications) * 100
+                if total_notifications > 0
+                else 0.0
+            ),
             "last_24h": len(
                 [
                     r

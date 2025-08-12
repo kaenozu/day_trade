@@ -10,12 +10,26 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
+import numpy as np
 import pandas as pd
 
 from ..analysis.feature_engineering_unified import FeatureConfig, FeatureResult
 from ..core.optimization_strategy import OptimizationConfig, OptimizationLevel
 from ..utils.logging_config import get_context_logger
 from .feature_store import FeatureStoreConfig, create_feature_store
+
+# パフォーマンス最適化エンジン統合
+try:
+    from ..performance import (
+        GPUConfig,
+        HFTConfig,
+        get_gpu_accelerator,
+        get_hft_optimizer,
+    )
+
+    PERFORMANCE_OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_OPTIMIZATION_AVAILABLE = False
 
 logger = get_context_logger(__name__)
 
@@ -43,6 +57,14 @@ class PipelineConfig:
     # 自動クリーンアップ
     auto_cleanup: bool = True
 
+    # HFT最適化設定
+    enable_hft_optimization: bool = True
+    hft_target_latency_us: float = 50.0
+
+    # GPU加速設定
+    enable_gpu_acceleration: bool = True
+    gpu_batch_size: int = 512
+
 
 class FeaturePipeline:
     """特徴量パイプライン - 統合特徴量生成システム"""
@@ -54,6 +76,27 @@ class FeaturePipeline:
         # 特徴量ストアの初期化
         self.feature_store = create_feature_store(self.config.feature_store_config)
 
+        # パフォーマンス最適化エンジン初期化
+        self.hft_optimizer = None
+        self.gpu_accelerator = None
+
+        if PERFORMANCE_OPTIMIZATION_AVAILABLE:
+            if self.config.enable_hft_optimization:
+                hft_config = HFTConfig(
+                    target_latency_us=self.config.hft_target_latency_us,
+                    preallocated_memory_mb=50,
+                    enable_simd=True,
+                )
+                self.hft_optimizer = get_hft_optimizer(hft_config)
+
+            if self.config.enable_gpu_acceleration:
+                gpu_config = GPUConfig(
+                    batch_size=self.config.gpu_batch_size,
+                    gpu_memory_limit_mb=1024,
+                    cpu_fallback=True,
+                )
+                self.gpu_accelerator = get_gpu_accelerator(gpu_config)
+
         # パフォーマンス統計
         self.pipeline_stats = {
             "total_requests": 0,
@@ -61,6 +104,13 @@ class FeaturePipeline:
             "avg_generation_time": 0.0,
             "duplicate_calculations_avoided": 0,
             "total_time_saved_seconds": 0.0,
+            # HFT統計
+            "hft_predictions": 0,
+            "hft_avg_latency_us": 0.0,
+            "hft_under_target_rate": 0.0,
+            # GPU統計
+            "gpu_accelerated_operations": 0,
+            "gpu_speedup_ratio": 1.0,
         }
 
         logger.info(
@@ -231,10 +281,160 @@ class FeaturePipeline:
             extra={
                 "total_symbols": total_symbols,
                 "processed_symbols": processed_symbols,
-                "success_rate": f"{processed_symbols/total_symbols*100:.1f}%",
+                "success_rate": f"{processed_symbols / total_symbols * 100:.1f}%",
                 "cache_hit_rate": f"{store_stats.get('cache_hit_rate_percent', 0):.1f}%",
             },
         )
+
+        return results
+
+    async def ultra_fast_prediction(
+        self,
+        symbol: str,
+        prices: np.ndarray,
+        volumes: np.ndarray,
+        model_weights: np.ndarray = None,
+    ) -> Dict[str, Any]:
+        """超高速予測（HFT対応 <50μs目標）"""
+        if not PERFORMANCE_OPTIMIZATION_AVAILABLE or self.hft_optimizer is None:
+            return self._fallback_prediction(symbol, prices, volumes)
+
+        start_time = time.perf_counter_ns()
+
+        try:
+            # デフォルトモデル重み
+            if model_weights is None:
+                model_weights = np.random.normal(0, 0.1, 8).astype(np.float64)
+
+            # HFT最適化エンジンで予測
+            result = self.hft_optimizer.predict_ultra_fast(prices, volumes)
+
+            # 統計更新
+            if result.get("under_target", False):
+                self.pipeline_stats["hft_predictions"] += 1
+                current_avg = self.pipeline_stats["hft_avg_latency_us"]
+                total_preds = self.pipeline_stats["hft_predictions"]
+                latency = result.get("latency_us", 0)
+
+                self.pipeline_stats["hft_avg_latency_us"] = (
+                    current_avg * (total_preds - 1) + latency
+                ) / total_preds
+
+                # 目標達成率更新
+                under_target_count = sum(
+                    1
+                    for _ in range(total_preds)
+                    if _ < self.config.hft_target_latency_us
+                )
+                self.pipeline_stats["hft_under_target_rate"] = (
+                    under_target_count / total_preds
+                )
+
+            total_time_us = (time.perf_counter_ns() - start_time) / 1000.0
+
+            return {
+                "symbol": symbol,
+                "prediction": result.get("prediction", 0.0),
+                "confidence": min(1.0, 1.0 / max(result.get("latency_us", 1), 1)),
+                "latency_us": total_time_us,
+                "hft_optimized": True,
+                "under_target": total_time_us < self.config.hft_target_latency_us,
+                "timestamp": time.time(),
+            }
+
+        except Exception as e:
+            logger.error(f"HFT予測エラー {symbol}: {e}")
+            return self._fallback_prediction(symbol, prices, volumes)
+
+    def _fallback_prediction(
+        self, symbol: str, prices: np.ndarray, volumes: np.ndarray
+    ) -> Dict[str, Any]:
+        """フォールバック予測"""
+        start_time = time.perf_counter_ns()
+
+        # 簡単な移動平均予測
+        if len(prices) >= 5:
+            prediction = float(np.mean(prices[-5:]))
+        else:
+            prediction = float(prices[-1]) if len(prices) > 0 else 0.0
+
+        latency_us = (time.perf_counter_ns() - start_time) / 1000.0
+
+        return {
+            "symbol": symbol,
+            "prediction": prediction,
+            "confidence": 0.5,
+            "latency_us": latency_us,
+            "hft_optimized": False,
+            "under_target": False,
+            "timestamp": time.time(),
+        }
+
+    async def gpu_batch_feature_generation(
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        """GPU加速バッチ特徴量生成"""
+        if not PERFORMANCE_OPTIMIZATION_AVAILABLE or self.gpu_accelerator is None:
+            return self._cpu_batch_features(symbols_data)
+
+        start_time = time.perf_counter()
+
+        try:
+            # データ準備
+            all_features = {}
+
+            for symbol, data in symbols_data.items():
+                prices = data.get("prices", np.array([]))
+                volumes = data.get("volumes", np.array([]))
+
+                if len(prices) > 0 and len(volumes) > 0:
+                    # GPU特徴量計算
+                    features = self.gpu_accelerator.compute_features_gpu(
+                        prices, volumes, feature_dim=7
+                    )
+
+                    if features is not None:
+                        all_features[symbol] = features
+
+            # 統計更新
+            self.pipeline_stats["gpu_accelerated_operations"] += len(all_features)
+
+            gpu_time = time.perf_counter() - start_time
+            logger.info(
+                f"GPU特徴量生成完了: {len(all_features)}銘柄, {gpu_time * 1000:.2f}ms"
+            )
+
+            return all_features
+
+        except Exception as e:
+            logger.error(f"GPU特徴量生成エラー: {e}")
+            return self._cpu_batch_features(symbols_data)
+
+    def _cpu_batch_features(
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        """CPU フォールバック特徴量生成"""
+        results = {}
+
+        for symbol, data in symbols_data.items():
+            prices = data.get("prices", np.array([]))
+            volumes = data.get("volumes", np.array([]))
+
+            if len(prices) >= 20 and len(volumes) >= 20:
+                # 基本的な特徴量のみ
+                n = len(prices)
+                features = np.zeros((n, 5))
+
+                for i in range(20, n):
+                    features[i, 0] = np.mean(prices[i - 5 : i])  # MA5
+                    features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
+                    features[i, 2] = prices[i]  # 現在価格
+                    features[i, 3] = volumes[i]  # 現在ボリューム
+                    features[i, 4] = (prices[i] - prices[i - 1]) / prices[
+                        i - 1
+                    ]  # 変化率
+
+                results[symbol] = features
 
         return results
 
@@ -371,7 +571,7 @@ class FeaturePipeline:
             extra={
                 "success_count": success_count,
                 "total_count": len(symbols),
-                "success_rate": f"{success_count/len(symbols)*100:.1f}%",
+                "success_rate": f"{success_count / len(symbols) * 100:.1f}%",
             },
         )
 
@@ -381,17 +581,36 @@ class FeaturePipeline:
         """パイプライン統計の取得"""
         store_stats = self.feature_store.get_stats()
 
-        return {
+        stats = {
             **self.pipeline_stats,
             "feature_store_stats": store_stats,
             "cache_size_mb": store_stats.get("cache_size_mb", 0),
             "features_in_cache": store_stats.get("features_in_cache", 0),
         }
 
+        # パフォーマンス最適化統計追加
+        if PERFORMANCE_OPTIMIZATION_AVAILABLE:
+            if self.hft_optimizer:
+                hft_report = self.hft_optimizer.get_optimization_report()
+                stats["hft_optimization"] = hft_report
+
+            if self.gpu_accelerator:
+                gpu_report = self.gpu_accelerator.get_gpu_report()
+                stats["gpu_acceleration"] = gpu_report
+
+        return stats
+
     def cleanup(self, force: bool = False):
         """リソースクリーンアップ"""
         if self.config.auto_cleanup or force:
             self.feature_store.cleanup_cache(force=force)
+
+            # パフォーマンス最適化エンジンクリーンアップ
+            if self.hft_optimizer:
+                self.hft_optimizer.cleanup()
+            if self.gpu_accelerator:
+                self.gpu_accelerator.cleanup()
+
             logger.info("パイプラインクリーンアップ完了")
 
     def __enter__(self):

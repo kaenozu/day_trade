@@ -286,9 +286,9 @@ class VolatilityPredictionSystem:
             model_params = {
                 "omega": float(model.params["omega"]),
                 "alpha": float(model.params["alpha[1]"]),
-                "beta": float(model.params["beta[1]"])
-                if "beta[1]" in model.params
-                else 0.0,
+                "beta": (
+                    float(model.params["beta[1]"]) if "beta[1]" in model.params else 0.0
+                ),
             }
 
             result = GARCHVolatilityResult(

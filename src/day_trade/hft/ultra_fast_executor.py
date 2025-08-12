@@ -906,7 +906,7 @@ if __name__ == "__main__":
                 1 for r in batch_results if r.status == ExecutionStatus.COMPLETED
             )
             print(
-                f"成功率: {success_count}/{len(batch_results)} = {success_count/len(batch_results):.1%}"
+                f"成功率: {success_count}/{len(batch_results)} = {success_count / len(batch_results):.1%}"
             )
 
             # レイテンシー統計

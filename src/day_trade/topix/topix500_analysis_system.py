@@ -400,29 +400,29 @@ class TOPIX500AnalysisSystem:
                 "symbol": symbol,
                 "analysis_timestamp": datetime.now().isoformat(),
                 "data_length": len(data),
-                "multiframe_analysis": asdict(multiframe_result)
-                if multiframe_result
-                else None,
-                "advanced_features": asdict(features_result)
-                if features_result
-                else None,
-                "volatility_prediction": asdict(volatility_result)
-                if volatility_result
-                else None,
-                "ml_ensemble": asdict(ml_ensemble_result)
-                if ml_ensemble_result
-                else None,
+                "multiframe_analysis": (
+                    asdict(multiframe_result) if multiframe_result else None
+                ),
+                "advanced_features": (
+                    asdict(features_result) if features_result else None
+                ),
+                "volatility_prediction": (
+                    asdict(volatility_result) if volatility_result else None
+                ),
+                "ml_ensemble": (
+                    asdict(ml_ensemble_result) if ml_ensemble_result else None
+                ),
                 "processing_time": time.time() - start_time,
             }
 
             # 統合スコア計算
-            comprehensive_result[
-                "integrated_score"
-            ] = await self._calculate_integrated_score(
-                multiframe_result,
-                features_result,
-                volatility_result,
-                ml_ensemble_result,
+            comprehensive_result["integrated_score"] = (
+                await self._calculate_integrated_score(
+                    multiframe_result,
+                    features_result,
+                    volatility_result,
+                    ml_ensemble_result,
+                )
             )
 
             # キャッシュ保存
@@ -696,11 +696,11 @@ class TOPIX500AnalysisSystem:
             # パフォーマンス統計
             processing_performance = {
                 "total_processing_time": time.time() - start_time,
-                "avg_sector_processing_time": np.mean(
-                    [sr.processing_time for sr in sector_results.values()]
-                )
-                if sector_results
-                else 0.0,
+                "avg_sector_processing_time": (
+                    np.mean([sr.processing_time for sr in sector_results.values()])
+                    if sector_results
+                    else 0.0
+                ),
                 "symbols_per_second": successful_analyses
                 / max(time.time() - start_time, 0.001),
                 "cache_hit_rate": self.stats["cache_hits"]
@@ -1020,9 +1020,11 @@ class TOPIX500AnalysisSystem:
             "failed_symbols": self.stats["failed_symbols"],
             "success_rate": self.stats["successful_symbols"]
             / max(self.stats["successful_symbols"] + self.stats["failed_symbols"], 1),
-            "avg_processing_time": np.mean(self.stats["processing_times"])
-            if self.stats["processing_times"]
-            else 0.0,
+            "avg_processing_time": (
+                np.mean(self.stats["processing_times"])
+                if self.stats["processing_times"]
+                else 0.0
+            ),
             "system_status": {
                 "cache_enabled": self.enable_cache,
                 "parallel_enabled": self.enable_parallel,
@@ -1150,14 +1152,16 @@ class TOPIX500AnalysisSystem:
                 successful_symbols=successful_count,
                 failed_symbols=failed_count,
                 processing_time_seconds=total_time,
-                avg_time_per_symbol_ms=(total_time / len(stock_data) * 1000)
-                if len(stock_data) > 0
-                else 0.0,
+                avg_time_per_symbol_ms=(
+                    (total_time / len(stock_data) * 1000)
+                    if len(stock_data) > 0
+                    else 0.0
+                ),
                 peak_memory_mb=peak_memory - initial_memory,
                 cache_hit_rate=cache_hit_rate,
-                throughput_symbols_per_second=len(stock_data) / total_time
-                if total_time > 0
-                else 0.0,
+                throughput_symbols_per_second=(
+                    len(stock_data) / total_time if total_time > 0 else 0.0
+                ),
                 sector_count=len(sector_analysis),
                 error_messages=[],
             )
@@ -1183,9 +1187,11 @@ class TOPIX500AnalysisSystem:
                     "total_symbols": len(stock_data),
                     "successful_symbols": successful_count,
                     "failed_symbols": failed_count,
-                    "success_rate": successful_count / len(stock_data)
-                    if len(stock_data) > 0
-                    else 0.0,
+                    "success_rate": (
+                        successful_count / len(stock_data)
+                        if len(stock_data) > 0
+                        else 0.0
+                    ),
                     "processing_time_seconds": total_time,
                     "sectors_analyzed": len(sector_analysis),
                 },
@@ -1299,9 +1305,11 @@ class TOPIX500AnalysisSystem:
                     sector_metrics={
                         "total_symbols": len(symbols),
                         "successful_symbols": len(successful_symbols),
-                        "success_rate": len(successful_symbols) / len(symbols)
-                        if len(symbols) > 0
-                        else 0.0,
+                        "success_rate": (
+                            len(successful_symbols) / len(symbols)
+                            if len(symbols) > 0
+                            else 0.0
+                        ),
                     },
                 )
 

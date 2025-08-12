@@ -150,9 +150,11 @@ class User:
             "last_login": self.last_login.isoformat() if self.last_login else None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "password_changed_at": self.password_changed_at.isoformat()
-            if self.password_changed_at
-            else None,
+            "password_changed_at": (
+                self.password_changed_at.isoformat()
+                if self.password_changed_at
+                else None
+            ),
             "require_password_change": self.require_password_change,
             "session_timeout_minutes": self.session_timeout_minutes,
             "allowed_ip_addresses": self.allowed_ip_addresses,
@@ -488,20 +490,22 @@ class AccessControlManager:
                         is_active=user_data.get("is_active", True),
                         is_locked=user_data.get("is_locked", False),
                         failed_login_attempts=user_data.get("failed_login_attempts", 0),
-                        last_login=datetime.fromisoformat(user_data["last_login"])
-                        if user_data.get("last_login")
-                        else None,
+                        last_login=(
+                            datetime.fromisoformat(user_data["last_login"])
+                            if user_data.get("last_login")
+                            else None
+                        ),
                         created_at=datetime.fromisoformat(
                             user_data.get("created_at", datetime.utcnow().isoformat())
                         ),
                         updated_at=datetime.fromisoformat(
                             user_data.get("updated_at", datetime.utcnow().isoformat())
                         ),
-                        password_changed_at=datetime.fromisoformat(
-                            user_data["password_changed_at"]
-                        )
-                        if user_data.get("password_changed_at")
-                        else None,
+                        password_changed_at=(
+                            datetime.fromisoformat(user_data["password_changed_at"])
+                            if user_data.get("password_changed_at")
+                            else None
+                        ),
                         require_password_change=user_data.get(
                             "require_password_change", False
                         ),

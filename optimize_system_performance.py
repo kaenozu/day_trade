@@ -104,9 +104,7 @@ class SystemOptimizer:
             baseline_metrics["memory_usage_mb"] = memory_info.rss / 1024 / 1024
             baseline_metrics["cpu_usage_percent"] = process.cpu_percent(interval=1)
 
-            print(
-                f"  Initial memory usage: {baseline_metrics['memory_usage_mb']:.1f} MB"
-            )
+            print(f"  Initial memory usage: {baseline_metrics['memory_usage_mb']:.1f} MB")
             print(f"  Initial CPU usage: {baseline_metrics['cpu_usage_percent']:.1f}%")
 
             # AI推論性能測定
@@ -126,9 +124,7 @@ class SystemOptimizer:
                 LivePredictionEngine,
             )
 
-            engine = LivePredictionEngine(
-                config, self.test_symbols[:2]
-            )  # シンボル数削減
+            engine = LivePredictionEngine(config, self.test_symbols[:2])  # シンボル数削減
 
             # 模擬データで性能測定
             from src.day_trade.realtime.websocket_stream import MarketTick
@@ -158,22 +154,16 @@ class SystemOptimizer:
                 )
 
                 print(f"  AI prediction latency: {inference_time:.1f} ms")
-                print(
-                    f"  Predictions per second: {baseline_metrics['predictions_per_second']:.1f}"
-                )
+                print(f"  Predictions per second: {baseline_metrics['predictions_per_second']:.1f}")
 
             await engine.cleanup()
 
             # システム応答性測定
             response_start = time.time()
             await asyncio.sleep(0.1)  # 模擬処理
-            baseline_metrics["system_responsiveness_ms"] = (
-                time.time() - response_start
-            ) * 1000
+            baseline_metrics["system_responsiveness_ms"] = (time.time() - response_start) * 1000
 
-            print(
-                f"  System responsiveness: {baseline_metrics['system_responsiveness_ms']:.1f} ms"
-            )
+            print(f"  System responsiveness: {baseline_metrics['system_responsiveness_ms']:.1f} ms")
 
         except Exception as e:
             logger.error(f"Baseline measurement error: {e}")
@@ -217,9 +207,7 @@ class SystemOptimizer:
             print(f"    Memory after: {memory_after:.1f} MB")
             print(f"    Memory savings: {memory_savings:.1f} MB")
 
-            self.optimization_results["optimization_applied"].extend(
-                optimizations_applied
-            )
+            self.optimization_results["optimization_applied"].extend(optimizations_applied)
 
         except Exception as e:
             logger.error(f"Memory optimization error: {e}")
@@ -240,9 +228,7 @@ class SystemOptimizer:
             # バッチサイズ最適化
             optimized_batch_size = min(psutil.cpu_count(), 4)
             print(f"    Optimized batch size: {optimized_batch_size}")
-            optimizations_applied.append(
-                f"batch_size_optimization_{optimized_batch_size}"
-            )
+            optimizations_applied.append(f"batch_size_optimization_{optimized_batch_size}")
 
             # 2. 並列処理最適化
             print("    Optimizing parallel processing...")
@@ -261,9 +247,7 @@ class SystemOptimizer:
             print(f"    Optimal cache size: {cache_size} entries")
             optimizations_applied.append(f"cache_optimization_{cache_size}")
 
-            self.optimization_results["optimization_applied"].extend(
-                optimizations_applied
-            )
+            self.optimization_results["optimization_applied"].extend(optimizations_applied)
 
         except Exception as e:
             logger.error(f"AI inference optimization error: {e}")
@@ -314,9 +298,7 @@ class SystemOptimizer:
             await asyncio.sleep(0.3)
             optimizations_applied.append("network_optimization")
 
-            self.optimization_results["optimization_applied"].extend(
-                optimizations_applied
-            )
+            self.optimization_results["optimization_applied"].extend(optimizations_applied)
 
         except Exception as e:
             logger.error(f"System performance optimization error: {e}")
@@ -357,9 +339,7 @@ class SystemOptimizer:
                 enable_sentiment_analysis=True,
                 prediction_frequency=2.0,  # 高頻度化
                 max_workers=max(1, psutil.cpu_count() // 2),
-                cache_size=min(
-                    500, psutil.virtual_memory().available // (1024**2) // 20
-                ),
+                cache_size=min(500, psutil.virtual_memory().available // (1024**2) // 20),
             )
 
             from src.day_trade.realtime.live_prediction_engine import (
@@ -391,27 +371,19 @@ class SystemOptimizer:
 
             if predictions:
                 final_metrics["ai_prediction_latency_ms"] = inference_time
-                final_metrics["predictions_per_second"] = len(predictions) / (
-                    inference_time / 1000
-                )
+                final_metrics["predictions_per_second"] = len(predictions) / (inference_time / 1000)
 
                 print(f"  Optimized prediction latency: {inference_time:.1f} ms")
-                print(
-                    f"  Optimized predictions/sec: {final_metrics['predictions_per_second']:.1f}"
-                )
+                print(f"  Optimized predictions/sec: {final_metrics['predictions_per_second']:.1f}")
 
             await engine.cleanup()
 
             # システム応答性測定
             response_start = time.time()
             await asyncio.sleep(0.05)  # より短い模擬処理
-            final_metrics["system_responsiveness_ms"] = (
-                time.time() - response_start
-            ) * 1000
+            final_metrics["system_responsiveness_ms"] = (time.time() - response_start) * 1000
 
-            print(
-                f"  Optimized responsiveness: {final_metrics['system_responsiveness_ms']:.1f} ms"
-            )
+            print(f"  Optimized responsiveness: {final_metrics['system_responsiveness_ms']:.1f} ms")
 
         except Exception as e:
             logger.error(f"Final measurement error: {e}")
@@ -440,17 +412,13 @@ class SystemOptimizer:
             "system_responsiveness_ms",
         ]:
             if baseline.get(metric, 0) > 0:
-                improvement = (
-                    (baseline[metric] - final[metric]) / baseline[metric]
-                ) * 100
+                improvement = ((baseline[metric] - final[metric]) / baseline[metric]) * 100
                 improvements[metric] = improvement
 
         # スループット系メトリクス（向上が良い）
         for metric in ["predictions_per_second"]:
             if baseline.get(metric, 0) > 0:
-                improvement = (
-                    (final[metric] - baseline[metric]) / baseline[metric]
-                ) * 100
+                improvement = ((final[metric] - baseline[metric]) / baseline[metric]) * 100
                 improvements[metric] = improvement
 
         self.optimization_results["performance_improvement"] = improvements

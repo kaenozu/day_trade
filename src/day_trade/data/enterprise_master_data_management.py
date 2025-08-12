@@ -518,9 +518,11 @@ class EnterpriseMasterDataManagement:
                 business_justification=business_justification,
                 requested_by=requested_by,
                 requested_at=current_time,
-                approval_status=ApprovalStatus.PENDING
-                if requires_approval
-                else ApprovalStatus.APPROVED,
+                approval_status=(
+                    ApprovalStatus.PENDING
+                    if requires_approval
+                    else ApprovalStatus.APPROVED
+                ),
                 impact_assessment=impact_assessment,
                 metadata=metadata,
             )

@@ -526,13 +526,12 @@ class PortfolioTracker:
                     "profitable_trades": len(profitable_trades),
                     "avg_profit": avg_profit,
                     "avg_loss": avg_loss,
-                    "profit_loss_ratio": abs(avg_profit / avg_loss)
-                    if avg_loss != 0
-                    else 0,
+                    "profit_loss_ratio": (
+                        abs(avg_profit / avg_loss) if avg_loss != 0 else 0
+                    ),
                 },
                 "recent_performance": [
-                    p.to_dict()
-                    for p in self.daily_performance[-10:]  # 直近10日
+                    p.to_dict() for p in self.daily_performance[-10:]  # 直近10日
                 ],
             }
 

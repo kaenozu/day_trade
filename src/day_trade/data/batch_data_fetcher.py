@@ -780,9 +780,9 @@ if __name__ == "__main__":
             period="60d",
             preprocessing=True,
             features=["trend_strength", "momentum", "price_channel"],
-            priority=5
-            if symbol in ["7203", "8306"]
-            else 3,  # トヨタ・三菱UFJは高優先度
+            priority=(
+                5 if symbol in ["7203", "8306"] else 3
+            ),  # トヨタ・三菱UFJは高優先度
             cache_ttl=1800,
         )
         for symbol in test_symbols
@@ -819,8 +819,12 @@ if __name__ == "__main__":
         stats = fetcher.get_pipeline_stats()
         print("\nパフォーマンス統計:")
         print(f"  総リクエスト: {stats.total_requests}")
-        print(f"  成功率: {stats.successful_requests/stats.total_requests*100:.1f}%")
-        print(f"  キャッシュヒット率: {stats.cache_hits/stats.total_requests*100:.1f}%")
+        print(
+            f"  成功率: {stats.successful_requests / stats.total_requests * 100:.1f}%"
+        )
+        print(
+            f"  キャッシュヒット率: {stats.cache_hits / stats.total_requests * 100:.1f}%"
+        )
         print(f"  平均取得時間: {stats.avg_fetch_time:.3f}秒")
         print(f"  平均データ品質: {stats.avg_data_quality:.1f}")
         print(f"  スループット: {stats.throughput_rps:.2f} RPS")

@@ -199,9 +199,9 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(response_times)
-            if response_times
-            else 0,
+            avg_response_time_ms=(
+                statistics.mean(response_times) if response_times else 0
+            ),
             max_response_time_ms=max(response_times) if response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -338,9 +338,9 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(all_response_times)
-            if all_response_times
-            else 0,
+            avg_response_time_ms=(
+                statistics.mean(all_response_times) if all_response_times else 0
+            ),
             max_response_time_ms=max(all_response_times) if all_response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -436,9 +436,9 @@ class StressTestRunner:
                 successful_operations=successful_ops,
                 failed_operations=failed_ops,
                 operations_per_second=total_ops / total_duration,
-                avg_response_time_ms=statistics.mean(response_times)
-                if response_times
-                else 0,
+                avg_response_time_ms=(
+                    statistics.mean(response_times) if response_times else 0
+                ),
                 max_response_time_ms=max(response_times) if response_times else 0,
                 error_rate=failed_ops / total_ops if total_ops > 0 else 0,
                 memory_usage_mb=memory_usage,
@@ -545,9 +545,9 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(response_times)
-            if response_times
-            else 0,
+            avg_response_time_ms=(
+                statistics.mean(response_times) if response_times else 0
+            ),
             max_response_time_ms=max(response_times) if response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -596,11 +596,11 @@ class StressTestRunner:
         report["stability_analysis"] = {
             "stable_tests_count": len(stable_tests),
             "stability_rate": len(stable_tests) / len(df) * 100,
-            "most_stable_test": stable_tests.loc[
-                stable_tests["error_rate"].idxmin(), "test_name"
-            ]
-            if not stable_tests.empty
-            else None,
+            "most_stable_test": (
+                stable_tests.loc[stable_tests["error_rate"].idxmin(), "test_name"]
+                if not stable_tests.empty
+                else None
+            ),
             "least_stable_test": df.loc[df["error_rate"].idxmax(), "test_name"],
         }
 

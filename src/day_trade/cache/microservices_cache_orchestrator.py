@@ -898,7 +898,7 @@ if __name__ == "__main__":
 
         print(f"初回分析: {first_time:.1f}ms")
         print(f"キャッシュ取得: {cached_time:.1f}ms")
-        print(f"高速化率: {first_time/cached_time:.1f}x")
+        print(f"高速化率: {first_time / cached_time:.1f}x")
         print(f"結果一致: {result1['result'] == result2['result']}")
 
         # 一貫性監視開始（デモ）

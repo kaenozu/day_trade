@@ -435,7 +435,7 @@ class SimpleDataVersionManager:
             age_days = (datetime.now(timezone.utc) - version.created_at).days
             size_mb = version.size_bytes / 1024 / 1024
 
-            report.append(f"  {i+1:2d}. {version.version_id}")
+            report.append(f"  {i + 1:2d}. {version.version_id}")
             report.append(
                 f"      作成: {version.created_at.strftime('%Y-%m-%d %H:%M:%S')} ({age_days}日前)"
             )
@@ -519,7 +519,7 @@ def demo_data_version_management():
     print("\n2. バージョンリスト:")
     versions = version_manager.list_versions("stock_prices")
     for v in versions:
-        print(f"   {v.version_id}: {v.record_count}行, {v.size_bytes/1024:.1f}KB")
+        print(f"   {v.version_id}: {v.record_count}行, {v.size_bytes / 1024:.1f}KB")
 
     # データ読み込み
     print("\n3. データ読み込みテスト:")

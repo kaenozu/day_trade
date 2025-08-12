@@ -73,9 +73,7 @@ try:
             print(f"分析結果: {len(results)}件")
 
             for name, result in results.items():
-                print(
-                    f"- {name}: {result.risk_level.value} (スコア: {result.risk_score:.2f})"
-                )
+                print(f"- {name}: {result.risk_level.value} (スコア: {result.risk_score:.2f})")
 
             manager.cleanup()
 

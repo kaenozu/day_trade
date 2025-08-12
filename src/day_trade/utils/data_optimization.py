@@ -606,11 +606,11 @@ class ChunkedDataProcessor:
                 processed_chunks.append(processed_chunk)
 
                 logger.debug(
-                    f"チャンク処理完了: {i//self.chunk_size + 1}/{len(df)//self.chunk_size + 1}"
+                    f"チャンク処理完了: {i // self.chunk_size + 1}/{len(df) // self.chunk_size + 1}"
                 )
 
             except Exception as e:
-                logger.error(f"チャンク処理エラー (行 {i}-{i+len(chunk)}): {e}")
+                logger.error(f"チャンク処理エラー (行 {i}-{i + len(chunk)}): {e}")
                 # エラーが発生したチャンクは元のデータを使用
                 processed_chunks.append(chunk)
 

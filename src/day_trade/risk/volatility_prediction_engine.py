@@ -741,12 +741,12 @@ class VolatilityPredictionEngine:
                 "symbol": symbol,
                 "prediction_horizon": horizon,
                 "predicted_volatility": float(best_pred),
-                "current_volatility": float(current_vol)
-                if pd.notna(current_vol)
-                else None,
-                "volatility_change": float(best_pred - current_vol)
-                if pd.notna(current_vol)
-                else None,
+                "current_volatility": (
+                    float(current_vol) if pd.notna(current_vol) else None
+                ),
+                "volatility_change": (
+                    float(best_pred - current_vol) if pd.notna(current_vol) else None
+                ),
                 "confidence_interval": confidence_interval,
                 "model_predictions": predictions,
                 "best_model": best_model_name,
@@ -1101,11 +1101,11 @@ class VolatilityPredictionEngine:
                 "risk_level": risk_level,
                 "risk_score": int(risk_score),
                 "risk_factors": risk_factors,
-                "volatility_outlook": "increasing"
-                if vol_change > 2
-                else "decreasing"
-                if vol_change < -2
-                else "stable",
+                "volatility_outlook": (
+                    "increasing"
+                    if vol_change > 2
+                    else "decreasing" if vol_change < -2 else "stable"
+                ),
             }
 
         except Exception as e:
@@ -1300,7 +1300,7 @@ if __name__ == "__main__":
         regime_counts = regimes.value_counts()
         print("✅ レジーム分類完了:")
         for regime, count in regime_counts.items():
-            print(f"   {regime}: {count}日 ({count/len(regimes)*100:.1f}%)")
+            print(f"   {regime}: {count}日 ({count / len(regimes) * 100:.1f}%)")
 
         # 4. 機械学習特徴量準備テスト
         print("\n4. ML特徴量準備テスト")

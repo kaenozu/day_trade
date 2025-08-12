@@ -159,9 +159,7 @@ class PortfolioOptimizer:
             return -utility  # 最大化のため負値
 
         # 制約条件
-        constraints = [
-            {"type": "eq", "fun": lambda x: np.sum(x) - 1}  # 重みの合計 = 1
-        ]
+        constraints = [{"type": "eq", "fun": lambda x: np.sum(x) - 1}]  # 重みの合計 = 1
 
         # 範囲制約
         bounds = [
@@ -285,9 +283,9 @@ class PortfolioOptimizer:
                     "weights": weights,
                     "expected_return": portfolio_return,
                     "volatility": portfolio_risk,
-                    "sharpe_ratio": portfolio_return / portfolio_risk
-                    if portfolio_risk > 0
-                    else 0,
+                    "sharpe_ratio": (
+                        portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
+                    ),
                     "final_value": final_value,
                 }
             )

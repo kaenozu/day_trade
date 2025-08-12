@@ -100,11 +100,7 @@ async def test_basic_performance():
     performance_score = (
         "A"
         if ops_per_second >= 10000
-        else "B"
-        if ops_per_second >= 5000
-        else "C"
-        if ops_per_second >= 1000
-        else "D"
+        else "B" if ops_per_second >= 5000 else "C" if ops_per_second >= 1000 else "D"
     )
 
     print(f"  パフォーマンス評価: {performance_score}")
@@ -162,9 +158,7 @@ async def test_concurrent_load():
     ops_per_second = total_ops / duration
     avg_latency = statistics.mean(all_latencies)
     p95_latency = (
-        statistics.quantiles(all_latencies, n=20)[18]
-        if len(all_latencies) >= 20
-        else avg_latency
+        statistics.quantiles(all_latencies, n=20)[18] if len(all_latencies) >= 20 else avg_latency
     )
 
     stats = orchestrator.get_stats()
@@ -182,11 +176,7 @@ async def test_concurrent_load():
     concurrency_grade = (
         "A"
         if concurrency_efficiency >= 500
-        else "B"
-        if concurrency_efficiency >= 250
-        else "C"
-        if concurrency_efficiency >= 100
-        else "D"
+        else "B" if concurrency_efficiency >= 250 else "C" if concurrency_efficiency >= 100 else "D"
     )
 
     print(f"  並行効率性: {concurrency_efficiency:.0f} ops/sec/worker")
@@ -231,12 +221,8 @@ async def test_adaptive_optimization_simulation():
 
                 # SET + GET操作
                 op_start = time.perf_counter()
-                await orchestrator.set(
-                    key, value, "optimization", f"{pattern_name}-service"
-                )
-                result = await orchestrator.get(
-                    key, "optimization", f"{pattern_name}-service"
-                )
+                await orchestrator.set(key, value, "optimization", f"{pattern_name}-service")
+                result = await orchestrator.get(key, "optimization", f"{pattern_name}-service")
                 op_latency = (time.perf_counter() - op_start) * 1000
 
                 pattern_latencies.append(op_latency)
@@ -268,11 +254,7 @@ async def test_adaptive_optimization_simulation():
     adaptive_grade = (
         "A"
         if adaptation_ratio >= 2.0
-        else "B"
-        if adaptation_ratio >= 1.5
-        else "C"
-        if adaptation_ratio >= 1.2
-        else "D"
+        else "B" if adaptation_ratio >= 1.5 else "C" if adaptation_ratio >= 1.2 else "D"
     )
 
     print(f"    適応性能評価: {adaptive_grade}")
@@ -301,13 +283,7 @@ async def generate_final_report(basic_result, concurrent_result, adaptive_result
     avg_score = sum(grade_scores[g] for g in grades) / len(grades)
 
     overall_grade = (
-        "A"
-        if avg_score >= 3.5
-        else "B"
-        if avg_score >= 2.5
-        else "C"
-        if avg_score >= 1.5
-        else "D"
+        "A" if avg_score >= 3.5 else "B" if avg_score >= 2.5 else "C" if avg_score >= 1.5 else "D"
     )
 
     print("総合評価:")
@@ -318,9 +294,7 @@ async def generate_final_report(basic_result, concurrent_result, adaptive_result
 
     print("\n主要メトリクス:")
     print(f"  基本スループット: {basic_result['ops_per_second']:.0f} ops/sec")
-    print(
-        f"  並行スループット: {concurrent_result['concurrent_ops_per_second']:.0f} ops/sec"
-    )
+    print(f"  並行スループット: {concurrent_result['concurrent_ops_per_second']:.0f} ops/sec")
     print(f"  基本遅延: {basic_result['avg_latency_ms']:.2f}ms")
     print(f"  P95遅延: {concurrent_result['concurrent_p95_latency_ms']:.2f}ms")
     print(f"  ヒット率: {basic_result['hit_rate']:.1%}")
@@ -355,9 +329,7 @@ async def main():
         adaptive_result = await test_adaptive_optimization_simulation()
 
         # 最終レポート生成
-        final_report = await generate_final_report(
-            basic_result, concurrent_result, adaptive_result
-        )
+        final_report = await generate_final_report(basic_result, concurrent_result, adaptive_result)
 
         print("\nIssue #377 高度キャッシング戦略 簡易パフォーマンス検証完了!")
         return final_report

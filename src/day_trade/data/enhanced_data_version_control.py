@@ -913,9 +913,9 @@ class EnhancedDataVersionControl:
                     "branches": {"total_count": branch_count or 0},
                     "experiments": experiment_stats,
                     "quality": {
-                        "average_score": round(quality_stats[0], 2)
-                        if quality_stats[0]
-                        else None,
+                        "average_score": (
+                            round(quality_stats[0], 2) if quality_stats[0] else None
+                        ),
                         "min_score": quality_stats[1],
                         "max_score": quality_stats[2],
                     },
@@ -1081,7 +1081,7 @@ if __name__ == "__main__":
             print(f"   履歴件数: {len(history)}")
 
             for i, version in enumerate(history[:3]):
-                print(f"   {i+1}. {version['version_id']} ({version['timestamp']})")
+                print(f"   {i + 1}. {version['version_id']} ({version['timestamp']})")
                 if version["quality_score"]:
                     print(f"      品質スコア: {version['quality_score']:.2f}")
 

@@ -604,9 +604,11 @@ class SecretManager:
                             "value": plaintext,
                             "description": description,
                             "tags": json.loads(tags) if tags else [],
-                            "expires_at": datetime.fromisoformat(expires_at)
-                            if expires_at
-                            else None,
+                            "expires_at": (
+                                datetime.fromisoformat(expires_at)
+                                if expires_at
+                                else None
+                            ),
                             "created_at": datetime.fromisoformat(created_at),
                             "access_count": access_count,
                         }
@@ -671,9 +673,11 @@ class DataProtectionManager:
         encoded_data = {
             "algorithm": encrypted.algorithm.value,
             "ciphertext": base64.b64encode(encrypted.ciphertext).decode("ascii"),
-            "nonce": base64.b64encode(encrypted.nonce).decode("ascii")
-            if encrypted.nonce
-            else None,
+            "nonce": (
+                base64.b64encode(encrypted.nonce).decode("ascii")
+                if encrypted.nonce
+                else None
+            ),
             "created_at": encrypted.created_at.isoformat(),
         }
 
@@ -690,9 +694,9 @@ class DataProtectionManager:
             encrypted_data = EncryptedData(
                 algorithm=EncryptionAlgorithm(json_data["algorithm"]),
                 ciphertext=base64.b64decode(json_data["ciphertext"]),
-                nonce=base64.b64decode(json_data["nonce"])
-                if json_data["nonce"]
-                else None,
+                nonce=(
+                    base64.b64decode(json_data["nonce"]) if json_data["nonce"] else None
+                ),
             )
 
             plaintext = self.default_encryption.decrypt(encrypted_data)

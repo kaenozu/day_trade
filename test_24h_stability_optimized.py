@@ -19,9 +19,11 @@ import psutil
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir / "src"))
 
+
 @dataclass
 class OptimizedStabilityMetrics:
     """最適化された安定性メトリクス"""
+
     timestamp: str
     uptime_seconds: float
     memory_usage_mb: float
@@ -31,13 +33,14 @@ class OptimizedStabilityMetrics:
     successful_operations: int
     avg_operation_time_ms: float
 
+
 class MemoryOptimizedStabilityTest:
     """メモリ最適化安定性テストシステム"""
 
     def __init__(self):
         self.test_duration_minutes = 10  # 10分間テスト
         self.monitoring_interval_seconds = 15  # 15秒間隔監視
-        self.operation_interval_seconds = 45   # 45秒間隔操作
+        self.operation_interval_seconds = 45  # 45秒間隔操作
 
         # 軽量テスト対象銘柄
         self.test_symbols = ["7203.T", "8306.T", "9984.T", "6758.T", "9432.T"]
@@ -98,7 +101,9 @@ class MemoryOptimizedStabilityTest:
                 if int(elapsed_minutes) != int(elapsed_minutes - 0.25):  # 1分ごと表示
                     progress = elapsed_minutes / self.test_duration_minutes * 100
                     current_memory = psutil.virtual_memory().used / (1024 * 1024)
-                    print(f"[{elapsed_minutes:.1f}分] 進捗: {progress:.1f}%, メモリ: {current_memory:.1f}MB")
+                    print(
+                        f"[{elapsed_minutes:.1f}分] 進捗: {progress:.1f}%, メモリ: {current_memory:.1f}MB"
+                    )
 
                 time.sleep(self.monitoring_interval_seconds)
 
@@ -138,13 +143,13 @@ class MemoryOptimizedStabilityTest:
                 active_threads=active_threads,
                 errors_count=self.error_count,
                 successful_operations=self.operation_count,
-                avg_operation_time_ms=avg_op_time
+                avg_operation_time_ms=avg_op_time,
             )
 
             # 履歴保存（制限付き）
             self.metrics_history.append(metrics)
             if len(self.metrics_history) > self.max_metrics_history:
-                self.metrics_history = self.metrics_history[-self.max_metrics_history//2:]
+                self.metrics_history = self.metrics_history[-self.max_metrics_history // 2 :]
 
             # 異常検知
             if memory_usage > 1024:  # 1GB超過で警告
@@ -177,7 +182,7 @@ class MemoryOptimizedStabilityTest:
 
             # 簡易統計計算
             avg_price = sum(data_points) / len(data_points)
-            math.sqrt(sum((x - avg_price)**2 for x in data_points) / len(data_points))
+            math.sqrt(sum((x - avg_price) ** 2 for x in data_points) / len(data_points))
 
             # 予測信号生成
             trend = "UP" if avg_price > 100 else "DOWN"
@@ -190,7 +195,9 @@ class MemoryOptimizedStabilityTest:
 
             # 結果は保存せずに即座に処理（メモリ節約）
             if self.operation_count % 5 == 0:
-                print(f"[操作{self.operation_count}] {symbol}: {trend} (信頼度: {confidence:.2f}, {duration:.1f}ms)")
+                print(
+                    f"[操作{self.operation_count}] {symbol}: {trend} (信頼度: {confidence:.2f}, {duration:.1f}ms)"
+                )
 
         except Exception as e:
             print(f"[操作エラー] {e}")
@@ -259,7 +266,10 @@ class MemoryOptimizedStabilityTest:
         success_conditions.append(("エラー率", error_ok, f"{error_rate:.1f}%"))
 
         # 5. 操作実行チェック
-        operations_ok = self.operation_count >= (self.test_duration_minutes * 60 // self.operation_interval_seconds) * 0.8
+        operations_ok = (
+            self.operation_count
+            >= (self.test_duration_minutes * 60 // self.operation_interval_seconds) * 0.8
+        )
         success_conditions.append(("操作実行", operations_ok, f"{self.operation_count}回"))
 
         # 結果表示
@@ -290,6 +300,7 @@ class MemoryOptimizedStabilityTest:
 
         return overall_success
 
+
 def main():
     """メイン実行"""
     print("メモリ最適化24時間安定性テストシステム")
@@ -311,6 +322,7 @@ def main():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = main()

@@ -963,9 +963,9 @@ class MasterDataManager:
                 "total_count": entity_count,
                 "by_type": entities_by_type,
                 "by_domain": entities_by_domain,
-                "average_quality_score": total_quality_score / entity_count
-                if entity_count > 0
-                else 0,
+                "average_quality_score": (
+                    total_quality_score / entity_count if entity_count > 0 else 0
+                ),
             }
 
             # ドメイン情報
@@ -1185,9 +1185,9 @@ class MasterDataManager:
                             )
 
                             if completeness < policy_rule["threshold"]:
-                                entity.metadata[
-                                    "quality_violations"
-                                ] = entity.metadata.get("quality_violations", [])
+                                entity.metadata["quality_violations"] = (
+                                    entity.metadata.get("quality_violations", [])
+                                )
                                 entity.metadata["quality_violations"].append(
                                     f"完全性違反: {completeness:.2f} < {policy_rule['threshold']}"
                                 )

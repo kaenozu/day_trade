@@ -1051,10 +1051,12 @@ class WatchlistManager:
                         symbol=alert["stock_code"],
                         alert_type=alert["alert_type"],
                         condition_value=Decimal(str(alert["threshold"])),
-                        comparison_operator=">"
-                        if "_up" in alert["alert_type"].value
-                        or "above" in alert["alert_type"].value
-                        else "<",
+                        comparison_operator=(
+                            ">"
+                            if "_up" in alert["alert_type"].value
+                            or "above" in alert["alert_type"].value
+                            else "<"
+                        ),
                         is_active=alert["is_active"],
                         priority=AlertPriority.MEDIUM,
                         description=f"Migrated from WatchlistManager: {alert['memo']}",

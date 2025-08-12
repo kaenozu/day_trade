@@ -559,14 +559,14 @@ class EnterpriseIntegrationOrchestrator:
             "components": {
                 "total": total_components,
                 "healthy": healthy_components,
-                "health_ratio": healthy_components / total_components
-                if total_components > 0
-                else 0,
+                "health_ratio": (
+                    healthy_components / total_components if total_components > 0 else 0
+                ),
             },
             "metrics": self.operation_metrics,
-            "last_health_check": self.last_health_check.isoformat()
-            if self.last_health_check
-            else None,
+            "last_health_check": (
+                self.last_health_check.isoformat() if self.last_health_check else None
+            ),
             "safe_mode_status": get_trading_mode_status(),
         }
 
@@ -579,9 +579,11 @@ class EnterpriseIntegrationOrchestrator:
                 "type": component.component_type,
                 "enabled": component.enabled,
                 "healthy": component.healthy,
-                "last_health_check": component.last_health_check.isoformat()
-                if component.last_health_check
-                else None,
+                "last_health_check": (
+                    component.last_health_check.isoformat()
+                    if component.last_health_check
+                    else None
+                ),
                 "performance": {
                     "processing_time_ms": component.processing_time_ms,
                     "memory_usage_mb": component.memory_usage_mb,
@@ -590,9 +592,11 @@ class EnterpriseIntegrationOrchestrator:
                 "errors": {
                     "count": component.error_count,
                     "last_error": component.last_error,
-                    "last_error_time": component.last_error_time.isoformat()
-                    if component.last_error_time
-                    else None,
+                    "last_error_time": (
+                        component.last_error_time.isoformat()
+                        if component.last_error_time
+                        else None
+                    ),
                 },
                 "dependencies": component.dependencies,
                 "dependents": component.dependents,

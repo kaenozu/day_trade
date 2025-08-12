@@ -46,14 +46,8 @@ def generate_test_data(days: int = 150) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Open": [p * np.random.uniform(0.995, 1.005) for p in prices],
-            "High": [
-                max(o, c) * np.random.uniform(1.000, 1.02)
-                for o, c in zip(prices, prices)
-            ],
-            "Low": [
-                min(o, c) * np.random.uniform(0.98, 1.000)
-                for o, c in zip(prices, prices)
-            ],
+            "High": [max(o, c) * np.random.uniform(1.000, 1.02) for o, c in zip(prices, prices)],
+            "Low": [min(o, c) * np.random.uniform(0.98, 1.000) for o, c in zip(prices, prices)],
             "Close": prices,
             "Volume": np.random.randint(1000000, 10000000, days),
         },
@@ -108,9 +102,7 @@ def test_optimized_performance(test_data: pd.DataFrame, iterations: int = 3) -> 
         start_time = time.time()
 
         try:
-            result = engine.calculate_optimized_technical_indicators(
-                test_data, "essential"
-            )
+            result = engine.calculate_optimized_technical_indicators(test_data, "essential")
             elapsed = time.time() - start_time
             times.append(elapsed)
 
@@ -157,9 +149,7 @@ def test_optimized_vs_original_features(test_data: pd.DataFrame):
     start_time = time.time()
     try:
         optimized_engine = OptimizedMLEngine(fast_mode=True)
-        optimized_features = optimized_engine.prepare_optimized_features(
-            test_data, "essential"
-        )
+        optimized_features = optimized_engine.prepare_optimized_features(test_data, "essential")
         optimized_time = time.time() - start_time
         optimized_success = True
         print(
@@ -174,15 +164,15 @@ def test_optimized_vs_original_features(test_data: pd.DataFrame):
     return {
         "original_time": original_time if original_success else None,
         "optimized_time": optimized_time if optimized_success else None,
-        "original_features": len(original_features.columns)
-        if not original_features.empty
-        else 0,
-        "optimized_features": len(optimized_features.columns)
-        if not optimized_features.empty
-        else 0,
-        "improvement": (original_time - optimized_time) / original_time * 100
-        if original_success and optimized_success
-        else None,
+        "original_features": len(original_features.columns) if not original_features.empty else 0,
+        "optimized_features": (
+            len(optimized_features.columns) if not optimized_features.empty else 0
+        ),
+        "improvement": (
+            (original_time - optimized_time) / original_time * 100
+            if original_success and optimized_success
+            else None
+        ),
     }
 
 
@@ -198,9 +188,7 @@ def test_different_indicator_sets(test_data: pd.DataFrame):
 
         start_time = time.time()
         try:
-            result = engine.calculate_optimized_technical_indicators(
-                test_data, indicator_set
-            )
+            result = engine.calculate_optimized_technical_indicators(test_data, indicator_set)
             elapsed = time.time() - start_time
 
             results[indicator_set] = {
@@ -257,9 +245,7 @@ OPTIMIZATION RESULTS:
             / original_results["average_time"]
         ) * 100
         speedup = original_results["average_time"] / optimized_results["average_time"]
-        time_saved = (
-            original_results["average_time"] - optimized_results["average_time"]
-        )
+        time_saved = original_results["average_time"] - optimized_results["average_time"]
 
         report += f"""  Time saved: {time_saved:.2f}s per operation
   Performance improvement: {improvement:.1f}%
@@ -277,9 +263,7 @@ FEATURE PREPARATION COMPARISON:
   Feature prep improvement: {feature_comparison['improvement']:.1f}%
 """
     else:
-        report += (
-            "\nFEATURE PREPARATION COMPARISON:\n  Could not compare due to failures\n"
-        )
+        report += "\nFEATURE PREPARATION COMPARISON:\n  Could not compare due to failures\n"
 
     # Indicator set performance
     report += """
@@ -387,19 +371,13 @@ def main():
         )
 
         if improvement > 50:
-            print(
-                "\n✅ OPTIMIZATION SUCCESSFUL - Major performance improvement achieved!"
-            )
+            print("\n✅ OPTIMIZATION SUCCESSFUL - Major performance improvement achieved!")
         elif improvement > 20:
-            print(
-                "\n✅ OPTIMIZATION SUCCESSFUL - Good performance improvement achieved!"
-            )
+            print("\n✅ OPTIMIZATION SUCCESSFUL - Good performance improvement achieved!")
         elif improvement > 0:
             print("\n⚠️  OPTIMIZATION PARTIAL - Minor improvement achieved!")
         else:
-            print(
-                "\n❌ OPTIMIZATION FAILED - No improvement or performance regression!"
-            )
+            print("\n❌ OPTIMIZATION FAILED - No improvement or performance regression!")
 
     else:
         print("❌ Could not complete optimization testing due to failures")

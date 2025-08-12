@@ -483,9 +483,9 @@ class DynamicRebalancingEngine:
 
             return RebalancingSignal(
                 timestamp=datetime.now(),
-                trigger_type=triggers[0]
-                if triggers
-                else RebalancingTrigger.THRESHOLD_BASED,
+                trigger_type=(
+                    triggers[0] if triggers else RebalancingTrigger.THRESHOLD_BASED
+                ),
                 current_weights=current_weights,
                 target_weights=target_weights,
                 rebalancing_strength=rebalancing_strength,

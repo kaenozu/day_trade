@@ -514,7 +514,7 @@ class DashboardVisualizationEngine:
                     f"{pos['quantity']:,}",
                     f"{pos['price']:,.0f}円",
                     f"{pos['value']:,.0f}円",
-                    f"{pos['value']/total_value*100:.1f}%",
+                    f"{pos['value'] / total_value * 100:.1f}%",
                 ]
             )
 

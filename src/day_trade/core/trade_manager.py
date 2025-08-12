@@ -1453,20 +1453,24 @@ class TradeManager:
                                 session.flush()
 
                             # 2. データベース取引記録を作成
-                            DBTrade.create_buy_trade(
-                                session=session,
-                                stock_code=symbol,
-                                quantity=quantity,
-                                price=price,
-                                commission=commission,
-                                memo=notes,
-                            ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
-                                session=session,
-                                stock_code=symbol,
-                                quantity=quantity,
-                                price=price,
-                                commission=commission,
-                                memo=notes,
+                            (
+                                DBTrade.create_buy_trade(
+                                    session=session,
+                                    stock_code=symbol,
+                                    quantity=quantity,
+                                    price=price,
+                                    commission=commission,
+                                    memo=notes,
+                                )
+                                if trade_type == TradeType.BUY
+                                else DBTrade.create_sell_trade(
+                                    session=session,
+                                    stock_code=symbol,
+                                    quantity=quantity,
+                                    price=price,
+                                    commission=commission,
+                                    memo=notes,
+                                )
                             )
 
                             # 3. メモリ内データ構造を更新
@@ -1993,12 +1997,16 @@ class TradeManager:
                         commission=mask_sensitive_info(
                             f"commission: {str(commission)}"
                         ),
-                        old_position=mask_sensitive_info(str(old_position.to_dict()))
-                        if old_position
-                        else None,
-                        new_position=mask_sensitive_info(str(new_position.to_dict()))
-                        if new_position
-                        else None,
+                        old_position=(
+                            mask_sensitive_info(str(old_position.to_dict()))
+                            if old_position
+                            else None
+                        ),
+                        new_position=(
+                            mask_sensitive_info(str(new_position.to_dict()))
+                            if new_position
+                            else None
+                        ),
                         persisted=True,
                     )
 
@@ -2038,12 +2046,16 @@ class TradeManager:
                     quantity=mask_sensitive_info(f"quantity: {quantity}"),
                     price=mask_sensitive_info(f"price: {str(price)}"),
                     commission=mask_sensitive_info(f"commission: {str(commission)}"),
-                    old_position=mask_sensitive_info(str(old_position.to_dict()))
-                    if old_position
-                    else None,
-                    new_position=mask_sensitive_info(str(new_position.to_dict()))
-                    if new_position
-                    else None,
+                    old_position=(
+                        mask_sensitive_info(str(old_position.to_dict()))
+                        if old_position
+                        else None
+                    ),
+                    new_position=(
+                        mask_sensitive_info(str(new_position.to_dict()))
+                        if new_position
+                        else None
+                    ),
                     persisted=False,
                 )
 
@@ -2062,9 +2074,11 @@ class TradeManager:
                 "price": str(price),
                 "commission": str(commission),
                 "timestamp": timestamp.isoformat(),
-                "position": self.positions[symbol].to_dict()
-                if symbol in self.positions
-                else None,
+                "position": (
+                    self.positions[symbol].to_dict()
+                    if symbol in self.positions
+                    else None
+                ),
                 "total_cost": str(price * quantity + commission),
             }
 
@@ -2216,14 +2230,16 @@ class TradeManager:
                             f"commission: {str(commission)}"
                         ),
                         old_position=mask_sensitive_info(str(old_position.to_dict())),
-                        new_position=mask_sensitive_info(str(new_position.to_dict()))
-                        if new_position
-                        else None,
-                        realized_pnl=mask_sensitive_info(
-                            str(new_realized_pnl.to_dict())
-                        )
-                        if new_realized_pnl
-                        else None,
+                        new_position=(
+                            mask_sensitive_info(str(new_position.to_dict()))
+                            if new_position
+                            else None
+                        ),
+                        realized_pnl=(
+                            mask_sensitive_info(str(new_realized_pnl.to_dict()))
+                            if new_realized_pnl
+                            else None
+                        ),
                         persisted=True,
                     )
 
@@ -2232,9 +2248,9 @@ class TradeManager:
                         trade_id=trade_id,
                         db_trade_id=db_trade.id,
                         commission=str(commission),
-                        realized_pnl=str(new_realized_pnl.pnl)
-                        if new_realized_pnl
-                        else None,
+                        realized_pnl=(
+                            str(new_realized_pnl.pnl) if new_realized_pnl else None
+                        ),
                     )
             else:
                 # メモリ内のみの処理
@@ -2273,12 +2289,16 @@ class TradeManager:
                     price=mask_sensitive_info(f"price: {str(price)}"),
                     commission=mask_sensitive_info(f"commission: {str(commission)}"),
                     old_position=mask_sensitive_info(str(old_position.to_dict())),
-                    new_position=mask_sensitive_info(str(new_position.to_dict()))
-                    if new_position
-                    else None,
-                    realized_pnl=mask_sensitive_info(str(new_realized_pnl.to_dict()))
-                    if new_realized_pnl
-                    else None,
+                    new_position=(
+                        mask_sensitive_info(str(new_position.to_dict()))
+                        if new_position
+                        else None
+                    ),
+                    realized_pnl=(
+                        mask_sensitive_info(str(new_realized_pnl.to_dict()))
+                        if new_realized_pnl
+                        else None
+                    ),
                     persisted=False,
                 )
 
@@ -2286,9 +2306,9 @@ class TradeManager:
                     "株式売り注文完了（メモリのみ）",
                     trade_id=trade_id,
                     commission=str(commission),
-                    realized_pnl=str(new_realized_pnl.pnl)
-                    if new_realized_pnl
-                    else None,
+                    realized_pnl=(
+                        str(new_realized_pnl.pnl) if new_realized_pnl else None
+                    ),
                 )
 
             # 結果データ作成
@@ -2302,9 +2322,9 @@ class TradeManager:
                 "timestamp": timestamp.isoformat(),
                 "position": new_position.to_dict() if new_position else None,
                 "position_closed": new_position is None,
-                "realized_pnl": new_realized_pnl.to_dict()
-                if new_realized_pnl
-                else None,
+                "realized_pnl": (
+                    new_realized_pnl.to_dict() if new_realized_pnl else None
+                ),
                 "gross_proceeds": str(price * quantity - commission),
             }
 

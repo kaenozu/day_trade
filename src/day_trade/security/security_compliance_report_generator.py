@@ -179,8 +179,8 @@ class SecurityComplianceReportGenerator:
 
 ### 全体評価
 - **コンプライアンススコア**: {compliance_score:.1f}/100
-- **準拠要件**: {compliance_results.get('requirements_met', 0)}/{compliance_results.get('total_requirements', 0)}
-- **重要な違反**: {len([v for v in violations if v.get('severity') in ['critical', 'high']])}件
+- **準拠要件**: {compliance_results.get("requirements_met", 0)}/{compliance_results.get("total_requirements", 0)}
+- **重要な違反**: {len([v for v in violations if v.get("severity") in ["critical", "high"]])}件
 - **総違反数**: {len(violations)}件
 
 ### 主要な所見
@@ -263,7 +263,7 @@ class SecurityComplianceReportGenerator:
 
 ### セキュアコーディング違反
 - **総違反数**: {len(secure_coding_data)}件
-- **修正が必要**: {len([v for v in secure_coding_data if v.get('severity') in ['critical', 'high']])}件
+- **修正が必要**: {len([v for v in secure_coding_data if v.get("severity") in ["critical", "high"]])}件
 """
 
         # 詳細所見
@@ -350,21 +350,21 @@ class SecurityComplianceReportGenerator:
 ## セキュリティメトリクス分析結果
 
 ### セキュリティKPI
-- **セキュリティスコア**: {kpis['security_score']:.1f}/100
-- **コンプライアンス率**: {kpis['compliance_percentage']:.1f}%
-- **平均検出時間**: {kpis['mean_time_to_detection']:.1f}時間
-- **平均解決時間**: {kpis['mean_time_to_resolution']:.1f}時間
-- **脆弱性密度**: {kpis['vulnerability_density']:.2f}/1000行
+- **セキュリティスコア**: {kpis["security_score"]:.1f}/100
+- **コンプライアンス率**: {kpis["compliance_percentage"]:.1f}%
+- **平均検出時間**: {kpis["mean_time_to_detection"]:.1f}時間
+- **平均解決時間**: {kpis["mean_time_to_resolution"]:.1f}時間
+- **脆弱性密度**: {kpis["vulnerability_density"]:.2f}/1000行
 
 ### トレンド分析
-{"🔺 セキュリティ状況が悪化傾向にあります" if trend_analysis.get('trend') == 'declining' else ""}
-{"📈 セキュリティ状況が改善傾向にあります" if trend_analysis.get('trend') == 'improving' else ""}
-{"➡️ セキュリティ状況は安定しています" if trend_analysis.get('trend') == 'stable' else ""}
+{"🔺 セキュリティ状況が悪化傾向にあります" if trend_analysis.get("trend") == "declining" else ""}
+{"📈 セキュリティ状況が改善傾向にあります" if trend_analysis.get("trend") == "improving" else ""}
+{"➡️ セキュリティ状況は安定しています" if trend_analysis.get("trend") == "stable" else ""}
 
 ### パフォーマンス評価
-{"🟢 優秀 - セキュリティ体制が非常に良好です" if kpis['security_score'] >= 90 else ""}
-{"🟡 良好 - 一部改善の余地があります" if 70 <= kpis['security_score'] < 90 else ""}
-{"🔴 改善必要 - セキュリティ体制の強化が必要です" if kpis['security_score'] < 70 else ""}
+{"🟢 優秀 - セキュリティ体制が非常に良好です" if kpis["security_score"] >= 90 else ""}
+{"🟡 良好 - 一部改善の余地があります" if 70 <= kpis["security_score"] < 90 else ""}
+{"🔴 改善必要 - セキュリティ体制の強化が必要です" if kpis["security_score"] < 70 else ""}
 """
 
         # 詳細メトリクス
@@ -455,9 +455,11 @@ class SecurityComplianceReportGenerator:
                 )
                 compliance["frameworks"]["pci_dss"] = {
                     "score": compliance_results.get("overall_score", 85.0),
-                    "status": "compliant"
-                    if compliance_results.get("overall_score", 0) >= 80
-                    else "non_compliant",
+                    "status": (
+                        "compliant"
+                        if compliance_results.get("overall_score", 0) >= 80
+                        else "non_compliant"
+                    ),
                 }
             except Exception:
                 pass
@@ -502,20 +504,20 @@ class SecurityComplianceReportGenerator:
 - **リスクスコア**: {risk_score:.1f}/100 (低いほど良好)
 
 ### 主要指標
-- **アクティブ脅威**: {security_metrics.get('total_threats', 0)}件
-  - 重大: {security_metrics.get('critical_threats', 0)}件
-  - 高リスク: {security_metrics.get('high_threats', 0)}件
-- **オープンインシデント**: {security_metrics.get('open_incidents', 0)}件
-- **解決済インシデント**: {security_metrics.get('resolved_incidents', 0)}件
+- **アクティブ脅威**: {security_metrics.get("total_threats", 0)}件
+  - 重大: {security_metrics.get("critical_threats", 0)}件
+  - 高リスク: {security_metrics.get("high_threats", 0)}件
+- **オープンインシデント**: {security_metrics.get("open_incidents", 0)}件
+- **解決済インシデント**: {security_metrics.get("resolved_incidents", 0)}件
 
 ### リスク評価
-- **全体リスクレベル**: {risk_assessment.get('overall_risk_level', 'unknown').upper()}
-- **最優先対応事項**: {len(risk_assessment.get('top_risks', []))}項目
+- **全体リスクレベル**: {risk_assessment.get("overall_risk_level", "unknown").upper()}
+- **最優先対応事項**: {len(risk_assessment.get("top_risks", []))}項目
 
 ### ガバナンス・コンプライアンス
-- PCI DSS: {compliance_status.get('frameworks', {}).get('pci_dss', {}).get('score', 0):.1f}%
-- SOX: {compliance_status.get('frameworks', {}).get('sox', {}).get('score', 0):.1f}%
-- GDPR: {compliance_status.get('frameworks', {}).get('gdpr', {}).get('score', 0):.1f}%
+- PCI DSS: {compliance_status.get("frameworks", {}).get("pci_dss", {}).get("score", 0):.1f}%
+- SOX: {compliance_status.get("frameworks", {}).get("sox", {}).get("score", 0):.1f}%
+- GDPR: {compliance_status.get("frameworks", {}).get("gdpr", {}).get("score", 0):.1f}%
 """
 
         return summary.strip()
@@ -634,11 +636,9 @@ class SecurityComplianceReportGenerator:
                 "framework": framework.value,
                 "title": f"{framework.value.upper()} Overall Compliance Assessment",
                 "description": f"Overall compliance score: {score:.1f}/100",
-                "severity": "info"
-                if score >= 90
-                else "medium"
-                if score >= 70
-                else "high",
+                "severity": (
+                    "info" if score >= 90 else "medium" if score >= 70 else "high"
+                ),
                 "score": score,
             }
         )
@@ -935,8 +935,8 @@ class SecurityComplianceReportGenerator:
         """レポートをMarkdown形式でエクスポート"""
         markdown = f"""# {report.title}
 
-**生成日時**: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
-**対象期間**: {report.period_start.strftime('%Y-%m-%d')} ～ {report.period_end.strftime('%Y-%m-%d')}
+**生成日時**: {report.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")}
+**対象期間**: {report.period_start.strftime("%Y-%m-%d")} ～ {report.period_end.strftime("%Y-%m-%d")}
 **レポートID**: {report.id}
 
 {report.executive_summary}

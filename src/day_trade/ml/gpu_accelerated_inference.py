@@ -157,9 +157,11 @@ class GPUInferenceResult:
     def to_dict(self) -> Dict[str, Any]:
         """結果を辞書形式に変換"""
         return {
-            "predictions": self.predictions.tolist()
-            if isinstance(self.predictions, np.ndarray)
-            else self.predictions,
+            "predictions": (
+                self.predictions.tolist()
+                if isinstance(self.predictions, np.ndarray)
+                else self.predictions
+            ),
             "execution_time_us": self.execution_time_us,
             "batch_size": self.batch_size,
             "device_id": self.device_id,

@@ -1,0 +1,520 @@
+#==============================================================================
+# Kubernetes Deployment Manifests - Issue #441
+# Production-ready deployment for Day Trade HFT System
+#==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/version: "1.0.0"
+    environment: production
+
+---
+#------------------------------------------------------------------------------
+# ConfigMap - Application Configuration
+#------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: day-trade-config
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  ENABLE_DEBUG: "false"
+  PYTHONPATH: "/app/src"
+  # HFT specific configurations
+  HFT_MODE: "enabled"
+  ULTRA_LOW_LATENCY: "true"
+  TARGET_LATENCY_US: "10"
+  MEMORY_PREALLOC_MB: "512"
+
+---
+#------------------------------------------------------------------------------
+# Secret - Sensitive Configuration (Example)
+#------------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: day-trade-secrets
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: config
+type: Opaque
+stringData:
+  # Database credentials (replace with actual values)
+  DATABASE_URL: "postgresql://user:password@db:5432/daytrade"
+  API_KEY: "your-api-key-here"
+  # Encryption keys
+  SECRET_KEY: "your-secret-key-here"
+
+---
+#------------------------------------------------------------------------------
+# ServiceAccount - RBAC
+#------------------------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: day-trade-sa
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: rbac
+automountServiceAccountToken: false
+
+---
+#------------------------------------------------------------------------------
+# PodSecurityPolicy - Security hardening
+#------------------------------------------------------------------------------
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: day-trade-psp
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: security
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  runAsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 2000
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+
+---
+#------------------------------------------------------------------------------
+# Deployment - Main Application
+#------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: day-trade-app
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: app
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: day-trade
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: day-trade
+        app.kubernetes.io/component: app
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: day-trade-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: day-trade
+        image: daytrade:prod
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        envFrom:
+        - configMapRef:
+            name: day-trade-config
+        - secretRef:
+            name: day-trade-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+              - ALL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /app/cache
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      tolerations:
+      - key: "high-performance"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - day-trade
+              topologyKey: kubernetes.io/hostname
+
+---
+#------------------------------------------------------------------------------
+# Deployment - HFT Ultra-Low Latency
+#------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: day-trade-hft
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: hft
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate  # HFT requires exclusive resources
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: day-trade
+      app.kubernetes.io/component: hft
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: day-trade
+        app.kubernetes.io/component: hft
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: day-trade-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: day-trade-hft
+        image: daytrade:hft-optimized
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: CPU_AFFINITY
+          value: "2,3"
+        - name: NUMA_NODE
+          value: "0"
+        envFrom:
+        - configMapRef:
+            name: day-trade-config
+        - secretRef:
+            name: day-trade-secrets
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "2000m"  # Guaranteed CPU for HFT
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+              - ALL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 5
+        volumeMounts:
+        - name: huge-pages
+          mountPath: /mnt/huge
+        - name: tmp-volume
+          mountPath: /tmp
+      volumes:
+      - name: huge-pages
+        emptyDir:
+          medium: HugePages-2Mi
+      - name: tmp-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: "high-performance"
+        kubernetes.io/arch: amd64
+      tolerations:
+      - key: "high-performance"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "dedicated-hft"
+        operator: "Equal"
+        value: "true"
+        effect: "NoExecute"
+
+---
+#------------------------------------------------------------------------------
+# Service - Load Balancer
+#------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: day-trade-service
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 8080
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: app
+
+---
+#------------------------------------------------------------------------------
+# Service - HFT Direct Access
+#------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: day-trade-hft-service
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: hft-service
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    nodePort: 30080
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: hft
+
+---
+#------------------------------------------------------------------------------
+# HorizontalPodAutoscaler - Auto-scaling
+#------------------------------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: day-trade-hpa
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: day-trade-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+
+---
+#------------------------------------------------------------------------------
+# PodDisruptionBudget - High availability
+#------------------------------------------------------------------------------
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: day-trade-pdb
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: availability
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: day-trade
+      app.kubernetes.io/component: app
+
+---
+#------------------------------------------------------------------------------
+# NetworkPolicy - Security isolation
+#------------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: day-trade-network-policy
+  namespace: day-trade
+  labels:
+    app.kubernetes.io/name: day-trade
+    app.kubernetes.io/component: network-security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: day-trade
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 53   # DNS
+    - protocol: UDP
+      port: 53   # DNS

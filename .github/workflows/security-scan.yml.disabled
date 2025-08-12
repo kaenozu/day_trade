@@ -129,7 +129,7 @@ jobs:
           AWS_ACCESS_PATTERN="aws[_-]?access[_-]?k[e]y[[:space:]]*=[[:space:]]*['']AKIA[a-zA-Z0-9]{16}['']"
           AWS_SECRET_PATTERN="aws[_-]?sec[r]et[_-]?k[e]y[[:space:]]*=[[:space:]]*[''][a-zA-Z0-9/+=]{40}['']"
           PRIVATE_KEY_PATTERN="-----BEGIN [A-Z ]*PRIVATE K[E]Y-----"
-          
+
           SECRET_PATTERNS=(
             "$API_PATTERN"
             "$SECRET_PATTERN"

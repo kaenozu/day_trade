@@ -298,9 +298,11 @@ class RealtimePredictionAPI:
 
             # モデル情報
             model_info = {
-                "models_used": list(self.model_manager.models.keys())
-                if request.model_ensemble
-                else [list(self.model_manager.models.keys())[0]],
+                "models_used": (
+                    list(self.model_manager.models.keys())
+                    if request.model_ensemble
+                    else [list(self.model_manager.models.keys())[0]]
+                ),
                 "prediction_method": "ensemble" if request.model_ensemble else "single",
                 "sequence_length": self.dl_config.sequence_length,
                 "model_weights": getattr(prediction_result, "model_weights", {}),
@@ -312,9 +314,11 @@ class RealtimePredictionAPI:
             response = PredictionResponse(
                 symbol=request.symbol,
                 timestamp=datetime.now(),
-                predictions=prediction_result.predictions.tolist()
-                if hasattr(prediction_result.predictions, "tolist")
-                else list(prediction_result.predictions),
+                predictions=(
+                    prediction_result.predictions.tolist()
+                    if hasattr(prediction_result.predictions, "tolist")
+                    else list(prediction_result.predictions)
+                ),
                 confidence_intervals=confidence_intervals,
                 uncertainty_metrics=uncertainty_metrics,
                 model_info=model_info,

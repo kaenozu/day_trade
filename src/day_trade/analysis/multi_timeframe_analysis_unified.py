@@ -222,9 +222,9 @@ class MultiTimeframeAnalysisBase(OptimizationStrategy):
                 )
 
                 for indicator_name, indicator_result in indicators_result.items():
-                    tf_result["indicators"][
-                        indicator_name
-                    ] = self._extract_indicator_values(indicator_result)
+                    tf_result["indicators"][indicator_name] = (
+                        self._extract_indicator_values(indicator_result)
+                    )
 
             except Exception as e:
                 logger.warning(f"{tf_name}指標計算エラー: {e}")

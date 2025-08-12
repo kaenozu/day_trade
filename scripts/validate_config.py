@@ -270,9 +270,7 @@ class ConfigValidator:
                 batch_size = stock_config.get("performance", {}).get(
                     "default_bulk_batch_size", 1000
                 )
-                fetch_batch = stock_config.get("performance", {}).get(
-                    "fetch_batch_size", 50
-                )
+                fetch_batch = stock_config.get("performance", {}).get("fetch_batch_size", 50)
 
                 if batch_size < fetch_batch:
                     self.warnings.append(
@@ -284,9 +282,7 @@ class ConfigValidator:
                         "stock_master_config: バルクバッチサイズが大きすぎる可能性があります"
                     )
 
-                logger.info(
-                    f"  ✅ バッチサイズ設定: bulk={batch_size}, fetch={fetch_batch}"
-                )
+                logger.info(f"  ✅ バッチサイズ設定: bulk={batch_size}, fetch={fetch_batch}")
 
         except Exception as e:
             self.warnings.append(f"設定整合性チェックエラー: {e}")
@@ -312,8 +308,7 @@ class ConfigValidator:
                 display_value = (
                     "***"
                     if any(
-                        secret in var.lower()
-                        for secret in ["key", "token", "password", "secret"]
+                        secret in var.lower() for secret in ["key", "token", "password", "secret"]
                     )
                     else value
                 )

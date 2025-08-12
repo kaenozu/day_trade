@@ -388,9 +388,9 @@ class MultiAssetTradingEnvironment:
         portfolio_state = {
             "total_value": total_value,
             "cash_ratio": cash_value / total_value if total_value > 0 else 1.0,
-            "equity_ratio": (total_value - cash_value) / total_value
-            if total_value > 0
-            else 0.0,
+            "equity_ratio": (
+                (total_value - cash_value) / total_value if total_value > 0 else 0.0
+            ),
             "leverage_ratio": self._calculate_leverage_ratio(),
             "diversification_score": self._calculate_diversification_score(),
         }

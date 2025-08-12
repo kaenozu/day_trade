@@ -81,9 +81,9 @@ class TransactionMetrics:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "status": self.status.value,
-            "isolation_level": self.isolation_level.value
-            if self.isolation_level
-            else None,
+            "isolation_level": (
+                self.isolation_level.value if self.isolation_level else None
+            ),
             "retry_count": self.retry_count,
             "operations_count": self.operations_count,
             "affected_tables": list(self.affected_tables),
@@ -376,9 +376,9 @@ class EnhancedTransactionManager:
                         transaction_id=transaction_id,
                         duration_ms=(time.time() - start_time) * 1000,
                         attempt=attempt + 1,
-                        isolation_level=isolation_level.value
-                        if isolation_level
-                        else None,
+                        isolation_level=(
+                            isolation_level.value if isolation_level else None
+                        ),
                         readonly=readonly,
                     )
 
@@ -415,9 +415,9 @@ class EnhancedTransactionManager:
                         {
                             "transaction_id": transaction_id,
                             "attempts": attempt + 1,
-                            "isolation_level": isolation_level.value
-                            if isolation_level
-                            else None,
+                            "isolation_level": (
+                                isolation_level.value if isolation_level else None
+                            ),
                             "readonly": readonly,
                         },
                     )
@@ -434,9 +434,9 @@ class EnhancedTransactionManager:
                     {
                         "transaction_id": transaction_id,
                         "error_type": "unexpected",
-                        "isolation_level": isolation_level.value
-                        if isolation_level
-                        else None,
+                        "isolation_level": (
+                            isolation_level.value if isolation_level else None
+                        ),
                     },
                 )
                 raise

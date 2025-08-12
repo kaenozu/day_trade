@@ -236,9 +236,9 @@ class ParallelBacktestPerformanceTester:
                 "execution_time_ms": execution_time,
                 "speedup_factor": speedup,
                 "efficiency": efficiency,
-                "throughput_tasks_per_sec": base_tasks / (execution_time / 1000)
-                if execution_time > 0
-                else 0,
+                "throughput_tasks_per_sec": (
+                    base_tasks / (execution_time / 1000) if execution_time > 0 else 0
+                ),
             }
 
         # 最良効率計算
@@ -278,9 +278,9 @@ class ParallelBacktestPerformanceTester:
             "memory_pool_enabled_mb": memory_pool_enabled,
             "memory_pool_disabled_mb": memory_pool_disabled,
             "memory_improvement_percent": memory_improvement,
-            "memory_efficiency_assessment": "良好"
-            if memory_improvement > 10
-            else "要改善",
+            "memory_efficiency_assessment": (
+                "良好" if memory_improvement > 10 else "要改善"
+            ),
         }
 
         print(f"    メモリプール効果: {memory_improvement:.1f}%改善")

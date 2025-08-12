@@ -226,9 +226,9 @@ class CacheProviderFactory:
             self._plugin_registry[plugin_name] = provider_class
 
             if config_schema:
-                self._config_schemas[
-                    CacheProviderType.PLUGIN
-                ] = self._config_schemas.get(CacheProviderType.PLUGIN, {})
+                self._config_schemas[CacheProviderType.PLUGIN] = (
+                    self._config_schemas.get(CacheProviderType.PLUGIN, {})
+                )
                 self._config_schemas[CacheProviderType.PLUGIN][
                     plugin_name
                 ] = config_schema

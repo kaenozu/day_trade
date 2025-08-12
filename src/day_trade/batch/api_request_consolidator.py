@@ -652,15 +652,21 @@ class APIRequestConsolidator:
             "queue_size": self.request_queue.qsize(),
             "stats": self.get_stats().__dict__,
             "recent_performance": {
-                "avg_response_time": statistics.mean(self.response_times_history)
-                if self.response_times_history
-                else 0.0,
-                "avg_success_rate": statistics.mean(self.success_rates_history)
-                if self.success_rates_history
-                else 0.0,
-                "avg_batch_size": statistics.mean(self.batch_sizes_history)
-                if self.batch_sizes_history
-                else 0.0,
+                "avg_response_time": (
+                    statistics.mean(self.response_times_history)
+                    if self.response_times_history
+                    else 0.0
+                ),
+                "avg_success_rate": (
+                    statistics.mean(self.success_rates_history)
+                    if self.success_rates_history
+                    else 0.0
+                ),
+                "avg_batch_size": (
+                    statistics.mean(self.batch_sizes_history)
+                    if self.batch_sizes_history
+                    else 0.0
+                ),
             },
         }
 

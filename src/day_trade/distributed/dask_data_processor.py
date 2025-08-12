@@ -796,10 +796,11 @@ class DaskStockAnalyzer:
                         "symbol": symbol,
                         "total_return": (prices.iloc[-1] / prices.iloc[0] - 1) * 100,
                         "volatility": returns.std() * np.sqrt(252) * 100,
-                        "sharpe_ratio": (returns.mean() * 252)
-                        / (returns.std() * np.sqrt(252))
-                        if returns.std() > 0
-                        else 0,
+                        "sharpe_ratio": (
+                            (returns.mean() * 252) / (returns.std() * np.sqrt(252))
+                            if returns.std() > 0
+                            else 0
+                        ),
                         "max_drawdown": self._calculate_max_drawdown(prices),
                         "var_95": np.percentile(returns, 5) * 100,
                         "data_points": len(prices),
@@ -842,9 +843,9 @@ class DaskStockAnalyzer:
                     m["sharpe_ratio"] for m in portfolio_metrics
                 ) / len(portfolio_metrics)
             else:
-                portfolio_total_return = (
-                    portfolio_avg_volatility
-                ) = portfolio_avg_sharpe = 0
+                portfolio_total_return = portfolio_avg_volatility = (
+                    portfolio_avg_sharpe
+                ) = 0
 
             analysis_results = {
                 "analysis_timestamp": datetime.now().isoformat(),
@@ -907,9 +908,11 @@ class DaskStockAnalyzer:
                     metrics = {
                         "symbol": symbol,
                         "total_return": (prices.iloc[-1] / prices.iloc[0] - 1) * 100,
-                        "volatility": returns.std() * np.sqrt(252) * 100
-                        if len(returns) > 1
-                        else 0,
+                        "volatility": (
+                            returns.std() * np.sqrt(252) * 100
+                            if len(returns) > 1
+                            else 0
+                        ),
                         "data_points": len(prices),
                     }
 

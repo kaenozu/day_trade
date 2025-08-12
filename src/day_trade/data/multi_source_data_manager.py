@@ -882,11 +882,11 @@ class MultiSourceDataManager:
         return {
             "overall_impact": overall_impact,
             "impact_volatility": impact_volatility,
-            "risk_level": "high"
-            if impact_volatility > 0.5
-            else "medium"
-            if impact_volatility > 0.2
-            else "low",
+            "risk_level": (
+                "high"
+                if impact_volatility > 0.5
+                else "medium" if impact_volatility > 0.2 else "low"
+            ),
             "confidence": min(len(impact_scores) / 5, 1.0),
         }
 
@@ -1198,7 +1198,7 @@ if __name__ == "__main__":
             collection_stats = stats["collection_stats"]
             print(f"    総リクエスト: {collection_stats['total_requests']}")
             print(
-                f"    成功率: {collection_stats['successful_requests']/max(collection_stats['total_requests'],1):.1%}"
+                f"    成功率: {collection_stats['successful_requests'] / max(collection_stats['total_requests'], 1):.1%}"
             )
             print(f"    キャッシュヒット: {collection_stats['cache_hits']}")
 

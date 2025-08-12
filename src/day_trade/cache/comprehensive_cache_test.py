@@ -306,14 +306,16 @@ class CachePerformanceBenchmark:
             "success_rate": len(successful_ops) / len(all_ops) * 100 if all_ops else 0,
             "total_time": total_time,
             "ops_per_second": len(all_ops) / total_time if total_time > 0 else 0,
-            "avg_response_time": statistics.mean([op["time"] for op in successful_ops])
-            if successful_ops
-            else 0,
-            "p95_response_time": statistics.quantiles(
-                [op["time"] for op in successful_ops], n=20
-            )[18]
-            if len(successful_ops) > 20
-            else 0,
+            "avg_response_time": (
+                statistics.mean([op["time"] for op in successful_ops])
+                if successful_ops
+                else 0
+            ),
+            "p95_response_time": (
+                statistics.quantiles([op["time"] for op in successful_ops], n=20)[18]
+                if len(successful_ops) > 20
+                else 0
+            ),
         }
 
         print(

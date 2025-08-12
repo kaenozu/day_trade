@@ -695,9 +695,11 @@ class AdvancedDataFreshnessMonitor:
                 },
                 baseline_comparison={
                     "historical_samples": len(historical_counts),
-                    "deviation_percent": ((current_count - avg_count) / avg_count * 100)
-                    if avg_count > 0
-                    else 0,
+                    "deviation_percent": (
+                        ((current_count - avg_count) / avg_count * 100)
+                        if avg_count > 0
+                        else 0
+                    ),
                 },
             )
 
@@ -726,9 +728,11 @@ class AdvancedDataFreshnessMonitor:
             alert = DataAlert(
                 alert_id=f"freshness_{config.source_id}_{int(time.time())}",
                 source_id=config.source_id,
-                severity=AlertSeverity.ERROR
-                if freshness.age_seconds > config.freshness_threshold * 2
-                else AlertSeverity.WARNING,
+                severity=(
+                    AlertSeverity.ERROR
+                    if freshness.age_seconds > config.freshness_threshold * 2
+                    else AlertSeverity.WARNING
+                ),
                 alert_type="data_freshness",
                 message=f"データが古くなっています: {freshness.age_seconds:.0f}秒経過 (閾値: {config.freshness_threshold}秒)",
                 timestamp=freshness.timestamp,
@@ -747,9 +751,11 @@ class AdvancedDataFreshnessMonitor:
                 alert = DataAlert(
                     alert_id=f"integrity_{config.source_id}_{check.check_type}_{int(time.time())}",
                     source_id=config.source_id,
-                    severity=AlertSeverity.ERROR
-                    if len(check.issues_found) > 2
-                    else AlertSeverity.WARNING,
+                    severity=(
+                        AlertSeverity.ERROR
+                        if len(check.issues_found) > 2
+                        else AlertSeverity.WARNING
+                    ),
                     alert_type="data_integrity",
                     message=f"整合性チェック失敗 ({check.check_type}): {', '.join(check.issues_found)}",
                     timestamp=check.timestamp,
@@ -995,9 +1001,11 @@ class AdvancedDataFreshnessMonitor:
                         check.passed,
                         json.dumps(check.issues_found, ensure_ascii=False),
                         json.dumps(check.metrics, ensure_ascii=False),
-                        json.dumps(check.baseline_comparison, ensure_ascii=False)
-                        if check.baseline_comparison
-                        else None,
+                        (
+                            json.dumps(check.baseline_comparison, ensure_ascii=False)
+                            if check.baseline_comparison
+                            else None
+                        ),
                     ),
                 )
                 conn.commit()
@@ -1235,12 +1243,12 @@ class AdvancedDataFreshnessMonitor:
                     dashboard_data["sla_summary"].append(
                         {
                             "source_id": row[0],
-                            "average_availability": round(row[1], 2)
-                            if row[1]
-                            else None,
-                            "average_response_time": round(row[2], 3)
-                            if row[2]
-                            else None,
+                            "average_availability": (
+                                round(row[1], 2) if row[1] else None
+                            ),
+                            "average_response_time": (
+                                round(row[2], 3) if row[2] else None
+                            ),
                             "sla_violations": row[3] or 0,
                         }
                     )

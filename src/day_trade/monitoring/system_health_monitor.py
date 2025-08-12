@@ -515,21 +515,27 @@ class SystemHealthMonitor:
             "overall_status": overall_status,
             "timestamp": current_time.isoformat(),
             "components": component_status,
-            "resource_metrics": {
-                "cpu_percent": latest_metrics.cpu_percent if latest_metrics else None,
-                "memory_percent": latest_metrics.memory_percent
+            "resource_metrics": (
+                {
+                    "cpu_percent": (
+                        latest_metrics.cpu_percent if latest_metrics else None
+                    ),
+                    "memory_percent": (
+                        latest_metrics.memory_percent if latest_metrics else None
+                    ),
+                    "disk_percent": (
+                        latest_metrics.disk_percent if latest_metrics else None
+                    ),
+                    "network_connections": (
+                        latest_metrics.network_connections if latest_metrics else None
+                    ),
+                    "process_count": (
+                        latest_metrics.process_count if latest_metrics else None
+                    ),
+                }
                 if latest_metrics
-                else None,
-                "disk_percent": latest_metrics.disk_percent if latest_metrics else None,
-                "network_connections": latest_metrics.network_connections
-                if latest_metrics
-                else None,
-                "process_count": latest_metrics.process_count
-                if latest_metrics
-                else None,
-            }
-            if latest_metrics
-            else {},
+                else {}
+            ),
             "monitoring_status": {
                 "is_running": self._is_running,
                 "registered_components": len(self.components),

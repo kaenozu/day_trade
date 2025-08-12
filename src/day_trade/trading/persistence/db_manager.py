@@ -315,12 +315,12 @@ class TradeDatabaseManager:
                     "total_stocks": total_stocks,
                     "buy_trades": buy_count,
                     "sell_trades": sell_count,
-                    "latest_trade_date": latest_trade[0].isoformat()
-                    if latest_trade
-                    else None,
-                    "earliest_trade_date": earliest_trade[0].isoformat()
-                    if earliest_trade
-                    else None,
+                    "latest_trade_date": (
+                        latest_trade[0].isoformat() if latest_trade else None
+                    ),
+                    "earliest_trade_date": (
+                        earliest_trade[0].isoformat() if earliest_trade else None
+                    ),
                 }
 
                 logger.debug(f"DB統計取得完了: {total_trades}取引, {total_stocks}銘柄")

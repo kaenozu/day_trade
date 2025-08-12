@@ -485,9 +485,9 @@ class ComplianceMonitor:
             }
 
             if framework not in self.compliance_frameworks:
-                compliance_results[
-                    "error"
-                ] = f"Unknown compliance framework: {framework}"
+                compliance_results["error"] = (
+                    f"Unknown compliance framework: {framework}"
+                )
                 return compliance_results
 
             framework_info = self.compliance_frameworks[framework]
@@ -801,9 +801,9 @@ class ComprehensiveSecurityControlCenter:
                 self.logger.error(f"コンプライアンスチェックエラー: {e}")
 
             # 5. 推奨事項生成
-            scan_results[
-                "recommendations"
-            ] = await self._generate_security_recommendations()
+            scan_results["recommendations"] = (
+                await self._generate_security_recommendations()
+            )
 
             scan_duration = time.time() - scan_start
             scan_results["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -979,9 +979,11 @@ class ComprehensiveSecurityControlCenter:
                         incident.assigned_to,
                         incident.created_at.isoformat(),
                         incident.updated_at.isoformat(),
-                        incident.resolved_at.isoformat()
-                        if incident.resolved_at
-                        else None,
+                        (
+                            incident.resolved_at.isoformat()
+                            if incident.resolved_at
+                            else None
+                        ),
                         json.dumps(incident.response_actions),
                         json.dumps(incident.impact_assessment),
                     ),
@@ -1229,9 +1231,11 @@ class ComprehensiveSecurityControlCenter:
                     "status": "active",
                     "cpu_percent": psutil.cpu_percent(),
                     "memory_percent": psutil.virtual_memory().percent,
-                    "disk_percent": psutil.disk_usage("/").percent
-                    if hasattr(psutil.disk_usage("/"), "percent")
-                    else 0,
+                    "disk_percent": (
+                        psutil.disk_usage("/").percent
+                        if hasattr(psutil.disk_usage("/"), "percent")
+                        else 0
+                    ),
                 }
             except Exception:
                 status["system_resources"] = {"status": "error"}

@@ -17,6 +17,7 @@ import pandas as pd
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
 
+
 async def test_bollinger_bands_optimized():
     """Bollinger Bands最適化分析テスト"""
     print("\n=== Bollinger Bands最適化分析テスト ===")
@@ -27,21 +28,24 @@ async def test_bollinger_bands_optimized():
         )
 
         # テストデータ生成
-        dates = pd.date_range(start='2024-01-01', periods=100)
-        test_data = pd.DataFrame({
-            'Open': np.random.uniform(2000, 2500, 100),
-            'High': np.random.uniform(2100, 2600, 100),
-            'Low': np.random.uniform(1900, 2400, 100),
-            'Close': np.random.uniform(2000, 2500, 100),
-            'Volume': np.random.randint(500000, 2000000, 100),
-        }, index=dates)
+        dates = pd.date_range(start="2024-01-01", periods=100)
+        test_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(2000, 2500, 100),
+                "High": np.random.uniform(2100, 2600, 100),
+                "Low": np.random.uniform(1900, 2400, 100),
+                "Close": np.random.uniform(2000, 2500, 100),
+                "Volume": np.random.randint(500000, 2000000, 100),
+            },
+            index=dates,
+        )
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
             enable_cache=True,
             enable_parallel=False,  # 単体テスト用に無効化
             enable_ml_optimization=True,
-            max_concurrent=5
+            max_concurrent=5,
         )
         print("[OK] Bollinger Bands analyzer initialization success")
 
@@ -49,15 +53,19 @@ async def test_bollinger_bands_optimized():
         result = await analyzer.analyze_bollinger_bands_optimized(test_data, "TEST_BB")
 
         # 結果検証
-        assert hasattr(result, 'signal'), "Signal attribute missing"
-        assert result.signal in ['BUY', 'SELL', 'HOLD'], f"Invalid signal: {result.signal}"
+        assert hasattr(result, "signal"), "Signal attribute missing"
+        assert result.signal in ["BUY", "SELL", "HOLD"], f"Invalid signal: {result.signal}"
         assert 0 <= result.confidence <= 1, f"Invalid confidence: {result.confidence}"
         assert 0 <= result.bb_position <= 1, f"Invalid BB position: {result.bb_position}"
         assert result.squeeze_ratio > 0, f"Invalid squeeze ratio: {result.squeeze_ratio}"
-        assert 0 <= result.performance_score <= 1, f"Invalid performance score: {result.performance_score}"
+        assert (
+            0 <= result.performance_score <= 1
+        ), f"Invalid performance score: {result.performance_score}"
 
         print(f"[OK] BB Analysis: {result.signal} (confidence: {result.confidence:.2%})")
-        print(f"[OK] BB Position: {result.bb_position:.3f}, Squeeze Ratio: {result.squeeze_ratio:.3f}")
+        print(
+            f"[OK] BB Position: {result.bb_position:.3f}, Squeeze Ratio: {result.squeeze_ratio:.3f}"
+        )
         print(f"[OK] Volatility Regime: {result.volatility_regime}")
         print(f"[OK] Performance Score: {result.performance_score:.3f}")
 
@@ -67,6 +75,7 @@ async def test_bollinger_bands_optimized():
         print(f"[ERROR] Bollinger Bands test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_ichimoku_cloud_optimized():
     """一目均衡表最適化分析テスト"""
@@ -78,7 +87,7 @@ async def test_ichimoku_cloud_optimized():
         )
 
         # テストデータ生成（一目用に長期データ）
-        dates = pd.date_range(start='2024-01-01', periods=150)
+        dates = pd.date_range(start="2024-01-01", periods=150)
         np.random.seed(42)  # 再現性のため
         base_price = 2200
         price_series = []
@@ -89,19 +98,20 @@ async def test_ichimoku_cloud_optimized():
             base_price = base_price * (1 + change)
             price_series.append(base_price)
 
-        test_data = pd.DataFrame({
-            'Open': [p * np.random.uniform(0.995, 1.005) for p in price_series],
-            'High': [p * np.random.uniform(1.005, 1.02) for p in price_series],
-            'Low': [p * np.random.uniform(0.98, 0.995) for p in price_series],
-            'Close': price_series,
-            'Volume': np.random.randint(500000, 2000000, 150),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": [p * np.random.uniform(0.995, 1.005) for p in price_series],
+                "High": [p * np.random.uniform(1.005, 1.02) for p in price_series],
+                "Low": [p * np.random.uniform(0.98, 0.995) for p in price_series],
+                "Close": price_series,
+                "Volume": np.random.randint(500000, 2000000, 150),
+            },
+            index=dates,
+        )
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
-            enable_cache=True,
-            enable_parallel=False,
-            enable_ml_optimization=True
+            enable_cache=True, enable_parallel=False, enable_ml_optimization=True
         )
         print("[OK] Ichimoku analyzer initialization success")
 
@@ -109,14 +119,30 @@ async def test_ichimoku_cloud_optimized():
         result = await analyzer.analyze_ichimoku_cloud_optimized(test_data, "TEST_ICHIMOKU")
 
         # 結果検証
-        assert hasattr(result, 'overall_signal'), "Overall signal attribute missing"
-        assert result.overall_signal in ['BUY', 'SELL', 'HOLD'], f"Invalid signal: {result.overall_signal}"
+        assert hasattr(result, "overall_signal"), "Overall signal attribute missing"
+        assert result.overall_signal in [
+            "BUY",
+            "SELL",
+            "HOLD",
+        ], f"Invalid signal: {result.overall_signal}"
         assert 0 <= result.confidence <= 1, f"Invalid confidence: {result.confidence}"
-        assert result.price_vs_cloud in ['above', 'in', 'below'], f"Invalid price vs cloud: {result.price_vs_cloud}"
-        assert result.tk_cross in ['bullish', 'bearish', 'neutral'], f"Invalid TK cross: {result.tk_cross}"
-        assert 0 <= result.performance_score <= 1, f"Invalid performance score: {result.performance_score}"
+        assert result.price_vs_cloud in [
+            "above",
+            "in",
+            "below",
+        ], f"Invalid price vs cloud: {result.price_vs_cloud}"
+        assert result.tk_cross in [
+            "bullish",
+            "bearish",
+            "neutral",
+        ], f"Invalid TK cross: {result.tk_cross}"
+        assert (
+            0 <= result.performance_score <= 1
+        ), f"Invalid performance score: {result.performance_score}"
 
-        print(f"[OK] Ichimoku Analysis: {result.overall_signal} (confidence: {result.confidence:.2%})")
+        print(
+            f"[OK] Ichimoku Analysis: {result.overall_signal} (confidence: {result.confidence:.2%})"
+        )
         print(f"[OK] Price vs Cloud: {result.price_vs_cloud}")
         print(f"[OK] TK Cross: {result.tk_cross}, Chikou Signal: {result.chikou_signal}")
         print(f"[OK] Cloud Color: {result.cloud_color}, Thickness: {result.cloud_thickness:.2f}")
@@ -129,6 +155,7 @@ async def test_ichimoku_cloud_optimized():
         print(f"[ERROR] Ichimoku Cloud test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_batch_analysis():
     """バッチ分析テスト"""
@@ -144,35 +171,37 @@ async def test_batch_analysis():
         batch_data = {}
 
         for symbol in symbols:
-            dates = pd.date_range(start='2024-01-01', periods=120)
+            dates = pd.date_range(start="2024-01-01", periods=120)
             base_price = np.random.uniform(1500, 3000)
 
-            test_data = pd.DataFrame({
-                'Open': np.random.uniform(base_price * 0.98, base_price * 1.02, 120),
-                'High': np.random.uniform(base_price * 1.01, base_price * 1.05, 120),
-                'Low': np.random.uniform(base_price * 0.95, base_price * 0.99, 120),
-                'Close': np.random.uniform(base_price * 0.99, base_price * 1.01, 120),
-                'Volume': np.random.randint(300000, 1500000, 120),
-            }, index=dates)
+            test_data = pd.DataFrame(
+                {
+                    "Open": np.random.uniform(base_price * 0.98, base_price * 1.02, 120),
+                    "High": np.random.uniform(base_price * 1.01, base_price * 1.05, 120),
+                    "Low": np.random.uniform(base_price * 0.95, base_price * 0.99, 120),
+                    "Close": np.random.uniform(base_price * 0.99, base_price * 1.01, 120),
+                    "Volume": np.random.randint(300000, 1500000, 120),
+                },
+                index=dates,
+            )
 
             batch_data[symbol] = test_data
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
-            enable_cache=True,
-            enable_parallel=True,
-            max_concurrent=3
+            enable_cache=True, enable_parallel=True, max_concurrent=3
         )
         print("[OK] Batch analyzer initialization success")
 
         # バッチ分析実行
         results = await analyzer.batch_analyze_symbols(
-            batch_data,
-            analysis_types=["bb", "ichimoku"]
+            batch_data, analysis_types=["bb", "ichimoku"]
         )
 
         # 結果検証
-        assert len(results) == len(symbols), f"Results count mismatch: {len(results)} vs {len(symbols)}"
+        assert len(results) == len(
+            symbols
+        ), f"Results count mismatch: {len(results)} vs {len(symbols)}"
 
         for symbol in symbols:
             assert symbol in results, f"Missing results for {symbol}"
@@ -180,13 +209,17 @@ async def test_batch_analysis():
 
             if "bollinger_bands" in symbol_results:
                 bb_result = symbol_results["bollinger_bands"]
-                assert hasattr(bb_result, 'signal'), f"BB signal missing for {symbol}"
+                assert hasattr(bb_result, "signal"), f"BB signal missing for {symbol}"
                 print(f"[OK] {symbol} BB: {bb_result.signal} ({bb_result.confidence:.1%})")
 
             if "ichimoku_cloud" in symbol_results:
                 ichimoku_result = symbol_results["ichimoku_cloud"]
-                assert hasattr(ichimoku_result, 'overall_signal'), f"Ichimoku signal missing for {symbol}"
-                print(f"[OK] {symbol} Ichimoku: {ichimoku_result.overall_signal} ({ichimoku_result.confidence:.1%})")
+                assert hasattr(
+                    ichimoku_result, "overall_signal"
+                ), f"Ichimoku signal missing for {symbol}"
+                print(
+                    f"[OK] {symbol} Ichimoku: {ichimoku_result.overall_signal} ({ichimoku_result.confidence:.1%})"
+                )
 
         print(f"[OK] Batch analysis completed: {len(results)} symbols processed")
         return True
@@ -195,6 +228,7 @@ async def test_batch_analysis():
         print(f"[ERROR] Batch analysis test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_performance_stats():
     """パフォーマンス統計テスト"""
@@ -207,9 +241,7 @@ async def test_performance_stats():
 
         # システム初期化
         analyzer = AdvancedTechnicalIndicatorsOptimized(
-            enable_cache=True,
-            enable_parallel=True,
-            enable_ml_optimization=True
+            enable_cache=True, enable_parallel=True, enable_ml_optimization=True
         )
 
         # 統計情報取得
@@ -217,9 +249,12 @@ async def test_performance_stats():
 
         # 統計項目検証
         required_keys = [
-            'total_analyses', 'cache_hit_rate', 'parallel_usage_rate',
-            'ml_optimization_rate', 'avg_processing_time_ms',
-            'optimization_benefits'
+            "total_analyses",
+            "cache_hit_rate",
+            "parallel_usage_rate",
+            "ml_optimization_rate",
+            "avg_processing_time_ms",
+            "optimization_benefits",
         ]
 
         for key in required_keys:
@@ -232,7 +267,7 @@ async def test_performance_stats():
         print(f"[STATS] Average processing time: {stats['avg_processing_time_ms']:.1f}ms")
 
         # 最適化効果
-        benefits = stats['optimization_benefits']
+        benefits = stats["optimization_benefits"]
         print("[OPTIMIZATION] Benefits:")
         for benefit, value in benefits.items():
             print(f"  - {benefit}: {value}")
@@ -244,6 +279,7 @@ async def test_performance_stats():
         traceback.print_exc()
         return False
 
+
 async def test_cache_functionality():
     """キャッシュ機能テスト"""
     print("\n=== キャッシュ機能テスト ===")
@@ -254,14 +290,17 @@ async def test_cache_functionality():
         )
 
         # テストデータ
-        dates = pd.date_range(start='2024-01-01', periods=100)
-        test_data = pd.DataFrame({
-            'Open': np.random.uniform(2000, 2500, 100),
-            'High': np.random.uniform(2100, 2600, 100),
-            'Low': np.random.uniform(1900, 2400, 100),
-            'Close': np.random.uniform(2000, 2500, 100),
-            'Volume': np.random.randint(500000, 2000000, 100),
-        }, index=dates)
+        dates = pd.date_range(start="2024-01-01", periods=100)
+        test_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(2000, 2500, 100),
+                "High": np.random.uniform(2100, 2600, 100),
+                "Low": np.random.uniform(1900, 2400, 100),
+                "Close": np.random.uniform(2000, 2500, 100),
+                "Volume": np.random.randint(500000, 2000000, 100),
+            },
+            index=dates,
+        )
 
         # キャッシュ有効版
         analyzer_cached = AdvancedTechnicalIndicatorsOptimized(enable_cache=True)
@@ -275,7 +314,9 @@ async def test_cache_functionality():
         stats_after_second = analyzer_cached.get_optimization_performance_stats()
 
         # キャッシュヒット検証
-        cache_hit_increased = stats_after_second['cache_hit_rate'] > stats_after_first['cache_hit_rate']
+        cache_hit_increased = (
+            stats_after_second["cache_hit_rate"] > stats_after_first["cache_hit_rate"]
+        )
 
         print(f"[OK] First analysis cache hit rate: {stats_after_first['cache_hit_rate']:.1%}")
         print(f"[OK] Second analysis cache hit rate: {stats_after_second['cache_hit_rate']:.1%}")
@@ -288,6 +329,7 @@ async def test_cache_functionality():
         print(f"[ERROR] Cache functionality test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def main():
     """メインテスト実行"""
@@ -330,6 +372,7 @@ async def main():
     else:
         print("[WARNING] 一部テスト失敗 - 要修正")
         return False
+
 
 if __name__ == "__main__":
     try:

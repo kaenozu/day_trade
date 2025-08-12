@@ -313,9 +313,11 @@ class IndicatorCharts(ChartRenderer):
             if "histogram" in macd_data:
                 histogram = macd_data["histogram"]
                 colors = [
-                    self.palette.get_color("bullish")
-                    if h >= 0
-                    else self.palette.get_color("bearish")
+                    (
+                        self.palette.get_color("bullish")
+                        if h >= 0
+                        else self.palette.get_color("bearish")
+                    )
                     for h in histogram
                 ]
 

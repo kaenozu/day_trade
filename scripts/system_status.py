@@ -107,12 +107,8 @@ class SystemStatusChecker:
                             process.create_time()
                         ).isoformat()
 
-                        process_info["uptime_seconds"] = (
-                            time.time() - process.create_time()
-                        )
-                        process_info["memory_usage_mb"] = (
-                            process.memory_info().rss / 1024 / 1024
-                        )
+                        process_info["uptime_seconds"] = time.time() - process.create_time()
+                        process_info["memory_usage_mb"] = process.memory_info().rss / 1024 / 1024
                         process_info["cpu_percent"] = process.cpu_percent()
 
                     except ImportError:
@@ -425,14 +421,10 @@ class SystemStatusChecker:
     def _display_environment_info(self, env_info: Dict[str, Any]):
         """環境情報表示"""
         print("=== ENVIRONMENT INFORMATION ===")
-        print(
-            f"  Current Environment: {env_info.get('current_environment', 'Unknown')}"
-        )
+        print(f"  Current Environment: {env_info.get('current_environment', 'Unknown')}")
         print(f"  Config Loaded: {env_info.get('config_loaded', False)}")
         print(f"  Config Directory: {env_info.get('config_directory', 'N/A')}")
-        print(
-            f"  Available Configs: {', '.join(env_info.get('available_configs', []))}"
-        )
+        print(f"  Available Configs: {', '.join(env_info.get('available_configs', []))}")
         print(f"  Validation Status: {env_info.get('validation_status', 'Unknown')}")
 
         env_vars = env_info.get("environment_variables", {})
@@ -448,9 +440,7 @@ class SystemStatusChecker:
 
         target_perf = perf_info.get("target_performance", {})
         if target_perf:
-            print(
-                f"  ML Analysis Target: {target_perf.get('ml_analysis_target_seconds', 'N/A')}s"
-            )
+            print(f"  ML Analysis Target: {target_perf.get('ml_analysis_target_seconds', 'N/A')}s")
             print(f"  Memory Limit: {target_perf.get('memory_limit_mb', 'N/A')} MB")
             print(f"  CPU Limit: {target_perf.get('cpu_limit_percent', 'N/A')}%")
 
@@ -466,14 +456,10 @@ class SystemStatusChecker:
     def _display_health_info(self, health_info: Dict[str, Any]):
         """ヘルス情報表示"""
         print("=== HEALTH INFORMATION ===")
-        print(
-            f"  Recovery System: {health_info.get('recovery_system_available', False)}"
-        )
+        print(f"  Recovery System: {health_info.get('recovery_system_available', False)}")
         print(f"  Monitoring Active: {health_info.get('monitoring_active', False)}")
         print(f"  Degradation Level: {health_info.get('degradation_level', 0)}")
-        print(
-            f"  Recent Recovery Actions: {health_info.get('recent_recovery_actions', 0)}"
-        )
+        print(f"  Recent Recovery Actions: {health_info.get('recent_recovery_actions', 0)}")
 
         uptime_est = health_info.get("uptime_estimate", {})
         if uptime_est:
@@ -513,9 +499,7 @@ class SystemStatusChecker:
         """ログ情報表示"""
         print("=== LOG INFORMATION ===")
         print(f"  Recent Errors (24h): {log_info.get('recent_errors', 0)}")
-        print(
-            f"  Structured Logging: {log_info.get('structured_logging_available', False)}"
-        )
+        print(f"  Structured Logging: {log_info.get('structured_logging_available', False)}")
 
         log_dirs = log_info.get("log_directories", {})
         for log_dir, info in log_dirs.items():

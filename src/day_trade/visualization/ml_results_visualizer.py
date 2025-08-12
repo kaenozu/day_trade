@@ -199,9 +199,11 @@ class MLResultsVisualizer:
             confidence_color = (
                 self.colors["bullish"]
                 if confidence > 70
-                else self.colors["neutral"]
-                if confidence > 40
-                else self.colors["bearish"]
+                else (
+                    self.colors["neutral"]
+                    if confidence > 40
+                    else self.colors["bearish"]
+                )
             )
 
             ax3.bar(["予測信頼度"], [confidence], color=confidence_color, alpha=0.7)
@@ -672,9 +674,11 @@ class MLResultsVisualizer:
                 rec_color = (
                     self.colors["bullish"]
                     if "BUY" in rec_action
-                    else self.colors["bearish"]
-                    if "SELL" in rec_action
-                    else self.colors["neutral"]
+                    else (
+                        self.colors["bearish"]
+                        if "SELL" in rec_action
+                        else self.colors["neutral"]
+                    )
                 )
 
                 recommendation_text = f"【投資推奨】 {rec_action} (ポジションサイズ: {position_size}, 信頼度: {confidence:.1f}%)"
@@ -941,9 +945,11 @@ class MLResultsVisualizer:
                 signal_color = (
                     self.colors["bullish"]
                     if signal_value == "BUY"
-                    else self.colors["bearish"]
-                    if signal_value == "SELL"
-                    else self.colors["neutral"]
+                    else (
+                        self.colors["bearish"]
+                        if signal_value == "SELL"
+                        else self.colors["neutral"]
+                    )
                 )
 
                 ax_signal.text(
@@ -1519,9 +1525,7 @@ class MLResultsVisualizer:
                         lstm_signal = (
                             "BUY"
                             if avg_return > 1
-                            else "SELL"
-                            if avg_return < -1
-                            else "HOLD"
+                            else "SELL" if avg_return < -1 else "HOLD"
                         )
                         signals.append(lstm_signal)
                         confidences.append(lstm_results.get("confidence_score", 0))

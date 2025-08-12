@@ -67,11 +67,7 @@ def fix_md5_hash_in_file(file_path: Path) -> Tuple[bool, List[str]]:
         content = re.sub(pattern4, replace4, content)
 
         # import文の重複を削除し、secure_hash_utilsのimportを追加
-        if (
-            fixes
-            and "from ..security.secure_hash_utils import replace_md5_hash"
-            not in content
-        ):
+        if fixes and "from ..security.secure_hash_utils import replace_md5_hash" not in content:
             # 既存のimport hashlib行を探して置換または追加
             if "import hashlib" in content:
                 content = re.sub(

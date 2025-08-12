@@ -509,7 +509,7 @@ if __name__ == "__main__":
         print("4. 結果サマリー...")
         print(f"   処理銘柄数: {len(processed_chunks)}")
         print(f"   処理時間: {processing_time:.1f}秒")
-        print(f"   スループット: {len(processed_chunks)/processing_time:.1f} 銘柄/秒")
+        print(f"   スループット: {len(processed_chunks) / processing_time:.1f} 銘柄/秒")
 
         # パイプライン統計
         final_stats = pipeline.get_pipeline_stats()

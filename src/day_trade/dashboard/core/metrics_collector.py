@@ -132,9 +132,11 @@ class MetricsCollector:
                     "usage_percent": cpu_percent,
                     "frequency_mhz": cpu_freq.current if cpu_freq else 0,
                     "cores_usage": cpu_per_core,
-                    "load_average": psutil.getloadavg()
-                    if hasattr(psutil, "getloadavg")
-                    else [0, 0, 0],
+                    "load_average": (
+                        psutil.getloadavg()
+                        if hasattr(psutil, "getloadavg")
+                        else [0, 0, 0]
+                    ),
                 },
                 # メモリメトリクス
                 "memory": {
@@ -232,30 +234,34 @@ class MetricsCollector:
                 "end": history[-1]["timestamp"] if history else None,
             },
             "cpu": {
-                "avg_usage_percent": round(sum(cpu_usage) / len(cpu_usage), 2)
-                if cpu_usage
-                else 0,
+                "avg_usage_percent": (
+                    round(sum(cpu_usage) / len(cpu_usage), 2) if cpu_usage else 0
+                ),
                 "max_usage_percent": round(max(cpu_usage), 2) if cpu_usage else 0,
                 "min_usage_percent": round(min(cpu_usage), 2) if cpu_usage else 0,
             },
             "memory": {
-                "avg_usage_percent": round(sum(memory_usage) / len(memory_usage), 2)
-                if memory_usage
-                else 0,
+                "avg_usage_percent": (
+                    round(sum(memory_usage) / len(memory_usage), 2)
+                    if memory_usage
+                    else 0
+                ),
                 "max_usage_percent": round(max(memory_usage), 2) if memory_usage else 0,
                 "min_usage_percent": round(min(memory_usage), 2) if memory_usage else 0,
-                "avg_usage_gb": round(
-                    (sum(m["memory"]["used_bytes"] for m in history) / len(history))
-                    / (1024**3),
-                    2,
-                )
-                if history
-                else 0,
+                "avg_usage_gb": (
+                    round(
+                        (sum(m["memory"]["used_bytes"] for m in history) / len(history))
+                        / (1024**3),
+                        2,
+                    )
+                    if history
+                    else 0
+                ),
             },
             "disk": {
-                "avg_usage_percent": round(sum(disk_usage) / len(disk_usage), 2)
-                if disk_usage
-                else 0,
+                "avg_usage_percent": (
+                    round(sum(disk_usage) / len(disk_usage), 2) if disk_usage else 0
+                ),
                 "max_usage_percent": round(max(disk_usage), 2) if disk_usage else 0,
                 "min_usage_percent": round(min(disk_usage), 2) if disk_usage else 0,
             },

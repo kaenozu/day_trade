@@ -717,9 +717,11 @@ class ChartPatternRecognizer:
                     {
                         "type": "Golden Cross",
                         "confidence": cross_data["Golden_Confidence"].iloc[-1],
-                        "timestamp": cross_data.index[-1]
-                        if hasattr(cross_data.index, "__getitem__")
-                        else None,
+                        "timestamp": (
+                            cross_data.index[-1]
+                            if hasattr(cross_data.index, "__getitem__")
+                            else None
+                        ),
                     }
                 )
             if cross_data["Dead_Cross"].iloc[-1]:
@@ -727,9 +729,11 @@ class ChartPatternRecognizer:
                     {
                         "type": "Dead Cross",
                         "confidence": cross_data["Dead_Confidence"].iloc[-1],
-                        "timestamp": cross_data.index[-1]
-                        if hasattr(cross_data.index, "__getitem__")
-                        else None,
+                        "timestamp": (
+                            cross_data.index[-1]
+                            if hasattr(cross_data.index, "__getitem__")
+                            else None
+                        ),
                     }
                 )
 
@@ -740,9 +744,11 @@ class ChartPatternRecognizer:
                     {
                         "type": "Upward Breakout",
                         "confidence": breakout_data["Upward_Confidence"].iloc[-1],
-                        "timestamp": breakout_data.index[-1]
-                        if hasattr(breakout_data.index, "__getitem__")
-                        else None,
+                        "timestamp": (
+                            breakout_data.index[-1]
+                            if hasattr(breakout_data.index, "__getitem__")
+                            else None
+                        ),
                     }
                 )
             if breakout_data["Downward_Breakout"].iloc[-1]:
@@ -750,9 +756,11 @@ class ChartPatternRecognizer:
                     {
                         "type": "Downward Breakout",
                         "confidence": breakout_data["Downward_Confidence"].iloc[-1],
-                        "timestamp": breakout_data.index[-1]
-                        if hasattr(breakout_data.index, "__getitem__")
-                        else None,
+                        "timestamp": (
+                            breakout_data.index[-1]
+                            if hasattr(breakout_data.index, "__getitem__")
+                            else None
+                        ),
                     }
                 )
 

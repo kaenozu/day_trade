@@ -527,9 +527,11 @@ class TechnicalIndicatorEngine:
                         result = IndicatorResult(
                             name=indicator_info["name"],
                             category=indicator_info["category"],
-                            values=values
-                            if hasattr(values, "__len__")
-                            else np.array([values]),
+                            values=(
+                                values
+                                if hasattr(values, "__len__")
+                                else np.array([values])
+                            ),
                             signals=signals,
                             signal_strength=signal_strength,
                             confidence=confidence,
@@ -1082,12 +1084,12 @@ class TechnicalIndicatorEngine:
             "total_calculations": total_calcs,
             "cache_hit_rate": cache_hit_rate,
             "average_calculation_times": avg_times,
-            "fastest_indicator": min(avg_times.keys(), key=lambda k: avg_times[k])
-            if avg_times
-            else None,
-            "slowest_indicator": max(avg_times.keys(), key=lambda k: avg_times[k])
-            if avg_times
-            else None,
+            "fastest_indicator": (
+                min(avg_times.keys(), key=lambda k: avg_times[k]) if avg_times else None
+            ),
+            "slowest_indicator": (
+                max(avg_times.keys(), key=lambda k: avg_times[k]) if avg_times else None
+            ),
             "cache_size": len(self.cache),
         }
 

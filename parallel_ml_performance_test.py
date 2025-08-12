@@ -31,9 +31,7 @@ except ImportError as e:
 
 
 # テスト用データ生成
-def generate_test_stock_data(
-    symbols: List[str], days: int = 100
-) -> Dict[str, pd.DataFrame]:
+def generate_test_stock_data(symbols: List[str], days: int = 100) -> Dict[str, pd.DataFrame]:
     """テスト用株式データ生成"""
     stock_data = {}
 
@@ -154,9 +152,7 @@ def benchmark_parallel_processing(
     stock_data: Dict[str, pd.DataFrame], cpu_workers: int = 4, enable_cache: bool = True
 ) -> Dict[str, Any]:
     """並列処理ベンチマーク"""
-    print(
-        f"\n=== 並列処理ベンチマーク (workers={cpu_workers}, cache={enable_cache}) ==="
-    )
+    print(f"\n=== 並列処理ベンチマーク (workers={cpu_workers}, cache={enable_cache}) ===")
 
     if not ENGINES_AVAILABLE:
         print("エンジン利用不可 - ベンチマークスキップ")
@@ -296,12 +292,8 @@ def estimate_production_performance(scalability_results: List[Dict]):
 
     if len(sizes) >= 2:
         # 単純な線形予測
-        sequential_slope = (sequential_times[-1] - sequential_times[0]) / (
-            sizes[-1] - sizes[0]
-        )
-        parallel_slope = (parallel_times[-1] - parallel_times[0]) / (
-            sizes[-1] - sizes[0]
-        )
+        sequential_slope = (sequential_times[-1] - sequential_times[0]) / (sizes[-1] - sizes[0])
+        parallel_slope = (parallel_times[-1] - parallel_times[0]) / (sizes[-1] - sizes[0])
 
         # 予測計算
         target_sizes = [85, 500]  # TOPIX100, TOPIX500
@@ -335,9 +327,7 @@ def generate_performance_report(
 
     print("\n【基本性能比較】")
     if sequential_results and parallel_results:
-        best_parallel = min(
-            parallel_results, key=lambda x: x.get("total_time", float("inf"))
-        )
+        best_parallel = min(parallel_results, key=lambda x: x.get("total_time", float("inf")))
 
         if best_parallel and sequential_results.get("total_time", 0) > 0:
             speedup = sequential_results["total_time"] / best_parallel["total_time"]
@@ -350,9 +340,7 @@ def generate_performance_report(
             print(f"成功率: {best_parallel['success_rate']:.1%}")
 
             if "performance_stats" in best_parallel:
-                cache_hit_rate = best_parallel["performance_stats"].get(
-                    "cache_hit_rate", 0
-                )
+                cache_hit_rate = best_parallel["performance_stats"].get("cache_hit_rate", 0)
                 print(f"キャッシュヒット率: {cache_hit_rate:.1%}")
 
     print("\n【スケーラビリティ分析】")
@@ -382,12 +370,8 @@ def generate_performance_report(
     print("\n【推奨設定】")
     if scalability_results:
         # 最適な設定を推奨
-        best_efficiency = max(
-            scalability_results, key=lambda x: x.get("efficiency_4_percent", 0)
-        )
-        print(
-            f"推奨並列度: 4 workers (効率 {best_efficiency.get('efficiency_4_percent', 0):.1f}%)"
-        )
+        best_efficiency = max(scalability_results, key=lambda x: x.get("efficiency_4_percent", 0))
+        print(f"推奨並列度: 4 workers (効率 {best_efficiency.get('efficiency_4_percent', 0):.1f}%)")
         print(f"期待高速化: {best_efficiency.get('speedup_4x', 0):.1f}倍")
         print("キャッシュ利用: 推奨 (ヒット率向上による更なる高速化)")
 
@@ -439,9 +423,7 @@ def main():
 
     # キャッシュ効果測定
     print("\n3. キャッシュ効果測定...")
-    cache_result = benchmark_parallel_processing(
-        test_stock_data, cpu_workers=4, enable_cache=True
-    )
+    cache_result = benchmark_parallel_processing(test_stock_data, cpu_workers=4, enable_cache=True)
     if cache_result:
         # 2回目実行でキャッシュ効果確認
         cache_result_2 = benchmark_parallel_processing(
@@ -460,9 +442,7 @@ def main():
     estimate_production_performance(scalability_results)
 
     # 最終レポート
-    generate_performance_report(
-        sequential_results, parallel_results, scalability_results
-    )
+    generate_performance_report(sequential_results, parallel_results, scalability_results)
 
     print("\n✅ パフォーマンステスト完了")
 

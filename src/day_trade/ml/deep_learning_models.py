@@ -306,7 +306,8 @@ class BaseDeepLearningModel(ABC):
             if target_column in data.columns:
                 y.append(
                     data[target_column].values[
-                        i + self.config.sequence_length : i
+                        i
+                        + self.config.sequence_length : i
                         + self.config.sequence_length
                         + self.config.prediction_horizon
                     ]
@@ -315,7 +316,8 @@ class BaseDeepLearningModel(ABC):
                 # ターゲット列がない場合は終値を使用
                 y.append(
                     features[
-                        i + self.config.sequence_length : i
+                        i
+                        + self.config.sequence_length : i
                         + self.config.sequence_length
                         + self.config.prediction_horizon,
                         -1,

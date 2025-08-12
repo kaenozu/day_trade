@@ -157,11 +157,11 @@ class SentimentEngine:
                 self.tokenizers["finbert"] = AutoTokenizer.from_pretrained(
                     self.config.finbert_model
                 )
-                self.models[
-                    "finbert"
-                ] = AutoModelForSequenceClassification.from_pretrained(
-                    self.config.finbert_model
-                ).to(self.device)
+                self.models["finbert"] = (
+                    AutoModelForSequenceClassification.from_pretrained(
+                        self.config.finbert_model
+                    ).to(self.device)
+                )
 
                 self.pipelines["finbert"] = pipeline(
                     "sentiment-analysis",
@@ -722,7 +722,7 @@ if __name__ == "__main__":
         result = engine.analyze_text(text, model="finbert")
         results.append(result)
 
-        print(f"\nテキスト {i+1}: {text[:60]}...")
+        print(f"\nテキスト {i + 1}: {text[:60]}...")
         print(f"センチメント: {result.sentiment_label}")
         print(f"スコア: {result.sentiment_score:.3f}")
         print(f"信頼度: {result.confidence:.3f}")

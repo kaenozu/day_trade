@@ -621,9 +621,9 @@ class RealTimeRiskMonitor:
             "uptime_seconds": uptime,
             "active_symbols": len(self.active_symbols),
             "performance_stats": self.performance_stats,
-            "current_metrics": self.monitoring_metrics[-1]
-            if self.monitoring_metrics
-            else None,
+            "current_metrics": (
+                self.monitoring_metrics[-1] if self.monitoring_metrics else None
+            ),
             "alert_queue_size": self.analysis_queue.qsize(),
             "system_health": self._assess_system_health(),
             "daily_statistics": dict(

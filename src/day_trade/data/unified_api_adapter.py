@@ -129,8 +129,7 @@ class APIBatch:
     def is_ready(self) -> bool:
         """処理準備完了判定"""
         return (
-            len(self.requests) >= 10  # 10個以上
-            or time.time() - self.created_at > 5
+            len(self.requests) >= 10 or time.time() - self.created_at > 5  # 10個以上
         )  # または5秒経過
 
     def is_expired(self) -> bool:
@@ -360,12 +359,14 @@ class GenericHTTPAdapter(APIAdapter):
             async with self.session.request(
                 request.method.value,
                 url,
-                params=request.parameters
-                if request.method == RequestMethod.GET
-                else None,
-                json=request.parameters
-                if request.method in [RequestMethod.POST, RequestMethod.PUT]
-                else None,
+                params=(
+                    request.parameters if request.method == RequestMethod.GET else None
+                ),
+                json=(
+                    request.parameters
+                    if request.method in [RequestMethod.POST, RequestMethod.PUT]
+                    else None
+                ),
                 headers=headers,
                 timeout=request.timeout,
             ) as response:

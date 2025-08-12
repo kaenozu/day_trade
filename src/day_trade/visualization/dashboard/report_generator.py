@@ -284,7 +284,7 @@ class ReportGenerator:
     <div class="header">
         <h1>{symbol} 総合分析レポート</h1>
         <p><strong>レポートID:</strong> {report_id}</p>
-        <p><strong>生成日時:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p><strong>生成日時:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
     </div>
 
     <div class="section">
@@ -532,7 +532,7 @@ class ReportGenerator:
     <div class="header">
         <h1>{symbol} 分析レポートインデックス</h1>
         <p><strong>レポートID:</strong> {report_id}</p>
-        <p><strong>生成日時:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p><strong>生成日時:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
         <p><strong>総ファイル数:</strong> {len(generated_files)}</p>
     </div>
 
@@ -790,9 +790,9 @@ class ReportGenerator:
             return "<p>価格データが利用できません</p>"
 
         return f"""
-        <div class="metric">現在価格: {price_summary.get('current_price', 'N/A'):.2f}</div>
-        <div class="metric">期間リターン: {price_summary.get('period_return', 'N/A'):.1f}%</div>
-        <div class="metric">ボラティリティ: {price_summary.get('volatility', 'N/A'):.1f}%</div>
+        <div class="metric">現在価格: {price_summary.get("current_price", "N/A"):.2f}</div>
+        <div class="metric">期間リターン: {price_summary.get("period_return", "N/A"):.1f}%</div>
+        <div class="metric">ボラティリティ: {price_summary.get("volatility", "N/A"):.1f}%</div>
         """
 
     def _format_prediction_summary_html(self, analysis_results: Dict) -> str:

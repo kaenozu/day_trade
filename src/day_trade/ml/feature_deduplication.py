@@ -245,7 +245,7 @@ class FeatureDeduplicationManager:
             config_hash = hashlib.md5(str(feature_config).encode()).hexdigest()[:8]
 
             task = ComputationTask(
-                task_id=f"task_{int(time.time()*1000)}_{len(self.active_tasks)}",
+                task_id=f"task_{int(time.time() * 1000)}_{len(self.active_tasks)}",
                 symbol=symbol,
                 config_hash=config_hash,
                 data_hash=data_hash,

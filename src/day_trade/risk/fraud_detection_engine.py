@@ -259,7 +259,7 @@ class EnsembleFraudDetector:
 
             if epoch % 10 == 0:
                 logger.info(
-                    f"LSTM Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}"
+                    f"LSTM Epoch {epoch}: Loss = {total_loss / len(dataloader):.4f}"
                 )
 
         self.models["lstm"].eval()
@@ -299,7 +299,7 @@ class EnsembleFraudDetector:
 
             if epoch % 5 == 0:
                 logger.info(
-                    f"Transformer Epoch {epoch}: Loss = {total_loss/len(dataloader):.4f}"
+                    f"Transformer Epoch {epoch}: Loss = {total_loss / len(dataloader):.4f}"
                 )
 
         self.models["transformer"].eval()

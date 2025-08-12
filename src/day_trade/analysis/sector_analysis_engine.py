@@ -618,7 +618,7 @@ if __name__ == "__main__":
 
         for i, signal in enumerate(rotation_signals[:3]):
             print(
-                f"   シグナル{i+1}: {signal.from_sector}→{signal.to_sector} "
+                f"   シグナル{i + 1}: {signal.from_sector}→{signal.to_sector} "
                 f"(強度{signal.signal_strength:.2f}, {signal.rotation_type})"
             )
 
@@ -636,7 +636,7 @@ if __name__ == "__main__":
         print("6. セクターランキング...")
         rankings = analyzer.generate_sector_rankings(performances, "composite")
         for i, (sector, score) in enumerate(rankings[:3]):
-            print(f"   {i+1}位: {sector} (スコア: {score:.3f})")
+            print(f"   {i + 1}位: {sector} (スコア: {score:.3f})")
 
         print("7. 包括的分析実行...")
         comprehensive = analyzer.analyze_comprehensive_sectors(sector_data, "bull")

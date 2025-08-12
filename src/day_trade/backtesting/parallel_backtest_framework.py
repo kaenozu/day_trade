@@ -442,10 +442,11 @@ class ParallelBacktestFramework:
                     "failed_tasks": len(tasks) - len(completed_tasks),
                     "total_execution_time_ms": total_time_ms,
                     "avg_task_time_ms": total_time_ms / len(tasks) if tasks else 0,
-                    "throughput_tasks_per_sec": len(completed_tasks)
-                    / (total_time_ms / 1000)
-                    if total_time_ms > 0
-                    else 0,
+                    "throughput_tasks_per_sec": (
+                        len(completed_tasks) / (total_time_ms / 1000)
+                        if total_time_ms > 0
+                        else 0
+                    ),
                 }
             )
 
@@ -524,7 +525,7 @@ class ParallelBacktestFramework:
                 if (i + 1) % max(1, len(tasks) // 10) == 0:
                     progress = (i + 1) / len(tasks) * 100
                     logger.info(
-                        f"シーケンシャル実行進捗: {progress:.1f}% ({i+1}/{len(tasks)})"
+                        f"シーケンシャル実行進捗: {progress:.1f}% ({i + 1}/{len(tasks)})"
                     )
 
             except Exception as e:
@@ -663,12 +664,14 @@ class ParallelBacktestFramework:
                 "memory_limit_mb": self.config.memory_limit_mb,
             },
             "execution_stats": self.execution_stats,
-            "memory_pool": {
-                "enabled": self.config.enable_memory_pool,
-                "size_mb": self.config.memory_pool_size_mb,
-            }
-            if self.memory_pool
-            else None,
+            "memory_pool": (
+                {
+                    "enabled": self.config.enable_memory_pool,
+                    "size_mb": self.config.memory_pool_size_mb,
+                }
+                if self.memory_pool
+                else None
+            ),
         }
 
 

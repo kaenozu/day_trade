@@ -75,9 +75,7 @@ class CachePerformanceBenchmark:
 
         return test_data
 
-    def test_unified_cache_performance(
-        self, test_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def test_unified_cache_performance(self, test_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """統合キャッシュマネージャーパフォーマンステスト"""
         if not UNIFIED_CACHE_AVAILABLE:
             return {"error": "Unified cache not available"}
@@ -85,9 +83,7 @@ class CachePerformanceBenchmark:
         print("\n=== Testing Unified Cache Manager ===")
 
         # キャッシュマネージャー初期化
-        cache_manager = UnifiedCacheManager(
-            l1_memory_mb=32, l2_memory_mb=128, l3_disk_mb=512
-        )
+        cache_manager = UnifiedCacheManager(l1_memory_mb=32, l2_memory_mb=128, l3_disk_mb=512)
 
         results = {
             "put_times": [],
@@ -104,9 +100,7 @@ class CachePerformanceBenchmark:
         for item in test_data:
             start = time.time()
             try:
-                success = cache_manager.put(
-                    item["key"], item["value"], priority=item["priority"]
-                )
+                success = cache_manager.put(item["key"], item["value"], priority=item["priority"])
                 if not success:
                     results["errors"] += 1
             except Exception as e:
@@ -167,9 +161,7 @@ class CachePerformanceBenchmark:
             "layer_stats": stats["layers"],
         }
 
-    def test_legacy_cache_performance(
-        self, test_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def test_legacy_cache_performance(self, test_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """既存キャッシュシステムパフォーマンステスト"""
         if not OLD_CACHE_AVAILABLE:
             return {"error": "Legacy cache not available"}
@@ -270,16 +262,13 @@ class CachePerformanceBenchmark:
 
         # データを分割
         chunk_size = len(test_data) // num_threads
-        data_chunks = [
-            test_data[i : i + chunk_size] for i in range(0, len(test_data), chunk_size)
-        ]
+        data_chunks = [test_data[i : i + chunk_size] for i in range(0, len(test_data), chunk_size)]
 
         start_time = time.time()
 
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = [
-                executor.submit(worker_thread, i, chunk)
-                for i, chunk in enumerate(data_chunks)
+                executor.submit(worker_thread, i, chunk) for i, chunk in enumerate(data_chunks)
             ]
 
             for future in futures:
@@ -289,9 +278,7 @@ class CachePerformanceBenchmark:
                 results["errors"] += thread_result["errors"]
 
         results["total_time"] = time.time() - start_time
-        results["overall_ops_per_sec"] = (
-            results["total_operations"] / results["total_time"]
-        )
+        results["overall_ops_per_sec"] = results["total_operations"] / results["total_time"]
 
         return results
 
@@ -402,18 +389,12 @@ Errors: {legacy_results['errors']}
             # パフォーマンス比較
             if "error" not in unified_results:
                 put_improvement = (
-                    (
-                        legacy_results["avg_put_time_ms"]
-                        - unified_results["avg_put_time_ms"]
-                    )
+                    (legacy_results["avg_put_time_ms"] - unified_results["avg_put_time_ms"])
                     / legacy_results["avg_put_time_ms"]
                     * 100
                 )
                 get_improvement = (
-                    (
-                        legacy_results["avg_get_time_ms"]
-                        - unified_results["avg_get_time_ms"]
-                    )
+                    (legacy_results["avg_get_time_ms"] - unified_results["avg_get_time_ms"])
                     / legacy_results["avg_get_time_ms"]
                     * 100
                 )

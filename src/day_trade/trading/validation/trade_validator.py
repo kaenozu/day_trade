@@ -506,19 +506,21 @@ class TradeValidator:
             invalid_trades = validation_results.get("invalid_trades", 0)
 
             statistics = {
-                "validation_success_rate": (valid_trades / total_trades * 100)
-                if total_trades > 0
-                else 0,
-                "error_rate": (invalid_trades / total_trades * 100)
-                if total_trades > 0
-                else 0,
+                "validation_success_rate": (
+                    (valid_trades / total_trades * 100) if total_trades > 0 else 0
+                ),
+                "error_rate": (
+                    (invalid_trades / total_trades * 100) if total_trades > 0 else 0
+                ),
                 "warning_rate": (
-                    validation_results.get("trades_with_warnings", 0)
-                    / total_trades
-                    * 100
-                )
-                if total_trades > 0
-                else 0,
+                    (
+                        validation_results.get("trades_with_warnings", 0)
+                        / total_trades
+                        * 100
+                    )
+                    if total_trades > 0
+                    else 0
+                ),
                 "data_quality_score": self._calculate_data_quality_score(
                     validation_results
                 ),

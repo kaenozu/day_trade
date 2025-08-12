@@ -562,13 +562,15 @@ class EventBus:
                 "registered_patterns": len(self.complex_processor.patterns),
                 "detected_patterns": len(self.complex_processor.detected_patterns),
             },
-            "memory_pool": {
-                "size_mb": 200,
-                "allocated_blocks": len(self.memory_pool.allocated_blocks),
-                "free_blocks": len(self.memory_pool.free_blocks),
-            }
-            if self.memory_pool
-            else None,
+            "memory_pool": (
+                {
+                    "size_mb": 200,
+                    "allocated_blocks": len(self.memory_pool.allocated_blocks),
+                    "free_blocks": len(self.memory_pool.free_blocks),
+                }
+                if self.memory_pool
+                else None
+            ),
         }
 
 

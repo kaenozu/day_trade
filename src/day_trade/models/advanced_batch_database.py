@@ -44,7 +44,7 @@ except ImportError:
     class DatabaseManager:
         def __init__(self):
             pass
-        
+
         def get_session(self):
             return None
 
@@ -253,8 +253,8 @@ class SQLOptimizer:
                 values_list.extend(batch_values)
 
             sql = f"""
-            INSERT OR IGNORE INTO {table_name} ({', '.join(columns)})
-            VALUES {', '.join(values_list[:1000])}
+            INSERT OR IGNORE INTO {table_name} ({", ".join(columns)})
+            VALUES {", ".join(values_list[:1000])}
             """
         else:
             sql = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
@@ -271,7 +271,7 @@ class SQLOptimizer:
             # PostgreSQL COPY最適化
             placeholders = ", ".join([f"%({col})s" for col in columns])
             sql = f"""
-            INSERT INTO {table_name} ({', '.join(columns)})
+            INSERT INTO {table_name} ({", ".join(columns)})
             VALUES ({placeholders})
             ON CONFLICT DO NOTHING
             """
@@ -282,7 +282,7 @@ class SQLOptimizer:
             # MySQL
             placeholders = ", ".join([f"%({col})s" for col in columns])
             sql = f"""
-            INSERT IGNORE INTO {table_name} ({', '.join(columns)})
+            INSERT IGNORE INTO {table_name} ({", ".join(columns)})
             VALUES ({placeholders})
             """
 
@@ -707,9 +707,9 @@ class AdvancedBatchDatabase:
         )
 
         sql = f"""
-        INSERT INTO {operation.table_name} ({', '.join(columns)})
+        INSERT INTO {operation.table_name} ({", ".join(columns)})
         VALUES ({placeholders})
-        ON CONFLICT({', '.join(conflict_columns)}) DO UPDATE SET {update_set}
+        ON CONFLICT({", ".join(conflict_columns)}) DO UPDATE SET {update_set}
         """
 
         total_affected = 0

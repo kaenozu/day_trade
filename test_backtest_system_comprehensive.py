@@ -32,10 +32,13 @@ print("統合バックテストシステム総合テスト")
 print("Issue #323: 実データバックテスト機能開発")
 print("=" * 60)
 
+
 def create_advanced_strategies() -> Dict[str, callable]:
     """高度な戦略作成"""
 
-    def ml_momentum_strategy(lookback_data: Dict[str, callable], current_prices: Dict[str, float]) -> Dict[str, float]:
+    def ml_momentum_strategy(
+        lookback_data: Dict[str, callable], current_prices: Dict[str, float]
+    ) -> Dict[str, float]:
         """ML強化モメンタム戦略"""
         import numpy as np
 
@@ -43,8 +46,8 @@ def create_advanced_strategies() -> Dict[str, callable]:
         for symbol, data in lookback_data.items():
             if len(data) >= 30:
                 # 価格データ
-                prices = data['Close'].values
-                volumes = data['Volume'].values
+                prices = data["Close"].values
+                volumes = data["Volume"].values
 
                 # 複数期間リターン
                 ret_5d = (prices[-1] / prices[-5] - 1) if len(prices) >= 5 else 0
@@ -56,10 +59,12 @@ def create_advanced_strategies() -> Dict[str, callable]:
                 volatility = np.std(returns[-20:]) if len(returns) >= 20 else 0
 
                 # 出来高トレンド
-                volume_trend = (volumes[-5:].mean() / volumes[-20:-5].mean() - 1) if len(volumes) >= 20 else 0
+                volume_trend = (
+                    (volumes[-5:].mean() / volumes[-20:-5].mean() - 1) if len(volumes) >= 20 else 0
+                )
 
                 # 複合シグナル計算
-                momentum_score = (ret_5d * 0.4 + ret_10d * 0.3 + ret_20d * 0.3)
+                momentum_score = ret_5d * 0.4 + ret_10d * 0.3 + ret_20d * 0.3
                 volume_score = min(1.0, max(-1.0, volume_trend))
                 volatility_penalty = max(0.5, 1 - volatility * 10)  # 高ボラティリティにペナルティ
 
@@ -78,11 +83,13 @@ def create_advanced_strategies() -> Dict[str, callable]:
         # ウェイト正規化
         total_weight = sum(signals.values())
         if total_weight > 0:
-            signals = {k: min(0.3, v/total_weight) for k, v in signals.items()}
+            signals = {k: min(0.3, v / total_weight) for k, v in signals.items()}
 
         return signals
 
-    def risk_parity_strategy(lookback_data: Dict[str, callable], current_prices: Dict[str, float]) -> Dict[str, float]:
+    def risk_parity_strategy(
+        lookback_data: Dict[str, callable], current_prices: Dict[str, float]
+    ) -> Dict[str, float]:
         """リスクパリティ戦略"""
         import numpy as np
 
@@ -92,22 +99,24 @@ def create_advanced_strategies() -> Dict[str, callable]:
         # 各銘柄のボラティリティ計算
         for symbol, data in lookback_data.items():
             if len(data) >= 20:
-                returns = data['Close'].pct_change().dropna()
+                returns = data["Close"].pct_change().dropna()
                 if len(returns) >= 10:
                     vol = returns.std() * np.sqrt(252)  # 年率ボラティリティ
                     volatilities[symbol] = vol
 
         if volatilities:
             # 逆ボラティリティウェイト
-            inv_vol = {k: 1/v for k, v in volatilities.items() if v > 0}
+            inv_vol = {k: 1 / v for k, v in volatilities.items() if v > 0}
             total_inv_vol = sum(inv_vol.values())
 
             if total_inv_vol > 0:
-                signals = {k: v/total_inv_vol for k, v in inv_vol.items()}
+                signals = {k: v / total_inv_vol for k, v in inv_vol.items()}
 
         return signals
 
-    def adaptive_momentum_strategy(lookback_data: Dict[str, callable], current_prices: Dict[str, float]) -> Dict[str, float]:
+    def adaptive_momentum_strategy(
+        lookback_data: Dict[str, callable], current_prices: Dict[str, float]
+    ) -> Dict[str, float]:
         """適応的モメンタム戦略"""
         import numpy as np
 
@@ -115,14 +124,16 @@ def create_advanced_strategies() -> Dict[str, callable]:
 
         for symbol, data in lookback_data.items():
             if len(data) >= 50:
-                prices = data['Close'].values
+                prices = data["Close"].values
 
                 # 市場状況判定（トレンド vs レンジ）
                 returns = np.diff(prices) / prices[:-1]
                 recent_returns = returns[-20:]
 
                 # トレンドの一貫性
-                trend_consistency = np.corrcoef(np.arange(len(recent_returns)), recent_returns)[0, 1]
+                trend_consistency = np.corrcoef(np.arange(len(recent_returns)), recent_returns)[
+                    0, 1
+                ]
                 trend_consistency = 0 if np.isnan(trend_consistency) else trend_consistency
 
                 # ボラティリティレジーム
@@ -156,15 +167,16 @@ def create_advanced_strategies() -> Dict[str, callable]:
         # ウェイト正規化
         total_weight = sum(signals.values())
         if total_weight > 0:
-            signals = {k: v/total_weight for k, v in signals.items()}
+            signals = {k: v / total_weight for k, v in signals.items()}
 
         return signals
 
     return {
-        'ML強化モメンタム戦略': ml_momentum_strategy,
-        'リスクパリティ戦略': risk_parity_strategy,
-        '適応的モメンタム戦略': adaptive_momentum_strategy
+        "ML強化モメンタム戦略": ml_momentum_strategy,
+        "リスクパリティ戦略": risk_parity_strategy,
+        "適応的モメンタム戦略": adaptive_momentum_strategy,
     }
+
 
 def test_backtest_engine():
     """バックテストエンジンテスト"""
@@ -179,7 +191,7 @@ def test_backtest_engine():
             "8306.T",  # 三菱UFJフィナンシャル・グループ
             "9984.T",  # ソフトバンクグループ
             "6758.T",  # ソニーグループ
-            "9432.T"   # 日本電信電話
+            "9432.T",  # 日本電信電話
         ]
 
         # 過去半年のデータでテスト
@@ -192,9 +204,7 @@ def test_backtest_engine():
         # データ取得
         print("過去データ取得中...")
         historical_data = engine.load_historical_data(
-            test_symbols,
-            start_date.strftime('%Y-%m-%d'),
-            end_date.strftime('%Y-%m-%d')
+            test_symbols, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
         )
 
         if not historical_data:
@@ -235,6 +245,7 @@ def test_backtest_engine():
         print(f"[ERROR] バックテストエンジンテストエラー: {e}")
         return False
 
+
 def test_risk_metrics():
     """リスクメトリクステスト"""
     print("\n=== リスクメトリクステスト ===")
@@ -244,6 +255,7 @@ def test_risk_metrics():
 
         # サンプルデータ生成
         import numpy as np
+
         np.random.seed(42)
 
         n_days = 180
@@ -259,9 +271,7 @@ def test_risk_metrics():
         print("リスクメトリクス計算中...")
         start_time = time.time()
         metrics = calculator.calculate_metrics(
-            returns.tolist(),
-            portfolio_values,
-            benchmark_returns.tolist()
+            returns.tolist(), portfolio_values, benchmark_returns.tolist()
         )
         calculation_time = time.time() - start_time
 
@@ -292,6 +302,7 @@ def test_risk_metrics():
         print(f"[ERROR] リスクメトリクステストエラー: {e}")
         return False
 
+
 def test_strategy_evaluator():
     """戦略評価テスト"""
     print("\n=== 戦略評価テスト ===")
@@ -305,9 +316,7 @@ def test_strategy_evaluator():
         start_date = end_date - timedelta(days=120)  # 4ヶ月
 
         historical_data = engine.load_historical_data(
-            test_symbols,
-            start_date.strftime('%Y-%m-%d'),
-            end_date.strftime('%Y-%m-%d')
+            test_symbols, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
         )
 
         if not historical_data:
@@ -320,7 +329,9 @@ def test_strategy_evaluator():
         all_strategies = {**basic_strategies, **advanced_strategies}
 
         print(f"評価戦略数: {len(all_strategies)}戦略")
-        print(f"テストデータ: {len(historical_data)}銘柄, {len(list(historical_data.values())[0])}日分")
+        print(
+            f"テストデータ: {len(historical_data)}銘柄, {len(list(historical_data.values())[0])}日分"
+        )
 
         # 評価実行
         evaluator = StrategyEvaluator(initial_capital=1000000)
@@ -328,9 +339,7 @@ def test_strategy_evaluator():
         print("戦略評価実行中...")
         start_time = time.time()
         evaluation = evaluator.evaluate_strategies(
-            all_strategies,
-            historical_data,
-            parallel_execution=False  # 安定性のため順次実行
+            all_strategies, historical_data, parallel_execution=False  # 安定性のため順次実行
         )
         evaluation_time = time.time() - start_time
 
@@ -362,8 +371,10 @@ def test_strategy_evaluator():
     except Exception as e:
         print(f"[ERROR] 戦略評価テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """メイン実行"""
@@ -375,7 +386,7 @@ def main():
     tests = [
         ("バックテストエンジン", test_backtest_engine),
         ("リスクメトリクス", test_risk_metrics),
-        ("戦略評価", test_strategy_evaluator)
+        ("戦略評価", test_strategy_evaluator),
     ]
 
     for test_name, test_function in tests:
@@ -413,14 +424,14 @@ def main():
 
         # 結果保存
         result_data = {
-            'test_date': datetime.now().isoformat(),
-            'system': 'integrated_backtest_system',
-            'test_results': [{'name': name, 'passed': passed} for name, passed in test_results],
-            'success_rate': success_rate,
-            'status': 'READY' if success_rate >= 0.8 else 'NEEDS_IMPROVEMENT'
+            "test_date": datetime.now().isoformat(),
+            "system": "integrated_backtest_system",
+            "test_results": [{"name": name, "passed": passed} for name, passed in test_results],
+            "success_rate": success_rate,
+            "status": "READY" if success_rate >= 0.8 else "NEEDS_IMPROVEMENT",
         }
 
-        with open('backtest_system_test_results.json', 'w', encoding='utf-8') as f:
+        with open("backtest_system_test_results.json", "w", encoding="utf-8") as f:
             json.dump(result_data, f, indent=2, ensure_ascii=False)
 
         return True
@@ -428,6 +439,7 @@ def main():
         print("\n[FAILED] 一部機能に問題があります")
         print("問題の解決後に再テストしてください")
         return False
+
 
 if __name__ == "__main__":
     success = main()

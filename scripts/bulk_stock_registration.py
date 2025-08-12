@@ -49,8 +49,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler(
-            log_dir
-            / f"bulk_registration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_dir / f"bulk_registration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         ),
     ],
 )
@@ -61,7 +60,9 @@ class JPXDataDownloader:
     """JPX上場銘柄一覧ダウンローダー"""
 
     # JPXの上場銘柄一覧CSV URL（2024年現在）
-    JPX_LISTED_STOCKS_URL = "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
+    JPX_LISTED_STOCKS_URL = (
+        "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
+    )
 
     # 代替URL（CSVフォーマット）
     ALTERNATIVE_URLS = [
@@ -107,9 +108,7 @@ class JPXDataDownloader:
         """
         if output_path is None:
             output_path = (
-                PROJECT_ROOT
-                / "data"
-                / f"jpx_stocks_{datetime.now().strftime('%Y%m%d')}.csv"
+                PROJECT_ROOT / "data" / f"jpx_stocks_{datetime.now().strftime('%Y%m%d')}.csv"
             )
 
         # ディレクトリを作成
@@ -250,9 +249,7 @@ class StockDataParser:
                             self.parsed_stocks.append(stock_data)
                         else:
                             self.error_count += 1
-                            logger.debug(
-                                f"無効なデータをスキップ (行 {row_count + 1}): {row}"
-                            )
+                            logger.debug(f"無効なデータをスキップ (行 {row_count + 1}): {row}")
 
                         row_count += 1
 
@@ -313,9 +310,7 @@ class StockDataParser:
             logger.info(f"フィールドマッピング検出: {mapping}")
             return mapping
         else:
-            logger.error(
-                f"必須フィールドが見つかりません。検出されたマッピング: {mapping}"
-            )
+            logger.error(f"必須フィールドが見つかりません。検出されたマッピング: {mapping}")
             return None
 
     def _extract_stock_data(
@@ -404,22 +399,16 @@ class BulkStockRegistrar:
             for i in range(0, len(stock_data_list), self.batch_size):
                 batch = stock_data_list[i : i + self.batch_size]
                 batch_number = i // self.batch_size + 1
-                total_batches = (
-                    len(stock_data_list) + self.batch_size - 1
-                ) // self.batch_size
+                total_batches = (len(stock_data_list) + self.batch_size - 1) // self.batch_size
 
-                logger.info(
-                    f"バッチ {batch_number}/{total_batches} 処理中... ({len(batch)}件)"
-                )
+                logger.info(f"バッチ {batch_number}/{total_batches} 処理中... ({len(batch)}件)")
 
                 self._process_batch(batch, existing_codes)
 
                 # 進捗表示
                 processed = min(i + self.batch_size, len(stock_data_list))
                 progress = (processed / len(stock_data_list)) * 100
-                logger.info(
-                    f"進捗: {progress:.1f}% ({processed}/{len(stock_data_list)})"
-                )
+                logger.info(f"進捗: {progress:.1f}% ({processed}/{len(stock_data_list)})")
 
         except Exception as e:
             logger.error(f"一括登録処理エラー: {e}")
@@ -457,17 +446,13 @@ class BulkStockRegistrar:
                     try:
                         self._process_single_stock(session, stock_data, existing_codes)
                     except Exception as e:
-                        logger.error(
-                            f"銘柄処理エラー {stock_data.get('code', 'UNKNOWN')}: {e}"
-                        )
+                        logger.error(f"銘柄処理エラー {stock_data.get('code', 'UNKNOWN')}: {e}")
                         self.stats["errors"] += 1
         except Exception as e:
             logger.error(f"バッチ処理エラー: {e}")
             self.stats["errors"] += len(batch)
 
-    def _process_single_stock(
-        self, session, stock_data: Dict[str, str], existing_codes: Set[str]
-    ):
+    def _process_single_stock(self, session, stock_data: Dict[str, str], existing_codes: Set[str]):
         """単一銘柄の処理"""
         code = stock_data["code"]
 
@@ -535,9 +520,7 @@ def main():
         help="使用するCSVファイルパス（指定しない場合は自動ダウンロード）",
     )
 
-    parser.add_argument(
-        "--batch-size", type=int, default=50, help="バッチサイズ（デフォルト: 50）"
-    )
+    parser.add_argument("--batch-size", type=int, default=50, help="バッチサイズ（デフォルト: 50）")
 
     parser.add_argument(
         "--skip-download",

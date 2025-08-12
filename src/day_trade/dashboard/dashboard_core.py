@@ -578,9 +578,9 @@ class ProductionDashboard:
     def get_current_status(self) -> Dict[str, Any]:
         """現在のステータス取得"""
         return {
-            "portfolio": asdict(self.latest_portfolio)
-            if self.latest_portfolio
-            else None,
+            "portfolio": (
+                asdict(self.latest_portfolio) if self.latest_portfolio else None
+            ),
             "system": asdict(self.latest_system) if self.latest_system else None,
             "trading": asdict(self.latest_trading) if self.latest_trading else None,
             "risk": asdict(self.latest_risk) if self.latest_risk else None,
@@ -690,7 +690,7 @@ if __name__ == "__main__":
         # 30秒間監視
         for i in range(6):
             time.sleep(5)
-            print(f"\n--- {(i+1)*5}秒経過 ---")
+            print(f"\n--- {(i + 1) * 5}秒経過 ---")
             print(dashboard.generate_status_report())
 
         # 監視停止

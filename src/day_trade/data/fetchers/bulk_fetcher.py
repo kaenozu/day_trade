@@ -134,9 +134,9 @@ class BulkFetcher:
                     "total_symbols": len(codes),
                     "successful_symbols": successful_count,
                     "processing_time": total_time,
-                    "symbols_per_second": len(codes) / total_time
-                    if total_time > 0
-                    else 0,
+                    "symbols_per_second": (
+                        len(codes) / total_time if total_time > 0 else 0
+                    ),
                 },
             )
 
@@ -345,9 +345,9 @@ class BulkFetcher:
                     "total_symbols": len(codes),
                     "successful_symbols": successful_count,
                     "processing_time": total_time,
-                    "symbols_per_second": len(codes) / total_time
-                    if total_time > 0
-                    else 0,
+                    "symbols_per_second": (
+                        len(codes) / total_time if total_time > 0 else 0
+                    ),
                     "chunk_size": chunk_size,
                     "concurrent_chunks": max_concurrent_chunks,
                 },
@@ -355,7 +355,7 @@ class BulkFetcher:
 
             logger.info(
                 f"最適化価格取得完了: {successful_count}/{len(codes)}銘柄成功, "
-                f"{total_time:.2f}秒 ({len(codes)/total_time:.1f}銘柄/秒)"
+                f"{total_time:.2f}秒 ({len(codes) / total_time:.1f}銘柄/秒)"
             )
 
             return results

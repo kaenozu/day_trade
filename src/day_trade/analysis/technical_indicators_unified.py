@@ -422,27 +422,35 @@ class OptimizedTechnicalIndicators(TechnicalIndicatorsBase):
             lagging_span = close.shift(-lagging_span_period)
 
         return {
-            "conversion_line": conversion_line
-            if isinstance(conversion_line, np.ndarray)
-            else conversion_line.values,
-            "base_line": base_line
-            if isinstance(base_line, np.ndarray)
-            else base_line.values,
-            "leading_span_a": leading_span_a
-            if isinstance(leading_span_a, np.ndarray)
-            else leading_span_a.values,
+            "conversion_line": (
+                conversion_line
+                if isinstance(conversion_line, np.ndarray)
+                else conversion_line.values
+            ),
+            "base_line": (
+                base_line if isinstance(base_line, np.ndarray) else base_line.values
+            ),
+            "leading_span_a": (
+                leading_span_a
+                if isinstance(leading_span_a, np.ndarray)
+                else leading_span_a.values
+            ),
             "leading_span_b": leading_span_b.values,
             "lagging_span": lagging_span.values,
             "cloud_top": np.maximum(
-                leading_span_a
-                if isinstance(leading_span_a, np.ndarray)
-                else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
             "cloud_bottom": np.minimum(
-                leading_span_a
-                if isinstance(leading_span_a, np.ndarray)
-                else leading_span_a.values,
+                (
+                    leading_span_a
+                    if isinstance(leading_span_a, np.ndarray)
+                    else leading_span_a.values
+                ),
                 leading_span_b.values,
             ),
         }

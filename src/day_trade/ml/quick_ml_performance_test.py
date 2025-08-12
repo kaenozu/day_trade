@@ -297,9 +297,11 @@ class QuickMLPerformanceTest:
                 "memory_used_mb": memory_peak - memory_before,
                 "processing_time_float64_us": processing_time,
                 "processing_time_float32_us": processing_time_opt,
-                "speed_improvement": processing_time / processing_time_opt
-                if processing_time_opt > 0
-                else 1.0,
+                "speed_improvement": (
+                    processing_time / processing_time_opt
+                    if processing_time_opt > 0
+                    else 1.0
+                ),
                 "memory_reduction_estimate_percent": 50.0,  # float64→float32で約50%削減
             }
 

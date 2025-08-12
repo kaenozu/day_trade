@@ -1129,15 +1129,21 @@ class InvestmentOpportunityAlertSystem:
                 ),
             },
             "market_condition": {
-                "market_trend": self.market_condition.market_trend
-                if self.market_condition
-                else None,
-                "volatility_level": self.market_condition.volatility_level
-                if self.market_condition
-                else None,
-                "market_sentiment": self.market_condition.market_sentiment
-                if self.market_condition
-                else None,
+                "market_trend": (
+                    self.market_condition.market_trend
+                    if self.market_condition
+                    else None
+                ),
+                "volatility_level": (
+                    self.market_condition.volatility_level
+                    if self.market_condition
+                    else None
+                ),
+                "market_sentiment": (
+                    self.market_condition.market_sentiment
+                    if self.market_condition
+                    else None
+                ),
             },
             "monitoring_status": {
                 "is_running": self._is_running,

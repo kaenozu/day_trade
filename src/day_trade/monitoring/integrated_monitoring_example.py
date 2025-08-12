@@ -64,7 +64,7 @@ async def initialize_integrated_monitoring():
         "metrics_system": metrics_system,
         "dashboard_manager": dashboard_manager,
         "alert_manager": alert_manager,
-        "optimization_manager": optimization_manager
+        "optimization_manager": optimization_manager,
     }
 
 
@@ -81,7 +81,7 @@ async def demo_log_analysis():
         "ERROR: データベース接続失敗",
         "INFO: ユーザーログイン: user123",
         "CRITICAL: メモリ不足エラー",
-        "ERROR: SQLインジェクション試行検出"
+        "ERROR: SQLインジェクション試行検出",
     ]
 
     for log_msg in sample_logs:
@@ -93,11 +93,7 @@ async def demo_log_analysis():
     end_time = datetime.utcnow()
     start_time = end_time - timedelta(minutes=5)
 
-    query = LogSearchQuery(
-        start_time=start_time,
-        end_time=end_time,
-        limit=100
-    )
+    query = LogSearchQuery(start_time=start_time, end_time=end_time, limit=100)
     logs = await log_system.search_logs(query)
 
     print(f"  - 分析対象ログ: {len(logs)}件")
@@ -130,7 +126,7 @@ async def demo_metrics_collection():
 
     # Prometheusフォーマットでエクスポート
     prometheus_output = metrics_system.get_metrics_prometheus()
-    line_count = len(prometheus_output.split('\n'))
+    line_count = len(prometheus_output.split("\n"))
     print(f"  - Prometheusメトリクス: {line_count}行")
 
 
@@ -143,10 +139,12 @@ async def demo_dashboard_data():
     # システム概要ダッシュボードのデータ取得
     try:
         system_data = await dashboard_manager.get_dashboard_data("system_overview")
-        print(f"  - システム概要ダッシュボード: {len(system_data['widgets'])}個のウィジェット")
+        print(
+            f"  - システム概要ダッシュボード: {len(system_data['widgets'])}個のウィジェット"
+        )
 
-        for widget in system_data['widgets']:
-            series_count = len(widget['data']['series'])
+        for widget in system_data["widgets"]:
+            series_count = len(widget["data"]["series"])
             print(f"    * {widget['title']}: {series_count}系列のデータ")
 
     except Exception as e:
@@ -185,7 +183,9 @@ async def demo_performance_optimization():
     for recommendation in recommendations[:3]:
         print(f"    * {recommendation.title} [{recommendation.priority.value}]")
         print(f"      実装工数: {recommendation.implementation_effort}/10")
-        improvement_summary = ", ".join([f"{k}: {v}%" for k, v in recommendation.estimated_improvement.items()])
+        improvement_summary = ", ".join(
+            [f"{k}: {v}%" for k, v in recommendation.estimated_improvement.items()]
+        )
         if improvement_summary:
             print(f"      期待効果: {improvement_summary}")
 
@@ -229,10 +229,10 @@ async def demo_integrated_monitoring():
     finally:
         # クリーンアップ
         try:
-            if 'systems' in locals():
-                await systems['log_system'].stop_processing()
-                systems['metrics_system'].stop()
-                await systems['alert_manager'].stop()
+            if "systems" in locals():
+                await systems["log_system"].stop_processing()
+                systems["metrics_system"].stop()
+                await systems["alert_manager"].stop()
                 print("\n[INFO] システム停止完了")
         except:
             pass

@@ -91,9 +91,11 @@ class ProductionSystemManager:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler(log_dir / "production.log", encoding="utf-8"),
-                logging.StreamHandler()
-                if log_config.get("log_to_console", False)
-                else logging.NullHandler(),
+                (
+                    logging.StreamHandler()
+                    if log_config.get("log_to_console", False)
+                    else logging.NullHandler()
+                ),
             ],
         )
 
@@ -181,9 +183,7 @@ class ProductionSystemManager:
 
             available_memory = psutil.virtual_memory().available
             required_memory = (
-                config.get("system", {})
-                .get("performance", {})
-                .get("memory_limit_mb", 2048)
+                config.get("system", {}).get("performance", {}).get("memory_limit_mb", 2048)
                 * 1024
                 * 1024
             )
@@ -250,9 +250,7 @@ class ProductionSystemManager:
             self.logger.info("メインアプリケーション開始")
 
             # 構造化ログでシステム開始を記録
-            with self.structured_logger.operation_context(
-                "production_system_start", "system"
-            ):
+            with self.structured_logger.operation_context("production_system_start", "system"):
                 # メイン処理ループ（実際のアプリケーションロジック）
                 self._run_main_loop()
 
@@ -299,9 +297,7 @@ class ProductionSystemManager:
 
             # 構造化ログでシステム停止を記録
             if self.structured_logger:
-                with self.structured_logger.operation_context(
-                    "production_system_stop", "system"
-                ):
+                with self.structured_logger.operation_context("production_system_stop", "system"):
                     runtime = (datetime.now() - self.startup_time).total_seconds()
                     self.logger.info(f"システム停止 - 稼働時間: {runtime:.1f}秒")
 

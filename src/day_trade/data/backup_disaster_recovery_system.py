@@ -281,9 +281,11 @@ class BackupDisasterRecoverySystem:
         with zipfile.ZipFile(
             backup_file,
             "w",
-            compression=zipfile.ZIP_DEFLATED
-            if self.config.enable_compression
-            else zipfile.ZIP_STORED,
+            compression=(
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
+            ),
             compresslevel=self.config.compression_level,
         ) as zf:
             total_size = 0
@@ -331,9 +333,11 @@ class BackupDisasterRecoverySystem:
         with zipfile.ZipFile(
             backup_file,
             "w",
-            compression=zipfile.ZIP_DEFLATED
-            if self.config.enable_compression
-            else zipfile.ZIP_STORED,
+            compression=(
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
+            ),
             compresslevel=self.config.compression_level,
         ) as zf:
             total_size = 0
@@ -390,9 +394,11 @@ class BackupDisasterRecoverySystem:
         with zipfile.ZipFile(
             backup_file,
             "w",
-            compression=zipfile.ZIP_DEFLATED
-            if self.config.enable_compression
-            else zipfile.ZIP_STORED,
+            compression=(
+                zipfile.ZIP_DEFLATED
+                if self.config.enable_compression
+                else zipfile.ZIP_STORED
+            ),
             compresslevel=self.config.compression_level,
         ) as zf:
             total_size = 0
@@ -1000,9 +1006,11 @@ class BackupDisasterRecoverySystem:
                         backup_type=BackupType(data["backup_type"]),
                         status=BackupStatus(data["status"]),
                         start_time=datetime.fromisoformat(data["start_time"]),
-                        end_time=datetime.fromisoformat(data["end_time"])
-                        if data["end_time"]
-                        else None,
+                        end_time=(
+                            datetime.fromisoformat(data["end_time"])
+                            if data["end_time"]
+                            else None
+                        ),
                         backup_size_bytes=data["backup_size_bytes"],
                         compressed_size_bytes=data["compressed_size_bytes"],
                         file_count=data["file_count"],
@@ -1032,9 +1040,9 @@ class BackupDisasterRecoverySystem:
                     "backup_type": metadata.backup_type.value,
                     "status": metadata.status.value,
                     "start_time": metadata.start_time.isoformat(),
-                    "end_time": metadata.end_time.isoformat()
-                    if metadata.end_time
-                    else None,
+                    "end_time": (
+                        metadata.end_time.isoformat() if metadata.end_time else None
+                    ),
                     "backup_size_bytes": metadata.backup_size_bytes,
                     "compressed_size_bytes": metadata.compressed_size_bytes,
                     "file_count": metadata.file_count,

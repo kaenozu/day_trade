@@ -1361,9 +1361,11 @@ if __name__ == "__main__":
 
         market_context = {
             "volatility": float(df["Close"].pct_change().std()),
-            "trend_direction": "upward"
-            if df["Close"].iloc[-1] > df["Close"].iloc[-trend_period]
-            else "downward",
+            "trend_direction": (
+                "upward"
+                if df["Close"].iloc[-1] > df["Close"].iloc[-trend_period]
+                else "downward"
+            ),
         }
         validity = generator.validate_signal(signal, market_context=market_context)
         signal_data["validity_score"] = validity
@@ -1395,9 +1397,11 @@ if __name__ == "__main__":
             "active_signals": len(active_signals),
             "buy_signals": len(active_signals[active_signals["Signal"] == "buy"]),
             "sell_signals": len(active_signals[active_signals["Signal"] == "sell"]),
-            "latest_signals": active_signals.tail(5).to_dict("records")
-            if len(active_signals) > 0
-            else [],
+            "latest_signals": (
+                active_signals.tail(5).to_dict("records")
+                if len(active_signals) > 0
+                else []
+            ),
         }
 
         logger.info("時系列シグナル生成完了", **series_summary)
@@ -1407,9 +1411,11 @@ if __name__ == "__main__":
         logger.info(
             "時系列シグナル表示",
             signal_count=len(active_signals),
-            latest_signals=active_signals.tail(10).to_dict("records")
-            if len(active_signals) > 0
-            else [],
+            latest_signals=(
+                active_signals.tail(10).to_dict("records")
+                if len(active_signals) > 0
+                else []
+            ),
         )
     else:
         logger.info("時系列シグナル生成結果", result="no_active_signals")

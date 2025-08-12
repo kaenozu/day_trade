@@ -200,9 +200,11 @@ class BatchPerformanceTester:
                         request_id = consolidator.submit_request(
                             endpoint="stock_data",
                             symbols=symbols,
-                            priority=APIRequestPriority.HIGH
-                            if i % 2 == 0
-                            else APIRequestPriority.NORMAL,
+                            priority=(
+                                APIRequestPriority.HIGH
+                                if i % 2 == 0
+                                else APIRequestPriority.NORMAL
+                            ),
                             callback=response_callback,
                         )
                         request_ids.append(request_id)
@@ -458,9 +460,9 @@ class BatchPerformanceTester:
                             test_task,
                             100 + i * 10,
                             delay=0.005,
-                            priority=TaskPriority.HIGH
-                            if i % 3 == 0
-                            else TaskPriority.NORMAL,
+                            priority=(
+                                TaskPriority.HIGH if i % 3 == 0 else TaskPriority.NORMAL
+                            ),
                             task_id=f"success_task_{i}",
                         )
                         task_ids.append(task_id)
@@ -907,9 +909,9 @@ class BatchPerformanceTester:
                 "total_tests": total_tests,
                 "successful_tests": successful_tests,
                 "failed_tests": total_tests - successful_tests,
-                "success_rate": successful_tests / total_tests
-                if total_tests > 0
-                else 0.0,
+                "success_rate": (
+                    successful_tests / total_tests if total_tests > 0 else 0.0
+                ),
             },
             "test_config": self.test_config,
             "test_results": [result.to_dict() for result in self.test_results],

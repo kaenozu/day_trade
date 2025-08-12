@@ -228,22 +228,20 @@ class ProductionDeploymentManager:
 
         # キャッシュ設定
         cache_config = CacheConfig(
-            backend="redis"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else "memory",
-            host="redis-cluster.internal"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else "localhost",
+            backend="redis" if environment == DeploymentEnvironment.PRODUCTION else "memory",
+            host=(
+                "redis-cluster.internal"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else "localhost"
+            ),
             port=6379,
-            password_env_var=f"REDIS_PASSWORD_{environment.value.upper()}"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else None,
-            ttl_seconds=3600
-            if environment == DeploymentEnvironment.PRODUCTION
-            else 1800,
-            max_memory_mb=2048
-            if environment == DeploymentEnvironment.PRODUCTION
-            else 512,
+            password_env_var=(
+                f"REDIS_PASSWORD_{environment.value.upper()}"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else None
+            ),
+            ttl_seconds=3600 if environment == DeploymentEnvironment.PRODUCTION else 1800,
+            max_memory_mb=2048 if environment == DeploymentEnvironment.PRODUCTION else 512,
         )
 
         # API設定
@@ -253,37 +251,41 @@ class ProductionDeploymentManager:
             port=api_template["port"],
             workers=api_template["workers"],
             threads_per_worker=api_template["threads_per_worker"],
-            max_requests_per_worker=1000
-            if environment == DeploymentEnvironment.PRODUCTION
-            else 100,
+            max_requests_per_worker=(
+                1000 if environment == DeploymentEnvironment.PRODUCTION else 100
+            ),
             timeout_seconds=30,
             rate_limit_per_minute=api_template["rate_limit_per_minute"],
             cors_origins=self._get_cors_origins(environment),
-            ssl_cert_path="/etc/ssl/certs/daytrade.crt"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else None,
-            ssl_key_path="/etc/ssl/private/daytrade.key"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else None,
+            ssl_cert_path=(
+                "/etc/ssl/certs/daytrade.crt"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else None
+            ),
+            ssl_key_path=(
+                "/etc/ssl/private/daytrade.key"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else None
+            ),
         )
 
         # 監視設定
         monitoring_config = MonitoringConfig(
             enabled=True,
             metrics_endpoint="/metrics",
-            log_level="INFO"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else "DEBUG",
-            log_format="json"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else "text",
+            log_level="INFO" if environment == DeploymentEnvironment.PRODUCTION else "DEBUG",
+            log_format="json" if environment == DeploymentEnvironment.PRODUCTION else "text",
             prometheus_port=9090,
-            jaeger_endpoint="http://jaeger:14268/api/traces"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else None,
-            error_reporting_dsn=f"SENTRY_DSN_{environment.value.upper()}"
-            if environment != DeploymentEnvironment.DEVELOPMENT
-            else None,
+            jaeger_endpoint=(
+                "http://jaeger:14268/api/traces"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else None
+            ),
+            error_reporting_dsn=(
+                f"SENTRY_DSN_{environment.value.upper()}"
+                if environment != DeploymentEnvironment.DEVELOPMENT
+                else None
+            ),
         )
 
         # セキュリティ設定
@@ -293,17 +295,17 @@ class ProductionDeploymentManager:
             encryption_key_env_var=f"ENCRYPTION_KEY_{environment.value.upper()}",
             allowed_hosts=self._get_allowed_hosts(environment),
             csrf_protection=environment == DeploymentEnvironment.PRODUCTION,
-            session_timeout_minutes=60
-            if environment == DeploymentEnvironment.PRODUCTION
-            else 120,
+            session_timeout_minutes=60 if environment == DeploymentEnvironment.PRODUCTION else 120,
             password_policy=self._get_password_policy(environment),
         )
 
         # パフォーマンス設定
         performance_config = PerformanceConfig(
-            optimization_level="gpu_accelerated"
-            if environment == DeploymentEnvironment.PRODUCTION
-            else "optimized",
+            optimization_level=(
+                "gpu_accelerated"
+                if environment == DeploymentEnvironment.PRODUCTION
+                else "optimized"
+            ),
             gpu_enabled=environment == DeploymentEnvironment.PRODUCTION,
             pytorch_enabled=True,
             batch_size=64 if environment == DeploymentEnvironment.PRODUCTION else 32,
@@ -365,9 +367,7 @@ class ProductionDeploymentManager:
         }
         return hosts_map.get(environment, ["localhost"])
 
-    def _get_password_policy(
-        self, environment: DeploymentEnvironment
-    ) -> Dict[str, Any]:
+    def _get_password_policy(self, environment: DeploymentEnvironment) -> Dict[str, Any]:
         """パスワードポリシー"""
         if environment == DeploymentEnvironment.PRODUCTION:
             return {
@@ -446,9 +446,7 @@ class ProductionDeploymentManager:
 
         return str(uuid.uuid4())[:8]
 
-    def save_config_files(
-        self, config: DeploymentConfig, output_dir: str = "deployment"
-    ):
+    def save_config_files(self, config: DeploymentConfig, output_dir: str = "deployment"):
         """設定ファイル保存"""
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True)

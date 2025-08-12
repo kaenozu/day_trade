@@ -31,7 +31,9 @@ class JPXStockListDownloader:
 
     def __init__(self):
         # JPXの東証上場銘柄一覧ExcelファイルのURL
-        self.jpx_url = "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
+        self.jpx_url = (
+            "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
+        )
         self.output_dir = project_root / "data" / "stock_lists"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -126,9 +128,7 @@ class JPXStockListDownloader:
             if code_column is None:
                 # 最初の列を証券コードと仮定
                 code_column = df.columns[0]
-                logger.warning(
-                    f"証券コード列が特定できないため、最初の列を使用: {code_column}"
-                )
+                logger.warning(f"証券コード列が特定できないため、最初の列を使用: {code_column}")
             else:
                 logger.info(f"証券コード列を特定: {code_column}")
 
@@ -150,9 +150,7 @@ class JPXStockListDownloader:
             logger.error(f"証券コード抽出エラー: {e}")
             raise
 
-    def save_stock_codes_csv(
-        self, stock_codes: List[str], csv_path: Optional[Path] = None
-    ) -> Path:
+    def save_stock_codes_csv(self, stock_codes: List[str], csv_path: Optional[Path] = None) -> Path:
         """
         証券コードをCSVファイルに保存
 

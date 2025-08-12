@@ -32,9 +32,11 @@ except ImportError as e:
     print(f"Module import error: {e}")
     print("Will use simplified implementation for testing")
 
+
 @dataclass
 class StabilityMetrics:
     """安定性メトリクス"""
+
     timestamp: str
     uptime_seconds: float
     memory_usage_mb: float
@@ -46,9 +48,11 @@ class StabilityMetrics:
     avg_operation_time: float
     max_operation_time: float
 
+
 @dataclass
 class StabilityTestResults:
     """24時間安定性テスト結果"""
+
     start_time: str
     end_time: str
     total_duration_hours: float
@@ -66,6 +70,7 @@ class StabilityTestResults:
     issues_detected: List[str]
     overall_status: str
 
+
 class StabilityTestOrchestrator:
     """24時間安定性テストオーケストレーター"""
 
@@ -76,8 +81,16 @@ class StabilityTestOrchestrator:
 
         # テスト対象銘柄（実際のTOPIX銘柄から選出）
         self.test_symbols = [
-            "7203.T", "8306.T", "9984.T", "6758.T", "9432.T",
-            "8001.T", "6861.T", "8058.T", "4502.T", "7974.T"
+            "7203.T",
+            "8306.T",
+            "9984.T",
+            "6758.T",
+            "9432.T",
+            "8001.T",
+            "6861.T",
+            "8058.T",
+            "4502.T",
+            "7974.T",
         ]
 
         # 監視データ
@@ -106,7 +119,9 @@ class StabilityTestOrchestrator:
         self.start_time = datetime.now()
 
         print(f"開始時刻: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"終了予定: {(self.start_time + timedelta(hours=self.test_duration_hours)).strftime('%Y-%m-%d %H:%M:%S')}")
+        print(
+            f"終了予定: {(self.start_time + timedelta(hours=self.test_duration_hours)).strftime('%Y-%m-%d %H:%M:%S')}"
+        )
 
         # 監視スレッド開始
         monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
@@ -216,14 +231,14 @@ class StabilityTestOrchestrator:
 
         # ガベージコレクション統計
         gc_stats = gc.get_stats()
-        total_collections = sum(stat['collections'] for stat in gc_stats)
+        total_collections = sum(stat["collections"] for stat in gc_stats)
 
         # 操作統計
-        successful_ops = sum(1 for r in self.operation_results if r.get('success', False))
+        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
         error_count = len(self.error_log)
 
         # 操作時間統計
-        operation_times = [r.get('duration', 0) for r in self.operation_results if 'duration' in r]
+        operation_times = [r.get("duration", 0) for r in self.operation_results if "duration" in r]
         avg_op_time = sum(operation_times) / len(operation_times) if operation_times else 0
         max_op_time = max(operation_times) if operation_times else 0
 
@@ -237,7 +252,7 @@ class StabilityTestOrchestrator:
             errors_count=error_count,
             successful_operations=successful_ops,
             avg_operation_time=avg_op_time,
-            max_operation_time=max_op_time
+            max_operation_time=max_op_time,
         )
 
     def _detect_anomalies(self, metrics: StabilityMetrics):
@@ -259,7 +274,9 @@ class StabilityTestOrchestrator:
         # エラー率チェック
         if len(self.operation_results) > 10:
             recent_results = self.operation_results[-10:]
-            error_rate = sum(1 for r in recent_results if not r.get('success', True)) / len(recent_results)
+            error_rate = sum(1 for r in recent_results if not r.get("success", True)) / len(
+                recent_results
+            )
             if error_rate > 0.2:  # 20%以上のエラー率
                 warnings.append(f"高エラー率: {error_rate*100:.1f}%")
 
@@ -287,37 +304,37 @@ class StabilityTestOrchestrator:
 
                 if not hist.empty:
                     # 簡易分析
-                    returns = hist['Close'].pct_change().dropna()
+                    returns = hist["Close"].pct_change().dropna()
                     volatility = returns.std()
                     trend = "UP" if returns.mean() > 0 else "DOWN"
 
                     results[symbol] = {
-                        'trend': trend,
-                        'volatility': volatility,
-                        'confidence': min(0.9, 0.5 + np.random.random() * 0.4)
+                        "trend": trend,
+                        "volatility": volatility,
+                        "confidence": min(0.9, 0.5 + np.random.random() * 0.4),
                     }
 
             duration = time.time() - start_time
 
             return {
-                'operation_id': operation_id,
-                'type': 'ML_ANALYSIS',
-                'timestamp': datetime.now().isoformat(),
-                'success': True,
-                'duration': duration,
-                'symbols_analyzed': len(results),
-                'results': results
+                "operation_id": operation_id,
+                "type": "ML_ANALYSIS",
+                "timestamp": datetime.now().isoformat(),
+                "success": True,
+                "duration": duration,
+                "symbols_analyzed": len(results),
+                "results": results,
             }
 
         except Exception as e:
             duration = time.time() - start_time
             return {
-                'operation_id': operation_id,
-                'type': 'ML_ANALYSIS',
-                'timestamp': datetime.now().isoformat(),
-                'success': False,
-                'duration': duration,
-                'error': str(e)
+                "operation_id": operation_id,
+                "type": "ML_ANALYSIS",
+                "timestamp": datetime.now().isoformat(),
+                "success": False,
+                "duration": duration,
+                "error": str(e),
             }
 
     def _execute_portfolio_optimization(self, operation_id: int) -> Dict[str, Any]:
@@ -339,11 +356,11 @@ class StabilityTestOrchestrator:
                 ticker = yf.Ticker(symbol)
                 hist = ticker.history(period="30d")
                 if not hist.empty:
-                    price_data[symbol] = hist['Close']
+                    price_data[symbol] = hist["Close"]
 
             if len(price_data) >= 3:
                 # リターン計算
-                prices = pd.DataFrame(price_data).fillna(method='ffill').dropna()
+                prices = pd.DataFrame(price_data).fillna(method="ffill").dropna()
                 returns = prices.pct_change().dropna()
 
                 # 等重みポートフォリオ
@@ -355,15 +372,15 @@ class StabilityTestOrchestrator:
                 duration = time.time() - start_time
 
                 return {
-                    'operation_id': operation_id,
-                    'type': 'PORTFOLIO_OPTIMIZATION',
-                    'timestamp': datetime.now().isoformat(),
-                    'success': True,
-                    'duration': duration,
-                    'portfolio_size': len(weights),
-                    'expected_return': portfolio_return,
-                    'portfolio_risk': portfolio_risk,
-                    'sharpe_ratio': sharpe_ratio
+                    "operation_id": operation_id,
+                    "type": "PORTFOLIO_OPTIMIZATION",
+                    "timestamp": datetime.now().isoformat(),
+                    "success": True,
+                    "duration": duration,
+                    "portfolio_size": len(weights),
+                    "expected_return": portfolio_return,
+                    "portfolio_risk": portfolio_risk,
+                    "sharpe_ratio": sharpe_ratio,
                 }
             else:
                 raise Exception("Insufficient data for portfolio optimization")
@@ -371,12 +388,12 @@ class StabilityTestOrchestrator:
         except Exception as e:
             duration = time.time() - start_time
             return {
-                'operation_id': operation_id,
-                'type': 'PORTFOLIO_OPTIMIZATION',
-                'timestamp': datetime.now().isoformat(),
-                'success': False,
-                'duration': duration,
-                'error': str(e)
+                "operation_id": operation_id,
+                "type": "PORTFOLIO_OPTIMIZATION",
+                "timestamp": datetime.now().isoformat(),
+                "success": False,
+                "duration": duration,
+                "error": str(e),
             }
 
     def _print_current_status(self):
@@ -385,12 +402,14 @@ class StabilityTestOrchestrator:
             return
 
         latest = self.metrics_history[-1]
-        successful_ops = sum(1 for r in self.operation_results if r.get('success', False))
+        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
         total_ops = len(self.operation_results)
 
         print(f"  メモリ使用量: {latest.memory_usage_mb:.1f}MB")
         print(f"  CPU使用率: {latest.cpu_usage_percent:.1f}%")
-        print(f"  実行操作: {successful_ops}/{total_ops} (成功率: {successful_ops/total_ops*100:.1f}%)")
+        print(
+            f"  実行操作: {successful_ops}/{total_ops} (成功率: {successful_ops/total_ops*100:.1f}%)"
+        )
         print(f"  エラー数: {len(self.error_log)}")
 
     def _finalize_test(self) -> bool:
@@ -411,7 +430,9 @@ class StabilityTestOrchestrator:
 
         return results.overall_status == "PASSED"
 
-    def _analyze_test_results(self, end_time: datetime, duration_hours: float) -> StabilityTestResults:
+    def _analyze_test_results(
+        self, end_time: datetime, duration_hours: float
+    ) -> StabilityTestResults:
         """テスト結果分析"""
 
         # 稼働率計算
@@ -433,11 +454,11 @@ class StabilityTestOrchestrator:
 
         # 操作統計
         total_ops = len(self.operation_results)
-        successful_ops = sum(1 for r in self.operation_results if r.get('success', False))
+        successful_ops = sum(1 for r in self.operation_results if r.get("success", False))
         error_ops = total_ops - successful_ops
 
         # 操作時間統計
-        op_times = [r.get('duration', 0) * 1000 for r in self.operation_results if 'duration' in r]
+        op_times = [r.get("duration", 0) * 1000 for r in self.operation_results if "duration" in r]
         avg_op_time = sum(op_times) / len(op_times) if op_times else 0
         max_op_time = max(op_times) if op_times else 0
 
@@ -492,7 +513,7 @@ class StabilityTestOrchestrator:
             max_operation_time_ms=max_op_time,
             stability_score=stability_score,
             issues_detected=issues,
-            overall_status=overall_status
+            overall_status=overall_status,
         )
 
     def _save_test_results(self, results: StabilityTestResults):
@@ -502,13 +523,20 @@ class StabilityTestOrchestrator:
         # 詳細結果をJSONで保存
         result_file = self.results_dir / f"stability_test_{timestamp}.json"
 
-        with open(result_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'test_results': asdict(results),
-                'metrics_history': [asdict(m) for m in self.metrics_history[-100:]],  # 最新100件
-                'operation_results': self.operation_results[-50:],  # 最新50件
-                'error_log': self.error_log
-            }, f, indent=2, ensure_ascii=False)
+        with open(result_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "test_results": asdict(results),
+                    "metrics_history": [
+                        asdict(m) for m in self.metrics_history[-100:]
+                    ],  # 最新100件
+                    "operation_results": self.operation_results[-50:],  # 最新50件
+                    "error_log": self.error_log,
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
         print(f"テスト結果保存: {result_file}")
 
@@ -523,14 +551,22 @@ class StabilityTestOrchestrator:
         print(f"稼働率: {results.uptime_percentage:.2f}%")
 
         print("\nリソース使用状況:")
-        print(f"  メモリ使用量: 平均 {results.avg_memory_usage_mb:.1f}MB, ピーク {results.peak_memory_usage_mb:.1f}MB")
-        print(f"  CPU使用率: 平均 {results.avg_cpu_usage_percent:.1f}%, ピーク {results.peak_cpu_usage_percent:.1f}%")
+        print(
+            f"  メモリ使用量: 平均 {results.avg_memory_usage_mb:.1f}MB, ピーク {results.peak_memory_usage_mb:.1f}MB"
+        )
+        print(
+            f"  CPU使用率: 平均 {results.avg_cpu_usage_percent:.1f}%, ピーク {results.peak_cpu_usage_percent:.1f}%"
+        )
 
         print("\n操作統計:")
         print(f"  総操作数: {results.total_operations}")
         print(f"  成功操作: {results.successful_operations}")
         print(f"  エラー操作: {results.error_operations}")
-        print(f"  成功率: {results.successful_operations/results.total_operations*100:.2f}%" if results.total_operations > 0 else "  成功率: N/A")
+        print(
+            f"  成功率: {results.successful_operations/results.total_operations*100:.2f}%"
+            if results.total_operations > 0
+            else "  成功率: N/A"
+        )
         print(f"  平均実行時間: {results.avg_operation_time_ms:.2f}ms")
         print(f"  最大実行時間: {results.max_operation_time_ms:.2f}ms")
 
@@ -553,6 +589,7 @@ class StabilityTestOrchestrator:
             print("[NG] 24時間安定性テスト不合格")
             print("安定性の改善が必要です")
 
+
 def main():
     """メイン実行"""
     print("24時間安定性テストシステム")
@@ -573,7 +610,7 @@ def main():
         print("\n[自動選択] デモ版テスト（10分間）で実行します")
         orchestrator.test_duration_hours = 10 / 60  # 10分
         orchestrator.monitoring_interval_seconds = 10  # 10秒間隔
-        orchestrator.operation_interval_seconds = 30   # 30秒間隔
+        orchestrator.operation_interval_seconds = 30  # 30秒間隔
 
         success = orchestrator.start_stability_test()
 
@@ -590,8 +627,10 @@ def main():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = main()

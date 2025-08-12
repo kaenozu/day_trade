@@ -756,14 +756,14 @@ class AdvancedTechnicalIndicatorsOptimized:
             symbol_results = {}
 
             if "bb" in analysis_types:
-                symbol_results[
-                    "bollinger_bands"
-                ] = await self.analyze_bollinger_bands_optimized(data, symbol)
+                symbol_results["bollinger_bands"] = (
+                    await self.analyze_bollinger_bands_optimized(data, symbol)
+                )
 
             if "ichimoku" in analysis_types:
-                symbol_results[
-                    "ichimoku_cloud"
-                ] = await self.analyze_ichimoku_cloud_optimized(data, symbol)
+                symbol_results["ichimoku_cloud"] = (
+                    await self.analyze_ichimoku_cloud_optimized(data, symbol)
+                )
 
             if "ma" in analysis_types:
                 symbol_results["complex_ma"] = await self._analyze_complex_ma_optimized(

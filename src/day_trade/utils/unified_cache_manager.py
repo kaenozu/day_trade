@@ -322,9 +322,11 @@ class L2WarmCache(CacheLayer):
                 "entries": len(self.cache),
                 "memory_usage_mb": self.current_size / 1024 / 1024,
                 "max_memory_mb": self.max_memory_bytes / 1024 / 1024,
-                "avg_frequency": np.mean(list(self.frequency_counter.values()))
-                if self.frequency_counter
-                else 0,
+                "avg_frequency": (
+                    np.mean(list(self.frequency_counter.values()))
+                    if self.frequency_counter
+                    else 0
+                ),
                 **self.stats,
             }
 
@@ -734,15 +736,21 @@ class UnifiedCacheManager:
                 "hit_rate": overall_hit_rate,
                 "total_requests": total_requests,
                 "avg_access_time_ms": avg_access_time,
-                "l1_hit_ratio": self.global_stats.l1_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l2_hit_ratio": self.global_stats.l2_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l3_hit_ratio": self.global_stats.l3_hits / total_requests
-                if total_requests > 0
-                else 0,
+                "l1_hit_ratio": (
+                    self.global_stats.l1_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
+                "l2_hit_ratio": (
+                    self.global_stats.l2_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
+                "l3_hit_ratio": (
+                    self.global_stats.l3_hits / total_requests
+                    if total_requests > 0
+                    else 0
+                ),
             },
             "layers": {"L1": l1_stats, "L2": l2_stats, "L3": l3_stats},
             "memory_usage_total_mb": (

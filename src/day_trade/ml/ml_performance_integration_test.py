@@ -689,16 +689,18 @@ class MLPerformanceIntegrationTest:
                         total_iterations=50,
                         input_shape=input_shape,
                         backend_used="compressed_onnx",
-                        optimization_applied=["quantization", "pruning"]
-                        if compression_result.quantization_applied
-                        and compression_result.pruning_applied
-                        else (
-                            ["quantization"]
+                        optimization_applied=(
+                            ["quantization", "pruning"]
                             if compression_result.quantization_applied
+                            and compression_result.pruning_applied
                             else (
-                                ["pruning"]
-                                if compression_result.pruning_applied
-                                else []
+                                ["quantization"]
+                                if compression_result.quantization_applied
+                                else (
+                                    ["pruning"]
+                                    if compression_result.pruning_applied
+                                    else []
+                                )
                             )
                         ),
                     )

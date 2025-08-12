@@ -207,9 +207,11 @@ class SystemPerformanceMonitor:
                 process_memory_mb=process_info.get("memory_info", {}).get("rss", 0)
                 / 1024**2,
                 thread_count=process_info.get("num_threads", 0),
-                open_files=process_info.get("num_fds", 0)
-                if hasattr(self.process, "num_fds")
-                else 0,
+                open_files=(
+                    process_info.get("num_fds", 0)
+                    if hasattr(self.process, "num_fds")
+                    else 0
+                ),
             )
 
             self.prev_network_stats = network_stats
@@ -889,25 +891,29 @@ class RealTimePerformanceMonitor:
             "system": {
                 "cpu_percent": system_summary.get("cpu", {}).get("current", 0),
                 "memory_percent": system_summary.get("memory", {}).get("current", 0),
-                "status": "healthy"
-                if system_summary.get("cpu", {}).get("current", 0) < 70
-                else "warning",
+                "status": (
+                    "healthy"
+                    if system_summary.get("cpu", {}).get("current", 0) < 70
+                    else "warning"
+                ),
             },
             "ai": {
                 "total_predictions": ai_summary.get("total_predictions", 0),
                 "success_rate": ai_summary.get("success_rate", 0),
                 "average_latency": ai_summary.get("average_latency_ms", 0),
-                "status": "healthy"
-                if ai_summary.get("error_rate", 0) < 0.1
-                else "warning",
+                "status": (
+                    "healthy" if ai_summary.get("error_rate", 0) < 0.1 else "warning"
+                ),
             },
             "trading": {
                 "total_signals": trading_summary.get("total_signals", 0),
                 "virtual_return": trading_summary.get("virtual_return", 0),
                 "virtual_drawdown": trading_summary.get("virtual_drawdown", 0),
-                "status": "healthy"
-                if trading_summary.get("virtual_drawdown", 0) < 0.05
-                else "warning",
+                "status": (
+                    "healthy"
+                    if trading_summary.get("virtual_drawdown", 0) < 0.05
+                    else "warning"
+                ),
             },
             "timestamp": datetime.now().isoformat(),
         }
@@ -967,7 +973,7 @@ if __name__ == "__main__":
                 if i % 2 == 0:
                     status = monitor.get_comprehensive_status()
                     print(
-                        f"Monitoring cycle {i+1}: {status['monitoring_stats']['total_monitoring_cycles']} cycles"
+                        f"Monitoring cycle {i + 1}: {status['monitoring_stats']['total_monitoring_cycles']} cycles"
                     )
 
             # ダッシュボードデータ取得

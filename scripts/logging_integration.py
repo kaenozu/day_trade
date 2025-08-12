@@ -65,16 +65,12 @@ class PrintToLogConverter:
             return "warning"
         elif any(word in line_lower for word in ["debug", "デバッグ", "trace"]):
             return "debug"
-        elif any(
-            word in line_lower for word in ["info", "情報", "status", "ステータス"]
-        ):
+        elif any(word in line_lower for word in ["info", "情報", "status", "ステータス"]):
             return "info"
         else:
             return "info"  # デフォルト
 
-    def convert_print_to_log(
-        self, file_path: Path, dry_run: bool = True
-    ) -> Dict[str, any]:
+    def convert_print_to_log(self, file_path: Path, dry_run: bool = True) -> Dict[str, any]:
         """print文をロギングに変換"""
         try:
             with open(file_path, encoding="utf-8") as f:
@@ -89,10 +85,7 @@ class PrintToLogConverter:
 
         # ロギングのインポートをチェック
         for line in lines:
-            if (
-                "from day_trade.utils.logging_config import" in line
-                or "import logging" in line
-            ):
+            if "from day_trade.utils.logging_config import" in line or "import logging" in line:
                 logging_imported = True
                 break
 
@@ -114,9 +107,7 @@ class PrintToLogConverter:
             # インポート文を挿入する位置を特定
             import_index = 0
             for i, line in enumerate(modified_lines):
-                if line.strip().startswith("import ") or line.strip().startswith(
-                    "from "
-                ):
+                if line.strip().startswith("import ") or line.strip().startswith("from "):
                     import_index = i + 1
                 elif line.strip() == "" and import_index > 0:
                     break

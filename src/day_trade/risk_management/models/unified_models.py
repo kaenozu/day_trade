@@ -324,9 +324,9 @@ def position_from_dict(data: Dict[str, Any]) -> Position:
         position_type=PositionType(data["position_type"]),
         quantity=Decimal(str(data["quantity"])),
         entry_price=Decimal(str(data["entry_price"])),
-        current_price=Decimal(str(data["current_price"]))
-        if data.get("current_price")
-        else None,
+        current_price=(
+            Decimal(str(data["current_price"])) if data.get("current_price") else None
+        ),
         timestamp=datetime.fromisoformat(
             data.get("timestamp", datetime.now().isoformat())
         ),

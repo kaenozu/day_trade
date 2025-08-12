@@ -771,7 +771,7 @@ if __name__ == "__main__":
 
         print(f"初回実行時間: {first_time:.3f}秒")
         print(f"キャッシュ実行時間: {cached_time:.3f}秒")
-        print(f"高速化率: {first_time/max(cached_time, 0.001):.1f}x")
+        print(f"高速化率: {first_time / max(cached_time, 0.001):.1f}x")
 
     except Exception as e:
         print(f"価格取得テストエラー: {e}")

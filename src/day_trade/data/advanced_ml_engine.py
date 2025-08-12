@@ -559,7 +559,7 @@ class AdvancedMLEngine:
             # ログ出力
             if (epoch + 1) % 10 == 0:
                 logger.info(
-                    f"Epoch {epoch+1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
+                    f"Epoch {epoch + 1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
                 )
 
             # MLflow記録
@@ -570,7 +570,7 @@ class AdvancedMLEngine:
 
             # 早期終了
             if patience_counter >= self.config.patience:
-                logger.info(f"早期終了: Epoch {epoch+1}")
+                logger.info(f"早期終了: Epoch {epoch + 1}")
                 break
 
         # 最終モデル保存
@@ -743,11 +743,11 @@ class AdvancedMLEngine:
                 "num_features": self.config.num_features,
             },
             "performance": self.model_metadata.get("performance", {}),
-            "average_inference_time": np.mean(
-                [p["inference_time"] for p in self.performance_history]
-            )
-            if self.performance_history
-            else None,
+            "average_inference_time": (
+                np.mean([p["inference_time"] for p in self.performance_history])
+                if self.performance_history
+                else None
+            ),
         }
 
 
@@ -947,9 +947,11 @@ class NextGenAITradingEngine:
                     "predictions": hybrid_result.predictions,
                     "confidence": hybrid_result.confidence,
                     "model_used": hybrid_result.model_used,
-                    "uncertainty": hybrid_result.uncertainty.__dict__
-                    if hybrid_result.uncertainty
-                    else None,
+                    "uncertainty": (
+                        hybrid_result.uncertainty.__dict__
+                        if hybrid_result.uncertainty
+                        else None
+                    ),
                 }
             }
 
@@ -979,11 +981,11 @@ class NextGenAITradingEngine:
                 "inference_time_ms": inference_time * 1000,
                 "performance_targets": {
                     "inference_time_target_achieved": inference_time * 1000 <= 100,
-                    "avg_inference_time": np.mean(
-                        self.performance_metrics["inference_times"]
-                    )
-                    if self.performance_metrics["inference_times"]
-                    else 0,
+                    "avg_inference_time": (
+                        np.mean(self.performance_metrics["inference_times"])
+                        if self.performance_metrics["inference_times"]
+                        else 0
+                    ),
                 },
                 "metadata": {
                     "timestamp": time.time(),
@@ -994,7 +996,7 @@ class NextGenAITradingEngine:
                 },
             }
 
-            logger.info(f"次世代予測完了: {inference_time*1000:.2f}ms")
+            logger.info(f"次世代予測完了: {inference_time * 1000:.2f}ms")
 
             return final_result
 
@@ -1103,26 +1105,32 @@ class NextGenAITradingEngine:
             },
             "performance_history": {
                 "total_predictions": len(self.performance_metrics["inference_times"]),
-                "avg_accuracy": np.mean(self.performance_metrics["accuracy_history"])
-                if self.performance_metrics["accuracy_history"]
-                else 0,
-                "avg_mae": np.mean(self.performance_metrics["mae_history"])
-                if self.performance_metrics["mae_history"]
-                else 0,
-                "avg_rmse": np.mean(self.performance_metrics["rmse_history"])
-                if self.performance_metrics["rmse_history"]
-                else 0,
-                "avg_inference_time_ms": np.mean(
-                    self.performance_metrics["inference_times"]
-                )
-                if self.performance_metrics["inference_times"]
-                else 0,
+                "avg_accuracy": (
+                    np.mean(self.performance_metrics["accuracy_history"])
+                    if self.performance_metrics["accuracy_history"]
+                    else 0
+                ),
+                "avg_mae": (
+                    np.mean(self.performance_metrics["mae_history"])
+                    if self.performance_metrics["mae_history"]
+                    else 0
+                ),
+                "avg_rmse": (
+                    np.mean(self.performance_metrics["rmse_history"])
+                    if self.performance_metrics["rmse_history"]
+                    else 0
+                ),
+                "avg_inference_time_ms": (
+                    np.mean(self.performance_metrics["inference_times"])
+                    if self.performance_metrics["inference_times"]
+                    else 0
+                ),
             },
             "system_status": {
                 "hybrid_model_initialized": self.hybrid_model is not None,
-                "model_trained": self.hybrid_model.is_trained
-                if self.hybrid_model
-                else False,
+                "model_trained": (
+                    self.hybrid_model.is_trained if self.hybrid_model else False
+                ),
                 "dl_manager_available": self.dl_manager is not None,
                 "pytorch_available": PYTORCH_AVAILABLE,
                 "metrics_integration": self.metrics_integration,

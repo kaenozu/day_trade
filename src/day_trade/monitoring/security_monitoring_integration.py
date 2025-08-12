@@ -162,9 +162,9 @@ class SecurityMonitoringCollector:
         """セキュリティシステム初期化"""
         if SECURITY_AVAILABLE:
             try:
-                self.security_systems[
-                    "vulnerability_manager"
-                ] = DependencyVulnerabilityManager()
+                self.security_systems["vulnerability_manager"] = (
+                    DependencyVulnerabilityManager()
+                )
                 self.security_systems["coding_enforcer"] = SecureCodingEnforcer()
                 self.security_systems["data_protection"] = DataProtectionSystem()
                 self.security_systems["access_control"] = AccessControlAuditor()
@@ -242,9 +242,11 @@ class SecurityMonitoringCollector:
                     id=f"access_{violation.get('id', int(time.time()))}",
                     timestamp=violation.get("timestamp", datetime.now(timezone.utc)),
                     category=SecurityEventCategory.AUTHORIZATION,
-                    severity=SecurityEventSeverity.HIGH
-                    if violation.get("critical", False)
-                    else SecurityEventSeverity.MEDIUM,
+                    severity=(
+                        SecurityEventSeverity.HIGH
+                        if violation.get("critical", False)
+                        else SecurityEventSeverity.MEDIUM
+                    ),
                     title=f"アクセス制御違反: {violation.get('resource', 'Unknown')}",
                     description=violation.get(
                         "description", "不正なアクセス試行が検出されました"
@@ -338,9 +340,11 @@ class SecurityMonitoringCollector:
                     id=f"code_security_{violation.get('id', int(time.time()))}",
                     timestamp=violation.get("timestamp", datetime.now(timezone.utc)),
                     category=SecurityEventCategory.CODE_SECURITY,
-                    severity=SecurityEventSeverity.HIGH
-                    if violation.get("severity") == "HIGH"
-                    else SecurityEventSeverity.MEDIUM,
+                    severity=(
+                        SecurityEventSeverity.HIGH
+                        if violation.get("severity") == "HIGH"
+                        else SecurityEventSeverity.MEDIUM
+                    ),
                     title=f"コードセキュリティ違反: {violation.get('rule_id', 'Unknown')}",
                     description=violation.get(
                         "description", "セキュアコーディング規則違反が検出されました"
@@ -923,7 +927,9 @@ class IntegratedMonitoringSystem:
             try:
                 # セキュリティデータ収集・処理
                 if self.security_dashboard:
-                    result = await self.security_dashboard.collect_and_process_security_data()
+                    result = (
+                        await self.security_dashboard.collect_and_process_security_data()
+                    )
 
                     if result["integration_success"]:
                         self.logger.info(
@@ -1019,7 +1025,9 @@ if __name__ == "__main__":
             if integrated_system.security_dashboard:
                 print("\n3. セキュリティデータ収集テスト...")
 
-                collection_result = await integrated_system.security_dashboard.collect_and_process_security_data()
+                collection_result = (
+                    await integrated_system.security_dashboard.collect_and_process_security_data()
+                )
 
                 print(
                     f"   収集イベント数: {collection_result.get('events_collected', 0)}"
@@ -1033,7 +1041,9 @@ if __name__ == "__main__":
 
                 # セキュリティダッシュボードデータ取得
                 print("\n4. セキュリティダッシュボードデータ取得...")
-                security_data = await integrated_system.security_dashboard.get_security_dashboard_data()
+                security_data = (
+                    await integrated_system.security_dashboard.get_security_dashboard_data()
+                )
 
                 summary = security_data.get("summary", {})
                 print(f"   総イベント数: {summary.get('total_events', 0)}")

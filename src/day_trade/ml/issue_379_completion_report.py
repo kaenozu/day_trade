@@ -303,12 +303,12 @@ def print_completion_summary():
     print("\n【技術的革新】")
     for innovation in report["technical_innovations"][:3]:
         print(f"  - {innovation}")
-    print(f"  ... 他{len(report['technical_innovations'])-3}項目")
+    print(f"  ... 他{len(report['technical_innovations']) - 3}項目")
 
     print("\n【次の推奨アクション】")
     for rec in report["recommendations_next_steps"][:3]:
         print(f"  - {rec}")
-    print(f"  ... 他{len(report['recommendations_next_steps'])-3}項目")
+    print(f"  ... 他{len(report['recommendations_next_steps']) - 3}項目")
 
     print("\n【ビジネスインパクト】")
     impact = report["business_impact"]

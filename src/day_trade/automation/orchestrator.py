@@ -667,19 +667,23 @@ class NextGenAIOrchestrator:
                         prediction_result = self.ml_engine.predict(latest_sequence)
 
                         ai_predictions = {
-                            "price_direction": "up"
-                            if prediction_result.predictions[0] > 0
-                            else "down",
+                            "price_direction": (
+                                "up" if prediction_result.predictions[0] > 0 else "down"
+                            ),
                             "predicted_change": float(prediction_result.predictions[0]),
-                            "confidence": float(prediction_result.confidence[0])
-                            if prediction_result.confidence is not None
-                            else 0.5,
+                            "confidence": (
+                                float(prediction_result.confidence[0])
+                                if prediction_result.confidence is not None
+                                else 0.5
+                            ),
                         }
 
                         confidence_scores = {
-                            "ml_model": float(prediction_result.confidence[0])
-                            if prediction_result.confidence is not None
-                            else 0.5,
+                            "ml_model": (
+                                float(prediction_result.confidence[0])
+                                if prediction_result.confidence is not None
+                                else 0.5
+                            ),
                             "data_quality": data_quality / 100.0,
                             "overall": (
                                 float(prediction_result.confidence[0])
@@ -782,11 +786,11 @@ class NextGenAIOrchestrator:
                     rsi = data["RSI_14"].iloc[-1]
                     signals["rsi"] = {
                         "value": rsi,
-                        "signal": "oversold"
-                        if rsi < 30
-                        else "overbought"
-                        if rsi > 70
-                        else "neutral",
+                        "signal": (
+                            "oversold"
+                            if rsi < 30
+                            else "overbought" if rsi > 70 else "neutral"
+                        ),
                     }
 
                 # ボラティリティシグナル
@@ -797,11 +801,11 @@ class NextGenAIOrchestrator:
                     signals["volatility"] = {
                         "current": volatility,
                         "percentile": vol_percentile,
-                        "regime": "high"
-                        if vol_percentile > 0.8
-                        else "low"
-                        if vol_percentile < 0.2
-                        else "normal",
+                        "regime": (
+                            "high"
+                            if vol_percentile > 0.8
+                            else "low" if vol_percentile < 0.2 else "normal"
+                        ),
                     }
 
         except Exception as e:
@@ -839,13 +843,17 @@ class NextGenAIOrchestrator:
                 returns = data["終値"].pct_change()
 
                 features["time_series"] = {
-                    "trend": "upward"
-                    if data["終値"].iloc[-1] > data["終値"].iloc[0]
-                    else "downward",
+                    "trend": (
+                        "upward"
+                        if data["終値"].iloc[-1] > data["終値"].iloc[0]
+                        else "downward"
+                    ),
                     "volatility": float(returns.std()),
-                    "sharpe_estimate": float(returns.mean() / returns.std())
-                    if returns.std() > 0
-                    else 0,
+                    "sharpe_estimate": (
+                        float(returns.mean() / returns.std())
+                        if returns.std() > 0
+                        else 0
+                    ),
                     "max_drawdown": float(
                         (data["終値"] / data["終値"].expanding().max() - 1).min()
                     ),
@@ -906,11 +914,11 @@ class NextGenAIOrchestrator:
                 "volatility_risk": volatility_risk,
                 "liquidity_risk": liquidity_risk,
                 "overall_risk_score": overall_risk,
-                "risk_level": "high"
-                if overall_risk > 0.7
-                else "medium"
-                if overall_risk > 0.4
-                else "low",
+                "risk_level": (
+                    "high"
+                    if overall_risk > 0.7
+                    else "medium" if overall_risk > 0.4 else "low"
+                ),
             }
 
         except Exception as e:
@@ -1170,10 +1178,11 @@ class NextGenAIOrchestrator:
                     health["components"]["batch_fetcher"] = {
                         "status": "operational",
                         "throughput": batch_stats.throughput_rps,
-                        "success_rate": batch_stats.successful_requests
-                        / batch_stats.total_requests
-                        if batch_stats.total_requests > 0
-                        else 1.0,
+                        "success_rate": (
+                            batch_stats.successful_requests / batch_stats.total_requests
+                            if batch_stats.total_requests > 0
+                            else 1.0
+                        ),
                     }
                 except Exception as e:
                     health["components"]["batch_fetcher"] = {
@@ -1222,10 +1231,11 @@ class NextGenAIOrchestrator:
                 batch_stats = self.batch_fetcher.get_pipeline_stats()
                 stats["batch_fetcher"] = {
                     "total_requests": batch_stats.total_requests,
-                    "success_rate": batch_stats.successful_requests
-                    / batch_stats.total_requests
-                    if batch_stats.total_requests > 0
-                    else 0,
+                    "success_rate": (
+                        batch_stats.successful_requests / batch_stats.total_requests
+                        if batch_stats.total_requests > 0
+                        else 0
+                    ),
                     "avg_fetch_time": batch_stats.avg_fetch_time,
                     "throughput_rps": batch_stats.throughput_rps,
                 }
@@ -1289,9 +1299,11 @@ class NextGenAIOrchestrator:
                 "fault_tolerance": self.config.enable_fault_tolerance,
             },
             "execution_count": len(self.execution_history),
-            "last_execution": self.execution_history[-1].start_time.isoformat()
-            if self.execution_history
-            else None,
+            "last_execution": (
+                self.execution_history[-1].start_time.isoformat()
+                if self.execution_history
+                else None
+            ),
         }
 
     def cleanup(self):

@@ -392,7 +392,7 @@ class TOPIX500Manager:
                 f"  - 処理時間: {total_time:.2f}秒 (目標{self.target_processing_time}秒)"
             )
             logger.info(
-                f"  - 成功率: {len(analysis_results)}/{len(self.topix500_stocks)} ({len(analysis_results)/len(self.topix500_stocks)*100:.1f}%)"
+                f"  - 成功率: {len(analysis_results)}/{len(self.topix500_stocks)} ({len(analysis_results) / len(self.topix500_stocks) * 100:.1f}%)"
             )
             logger.info(
                 f"  - メモリ使用量: {performance_metrics.get('memory_usage', 0):.1f}MB"
@@ -556,16 +556,16 @@ class TOPIX500Manager:
             "sector_distribution": {
                 sector: len(codes) for sector, codes in self.sector_mapping.items()
             },
-            "largest_sector": max(self.sector_mapping.items(), key=lambda x: len(x[1]))[
-                0
-            ]
-            if self.sector_mapping
-            else None,
-            "smallest_sector": min(
-                self.sector_mapping.items(), key=lambda x: len(x[1])
-            )[0]
-            if self.sector_mapping
-            else None,
+            "largest_sector": (
+                max(self.sector_mapping.items(), key=lambda x: len(x[1]))[0]
+                if self.sector_mapping
+                else None
+            ),
+            "smallest_sector": (
+                min(self.sector_mapping.items(), key=lambda x: len(x[1]))[0]
+                if self.sector_mapping
+                else None
+            ),
         }
 
     def get_processing_status(self) -> Dict[str, Any]:
@@ -576,12 +576,17 @@ class TOPIX500Manager:
             "total_batches": (len(self.topix500_stocks) + self.batch_size - 1)
             // self.batch_size,
             "progress_percentage": (
-                self.current_batch_progress
-                / ((len(self.topix500_stocks) + self.batch_size - 1) // self.batch_size)
-            )
-            * 100
-            if self.topix500_stocks
-            else 0,
+                (
+                    self.current_batch_progress
+                    / (
+                        (len(self.topix500_stocks) + self.batch_size - 1)
+                        // self.batch_size
+                    )
+                )
+                * 100
+                if self.topix500_stocks
+                else 0
+            ),
             "target_processing_time": self.target_processing_time,
         }
 

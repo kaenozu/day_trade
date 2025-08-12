@@ -530,9 +530,11 @@ class FeatureStore:
                 "processed_symbols": len(results),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
-                "cache_hit_rate": f"{cache_hits/(cache_hits+cache_misses)*100:.1f}%"
-                if (cache_hits + cache_misses) > 0
-                else "0%",
+                "cache_hit_rate": (
+                    f"{cache_hits / (cache_hits + cache_misses) * 100:.1f}%"
+                    if (cache_hits + cache_misses) > 0
+                    else "0%"
+                ),
             },
         )
 

@@ -100,9 +100,9 @@ class WebDashboard:
 
             # HTTPS強制（本番環境）
             if not self.debug:
-                response.headers[
-                    "Strict-Transport-Security"
-                ] = "max-age=31536000; includeSubDomains"
+                response.headers["Strict-Transport-Security"] = (
+                    "max-age=31536000; includeSubDomains"
+                )
 
             # CSP（Content Security Policy）
             csp = (
@@ -215,13 +215,16 @@ class WebDashboard:
             except Exception as e:
                 # セキュアなエラーハンドリング
                 error_message = self._sanitize_error_message(e)
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": error_message,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                ), 500
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": error_message,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
+                    500,
+                )
 
         @self.app.route("/api/history/<metric_type>")
         def get_history(metric_type):
@@ -229,23 +232,29 @@ class WebDashboard:
             try:
                 # 入力値検証
                 if not self._validate_metric_type(metric_type):
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": "無効なメトリクスタイプです。",
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    ), 400
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": "無効なメトリクスタイプです。",
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                        ),
+                        400,
+                    )
 
                 hours = request.args.get("hours", 24, type=int)
                 if not self._validate_hours_parameter(hours):
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    ), 400
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                        ),
+                        400,
+                    )
 
                 data = self.dashboard_core.get_historical_data(metric_type, hours)
                 return jsonify(
@@ -260,13 +269,16 @@ class WebDashboard:
             except Exception as e:
                 # セキュアなエラーハンドリング
                 error_message = self._sanitize_error_message(e)
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": error_message,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                ), 500
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": error_message,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
+                    500,
+                )
 
         @self.app.route("/api/chart/<chart_type>")
         def get_chart(chart_type):
@@ -274,23 +286,29 @@ class WebDashboard:
             try:
                 # 入力値検証
                 if not self._validate_chart_type(chart_type):
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": "無効なチャートタイプです。",
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    ), 400
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": "無効なチャートタイプです。",
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                        ),
+                        400,
+                    )
 
                 hours = request.args.get("hours", 12, type=int)
                 if not self._validate_hours_parameter(hours):
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    ), 400
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": "時間パラメータが無効です。1-720時間の範囲で指定してください。",
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                        ),
+                        400,
+                    )
 
                 if chart_type == "portfolio":
                     data = self.dashboard_core.get_historical_data("portfolio", hours)
@@ -340,9 +358,15 @@ class WebDashboard:
                         )
                     )
                 else:
-                    return jsonify(
-                        {"success": False, "error": f"Unknown chart type: {chart_type}"}
-                    ), 400
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "error": f"Unknown chart type: {chart_type}",
+                            }
+                        ),
+                        400,
+                    )
 
                 # Base64エンコード
                 chart_base64 = self.visualization_engine.chart_to_base64(chart_path)
@@ -359,13 +383,16 @@ class WebDashboard:
             except Exception as e:
                 # セキュアなエラーハンドリング
                 error_message = self._sanitize_error_message(e)
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": error_message,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                ), 500
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": error_message,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
+                    500,
+                )
 
         @self.app.route("/api/report")
         def get_report():
@@ -382,13 +409,16 @@ class WebDashboard:
             except Exception as e:
                 # セキュアなエラーハンドリング
                 error_message = self._sanitize_error_message(e)
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": error_message,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                ), 500
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": error_message,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
+                    500,
+                )
 
     def _setup_websocket_events(self):
         """WebSocketイベント設定"""

@@ -291,9 +291,9 @@ class AlertChannelFactory:
             self._plugin_registry[plugin_name] = channel_class
 
             if config_schema:
-                self._config_schemas[
-                    NotificationChannelType.PLUGIN
-                ] = self._config_schemas.get(NotificationChannelType.PLUGIN, {})
+                self._config_schemas[NotificationChannelType.PLUGIN] = (
+                    self._config_schemas.get(NotificationChannelType.PLUGIN, {})
+                )
                 self._config_schemas[NotificationChannelType.PLUGIN][
                     plugin_name
                 ] = config_schema

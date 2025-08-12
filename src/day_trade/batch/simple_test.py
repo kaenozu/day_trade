@@ -78,7 +78,7 @@ def test_database_operations():
             f"  [OK] Bulk insert success: {len(test_data)} records in {insert_time:.3f}s"
         )
         print(f"  [OK] Data verification: {count} records stored")
-        print(f"  [OK] Throughput: {len(test_data)/insert_time:.1f} records/sec")
+        print(f"  [OK] Throughput: {len(test_data) / insert_time:.1f} records/sec")
 
     finally:
         try:
@@ -130,7 +130,7 @@ def test_parallel_processing():
 
     print(f"  [OK] Parallel tasks: {successful_tasks}/20 tasks completed")
     print(f"  [OK] Total time: {total_time:.3f}s")
-    print(f"  [OK] Parallel efficiency: {20*0.01/total_time:.1f}x speedup")
+    print(f"  [OK] Parallel efficiency: {20 * 0.01 / total_time:.1f}x speedup")
     print(f"  [OK] Worker threads: {len(unique_workers)} unique threads")
     print(f"  [OK] Average task time: {avg_task_time:.3f}s")
 
@@ -258,7 +258,9 @@ def test_queue_system():
         print(f"  [OK] Total time: {total_time:.3f}s")
         print(f"  [OK] Average execution time: {avg_execution_time:.3f}s")
         print(f"  [OK] Workers used: {len(workers_used)} workers")
-        print(f"  [OK] Parallel efficiency: {task_count*0.02/total_time:.1f}x speedup")
+        print(
+            f"  [OK] Parallel efficiency: {task_count * 0.02 / total_time:.1f}x speedup"
+        )
 
     finally:
         queue_system.stop()

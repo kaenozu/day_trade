@@ -56,10 +56,10 @@ class MonitoringSystemTester:
 
     def __init__(self):
         self.test_results = {
-            'total_tests': 0,
-            'passed_tests': 0,
-            'failed_tests': 0,
-            'test_details': []
+            "total_tests": 0,
+            "passed_tests": 0,
+            "failed_tests": 0,
+            "test_details": [],
         }
 
         print("=" * 80)
@@ -70,7 +70,7 @@ class MonitoringSystemTester:
     def run_test(self, test_name: str, test_func):
         """テスト実行"""
         print(f"\n[TEST] {test_name} 実行中...")
-        self.test_results['total_tests'] += 1
+        self.test_results["total_tests"] += 1
 
         try:
             start_time = time.time()
@@ -79,29 +79,33 @@ class MonitoringSystemTester:
 
             if result:
                 print(f"[OK] {test_name} 成功 ({execution_time:.3f}秒)")
-                self.test_results['passed_tests'] += 1
+                self.test_results["passed_tests"] += 1
                 status = "PASSED"
             else:
                 print(f"[FAIL] {test_name} 失敗 ({execution_time:.3f}秒)")
-                self.test_results['failed_tests'] += 1
+                self.test_results["failed_tests"] += 1
                 status = "FAILED"
 
-            self.test_results['test_details'].append({
-                'name': test_name,
-                'status': status,
-                'execution_time': execution_time,
-                'timestamp': datetime.now().isoformat()
-            })
+            self.test_results["test_details"].append(
+                {
+                    "name": test_name,
+                    "status": status,
+                    "execution_time": execution_time,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
         except Exception as e:
             print(f"[ERROR] {test_name} エラー: {e}")
-            self.test_results['failed_tests'] += 1
-            self.test_results['test_details'].append({
-                'name': test_name,
-                'status': "ERROR",
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            })
+            self.test_results["failed_tests"] += 1
+            self.test_results["test_details"].append(
+                {
+                    "name": test_name,
+                    "status": "ERROR",
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
     def test_metrics_collector(self) -> bool:
         """メトリクス収集テスト"""
@@ -129,7 +133,7 @@ class MonitoringSystemTester:
         expected_metrics = [
             "system.cpu_usage_percent",
             "system.memory_usage_percent",
-            "system.disk_usage_percent"
+            "system.disk_usage_percent",
         ]
 
         for metric in expected_metrics:
@@ -138,7 +142,7 @@ class MonitoringSystemTester:
 
         # メトリクスサマリーテスト
         summary = collector.get_metric_summary("test_counter")
-        return not (not summary or summary.get('count') != 1)
+        return not (not summary or summary.get("count") != 1)
 
     def test_alert_manager(self) -> bool:
         """アラート管理テスト"""
@@ -152,7 +156,7 @@ class MonitoringSystemTester:
             title="テストアラート",
             message="これはテスト用のアラートです",
             source_component="TestModule",
-            metadata={"test_key": "test_value"}
+            metadata={"test_key": "test_value"},
         )
 
         if not alert_id:
@@ -163,8 +167,7 @@ class MonitoringSystemTester:
             return False
 
         sent_alert = mock_channel.sent_alerts[0]
-        if (sent_alert.title != "テストアラート" or
-            sent_alert.level != AlertLevel.WARNING):
+        if sent_alert.title != "テストアラート" or sent_alert.level != AlertLevel.WARNING:
             return False
 
         # アクティブアラート取得テスト
@@ -192,7 +195,7 @@ class MonitoringSystemTester:
             name="テスト高CPU使用率",
             condition="cpu_usage > 75",
             alert_level=AlertLevel.WARNING,
-            cooldown_seconds=1
+            cooldown_seconds=1,
         )
         rule_engine.add_rule(test_rule)
 
@@ -228,26 +231,22 @@ class MonitoringSystemTester:
         # システムダッシュボード確認
         dashboard = system.get_system_dashboard()
 
-        if not dashboard.get('monitoring_status', {}).get('running'):
+        if not dashboard.get("monitoring_status", {}).get("running"):
             return False
 
-        if dashboard.get('monitoring_status', {}).get('rules_count', 0) == 0:
+        if dashboard.get("monitoring_status", {}).get("rules_count", 0) == 0:
             return False
 
         # 手動アラートテスト
         alert_id = system.create_manual_alert(
-            AlertLevel.INFO,
-            "統合テストアラート",
-            "統合テスト実行中"
+            AlertLevel.INFO, "統合テストアラート", "統合テスト実行中"
         )
 
         if not alert_id:
             return False
 
         # アプリケーションメトリクス記録テスト
-        system.record_application_metric(
-            "test_api_requests", 100.0, {"endpoint": "/api/test"}
-        )
+        system.record_application_metric("test_api_requests", 100.0, {"endpoint": "/api/test"})
 
         # 監視停止
         system.stop_monitoring()
@@ -300,17 +299,13 @@ class MonitoringSystemTester:
         # 大量メトリクス記録
         for i in range(1000):
             system.record_application_metric(
-                f"load_test_metric_{i % 10}",
-                float(i),
-                {"batch": str(i // 100)}
+                f"load_test_metric_{i % 10}", float(i), {"batch": str(i // 100)}
             )
 
         # 大量アラート作成
         for i in range(50):
             system.create_manual_alert(
-                AlertLevel.INFO,
-                f"負荷テストアラート {i}",
-                f"負荷テスト用アラート番号 {i}"
+                AlertLevel.INFO, f"負荷テストアラート {i}", f"負荷テスト用アラート番号 {i}"
             )
 
         execution_time = time.time() - start_time
@@ -332,7 +327,7 @@ class MonitoringSystemTester:
                 rule_id="invalid",
                 name="無効ルール",
                 condition="invalid_syntax >>>",  # 無効な構文
-                alert_level=AlertLevel.ERROR
+                alert_level=AlertLevel.ERROR,
             )
 
             metrics_collector = MetricsCollector()
@@ -365,7 +360,7 @@ class MonitoringSystemTester:
             ("監視システム統合", self.test_monitoring_system_integration),
             ("Prometheus統合", self.test_prometheus_integration),
             ("負荷テスト", self.test_performance_under_load),
-            ("設定検証", self.test_configuration_validation)
+            ("設定検証", self.test_configuration_validation),
         ]
 
         for test_name, test_method in test_methods:
@@ -375,7 +370,7 @@ class MonitoringSystemTester:
         # 結果サマリー
         self._print_test_summary()
 
-        return self.test_results['failed_tests'] == 0
+        return self.test_results["failed_tests"] == 0
 
     def _print_test_summary(self):
         """テスト結果サマリー表示"""
@@ -386,11 +381,10 @@ class MonitoringSystemTester:
         print(f"成功: {self.test_results['passed_tests']}")
         print(f"失敗: {self.test_results['failed_tests']}")
 
-        success_rate = (self.test_results['passed_tests'] /
-                       self.test_results['total_tests']) * 100
+        success_rate = (self.test_results["passed_tests"] / self.test_results["total_tests"]) * 100
         print(f"成功率: {success_rate:.1f}%")
 
-        if self.test_results['failed_tests'] == 0:
+        if self.test_results["failed_tests"] == 0:
             print("\n[OK] 全テスト成功")
         else:
             print(f"\n[WARNING] {self.test_results['failed_tests']} テスト失敗")
@@ -399,7 +393,7 @@ class MonitoringSystemTester:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_file = f"monitoring_test_results_{timestamp}.json"
 
-        with open(results_file, 'w', encoding='utf-8') as f:
+        with open(results_file, "w", encoding="utf-8") as f:
             json.dump(self.test_results, f, indent=2, ensure_ascii=False)
 
         print(f"\n[REPORT] 詳細結果保存: {results_file}")

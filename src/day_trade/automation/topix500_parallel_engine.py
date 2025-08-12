@@ -361,9 +361,11 @@ class TOPIX500ParallelEngine:
                                     r.memory_used for r in batch_results
                                 )
                                 / len(batch_results),
-                                throughput=len(batch_results) / batch_time
-                                if batch_time > 0
-                                else 0,
+                                throughput=(
+                                    len(batch_results) / batch_time
+                                    if batch_time > 0
+                                    else 0
+                                ),
                             )
                         )
 
@@ -435,9 +437,11 @@ class TOPIX500ParallelEngine:
             successful_symbols=len(successful_results),
             processing_time=total_time,
             memory_usage=statistics["memory_usage"],
-            error_details=f"失敗率: {statistics['failed_symbols']/len(symbols)*100:.1f}%"
-            if failed_results
-            else None,
+            error_details=(
+                f"失敗率: {statistics['failed_symbols'] / len(symbols) * 100:.1f}%"
+                if failed_results
+                else None
+            ),
         )
 
         logger.info(
@@ -478,28 +482,28 @@ class TOPIX500ParallelEngine:
 
         report = f"""
 TOPIX500並列処理パフォーマンスレポート
-{'='*50}
-実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+{"=" * 50}
+実行日時: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 【基本統計】
-処理銘柄数: {statistics['total_symbols']}
-成功銘柄数: {statistics['successful_symbols']}
-失敗銘柄数: {statistics['failed_symbols']}
-成功率: {statistics['success_rate']:.1f}%
+処理銘柄数: {statistics["total_symbols"]}
+成功銘柄数: {statistics["successful_symbols"]}
+失敗銘柄数: {statistics["failed_symbols"]}
+成功率: {statistics["success_rate"]:.1f}%
 
 【パフォーマンス指標】
-総処理時間: {statistics['total_processing_time']:.1f}秒
-平均処理時間/銘柄: {statistics['avg_time_per_symbol']:.3f}秒
-スループット: {statistics['throughput']:.1f} 銘柄/秒
-20秒目標達成: {'○' if statistics['target_achieved'] else '×'}
+総処理時間: {statistics["total_processing_time"]:.1f}秒
+平均処理時間/銘柄: {statistics["avg_time_per_symbol"]:.3f}秒
+スループット: {statistics["throughput"]:.1f} 銘柄/秒
+20秒目標達成: {"○" if statistics["target_achieved"] else "×"}
 
 【メモリ使用量】
-総メモリ使用量: {statistics['memory_usage']:.1f}MB
-平均メモリ/銘柄: {statistics['avg_memory_per_symbol']:.1f}MB
-メモリ制限内: {'○' if statistics['memory_limit_ok'] else '×'}
+総メモリ使用量: {statistics["memory_usage"]:.1f}MB
+平均メモリ/銘柄: {statistics["avg_memory_per_symbol"]:.1f}MB
+メモリ制限内: {"○" if statistics["memory_limit_ok"] else "×"}
 
 【バッチ処理統計】
-バッチ数: {statistics['batch_count']}
+バッチ数: {statistics["batch_count"]}
 """
 
         if "batch_stats" in statistics and statistics["batch_stats"]:
@@ -513,9 +517,9 @@ TOPIX500並列処理パフォーマンスレポート
             for result in failed[:10]:  # 最初の10件
                 report += f"  {result.symbol}: {result.error_message}\n"
             if len(failed) > 10:
-                report += f"  ... 他{len(failed)-10}銘柄\n"
+                report += f"  ... 他{len(failed) - 10}銘柄\n"
 
-        report += f"\n{'='*50}\n"
+        report += f"\n{'=' * 50}\n"
 
         return report
 

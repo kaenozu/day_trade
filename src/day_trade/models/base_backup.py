@@ -334,9 +334,11 @@ class BaseModel(Base, TimestampMixin):
                 if not column.nullable:
                     # nullable=Falseでもデフォルト値があるフィールドはOptionalにする
                     python_type = Optional[
-                        python_type.__args__[0]
-                        if hasattr(python_type, "__args__")
-                        else python_type
+                        (
+                            python_type.__args__[0]
+                            if hasattr(python_type, "__args__")
+                            else python_type
+                        )
                     ]
             else:
                 field_info = Field(description=getattr(column, "doc", None))

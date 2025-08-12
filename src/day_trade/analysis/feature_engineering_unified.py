@@ -195,6 +195,7 @@ if NUMBA_AVAILABLE:
                     )
 
         return features
+
 else:
     # フォールバック実装
     def fast_rsi_calculation(prices: np.ndarray, window: int = 14) -> np.ndarray:

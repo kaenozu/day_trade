@@ -133,11 +133,13 @@ class EnsembleVotingValidator:
                 section="comprehensive_voting_validation",
                 total_scenarios=analysis_report.total_scenarios,
                 passed_scenarios=analysis_report.passed_scenarios,
-                success_rate=analysis_report.passed_scenarios
-                / analysis_report.total_scenarios
-                * 100
-                if analysis_report.total_scenarios > 0
-                else 0,
+                success_rate=(
+                    analysis_report.passed_scenarios
+                    / analysis_report.total_scenarios
+                    * 100
+                    if analysis_report.total_scenarios > 0
+                    else 0
+                ),
             )
 
             return analysis_report
@@ -500,9 +502,9 @@ class EnsembleVotingValidator:
                 actual_signal_type=actual_result["signal_type"],
                 expected_signal_type=expected_signal_type,
                 actual_confidence=actual_confidence,
-                expected_confidence=expected_confidence_range[0]
-                if expected_confidence_range
-                else 0,
+                expected_confidence=(
+                    expected_confidence_range[0] if expected_confidence_range else 0
+                ),
                 confidence_error=confidence_error,
                 weight_consistency=weight_consistency,
                 calculation_details=actual_result.get("details", {}),
@@ -957,9 +959,11 @@ class EnsembleVotingValidator:
             f"分析日時: {report.analysis_timestamp}",
             f"総シナリオ数: {report.total_scenarios}",
             f"成功: {report.passed_scenarios}, 失敗: {report.failed_scenarios}",
-            f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%"
-            if report.total_scenarios > 0
-            else "成功率: N/A",
+            (
+                f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%"
+                if report.total_scenarios > 0
+                else "成功率: N/A"
+            ),
             "",
             "投票アルゴリズム別結果:",
             "-" * 50,
@@ -1009,11 +1013,11 @@ if __name__ == "__main__":
             "アンサンブル投票アルゴリズム検証デモ完了",
             section="demo",
             total_scenarios=analysis_report.total_scenarios,
-            success_rate=analysis_report.passed_scenarios
-            / analysis_report.total_scenarios
-            * 100
-            if analysis_report.total_scenarios > 0
-            else 0,
+            success_rate=(
+                analysis_report.passed_scenarios / analysis_report.total_scenarios * 100
+                if analysis_report.total_scenarios > 0
+                else 0
+            ),
         )
 
         print(detailed_report)

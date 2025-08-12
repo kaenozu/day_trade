@@ -250,7 +250,7 @@ class CachePerformanceTestSuite:
 
             return {
                 "status": "success" if consistency else "failure",
-                "details": f'データ整合性{"確認" if consistency else "問題"}',
+                "details": f"データ整合性{'確認' if consistency else '問題'}",
                 "sample_count": len(results),
             }
 
@@ -299,12 +299,12 @@ class CachePerformanceTestSuite:
                 rankings = benchmark_data["performance_rankings"]
                 if rankings:
                     performance_analysis = {
-                        "best_configuration": rankings[0]["operation_name"]
-                        if rankings
-                        else None,
-                        "best_ops": rankings[0]["operations_per_second"]
-                        if rankings
-                        else 0,
+                        "best_configuration": (
+                            rankings[0]["operation_name"] if rankings else None
+                        ),
+                        "best_ops": (
+                            rankings[0]["operations_per_second"] if rankings else 0
+                        ),
                         "cache_effectiveness": benchmark_data.get(
                             "cache_effectiveness", {}
                         ),
@@ -429,9 +429,9 @@ class CachePerformanceTestSuite:
                 "error": str(e),
                 "partial_results": self.test_results,
                 "execution_summary": {
-                    "start_time": self.start_time.isoformat()
-                    if self.start_time
-                    else None,
+                    "start_time": (
+                        self.start_time.isoformat() if self.start_time else None
+                    ),
                     "end_time": self.end_time.isoformat() if self.end_time else None,
                     "error_occurred": True,
                 },

@@ -681,9 +681,9 @@ class SecurityManager:
                 "total_actions": total_actions,
                 "successful_actions": successful_actions,
                 "failed_actions": failed_actions,
-                "success_rate": successful_actions / total_actions
-                if total_actions > 0
-                else 0,
+                "success_rate": (
+                    successful_actions / total_actions if total_actions > 0 else 0
+                ),
             },
             "action_breakdown": action_counts,
             "user_activity": user_activity,

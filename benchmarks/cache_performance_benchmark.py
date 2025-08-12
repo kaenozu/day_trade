@@ -116,9 +116,7 @@ class CachePerformanceBenchmark:
 
         # オーケストレーター初期化
         cache_nodes = ["redis://localhost:6379", "redis://localhost:6380"]
-        replication_strategy = EventualConsistencyReplication(
-            cache_nodes, min_success_ratio=0.5
-        )
+        replication_strategy = EventualConsistencyReplication(cache_nodes, min_success_ratio=0.5)
 
         self.orchestrator = MicroservicesCacheOrchestrator(
             cache_nodes=cache_nodes,
@@ -200,14 +198,10 @@ class CachePerformanceBenchmark:
         ops_per_second = total_ops / duration
         avg_latency = statistics.mean(latencies) if latencies else 0
         p95_latency = (
-            statistics.quantiles(latencies, n=20)[18]
-            if len(latencies) >= 20
-            else avg_latency
+            statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else avg_latency
         )
         p99_latency = (
-            statistics.quantiles(latencies, n=100)[98]
-            if len(latencies) >= 100
-            else avg_latency
+            statistics.quantiles(latencies, n=100)[98] if len(latencies) >= 100 else avg_latency
         )
         hit_rate = hits / total_gets if total_gets > 0 else 0
         error_rate = errors / total_ops if total_ops > 0 else 0
@@ -302,8 +296,7 @@ class CachePerformanceBenchmark:
         start_time = time.perf_counter()
 
         tasks = [
-            asyncio.create_task(worker_task(worker_id))
-            for worker_id in range(concurrent_threads)
+            asyncio.create_task(worker_task(worker_id)) for worker_id in range(concurrent_threads)
         ]
 
         worker_results = await asyncio.gather(*tasks)
@@ -572,9 +565,7 @@ class CachePerformanceBenchmark:
             print(f"    スループット: {ops_per_second:.0f} ops/sec")
 
         # 最良パフォーマンスの整合性レベルを結果として使用
-        best_performance = min(
-            consistency_results.values(), key=lambda x: x["avg_latency_ms"]
-        )
+        best_performance = min(consistency_results.values(), key=lambda x: x["avg_latency_ms"])
 
         result = BenchmarkResult(
             name="整合性パフォーマンス",
@@ -610,11 +601,7 @@ class CachePerformanceBenchmark:
         # 概要統計
         total_operations = sum(r.total_operations for r in self.results)
         avg_throughput = statistics.mean(
-            [
-                r.operations_per_second
-                for r in self.results
-                if r.operations_per_second > 0
-            ]
+            [r.operations_per_second for r in self.results if r.operations_per_second > 0]
         )
         avg_latency = statistics.mean([r.average_latency_ms for r in self.results])
         total_memory = sum(r.memory_usage_mb for r in self.results)
@@ -689,14 +676,10 @@ class CachePerformanceBenchmark:
         recommendations = []
 
         if avg_throughput < 5000:
-            recommendations.append(
-                "・並行処理とバッチング戦略の最適化を検討してください"
-            )
+            recommendations.append("・並行処理とバッチング戦略の最適化を検討してください")
 
         if avg_latency > 10.0:
-            recommendations.append(
-                "・キャッシュアルゴリズムとデータ構造の最適化を検討してください"
-            )
+            recommendations.append("・キャッシュアルゴリズムとデータ構造の最適化を検討してください")
 
         if total_memory > 1000:  # 1GB以上
             recommendations.append(
@@ -704,9 +687,7 @@ class CachePerformanceBenchmark:
             )
 
         if not recommendations:
-            recommendations.append(
-                "・現在のパフォーマンスは良好です。継続的な監視を推奨します"
-            )
+            recommendations.append("・現在のパフォーマンスは良好です。継続的な監視を推奨します")
 
         for rec in recommendations:
             print(f"  {rec}")

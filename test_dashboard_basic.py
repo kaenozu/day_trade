@@ -44,10 +44,12 @@ def test_dashboard_imports():
 
     try:
         from src.day_trade.dashboard.analysis_dashboard_server import app
+
         print("[OK] Dashboard server import: SUCCESS")
 
         # Check app type
         from fastapi import FastAPI
+
         assert isinstance(app, FastAPI), "App is not FastAPI instance"
         print("[OK] FastAPI app: VALID")
 

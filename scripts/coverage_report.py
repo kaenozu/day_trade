@@ -88,9 +88,7 @@ def parse_coverage_xml(xml_file: Path) -> Dict[str, Any]:
                     }
                     class_data["lines"].append(line_data)
 
-                coverage_data["packages"][package_name]["classes"][
-                    class_name
-                ] = class_data
+                coverage_data["packages"][package_name]["classes"][class_name] = class_data
                 coverage_data["classes"][class_name] = class_data
 
         return coverage_data
@@ -267,11 +265,11 @@ def analyze_coverage_trends(reports_dir: Path) -> Dict[str, Any]:
 
         trends["trend_analysis"] = {
             "coverage_change": coverage_change,
-            "coverage_direction": "improving"
-            if coverage_change > 0
-            else "declining"
-            if coverage_change < 0
-            else "stable",
+            "coverage_direction": (
+                "improving"
+                if coverage_change > 0
+                else "declining" if coverage_change < 0 else "stable"
+            ),
             "statements_change": statements_change,
             "code_growth": statements_change > 0,
         }
@@ -282,9 +280,7 @@ def analyze_coverage_trends(reports_dir: Path) -> Dict[str, Any]:
                 "カバレッジが2%以上低下しています。新しいテストの追加を検討してください。"
             )
         elif coverage_change > 5:
-            trends["recommendations"].append(
-                "カバレッジが大幅に改善されました。良い傾向です！"
-            )
+            trends["recommendations"].append("カバレッジが大幅に改善されました。良い傾向です！")
 
         if statements_change > 100:
             trends["recommendations"].append(
@@ -294,9 +290,7 @@ def analyze_coverage_trends(reports_dir: Path) -> Dict[str, Any]:
     return trends
 
 
-def generate_detailed_report(
-    coverage_results: Dict[str, Any], trends: Dict[str, Any]
-) -> str:
+def generate_detailed_report(coverage_results: Dict[str, Any], trends: Dict[str, Any]) -> str:
     """詳細なマークダウンレポートを生成"""
     timestamp = coverage_results.get("timestamp", "unknown")
     summary = coverage_results.get("summary", {})
@@ -330,9 +324,7 @@ def generate_detailed_report(
     elif line_coverage >= 70:
         report += "🟡 **良好**: カバレッジが70%以上です。\n"
     elif line_coverage >= 60:
-        report += (
-            "🟠 **改善要**: カバレッジが60%以上ですが、さらなる改善が推奨されます。\n"
-        )
+        report += "🟠 **改善要**: カバレッジが60%以上ですが、さらなる改善が推奨されます。\n"
     else:
         report += "🔴 **要改善**: カバレッジが60%未満です。テストの追加が必要です。\n"
 
@@ -376,32 +368,24 @@ def generate_detailed_report(
         report += "|----------|------------|-------------------|\n"
 
         for filename, data in sorted_files[:10]:
-            short_filename = filename.replace("src\\day_trade\\", "").replace(
-                "src/day_trade/", ""
-            )
+            short_filename = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
             coverage_pct = data.get("percent_covered", 0)
             covered = data.get("covered_lines", 0)
             total = data.get("num_statements", 0)
 
-            report += (
-                f"| {short_filename} | {coverage_pct:.1f}% | {covered}/{total} |\n"
-            )
+            report += f"| {short_filename} | {coverage_pct:.1f}% | {covered}/{total} |\n"
 
         report += "\n## ファイル別カバレッジ（下位10件）\n\n"
         report += "| ファイル | カバレッジ | カバー済み/総行数 |\n"
         report += "|----------|------------|-------------------|\n"
 
         for filename, data in sorted_files[-10:]:
-            short_filename = filename.replace("src\\day_trade\\", "").replace(
-                "src/day_trade/", ""
-            )
+            short_filename = filename.replace("src\\day_trade\\", "").replace("src/day_trade/", "")
             coverage_pct = data.get("percent_covered", 0)
             covered = data.get("covered_lines", 0)
             total = data.get("num_statements", 0)
 
-            report += (
-                f"| {short_filename} | {coverage_pct:.1f}% | {covered}/{total} |\n"
-            )
+            report += f"| {short_filename} | {coverage_pct:.1f}% | {covered}/{total} |\n"
 
     # 生成されたファイル
     files_generated = coverage_results.get("files_generated", [])
@@ -438,9 +422,7 @@ def main():
     detailed_report = generate_detailed_report(coverage_results, trends)
 
     # レポートファイルの保存
-    timestamp = coverage_results.get(
-        "timestamp", datetime.now().strftime("%Y%m%d_%H%M%S")
-    )
+    timestamp = coverage_results.get("timestamp", datetime.now().strftime("%Y%m%d_%H%M%S"))
     report_file = reports_dir / f"coverage_report_{timestamp}.md"
 
     with open(report_file, "w", encoding="utf-8") as f:

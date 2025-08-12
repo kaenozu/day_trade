@@ -468,9 +468,11 @@ class DataCleaner:
         return {
             "total_symbols": len(symbol_counts),
             "trades_per_symbol": symbol_counts,
-            "most_traded_symbol": max(symbol_counts.items(), key=lambda x: x[1])[0]
-            if symbol_counts
-            else None,
+            "most_traded_symbol": (
+                max(symbol_counts.items(), key=lambda x: x[1])[0]
+                if symbol_counts
+                else None
+            ),
         }
 
     def _calculate_temporal_statistics(self, trades: List[Trade]) -> Dict[str, any]:

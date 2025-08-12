@@ -375,7 +375,7 @@ class EmailNotificationChannel(NotificationChannel):
 Day Trade システムアラート
 
 レベル: {alert.level.value.upper()}
-時刻: {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+時刻: {alert.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
 コンポーネント: {alert.source_component}
 
 メッセージ:

@@ -21,18 +21,22 @@ import pandas as pd
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
+
 @dataclass
 class SimpleBacktestConfig:
     """簡易バックテスト設定"""
+
     start_date: str = "2023-01-01"
     end_date: str = "2023-06-30"
     initial_capital: float = 1000000.0
     max_position_size: float = 0.2
     transaction_cost: float = 0.001
 
+
 @dataclass
 class SimpleTrade:
     """簡易取引記録"""
+
     symbol: str
     action: str
     quantity: float
@@ -40,15 +44,18 @@ class SimpleTrade:
     timestamp: datetime
     ai_confidence: float = 0.0
 
+
 @dataclass
 class SimpleBacktestResult:
     """簡易バックテスト結果"""
+
     total_return: float
     sharpe_ratio: float
     max_drawdown: float
     total_trades: int
     win_rate: float
     execution_time: float
+
 
 class SimpleBacktestEngine:
     """簡易バックテストエンジン"""
@@ -69,7 +76,7 @@ class SimpleBacktestEngine:
             # ランダムウォーク価格生成
             np.random.seed(hash(symbol) % 1000)  # シンボル別シード
 
-            dates = pd.date_range(start=self.config.start_date, periods=days, freq='D')
+            dates = pd.date_range(start=self.config.start_date, periods=days, freq="D")
 
             # 初期価格
             initial_price = np.random.uniform(800, 1200)
@@ -88,13 +95,10 @@ class SimpleBacktestEngine:
             lows = np.minimum(opens, closes) * np.random.uniform(0.98, 1.0, days)
             volumes = np.random.randint(1000, 50000, days)
 
-            data[symbol] = pd.DataFrame({
-                '始値': opens,
-                '高値': highs,
-                '安値': lows,
-                '終値': closes,
-                '出来高': volumes
-            }, index=dates)
+            data[symbol] = pd.DataFrame(
+                {"始値": opens, "高値": highs, "安値": lows, "終値": closes, "出来高": volumes},
+                index=dates,
+            )
 
         return data
 
@@ -102,18 +106,18 @@ class SimpleBacktestEngine:
         """簡易AI判断（統計的手法）"""
 
         if current_idx < 20:
-            return {'action': 'HOLD', 'confidence': 0.0}
+            return {"action": "HOLD", "confidence": 0.0}
 
         # 過去20日のデータ
-        recent_data = data.iloc[max(0, current_idx-20):current_idx]
-        current_price = data.iloc[current_idx]['終値']
+        recent_data = data.iloc[max(0, current_idx - 20) : current_idx]
+        current_price = data.iloc[current_idx]["終値"]
 
         # 移動平均
-        short_ma = recent_data['終値'].rolling(5).mean().iloc[-1]
-        long_ma = recent_data['終値'].rolling(15).mean().iloc[-1]
+        short_ma = recent_data["終値"].rolling(5).mean().iloc[-1]
+        long_ma = recent_data["終値"].rolling(15).mean().iloc[-1]
 
         # リターン分析
-        returns = recent_data['終値'].pct_change().dropna()
+        returns = recent_data["終値"].pct_change().dropna()
         recent_volatility = returns.std()
         recent_momentum = returns.tail(5).mean()
 
@@ -137,7 +141,9 @@ class SimpleBacktestEngine:
             signals.append(0)
 
         # 3. 価格位置（過去20日）
-        price_percentile = (current_price - recent_data['終値'].min()) / (recent_data['終値'].max() - recent_data['終値'].min())
+        price_percentile = (current_price - recent_data["終値"].min()) / (
+            recent_data["終値"].max() - recent_data["終値"].min()
+        )
         if price_percentile < 0.3:  # 下位30%
             signals.append(1)  # 買いサイン
         elif price_percentile > 0.7:  # 上位70%
@@ -150,19 +156,19 @@ class SimpleBacktestEngine:
         confidence = abs(combined_signal) * np.random.uniform(0.6, 0.9)
 
         if combined_signal > 0.3:
-            action = 'BUY'
+            action = "BUY"
         elif combined_signal < -0.3:
-            action = 'SELL'
+            action = "SELL"
         else:
-            action = 'HOLD'
+            action = "HOLD"
 
         return {
-            'action': action,
-            'confidence': confidence,
-            'combined_signal': combined_signal,
-            'ma_signal': signals[0],
-            'momentum_signal': signals[1],
-            'position_signal': signals[2]
+            "action": action,
+            "confidence": confidence,
+            "combined_signal": combined_signal,
+            "ma_signal": signals[0],
+            "momentum_signal": signals[1],
+            "position_signal": signals[2],
         }
 
     def execute_backtest(self, symbols: List[str]) -> SimpleBacktestResult:
@@ -191,7 +197,7 @@ class SimpleBacktestEngine:
             current_prices = {}
             for symbol in symbols:
                 if current_date in historical_data[symbol].index:
-                    current_prices[symbol] = historical_data[symbol].loc[current_date, '終値']
+                    current_prices[symbol] = historical_data[symbol].loc[current_date, "終値"]
 
             # AI判断・取引実行
             for symbol in symbols:
@@ -202,7 +208,7 @@ class SimpleBacktestEngine:
                 ai_decision = self.simple_ai_decision(symbol, historical_data[symbol], i)
 
                 # 取引実行
-                if ai_decision['action'] in ['BUY', 'SELL'] and ai_decision['confidence'] > 0.5:
+                if ai_decision["action"] in ["BUY", "SELL"] and ai_decision["confidence"] > 0.5:
                     self.execute_trade(symbol, ai_decision, current_prices[symbol], current_date)
 
             # ポートフォリオ価値更新
@@ -211,8 +217,12 @@ class SimpleBacktestEngine:
 
             # プログレス
             if i % 30 == 0:
-                current_return = (portfolio_value - self.config.initial_capital) / self.config.initial_capital
-                print(f"  進捗: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) リターン: {current_return:+.2%}")
+                current_return = (
+                    portfolio_value - self.config.initial_capital
+                ) / self.config.initial_capital
+                print(
+                    f"  進捗: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) リターン: {current_return:+.2%}"
+                )
 
         execution_time = time.time() - start_time
 
@@ -224,8 +234,8 @@ class SimpleBacktestEngine:
     def execute_trade(self, symbol: str, decision: Dict, price: float, timestamp: datetime):
         """取引実行"""
 
-        confidence = decision['confidence']
-        action = decision['action']
+        confidence = decision["confidence"]
+        action = decision["action"]
 
         # ポジションサイズ決定
         position_size = confidence * self.config.max_position_size
@@ -235,7 +245,7 @@ class SimpleBacktestEngine:
             return  # 最低取引額未満
 
         quantity = trade_value / price
-        if action == 'SELL':
+        if action == "SELL":
             quantity = -quantity
 
         # 取引実行
@@ -245,7 +255,7 @@ class SimpleBacktestEngine:
             quantity=quantity,
             price=price,
             timestamp=timestamp,
-            ai_confidence=confidence
+            ai_confidence=confidence,
         )
 
         # ポジション更新
@@ -313,8 +323,9 @@ class SimpleBacktestEngine:
             max_drawdown=max_drawdown,
             total_trades=total_trades,
             win_rate=win_rate,
-            execution_time=execution_time
+            execution_time=execution_time,
         )
+
 
 def test_simple_backtest():
     """簡易バックテストテスト"""
@@ -332,7 +343,7 @@ def test_simple_backtest():
         end_date="2023-06-30",
         initial_capital=1000000.0,
         max_position_size=0.15,
-        transaction_cost=0.001
+        transaction_cost=0.001,
     )
 
     try:
@@ -355,10 +366,12 @@ def test_simple_backtest():
         if engine.trades:
             print("\n📋 取引サンプル（最初の5件）:")
             for i, trade in enumerate(engine.trades[:5]):
-                print(f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
-                      f"{trade.action} {trade.symbol} "
-                      f"qty:{trade.quantity:.1f} @${trade.price:.0f} "
-                      f"(信頼度:{trade.ai_confidence:.2f})")
+                print(
+                    f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
+                    f"{trade.action} {trade.symbol} "
+                    f"qty:{trade.quantity:.1f} @${trade.price:.0f} "
+                    f"(信頼度:{trade.ai_confidence:.2f})"
+                )
 
         # 総合評価
         print("\n🏆 総合評価:")
@@ -419,8 +432,10 @@ def test_simple_backtest():
     except Exception as e:
         print(f"❌ バックテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """メイン実行関数"""
@@ -454,6 +469,7 @@ def main():
         print("   ログを確認して改善してください。")
 
     return success
+
 
 if __name__ == "__main__":
     success = main()

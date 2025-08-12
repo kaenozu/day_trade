@@ -340,9 +340,11 @@ class PortfolioAnalyzer:
                 "average_trade_value": avg_trade_value,
                 "average_holding_days": Decimal(str(avg_holding_days)),
                 "trading_frequency": trading_frequency,
-                "trade_balance_ratio": Decimal(buy_trades) / Decimal(sell_trades)
-                if sell_trades > 0
-                else Decimal("0"),
+                "trade_balance_ratio": (
+                    Decimal(buy_trades) / Decimal(sell_trades)
+                    if sell_trades > 0
+                    else Decimal("0")
+                ),
             }
 
             logger.info(
@@ -412,15 +414,21 @@ class PortfolioAnalyzer:
         total_months = total_days / 30.44
 
         frequency = {
-            "trades_per_day": Decimal(len(trades)) / Decimal(total_days)
-            if total_days > 0
-            else Decimal("0"),
-            "trades_per_week": Decimal(len(trades)) / Decimal(str(total_weeks))
-            if total_weeks > 0
-            else Decimal("0"),
-            "trades_per_month": Decimal(len(trades)) / Decimal(str(total_months))
-            if total_months > 0
-            else Decimal("0"),
+            "trades_per_day": (
+                Decimal(len(trades)) / Decimal(total_days)
+                if total_days > 0
+                else Decimal("0")
+            ),
+            "trades_per_week": (
+                Decimal(len(trades)) / Decimal(str(total_weeks))
+                if total_weeks > 0
+                else Decimal("0")
+            ),
+            "trades_per_month": (
+                Decimal(len(trades)) / Decimal(str(total_months))
+                if total_months > 0
+                else Decimal("0")
+            ),
             "trading_days": Decimal(total_days),
         }
 

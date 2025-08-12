@@ -321,15 +321,21 @@ class AnalysisOnlyEngine:
                         current_price=current_price,
                         analysis_timestamp=datetime.now(),
                         signal=signal,
-                        volatility=self._calculate_volatility(historical_data)
-                        if historical_data is not None
-                        else None,
-                        volume_trend=self._analyze_volume_trend(historical_data)
-                        if historical_data is not None
-                        else None,
-                        price_trend=self._analyze_price_trend(historical_data)
-                        if historical_data is not None
-                        else None,
+                        volatility=(
+                            self._calculate_volatility(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
+                        volume_trend=(
+                            self._analyze_volume_trend(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
+                        price_trend=(
+                            self._analyze_price_trend(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
                         recommendations=self._generate_recommendations(
                             symbol, current_price, signal
                         ),
@@ -484,9 +490,7 @@ class AnalysisOnlyEngine:
                 confidence_level = (
                     "高"
                     if signal.confidence >= 80
-                    else "中"
-                    if signal.confidence >= 60
-                    else "低"
+                    else "中" if signal.confidence >= 60 else "低"
                 )
                 action = "買い注目" if signal.signal_type.value == "buy" else "売り注目"
                 recommendations.append(
@@ -634,9 +638,9 @@ class AnalysisOnlyEngine:
             "safe_mode": is_safe_mode(),
             "trading_disabled": True,  # 常にTrue
             "stats": self.stats.copy(),
-            "latest_report": self.get_latest_report().__dict__
-            if self.get_latest_report()
-            else None,
+            "latest_report": (
+                self.get_latest_report().__dict__ if self.get_latest_report() else None
+            ),
         }
 
     def get_symbol_recommendations(self, symbol: str) -> List[str]:

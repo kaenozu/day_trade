@@ -664,9 +664,11 @@ class AlertManager:
                     alert.message,
                     json.dumps(alert.details),
                     alert.triggered_at.isoformat(),
-                    alert.acknowledged_at.isoformat()
-                    if alert.acknowledged_at
-                    else None,
+                    (
+                        alert.acknowledged_at.isoformat()
+                        if alert.acknowledged_at
+                        else None
+                    ),
                     alert.resolved_at.isoformat() if alert.resolved_at else None,
                     alert.acknowledged_by,
                 ),

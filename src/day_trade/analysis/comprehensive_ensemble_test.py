@@ -764,9 +764,9 @@ class ComprehensiveEnsembleTester:
         validation_results["hard_voting_implementation"] = self._test_hard_voting()
 
         # 重み付け平均検証
-        validation_results[
-            "weighted_average_implementation"
-        ] = self._test_weighted_average()
+        validation_results["weighted_average_implementation"] = (
+            self._test_weighted_average()
+        )
 
         # 投票一貫性検証
         validation_results["voting_consistency"] = self._test_voting_consistency()

@@ -418,9 +418,7 @@ class PortfolioManager:
             return -(sharpe_ratio + confidence_bonus * 0.1)
 
         # 制約条件
-        constraints = [
-            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}  # 合計100%
-        ]
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]  # 合計100%
 
         # 境界条件
         bounds = [
@@ -576,11 +574,13 @@ class PortfolioManager:
                 asset_class=AssetClass(asset_info.get("asset_class", "equity")),
                 weight=weights[i],
                 expected_return=expected_returns[i],
-                risk=np.sqrt(
-                    self.historical_data[symbol]["終値"].pct_change().var() * 252
-                )
-                if symbol in self.historical_data
-                else 0.15,
+                risk=(
+                    np.sqrt(
+                        self.historical_data[symbol]["終値"].pct_change().var() * 252
+                    )
+                    if symbol in self.historical_data
+                    else 0.15
+                ),
                 confidence=confidence,
                 last_updated=datetime.now(),
             )
@@ -710,9 +710,9 @@ class PortfolioManager:
             "total_weight": total_weight,
             "average_confidence": avg_confidence,
             "asset_class_distribution": asset_class_distribution,
-            "last_optimization": self.last_optimization.isoformat()
-            if self.last_optimization
-            else None,
+            "last_optimization": (
+                self.last_optimization.isoformat() if self.last_optimization else None
+            ),
             "optimization_method": self.config.optimization_method.value,
             "ml_models_count": len(self.prediction_models),
             "initialization_status": self.is_initialized,

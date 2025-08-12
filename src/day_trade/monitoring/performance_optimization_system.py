@@ -840,9 +840,9 @@ class OptimizationManager:
             "total_recommendations": total_count,
             "pending_recommendations": total_count - implemented_count,
             "implemented_recommendations": implemented_count,
-            "implementation_rate": (implemented_count / total_count * 100)
-            if total_count > 0
-            else 0,
+            "implementation_rate": (
+                (implemented_count / total_count * 100) if total_count > 0 else 0
+            ),
             "statistics_by_type": statistics,
             "generated_at": datetime.utcnow().isoformat(),
         }

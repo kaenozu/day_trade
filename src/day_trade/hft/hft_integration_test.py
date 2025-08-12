@@ -747,9 +747,9 @@ class HFTIntegrationTester:
                 performance_data["execution_success_rate"] = benchmark.success_rate
 
             elif benchmark.benchmark_name == "throughput_benchmark":
-                performance_data[
-                    "execution_throughput"
-                ] = benchmark.operations_per_second
+                performance_data["execution_throughput"] = (
+                    benchmark.operations_per_second
+                )
                 performance_data["decision_throughput"] = (
                     benchmark.operations_per_second * 5
                 )  # 推定
@@ -790,9 +790,11 @@ class HFTIntegrationTester:
             "comparison": target.comparison,
             "met": met,
             "critical": target.critical,
-            "deviation": abs(current_value - target.target_value) / target.target_value
-            if target.target_value != 0
-            else 0.0,
+            "deviation": (
+                abs(current_value - target.target_value) / target.target_value
+                if target.target_value != 0
+                else 0.0
+            ),
         }
 
     def _test_result_to_dict(self, result: TestResult) -> Dict[str, Any]:

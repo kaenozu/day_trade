@@ -436,9 +436,11 @@ class HighFrequencyDecisionEngine:
             "price_change": price_change,
             "spread": spread,
             "volume": tick.volume,
-            "bid_ask_ratio": tick.bid_size / max(tick.ask_size, 1)
-            if tick.bid_size and tick.ask_size
-            else 1.0,
+            "bid_ask_ratio": (
+                tick.bid_size / max(tick.ask_size, 1)
+                if tick.bid_size and tick.ask_size
+                else 1.0
+            ),
         }
 
         # キャッシュ更新

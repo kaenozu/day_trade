@@ -30,9 +30,7 @@ class SystemStopper:
 
         # PIDファイル確認
         if not self.pid_file.exists():
-            print(
-                "PIDファイルが見つかりません - システムは稼働していない可能性があります"
-            )
+            print("PIDファイルが見つかりません - システムは稼働していない可能性があります")
             return True
 
         try:
@@ -160,11 +158,7 @@ class SystemStopper:
                 )
 
                 if result.returncode == 0:
-                    lines = [
-                        line.strip()
-                        for line in result.stdout.split("\n")
-                        if line.strip()
-                    ]
+                    lines = [line.strip() for line in result.stdout.split("\n") if line.strip()]
                     for line in lines[1:]:  # ヘッダーをスキップ
                         if line and "daytrade" in line.lower():
                             parts = line.split(",")
@@ -183,9 +177,7 @@ class SystemStopper:
                 import subprocess
 
                 # pgrep で daytrade 関連プロセス検索
-                result = subprocess.run(
-                    ["pgrep", "-f", "daytrade"], capture_output=True, text=True
-                )
+                result = subprocess.run(["pgrep", "-f", "daytrade"], capture_output=True, text=True)
 
                 if result.returncode == 0:
                     pids = result.stdout.strip().split("\n")

@@ -448,7 +448,7 @@ class RealtimeDataFeed:
             "subscribers_count": len(self.subscribers),
             "buffer_size": len(self.data_buffer),
             "data_source": self.data_source.value,
-            "reconnect_count": self.websocket_client.reconnect_count
-            if self.websocket_client
-            else 0,
+            "reconnect_count": (
+                self.websocket_client.reconnect_count if self.websocket_client else 0
+            ),
         }
