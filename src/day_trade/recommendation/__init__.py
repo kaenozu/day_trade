@@ -13,7 +13,7 @@ from .recommendation_engine import (
 
 __all__ = [
     "RecommendationEngine",
-    "StockRecommendation", 
+    "StockRecommendation",
     "RecommendationAction",
     "get_daily_recommendations",
 ]

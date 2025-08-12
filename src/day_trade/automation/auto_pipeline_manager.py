@@ -89,83 +89,83 @@ class PipelineResult:
 
 class AutoPipelineManager:
     """自動データ収集・学習パイプラインマネージャー"""
-    
+
     def __init__(self, max_workers: int = 4, enable_gpu: bool = True):
         """初期化"""
         self.max_workers = max_workers
         self.enable_gpu = enable_gpu
-        
+
         # コンポーネント初期化
         self.data_fetcher = AdvancedBatchDataFetcher(max_workers=max_workers)
         self.ml_engine = AdvancedMLEngine()
         self.recommendation_engine = RecommendationEngine()
         self.stock_helper = get_stock_helper()
-        
+
         # 実行状態管理
         self.current_stage = PipelineStage.INIT
         self.stage_start_time = time.time()
         self.total_start_time = time.time()
         self.stage_results = {}
-        
+
         # 設定
         self.min_data_quality_score = 0.7
         self.min_improvement_threshold = 0.01  # 1%以上の改善が必要
         self.max_retry_count = 3
-        
+
         logger.info("自動パイプラインマネージャー初期化完了")
 
     async def run_full_pipeline(self, symbols: Optional[List[str]] = None) -> PipelineResult:
         """
         フルパイプライン実行
-        
+
         Args:
             symbols: 対象銘柄リスト（Noneの場合は全銘柄）
-            
+
         Returns:
             パイプライン実行結果
         """
         self.total_start_time = time.time()
         logger.info("自動パイプライン実行開始")
-        
+
         try:
             # 1. データ収集
             self._set_stage(PipelineStage.DATA_COLLECTION)
             data_result = await self.collect_latest_data(symbols)
-            
+
             if not data_result.success:
                 return self._create_error_result("データ収集失敗", data_result.error_message)
-            
+
             # 2. データ品質検証
             self._set_stage(PipelineStage.DATA_VALIDATION)
             quality_report = await self.validate_data_quality(data_result)
-            
+
             if quality_report.overall_score < self.min_data_quality_score:
                 return self._create_error_result(
                     f"データ品質不足 (スコア: {quality_report.overall_score:.2f})",
                     f"最低必要スコア: {self.min_data_quality_score}"
                 )
-            
+
             # 3. ML学習
             self._set_stage(PipelineStage.ML_TRAINING)
             model_result = await self.update_ml_models(data_result.collected_symbols)
-            
+
             if not model_result.success:
                 return self._create_error_result("ML学習失敗", model_result.error_message)
-            
+
             # 4. モデル検証
             self._set_stage(PipelineStage.MODEL_VALIDATION)
             if model_result.improvement_percentage < self.min_improvement_threshold * 100:
                 logger.warning(f"モデル改善度が低い: {model_result.improvement_percentage:.2f}%")
-            
+
             # 5. 推奨更新
             self._set_stage(PipelineStage.RECOMMENDATION_UPDATE)
             recommendations = await self._update_recommendations()
-            
+
             # 6. 完了
             self._set_stage(PipelineStage.COMPLETE)
-            
+
             total_time = time.time() - self.total_start_time
-            
+
             result = PipelineResult(
                 success=True,
                 execution_time=total_time,
@@ -176,10 +176,10 @@ class AutoPipelineManager:
                 recommendations_generated=len(recommendations),
                 final_stage=PipelineStage.COMPLETE
             )
-            
+
             logger.info(f"自動パイプライン実行完了: {total_time:.2f}秒")
             return result
-            
+
         except Exception as e:
             self._set_stage(PipelineStage.ERROR)
             logger.error(f"パイプライン実行エラー: {e}")
@@ -188,21 +188,21 @@ class AutoPipelineManager:
     async def collect_latest_data(self, symbols: Optional[List[str]] = None) -> DataCollectionResult:
         """
         最新データ収集
-        
+
         Args:
             symbols: 対象銘柄リスト
-            
+
         Returns:
             データ収集結果
         """
         start_time = time.time()
-        
+
         try:
             if symbols is None:
                 symbols = self._get_all_symbols()
-            
+
             logger.info(f"データ収集開始: {len(symbols)} 銘柄")
-            
+
             # バッチリクエスト作成
             requests = [
                 DataRequest(
@@ -213,16 +213,16 @@ class AutoPipelineManager:
                 )
                 for symbol in symbols
             ]
-            
+
             # データ取得実行
             responses = self.data_fetcher.fetch_batch(requests, use_parallel=True)
-            
+
             # 結果分析
             successful_symbols = []
             failed_symbols = []
             total_records = 0
             quality_scores = []
-            
+
             for symbol, response in responses.items():
                 if response.success and response.data is not None:
                     successful_symbols.append(symbol)
@@ -230,10 +230,10 @@ class AutoPipelineManager:
                     quality_scores.append(response.data_quality_score)
                 else:
                     failed_symbols.append(symbol)
-            
+
             avg_quality = np.mean(quality_scores) if quality_scores else 0.0
             collection_time = time.time() - start_time
-            
+
             result = DataCollectionResult(
                 success=len(successful_symbols) > 0,
                 collected_symbols=successful_symbols,
@@ -242,14 +242,14 @@ class AutoPipelineManager:
                 data_quality_score=avg_quality,
                 collection_time=collection_time
             )
-            
+
             if len(failed_symbols) > len(symbols) * 0.5:  # 50%以上失敗
                 result.success = False
                 result.error_message = f"データ収集失敗率が高い: {len(failed_symbols)}/{len(symbols)}"
-            
+
             logger.info(f"データ収集完了: 成功 {len(successful_symbols)}, 失敗 {len(failed_symbols)}")
             return result
-            
+
         except Exception as e:
             logger.error(f"データ収集エラー: {e}")
             return DataCollectionResult(
@@ -265,31 +265,31 @@ class AutoPipelineManager:
     async def validate_data_quality(self, data_result: DataCollectionResult) -> QualityReport:
         """
         データ品質検証
-        
+
         Args:
             data_result: データ収集結果
-            
+
         Returns:
             品質レポート
         """
         logger.info("データ品質検証開始")
-        
+
         try:
             # 基本品質指標
             success_rate = len(data_result.collected_symbols) / max(
                 len(data_result.collected_symbols) + len(data_result.failed_symbols), 1
             )
-            
+
             avg_quality = data_result.data_quality_score
             freshness_score = self._calculate_freshness_score()
-            
+
             # 総合スコア計算
             overall_score = (
                 success_rate * 0.4 +
                 avg_quality * 0.4 +
                 freshness_score * 0.2
             )
-            
+
             # 問題検出
             issues = []
             if success_rate < 0.9:
@@ -298,7 +298,7 @@ class AutoPipelineManager:
                 issues.append(f"データ品質が低い: {avg_quality:.2f}")
             if freshness_score < 0.7:
                 issues.append("データの鮮度が低い")
-            
+
             # 推奨アクション
             if overall_score >= 0.9:
                 recommendation = "データ品質良好 - 学習続行推奨"
@@ -306,7 +306,7 @@ class AutoPipelineManager:
                 recommendation = "データ品質やや低下 - 注意して続行"
             else:
                 recommendation = "データ品質不良 - 学習停止推奨"
-            
+
             report = QualityReport(
                 overall_score=overall_score,
                 missing_data_percentage=(1 - success_rate) * 100,
@@ -316,10 +316,10 @@ class AutoPipelineManager:
                 recommendation=recommendation,
                 issues_found=issues
             )
-            
+
             logger.info(f"データ品質検証完了: スコア {overall_score:.2f}")
             return report
-            
+
         except Exception as e:
             logger.error(f"データ品質検証エラー: {e}")
             return QualityReport(
@@ -335,48 +335,48 @@ class AutoPipelineManager:
     async def update_ml_models(self, symbols: List[str]) -> ModelUpdateResult:
         """
         MLモデル更新
-        
+
         Args:
             symbols: 学習対象銘柄リスト
-            
+
         Returns:
             モデル更新結果
         """
         start_time = time.time()
         logger.info(f"MLモデル学習開始: {len(symbols)} 銘柄")
-        
+
         try:
             updated_models = []
             performance_metrics = {}
-            
+
             # サンプル銘柄での学習（実際は全銘柄）
             sample_symbols = symbols[:5]  # パフォーマンス考慮
-            
+
             for symbol in sample_symbols:
                 try:
                     # データ取得
                     data_response = self.data_fetcher._process_single_request(
                         DataRequest(symbol=symbol, period="90d", preprocessing=True)
                     )
-                    
+
                     if not data_response.success or data_response.data is None:
                         continue
-                    
+
                     # 簡易モデル学習（Demo用）
                     close_col = "Close" if "Close" in data_response.data.columns else "終値"
-                    
+
                     if len(data_response.data) > 30:
                         # シンプルな統計ベースの"学習"（デモ目的）
                         prices = data_response.data[close_col].values
-                        
+
                         # 基本統計計算
                         mean_return = np.mean(np.diff(prices) / prices[:-1])
                         volatility = np.std(np.diff(prices) / prices[:-1])
                         trend_strength = np.corrcoef(range(len(prices)), prices)[0, 1]
-                        
+
                         # 簡易精度計算（模擬）
                         accuracy = 0.5 + abs(trend_strength) * 0.3  # 0.5-0.8の範囲
-                        
+
                         training_result = {
                             "success": True,
                             "metrics": {
@@ -388,29 +388,29 @@ class AutoPipelineManager:
                         }
                     else:
                         training_result = {"success": False, "error": "データ不足"}
-                    
+
                     if training_result.get("success", False):
                         updated_models.append(symbol)
                         # パフォーマンス指標取得
                         metrics = training_result.get("metrics", {})
                         if metrics:
                             performance_metrics[symbol] = metrics
-                    
+
                 except Exception as e:
                     logger.warning(f"銘柄 {format_stock_display(symbol)} の学習失敗: {e}")
                     continue
-            
+
             training_time = time.time() - start_time
-            
+
             # 改善度計算（簡略化）
             avg_accuracy = np.mean([
                 metrics.get("accuracy", 0.5) for metrics in performance_metrics.values()
             ]) if performance_metrics else 0.5
-            
+
             # 前回との比較（仮想的）
             baseline_accuracy = 0.5  # ベースライン
             improvement = (avg_accuracy - baseline_accuracy) * 100
-            
+
             result = ModelUpdateResult(
                 success=len(updated_models) > 0,
                 models_updated=updated_models,
@@ -419,14 +419,14 @@ class AutoPipelineManager:
                 model_version=f"v{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 improvement_percentage=improvement
             )
-            
+
             if len(updated_models) == 0:
                 result.success = False
                 result.error_message = "全ての銘柄で学習が失敗"
-            
+
             logger.info(f"MLモデル学習完了: {len(updated_models)} モデル更新")
             return result
-            
+
         except Exception as e:
             logger.error(f"MLモデル学習エラー: {e}")
             return ModelUpdateResult(
@@ -443,7 +443,7 @@ class AutoPipelineManager:
         """パイプライン進捗取得"""
         elapsed_time = time.time() - self.total_start_time
         stage_elapsed = time.time() - self.stage_start_time
-        
+
         return {
             "current_stage": self.current_stage.value,
             "total_elapsed_time": elapsed_time,
@@ -461,7 +461,7 @@ class AutoPipelineManager:
                 "duration": time.time() - self.stage_start_time,
                 "completed_at": datetime.now().isoformat()
             }
-        
+
         self.current_stage = stage
         self.stage_start_time = time.time()
         logger.info(f"パイプライン段階移行: {stage.value}")
@@ -512,14 +512,14 @@ class AutoPipelineManager:
         """残り時間推定"""
         stages_total = len(PipelineStage) - 2  # INIT, ERROR除く
         completed = len(self.stage_results)
-        
+
         if completed == 0:
             return 600.0  # 10分の推定
-        
+
         avg_stage_time = sum(
             result["duration"] for result in self.stage_results.values()
         ) / completed
-        
+
         remaining_stages = stages_total - completed
         return remaining_stages * avg_stage_time
 
@@ -556,9 +556,9 @@ if __name__ == "__main__":
     # テスト実行
     async def test_pipeline():
         print("自動パイプライン テスト開始")
-        
+
         result = await run_auto_pipeline()
-        
+
         if result.success:
             print(f"✅ パイプライン成功: {result.execution_time:.2f}秒")
             print(f"   データ収集: {len(result.data_collection.collected_symbols)} 銘柄")
@@ -566,5 +566,5 @@ if __name__ == "__main__":
             print(f"   推奨生成: {result.recommendations_generated} 件")
         else:
             print(f"❌ パイプライン失敗: {result.error_message}")
-    
+
     asyncio.run(test_pipeline())

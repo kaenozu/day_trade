@@ -19,23 +19,23 @@ from src.day_trade.automation.auto_pipeline_manager import run_auto_pipeline
 async def test_pipeline():
     print("=== 自動パイプライン テスト開始 ===")
     print()
-    
+
     try:
         # 限定的なテスト（主要5銘柄のみ）
         test_symbols = ["7203", "8306", "9984", "6758", "4689"]
-        
+
         print(f"テスト対象: {len(test_symbols)} 銘柄")
         print("実行中...")
         print()
-        
+
         result = await run_auto_pipeline(test_symbols)
-        
+
         if result.success:
             print("[OK] 自動パイプライン成功!")
             print(f"   実行時間: {result.execution_time:.2f}秒")
             print(f"   最終段階: {result.final_stage.value}")
             print()
-            
+
             # データ収集結果
             data_result = result.data_collection
             print("[DATA] データ収集結果:")
@@ -45,7 +45,7 @@ async def test_pipeline():
             print(f"   データ品質スコア: {data_result.data_quality_score:.2f}")
             print(f"   収集時間: {data_result.collection_time:.2f}秒")
             print()
-            
+
             # ML学習結果
             ml_result = result.model_update
             print("[ML] ML学習結果:")
@@ -56,7 +56,7 @@ async def test_pipeline():
             if ml_result.performance_metrics:
                 print(f"   パフォーマンス指標: {len(ml_result.performance_metrics)} 銘柄")
             print()
-            
+
             # 品質レポート
             quality = result.quality_report
             print("[QUALITY] 品質レポート:")
@@ -69,22 +69,22 @@ async def test_pipeline():
                 for issue in quality.issues_found[:3]:  # 最初の3件のみ表示
                     print(f"     - {issue}")
             print()
-            
+
             # 段階別結果
             print("[TIME] 段階別実行時間:")
             for stage, stage_result in result.stage_results.items():
                 duration = stage_result.get('duration', 0)
                 print(f"   {stage.value}: {duration:.2f}秒")
             print()
-            
+
             print(f"[RESULT] 推奨生成数: {result.recommendations_generated}")
-            
+
         else:
             print("[ERROR] 自動パイプライン失敗")
             print(f"   エラー: {result.error_message}")
             print(f"   最終段階: {result.final_stage.value}")
             print(f"   実行時間: {result.execution_time:.2f}秒")
-            
+
     except Exception as e:
         print(f"[ERROR] テスト実行エラー: {e}")
         import traceback

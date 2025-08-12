@@ -15,17 +15,17 @@ from src.day_trade.recommendation.recommendation_engine import get_daily_recomme
 
 async def simple_test():
     print("推奨銘柄選定エンジン テスト開始...")
-    
+
     try:
         # TOP3の推奨銘柄を取得
         recommendations = await get_daily_recommendations(3)
-        
+
         print(f"\nTOP {len(recommendations)} 推奨銘柄:")
-        
+
         if not recommendations:
             print("推奨銘柄が見つかりませんでした。")
             return
-            
+
         for i, rec in enumerate(recommendations, 1):
             print(f"\n{i}. {rec.symbol} ({rec.name})")
             print(f"   総合スコア: {rec.composite_score:.1f}点")
@@ -40,7 +40,7 @@ async def simple_test():
                 print(f"   目標価格: {rec.price_target:.0f}円")
             if rec.stop_loss:
                 print(f"   ストップロス: {rec.stop_loss:.0f}円")
-                
+
     except Exception as e:
         print(f"エラー: {e}")
         import traceback
