@@ -135,6 +135,7 @@ if PYTORCH_AVAILABLE:
         def __init__(self, state_dim: int, action_dim: int, config: PPOConfig):
             if not PYTORCH_AVAILABLE:
                 raise ImportError("PyTorch が必要です")
+
 else:
 
     class ActorCriticNetwork:
@@ -188,9 +189,7 @@ else:
                 nn.init.orthogonal_(module.weight, gain=np.sqrt(2))
                 nn.init.constant_(module.bias, 0)
 
-    def forward(
-        self, state: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """順伝播"""
         # 共有特徴抽出
         features = self.shared_layers(state)
@@ -204,9 +203,7 @@ else:
 
         return action_mean, action_std, value
 
-    def get_action_and_value(
-        self, state: torch.Tensor, action: Optional[torch.Tensor] = None
-    ):
+    def get_action_and_value(self, state: torch.Tensor, action: Optional[torch.Tensor] = None):
         """アクションと価値を取得"""
         action_mean, action_std, value = self.forward(state)
 
@@ -225,9 +222,7 @@ else:
 class PPOAgent:
     """PPO強化学習エージェント"""
 
-    def __init__(
-        self, env: MultiAssetTradingEnvironment, config: Optional[PPOConfig] = None
-    ):
+    def __init__(self, env: MultiAssetTradingEnvironment, config: Optional[PPOConfig] = None):
         self.env = env
         self.config = config or PPOConfig()
 
@@ -246,9 +241,9 @@ class PPOAgent:
 
         # ネットワーク初期化
         if PYTORCH_AVAILABLE:
-            self.actor_critic = ActorCriticNetwork(
-                self.state_dim, self.action_dim, self.config
-            ).to(self.device)
+            self.actor_critic = ActorCriticNetwork(self.state_dim, self.action_dim, self.config).to(
+                self.device
+            )
 
             self.optimizer = torch.optim.Adam(
                 self.actor_critic.parameters(), lr=self.config.learning_rate
@@ -302,9 +297,7 @@ class PPOAgent:
 
         with torch.no_grad():
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-            action, log_prob, entropy, value = self.actor_critic.get_action_and_value(
-                state_tensor
-            )
+            action, log_prob, entropy, value = self.actor_critic.get_action_and_value(state_tensor)
 
             action = action.cpu().numpy()[0]
             log_prob = log_prob.cpu().item()
@@ -353,12 +346,8 @@ class PPOAgent:
         with torch.no_grad():
             next_state = experiences[-1]["next_state"]
             if not experiences[-1]["done"]:
-                next_state_tensor = (
-                    torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
-                )
-                _, _, _, next_value = self.actor_critic.get_action_and_value(
-                    next_state_tensor
-                )
+                next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
+                _, _, _, next_value = self.actor_critic.get_action_and_value(next_state_tensor)
                 next_value = next_value.cpu().item()
             else:
                 next_value = 0.0
@@ -376,15 +365,8 @@ class PPOAgent:
                 next_non_terminal = 1.0 - dones[t]
                 next_value_t = values[t + 1]
 
-            delta = (
-                rewards[t]
-                + self.config.gamma * next_value_t * next_non_terminal
-                - values[t]
-            )
-            gae = (
-                delta
-                + self.config.gamma * self.config.lambda_gae * next_non_terminal * gae
-            )
+            delta = rewards[t] + self.config.gamma * next_value_t * next_non_terminal - values[t]
+            gae = delta + self.config.gamma * self.config.lambda_gae * next_non_terminal * gae
             advantages[t] = gae
             returns[t] = advantages[t] + values[t]
 
@@ -494,9 +476,7 @@ class PPOAgent:
         )
 
         # 損失統計
-        num_updates = self.config.epochs_per_update * (
-            len(states) // self.config.batch_size
-        )
+        num_updates = self.config.epochs_per_update * (len(states) // self.config.batch_size)
         return {
             "policy_loss": total_policy_loss / num_updates,
             "value_loss": total_value_loss / num_updates,
@@ -527,9 +507,7 @@ class PPOAgent:
                 next_state, reward, done, info = self.env.step(action)
 
                 # 経験格納
-                self.store_experience(
-                    state, action, reward, next_state, done, log_prob, value
-                )
+                self.store_experience(state, action, reward, next_state, done, log_prob, value)
 
                 # 更新
                 state = next_state
@@ -575,15 +553,9 @@ class PPOAgent:
 
                 # TensorBoard記録
                 if self.tensorboard_writer:
-                    self.tensorboard_writer.add_scalar(
-                        "Episode/Reward", episode_reward, episode
-                    )
-                    self.tensorboard_writer.add_scalar(
-                        "Episode/Length", episode_length, episode
-                    )
-                    self.tensorboard_writer.add_scalar(
-                        "Episode/AvgReward100", avg_reward, episode
-                    )
+                    self.tensorboard_writer.add_scalar("Episode/Reward", episode_reward, episode)
+                    self.tensorboard_writer.add_scalar("Episode/Length", episode_length, episode)
+                    self.tensorboard_writer.add_scalar("Episode/AvgReward100", avg_reward, episode)
 
                 # W&B記録
                 if WANDB_AVAILABLE:
@@ -615,15 +587,11 @@ class PPOAgent:
         }
 
         self.training_history.append(result)
-        logger.info(
-            f"PPO訓練完了: {training_time:.2f}秒, ベストスコア: {self.best_reward:.2f}"
-        )
+        logger.info(f"PPO訓練完了: {training_time:.2f}秒, ベストスコア: {self.best_reward:.2f}")
 
         return result
 
-    def evaluate(
-        self, num_episodes: int = 10, render: bool = False
-    ) -> Dict[str, float]:
+    def evaluate(self, num_episodes: int = 10, render: bool = False) -> Dict[str, float]:
         """エージェント評価"""
         logger.info(f"PPO評価開始: {num_episodes} エピソード")
 
@@ -668,9 +636,7 @@ class PPOAgent:
             "max_reward": np.max(episode_rewards),
             "min_reward": np.min(episode_rewards),
             "avg_length": np.mean(episode_lengths),
-            "avg_portfolio_return": np.mean(portfolio_returns)
-            if portfolio_returns
-            else 0,
+            "avg_portfolio_return": np.mean(portfolio_returns) if portfolio_returns else 0,
             "win_rate": np.mean([r > 0 for r in episode_rewards]),
         }
 
@@ -807,8 +773,6 @@ if __name__ == "__main__":
     print("評価結果:")
     print(f"  平均報酬: {eval_result['avg_reward']:.2f}")
     print(f"  勝率: {eval_result['win_rate']*100:.1f}%")
-    print(
-        f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return']*100:.2f}%"
-    )
+    print(f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return']*100:.2f}%")
 
     print("\n=== テスト完了 ===")

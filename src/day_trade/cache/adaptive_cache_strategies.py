@@ -298,10 +298,7 @@ class MLCachePredictor:
 
     def _train_models(self):
         """モデル訓練"""
-        if (
-            not self.enable_ml
-            or len(self.feature_history) < self.min_samples_for_training
-        ):
+        if not self.enable_ml or len(self.feature_history) < self.min_samples_for_training:
             return
 
         try:
@@ -341,9 +338,7 @@ class MLCachePredictor:
         # 最終アクセスからの時間による減衰
         time_factor = math.exp(-metrics.last_access_age_seconds / 3600)
 
-        probability = (
-            base_probability * pattern_multiplier[metrics.access_pattern] * time_factor
-        )
+        probability = base_probability * pattern_multiplier[metrics.access_pattern] * time_factor
 
         return max(0.0, min(1.0, probability))
 
@@ -446,9 +441,7 @@ class AdaptiveCacheStrategy:
 
                 # 戦略別判定
                 if self.strategy == OptimizationStrategy.PREDICTIVE:
-                    return self._predictive_caching_decision(
-                        metrics, default_ttl, context
-                    )
+                    return self._predictive_caching_decision(metrics, default_ttl, context)
 
                 elif self.strategy == OptimizationStrategy.FREQUENCY_BASED:
                     return self._frequency_based_decision(metrics, default_ttl, context)
@@ -485,24 +478,15 @@ class AdaptiveCacheStrategy:
                     return True
 
                 # メモリ圧迫時の高度な判定
-                if (
-                    memory_pressure
-                    > self.optimization_params["memory_pressure_threshold"]
-                ):
+                if memory_pressure > self.optimization_params["memory_pressure_threshold"]:
                     # アクセス確率予測
-                    access_probability = self.ml_predictor.predict_access_probability(
-                        metrics
-                    )
+                    access_probability = self.ml_predictor.predict_access_probability(metrics)
 
                     # 価値スコア計算
-                    value_score = self._calculate_cache_value_score(
-                        metrics, access_probability
-                    )
+                    value_score = self._calculate_cache_value_score(metrics, access_probability)
 
                     # 閾値による判定
-                    eviction_threshold = (
-                        0.3 - (memory_pressure - 0.8) * 2
-                    )  # メモリ圧迫で閾値低下
+                    eviction_threshold = 0.3 - (memory_pressure - 0.8) * 2  # メモリ圧迫で閾値低下
 
                     return value_score < eviction_threshold
 
@@ -512,9 +496,7 @@ class AdaptiveCacheStrategy:
                 logger.error(f"追い出し判定エラー {key}: {e}")
                 return False
 
-    def record_cache_access(
-        self, key: str, is_hit: bool, access_context: Dict[str, Any] = None
-    ):
+    def record_cache_access(self, key: str, is_hit: bool, access_context: Dict[str, Any] = None):
         """キャッシュアクセス記録"""
         with self._lock:
             try:
@@ -551,8 +533,7 @@ class AdaptiveCacheStrategy:
 
                 # 全体的なヒット率チェック
                 total_requests = (
-                    self.global_metrics["total_hits"]
-                    + self.global_metrics["total_misses"]
+                    self.global_metrics["total_hits"] + self.global_metrics["total_misses"]
                 )
                 hit_rate = self.global_metrics["total_hits"] / max(total_requests, 1)
 
@@ -590,9 +571,7 @@ class AdaptiveCacheStrategy:
                 # メモリ使用量最適化
                 if self.global_metrics["cache_memory_usage"] > 0:
                     memory_efficiency = (
-                        hit_rate
-                        * 100
-                        / (self.global_metrics["cache_memory_usage"] / (1024**2))
+                        hit_rate * 100 / (self.global_metrics["cache_memory_usage"] / (1024**2))
                     )
 
                     if memory_efficiency < 10:  # ヒット率%/MB
@@ -634,8 +613,7 @@ class AdaptiveCacheStrategy:
 
         # 高確率でアクセスされると予測される場合のみキャッシュ
         should_cache = (
-            access_probability
-            >= self.optimization_params["prediction_confidence_threshold"]
+            access_probability >= self.optimization_params["prediction_confidence_threshold"]
         )
 
         if should_cache:
@@ -656,9 +634,7 @@ class AdaptiveCacheStrategy:
 
         if should_cache:
             # 頻度に応じたTTL調整
-            frequency_multiplier = min(
-                2.0, metrics.access_frequency_per_hour / frequency_threshold
-            )
+            frequency_multiplier = min(2.0, metrics.access_frequency_per_hour / frequency_threshold)
             adjusted_ttl = int(default_ttl * frequency_multiplier)
 
             return True, max(
@@ -679,9 +655,7 @@ class AdaptiveCacheStrategy:
 
         # ヒット率によるTTL調整
         hit_rate_factor = (
-            1.0
-            + (metrics.hit_rate - 0.5)
-            * self.optimization_params["ttl_adjustment_factor"]
+            1.0 + (metrics.hit_rate - 0.5) * self.optimization_params["ttl_adjustment_factor"]
         )
 
         adjusted_ttl = int(pattern_ttl * hit_rate_factor)
@@ -746,19 +720,14 @@ class AdaptiveCacheStrategy:
         hit_rate_score = metrics.hit_rate
 
         # 頻度重み（対数スケール）
-        frequency_score = min(
-            1.0, math.log10(max(1, metrics.access_frequency_per_hour)) / 2.0
-        )
+        frequency_score = min(1.0, math.log10(max(1, metrics.access_frequency_per_hour)) / 2.0)
 
         # サイズコスト（大きなオブジェクトは価値減少）
         size_cost = max(0.1, 1.0 - metrics.value_size_bytes / (1024 * 1024))  # 1MB基準
 
         # 総合スコア
         value_score = (
-            probability_score * 0.4
-            + hit_rate_score * 0.3
-            + frequency_score * 0.2
-            + size_cost * 0.1
+            probability_score * 0.4 + hit_rate_score * 0.3 + frequency_score * 0.2 + size_cost * 0.1
         )
 
         return value_score
@@ -794,25 +763,19 @@ class AdaptiveCacheStrategy:
 
     def _calculate_global_hit_rate(self) -> float:
         """グローバルヒット率計算"""
-        total_requests = (
-            self.global_metrics["total_hits"] + self.global_metrics["total_misses"]
-        )
+        total_requests = self.global_metrics["total_hits"] + self.global_metrics["total_misses"]
         return self.global_metrics["total_hits"] / max(total_requests, 1)
 
     def _generate_metrics_summary(self) -> Dict[str, Any]:
         """メトリクス要約生成"""
         total_keys = len(self.key_metrics)
-        total_requests = (
-            self.global_metrics["total_hits"] + self.global_metrics["total_misses"]
-        )
+        total_requests = self.global_metrics["total_hits"] + self.global_metrics["total_misses"]
 
         return {
             "total_cached_keys": total_keys,
             "total_requests": total_requests,
             "global_hit_rate": self._calculate_global_hit_rate(),
-            "average_key_access_count": sum(
-                m.access_count for m in self.key_metrics.values()
-            )
+            "average_key_access_count": sum(m.access_count for m in self.key_metrics.values())
             / max(total_keys, 1),
             "memory_usage_mb": self.global_metrics["cache_memory_usage"] / (1024**2),
             "ml_predictions_enabled": self.ml_predictor.enable_ml,
@@ -829,9 +792,7 @@ class AdaptiveCacheStrategy:
         for metrics in self.key_metrics.values():
             pattern_counts[metrics.access_pattern] += 1
 
-        return {
-            pattern: count / total_keys for pattern, count in pattern_counts.items()
-        }
+        return {pattern: count / total_keys for pattern, count in pattern_counts.items()}
 
 
 if __name__ == "__main__":

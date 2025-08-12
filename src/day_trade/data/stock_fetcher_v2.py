@@ -142,9 +142,7 @@ class StockFetcher:
         interval: str = "1d",
     ) -> Optional[pd.DataFrame]:
         """日付範囲指定での履歴データ取得"""
-        return self.yfinance_fetcher.get_historical_data_range(
-            code, start_date, end_date, interval
-        )
+        return self.yfinance_fetcher.get_historical_data_range(code, start_date, end_date, interval)
 
     def get_company_info(self, code: str) -> Optional[Dict[str, Any]]:
         """企業情報取得"""
@@ -249,9 +247,7 @@ class StockFetcher:
                 "optimization_timestamp": datetime.now().isoformat(),
             }
 
-            logger.info(
-                f"パフォーマンス最適化完了: {len(applied_optimizations)}項目適用"
-            )
+            logger.info(f"パフォーマンス最適化完了: {len(applied_optimizations)}項目適用")
             return optimization_result
 
         except Exception as e:
@@ -333,9 +329,7 @@ class StockFetcher:
                             "get_company_info",
                         ]
                     },
-                    "performance_trend": self.performance_monitor.get_performance_trend(
-                        30
-                    ),
+                    "performance_trend": self.performance_monitor.get_performance_trend(30),
                 }
 
             return system_stats

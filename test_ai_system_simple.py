@@ -17,6 +17,7 @@ import pandas as pd
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
+
 def test_system_components():
     """システムコンポーネント基本テスト"""
 
@@ -30,11 +31,9 @@ def test_system_components():
     print("[1/6] MLエンジンテスト実行中...")
     try:
         from src.day_trade.data.advanced_ml_engine import ModelConfig
+
         config = ModelConfig(
-            lstm_hidden_size=32,
-            transformer_d_model=64,
-            sequence_length=20,
-            num_features=5
+            lstm_hidden_size=32, transformer_d_model=64, sequence_length=20, num_features=5
         )
         test_results.append(("MLエンジン初期化", True, "設定作成成功"))
         print("      成功: ML設定作成")
@@ -46,10 +45,9 @@ def test_system_components():
     print("[2/6] 強化学習環境テスト実行中...")
     try:
         from src.day_trade.rl.trading_environment import create_trading_environment
+
         env = create_trading_environment(
-            symbols=["TEST_A", "TEST_B"],
-            initial_balance=1000000,
-            max_steps=10
+            symbols=["TEST_A", "TEST_B"], initial_balance=1000000, max_steps=10
         )
 
         # 基本動作テスト
@@ -67,10 +65,8 @@ def test_system_components():
     print("[3/6] PPO設定テスト実行中...")
     try:
         from src.day_trade.rl.ppo_agent import PPOConfig
-        ppo_config = PPOConfig(
-            hidden_dim=32,
-            max_episodes=5
-        )
+
+        ppo_config = PPOConfig(hidden_dim=32, max_episodes=5)
         test_results.append(("PPO設定", True, "PPO設定作成成功"))
         print("      成功: PPO設定作成")
     except Exception as e:
@@ -81,14 +77,20 @@ def test_system_components():
     print("[4/6] センチメント分析テスト実行中...")
     try:
         from src.day_trade.sentiment.sentiment_engine import create_sentiment_engine
+
         sentiment_engine = create_sentiment_engine()
 
         # テスト分析
         test_text = "The stock market shows positive momentum today with strong earnings."
         result = sentiment_engine.analyze_text(test_text)
 
-        test_results.append(("センチメント分析", True,
-                           f"分析成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})"))
+        test_results.append(
+            (
+                "センチメント分析",
+                True,
+                f"分析成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})",
+            )
+        )
         print(f"      成功: {result.sentiment_label} (スコア: {result.sentiment_score:.2f})")
     except Exception as e:
         test_results.append(("センチメント分析", False, str(e)))
@@ -129,6 +131,7 @@ def test_system_components():
 
     return test_results
 
+
 def test_data_integration():
     """データ統合テスト"""
 
@@ -136,15 +139,18 @@ def test_data_integration():
 
     # テスト用市場データ生成
     np.random.seed(42)
-    dates = pd.date_range('2023-01-01', periods=50, freq='D')
+    dates = pd.date_range("2023-01-01", periods=50, freq="D")
 
-    test_data = pd.DataFrame({
-        '始値': 1000 + np.cumsum(np.random.randn(50) * 5),
-        '高値': 1000 + np.cumsum(np.random.randn(50) * 5) + np.random.rand(50) * 5,
-        '安値': 1000 + np.cumsum(np.random.randn(50) * 5) - np.random.rand(50) * 5,
-        '終値': 1000 + np.cumsum(np.random.randn(50) * 5),
-        '出来高': np.random.randint(1000, 10000, 50)
-    }, index=dates)
+    test_data = pd.DataFrame(
+        {
+            "始値": 1000 + np.cumsum(np.random.randn(50) * 5),
+            "高値": 1000 + np.cumsum(np.random.randn(50) * 5) + np.random.rand(50) * 5,
+            "安値": 1000 + np.cumsum(np.random.randn(50) * 5) - np.random.rand(50) * 5,
+            "終値": 1000 + np.cumsum(np.random.randn(50) * 5),
+            "出来高": np.random.randint(1000, 10000, 50),
+        },
+        index=dates,
+    )
 
     # データ品質チェック
     data_issues = []
@@ -155,13 +161,14 @@ def test_data_integration():
     if len(test_data) < 30:
         data_issues.append("データ不足")
 
-    if (test_data['高値'] < test_data['終値']).any():
+    if (test_data["高値"] < test_data["終値"]).any():
         data_issues.append("価格整合性エラー")
 
     print(f"テストデータ生成: {len(test_data)} レコード")
     print(f"データ品質チェック: {len(data_issues)} 問題")
 
     return len(data_issues) == 0, test_data
+
 
 def test_end_to_end_pipeline():
     """エンドツーエンドパイプラインテスト"""
@@ -179,21 +186,21 @@ def test_end_to_end_pipeline():
             print("データ準備失敗")
             return False
 
-        pipeline_results['data_prepared'] = True
+        pipeline_results["data_prepared"] = True
 
         # Step 2: ML予測模擬
         print("Step 2: ML予測実行中...")
-        last_price = market_data['終値'].iloc[-1]
-        returns = market_data['終値'].pct_change().dropna()
+        last_price = market_data["終値"].iloc[-1]
+        returns = market_data["終値"].pct_change().dropna()
         predicted_return = returns.mean() + np.random.normal(0, 0.01)
 
         ml_prediction = {
-            'current_price': last_price,
-            'predicted_price': last_price * (1 + predicted_return),
-            'confidence': np.random.uniform(0.7, 0.9)
+            "current_price": last_price,
+            "predicted_price": last_price * (1 + predicted_return),
+            "confidence": np.random.uniform(0.7, 0.9),
         }
 
-        pipeline_results['ml_prediction'] = ml_prediction
+        pipeline_results["ml_prediction"] = ml_prediction
         print(f"ML予測: 現在価格={last_price:.2f}, 予測価格={ml_prediction['predicted_price']:.2f}")
 
         # Step 3: センチメント分析
@@ -204,20 +211,22 @@ def test_end_to_end_pipeline():
         test_news = "Market shows positive trends with strong investor confidence today."
         sentiment_result = sentiment_engine.analyze_text(test_news)
 
-        pipeline_results['sentiment_analysis'] = {
-            'sentiment_label': sentiment_result.sentiment_label,
-            'sentiment_score': sentiment_result.sentiment_score,
-            'confidence': sentiment_result.confidence
+        pipeline_results["sentiment_analysis"] = {
+            "sentiment_label": sentiment_result.sentiment_label,
+            "sentiment_score": sentiment_result.sentiment_score,
+            "confidence": sentiment_result.confidence,
         }
 
-        print(f"センチメント分析: {sentiment_result.sentiment_label} (スコア: {sentiment_result.sentiment_score:.2f})")
+        print(
+            f"センチメント分析: {sentiment_result.sentiment_label} (スコア: {sentiment_result.sentiment_score:.2f})"
+        )
 
         # Step 4: 統合意思決定
         print("Step 4: 統合意思決定実行中...")
 
         ml_signal = 1 if predicted_return > 0 else -1
         sentiment_signal = 1 if sentiment_result.sentiment_score > 0 else -1
-        confidence_weight = (ml_prediction['confidence'] + sentiment_result.confidence) / 2
+        confidence_weight = (ml_prediction["confidence"] + sentiment_result.confidence) / 2
 
         final_signal = (ml_signal * 0.6 + sentiment_signal * 0.4) * confidence_weight
 
@@ -228,12 +237,12 @@ def test_end_to_end_pipeline():
         else:
             decision = "HOLD"
 
-        pipeline_results['final_decision'] = {
-            'action': decision,
-            'signal_strength': abs(final_signal),
-            'confidence': confidence_weight,
-            'ml_signal': ml_signal,
-            'sentiment_signal': sentiment_signal
+        pipeline_results["final_decision"] = {
+            "action": decision,
+            "signal_strength": abs(final_signal),
+            "confidence": confidence_weight,
+            "ml_signal": ml_signal,
+            "sentiment_signal": sentiment_signal,
         }
 
         print(f"最終決定: {decision} (シグナル強度: {abs(final_signal):.2f})")
@@ -244,12 +253,13 @@ def test_end_to_end_pipeline():
         print(f"パイプラインエラー: {e}")
         return False, {}
 
+
 def generate_performance_report(test_results, pipeline_success, pipeline_results):
     """パフォーマンスレポート生成"""
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Next-Gen AI Trading Engine 統合テスト結果")
-    print("="*60)
+    print("=" * 60)
 
     # 基本統計
     total_tests = len(test_results)
@@ -273,9 +283,9 @@ def generate_performance_report(test_results, pipeline_success, pipeline_results
         print("  [成功] 統合パイプライン動作確認")
 
         if pipeline_results:
-            ml_pred = pipeline_results.get('ml_prediction', {})
-            sentiment = pipeline_results.get('sentiment_analysis', {})
-            decision = pipeline_results.get('final_decision', {})
+            ml_pred = pipeline_results.get("ml_prediction", {})
+            sentiment = pipeline_results.get("sentiment_analysis", {})
+            decision = pipeline_results.get("final_decision", {})
 
             print(f"    ML予測信頼度: {ml_pred.get('confidence', 0)*100:.1f}%")
             print(f"    センチメント信頼度: {sentiment.get('confidence', 0)*100:.1f}%")
@@ -305,6 +315,7 @@ def generate_performance_report(test_results, pipeline_success, pipeline_results
 
     return overall_success
 
+
 def main():
     """メイン実行関数"""
 
@@ -318,7 +329,9 @@ def main():
         pipeline_success, pipeline_results = test_end_to_end_pipeline()
 
         # パフォーマンスレポート生成
-        overall_success = generate_performance_report(test_results, pipeline_success, pipeline_results)
+        overall_success = generate_performance_report(
+            test_results, pipeline_success, pipeline_results
+        )
 
         total_time = time.time() - start_time
         print(f"\n総実行時間: {total_time:.2f}秒")
@@ -334,8 +347,10 @@ def main():
     except Exception as e:
         print(f"\n統合テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = main()

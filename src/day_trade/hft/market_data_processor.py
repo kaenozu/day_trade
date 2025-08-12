@@ -97,9 +97,7 @@ class MarketUpdate:
             self.receive_timestamp_ns = time.perf_counter_ns()
 
         if self.exchange_timestamp_ns > 0:
-            self.processing_latency_ns = (
-                self.receive_timestamp_ns - self.exchange_timestamp_ns
-            )
+            self.processing_latency_ns = self.receive_timestamp_ns - self.exchange_timestamp_ns
 
     def get_price_float(self) -> float:
         """価格をfloat取得"""
@@ -311,19 +309,11 @@ class OrderBook:
             return (best_bid.price + best_ask.price) // 2
         return None
 
-    def get_book_snapshot(
-        self, levels: int = 5
-    ) -> Dict[str, List[Tuple[float, float]]]:
+    def get_book_snapshot(self, levels: int = 5) -> Dict[str, List[Tuple[float, float]]]:
         """Order Bookスナップショット取得"""
         return {
-            "bids": [
-                (bid.get_price_float(), bid.get_size_float())
-                for bid in self.bids[:levels]
-            ],
-            "asks": [
-                (ask.get_price_float(), ask.get_size_float())
-                for ask in self.asks[:levels]
-            ],
+            "bids": [(bid.get_price_float(), bid.get_size_float()) for bid in self.bids[:levels]],
+            "asks": [(ask.get_price_float(), ask.get_size_float()) for ask in self.asks[:levels]],
             "timestamp_ns": self.last_update_ns,
             "sequence": self.sequence_number,
         }
@@ -371,17 +361,13 @@ class ZeroCopyUDPReceiver:
                     logger.warning("SO_REUSEPORT not supported on this platform")
 
             # Buffer size optimization
-            self.socket.setsockopt(
-                socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size
-            )
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size)
 
             # Bind to port
             self.socket.bind(("", self.port))
 
             # Join multicast group
-            mreq = struct.pack(
-                "4sL", socket.inet_aton(self.multicast_group), socket.INADDR_ANY
-            )
+            mreq = struct.pack("4sL", socket.inet_aton(self.multicast_group), socket.INADDR_ANY)
             self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
             logger.info(f"UDP受信初期化完了: {self.multicast_group}:{self.port}")
@@ -437,9 +423,7 @@ class ZeroCopyUDPReceiver:
         """統計情報取得"""
         avg_processing_latency_ns = 0
         if self.packets_received > 0:
-            avg_processing_latency_ns = (
-                self.processing_latency_sum_ns / self.packets_received
-            )
+            avg_processing_latency_ns = self.processing_latency_sum_ns / self.packets_received
 
         return {
             "packets_received": self.packets_received,
@@ -544,9 +528,7 @@ class MarketDataParser:
         except:
             return None
 
-    def _parse_depth_update(
-        self, symbol_id: int, data: bytes
-    ) -> Optional[MarketUpdate]:
+    def _parse_depth_update(self, symbol_id: int, data: bytes) -> Optional[MarketUpdate]:
         """板更新データ解析"""
         if len(data) < 20:  # side(4) + price(8) + size(8)
             return None
@@ -575,8 +557,7 @@ class MarketDataParser:
             "parsed_messages": self.parsed_messages,
             "parse_errors": self.parse_errors,
             "avg_parse_time_us": avg_parse_time_ns / 1000,
-            "success_rate": self.parsed_messages
-            / max(self.parsed_messages + self.parse_errors, 1),
+            "success_rate": self.parsed_messages / max(self.parsed_messages + self.parse_errors, 1),
         }
 
 
@@ -749,9 +730,7 @@ class UltraFastMarketDataProcessor:
         """Order Book取得"""
         return self.order_books.get(symbol_id)
 
-    def get_order_book_snapshot(
-        self, symbol_id: int, levels: int = 5
-    ) -> Optional[Dict[str, Any]]:
+    def get_order_book_snapshot(self, symbol_id: int, levels: int = 5) -> Optional[Dict[str, Any]]:
         """Order Bookスナップショット取得"""
         order_book = self.get_order_book(symbol_id)
         if not order_book:
@@ -819,8 +798,7 @@ class UltraFastMarketDataProcessor:
         avg_processing_latency_us = 0
         if self.stats["messages_processed"] > 0:
             avg_processing_latency_us = (
-                self.stats["processing_latency_sum_us"]
-                / self.stats["messages_processed"]
+                self.stats["processing_latency_sum_us"] / self.stats["messages_processed"]
             )
 
         stats = self.stats.copy()
@@ -915,9 +893,7 @@ if __name__ == "__main__":
             print(
                 f"バッチ処理: {processed_count}/{len(test_updates)} 更新, {processing_time_ms:.3f}ms"
             )
-            print(
-                f"平均処理時間: {(processing_time_ms * 1000) / processed_count:.1f}μs per update"
-            )
+            print(f"平均処理時間: {(processing_time_ms * 1000) / processed_count:.1f}μs per update")
 
             print("\n2. Order Book状態確認")
             snapshot = processor.get_order_book_snapshot(1001, levels=3)
@@ -930,12 +906,8 @@ if __name__ == "__main__":
             print("\n3. 市場サマリー")
             summary = processor.get_market_summary(1001)
             if summary:
-                print(
-                    f"  Best Bid: ${summary['best_bid_price']:.2f} @ {summary['best_bid_size']}"
-                )
-                print(
-                    f"  Best Ask: ${summary['best_ask_price']:.2f} @ {summary['best_ask_size']}"
-                )
+                print(f"  Best Bid: ${summary['best_bid_price']:.2f} @ {summary['best_bid_size']}")
+                print(f"  Best Ask: ${summary['best_ask_price']:.2f} @ {summary['best_ask_size']}")
                 print(f"  Spread: ${summary['spread']:.2f}")
                 print(f"  Mid Price: ${summary['mid_price']:.2f}")
 

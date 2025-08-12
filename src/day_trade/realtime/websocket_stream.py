@@ -49,9 +49,7 @@ class StreamConfig:
     news_api_key: Optional[str] = None
 
     # 監視銘柄
-    symbols: List[str] = field(
-        default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"]
-    )
+    symbols: List[str] = field(default_factory=lambda: ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"])
 
 
 @dataclass
@@ -346,8 +344,7 @@ class NewsAPIStream:
                             source=article.get("source", {}).get("name", ""),
                             url=article.get("url"),
                             symbols=self._extract_symbols(
-                                article.get("title", "")
-                                + article.get("description", "")
+                                article.get("title", "") + article.get("description", "")
                             ),
                         )
                         news_items.append(news_item)
@@ -439,9 +436,7 @@ class RealTimeStreamManager:
 
         try:
             # 市場データストリーム
-            market_task = asyncio.create_task(
-                self.market_stream.start_stream(self.config.symbols)
-            )
+            market_task = asyncio.create_task(self.market_stream.start_stream(self.config.symbols))
             self.running_tasks.append(market_task)
 
             # ニュースストリーム
@@ -613,17 +608,13 @@ class RealTimeStreamManager:
 
         # 最近1分間のデータ数
         recent_cutoff = datetime.now() - timedelta(minutes=1)
-        recent_data = [
-            tick for tick in self.market_data if tick.timestamp > recent_cutoff
-        ]
+        recent_data = [tick for tick in self.market_data if tick.timestamp > recent_cutoff]
 
         # 期待データ数との比較
         expected_ticks = len(self.config.symbols) * 60  # 1分間で1銘柄60ティック想定
         actual_ticks = len(recent_data)
 
-        quality_score = (
-            min(actual_ticks / expected_ticks, 1.0) if expected_ticks > 0 else 0.0
-        )
+        quality_score = min(actual_ticks / expected_ticks, 1.0) if expected_ticks > 0 else 0.0
 
         return quality_score
 
@@ -653,9 +644,7 @@ if __name__ == "__main__":
         async def data_callback(data):
             market_count = len(data["market_ticks"])
             news_count = len(data["news_items"])
-            print(
-                f"Data received: {market_count} market ticks, {news_count} news items"
-            )
+            print(f"Data received: {market_count} market ticks, {news_count} news items")
 
         try:
             # ストリーム管理システム作成

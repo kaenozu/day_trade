@@ -83,9 +83,7 @@ class OptimizedIndicatorCalculator:
         Returns:
             指標名をキーとする計算結果辞書
         """
-        use_parallel = (
-            use_parallel if use_parallel is not None else self.enable_parallel
-        )
+        use_parallel = use_parallel if use_parallel is not None else self.enable_parallel
 
         if use_parallel and len(indicators) > 1:
             return self._calculate_parallel(data, indicators)
@@ -134,9 +132,7 @@ class OptimizedIndicatorCalculator:
 
         return results
 
-    def _calculate_single_indicator(
-        self, data: pd.DataFrame, config: Dict
-    ) -> IndicatorResult:
+    def _calculate_single_indicator(self, data: pd.DataFrame, config: Dict) -> IndicatorResult:
         """単一指標の計算"""
         import time
 
@@ -264,9 +260,7 @@ class OptimizedIndicatorCalculator:
                 index=data.index,
             )
         else:
-            return self._macd_optimized(
-                data[column], fast_period, slow_period, signal_period
-            )
+            return self._macd_optimized(data[column], fast_period, slow_period, signal_period)
 
     # === ボラティリティ系指標 ===
 
@@ -443,9 +437,7 @@ class OptimizedIndicatorCalculator:
         values = self._rsi_numba(prices.values, period)
         return pd.Series(values, index=prices.index, name=f"rsi_{period}")
 
-    def _bollinger_optimized(
-        self, prices: pd.Series, period: int, std_dev: float
-    ) -> pd.DataFrame:
+    def _bollinger_optimized(self, prices: pd.Series, period: int, std_dev: float) -> pd.DataFrame:
         """最適化版ボリンジャーバンド"""
         # Pandasのローリング関数を使用（十分に最適化されている）
         sma = prices.rolling(window=period).mean()
@@ -640,9 +632,7 @@ if __name__ == "__main__":
 
     print("✅ 包括的分析完了:")
     print(f"   実行時間: {execution_time:.3f}秒")
-    print(
-        f"   計算指標数: {len(comprehensive_result.columns) - len(test_data.columns)}"
-    )
+    print(f"   計算指標数: {len(comprehensive_result.columns) - len(test_data.columns)}")
     print(f"   スループット: {len(test_data) / execution_time:.0f} records/sec")
 
     # パフォーマンス統計表示
@@ -650,6 +640,4 @@ if __name__ == "__main__":
     if summary.get("slowest_functions"):
         print("\n⏱️ 最も時間のかかった処理:")
         for func_metrics in summary["slowest_functions"][:3]:
-            print(
-                f"   {func_metrics.function_name}: {func_metrics.execution_time:.3f}秒"
-            )
+            print(f"   {func_metrics.function_name}: {func_metrics.execution_time:.3f}秒")

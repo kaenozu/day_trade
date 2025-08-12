@@ -13,9 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from day_trade.monitoring.production_monitoring_system import (
-    ProductionMonitoringSystem,
     AlertSeverity,
     MonitoringScope,
+    ProductionMonitoringSystem,
 )
 
 

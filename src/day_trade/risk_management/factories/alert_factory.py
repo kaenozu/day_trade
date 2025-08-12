@@ -54,9 +54,7 @@ class AlertChannelFactory:
     """アラートチャネルファクトリー"""
 
     def __init__(self):
-        self._channel_registry: Dict[
-            NotificationChannelType, Type[INotificationChannel]
-        ] = {}
+        self._channel_registry: Dict[NotificationChannelType, Type[INotificationChannel]] = {}
         self._processor_registry: Dict[str, Type[IAlertProcessor]] = {}
         self._rule_registry: Dict[str, Type[IAlertRule]] = {}
         self._plugin_registry: Dict[str, Type[INotificationChannel]] = {}
@@ -173,9 +171,7 @@ class AlertChannelFactory:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Failed to register some builtin notification channels: {e}"
-            )
+            logger.warning(f"Failed to register some builtin notification channels: {e}")
 
     def _register_builtin_processors(self):
         """組み込みプロセッサー登録"""
@@ -291,12 +287,10 @@ class AlertChannelFactory:
             self._plugin_registry[plugin_name] = channel_class
 
             if config_schema:
-                self._config_schemas[
-                    NotificationChannelType.PLUGIN
-                ] = self._config_schemas.get(NotificationChannelType.PLUGIN, {})
-                self._config_schemas[NotificationChannelType.PLUGIN][
-                    plugin_name
-                ] = config_schema
+                self._config_schemas[NotificationChannelType.PLUGIN] = self._config_schemas.get(
+                    NotificationChannelType.PLUGIN, {}
+                )
+                self._config_schemas[NotificationChannelType.PLUGIN][plugin_name] = config_schema
 
             return True
 
@@ -351,9 +345,7 @@ class AlertChannelFactory:
         channel_configs: List[Dict[str, Any]],
         routing_rules: Optional[Dict[str, List[str]]] = None,
         fallback_channels: Optional[List[str]] = None,
-    ) -> (
-        "MultiChannelNotifier"
-    ):  # TODO: MultiChannelNotifier クラスを実装 # type: ignore
+    ) -> "MultiChannelNotifier":  # TODO: MultiChannelNotifier クラスを実装 # type: ignore
         """マルチチャネル通知システム作成"""
 
         channels = {}
@@ -412,9 +404,7 @@ class AlertChannelFactory:
 
         return EscalationManager(
             escalation_rules=escalation_rules,
-            default_timeout_minutes=escalation_policies.get(
-                "default_timeout_minutes", 60
-            ),
+            default_timeout_minutes=escalation_policies.get("default_timeout_minutes", 60),
         )
 
     def create_alert_processor(
@@ -541,9 +531,7 @@ class AlertChannelFactory:
             elif field_name in merged_config:
                 # 型チェック
                 expected_type = field_schema.get("type")
-                if expected_type and not isinstance(
-                    merged_config[field_name], expected_type
-                ):
+                if expected_type and not isinstance(merged_config[field_name], expected_type):
                     raise ValidationError(
                         f"Configuration field '{field_name}' must be of type {expected_type.__name__}",
                         field_name=field_name,

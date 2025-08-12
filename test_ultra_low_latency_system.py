@@ -11,21 +11,21 @@ import sys
 import time
 from pathlib import Path
 from statistics import mean, stdev
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 # プロジェクトルートをパスに追加
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 try:
-    from day_trade.performance.ultra_low_latency_core import (
-        UltraLowLatencyCore,
-        UltraLowLatencyConfig,
-        create_ultra_low_latency_core
-    )
     from day_trade.performance.system_optimization import (
-        SystemOptimizer,
         SystemOptimizationConfig,
-        setup_ultra_low_latency_system
+        SystemOptimizer,
+        setup_ultra_low_latency_system,
+    )
+    from day_trade.performance.ultra_low_latency_core import (
+        UltraLowLatencyConfig,
+        UltraLowLatencyCore,
+        create_ultra_low_latency_core,
     )
     MODULES_AVAILABLE = True
 except ImportError as e:
@@ -61,7 +61,7 @@ def test_basic_ultra_low_latency():
     latencies = [r['latency_us'] for r in results]
     under_target = sum(1 for lat in latencies if lat < 10.0)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"Total trades: {len(results)}")
     print(f"Average latency: {mean(latencies):.2f}μs")
     print(f"Min latency: {min(latencies):.2f}μs")
@@ -156,7 +156,7 @@ def test_performance_comparison():
     # 比較結果
     improvement = ((normal_avg - optimized_avg) / normal_avg) * 100
 
-    print(f"\nPerformance Comparison:")
+    print("\nPerformance Comparison:")
     print(f"Normal config average: {normal_avg:.2f}μs")
     print(f"Optimized config average: {optimized_avg:.2f}μs")
     print(f"Improvement: {improvement:.1f}%")
@@ -195,7 +195,7 @@ def test_latency_distribution():
     under_10us = sum(1 for lat in latencies if lat < 10.0)
     under_15us = sum(1 for lat in latencies if lat < 15.0)
 
-    print(f"\nLatency Distribution (N=1000):")
+    print("\nLatency Distribution (N=1000):")
     print(f"Mean: {mean(latencies):.2f}μs")
     print(f"P50 (median): {p50:.2f}μs")
     print(f"P90: {p90:.2f}μs")
@@ -204,7 +204,7 @@ def test_latency_distribution():
     print(f"Min: {min(latencies):.2f}μs")
     print(f"Max: {max(latencies):.2f}μs")
 
-    print(f"\nTarget Achievement:")
+    print("\nTarget Achievement:")
     print(f"< 5μs:  {under_5us}/1000 ({under_5us/10:.1f}%)")
     print(f"< 10μs: {under_10us}/1000 ({under_10us/10:.1f}%)")
     print(f"< 15μs: {under_15us}/1000 ({under_15us/10:.1f}%)")
@@ -265,7 +265,7 @@ def test_concurrent_performance():
     overall_avg = mean(all_latencies)
     under_10us = sum(1 for lat in all_latencies if lat < 10.0)
 
-    print(f"\nConcurrent Performance Summary:")
+    print("\nConcurrent Performance Summary:")
     print(f"Total trades: {len(all_latencies)}")
     print(f"Overall average: {overall_avg:.2f}μs")
     print(f"Under 10μs target: {under_10us}/{len(all_latencies)} ({under_10us/len(all_latencies)*100:.1f}%)")

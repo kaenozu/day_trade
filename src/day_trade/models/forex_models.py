@@ -81,9 +81,7 @@ class ForexDailyStats(Base):
     avg_spread = Column(Numeric(precision=12, scale=6), nullable=True)
     total_volume = Column(Numeric(precision=20, scale=2), nullable=True)
     tick_count = Column(Integer, nullable=True)
-    volatility = Column(
-        Numeric(precision=8, scale=6), nullable=True
-    )  # 日次ボラティリティ
+    volatility = Column(Numeric(precision=8, scale=6), nullable=True)  # 日次ボラティリティ
 
     # 価格変動データ
     price_change = Column(Numeric(precision=12, scale=6), nullable=True)

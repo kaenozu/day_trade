@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -24,8 +25,10 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
@@ -33,6 +36,7 @@ logger = get_context_logger(__name__)
 @dataclass
 class SystemOptimizationConfig:
     """システム最適化設定"""
+
     # CPU設定
     cpu_cores: List[int] = None
     isolate_cpus: bool = True
@@ -105,7 +109,7 @@ class SystemOptimizer:
             total_count = 0
 
             # CPU親和性設定
-            if self.config.cpu_cores and hasattr(os, 'sched_setaffinity'):
+            if self.config.cpu_cores and hasattr(os, "sched_setaffinity"):
                 total_count += 1
                 try:
                     os.sched_setaffinity(0, set(self.config.cpu_cores))
@@ -116,7 +120,7 @@ class SystemOptimizer:
                     logger.warning(f"CPU親和性設定失敗: {e}")
 
             # CPUガバナー設定
-            if platform.system() == 'Linux':
+            if platform.system() == "Linux":
                 total_count += 1
                 success = self._set_cpu_governor(self.config.cpu_frequency_governor)
                 if success:
@@ -124,7 +128,7 @@ class SystemOptimizer:
                     self.applied_optimizations.append("cpu_governor")
 
             # CPU分離設定（Linux）
-            if platform.system() == 'Linux' and self.config.isolate_cpus:
+            if platform.system() == "Linux" and self.config.isolate_cpus:
                 total_count += 1
                 success = self._setup_cpu_isolation()
                 if success:
@@ -143,7 +147,7 @@ class SystemOptimizer:
             success_count = 0
             total_count = 0
 
-            if platform.system() == 'Linux':
+            if platform.system() == "Linux":
                 # Transparent Huge Pages設定
                 total_count += 1
                 if self._set_transparent_hugepages(self.config.transparent_hugepages):
@@ -183,7 +187,7 @@ class SystemOptimizer:
                 return True
 
             # プロセス優先度設定
-            if hasattr(os, 'setpriority'):
+            if hasattr(os, "setpriority"):
                 try:
                     os.setpriority(os.PRIO_PROCESS, 0, self.config.process_priority)
                     self.applied_optimizations.append("process_priority")
@@ -192,9 +196,10 @@ class SystemOptimizer:
                     logger.warning(f"プロセス優先度設定失敗: {e}")
 
             # リアルタイムスケジューラ設定（Linux）
-            if platform.system() == 'Linux':
+            if platform.system() == "Linux":
                 try:
                     import sched
+
                     param = sched.sched_param(99)  # 最高優先度
                     if self.config.scheduler_policy == "SCHED_FIFO":
                         os.sched_setscheduler(0, os.SCHED_FIFO, param)
@@ -218,7 +223,7 @@ class SystemOptimizer:
     def _optimize_network(self) -> bool:
         """ネットワーク最適化"""
         try:
-            if platform.system() != 'Linux':
+            if platform.system() != "Linux":
                 logger.info("ネットワーク最適化はLinuxのみサポート")
                 return True
 
@@ -255,7 +260,7 @@ class SystemOptimizer:
     def _optimize_kernel(self) -> bool:
         """カーネル最適化"""
         try:
-            if platform.system() != 'Linux':
+            if platform.system() != "Linux":
                 return True
 
             success_count = 0
@@ -284,7 +289,9 @@ class SystemOptimizer:
     def _set_cpu_governor(self, governor: str) -> bool:
         """CPUガバナー設定"""
         try:
-            cmd = f"echo {governor} | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+            cmd = (
+                f"echo {governor} | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+            )
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -305,7 +312,7 @@ class SystemOptimizer:
                 return False
 
             # GRUB設定更新が必要（再起動後有効）
-            isolcpus = ','.join(map(str, self.config.cpu_cores))
+            isolcpus = ",".join(map(str, self.config.cpu_cores))
             grub_params = f"isolcpus={isolcpus} nohz_full={isolcpus} rcu_nocbs={isolcpus}"
 
             logger.info(f"CPU分離パラメータ: {grub_params}")
@@ -456,10 +463,10 @@ class SystemOptimizer:
                 result = subprocess.run("ip link show", shell=True, capture_output=True, text=True)
                 interfaces = []
 
-                for line in result.stdout.split('\n'):
-                    if ': ' in line and not line.startswith(' '):
-                        interface = line.split(': ')[1].split('@')[0]
-                        if interface not in ['lo']:
+                for line in result.stdout.split("\n"):
+                    if ": " in line and not line.startswith(" "):
+                        interface = line.split(": ")[1].split("@")[0]
+                        if interface not in ["lo"]:
                             interfaces.append(interface)
 
                 return interfaces
@@ -532,12 +539,14 @@ class SystemOptimizer:
             }
 
             if PSUTIL_AVAILABLE:
-                info.update({
-                    "cpu_count": psutil.cpu_count(),
-                    "cpu_percent": psutil.cpu_percent(),
-                })
+                info.update(
+                    {
+                        "cpu_count": psutil.cpu_count(),
+                        "cpu_percent": psutil.cpu_percent(),
+                    }
+                )
 
-                if hasattr(os, 'sched_getaffinity'):
+                if hasattr(os, "sched_getaffinity"):
                     info["current_affinity"] = list(os.sched_getaffinity(0))
 
             return info
@@ -555,12 +564,14 @@ class SystemOptimizer:
 
             if PSUTIL_AVAILABLE:
                 memory = psutil.virtual_memory()
-                info.update({
-                    "total": memory.total,
-                    "available": memory.available,
-                    "used": memory.used,
-                    "percent": memory.percent,
-                })
+                info.update(
+                    {
+                        "total": memory.total,
+                        "available": memory.available,
+                        "used": memory.used,
+                        "percent": memory.percent,
+                    }
+                )
 
             return info
 
@@ -632,12 +643,12 @@ if __name__ == "__main__":
     optimizer = setup_ultra_low_latency_system([2, 3])
 
     status = optimizer.get_system_status()
-    print(f"\nシステム最適化状況:")
+    print("\nシステム最適化状況:")
     print(f"プラットフォーム: {status['platform']}")
     print(f"適用された最適化: {status['applied_optimizations']}")
 
-    if 'system_metrics' in status:
-        metrics = status['system_metrics']
+    if "system_metrics" in status:
+        metrics = status["system_metrics"]
         print(f"CPU数: {metrics['cpu_count']}")
         print(f"メモリ合計: {metrics['memory_total'] / (1024**3):.1f}GB")
         print(f"メモリ使用可能: {metrics['memory_available'] / (1024**3):.1f}GB")

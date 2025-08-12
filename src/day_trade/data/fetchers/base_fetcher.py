@@ -54,9 +54,7 @@ class BaseFetcher(ABC):
         self.performance_logger = get_performance_logger(__name__)
 
         # デバッグモード設定
-        self.enable_debug_logging = (
-            os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
-        )
+        self.enable_debug_logging = os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
 
         # リトライ統計
         self.retry_stats = {
@@ -115,14 +113,10 @@ class BaseFetcher(ABC):
         """リトライ統計を取得"""
         stats = self.retry_stats.copy()
         if stats["total_requests"] > 0:
-            stats["success_rate"] = (
-                stats["successful_requests"] / stats["total_requests"]
-            )
+            stats["success_rate"] = stats["successful_requests"] / stats["total_requests"]
             stats["failure_rate"] = stats["failed_requests"] / stats["total_requests"]
         if stats["total_retries"] > 0:
-            stats["retry_success_rate"] = (
-                stats["retry_success"] / stats["total_retries"]
-            )
+            stats["retry_success_rate"] = stats["retry_success"] / stats["total_retries"]
         return stats
 
     def _create_retry_decorator(self):
@@ -187,9 +181,7 @@ class BaseFetcher(ABC):
             raise error
 
         # ネットワーク関連の例外を統一的に処理
-        if isinstance(
-            error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)
-        ):
+        if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)):
             try:
                 converted_error = handle_network_exception(error)
                 raise converted_error
@@ -234,9 +226,11 @@ class BaseFetcher(ABC):
                 "misses": cache_info.misses,
                 "maxsize": cache_info.maxsize,
                 "currsize": cache_info.currsize,
-                "hit_rate": cache_info.hits / (cache_info.hits + cache_info.misses)
-                if (cache_info.hits + cache_info.misses) > 0
-                else 0.0,
+                "hit_rate": (
+                    cache_info.hits / (cache_info.hits + cache_info.misses)
+                    if (cache_info.hits + cache_info.misses) > 0
+                    else 0.0
+                ),
             }
         return {}
 
@@ -291,9 +285,7 @@ class BaseFetcher(ABC):
             cache_info = self.get_cache_info()
             if cache_info.get("hit_rate", 1.0) < 0.5:
                 health_score -= 10
-                issues.append(
-                    f"低いキャッシュ効率: {cache_info.get('hit_rate', 0):.2%}"
-                )
+                issues.append(f"低いキャッシュ効率: {cache_info.get('hit_rate', 0):.2%}")
 
             health_status = "healthy"
             if health_score < 60:

@@ -379,16 +379,12 @@ class ONNXQuantizationEngine:
             logger.error(f"静的量子化エラー: {e}")
             return False
 
-    def apply_mixed_precision_quantization(
-        self, model_path: str, output_path: str
-    ) -> bool:
+    def apply_mixed_precision_quantization(self, model_path: str, output_path: str) -> bool:
         """混合精度量子化適用"""
         try:
             # FP16量子化（ONNX Runtime Graph Optimizations）
             sess_options = ort.SessionOptions()
-            sess_options.graph_optimization_level = (
-                ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            )
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
             sess_options.optimized_model_filepath = output_path
 
             # セッション作成により最適化実行
@@ -450,15 +446,13 @@ class ModelPruningEngine:
                 continue
 
             # チャネル重要度計算（L2ノルム）
-            channel_importance = np.linalg.norm(
-                weights.reshape(weights.shape[0], -1), axis=1
-            )
+            channel_importance = np.linalg.norm(weights.reshape(weights.shape[0], -1), axis=1)
 
             # 重要度下位をプルーニング
             num_channels_to_prune = int(len(channel_importance) * pruning_ratio)
-            pruning_indices = np.argpartition(
-                channel_importance, num_channels_to_prune
-            )[:num_channels_to_prune]
+            pruning_indices = np.argpartition(channel_importance, num_channels_to_prune)[
+                :num_channels_to_prune
+            ]
 
             # チャネル削除
             mask = np.ones(weights.shape[0], dtype=bool)
@@ -599,9 +593,7 @@ class ModelCompressionEngine:
             if self.config.pruning_type != PruningType.NONE:
                 pruned_path = output_dir / f"{model_name}_pruned.onnx"
 
-                success = await self._apply_pruning(
-                    current_model_path, str(pruned_path)
-                )
+                success = await self._apply_pruning(current_model_path, str(pruned_path))
 
                 if success:
                     current_model_path = str(pruned_path)
@@ -613,14 +605,10 @@ class ModelCompressionEngine:
             await self._apply_final_optimization(current_model_path, str(final_path))
 
             # 圧縮モデル評価
-            compressed_stats = await self._evaluate_model(
-                str(final_path), validation_data
-            )
+            compressed_stats = await self._evaluate_model(str(final_path), validation_data)
 
             result.compressed_model_size_mb = compressed_stats["model_size_mb"]
-            result.compressed_inference_time_us = compressed_stats[
-                "avg_inference_time_us"
-            ]
+            result.compressed_inference_time_us = compressed_stats["avg_inference_time_us"]
             result.compressed_accuracy = compressed_stats["accuracy"]
 
             # 比率計算
@@ -679,16 +667,12 @@ class ModelCompressionEngine:
         """量子化適用"""
         try:
             if self.config.quantization_type == QuantizationType.DYNAMIC_INT8:
-                return self.quantization_engine.apply_dynamic_quantization(
-                    model_path, output_path
-                )
+                return self.quantization_engine.apply_dynamic_quantization(model_path, output_path)
 
             elif self.config.quantization_type == QuantizationType.STATIC_INT8:
                 if validation_data:
                     # 校正データ準備
-                    calibration_data = validation_data[
-                        : self.config.calibration_dataset_size
-                    ]
+                    calibration_data = validation_data[: self.config.calibration_dataset_size]
                     return self.quantization_engine.apply_static_quantization(
                         model_path, output_path, calibration_data
                     )
@@ -728,17 +712,13 @@ class ModelCompressionEngine:
             logger.error(f"プルーニング適用エラー: {e}")
             return False
 
-    async def _apply_final_optimization(
-        self, model_path: str, output_path: str
-    ) -> bool:
+    async def _apply_final_optimization(self, model_path: str, output_path: str) -> bool:
         """最終最適化"""
         try:
             # グラフ最適化、レイヤー融合等
             if ONNX_QUANTIZATION_AVAILABLE:
                 sess_options = ort.SessionOptions()
-                sess_options.graph_optimization_level = (
-                    ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-                )
+                sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
                 sess_options.optimized_model_filepath = output_path
 
                 # 最適化実行
@@ -773,21 +753,15 @@ class ModelCompressionEngine:
 
             if validation_data and ONNX_QUANTIZATION_AVAILABLE:
                 try:
-                    session = ort.InferenceSession(
-                        model_path, providers=["CPUExecutionProvider"]
-                    )
+                    session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
 
                     input_name = session.get_inputs()[0].name
 
                     # 推論時間測定
-                    for i, data in enumerate(
-                        validation_data[:10]
-                    ):  # 最初の10個でテスト
+                    for i, data in enumerate(validation_data[:10]):  # 最初の10個でテスト
                         start_time = MicrosecondTimer.now_ns()
 
-                        outputs = session.run(
-                            None, {input_name: data.astype(np.float32)}
-                        )
+                        outputs = session.run(None, {input_name: data.astype(np.float32)})
 
                         inference_time = MicrosecondTimer.elapsed_us(start_time)
                         inference_times.append(inference_time)
@@ -804,9 +778,7 @@ class ModelCompressionEngine:
             else:
                 inference_times = [1000.0]  # デフォルト値
 
-            avg_inference_time_us = (
-                np.mean(inference_times) if inference_times else 1000.0
-            )
+            avg_inference_time_us = np.mean(inference_times) if inference_times else 1000.0
 
             return {
                 "model_size_mb": model_size_mb,
@@ -895,9 +867,7 @@ async def create_model_compression_engine(
     auto_hardware_detection: bool = True,
 ) -> ModelCompressionEngine:
     """モデル圧縮エンジン作成"""
-    config = CompressionConfig(
-        quantization_type=quantization_type, pruning_type=pruning_type
-    )
+    config = CompressionConfig(quantization_type=quantization_type, pruning_type=pruning_type)
 
     engine = ModelCompressionEngine(config)
 

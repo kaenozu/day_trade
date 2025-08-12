@@ -169,9 +169,7 @@ class DashboardVisualizationEngine:
         for sys_dir in system_dirs:
             if path_str.startswith(sys_dir):
                 logger.warning(f"システムディレクトリへのアクセス拒否: {path_obj}")
-                raise ValueError(
-                    f"システムディレクトリへのアクセスは許可されていません: {sys_dir}"
-                )
+                raise ValueError(f"システムディレクトリへのアクセスは許可されていません: {sys_dir}")
 
         logger.debug(f"出力ディレクトリ検証完了: {path_obj}")
         return path_obj
@@ -198,9 +196,7 @@ class DashboardVisualizationEngine:
 
         # トレンドライン
         if len(values) > 10:
-            trend_values = np.polyval(
-                np.polyfit(range(len(values)), values, 1), range(len(values))
-            )
+            trend_values = np.polyval(np.polyfit(range(len(values)), values, 1), range(len(values)))
             ax.plot(
                 timestamps,
                 trend_values,
@@ -277,9 +273,7 @@ class DashboardVisualizationEngine:
         ax2.grid(True, alpha=0.3)
 
         # 処理時間
-        ax3.plot(
-            timestamps, processing_time, color=self.colors["secondary"], linewidth=2
-        )
+        ax3.plot(timestamps, processing_time, color=self.colors["secondary"], linewidth=2)
         ax3.axhline(
             y=1000,
             color=self.colors["danger"],
@@ -293,9 +287,7 @@ class DashboardVisualizationEngine:
         ax3.grid(True, alpha=0.3)
 
         # エラー数
-        ax4.bar(
-            timestamps, error_count, color=self.colors["danger"], alpha=0.7, width=0.02
-        )
+        ax4.bar(timestamps, error_count, color=self.colors["danger"], alpha=0.7, width=0.02)
         ax4.set_title("エラー数", fontweight="bold")
         ax4.set_ylabel("エラー数")
         ax4.grid(True, alpha=0.3)
@@ -385,9 +377,7 @@ class DashboardVisualizationEngine:
         # 累積取引数
         cumulative_trades = np.cumsum(trades_today)
         ax4.plot(timestamps, cumulative_trades, color=self.colors["info"], linewidth=2)
-        ax4.fill_between(
-            timestamps, cumulative_trades, alpha=0.3, color=self.colors["info"]
-        )
+        ax4.fill_between(timestamps, cumulative_trades, alpha=0.3, color=self.colors["info"])
         ax4.set_title("累積取引数", fontweight="bold")
         ax4.set_ylabel("累積取引数")
         ax4.grid(True, alpha=0.3)
@@ -476,9 +466,7 @@ class DashboardVisualizationEngine:
 
         return str(filepath)
 
-    def create_positions_pie_chart(
-        self, positions_data: Dict[str, Dict[str, Any]]
-    ) -> str:
+    def create_positions_pie_chart(self, positions_data: Dict[str, Dict[str, Any]]) -> str:
         """ポジション構成円グラフ作成"""
         if not positions_data:
             return ""
@@ -547,9 +535,7 @@ class DashboardVisualizationEngine:
         plt.tight_layout()
 
         # 保存
-        filename = (
-            f"positions_composition_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        )
+        filename = f"positions_composition_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = self.output_dir / filename
         plt.savefig(filepath, dpi=300, bbox_inches="tight")
         plt.close()
@@ -574,9 +560,7 @@ class DashboardVisualizationEngine:
         # 1. ポートフォリオ価値推移 (大きく表示)
         ax1 = fig.add_subplot(gs[0, :2])
         if portfolio_data:
-            timestamps = [
-                datetime.fromisoformat(item["timestamp"]) for item in portfolio_data
-            ]
+            timestamps = [datetime.fromisoformat(item["timestamp"]) for item in portfolio_data]
             values = [item["total_value"] for item in portfolio_data]
             ax1.plot(timestamps, values, color=self.colors["primary"], linewidth=3)
             ax1.set_title("ポートフォリオ価値推移", fontsize=14, fontweight="bold")
@@ -624,16 +608,12 @@ class DashboardVisualizationEngine:
                 autopct="%1.1f%%",
                 startangle=90,
             )
-            ax3.set_title(
-                f"本日取引: {latest_trading['trades_today']}回", fontweight="bold"
-            )
+            ax3.set_title(f"本日取引: {latest_trading['trades_today']}回", fontweight="bold")
 
         # 4. リスク指標
         ax4 = fig.add_subplot(gs[1, :2])
         if risk_data:
-            timestamps = [
-                datetime.fromisoformat(item["timestamp"]) for item in risk_data
-            ]
+            timestamps = [datetime.fromisoformat(item["timestamp"]) for item in risk_data]
             drawdown = [item["current_drawdown"] * 100 for item in risk_data]
             volatility = [item["portfolio_volatility"] * 100 for item in risk_data]
 
@@ -733,14 +713,10 @@ class DashboardVisualizationEngine:
         )
 
         # 全体タイトル
-        fig.suptitle(
-            "プロダクション運用監視ダッシュボード", fontsize=20, fontweight="bold"
-        )
+        fig.suptitle("プロダクション運用監視ダッシュボード", fontsize=20, fontweight="bold")
 
         # 保存
-        filename = (
-            f"comprehensive_dashboard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        )
+        filename = f"comprehensive_dashboard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = self.output_dir / filename
         plt.savefig(filepath, dpi=300, bbox_inches="tight")
         plt.close()
@@ -766,9 +742,7 @@ class DashboardVisualizationEngine:
             return
 
         if hours < 1:
-            logger.warning(
-                "1時間未満の指定: 意図しない削除を防止するため処理をスキップします"
-            )
+            logger.warning("1時間未満の指定: 意図しない削除を防止するため処理をスキップします")
             return
 
         cleaned_count = 0
@@ -782,20 +756,14 @@ class DashboardVisualizationEngine:
         # セキュリティ強化: 安全でないパスパターンのチェック
         try:
             resolved_output_dir = self.output_dir.resolve()
-            if ".." in str(resolved_output_dir) or str(resolved_output_dir).startswith(
-                "/etc"
-            ):
-                logger.error(
-                    f"危険なクリーンアップ対象ディレクトリ: {resolved_output_dir}"
-                )
+            if ".." in str(resolved_output_dir) or str(resolved_output_dir).startswith("/etc"):
+                logger.error(f"危険なクリーンアップ対象ディレクトリ: {resolved_output_dir}")
                 return
         except Exception as e:
             logger.error(f"ディレクトリパス検証エラー: {e}")
             return
 
-        logger.info(
-            f"クリーンアップ開始: {self.output_dir}, {hours}時間以上経過ファイル対象"
-        )
+        logger.info(f"クリーンアップ開始: {self.output_dir}, {hours}時間以上経過ファイル対象")
 
         # *.pngファイルのみを対象（セキュリティ制限）
         try:
@@ -814,19 +782,12 @@ class DashboardVisualizationEngine:
 
                 # 2. シンボリックリンク攻撃対策
                 if chart_file.is_symlink():
-                    logger.warning(
-                        f"シンボリックリンクのため削除をスキップ: {chart_file}"
-                    )
+                    logger.warning(f"シンボリックリンクのため削除をスキップ: {chart_file}")
                     continue
 
                 # 3. ファイル名に危険な文字が含まれていないかチェック
-                if any(
-                    dangerous_char in chart_file.name
-                    for dangerous_char in ["..", "/", "\\"]
-                ):
-                    logger.warning(
-                        f"危険なファイル名のため削除をスキップ: {chart_file}"
-                    )
+                if any(dangerous_char in chart_file.name for dangerous_char in ["..", "/", "\\"]):
+                    logger.warning(f"危険なファイル名のため削除をスキップ: {chart_file}")
                     continue
 
                 # 4. stat情報の取得（原子的操作の一部）
@@ -857,9 +818,7 @@ class DashboardVisualizationEngine:
                     logger.debug(f"ファイル削除完了: {chart_file}")
                 except FileNotFoundError:
                     # 他のプロセスが同時に削除した場合（正常なケース）
-                    logger.debug(
-                        f"ファイルが他のプロセスによって削除済み: {chart_file}"
-                    )
+                    logger.debug(f"ファイルが他のプロセスによって削除済み: {chart_file}")
                 except PermissionError:
                     logger.warning(f"ファイル削除権限なし: {chart_file}")
                     error_count += 1

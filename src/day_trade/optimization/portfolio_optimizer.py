@@ -151,22 +151,16 @@ class PortfolioOptimizer:
         # 目的関数：効用関数 (リターン - リスク許容度 * リスク)
         def objective(weights):
             portfolio_return = np.dot(weights, expected_returns)
-            portfolio_risk = np.sqrt(
-                np.dot(weights.T, np.dot(covariance_matrix, weights))
-            )
+            portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(covariance_matrix, weights)))
             # 効用 = リターン - リスクペナルティ
             utility = portfolio_return - (1 - self.risk_tolerance) * portfolio_risk
             return -utility  # 最大化のため負値
 
         # 制約条件
-        constraints = [
-            {"type": "eq", "fun": lambda x: np.sum(x) - 1}  # 重みの合計 = 1
-        ]
+        constraints = [{"type": "eq", "fun": lambda x: np.sum(x) - 1}]  # 重みの合計 = 1
 
         # 範囲制約
-        bounds = [
-            (self.min_position_size, self.max_position_size) for _ in range(n_assets)
-        ]
+        bounds = [(self.min_position_size, self.max_position_size) for _ in range(n_assets)]
 
         # 初期値：等ウェイト
         initial_weights = np.array([1.0 / n_assets] * n_assets)
@@ -268,9 +262,7 @@ class PortfolioOptimizer:
 
             # ポートフォリオ指標計算
             portfolio_return = np.dot(weights, expected_returns)
-            portfolio_risk = np.sqrt(
-                np.dot(weights.T, np.dot(covariance_matrix, weights))
-            )
+            portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(covariance_matrix, weights)))
 
             # 時間軸での価値変動シミュレーション
             daily_returns = np.random.multivariate_normal(
@@ -285,9 +277,7 @@ class PortfolioOptimizer:
                     "weights": weights,
                     "expected_return": portfolio_return,
                     "volatility": portfolio_risk,
-                    "sharpe_ratio": portfolio_return / portfolio_risk
-                    if portfolio_risk > 0
-                    else 0,
+                    "sharpe_ratio": portfolio_return / portfolio_risk if portfolio_risk > 0 else 0,
                     "final_value": final_value,
                 }
             )
@@ -316,22 +306,14 @@ class PortfolioOptimizer:
             },
             "efficient_frontier": {
                 "max_sharpe": {
-                    "weights": dict(
-                        zip(symbols, portfolio_results[max_sharpe_idx]["weights"])
-                    ),
-                    "expected_return": portfolio_results[max_sharpe_idx][
-                        "expected_return"
-                    ],
+                    "weights": dict(zip(symbols, portfolio_results[max_sharpe_idx]["weights"])),
+                    "expected_return": portfolio_results[max_sharpe_idx]["expected_return"],
                     "volatility": portfolio_results[max_sharpe_idx]["volatility"],
                     "sharpe_ratio": portfolio_results[max_sharpe_idx]["sharpe_ratio"],
                 },
                 "min_volatility": {
-                    "weights": dict(
-                        zip(symbols, portfolio_results[min_vol_idx]["weights"])
-                    ),
-                    "expected_return": portfolio_results[min_vol_idx][
-                        "expected_return"
-                    ],
+                    "weights": dict(zip(symbols, portfolio_results[min_vol_idx]["weights"])),
+                    "expected_return": portfolio_results[min_vol_idx]["expected_return"],
                     "volatility": portfolio_results[min_vol_idx]["volatility"],
                     "sharpe_ratio": portfolio_results[min_vol_idx]["sharpe_ratio"],
                 },
@@ -370,9 +352,7 @@ class PortfolioOptimizer:
 
         try:
             # 1. リターンとリスク計算
-            expected_returns, covariance_matrix = self.calculate_returns_and_risks(
-                price_data
-            )
+            expected_returns, covariance_matrix = self.calculate_returns_and_risks(price_data)
 
             # 2. ポートフォリオ最適化
             optimization_result = self.optimize_portfolio(
@@ -380,9 +360,7 @@ class PortfolioOptimizer:
             )
 
             # 3. Monte Carloシミュレーション
-            monte_carlo_result = self.monte_carlo_simulation(
-                expected_returns, covariance_matrix
-            )
+            monte_carlo_result = self.monte_carlo_simulation(expected_returns, covariance_matrix)
 
             # 4. 総合推奨生成
             recommendation = {
@@ -449,9 +427,7 @@ class PortfolioOptimizer:
 
             # ポートフォリオリスク
             portfolio_risk = np.sqrt(
-                np.dot(
-                    weights.T, np.dot(covariance_matrix.loc[symbols, symbols], weights)
-                )
+                np.dot(weights.T, np.dot(covariance_matrix.loc[symbols, symbols], weights))
             )
 
             diversification_ratio = (
@@ -474,13 +450,9 @@ class PortfolioOptimizer:
 
         # 基本評価
         if sharpe_ratio > 1.0:
-            recommendations.append(
-                "優れたリスク調整後リターンが期待できるポートフォリオです"
-            )
+            recommendations.append("優れたリスク調整後リターンが期待できるポートフォリオです")
         elif sharpe_ratio > 0.5:
-            recommendations.append(
-                "バランスの取れたリスク・リターン特性のポートフォリオです"
-            )
+            recommendations.append("バランスの取れたリスク・リターン特性のポートフォリオです")
         else:
             recommendations.append("リスクに対するリターンが限定的なポートフォリオです")
 
@@ -490,9 +462,7 @@ class PortfolioOptimizer:
         elif n_positions >= 5:
             recommendations.append("中程度に分散されたポートフォリオです")
         else:
-            recommendations.append(
-                "集中投資型のポートフォリオです。分散を検討してください"
-            )
+            recommendations.append("集中投資型のポートフォリオです。分散を検討してください")
 
         # リスク評価
         if volatility < 0.15:
@@ -500,9 +470,7 @@ class PortfolioOptimizer:
         elif volatility < 0.25:
             recommendations.append("中程度のリスクポートフォリオです")
         else:
-            recommendations.append(
-                "高リスクポートフォリオです。リスク許容度を確認してください"
-            )
+            recommendations.append("高リスクポートフォリオです。リスク許容度を確認してください")
 
         # モンテカルロ分析
         final_value_mean = monte_carlo_result["statistics"]["final_value_mean"]
@@ -560,12 +528,8 @@ if __name__ == "__main__":
         )
 
         print("\n=== 推奨ポートフォリオ ===")
-        for symbol, allocation in recommendation["optimal_portfolio"][
-            "allocations"
-        ].items():
-            print(
-                f"{symbol}: {allocation['weight']:.1%} ({allocation['amount']:,.0f}円)"
-            )
+        for symbol, allocation in recommendation["optimal_portfolio"]["allocations"].items():
+            print(f"{symbol}: {allocation['weight']:.1%} ({allocation['amount']:,.0f}円)")
 
         print(
             f"\n期待リターン: {recommendation['optimal_portfolio']['portfolio_metrics']['expected_return']:.2%}"

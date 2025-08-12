@@ -174,9 +174,7 @@ class DataFrameCodeAnalyzer:
             logger.warning(f"ファイル解析エラー {file_path}: {e}")
             return []
 
-    def _analyze_lines(
-        self, file_path: Path, lines: List[str]
-    ) -> List[DataFrameUsageStats]:
+    def _analyze_lines(self, file_path: Path, lines: List[str]) -> List[DataFrameUsageStats]:
         """行別パターン解析"""
         usage_stats = []
 
@@ -396,9 +394,7 @@ class DataFrameRuntimeProfiler:
             "operation_details": self.operation_times,
         }
 
-        logger.info(
-            f"DataFrame実行時プロファイリング完了: {len(self.operation_times)}操作"
-        )
+        logger.info(f"DataFrame実行時プロファイリング完了: {len(self.operation_times)}操作")
         return results
 
 
@@ -443,13 +439,10 @@ class DataFrameAnalyzer:
         report.total_dataframe_usage = len(all_stats)
 
         # 統計計算
-        report.total_estimated_memory_mb = sum(
-            stat.memory_usage_mb for stat in all_stats
-        )
+        report.total_estimated_memory_mb = sum(stat.memory_usage_mb for stat in all_stats)
 
         report.potential_memory_savings_mb = sum(
-            stat.memory_usage_mb * (stat.expected_memory_reduction / 100)
-            for stat in all_stats
+            stat.memory_usage_mb * (stat.expected_memory_reduction / 100) for stat in all_stats
         )
 
         if report.total_estimated_memory_mb > 0:
@@ -484,9 +477,7 @@ class DataFrameAnalyzer:
 
         return report
 
-    def benchmark_dataframe_operations(
-        self, sample_data_rows: int = 100000
-    ) -> Dict[str, Any]:
+    def benchmark_dataframe_operations(self, sample_data_rows: int = 100000) -> Dict[str, Any]:
         """DataFrame操作ベンチマーク"""
         logger.info(f"DataFrame操作ベンチマーク開始: {sample_data_rows}行")
 
@@ -495,12 +486,8 @@ class DataFrameAnalyzer:
         sample_data = pd.DataFrame(
             {
                 "float_col": np.random.randn(sample_data_rows).astype(np.float64),
-                "int_col": np.random.randint(0, 1000, sample_data_rows).astype(
-                    np.int64
-                ),
-                "category_col": np.random.choice(
-                    ["A", "B", "C", "D", "E"], sample_data_rows
-                ),
+                "int_col": np.random.randint(0, 1000, sample_data_rows).astype(np.int64),
+                "category_col": np.random.choice(["A", "B", "C", "D", "E"], sample_data_rows),
                 "string_col": [f"item_{i % 1000}" for i in range(sample_data_rows)],
             }
         )
@@ -523,12 +510,8 @@ class DataFrameAnalyzer:
         # 最適化: string → category
         start_time = time.perf_counter()
         optimized_category = sample_data.copy()
-        optimized_category["category_col"] = optimized_category["category_col"].astype(
-            "category"
-        )
-        optimized_category["string_col"] = optimized_category["string_col"].astype(
-            "category"
-        )
+        optimized_category["category_col"] = optimized_category["category_col"].astype("category")
+        optimized_category["string_col"] = optimized_category["string_col"].astype("category")
         category_time = time.perf_counter() - start_time
         category_memory = optimized_category.memory_usage(deep=True).sum() / 1024 / 1024
 
@@ -536,39 +519,28 @@ class DataFrameAnalyzer:
         start_time = time.perf_counter()
         fully_optimized = sample_data.copy()
         fully_optimized["float_col"] = fully_optimized["float_col"].astype(np.float32)
-        fully_optimized["int_col"] = pd.to_numeric(
-            fully_optimized["int_col"], downcast="integer"
-        )
-        fully_optimized["category_col"] = fully_optimized["category_col"].astype(
-            "category"
-        )
+        fully_optimized["int_col"] = pd.to_numeric(fully_optimized["int_col"], downcast="integer")
+        fully_optimized["category_col"] = fully_optimized["category_col"].astype("category")
         fully_optimized["string_col"] = fully_optimized["string_col"].astype("category")
         full_optimization_time = time.perf_counter() - start_time
-        fully_optimized_memory = (
-            fully_optimized.memory_usage(deep=True).sum() / 1024 / 1024
-        )
+        fully_optimized_memory = fully_optimized.memory_usage(deep=True).sum() / 1024 / 1024
 
         results["dtype_optimization"] = {
             "original_memory_mb": original_memory,
             "float32_optimization": {
                 "time_seconds": float32_time,
                 "memory_mb": float32_memory,
-                "memory_reduction_percent": (1 - float32_memory / original_memory)
-                * 100,
+                "memory_reduction_percent": (1 - float32_memory / original_memory) * 100,
             },
             "category_optimization": {
                 "time_seconds": category_time,
                 "memory_mb": category_memory,
-                "memory_reduction_percent": (1 - category_memory / original_memory)
-                * 100,
+                "memory_reduction_percent": (1 - category_memory / original_memory) * 100,
             },
             "full_optimization": {
                 "time_seconds": full_optimization_time,
                 "memory_mb": fully_optimized_memory,
-                "memory_reduction_percent": (
-                    1 - fully_optimized_memory / original_memory
-                )
-                * 100,
+                "memory_reduction_percent": (1 - fully_optimized_memory / original_memory) * 100,
             },
         }
 

@@ -73,9 +73,7 @@ class QuickMLPerformanceTest:
         baseline_results = self._run_baseline_inference_test()
 
         # 2. ONNX最適化テスト
-        onnx_results = (
-            self._run_onnx_optimization_test() if OPTIMIZED_INFERENCE_AVAILABLE else {}
-        )
+        onnx_results = self._run_onnx_optimization_test() if OPTIMIZED_INFERENCE_AVAILABLE else {}
 
         # 3. バッチ処理効果テスト
         batch_results = self._run_batch_processing_test()
@@ -297,9 +295,9 @@ class QuickMLPerformanceTest:
                 "memory_used_mb": memory_peak - memory_before,
                 "processing_time_float64_us": processing_time,
                 "processing_time_float32_us": processing_time_opt,
-                "speed_improvement": processing_time / processing_time_opt
-                if processing_time_opt > 0
-                else 1.0,
+                "speed_improvement": (
+                    processing_time / processing_time_opt if processing_time_opt > 0 else 1.0
+                ),
                 "memory_reduction_estimate_percent": 50.0,  # float64→float32で約50%削減
             }
 
@@ -350,8 +348,7 @@ class QuickMLPerformanceTest:
         # メモリ効率効果
         if memory:
             memory_reductions = [
-                result.get("memory_reduction_estimate_percent", 0)
-                for result in memory.values()
+                result.get("memory_reduction_estimate_percent", 0) for result in memory.values()
             ]
             avg_memory_reduction = np.mean(memory_reductions)
 
@@ -388,12 +385,8 @@ class QuickMLPerformanceTest:
         target_speedup = 5.0  # Issue #379の目標
         achieved_speedup = max(
             [
-                summary["optimization_effects"]
-                .get("batch_processing", {})
-                .get("max_speedup", 1.0),
-                summary["optimization_effects"]
-                .get("onnx_runtime", {})
-                .get("speedup_ratio", 1.0),
+                summary["optimization_effects"].get("batch_processing", {}).get("max_speedup", 1.0),
+                summary["optimization_effects"].get("onnx_runtime", {}).get("speedup_ratio", 1.0),
             ]
         )
 
@@ -446,9 +439,7 @@ if __name__ == "__main__":
     print(f"  目標速度向上: {target_achievement.get('target_speedup', 0)}x")
     print(f"  達成速度向上: {target_achievement.get('achieved_speedup', 0):.1f}x")
     print(f"  目標達成率: {target_achievement.get('progress_percent', 0):.1f}%")
-    print(
-        f"  目標達成: {'達成' if target_achievement.get('target_met', False) else '未達成'}"
-    )
+    print(f"  目標達成: {'達成' if target_achievement.get('target_met', False) else '未達成'}")
 
     print("\n【推奨事項】")
     for rec in summary.get("recommendations", []):

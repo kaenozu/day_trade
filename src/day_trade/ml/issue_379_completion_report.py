@@ -296,9 +296,7 @@ def print_completion_summary():
     print("\n【パフォーマンス結果】")
     perf = report["performance_results"]
     print(f"  基準性能: {perf['baseline_performance']['avg_inference_time_us']}μs")
-    print(
-        f"  スループット: {perf['baseline_performance']['throughput_ops_per_sec']:,} ops/sec"
-    )
+    print(f"  スループット: {perf['baseline_performance']['throughput_ops_per_sec']:,} ops/sec")
 
     print("\n【技術的革新】")
     for innovation in report["technical_innovations"][:3]:

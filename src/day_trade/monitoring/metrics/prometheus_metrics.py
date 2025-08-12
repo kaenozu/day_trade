@@ -194,9 +194,7 @@ class PrometheusMetricsCollector:
             self.metrics_collection_total.labels(collector_type="all").inc()
 
             collection_time = time.time() - start_time
-            self.metrics_collection_duration.labels(collector_type="all").observe(
-                collection_time
-            )
+            self.metrics_collection_duration.labels(collector_type="all").observe(collection_time)
 
             # リアルタイムスナップショット作成
             snapshot = self._create_realtime_snapshot()
@@ -237,18 +235,20 @@ class PrometheusMetricsCollector:
             "timestamp": timestamp.isoformat(),
             "system_metrics": {
                 "cpu_usage": health_metrics.cpu_usage.get(),
-                "memory_usage": health_metrics.memory_usage.labels(type="used").get()
-                / health_metrics.memory_usage.labels(type="total").get()
-                * 100
-                if health_metrics.memory_usage.labels(type="total").get()
-                else 0,  # Convert bytes to percentage
-                "disk_usage": health_metrics.disk_usage.labels(
-                    mount_point="/", type="used"
-                ).get()
-                / health_metrics.disk_usage.labels(mount_point="/", type="total").get()
-                * 100
-                if health_metrics.disk_usage.labels(mount_point="/", type="total").get()
-                else 0,
+                "memory_usage": (
+                    health_metrics.memory_usage.labels(type="used").get()
+                    / health_metrics.memory_usage.labels(type="total").get()
+                    * 100
+                    if health_metrics.memory_usage.labels(type="total").get()
+                    else 0
+                ),  # Convert bytes to percentage
+                "disk_usage": (
+                    health_metrics.disk_usage.labels(mount_point="/", type="used").get()
+                    / health_metrics.disk_usage.labels(mount_point="/", type="total").get()
+                    * 100
+                    if health_metrics.disk_usage.labels(mount_point="/", type="total").get()
+                    else 0
+                ),
             },
             "collection_count": self.metrics_collection_total._value._value,
         }
@@ -263,9 +263,7 @@ class PrometheusMetricsCollector:
         # バッファにも保存（異常検知用）
         timestamp = datetime.fromisoformat(snapshot["timestamp"].replace("Z", "+00:00"))
         for metric_name, value in snapshot.get("system_metrics", {}).items():
-            self._metric_buffers[metric_name].append(
-                {"timestamp": timestamp, "value": value}
-            )
+            self._metric_buffers[metric_name].append({"timestamp": timestamp, "value": value})
 
     def _detect_anomalies(self) -> List[AnomalyDetectionResult]:
         """異常検知実行"""
@@ -332,14 +330,10 @@ class PrometheusMetricsCollector:
 
             logger.warning(f"異常検知: {anomaly.explanation}")
 
-    def record_realtime_data_latency(
-        self, data_source: str, symbol: str, latency: float
-    ):
+    def record_realtime_data_latency(self, data_source: str, symbol: str, latency: float):
         """リアルタイムデータ遅延記録"""
 
-        self.realtime_data_latency.labels(
-            data_source=data_source, symbol=symbol
-        ).observe(latency)
+        self.realtime_data_latency.labels(data_source=data_source, symbol=symbol).observe(latency)
 
     def update_websocket_connections(self, endpoint: str, count: int):
         """WebSocket接続数更新"""
@@ -351,28 +345,24 @@ class PrometheusMetricsCollector:
 
         self.market_data_updates_total.labels(symbol=symbol, data_type=data_type).inc()
 
-    def update_prediction_confidence(
-        self, model_type: str, symbol: str, confidence: float
-    ):
+    def update_prediction_confidence(self, model_type: str, symbol: str, confidence: float):
         """予測信頼度更新"""
 
-        self.prediction_confidence_score.labels(
-            model_type=model_type, symbol=symbol
-        ).set(confidence)
+        self.prediction_confidence_score.labels(model_type=model_type, symbol=symbol).set(
+            confidence
+        )
 
     def update_sla_availability(self, service: str, availability_percent: float):
         """SLA可用性更新"""
 
         self.sla_availability.labels(service=service).set(availability_percent)
 
-    def update_response_time_percentile(
-        self, service: str, percentile: str, time_seconds: float
-    ):
+    def update_response_time_percentile(self, service: str, percentile: str, time_seconds: float):
         """レスポンス時間パーセンタイル更新"""
 
-        self.response_time_percentile.labels(
-            service=service, percentile=percentile
-        ).set(time_seconds)
+        self.response_time_percentile.labels(service=service, percentile=percentile).set(
+            time_seconds
+        )
 
     def get_alert_history(self, limit: int = 100) -> List[Dict[str, Any]]:
         """アラート履歴取得"""
@@ -458,18 +448,12 @@ class RiskManagementMetrics:
             registry=self.registry,
         )
 
-    def record_risk_analysis(
-        self, analysis_type: str, risk_level: str, duration: float
-    ):
+    def record_risk_analysis(self, analysis_type: str, risk_level: str, duration: float):
         """リスク分析記録"""
 
-        self.risk_analysis_total.labels(
-            analysis_type=analysis_type, risk_level=risk_level
-        ).inc()
+        self.risk_analysis_total.labels(analysis_type=analysis_type, risk_level=risk_level).inc()
 
-        self.risk_analysis_duration.labels(analysis_type=analysis_type).observe(
-            duration
-        )
+        self.risk_analysis_duration.labels(analysis_type=analysis_type).observe(duration)
 
     def update_risk_score(self, component: str, symbol: str, score: float):
         """リスクスコア更新"""
@@ -485,9 +469,7 @@ class RiskManagementMetrics:
     ):
         """不正検知結果記録"""
 
-        self.fraud_detection_total.labels(
-            result=result, confidence_level=confidence
-        ).inc()
+        self.fraud_detection_total.labels(result=result, confidence_level=confidence).inc()
 
         if accuracy is not None:
             self.fraud_detection_accuracy.labels(model_type=model_type).set(accuracy)
@@ -633,9 +615,7 @@ class SystemHealthMetrics:
         """ヘルスメトリクス初期化"""
 
         # CPU使用率
-        self.cpu_usage = Gauge(
-            "day_trade_cpu_usage_percent", "CPU使用率", registry=self.registry
-        )
+        self.cpu_usage = Gauge("day_trade_cpu_usage_percent", "CPU使用率", registry=self.registry)
 
         # メモリ使用量
         self.memory_usage = Gauge(
@@ -696,9 +676,7 @@ class SystemHealthMetrics:
                     # ディスク使用量
                     disk = psutil.disk_usage("/")
                     self.disk_usage.labels(mount_point="/", type="used").set(disk.used)
-                    self.disk_usage.labels(mount_point="/", type="total").set(
-                        disk.total
-                    )
+                    self.disk_usage.labels(mount_point="/", type="total").set(disk.total)
 
                 except Exception as e:
                     logger.error(f"システムメトリクス更新エラー: {e}")

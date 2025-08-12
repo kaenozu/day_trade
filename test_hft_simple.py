@@ -4,10 +4,13 @@ HFT最適化エンジン簡易テスト
 """
 
 import sys
+
 sys.path.insert(0, 'src')
 
 import numpy as np
-from day_trade.performance import HFTOptimizer, HFTConfig
+
+from day_trade.performance import HFTConfig, HFTOptimizer
+
 
 def main():
     print("=== HFT Performance Test ===")
@@ -47,7 +50,7 @@ def main():
     max_latency = np.max(latencies)
     under_target_rate = np.mean([lat < config.target_latency_us for lat in latencies])
 
-    print(f"\nPerformance Results:")
+    print("\nPerformance Results:")
     print(f"Average latency: {avg_latency:.2f}μs")
     print(f"Max latency: {max_latency:.2f}μs")
     print(f"Under target rate: {under_target_rate:.1%}")

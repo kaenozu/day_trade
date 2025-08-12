@@ -246,9 +246,7 @@ class RealTimeRiskMonitor:
             logger.error(f"市場データ取得エラー: {e}")
             return {}
 
-    async def _detect_risk_events(
-        self, market_data: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    async def _detect_risk_events(self, market_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """リスクイベント検出"""
 
         risk_events = []
@@ -299,9 +297,7 @@ class RealTimeRiskMonitor:
 
         return risk_events
 
-    async def _analyze_risk_event(
-        self, event: Dict[str, Any]
-    ) -> Optional[RiskAssessmentSummary]:
+    async def _analyze_risk_event(self, event: Dict[str, Any]) -> Optional[RiskAssessmentSummary]:
         """リスクイベント分析"""
 
         try:
@@ -418,9 +414,7 @@ class RealTimeRiskMonitor:
 
         # 古いクールダウンデータ削除
         cutoff = now - timedelta(hours=1)
-        self.alert_cooldown = {
-            k: v for k, v in self.alert_cooldown.items() if v > cutoff
-        }
+        self.alert_cooldown = {k: v for k, v in self.alert_cooldown.items() if v > cutoff}
 
         return True
 
@@ -612,23 +606,17 @@ class RealTimeRiskMonitor:
 
         uptime = 0
         if self.performance_stats["start_time"]:
-            uptime = (
-                datetime.now() - self.performance_stats["start_time"]
-            ).total_seconds()
+            uptime = (datetime.now() - self.performance_stats["start_time"]).total_seconds()
 
         return {
             "is_running": self.is_running,
             "uptime_seconds": uptime,
             "active_symbols": len(self.active_symbols),
             "performance_stats": self.performance_stats,
-            "current_metrics": self.monitoring_metrics[-1]
-            if self.monitoring_metrics
-            else None,
+            "current_metrics": self.monitoring_metrics[-1] if self.monitoring_metrics else None,
             "alert_queue_size": self.analysis_queue.qsize(),
             "system_health": self._assess_system_health(),
-            "daily_statistics": dict(
-                list(self.daily_statistics.items())[-7:]
-            ),  # 最新7日分
+            "daily_statistics": dict(list(self.daily_statistics.items())[-7:]),  # 最新7日分
         }
 
     def register_response_handler(self, risk_level: str, handler: Callable):

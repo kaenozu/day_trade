@@ -173,9 +173,7 @@ class DataCleaner:
             "invalid_trades": invalid_trades,
         }
 
-        logger.info(
-            f"データ検証完了: {len(valid_trades)}件有効, {len(invalid_trades)}件無効"
-        )
+        logger.info(f"データ検証完了: {len(valid_trades)}件有効, {len(invalid_trades)}件無効")
         return result
 
     def _validate_single_trade(self, trade: Trade) -> List[str]:
@@ -468,9 +466,9 @@ class DataCleaner:
         return {
             "total_symbols": len(symbol_counts),
             "trades_per_symbol": symbol_counts,
-            "most_traded_symbol": max(symbol_counts.items(), key=lambda x: x[1])[0]
-            if symbol_counts
-            else None,
+            "most_traded_symbol": (
+                max(symbol_counts.items(), key=lambda x: x[1])[0] if symbol_counts else None
+            ),
         }
 
     def _calculate_temporal_statistics(self, trades: List[Trade]) -> Dict[str, any]:

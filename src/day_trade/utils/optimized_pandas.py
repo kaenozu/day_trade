@@ -24,9 +24,7 @@ logger = get_context_logger(__name__)
 warnings.filterwarnings("ignore", category=np.RankWarning)
 
 
-def optimize_dataframe_dtypes(
-    df: pd.DataFrame, aggressive: bool = False
-) -> pd.DataFrame:
+def optimize_dataframe_dtypes(df: pd.DataFrame, aggressive: bool = False) -> pd.DataFrame:
     """
     DataFrameのデータ型を最適化してメモリ使用量を削減
 
@@ -72,10 +70,7 @@ def optimize_dataframe_dtypes(
                 c_min = optimized[col].min()
                 c_max = optimized[col].max()
 
-                if (
-                    c_min > np.finfo(np.float32).min
-                    and c_max < np.finfo(np.float32).max
-                ):
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
                     optimized[col] = optimized[col].astype(np.float32)
 
     optimized_memory = optimized.memory_usage(deep=True).sum()
@@ -211,9 +206,7 @@ def vectorized_technical_indicators(
 
         # On-Balance Volume (OBV)
         price_changes = np.diff(prices, prepend=prices[0])
-        obv_changes = np.where(
-            price_changes > 0, volumes, np.where(price_changes < 0, -volumes, 0)
-        )
+        obv_changes = np.where(price_changes > 0, volumes, np.where(price_changes < 0, -volumes, 0))
         result["obv"] = np.cumsum(obv_changes)
 
     logger.info(
@@ -327,9 +320,7 @@ class OptimizedDataFrameProcessor:
             optimized_df[numeric_cols] = optimized_df[numeric_cols].fillna(0)
 
             # カテゴリ列: モードで埋める
-            categorical_cols = optimized_df.select_dtypes(
-                include=["object", "category"]
-            ).columns
+            categorical_cols = optimized_df.select_dtypes(include=["object", "category"]).columns
             for col in categorical_cols:
                 mode_value = optimized_df[col].mode()
                 if len(mode_value) > 0:

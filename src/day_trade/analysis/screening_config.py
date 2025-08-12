@@ -114,15 +114,11 @@ class ScreeningConfig:
 
     def should_use_actual_52_weeks(self) -> bool:
         """実際の52週間で計算するかどうか"""
-        return self._config.get("52_week_calculation", {}).get(
-            "use_actual_52_weeks", True
-        )
+        return self._config.get("52_week_calculation", {}).get("use_actual_52_weeks", True)
 
     def should_fallback_to_available_data(self) -> bool:
         """利用可能データにフォールバックするかどうか"""
-        return self._config.get("52_week_calculation", {}).get(
-            "fallback_to_available_data", True
-        )
+        return self._config.get("52_week_calculation", {}).get("fallback_to_available_data", True)
 
     def should_use_formatters(self) -> bool:
         """フォーマッターを使用するかどうか"""

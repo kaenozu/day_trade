@@ -362,9 +362,7 @@ class TOPIX500Manager:
 
             # 3. 総合結果生成
             total_time = time.time() - start_time
-            performance_metrics = self.performance_monitor.get_metrics(
-                "topix500_analysis"
-            )
+            performance_metrics = self.performance_monitor.get_metrics("topix500_analysis")
 
             comprehensive_results = {
                 "analysis_summary": {
@@ -388,15 +386,11 @@ class TOPIX500Manager:
 
             # ログ出力
             logger.info("TOPIX500全銘柄分析完了")
-            logger.info(
-                f"  - 処理時間: {total_time:.2f}秒 (目標{self.target_processing_time}秒)"
-            )
+            logger.info(f"  - 処理時間: {total_time:.2f}秒 (目標{self.target_processing_time}秒)")
             logger.info(
                 f"  - 成功率: {len(analysis_results)}/{len(self.topix500_stocks)} ({len(analysis_results)/len(self.topix500_stocks)*100:.1f}%)"
             )
-            logger.info(
-                f"  - メモリ使用量: {performance_metrics.get('memory_usage', 0):.1f}MB"
-            )
+            logger.info(f"  - メモリ使用量: {performance_metrics.get('memory_usage', 0):.1f}MB")
             logger.info(f"  - セクター数: {len(sector_results)}")
 
             return comprehensive_results
@@ -449,9 +443,7 @@ class TOPIX500Manager:
         for symbol in symbols:
             # モック分析結果生成
             results[symbol] = {
-                "predicted_return": random.uniform(
-                    -0.05, 0.05
-                ),  # -5%〜+5%のリターン予測
+                "predicted_return": random.uniform(-0.05, 0.05),  # -5%〜+5%のリターン予測
                 "confidence": random.uniform(0.6, 0.9),  # 60-90%の信頼度
                 "signal": random.choice(["BUY", "SELL", "HOLD"]),
                 "risk_score": random.uniform(0.2, 0.8),  # 20-80%のリスクスコア
@@ -463,9 +455,7 @@ class TOPIX500Manager:
         logger.info(f"モック並列分析完了: {len(symbols)}銘柄")
         return results
 
-    async def _execute_sector_analysis(
-        self, stock_results: Dict
-    ) -> Dict[str, SectorAnalysis]:
+    async def _execute_sector_analysis(self, stock_results: Dict) -> Dict[str, SectorAnalysis]:
         """セクター別分析実行"""
         logger.info("セクター別分析開始")
 
@@ -474,9 +464,7 @@ class TOPIX500Manager:
         for sector, stock_codes in self.sector_mapping.items():
             # セクター内銘柄の分析結果集計
             sector_stock_results = {
-                code: result
-                for code, result in stock_results.items()
-                if code in stock_codes
+                code: result for code, result in stock_results.items() if code in stock_codes
             }
 
             if not sector_stock_results:
@@ -484,12 +472,9 @@ class TOPIX500Manager:
 
             # セクター統計計算
             performances = [
-                result.get("predicted_return", 0)
-                for result in sector_stock_results.values()
+                result.get("predicted_return", 0) for result in sector_stock_results.values()
             ]
-            avg_performance = (
-                sum(performances) / len(performances) if performances else 0
-            )
+            avg_performance = sum(performances) / len(performances) if performances else 0
 
             # トップパフォーマー特定
             sorted_stocks = sorted(
@@ -556,16 +541,16 @@ class TOPIX500Manager:
             "sector_distribution": {
                 sector: len(codes) for sector, codes in self.sector_mapping.items()
             },
-            "largest_sector": max(self.sector_mapping.items(), key=lambda x: len(x[1]))[
-                0
-            ]
-            if self.sector_mapping
-            else None,
-            "smallest_sector": min(
-                self.sector_mapping.items(), key=lambda x: len(x[1])
-            )[0]
-            if self.sector_mapping
-            else None,
+            "largest_sector": (
+                max(self.sector_mapping.items(), key=lambda x: len(x[1]))[0]
+                if self.sector_mapping
+                else None
+            ),
+            "smallest_sector": (
+                min(self.sector_mapping.items(), key=lambda x: len(x[1]))[0]
+                if self.sector_mapping
+                else None
+            ),
         }
 
     def get_processing_status(self) -> Dict[str, Any]:
@@ -573,15 +558,16 @@ class TOPIX500Manager:
         return {
             "total_stocks": len(self.topix500_stocks),
             "current_batch": self.current_batch_progress,
-            "total_batches": (len(self.topix500_stocks) + self.batch_size - 1)
-            // self.batch_size,
+            "total_batches": (len(self.topix500_stocks) + self.batch_size - 1) // self.batch_size,
             "progress_percentage": (
-                self.current_batch_progress
-                / ((len(self.topix500_stocks) + self.batch_size - 1) // self.batch_size)
-            )
-            * 100
-            if self.topix500_stocks
-            else 0,
+                (
+                    self.current_batch_progress
+                    / ((len(self.topix500_stocks) + self.batch_size - 1) // self.batch_size)
+                )
+                * 100
+                if self.topix500_stocks
+                else 0
+            ),
             "target_processing_time": self.target_processing_time,
         }
 

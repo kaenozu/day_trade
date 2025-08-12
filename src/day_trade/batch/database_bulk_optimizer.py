@@ -144,9 +144,7 @@ class DatabaseBulkOptimizer:
     パフォーマンスとメモリ使用量を最適化
     """
 
-    def __init__(
-        self, db_path: str, pool_size: int = 8, config: BulkOperationConfig = None
-    ):
+    def __init__(self, db_path: str, pool_size: int = 8, config: BulkOperationConfig = None):
         self.db_path = db_path
         self.pool_size = pool_size
         self.config = config or BulkOperationConfig()
@@ -272,9 +270,7 @@ class DatabaseBulkOptimizer:
             total_records = self._estimate_data_size(data)
             result.total_records = total_records
 
-            logger.info(
-                f"バルク{operation.value}開始: {table_name} - {total_records} records"
-            )
+            logger.info(f"バルク{operation.value}開始: {table_name} - {total_records} records")
 
             # 前処理最適化
             self._apply_pre_optimizations(table_name, operation, result)
@@ -297,14 +293,10 @@ class DatabaseBulkOptimizer:
             # 結果計算
             result.total_time = time.time() - start_time
             result.success_rate = (
-                result.processed_records / result.total_records
-                if result.total_records > 0
-                else 0.0
+                result.processed_records / result.total_records if result.total_records > 0 else 0.0
             )
             result.throughput_rps = (
-                result.processed_records / result.total_time
-                if result.total_time > 0
-                else 0.0
+                result.processed_records / result.total_time if result.total_time > 0 else 0.0
             )
 
             # 統計更新
@@ -344,9 +336,7 @@ class DatabaseBulkOptimizer:
         else:
             # シーケンシャル処理
             for batch in batches:
-                batch_result = self._execute_single_batch(
-                    operation, table_name, batch, **kwargs
-                )
+                batch_result = self._execute_single_batch(operation, table_name, batch, **kwargs)
                 processed_records += batch_result
 
         return processed_records
@@ -385,10 +375,7 @@ class DatabaseBulkOptimizer:
                         batch_count += 1
 
                         # トランザクションサイズチェック
-                        if (
-                            batch_count * self.config.batch_size
-                            >= self.config.transaction_size
-                        ):
+                        if batch_count * self.config.batch_size >= self.config.transaction_size:
                             conn.execute("COMMIT")
                             conn.execute("BEGIN TRANSACTION")
                             batch_count = 0
@@ -507,9 +494,7 @@ class DatabaseBulkOptimizer:
 
         # 更新列決定
         if not update_columns:
-            update_columns = [
-                col for col in batch[0].keys() if col not in where_columns
-            ]
+            update_columns = [col for col in batch[0].keys() if col not in where_columns]
 
         # SQL作成
         set_clause = ",".join([f"{col}=?" for col in update_columns])
@@ -707,9 +692,7 @@ class DatabaseBulkOptimizer:
             for record in data:
                 yield record
 
-    def _estimate_data_size(
-        self, data: Union[pd.DataFrame, List[Dict], Iterator[Dict]]
-    ) -> int:
+    def _estimate_data_size(self, data: Union[pd.DataFrame, List[Dict], Iterator[Dict]]) -> int:
         """データサイズ推定"""
         if isinstance(data, pd.DataFrame):
             return len(data)
@@ -834,9 +817,7 @@ def create_bulk_optimizer(
         **kwargs,
     )
 
-    return DatabaseBulkOptimizer(
-        db_path=db_path, pool_size=max_workers * 2, config=config
-    )
+    return DatabaseBulkOptimizer(db_path=db_path, pool_size=max_workers * 2, config=config)
 
 
 if __name__ == "__main__":
@@ -898,9 +879,7 @@ if __name__ == "__main__":
         )
 
         print("バルク挿入結果:")
-        print(
-            f"  処理済み: {insert_result.processed_records}/{insert_result.total_records}"
-        )
+        print(f"  処理済み: {insert_result.processed_records}/{insert_result.total_records}")
         print(f"  成功率: {insert_result.success_rate:.1%}")
         print(f"  処理時間: {insert_result.total_time:.2f}秒")
         print(f"  スループット: {insert_result.throughput_rps:.1f} RPS")
@@ -917,9 +896,7 @@ if __name__ == "__main__":
         )
 
         print("バルクUPSERT結果:")
-        print(
-            f"  処理済み: {upsert_result.processed_records}/{upsert_result.total_records}"
-        )
+        print(f"  処理済み: {upsert_result.processed_records}/{upsert_result.total_records}")
         print(f"  成功率: {upsert_result.success_rate:.1%}")
         print(f"  処理時間: {upsert_result.total_time:.2f}秒")
         print(f"  スループット: {upsert_result.throughput_rps:.1f} RPS")

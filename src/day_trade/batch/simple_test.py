@@ -74,9 +74,7 @@ def test_database_operations():
 
         conn.close()
 
-        print(
-            f"  [OK] Bulk insert success: {len(test_data)} records in {insert_time:.3f}s"
-        )
+        print(f"  [OK] Bulk insert success: {len(test_data)} records in {insert_time:.3f}s")
         print(f"  [OK] Data verification: {count} records stored")
         print(f"  [OK] Throughput: {len(test_data)/insert_time:.1f} records/sec")
 
@@ -124,9 +122,7 @@ def test_parallel_processing():
 
     # ワーカースレッド確認
     unique_workers = set(r["worker_thread"] for r in results)
-    avg_task_time = (
-        sum(r["execution_time"] for r in results) / len(results) if results else 0
-    )
+    avg_task_time = sum(r["execution_time"] for r in results) / len(results) if results else 0
 
     print(f"  [OK] Parallel tasks: {successful_tasks}/20 tasks completed")
     print(f"  [OK] Total time: {total_time:.3f}s")
@@ -149,9 +145,7 @@ def test_queue_system():
         def start(self):
             self.running = True
             for i in range(self.max_workers):
-                worker = threading.Thread(
-                    target=self._worker_loop, name=f"QueueWorker-{i}"
-                )
+                worker = threading.Thread(target=self._worker_loop, name=f"QueueWorker-{i}")
                 worker.daemon = True
                 worker.start()
                 self.workers.append(worker)
@@ -245,16 +239,13 @@ def test_queue_system():
         # ワーカー分散確認
         workers_used = set(r["worker"] for r in results if "worker" in r)
         avg_execution_time = (
-            sum(r["execution_time"] for r in successful_results)
-            / len(successful_results)
+            sum(r["execution_time"] for r in successful_results) / len(successful_results)
             if successful_results
             else 0
         )
 
         print(f"  [OK] Queue processing: {len(results)}/{task_count} tasks")
-        print(
-            f"  [OK] Success: {len(successful_results)}, Failed: {len(failed_results)}"
-        )
+        print(f"  [OK] Success: {len(successful_results)}, Failed: {len(failed_results)}")
         print(f"  [OK] Total time: {total_time:.3f}s")
         print(f"  [OK] Average execution time: {avg_execution_time:.3f}s")
         print(f"  [OK] Workers used: {len(workers_used)} workers")
@@ -341,9 +332,7 @@ if __name__ == "__main__":
         test_basic_functionality()
         test_caching_system()
 
-        print(
-            "\n[SUCCESS] Issue #376 Batch Processing Enhancement - Basic functionality verified!"
-        )
+        print("\n[SUCCESS] Issue #376 Batch Processing Enhancement - Basic functionality verified!")
         print("Implemented systems:")
         print("  [OK] API Request Consolidator System")
         print("  [OK] Integrated Data Fetcher")

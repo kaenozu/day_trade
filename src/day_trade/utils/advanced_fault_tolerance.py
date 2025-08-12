@@ -78,9 +78,7 @@ class DataSourceManager:
 
         logger.info("データソース管理システム初期化完了")
 
-    def register_provider(
-        self, name: str, provider_func: Callable, is_primary: bool = False
-    ):
+    def register_provider(self, name: str, provider_func: Callable, is_primary: bool = False):
         """データプロバイダー登録"""
         self.providers[name] = provider_func
         if is_primary or self.primary_provider is None:
@@ -153,9 +151,7 @@ class DataSourceManager:
                 continue
 
         # すべてのプロバイダーが失敗
-        logger.error(
-            f"すべてのデータプロバイダーが失敗しました。最後のエラー: {last_error}"
-        )
+        logger.error(f"すべてのデータプロバイダーが失敗しました。最後のエラー: {last_error}")
         raise RuntimeError(f"すべてのデータプロバイダーが利用不可: {last_error}")
 
     def _update_health_success(self, provider_name: str, execution_time: float):
@@ -170,16 +166,12 @@ class DataSourceManager:
         if health.avg_response_time == 0:
             health.avg_response_time = execution_time
         else:
-            health.avg_response_time = (health.avg_response_time * 0.9) + (
-                execution_time * 0.1
-            )
+            health.avg_response_time = (health.avg_response_time * 0.9) + (execution_time * 0.1)
 
         # 成功率更新（簡易版）
         health.success_rate = min(1.0, health.success_rate + 0.01)
 
-    def _update_health_failure(
-        self, provider_name: str, execution_time: float, error_msg: str
-    ):
+    def _update_health_failure(self, provider_name: str, execution_time: float, error_msg: str):
         """失敗時のヘルス情報更新"""
         health = self.provider_health[provider_name]
         health.consecutive_failures += 1
@@ -204,9 +196,7 @@ class DataSourceManager:
             "active_provider": self.active_provider,
             "primary_provider": self.primary_provider,
             "failover_count": self.failover_count,
-            "providers": {
-                name: asdict(health) for name, health in self.provider_health.items()
-            },
+            "providers": {name: asdict(health) for name, health in self.provider_health.items()},
             "overall_health": self._calculate_overall_health(),
         }
 
@@ -383,9 +373,7 @@ class AutoRecoverySystem:
             return
 
         self.is_monitoring = True
-        self.monitor_thread = threading.Thread(
-            target=self._monitoring_loop, daemon=True
-        )
+        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitor_thread.start()
 
         logger.info(f"自動復旧監視開始 (間隔: {self.monitor_interval}秒)")
@@ -418,9 +406,7 @@ class AutoRecoverySystem:
         if hasattr(performance_monitor, "get_performance_summary"):
             perf_summary = performance_monitor.get_performance_summary(hours=1)
             success_rate = (
-                perf_summary.get("success_rate", 1.0)
-                if "error" not in perf_summary
-                else 1.0
+                perf_summary.get("success_rate", 1.0) if "error" not in perf_summary else 1.0
             )
         else:
             success_rate = 1.0
@@ -448,9 +434,7 @@ class AutoRecoverySystem:
         ):
             # 回復条件
             if self.degradation_manager.recover_degradation():
-                self._record_recovery_action(
-                    "recover_degradation", "システム状態良好", True
-                )
+                self._record_recovery_action("recover_degradation", "システム状態良好", True)
 
         # 復旧アクション
         if recovery_needed:
@@ -477,9 +461,7 @@ class AutoRecoverySystem:
 
             except Exception as e:
                 logger.error(f"復旧アクション失敗: {action_name} - {e}")
-                self._record_recovery_action(
-                    action_name, f"{reason} - エラー: {e}", False
-                )
+                self._record_recovery_action(action_name, f"{reason} - エラー: {e}", False)
 
     def _reset_provider_health(self) -> bool:
         """プロバイダーヘルスリセット"""
@@ -489,9 +471,7 @@ class AutoRecoverySystem:
                 health,
             ) in self.data_source_manager.provider_health.items():
                 if health.consecutive_failures > 0:
-                    health.consecutive_failures = max(
-                        0, health.consecutive_failures - 1
-                    )
+                    health.consecutive_failures = max(0, health.consecutive_failures - 1)
                     health.success_rate = min(1.0, health.success_rate + 0.1)
 
                     if health.state in [ServiceState.FAILED, ServiceState.CRITICAL]:
@@ -633,15 +613,11 @@ def resilient_operation(operation_name: str, fallback_result: Any = None):
     except Exception as e:
         execution_time = time.time() - start_time
 
-        logger.error(
-            f"復旧可能操作でエラー: {operation_name} - {e} ({execution_time:.2f}s)"
-        )
+        logger.error(f"復旧可能操作でエラー: {operation_name} - {e} ({execution_time:.2f}s)")
 
         # デグラデーション判定
         if execution_time > 30:  # 30秒以上の場合
-            degradation_manager.escalate_degradation(
-                f"操作タイムアウト: {operation_name}"
-            )
+            degradation_manager.escalate_degradation(f"操作タイムアウト: {operation_name}")
 
         # フォールバック結果を返す
         if fallback_result is not None:
@@ -696,9 +672,7 @@ if __name__ == "__main__":
         print("\nSystem Status:")
         print(f"Monitoring Active: {system_status['monitoring_active']}")
         print(f"Degradation Level: {system_status['degradation']['level']}")
-        print(
-            f"Uptime Estimate: {system_status['uptime_estimate']['uptime_percent']:.1f}%"
-        )
+        print(f"Uptime Estimate: {system_status['uptime_estimate']['uptime_percent']:.1f}%")
 
         recovery_system.stop_monitoring()
 

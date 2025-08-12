@@ -115,12 +115,8 @@ class RiskMetricsCalculator:
         # ベンチマーク比較（オプション）
         beta = alpha = correlation = tracking_error = information_ratio = None
         if benchmark_returns is not None:
-            beta, alpha = self._calculate_beta_alpha(
-                returns_array, np.array(benchmark_returns)
-            )
-            correlation = self._calculate_correlation(
-                returns_array, np.array(benchmark_returns)
-            )
+            beta, alpha = self._calculate_beta_alpha(returns_array, np.array(benchmark_returns))
+            correlation = self._calculate_correlation(returns_array, np.array(benchmark_returns))
             tracking_error = self._calculate_tracking_error(
                 returns_array, np.array(benchmark_returns)
             )
@@ -248,9 +244,7 @@ class RiskMetricsCalculator:
 
         return np.mean(excess_returns) / np.std(downside_returns) * np.sqrt(252)
 
-    def _calculate_calmar_ratio(
-        self, annualized_return: float, max_drawdown: float
-    ) -> float:
+    def _calculate_calmar_ratio(self, annualized_return: float, max_drawdown: float) -> float:
         """カルマーレシオ計算"""
         if max_drawdown == 0:
             return 0.0
@@ -324,9 +318,7 @@ class RiskMetricsCalculator:
 
         return beta, alpha
 
-    def _calculate_correlation(
-        self, returns: np.ndarray, benchmark_returns: np.ndarray
-    ) -> float:
+    def _calculate_correlation(self, returns: np.ndarray, benchmark_returns: np.ndarray) -> float:
         """相関係数計算"""
         if len(returns) != len(benchmark_returns) or len(returns) < 10:
             return 0.0
@@ -358,9 +350,7 @@ class RiskMetricsCalculator:
         active_return = np.mean(active_returns) * 252
         return active_return / tracking_error
 
-    def generate_risk_report(
-        self, metrics: RiskMetrics, benchmark_name: str = None
-    ) -> str:
+    def generate_risk_report(self, metrics: RiskMetrics, benchmark_name: str = None) -> str:
         """リスク分析レポート生成"""
         report = []
         report.append("=" * 60)
@@ -459,9 +449,7 @@ if __name__ == "__main__":
     # サンプルデータ生成
     np.random.seed(42)
     n_days = 252
-    returns = np.random.normal(
-        0.0008, 0.015, n_days
-    )  # 年率20%リターン、15%ボラティリティ
+    returns = np.random.normal(0.0008, 0.015, n_days)  # 年率20%リターン、15%ボラティリティ
     portfolio_values = [1000000]
 
     for ret in returns:

@@ -116,8 +116,7 @@ class AlertConfig:
             default_channels=os.getenv("ALERT_DEFAULT_CHANNELS", "email").split(","),
             throttle_minutes=int(os.getenv("ALERT_THROTTLE_MINUTES", "5")),
             max_alerts_per_hour=int(os.getenv("ALERT_MAX_PER_HOUR", "100")),
-            escalation_enabled=os.getenv("ALERT_ESCALATION_ENABLED", "true").lower()
-            == "true",
+            escalation_enabled=os.getenv("ALERT_ESCALATION_ENABLED", "true").lower() == "true",
             auto_resolve_minutes=int(os.getenv("ALERT_AUTO_RESOLVE_MINUTES", "60")),
             email_config={
                 "smtp_host": os.getenv("EMAIL_SMTP_HOST", ""),
@@ -155,9 +154,9 @@ class SecurityConfig:
             jwt_secret=os.getenv("JWT_SECRET", ""),
             jwt_expiry_minutes=int(os.getenv("JWT_EXPIRY_MINUTES", "60")),
             rate_limit_requests_per_minute=int(os.getenv("RATE_LIMIT_RPM", "100")),
-            allowed_origins=os.getenv("ALLOWED_ORIGINS", "").split(",")
-            if os.getenv("ALLOWED_ORIGINS")
-            else [],
+            allowed_origins=(
+                os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
+            ),
             audit_logging_enabled=os.getenv("AUDIT_LOGGING", "true").lower() == "true",
         )
 
@@ -184,9 +183,7 @@ class AIConfig:
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
             default_model_gpt=os.getenv("DEFAULT_GPT_MODEL", "gpt-4"),
-            default_model_claude=os.getenv(
-                "DEFAULT_CLAUDE_MODEL", "claude-3-opus-20240229"
-            ),
+            default_model_claude=os.getenv("DEFAULT_CLAUDE_MODEL", "claude-3-opus-20240229"),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.3")),
             max_tokens=int(os.getenv("AI_MAX_TOKENS", "1000")),
             timeout_seconds=int(os.getenv("AI_TIMEOUT_SECONDS", "10")),
@@ -215,12 +212,9 @@ class MonitoringConfig:
             enabled=os.getenv("MONITORING_ENABLED", "true").lower() == "true",
             metrics_port=int(os.getenv("METRICS_PORT", "9090")),
             health_check_interval_seconds=int(os.getenv("HEALTH_CHECK_INTERVAL", "30")),
-            performance_sampling_rate=float(
-                os.getenv("PERFORMANCE_SAMPLING_RATE", "1.0")
-            ),
+            performance_sampling_rate=float(os.getenv("PERFORMANCE_SAMPLING_RATE", "1.0")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
-            prometheus_enabled=os.getenv("PROMETHEUS_ENABLED", "false").lower()
-            == "true",
+            prometheus_enabled=os.getenv("PROMETHEUS_ENABLED", "false").lower() == "true",
             jaeger_enabled=os.getenv("JAEGER_ENABLED", "false").lower() == "true",
         )
 
@@ -242,10 +236,7 @@ class EnvironmentConfig:
         env = os.getenv("ENVIRONMENT", "development").lower()
         return cls(
             environment=env,
-            debug=os.getenv(
-                "DEBUG", "true" if env == "development" else "false"
-            ).lower()
-            == "true",
+            debug=os.getenv("DEBUG", "true" if env == "development" else "false").lower() == "true",
             testing=os.getenv("TESTING", "false").lower() == "true",
             app_name=os.getenv("APP_NAME", "Risk Management System"),
             app_version=os.getenv("APP_VERSION", "1.0.0"),
@@ -347,13 +338,9 @@ class RiskManagementConfig:
                     json.dump(config_dict, f, indent=2, ensure_ascii=False, default=str)
             elif config_path.suffix.lower() in [".yml", ".yaml"]:
                 with open(config_path, "w", encoding="utf-8") as f:
-                    yaml.dump(
-                        config_dict, f, default_flow_style=False, allow_unicode=True
-                    )
+                    yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True)
             else:
-                raise ValueError(
-                    f"Unsupported config file format: {config_path.suffix}"
-                )
+                raise ValueError(f"Unsupported config file format: {config_path.suffix}")
 
             return True
         except Exception:
@@ -364,10 +351,7 @@ class RiskManagementConfig:
         errors = []
 
         # 必須項目チェック
-        if (
-            not self.security.encryption_key
-            and self.environment.environment == "production"
-        ):
+        if not self.security.encryption_key and self.environment.environment == "production":
             errors.append("Encryption key is required in production environment")
 
         if not self.database.password and self.environment.environment == "production":
@@ -461,9 +445,7 @@ class ConfigManager(IConfigManager):
         except Exception:
             return False
 
-    def subscribe_to_changes(
-        self, callback: callable, key_pattern: Optional[str] = None
-    ) -> str:
+    def subscribe_to_changes(self, callback: callable, key_pattern: Optional[str] = None) -> str:
         """設定変更購読"""
         pattern = key_pattern or "*"
         if pattern not in self._change_callbacks:

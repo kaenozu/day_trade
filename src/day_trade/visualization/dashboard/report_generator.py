@@ -41,9 +41,7 @@ class ReportGenerator:
     統合レポート・PDF生成・サマリー作成の自動化機能を提供
     """
 
-    def __init__(
-        self, output_dir: str = "output/reports", template_dir: str = "templates"
-    ):
+    def __init__(self, output_dir: str = "output/reports", template_dir: str = "templates"):
         """
         初期化
 
@@ -128,9 +126,7 @@ class ReportGenerator:
                 generated_files["executive_summary"] = executive_summary
 
             # 5. データエクスポート
-            data_exports = self._export_analysis_data(
-                data, analysis_results, symbol, report_id
-            )
+            data_exports = self._export_analysis_data(data, analysis_results, symbol, report_id)
             generated_files.update(data_exports)
 
             # 6. レポートインデックス生成
@@ -173,9 +169,7 @@ class ReportGenerator:
                     },
                 },
                 "price_summary": self._extract_price_summary(data),
-                "prediction_summary": self._extract_prediction_summary(
-                    analysis_results
-                ),
+                "prediction_summary": self._extract_prediction_summary(analysis_results),
                 "technical_summary": self._extract_technical_summary(analysis_results),
                 "risk_summary": self._extract_risk_summary(analysis_results),
                 "model_performance": self._extract_model_performance(analysis_results),
@@ -212,9 +206,7 @@ class ReportGenerator:
         """
         if not self.jinja_env:
             # テンプレートなしでシンプルなHTMLを生成
-            return self._generate_simple_html_report(
-                data, analysis_results, symbol, report_id
-            )
+            return self._generate_simple_html_report(data, analysis_results, symbol, report_id)
 
         try:
             template = self.jinja_env.get_template("comprehensive_report.html")
@@ -224,9 +216,7 @@ class ReportGenerator:
                 "report_id": report_id,
                 "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "price_summary": self._extract_price_summary(data),
-                "prediction_summary": self._extract_prediction_summary(
-                    analysis_results
-                ),
+                "prediction_summary": self._extract_prediction_summary(analysis_results),
                 "technical_summary": self._extract_technical_summary(analysis_results),
                 "risk_summary": self._extract_risk_summary(analysis_results),
                 "visualization_results": visualization_results,
@@ -246,9 +236,7 @@ class ReportGenerator:
 
         except Exception as e:
             logger.error(f"HTMLレポート生成エラー: {e}")
-            return self._generate_simple_html_report(
-                data, analysis_results, symbol, report_id
-            )
+            return self._generate_simple_html_report(data, analysis_results, symbol, report_id)
 
     def _generate_simple_html_report(
         self, data: pd.DataFrame, analysis_results: Dict, symbol: str, report_id: str
@@ -402,9 +390,7 @@ class ReportGenerator:
             key_metrics = self._extract_key_metrics(analysis_results)
 
             # 投資判断の生成
-            investment_recommendation = self._generate_investment_recommendation(
-                analysis_results
-            )
+            investment_recommendation = self._generate_investment_recommendation(analysis_results)
 
             # リスク評価
             risk_assessment = self._generate_risk_assessment(analysis_results)
@@ -464,9 +450,7 @@ class ReportGenerator:
             if predictions_data:
                 predictions_df = pd.DataFrame(predictions_data)
                 pred_file = f"predictions_{report_id}.csv"
-                pred_path = self.export_manager.save_data(
-                    predictions_df, pred_file, format="csv"
-                )
+                pred_path = self.export_manager.save_data(predictions_df, pred_file, format="csv")
                 if pred_path:
                     exported_files["predictions_csv"] = pred_path
 
@@ -563,9 +547,7 @@ class ReportGenerator:
             close_prices = data["Close"]
             return {
                 "current_price": float(close_prices.iloc[-1]),
-                "period_return": float(
-                    (close_prices.iloc[-1] / close_prices.iloc[0] - 1) * 100
-                ),
+                "period_return": float((close_prices.iloc[-1] / close_prices.iloc[0] - 1) * 100),
                 "volatility": float(close_prices.pct_change().std() * 100),
                 "max_price": float(close_prices.max()),
                 "min_price": float(close_prices.min()),
@@ -581,18 +563,14 @@ class ReportGenerator:
             lstm_data = analysis_results["lstm_prediction"]
             if "predictions" in lstm_data:
                 predictions = lstm_data["predictions"]
-                summary["lstm_next_price"] = (
-                    float(predictions[-1]) if predictions else None
-                )
+                summary["lstm_next_price"] = float(predictions[-1]) if predictions else None
                 summary["lstm_confidence"] = lstm_data.get("confidence", 0.5)
 
         if "ensemble_prediction" in analysis_results:
             ensemble_data = analysis_results["ensemble_prediction"]
             if "ensemble_prediction" in ensemble_data:
                 predictions = ensemble_data["ensemble_prediction"]
-                summary["ensemble_next_price"] = (
-                    float(predictions[-1]) if predictions else None
-                )
+                summary["ensemble_next_price"] = float(predictions[-1]) if predictions else None
                 summary["ensemble_confidence"] = ensemble_data.get("confidence", 0.5)
 
         return summary
@@ -651,9 +629,7 @@ class ReportGenerator:
 
         return performance
 
-    def _generate_key_insights(
-        self, data: pd.DataFrame, analysis_results: Dict
-    ) -> List[str]:
+    def _generate_key_insights(self, data: pd.DataFrame, analysis_results: Dict) -> List[str]:
         """主要インサイト生成"""
         insights = []
 
@@ -662,18 +638,14 @@ class ReportGenerator:
             recent_return = (data["Close"].iloc[-1] / data["Close"].iloc[-2] - 1) * 100
             if abs(recent_return) > 2:
                 direction = "上昇" if recent_return > 0 else "下落"
-                insights.append(
-                    f"直近の価格は{recent_return:.1f}%の{direction}を示しています"
-                )
+                insights.append(f"直近の価格は{recent_return:.1f}%の{direction}を示しています")
 
         # 予測インサイト
         prediction_summary = self._extract_prediction_summary(analysis_results)
         if "ensemble_confidence" in prediction_summary:
             confidence = prediction_summary["ensemble_confidence"]
             if confidence > 0.8:
-                insights.append(
-                    "アンサンブル予測の信頼度が高く、予測精度が期待できます"
-                )
+                insights.append("アンサンブル予測の信頼度が高く、予測精度が期待できます")
             elif confidence < 0.5:
                 insights.append("予測信頼度が低く、市場環境が不安定な可能性があります")
 
@@ -805,7 +777,9 @@ class ReportGenerator:
         if "ensemble_next_price" in pred_summary:
             html_content += f'<div class="metric">アンサンブル予測価格: {pred_summary["ensemble_next_price"]:.2f}</div>'
         if "ensemble_confidence" in pred_summary:
-            html_content += f'<div class="metric">予測信頼度: {pred_summary["ensemble_confidence"]:.1%}</div>'
+            html_content += (
+                f'<div class="metric">予測信頼度: {pred_summary["ensemble_confidence"]:.1%}</div>'
+            )
 
         return html_content or "<p>予測データが利用できません</p>"
 
@@ -817,9 +791,7 @@ class ReportGenerator:
 
         html_content = ""
         if "var_95" in risk_summary:
-            html_content += (
-                f'<div class="metric">VaR(95%): {risk_summary["var_95"]:.4f}</div>'
-            )
+            html_content += f'<div class="metric">VaR(95%): {risk_summary["var_95"]:.4f}</div>'
 
         return html_content or "<p>リスクデータが利用できません</p>"
 
@@ -853,7 +825,9 @@ class ReportGenerator:
                 html_content += f'<div class="category">{title}</div>'
                 for file_key, file_path in category_files.items():
                     filename = Path(file_path).name
-                    html_content += f'<a href="{filename}" class="file-item">{filename} ({file_key})</a>'
+                    html_content += (
+                        f'<a href="{filename}" class="file-item">{filename} ({file_key})</a>'
+                    )
 
         # その他のファイル
         other_files = {
@@ -865,13 +839,13 @@ class ReportGenerator:
             html_content += '<div class="category">その他のファイル</div>'
             for file_key, file_path in other_files.items():
                 filename = Path(file_path).name
-                html_content += f'<a href="{filename}" class="file-item">{filename} ({file_key})</a>'
+                html_content += (
+                    f'<a href="{filename}" class="file-item">{filename} ({file_key})</a>'
+                )
 
         return html_content
 
-    def _create_summary_page(
-        self, data: pd.DataFrame, analysis_results: Dict, symbol: str
-    ):
+    def _create_summary_page(self, data: pd.DataFrame, analysis_results: Dict, symbol: str):
         """サマリーページ作成（matplotlib）"""
         if not MATPLOTLIB_AVAILABLE:
             return None
@@ -920,13 +894,9 @@ class ReportGenerator:
         ]
 
         if "ensemble_next_price" in pred_summary:
-            summary_lines.append(
-                f"アンサンブル予測: {pred_summary['ensemble_next_price']:.2f}"
-            )
+            summary_lines.append(f"アンサンブル予測: {pred_summary['ensemble_next_price']:.2f}")
         if "ensemble_confidence" in pred_summary:
-            summary_lines.append(
-                f"予測信頼度: {pred_summary['ensemble_confidence']:.1%}"
-            )
+            summary_lines.append(f"予測信頼度: {pred_summary['ensemble_confidence']:.1%}")
 
         summary_lines.extend(["", "テクニカル分析", "=" * 50])
         if "current_rsi" in tech_summary:

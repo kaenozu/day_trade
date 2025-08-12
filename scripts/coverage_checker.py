@@ -197,12 +197,8 @@ def evaluate_file_type_coverage(
                         "files": [],
                     }
 
-                file_type_stats[file_type]["covered_lines"] += summary.get(
-                    "covered_lines", 0
-                )
-                file_type_stats[file_type]["total_lines"] += summary.get(
-                    "num_statements", 0
-                )
+                file_type_stats[file_type]["covered_lines"] += summary.get("covered_lines", 0)
+                file_type_stats[file_type]["total_lines"] += summary.get("num_statements", 0)
                 file_type_stats[file_type]["file_count"] += 1
                 file_type_stats[file_type]["files"].append(filename)
                 break
@@ -379,9 +375,7 @@ def generate_quality_report(
     report += f"- **失敗閾値**: {quality_gates.get('fail_under', 60)}%\n"
     report += f"- **警告閾値**: {quality_gates.get('warn_under', 70)}%\n"
     report += f"- **PR ブロック閾値**: {quality_gates.get('block_pr_under', 50)}%\n"
-    report += (
-        f"- **新規コード最低要件**: {quality_gates.get('new_code_minimum', 80)}%\n"
-    )
+    report += f"- **新規コード最低要件**: {quality_gates.get('new_code_minimum', 80)}%\n"
 
     return report
 
@@ -433,9 +427,7 @@ def main():
     # レポート生成
     print("品質レポート生成中...")
 
-    quality_report = generate_quality_report(
-        overall_eval, package_eval, file_type_eval, config
-    )
+    quality_report = generate_quality_report(overall_eval, package_eval, file_type_eval, config)
 
     # レポート保存
     from datetime import datetime
@@ -469,9 +461,7 @@ def main():
         exit_code = 0
 
     # パッケージ別サマリー
-    poor_packages = [
-        pkg for pkg, data in package_eval.items() if not data["meets_minimum"]
-    ]
+    poor_packages = [pkg for pkg, data in package_eval.items() if not data["meets_minimum"]]
     if poor_packages:
         print(f"改善が必要なパッケージ: {', '.join(poor_packages)}")
 

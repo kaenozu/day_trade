@@ -10,9 +10,7 @@ import pandas as pd
 from concept_drift_detector import ConceptDriftDetector
 
 # ロギング設定
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # MLflow設定
@@ -35,17 +33,14 @@ def generate_dummy_data(num_samples: int = 100, drift_point: int = 70) -> pd.Dat
         actuals[drift_point:] + np.random.rand(num_samples - drift_point) * 20 - 10
     )  # ノイズを追加
     actuals[drift_point:] = (
-        actuals[drift_point:]
-        + (predictions[drift_point:] - actuals[drift_point:]) * 0.5
+        actuals[drift_point:] + (predictions[drift_point:] - actuals[drift_point:]) * 0.5
     )  # 予測との乖離を大きくする
 
     # タイムスタンプを生成
     start_date = datetime.now() - timedelta(days=num_samples)
     dates = [start_date + timedelta(days=i) for i in range(num_samples)]
 
-    df = pd.DataFrame(
-        {"timestamp": dates, "predictions": predictions, "actuals": actuals}
-    )
+    df = pd.DataFrame({"timestamp": dates, "predictions": predictions, "actuals": actuals})
     return df
 
 
@@ -89,13 +84,9 @@ def run_concept_drift_detection(data_path: Optional[str] = None):
             chunk = df.iloc[i : i + chunk_size]
             predictions_chunk = chunk["predictions"].values
             actuals_chunk = chunk["actuals"].values
-            timestamp_chunk = chunk["timestamp"].iloc[
-                -1
-            ]  # チャンクの最後のタイムスタンプ
+            timestamp_chunk = chunk["timestamp"].iloc[-1]  # チャンクの最後のタイムスタンプ
 
-            detector.add_performance_data(
-                predictions_chunk, actuals_chunk, timestamp_chunk
-            )
+            detector.add_performance_data(predictions_chunk, actuals_chunk, timestamp_chunk)
             drift_result = detector.detect_drift()
 
             # MLflowにログを記録

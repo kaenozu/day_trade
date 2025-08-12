@@ -179,9 +179,7 @@ class AnalysisOnlyEngine:
     async def _analysis_loop(self) -> None:
         """メイン分析ループ"""
         try:
-            while (
-                not self._stop_event.is_set() and self.status != AnalysisStatus.STOPPED
-            ):
+            while not self._stop_event.is_set() and self.status != AnalysisStatus.STOPPED:
                 if self.status == AnalysisStatus.PAUSED:
                     await asyncio.sleep(5.0)
                     continue
@@ -196,9 +194,7 @@ class AnalysisOnlyEngine:
                         await self._perform_market_analysis()
 
                     # レポート生成
-                    report = self._generate_analysis_report(
-                        time.time() - analysis_start
-                    )
+                    report = self._generate_analysis_report(time.time() - analysis_start)
                     self.analysis_history.append(report)
 
                     # 統計更新
@@ -274,9 +270,7 @@ class AnalysisOnlyEngine:
                 },
                 level="critical",
             )
-            error_handler.handle_error(
-                critical_error, context={"engine_status": self.status.value}
-            )
+            error_handler.handle_error(critical_error, context={"engine_status": self.status.value})
 
     async def _perform_market_analysis(self) -> None:
         """市場データ分析の実行"""
@@ -297,9 +291,7 @@ class AnalysisOnlyEngine:
                 current_price = Decimal(str(current_data["current_price"]))
 
                 # 履歴データ取得（パフォーマンス監視付き）
-                with performance_monitor.monitor(
-                    f"historical_data_{symbol}", "data_fetch"
-                ):
+                with performance_monitor.monitor(f"historical_data_{symbol}", "data_fetch"):
                     historical_data = await asyncio.get_event_loop().run_in_executor(
                         None, self.stock_fetcher.get_historical_data, symbol, "30d"
                     )
@@ -307,29 +299,31 @@ class AnalysisOnlyEngine:
                 # シグナル生成（パフォーマンス監視付き）
                 signal = None
                 if historical_data is not None and not historical_data.empty:
-                    with performance_monitor.monitor(
-                        f"signal_generation_{symbol}", "ml_analysis"
-                    ):
+                    with performance_monitor.monitor(f"signal_generation_{symbol}", "ml_analysis"):
                         signal = self.signal_generator.generate_signal(historical_data)
 
                 # 分析結果作成（パフォーマンス監視付き）
-                with performance_monitor.monitor(
-                    f"analysis_creation_{symbol}", "analysis"
-                ):
+                with performance_monitor.monitor(f"analysis_creation_{symbol}", "analysis"):
                     analysis = MarketAnalysis(
                         symbol=symbol,
                         current_price=current_price,
                         analysis_timestamp=datetime.now(),
                         signal=signal,
-                        volatility=self._calculate_volatility(historical_data)
-                        if historical_data is not None
-                        else None,
-                        volume_trend=self._analyze_volume_trend(historical_data)
-                        if historical_data is not None
-                        else None,
-                        price_trend=self._analyze_price_trend(historical_data)
-                        if historical_data is not None
-                        else None,
+                        volatility=(
+                            self._calculate_volatility(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
+                        volume_trend=(
+                            self._analyze_volume_trend(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
+                        price_trend=(
+                            self._analyze_price_trend(historical_data)
+                            if historical_data is not None
+                            else None
+                        ),
                         recommendations=self._generate_recommendations(
                             symbol, current_price, signal
                         ),
@@ -365,9 +359,7 @@ class AnalysisOnlyEngine:
 
             except Exception as e:
                 # 予期しないエラー - 銘柄をスキップして継続
-                symbol_context = ExceptionContext(
-                    "AnalysisEngine", f"symbol_analysis_{symbol}"
-                )
+                symbol_context = ExceptionContext("AnalysisEngine", f"symbol_analysis_{symbol}")
                 symbol_error = symbol_context.handle(e)
                 log_exception(
                     logger,
@@ -482,16 +474,10 @@ class AnalysisOnlyEngine:
 
             if signal:
                 confidence_level = (
-                    "高"
-                    if signal.confidence >= 80
-                    else "中"
-                    if signal.confidence >= 60
-                    else "低"
+                    "高" if signal.confidence >= 80 else "中" if signal.confidence >= 60 else "低"
                 )
                 action = "買い注目" if signal.signal_type.value == "buy" else "売り注目"
-                recommendations.append(
-                    f"シグナル: {action} (信頼度: {confidence_level})"
-                )
+                recommendations.append(f"シグナル: {action} (信頼度: {confidence_level})")
 
                 if hasattr(signal, "reasoning") and signal.reasoning:
                     recommendations.append(f"根拠: {signal.reasoning}")
@@ -514,9 +500,7 @@ class AnalysisOnlyEngine:
             ]
         except Exception as e:
             # 予期しないエラー
-            rec_context = ExceptionContext(
-                "AnalysisEngine", f"recommendations_{symbol}"
-            )
+            rec_context = ExceptionContext("AnalysisEngine", f"recommendations_{symbol}")
             rec_error = rec_context.handle(e)
             log_exception(
                 logger,
@@ -634,9 +618,9 @@ class AnalysisOnlyEngine:
             "safe_mode": is_safe_mode(),
             "trading_disabled": True,  # 常にTrue
             "stats": self.stats.copy(),
-            "latest_report": self.get_latest_report().__dict__
-            if self.get_latest_report()
-            else None,
+            "latest_report": (
+                self.get_latest_report().__dict__ if self.get_latest_report() else None
+            ),
         }
 
     def get_symbol_recommendations(self, symbol: str) -> List[str]:

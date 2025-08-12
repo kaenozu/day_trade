@@ -171,9 +171,7 @@ class SectorAnalysisEngine:
                     quality_score=float(quality_score),
                 )
 
-            logger.info(
-                f"セクターパフォーマンス計算完了: {len(sector_performances)}セクター"
-            )
+            logger.info(f"セクターパフォーマンス計算完了: {len(sector_performances)}セクター")
             return sector_performances
 
         except Exception as e:
@@ -236,9 +234,7 @@ class SectorAnalysisEngine:
         except Exception:
             return 0.5
 
-    def analyze_sector_correlations(
-        self, sector_data: Dict[str, pd.DataFrame]
-    ) -> pd.DataFrame:
+    def analyze_sector_correlations(self, sector_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         """
         セクター間相関分析
 
@@ -301,9 +297,7 @@ class SectorAnalysisEngine:
                         continue
 
                     # シグナル強度計算
-                    momentum_diff = (
-                        strong_sector.momentum_score - weak_sector.momentum_score
-                    )
+                    momentum_diff = strong_sector.momentum_score - weak_sector.momentum_score
                     sharpe_diff = strong_sector.sharpe_ratio - weak_sector.sharpe_ratio
 
                     signal_strength = (momentum_diff + sharpe_diff) / 2
@@ -440,8 +434,7 @@ class SectorAnalysisEngine:
 
             # 結果辞書作成
             cluster_assignments = {
-                sector_codes[i]: int(cluster_labels[i])
-                for i in range(len(sector_codes))
+                sector_codes[i]: int(cluster_labels[i]) for i in range(len(sector_codes))
             }
 
             logger.info(f"セクタークラスタリング完了: {n_clusters}クラスター")
@@ -535,9 +528,7 @@ class SectorAnalysisEngine:
             cluster_assignments = self.perform_sector_clustering(sector_performances)
 
             # 5. セクターランキング
-            sector_rankings = self.generate_sector_rankings(
-                sector_performances, "composite"
-            )
+            sector_rankings = self.generate_sector_rankings(sector_performances, "composite")
 
             analysis_result = CrossSectorAnalysis(
                 correlation_matrix=correlation_matrix,

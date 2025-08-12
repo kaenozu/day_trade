@@ -383,9 +383,7 @@ class TOPIX500MasterManager:
                     )
 
                 conn.commit()
-                logger.info(
-                    f"セクターマスターデータ初期化完了: {len(self.sector_mapping)}セクター"
-                )
+                logger.info(f"セクターマスターデータ初期化完了: {len(self.sector_mapping)}セクター")
 
         except Exception as e:
             logger.error(f"セクターマスター初期化エラー: {e}")
@@ -467,9 +465,7 @@ class TOPIX500MasterManager:
 
                 for code, name, sector_code, sector_name in sample_stocks:
                     # 時価総額は簡易計算（実際のデータでは外部APIから取得）
-                    mock_market_cap = (
-                        hash(code) % 10000000 + 1000000
-                    )  # 100万-1000万のモック値
+                    mock_market_cap = hash(code) % 10000000 + 1000000  # 100万-1000万のモック値
 
                     cursor.execute(
                         """
@@ -491,9 +487,7 @@ class TOPIX500MasterManager:
                     )
 
                 conn.commit()
-                logger.info(
-                    f"TOPIX500サンプルデータ読み込み完了: {len(sample_stocks)}銘柄"
-                )
+                logger.info(f"TOPIX500サンプルデータ読み込み完了: {len(sample_stocks)}銘柄")
 
         except Exception as e:
             logger.error(f"サンプルデータ読み込みエラー: {e}")
@@ -796,9 +790,7 @@ if __name__ == "__main__":
         print(f"   セクター数: {len(sector_summary)}")
 
         for sector_code, info in list(sector_summary.items())[:5]:
-            print(
-                f"   {sector_code}: {info['sector_name']} ({info['stock_count']}銘柄)"
-            )
+            print(f"   {sector_code}: {info['sector_name']} ({info['stock_count']}銘柄)")
 
         # バッチ作成テスト
         print("5. バランス考慮バッチ作成テスト...")

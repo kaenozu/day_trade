@@ -6,16 +6,17 @@ Issue #436: 本番運用監視システム完成
 環境別設定、SLO定義、アラート設定の管理
 """
 
+import json
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any
-import json
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class Environment(Enum):
     """環境定義"""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -23,6 +24,7 @@ class Environment(Enum):
 
 class LogLevel(Enum):
     """ログレベル"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -33,6 +35,7 @@ class LogLevel(Enum):
 @dataclass
 class DatabaseConfig:
     """データベース設定"""
+
     host: str = "localhost"
     port: int = 5432
     database: str = "day_trade_monitoring"
@@ -47,6 +50,7 @@ class DatabaseConfig:
 @dataclass
 class RedisConfig:
     """Redis設定"""
+
     host: str = "localhost"
     port: int = 6379
     database: int = 0
@@ -59,6 +63,7 @@ class RedisConfig:
 @dataclass
 class MetricsConfig:
     """メトリクス設定"""
+
     collection_interval_seconds: int = 30
     retention_days: int = 30
     max_points_per_metric: int = 10000
@@ -75,6 +80,7 @@ class MetricsConfig:
 @dataclass
 class TracingConfig:
     """トレーシング設定"""
+
     enabled: bool = True
     sample_rate: float = 1.0  # 100%サンプリング
     max_trace_duration_seconds: int = 300
@@ -90,6 +96,7 @@ class TracingConfig:
 @dataclass
 class LoggingConfig:
     """ログ設定"""
+
     level: LogLevel = LogLevel.INFO
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     max_file_size_mb: int = 100
@@ -112,6 +119,7 @@ class LoggingConfig:
 @dataclass
 class AlertConfig:
     """アラート設定"""
+
     enabled: bool = True
     default_cooldown_seconds: int = 300
     escalation_timeout_minutes: int = 30
@@ -137,6 +145,7 @@ class AlertConfig:
 @dataclass
 class SLOConfigItem:
     """SLO設定項目"""
+
     name: str
     description: str
     target_percentage: float
@@ -149,57 +158,61 @@ class SLOConfigItem:
 @dataclass
 class SLOSettings:
     """SLO設定"""
+
     enabled: bool = True
     check_interval_minutes: int = 5
 
     # デフォルトSLO定義
-    slos: List[SLOConfigItem] = field(default_factory=lambda: [
-        SLOConfigItem(
-            name="api_latency",
-            description="API応答時間 99.9% < 50ms",
-            target_percentage=99.9,
-            time_window_hours=24,
-            metric_query="api_response_time_p99",
-            error_budget_percentage=0.1
-        ),
-        SLOConfigItem(
-            name="system_availability",
-            description="システム稼働率 99.99%",
-            target_percentage=99.99,
-            time_window_hours=720,  # 30日
-            metric_query="system_uptime",
-            error_budget_percentage=0.01
-        ),
-        SLOConfigItem(
-            name="error_rate",
-            description="エラー率 < 0.1%",
-            target_percentage=99.9,
-            time_window_hours=168,  # 7日
-            metric_query="error_rate",
-            error_budget_percentage=0.1
-        ),
-        SLOConfigItem(
-            name="data_accuracy",
-            description="データ精度 99.95%",
-            target_percentage=99.95,
-            time_window_hours=24,
-            metric_query="data_accuracy",
-            error_budget_percentage=0.05
-        ),
-        SLOConfigItem(
-            name="hft_latency",
-            description="HFT処理レイテンシー 99.9% < 100μs",
-            target_percentage=99.9,
-            time_window_hours=1,
-            metric_query="hft_processing_latency_p99",
-            error_budget_percentage=0.1
-        )
-    ])
+    slos: List[SLOConfigItem] = field(
+        default_factory=lambda: [
+            SLOConfigItem(
+                name="api_latency",
+                description="API応答時間 99.9% < 50ms",
+                target_percentage=99.9,
+                time_window_hours=24,
+                metric_query="api_response_time_p99",
+                error_budget_percentage=0.1,
+            ),
+            SLOConfigItem(
+                name="system_availability",
+                description="システム稼働率 99.99%",
+                target_percentage=99.99,
+                time_window_hours=720,  # 30日
+                metric_query="system_uptime",
+                error_budget_percentage=0.01,
+            ),
+            SLOConfigItem(
+                name="error_rate",
+                description="エラー率 < 0.1%",
+                target_percentage=99.9,
+                time_window_hours=168,  # 7日
+                metric_query="error_rate",
+                error_budget_percentage=0.1,
+            ),
+            SLOConfigItem(
+                name="data_accuracy",
+                description="データ精度 99.95%",
+                target_percentage=99.95,
+                time_window_hours=24,
+                metric_query="data_accuracy",
+                error_budget_percentage=0.05,
+            ),
+            SLOConfigItem(
+                name="hft_latency",
+                description="HFT処理レイテンシー 99.9% < 100μs",
+                target_percentage=99.9,
+                time_window_hours=1,
+                metric_query="hft_processing_latency_p99",
+                error_budget_percentage=0.1,
+            ),
+        ]
+    )
 
 
 @dataclass
 class SecurityConfig:
     """セキュリティ設定"""
+
     enable_authentication: bool = True
     jwt_secret: str = "your-jwt-secret-key"
     jwt_expiration_hours: int = 24
@@ -221,6 +234,7 @@ class SecurityConfig:
 @dataclass
 class PerformanceConfig:
     """パフォーマンス設定"""
+
     # スレッド・プロセス設定
     monitoring_threads: int = 4
     metrics_processing_workers: int = 2
@@ -248,6 +262,7 @@ class PerformanceConfig:
 @dataclass
 class ProductionMonitoringConfig:
     """本番運用監視システム設定"""
+
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
 
@@ -263,10 +278,10 @@ class ProductionMonitoringConfig:
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
 
     @classmethod
-    def from_environment(cls, env: Environment = None) -> 'ProductionMonitoringConfig':
+    def from_environment(cls, env: Environment = None) -> "ProductionMonitoringConfig":
         """環境別設定読み込み"""
         if env is None:
-            env_str = os.getenv('ENVIRONMENT', 'development').lower()
+            env_str = os.getenv("ENVIRONMENT", "development").lower()
             env = Environment(env_str)
 
         config = cls(environment=env)
@@ -285,7 +300,9 @@ class ProductionMonitoringConfig:
         return config
 
     @classmethod
-    def _apply_development_config(cls, config: 'ProductionMonitoringConfig') -> 'ProductionMonitoringConfig':
+    def _apply_development_config(
+        cls, config: "ProductionMonitoringConfig"
+    ) -> "ProductionMonitoringConfig":
         """開発環境設定適用"""
         config.debug = True
         config.logging.level = LogLevel.DEBUG
@@ -304,7 +321,9 @@ class ProductionMonitoringConfig:
         return config
 
     @classmethod
-    def _apply_staging_config(cls, config: 'ProductionMonitoringConfig') -> 'ProductionMonitoringConfig':
+    def _apply_staging_config(
+        cls, config: "ProductionMonitoringConfig"
+    ) -> "ProductionMonitoringConfig":
         """ステージング環境設定適用"""
         config.debug = False
         config.logging.level = LogLevel.INFO
@@ -321,7 +340,9 @@ class ProductionMonitoringConfig:
         return config
 
     @classmethod
-    def _apply_production_config(cls, config: 'ProductionMonitoringConfig') -> 'ProductionMonitoringConfig':
+    def _apply_production_config(
+        cls, config: "ProductionMonitoringConfig"
+    ) -> "ProductionMonitoringConfig":
         """本番環境設定適用"""
         config.debug = False
         config.logging.level = LogLevel.WARNING
@@ -356,118 +377,122 @@ class ProductionMonitoringConfig:
         return config
 
     @classmethod
-    def _apply_environment_variables(cls, config: 'ProductionMonitoringConfig') -> 'ProductionMonitoringConfig':
+    def _apply_environment_variables(
+        cls, config: "ProductionMonitoringConfig"
+    ) -> "ProductionMonitoringConfig":
         """環境変数からの設定オーバーライド"""
 
         # データベース設定
-        if os.getenv('DB_HOST'):
-            config.database.host = os.getenv('DB_HOST')
-        if os.getenv('DB_PORT'):
-            config.database.port = int(os.getenv('DB_PORT'))
-        if os.getenv('DB_NAME'):
-            config.database.database = os.getenv('DB_NAME')
-        if os.getenv('DB_USER'):
-            config.database.username = os.getenv('DB_USER')
-        if os.getenv('DB_PASSWORD'):
-            config.database.password = os.getenv('DB_PASSWORD')
+        if os.getenv("DB_HOST"):
+            config.database.host = os.getenv("DB_HOST")
+        if os.getenv("DB_PORT"):
+            config.database.port = int(os.getenv("DB_PORT"))
+        if os.getenv("DB_NAME"):
+            config.database.database = os.getenv("DB_NAME")
+        if os.getenv("DB_USER"):
+            config.database.username = os.getenv("DB_USER")
+        if os.getenv("DB_PASSWORD"):
+            config.database.password = os.getenv("DB_PASSWORD")
 
         # Redis設定
-        if os.getenv('REDIS_HOST'):
-            config.redis.host = os.getenv('REDIS_HOST')
-        if os.getenv('REDIS_PORT'):
-            config.redis.port = int(os.getenv('REDIS_PORT'))
-        if os.getenv('REDIS_PASSWORD'):
-            config.redis.password = os.getenv('REDIS_PASSWORD')
+        if os.getenv("REDIS_HOST"):
+            config.redis.host = os.getenv("REDIS_HOST")
+        if os.getenv("REDIS_PORT"):
+            config.redis.port = int(os.getenv("REDIS_PORT"))
+        if os.getenv("REDIS_PASSWORD"):
+            config.redis.password = os.getenv("REDIS_PASSWORD")
 
         # メトリクス設定
-        if os.getenv('METRICS_COLLECTION_INTERVAL'):
-            config.metrics.collection_interval_seconds = int(os.getenv('METRICS_COLLECTION_INTERVAL'))
-        if os.getenv('PROMETHEUS_PORT'):
-            config.metrics.prometheus_port = int(os.getenv('PROMETHEUS_PORT'))
+        if os.getenv("METRICS_COLLECTION_INTERVAL"):
+            config.metrics.collection_interval_seconds = int(
+                os.getenv("METRICS_COLLECTION_INTERVAL")
+            )
+        if os.getenv("PROMETHEUS_PORT"):
+            config.metrics.prometheus_port = int(os.getenv("PROMETHEUS_PORT"))
 
         # アラート設定
-        if os.getenv('ALERT_EMAIL_SMTP_SERVER'):
-            config.alerts.email_smtp_server = os.getenv('ALERT_EMAIL_SMTP_SERVER')
-        if os.getenv('ALERT_EMAIL_USERNAME'):
-            config.alerts.email_username = os.getenv('ALERT_EMAIL_USERNAME')
-        if os.getenv('ALERT_EMAIL_PASSWORD'):
-            config.alerts.email_password = os.getenv('ALERT_EMAIL_PASSWORD')
-        if os.getenv('ALERT_EMAIL_RECIPIENTS'):
-            config.alerts.email_recipients = os.getenv('ALERT_EMAIL_RECIPIENTS').split(',')
+        if os.getenv("ALERT_EMAIL_SMTP_SERVER"):
+            config.alerts.email_smtp_server = os.getenv("ALERT_EMAIL_SMTP_SERVER")
+        if os.getenv("ALERT_EMAIL_USERNAME"):
+            config.alerts.email_username = os.getenv("ALERT_EMAIL_USERNAME")
+        if os.getenv("ALERT_EMAIL_PASSWORD"):
+            config.alerts.email_password = os.getenv("ALERT_EMAIL_PASSWORD")
+        if os.getenv("ALERT_EMAIL_RECIPIENTS"):
+            config.alerts.email_recipients = os.getenv("ALERT_EMAIL_RECIPIENTS").split(",")
 
-        if os.getenv('SLACK_WEBHOOK_URL'):
-            config.alerts.slack_webhook_url = os.getenv('SLACK_WEBHOOK_URL')
+        if os.getenv("SLACK_WEBHOOK_URL"):
+            config.alerts.slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
             config.alerts.slack_enabled = True
 
         # セキュリティ設定
-        if os.getenv('JWT_SECRET'):
-            config.security.jwt_secret = os.getenv('JWT_SECRET')
-        if os.getenv('API_KEY_REQUIRED'):
-            config.security.api_key_required = os.getenv('API_KEY_REQUIRED').lower() == 'true'
+        if os.getenv("JWT_SECRET"):
+            config.security.jwt_secret = os.getenv("JWT_SECRET")
+        if os.getenv("API_KEY_REQUIRED"):
+            config.security.api_key_required = os.getenv("API_KEY_REQUIRED").lower() == "true"
 
         # パフォーマンス設定
-        if os.getenv('MAX_MEMORY_USAGE_MB'):
-            config.performance.max_memory_usage_mb = int(os.getenv('MAX_MEMORY_USAGE_MB'))
-        if os.getenv('MONITORING_THREADS'):
-            config.performance.monitoring_threads = int(os.getenv('MONITORING_THREADS'))
+        if os.getenv("MAX_MEMORY_USAGE_MB"):
+            config.performance.max_memory_usage_mb = int(os.getenv("MAX_MEMORY_USAGE_MB"))
+        if os.getenv("MONITORING_THREADS"):
+            config.performance.monitoring_threads = int(os.getenv("MONITORING_THREADS"))
 
         return config
 
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式で設定を取得"""
         return {
-            'environment': self.environment.value,
-            'debug': self.debug,
-            'database': {
-                'host': self.database.host,
-                'port': self.database.port,
-                'database': self.database.database,
-                'username': self.database.username,
-                'pool_size': self.database.pool_size,
+            "environment": self.environment.value,
+            "debug": self.debug,
+            "database": {
+                "host": self.database.host,
+                "port": self.database.port,
+                "database": self.database.database,
+                "username": self.database.username,
+                "pool_size": self.database.pool_size,
             },
-            'redis': {
-                'host': self.redis.host,
-                'port': self.redis.port,
-                'database': self.redis.database,
+            "redis": {
+                "host": self.redis.host,
+                "port": self.redis.port,
+                "database": self.redis.database,
             },
-            'metrics': {
-                'collection_interval_seconds': self.metrics.collection_interval_seconds,
-                'retention_days': self.metrics.retention_days,
-                'prometheus_enabled': self.metrics.prometheus_enabled,
-                'prometheus_port': self.metrics.prometheus_port,
+            "metrics": {
+                "collection_interval_seconds": self.metrics.collection_interval_seconds,
+                "retention_days": self.metrics.retention_days,
+                "prometheus_enabled": self.metrics.prometheus_enabled,
+                "prometheus_port": self.metrics.prometheus_port,
             },
-            'tracing': {
-                'enabled': self.tracing.enabled,
-                'sample_rate': self.tracing.sample_rate,
-                'jaeger_enabled': self.tracing.jaeger_enabled,
+            "tracing": {
+                "enabled": self.tracing.enabled,
+                "sample_rate": self.tracing.sample_rate,
+                "jaeger_enabled": self.tracing.jaeger_enabled,
             },
-            'logging': {
-                'level': self.logging.level.value,
-                'structured_logging_enabled': self.logging.structured_logging_enabled,
-                'elasticsearch_enabled': self.logging.elasticsearch_enabled,
+            "logging": {
+                "level": self.logging.level.value,
+                "structured_logging_enabled": self.logging.structured_logging_enabled,
+                "elasticsearch_enabled": self.logging.elasticsearch_enabled,
             },
-            'alerts': {
-                'enabled': self.alerts.enabled,
-                'email_enabled': self.alerts.email_enabled,
-                'slack_enabled': self.alerts.slack_enabled,
-                'max_alerts_per_hour': self.alerts.max_alerts_per_hour,
+            "alerts": {
+                "enabled": self.alerts.enabled,
+                "email_enabled": self.alerts.email_enabled,
+                "slack_enabled": self.alerts.slack_enabled,
+                "max_alerts_per_hour": self.alerts.max_alerts_per_hour,
             },
-            'slo': {
-                'enabled': self.slo.enabled,
-                'check_interval_minutes': self.slo.check_interval_minutes,
-                'slos_count': len(self.slo.slos),
+            "slo": {
+                "enabled": self.slo.enabled,
+                "check_interval_minutes": self.slo.check_interval_minutes,
+                "slos_count": len(self.slo.slos),
             },
-            'security': {
-                'enable_authentication': self.security.enable_authentication,
-                'api_key_required': self.security.api_key_required,
-                'tls_enabled': self.security.tls_enabled,
-                'rate_limit_enabled': self.security.rate_limit_enabled,
+            "security": {
+                "enable_authentication": self.security.enable_authentication,
+                "api_key_required": self.security.api_key_required,
+                "tls_enabled": self.security.tls_enabled,
+                "rate_limit_enabled": self.security.rate_limit_enabled,
             },
-            'performance': {
-                'monitoring_threads': self.performance.monitoring_threads,
-                'max_memory_usage_mb': self.performance.max_memory_usage_mb,
-                'anomaly_detection_enabled': self.performance.anomaly_detection_enabled,
-            }
+            "performance": {
+                "monitoring_threads": self.performance.monitoring_threads,
+                "max_memory_usage_mb": self.performance.max_memory_usage_mb,
+                "anomaly_detection_enabled": self.performance.anomaly_detection_enabled,
+            },
         }
 
     def save_to_file(self, file_path: str):
@@ -475,12 +500,12 @@ class ProductionMonitoringConfig:
         config_dict = self.to_dict()
 
         # 機密情報は除外
-        if 'database' in config_dict:
-            config_dict['database'].pop('password', None)
-        if 'redis' in config_dict:
-            config_dict['redis'].pop('password', None)
+        if "database" in config_dict:
+            config_dict["database"].pop("password", None)
+        if "redis" in config_dict:
+            config_dict["redis"].pop("password", None)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, ensure_ascii=False)
 
     def validate(self) -> List[str]:
@@ -523,14 +548,16 @@ class ProductionMonitoringConfig:
         return errors
 
 
-def load_config(config_file: str = None, environment: Environment = None) -> ProductionMonitoringConfig:
+def load_config(
+    config_file: str = None, environment: Environment = None
+) -> ProductionMonitoringConfig:
     """設定読み込み"""
     # 環境別デフォルト設定作成
     config = ProductionMonitoringConfig.from_environment(environment)
 
     # 設定ファイルが指定された場合は読み込み
     if config_file and Path(config_file).exists():
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, encoding="utf-8") as f:
             file_config = json.load(f)
 
         # TODO: ファイル設定をconfigにマージ

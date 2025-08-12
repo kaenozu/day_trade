@@ -57,9 +57,7 @@ class MetricsCollector:
 
         self.is_collecting = True
         self._collection_task = asyncio.create_task(self._collection_loop())
-        logger.info(
-            f"メトリクス収集を開始しました (間隔: {self.collection_interval}秒)"
-        )
+        logger.info(f"メトリクス収集を開始しました (間隔: {self.collection_interval}秒)")
 
     async def stop_collection(self) -> None:
         """メトリクス収集停止"""
@@ -132,9 +130,9 @@ class MetricsCollector:
                     "usage_percent": cpu_percent,
                     "frequency_mhz": cpu_freq.current if cpu_freq else 0,
                     "cores_usage": cpu_per_core,
-                    "load_average": psutil.getloadavg()
-                    if hasattr(psutil, "getloadavg")
-                    else [0, 0, 0],
+                    "load_average": (
+                        psutil.getloadavg() if hasattr(psutil, "getloadavg") else [0, 0, 0]
+                    ),
                 },
                 # メモリメトリクス
                 "memory": {
@@ -232,30 +230,30 @@ class MetricsCollector:
                 "end": history[-1]["timestamp"] if history else None,
             },
             "cpu": {
-                "avg_usage_percent": round(sum(cpu_usage) / len(cpu_usage), 2)
-                if cpu_usage
-                else 0,
+                "avg_usage_percent": round(sum(cpu_usage) / len(cpu_usage), 2) if cpu_usage else 0,
                 "max_usage_percent": round(max(cpu_usage), 2) if cpu_usage else 0,
                 "min_usage_percent": round(min(cpu_usage), 2) if cpu_usage else 0,
             },
             "memory": {
-                "avg_usage_percent": round(sum(memory_usage) / len(memory_usage), 2)
-                if memory_usage
-                else 0,
+                "avg_usage_percent": (
+                    round(sum(memory_usage) / len(memory_usage), 2) if memory_usage else 0
+                ),
                 "max_usage_percent": round(max(memory_usage), 2) if memory_usage else 0,
                 "min_usage_percent": round(min(memory_usage), 2) if memory_usage else 0,
-                "avg_usage_gb": round(
-                    (sum(m["memory"]["used_bytes"] for m in history) / len(history))
-                    / (1024**3),
-                    2,
-                )
-                if history
-                else 0,
+                "avg_usage_gb": (
+                    round(
+                        (sum(m["memory"]["used_bytes"] for m in history) / len(history))
+                        / (1024**3),
+                        2,
+                    )
+                    if history
+                    else 0
+                ),
             },
             "disk": {
-                "avg_usage_percent": round(sum(disk_usage) / len(disk_usage), 2)
-                if disk_usage
-                else 0,
+                "avg_usage_percent": (
+                    round(sum(disk_usage) / len(disk_usage), 2) if disk_usage else 0
+                ),
                 "max_usage_percent": round(max(disk_usage), 2) if disk_usage else 0,
                 "min_usage_percent": round(min(disk_usage), 2) if disk_usage else 0,
             },
@@ -323,11 +321,7 @@ class MetricsCollector:
                 sum((x - sum(cpu_values) / len(cpu_values)) ** 2 for x in cpu_values)
                 / len(cpu_values)
             ) ** 0.5
-            cpu_cv = (
-                cpu_std / (sum(cpu_values) / len(cpu_values))
-                if sum(cpu_values) > 0
-                else 0
-            )
+            cpu_cv = cpu_std / (sum(cpu_values) / len(cpu_values)) if sum(cpu_values) > 0 else 0
             indicators["cpu_stability"] = "stable" if cpu_cv < 0.3 else "unstable"
 
         return indicators

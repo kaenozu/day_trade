@@ -9,33 +9,37 @@ OpenTelemetry 設定と分散トレーシング初期化
 - HFT対応の低オーバーヘッド監視
 """
 
+import logging
 import os
 import sys
-import logging
-import structlog
-from typing import Dict, Any, Optional
 from contextlib import contextmanager
+from typing import Any, Dict, Optional
+
+import structlog
 
 # OpenTelemetry imports
-from opentelemetry import trace, metrics
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry import metrics, trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.propagate import set_global_textmap
 from opentelemetry.propagators.b3 import B3MultiFormat
-from opentelemetry.propagators.jaeger import JaegerPropagator
 from opentelemetry.propagators.composite import CompositeHTTPPropagator
+from opentelemetry.propagators.jaeger import JaegerPropagator
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    PeriodicExportingMetricReader,
+)
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.semconv.resource import ResourceAttributes
 
 
 class TelemetryConfig:
@@ -56,14 +60,20 @@ class TelemetryConfig:
         environment: str = "production",
         otlp_endpoint: Optional[str] = None,
         jaeger_endpoint: Optional[str] = None,
-        enable_console_export: bool = False
+        enable_console_export: bool = False,
     ):
         self.service_name = service_name
         self.service_version = service_version
         self.environment = environment
-        self.otlp_endpoint = otlp_endpoint or os.getenv("OTLP_ENDPOINT", "http://otel-collector:4317")
-        self.jaeger_endpoint = jaeger_endpoint or os.getenv("JAEGER_ENDPOINT", "http://jaeger-all-in-one:14268/api/traces")
-        self.enable_console_export = enable_console_export or os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true"
+        self.otlp_endpoint = otlp_endpoint or os.getenv(
+            "OTLP_ENDPOINT", "http://otel-collector:4317"
+        )
+        self.jaeger_endpoint = jaeger_endpoint or os.getenv(
+            "JAEGER_ENDPOINT", "http://jaeger-all-in-one:14268/api/traces"
+        )
+        self.enable_console_export = (
+            enable_console_export or os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true"
+        )
 
         # HFT最適化設定
         self.hft_mode = os.getenv("HFT_MODE", "false").lower() == "true"
@@ -109,7 +119,7 @@ class TelemetryConfig:
                 service_name=self.service_name,
                 environment=self.environment,
                 hft_mode=self.hft_mode,
-                otlp_endpoint=self.otlp_endpoint
+                otlp_endpoint=self.otlp_endpoint,
             )
 
         except Exception as e:
@@ -118,15 +128,17 @@ class TelemetryConfig:
 
     def _create_resource(self) -> Resource:
         """OpenTelemetryリソース作成"""
-        return Resource.create({
-            ResourceAttributes.SERVICE_NAME: self.service_name,
-            ResourceAttributes.SERVICE_VERSION: self.service_version,
-            ResourceAttributes.DEPLOYMENT_ENVIRONMENT: self.environment,
-            ResourceAttributes.SERVICE_NAMESPACE: "day-trade",
-            ResourceAttributes.SERVICE_INSTANCE_ID: os.getenv("HOSTNAME", "unknown"),
-            "service.language": "python",
-            "service.runtime": f"python-{sys.version_info.major}.{sys.version_info.minor}",
-        })
+        return Resource.create(
+            {
+                ResourceAttributes.SERVICE_NAME: self.service_name,
+                ResourceAttributes.SERVICE_VERSION: self.service_version,
+                ResourceAttributes.DEPLOYMENT_ENVIRONMENT: self.environment,
+                ResourceAttributes.SERVICE_NAMESPACE: "day-trade",
+                ResourceAttributes.SERVICE_INSTANCE_ID: os.getenv("HOSTNAME", "unknown"),
+                "service.language": "python",
+                "service.runtime": f"python-{sys.version_info.major}.{sys.version_info.minor}",
+            }
+        )
 
     def _initialize_tracing(self, resource: Resource) -> None:
         """分散トレーシング初期化"""
@@ -139,8 +151,7 @@ class TelemetryConfig:
         # OTLP エクスポーター
         try:
             otlp_exporter = OTLPSpanExporter(
-                endpoint=self.otlp_endpoint,
-                insecure=True  # 本番環境では適切なTLS設定を行う
+                endpoint=self.otlp_endpoint, insecure=True  # 本番環境では適切なTLS設定を行う
             )
             exporters.append(otlp_exporter)
         except Exception as e:
@@ -187,10 +198,7 @@ class TelemetryConfig:
 
         # OTLP メトリクスエクスポーター
         try:
-            otlp_metric_exporter = OTLPMetricExporter(
-                endpoint=self.otlp_endpoint,
-                insecure=True
-            )
+            otlp_metric_exporter = OTLPMetricExporter(endpoint=self.otlp_endpoint, insecure=True)
             otlp_reader = PeriodicExportingMetricReader(
                 otlp_metric_exporter,
                 export_interval_millis=5000 if self.hft_mode else 10000,  # HFT用高頻度エクスポート
@@ -224,6 +232,7 @@ class TelemetryConfig:
 
     def _initialize_structured_logging(self) -> None:
         """構造化ログ初期化"""
+
         def add_trace_context(logger, method_name, event_dict):
             """トレースコンテキストをログに追加"""
             span = trace.get_current_span()
@@ -254,7 +263,7 @@ class TelemetryConfig:
                 structlog.processors.StackInfoRenderer(),
                 structlog.processors.format_exc_info,
                 structlog.processors.UnicodeDecoder(),
-                structlog.processors.JSONRenderer()
+                structlog.processors.JSONRenderer(),
             ],
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
@@ -300,10 +309,12 @@ class TelemetryConfig:
         """プロパゲーター設定"""
         # 複数のプロパゲーター形式をサポート
         set_global_textmap(
-            CompositeHTTPPropagator([
-                B3MultiFormat(),
-                JaegerPropagator(),
-            ])
+            CompositeHTTPPropagator(
+                [
+                    B3MultiFormat(),
+                    JaegerPropagator(),
+                ]
+            )
         )
 
     @property
@@ -342,8 +353,7 @@ telemetry_config = TelemetryConfig()
 
 
 def initialize_observability(
-    service_name: str = "day-trade-app",
-    environment: str = None
+    service_name: str = "day-trade-app", environment: str = None
 ) -> TelemetryConfig:
     """
     オブザーバビリティ初期化
@@ -360,10 +370,7 @@ def initialize_observability(
     if environment is None:
         environment = os.getenv("ENVIRONMENT", "production")
 
-    telemetry_config = TelemetryConfig(
-        service_name=service_name,
-        environment=environment
-    )
+    telemetry_config = TelemetryConfig(service_name=service_name, environment=environment)
 
     telemetry_config.initialize_telemetry()
 

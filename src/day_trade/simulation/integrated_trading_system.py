@@ -132,9 +132,7 @@ class SystemIntegrationBridge:
 
                 # 非同期で最適化実行（メインスレッドをブロックしない）
                 asyncio.create_task(
-                    self._run_emergency_optimization(
-                        backtest_framework, parameter_spaces, event
-                    )
+                    self._run_emergency_optimization(backtest_framework, parameter_spaces, event)
                 )
 
         # 複合イベントパターン登録
@@ -197,9 +195,7 @@ class IntegratedTradingSystem:
 
         try:
             # 1. 高頻度取引エンジン初期化
-            optimization_config = OptimizationConfig(
-                enable_gpu=True, enable_caching=True
-            )
+            optimization_config = OptimizationConfig(enable_gpu=True, enable_caching=True)
 
             self.systems["hft"] = await create_high_frequency_trading_engine(
                 optimization_config, self.config.hft_symbols
@@ -217,9 +213,7 @@ class IntegratedTradingSystem:
 
             event_config = ParallelBacktestConfig(max_workers=self.config.event_workers)
 
-            self.systems["events"] = await create_event_driven_simulation_engine(
-                event_config
-            )
+            self.systems["events"] = await create_event_driven_simulation_engine(event_config)
 
             # 4. システム統合ブリッジ登録
             for name, system in self.systems.items():
@@ -244,9 +238,7 @@ class IntegratedTradingSystem:
         await self.integration_bridge.bridge_hft_to_events(hft_engine, event_engine)
 
         # イベント → バックテスト連携
-        await self.integration_bridge.bridge_events_to_backtest(
-            event_engine, backtest_framework
-        )
+        await self.integration_bridge.bridge_events_to_backtest(event_engine, backtest_framework)
 
         # リアルタイム最適化パターン設定
         if self.config.enable_real_time_optimization:
@@ -338,9 +330,7 @@ class IntegratedTradingSystem:
         try:
             # 1. イベント駆動シミュレーション開始
             event_engine = self.systems["events"]
-            simulation_task = asyncio.create_task(
-                event_engine.run_simulation(duration_seconds)
-            )
+            simulation_task = asyncio.create_task(event_engine.run_simulation(duration_seconds))
 
             # 2. 高頻度取引デモンストレーション
             hft_engine = self.systems["hft"]
@@ -387,12 +377,8 @@ class IntegratedTradingSystem:
 
         # 統合統計
         performance["integration"] = {
-            "cross_system_events": self.integration_bridge.integration_stats[
-                "events_bridged"
-            ],
-            "connected_systems": self.integration_bridge.integration_stats[
-                "systems_connected"
-            ],
+            "cross_system_events": self.integration_bridge.integration_stats["events_bridged"],
+            "connected_systems": self.integration_bridge.integration_stats["systems_connected"],
             "system_uptime": self.system_stats.get("uptime_seconds", 0),
         }
 

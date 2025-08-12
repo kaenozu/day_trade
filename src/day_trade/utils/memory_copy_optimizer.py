@@ -165,40 +165,19 @@ class InPlaceOptimizer:
     def __init__(self):
         self.inplace_operations = {
             # Pandas インプレース操作マッピング
-            "fillna": lambda df, *args, **kwargs: df.fillna(
-                *args, inplace=True, **kwargs
-            )
+            "fillna": lambda df, *args, **kwargs: df.fillna(*args, inplace=True, **kwargs) or df,
+            "drop": lambda df, *args, **kwargs: df.drop(*args, inplace=True, **kwargs) or df,
+            "dropna": lambda df, *args, **kwargs: df.dropna(*args, inplace=True, **kwargs) or df,
+            "replace": lambda df, *args, **kwargs: df.replace(*args, inplace=True, **kwargs) or df,
+            "sort_values": lambda df, *args, **kwargs: df.sort_values(*args, inplace=True, **kwargs)
             or df,
-            "drop": lambda df, *args, **kwargs: df.drop(*args, inplace=True, **kwargs)
+            "sort_index": lambda df, *args, **kwargs: df.sort_index(*args, inplace=True, **kwargs)
             or df,
-            "dropna": lambda df, *args, **kwargs: df.dropna(
-                *args, inplace=True, **kwargs
-            )
+            "reset_index": lambda df, *args, **kwargs: df.reset_index(*args, inplace=True, **kwargs)
             or df,
-            "replace": lambda df, *args, **kwargs: df.replace(
-                *args, inplace=True, **kwargs
-            )
+            "set_index": lambda df, *args, **kwargs: df.set_index(*args, inplace=True, **kwargs)
             or df,
-            "sort_values": lambda df, *args, **kwargs: df.sort_values(
-                *args, inplace=True, **kwargs
-            )
-            or df,
-            "sort_index": lambda df, *args, **kwargs: df.sort_index(
-                *args, inplace=True, **kwargs
-            )
-            or df,
-            "reset_index": lambda df, *args, **kwargs: df.reset_index(
-                *args, inplace=True, **kwargs
-            )
-            or df,
-            "set_index": lambda df, *args, **kwargs: df.set_index(
-                *args, inplace=True, **kwargs
-            )
-            or df,
-            "rename": lambda df, *args, **kwargs: df.rename(
-                *args, inplace=True, **kwargs
-            )
-            or df,
+            "rename": lambda df, *args, **kwargs: df.rename(*args, inplace=True, **kwargs) or df,
         }
 
     def apply_inplace_operation(
@@ -342,9 +321,7 @@ class MemoryEfficientChainer:
         total_time = (time.perf_counter() - start_time) * 1000
 
         memory_reduction = (
-            ((original_memory - final_memory) / original_memory) * 100
-            if original_memory > 0
-            else 0
+            ((original_memory - final_memory) / original_memory) * 100 if original_memory > 0 else 0
         )
 
         result = MemoryOptimizationResult(
@@ -479,10 +456,7 @@ class MemoryCopyOptimizer:
 
             if category_candidates:
                 potential_savings = (
-                    sum(memory_usage[col] for col in category_candidates)
-                    * 0.7
-                    / 1024
-                    / 1024
+                    sum(memory_usage[col] for col in category_candidates) * 0.7 / 1024 / 1024
                 )
                 optimization_suggestions.append(
                     {
@@ -532,9 +506,7 @@ class MemoryOptimizedOperations:
     def __init__(self):
         self.optimizer = MemoryCopyOptimizer()
 
-    def efficient_merge(
-        self, left: pd.DataFrame, right: pd.DataFrame, **kwargs
-    ) -> pd.DataFrame:
+    def efficient_merge(self, left: pd.DataFrame, right: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """メモリ効率マージ"""
         try:
             # 大きなデータセットの場合は分割マージを検討
@@ -548,9 +520,7 @@ class MemoryOptimizedOperations:
             logger.warning("メモリエラー: 分割マージにフォールバック")
             return self._chunked_merge(left, right, **kwargs)
 
-    def efficient_concat(
-        self, dataframes: List[pd.DataFrame], **kwargs
-    ) -> pd.DataFrame:
+    def efficient_concat(self, dataframes: List[pd.DataFrame], **kwargs) -> pd.DataFrame:
         """メモリ効率結合"""
         try:
             total_memory_estimate = (
@@ -558,9 +528,7 @@ class MemoryOptimizedOperations:
             )  # MB
 
             if total_memory_estimate > 1024:  # 1GB以上
-                logger.info(
-                    f"大規模結合検出: {total_memory_estimate:.1f}MB, 分割処理実行"
-                )
+                logger.info(f"大規模結合検出: {total_memory_estimate:.1f}MB, 分割処理実行")
                 return self._chunked_concat(dataframes, **kwargs)
             else:
                 return pd.concat(dataframes, **kwargs)
@@ -569,9 +537,7 @@ class MemoryOptimizedOperations:
             logger.warning("メモリエラー: 分割結合にフォールバック")
             return self._chunked_concat(dataframes, **kwargs)
 
-    def _chunked_merge(
-        self, left: pd.DataFrame, right: pd.DataFrame, **kwargs
-    ) -> pd.DataFrame:
+    def _chunked_merge(self, left: pd.DataFrame, right: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """分割マージ"""
         chunk_size = min(10000, len(left) // 4)  # 適切なチャンクサイズ
         if chunk_size < 1000:
@@ -594,10 +560,7 @@ class MemoryOptimizedOperations:
         # リストを小さなバッチに分割
         batch_size = max(2, 20 // max(1, len(dataframes) // 10))  # 動的バッチサイズ
 
-        batches = [
-            dataframes[i : i + batch_size]
-            for i in range(0, len(dataframes), batch_size)
-        ]
+        batches = [dataframes[i : i + batch_size] for i in range(0, len(dataframes), batch_size)]
 
         batch_results = []
         for batch in batches:
@@ -668,9 +631,7 @@ if __name__ == "__main__":
     # メモリ使用量分析
     memory_analysis = analyze_memory_usage(test_df)
     print(f"総メモリ使用量: {memory_analysis['total_memory_mb']:.1f}MB")
-    print(
-        f"最適化可能性: {memory_analysis['total_potential_savings_mb']:.1f}MB削減可能"
-    )
+    print(f"最適化可能性: {memory_analysis['total_potential_savings_mb']:.1f}MB削減可能")
 
     # チェーン操作テスト
     operations = [
@@ -687,11 +648,7 @@ if __name__ == "__main__":
     print(f"適用操作: {len(optimization_result['operations_applied'])}個")
 
     # インプレース操作統計
-    inplace_count = sum(
-        1 for op in optimization_result["operations_applied"] if op["is_inplace"]
-    )
-    print(
-        f"インプレース操作: {inplace_count}/{len(optimization_result['operations_applied'])}"
-    )
+    inplace_count = sum(1 for op in optimization_result["operations_applied"] if op["is_inplace"])
+    print(f"インプレース操作: {inplace_count}/{len(optimization_result['operations_applied'])}")
 
     print("\nメモリコピー最適化システム テスト完了")

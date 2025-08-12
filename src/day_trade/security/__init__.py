@@ -66,9 +66,7 @@ try:
             >>> security_manager = initialize_security_system()
             >>> report = await security_manager.run_comprehensive_security_assessment()
         """
-        return create_security_manager(
-            base_path=base_path, security_level=security_level
-        )
+        return create_security_manager(base_path=base_path, security_level=security_level)
 
     def get_security_info():
         """セキュリティシステム情報取得"""

@@ -111,7 +111,7 @@ def demo_ultra_low_latency():
     # パフォーマンス結果
     report = demo.get_performance_report()
 
-    print(f"\n=== Performance Results ===")
+    print("\n=== Performance Results ===")
     print(f"Total trades: {report['total_trades']}")
     print(f"Success rate: {report['success_rate']:.1f}%")
     print(f"Average latency: {report['latency_stats']['avg_us']}μs")
@@ -168,12 +168,12 @@ def demo_architecture():
         print(f"  {component}:")
         print(f"    {description}")
 
-    print(f"\nTarget Performance Goals:")
-    print(f"  - End-to-end latency: <10us (target)")
-    print(f"  - 99.9th percentile: <15us")
-    print(f"  - Jitter: <1us standard deviation")
-    print(f"  - Throughput: >50,000 trades/second")
-    print(f"  - System availability: 99.99%")
+    print("\nTarget Performance Goals:")
+    print("  - End-to-end latency: <10us (target)")
+    print("  - 99.9th percentile: <15us")
+    print("  - Jitter: <1us standard deviation")
+    print("  - Throughput: >50,000 trades/second")
+    print("  - System availability: 99.99%")
 
 
 def demo_comparison():
@@ -198,7 +198,7 @@ def demo_comparison():
         ("Our Target", 10.0)
     ]
 
-    print(f"\nMarket Competitive Position:")
+    print("\nMarket Competitive Position:")
     for name, latency in competitors:
         advantage = ((latency - ultra_latency) / latency * 100) if latency > ultra_latency else 0
         status = f"({advantage:.0f}% advantage)" if advantage > 0 else "(competitive)"
@@ -236,22 +236,22 @@ def main():
         print(f"  Average latency:       {performance_report['latency_stats']['avg_us']}us")
         print(f"  Target achievement:    {achievement_rate}%")
 
-        print(f"System Optimization:     CONFIGURED")
+        print("System Optimization:     CONFIGURED")
         print(f"  Optimizations ready:   {optimization_count}/10")
 
-        print(f"Architecture Design:     COMPLETE")
-        print(f"  All components defined")
+        print("Architecture Design:     COMPLETE")
+        print("  All components defined")
 
-        print(f"\nNext Implementation Steps:")
-        print(f"  1. Rust core compilation")
-        print(f"  2. System privileges configuration")
-        print(f"  3. Hardware-specific tuning")
-        print(f"  4. Production deployment")
+        print("\nNext Implementation Steps:")
+        print("  1. Rust core compilation")
+        print("  2. System privileges configuration")
+        print("  3. Hardware-specific tuning")
+        print("  4. Production deployment")
 
-        print(f"\nExpected Production Performance:")
-        print(f"  - Target: <10us average latency")
-        print(f"  - Competitive advantage: 20-50%")
-        print(f"  - Market leadership potential: HIGH")
+        print("\nExpected Production Performance:")
+        print("  - Target: <10us average latency")
+        print("  - Competitive advantage: 20-50%")
+        print("  - Market leadership potential: HIGH")
 
         return True
 

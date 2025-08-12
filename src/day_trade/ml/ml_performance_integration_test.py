@@ -208,9 +208,7 @@ class IntegrationTestReport:
     configuration: TestConfiguration
 
     # フェーズ別結果
-    phase_results: Dict[TestPhase, List[PerformanceBenchmarkResult]] = field(
-        default_factory=dict
-    )
+    phase_results: Dict[TestPhase, List[PerformanceBenchmarkResult]] = field(default_factory=dict)
 
     # 総合評価
     overall_speedup_ratio: float = 1.0
@@ -301,9 +299,7 @@ class TestDataGenerator:
             )
 
             # ノード定義
-            matmul_node = helper.make_node(
-                "MatMul", ["input", "weight"], ["matmul_output"]
-            )
+            matmul_node = helper.make_node("MatMul", ["input", "weight"], ["matmul_output"])
             add_node = helper.make_node("Add", ["matmul_output", "bias"], ["output"])
 
             # グラフ作成
@@ -402,9 +398,7 @@ class MLPerformanceIntegrationTest:
                     phase_results = await self._run_test_phase(phase)
                     self.current_report.phase_results[phase] = phase_results
 
-                    logger.info(
-                        f"テストフェーズ完了: {phase.value} ({len(phase_results)}件)"
-                    )
+                    logger.info(f"テストフェーズ完了: {phase.value} ({len(phase_results)}件)")
 
                 except Exception as e:
                     error_msg = f"テストフェーズエラー ({phase.value}): {e}"
@@ -437,9 +431,7 @@ class MLPerformanceIntegrationTest:
 
         return self.current_report
 
-    async def _run_test_phase(
-        self, phase: TestPhase
-    ) -> List[PerformanceBenchmarkResult]:
+    async def _run_test_phase(self, phase: TestPhase) -> List[PerformanceBenchmarkResult]:
         """テストフェーズ実行"""
         phase_results = []
 
@@ -475,9 +467,7 @@ class MLPerformanceIntegrationTest:
                 # 簡易推論（NumPy実装）
                 inference_times = []
 
-                for i in range(
-                    self.config.iteration_counts + self.config.warmup_iterations
-                ):
+                for i in range(self.config.iteration_counts + self.config.warmup_iterations):
                     data = test_data[i % len(test_data)]
 
                     start_time = MicrosecondTimer.now_ns()
@@ -505,8 +495,7 @@ class MLPerformanceIntegrationTest:
                     p99_inference_time_us=np.percentile(times_array, 99),
                     std_inference_time_us=np.std(times_array),
                     throughput_req_per_sec=1_000_000 / np.mean(times_array),
-                    throughput_samples_per_sec=(1_000_000 / np.mean(times_array))
-                    * input_shape[0],
+                    throughput_samples_per_sec=(1_000_000 / np.mean(times_array)) * input_shape[0],
                     avg_memory_usage_mb=data.nbytes / 1024 / 1024,
                     peak_memory_usage_mb=data.nbytes / 1024 / 1024,
                     success_rate=1.0,
@@ -580,12 +569,8 @@ class MLPerformanceIntegrationTest:
                         p95_inference_time_us=benchmark_result["p95_time_us"],
                         p99_inference_time_us=benchmark_result["p99_time_us"],
                         std_inference_time_us=benchmark_result["std_time_us"],
-                        throughput_req_per_sec=benchmark_result[
-                            "throughput_inferences_per_sec"
-                        ],
-                        throughput_samples_per_sec=benchmark_result[
-                            "throughput_inferences_per_sec"
-                        ]
+                        throughput_req_per_sec=benchmark_result["throughput_inferences_per_sec"],
+                        throughput_samples_per_sec=benchmark_result["throughput_inferences_per_sec"]
                         * input_shape[0],
                         avg_memory_usage_mb=10.0,  # 推定値
                         peak_memory_usage_mb=20.0,  # 推定値
@@ -639,18 +624,14 @@ class MLPerformanceIntegrationTest:
 
                 try:
                     # 元モデル生成
-                    original_model_path = (
-                        self.test_data_generator.generate_synthetic_model(
-                            input_shape,
-                            (1,),
-                            str(self.model_dir / f"original_{test_name}.onnx"),
-                        )
+                    original_model_path = self.test_data_generator.generate_synthetic_model(
+                        input_shape,
+                        (1,),
+                        str(self.model_dir / f"original_{test_name}.onnx"),
                     )
 
                     # テストデータ生成
-                    test_data = self.test_data_generator.generate_test_data(
-                        input_shape, 50
-                    )
+                    test_data = self.test_data_generator.generate_test_data(input_shape, 50)
 
                     # モデル圧縮実行
                     compression_result = await compression_engine.compress_model(
@@ -665,16 +646,12 @@ class MLPerformanceIntegrationTest:
                         test_name=test_name,
                         phase=TestPhase.MODEL_COMPRESSION,
                         avg_inference_time_us=compression_result.compressed_inference_time_us,
-                        min_inference_time_us=compression_result.compressed_inference_time_us
-                        * 0.8,
-                        max_inference_time_us=compression_result.compressed_inference_time_us
-                        * 1.2,
-                        p95_inference_time_us=compression_result.compressed_inference_time_us
-                        * 1.1,
+                        min_inference_time_us=compression_result.compressed_inference_time_us * 0.8,
+                        max_inference_time_us=compression_result.compressed_inference_time_us * 1.2,
+                        p95_inference_time_us=compression_result.compressed_inference_time_us * 1.1,
                         p99_inference_time_us=compression_result.compressed_inference_time_us
                         * 1.15,
-                        std_inference_time_us=compression_result.compressed_inference_time_us
-                        * 0.1,
+                        std_inference_time_us=compression_result.compressed_inference_time_us * 0.1,
                         throughput_req_per_sec=1_000_000
                         / compression_result.compressed_inference_time_us,
                         throughput_samples_per_sec=(
@@ -682,23 +659,20 @@ class MLPerformanceIntegrationTest:
                         )
                         * input_shape[0],
                         avg_memory_usage_mb=compression_result.compressed_model_size_mb,
-                        peak_memory_usage_mb=compression_result.compressed_model_size_mb
-                        * 1.5,
+                        peak_memory_usage_mb=compression_result.compressed_model_size_mb * 1.5,
                         accuracy_score=compression_result.compressed_accuracy,
                         success_rate=1.0,
                         total_iterations=50,
                         input_shape=input_shape,
                         backend_used="compressed_onnx",
-                        optimization_applied=["quantization", "pruning"]
-                        if compression_result.quantization_applied
-                        and compression_result.pruning_applied
-                        else (
-                            ["quantization"]
+                        optimization_applied=(
+                            ["quantization", "pruning"]
                             if compression_result.quantization_applied
+                            and compression_result.pruning_applied
                             else (
-                                ["pruning"]
-                                if compression_result.pruning_applied
-                                else []
+                                ["quantization"]
+                                if compression_result.quantization_applied
+                                else (["pruning"] if compression_result.pruning_applied else [])
                             )
                         ),
                     )
@@ -754,15 +728,11 @@ class MLPerformanceIntegrationTest:
 
                     success = await gpu_engine.load_model(model_path, test_name)
                     if not success:
-                        logger.warning(
-                            f"GPUモデル読み込み失敗: {test_name} - CPUフォールバック"
-                        )
+                        logger.warning(f"GPUモデル読み込み失敗: {test_name} - CPUフォールバック")
                         continue
 
                     # ベンチマーク実行
-                    test_data = self.test_data_generator.generate_test_data(
-                        input_shape, 1
-                    )[0]
+                    test_data = self.test_data_generator.generate_test_data(input_shape, 1)[0]
 
                     benchmark_result = await gpu_engine.benchmark_gpu_performance(
                         test_name, test_data, self.config.iteration_counts
@@ -778,19 +748,13 @@ class MLPerformanceIntegrationTest:
                         p95_inference_time_us=benchmark_result["p95_time_us"],
                         p99_inference_time_us=benchmark_result["p99_time_us"],
                         std_inference_time_us=benchmark_result["std_time_us"],
-                        throughput_req_per_sec=benchmark_result[
-                            "throughput_inferences_per_sec"
-                        ],
-                        throughput_samples_per_sec=benchmark_result[
-                            "throughput_samples_per_sec"
-                        ],
+                        throughput_req_per_sec=benchmark_result["throughput_inferences_per_sec"],
+                        throughput_samples_per_sec=benchmark_result["throughput_samples_per_sec"],
                         avg_memory_usage_mb=benchmark_result["avg_gpu_memory_mb"],
                         peak_memory_usage_mb=benchmark_result["peak_gpu_memory_mb"],
                         avg_gpu_memory_mb=benchmark_result["avg_gpu_memory_mb"],
                         peak_gpu_memory_mb=benchmark_result["peak_gpu_memory_mb"],
-                        avg_gpu_utilization_percent=benchmark_result[
-                            "avg_gpu_utilization"
-                        ],
+                        avg_gpu_utilization_percent=benchmark_result["avg_gpu_utilization"],
                         success_rate=1.0,
                         total_iterations=benchmark_result["iterations"],
                         input_shape=input_shape,
@@ -852,12 +816,10 @@ class MLPerformanceIntegrationTest:
                         )
 
                         # ベンチマーク実行
-                        benchmark_result = (
-                            await batch_optimizer.benchmark_batch_performance(
-                                f"onnx_{input_shape}",  # 使用するモデル名
-                                test_data,
-                                iterations=min(50, self.config.iteration_counts),
-                            )
+                        benchmark_result = await batch_optimizer.benchmark_batch_performance(
+                            f"onnx_{input_shape}",  # 使用するモデル名
+                            test_data,
+                            iterations=min(50, self.config.iteration_counts),
                         )
 
                         if benchmark_result["successful_requests"] > 0:
@@ -865,29 +827,17 @@ class MLPerformanceIntegrationTest:
                             result = PerformanceBenchmarkResult(
                                 test_name=test_name,
                                 phase=TestPhase.BATCH_OPTIMIZATION,
-                                avg_inference_time_us=benchmark_result[
-                                    "avg_latency_us"
-                                ],
-                                min_inference_time_us=benchmark_result[
-                                    "min_latency_us"
-                                ],
-                                max_inference_time_us=benchmark_result[
-                                    "max_latency_us"
-                                ],
-                                p95_inference_time_us=benchmark_result[
-                                    "p95_latency_us"
-                                ],
-                                p99_inference_time_us=benchmark_result[
-                                    "p99_latency_us"
-                                ],
+                                avg_inference_time_us=benchmark_result["avg_latency_us"],
+                                min_inference_time_us=benchmark_result["min_latency_us"],
+                                max_inference_time_us=benchmark_result["max_latency_us"],
+                                p95_inference_time_us=benchmark_result["p95_latency_us"],
+                                p99_inference_time_us=benchmark_result["p99_latency_us"],
                                 std_inference_time_us=(
                                     benchmark_result["max_latency_us"]
                                     - benchmark_result["min_latency_us"]
                                 )
                                 / 4,
-                                throughput_req_per_sec=benchmark_result[
-                                    "total_throughput_per_sec"
-                                ],
+                                throughput_req_per_sec=benchmark_result["total_throughput_per_sec"],
                                 throughput_samples_per_sec=benchmark_result[
                                     "total_throughput_per_sec"
                                 ]
@@ -900,9 +850,7 @@ class MLPerformanceIntegrationTest:
                                     + benchmark_result["failed_requests"]
                                 ),
                                 error_count=benchmark_result["failed_requests"],
-                                total_iterations=benchmark_result[
-                                    "successful_requests"
-                                ],
+                                total_iterations=benchmark_result["successful_requests"],
                                 batch_size=batch_size,
                                 input_shape=input_shape,
                                 backend_used="batch_optimized",
@@ -966,8 +914,7 @@ class MLPerformanceIntegrationTest:
                         batch_size=result.batch_size,
                         input_shape=result.input_shape,
                         backend_used=result.backend_used,
-                        optimization_applied=result.optimization_applied
-                        + ["full_integration"],
+                        optimization_applied=result.optimization_applied + ["full_integration"],
                     )
 
                     results.append(integrated_result)
@@ -1008,9 +955,7 @@ class MLPerformanceIntegrationTest:
 
             # 総合指標計算
             if baseline_avg_time > 0:
-                self.current_report.overall_speedup_ratio = (
-                    baseline_avg_time / optimized_avg_time
-                )
+                self.current_report.overall_speedup_ratio = baseline_avg_time / optimized_avg_time
 
             if baseline_throughput > 0:
                 self.current_report.overall_throughput_improvement = (
@@ -1019,8 +964,7 @@ class MLPerformanceIntegrationTest:
 
             # 目標達成判定
             self.current_report.speedup_target_achieved = (
-                self.current_report.overall_speedup_ratio
-                >= self.config.target_speedup_ratio
+                self.current_report.overall_speedup_ratio >= self.config.target_speedup_ratio
             )
             self.current_report.throughput_target_achieved = (
                 optimized_throughput >= self.config.target_throughput_req_per_sec
@@ -1058,14 +1002,10 @@ class MLPerformanceIntegrationTest:
             # GPU利用率が低い場合
             gpu_results = []
             for results in self.current_report.phase_results.values():
-                gpu_results.extend(
-                    [r for r in results if r.avg_gpu_utilization_percent > 0]
-                )
+                gpu_results.extend([r for r in results if r.avg_gpu_utilization_percent > 0])
 
             if gpu_results:
-                avg_gpu_util = np.mean(
-                    [r.avg_gpu_utilization_percent for r in gpu_results]
-                )
+                avg_gpu_util = np.mean([r.avg_gpu_utilization_percent for r in gpu_results])
                 if avg_gpu_util < 50:
                     recommendations.append(
                         f"GPU使用率が低い ({avg_gpu_util:.1f}%). "
@@ -1108,9 +1048,7 @@ class MLPerformanceIntegrationTest:
                     elif hasattr(component, "stop"):
                         asyncio.create_task(component.stop())
                 except Exception as e:
-                    logger.warning(
-                        f"コンポーネントクリーンアップ警告 ({component_name}): {e}"
-                    )
+                    logger.warning(f"コンポーネントクリーンアップ警告 ({component_name}): {e}")
 
             self.test_components.clear()
 

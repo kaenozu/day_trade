@@ -10,9 +10,7 @@ import pandas as pd
 from advanced_ml_engine import AdvancedMLEngine, ModelConfig
 
 # ロギング設定
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # MLflow設定
@@ -44,9 +42,7 @@ def run_model_re_training():
     """
     logger.info("モデルの再訓練を開始します。")
 
-    with mlflow.start_run(
-        run_name=f"re_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    ) as run:
+    with mlflow.start_run(run_name=f"re_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}") as run:
         # モデル設定
         model_config = ModelConfig(
             sequence_length=100,  # 例: 過去100日間のデータを使用
@@ -85,9 +81,7 @@ def run_model_re_training():
 
             # モデルの保存とMLflowへの登録
             model_path = "./trained_model"
-            ml_engine._save_model(
-                model_path + "_final.pth"
-            )  # 内部メソッドを直接呼び出し
+            ml_engine._save_model(model_path + "_final.pth")  # 内部メソッドを直接呼び出し
             mlflow.pytorch.log_model(
                 ml_engine.model, "model", registered_model_name="AdvancedMLModel"
             )

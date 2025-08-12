@@ -16,16 +16,16 @@ Test Coverage:
 import asyncio
 import json
 import os
-import sys
-import time
-import tempfile
 import shutil
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Any, Optional, Tuple
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
-import traceback
 import sqlite3
+import sys
+import tempfile
+import time
+import traceback
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+from unittest.mock import MagicMock, Mock, patch
 
 # プロジェクトパスをsys.pathに追加
 project_root = Path(__file__).parent
@@ -34,25 +34,37 @@ if str(project_root) not in sys.path:
 
 try:
     # 必要に応じて環境変数設定
-    os.environ['PYTHONPATH'] = str(project_root / 'src')
-    os.environ['DAY_TRADE_CONFIG_PATH'] = str(project_root / 'config')
+    os.environ["PYTHONPATH"] = str(project_root / "src")
+    os.environ["DAY_TRADE_CONFIG_PATH"] = str(project_root / "config")
 
     # APM・監視基盤のインポート
-    from src.day_trade.observability.slo_manager import (
-        SLOManager, SLODefinition, SLOStatus, AlertSeverity,
-        get_slo_manager, record_sli, check_quality_gate
-    )
     from src.day_trade.observability.dashboard_generator import (
-        DashboardGenerator, DashboardType, PanelType, generate_dashboards
-    )
-    from src.day_trade.observability.telemetry_config import (
-        initialize_observability, trace_span, get_tracer
-    )
-    from src.day_trade.observability.structured_logger import (
-        get_structured_logger, StructuredLogger
+        DashboardGenerator,
+        DashboardType,
+        PanelType,
+        generate_dashboards,
     )
     from src.day_trade.observability.metrics_collector import (
-        get_metrics_collector, MetricsCollector
+        MetricsCollector,
+        get_metrics_collector,
+    )
+    from src.day_trade.observability.slo_manager import (
+        AlertSeverity,
+        SLODefinition,
+        SLOManager,
+        SLOStatus,
+        check_quality_gate,
+        get_slo_manager,
+        record_sli,
+    )
+    from src.day_trade.observability.structured_logger import (
+        StructuredLogger,
+        get_structured_logger,
+    )
+    from src.day_trade.observability.telemetry_config import (
+        get_tracer,
+        initialize_observability,
+        trace_span,
     )
 
 except ImportError as e:
@@ -73,7 +85,7 @@ except ImportError as e:
                 slo_name=name,
                 status=Mock(value="healthy"),
                 sli_current=99.95,
-                error_budget_consumption_rate=0.1
+                error_budget_consumption_rate=0.1,
             )
 
         def evaluate_quality_gate(self, context):
@@ -130,7 +142,7 @@ class ComprehensiveAPMIntegrationTest:
             "test_results": {},
             "performance_metrics": {},
             "system_status": {},
-            "recommendations": []
+            "recommendations": [],
         }
 
         # テスト環境設定
@@ -146,7 +158,7 @@ class ComprehensiveAPMIntegrationTest:
         self.results["test_results"][test_name] = {
             "success": success,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "details": details
+            "details": details,
         }
 
         status = "✅" if success else "❌"
@@ -164,7 +176,7 @@ class ComprehensiveAPMIntegrationTest:
             slo_manager = get_slo_manager()
 
             # カスタムSLO定義追加
-            if hasattr(slo_manager, 'register_slo') and hasattr(SLODefinition, '__call__'):
+            if hasattr(slo_manager, "register_slo") and callable(SLODefinition):
                 test_slo = SLODefinition(
                     name="test_api_latency",
                     description="Test API latency SLO",
@@ -172,33 +184,37 @@ class ComprehensiveAPMIntegrationTest:
                     sli_query="test_query",
                     sli_description="Test SLI",
                     target_percentage=99.9,
-                    time_window_hours=1
+                    time_window_hours=1,
                 )
                 slo_manager.register_slo(test_slo)
 
             # SLIデータ記録テスト
             test_data_points = [
-                (45.0, True),   # 成功: 45ms
+                (45.0, True),  # 成功: 45ms
                 (52.0, False),  # 失敗: 52ms (>50ms)
-                (38.0, True),   # 成功: 38ms
-                (48.0, True),   # 成功: 48ms
+                (38.0, True),  # 成功: 38ms
+                (48.0, True),  # 成功: 48ms
                 (55.0, False),  # 失敗: 55ms
             ]
 
             for latency, success in test_data_points:
-                if hasattr(slo_manager, 'record_sli_data'):
+                if hasattr(slo_manager, "record_sli_data"):
                     slo_manager.record_sli_data("test_api_latency", latency, success)
                 time.sleep(0.1)  # 短い間隔
 
             # SLO計算実行
-            if hasattr(slo_manager, 'calculate_slo'):
+            if hasattr(slo_manager, "calculate_slo"):
                 report = slo_manager.calculate_slo("test_api_latency")
 
                 if report:
                     slo_metrics = {
-                        "sli_current": getattr(report, 'sli_current', 99.0),
-                        "error_budget_consumption": getattr(report, 'error_budget_consumption_rate', 0.1),
-                        "status": getattr(getattr(report, 'status', Mock(value="healthy")), 'value', "healthy")
+                        "sli_current": getattr(report, "sli_current", 99.0),
+                        "error_budget_consumption": getattr(
+                            report, "error_budget_consumption_rate", 0.1
+                        ),
+                        "status": getattr(
+                            getattr(report, "status", Mock(value="healthy")), "value", "healthy"
+                        ),
                     }
                 else:
                     slo_metrics = {"message": "Insufficient data (expected in test)"}
@@ -207,18 +223,20 @@ class ComprehensiveAPMIntegrationTest:
 
             # 品質ゲート評価
             deployment_context = {"version": "test-1.0.0", "environment": "test"}
-            if hasattr(slo_manager, 'evaluate_quality_gate'):
-                is_passing, failures, reports = slo_manager.evaluate_quality_gate(deployment_context)
+            if hasattr(slo_manager, "evaluate_quality_gate"):
+                is_passing, failures, reports = slo_manager.evaluate_quality_gate(
+                    deployment_context
+                )
                 quality_gate_result = {
                     "passing": is_passing,
                     "failure_count": len(failures),
-                    "evaluated_slos": len(reports)
+                    "evaluated_slos": len(reports),
                 }
             else:
                 quality_gate_result = {"passing": True, "mock": True}
 
             # 自動評価ループテスト
-            if hasattr(slo_manager, 'start_automatic_evaluation'):
+            if hasattr(slo_manager, "start_automatic_evaluation"):
                 await slo_manager.start_automatic_evaluation()
                 await asyncio.sleep(1)  # 短時間実行
                 await slo_manager.stop_automatic_evaluation()
@@ -226,21 +244,19 @@ class ComprehensiveAPMIntegrationTest:
             self.results["performance_metrics"]["slo_functionality"] = {
                 "slo_metrics": slo_metrics,
                 "quality_gate": quality_gate_result,
-                "test_duration_seconds": 2
+                "test_duration_seconds": 2,
             }
 
-            self.log_test_result("SLO/SLI管理機能", True, {
-                "slo_metrics": slo_metrics,
-                "quality_gate": quality_gate_result
-            })
+            self.log_test_result(
+                "SLO/SLI管理機能",
+                True,
+                {"slo_metrics": slo_metrics, "quality_gate": quality_gate_result},
+            )
 
             return True
 
         except Exception as e:
-            error_details = {
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            error_details = {"error": str(e), "traceback": traceback.format_exc()}
             self.log_test_result("SLO/SLI管理機能", False, error_details)
             return False
 
@@ -258,20 +274,20 @@ class ComprehensiveAPMIntegrationTest:
                 "hft_dashboard": {
                     "title": hft_dashboard.get("dashboard", {}).get("title", "Generated"),
                     "panels_count": len(hft_dashboard.get("dashboard", {}).get("panels", [])),
-                    "has_templates": "templating" in hft_dashboard.get("dashboard", {})
+                    "has_templates": "templating" in hft_dashboard.get("dashboard", {}),
                 }
             }
 
             # SLOダッシュボード生成
-            if hasattr(dashboard_gen, 'create_slo_dashboard'):
+            if hasattr(dashboard_gen, "create_slo_dashboard"):
                 slo_dashboard = dashboard_gen.create_slo_dashboard()
                 dashboard_results["slo_dashboard"] = {
                     "title": slo_dashboard.get("dashboard", {}).get("title", "Generated"),
-                    "panels_count": len(slo_dashboard.get("dashboard", {}).get("panels", []))
+                    "panels_count": len(slo_dashboard.get("dashboard", {}).get("panels", [])),
                 }
 
             # 全ダッシュボード生成
-            if hasattr(dashboard_gen, 'generate_all_dashboards'):
+            if hasattr(dashboard_gen, "generate_all_dashboards"):
                 generated_files = dashboard_gen.generate_all_dashboards()
                 dashboard_results["generated_files"] = len(generated_files)
 
@@ -285,7 +301,7 @@ class ComprehensiveAPMIntegrationTest:
                         if file_size > 100:  # 100バイト以上
                             dashboard_results[f"file_{os.path.basename(filepath)}"] = {
                                 "size_bytes": file_size,
-                                "valid": True
+                                "valid": True,
                             }
 
                 dashboard_results["valid_files"] = valid_files
@@ -297,10 +313,7 @@ class ComprehensiveAPMIntegrationTest:
             return True
 
         except Exception as e:
-            error_details = {
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            error_details = {"error": str(e), "traceback": traceback.format_exc()}
             self.log_test_result("ダッシュボード生成機能", False, error_details)
             return False
 
@@ -314,12 +327,12 @@ class ComprehensiveAPMIntegrationTest:
 
             observability_results = {
                 "telemetry_initialized": tracer is not None,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             # 構造化ログテスト
             logger = get_structured_logger()
-            if hasattr(logger, 'info'):
+            if hasattr(logger, "info"):
                 logger.info("APM統合テスト実行中", component="test", test_type="integration")
                 observability_results["structured_logging"] = True
             else:
@@ -327,14 +340,16 @@ class ComprehensiveAPMIntegrationTest:
 
             # メトリクス収集テスト
             metrics_collector = get_metrics_collector()
-            if hasattr(metrics_collector, 'increment_counter'):
+            if hasattr(metrics_collector, "increment_counter"):
                 metrics_collector.increment_counter("apm_test_counter", {"test": "integration"})
                 observability_results["metrics_collection"] = True
             else:
                 observability_results["metrics_collection"] = "mock"
 
             # 分散トレーシングテスト（模擬）
-            if hasattr(sys.modules.get('src.day_trade.observability.telemetry_config'), 'trace_span'):
+            if hasattr(
+                sys.modules.get("src.day_trade.observability.telemetry_config"), "trace_span"
+            ):
                 # trace_spanが利用可能な場合
                 observability_results["distributed_tracing"] = True
             else:
@@ -347,10 +362,7 @@ class ComprehensiveAPMIntegrationTest:
             return True
 
         except Exception as e:
-            error_details = {
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            error_details = {"error": str(e), "traceback": traceback.format_exc()}
             self.log_test_result("オブザーバビリティ統合", False, error_details)
             return False
 
@@ -363,7 +375,7 @@ class ComprehensiveAPMIntegrationTest:
             alert_results = {
                 "alert_configs_present": False,
                 "alert_rules_valid": False,
-                "notification_channels": 0
+                "notification_channels": 0,
             }
 
             # アラート設定ファイル確認
@@ -373,7 +385,7 @@ class ComprehensiveAPMIntegrationTest:
 
                 # 設定ファイル読み込み（簡単な検証）
                 try:
-                    with open(alert_config_path, 'r', encoding='utf-8') as f:
+                    with open(alert_config_path, encoding="utf-8") as f:
                         config_content = f.read()
 
                     # 設定内容の基本検証
@@ -394,7 +406,7 @@ class ComprehensiveAPMIntegrationTest:
                 alert_results["alert_rules_file_present"] = True
 
                 try:
-                    with open(alert_rules_path, 'r', encoding='utf-8') as f:
+                    with open(alert_rules_path, encoding="utf-8") as f:
                         rules_content = f.read()
 
                     # ルール数概算
@@ -409,7 +421,7 @@ class ComprehensiveAPMIntegrationTest:
                 "severity": "warning",
                 "service": "test-service",
                 "message": "APM integration test alert",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             self.results["performance_metrics"]["alert_system"] = alert_results
@@ -419,10 +431,7 @@ class ComprehensiveAPMIntegrationTest:
             return True
 
         except Exception as e:
-            error_details = {
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            error_details = {"error": str(e), "traceback": traceback.format_exc()}
             self.log_test_result("アラートシステム機能", False, error_details)
             return False
 
@@ -443,15 +452,17 @@ class ComprehensiveAPMIntegrationTest:
 
             for slo_name in slo_names:
                 calc_start = time.time()
-                if hasattr(slo_manager, 'calculate_slo'):
+                if hasattr(slo_manager, "calculate_slo"):
                     report = slo_manager.calculate_slo(slo_name)
                 calc_time = time.time() - calc_start
                 calculation_times.append(calc_time)
 
             performance_results["slo_calculation"] = {
                 "individual_calculations": calculation_times,
-                "average_calculation_time_ms": sum(calculation_times) / len(calculation_times) * 1000,
-                "total_time_ms": (time.time() - start_time) * 1000
+                "average_calculation_time_ms": sum(calculation_times)
+                / len(calculation_times)
+                * 1000,
+                "total_time_ms": (time.time() - start_time) * 1000,
             }
 
             # ダッシュボード生成パフォーマンス
@@ -462,26 +473,32 @@ class ComprehensiveAPMIntegrationTest:
 
             performance_results["dashboard_generation"] = {
                 "generation_time_ms": dashboard_gen_time * 1000,
-                "performance_acceptable": dashboard_gen_time < 2.0  # 2秒以内
+                "performance_acceptable": dashboard_gen_time < 2.0,  # 2秒以内
             }
 
             # メモリ使用量概算（簡易）
             try:
                 import psutil
+
                 process = psutil.Process()
                 memory_info = process.memory_info()
                 performance_results["memory_usage"] = {
                     "rss_mb": memory_info.rss / 1024 / 1024,
-                    "vms_mb": memory_info.vms / 1024 / 1024
+                    "vms_mb": memory_info.vms / 1024 / 1024,
                 }
             except ImportError:
                 performance_results["memory_usage"] = {"note": "psutil not available"}
 
             # 全体パフォーマンス評価
             overall_performance = {
-                "slo_calculation_fast": performance_results["slo_calculation"]["average_calculation_time_ms"] < 100,
-                "dashboard_generation_fast": performance_results["dashboard_generation"]["performance_acceptable"],
-                "overall_rating": "excellent"
+                "slo_calculation_fast": performance_results["slo_calculation"][
+                    "average_calculation_time_ms"
+                ]
+                < 100,
+                "dashboard_generation_fast": performance_results["dashboard_generation"][
+                    "performance_acceptable"
+                ],
+                "overall_rating": "excellent",
             }
 
             if not all(overall_performance.values()):
@@ -496,10 +513,7 @@ class ComprehensiveAPMIntegrationTest:
             return True
 
         except Exception as e:
-            error_details = {
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            error_details = {"error": str(e), "traceback": traceback.format_exc()}
             self.log_test_result("パフォーマンスメトリクス測定", False, error_details)
             return False
 
@@ -513,43 +527,55 @@ class ComprehensiveAPMIntegrationTest:
 
             # 成功率計算
             total_tests = len(self.results["test_results"])
-            successful_tests = sum(1 for result in self.results["test_results"].values() if result["success"])
+            successful_tests = sum(
+                1 for result in self.results["test_results"].values() if result["success"]
+            )
             success_rate = (successful_tests / total_tests * 100) if total_tests > 0 else 0
 
             # システム状態評価
             system_status = {
-                "overall_health": "excellent" if success_rate >= 90 else "good" if success_rate >= 70 else "needs_attention",
+                "overall_health": (
+                    "excellent"
+                    if success_rate >= 90
+                    else "good" if success_rate >= 70 else "needs_attention"
+                ),
                 "success_rate_percentage": success_rate,
                 "total_tests_executed": total_tests,
                 "successful_tests": successful_tests,
-                "failed_tests": total_tests - successful_tests
+                "failed_tests": total_tests - successful_tests,
             }
 
             # 推奨事項生成
             recommendations = []
 
             if success_rate < 100:
-                recommendations.append({
-                    "priority": "medium",
-                    "category": "test_failures",
-                    "description": f"{total_tests - successful_tests}個のテストが失敗しました。ログを確認してください。"
-                })
+                recommendations.append(
+                    {
+                        "priority": "medium",
+                        "category": "test_failures",
+                        "description": f"{total_tests - successful_tests}個のテストが失敗しました。ログを確認してください。",
+                    }
+                )
 
             if success_rate >= 90:
-                recommendations.append({
-                    "priority": "low",
-                    "category": "production_readiness",
-                    "description": "APM・オブザーバビリティ基盤は本番環境デプロイの準備が整いました。"
-                })
+                recommendations.append(
+                    {
+                        "priority": "low",
+                        "category": "production_readiness",
+                        "description": "APM・オブザーバビリティ基盤は本番環境デプロイの準備が整いました。",
+                    }
+                )
 
             # Docker Compose設定確認
             docker_compose_path = Path(project_root) / "docker-compose.observability.yml"
             if docker_compose_path.exists():
-                recommendations.append({
-                    "priority": "info",
-                    "category": "deployment",
-                    "description": "統合監視基盤のDocker構成が利用可能です。"
-                })
+                recommendations.append(
+                    {
+                        "priority": "info",
+                        "category": "deployment",
+                        "description": "統合監視基盤のDocker構成が利用可能です。",
+                    }
+                )
 
             self.results["system_status"] = system_status
             self.results["recommendations"] = recommendations
@@ -561,7 +587,7 @@ class ComprehensiveAPMIntegrationTest:
                 "monitoring_coverage": "comprehensive",
                 "alert_system_status": "configured",
                 "dashboard_availability": "dynamic_generation_ready",
-                "slo_monitoring_status": "automated"
+                "slo_monitoring_status": "automated",
             }
 
             self.results["final_assessment"] = final_assessment
@@ -584,7 +610,7 @@ class ComprehensiveAPMIntegrationTest:
                 ("ダッシュボード生成テスト", self.test_dashboard_generation),
                 ("オブザーバビリティ統合テスト", self.test_observability_integration),
                 ("アラートシステムテスト", self.test_alert_system_functionality),
-                ("パフォーマンステスト", self.test_performance_metrics)
+                ("パフォーマンステスト", self.test_performance_metrics),
             ]
 
             for test_name, test_func in test_sequence:
@@ -630,7 +656,7 @@ class ComprehensiveAPMIntegrationTest:
 def save_test_results(results: Dict[str, Any], output_path: str):
     """テスト結果をファイルに保存"""
     try:
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         print(f"📋 テスト結果を保存: {output_path}")
     except Exception as e:
@@ -654,20 +680,22 @@ async def main():
     if "system_status" in results:
         success_rate = results["system_status"]["success_rate_percentage"]
 
-        print(f"\n🎯 最終結果サマリー:")
+        print("\n🎯 最終結果サマリー:")
         print(f"   - 総合成功率: {success_rate:.1f}%")
         print(f"   - システム状態: {results['system_status']['overall_health'].upper()}")
 
         if "final_assessment" in results:
             assessment = results["final_assessment"]
             print(f"   - APM統合準備: {'✅' if assessment['apm_integration_ready'] else '❌'}")
-            print(f"   - 本番デプロイ準備: {'✅' if assessment['production_deployment_ready'] else '❌'}")
+            print(
+                f"   - 本番デプロイ準備: {'✅' if assessment['production_deployment_ready'] else '❌'}"
+            )
 
         print(f"\n📋 詳細レポート: {output_path}")
 
         # 推奨事項表示
         if "recommendations" in results and results["recommendations"]:
-            print(f"\n💡 推奨事項:")
+            print("\n💡 推奨事項:")
             for rec in results["recommendations"][:3]:  # 上位3つ
                 print(f"   • {rec['description']}")
 

@@ -102,9 +102,7 @@ class AESGCMEncryption:
         self.aesgcm = AESGCM(key)
         self.key = key
 
-    def encrypt(
-        self, plaintext: Union[str, bytes], additional_data: bytes = None
-    ) -> EncryptedData:
+    def encrypt(self, plaintext: Union[str, bytes], additional_data: bytes = None) -> EncryptedData:
         """データを暗号化"""
         if isinstance(plaintext, str):
             plaintext = plaintext.encode("utf-8")
@@ -121,9 +119,7 @@ class AESGCMEncryption:
             nonce=nonce,
         )
 
-    def decrypt(
-        self, encrypted_data: EncryptedData, additional_data: bytes = None
-    ) -> bytes:
+    def decrypt(self, encrypted_data: EncryptedData, additional_data: bytes = None) -> bytes:
         """データを復号化"""
         if encrypted_data.algorithm != EncryptionAlgorithm.AES_256_GCM:
             raise ValueError("AES-GCMで暗号化されたデータではありません")
@@ -180,9 +176,7 @@ class FernetEncryption:
 
         ciphertext = self.fernet.encrypt(plaintext)
 
-        return EncryptedData(
-            algorithm=EncryptionAlgorithm.FERNET, ciphertext=ciphertext
-        )
+        return EncryptedData(algorithm=EncryptionAlgorithm.FERNET, ciphertext=ciphertext)
 
     def decrypt(self, encrypted_data: EncryptedData) -> bytes:
         """データを復号化"""
@@ -204,13 +198,9 @@ class TOTPManager:
         """TOTPシークレットキーを生成"""
         return pyotp.random_base32()
 
-    def generate_qr_code(
-        self, secret: str, name: str, issuer: str = "DayTrade"
-    ) -> bytes:
+    def generate_qr_code(self, secret: str, name: str, issuer: str = "DayTrade") -> bytes:
         """QRコードを生成"""
-        totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
-            name=name, issuer_name=issuer
-        )
+        totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(name=name, issuer_name=issuer)
 
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(totp_uri)
@@ -303,9 +293,7 @@ class SecretManager:
 
             # インデックス作成
             conn.execute("CREATE INDEX IF NOT EXISTS idx_secrets_name ON secrets(name)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_secrets_type ON secrets(secret_type)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_secrets_type ON secrets(secret_type)")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_access_logs_secret ON access_logs(secret_id)"
             )
@@ -399,9 +387,7 @@ class SecretManager:
                 if expires_at:
                     expires_datetime = datetime.fromisoformat(expires_at)
                     if datetime.utcnow() > expires_datetime:
-                        self._log_access(
-                            secret_id, name, "read", False, "Secret expired"
-                        )
+                        self._log_access(secret_id, name, "read", False, "Secret expired")
                         return None
 
                 # 復号化データの構築
@@ -604,9 +590,9 @@ class SecretManager:
                             "value": plaintext,
                             "description": description,
                             "tags": json.loads(tags) if tags else [],
-                            "expires_at": datetime.fromisoformat(expires_at)
-                            if expires_at
-                            else None,
+                            "expires_at": (
+                                datetime.fromisoformat(expires_at) if expires_at else None
+                            ),
                             "created_at": datetime.fromisoformat(created_at),
                             "access_count": access_count,
                         }
@@ -671,15 +657,11 @@ class DataProtectionManager:
         encoded_data = {
             "algorithm": encrypted.algorithm.value,
             "ciphertext": base64.b64encode(encrypted.ciphertext).decode("ascii"),
-            "nonce": base64.b64encode(encrypted.nonce).decode("ascii")
-            if encrypted.nonce
-            else None,
+            "nonce": base64.b64encode(encrypted.nonce).decode("ascii") if encrypted.nonce else None,
             "created_at": encrypted.created_at.isoformat(),
         }
 
-        return base64.b64encode(json.dumps(encoded_data).encode("utf-8")).decode(
-            "ascii"
-        )
+        return base64.b64encode(json.dumps(encoded_data).encode("utf-8")).decode("ascii")
 
     def decrypt_sensitive_data(self, encrypted_string: str) -> str:
         """機密データの復号化"""
@@ -690,9 +672,7 @@ class DataProtectionManager:
             encrypted_data = EncryptedData(
                 algorithm=EncryptionAlgorithm(json_data["algorithm"]),
                 ciphertext=base64.b64decode(json_data["ciphertext"]),
-                nonce=base64.b64decode(json_data["nonce"])
-                if json_data["nonce"]
-                else None,
+                nonce=base64.b64decode(json_data["nonce"]) if json_data["nonce"] else None,
             )
 
             plaintext = self.default_encryption.decrypt(encrypted_data)
@@ -724,9 +704,7 @@ class DataProtectionManager:
         return {
             "secret": secret,
             "qr_code": base64.b64encode(qr_code_bytes).decode("ascii"),
-            "backup_codes": [
-                secrets.token_hex(4) for _ in range(10)
-            ],  # バックアップコード生成
+            "backup_codes": [secrets.token_hex(4) for _ in range(10)],  # バックアップコード生成
         }
 
     def verify_2fa_token(self, user_name: str, token: str) -> bool:

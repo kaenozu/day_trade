@@ -74,11 +74,7 @@ class IndicatorsConfig:
 
     def get_parameter(self, indicator: str, param: str, default=None):
         """指標パラメータを取得"""
-        return (
-            self.config.get("default_parameters", {})
-            .get(indicator, {})
-            .get(param, default)
-        )
+        return self.config.get("default_parameters", {}).get(indicator, {}).get(param, default)
 
     def get_calculate_all_defaults(self) -> Dict[str, Any]:
         """calculate_allのデフォルト設定を取得"""
@@ -292,9 +288,7 @@ class TechnicalIndicators:
                 return pd.Series(dtype=float)
 
             if len(df) < period + 1:
-                logger.warning(
-                    f"RSI計算: データ不足（必要: {period + 1}行、実際: {len(df)}行）"
-                )
+                logger.warning(f"RSI計算: データ不足（必要: {period + 1}行、実際: {len(df)}行）")
                 return pd.Series(index=df.index, dtype=float)
 
             delta = df[column].diff()
@@ -307,9 +301,7 @@ class TechnicalIndicators:
             # ゼロ除算対策: avg_lossが0の場合の処理
             rs = np.where(
                 avg_loss == 0,
-                np.where(
-                    avg_gain == 0, 1, np.inf
-                ),  # gain=0,loss=0なら50, gainのみならRSI=100
+                np.where(avg_gain == 0, 1, np.inf),  # gain=0,loss=0なら50, gainのみならRSI=100
                 avg_gain / avg_loss,
             )
 
@@ -409,9 +401,7 @@ class TechnicalIndicators:
             high_close = np.abs(df["High"] - df["Close"].shift())
             low_close = np.abs(df["Low"] - df["Close"].shift())
 
-            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(
-                axis=1
-            )
+            true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
             atr = true_range.ewm(com=period - 1, adjust=False).mean()
 
             return atr
@@ -559,8 +549,7 @@ class TechnicalIndicators:
 
             if error_settings.get("detailed_logging", True):
                 logger.error(
-                    f"全指標計算中にエラーが発生しました。"
-                    f"データ形状: {df.shape}, 詳細: {e}"
+                    f"全指標計算中にエラーが発生しました。" f"データ形状: {df.shape}, 詳細: {e}"
                 )
             else:
                 logger.error(f"全指標計算エラー: {e}")

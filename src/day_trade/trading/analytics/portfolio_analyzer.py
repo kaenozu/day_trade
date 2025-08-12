@@ -62,9 +62,7 @@ class PortfolioAnalyzer:
 
             # リターン率
             return_percentage = (
-                (total_return / total_investment * 100)
-                if total_investment > 0
-                else Decimal("0")
+                (total_return / total_investment * 100) if total_investment > 0 else Decimal("0")
             )
 
             # 年率換算リターン
@@ -169,15 +167,11 @@ class PortfolioAnalyzer:
 
         # 年率換算
         total_return_rate = total_return / total_investment
-        annualized_return = (
-            (1 + total_return_rate) ** Decimal(str(1 / years_diff)) - 1
-        ) * 100
+        annualized_return = ((1 + total_return_rate) ** Decimal(str(1 / years_diff)) - 1) * 100
 
         return annualized_return
 
-    def _calculate_sharpe_ratio(
-        self, trades: List[Trade], annualized_return: Decimal
-    ) -> Decimal:
+    def _calculate_sharpe_ratio(self, trades: List[Trade], annualized_return: Decimal) -> Decimal:
         """シャープレシオ計算"""
         if len(trades) < 2:
             return Decimal("0")
@@ -189,9 +183,7 @@ class PortfolioAnalyzer:
                 return Decimal("0")
 
             # リターンの標準偏差（年率換算）
-            return_std = Decimal(str(statistics.stdev(daily_returns))) * Decimal(
-                "15.81"
-            )  # √252
+            return_std = Decimal(str(statistics.stdev(daily_returns))) * Decimal("15.81")  # √252
 
             # リスクフリーレート（仮定：1%）
             risk_free_rate = Decimal("1.0")
@@ -221,13 +213,9 @@ class PortfolioAnalyzer:
 
                 # 簡易的な日次損益（売買差額）
                 if trade.trade_type == TradeType.SELL:
-                    daily_pnl[date_key] += (
-                        trade.price * Decimal(trade.quantity) - trade.commission
-                    )
+                    daily_pnl[date_key] += trade.price * Decimal(trade.quantity) - trade.commission
                 else:
-                    daily_pnl[date_key] -= (
-                        trade.price * Decimal(trade.quantity) + trade.commission
-                    )
+                    daily_pnl[date_key] -= trade.price * Decimal(trade.quantity) + trade.commission
 
             # Decimal → float変換（統計計算のため）
             daily_returns = [float(pnl) for pnl in daily_pnl.values() if pnl != 0]
@@ -253,14 +241,10 @@ class PortfolioAnalyzer:
             for trade in sorted_trades:
                 if trade.trade_type == TradeType.SELL:
                     # 売却時に簡易的な損益を加算
-                    running_pnl += (
-                        trade.price * Decimal(trade.quantity) - trade.commission
-                    )
+                    running_pnl += trade.price * Decimal(trade.quantity) - trade.commission
                 else:
                     # 購入時はコストとして減算
-                    running_pnl -= (
-                        trade.price * Decimal(trade.quantity) + trade.commission
-                    )
+                    running_pnl -= trade.price * Decimal(trade.quantity) + trade.commission
 
                 cumulative_pnl.append(running_pnl)
 
@@ -306,9 +290,7 @@ class PortfolioAnalyzer:
             # 手数料分析
             total_commission = sum(t.commission for t in trades)
             avg_commission = (
-                total_commission / Decimal(total_trades)
-                if total_trades > 0
-                else Decimal("0")
+                total_commission / Decimal(total_trades) if total_trades > 0 else Decimal("0")
             )
 
             # 取引サイズ分析
@@ -319,9 +301,7 @@ class PortfolioAnalyzer:
 
             # 保有期間分析（売買ペアから推定）
             holding_periods = self._calculate_holding_periods(trades)
-            avg_holding_days = (
-                sum(holding_periods) / len(holding_periods) if holding_periods else 0
-            )
+            avg_holding_days = sum(holding_periods) / len(holding_periods) if holding_periods else 0
 
             # 取引頻度分析
             trading_frequency = self._calculate_trading_frequency(trades)
@@ -340,14 +320,12 @@ class PortfolioAnalyzer:
                 "average_trade_value": avg_trade_value,
                 "average_holding_days": Decimal(str(avg_holding_days)),
                 "trading_frequency": trading_frequency,
-                "trade_balance_ratio": Decimal(buy_trades) / Decimal(sell_trades)
-                if sell_trades > 0
-                else Decimal("0"),
+                "trade_balance_ratio": (
+                    Decimal(buy_trades) / Decimal(sell_trades) if sell_trades > 0 else Decimal("0")
+                ),
             }
 
-            logger.info(
-                f"取引効率分析完了: {total_trades}取引, 平均手数料{avg_commission:.0f}円"
-            )
+            logger.info(f"取引効率分析完了: {total_trades}取引, 平均手数料{avg_commission:.0f}円")
             return efficiency_metrics
 
         except Exception as e:
@@ -412,15 +390,19 @@ class PortfolioAnalyzer:
         total_months = total_days / 30.44
 
         frequency = {
-            "trades_per_day": Decimal(len(trades)) / Decimal(total_days)
-            if total_days > 0
-            else Decimal("0"),
-            "trades_per_week": Decimal(len(trades)) / Decimal(str(total_weeks))
-            if total_weeks > 0
-            else Decimal("0"),
-            "trades_per_month": Decimal(len(trades)) / Decimal(str(total_months))
-            if total_months > 0
-            else Decimal("0"),
+            "trades_per_day": (
+                Decimal(len(trades)) / Decimal(total_days) if total_days > 0 else Decimal("0")
+            ),
+            "trades_per_week": (
+                Decimal(len(trades)) / Decimal(str(total_weeks))
+                if total_weeks > 0
+                else Decimal("0")
+            ),
+            "trades_per_month": (
+                Decimal(len(trades)) / Decimal(str(total_months))
+                if total_months > 0
+                else Decimal("0")
+            ),
             "trading_days": Decimal(total_days),
         }
 
@@ -449,9 +431,7 @@ class PortfolioAnalyzer:
             var_95 = self._calculate_var(trades, 0.95)
 
             # 集中リスク
-            concentration_risk = self._calculate_concentration_risk(
-                positions, total_value
-            )
+            concentration_risk = self._calculate_concentration_risk(positions, total_value)
 
             # ベータ（市場との相関、簡易版）
             portfolio_beta = self._calculate_portfolio_beta(trades)
@@ -465,9 +445,7 @@ class PortfolioAnalyzer:
                 "concentration_risk_percentage": concentration_risk,
                 "portfolio_beta": portfolio_beta,
                 "annualized_volatility": volatility,
-                "risk_adjusted_return": self._calculate_risk_adjusted_return(
-                    trades, volatility
-                ),
+                "risk_adjusted_return": self._calculate_risk_adjusted_return(trades, volatility),
             }
 
             logger.info(
@@ -488,9 +466,7 @@ class PortfolioAnalyzer:
 
         # 指定信頼水準のパーセンタイル
         var_percentile = (1 - confidence_level) * 100
-        var_value = Decimal(
-            str(statistics.quantiles(daily_returns, n=100)[int(var_percentile)])
-        )
+        var_value = Decimal(str(statistics.quantiles(daily_returns, n=100)[int(var_percentile)]))
 
         return abs(var_value)
 
@@ -530,18 +506,14 @@ class PortfolioAnalyzer:
 
         return annualized_volatility
 
-    def _calculate_risk_adjusted_return(
-        self, trades: List[Trade], volatility: Decimal
-    ) -> Decimal:
+    def _calculate_risk_adjusted_return(self, trades: List[Trade], volatility: Decimal) -> Decimal:
         """リスク調整後リターン計算"""
         if volatility == 0:
             return Decimal("0")
 
         # 簡易的なリターン計算
         total_return = self._calculate_realized_pnl(trades)
-        risk_adjusted_return = (
-            total_return / volatility if volatility > 0 else Decimal("0")
-        )
+        risk_adjusted_return = total_return / volatility if volatility > 0 else Decimal("0")
 
         return risk_adjusted_return
 
@@ -585,9 +557,7 @@ class PortfolioAnalyzer:
                 "summary": {
                     "total_trades_analyzed": len(period_trades),
                     "current_positions": len(positions),
-                    "overall_score": self._calculate_overall_score(
-                        performance, risk_metrics
-                    ),
+                    "overall_score": self._calculate_overall_score(performance, risk_metrics),
                 },
             }
 
@@ -611,13 +581,9 @@ class PortfolioAnalyzer:
         """総合スコア計算"""
         try:
             # 各指標を0-100でスコア化
-            return_score = min(
-                max(performance.get("return_percentage", Decimal("0")) + 50, 0), 100
-            )
+            return_score = min(max(performance.get("return_percentage", Decimal("0")) + 50, 0), 100)
 
-            sharpe_score = min(
-                max(performance.get("sharpe_ratio", Decimal("0")) * 20 + 50, 0), 100
-            )
+            sharpe_score = min(max(performance.get("sharpe_ratio", Decimal("0")) * 20 + 50, 0), 100)
 
             risk_score = max(
                 100 - risk_metrics.get("concentration_risk_percentage", Decimal("0")), 0

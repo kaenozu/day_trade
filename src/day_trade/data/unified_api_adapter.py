@@ -129,8 +129,7 @@ class APIBatch:
     def is_ready(self) -> bool:
         """処理準備完了判定"""
         return (
-            len(self.requests) >= 10  # 10個以上
-            or time.time() - self.created_at > 5
+            len(self.requests) >= 10 or time.time() - self.created_at > 5  # 10個以上
         )  # または5秒経過
 
     def is_expired(self) -> bool:
@@ -360,12 +359,12 @@ class GenericHTTPAdapter(APIAdapter):
             async with self.session.request(
                 request.method.value,
                 url,
-                params=request.parameters
-                if request.method == RequestMethod.GET
-                else None,
-                json=request.parameters
-                if request.method in [RequestMethod.POST, RequestMethod.PUT]
-                else None,
+                params=request.parameters if request.method == RequestMethod.GET else None,
+                json=(
+                    request.parameters
+                    if request.method in [RequestMethod.POST, RequestMethod.PUT]
+                    else None
+                ),
                 headers=headers,
                 timeout=request.timeout,
             ) as response:
@@ -472,8 +471,7 @@ class UnifiedAPIAdapter:
         self._running = True
 
         logger.info(
-            f"UnifiedAPIAdapter初期化完了: caching={enable_caching}, "
-            f"max_batch={max_batch_size}"
+            f"UnifiedAPIAdapter初期化完了: caching={enable_caching}, " f"max_batch={max_batch_size}"
         )
 
     async def execute(self, request: APIRequest) -> APIResponse:
@@ -559,9 +557,7 @@ class UnifiedAPIAdapter:
             else:
                 # 個別実行
                 tasks = [adapter.execute_request(req) for req in provider_requests]
-                individual_responses = await asyncio.gather(
-                    *tasks, return_exceptions=True
-                )
+                individual_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
                 for resp in individual_responses:
                     if isinstance(resp, APIResponse):
@@ -571,9 +567,7 @@ class UnifiedAPIAdapter:
 
         return all_responses
 
-    async def _handle_batch_request(
-        self, request: APIRequest, adapter: APIAdapter
-    ) -> APIResponse:
+    async def _handle_batch_request(self, request: APIRequest, adapter: APIAdapter) -> APIResponse:
         """バッチリクエスト処理"""
         with self.batch_lock:
             batch_key = request.batch_key
@@ -674,9 +668,7 @@ class UnifiedAPIAdapter:
             # エラー率更新
             if not response.success:
                 current_error_rate = self.stats.get("error_rate", 0)
-                self.stats["error_rate"] = (
-                    current_error_rate * (1 - alpha) + 1.0 * alpha
-                )
+                self.stats["error_rate"] = current_error_rate * (1 - alpha) + 1.0 * alpha
             else:
                 current_error_rate = self.stats.get("error_rate", 0)
                 self.stats["error_rate"] = current_error_rate * (1 - alpha)

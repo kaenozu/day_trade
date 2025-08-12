@@ -367,9 +367,7 @@ class ContextualLogger:
         log_entry = self._create_structured_log(LogSeverity.INFO, message, **kwargs)
         self.logger.info(log_entry.to_json())
 
-    def performance_event(
-        self, operation: str, duration: float, message: str, **kwargs
-    ):
+    def performance_event(self, operation: str, duration: float, message: str, **kwargs):
         """パフォーマンスイベントログ"""
         kwargs.update(
             {
@@ -415,9 +413,7 @@ class StructuredLoggingEnhancementSystem:
             )
         else:
             # 標準フォーマッター（構造化されていない）
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         handler.setFormatter(formatter)
         root_logger.addHandler(handler)
@@ -499,9 +495,7 @@ class LogQualityValidator:
                 validation_result["quality_score"] -= rule_result.get("penalty", 0)
 
             except Exception as e:
-                validation_result["violations"].append(
-                    f"バリデーションルール実行エラー: {e}"
-                )
+                validation_result["violations"].append(f"バリデーションルール実行エラー: {e}")
                 validation_result["quality_score"] -= 10
 
         validation_result["quality_score"] = max(0, validation_result["quality_score"])
@@ -515,9 +509,7 @@ class LogQualityValidator:
             return {
                 "is_valid": False,
                 "violations": [f"必須フィールド不足: {', '.join(missing_fields)}"],
-                "suggestions": [
-                    f"必須フィールドを追加してください: {', '.join(missing_fields)}"
-                ],
+                "suggestions": [f"必須フィールドを追加してください: {', '.join(missing_fields)}"],
                 "penalty": len(missing_fields) * 15,
             }
 
@@ -543,9 +535,7 @@ class LogQualityValidator:
             return {
                 "is_valid": False,
                 "violations": ["タイムスタンプ形式が不正です"],
-                "suggestions": [
-                    "ISO 8601形式（例: 2024-01-01T12:00:00Z）を使用してください"
-                ],
+                "suggestions": ["ISO 8601形式（例: 2024-01-01T12:00:00Z）を使用してください"],
                 "penalty": 10,
             }
 
@@ -558,9 +548,7 @@ class LogQualityValidator:
             return {
                 "is_valid": False,
                 "violations": [f"無効なログレベル: {level}"],
-                "suggestions": [
-                    f"有効なログレベルを使用してください: {', '.join(valid_levels)}"
-                ],
+                "suggestions": [f"有効なログレベルを使用してください: {', '.join(valid_levels)}"],
                 "penalty": 5,
             }
 
@@ -586,9 +574,7 @@ class LogQualityValidator:
 
         elif len(message) > 1000:
             violations.append("メッセージが長すぎます")
-            suggestions.append(
-                "メッセージを簡潔にするか、詳細は構造化データに含めてください"
-            )
+            suggestions.append("メッセージを簡潔にするか、詳細は構造化データに含めてください")
             penalty += 5
 
         # 機密情報チェック
@@ -653,9 +639,7 @@ class LogQualityValidator:
         # フィールド数チェック
         if len(log_data) > 50:
             violations.append("フィールド数が多すぎます")
-            suggestions.append(
-                "不要なフィールドを削除し、関連するデータをグループ化してください"
-            )
+            suggestions.append("不要なフィールドを削除し、関連するデータをグループ化してください")
             penalty += 5
 
         if violations:
@@ -676,9 +660,7 @@ class LogQualityValidator:
         if not data:
             return current_depth
 
-        return max(
-            self._get_max_depth(value, current_depth + 1) for value in data.values()
-        )
+        return max(self._get_max_depth(value, current_depth + 1) for value in data.values())
 
 
 # Factory functions

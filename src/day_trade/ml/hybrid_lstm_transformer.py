@@ -171,9 +171,7 @@ if PYTORCH_AVAILABLE:
 
             # 特徴量投影
             lstm_proj = self.lstm_proj(lstm_features)  # [batch, attention_dim]
-            transformer_proj = self.transformer_proj(
-                transformer_features
-            )  # [batch, attention_dim]
+            transformer_proj = self.transformer_proj(transformer_features)  # [batch, attention_dim]
 
             # 結合特徴量
             combined = torch.stack(
@@ -209,9 +207,7 @@ if PYTORCH_AVAILABLE:
             # Attention適用
             attended = torch.matmul(attention_weights, V)
             attended = (
-                attended.transpose(1, 2)
-                .contiguous()
-                .view(batch_size, seq_len, self.attention_dim)
+                attended.transpose(1, 2).contiguous().view(batch_size, seq_len, self.attention_dim)
             )
 
             # Output projection
@@ -262,9 +258,7 @@ if PYTORCH_AVAILABLE:
             self.temporal_conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
             self.temporal_norm = nn.LayerNorm(d_model)
 
-        def forward(
-            self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
-        ) -> torch.Tensor:
+        def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
             """
             Modified Transformer forward pass
 
@@ -285,9 +279,7 @@ if PYTORCH_AVAILABLE:
             # [batch, seq_len, d_model] -> [batch, d_model, seq_len]
             conv_input = transformer_out.transpose(1, 2)
             temporal_out = self.temporal_conv(conv_input)
-            temporal_out = temporal_out.transpose(
-                1, 2
-            )  # Back to [batch, seq_len, d_model]
+            temporal_out = temporal_out.transpose(1, 2)  # Back to [batch, seq_len, d_model]
 
             # Residual connection
             output = self.temporal_norm(transformer_out + temporal_out)
@@ -303,9 +295,7 @@ if PYTORCH_AVAILABLE:
 
             pe = torch.zeros(max_len, d_model)
             position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-            div_term = torch.exp(
-                torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
-            )
+            div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
 
             pe[:, 0::2] = torch.sin(position * div_term)
             pe[:, 1::2] = torch.cos(position * div_term)
@@ -338,9 +328,7 @@ if PYTORCH_AVAILABLE:
                 bidirectional=config.lstm_bidirectional,
             )
 
-            lstm_output_dim = config.lstm_hidden_size * (
-                2 if config.lstm_bidirectional else 1
-            )
+            lstm_output_dim = config.lstm_hidden_size * (2 if config.lstm_bidirectional else 1)
 
             # Transformer Branch - Input projection for transformer
             self.transformer_projection = nn.Linear(
@@ -433,9 +421,7 @@ if PYTORCH_AVAILABLE:
                 lstm_features = hidden[-1]  # [batch, hidden_size]
 
             # Transformer Branch
-            transformer_input = self.transformer_projection(
-                x_proj
-            )  # [batch, seq_len, d_model]
+            transformer_input = self.transformer_projection(x_proj)  # [batch, seq_len, d_model]
             transformer_out = self.modified_transformer(
                 transformer_input
             )  # [batch, seq_len, d_model]
@@ -454,9 +440,7 @@ if PYTORCH_AVAILABLE:
                 attention_info = {
                     "cross_attention_weights": attention_weights.detach().cpu().numpy(),
                     "lstm_contribution": attention_weights[:, 0, 0].mean().item(),
-                    "transformer_contribution": attention_weights[:, 1, 1]
-                    .mean()
-                    .item(),
+                    "transformer_contribution": attention_weights[:, 1, 1].mean().item(),
                 }
                 return predictions, attention_info
 
@@ -485,9 +469,7 @@ if PYTORCH_AVAILABLE:
                     pred = self(x)
                     predictions.append(pred)
 
-            predictions = torch.stack(
-                predictions
-            )  # [num_samples, batch, prediction_horizon]
+            predictions = torch.stack(predictions)  # [num_samples, batch, prediction_horizon]
 
             mean_pred = predictions.mean(dim=0)
             std_pred = predictions.std(dim=0)
@@ -519,9 +501,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         self.hybrid_config = hybrid_config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        logger.info(
-            f"ハイブリッドLSTM-Transformerエンジン初期化完了 (デバイス: {self.device})"
-        )
+        logger.info(f"ハイブリッドLSTM-Transformerエンジン初期化完了 (デバイス: {self.device})")
 
     def build_model(self, input_shape: Tuple[int, ...]) -> Any:
         """ハイブリッドモデル構築"""
@@ -549,8 +529,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             "input_shape": input_shape,
             "lstm_weights": self._initialize_lstm_weights(n_features),
             "transformer_weights": self._initialize_transformer_weights(n_features),
-            "fusion_weights": np.random.randn(256, self.config.prediction_horizon)
-            * 0.1,
+            "fusion_weights": np.random.randn(256, self.config.prediction_horizon) * 0.1,
         }
 
     def _initialize_lstm_weights(self, n_features: int) -> Dict[str, np.ndarray]:
@@ -604,12 +583,8 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         train_dataset = TimeSeriesDataset(X_train.cpu().numpy(), y_train.cpu().numpy())
         val_dataset = TimeSeriesDataset(X_val.cpu().numpy(), y_val.cpu().numpy())
 
-        train_loader = DataLoader(
-            train_dataset, batch_size=self.config.batch_size, shuffle=True
-        )
-        val_loader = DataLoader(
-            val_dataset, batch_size=self.config.batch_size, shuffle=False
-        )
+        train_loader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=self.config.batch_size, shuffle=False)
 
         # オプティマイザー・スケジューラー
         optimizer = optim.AdamW(
@@ -724,8 +699,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
                 "mae": np.mean(np.abs(y_val.cpu().numpy() - val_pred)),
                 "rmse": np.sqrt(best_val_loss),
             },
-            "convergence_achieved": patience_counter
-            < self.config.early_stopping_patience,
+            "convergence_achieved": patience_counter < self.config.early_stopping_patience,
             "training_time": training_time,
             "training_accuracy": train_accuracy,
             "validation_accuracy": val_accuracy,
@@ -791,9 +765,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
 
         return predictions
 
-    def _numpy_hybrid_backward(
-        self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray
-    ):
+    def _numpy_hybrid_backward(self, X: np.ndarray, y: np.ndarray, predictions: np.ndarray):
         """NumPy ハイブリッドモデル バックワードパス"""
         # 簡易勾配更新
         learning_rate = self.config.learning_rate * 0.01
@@ -830,9 +802,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
             X_tensor = torch.FloatTensor(X).to(self.device)
 
             with torch.no_grad():
-                mean_pred, std_pred = self.model.forward_with_uncertainty(
-                    X_tensor, num_samples
-                )
+                mean_pred, std_pred = self.model.forward_with_uncertainty(X_tensor, num_samples)
                 mean_pred = mean_pred.cpu().numpy()
                 std_pred = std_pred.cpu().numpy()
 
@@ -883,9 +853,9 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         return {
             "lstm_contribution": attention_info["lstm_contribution"],
             "transformer_contribution": attention_info["transformer_contribution"],
-            "attention_balance": "LSTM優位"
-            if attention_info["lstm_contribution"] > 0.5
-            else "Transformer優位",
+            "attention_balance": (
+                "LSTM優位" if attention_info["lstm_contribution"] > 0.5 else "Transformer優位"
+            ),
             "predictions": predictions.cpu().numpy(),
             "analysis": "アテンション重みによる特徴量重要度分析完了",
         }
@@ -894,10 +864,7 @@ class HybridLSTMTransformerEngine(BaseDeepLearningModel):
         """精度計算（MAPE -> Accuracy変換）"""
         try:
             # MAPE計算
-            mape = (
-                np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8)))
-                * 100
-            )
+            mape = np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1e-8))) * 100
 
             # MAPEから精度に変換（0-100%）
             accuracy = max(0, 100 - mape)
@@ -949,9 +916,7 @@ if __name__ == "__main__":
     try:
         # 訓練テスト
         training_result = model.train(test_data)
-        logger.info(
-            f"訓練完了: 精度={training_result.validation_metrics.get('mse', 0.0):.6f}"
-        )
+        logger.info(f"訓練完了: 精度={training_result.validation_metrics.get('mse', 0.0):.6f}")
 
         # 予測テスト
         prediction_result = model.predict(test_data.tail(100))
@@ -960,15 +925,11 @@ if __name__ == "__main__":
         # 不確実性推定テスト
         if PYTORCH_AVAILABLE:
             uncertainty_result = model.predict_with_uncertainty(test_data.tail(50))
-            logger.info(
-                f"不確実性推定完了: 平均不確実性={uncertainty_result.uncertainty.mean:.4f}"
-            )
+            logger.info(f"不確実性推定完了: 平均不確実性={uncertainty_result.uncertainty.mean:.4f}")
 
             # アテンション分析テスト
             attention_analysis = model.get_attention_analysis(test_data.tail(20))
-            logger.info(
-                f"アテンション分析完了: {attention_analysis.get('analysis', 'N/A')}"
-            )
+            logger.info(f"アテンション分析完了: {attention_analysis.get('analysis', 'N/A')}")
 
         logger.info("ハイブリッドLSTM-Transformerモデル テスト成功")
 

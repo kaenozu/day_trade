@@ -491,9 +491,7 @@ class EducationalSystem:
                 or query_lower in key
             ):
                 result = term_data.copy()
-                result["relevance_score"] = self._calculate_relevance(
-                    query_lower, term_data
-                )
+                result["relevance_score"] = self._calculate_relevance(query_lower, term_data)
                 results.append(result)
 
         # 関連度順でソート
@@ -534,9 +532,7 @@ class EducationalSystem:
         eligible_terms = list(self.glossary.values())
 
         if difficulty:
-            eligible_terms = [
-                t for t in eligible_terms if t.get("difficulty") == difficulty
-            ]
+            eligible_terms = [t for t in eligible_terms if t.get("difficulty") == difficulty]
 
         # ランダムに選択
         selected_terms = random.sample(eligible_terms, min(count, len(eligible_terms)))

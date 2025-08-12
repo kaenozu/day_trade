@@ -24,9 +24,7 @@ class MemoryCache(BaseCacheManager):
     LRU（Least Recently Used）による自動削除機能付き
     """
 
-    def __init__(
-        self, max_size: Optional[int] = None, enable_stats: bool = True, config=None
-    ):
+    def __init__(self, max_size: Optional[int] = None, enable_stats: bool = True, config=None):
         """
         Args:
             max_size: 最大キャッシュサイズ（Noneの場合は設定から取得）
@@ -356,9 +354,7 @@ class HighPerformanceCache(BaseCacheManager):
     read-heavy workloadに最適化
     """
 
-    def __init__(
-        self, max_size: Optional[int] = None, enable_stats: bool = True, config=None
-    ):
+    def __init__(self, max_size: Optional[int] = None, enable_stats: bool = True, config=None):
         """
         Args:
             max_size: 最大キャッシュサイズ（Noneの場合は設定から取得）
@@ -372,9 +368,7 @@ class HighPerformanceCache(BaseCacheManager):
         self._max_size = max_size or self._config.high_perf_cache_size
         self._lock = threading.Lock()  # RLockより高速
         self._time = time.time
-        self._cleanup_threshold = (
-            self._max_size * CacheConstants.DEFAULT_CLEANUP_THRESHOLD_RATIO
-        )
+        self._cleanup_threshold = self._max_size * CacheConstants.DEFAULT_CLEANUP_THRESHOLD_RATIO
 
         logger.debug(f"HighPerformanceCache initialized with max_size={self._max_size}")
 

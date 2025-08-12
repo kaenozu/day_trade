@@ -14,9 +14,7 @@ from rich.table import Table
 from rich.text import Text
 
 
-def format_currency(
-    amount: Union[int, float], currency: str = "¥", decimal_places: int = 0
-) -> str:
+def format_currency(amount: Union[int, float], currency: str = "¥", decimal_places: int = 0) -> str:
     """
     通貨フォーマット
 
@@ -538,9 +536,7 @@ def create_progress_bar_panel(
     return Panel(Text(text, style="cyan"), title=title, border_style="blue")
 
 
-def create_comparison_table(
-    data: Dict[str, Dict[str, Any]], title: str = "比較表"
-) -> Table:
+def create_comparison_table(data: Dict[str, Dict[str, Any]], title: str = "比較表") -> Table:
     """
     比較テーブルを作成
 
@@ -690,18 +686,14 @@ def create_metric_cards(metrics: Dict[str, Any], columns: int = 3) -> Columns:
         card_content = Text()
         card_content.append(formatted_value, style="bold white")
 
-        card = Panel(
-            Align.center(card_content), title=key, border_style="blue", width=20
-        )
+        card = Panel(Align.center(card_content), title=key, border_style="blue", width=20)
 
         cards.append(card)
 
     return Columns(cards, equal=True, expand=True)
 
 
-def create_trend_indicator(
-    current: float, previous: float, label: str = "Trend"
-) -> Text:
+def create_trend_indicator(current: float, previous: float, label: str = "Trend") -> Text:
     """
     トレンド指標を作成
 
@@ -998,9 +990,7 @@ def create_cli_loading_indicator(message: str = "処理中...") -> Text:
     return text
 
 
-def format_cli_table_data(
-    headers: List[str], rows: List[List[str]], title: str = None
-) -> Table:
+def format_cli_table_data(headers: List[str], rows: List[List[str]], title: str = None) -> Table:
     """
     CLI用テーブルデータをフォーマット
 

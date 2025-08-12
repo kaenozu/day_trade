@@ -161,9 +161,7 @@ class NextGenAIOrchestrator:
         """
         # セーフモードチェック
         if not is_safe_mode():
-            raise ValueError(
-                "セーフモードでない場合は、このオーケストレーターは使用できません"
-            )
+            raise ValueError("セーフモードでない場合は、このオーケストレーターは使用できません")
 
         self.config = config or OrchestrationConfig()
 
@@ -230,9 +228,7 @@ class NextGenAIOrchestrator:
         else:
             self.parallel_manager = None
             if not PARALLEL_EXECUTOR_AVAILABLE:
-                logger.warning(
-                    "ParallelExecutorManagerが利用できません。レガシー並列処理を使用"
-                )
+                logger.warning("ParallelExecutorManagerが利用できません。レガシー並列処理を使用")
 
         # 実行統計
         self.execution_history = []
@@ -271,9 +267,7 @@ class NextGenAIOrchestrator:
             シンボル別実行結果辞書
         """
         if not self.parallel_manager:
-            logger.warning(
-                "並列マネージャーが無効です。シーケンシャル実行にフォールバック"
-            )
+            logger.warning("並列マネージャーが無効です。シーケンシャル実行にフォールバック")
             return self._execute_sequential_fallback(symbols, analysis_functions)
 
         results = {}
@@ -289,15 +283,9 @@ class NextGenAIOrchestrator:
                 task_kwargs["symbol"] = symbol
 
                 # タスクタイプをヒント
-                if (
-                    "fetch" in analysis_func.__name__
-                    or "download" in analysis_func.__name__
-                ):
+                if "fetch" in analysis_func.__name__ or "download" in analysis_func.__name__:
                     task_type = TaskType.IO_BOUND
-                elif (
-                    "compute" in analysis_func.__name__
-                    or "calculate" in analysis_func.__name__
-                ):
+                elif "compute" in analysis_func.__name__ or "calculate" in analysis_func.__name__:
                     task_type = TaskType.CPU_BOUND
                 else:
                     task_type = TaskType.MIXED
@@ -420,9 +408,7 @@ class NextGenAIOrchestrator:
                     portfolio_manager = PortfolioManager(session)
                     actual_portfolio_summary = portfolio_manager.get_portfolio_summary()
             except ImportError:
-                logger.warning(
-                    "Database manager not available, skipping portfolio summary"
-                )
+                logger.warning("Database manager not available, skipping portfolio summary")
                 actual_portfolio_summary = None
 
             # 高度バッチデータ取得
@@ -438,9 +424,7 @@ class NextGenAIOrchestrator:
                     if symbol not in self.analysis_engines:
                         self.analysis_engines[symbol] = AnalysisOnlyEngine([symbol])
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to create analysis engine for {symbol}: {e}"
-                    )
+                    logger.warning(f"Failed to create analysis engine for {symbol}: {e}")
 
             # 並列AI分析実行
             if CONCURRENT_AVAILABLE and len(symbols) > 1:
@@ -467,9 +451,7 @@ class NextGenAIOrchestrator:
             if actual_portfolio_summary:
                 portfolio_summary = actual_portfolio_summary
             else:
-                portfolio_summary = self._generate_portfolio_analysis(
-                    ai_analysis_results
-                )
+                portfolio_summary = self._generate_portfolio_analysis(ai_analysis_results)
 
             # システムヘルス分析
             system_health = self._analyze_system_health()
@@ -504,14 +486,10 @@ class NextGenAIOrchestrator:
         self.execution_history.append(report)
         self.execution_history = self.execution_history[-50:]  # 最新50件のみ保持
 
-        logger.info(
-            f"Next-Gen AI分析完了 - 成功: {successful_symbols}, 失敗: {failed_symbols}"
-        )
+        logger.info(f"Next-Gen AI分析完了 - 成功: {successful_symbols}, 失敗: {failed_symbols}")
         return report
 
-    def _execute_batch_data_collection(
-        self, symbols: List[str]
-    ) -> Dict[str, DataResponse]:
+    def _execute_batch_data_collection(self, symbols: List[str]) -> Dict[str, DataResponse]:
         """高度バッチデータ収集"""
 
         logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄")
@@ -567,9 +545,7 @@ class NextGenAIOrchestrator:
             }
 
             # 結果収集
-            for future in as_completed(
-                future_to_symbol, timeout=self.config.timeout_seconds
-            ):
+            for future in as_completed(future_to_symbol, timeout=self.config.timeout_seconds):
                 symbol = future_to_symbol[future]
                 try:
                     result = future.result(timeout=60)
@@ -667,19 +643,23 @@ class NextGenAIOrchestrator:
                         prediction_result = self.ml_engine.predict(latest_sequence)
 
                         ai_predictions = {
-                            "price_direction": "up"
-                            if prediction_result.predictions[0] > 0
-                            else "down",
+                            "price_direction": (
+                                "up" if prediction_result.predictions[0] > 0 else "down"
+                            ),
                             "predicted_change": float(prediction_result.predictions[0]),
-                            "confidence": float(prediction_result.confidence[0])
-                            if prediction_result.confidence is not None
-                            else 0.5,
+                            "confidence": (
+                                float(prediction_result.confidence[0])
+                                if prediction_result.confidence is not None
+                                else 0.5
+                            ),
                         }
 
                         confidence_scores = {
-                            "ml_model": float(prediction_result.confidence[0])
-                            if prediction_result.confidence is not None
-                            else 0.5,
+                            "ml_model": (
+                                float(prediction_result.confidence[0])
+                                if prediction_result.confidence is not None
+                                else 0.5
+                            ),
                             "data_quality": data_quality / 100.0,
                             "overall": (
                                 float(prediction_result.confidence[0])
@@ -755,9 +735,7 @@ class NextGenAIOrchestrator:
                 "alerts": [],
             }
 
-    def _generate_technical_signals(
-        self, data: pd.DataFrame, symbol: str
-    ) -> Dict[str, Any]:
+    def _generate_technical_signals(self, data: pd.DataFrame, symbol: str) -> Dict[str, Any]:
         """テクニカル分析シグナル生成"""
 
         signals = {}
@@ -782,11 +760,9 @@ class NextGenAIOrchestrator:
                     rsi = data["RSI_14"].iloc[-1]
                     signals["rsi"] = {
                         "value": rsi,
-                        "signal": "oversold"
-                        if rsi < 30
-                        else "overbought"
-                        if rsi > 70
-                        else "neutral",
+                        "signal": (
+                            "oversold" if rsi < 30 else "overbought" if rsi > 70 else "neutral"
+                        ),
                     }
 
                 # ボラティリティシグナル
@@ -797,11 +773,11 @@ class NextGenAIOrchestrator:
                     signals["volatility"] = {
                         "current": volatility,
                         "percentile": vol_percentile,
-                        "regime": "high"
-                        if vol_percentile > 0.8
-                        else "low"
-                        if vol_percentile < 0.2
-                        else "normal",
+                        "regime": (
+                            "high"
+                            if vol_percentile > 0.8
+                            else "low" if vol_percentile < 0.2 else "normal"
+                        ),
                     }
 
         except Exception as e:
@@ -839,13 +815,13 @@ class NextGenAIOrchestrator:
                 returns = data["終値"].pct_change()
 
                 features["time_series"] = {
-                    "trend": "upward"
-                    if data["終値"].iloc[-1] > data["終値"].iloc[0]
-                    else "downward",
+                    "trend": (
+                        "upward" if data["終値"].iloc[-1] > data["終値"].iloc[0] else "downward"
+                    ),
                     "volatility": float(returns.std()),
-                    "sharpe_estimate": float(returns.mean() / returns.std())
-                    if returns.std() > 0
-                    else 0,
+                    "sharpe_estimate": (
+                        float(returns.mean() / returns.std()) if returns.std() > 0 else 0
+                    ),
                     "max_drawdown": float(
                         (data["終値"] / data["終値"].expanding().max() - 1).min()
                     ),
@@ -869,9 +845,7 @@ class NextGenAIOrchestrator:
 
         try:
             # データ品質リスク
-            data_completeness = 1.0 - data.isnull().sum().sum() / (
-                len(data) * len(data.columns)
-            )
+            data_completeness = 1.0 - data.isnull().sum().sum() / (len(data) * len(data.columns))
 
             # 予測不確実性リスク
             prediction_risk = 1.0 - confidence_scores.get("overall", 0.5)
@@ -906,11 +880,9 @@ class NextGenAIOrchestrator:
                 "volatility_risk": volatility_risk,
                 "liquidity_risk": liquidity_risk,
                 "overall_risk_score": overall_risk,
-                "risk_level": "high"
-                if overall_risk > 0.7
-                else "medium"
-                if overall_risk > 0.4
-                else "low",
+                "risk_level": (
+                    "high" if overall_risk > 0.7 else "medium" if overall_risk > 0.4 else "low"
+                ),
             }
 
         except Exception as e:
@@ -937,10 +909,7 @@ class NextGenAIOrchestrator:
             overall_risk = risk_assessment.get("overall_risk_score", 0.5)
 
             # 信頼度とリスクに基づく推奨
-            if (
-                overall_confidence > self.config.confidence_threshold
-                and overall_risk < 0.4
-            ):
+            if overall_confidence > self.config.confidence_threshold and overall_risk < 0.4:
                 if predictions.get("predicted_change", 0) > 0.02:  # 2%以上の上昇予測
                     return "STRONG_BUY_SIGNAL"
                 elif predictions.get("predicted_change", 0) < -0.02:  # 2%以上の下落予測
@@ -1008,9 +977,7 @@ class NextGenAIOrchestrator:
                 risk_signal.update(
                     {
                         "type": "RISK_ALERT",
-                        "risk_level": analysis.risk_assessment.get(
-                            "risk_level", "unknown"
-                        ),
+                        "risk_level": analysis.risk_assessment.get("risk_level", "unknown"),
                         "risk_factors": analysis.risk_assessment,
                     }
                 )
@@ -1021,9 +988,7 @@ class NextGenAIOrchestrator:
 
         return signals
 
-    def _generate_smart_alerts(
-        self, analysis: AIAnalysisResult
-    ) -> List[Dict[str, Any]]:
+    def _generate_smart_alerts(self, analysis: AIAnalysisResult) -> List[Dict[str, Any]]:
         """スマートアラート生成"""
 
         alerts = []
@@ -1073,9 +1038,7 @@ class NextGenAIOrchestrator:
 
         return alerts
 
-    def _generate_portfolio_analysis(
-        self, ai_results: List[AIAnalysisResult]
-    ) -> Dict[str, Any]:
+    def _generate_portfolio_analysis(self, ai_results: List[AIAnalysisResult]) -> Dict[str, Any]:
         """ポートフォリオ分析生成"""
 
         if not ai_results:
@@ -1091,8 +1054,7 @@ class NextGenAIOrchestrator:
             high_confidence_count = sum(
                 1
                 for r in ai_results
-                if r.confidence_scores.get("overall", 0)
-                > self.config.confidence_threshold
+                if r.confidence_scores.get("overall", 0) > self.config.confidence_threshold
             )
 
             # 推奨分布
@@ -1105,9 +1067,7 @@ class NextGenAIOrchestrator:
             avg_data_quality = np.mean([r.data_quality for r in ai_results])
 
             # リスク分布
-            risk_levels = [
-                r.risk_assessment.get("risk_level", "unknown") for r in ai_results
-            ]
+            risk_levels = [r.risk_assessment.get("risk_level", "unknown") for r in ai_results]
             risk_distribution = {}
             for risk in set(risk_levels):
                 risk_distribution[risk] = risk_levels.count(risk)
@@ -1126,10 +1086,7 @@ class NextGenAIOrchestrator:
                         [r.confidence_scores.get("overall", 0) for r in ai_results]
                     ),
                     "risk_weighted_score": np.mean(
-                        [
-                            r.risk_assessment.get("overall_risk_score", 0.5)
-                            for r in ai_results
-                        ]
+                        [r.risk_assessment.get("overall_risk_score", 0.5) for r in ai_results]
                     ),
                 },
             }
@@ -1170,10 +1127,11 @@ class NextGenAIOrchestrator:
                     health["components"]["batch_fetcher"] = {
                         "status": "operational",
                         "throughput": batch_stats.throughput_rps,
-                        "success_rate": batch_stats.successful_requests
-                        / batch_stats.total_requests
-                        if batch_stats.total_requests > 0
-                        else 1.0,
+                        "success_rate": (
+                            batch_stats.successful_requests / batch_stats.total_requests
+                            if batch_stats.total_requests > 0
+                            else 1.0
+                        ),
                     }
                 except Exception as e:
                     health["components"]["batch_fetcher"] = {
@@ -1195,9 +1153,7 @@ class NextGenAIOrchestrator:
                     }
 
             # 全体ステータス判定
-            component_statuses = [
-                comp.get("status") for comp in health["components"].values()
-            ]
+            component_statuses = [comp.get("status") for comp in health["components"].values()]
             if "error" in component_statuses:
                 health["overall_status"] = "degraded"
 
@@ -1222,10 +1178,11 @@ class NextGenAIOrchestrator:
                 batch_stats = self.batch_fetcher.get_pipeline_stats()
                 stats["batch_fetcher"] = {
                     "total_requests": batch_stats.total_requests,
-                    "success_rate": batch_stats.successful_requests
-                    / batch_stats.total_requests
-                    if batch_stats.total_requests > 0
-                    else 0,
+                    "success_rate": (
+                        batch_stats.successful_requests / batch_stats.total_requests
+                        if batch_stats.total_requests > 0
+                        else 0
+                    ),
                     "avg_fetch_time": batch_stats.avg_fetch_time,
                     "throughput_rps": batch_stats.throughput_rps,
                 }
@@ -1289,9 +1246,11 @@ class NextGenAIOrchestrator:
                 "fault_tolerance": self.config.enable_fault_tolerance,
             },
             "execution_count": len(self.execution_history),
-            "last_execution": self.execution_history[-1].start_time.isoformat()
-            if self.execution_history
-            else None,
+            "last_execution": (
+                self.execution_history[-1].start_time.isoformat()
+                if self.execution_history
+                else None
+            ),
         }
 
     def cleanup(self):

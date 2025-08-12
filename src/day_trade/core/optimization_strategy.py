@@ -53,11 +53,9 @@ class OptimizationConfig:
         return cls(
             level=level,
             auto_fallback=os.getenv("DAYTRADE_AUTO_FALLBACK", "true").lower() == "true",
-            performance_monitoring=os.getenv("DAYTRADE_PERF_MONITORING", "true").lower()
-            == "true",
+            performance_monitoring=os.getenv("DAYTRADE_PERF_MONITORING", "true").lower() == "true",
             cache_enabled=os.getenv("DAYTRADE_CACHE_ENABLED", "true").lower() == "true",
-            parallel_processing=os.getenv("DAYTRADE_PARALLEL", "false").lower()
-            == "true",
+            parallel_processing=os.getenv("DAYTRADE_PARALLEL", "false").lower() == "true",
             batch_size=int(os.getenv("DAYTRADE_BATCH_SIZE", "100")),
             timeout_seconds=int(os.getenv("DAYTRADE_TIMEOUT", "30")),
             memory_limit_mb=int(os.getenv("DAYTRADE_MEMORY_LIMIT", "512")),
@@ -126,17 +124,14 @@ class OptimizationStrategy(ABC):
 
         # 平均時間の更新
         self.performance_metrics["average_time"] = (
-            self.performance_metrics["total_time"]
-            / self.performance_metrics["execution_count"]
+            self.performance_metrics["total_time"] / self.performance_metrics["execution_count"]
         )
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """パフォーマンス指標の取得"""
         metrics = self.performance_metrics.copy()
         if metrics["execution_count"] > 0:
-            metrics["success_rate"] = (
-                metrics["success_count"] / metrics["execution_count"]
-            )
+            metrics["success_rate"] = metrics["success_count"] / metrics["execution_count"]
             metrics["error_rate"] = metrics["error_count"] / metrics["execution_count"]
         return metrics
 
@@ -215,9 +210,7 @@ class OptimizationStrategyFactory:
                 logger.warning(f"最終フォールバック戦略使用: {component_name}")
 
         if strategy_class is None:
-            raise ValueError(
-                f"利用可能な戦略なし: {component_name} - {target_level.value}"
-            )
+            raise ValueError(f"利用可能な戦略なし: {component_name} - {target_level.value}")
 
         return strategy_class(config)
 
@@ -236,9 +229,7 @@ class OptimizationStrategyFactory:
 
             # 高負荷時は標準実装を選択
             if memory_percent > 80 or cpu_percent > 80:
-                logger.info(
-                    f"高負荷検出、標準実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
+                logger.info(f"高負荷検出、標準実装選択: CPU={cpu_percent}%, MEM={memory_percent}%")
                 return OptimizationLevel.STANDARD
 
             # 中負荷時は最適化実装を選択
@@ -314,8 +305,6 @@ def optimization_strategy(component_name: str, level: OptimizationLevel):
     return decorator
 
 
-def get_optimized_implementation(
-    component_name: str, config: Optional[OptimizationConfig] = None
-):
+def get_optimized_implementation(component_name: str, config: Optional[OptimizationConfig] = None):
     """最適化実装取得ヘルパー"""
     return OptimizationStrategyFactory.get_strategy(component_name, config)

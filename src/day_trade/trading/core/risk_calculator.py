@@ -84,9 +84,7 @@ class RiskCalculator:
         if stop_loss_price:
             max_risk_value = Decimal(quantity) * stop_loss_price
             max_risk = max_risk_value - entry_value
-            max_risk_pct = (
-                (max_risk / entry_value * 100) if entry_value > 0 else Decimal("0")
-            )
+            max_risk_pct = (max_risk / entry_value * 100) if entry_value > 0 else Decimal("0")
 
         risk_metrics = {
             "position_value": position_value,
@@ -97,9 +95,7 @@ class RiskCalculator:
             "max_risk_percentage": max_risk_pct,
         }
 
-        logger.debug(
-            f"ポジションリスク計算完了: {quantity}株, 評価額{position_value}円"
-        )
+        logger.debug(f"ポジションリスク計算完了: {quantity}株, 評価額{position_value}円")
         return risk_metrics
 
     def calculate_position_size(
@@ -152,9 +148,7 @@ class RiskCalculator:
         )
         return position_info
 
-    def calculate_portfolio_risk(
-        self, positions: Dict[str, Dict]
-    ) -> Dict[str, Decimal]:
+    def calculate_portfolio_risk(self, positions: Dict[str, Dict]) -> Dict[str, Decimal]:
         """
         ポートフォリオ全体リスク計算
 
@@ -182,9 +176,7 @@ class RiskCalculator:
             concentration_risks[symbol] = position_value
 
         # ポートフォリオ指標計算
-        portfolio_pnl_pct = (
-            (total_pnl / total_value * 100) if total_value > 0 else Decimal("0")
-        )
+        portfolio_pnl_pct = (total_pnl / total_value * 100) if total_value > 0 else Decimal("0")
 
         # 最大集中度計算
         max_concentration = Decimal("0")
@@ -234,9 +226,7 @@ class RiskCalculator:
         """
         trade_value = Decimal(quantity) * price
         position_size_pct = (
-            (trade_value / available_capital * 100)
-            if available_capital > 0
-            else Decimal("100")
+            (trade_value / available_capital * 100) if available_capital > 0 else Decimal("100")
         )
 
         validations = {

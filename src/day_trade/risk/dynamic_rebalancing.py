@@ -236,13 +236,9 @@ class DynamicRebalancingEngine:
 
             # レジーム別の重み付け戦略
             if market_regime == MarketRegime.BULL_MARKET:
-                target_weights = self._bull_market_allocation(
-                    risk_return_metrics, current_weights
-                )
+                target_weights = self._bull_market_allocation(risk_return_metrics, current_weights)
             elif market_regime == MarketRegime.BEAR_MARKET:
-                target_weights = self._bear_market_allocation(
-                    risk_return_metrics, current_weights
-                )
+                target_weights = self._bear_market_allocation(risk_return_metrics, current_weights)
             elif market_regime == MarketRegime.HIGH_VOLATILITY:
                 target_weights = self._high_volatility_allocation(
                     risk_return_metrics, current_weights
@@ -252,9 +248,7 @@ class DynamicRebalancingEngine:
                     risk_return_metrics, current_weights
                 )
             else:  # SIDEWAYS
-                target_weights = self._balanced_allocation(
-                    risk_return_metrics, current_weights
-                )
+                target_weights = self._balanced_allocation(risk_return_metrics, current_weights)
 
             # 制約適用
             target_weights = self._apply_constraints(target_weights)
@@ -283,12 +277,8 @@ class DynamicRebalancingEngine:
         # 低ボラティリティと小さなドローダウン重視
         scores = {}
         for symbol, data in metrics.items():
-            volatility_score = max(
-                0, 1 - data["volatility"] / 0.5
-            )  # ボラティリティペナルティ
-            drawdown_score = max(
-                0, 1 + data["max_drawdown"] / 0.3
-            )  # ドローダウンペナルティ
+            volatility_score = max(0, 1 - data["volatility"] / 0.5)  # ボラティリティペナルティ
+            drawdown_score = max(0, 1 + data["max_drawdown"] / 0.3)  # ドローダウンペナルティ
             scores[symbol] = 0.5 * volatility_score + 0.5 * drawdown_score
 
         return self._normalize_weights(scores)
@@ -474,18 +464,14 @@ class DynamicRebalancingEngine:
             rebalancing_strength = min(1.0, total_deviation / 0.2)  # 20%で最大強度
 
             # 信頼度計算
-            confidence = self._calculate_signal_confidence(
-                price_data, market_regime, triggers
-            )
+            confidence = self._calculate_signal_confidence(price_data, market_regime, triggers)
 
             # 理由生成
             reason = self._generate_rebalancing_reason(market_regime, triggers)
 
             return RebalancingSignal(
                 timestamp=datetime.now(),
-                trigger_type=triggers[0]
-                if triggers
-                else RebalancingTrigger.THRESHOLD_BASED,
+                trigger_type=triggers[0] if triggers else RebalancingTrigger.THRESHOLD_BASED,
                 current_weights=current_weights,
                 target_weights=target_weights,
                 rebalancing_strength=rebalancing_strength,
@@ -553,9 +539,7 @@ class DynamicRebalancingEngine:
         regime_reason = regime_descriptions.get(market_regime, "市場環境変化")
 
         if triggers:
-            trigger_reason = ", ".join(
-                [trigger_descriptions.get(t, "その他") for t in triggers]
-            )
+            trigger_reason = ", ".join([trigger_descriptions.get(t, "その他") for t in triggers])
             return f"{regime_reason} (トリガー: {trigger_reason})"
         else:
             return regime_reason
@@ -588,9 +572,7 @@ class DynamicRebalancingEngine:
             # VaRとExpected Shortfall
             var_95 = np.percentile(portfolio_returns, 5)
             tail_returns = portfolio_returns[portfolio_returns <= var_95]
-            expected_shortfall = (
-                tail_returns.mean() if len(tail_returns) > 0 else var_95
-            )
+            expected_shortfall = tail_returns.mean() if len(tail_returns) > 0 else var_95
 
             # ベータ計算
             beta = 1.0
@@ -600,9 +582,7 @@ class DynamicRebalancingEngine:
                 benchmark_returns = benchmark_data["Close"].pct_change().dropna()
 
                 # 共通期間で計算
-                common_dates = portfolio_returns.index.intersection(
-                    benchmark_returns.index
-                )
+                common_dates = portfolio_returns.index.intersection(benchmark_returns.index)
                 if len(common_dates) > 30:
                     port_common = portfolio_returns.reindex(common_dates)
                     bench_common = benchmark_returns.reindex(common_dates)
@@ -719,9 +699,7 @@ if __name__ == "__main__":
                 )
 
                 print("\n=== リスクメトリクス ===")
-                print(
-                    f"ポートフォリオボラティリティ: {risk_metrics.portfolio_volatility:.2%}"
-                )
+                print(f"ポートフォリオボラティリティ: {risk_metrics.portfolio_volatility:.2%}")
                 print(f"最大ドローダウン: {risk_metrics.max_drawdown:.2%}")
                 print(f"シャープレシオ: {risk_metrics.sharpe_ratio:.3f}")
                 print(f"VaR(95%): {risk_metrics.value_at_risk_95:.2%}")

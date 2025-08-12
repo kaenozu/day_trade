@@ -272,18 +272,12 @@ class CachePerformanceTestSuite:
                 else 0
             ),
             "tests_executed": len(self.test_results),
-            "tests_passed": sum(
-                1 for r in self.test_results.values() if r["status"] == "success"
-            ),
+            "tests_passed": sum(1 for r in self.test_results.values() if r["status"] == "success"),
             "tests_failed": sum(
-                1
-                for r in self.test_results.values()
-                if r["status"] in ["error", "failure"]
+                1 for r in self.test_results.values() if r["status"] in ["error", "failure"]
             ),
             "tests_partial": sum(
-                1
-                for r in self.test_results.values()
-                if r["status"] == "partial_failure"
+                1 for r in self.test_results.values() if r["status"] == "partial_failure"
             ),
         }
 
@@ -299,15 +293,9 @@ class CachePerformanceTestSuite:
                 rankings = benchmark_data["performance_rankings"]
                 if rankings:
                     performance_analysis = {
-                        "best_configuration": rankings[0]["operation_name"]
-                        if rankings
-                        else None,
-                        "best_ops": rankings[0]["operations_per_second"]
-                        if rankings
-                        else 0,
-                        "cache_effectiveness": benchmark_data.get(
-                            "cache_effectiveness", {}
-                        ),
+                        "best_configuration": rankings[0]["operation_name"] if rankings else None,
+                        "best_ops": rankings[0]["operations_per_second"] if rankings else 0,
+                        "cache_effectiveness": benchmark_data.get("cache_effectiveness", {}),
                     }
 
         # 安定性分析
@@ -324,18 +312,16 @@ class CachePerformanceTestSuite:
         if "integration" in self.test_results:
             integration_data = self.test_results["integration"]["results"]
             integration_summary = {
-                "multi_layer_status": integration_data.get(
-                    "multi_layer_cache_test", {}
-                ).get("status"),
-                "invalidation_status": integration_data.get(
-                    "cache_invalidation_test", {}
-                ).get("status"),
-                "failover_status": integration_data.get("failover_test", {}).get(
+                "multi_layer_status": integration_data.get("multi_layer_cache_test", {}).get(
                     "status"
                 ),
-                "consistency_status": integration_data.get(
-                    "data_consistency_test", {}
-                ).get("status"),
+                "invalidation_status": integration_data.get("cache_invalidation_test", {}).get(
+                    "status"
+                ),
+                "failover_status": integration_data.get("failover_test", {}).get("status"),
+                "consistency_status": integration_data.get("data_consistency_test", {}).get(
+                    "status"
+                ),
             }
 
         # 総合推奨事項
@@ -343,16 +329,12 @@ class CachePerformanceTestSuite:
 
         # ベンチマークからの推奨
         if "benchmark" in self.test_results:
-            benchmark_recs = self.test_results["benchmark"]["results"].get(
-                "recommendations", []
-            )
+            benchmark_recs = self.test_results["benchmark"]["results"].get("recommendations", [])
             overall_recommendations.extend(benchmark_recs)
 
         # ストレステストからの推奨
         if "stress_test" in self.test_results:
-            stress_recs = self.test_results["stress_test"]["results"].get(
-                "recommendations", []
-            )
+            stress_recs = self.test_results["stress_test"]["results"].get("recommendations", [])
             overall_recommendations.extend(stress_recs)
 
         # 統合テストからの推奨
@@ -429,9 +411,7 @@ class CachePerformanceTestSuite:
                 "error": str(e),
                 "partial_results": self.test_results,
                 "execution_summary": {
-                    "start_time": self.start_time.isoformat()
-                    if self.start_time
-                    else None,
+                    "start_time": self.start_time.isoformat() if self.start_time else None,
                     "end_time": self.end_time.isoformat() if self.end_time else None,
                     "error_occurred": True,
                 },
@@ -440,12 +420,8 @@ class CachePerformanceTestSuite:
 
 def main():
     """メイン実行関数"""
-    parser = argparse.ArgumentParser(
-        description="キャッシュパフォーマンステストスイート"
-    )
-    parser.add_argument(
-        "--benchmark", action="store_true", help="ベンチマークテストのみ実行"
-    )
+    parser = argparse.ArgumentParser(description="キャッシュパフォーマンステストスイート")
+    parser.add_argument("--benchmark", action="store_true", help="ベンチマークテストのみ実行")
     parser.add_argument("--stress", action="store_true", help="ストレステストのみ実行")
     parser.add_argument("--integration", action="store_true", help="統合テストのみ実行")
     parser.add_argument("--all", action="store_true", help="全テスト実行（デフォルト）")
@@ -499,9 +475,7 @@ def main():
             for i, rec in enumerate(recommendations, 1):
                 print(f"  {i}. {rec}")
 
-        print(
-            f"\n📄 詳細レポート: {suite.results_dir}/comprehensive_cache_performance_report.json"
-        )
+        print(f"\n📄 詳細レポート: {suite.results_dir}/comprehensive_cache_performance_report.json")
 
     else:
         print(f"❌ テストスイート実行エラー: {report['error']}")

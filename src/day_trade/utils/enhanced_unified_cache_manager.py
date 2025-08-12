@@ -72,9 +72,7 @@ class PredictiveWarming:
         self.analysis_interval = 3600  # 1時間毎に分析
 
         # バックグラウンド予測スレッド
-        self.prediction_thread = threading.Thread(
-            target=self._prediction_worker, daemon=True
-        )
+        self.prediction_thread = threading.Thread(target=self._prediction_worker, daemon=True)
         self.prediction_thread.start()
 
         logger.info(f"予測的ウォーミング初期化: {prediction_window_hours}時間窓")
@@ -299,9 +297,7 @@ class EnhancedUnifiedCacheManager(UnifiedCacheManager):
             self._record_access_time(start_time)
             return default
 
-    def put(
-        self, key: str, value: Any, priority: float = 1.0, target_layer: str = "auto"
-    ) -> bool:
+    def put(self, key: str, value: Any, priority: float = 1.0, target_layer: str = "auto") -> bool:
         """4層階層キャッシュにデータ保存"""
         try:
             # エントリ作成
@@ -430,18 +426,18 @@ class EnhancedUnifiedCacheManager(UnifiedCacheManager):
                 "hit_rate": overall_hit_rate,
                 "total_requests": total_requests,
                 "avg_access_time_ms": avg_access_time,
-                "l1_hit_ratio": self.extended_stats.l1_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l2_hit_ratio": self.extended_stats.l2_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l3_hit_ratio": self.extended_stats.l3_hits / total_requests
-                if total_requests > 0
-                else 0,
-                "l4_hit_ratio": self.extended_stats.l4_hits / total_requests
-                if total_requests > 0
-                else 0,
+                "l1_hit_ratio": (
+                    self.extended_stats.l1_hits / total_requests if total_requests > 0 else 0
+                ),
+                "l2_hit_ratio": (
+                    self.extended_stats.l2_hits / total_requests if total_requests > 0 else 0
+                ),
+                "l3_hit_ratio": (
+                    self.extended_stats.l3_hits / total_requests if total_requests > 0 else 0
+                ),
+                "l4_hit_ratio": (
+                    self.extended_stats.l4_hits / total_requests if total_requests > 0 else 0
+                ),
             },
             "layers": {"L1": l1_stats, "L2": l2_stats, "L3": l3_stats, "L4": l4_stats},
             "memory_usage_total_mb": (
@@ -451,10 +447,8 @@ class EnhancedUnifiedCacheManager(UnifiedCacheManager):
             "archive_usage_gb": l4_stats.get("disk_usage_gb", 0),
             "compression_savings": {
                 "avg_compression_ratio": l4_stats.get("avg_compression_ratio", 1.0),
-                "compression_time_avg_ms": l4_stats.get("compression_time_avg", 0)
-                * 1000,
-                "decompression_time_avg_ms": l4_stats.get("decompression_time_avg", 0)
-                * 1000,
+                "compression_time_avg_ms": l4_stats.get("compression_time_avg", 0) * 1000,
+                "decompression_time_avg_ms": l4_stats.get("decompression_time_avg", 0) * 1000,
             },
             "predictive_warming": prediction_stats,
         }
@@ -485,9 +479,7 @@ class EnhancedUnifiedCacheManager(UnifiedCacheManager):
 
         return optimizations
 
-    def _generate_optimization_recommendations(
-        self, stats: Dict[str, Any]
-    ) -> List[str]:
+    def _generate_optimization_recommendations(self, stats: Dict[str, Any]) -> List[str]:
         """最適化推奨事項生成"""
         recommendations = []
         overall = stats["overall"]

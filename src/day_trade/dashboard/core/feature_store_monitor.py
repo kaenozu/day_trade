@@ -166,9 +166,7 @@ class FeatureStoreMonitor:
             "avg_response_time": round(sum(response_times) / len(response_times), 4),
             "max_speedup": round(max(speedup_ratios), 2),
             "min_response_time": round(min(response_times), 4),
-            "total_requests": recent_metrics[-1]["total_requests"]
-            if recent_metrics
-            else 0,
+            "total_requests": recent_metrics[-1]["total_requests"] if recent_metrics else 0,
             "monitoring_period_minutes": 10,
             "samples_count": len(recent_metrics),
         }
@@ -246,9 +244,7 @@ class FeatureStoreMonitor:
             "recommendations": self._get_recommendations(current, issues),
         }
 
-    def _get_recommendations(
-        self, current_metrics: Dict, issues: List[str]
-    ) -> List[str]:
+    def _get_recommendations(self, current_metrics: Dict, issues: List[str]) -> List[str]:
         """改善提案生成"""
         recommendations = []
 
@@ -265,15 +261,11 @@ class FeatureStoreMonitor:
             recommendations.append("データ構造の見直しが必要かもしれません")
 
         if current_metrics["memory_usage_mb"] > 200:
-            recommendations.append(
-                "メモリ使用量を監視し、適切なクリーンアップを実行してください"
-            )
+            recommendations.append("メモリ使用量を監視し、適切なクリーンアップを実行してください")
             recommendations.append("キャッシュの有効期限設定を見直してください")
 
         if not recommendations:
-            recommendations.append(
-                "現在の設定は適切です。継続的な監視を維持してください"
-            )
+            recommendations.append("現在の設定は適切です。継続的な監視を維持してください")
 
         return recommendations
 
@@ -312,12 +304,8 @@ class FeatureStoreMonitor:
         for i in range(0, len(recent), 12):  # 12サンプル = 1分間（5秒間隔）
             interval_data = recent[i : i + 12]
             if interval_data:
-                avg_hit_rate = sum(m["hit_rate"] for m in interval_data) / len(
-                    interval_data
-                )
-                avg_speedup = sum(m["speedup_ratio"] for m in interval_data) / len(
-                    interval_data
-                )
+                avg_hit_rate = sum(m["hit_rate"] for m in interval_data) / len(interval_data)
+                avg_speedup = sum(m["speedup_ratio"] for m in interval_data) / len(interval_data)
                 intervals.append(
                     {
                         "time_range": f"{interval_data[0]['timestamp'][:16]} - {interval_data[-1]['timestamp'][:16]}",
@@ -348,22 +336,14 @@ class FeatureStoreMonitor:
         achievements = []
 
         if current.get("speedup_ratio", 0) >= 10:
-            achievements.append(
-                f"🚀 驚異的な高速化: {current['speedup_ratio']}倍の性能向上"
-            )
+            achievements.append(f"🚀 驚異的な高速化: {current['speedup_ratio']}倍の性能向上")
         elif current.get("speedup_ratio", 0) >= 5:
-            achievements.append(
-                f"⚡ 優秀な高速化: {current['speedup_ratio']}倍の性能向上"
-            )
+            achievements.append(f"⚡ 優秀な高速化: {current['speedup_ratio']}倍の性能向上")
 
         if current.get("hit_rate", 0) >= 90:
-            achievements.append(
-                f"🎯 最高のキャッシュ効率: {current['hit_rate']}%ヒット率"
-            )
+            achievements.append(f"🎯 最高のキャッシュ効率: {current['hit_rate']}%ヒット率")
         elif current.get("hit_rate", 0) >= 80:
-            achievements.append(
-                f"✅ 優秀なキャッシュ効率: {current['hit_rate']}%ヒット率"
-            )
+            achievements.append(f"✅ 優秀なキャッシュ効率: {current['hit_rate']}%ヒット率")
 
         if summary.get("avg_response_time", 1) <= 0.005:
             achievements.append(

@@ -146,9 +146,7 @@ class ForexDataCollector:
                 # データベースに保存
                 await self._save_tick_to_db(tick_data)
 
-                logger.debug(
-                    f"Updated {pair}: {tick_data.bid_price:.5f}/{tick_data.ask_price:.5f}"
-                )
+                logger.debug(f"Updated {pair}: {tick_data.bid_price:.5f}/{tick_data.ask_price:.5f}")
 
         except Exception as e:
             logger.warning(f"Failed to collect {pair} data: {e}")
@@ -279,9 +277,7 @@ class ForexDataCollector:
             market_stats = {
                 "active_pairs": active_pairs,
                 "total_volume": total_volume,
-                "average_spread": np.mean(
-                    [t.spread for t in self.latest_ticks.values()]
-                ),
+                "average_spread": np.mean([t.spread for t in self.latest_ticks.values()]),
                 "market_volatility": np.std(price_changes) if price_changes else 0,
                 "update_timestamp": datetime.now(timezone.utc),
             }
@@ -335,9 +331,7 @@ class ForexDataCollector:
             logger.error(f"Historical data fetch error for {pair}: {e}")
             return []
 
-    def _parse_yahoo_ohlc(
-        self, data: dict, pair: str, timeframe: str
-    ) -> List[ForexOHLC]:
+    def _parse_yahoo_ohlc(self, data: dict, pair: str, timeframe: str) -> List[ForexOHLC]:
         """Yahoo FinanceデータをOHLC形式に変換"""
         try:
             result = data.get("chart", {}).get("result", [])
@@ -439,9 +433,7 @@ async def main():
     print(f"\nCollected data for {len(latest_data)} pairs:")
 
     for pair, tick in latest_data.items():
-        print(
-            f"{pair}: {tick.bid_price:.5f}/{tick.ask_price:.5f} (spread: {tick.spread:.5f})"
-        )
+        print(f"{pair}: {tick.bid_price:.5f}/{tick.ask_price:.5f} (spread: {tick.spread:.5f})")
 
     # クロスレート表示
     cross_rates = collector.calculate_cross_rates()

@@ -542,9 +542,7 @@ async def websocket_realtime_endpoint(websocket: WebSocket):
     global realtime_stream
 
     if not realtime_stream:
-        await websocket.close(
-            code=1011, reason="リアルタイムストリームが利用できません"
-        )
+        await websocket.close(code=1011, reason="リアルタイムストリームが利用できません")
         return
 
     await realtime_stream.connect(websocket)
@@ -620,9 +618,7 @@ async def get_metrics_history(minutes: int = 10):
         result["system_history"] = metrics_collector.get_metrics_history(minutes)
 
     if feature_store_monitor:
-        result["feature_store_history"] = feature_store_monitor.get_metrics_history(
-            minutes
-        )
+        result["feature_store_history"] = feature_store_monitor.get_metrics_history(minutes)
 
     return result
 

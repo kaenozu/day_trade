@@ -282,9 +282,7 @@ class BaseCacheManager(CacheInterface[str, Any]):
 class CacheEntry:
     """キャッシュエントリ（TTL対応）"""
 
-    def __init__(
-        self, value: Any, ttl: Optional[int] = None, timestamp: Optional[float] = None
-    ):
+    def __init__(self, value: Any, ttl: Optional[int] = None, timestamp: Optional[float] = None):
         """
         Args:
             value: 保存する値
@@ -348,9 +346,7 @@ class CacheEntry:
 
         return current_time - self.created_at
 
-    def get_remaining_ttl(
-        self, current_time: Optional[float] = None
-    ) -> Optional[float]:
+    def get_remaining_ttl(self, current_time: Optional[float] = None) -> Optional[float]:
         """
         残りTTLを取得
 
@@ -372,6 +368,4 @@ class CacheEntry:
         return max(0, remaining)
 
     def __repr__(self) -> str:
-        return (
-            f"CacheEntry(value={self.value}, ttl={self.ttl}, age={self.get_age():.2f})"
-        )
+        return f"CacheEntry(value={self.value}, ttl={self.ttl}, age={self.get_age():.2f})"

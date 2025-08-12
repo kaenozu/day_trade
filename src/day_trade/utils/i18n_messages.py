@@ -139,9 +139,7 @@ class MessageLoader:
         """メッセージファイルをロード"""
         try:
             if not self.messages_file.exists():
-                raise FileNotFoundError(
-                    f"Messages file not found: {self.messages_file}"
-                )
+                raise FileNotFoundError(f"Messages file not found: {self.messages_file}")
 
             with open(self.messages_file, encoding="utf-8") as f:
                 data = json.load(f)
@@ -149,9 +147,7 @@ class MessageLoader:
             # 各セクションを統合
             self._messages = {}
             for category_name, category_data in data.items():
-                if isinstance(category_data, dict) and category_name.endswith(
-                    "_errors"
-                ):
+                if isinstance(category_data, dict) and category_name.endswith("_errors"):
                     for key, value in category_data.items():
                         self._messages[key] = value
 
@@ -197,9 +193,7 @@ class MessageLoader:
 
         self._exception_mapping = {"Exception": "UNKNOWN_ERROR"}
 
-        self._ui_messages = {
-            "solutions_header": {"ja": "💡 解決方法:", "en": "💡 Solutions:"}
-        }
+        self._ui_messages = {"solutions_header": {"ja": "💡 解決方法:", "en": "💡 Solutions:"}}
 
     @property
     def messages(self) -> Dict[str, Any]:
@@ -237,9 +231,7 @@ class EnhancedI18nMessageHandler:
 
         # 依存性注入対応
         self.message_loader = message_loader or MessageLoader()
-        self.sanitizer = sanitizer or SensitiveDataSanitizer(
-            self.message_loader.sensitive_patterns
-        )
+        self.sanitizer = sanitizer or SensitiveDataSanitizer(self.message_loader.sensitive_patterns)
 
     def get_message(
         self,
@@ -321,9 +313,7 @@ class EnhancedI18nMessageHandler:
             メッセージ辞書
         """
         exception_name = type(exception).__name__
-        error_code = self.message_loader.exception_mapping.get(
-            exception_name, "UNKNOWN_ERROR"
-        )
+        error_code = self.message_loader.exception_mapping.get(exception_name, "UNKNOWN_ERROR")
 
         # カスタム例外の対応
         if hasattr(exception, "error_code"):
@@ -351,9 +341,7 @@ class EnhancedI18nMessageHandler:
         solutions_header = ui_messages.get("solutions_header", {})
         header = solutions_header.get(lang.value, "💡 Solutions:")
 
-        formatted_solutions = [
-            f"  {i + 1}. {solution}" for i, solution in enumerate(solutions)
-        ]
+        formatted_solutions = [f"  {i + 1}. {solution}" for i, solution in enumerate(solutions)]
 
         return f"{header}\n" + "\n".join(formatted_solutions)
 
@@ -362,9 +350,7 @@ class EnhancedI18nMessageHandler:
         try:
             self.message_loader.load_messages()
             # サニタイザーのパターンも更新
-            self.sanitizer = SensitiveDataSanitizer(
-                self.message_loader.sensitive_patterns
-            )
+            self.sanitizer = SensitiveDataSanitizer(self.message_loader.sensitive_patterns)
             return True
         except Exception:
             return False

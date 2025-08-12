@@ -61,9 +61,7 @@ async def basic_trading_example():
             print(f"🔄 [{i+1:2d}/15] ステータス: {status['status']}")
             print(f"   アクティブポジション: {status['active_positions']}")
             print(f"   実行した注文数: {status['execution_stats']['orders_executed']}")
-            print(
-                f"   生成シグナル数: {status['execution_stats']['signals_generated']}"
-            )
+            print(f"   生成シグナル数: {status['execution_stats']['signals_generated']}")
             print(f"   日次損益: {status['daily_pnl']:+.0f}円")
 
             if status["execution_stats"]["avg_execution_time"] > 0:
@@ -78,12 +76,8 @@ async def basic_trading_example():
         # 最終結果を表示
         final_status = engine.get_status()
         print("📋 最終結果:")
-        print(
-            f"   実行した注文数: {final_status['execution_stats']['orders_executed']}"
-        )
-        print(
-            f"   生成シグナル数: {final_status['execution_stats']['signals_generated']}"
-        )
+        print(f"   実行した注文数: {final_status['execution_stats']['orders_executed']}")
+        print(f"   生成シグナル数: {final_status['execution_stats']['signals_generated']}")
         print(f"   最終損益: {final_status['daily_pnl']:+.0f}円")
 
         # タスク完了を待機
@@ -138,9 +132,7 @@ async def risk_management_example():
             status = engine.get_status()
             constraints_ok = engine._check_risk_constraints()
 
-            print(
-                f"⚖️ [{i+1:2d}/10] リスク制約: {'✅ OK' if constraints_ok else '⚠️ 制約違反'}"
-            )
+            print(f"⚖️ [{i+1:2d}/10] リスク制約: {'✅ OK' if constraints_ok else '⚠️ 制約違反'}")
             print(
                 f"   ポジション数: {status['active_positions']}/{strict_risk_params.max_open_positions}"
             )

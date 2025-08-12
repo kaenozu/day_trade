@@ -214,9 +214,7 @@ class HFTConfig:
 
     # Market data settings
     enable_udp_market_data: bool = False  # Disabled for safety
-    market_data_symbols: List[str] = field(
-        default_factory=lambda: ["AAPL", "GOOGL", "MSFT"]
-    )
+    market_data_symbols: List[str] = field(default_factory=lambda: ["AAPL", "GOOGL", "MSFT"])
 
     # Performance monitoring
     enable_nanosecond_monitoring: bool = True
@@ -286,9 +284,7 @@ class HFTPerformanceTracker:
 
         self._lock = threading.RLock()
 
-    def record_execution(
-        self, latency_us: float, pnl: float = 0.0, success: bool = True
-    ):
+    def record_execution(self, latency_us: float, pnl: float = 0.0, success: bool = True):
         """執行記録"""
         with self._lock:
             if len(self.execution_latencies) >= self.window_size:
@@ -342,21 +338,21 @@ class HFTPerformanceTracker:
 
             return {
                 # Latency metrics
-                "avg_execution_latency_us": np.mean(self.execution_latencies)
-                if self.execution_latencies
-                else 0,
-                "p95_execution_latency_us": np.percentile(self.execution_latencies, 95)
-                if self.execution_latencies
-                else 0,
-                "p99_execution_latency_us": np.percentile(self.execution_latencies, 99)
-                if self.execution_latencies
-                else 0,
-                "avg_decision_latency_us": np.mean(self.decision_latencies)
-                if self.decision_latencies
-                else 0,
-                "avg_end_to_end_latency_us": np.mean(self.end_to_end_latencies)
-                if self.end_to_end_latencies
-                else 0,
+                "avg_execution_latency_us": (
+                    np.mean(self.execution_latencies) if self.execution_latencies else 0
+                ),
+                "p95_execution_latency_us": (
+                    np.percentile(self.execution_latencies, 95) if self.execution_latencies else 0
+                ),
+                "p99_execution_latency_us": (
+                    np.percentile(self.execution_latencies, 99) if self.execution_latencies else 0
+                ),
+                "avg_decision_latency_us": (
+                    np.mean(self.decision_latencies) if self.decision_latencies else 0
+                ),
+                "avg_end_to_end_latency_us": (
+                    np.mean(self.end_to_end_latencies) if self.end_to_end_latencies else 0
+                ),
                 # Trading metrics
                 "total_trades": self.total_trades,
                 "winning_trades": self.winning_trades,
@@ -398,9 +394,7 @@ class HFTKillSwitch:
 
             # Loss limit check
             if performance_tracker.current_drawdown > self.max_loss_threshold:
-                reasons.append(
-                    f"Drawdown exceeded: ${performance_tracker.current_drawdown:,.2f}"
-                )
+                reasons.append(f"Drawdown exceeded: ${performance_tracker.current_drawdown:,.2f}")
 
             # Latency check
             if performance_tracker.execution_latencies:
@@ -410,9 +404,7 @@ class HFTKillSwitch:
 
             # Success rate check
             if performance_tracker.success_rate < self.min_success_rate:
-                reasons.append(
-                    f"Success rate too low: {performance_tracker.success_rate:.1%}"
-                )
+                reasons.append(f"Success rate too low: {performance_tracker.success_rate:.1%}")
 
             if reasons:
                 self.triggered = True
@@ -589,9 +581,7 @@ class HFTOrchestrator:
             for symbol in strategy.target_symbols:
                 if symbol in self.symbol_strategies:
                     self.symbol_strategies[symbol] = [
-                        sid
-                        for sid in self.symbol_strategies[symbol]
-                        if sid != strategy_id
+                        sid for sid in self.symbol_strategies[symbol] if sid != strategy_id
                     ]
 
             del self.active_strategies[strategy_id]
@@ -643,9 +633,7 @@ class HFTOrchestrator:
             return
 
         # Check kill switch
-        if self.kill_switch and self.kill_switch.check_conditions(
-            self.performance_tracker
-        ):
+        if self.kill_switch and self.kill_switch.check_conditions(self.performance_tracker):
             asyncio.create_task(self.emergency_stop("Kill switch triggered"))
             return
 
@@ -692,14 +680,10 @@ class HFTOrchestrator:
 
                         for order in decision_result.suggested_orders:
                             # Execute order
-                            execution_result = await self.executor.execute_order_async(
-                                order
-                            )
+                            execution_result = await self.executor.execute_order_async(order)
 
                             # Record execution
-                            execution_time_us = (
-                                time.perf_counter_ns() - execution_start
-                            ) / 1000
+                            execution_time_us = (time.perf_counter_ns() - execution_start) / 1000
                             success = (
                                 execution_result.status.name == "COMPLETED"
                                 if hasattr(execution_result, "status")
@@ -729,9 +713,7 @@ class HFTOrchestrator:
                 if total_latency_us > self.config.performance_alert_threshold_us:
                     logger.warning(f"High latency detected: {total_latency_us:.1f}μs")
 
-                log_performance_metric(
-                    "hft_end_to_end_latency", total_latency_us, "microseconds"
-                )
+                log_performance_metric("hft_end_to_end_latency", total_latency_us, "microseconds")
 
             except Exception as e:
                 logger.error(f"市場シグナル処理エラー: {e}")
@@ -762,9 +744,7 @@ class HFTOrchestrator:
                 # Kill switch check
                 if self.kill_switch:
                     if self.kill_switch.check_conditions(self.performance_tracker):
-                        asyncio.create_task(
-                            self.emergency_stop("Kill switch conditions met")
-                        )
+                        asyncio.create_task(self.emergency_stop("Kill switch conditions met"))
 
                 time.sleep(0.1)  # 100ms monitoring interval
 
@@ -814,9 +794,7 @@ class HFTOrchestrator:
             "kill_switch_status": {
                 "enabled": self.kill_switch.enabled if self.kill_switch else False,
                 "triggered": self.kill_switch.triggered if self.kill_switch else False,
-                "trigger_reasons": self.kill_switch.trigger_reasons
-                if self.kill_switch
-                else [],
+                "trigger_reasons": self.kill_switch.trigger_reasons if self.kill_switch else [],
             },
         }
 
@@ -828,19 +806,13 @@ class HFTOrchestrator:
             detailed_stats["executor"] = self.executor.get_performance_stats()
 
         if self.market_data_processor:
-            detailed_stats[
-                "market_data"
-            ] = self.market_data_processor.get_comprehensive_stats()
+            detailed_stats["market_data"] = self.market_data_processor.get_comprehensive_stats()
 
         if self.decision_engine:
-            detailed_stats[
-                "decision_engine"
-            ] = self.decision_engine.get_comprehensive_stats()
+            detailed_stats["decision_engine"] = self.decision_engine.get_comprehensive_stats()
 
         # Microsecond monitoring stats
-        detailed_stats[
-            "microsecond_monitoring"
-        ] = self.microsecond_monitor.get_current_stats()
+        detailed_stats["microsecond_monitoring"] = self.microsecond_monitor.get_current_stats()
 
         detailed_stats["orchestrator"] = self.get_system_status()
 
@@ -949,13 +921,9 @@ if __name__ == "__main__":
                 orchestrator_stats = performance.get("orchestrator", {})
                 perf_summary = orchestrator_stats.get("performance_summary", {})
 
-                print(
-                    f"処理された注文: {orchestrator_stats.get('total_orders_processed', 0)}"
-                )
+                print(f"処理された注文: {orchestrator_stats.get('total_orders_processed', 0)}")
                 print(f"決定回数: {orchestrator_stats.get('total_decisions_made', 0)}")
-                print(
-                    f"システム稼働時間: {orchestrator_stats.get('uptime_seconds', 0):.1f}秒"
-                )
+                print(f"システム稼働時間: {orchestrator_stats.get('uptime_seconds', 0):.1f}秒")
 
                 if perf_summary:
                     print("\nレイテンシー統計:")
@@ -976,13 +944,9 @@ if __name__ == "__main__":
                 actual_latency = perf_summary.get("avg_execution_latency_us", 0)
 
                 if actual_latency > 0 and actual_latency <= target_latency:
-                    print(
-                        f"✓ レイテンシー目標達成: {actual_latency:.1f}μs ≤ {target_latency}μs"
-                    )
+                    print(f"✓ レイテンシー目標達成: {actual_latency:.1f}μs ≤ {target_latency}μs")
                 elif actual_latency > target_latency:
-                    print(
-                        f"⚠ レイテンシー目標未達: {actual_latency:.1f}μs > {target_latency}μs"
-                    )
+                    print(f"⚠ レイテンシー目標未達: {actual_latency:.1f}μs > {target_latency}μs")
                 else:
                     print("レイテンシーデータ不足")
 

@@ -85,9 +85,7 @@ class StockCommandHandler(CommandHandler):
         elif command == "validate" and args:
             self.cli._handle_validate_command(args)
         else:
-            console.print(
-                create_warning_panel(f"'{command}' コマンドには引数が必要です")
-            )
+            console.print(create_warning_panel(f"'{command}' コマンドには引数が必要です"))
         return True
 
 
@@ -379,9 +377,7 @@ class EnhancedInteractiveCLI:
 
             # 不明なコマンド
             console.print(
-                create_warning_panel(
-                    f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。"
-                )
+                create_warning_panel(f"不明なコマンド: '{cmd}'. 'help' でヘルプを表示します。")
             )
 
         except Exception as e:
@@ -439,9 +435,7 @@ class EnhancedInteractiveCLI:
                 )
             )
         else:
-            console.print(
-                create_error_panel(f"{context}中にエラーが発生しました: {error}")
-            )
+            console.print(create_error_panel(f"{context}中にエラーが発生しました: {error}"))
 
         logger.error(f"Error in {context}: {error_type}: {error}")
 
@@ -497,16 +491,12 @@ class EnhancedInteractiveCLI:
             current = self.stock_fetcher.get_current_price(code)
             if current:
                 console.print(
-                    create_success_panel(
-                        f"銘柄: {code}, 価格: ¥{current.get('price', 'N/A')}"
-                    )
+                    create_success_panel(f"銘柄: {code}, 価格: ¥{current.get('price', 'N/A')}")
                 )
                 if details:
                     info = self.stock_fetcher.get_company_info(code)
                     if info:
-                        console.print(
-                            create_info_panel(f"企業名: {info.get('name', 'N/A')}")
-                        )
+                        console.print(create_info_panel(f"企業名: {info.get('name', 'N/A')}"))
             else:
                 console.print(create_error_panel(f"銘柄 {code} の情報取得に失敗"))
         except Exception as e:
@@ -529,9 +519,7 @@ class EnhancedInteractiveCLI:
         self.session_data["mode"] = "watchlist"
 
         if not args:
-            console.print(
-                create_info_panel("使用可能: add, remove, list, clear, memo, move")
-            )
+            console.print(create_info_panel("使用可能: add, remove, list, clear, memo, move"))
             return
 
         subcommand = args[0].lower()
@@ -540,9 +528,7 @@ class EnhancedInteractiveCLI:
             if subcommand == "list":
                 self._show_watchlist()
             elif subcommand == "add" and len(args) > 1:
-                self._add_to_watchlist(
-                    args[1], memo=" ".join(args[2:]) if len(args) > 2 else None
-                )
+                self._add_to_watchlist(args[1], memo=" ".join(args[2:]) if len(args) > 2 else None)
             elif subcommand == "remove" and len(args) > 1:
                 self._remove_from_watchlist(args[1])
             elif subcommand == "clear":
@@ -551,9 +537,7 @@ class EnhancedInteractiveCLI:
                 self._update_watchlist_memo(args[1], " ".join(args[2:]))
             else:
                 console.print(
-                    create_warning_panel(
-                        f"不明なサブコマンドまたは引数不足: {subcommand}"
-                    )
+                    create_warning_panel(f"不明なサブコマンドまたは引数不足: {subcommand}")
                 )
         except Exception as e:
             console.print(create_error_panel(f"ウォッチリスト操作エラー: {e}"))
@@ -592,9 +576,7 @@ class EnhancedInteractiveCLI:
         existing_items = self.watchlist_manager.get_watchlist()
         if any(item.get("stock_code") == stock_code for item in existing_items):
             console.print(
-                create_warning_panel(
-                    f"銘柄 {stock_code} は既にウォッチリストに存在します"
-                )
+                create_warning_panel(f"銘柄 {stock_code} は既にウォッチリストに存在します")
             )
             return
 
@@ -603,9 +585,7 @@ class EnhancedInteractiveCLI:
         if success:
             memo_text = f" (メモ: {memo})" if memo else ""
             console.print(
-                create_success_panel(
-                    f"銘柄 {stock_code} をウォッチリストに追加しました{memo_text}"
-                )
+                create_success_panel(f"銘柄 {stock_code} をウォッチリストに追加しました{memo_text}")
             )
             # 補完用銘柄コードリストを更新
             self.stock_codes = self._load_stock_codes()
@@ -622,19 +602,13 @@ class EnhancedInteractiveCLI:
         success = self.watchlist_manager.remove_stock(stock_code)
         if success:
             console.print(
-                create_success_panel(
-                    f"銘柄 {stock_code} をウォッチリストから削除しました"
-                )
+                create_success_panel(f"銘柄 {stock_code} をウォッチリストから削除しました")
             )
             # 補完用銘柄コードリストを更新
             self.stock_codes = self._load_stock_codes()
             self.command_completer = self._create_command_completer()
         else:
-            console.print(
-                create_warning_panel(
-                    f"銘柄 {stock_code} はウォッチリストに存在しません"
-                )
-            )
+            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
 
     def _clear_watchlist(self):
         """ウォッチリストをクリア"""
@@ -658,23 +632,15 @@ class EnhancedInteractiveCLI:
         # 既存チェック
         existing_items = self.watchlist_manager.get_watchlist()
         if not any(item.get("stock_code") == stock_code for item in existing_items):
-            console.print(
-                create_warning_panel(
-                    f"銘柄 {stock_code} はウォッチリストに存在しません"
-                )
-            )
+            console.print(create_warning_panel(f"銘柄 {stock_code} はウォッチリストに存在しません"))
             return
 
         # メモ更新（add_stockを使って既存を上書き）
         success = self.watchlist_manager.add_stock(stock_code, memo=memo)
         if success:
-            console.print(
-                create_success_panel(f"銘柄 {stock_code} のメモを更新しました: {memo}")
-            )
+            console.print(create_success_panel(f"銘柄 {stock_code} のメモを更新しました: {memo}"))
         else:
-            console.print(
-                create_error_panel(f"銘柄 {stock_code} のメモ更新に失敗しました")
-            )
+            console.print(create_error_panel(f"銘柄 {stock_code} のメモ更新に失敗しました"))
 
     def _handle_config_command(self, args: List[str]):
         """config コマンドの処理"""
@@ -739,9 +705,7 @@ class EnhancedInteractiveCLI:
 
             if key not in valid_keys:
                 console.print(create_error_panel(f"無効な設定キー: {key}"))
-                console.print(
-                    create_info_panel(f"有効なキー: {', '.join(valid_keys.keys())}")
-                )
+                console.print(create_info_panel(f"有効なキー: {', '.join(valid_keys.keys())}"))
                 return
 
             attr_name, value_type = valid_keys[key]
@@ -758,25 +722,19 @@ class EnhancedInteractiveCLI:
                 # テーマの検証
                 if key == "display.theme" and converted_value not in ["dark", "light"]:
                     console.print(
-                        create_error_panel(
-                            "テーマは 'dark' または 'light' を指定してください"
-                        )
+                        create_error_panel("テーマは 'dark' または 'light' を指定してください")
                     )
                     return
 
             except ValueError:
                 console.print(
-                    create_error_panel(
-                        f"無効な値の型: {value} (期待する型: {value_type.__name__})"
-                    )
+                    create_error_panel(f"無効な値の型: {value} (期待する型: {value_type.__name__})")
                 )
                 return
 
             # 設定更新
             setattr(config_manager, attr_name, converted_value)
-            console.print(
-                create_success_panel(f"設定を更新しました: {key} = {converted_value}")
-            )
+            console.print(create_success_panel(f"設定を更新しました: {key} = {converted_value}"))
 
             # 設定保存の試行
             if hasattr(config_manager, "save"):
@@ -803,9 +761,7 @@ class EnhancedInteractiveCLI:
                 if hasattr(config_manager, "save"):
                     config_manager.save()
 
-                console.print(
-                    create_success_panel("設定をデフォルト値にリセットしました")
-                )
+                console.print(create_success_panel("設定をデフォルト値にリセットしました"))
 
             except Exception as e:
                 console.print(create_error_panel(f"設定リセットエラー: {e}"))
@@ -831,9 +787,7 @@ class EnhancedInteractiveCLI:
             if args and args[0] in ["default", "growth", "value", "momentum"]:
                 screener_type = args[0]
 
-            console.print(
-                f"[cyan]{screener_type}スクリーナーで銘柄をスクリーニング中...[/cyan]"
-            )
+            console.print(f"[cyan]{screener_type}スクリーナーで銘柄をスクリーニング中...[/cyan]")
 
             # スクリーニング実行
             results = self.orchestrator.run_stock_screening(
@@ -841,9 +795,7 @@ class EnhancedInteractiveCLI:
             )
 
             if results:
-                console.print(
-                    create_success_panel(f"{len(results)}銘柄が条件を満たしました")
-                )
+                console.print(create_success_panel(f"{len(results)}銘柄が条件を満たしました"))
 
                 # 結果を簡潔に表示
                 for i, result in enumerate(results, 1):
@@ -856,9 +808,7 @@ class EnhancedInteractiveCLI:
                         f"{i}. {symbol} (スコア: {score:.2f}, 価格: ¥{price}, 条件: {conditions})"
                     )
             else:
-                console.print(
-                    create_warning_panel("条件を満たす銘柄が見つかりませんでした")
-                )
+                console.print(create_warning_panel("条件を満たす銘柄が見つかりませんでした"))
 
         except ImportError:
             console.print(create_error_panel("スクリーニング機能が利用できません"))

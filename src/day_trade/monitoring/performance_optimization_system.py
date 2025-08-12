@@ -102,13 +102,9 @@ class PerformanceAnalyzer:
 
         analysis_results = {
             "cpu_analysis": await self._analyze_cpu_performance(start_time, end_time),
-            "memory_analysis": await self._analyze_memory_performance(
-                start_time, end_time
-            ),
+            "memory_analysis": await self._analyze_memory_performance(start_time, end_time),
             "disk_analysis": await self._analyze_disk_performance(start_time, end_time),
-            "network_analysis": await self._analyze_network_performance(
-                start_time, end_time
-            ),
+            "network_analysis": await self._analyze_network_performance(start_time, end_time),
             "application_analysis": await self._analyze_application_performance(
                 start_time, end_time
             ),
@@ -120,9 +116,7 @@ class PerformanceAnalyzer:
         self, start_time: datetime, end_time: datetime
     ) -> Dict[str, Any]:
         """CPU性能分析"""
-        cpu_data = self.metrics_system.query_metrics(
-            "cpu_usage_percent", start_time, end_time
-        )
+        cpu_data = self.metrics_system.query_metrics("cpu_usage_percent", start_time, end_time)
 
         if not cpu_data:
             return {"status": "no_data"}
@@ -255,12 +249,8 @@ class PerformanceAnalyzer:
         self, start_time: datetime, end_time: datetime
     ) -> Dict[str, Any]:
         """ネットワーク性能分析"""
-        sent_data = self.metrics_system.query_metrics(
-            "network_io_sent_bytes", start_time, end_time
-        )
-        recv_data = self.metrics_system.query_metrics(
-            "network_io_recv_bytes", start_time, end_time
-        )
+        sent_data = self.metrics_system.query_metrics("network_io_sent_bytes", start_time, end_time)
+        recv_data = self.metrics_system.query_metrics("network_io_recv_bytes", start_time, end_time)
 
         analysis = {}
         issues = []
@@ -295,9 +285,7 @@ class PerformanceAnalyzer:
         response_time_data = self.metrics_system.query_metrics(
             "http_request_duration_seconds", start_time, end_time
         )
-        error_data = self.metrics_system.query_metrics(
-            "http_errors_total", start_time, end_time
-        )
+        error_data = self.metrics_system.query_metrics("http_errors_total", start_time, end_time)
 
         analysis = {}
         issues = []
@@ -499,9 +487,7 @@ class OptimizationEngine:
 
     async def generate_recommendations(self) -> List[OptimizationRecommendation]:
         """最適化推奨事項を生成"""
-        performance_analysis = (
-            await self.performance_analyzer.analyze_system_performance()
-        )
+        performance_analysis = await self.performance_analyzer.analyze_system_performance()
         recommendations = []
 
         for category, analysis in performance_analysis.items():
@@ -612,9 +598,7 @@ class OptimizationEngine:
 
         return metrics
 
-    def _generate_risks(
-        self, optimization_type: OptimizationType, effort: int
-    ) -> List[str]:
+    def _generate_risks(self, optimization_type: OptimizationType, effort: int) -> List[str]:
         """リスクの生成"""
         risks = []
 
@@ -840,9 +824,9 @@ class OptimizationManager:
             "total_recommendations": total_count,
             "pending_recommendations": total_count - implemented_count,
             "implemented_recommendations": implemented_count,
-            "implementation_rate": (implemented_count / total_count * 100)
-            if total_count > 0
-            else 0,
+            "implementation_rate": (
+                (implemented_count / total_count * 100) if total_count > 0 else 0
+            ),
             "statistics_by_type": statistics,
             "generated_at": datetime.utcnow().isoformat(),
         }

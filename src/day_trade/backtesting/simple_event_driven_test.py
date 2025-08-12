@@ -172,15 +172,11 @@ def simulate_event_driven_backtest(test_data: Dict[str, pd.DataFrame]):
 
                             if trade_qty > 0:  # 買い
                                 if trade_value <= cash:
-                                    positions[symbol] = (
-                                        positions.get(symbol, 0) + trade_qty
-                                    )
+                                    positions[symbol] = positions.get(symbol, 0) + trade_qty
                                     cash -= trade_value
                                     trades += 1
                             else:  # 売り
-                                if symbol in positions and positions[symbol] >= abs(
-                                    trade_qty
-                                ):
+                                if symbol in positions and positions[symbol] >= abs(trade_qty):
                                     positions[symbol] += trade_qty
                                     cash += abs(trade_value)
                                     trades += 1
@@ -234,13 +230,10 @@ def run_performance_comparison():
 
     if traditional_results and event_driven_results:
         print(f"従来型実行時間: {traditional_results['execution_time_ms']:.0f}ms")
-        print(
-            f"イベント駆動実行時間: {event_driven_results['execution_time_ms']:.0f}ms"
-        )
+        print(f"イベント駆動実行時間: {event_driven_results['execution_time_ms']:.0f}ms")
 
         speed_improvement = (
-            traditional_results["execution_time_ms"]
-            / event_driven_results["execution_time_ms"]
+            traditional_results["execution_time_ms"] / event_driven_results["execution_time_ms"]
             if event_driven_results["execution_time_ms"] > 0
             else 1.0
         )

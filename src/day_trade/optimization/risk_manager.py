@@ -78,19 +78,13 @@ class RiskManager:
                 logger.warning(f"データ未存在銘柄: {missing}")
 
             # 利用可能なデータで再計算
-            available_weights = np.array(
-                [portfolio_weights[s] for s in available_symbols]
-            )
+            available_weights = np.array([portfolio_weights[s] for s in available_symbols])
             available_weights = available_weights / available_weights.sum()  # 正規化
 
-            portfolio_returns = (
-                returns_data[available_symbols] * available_weights
-            ).sum(axis=1)
+            portfolio_returns = (returns_data[available_symbols] * available_weights).sum(axis=1)
 
             # ヒストリカル VaR
-            historical_var = np.percentile(
-                portfolio_returns, self.confidence_level * 100
-            )
+            historical_var = np.percentile(portfolio_returns, self.confidence_level * 100)
 
             # パラメトリック VaR (正規分布仮定)
             returns_mean = portfolio_returns.mean()
@@ -188,25 +182,17 @@ class RiskManager:
             # ポートフォリオ収益率計算
             symbols = list(portfolio_weights.keys())
             available_symbols = [s for s in symbols if s in returns_data.columns]
-            available_weights = np.array(
-                [portfolio_weights[s] for s in available_symbols]
-            )
+            available_weights = np.array([portfolio_weights[s] for s in available_symbols])
             available_weights = available_weights / available_weights.sum()
 
-            portfolio_returns = (
-                returns_data[available_symbols] * available_weights
-            ).sum(axis=1)
+            portfolio_returns = (returns_data[available_symbols] * available_weights).sum(axis=1)
 
             # VaR閾値計算
-            var_threshold = np.percentile(
-                portfolio_returns, self.confidence_level * 100
-            )
+            var_threshold = np.percentile(portfolio_returns, self.confidence_level * 100)
 
             # Expected Shortfall = VaR以下の収益率の平均
             tail_losses = portfolio_returns[portfolio_returns <= var_threshold]
-            expected_shortfall = (
-                tail_losses.mean() if len(tail_losses) > 0 else var_threshold
-            )
+            expected_shortfall = tail_losses.mean() if len(tail_losses) > 0 else var_threshold
 
             # 時間軸・金額調整
             time_adjustment = np.sqrt(self.time_horizon)
@@ -277,14 +263,12 @@ class RiskManager:
                         )
 
             # ポートフォリオ集中度分析
-            weights_array = np.array(
-                [portfolio_weights.get(s, 0) for s in available_symbols]
-            )
+            weights_array = np.array([portfolio_weights.get(s, 0) for s in available_symbols])
             concentration_metrics = {
                 "herfindahl_index": np.sum(weights_array**2),
-                "effective_positions": 1 / np.sum(weights_array**2)
-                if np.sum(weights_array**2) > 0
-                else 0,
+                "effective_positions": (
+                    1 / np.sum(weights_array**2) if np.sum(weights_array**2) > 0 else 0
+                ),
                 "max_weight": weights_array.max(),
                 "top3_weight": np.sort(weights_array)[-3:].sum(),
             }
@@ -314,9 +298,7 @@ class RiskManager:
                 f"  - 平均相関: {correlation_results['correlation_statistics']['avg_correlation']:.3f}"
             )
             logger.info(f"  - 高相関ペア数: {len(high_correlations)}")
-            logger.info(
-                f"  - 実効ポジション数: {concentration_metrics['effective_positions']:.1f}"
-            )
+            logger.info(f"  - 実効ポジション数: {concentration_metrics['effective_positions']:.1f}")
 
             return correlation_results
 
@@ -351,9 +333,7 @@ class RiskManager:
         try:
             symbols = list(portfolio_weights.keys())
             available_symbols = [s for s in symbols if s in returns_data.columns]
-            available_weights = np.array(
-                [portfolio_weights[s] for s in available_symbols]
-            )
+            available_weights = np.array([portfolio_weights[s] for s in available_symbols])
             available_weights = available_weights / available_weights.sum()
 
             stress_results = []
@@ -364,9 +344,7 @@ class RiskManager:
 
                 if shock_type == "market_crash":
                     # 市場全体下落シナリオ
-                    shock_returns = np.full(
-                        len(available_symbols), scenario["shock_value"]
-                    )
+                    shock_returns = np.full(len(available_symbols), scenario["shock_value"])
 
                 elif shock_type == "sector_shock":
                     # セクター別ショック（簡易実装）
@@ -382,9 +360,7 @@ class RiskManager:
 
                 else:
                     # デフォルト：一律ショック
-                    shock_returns = np.full(
-                        len(available_symbols), scenario["shock_value"]
-                    )
+                    shock_returns = np.full(len(available_symbols), scenario["shock_value"])
 
                 # ポートフォリオへの影響計算
                 portfolio_shock = np.dot(available_weights, shock_returns)
@@ -410,11 +386,7 @@ class RiskManager:
                 "worst_case": worst_scenario,
                 "stress_summary": {
                     "avg_loss": np.mean(
-                        [
-                            s["portfolio_return"]
-                            for s in stress_results
-                            if s["portfolio_return"] < 0
-                        ]
+                        [s["portfolio_return"] for s in stress_results if s["portfolio_return"] < 0]
                     ),
                     "max_loss": worst_scenario["portfolio_return"],
                     "scenarios_with_loss": len(
@@ -524,9 +496,7 @@ class RiskManager:
             es_results = self.calculate_expected_shortfall(
                 portfolio_weights, returns_data, portfolio_value
             )
-            correlation_results = self.analyze_correlations(
-                returns_data, portfolio_weights
-            )
+            correlation_results = self.analyze_correlations(returns_data, portfolio_weights)
             stress_results = self.stress_test_portfolio(
                 portfolio_weights, returns_data, portfolio_value
             )
@@ -537,8 +507,7 @@ class RiskManager:
             # VaRベースリスク評価
             if "var_estimates" in var_results:
                 var_ratio = (
-                    var_results["var_estimates"]["historical"]["value_var"]
-                    / portfolio_value
+                    var_results["var_estimates"]["historical"]["value_var"] / portfolio_value
                 )
                 if var_ratio > 0.15:
                     risk_factors.append("HIGH_VAR")
@@ -605,18 +574,14 @@ class RiskManager:
         if "var_estimates" in var_results:
             var_value = var_results["var_estimates"]["historical"]["value_var"]
             if var_value > 100000:  # 10万円以上
-                recommendations.append(
-                    "VaRが高いため、ポジションサイズの削減を検討してください"
-                )
+                recommendations.append("VaRが高いため、ポジションサイズの削減を検討してください")
 
         # 相関推奨
         if (
             "high_correlations" in correlation_results
             and len(correlation_results["high_correlations"]) > 0
         ):
-            recommendations.append(
-                "高相関銘柄の配分見直しで分散効果を向上させてください"
-            )
+            recommendations.append("高相関銘柄の配分見直しで分散効果を向上させてください")
 
         # ストレス推奨
         if "worst_case" in stress_results:

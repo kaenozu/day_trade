@@ -117,9 +117,7 @@ class DataCompressionArchiveSystem:
 
     def __init__(self, config: Optional[CompressionConfig] = None):
         self.config = config or CompressionConfig()
-        self.executor = ThreadPoolExecutor(
-            max_workers=self.config.max_concurrent_operations
-        )
+        self.executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_operations)
         self.compression_stats: List[CompressionResult] = []
         self.archive_catalog: Dict[str, ArchiveMetadata] = {}
         self._initialize_storage_paths()
@@ -164,9 +162,7 @@ class DataCompressionArchiveSystem:
             )
 
             compressed_size = len(compressed_data)
-            compression_ratio = (
-                compressed_size / original_size if original_size > 0 else 1.0
-            )
+            compression_ratio = compressed_size / original_size if original_size > 0 else 1.0
 
             # ストレージパス決定
             storage_path = self._get_storage_path(lifecycle_stage)
@@ -511,9 +507,7 @@ class DataCompressionArchiveSystem:
         elif stage == DataLifecycleStage.COLD:
             return current_time + timedelta(days=self.config.cold_retention_days)
         elif stage == DataLifecycleStage.ARCHIVED:
-            return current_time + timedelta(
-                days=self.config.archive_retention_years * 365
-            )
+            return current_time + timedelta(days=self.config.archive_retention_years * 365)
         else:
             return current_time + timedelta(days=30)  # デフォルト
 
@@ -529,9 +523,7 @@ class DataCompressionArchiveSystem:
             return {}
 
         compression_ratios = [stat.compression_ratio for stat in self.compression_stats]
-        compression_times = [
-            stat.compression_time_ms for stat in self.compression_stats
-        ]
+        compression_times = [stat.compression_time_ms for stat in self.compression_stats]
         original_sizes = [stat.original_size for stat in self.compression_stats]
         compressed_sizes = [stat.compressed_size for stat in self.compression_stats]
 
@@ -543,12 +535,12 @@ class DataCompressionArchiveSystem:
             "avg_compression_time_ms": np.mean(compression_times),
             "total_original_size_mb": sum(original_sizes) / (1024 * 1024),
             "total_compressed_size_mb": sum(compressed_sizes) / (1024 * 1024),
-            "total_space_saved_mb": (sum(original_sizes) - sum(compressed_sizes))
-            / (1024 * 1024),
-            "space_saving_percentage": (1 - sum(compressed_sizes) / sum(original_sizes))
-            * 100
-            if sum(original_sizes) > 0
-            else 0,
+            "total_space_saved_mb": (sum(original_sizes) - sum(compressed_sizes)) / (1024 * 1024),
+            "space_saving_percentage": (
+                (1 - sum(compressed_sizes) / sum(original_sizes)) * 100
+                if sum(original_sizes) > 0
+                else 0
+            ),
         }
 
     async def get_archive_status(self) -> Dict[str, Any]:

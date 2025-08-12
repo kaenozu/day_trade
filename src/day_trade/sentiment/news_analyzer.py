@@ -198,9 +198,7 @@ class NewsAnalyzer:
         sources = sources or self.config.enabled_sources
         hours_back = hours_back or self.config.max_age_hours
 
-        logger.info(
-            f"ニュース取得開始: {len(keywords)} キーワード, {len(sources)} ソース"
-        )
+        logger.info(f"ニュース取得開始: {len(keywords)} キーワード, {len(sources)} ソース")
 
         all_articles = []
 
@@ -306,9 +304,7 @@ class NewsAnalyzer:
 
         return articles
 
-    def _parse_newsapi_article(
-        self, article_data: Dict, keyword: str
-    ) -> Optional[NewsArticle]:
+    def _parse_newsapi_article(self, article_data: Dict, keyword: str) -> Optional[NewsArticle]:
         """NewsAPI記事データ解析"""
 
         try:
@@ -334,9 +330,7 @@ class NewsAnalyzer:
             # 記事作成
             article = NewsArticle(
                 title=article_data.get("title", ""),
-                content=article_data.get("description", "")
-                + " "
-                + article_data.get("content", ""),
+                content=article_data.get("description", "") + " " + article_data.get("content", ""),
                 url=url,
                 source=article_data.get("source", {}).get("name", "unknown"),
                 author=article_data.get("author"),
@@ -421,9 +415,7 @@ class NewsAnalyzer:
             for seen_title in seen_titles:
                 seen_words = set(seen_title.split())
                 if title_words and seen_words:
-                    jaccard = len(title_words & seen_words) / len(
-                        title_words | seen_words
-                    )
+                    jaccard = len(title_words & seen_words) / len(title_words | seen_words)
                     if jaccard > 0.8:  # 80%以上類似
                         is_similar = True
                         break
@@ -538,25 +530,13 @@ class NewsAnalyzer:
         # センチメント分布
         sentiment_distribution = {
             "positive": len(
-                [
-                    s
-                    for s in analyzed_articles
-                    if s.sentiment_result.sentiment_label == "positive"
-                ]
+                [s for s in analyzed_articles if s.sentiment_result.sentiment_label == "positive"]
             ),
             "negative": len(
-                [
-                    s
-                    for s in analyzed_articles
-                    if s.sentiment_result.sentiment_label == "negative"
-                ]
+                [s for s in analyzed_articles if s.sentiment_result.sentiment_label == "negative"]
             ),
             "neutral": len(
-                [
-                    s
-                    for s in analyzed_articles
-                    if s.sentiment_result.sentiment_label == "neutral"
-                ]
+                [s for s in analyzed_articles if s.sentiment_result.sentiment_label == "neutral"]
             ),
         }
 
@@ -569,9 +549,7 @@ class NewsAnalyzer:
         for keyword in all_keywords:
             keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
 
-        top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[
-            :20
-        ]
+        top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:20]
 
         # ソース別分析
         source_breakdown = self._analyze_by_source(analyzed_articles)
@@ -671,9 +649,7 @@ class NewsAnalyzer:
 
         return found_keywords[:max_keywords]
 
-    def _analyze_by_source(
-        self, articles: List[NewsArticle]
-    ) -> Dict[str, Dict[str, Any]]:
+    def _analyze_by_source(self, articles: List[NewsArticle]) -> Dict[str, Dict[str, Any]]:
         """ソース別分析"""
 
         source_data = {}
@@ -689,16 +665,12 @@ class NewsAnalyzer:
 
             source_data[source]["count"] += 1
             if article.sentiment_result:
-                source_data[source]["sentiments"].append(
-                    article.sentiment_result.sentiment_score
-                )
+                source_data[source]["sentiments"].append(article.sentiment_result.sentiment_score)
             source_data[source]["importance_scores"].append(article.importance_score)
 
         # 統計計算
         for source, data in source_data.items():
-            data["avg_sentiment"] = (
-                np.mean(data["sentiments"]) if data["sentiments"] else 0.0
-            )
+            data["avg_sentiment"] = np.mean(data["sentiments"]) if data["sentiments"] else 0.0
             data["avg_importance"] = np.mean(data["importance_scores"])
             data["sentiment_std"] = (
                 np.std(data["sentiments"]) if len(data["sentiments"]) > 1 else 0.0
@@ -772,9 +744,7 @@ class NewsAnalyzer:
         for keyword, data in keyword_data.items():
             if data["count"] >= 2:  # 最低2記事
                 trend_score = data["count"] * data["total_importance"] / data["count"]
-                avg_sentiment = (
-                    np.mean(data["sentiments"]) if data["sentiments"] else 0.0
-                )
+                avg_sentiment = np.mean(data["sentiments"]) if data["sentiments"] else 0.0
 
                 trending_topics.append(
                     {
@@ -809,12 +779,16 @@ class NewsAnalyzer:
                     {
                         "title": article.title,
                         "source": article.source,
-                        "sentiment_label": article.sentiment_result.sentiment_label
-                        if article.sentiment_result
-                        else None,
-                        "sentiment_score": article.sentiment_result.sentiment_score
-                        if article.sentiment_result
-                        else 0,
+                        "sentiment_label": (
+                            article.sentiment_result.sentiment_label
+                            if article.sentiment_result
+                            else None
+                        ),
+                        "sentiment_score": (
+                            article.sentiment_result.sentiment_score
+                            if article.sentiment_result
+                            else 0
+                        ),
                         "importance_score": article.importance_score,
                         "url": article.url,
                     }
@@ -832,18 +806,22 @@ class NewsAnalyzer:
                     {
                         "title": article.title,
                         "source": article.source,
-                        "published_at": article.published_at.isoformat()
-                        if article.published_at
-                        else "",
-                        "sentiment_label": article.sentiment_result.sentiment_label
-                        if article.sentiment_result
-                        else "",
-                        "sentiment_score": article.sentiment_result.sentiment_score
-                        if article.sentiment_result
-                        else 0,
-                        "confidence": article.sentiment_result.confidence
-                        if article.sentiment_result
-                        else 0,
+                        "published_at": (
+                            article.published_at.isoformat() if article.published_at else ""
+                        ),
+                        "sentiment_label": (
+                            article.sentiment_result.sentiment_label
+                            if article.sentiment_result
+                            else ""
+                        ),
+                        "sentiment_score": (
+                            article.sentiment_result.sentiment_score
+                            if article.sentiment_result
+                            else 0
+                        ),
+                        "confidence": (
+                            article.sentiment_result.confidence if article.sentiment_result else 0
+                        ),
                         "importance_score": article.importance_score,
                         "relevance_score": article.relevance_score,
                         "url": article.url,
@@ -858,9 +836,7 @@ class NewsAnalyzer:
 
 
 # 便利関数
-def analyze_financial_news(
-    keywords: List[str] = None, hours_back: int = 24
-) -> NewsSentimentResult:
+def analyze_financial_news(keywords: List[str] = None, hours_back: int = 24) -> NewsSentimentResult:
     """金融ニュース分析（簡易インターフェース）"""
 
     async def _analyze():

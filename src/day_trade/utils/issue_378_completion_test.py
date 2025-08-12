@@ -91,9 +91,7 @@ class Issue378CompletionTester:
                 "volume": np.random.randint(1000, 50000, 100000).astype(np.int64),
                 "high": np.random.normal(105, 12, 100000).astype(np.float64),
                 "low": np.random.normal(95, 8, 100000).astype(np.float64),
-                "symbol": np.random.choice(
-                    ["STOCK_" + str(i) for i in range(50)], 100000
-                ),
+                "symbol": np.random.choice(["STOCK_" + str(i) for i in range(50)], 100000),
                 "exchange": np.random.choice(["NYSE", "NASDAQ"], 100000),
             }
         )
@@ -108,12 +106,8 @@ class Issue378CompletionTester:
         np.random.seed(42)
         original_df = pd.DataFrame(
             {
-                "small_int": np.random.randint(0, 100, 20000).astype(
-                    np.int64
-                ),  # int32で十分
-                "price": np.random.normal(100, 10, 20000).astype(
-                    np.float64
-                ),  # float32で十分
+                "small_int": np.random.randint(0, 100, 20000).astype(np.int64),  # int32で十分
+                "price": np.random.normal(100, 10, 20000).astype(np.float64),  # float32で十分
                 "category": np.random.choice(["A", "B", "C"], 20000),  # category型候補
                 "flag": np.random.choice([True, False], 20000),  # bool
             }
@@ -156,9 +150,7 @@ class Issue378CompletionTester:
         optimized_time = (time.perf_counter() - start_time) * 1000
 
         memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
-        speed_improvement = (
-            original_time / optimized_time if optimized_time > 0 else 1.0
-        )
+        speed_improvement = original_time / optimized_time if optimized_time > 0 else 1.0
 
         result = OptimizationResult(
             test_name="speed_optimization",
@@ -175,9 +167,7 @@ class Issue378CompletionTester:
 
         return result
 
-    def _run_single_optimization_test(
-        self, df: pd.DataFrame, test_name: str
-    ) -> OptimizationResult:
+    def _run_single_optimization_test(self, df: pd.DataFrame, test_name: str) -> OptimizationResult:
         """単一最適化テスト実行"""
         # 基本最適化適用
         optimized_df = self._apply_basic_optimization(df)
@@ -191,10 +181,7 @@ class Issue378CompletionTester:
         for col in optimized.select_dtypes(include=[np.float64]).columns:
             col_min = optimized[col].min()
             col_max = optimized[col].max()
-            if (
-                col_min > np.finfo(np.float32).min
-                and col_max < np.finfo(np.float32).max
-            ):
+            if col_min > np.finfo(np.float32).min and col_max < np.finfo(np.float32).max:
                 optimized[col] = optimized[col].astype(np.float32)
 
         for col in optimized.select_dtypes(include=[np.int64]).columns:
@@ -219,17 +206,12 @@ class Issue378CompletionTester:
         original_memory = original.memory_usage(deep=True).sum() / 1024 / 1024
         optimized_memory = optimized.memory_usage(deep=True).sum() / 1024 / 1024
 
-        memory_reduction = (
-            (original_memory - optimized_memory) / original_memory
-        ) * 100
+        memory_reduction = ((original_memory - optimized_memory) / original_memory) * 100
 
         # 処理速度測定（グループ化操作）
         group_col = None
         for col in original.columns:
-            if (
-                original[col].dtype == "object"
-                or str(original[col].dtype) == "category"
-            ):
+            if original[col].dtype == "object" or str(original[col].dtype) == "category":
                 group_col = col
                 break
 
@@ -252,9 +234,7 @@ class Issue378CompletionTester:
             _ = optimized.describe()
             optimized_time = (time.perf_counter() - start_time) * 1000
 
-        speed_improvement = (
-            original_time / optimized_time if optimized_time > 0 else 1.0
-        )
+        speed_improvement = original_time / optimized_time if optimized_time > 0 else 1.0
 
         result = OptimizationResult(
             test_name=test_name,
@@ -267,9 +247,7 @@ class Issue378CompletionTester:
         )
 
         self.results.append(result)
-        print(
-            f"    {test_name}: {memory_reduction:.1f}%メモリ削減, {speed_improvement:.1f}x高速化"
-        )
+        print(f"    {test_name}: {memory_reduction:.1f}%メモリ削減, {speed_improvement:.1f}x高速化")
 
         return result
 

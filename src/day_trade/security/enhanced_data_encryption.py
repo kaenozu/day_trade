@@ -43,9 +43,7 @@ class SecureKeyManager:
     def generate_key(self, key_id: str = None) -> str:
         """新しい暗号化キー生成"""
         if key_id is None:
-            key_id = (
-                f"key_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(4)}"
-            )
+            key_id = f"key_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(4)}"
 
         # Fernet用のキー生成
         key = Fernet.generate_key()
@@ -80,9 +78,7 @@ class SecureKeyManager:
 
         raise ValueError(f"暗号化キーが見つかりません: {key_id}")
 
-    def derive_key_from_password(
-        self, password: str, salt: bytes = None
-    ) -> Tuple[bytes, bytes]:
+    def derive_key_from_password(self, password: str, salt: bytes = None) -> Tuple[bytes, bytes]:
         """パスワードからキー導出"""
         if salt is None:
             salt = os.urandom(16)
@@ -189,9 +185,7 @@ class EnhancedDataEncryption:
             file_data = f.read()
 
         # ファイルデータを暗号化
-        encrypted_result = self.encrypt_data(
-            base64.b64encode(file_data).decode("ascii")
-        )
+        encrypted_result = self.encrypt_data(base64.b64encode(file_data).decode("ascii"))
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(encrypted_result, f, indent=2)
@@ -290,11 +284,7 @@ class SensitiveDataProtector:
         if isinstance(data, dict):
             for key, value in data.items():
                 current_path = f"{path}.{key}"
-                if (
-                    self._is_sensitive_key(key)
-                    and isinstance(value, str)
-                    and value.strip()
-                ):
+                if self._is_sensitive_key(key) and isinstance(value, str) and value.strip():
                     findings.append(f"機密データ検出: {current_path}")
                 findings.extend(self.scan_for_sensitive_data(value, current_path))
         elif isinstance(data, list):

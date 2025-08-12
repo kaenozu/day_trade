@@ -218,9 +218,7 @@ class LSTMTimeSeriesModel:
 
             X, y = [], []
 
-            for i in range(
-                self.sequence_length, len(data) - self.prediction_horizon + 1
-            ):
+            for i in range(self.sequence_length, len(data) - self.prediction_horizon + 1):
                 # 過去sequence_length日分の特徴量
                 sequence = data[i - self.sequence_length : i]
                 X.append(sequence)
@@ -418,12 +416,8 @@ class LSTMTimeSeriesModel:
 
             y_train_actual = scaler.inverse_transform(dummy_train)[:, close_price_idx]
             y_val_actual = scaler.inverse_transform(dummy_val)[:, close_price_idx]
-            train_pred_actual = scaler.inverse_transform(dummy_train_pred)[
-                :, close_price_idx
-            ]
-            val_pred_actual = scaler.inverse_transform(dummy_val_pred)[
-                :, close_price_idx
-            ]
+            train_pred_actual = scaler.inverse_transform(dummy_train_pred)[:, close_price_idx]
+            val_pred_actual = scaler.inverse_transform(dummy_val_pred)[:, close_price_idx]
 
             # 評価指標計算
             train_rmse = np.sqrt(mean_squared_error(y_train_actual, train_pred_actual))
@@ -525,9 +519,7 @@ class LSTMTimeSeriesModel:
 
             # 最新のsequence_length日分を取得
             if len(scaled_features) < self.sequence_length:
-                logger.error(
-                    f"データ不足: {len(scaled_features)} < {self.sequence_length}"
-                )
+                logger.error(f"データ不足: {len(scaled_features)} < {self.sequence_length}")
                 return None
 
             last_sequence = scaled_features.values[-self.sequence_length :]

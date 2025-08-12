@@ -18,9 +18,7 @@ try:
 except ImportError as e:
     ENHANCED_MODE_AVAILABLE = False
     logger = logging.getLogger(__name__)
-    logger.warning(
-        f"拡張インタラクティブモードは利用できません（prompt_toolkitが必要）: {e}"
-    )
+    logger.warning(f"拡張インタラクティブモードは利用できません（prompt_toolkitが必要）: {e}")
 
 import click
 import pandas as pd
@@ -127,9 +125,7 @@ def _display_stock_details(code: str, stock_data: Dict[str, Any], show_details: 
             )
 
 
-def _display_historical_data(
-    code: str, df: pd.DataFrame, period: str, interval: str, rows: int
-):
+def _display_historical_data(code: str, df: pd.DataFrame, period: str, interval: str, rows: int):
     """ヒストリカルデータを表示"""
     if df is None or df.empty:
         console.print(
@@ -149,12 +145,8 @@ def _display_historical_data(
 
 def run_interactive_backtest():
     """インタラクティブバックテストを実行"""
-    console.print(
-        Rule("[bold green]インタラクティブバックテスト[/bold green]", style="green")
-    )
-    console.print(
-        "[yellow]リアルタイムでバックテストの進行状況を表示します...[/yellow]"
-    )
+    console.print(Rule("[bold green]インタラクティブバックテスト[/bold green]", style="green"))
+    console.print("[yellow]リアルタイムでバックテストの進行状況を表示します...[/yellow]")
     console.print("[dim]Ctrl+C で終了[/dim]\n")
 
     # モックデータフェッチャーを使用
@@ -179,9 +171,7 @@ def run_interactive_backtest():
             border_style="blue",
         )
         chart_data = [float(portfolio_value)] * 20  # プレースホルダー
-        mini_chart = create_ascii_chart(
-            chart_data, width=40, height=6, title="ポートフォリオ推移"
-        )
+        mini_chart = create_ascii_chart(chart_data, width=40, height=6, title="ポートフォリオ推移")
         layout.split_column(
             Layout(progress_info, size=6),
             Layout(Panel(mini_chart, border_style="green"), size=10),
@@ -197,14 +187,10 @@ def run_interactive_backtest():
             # 短いデモバックテスト
             for day in range(30):
                 current_date = config.start_date + timedelta(days=day)
-                current_value = int(
-                    config.initial_capital * (1 + random.gauss(0.1, 0.2))
-                )
+                current_value = int(config.initial_capital * (1 + random.gauss(0.1, 0.2)))
                 trades_count = random.randint(0, day + 1)
 
-                live.update(
-                    create_progress_layout(current_date, current_value, trades_count)
-                )
+                live.update(create_progress_layout(current_date, current_value, trades_count))
                 time.sleep(0.3)
 
         console.print("\n[green]インタラクティブデモが完了しました！[/green]")
@@ -313,9 +299,7 @@ def history(code: str, period: str, interval: str, rows: int):
                 )
             )
         except Exception as e:  # noqa: E722
-            console.print(
-                create_error_panel(f"予期しないエラー: {e}", title="予期せぬエラー")
-            )
+            console.print(create_error_panel(f"予期しないエラー: {e}", title="予期せぬエラー"))
 
 
 @cli.command()
@@ -378,9 +362,7 @@ def add(codes: List[str], group: str, priority: str):
         try:
             success = manager.add_stock(code, group, priority)
             if success:
-                console.print(
-                    create_success_panel(f"{code} をウォッチリストに追加しました。")
-                )
+                console.print(create_success_panel(f"{code} をウォッチリストに追加しました。"))
                 added_count += 1
             else:
                 console.print(create_warning_panel(f"{code} は既に追加されています。"))
@@ -423,14 +405,10 @@ def remove(codes: List[str]):
         try:
             success = manager.remove_stock(code)
             if success:
-                console.print(
-                    create_success_panel(f"{code} をウォッチリストから削除しました。")
-                )
+                console.print(create_success_panel(f"{code} をウォッチリストから削除しました。"))
                 removed_count += 1
             else:
-                console.print(
-                    create_warning_panel(f"{code} はウォッチリストにありません。")
-                )
+                console.print(create_warning_panel(f"{code} はウォッチリストにありません。"))
         except Exception as e:  # noqa: E722
             console.print(
                 create_error_panel(
@@ -452,9 +430,7 @@ def list():
 
     if not items:
         console.print(
-            create_info_panel(
-                "ウォッチリストは空です。`add` コマンドで銘柄を追加してください。"
-            )
+            create_info_panel("ウォッチリストは空です。`add` コマンドで銘柄を追加してください。")
         )
         return
 
@@ -509,9 +485,7 @@ def memo(code: str, memo: Optional[str]):
             if manager.get_watchlist(codes=[code])
             else ""
         )
-        memo = Prompt.ask(
-            f"[cyan]メモを入力してください (現在のメモ: '{current_memo}')[/cyan]"
-        )
+        memo = Prompt.ask(f"[cyan]メモを入力してください (現在のメモ: '{current_memo}')[/cyan]")
 
     try:
         success = manager.update_memo(code, memo)
@@ -548,9 +522,7 @@ def move(code: str, group: str):
     try:
         success = manager.move_to_group(code, group)
         if success:
-            console.print(
-                create_success_panel(f"{code} を {group} グループに移動しました。")
-            )
+            console.print(create_success_panel(f"{code} を {group} グループに移動しました。"))
         else:
             console.print(create_error_panel(f"{code} はウォッチリストにありません。"))
     except Exception as e:  # noqa: E722
@@ -623,9 +595,7 @@ def config_set(key: str, value: str):
             typed_value = value
 
         config_manager.set(key, typed_value)
-        console.print(
-            create_success_panel(f"設定を更新しました: {key} = {typed_value}")
-        )
+        console.print(create_success_panel(f"設定を更新しました: {key} = {typed_value}"))
     except Exception as e:  # noqa: E722
         console.print(
             create_error_panel(
@@ -710,9 +680,7 @@ def enhanced_mode(ctx):
     try:
         run_enhanced_interactive(config_path)
     except Exception as e:
-        console.print(
-            create_error_panel(f"拡張モードの実行中にエラーが発生しました: {e}")
-        )
+        console.print(create_error_panel(f"拡張モードの実行中にエラーが発生しました: {e}"))
         logger.error(f"Enhanced interactive mode error: {e}")
 
 
@@ -750,14 +718,10 @@ def interactive_mode(ctx, enhanced: bool):
     type=float,
     help="最小スコア閾値 (デフォルト: 0.1)",
 )
-@click.option(
-    "--max-results", "-n", default=20, type=int, help="最大結果数 (デフォルト: 20)"
-)
+@click.option("--max-results", "-n", default=20, type=int, help="最大結果数 (デフォルト: 20)")
 @click.option("--symbols", help="対象銘柄をカンマ区切りで指定")
 @click.pass_context
-def screen_stocks(
-    ctx, type: str, min_score: float, max_results: int, symbols: Optional[str]
-):
+def screen_stocks(ctx, type: str, min_score: float, max_results: int, symbols: Optional[str]):
     """銘柄スクリーニングを実行"""
     try:
         from ..automation.orchestrator import DayTradeOrchestrator
@@ -772,9 +736,7 @@ def screen_stocks(
             console.print(f"[cyan]対象銘柄: {len(symbol_list)}銘柄[/cyan]")
 
         # スクリーニング実行
-        with console.status(
-            f"[bold green]{type}スクリーナーで銘柄をスクリーニング中..."
-        ):
+        with console.status(f"[bold green]{type}スクリーナーで銘柄をスクリーニング中..."):
             results = orchestrator.run_stock_screening(
                 symbols=symbol_list,
                 screener_type=type,
@@ -824,11 +786,7 @@ def screen_stocks(
                 f"¥{result['last_price']:,.0f}" if result["last_price"] else "N/A",
                 change_text,
                 rsi_text,
-                (
-                    conditions_text[:40] + "..."
-                    if len(conditions_text) > 40
-                    else conditions_text
-                ),
+                (conditions_text[:40] + "..." if len(conditions_text) > 40 else conditions_text),
             )
 
         console.print(table)
@@ -843,13 +801,9 @@ def screen_stocks(
             console.print("\n[bold]🏆 トップ3銘柄の詳細:[/bold]")
             for i, result in enumerate(results[:3], 1):
                 tech_data = result.get("technical_data", {})
-                console.print(
-                    f"{i}. {result['symbol']} (スコア: {result['score']:.2f})"
-                )
+                console.print(f"{i}. {result['symbol']} (スコア: {result['score']:.2f})")
                 if "price_position" in tech_data:
-                    console.print(
-                        f"   52週レンジでの位置: {tech_data['price_position']:.1f}%"
-                    )
+                    console.print(f"   52週レンジでの位置: {tech_data['price_position']:.1f}%")
                 if "volume_avg_20d" in tech_data:
                     console.print(f"   20日平均出来高: {tech_data['volume_avg_20d']:,}")
 
@@ -982,9 +936,7 @@ class InteractiveMode:
         """株式情報コマンドを処理"""
         if not validate_stock_code(stock_code):
             self.console.print(
-                create_error_panel(
-                    f"無効な銘柄コード: {stock_code}", title="入力エラー"
-                )
+                create_error_panel(f"無効な銘柄コード: {stock_code}", title="入力エラー")
             )
             return
 
@@ -1003,9 +955,7 @@ class InteractiveMode:
                 )
 
         except Exception as e:
-            self.console.print(
-                create_error_panel(f"エラー: {str(e)}", title="株式情報取得エラー")
-            )
+            self.console.print(create_error_panel(f"エラー: {str(e)}", title="株式情報取得エラー"))
 
     def _handle_watch_command(self, stock_code: str):
         """ウォッチリスト追加コマンドを処理"""
@@ -1019,9 +969,7 @@ class InteractiveMode:
             )
         except Exception as e:
             self.console.print(
-                create_error_panel(
-                    f"ウォッチリスト追加エラー: {str(e)}", title="追加失敗"
-                )
+                create_error_panel(f"ウォッチリスト追加エラー: {str(e)}", title="追加失敗")
             )
 
     def _handle_watchlist_command(self):
@@ -1041,16 +989,12 @@ class InteractiveMode:
 
         except Exception as e:
             self.console.print(
-                create_error_panel(
-                    f"ウォッチリスト表示エラー: {str(e)}", title="表示失敗"
-                )
+                create_error_panel(f"ウォッチリスト表示エラー: {str(e)}", title="表示失敗")
             )
 
     def _handle_portfolio_command(self):
         """ポートフォリオ表示コマンドを処理"""
-        self.console.print(
-            create_info_panel("ポートフォリオ機能は開発中です", title="機能開発中")
-        )
+        self.console.print(create_info_panel("ポートフォリオ機能は開発中です", title="機能開発中"))
 
     def _handle_signals_command(self, stock_code: str):
         """シグナル分析コマンドを処理"""
@@ -1065,15 +1009,11 @@ class InteractiveMode:
                 )
             except Exception as e:
                 self.console.print(
-                    create_error_panel(
-                        f"シグナル分析エラー: {str(e)}", title="分析失敗"
-                    )
+                    create_error_panel(f"シグナル分析エラー: {str(e)}", title="分析失敗")
                 )
         else:
             self.console.print(
-                create_warning_panel(
-                    "シグナル生成機能が利用できません", title="機能無効"
-                )
+                create_warning_panel("シグナル生成機能が利用できません", title="機能無効")
             )
 
     def _show_help(self):
@@ -1118,8 +1058,7 @@ class InteractiveMode:
         self._background_update_running = False
         self.console.print(
             Panel(
-                "[bold red]対話型モードを終了します[/bold red]\n"
-                "[dim]お疲れ様でした！[/dim]",
+                "[bold red]対話型モードを終了します[/bold red]\n" "[dim]お疲れ様でした！[/dim]",
                 title="👋 終了",
                 border_style="red",
             )

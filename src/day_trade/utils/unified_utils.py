@@ -185,8 +185,7 @@ def batch_process(
         batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
 
         future_to_batch = {
-            executor.submit(_process_batch, batch, process_func): batch
-            for batch in batches
+            executor.submit(_process_batch, batch, process_func): batch for batch in batches
         }
 
         for future in as_completed(future_to_batch, timeout=timeout):
@@ -336,9 +335,7 @@ def ensure_directory(path: Union[str, Path]) -> Path:
         raise
 
 
-def clean_string(
-    text: str, max_length: int = 1000, remove_special: bool = False
-) -> str:
+def clean_string(text: str, max_length: int = 1000, remove_special: bool = False) -> str:
     """
     文字列をクリーンアップする
 
@@ -390,12 +387,7 @@ def merge_dictionaries(*dicts: Dict[str, Any], deep: bool = True) -> Dict[str, A
             continue
 
         for key, value in d.items():
-            if (
-                deep
-                and key in result
-                and isinstance(result[key], dict)
-                and isinstance(value, dict)
-            ):
+            if deep and key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = merge_dictionaries(result[key], value, deep=True)
             else:
                 result[key] = value

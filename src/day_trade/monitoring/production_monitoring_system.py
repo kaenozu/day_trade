@@ -25,12 +25,14 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
 
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
@@ -39,6 +41,7 @@ try:
     import numpy as np
     from sklearn.ensemble import IsolationForest
     from sklearn.preprocessing import StandardScaler
+
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
@@ -47,14 +50,17 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
 
 class AlertSeverity(Enum):
     """アラート重要度"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -63,6 +69,7 @@ class AlertSeverity(Enum):
 
 class MonitoringScope(Enum):
     """監視スコープ"""
+
     SYSTEM = "system"
     APPLICATION = "application"
     BUSINESS = "business"
@@ -72,6 +79,7 @@ class MonitoringScope(Enum):
 
 class HealthStatus(Enum):
     """ヘルス状態"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -80,6 +88,7 @@ class HealthStatus(Enum):
 
 class SLOStatus(Enum):
     """SLO状態"""
+
     MEETING = "meeting"
     AT_RISK = "at_risk"
     BREACHED = "breached"
@@ -88,6 +97,7 @@ class SLOStatus(Enum):
 @dataclass
 class MetricPoint:
     """メトリクスデータポイント"""
+
     timestamp: datetime
     value: float
     labels: Dict[str, str]
@@ -95,16 +105,17 @@ class MetricPoint:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'timestamp': self.timestamp.isoformat(),
-            'value': self.value,
-            'labels': self.labels,
-            'metric_name': self.metric_name
+            "timestamp": self.timestamp.isoformat(),
+            "value": self.value,
+            "labels": self.labels,
+            "metric_name": self.metric_name,
         }
 
 
 @dataclass
 class TraceSpan:
     """分散トレースのスパン"""
+
     trace_id: str
     span_id: str
     parent_span_id: Optional[str]
@@ -123,6 +134,7 @@ class TraceSpan:
 @dataclass
 class LogEntry:
     """構造化ログエントリ"""
+
     timestamp: datetime
     level: str
     message: str
@@ -138,6 +150,7 @@ class LogEntry:
 @dataclass
 class Alert:
     """監視アラート"""
+
     alert_id: str
     severity: AlertSeverity
     scope: MonitoringScope
@@ -157,10 +170,11 @@ class Alert:
 @dataclass
 class SLOConfig:
     """SLO設定"""
+
     name: str
     description: str
     target_percentage: float  # 99.9% = 99.9
-    time_window_hours: int    # 24, 168(1week), 720(30days)
+    time_window_hours: int  # 24, 168(1week), 720(30days)
     metric_query: str
     error_budget_percentage: float
 
@@ -171,6 +185,7 @@ class SLOConfig:
 @dataclass
 class SLOStatus:
     """SLO状態"""
+
     config: SLOConfig
     current_percentage: float
     error_budget_consumed: float
@@ -179,11 +194,11 @@ class SLOStatus:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'config': self.config.to_dict(),
-            'current_percentage': self.current_percentage,
-            'error_budget_consumed': self.error_budget_consumed,
-            'status': self.status,
-            'last_updated': self.last_updated.isoformat()
+            "config": self.config.to_dict(),
+            "current_percentage": self.current_percentage,
+            "error_budget_consumed": self.error_budget_consumed,
+            "status": self.status,
+            "last_updated": self.last_updated.isoformat(),
         }
 
 
@@ -210,7 +225,7 @@ class DistributedTracer:
             duration_ms=None,
             tags={},
             logs=[],
-            status="active"
+            status="active",
         )
 
         with self.trace_lock:
@@ -227,11 +242,9 @@ class DistributedTracer:
         span.status = status
 
         if error:
-            span.logs.append({
-                'timestamp': datetime.now().isoformat(),
-                'level': 'error',
-                'message': error
-            })
+            span.logs.append(
+                {"timestamp": datetime.now().isoformat(), "level": "error", "message": error}
+            )
 
         # トレースが完了したかチェック
         with self.trace_lock:
@@ -249,11 +262,9 @@ class DistributedTracer:
 
     def add_span_log(self, span: TraceSpan, message: str, level: str = "info"):
         """スパンログ追加"""
-        span.logs.append({
-            'timestamp': datetime.now().isoformat(),
-            'level': level,
-            'message': message
-        })
+        span.logs.append(
+            {"timestamp": datetime.now().isoformat(), "level": level, "message": message}
+        )
 
     def get_trace(self, trace_id: str) -> List[TraceSpan]:
         """トレース取得"""
@@ -290,10 +301,7 @@ class AnomalyDetector:
         if not ML_AVAILABLE:
             return
 
-        self.metric_history[metric_name].append({
-            'timestamp': time.time(),
-            'value': value
-        })
+        self.metric_history[metric_name].append({"timestamp": time.time(), "value": value})
 
         # 十分なデータが蓄積されたら学習
         if len(self.metric_history[metric_name]) >= self.training_threshold:
@@ -305,7 +313,7 @@ class AnomalyDetector:
             return
 
         try:
-            values = [point['value'] for point in self.metric_history[metric_name]]
+            values = [point["value"] for point in self.metric_history[metric_name]]
             X = np.array(values).reshape(-1, 1)
 
             # データ正規化
@@ -365,7 +373,7 @@ class SLOManager:
                 target_percentage=99.9,
                 time_window_hours=24,
                 metric_query="api_response_time_p99",
-                error_budget_percentage=0.1
+                error_budget_percentage=0.1,
             ),
             SLOConfig(
                 name="system_availability",
@@ -373,7 +381,7 @@ class SLOManager:
                 target_percentage=99.99,
                 time_window_hours=720,  # 30日
                 metric_query="system_uptime",
-                error_budget_percentage=0.01
+                error_budget_percentage=0.01,
             ),
             SLOConfig(
                 name="error_rate",
@@ -381,7 +389,7 @@ class SLOManager:
                 target_percentage=99.9,
                 time_window_hours=168,  # 7日
                 metric_query="error_rate",
-                error_budget_percentage=0.1
+                error_budget_percentage=0.1,
             ),
             SLOConfig(
                 name="data_accuracy",
@@ -389,8 +397,8 @@ class SLOManager:
                 target_percentage=99.95,
                 time_window_hours=24,
                 metric_query="data_accuracy",
-                error_budget_percentage=0.05
-            )
+                error_budget_percentage=0.05,
+            ),
         ]
 
         for slo in default_slos:
@@ -402,11 +410,9 @@ class SLOManager:
             return
 
         with self.slo_lock:
-            self.slo_history[slo_name].append({
-                'timestamp': datetime.now(),
-                'value': value,
-                'success': success
-            })
+            self.slo_history[slo_name].append(
+                {"timestamp": datetime.now(), "value": value, "success": success}
+            )
 
     def get_slo_status(self, slo_name: str) -> Optional[SLOStatus]:
         """SLO状態取得"""
@@ -424,15 +430,12 @@ class SLOManager:
                 current_percentage=0.0,
                 error_budget_consumed=0.0,
                 status="unknown",
-                last_updated=datetime.now()
+                last_updated=datetime.now(),
             )
 
         # 時間窓での成功率計算
         cutoff_time = datetime.now() - timedelta(hours=config.time_window_hours)
-        relevant_history = [
-            h for h in history
-            if h['timestamp'] >= cutoff_time
-        ]
+        relevant_history = [h for h in history if h["timestamp"] >= cutoff_time]
 
         if not relevant_history:
             return SLOStatus(
@@ -440,15 +443,17 @@ class SLOManager:
                 current_percentage=0.0,
                 error_budget_consumed=0.0,
                 status="unknown",
-                last_updated=datetime.now()
+                last_updated=datetime.now(),
             )
 
-        success_count = sum(1 for h in relevant_history if h['success'])
+        success_count = sum(1 for h in relevant_history if h["success"])
         total_count = len(relevant_history)
         current_percentage = (success_count / total_count) * 100
 
         # エラーバジェット消費率計算
-        error_budget_consumed = max(0, (config.target_percentage - current_percentage) / config.error_budget_percentage)
+        error_budget_consumed = max(
+            0, (config.target_percentage - current_percentage) / config.error_budget_percentage
+        )
 
         # 状態判定
         if current_percentage >= config.target_percentage:
@@ -463,15 +468,12 @@ class SLOManager:
             current_percentage=current_percentage,
             error_budget_consumed=error_budget_consumed,
             status=status,
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
     def get_all_slo_status(self) -> Dict[str, SLOStatus]:
         """全SLO状態取得"""
-        return {
-            name: self.get_slo_status(name)
-            for name in self.slo_configs.keys()
-        }
+        return {name: self.get_slo_status(name) for name in self.slo_configs.keys()}
 
 
 class ProductionMonitoringSystem:
@@ -501,13 +503,13 @@ class ProductionMonitoringSystem:
 
         # 統計情報
         self.stats = {
-            'total_requests': 0,
-            'successful_requests': 0,
-            'failed_requests': 0,
-            'avg_response_time': 0.0,
-            'alerts_triggered': 0,
-            'anomalies_detected': 0,
-            'slo_breaches': 0
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "avg_response_time": 0.0,
+            "alerts_triggered": 0,
+            "anomalies_detected": 0,
+            "slo_breaches": 0,
         }
 
         logger.info("本番運用監視システム初期化完了")
@@ -536,12 +538,7 @@ class ProductionMonitoringSystem:
         if labels is None:
             labels = {}
 
-        point = MetricPoint(
-            timestamp=datetime.now(),
-            value=value,
-            labels=labels,
-            metric_name=name
-        )
+        point = MetricPoint(timestamp=datetime.now(), value=value, labels=labels, metric_name=name)
 
         with self.metrics_lock:
             self.metrics[name].append(point)
@@ -549,20 +546,27 @@ class ProductionMonitoringSystem:
         # 異常検知
         is_anomaly, anomaly_score = self.anomaly_detector.detect_anomaly(name, value)
         if is_anomaly:
-            self.stats['anomalies_detected'] += 1
+            self.stats["anomalies_detected"] += 1
             self._create_alert(
                 severity=AlertSeverity.HIGH,
                 scope=MonitoringScope.SYSTEM,
                 title=f"異常値検知: {name}",
                 description=f"メトリクス {name} で異常値を検知しました。値: {value}, 異常スコア: {anomaly_score:.3f}",
-                metrics={'metric_name': name, 'value': value, 'anomaly_score': anomaly_score}
+                metrics={"metric_name": name, "value": value, "anomaly_score": anomaly_score},
             )
 
         # ML学習用にデータ追加
         self.anomaly_detector.add_metric_point(name, value)
 
-    def log_structured(self, level: str, message: str, component: str,
-                      trace_id: str = None, span_id: str = None, **context):
+    def log_structured(
+        self,
+        level: str,
+        message: str,
+        component: str,
+        trace_id: str = None,
+        span_id: str = None,
+        **context,
+    ):
         """構造化ログ記録"""
         entry = LogEntry(
             timestamp=datetime.now(),
@@ -571,50 +575,61 @@ class ProductionMonitoringSystem:
             component=component,
             trace_id=trace_id,
             span_id=span_id,
-            context=context
+            context=context,
         )
 
         with self.logs_lock:
             self.logs.append(entry)
 
         # 重要レベルのログはアラート化
-        if level in ['ERROR', 'CRITICAL']:
+        if level in ["ERROR", "CRITICAL"]:
             self._create_alert(
-                severity=AlertSeverity.HIGH if level == 'ERROR' else AlertSeverity.CRITICAL,
+                severity=AlertSeverity.HIGH if level == "ERROR" else AlertSeverity.CRITICAL,
                 scope=MonitoringScope.APPLICATION,
                 title=f"{level}ログ検出: {component}",
                 description=message,
-                metrics={'log_level': level, 'component': component, **context}
+                metrics={"log_level": level, "component": component, **context},
             )
 
-    def record_api_call(self, endpoint: str, method: str, response_time: float,
-                       status_code: int, success: bool = True):
+    def record_api_call(
+        self,
+        endpoint: str,
+        method: str,
+        response_time: float,
+        status_code: int,
+        success: bool = True,
+    ):
         """API呼び出し記録"""
-        self.stats['total_requests'] += 1
+        self.stats["total_requests"] += 1
         if success:
-            self.stats['successful_requests'] += 1
+            self.stats["successful_requests"] += 1
         else:
-            self.stats['failed_requests'] += 1
+            self.stats["failed_requests"] += 1
 
         # 平均応答時間更新
-        self.stats['avg_response_time'] = (
-            (self.stats['avg_response_time'] * (self.stats['total_requests'] - 1) + response_time)
-            / self.stats['total_requests']
-        )
+        self.stats["avg_response_time"] = (
+            self.stats["avg_response_time"] * (self.stats["total_requests"] - 1) + response_time
+        ) / self.stats["total_requests"]
 
         # メトリクス記録
-        self.record_metric('api_response_time', response_time, {
-            'endpoint': endpoint,
-            'method': method,
-            'status_code': str(status_code)
-        })
+        self.record_metric(
+            "api_response_time",
+            response_time,
+            {"endpoint": endpoint, "method": method, "status_code": str(status_code)},
+        )
 
         # SLO記録
-        self.slo_manager.add_slo_metric('api_latency', response_time, response_time < 50)
-        self.slo_manager.add_slo_metric('error_rate', 1.0, success)
+        self.slo_manager.add_slo_metric("api_latency", response_time, response_time < 50)
+        self.slo_manager.add_slo_metric("error_rate", 1.0, success)
 
-    def _create_alert(self, severity: AlertSeverity, scope: MonitoringScope,
-                     title: str, description: str, metrics: Dict[str, Any] = None):
+    def _create_alert(
+        self,
+        severity: AlertSeverity,
+        scope: MonitoringScope,
+        title: str,
+        description: str,
+        metrics: Dict[str, Any] = None,
+    ):
         """アラート作成"""
         if metrics is None:
             metrics = {}
@@ -627,14 +642,14 @@ class ProductionMonitoringSystem:
             description=description,
             timestamp=datetime.now(),
             source_component="ProductionMonitoringSystem",
-            metrics=metrics
+            metrics=metrics,
         )
 
         with self.alerts_lock:
             self.alerts.append(alert)
 
-        self.stats['alerts_triggered'] += 1
-        logger.warning(f"アラート発生: {title}", extra={'alert_id': alert.alert_id})
+        self.stats["alerts_triggered"] += 1
+        logger.warning(f"アラート発生: {title}", extra={"alert_id": alert.alert_id})
 
     def _monitoring_loop(self):
         """監視ループ"""
@@ -672,27 +687,27 @@ class ProductionMonitoringSystem:
         try:
             # CPU使用率
             cpu_percent = psutil.cpu_percent(interval=1)
-            self.record_metric('system.cpu_usage_percent', cpu_percent)
+            self.record_metric("system.cpu_usage_percent", cpu_percent)
 
             # メモリ使用率
             memory = psutil.virtual_memory()
-            self.record_metric('system.memory_usage_percent', memory.percent)
-            self.record_metric('system.memory_available_mb', memory.available / (1024**2))
+            self.record_metric("system.memory_usage_percent", memory.percent)
+            self.record_metric("system.memory_available_mb", memory.available / (1024**2))
 
             # ディスク使用率
             disk_path = "C:\\" if platform.system() == "Windows" else "/"
             disk = psutil.disk_usage(disk_path)
             disk_percent = (disk.used / disk.total) * 100
-            self.record_metric('system.disk_usage_percent', disk_percent)
+            self.record_metric("system.disk_usage_percent", disk_percent)
 
             # ネットワークI/O
             network = psutil.net_io_counters()
-            self.record_metric('system.network_bytes_sent', network.bytes_sent)
-            self.record_metric('system.network_bytes_recv', network.bytes_recv)
+            self.record_metric("system.network_bytes_sent", network.bytes_sent)
+            self.record_metric("system.network_bytes_recv", network.bytes_recv)
 
             # プロセス数
             process_count = len(psutil.pids())
-            self.record_metric('system.process_count', process_count)
+            self.record_metric("system.process_count", process_count)
 
         except Exception as e:
             logger.error(f"システムメトリクス収集エラー: {e}")
@@ -706,18 +721,18 @@ class ProductionMonitoringSystem:
                 continue
 
             if status.status == "breached":
-                self.stats['slo_breaches'] += 1
+                self.stats["slo_breaches"] += 1
                 self._create_alert(
                     severity=AlertSeverity.CRITICAL,
                     scope=MonitoringScope.BUSINESS,
                     title=f"SLO違反: {status.config.name}",
                     description=f"SLO '{status.config.description}' が違反されました。現在値: {status.current_percentage:.2f}%",
                     metrics={
-                        'slo_name': name,
-                        'target': status.config.target_percentage,
-                        'current': status.current_percentage,
-                        'error_budget_consumed': status.error_budget_consumed
-                    }
+                        "slo_name": name,
+                        "target": status.config.target_percentage,
+                        "current": status.current_percentage,
+                        "error_budget_consumed": status.error_budget_consumed,
+                    },
                 )
             elif status.status == "at_risk":
                 self._create_alert(
@@ -726,9 +741,9 @@ class ProductionMonitoringSystem:
                     title=f"SLOリスク: {status.config.name}",
                     description=f"SLO '{status.config.description}' がリスク状態です。エラーバジェット消費率: {status.error_budget_consumed:.1f}%",
                     metrics={
-                        'slo_name': name,
-                        'error_budget_consumed': status.error_budget_consumed
-                    }
+                        "slo_name": name,
+                        "error_budget_consumed": status.error_budget_consumed,
+                    },
                 )
 
     def _perform_health_check(self):
@@ -743,8 +758,7 @@ class ProductionMonitoringSystem:
 
             # アラート過多チェック
             recent_alerts = [
-                a for a in self.alerts
-                if (datetime.now() - a.timestamp).total_seconds() < 300
+                a for a in self.alerts if (datetime.now() - a.timestamp).total_seconds() < 300
             ]
             if len(recent_alerts) > 10:
                 health_issues.append(f"5分間で{len(recent_alerts)}件のアラートが発生")
@@ -777,7 +791,7 @@ class ProductionMonitoringSystem:
                     scope=MonitoringScope.SYSTEM,
                     title="システムヘルス悪化",
                     description=f"システムヘルスが悪化しています: {', '.join(health_issues)}",
-                    metrics={'health_issues': health_issues}
+                    metrics={"health_issues": health_issues},
                 )
 
         except Exception as e:
@@ -789,20 +803,24 @@ class ProductionMonitoringSystem:
         # アクティブアラート統計
         active_alerts = [a for a in self.alerts if not a.resolved]
         alert_stats = {
-            'critical': len([a for a in active_alerts if a.severity == AlertSeverity.CRITICAL]),
-            'high': len([a for a in active_alerts if a.severity == AlertSeverity.HIGH]),
-            'medium': len([a for a in active_alerts if a.severity == AlertSeverity.MEDIUM]),
-            'low': len([a for a in active_alerts if a.severity == AlertSeverity.LOW]),
-            'total': len(active_alerts)
+            "critical": len([a for a in active_alerts if a.severity == AlertSeverity.CRITICAL]),
+            "high": len([a for a in active_alerts if a.severity == AlertSeverity.HIGH]),
+            "medium": len([a for a in active_alerts if a.severity == AlertSeverity.MEDIUM]),
+            "low": len([a for a in active_alerts if a.severity == AlertSeverity.LOW]),
+            "total": len(active_alerts),
         }
 
         # システムメトリクス
         system_metrics = {}
-        for metric_name in ['system.cpu_usage_percent', 'system.memory_usage_percent', 'system.disk_usage_percent']:
+        for metric_name in [
+            "system.cpu_usage_percent",
+            "system.memory_usage_percent",
+            "system.disk_usage_percent",
+        ]:
             with self.metrics_lock:
                 if metric_name in self.metrics and self.metrics[metric_name]:
                     latest_point = self.metrics[metric_name][-1]
-                    system_metrics[metric_name.replace('system.', '')] = latest_point.value
+                    system_metrics[metric_name.replace("system.", "")] = latest_point.value
 
         # SLO状態
         slo_status = {}
@@ -810,26 +828,26 @@ class ProductionMonitoringSystem:
         for name, status in all_slo_status.items():
             if status:
                 slo_status[name] = {
-                    'current_percentage': status.current_percentage,
-                    'target_percentage': status.config.target_percentage,
-                    'error_budget_consumed': status.error_budget_consumed,
-                    'status': status.status
+                    "current_percentage": status.current_percentage,
+                    "target_percentage": status.config.target_percentage,
+                    "error_budget_consumed": status.error_budget_consumed,
+                    "status": status.status,
                 }
 
         return {
-            'system_health': {
-                'status': self.system_health.value,
-                'last_check': self.last_health_check.isoformat(),
-                'monitoring_active': self.monitoring_active
+            "system_health": {
+                "status": self.system_health.value,
+                "last_check": self.last_health_check.isoformat(),
+                "monitoring_active": self.monitoring_active,
             },
-            'alerts': alert_stats,
-            'system_metrics': system_metrics,
-            'slo_status': slo_status,
-            'statistics': self.stats.copy(),
-            'traces': {
-                'active_traces': len(self.tracer.active_traces),
-                'completed_traces': len(self.tracer.completed_traces)
-            }
+            "alerts": alert_stats,
+            "system_metrics": system_metrics,
+            "slo_status": slo_status,
+            "statistics": self.stats.copy(),
+            "traces": {
+                "active_traces": len(self.tracer.active_traces),
+                "completed_traces": len(self.tracer.completed_traces),
+            },
         }
 
     def get_metrics_summary(self, metric_name: str, duration_minutes: int = 30) -> Dict[str, Any]:
@@ -840,10 +858,7 @@ class ProductionMonitoringSystem:
             if metric_name not in self.metrics:
                 return {}
 
-            recent_points = [
-                p for p in self.metrics[metric_name]
-                if p.timestamp >= cutoff_time
-            ]
+            recent_points = [p for p in self.metrics[metric_name] if p.timestamp >= cutoff_time]
 
         if not recent_points:
             return {}
@@ -851,19 +866,21 @@ class ProductionMonitoringSystem:
         values = [p.value for p in recent_points]
 
         return {
-            'count': len(values),
-            'min': min(values),
-            'max': max(values),
-            'avg': sum(values) / len(values),
-            'latest': values[-1] if values else 0,
-            'trend': 'rising' if len(values) > 1 and values[-1] > values[0] else 'falling'
+            "count": len(values),
+            "min": min(values),
+            "max": max(values),
+            "avg": sum(values) / len(values),
+            "latest": values[-1] if values else 0,
+            "trend": "rising" if len(values) > 1 and values[-1] > values[0] else "falling",
         }
 
     async def trace_operation(self, operation_name: str, parent_span: TraceSpan = None):
         """トレーシング付きオペレーション"""
         return self.tracer.trace_operation(operation_name, parent_span)
 
-    def get_recent_logs(self, level: str = None, component: str = None, limit: int = 100) -> List[LogEntry]:
+    def get_recent_logs(
+        self, level: str = None, component: str = None, limit: int = 100
+    ) -> List[LogEntry]:
         """最近のログ取得"""
         with self.logs_lock:
             logs = list(self.logs)
@@ -900,8 +917,12 @@ async def demo_production_monitoring():
     monitoring.record_api_call("/api/trades", "GET", 150.0, 500, False)  # 異常値
 
     # 構造化ログ記録
-    monitoring.log_structured("INFO", "取引処理開始", "TradingEngine", user_id="12345", symbol="USDJPY")
-    monitoring.log_structured("ERROR", "データベース接続エラー", "DatabaseManager", error_code="DB001")
+    monitoring.log_structured(
+        "INFO", "取引処理開始", "TradingEngine", user_id="12345", symbol="USDJPY"
+    )
+    monitoring.log_structured(
+        "ERROR", "データベース接続エラー", "DatabaseManager", error_code="DB001"
+    )
 
     # カスタムメトリクス記録
     monitoring.record_metric("custom.trading_volume", 1000000.0, {"symbol": "USDJPY"})
@@ -923,10 +944,12 @@ async def demo_production_monitoring():
     print(f"異常検知: {dashboard['statistics']['anomalies_detected']}件")
 
     # SLO状態表示
-    if dashboard['slo_status']:
+    if dashboard["slo_status"]:
         print("\n=== SLO状態 ===")
-        for name, status in dashboard['slo_status'].items():
-            print(f"{name}: {status['current_percentage']:.2f}% (目標: {status['target_percentage']:.2f}%) - {status['status']}")
+        for name, status in dashboard["slo_status"].items():
+            print(
+                f"{name}: {status['current_percentage']:.2f}% (目標: {status['target_percentage']:.2f}%) - {status['status']}"
+            )
 
     # トレーシングデモ
     print("\n=== 分散トレーシングデモ ===")
@@ -953,7 +976,9 @@ async def demo_production_monitoring():
     recent_logs = monitoring.get_recent_logs(limit=5)
     print(f"\n=== 最近のログ ({len(recent_logs)}件) ===")
     for log in recent_logs[:3]:
-        print(f"[{log.timestamp.strftime('%H:%M:%S')}] {log.level} - {log.component}: {log.message}")
+        print(
+            f"[{log.timestamp.strftime('%H:%M:%S')}] {log.level} - {log.component}: {log.message}"
+        )
 
     monitoring.stop_monitoring()
     print("\n監視システムデモ完了")

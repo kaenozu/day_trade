@@ -32,9 +32,7 @@ def get_patterns_config() -> Dict[str, Any]:
     }
 
     # 設定ファイルからの読み込みを試行
-    config_path = (
-        Path(__file__).parent.parent.parent.parent / "config" / "patterns_config.json"
-    )
+    config_path = Path(__file__).parent.parent.parent.parent / "config" / "patterns_config.json"
 
     if config_path.exists():
         try:
@@ -195,15 +193,11 @@ class PatternsConfig:
 
     def get_all_patterns_golden_cross_fast(self) -> int:
         """全パターン検出用ゴールデンクロス短期期間を取得"""
-        return self._config.get("detect_all_patterns", {}).get(
-            "default_golden_cross_fast", 5
-        )
+        return self._config.get("detect_all_patterns", {}).get("default_golden_cross_fast", 5)
 
     def get_all_patterns_golden_cross_slow(self) -> int:
         """全パターン検出用ゴールデンクロス長期期間を取得"""
-        return self._config.get("detect_all_patterns", {}).get(
-            "default_golden_cross_slow", 20
-        )
+        return self._config.get("detect_all_patterns", {}).get("default_golden_cross_slow", 20)
 
     def get_all_patterns_support_resistance_window(self) -> int:
         """全パターン検出用サポートレジスタンス期間を取得"""
@@ -213,22 +207,16 @@ class PatternsConfig:
 
     def get_all_patterns_breakout_lookback(self) -> int:
         """全パターン検出用ブレイクアウト期間を取得"""
-        return self._config.get("detect_all_patterns", {}).get(
-            "default_breakout_lookback", 20
-        )
+        return self._config.get("detect_all_patterns", {}).get("default_breakout_lookback", 20)
 
     def get_all_patterns_trend_window(self) -> int:
         """全パターン検出用トレンド期間を取得"""
-        return self._config.get("detect_all_patterns", {}).get(
-            "default_trend_window", 20
-        )
+        return self._config.get("detect_all_patterns", {}).get("default_trend_window", 20)
 
     # ゴールデンクロス関連メソッド
     def get_golden_cross_confidence_multiplier(self) -> float:
         """ゴールデンクロス信頼度倍率を取得"""
-        return float(
-            self._config.get("golden_dead_cross", {}).get("confidence_multiplier", 100)
-        )
+        return float(self._config.get("golden_dead_cross", {}).get("confidence_multiplier", 100))
 
     def get_golden_cross_confidence_clip_max(self) -> int:
         """ゴールデンクロス信頼度上限を取得"""
@@ -245,9 +233,7 @@ class PatternsConfig:
 
     def get_support_resistance_clustering_iterations(self) -> int:
         """サポートレジスタンスクラスタリング反復回数を取得"""
-        return self._config.get("support_resistance", {}).get(
-            "clustering_iterations", 10
-        )
+        return self._config.get("support_resistance", {}).get("clustering_iterations", 10)
 
     # ブレイクアウト関連メソッド
     def get_breakout_lookback(self) -> int:
@@ -256,21 +242,15 @@ class PatternsConfig:
 
     def get_breakout_threshold(self) -> float:
         """ブレイクアウト閾値を取得"""
-        return float(
-            self._config.get("breakout_detection", {}).get("default_threshold", 0.02)
-        )
+        return float(self._config.get("breakout_detection", {}).get("default_threshold", 0.02))
 
     def get_breakout_volume_factor(self) -> float:
         """ブレイクアウトボリューム係数を取得"""
-        return float(
-            self._config.get("breakout_detection", {}).get("default_volume_factor", 1.5)
-        )
+        return float(self._config.get("breakout_detection", {}).get("default_volume_factor", 1.5))
 
     def get_breakout_strength_multiplier(self) -> float:
         """ブレイクアウト強度倍率を取得"""
-        return float(
-            self._config.get("breakout_detection", {}).get("strength_multiplier", 10)
-        )
+        return float(self._config.get("breakout_detection", {}).get("strength_multiplier", 10))
 
     def get_breakout_volume_clip_max(self) -> int:
         """ブレイクアウトボリューム上限を取得"""
@@ -287,9 +267,7 @@ class PatternsConfig:
 
     def get_trend_line_min_touches(self) -> int:
         """トレンドライン最小接触数を取得"""
-        return self._config.get("trend_line_detection", {}).get(
-            "default_min_touches", 3
-        )
+        return self._config.get("trend_line_detection", {}).get("default_min_touches", 3)
 
     def get_trend_line_ransac_residual_threshold(self) -> float:
         """トレンドラインRANSAC残差閾値を取得"""

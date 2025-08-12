@@ -19,6 +19,7 @@ import numpy as np
 try:
     import numba
     from numba import jit, prange
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
@@ -27,8 +28,10 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
@@ -42,6 +45,7 @@ L2_CACHE_SIZE = 256 * 1024  # L2キャッシュサイズ
 @dataclass
 class HFTConfig:
     """HFT最適化設定"""
+
     # レイテンシ目標
     target_latency_us: float = 50.0
     strict_latency_us: float = 10.0  # 厳格モード
@@ -95,7 +99,7 @@ class MemoryPool:
         """メモリプール初期化"""
         try:
             # Windows対応のmmap実装
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 try:
                     self.memory_pool = mmap.mmap(-1, self.pool_size)
                     logger.info("Windows メモリマップ初期化完了")
@@ -107,24 +111,26 @@ class MemoryPool:
                 if self.use_huge_pages and os.path.exists("/proc/sys/vm/nr_hugepages"):
                     # Huge Pages使用（Linux専用）
                     self.memory_pool = mmap.mmap(
-                        -1, self.pool_size,
-                        mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS | getattr(mmap, 'MAP_HUGETLB', 0),
-                        mmap.PROT_READ | mmap.PROT_WRITE
+                        -1,
+                        self.pool_size,
+                        mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS | getattr(mmap, "MAP_HUGETLB", 0),
+                        mmap.PROT_READ | mmap.PROT_WRITE,
                     )
                     logger.info("Huge Pages メモリプール初期化完了")
                 else:
                     # 通常メモリ
                     self.memory_pool = mmap.mmap(
-                        -1, self.pool_size,
+                        -1,
+                        self.pool_size,
                         mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS,
-                        mmap.PROT_READ | mmap.PROT_WRITE
+                        mmap.PROT_READ | mmap.PROT_WRITE,
                     )
                     logger.info("通常メモリプール初期化完了")
 
                 # メモリをゼロクリア（初期化時のみ）
-                if hasattr(self.memory_pool, 'seek'):
+                if hasattr(self.memory_pool, "seek"):
                     self.memory_pool.seek(0)
-                    self.memory_pool.write(b'\x00' * self.pool_size)
+                    self.memory_pool.write(b"\x00" * self.pool_size)
 
         except Exception as e:
             logger.error(f"メモリプール初期化失敗: {e}")
@@ -158,8 +164,7 @@ class MemoryPool:
                     self.stats["total_allocations"] += 1
                     self.stats["current_usage_bytes"] += aligned_size
                     self.stats["peak_usage_bytes"] = max(
-                        self.stats["peak_usage_bytes"],
-                        self.stats["current_usage_bytes"]
+                        self.stats["peak_usage_bytes"], self.stats["current_usage_bytes"]
                     )
 
                     allocation_time = time.perf_counter_ns() - start_time
@@ -168,7 +173,7 @@ class MemoryPool:
                     return offset
 
             # 新規メモリ領域を割り当て
-            if hasattr(self, '_next_offset'):
+            if hasattr(self, "_next_offset"):
                 if self._next_offset + aligned_size <= self.pool_size:
                     offset = self._next_offset
                     self._next_offset += aligned_size
@@ -178,8 +183,7 @@ class MemoryPool:
                     self.stats["total_allocations"] += 1
                     self.stats["current_usage_bytes"] += aligned_size
                     self.stats["peak_usage_bytes"] = max(
-                        self.stats["peak_usage_bytes"],
-                        self.stats["current_usage_bytes"]
+                        self.stats["peak_usage_bytes"], self.stats["current_usage_bytes"]
                     )
 
                     return offset
@@ -238,9 +242,9 @@ class MemoryPool:
     def get_memory_view(self, offset: int, size: int) -> memoryview:
         """メモリビュー取得（ゼロコピー）"""
         if isinstance(self.memory_pool, mmap.mmap):
-            return memoryview(self.memory_pool)[offset:offset + size]
+            return memoryview(self.memory_pool)[offset : offset + size]
         else:
-            return memoryview(self.memory_pool)[offset:offset + size]
+            return memoryview(self.memory_pool)[offset : offset + size]
 
     def get_stats(self) -> Dict[str, Any]:
         """統計情報取得"""
@@ -261,6 +265,7 @@ class MemoryPool:
 
 
 if NUMBA_AVAILABLE:
+
     @jit(nopython=True, nogil=True, cache=True)
     def vectorized_feature_calculation(prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
         """SIMD最適化特徴量計算"""
@@ -334,6 +339,7 @@ if NUMBA_AVAILABLE:
         return prediction
 
 else:
+
     def vectorized_feature_calculation(prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
         """フォールバック特徴量計算"""
         logger.warning("Numba未利用のためフォールバック実行")
@@ -341,8 +347,8 @@ else:
         features = np.zeros((n, 8))
 
         for i in range(20, n):
-            features[i, 0] = np.mean(prices[i-5:i])  # MA5
-            features[i, 1] = np.mean(prices[i-20:i])  # MA20
+            features[i, 0] = np.mean(prices[i - 5 : i])  # MA5
+            features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
             features[i, 6] = prices[i]
             features[i, 7] = volumes[i]
 
@@ -350,7 +356,7 @@ else:
 
     def ultra_fast_price_prediction(features: np.ndarray, weights: np.ndarray) -> float:
         """フォールバック価格予測"""
-        return np.dot(features[:len(weights)], weights)
+        return np.dot(features[: len(weights)], weights)
 
 
 class HFTOptimizer:
@@ -364,8 +370,7 @@ class HFTOptimizer:
 
         # メモリプール初期化
         self.memory_pool = MemoryPool(
-            self.config.preallocated_memory_mb,
-            self.config.use_huge_pages
+            self.config.preallocated_memory_mb, self.config.use_huge_pages
         )
 
         # 予測モデル重み（事前学習済み想定）
@@ -387,7 +392,7 @@ class HFTOptimizer:
         """システムレベル最適化"""
         try:
             # CPU親和性設定（Linux専用）
-            if self.config.cpu_affinity and hasattr(os, 'sched_setaffinity'):
+            if self.config.cpu_affinity and hasattr(os, "sched_setaffinity"):
                 try:
                     os.sched_setaffinity(0, set(self.config.cpu_affinity))
                     logger.info(f"CPU親和性設定: {self.config.cpu_affinity}")
@@ -395,7 +400,7 @@ class HFTOptimizer:
                     logger.warning(f"CPU親和性設定失敗: {e}")
 
             # プロセス優先度設定（可能な場合）
-            if hasattr(os, 'setpriority'):
+            if hasattr(os, "setpriority"):
                 try:
                     os.setpriority(os.PRIO_PROCESS, 0, -10)  # 高優先度
                     logger.info("プロセス優先度設定完了")
@@ -403,9 +408,10 @@ class HFTOptimizer:
                     logger.warning(f"プロセス優先度設定失敗: {e}")
 
             # Windows用プロセス優先度設定
-            if os.name == 'nt':
+            if os.name == "nt":
                 try:
                     import psutil
+
                     process = psutil.Process()
                     process.nice(psutil.HIGH_PRIORITY_CLASS)
                     logger.info("Windows プロセス優先度設定完了")
@@ -479,9 +485,7 @@ class HFTOptimizer:
             }
 
     def batch_predict_optimized(
-        self,
-        symbols_data: Dict[str, Dict[str, np.ndarray]],
-        batch_size: int = 10
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]], batch_size: int = 10
     ) -> Dict[str, Any]:
         """最適化バッチ予測"""
         batch_start_time = time.perf_counter_ns()
@@ -492,28 +496,26 @@ class HFTOptimizer:
         # バッチ処理
         symbols = list(symbols_data.keys())
         for i in range(0, len(symbols), batch_size):
-            batch_symbols = symbols[i:i + batch_size]
+            batch_symbols = symbols[i : i + batch_size]
 
             batch_results = {}
             batch_latency_start = time.perf_counter_ns()
 
             for symbol in batch_symbols:
                 data = symbols_data[symbol]
-                prices = data.get('prices', np.array([]))
-                volumes = data.get('volumes', np.array([]))
+                prices = data.get("prices", np.array([]))
+                volumes = data.get("volumes", np.array([]))
 
                 if len(prices) > 0 and len(volumes) > 0:
                     prediction_result = self.predict_ultra_fast(prices, volumes)
                     batch_results[symbol] = prediction_result
-                    latencies.append(prediction_result.get('latency_us', 0))
+                    latencies.append(prediction_result.get("latency_us", 0))
 
             batch_latency = (time.perf_counter_ns() - batch_latency_start) / 1000.0
 
             results.update(batch_results)
 
-            logger.debug(
-                f"バッチ処理完了: {len(batch_results)}銘柄, {batch_latency:.2f}μs"
-            )
+            logger.debug(f"バッチ処理完了: {len(batch_results)}銘柄, {batch_latency:.2f}μs")
 
         total_batch_time = (time.perf_counter_ns() - batch_start_time) / 1000.0
 
@@ -524,11 +526,12 @@ class HFTOptimizer:
                 "total_batch_time_us": total_batch_time,
                 "avg_latency_per_symbol_us": np.mean(latencies) if latencies else 0,
                 "max_latency_us": np.max(latencies) if latencies else 0,
-                "under_target_rate": np.mean([
-                    1 if lat < self.config.target_latency_us else 0
-                    for lat in latencies
-                ]) if latencies else 0,
-            }
+                "under_target_rate": (
+                    np.mean([1 if lat < self.config.target_latency_us else 0 for lat in latencies])
+                    if latencies
+                    else 0
+                ),
+            },
         }
 
     def _update_performance_stats(self, latency_us: float):
@@ -540,8 +543,8 @@ class HFTOptimizer:
             total_preds = self.performance_stats["total_predictions"]
             current_avg = self.performance_stats["avg_latency_us"]
             self.performance_stats["avg_latency_us"] = (
-                (current_avg * (total_preds - 1) + latency_us) / total_preds
-            )
+                current_avg * (total_preds - 1) + latency_us
+            ) / total_preds
 
             # ヒストグラム更新
             histogram_index = min(int(latency_us), 99)
@@ -549,15 +552,14 @@ class HFTOptimizer:
 
             # 目標達成率更新
             under_target_count = np.sum(
-                self.performance_stats["latency_histogram"][:int(self.config.target_latency_us)]
+                self.performance_stats["latency_histogram"][: int(self.config.target_latency_us)]
             )
             self.performance_stats["under_target_percentage"] = (
                 under_target_count / total_preds * 100.0
             )
 
             # プロファイリング
-            if (self.config.enable_profiling and
-                total_preds % self.config.profile_every_n_ops == 0):
+            if self.config.enable_profiling and total_preds % self.config.profile_every_n_ops == 0:
                 self._log_performance_profile()
 
     def _log_performance_profile(self):
@@ -605,8 +607,8 @@ class HFTOptimizer:
             "memory": memory_stats,
             "optimization_score": min(
                 100.0,
-                perf_stats["under_target_percentage"] +
-                (100 - memory_stats["pool_utilization"] * 100) * 0.1
+                perf_stats["under_target_percentage"]
+                + (100 - memory_stats["pool_utilization"] * 100) * 0.1,
             ),
         }
 
@@ -630,8 +632,8 @@ class HFTOptimizer:
         """リソースクリーンアップ"""
         try:
             # メモリプール解放
-            if hasattr(self.memory_pool, 'memory_pool'):
-                if hasattr(self.memory_pool.memory_pool, 'close'):
+            if hasattr(self.memory_pool, "memory_pool"):
+                if hasattr(self.memory_pool.memory_pool, "close"):
                     self.memory_pool.memory_pool.close()
 
             logger.info("HFT最適化エンジンクリーンアップ完了")
@@ -658,6 +660,7 @@ def get_hft_optimizer(config: HFTConfig = None) -> HFTOptimizer:
 
 def hft_optimized(target_latency_us: float = 50.0):
     """HFT最適化デコレータ"""
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             optimizer = get_hft_optimizer()
@@ -667,12 +670,12 @@ def hft_optimized(target_latency_us: float = 50.0):
             execution_time_us = (time.perf_counter_ns() - start_time) / 1000.0
 
             if execution_time_us > target_latency_us:
-                logger.warning(
-                    f"関数 {func.__name__} レイテンシ超過: {execution_time_us:.2f}μs"
-                )
+                logger.warning(f"関数 {func.__name__} レイテンシ超過: {execution_time_us:.2f}μs")
 
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -699,17 +702,19 @@ if __name__ == "__main__":
     print("\n1. 単一予測テスト")
     for i in range(5):
         result = optimizer.predict_ultra_fast(test_prices, test_volumes)
-        print(f"予測 {i+1}: {result['prediction']:.4f}, "
-              f"レイテンシ: {result['latency_us']:.2f}μs, "
-              f"目標達成: {result['under_target']}")
+        print(
+            f"予測 {i+1}: {result['prediction']:.4f}, "
+            f"レイテンシ: {result['latency_us']:.2f}μs, "
+            f"目標達成: {result['under_target']}"
+        )
 
     print("\n2. バッチ予測テスト")
     symbols_data = {}
     for i in range(10):
         symbol = f"STOCK_{i:03d}"
         symbols_data[symbol] = {
-            'prices': test_prices + np.random.normal(0, 1, len(test_prices)),
-            'volumes': test_volumes + np.random.normal(0, 100, len(test_volumes)),
+            "prices": test_prices + np.random.normal(0, 1, len(test_prices)),
+            "volumes": test_volumes + np.random.normal(0, 100, len(test_volumes)),
         }
 
     batch_result = optimizer.batch_predict_optimized(symbols_data, batch_size=5)

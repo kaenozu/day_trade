@@ -113,9 +113,7 @@ class SecurityComplianceReportGenerator:
             )
             conn.commit()
 
-    async def generate_executive_summary_report(
-        self, period_days: int = 30
-    ) -> SecurityReport:
+    async def generate_executive_summary_report(self, period_days: int = 30) -> SecurityReport:
         """経営陣向けエグゼクティブサマリーレポート生成"""
         period_end = datetime.now(timezone.utc)
         period_start = period_end - timedelta(days=period_days)
@@ -165,9 +163,7 @@ class SecurityComplianceReportGenerator:
 
         # フレームワーク固有のチェック実行
         compliance_results = await self._perform_framework_audit(framework)
-        detailed_findings = await self._analyze_compliance_findings(
-            framework, compliance_results
-        )
+        detailed_findings = await self._analyze_compliance_findings(framework, compliance_results)
 
         # コンプライアンス状況評価
         compliance_score = compliance_results.get("overall_score", 0)
@@ -231,9 +227,7 @@ class SecurityComplianceReportGenerator:
         secure_coding_data = await self._collect_secure_coding_violations()
 
         # 脆弱性分析
-        critical_vulns = [
-            v for v in vulnerability_data if v.get("severity") == "critical"
-        ]
+        critical_vulns = [v for v in vulnerability_data if v.get("severity") == "critical"]
         high_vulns = [v for v in vulnerability_data if v.get("severity") == "high"]
         medium_vulns = [v for v in vulnerability_data if v.get("severity") == "medium"]
 
@@ -321,9 +315,7 @@ class SecurityComplianceReportGenerator:
         await self._save_report(report)
         return report
 
-    async def generate_security_metrics_report(
-        self, period_days: int = 30
-    ) -> SecurityReport:
+    async def generate_security_metrics_report(self, period_days: int = 30) -> SecurityReport:
         """セキュリティメトリクスレポート生成"""
         period_end = datetime.now(timezone.utc)
         period_start = period_end - timedelta(days=period_days)
@@ -338,9 +330,7 @@ class SecurityComplianceReportGenerator:
         kpis = {
             "security_score": security_metrics.get("security_score", 0),
             "mean_time_to_detection": security_metrics.get("mean_time_to_detection", 0),
-            "mean_time_to_resolution": security_metrics.get(
-                "mean_time_to_resolution", 0
-            ),
+            "mean_time_to_resolution": security_metrics.get("mean_time_to_resolution", 0),
             "vulnerability_density": security_metrics.get("vulnerability_density", 0),
             "compliance_percentage": security_metrics.get("compliance_percentage", 0),
         }
@@ -384,9 +374,7 @@ class SecurityComplianceReportGenerator:
         ]
 
         # 推奨事項生成
-        recommendations = await self._generate_metrics_recommendations(
-            kpis, trend_analysis
-        )
+        recommendations = await self._generate_metrics_recommendations(kpis, trend_analysis)
 
         report = SecurityReport(
             id=report_id,
@@ -450,14 +438,18 @@ class SecurityComplianceReportGenerator:
         if self.security_control_center:
             try:
                 # コンプライアンスチェック実行
-                compliance_results = await self.security_control_center.compliance_monitor.check_compliance(
-                    "PCI_DSS"
+                compliance_results = (
+                    await self.security_control_center.compliance_monitor.check_compliance(
+                        "PCI_DSS"
+                    )
                 )
                 compliance["frameworks"]["pci_dss"] = {
                     "score": compliance_results.get("overall_score", 85.0),
-                    "status": "compliant"
-                    if compliance_results.get("overall_score", 0) >= 80
-                    else "non_compliant",
+                    "status": (
+                        "compliant"
+                        if compliance_results.get("overall_score", 0) >= 80
+                        else "non_compliant"
+                    ),
                 }
             except Exception:
                 pass
@@ -559,9 +551,7 @@ class SecurityComplianceReportGenerator:
         # コンプライアンスに基づく推奨事項
         compliance_score = compliance_status.get("overall_score", 100)
         if compliance_score < 80:
-            recommendations.append(
-                "法規制遵守のための緊急コンプライアンス対応プログラムの実施"
-            )
+            recommendations.append("法規制遵守のための緊急コンプライアンス対応プログラムの実施")
 
         # リスクに基づく推奨事項
         risk_level = risk_assessment.get("overall_risk_level", "low")
@@ -579,9 +569,7 @@ class SecurityComplianceReportGenerator:
 
         return recommendations
 
-    async def _perform_framework_audit(
-        self, framework: ComplianceFramework
-    ) -> Dict[str, Any]:
+    async def _perform_framework_audit(self, framework: ComplianceFramework) -> Dict[str, Any]:
         """フレームワーク固有の監査実行"""
         if self.security_control_center:
             try:
@@ -634,11 +622,7 @@ class SecurityComplianceReportGenerator:
                 "framework": framework.value,
                 "title": f"{framework.value.upper()} Overall Compliance Assessment",
                 "description": f"Overall compliance score: {score:.1f}/100",
-                "severity": "info"
-                if score >= 90
-                else "medium"
-                if score >= 70
-                else "high",
+                "severity": "info" if score >= 90 else "medium" if score >= 70 else "high",
                 "score": score,
             }
         )
@@ -760,9 +744,7 @@ class SecurityComplianceReportGenerator:
 
         return violations
 
-    def _calculate_vulnerability_risk_score(
-        self, vulnerabilities: List[Dict[str, Any]]
-    ) -> float:
+    def _calculate_vulnerability_risk_score(self, vulnerabilities: List[Dict[str, Any]]) -> float:
         """脆弱性リスクスコア計算"""
         if not vulnerabilities:
             return 0.0
@@ -799,18 +781,14 @@ class SecurityComplianceReportGenerator:
         high_vulns = [v for v in vulnerabilities if v.get("severity") == "high"]
 
         if critical_vulns:
-            recommendations.append(
-                f"🚨 {len(critical_vulns)}件の重大脆弱性への即座の対応"
-            )
+            recommendations.append(f"🚨 {len(critical_vulns)}件の重大脆弱性への即座の対応")
 
         if high_vulns:
             recommendations.append(f"⚠️ {len(high_vulns)}件の高リスク脆弱性への優先対応")
 
         if coding_violations:
             critical_coding = [
-                v
-                for v in coding_violations
-                if v.get("severity") in ["critical", "high"]
+                v for v in coding_violations if v.get("severity") in ["critical", "high"]
             ]
             if critical_coding:
                 recommendations.append(
@@ -871,9 +849,7 @@ class SecurityComplianceReportGenerator:
 
         security_score = kpis.get("security_score", 100)
         if security_score < 80:
-            recommendations.append(
-                "セキュリティスコア向上のための包括的改善プログラム実施"
-            )
+            recommendations.append("セキュリティスコア向上のための包括的改善プログラム実施")
 
         mttr = kpis.get("mean_time_to_resolution", 0)
         if mttr > 48:  # 48時間以上
@@ -1006,16 +982,12 @@ if __name__ == "__main__":
             print("\n3. 脆弱性評価レポート生成...")
             vuln_report = await generator.generate_vulnerability_assessment_report()
             print(f"   レポートID: {vuln_report.id}")
-            print(
-                f"   検出脆弱性数: {vuln_report.metrics.get('total_vulnerabilities', 0)}"
-            )
+            print(f"   検出脆弱性数: {vuln_report.metrics.get('total_vulnerabilities', 0)}")
 
             print("\n4. セキュリティメトリクスレポート生成...")
             metrics_report = await generator.generate_security_metrics_report(30)
             print(f"   レポートID: {metrics_report.id}")
-            print(
-                f"   セキュリティスコア: {metrics_report.metrics.get('security_score', 0):.1f}"
-            )
+            print(f"   セキュリティスコア: {metrics_report.metrics.get('security_score', 0):.1f}")
 
             # Markdownエクスポート
             print("\n5. Markdownレポートエクスポート...")

@@ -44,9 +44,7 @@ async def simple_performance_test():
         # 結果表示
         print("\n結果:")
         print(f"  処理注文数: {benchmark_results['total_orders_processed']:,}")
-        print(
-            f"  平均遅延: {benchmark_results['average_latency_microseconds']:.1f} マイクロ秒"
-        )
+        print(f"  平均遅延: {benchmark_results['average_latency_microseconds']:.1f} マイクロ秒")
         print(
             f"  スループット: {benchmark_results['peak_throughput_orders_per_second']:.0f} 注文/秒"
         )

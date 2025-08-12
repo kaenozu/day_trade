@@ -23,9 +23,7 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
     cp = None
-    warnings.warn(
-        "CuPy未インストール - GPU加速機能利用不可", ImportWarning, stacklevel=2
-    )
+    warnings.warn("CuPy未インストール - GPU加速機能利用不可", ImportWarning, stacklevel=2)
 
 from ..core.optimization_strategy import (
     OptimizationConfig,
@@ -109,9 +107,7 @@ class GPUMemoryManager:
                 }
 
             self.current_memory_usage += size
-            self.peak_memory_usage = max(
-                self.peak_memory_usage, self.current_memory_usage
-            )
+            self.peak_memory_usage = max(self.peak_memory_usage, self.current_memory_usage)
 
             logger.debug(f"GPU メモリ割り当て: {size}bytes, Block ID: {block_id}")
             return block_id
@@ -188,9 +184,7 @@ class GPUAccelerationEngine:
             "average_speedup": 0.0,
         }
 
-        logger.info(
-            f"GPU並列処理エンジン初期化完了: {self.primary_backend.value} バックエンド"
-        )
+        logger.info(f"GPU並列処理エンジン初期化完了: {self.primary_backend.value} バックエンド")
         logger.info(f"利用可能デバイス: {len(self.devices)}個")
 
     def _detect_gpu_backends(self) -> List[GPUBackend]:
@@ -242,9 +236,7 @@ class GPUAccelerationEngine:
                                 device_id=i,
                                 name=device_props["name"].decode("utf-8"),
                                 backend=GPUBackend.CUDA,
-                                memory_total=device_props["totalGlobalMem"]
-                                // 1024
-                                // 1024,  # MB
+                                memory_total=device_props["totalGlobalMem"] // 1024 // 1024,  # MB
                                 memory_free=mem_info[0] // 1024 // 1024,  # MB
                                 compute_capability=f"{device_props['major']}.{device_props['minor']}",
                                 is_available=True,
@@ -265,12 +257,8 @@ class GPUAccelerationEngine:
                                 device_id=i,
                                 name=device.name,
                                 backend=GPUBackend.OPENCL,
-                                memory_total=device.global_mem_size
-                                // 1024
-                                // 1024,  # MB
-                                memory_free=device.global_mem_size
-                                // 1024
-                                // 1024,  # MB (近似)
+                                memory_total=device.global_mem_size // 1024 // 1024,  # MB
+                                memory_free=device.global_mem_size // 1024 // 1024,  # MB (近似)
                                 is_available=True,
                             )
                         )
@@ -286,9 +274,7 @@ class GPUAccelerationEngine:
                 name=f"CPU ({psutil.cpu_count()}コア)",
                 backend=GPUBackend.CPU_FALLBACK,
                 memory_total=int(psutil.virtual_memory().total // 1024 // 1024),  # MB
-                memory_free=int(
-                    psutil.virtual_memory().available // 1024 // 1024
-                ),  # MB
+                memory_free=int(psutil.virtual_memory().available // 1024 // 1024),  # MB
                 is_available=True,
             )
         )
@@ -317,13 +303,9 @@ class GPUAccelerationEngine:
 
         try:
             if self.primary_backend == GPUBackend.CUDA:
-                result = self._cuda_technical_indicators(
-                    data, indicators, periods, device_id
-                )
+                result = self._cuda_technical_indicators(data, indicators, periods, device_id)
             elif self.primary_backend == GPUBackend.OPENCL:
-                result = self._opencl_technical_indicators(
-                    data, indicators, periods, device_id
-                )
+                result = self._opencl_technical_indicators(data, indicators, periods, device_id)
             else:
                 result = self._cpu_technical_indicators(data, indicators, periods)
 
@@ -399,9 +381,7 @@ class GPUAccelerationEngine:
                         results[indicator] = self._cuda_rsi(close_prices, period)
                     elif indicator == "bollinger_bands":
                         period = periods.get("bollinger_bands", 20) if periods else 20
-                        results[indicator] = self._cuda_bollinger_bands(
-                            close_prices, period
-                        )
+                        results[indicator] = self._cuda_bollinger_bands(close_prices, period)
                     elif indicator == "macd":
                         results[indicator] = self._cuda_macd(close_prices)
                     elif indicator == "stochastic":
@@ -478,9 +458,7 @@ class GPUAccelerationEngine:
 
         return rsi
 
-    def _cuda_bollinger_bands(
-        self, prices: "cp.ndarray", period: int
-    ) -> Dict[str, "cp.ndarray"]:
+    def _cuda_bollinger_bands(self, prices: "cp.ndarray", period: int) -> Dict[str, "cp.ndarray"]:
         """CUDA ボリンジャーバンド計算"""
         import cupy as cp
 
@@ -544,9 +522,7 @@ class GPUAccelerationEngine:
         """CPU フォールバック テクニカル指標計算"""
         # NumPy を使用した最適化 CPU 実装
         close_prices = (
-            data["Close"].values
-            if "Close" in data.columns
-            else data[data.columns[-1]].values
+            data["Close"].values if "Close" in data.columns else data[data.columns[-1]].values
         )
         results = {}
 
@@ -637,15 +613,13 @@ class GPUAccelerationEngine:
     def get_performance_summary(self) -> Dict[str, Any]:
         """パフォーマンス統計取得"""
         total_time = (
-            self.performance_stats["total_gpu_time"]
-            + self.performance_stats["total_cpu_time"]
+            self.performance_stats["total_gpu_time"] + self.performance_stats["total_cpu_time"]
         )
 
         return {
             "total_computations": self.performance_stats["total_computations"],
             "total_time": total_time,
-            "gpu_time_ratio": self.performance_stats["total_gpu_time"]
-            / max(total_time, 1e-10),
+            "gpu_time_ratio": self.performance_stats["total_gpu_time"] / max(total_time, 1e-10),
             "average_computation_time": total_time
             / max(self.performance_stats["total_computations"], 1),
             "primary_backend": self.primary_backend.value,
@@ -668,9 +642,7 @@ class GPUAccelerationEngine:
         cpu_time = time.time() - cpu_start
 
         speedup_ratio = (
-            cpu_time / gpu_result.execution_time
-            if gpu_result.execution_time > 0
-            else 1.0
+            cpu_time / gpu_result.execution_time if gpu_result.execution_time > 0 else 1.0
         )
 
         return {

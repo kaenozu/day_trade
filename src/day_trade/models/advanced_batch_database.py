@@ -44,7 +44,7 @@ except ImportError:
     class DatabaseManager:
         def __init__(self):
             pass
-        
+
         def get_session(self):
             return None
 
@@ -89,9 +89,7 @@ class BatchOperation:
     options: Dict[str, Any] = field(default_factory=dict)
     priority: int = 1
     created_at: float = field(default_factory=time.time)
-    operation_id: str = field(
-        default_factory=lambda: f"batch_{int(time.time() * 1000)}"
-    )
+    operation_id: str = field(default_factory=lambda: f"batch_{int(time.time() * 1000)}")
 
     def size(self) -> int:
         """操作サイズ"""
@@ -246,9 +244,7 @@ class SQLOptimizer:
                 batch = data[i : i + 1000]
                 batch_values = []
                 for row in batch:
-                    row_values = ", ".join(
-                        [f":{col}{j}" for j, col in enumerate(columns)]
-                    )
+                    row_values = ", ".join([f":{col}{j}" for j, col in enumerate(columns)])
                     batch_values.append(f"({row_values})")
                 values_list.extend(batch_values)
 
@@ -257,7 +253,9 @@ class SQLOptimizer:
             VALUES {', '.join(values_list[:1000])}
             """
         else:
-            sql = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+            sql = (
+                f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+            )
 
         return sql, data
 
@@ -277,7 +275,9 @@ class SQLOptimizer:
             """
         elif self.dialect == "sqlite":
             placeholders = ", ".join([f":{col}" for col in columns])
-            sql = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+            sql = (
+                f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+            )
         else:
             # MySQL
             placeholders = ", ".join([f"%({col})s" for col in columns])
@@ -303,18 +303,14 @@ class SQLOptimizer:
         try:
             with self.db_manager.get_session() as session:
                 # レコード数
-                count_result = session.execute(
-                    text(f"SELECT COUNT(*) FROM {table_name}")
-                )
+                count_result = session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
                 row_count = count_result.scalar()
 
                 # テーブルサイズ（SQLiteの場合）
                 table_size = 0
                 if self.dialect == "sqlite":
                     size_result = session.execute(
-                        text(
-                            f"SELECT SUM(pgsize) FROM dbstat WHERE name = '{table_name}'"
-                        )
+                        text(f"SELECT SUM(pgsize) FROM dbstat WHERE name = '{table_name}'")
                     )
                     table_size = size_result.scalar() or 0
 
@@ -375,9 +371,7 @@ class AdvancedBatchDatabase:
             raise DatabaseError("DatabaseManager が必要です")
 
         # コンポーネント初期化
-        self.connection_pool = DatabaseConnectionPool(
-            self.db_manager, connection_pool_size
-        )
+        self.connection_pool = DatabaseConnectionPool(self.db_manager, connection_pool_size)
         self.sql_optimizer = SQLOptimizer(self.db_manager)
 
         # バッチキュー
@@ -523,16 +517,12 @@ class AdvancedBatchDatabase:
 
                     # バルクインサート実行
                     result = session.execute(text(optimized_sql), optimized_data)
-                    affected_rows = (
-                        result.rowcount if hasattr(result, "rowcount") else len(chunk)
-                    )
+                    affected_rows = result.rowcount if hasattr(result, "rowcount") else len(chunk)
 
                     session.commit()
                     total_affected += affected_rows
 
-                    logger.debug(
-                        f"バッチINSERT完了: {len(chunk)}件, 影響行数: {affected_rows}"
-                    )
+                    logger.debug(f"バッチINSERT完了: {len(chunk)}件, 影響行数: {affected_rows}")
 
                 except IntegrityError:
                     session.rollback()
@@ -588,20 +578,14 @@ class AdvancedBatchDatabase:
             for row in operation.data:
                 # 更新条件とデータの分離
                 conditions = {k: v for k, v in row.items() if k in operation.conditions}
-                update_data = {
-                    k: v for k, v in row.items() if k not in operation.conditions
-                }
+                update_data = {k: v for k, v in row.items() if k not in operation.conditions}
 
                 if not conditions or not update_data:
                     continue
 
                 # 動的UPDATE文生成
-                set_clause = ", ".join(
-                    [f"{col} = :{col}" for col in update_data.keys()]
-                )
-                where_clause = " AND ".join(
-                    [f"{col} = :where_{col}" for col in conditions.keys()]
-                )
+                set_clause = ", ".join([f"{col} = :{col}" for col in update_data.keys()])
+                where_clause = " AND ".join([f"{col} = :where_{col}" for col in conditions.keys()])
 
                 sql = f"UPDATE {operation.table_name} SET {set_clause} WHERE {where_clause}"
 
@@ -640,9 +624,7 @@ class AdvancedBatchDatabase:
             for key, value in operation.conditions.items():
                 if isinstance(value, list):
                     # IN句
-                    placeholders = ", ".join(
-                        [f":param_{key}_{i}" for i in range(len(value))]
-                    )
+                    placeholders = ", ".join([f":param_{key}_{i}" for i in range(len(value))])
                     where_clauses.append(f"{key} IN ({placeholders})")
                     for i, val in enumerate(value):
                         params[f"param_{key}_{i}"] = val
@@ -699,11 +681,7 @@ class AdvancedBatchDatabase:
         # INSERT ... ON CONFLICT構文
         placeholders = ", ".join([f":{col}" for col in columns])
         update_set = ", ".join(
-            [
-                f"{col} = excluded.{col}"
-                for col in columns
-                if col not in conflict_columns
-            ]
+            [f"{col} = excluded.{col}" for col in columns if col not in conflict_columns]
         )
 
         sql = f"""
@@ -733,9 +711,7 @@ class AdvancedBatchDatabase:
             processing_time_ms=0,
         )
 
-    async def _execute_postgresql_upsert(
-        self, operation: BatchOperation
-    ) -> BatchResult:
+    async def _execute_postgresql_upsert(self, operation: BatchOperation) -> BatchResult:
         """PostgreSQL UPSERT実行"""
         # PostgreSQL ON CONFLICT実装
         return await self._execute_sqlite_upsert(operation)  # 同じロジック
@@ -795,9 +771,7 @@ class AdvancedBatchDatabase:
 
                 for key, value in conditions.items():
                     if isinstance(value, list):
-                        placeholders = ", ".join(
-                            [f":param_{key}_{i}" for i in range(len(value))]
-                        )
+                        placeholders = ", ".join([f":param_{key}_{i}" for i in range(len(value))])
                         where_clauses.append(f"{key} IN ({placeholders})")
                         for i, val in enumerate(value):
                             params[f"param_{key}_{i}"] = val
@@ -837,9 +811,7 @@ class AdvancedBatchDatabase:
             except Exception:
                 raise
 
-    def _update_stats(
-        self, processing_time_ms: float, affected_rows: int, success: bool
-    ):
+    def _update_stats(self, processing_time_ms: float, affected_rows: int, success: bool):
         """統計更新"""
         with self._stats_lock:
             self.stats["operations_processed"] += 1
@@ -849,8 +821,7 @@ class AdvancedBatchDatabase:
             # 移動平均
             alpha = 0.1
             self.stats["average_processing_time_ms"] = (
-                self.stats["average_processing_time_ms"] * (1 - alpha)
-                + processing_time_ms * alpha
+                self.stats["average_processing_time_ms"] * (1 - alpha) + processing_time_ms * alpha
             )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -868,9 +839,7 @@ class AdvancedBatchDatabase:
         stats = self.get_stats()
 
         pool_stats = stats.get("connection_pool", {})
-        pool_utilization = (
-            pool_stats.get("active_connections", 0) / self.connection_pool.pool_size
-        )
+        pool_utilization = pool_stats.get("active_connections", 0) / self.connection_pool.pool_size
 
         health = "healthy"
         if pool_utilization > 0.8:
@@ -939,9 +908,7 @@ if __name__ == "__main__":
                 )
 
                 result = await batch_db.execute_batch_operation(operation)
-                print(
-                    f"処理結果: success={result.success}, affected_rows={result.affected_rows}"
-                )
+                print(f"処理結果: success={result.success}, affected_rows={result.affected_rows}")
                 print(f"処理時間: {result.processing_time_ms:.2f}ms")
 
                 # 統計情報

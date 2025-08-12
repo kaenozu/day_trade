@@ -200,9 +200,7 @@ class AdvancedDataFreshnessMonitor:
 
         # イベントコールバック
         self.alert_callbacks: List[Callable] = []
-        self.recovery_callbacks: Dict[RecoveryAction, List[Callable]] = defaultdict(
-            list
-        )
+        self.recovery_callbacks: Dict[RecoveryAction, List[Callable]] = defaultdict(list)
 
         if config_path:
             self.load_config(config_path)
@@ -380,9 +378,7 @@ class AdvancedDataFreshnessMonitor:
             return
 
         self.monitoring_active = True
-        self.monitor_thread = threading.Thread(
-            target=self._monitoring_loop, daemon=True
-        )
+        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitor_thread.start()
 
         self.logger.info("データ鮮度・整合性監視開始")
@@ -452,16 +448,12 @@ class AdvancedDataFreshnessMonitor:
             if freshness_result.status != FreshnessStatus.FRESH or any(
                 not r.passed for r in integrity_results
             ):
-                await self._evaluate_recovery_actions(
-                    config, freshness_result, integrity_results
-                )
+                await self._evaluate_recovery_actions(config, freshness_result, integrity_results)
 
         except Exception as e:
             self.logger.error(f"データソースチェックエラー ({config.source_id}): {e}")
 
-    async def _perform_freshness_check(
-        self, config: DataSourceConfig
-    ) -> FreshnessCheck:
+    async def _perform_freshness_check(self, config: DataSourceConfig) -> FreshnessCheck:
         """鮮度チェック実行"""
         current_time = datetime.now(timezone.utc)
 
@@ -501,9 +493,7 @@ class AdvancedDataFreshnessMonitor:
                         )
                         quality_score = quality_report.overall_score
                 except Exception as e:
-                    self.logger.warning(
-                        f"品質スコア計算エラー ({config.source_id}): {e}"
-                    )
+                    self.logger.warning(f"品質スコア計算エラー ({config.source_id}): {e}")
 
             return FreshnessCheck(
                 source_id=config.source_id,
@@ -567,9 +557,7 @@ class AdvancedDataFreshnessMonitor:
             self.logger.error(f"データ情報取得エラー ({config.source_id}): {e}")
             return None, None
 
-    async def _perform_integrity_checks(
-        self, config: DataSourceConfig
-    ) -> List[IntegrityCheck]:
+    async def _perform_integrity_checks(self, config: DataSourceConfig) -> List[IntegrityCheck]:
         """整合性チェック実行"""
         checks = []
         current_time = datetime.now(timezone.utc)
@@ -664,9 +652,7 @@ class AdvancedDataFreshnessMonitor:
                     ),
                 )
 
-                historical_counts = [
-                    row[0] for row in cursor.fetchall() if row[0] is not None
-                ]
+                historical_counts = [row[0] for row in cursor.fetchall() if row[0] is not None]
 
             if len(historical_counts) < 3:
                 return None  # データ不足
@@ -695,9 +681,9 @@ class AdvancedDataFreshnessMonitor:
                 },
                 baseline_comparison={
                     "historical_samples": len(historical_counts),
-                    "deviation_percent": ((current_count - avg_count) / avg_count * 100)
-                    if avg_count > 0
-                    else 0,
+                    "deviation_percent": (
+                        ((current_count - avg_count) / avg_count * 100) if avg_count > 0 else 0
+                    ),
                 },
             )
 
@@ -726,9 +712,11 @@ class AdvancedDataFreshnessMonitor:
             alert = DataAlert(
                 alert_id=f"freshness_{config.source_id}_{int(time.time())}",
                 source_id=config.source_id,
-                severity=AlertSeverity.ERROR
-                if freshness.age_seconds > config.freshness_threshold * 2
-                else AlertSeverity.WARNING,
+                severity=(
+                    AlertSeverity.ERROR
+                    if freshness.age_seconds > config.freshness_threshold * 2
+                    else AlertSeverity.WARNING
+                ),
                 alert_type="data_freshness",
                 message=f"データが古くなっています: {freshness.age_seconds:.0f}秒経過 (閾値: {config.freshness_threshold}秒)",
                 timestamp=freshness.timestamp,
@@ -747,9 +735,11 @@ class AdvancedDataFreshnessMonitor:
                 alert = DataAlert(
                     alert_id=f"integrity_{config.source_id}_{check.check_type}_{int(time.time())}",
                     source_id=config.source_id,
-                    severity=AlertSeverity.ERROR
-                    if len(check.issues_found) > 2
-                    else AlertSeverity.WARNING,
+                    severity=(
+                        AlertSeverity.ERROR
+                        if len(check.issues_found) > 2
+                        else AlertSeverity.WARNING
+                    ),
                     alert_type="data_integrity",
                     message=f"整合性チェック失敗 ({check.check_type}): {', '.join(check.issues_found)}",
                     timestamp=check.timestamp,
@@ -995,9 +985,11 @@ class AdvancedDataFreshnessMonitor:
                         check.passed,
                         json.dumps(check.issues_found, ensure_ascii=False),
                         json.dumps(check.metrics, ensure_ascii=False),
-                        json.dumps(check.baseline_comparison, ensure_ascii=False)
-                        if check.baseline_comparison
-                        else None,
+                        (
+                            json.dumps(check.baseline_comparison, ensure_ascii=False)
+                            if check.baseline_comparison
+                            else None
+                        ),
                     ),
                 )
                 conn.commit()
@@ -1009,9 +1001,9 @@ class AdvancedDataFreshnessMonitor:
         """時間別SLAメトリクス計算"""
         try:
             current_time = datetime.now(timezone.utc)
-            period_start = current_time.replace(
-                minute=0, second=0, microsecond=0
-            ) - timedelta(hours=1)
+            period_start = current_time.replace(minute=0, second=0, microsecond=0) - timedelta(
+                hours=1
+            )
             period_end = current_time.replace(minute=0, second=0, microsecond=0)
 
             for source_id in self.data_sources.keys():
@@ -1033,9 +1025,7 @@ class AdvancedDataFreshnessMonitor:
                     # SLAメトリクス計算
                     total_checks = len(checks)
                     fresh_checks = sum(
-                        1
-                        for status, _ in checks
-                        if status == FreshnessStatus.FRESH.value
+                        1 for status, _ in checks if status == FreshnessStatus.FRESH.value
                     )
 
                     availability_percent = (fresh_checks / total_checks) * 100
@@ -1043,14 +1033,10 @@ class AdvancedDataFreshnessMonitor:
                         [age for _, age in checks if age != float("inf")]
                     )
                     error_count = sum(
-                        1
-                        for status, _ in checks
-                        if status == FreshnessStatus.EXPIRED.value
+                        1 for status, _ in checks if status == FreshnessStatus.EXPIRED.value
                     )
 
-                    uptime_seconds = (
-                        fresh_checks / total_checks * 3600
-                    )  # 1時間 = 3600秒
+                    uptime_seconds = fresh_checks / total_checks * 3600  # 1時間 = 3600秒
                     downtime_seconds = 3600 - uptime_seconds
 
                     sla_target = self.data_sources[source_id].sla_target
@@ -1235,12 +1221,8 @@ class AdvancedDataFreshnessMonitor:
                     dashboard_data["sla_summary"].append(
                         {
                             "source_id": row[0],
-                            "average_availability": round(row[1], 2)
-                            if row[1]
-                            else None,
-                            "average_response_time": round(row[2], 3)
-                            if row[2]
-                            else None,
+                            "average_availability": round(row[1], 2) if row[1] else None,
+                            "average_response_time": round(row[2], 3) if row[2] else None,
                             "sla_violations": row[3] or 0,
                         }
                     )
@@ -1306,17 +1288,13 @@ class AdvancedDataFreshnessMonitor:
                         source_data.get("monitoring_level", "standard")
                     ),
                     enable_recovery=source_data.get("enable_recovery", True),
-                    recovery_strategy=RecoveryAction(
-                        source_data.get("recovery_strategy", "retry")
-                    ),
+                    recovery_strategy=RecoveryAction(source_data.get("recovery_strategy", "retry")),
                     max_retry_attempts=source_data.get("max_retry_attempts", 3),
                     sla_target=source_data.get("sla_target", 99.9),
                 )
                 self.add_data_source(config)
 
-            self.logger.info(
-                f"設定読み込み完了: {len(self.data_sources)}個のデータソース"
-            )
+            self.logger.info(f"設定読み込み完了: {len(self.data_sources)}個のデータソース")
 
         except Exception as e:
             self.logger.error(f"設定読み込みエラー: {e}")
@@ -1397,13 +1375,9 @@ if __name__ == "__main__":
                     MonitoringLevel.COMPREHENSIVE,
                     MonitoringLevel.CRITICAL,
                 ]:
-                    integrity_checks = await monitor._perform_integrity_checks(
-                        source_config
-                    )
+                    integrity_checks = await monitor._perform_integrity_checks(source_config)
                     passed_checks = sum(1 for check in integrity_checks if check.passed)
-                    print(
-                        f"     整合性チェック: {passed_checks}/{len(integrity_checks)} 合格"
-                    )
+                    print(f"     整合性チェック: {passed_checks}/{len(integrity_checks)} 合格")
 
             # 監視開始
             print("\n4. 継続監視開始...")

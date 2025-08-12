@@ -9,16 +9,16 @@ SLO/SLI自動監視・エラーバジェット管理・品質ゲート連携
 - CI/CD品質ゲート連携
 """
 
-import time
-import json
 import asyncio
-from typing import Dict, List, Any, Optional, Tuple, Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from enum import Enum
-from collections import defaultdict, deque
-import threading
+import json
 import logging
+import threading
+import time
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .metrics_collector import get_metrics_collector
 from .structured_logger import get_structured_logger
@@ -26,6 +26,7 @@ from .structured_logger import get_structured_logger
 
 class SLOStatus(Enum):
     """SLO状態"""
+
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -34,6 +35,7 @@ class SLOStatus(Enum):
 
 class AlertSeverity(Enum):
     """アラート重要度"""
+
     INFO = "info"
     LOW = "low"
     MEDIUM = "medium"
@@ -44,6 +46,7 @@ class AlertSeverity(Enum):
 @dataclass
 class SLODefinition:
     """SLO定義"""
+
     name: str
     description: str
     service: str
@@ -73,6 +76,7 @@ class SLODefinition:
 @dataclass
 class SLIDataPoint:
     """SLIデータポイント"""
+
     timestamp: float
     value: float
     success: bool
@@ -82,6 +86,7 @@ class SLIDataPoint:
 @dataclass
 class SLOReport:
     """SLO評価レポート"""
+
     slo_name: str
     timestamp: float
     time_window_start: float
@@ -145,89 +150,99 @@ class SLOManager:
         """標準SLO定義の登録"""
 
         # API レスポンス時間 SLO
-        self.register_slo(SLODefinition(
-            name="api_latency_slo",
-            description="API response time should be under 50ms for 99.9% of requests",
-            service="api",
-            sli_query='histogram_quantile(0.999, rate(day_trade_request_duration_seconds_bucket[5m])) * 1000',
-            sli_description="99.9th percentile API response time in milliseconds",
-            target_percentage=99.9,
-            time_window_hours=1,
-            warning_threshold=0.5,
-            critical_threshold=0.8,
-            tags={"category": "performance", "priority": "high"},
-            runbook_url="https://docs.daytrade.local/runbooks/api-latency",
-            owner="platform-team",
-            evaluation_interval_seconds=30
-        ))
+        self.register_slo(
+            SLODefinition(
+                name="api_latency_slo",
+                description="API response time should be under 50ms for 99.9% of requests",
+                service="api",
+                sli_query="histogram_quantile(0.999, rate(day_trade_request_duration_seconds_bucket[5m])) * 1000",
+                sli_description="99.9th percentile API response time in milliseconds",
+                target_percentage=99.9,
+                time_window_hours=1,
+                warning_threshold=0.5,
+                critical_threshold=0.8,
+                tags={"category": "performance", "priority": "high"},
+                runbook_url="https://docs.daytrade.local/runbooks/api-latency",
+                owner="platform-team",
+                evaluation_interval_seconds=30,
+            )
+        )
 
         # 取引実行レイテンシ SLO
-        self.register_slo(SLODefinition(
-            name="trade_latency_slo",
-            description="Trade execution latency should be under 50μs for 99.9% of trades",
-            service="trading",
-            sli_query='histogram_quantile(0.999, rate(day_trade_trade_latency_microseconds_bucket[30s]))',
-            sli_description="99.9th percentile trade execution latency in microseconds",
-            target_percentage=99.9,
-            time_window_hours=1,
-            warning_threshold=0.3,
-            critical_threshold=0.5,
-            tags={"category": "hft", "priority": "critical"},
-            runbook_url="https://docs.daytrade.local/runbooks/trade-latency",
-            owner="trading-team",
-            evaluation_interval_seconds=10
-        ))
+        self.register_slo(
+            SLODefinition(
+                name="trade_latency_slo",
+                description="Trade execution latency should be under 50μs for 99.9% of trades",
+                service="trading",
+                sli_query="histogram_quantile(0.999, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
+                sli_description="99.9th percentile trade execution latency in microseconds",
+                target_percentage=99.9,
+                time_window_hours=1,
+                warning_threshold=0.3,
+                critical_threshold=0.5,
+                tags={"category": "hft", "priority": "critical"},
+                runbook_url="https://docs.daytrade.local/runbooks/trade-latency",
+                owner="trading-team",
+                evaluation_interval_seconds=10,
+            )
+        )
 
         # システム可用性 SLO
-        self.register_slo(SLODefinition(
-            name="system_availability_slo",
-            description="System should be available 99.99% of the time",
-            service="system",
-            sli_query='avg_over_time(up{job="day-trade-app"}[5m]) * 100',
-            sli_description="System availability percentage",
-            target_percentage=99.99,
-            time_window_hours=24,
-            warning_threshold=0.5,
-            critical_threshold=0.8,
-            tags={"category": "availability", "priority": "critical"},
-            runbook_url="https://docs.daytrade.local/runbooks/availability",
-            owner="sre-team",
-            evaluation_interval_seconds=60
-        ))
+        self.register_slo(
+            SLODefinition(
+                name="system_availability_slo",
+                description="System should be available 99.99% of the time",
+                service="system",
+                sli_query='avg_over_time(up{job="day-trade-app"}[5m]) * 100',
+                sli_description="System availability percentage",
+                target_percentage=99.99,
+                time_window_hours=24,
+                warning_threshold=0.5,
+                critical_threshold=0.8,
+                tags={"category": "availability", "priority": "critical"},
+                runbook_url="https://docs.daytrade.local/runbooks/availability",
+                owner="sre-team",
+                evaluation_interval_seconds=60,
+            )
+        )
 
         # 取引成功率 SLO
-        self.register_slo(SLODefinition(
-            name="trade_success_slo",
-            description="Trade success rate should be above 99.95%",
-            service="trading",
-            sli_query='(rate(day_trade_trades_total{status="success"}[5m]) / rate(day_trade_trades_total[5m])) * 100',
-            sli_description="Trade success rate percentage",
-            target_percentage=99.95,
-            time_window_hours=4,
-            warning_threshold=0.4,
-            critical_threshold=0.7,
-            tags={"category": "business", "priority": "high"},
-            runbook_url="https://docs.daytrade.local/runbooks/trade-success",
-            owner="trading-team",
-            evaluation_interval_seconds=30
-        ))
+        self.register_slo(
+            SLODefinition(
+                name="trade_success_slo",
+                description="Trade success rate should be above 99.95%",
+                service="trading",
+                sli_query='(rate(day_trade_trades_total{status="success"}[5m]) / rate(day_trade_trades_total[5m])) * 100',
+                sli_description="Trade success rate percentage",
+                target_percentage=99.95,
+                time_window_hours=4,
+                warning_threshold=0.4,
+                critical_threshold=0.7,
+                tags={"category": "business", "priority": "high"},
+                runbook_url="https://docs.daytrade.local/runbooks/trade-success",
+                owner="trading-team",
+                evaluation_interval_seconds=30,
+            )
+        )
 
         # エラー率 SLO
-        self.register_slo(SLODefinition(
-            name="error_rate_slo",
-            description="Error rate should be below 0.1%",
-            service="application",
-            sli_query='(rate(day_trade_errors_total[5m]) / rate(day_trade_requests_total[5m])) * 100',
-            sli_description="Error rate percentage",
-            target_percentage=99.9,  # 0.1%エラー率 = 99.9%成功率
-            time_window_hours=2,
-            warning_threshold=0.6,
-            critical_threshold=0.8,
-            tags={"category": "reliability", "priority": "medium"},
-            runbook_url="https://docs.daytrade.local/runbooks/error-rate",
-            owner="platform-team",
-            evaluation_interval_seconds=60
-        ))
+        self.register_slo(
+            SLODefinition(
+                name="error_rate_slo",
+                description="Error rate should be below 0.1%",
+                service="application",
+                sli_query="(rate(day_trade_errors_total[5m]) / rate(day_trade_requests_total[5m])) * 100",
+                sli_description="Error rate percentage",
+                target_percentage=99.9,  # 0.1%エラー率 = 99.9%成功率
+                time_window_hours=2,
+                warning_threshold=0.6,
+                critical_threshold=0.8,
+                tags={"category": "reliability", "priority": "medium"},
+                runbook_url="https://docs.daytrade.local/runbooks/error-rate",
+                owner="platform-team",
+                evaluation_interval_seconds=60,
+            )
+        )
 
     # === SLO管理 ===
 
@@ -239,7 +254,7 @@ class SLOManager:
             "SLO registered",
             slo_name=slo_definition.name,
             service=slo_definition.service,
-            target=slo_definition.target_percentage
+            target=slo_definition.target_percentage,
         )
 
     def unregister_slo(self, slo_name: str) -> None:
@@ -257,21 +272,14 @@ class SLOManager:
     # === SLI データ記録 ===
 
     def record_sli_data(
-        self,
-        slo_name: str,
-        value: float,
-        success: bool,
-        tags: Optional[Dict[str, str]] = None
+        self, slo_name: str, value: float, success: bool, tags: Optional[Dict[str, str]] = None
     ) -> None:
         """SLI データポイント記録"""
         if slo_name not in self.slo_definitions:
             return
 
         datapoint = SLIDataPoint(
-            timestamp=time.time(),
-            value=value,
-            success=success,
-            tags=tags or {}
+            timestamp=time.time(), value=value, success=success, tags=tags or {}
         )
 
         self.sli_data[slo_name].append(datapoint)
@@ -291,17 +299,14 @@ class SLOManager:
         window_start = current_time - (slo_def.time_window_hours * 3600)
 
         # 時間窓内のデータ取得
-        recent_data = [
-            dp for dp in self.sli_data[slo_name]
-            if dp.timestamp >= window_start
-        ]
+        recent_data = [dp for dp in self.sli_data[slo_name] if dp.timestamp >= window_start]
 
         if len(recent_data) < slo_def.min_sample_size:
             self.logger.debug(
                 "Insufficient data for SLO calculation",
                 slo_name=slo_name,
                 sample_size=len(recent_data),
-                required=slo_def.min_sample_size
+                required=slo_def.min_sample_size,
             )
             return None
 
@@ -315,17 +320,27 @@ class SLOManager:
         error_failures = total_samples - successful_samples
         error_budget_consumed = error_failures
         error_budget_remaining = max(0, error_budget_total - error_budget_consumed)
-        error_budget_consumption_rate = error_budget_consumed / error_budget_total if error_budget_total > 0 else 0
+        error_budget_consumption_rate = (
+            error_budget_consumed / error_budget_total if error_budget_total > 0 else 0
+        )
 
         # ステータス判定
-        status = self._determine_slo_status(sli_current, slo_def.target_percentage, error_budget_consumption_rate, slo_def)
-        alert_severity = self._determine_alert_severity(status, error_budget_consumption_rate, slo_def)
+        status = self._determine_slo_status(
+            sli_current, slo_def.target_percentage, error_budget_consumption_rate, slo_def
+        )
+        alert_severity = self._determine_alert_severity(
+            status, error_budget_consumption_rate, slo_def
+        )
 
         # 将来予測
-        projected_exhaustion_time = self._predict_budget_exhaustion(recent_data, error_budget_remaining, slo_def)
+        projected_exhaustion_time = self._predict_budget_exhaustion(
+            recent_data, error_budget_remaining, slo_def
+        )
 
         # 推奨アクション
-        recommended_actions = self._generate_recommendations(status, error_budget_consumption_rate, sli_current, slo_def)
+        recommended_actions = self._generate_recommendations(
+            status, error_budget_consumption_rate, sli_current, slo_def
+        )
 
         # レポート作成
         report = SLOReport(
@@ -344,7 +359,7 @@ class SLOManager:
             status=status,
             alert_severity=alert_severity,
             projected_exhaustion_time=projected_exhaustion_time,
-            recommended_actions=recommended_actions
+            recommended_actions=recommended_actions,
         )
 
         # レポート保存
@@ -361,7 +376,7 @@ class SLOManager:
         sli_current: float,
         sli_target: float,
         budget_consumption_rate: float,
-        slo_def: SLODefinition
+        slo_def: SLODefinition,
     ) -> SLOStatus:
         """SLO状態判定"""
 
@@ -376,10 +391,7 @@ class SLOManager:
             return SLOStatus.HEALTHY
 
     def _determine_alert_severity(
-        self,
-        status: SLOStatus,
-        budget_consumption_rate: float,
-        slo_def: SLODefinition
+        self, status: SLOStatus, budget_consumption_rate: float, slo_def: SLODefinition
     ) -> Optional[AlertSeverity]:
         """アラート重要度判定"""
 
@@ -393,10 +405,7 @@ class SLOManager:
         return None
 
     def _predict_budget_exhaustion(
-        self,
-        recent_data: List[SLIDataPoint],
-        remaining_budget: float,
-        slo_def: SLODefinition
+        self, recent_data: List[SLIDataPoint], remaining_budget: float, slo_def: SLODefinition
     ) -> Optional[float]:
         """エラーバジェット枯渇時刻予測"""
 
@@ -413,14 +422,18 @@ class SLOManager:
         if len(recent_hour_data) < 5:
             return None
 
-        error_rate = (len(recent_hour_data) - sum(1 for dp in recent_hour_data if dp.success)) / len(recent_hour_data)
+        error_rate = (
+            len(recent_hour_data) - sum(1 for dp in recent_hour_data if dp.success)
+        ) / len(recent_hour_data)
 
         if error_rate <= 0:
             return None  # エラーが発生していない
 
         # 現在のエラー率で継続した場合の枯渇予測
         expected_errors_per_hour = error_rate * len(recent_hour_data)
-        hours_to_exhaustion = remaining_budget / expected_errors_per_hour if expected_errors_per_hour > 0 else None
+        hours_to_exhaustion = (
+            remaining_budget / expected_errors_per_hour if expected_errors_per_hour > 0 else None
+        )
 
         if hours_to_exhaustion and hours_to_exhaustion > 0:
             return time.time() + (hours_to_exhaustion * 3600)
@@ -432,46 +445,56 @@ class SLOManager:
         status: SLOStatus,
         budget_consumption_rate: float,
         sli_current: float,
-        slo_def: SLODefinition
+        slo_def: SLODefinition,
     ) -> List[str]:
         """推奨アクション生成"""
 
         recommendations = []
 
         if status == SLOStatus.BREACH:
-            recommendations.extend([
-                "🚨 IMMEDIATE ACTION REQUIRED: SLO is currently breached",
-                "Consider rolling back recent changes",
-                "Investigate root cause immediately",
-                "Implement incident response procedures"
-            ])
+            recommendations.extend(
+                [
+                    "🚨 IMMEDIATE ACTION REQUIRED: SLO is currently breached",
+                    "Consider rolling back recent changes",
+                    "Investigate root cause immediately",
+                    "Implement incident response procedures",
+                ]
+            )
         elif status == SLOStatus.CRITICAL:
-            recommendations.extend([
-                "⚠️ ERROR BUDGET CRITICAL: Immediate attention needed",
-                "Review recent deployments and changes",
-                "Consider pausing new deployments",
-                "Investigate performance degradation"
-            ])
+            recommendations.extend(
+                [
+                    "⚠️ ERROR BUDGET CRITICAL: Immediate attention needed",
+                    "Review recent deployments and changes",
+                    "Consider pausing new deployments",
+                    "Investigate performance degradation",
+                ]
+            )
         elif status == SLOStatus.WARNING:
-            recommendations.extend([
-                "⚠️ ERROR BUDGET WARNING: Monitor closely",
-                "Review system performance trends",
-                "Plan capacity scaling if needed"
-            ])
+            recommendations.extend(
+                [
+                    "⚠️ ERROR BUDGET WARNING: Monitor closely",
+                    "Review system performance trends",
+                    "Plan capacity scaling if needed",
+                ]
+            )
 
         # サービス固有の推奨事項
         if slo_def.service == "trading" and "latency" in slo_def.name:
-            recommendations.extend([
-                "Check HFT system performance",
-                "Verify network latency to exchanges",
-                "Review algorithm efficiency"
-            ])
+            recommendations.extend(
+                [
+                    "Check HFT system performance",
+                    "Verify network latency to exchanges",
+                    "Review algorithm efficiency",
+                ]
+            )
         elif slo_def.service == "api" and "latency" in slo_def.name:
-            recommendations.extend([
-                "Check database query performance",
-                "Review cache hit rates",
-                "Consider API rate limiting"
-            ])
+            recommendations.extend(
+                [
+                    "Check database query performance",
+                    "Review cache hit rates",
+                    "Consider API rate limiting",
+                ]
+            )
 
         return recommendations
 
@@ -493,7 +516,7 @@ class SLOManager:
             sli_current=report.sli_current,
             sli_target=report.sli_target,
             budget_consumption_rate=report.error_budget_consumption_rate,
-            recommended_actions=report.recommended_actions
+            recommended_actions=report.recommended_actions,
         )
 
         # メトリクス記録
@@ -502,8 +525,8 @@ class SLOManager:
             attributes={
                 "slo_name": report.slo_name,
                 "status": report.status.value,
-                "severity": report.alert_severity.value if report.alert_severity else "none"
-            }
+                "severity": report.alert_severity.value if report.alert_severity else "none",
+            },
         )
 
         # コールバック実行
@@ -511,18 +534,12 @@ class SLOManager:
             try:
                 callback(report)
             except Exception as e:
-                self.logger.error(
-                    "Alert callback failed",
-                    error=e,
-                    slo_name=report.slo_name
-                )
+                self.logger.error("Alert callback failed", error=e, slo_name=report.slo_name)
 
     # === 品質ゲート ===
 
     def evaluate_quality_gate(
-        self,
-        deployment_context: Dict[str, Any],
-        slo_names: Optional[List[str]] = None
+        self, deployment_context: Dict[str, Any], slo_names: Optional[List[str]] = None
     ) -> Tuple[bool, List[str], Dict[str, SLOReport]]:
         """
         品質ゲート評価
@@ -565,7 +582,7 @@ class SLOManager:
             deployment_context=deployment_context,
             is_passing=is_passing,
             evaluated_slos=len(reports),
-            failure_reasons=failure_reasons
+            failure_reasons=failure_reasons,
         )
 
         return is_passing, failure_reasons, reports
@@ -581,10 +598,7 @@ class SLOManager:
             )
             self._evaluation_tasks[slo_name] = task
 
-        self.logger.info(
-            "Automatic SLO evaluation started",
-            slo_count=len(self._evaluation_tasks)
-        )
+        self.logger.info("Automatic SLO evaluation started", slo_count=len(self._evaluation_tasks))
 
     async def stop_automatic_evaluation(self) -> None:
         """自動評価ループ停止"""
@@ -610,15 +624,13 @@ class SLOManager:
                 if report:
                     # メトリクス更新
                     self.metrics_collector.set_gauge(
-                        "slo_current_sli",
-                        report.sli_current,
-                        attributes={"slo_name": slo_name}
+                        "slo_current_sli", report.sli_current, attributes={"slo_name": slo_name}
                     )
 
                     self.metrics_collector.set_gauge(
                         "slo_error_budget_remaining",
                         report.error_budget_remaining,
-                        attributes={"slo_name": slo_name}
+                        attributes={"slo_name": slo_name},
                     )
 
                 # インターバル待機
@@ -627,11 +639,7 @@ class SLOManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                self.logger.error(
-                    "SLO evaluation loop error",
-                    error=e,
-                    slo_name=slo_name
-                )
+                self.logger.error("SLO evaluation loop error", error=e, slo_name=slo_name)
                 await asyncio.sleep(min(interval_seconds, 60))  # エラー時は最大1分待機
 
     # === レポート・エクスポート ===
@@ -639,11 +647,7 @@ class SLOManager:
     def get_slo_summary(self) -> Dict[str, Any]:
         """SLO概要取得"""
 
-        summary = {
-            "timestamp": time.time(),
-            "total_slos": len(self.slo_definitions),
-            "slos": {}
-        }
+        summary = {"timestamp": time.time(), "total_slos": len(self.slo_definitions), "slos": {}}
 
         status_counts = defaultdict(int)
 
@@ -653,7 +657,7 @@ class SLOManager:
                 "sli_current": report.sli_current,
                 "sli_target": report.sli_target,
                 "error_budget_consumption_rate": report.error_budget_consumption_rate,
-                "alert_severity": report.alert_severity.value if report.alert_severity else None
+                "alert_severity": report.alert_severity.value if report.alert_severity else None,
             }
 
             status_counts[report.status.value] += 1
@@ -665,29 +669,27 @@ class SLOManager:
     def export_slo_config(self, filepath: str) -> None:
         """SLO設定エクスポート"""
 
-        config = {
-            "version": "1.0",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "slos": []
-        }
+        config = {"version": "1.0", "timestamp": datetime.now(timezone.utc).isoformat(), "slos": []}
 
         for slo_name, slo_def in self.slo_definitions.items():
-            config["slos"].append({
-                "name": slo_def.name,
-                "description": slo_def.description,
-                "service": slo_def.service,
-                "sli_query": slo_def.sli_query,
-                "sli_description": slo_def.sli_description,
-                "target_percentage": slo_def.target_percentage,
-                "time_window_hours": slo_def.time_window_hours,
-                "warning_threshold": slo_def.warning_threshold,
-                "critical_threshold": slo_def.critical_threshold,
-                "tags": slo_def.tags,
-                "runbook_url": slo_def.runbook_url,
-                "owner": slo_def.owner
-            })
+            config["slos"].append(
+                {
+                    "name": slo_def.name,
+                    "description": slo_def.description,
+                    "service": slo_def.service,
+                    "sli_query": slo_def.sli_query,
+                    "sli_description": slo_def.sli_description,
+                    "target_percentage": slo_def.target_percentage,
+                    "time_window_hours": slo_def.time_window_hours,
+                    "warning_threshold": slo_def.warning_threshold,
+                    "critical_threshold": slo_def.critical_threshold,
+                    "tags": slo_def.tags,
+                    "runbook_url": slo_def.runbook_url,
+                    "owner": slo_def.owner,
+                }
+            )
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
 
 

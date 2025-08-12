@@ -34,7 +34,7 @@ def test_output_directory_security():
         "output/charts",
         "temp/visualizations",
         "./chart_output",
-        "charts/daily"
+        "charts/daily",
     ]
 
     for dir_path in safe_directories:
@@ -50,17 +50,17 @@ def test_output_directory_security():
     # 2. 危険なディレクトリパスのテスト
     print("\n2. 危険ディレクトリパス:")
     dangerous_directories = [
-        "../../../etc",                    # パストラバーサル攻撃
-        "~/malicious",                     # ホームディレクトリ参照
-        "/etc/passwd_charts",              # システムディレクトリ
-        "/usr/local/malicious",            # システムディレクトリ
-        "/var/www/html",                   # Webディレクトリ
-        "/root/secret_charts",             # rootディレクトリ
-        "c:\\windows\\system32",           # Windowsシステムディレクトリ
-        "c:\\program files\\charts",       # Windowsプログラムディレクトリ
-        "\\\\malicious\\share",            # UNCパス
-        "charts\x00malicious",             # NULLバイト攻撃
-        "a" * 250,                         # 長すぎるパス
+        "../../../etc",  # パストラバーサル攻撃
+        "~/malicious",  # ホームディレクトリ参照
+        "/etc/passwd_charts",  # システムディレクトリ
+        "/usr/local/malicious",  # システムディレクトリ
+        "/var/www/html",  # Webディレクトリ
+        "/root/secret_charts",  # rootディレクトリ
+        "c:\\windows\\system32",  # Windowsシステムディレクトリ
+        "c:\\program files\\charts",  # Windowsプログラムディレクトリ
+        "\\\\malicious\\share",  # UNCパス
+        "charts\x00malicious",  # NULLバイト攻撃
+        "a" * 250,  # 長すぎるパス
     ]
 
     for dir_path in dangerous_directories:
@@ -86,7 +86,7 @@ def test_toctou_vulnerability_protection():
 
         # テスト用の古いファイルを作成
         old_file = Path(temp_dir) / "old_chart_20230101_120000.png"
-        with open(old_file, 'wb') as f:
+        with open(old_file, "wb") as f:
             f.write(b"test chart data")
 
         # ファイルタイムスタンプを古く設定
@@ -110,18 +110,23 @@ def test_toctou_vulnerability_protection():
         try:
             # 危険なファイルへのシンボリックリンクを作成
             danger_file = Path(temp_dir) / "important_system_file.txt"
-            with open(danger_file, 'w') as f:
+            with open(danger_file, "w") as f:
                 f.write("重要なシステムファイル")
 
             symlink_file = Path(temp_dir) / "malicious_chart.png"
 
             # Windowsでのシンボリックリンク作成（権限が必要）
             try:
-                if os.name == 'nt':
+                if os.name == "nt":
                     # Windows環境での処理
                     import subprocess
-                    subprocess.run(['mklink', str(symlink_file), str(danger_file)],
-                                 shell=True, check=True, capture_output=True)
+
+                    subprocess.run(
+                        ["mklink", str(symlink_file), str(danger_file)],
+                        shell=True,
+                        check=True,
+                        capture_output=True,
+                    )
                 else:
                     # Unix/Linux環境での処理
                     symlink_file.symlink_to(danger_file)
@@ -152,9 +157,9 @@ def test_toctou_vulnerability_protection():
         print("\n3. 危険ファイル名攻撃対策:")
 
         dangerous_filenames = [
-            "../malicious_chart.png",       # パストラバーサル
-            "../../etc_chart.png",          # ディレクトリトラバーサル
-            "normal/../../bad.png",         # 埋め込みトラバーサル
+            "../malicious_chart.png",  # パストラバーサル
+            "../../etc_chart.png",  # ディレクトリトラバーサル
+            "normal/../../bad.png",  # 埋め込みトラバーサル
         ]
 
         for filename in dangerous_filenames:
@@ -165,7 +170,7 @@ def test_toctou_vulnerability_protection():
                 # ファイル作成の試行（実際には作成されない想定）
                 try:
                     os.makedirs(dangerous_file_path.parent, exist_ok=True)
-                    with open(dangerous_file_path, 'w') as f:
+                    with open(dangerous_file_path, "w") as f:
                         f.write("malicious content")
 
                     # 古いタイムスタンプを設定
@@ -191,11 +196,7 @@ def test_toctou_vulnerability_protection():
         # 4. 無効パラメータ対策テスト
         print("\n4. 無効パラメータ対策:")
 
-        invalid_params = [
-            (-1, "負の数値"),
-            (0, "ゼロ"),
-            (0.5, "1時間未満")
-        ]
+        invalid_params = [(-1, "負の数値"), (0, "ゼロ"), (0.5, "1時間未満")]
 
         for hours_param, description in invalid_params:
             try:
@@ -241,7 +242,7 @@ def test_file_size_limits():
         # 1. 正常サイズファイル
         print("\n1. 正常サイズファイル:")
         normal_file = Path(temp_dir) / "normal_chart.png"
-        with open(normal_file, 'wb') as f:
+        with open(normal_file, "wb") as f:
             f.write(b"x" * (1024 * 1024))  # 1MB
 
         old_time = time.time() - (25 * 3600)
@@ -261,7 +262,7 @@ def test_file_size_limits():
         huge_file = Path(temp_dir) / "huge_chart.png"
 
         try:
-            with open(huge_file, 'wb') as f:
+            with open(huge_file, "wb") as f:
                 f.write(b"x" * (60 * 1024 * 1024))  # 60MB（制限50MBを超過）
 
             old_time = time.time() - (25 * 3600)
@@ -289,10 +290,9 @@ def test_integration_security():
             engine = DashboardVisualizationEngine(temp_dir)
 
             # 2. サンプルデータでチャート作成
-            sample_portfolio_data = [{
-                "timestamp": datetime.now().isoformat(),
-                "total_value": 1000000
-            }]
+            sample_portfolio_data = [
+                {"timestamp": datetime.now().isoformat(), "total_value": 1000000}
+            ]
 
             chart_path = engine.create_portfolio_value_chart(sample_portfolio_data)
 
@@ -341,6 +341,7 @@ def main():
     except Exception as e:
         print(f"\nFAIL テスト実行中にエラーが発生: {e}")
         import traceback
+
         traceback.print_exc()
 
 

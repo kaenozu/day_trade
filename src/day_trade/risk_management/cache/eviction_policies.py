@@ -155,9 +155,7 @@ class TTLEvictionPolicy(ICacheEvictionPolicy):
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.default_ttl = config.get("default_ttl_seconds", 3600)
-        self.cleanup_threshold = config.get(
-            "cleanup_threshold", 0.8
-        )  # 80%でクリーンアップ開始
+        self.cleanup_threshold = config.get("cleanup_threshold", 0.8)  # 80%でクリーンアップ開始
 
     def evict(self, cache_items: Dict[str, Any], count: int) -> List[str]:
         """期限切れまたは期限切れ間近のアイテムを立ち退き"""
@@ -268,12 +266,8 @@ class SizeBasedEvictionPolicy(ICacheEvictionPolicy):
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.max_memory_bytes = config.get(
-            "max_memory_bytes", 100 * 1024 * 1024
-        )  # 100MB
-        self.size_estimation_method = config.get(
-            "size_estimation_method", "sys.getsizeof"
-        )
+        self.max_memory_bytes = config.get("max_memory_bytes", 100 * 1024 * 1024)  # 100MB
+        self.size_estimation_method = config.get("size_estimation_method", "sys.getsizeof")
 
     def evict(self, cache_items: Dict[str, Any], count: int) -> List[str]:
         """サイズの大きいアイテムを優先的に立ち退き"""
@@ -380,15 +374,11 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
                     candidate_scores[key] = 0
 
                 # 順位に基づくスコア（低い順位ほど高スコア）
-                score = (
-                    weight * (len(policy_candidates) - rank) / len(policy_candidates)
-                )
+                score = weight * (len(policy_candidates) - rank) / len(policy_candidates)
                 candidate_scores[key] += score
 
         # スコアの高い順にソートして指定数を返す
-        sorted_candidates = sorted(
-            candidate_scores.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_candidates = sorted(candidate_scores.items(), key=lambda x: x[1], reverse=True)
 
         return [key for key, _ in sorted_candidates[:count]]
 
@@ -412,9 +402,7 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
             "config": self.config,
         }
 
-    def _create_policy(
-        self, policy_type: str, config: Dict[str, Any]
-    ) -> ICacheEvictionPolicy:
+    def _create_policy(self, policy_type: str, config: Dict[str, Any]) -> ICacheEvictionPolicy:
         """ポリシーインスタンス作成"""
         policy_classes = {
             "lru": LRUEvictionPolicy,
@@ -435,9 +423,7 @@ class CompositeEvictionPolicy(ICacheEvictionPolicy):
 # ポリシーファクトリー関数
 
 
-def create_eviction_policy(
-    policy_type: str, config: Dict[str, Any]
-) -> ICacheEvictionPolicy:
+def create_eviction_policy(policy_type: str, config: Dict[str, Any]) -> ICacheEvictionPolicy:
     """立ち退きポリシー作成"""
 
     policy_classes = {

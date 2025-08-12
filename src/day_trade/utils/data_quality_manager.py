@@ -161,9 +161,7 @@ class DataValidator:
             },
         }
 
-    def validate_data(
-        self, data: Any, data_type: str
-    ) -> Tuple[bool, List[DataQualityIssue]]:
+    def validate_data(self, data: Any, data_type: str) -> Tuple[bool, List[DataQualityIssue]]:
         """データ検証実行"""
         issues = []
 
@@ -209,9 +207,7 @@ class DataValidator:
             )
             return False, issues
 
-    def _validate_price_data(
-        self, data: pd.DataFrame, rules: Dict
-    ) -> List[DataQualityIssue]:
+    def _validate_price_data(self, data: pd.DataFrame, rules: Dict) -> List[DataQualityIssue]:
         """価格データ検証"""
         issues = []
 
@@ -289,9 +285,7 @@ class DataValidator:
 
         return issues
 
-    def _validate_news_data(
-        self, data: List[Dict], rules: Dict
-    ) -> List[DataQualityIssue]:
+    def _validate_news_data(self, data: List[Dict], rules: Dict) -> List[DataQualityIssue]:
         """ニュースデータ検証"""
         issues = []
 
@@ -340,9 +334,7 @@ class DataValidator:
 
         return issues
 
-    def _validate_sentiment_data(
-        self, data: Dict, rules: Dict
-    ) -> List[DataQualityIssue]:
+    def _validate_sentiment_data(self, data: Dict, rules: Dict) -> List[DataQualityIssue]:
         """センチメントデータ検証"""
         issues = []
 
@@ -504,9 +496,7 @@ class DataQualityManager:
         try:
             # キャッシュチェック
             if self.cache_enabled:
-                cached_metrics = self._get_cached_quality_metrics(
-                    data, data_type, symbol
-                )
+                cached_metrics = self._get_cached_quality_metrics(data, data_type, symbol)
                 if cached_metrics:
                     logger.debug(f"品質評価キャッシュヒット: {data_type} {symbol}")
                     return cached_metrics
@@ -670,9 +660,7 @@ class DataQualityManager:
             logger.error(f"自動修正エラー {data_type}: {e}")
             return data, []
 
-    def _fix_price_data_issues(
-        self, data: pd.DataFrame, issue: DataQualityIssue
-    ) -> pd.DataFrame:
+    def _fix_price_data_issues(self, data: pd.DataFrame, issue: DataQualityIssue) -> pd.DataFrame:
         """価格データ問題修正"""
         if issue.issue_type == DataIssueType.MISSING_VALUES:
             # 前後値補間
@@ -727,9 +715,7 @@ class DataQualityManager:
 
         return data
 
-    def _fix_news_data_issues(
-        self, data: List[Dict], issue: DataQualityIssue
-    ) -> List[Dict]:
+    def _fix_news_data_issues(self, data: List[Dict], issue: DataQualityIssue) -> List[Dict]:
         """ニュースデータ問題修正"""
         if issue.issue_type == DataIssueType.DUPLICATE_DATA:
             # 重複除去
@@ -795,9 +781,7 @@ class DataQualityManager:
                 return await self._execute_single_backfill(request)
 
         # 並列実行
-        tasks = [
-            process_backfill(req) for req in self.backfill_queue[: max_concurrent * 2]
-        ]
+        tasks = [process_backfill(req) for req in self.backfill_queue[: max_concurrent * 2]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 処理済み要求をキューから削除
@@ -820,9 +804,7 @@ class DataQualityManager:
             request.progress = 1.0
 
             # 履歴保存
-            request_id = (
-                f"{request.symbol}_{request.data_type}_{request.start_date.date()}"
-            )
+            request_id = f"{request.symbol}_{request.data_type}_{request.start_date.date()}"
             self.backfill_history[request_id] = request
 
             logger.info(f"バックフィル完了: {request.symbol} {request.data_type}")
@@ -833,17 +815,13 @@ class DataQualityManager:
             request.status = "failed"
             return False
 
-    def apply_fallback_strategy(
-        self, data_type: str, symbol: str, error_context: str
-    ) -> Any:
+    def apply_fallback_strategy(self, data_type: str, symbol: str, error_context: str) -> Any:
         """フォールバック戦略適用"""
         try:
             strategies = self.fallback_strategies.get(data_type, ["default"])
 
             for strategy in strategies:
-                fallback_data = self._execute_fallback_strategy(
-                    strategy, data_type, symbol
-                )
+                fallback_data = self._execute_fallback_strategy(strategy, data_type, symbol)
                 if fallback_data is not None:
                     logger.info(f"フォールバック成功 {data_type} {symbol}: {strategy}")
                     return fallback_data
@@ -855,9 +833,7 @@ class DataQualityManager:
             logger.error(f"フォールバック戦略エラー {data_type} {symbol}: {e}")
             return None
 
-    def _execute_fallback_strategy(
-        self, strategy: str, data_type: str, symbol: str
-    ) -> Any:
+    def _execute_fallback_strategy(self, strategy: str, data_type: str, symbol: str) -> Any:
         """フォールバック戦略実行"""
 
         if strategy == "cache_stale":
@@ -909,18 +885,10 @@ class DataQualityManager:
 
         return pd.DataFrame(
             {
-                "Open": [
-                    base_price * (1 + np.random.uniform(-0.02, 0.02)) for _ in range(5)
-                ],
-                "High": [
-                    base_price * (1 + np.random.uniform(0.0, 0.03)) for _ in range(5)
-                ],
-                "Low": [
-                    base_price * (1 + np.random.uniform(-0.03, 0.0)) for _ in range(5)
-                ],
-                "Close": [
-                    base_price * (1 + np.random.uniform(-0.02, 0.02)) for _ in range(5)
-                ],
+                "Open": [base_price * (1 + np.random.uniform(-0.02, 0.02)) for _ in range(5)],
+                "High": [base_price * (1 + np.random.uniform(0.0, 0.03)) for _ in range(5)],
+                "Low": [base_price * (1 + np.random.uniform(-0.03, 0.0)) for _ in range(5)],
+                "Close": [base_price * (1 + np.random.uniform(-0.02, 0.02)) for _ in range(5)],
                 "Volume": [np.random.randint(1000000, 5000000) for _ in range(5)],
                 "interpolated": True,
             },
@@ -958,9 +926,7 @@ class DataQualityManager:
         priority = 3.0 + (metrics.overall_score * 5.0)  # 3-8の範囲
         self.cache_manager.put(cache_key, metrics, priority=priority)
 
-    def _update_quality_history(
-        self, symbol: str, data_type: str, metrics: DataQualityMetrics
-    ):
+    def _update_quality_history(self, symbol: str, data_type: str, metrics: DataQualityMetrics):
         """品質履歴更新"""
         key = f"{symbol}_{data_type}"
 
@@ -973,9 +939,7 @@ class DataQualityManager:
         if len(self.quality_history[key]) > 100:
             self.quality_history[key] = self.quality_history[key][-100:]
 
-    def get_quality_trend(
-        self, symbol: str, data_type: str, days: int = 30
-    ) -> Dict[str, Any]:
+    def get_quality_trend(self, symbol: str, data_type: str, days: int = 30) -> Dict[str, Any]:
         """品質トレンド取得"""
         key = f"{symbol}_{data_type}"
 
@@ -997,9 +961,7 @@ class DataQualityManager:
 
         # トレンド判定
         if len(scores) >= 2:
-            recent_trend = np.polyfit(range(len(scores)), scores, 1)[
-                0
-            ]  # 線形回帰の傾き
+            recent_trend = np.polyfit(range(len(scores)), scores, 1)[0]  # 線形回帰の傾き
             if recent_trend > 0.01:
                 trend = "improving"
             elif recent_trend < -0.01:
@@ -1111,9 +1073,7 @@ if __name__ == "__main__":
         print("\n2. データ品質評価テスト...")
 
         # 価格データ評価
-        price_metrics = quality_manager.assess_data_quality(
-            test_price_data, "price", "7203"
-        )
+        price_metrics = quality_manager.assess_data_quality(test_price_data, "price", "7203")
         print(
             f"   価格データ品質: {price_metrics.overall_score:.3f} ({price_metrics.quality_level.value})"
         )
@@ -1130,9 +1090,7 @@ if __name__ == "__main__":
         )
 
         # ニュースデータ評価
-        news_metrics = quality_manager.assess_data_quality(
-            test_news_data, "news", "7203"
-        )
+        news_metrics = quality_manager.assess_data_quality(test_news_data, "news", "7203")
         print(
             f"   ニュース品質: {news_metrics.overall_score:.3f} ({news_metrics.quality_level.value})"
         )
@@ -1141,12 +1099,8 @@ if __name__ == "__main__":
         print("\n3. 自動修正テスト...")
 
         # 価格データ問題検証・修正
-        is_valid, issues = quality_manager.validator.validate_data(
-            test_price_data, "price"
-        )
-        print(
-            f"   価格データ検証: {'有効' if is_valid else '問題あり'} ({len(issues)}件の問題)"
-        )
+        is_valid, issues = quality_manager.validator.validate_data(test_price_data, "price")
+        print(f"   価格データ検証: {'有効' if is_valid else '問題あり'} ({len(issues)}件の問題)")
 
         fixed_price_data, fixed_issues = quality_manager.auto_fix_data_issues(
             test_price_data, "price", issues
@@ -1170,9 +1124,7 @@ if __name__ == "__main__":
 
         # フォールバック戦略テスト
         print("\n5. フォールバック戦略テスト...")
-        fallback_data = quality_manager.apply_fallback_strategy(
-            "sentiment", "7203", "API障害"
-        )
+        fallback_data = quality_manager.apply_fallback_strategy("sentiment", "7203", "API障害")
         print(f"   フォールバック成功: {fallback_data is not None}")
 
         if fallback_data:

@@ -243,9 +243,7 @@ class MLPerformanceProfiler:
 
         self.profiling_results[component_name].append(metrics)
 
-    def benchmark_advanced_ml_engine(
-        self, test_data: pd.DataFrame
-    ) -> ComponentBenchmark:
+    def benchmark_advanced_ml_engine(self, test_data: pd.DataFrame) -> ComponentBenchmark:
         """Benchmark AdvancedMLEngine"""
         print("Starting AdvancedMLEngine benchmark...")
         logger.info("AdvancedMLEngine benchmark starting")
@@ -262,9 +260,7 @@ class MLPerformanceProfiler:
 
             # 1. Feature preparation profiling
             print("  - Profiling feature preparation...")
-            with self.profile_method(
-                component_name, "prepare_features", len(test_data)
-            ):
+            with self.profile_method(component_name, "prepare_features", len(test_data)):
                 features = engine.prepare_features(test_data)
 
             # 2. Model training profiling (limited)
@@ -276,12 +272,8 @@ class MLPerformanceProfiler:
             # 3. Ensemble prediction profiling
             if not features.empty and len(features) > 20:
                 print("  - Profiling ensemble prediction...")
-                with self.profile_method(
-                    component_name, "ensemble_predict", len(features)
-                ):
-                    predictions = engine.ensemble_predict(
-                        features, test_symbol="PROFILE_TEST"
-                    )
+                with self.profile_method(component_name, "ensemble_predict", len(features)):
+                    predictions = engine.ensemble_predict(features, test_symbol="PROFILE_TEST")
 
         except Exception as e:
             logger.error(f"AdvancedMLEngine benchmark error: {e}")
@@ -300,12 +292,8 @@ class MLPerformanceProfiler:
         )
 
         # Bottleneck analysis
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
         logger.info(f"AdvancedMLEngine benchmark completed: {total_time:.2f}s")
@@ -334,25 +322,19 @@ class MLPerformanceProfiler:
 
             # 1. LSTM feature preparation profiling
             print("  - Profiling LSTM feature preparation...")
-            with self.profile_method(
-                component_name, "prepare_lstm_features", len(test_data)
-            ):
+            with self.profile_method(component_name, "prepare_lstm_features", len(test_data)):
                 features = lstm_model.prepare_lstm_features(test_data)
 
             # 2. Sequence creation profiling
             if not features.empty and len(features) > 20:
                 print("  - Profiling sequence creation...")
-                with self.profile_method(
-                    component_name, "create_sequences", len(features)
-                ):
+                with self.profile_method(component_name, "create_sequences", len(features)):
                     X, y = lstm_model.create_sequences(features)
 
             # 3. Model building profiling (lightweight)
             if "X" in locals() and len(X) > 0:
                 print("  - Profiling model building...")
-                with self.profile_method(
-                    component_name, "build_lstm_model", X.shape[1]
-                ):
+                with self.profile_method(component_name, "build_lstm_model", X.shape[1]):
                     model = lstm_model.build_lstm_model((X.shape[1], X.shape[2]))
 
         except Exception as e:
@@ -372,12 +354,8 @@ class MLPerformanceProfiler:
         )
 
         # Bottleneck analysis
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
         logger.info(f"LSTMTimeSeriesModel benchmark completed: {total_time:.2f}s")
@@ -385,9 +363,7 @@ class MLPerformanceProfiler:
 
         return benchmark
 
-    def benchmark_technical_indicators(
-        self, test_data: pd.DataFrame
-    ) -> ComponentBenchmark:
+    def benchmark_technical_indicators(self, test_data: pd.DataFrame) -> ComponentBenchmark:
         """Benchmark Advanced Technical Indicators"""
         print("Starting AdvancedTechnicalIndicators benchmark...")
         logger.info("AdvancedTechnicalIndicators benchmark starting")
@@ -404,25 +380,17 @@ class MLPerformanceProfiler:
 
             # 1. Ichimoku Cloud calculation profiling
             print("  - Profiling Ichimoku Cloud calculation...")
-            with self.profile_method(
-                component_name, "calculate_ichimoku_cloud", len(test_data)
-            ):
+            with self.profile_method(component_name, "calculate_ichimoku_cloud", len(test_data)):
                 ichimoku_result = technical_analyzer.calculate_ichimoku_cloud(test_data)
 
             # 2. Fibonacci analysis profiling
             print("  - Profiling Fibonacci analysis...")
-            with self.profile_method(
-                component_name, "analyze_fibonacci_levels", len(test_data)
-            ):
-                fibonacci_result = technical_analyzer.analyze_fibonacci_levels(
-                    test_data
-                )
+            with self.profile_method(component_name, "analyze_fibonacci_levels", len(test_data)):
+                fibonacci_result = technical_analyzer.analyze_fibonacci_levels(test_data)
 
             # 3. Elliott Wave analysis profiling
             print("  - Profiling Elliott Wave analysis...")
-            with self.profile_method(
-                component_name, "detect_elliott_waves", len(test_data)
-            ):
+            with self.profile_method(component_name, "detect_elliott_waves", len(test_data)):
                 elliott_result = technical_analyzer.detect_elliott_waves(test_data)
 
         except Exception as e:
@@ -442,17 +410,11 @@ class MLPerformanceProfiler:
         )
 
         # Bottleneck analysis
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
-        logger.info(
-            f"AdvancedTechnicalIndicators benchmark completed: {total_time:.2f}s"
-        )
+        logger.info(f"AdvancedTechnicalIndicators benchmark completed: {total_time:.2f}s")
         print(f"  Completed in {total_time:.2f}s, Memory: {total_memory_used:.1f}MB")
 
         return benchmark
@@ -473,15 +435,11 @@ class MLPerformanceProfiler:
                 continue
             # Consider methods taking more than 10% of total time as bottlenecks
             if total_time > 0 and metric.execution_time / total_time > 0.1:
-                bottlenecks.append(
-                    f"{metric.method_name} ({metric.execution_time:.2f}s)"
-                )
+                bottlenecks.append(f"{metric.method_name} ({metric.execution_time:.2f}s)")
 
         return bottlenecks
 
-    def _generate_optimization_suggestions(
-        self, benchmark: ComponentBenchmark
-    ) -> List[str]:
+    def _generate_optimization_suggestions(self, benchmark: ComponentBenchmark) -> List[str]:
         """Generate optimization suggestions"""
         suggestions = []
 
@@ -491,9 +449,7 @@ class MLPerformanceProfiler:
 
         # Memory usage based suggestions
         if benchmark.total_memory_usage > 500:  # 500MB+
-            suggestions.append(
-                "High memory usage - Consider data chunking or cache optimization"
-            )
+            suggestions.append("High memory usage - Consider data chunking or cache optimization")
 
         # Bottleneck specific suggestions
         for bottleneck in benchmark.bottleneck_methods:
@@ -628,14 +584,8 @@ def generate_test_data(symbol: str = "TEST", days: int = 200) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Open": [p * np.random.uniform(0.995, 1.005) for p in prices],
-            "High": [
-                max(o, c) * np.random.uniform(1.000, 1.02)
-                for o, c in zip(prices, prices)
-            ],
-            "Low": [
-                min(o, c) * np.random.uniform(0.98, 1.000)
-                for o, c in zip(prices, prices)
-            ],
+            "High": [max(o, c) * np.random.uniform(1.000, 1.02) for o, c in zip(prices, prices)],
+            "Low": [min(o, c) * np.random.uniform(0.98, 1.000) for o, c in zip(prices, prices)],
             "Close": prices,
             "Volume": np.random.randint(1000000, 10000000, days),
         },

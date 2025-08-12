@@ -14,15 +14,16 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class BasicRiskTest:
     def __init__(self):
         self.test_results = {}
         logger.info("Basic risk test initialized")
 
     async def run_tests(self):
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print("AI Risk Management System - Basic Test")
-        print("="*50)
+        print("=" * 50)
         print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print()
 
@@ -58,7 +59,7 @@ class BasicRiskTest:
         rate = success / total * 100
         print(f"  Success: {success}/{total} ({rate:.1f}%)")
 
-        self.test_results['imports'] = {'success': success == total, 'rate': rate}
+        self.test_results["imports"] = {"success": success == total, "rate": rate}
         print()
 
     async def _test_risk_calc(self):
@@ -67,35 +68,32 @@ class BasicRiskTest:
 
         try:
             # Simple risk calculation
-            data = {
-                'amount': 5000000,
-                'hour': 14,
-                'volatility': 0.25,
-                'balance': 10000000
-            }
+            data = {"amount": 5000000, "hour": 14, "volatility": 0.25, "balance": 10000000}
 
             risk_score = await self._calc_risk(data)
 
             if 0 <= risk_score <= 1:
-                level = "CRITICAL" if risk_score >= 0.8 else \
-                        "HIGH" if risk_score >= 0.6 else \
-                        "MEDIUM" if risk_score >= 0.3 else "LOW"
+                level = (
+                    "CRITICAL"
+                    if risk_score >= 0.8
+                    else "HIGH" if risk_score >= 0.6 else "MEDIUM" if risk_score >= 0.3 else "LOW"
+                )
 
                 print(f"  Risk Score: {risk_score:.3f}")
                 print(f"  Risk Level: {level}")
                 print("  Status: OK")
 
-                self.test_results['risk_calc'] = {
-                    'success': True,
-                    'score': risk_score,
-                    'level': level
+                self.test_results["risk_calc"] = {
+                    "success": True,
+                    "score": risk_score,
+                    "level": level,
                 }
             else:
                 raise ValueError(f"Invalid risk score: {risk_score}")
 
         except Exception as e:
             print(f"  FAIL: {e}")
-            self.test_results['risk_calc'] = {'success': False, 'error': str(e)}
+            self.test_results["risk_calc"] = {"success": False, "error": str(e)}
 
         print()
 
@@ -105,19 +103,19 @@ class BasicRiskTest:
 
         test_cases = [
             {
-                'name': 'suspicious_night',
-                'amount': 15000000,
-                'hour': 3,
-                'new_device': True,
-                'expected': True
+                "name": "suspicious_night",
+                "amount": 15000000,
+                "hour": 3,
+                "new_device": True,
+                "expected": True,
             },
             {
-                'name': 'normal_day',
-                'amount': 100000,
-                'hour': 14,
-                'new_device': False,
-                'expected': False
-            }
+                "name": "normal_day",
+                "amount": 100000,
+                "hour": 14,
+                "new_device": False,
+                "expected": False,
+            },
         ]
 
         correct = 0
@@ -128,7 +126,7 @@ class BasicRiskTest:
                 fraud_score = await self._calc_fraud(case)
                 predicted = fraud_score > 0.5
 
-                if predicted == case['expected']:
+                if predicted == case["expected"]:
                     correct += 1
                     result = "OK"
                 else:
@@ -139,15 +137,11 @@ class BasicRiskTest:
             accuracy = correct / total * 100
             print(f"  Accuracy: {correct}/{total} ({accuracy:.1f}%)")
 
-            self.test_results['fraud'] = {
-                'success': True,
-                'accuracy': accuracy,
-                'correct': correct
-            }
+            self.test_results["fraud"] = {"success": True, "accuracy": accuracy, "correct": correct}
 
         except Exception as e:
             print(f"  FAIL: {e}")
-            self.test_results['fraud'] = {'success': False, 'error': str(e)}
+            self.test_results["fraud"] = {"success": False, "error": str(e)}
 
         print()
 
@@ -155,21 +149,21 @@ class BasicRiskTest:
         risk = 0.0
 
         # Amount risk
-        if data['amount'] > 10000000:
+        if data["amount"] > 10000000:
             risk += 0.3
-        elif data['amount'] > 1000000:
+        elif data["amount"] > 1000000:
             risk += 0.1
 
         # Time risk
-        if data['hour'] < 9 or data['hour'] > 15:
+        if data["hour"] < 9 or data["hour"] > 15:
             risk += 0.2
 
         # Volatility risk
-        if data.get('volatility', 0) > 0.3:
+        if data.get("volatility", 0) > 0.3:
             risk += 0.2
 
         # Balance ratio risk
-        ratio = data['amount'] / max(data.get('balance', 1), 1)
+        ratio = data["amount"] / max(data.get("balance", 1), 1)
         if ratio > 0.5:
             risk += 0.3
 
@@ -179,46 +173,46 @@ class BasicRiskTest:
         score = 0.0
 
         # High amount
-        if data['amount'] > 10000000:
+        if data["amount"] > 10000000:
             score += 0.4
-        elif data['amount'] > 5000000:
+        elif data["amount"] > 5000000:
             score += 0.2
 
         # Night time
-        if data['hour'] < 6 or data['hour'] > 22:
+        if data["hour"] < 6 or data["hour"] > 22:
             score += 0.3
 
         # New device
-        if data.get('new_device', False):
+        if data.get("new_device", False):
             score += 0.2
 
         return min(1.0, max(0.0, score))
 
     def _show_results(self):
-        print("="*50)
+        print("=" * 50)
         print("Test Results")
-        print("="*50)
+        print("=" * 50)
 
         total = len(self.test_results)
-        passed = sum(1 for r in self.test_results.values() if r.get('success', False))
+        passed = sum(1 for r in self.test_results.values() if r.get("success", False))
         rate = passed / total * 100 if total > 0 else 0
 
         print(f"Overall: {passed}/{total} ({rate:.1f}%)")
         print()
 
         for name, result in self.test_results.items():
-            status = "PASS" if result.get('success') else "FAIL"
+            status = "PASS" if result.get("success") else "FAIL"
             print(f"{name}: {status}")
 
-            if result.get('success'):
-                if 'rate' in result:
+            if result.get("success"):
+                if "rate" in result:
                     print(f"  Rate: {result['rate']:.1f}%")
-                if 'score' in result:
+                if "score" in result:
                     print(f"  Score: {result['score']:.3f}")
-                if 'accuracy' in result:
+                if "accuracy" in result:
                     print(f"  Accuracy: {result['accuracy']:.1f}%")
             else:
-                if 'error' in result:
+                if "error" in result:
                     print(f"  Error: {result['error']}")
             print()
 
@@ -229,7 +223,8 @@ class BasicRiskTest:
         else:
             print("Several tests failed.")
 
-        print("="*50)
+        print("=" * 50)
+
 
 async def main():
     try:
@@ -237,6 +232,7 @@ async def main():
         await test.run_tests()
     except Exception as e:
         print(f"Test error: {e}")
+
 
 if __name__ == "__main__":
     print("Starting AI Risk Management System Test...")

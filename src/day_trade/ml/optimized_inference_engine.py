@@ -27,9 +27,7 @@ try:
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
-    warnings.warn(
-        "ONNX Runtime not installed. Fallback to original frameworks.", stacklevel=2
-    )
+    warnings.warn("ONNX Runtime not installed. Fallback to original frameworks.", stacklevel=2)
 
 # モデル変換ライブラリ (フォールバック対応)
 try:
@@ -126,9 +124,11 @@ class InferenceResult:
     def to_dict(self) -> Dict[str, Any]:
         """結果を辞書形式に変換"""
         return {
-            "predictions": self.predictions.tolist()
-            if isinstance(self.predictions, np.ndarray)
-            else self.predictions,
+            "predictions": (
+                self.predictions.tolist()
+                if isinstance(self.predictions, np.ndarray)
+                else self.predictions
+            ),
             "execution_time_us": self.execution_time_us,
             "batch_size": self.batch_size,
             "backend_used": self.backend_used.value,
@@ -149,9 +149,7 @@ class ONNXModelOptimizer:
     ) -> bool:
         """TensorFlowモデルをONNXに変換"""
         if not TF_ONNX_AVAILABLE:
-            logger.warning(
-                "tf2onnx not available - TensorFlow to ONNX conversion skipped"
-            )
+            logger.warning("tf2onnx not available - TensorFlow to ONNX conversion skipped")
             return False
 
         try:
@@ -231,9 +229,9 @@ class ONNXModelOptimizer:
             quantize_dynamic(
                 model_path,
                 output_path,
-                weight_type=QuantType.QUInt8
-                if quantization_mode == "IntegerOps"
-                else QuantType.QInt8,
+                weight_type=(
+                    QuantType.QUInt8 if quantization_mode == "IntegerOps" else QuantType.QInt8
+                ),
             )
 
             logger.info(f"モデル量子化完了: {output_path}")
@@ -247,9 +245,7 @@ class ONNXModelOptimizer:
 class OptimizedInferenceSession:
     """最適化推論セッション"""
 
-    def __init__(
-        self, model_path: str, config: InferenceConfig, model_name: str = "unknown"
-    ):
+    def __init__(self, model_path: str, config: InferenceConfig, model_name: str = "unknown"):
         self.model_path = model_path
         self.config = config
         self.model_name = model_name
@@ -283,13 +279,9 @@ class OptimizedInferenceSession:
             # セッション作成
             sess_options = ort.SessionOptions()
             sess_options.intra_op_num_threads = self.config.thread_pool_size
-            sess_options.graph_optimization_level = (
-                ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            )
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-            self.session = ort.InferenceSession(
-                self.model_path, sess_options, providers=providers
-            )
+            self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
 
             # 入出力情報取得
             self.input_name = self.session.get_inputs()[0].name
@@ -311,18 +303,14 @@ class OptimizedInferenceSession:
 
         if self.config.backend == InferenceBackend.ONNX_CUDA:
             # CUDA利用可能性チェック
-            available_providers = (
-                ort.get_available_providers() if ONNX_AVAILABLE else []
-            )
+            available_providers = ort.get_available_providers() if ONNX_AVAILABLE else []
             if "CUDAExecutionProvider" in available_providers:
                 providers.append("CUDAExecutionProvider")
             else:
                 logger.warning("CUDA ExecutionProvider利用不可 - CPUにフォールバック")
 
         if self.config.backend == InferenceBackend.ONNX_OPENVINO:
-            available_providers = (
-                ort.get_available_providers() if ONNX_AVAILABLE else []
-            )
+            available_providers = ort.get_available_providers() if ONNX_AVAILABLE else []
             if "OpenVINOExecutionProvider" in available_providers:
                 providers.append("OpenVINOExecutionProvider")
 
@@ -361,8 +349,7 @@ class OptimizedInferenceSession:
             self.inference_stats["total_inferences"] += 1
             self.inference_stats["total_time_us"] += execution_time
             self.inference_stats["avg_time_us"] = (
-                self.inference_stats["total_time_us"]
-                / self.inference_stats["total_inferences"]
+                self.inference_stats["total_time_us"] / self.inference_stats["total_inferences"]
             )
 
             return InferenceResult(
@@ -496,8 +483,7 @@ class DynamicBatchProcessor:
             self.batch_stats["batches_processed"] += 1
             self.batch_stats["total_requests"] += batch_size
             self.batch_stats["avg_batch_size"] = (
-                self.batch_stats["total_requests"]
-                / self.batch_stats["batches_processed"]
+                self.batch_stats["total_requests"] / self.batch_stats["batches_processed"]
             )
 
         except Exception as e:
@@ -564,9 +550,7 @@ class OptimizedInferenceEngine:
 
                 if model_path.endswith((".h5", ".keras", ".pb")):
                     # TensorFlowモデル変換
-                    success = self.model_optimizer.convert_tensorflow_to_onnx(
-                        model_path, onnx_path
-                    )
+                    success = self.model_optimizer.convert_tensorflow_to_onnx(model_path, onnx_path)
                     if not success:
                         logger.warning(f"ONNX変換失敗: {model_path}")
                         onnx_path = model_path  # 元のパスを使用
@@ -641,8 +625,7 @@ class OptimizedInferenceEngine:
             self.engine_stats["total_inferences"] += 1
             self.engine_stats["total_inference_time_us"] += result.execution_time_us
             self.engine_stats["avg_inference_time_us"] = (
-                self.engine_stats["total_inference_time_us"]
-                / self.engine_stats["total_inferences"]
+                self.engine_stats["total_inference_time_us"] / self.engine_stats["total_inferences"]
             )
 
             return result

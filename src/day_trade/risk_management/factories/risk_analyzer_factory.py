@@ -264,17 +264,17 @@ class RiskAnalyzerFactory:
                         "name": metadata.name,
                         "version": metadata.version,
                         "description": metadata.description,
-                        "config_schema": self._config_schemas.get(
-                            AnalyzerType.PLUGIN, {}
-                        ).get(plugin_name, {}),
+                        "config_schema": self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(
+                            plugin_name, {}
+                        ),
                     }
                 else:
                     available[plugin_name] = {
                         "type": "plugin",
                         "name": plugin_name,
-                        "config_schema": self._config_schemas.get(
-                            AnalyzerType.PLUGIN, {}
-                        ).get(plugin_name, {}),
+                        "config_schema": self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(
+                            plugin_name, {}
+                        ),
                     }
             except Exception:
                 available[plugin_name] = {"type": "plugin", "name": plugin_name}
@@ -298,9 +298,7 @@ class RiskAnalyzerFactory:
 
         # スキーマ取得
         if analyzer_type == AnalyzerType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(
-                plugin_name, {}
-            )
+            schema = self._config_schemas.get(AnalyzerType.PLUGIN, {}).get(plugin_name, {})
         else:
             schema = self._config_schemas.get(analyzer_type, {})
 
@@ -442,6 +440,4 @@ def register_analyzer_type(
 ) -> bool:
     """分析器タイプ登録（便利関数）"""
     factory = get_analyzer_factory()
-    return factory.register_analyzer(
-        analyzer_type, module_path, class_name, config_schema
-    )
+    return factory.register_analyzer(analyzer_type, module_path, class_name, config_schema)

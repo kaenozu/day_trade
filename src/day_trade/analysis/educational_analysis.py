@@ -164,14 +164,10 @@ class EducationalMarketAnalyzer:
         # 実データ取得と分析
         stock_data = self.real_data_manager.get_stock_data(symbol)
         current_price = self.real_data_manager.get_current_price(symbol)
-        technical_indicators = self._generate_technical_indicators_real(
-            symbol, stock_data
-        )
+        technical_indicators = self._generate_technical_indicators_real(symbol, stock_data)
         historical_stats = self._generate_historical_statistics()
         ml_scores = self._generate_ml_technical_scores_real(symbol, stock_data)
-        educational_notes = self._generate_educational_notes(
-            technical_indicators, ml_scores
-        )
+        educational_notes = self._generate_educational_notes(technical_indicators, ml_scores)
 
         result = EducationalAnalysisResult(
             symbol=symbol,
@@ -248,9 +244,7 @@ class EducationalMarketAnalyzer:
 
         return indicators
 
-    def _generate_technical_indicators_fallback(
-        self, symbol: str
-    ) -> List[TechnicalIndicator]:
+    def _generate_technical_indicators_fallback(self, symbol: str) -> List[TechnicalIndicator]:
         """フォールバック用技術指標生成（ランダム）"""
         indicators = []
 
@@ -289,9 +283,7 @@ class EducationalMarketAnalyzer:
 
         return indicators
 
-    def _generate_ml_technical_scores_real(
-        self, symbol: str, stock_data
-    ) -> List[MLTechnicalScore]:
+    def _generate_ml_technical_scores_real(self, symbol: str, stock_data) -> List[MLTechnicalScore]:
         """実データに基づく機械学習テクニカルスコア生成（高度版優先）"""
         scores = []
 
@@ -301,10 +293,8 @@ class EducationalMarketAnalyzer:
                 logger.info(f"高度MLエンジン使用: {symbol}")
 
                 # 高度な技術指標計算
-                advanced_data = (
-                    self.advanced_ml_engine.calculate_advanced_technical_indicators(
-                        stock_data
-                    )
+                advanced_data = self.advanced_ml_engine.calculate_advanced_technical_indicators(
+                    stock_data
                 )
 
                 # ML特徴量準備
@@ -331,9 +321,7 @@ class EducationalMarketAnalyzer:
                     trend_score,
                     volatility_score,
                     pattern_score,
-                ) = self.advanced_ml_engine.predict_advanced_scores(
-                    symbol, stock_data, features
-                )
+                ) = self.advanced_ml_engine.predict_advanced_scores(symbol, stock_data, features)
 
                 # モデル情報取得（信頼度計算用）
                 model_info = self.advanced_ml_engine.get_model_info(symbol)
@@ -341,9 +329,7 @@ class EducationalMarketAnalyzer:
 
                 if model_info and "model_performance" in model_info:
                     # 最良モデルのR²スコアを信頼度として使用
-                    r2_scores = [
-                        perf["r2"] for perf in model_info["model_performance"].values()
-                    ]
+                    r2_scores = [perf["r2"] for perf in model_info["model_performance"].values()]
                     if r2_scores:
                         base_confidence = max(0.5, min(0.95, max(r2_scores)))
 
@@ -353,9 +339,7 @@ class EducationalMarketAnalyzer:
                     score_value=trend_score,
                     confidence_level=round(base_confidence, 2),
                     model_description="pandas-ta + scikit-learn チューニング済みアンサンブル学習モデル",
-                    educational_interpretation=self._get_trend_score_interpretation(
-                        trend_score
-                    ),
+                    educational_interpretation=self._get_trend_score_interpretation(trend_score),
                     methodology="チューニング済みRandomForest + GradientBoosting + ExtraTrees による実データアンサンブル学習",
                     disclaimer=self.ml_disclaimer,
                 )
@@ -364,9 +348,7 @@ class EducationalMarketAnalyzer:
                 volatility_ml = MLTechnicalScore(
                     score_name="高度ML価格変動予測スコア",
                     score_value=volatility_score,
-                    confidence_level=round(
-                        base_confidence * 0.9, 2
-                    ),  # やや低めの信頼度
+                    confidence_level=round(base_confidence * 0.9, 2),  # やや低めの信頼度
                     model_description="多次元特徴量による高度ボラティリティ予測",
                     educational_interpretation=self._get_volatility_score_interpretation(
                         volatility_score
@@ -405,9 +387,7 @@ class EducationalMarketAnalyzer:
                     score_value=trend_score,
                     confidence_level=trend_confidence,
                     model_description="実データLSTM深層学習モデルによるトレンド分析",
-                    educational_interpretation=self._get_trend_score_interpretation(
-                        trend_score
-                    ),
+                    educational_interpretation=self._get_trend_score_interpretation(trend_score),
                     methodology="実際の過去60日の価格・出来高データを学習した深層ニューラルネットワーク",
                     disclaimer=self.ml_disclaimer,
                 )
@@ -456,9 +436,7 @@ class EducationalMarketAnalyzer:
 
         return scores
 
-    def _generate_ml_technical_scores_fallback(
-        self, symbol: str
-    ) -> List[MLTechnicalScore]:
+    def _generate_ml_technical_scores_fallback(self, symbol: str) -> List[MLTechnicalScore]:
         """フォールバック用MLスコア生成（ランダム）"""
         scores = []
 
@@ -469,9 +447,7 @@ class EducationalMarketAnalyzer:
             score_value=round(trend_score, 1),
             confidence_level=round(0.6 + random.random() * 0.3, 2),
             model_description="LSTM深層学習モデルによるトレンド分析",
-            educational_interpretation=self._get_trend_score_interpretation(
-                trend_score
-            ),
+            educational_interpretation=self._get_trend_score_interpretation(trend_score),
             methodology="過去60日の価格・出来高データを学習した深層ニューラルネットワーク",
             disclaimer=self.ml_disclaimer,
         )
@@ -484,9 +460,7 @@ class EducationalMarketAnalyzer:
             score_value=round(volatility_score, 1),
             confidence_level=round(0.55 + random.random() * 0.35, 2),
             model_description="アンサンブル学習による価格変動幅の技術的評価",
-            educational_interpretation=self._get_volatility_score_interpretation(
-                volatility_score
-            ),
+            educational_interpretation=self._get_volatility_score_interpretation(volatility_score),
             methodology="ランダムフォレスト + グラディエントブースティングによる複合モデル",
             disclaimer=self.ml_disclaimer,
         )
@@ -499,9 +473,7 @@ class EducationalMarketAnalyzer:
             score_value=round(pattern_score, 1),
             confidence_level=round(0.5 + random.random() * 0.4, 2),
             model_description="チャートパターンの機械学習による認識システム",
-            educational_interpretation=self._get_pattern_score_interpretation(
-                pattern_score
-            ),
+            educational_interpretation=self._get_pattern_score_interpretation(pattern_score),
             methodology="畳み込みニューラルネットワーク（CNN）によるチャート画像解析",
             disclaimer=self.ml_disclaimer,
         )
@@ -614,9 +586,7 @@ class EducationalMarketAnalyzer:
             )
 
         # 出来高に基づく教育的見解
-        volume_indicator = next(
-            (ind for ind in indicators if "出来高" in ind.name), None
-        )
+        volume_indicator = next((ind for ind in indicators if "出来高" in ind.name), None)
         if volume_indicator and volume_indicator.current_value >= 2.0:
             notes.append(
                 "出来高が平均を大幅に上回っており、市場参加者の"
@@ -657,13 +627,9 @@ class EducationalMarketAnalyzer:
 
         # ヘッダー
         report_lines.append("=" * 80)
-        report_lines.append(
-            f"【教育的技術指標レポート】 {result.symbol} {result.company_name}"
-        )
+        report_lines.append(f"【教育的技術指標レポート】 {result.symbol} {result.company_name}")
         report_lines.append("=" * 80)
-        report_lines.append(
-            f"分析時刻: {result.analysis_time.strftime('%Y-%m-%d %H:%M:%S')}"
-        )
+        report_lines.append(f"分析時刻: {result.analysis_time.strftime('%Y-%m-%d %H:%M:%S')}")
         report_lines.append(f"現在価格: {result.current_price:,.1f}円")
         report_lines.append("")
 
@@ -677,9 +643,7 @@ class EducationalMarketAnalyzer:
 
             # 参考レベル表示
             if indicator.reference_levels:
-                levels = ", ".join(
-                    [f"{k}:{v}" for k, v in indicator.reference_levels.items()]
-                )
+                levels = ", ".join([f"{k}:{v}" for k, v in indicator.reference_levels.items()])
                 report_lines.append(f"  参考レベル: {levels}")
             report_lines.append("")
 
@@ -688,9 +652,7 @@ class EducationalMarketAnalyzer:
             report_lines.append("【機械学習テクニカルスコア】（教育・研究用）")
             report_lines.append("-" * 50)
             for ml_score in result.ml_technical_scores:
-                report_lines.append(
-                    f"◆ {ml_score.score_name}: {ml_score.score_value}/100"
-                )
+                report_lines.append(f"◆ {ml_score.score_name}: {ml_score.score_value}/100")
                 report_lines.append(f"  信頼度: {ml_score.confidence_level:.2f}")
                 report_lines.append(f"  モデル: {ml_score.model_description}")
                 report_lines.append(f"  解釈: {ml_score.educational_interpretation}")
@@ -728,13 +690,11 @@ class EducationalMarketAnalyzer:
                 score_level = (
                     "高スコア"
                     if score.score_value >= 70
-                    else "中スコア"
-                    if score.score_value >= 40
-                    else "低スコア"
+                    else "中スコア" if score.score_value >= 40 else "低スコア"
                 )
-                interpretation = score.educational_interpretation.replace(
-                    "技術的に", ""
-                ).replace("（教育用参考情報）", "")[:35]
+                interpretation = score.educational_interpretation.replace("技術的に", "").replace(
+                    "（教育用参考情報）", ""
+                )[:35]
                 report_lines.append(
                     f"{score.score_name:<20} {score.score_value:>6.1f}/100 {score_level:<8} {score.confidence_level:<10.2f} {interpretation}"
                 )

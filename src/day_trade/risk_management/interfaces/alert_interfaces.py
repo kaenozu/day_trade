@@ -178,9 +178,7 @@ class IAlertProcessor(ABC):
         pass
 
     @abstractmethod
-    async def suppress_alert(
-        self, alert_id: str, duration_minutes: int, reason: str
-    ) -> bool:
+    async def suppress_alert(self, alert_id: str, duration_minutes: int, reason: str) -> bool:
         """アラート抑制"""
         pass
 

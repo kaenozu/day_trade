@@ -204,9 +204,7 @@ class IntelligentRouter:
     def record_performance(self, handler: str, metrics: Dict[str, float]):
         """性能記録"""
         with self.lock:
-            self.performance_history[handler].append(
-                {"timestamp": time.time(), **metrics}
-            )
+            self.performance_history[handler].append({"timestamp": time.time(), **metrics})
 
 
 class UnifiedBatchDataFlow:
@@ -278,9 +276,7 @@ class UnifiedBatchDataFlow:
         # ロック
         self.metrics_lock = threading.Lock()
 
-        logger.info(
-            f"統合バッチデータフロー初期化: systems={list(self.systems.keys())}"
-        )
+        logger.info(f"統合バッチデータフロー初期化: systems={list(self.systems.keys())}")
 
     def start(self):
         """システム開始"""
@@ -296,9 +292,7 @@ class UnifiedBatchDataFlow:
                 logger.info(f"{name} started")
 
         # モニタリングスレッド開始
-        self.monitor_thread = threading.Thread(
-            target=self._monitoring_loop, daemon=True
-        )
+        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitor_thread.start()
 
         logger.info("統合バッチデータフロー開始")
@@ -391,17 +385,13 @@ class UnifiedBatchDataFlow:
         """
         flow_id = f"flow_async_{int(time.time() * 1000)}_{len(self.active_flows)}"
 
-        request = UnifiedDataFlowRequest(
-            flow_id=flow_id, symbols=symbols, stages=stages, **kwargs
-        )
+        request = UnifiedDataFlowRequest(flow_id=flow_id, symbols=symbols, stages=stages, **kwargs)
 
         # ThreadPoolExecutorを使用して非同期実行
         if not hasattr(self, "flow_executor") or not self.flow_executor:
             from concurrent.futures import ThreadPoolExecutor
 
-            self.flow_executor = ThreadPoolExecutor(
-                max_workers=8, thread_name_prefix="FlowExec"
-            )
+            self.flow_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="FlowExec")
 
         future = self.flow_executor.submit(self._execute_flow_internal, request)
         self.active_flows[flow_id] = future
@@ -421,14 +411,10 @@ class UnifiedBatchDataFlow:
 
             future.add_done_callback(handle_completion)
 
-        logger.info(
-            f"非同期フロー開始: {flow_id} - {len(symbols)} symbols, {len(stages)} stages"
-        )
+        logger.info(f"非同期フロー開始: {flow_id} - {len(symbols)} symbols, {len(stages)} stages")
         return flow_id
 
-    def _execute_flow_internal(
-        self, request: UnifiedDataFlowRequest
-    ) -> UnifiedDataFlowResult:
+    def _execute_flow_internal(self, request: UnifiedDataFlowRequest) -> UnifiedDataFlowResult:
         """内部フロー実行"""
         start_time = time.time()
         result = UnifiedDataFlowResult(
@@ -436,9 +422,7 @@ class UnifiedBatchDataFlow:
         )
 
         try:
-            logger.info(
-                f"フロー実行開始: {request.flow_id} - {len(request.symbols)} symbols"
-            )
+            logger.info(f"フロー実行開始: {request.flow_id} - {len(request.symbols)} symbols")
 
             # 段階依存関係の解決
             execution_order = self._resolve_stage_dependencies(request.stages)
@@ -450,18 +434,14 @@ class UnifiedBatchDataFlow:
                 if len(stage_group) == 1:
                     # 単一段階実行
                     stage = stage_group[0]
-                    stage_result = self._execute_stage(
-                        stage, request.symbols, stage_data, request
-                    )
+                    stage_result = self._execute_stage(stage, request.symbols, stage_data, request)
                     result.stage_results[stage.stage_id] = stage_result
 
                     if stage_result.success:
                         stage_data[stage.stage_id] = stage_result.data
                     elif stage.critical:
                         # クリティカル段階失敗時はフロー全体停止
-                        result.error_summary.append(
-                            f"Critical stage {stage.stage_id} failed"
-                        )
+                        result.error_summary.append(f"Critical stage {stage.stage_id} failed")
                         break
                 else:
                     # 並列段階実行
@@ -499,14 +479,10 @@ class UnifiedBatchDataFlow:
 
             if result.stage_results:
                 cache_hit_rates = [
-                    r.cache_hit_rate
-                    for r in result.stage_results.values()
-                    if r.cache_hit_rate > 0
+                    r.cache_hit_rate for r in result.stage_results.values() if r.cache_hit_rate > 0
                 ]
                 result.overall_cache_hit_rate = (
-                    sum(cache_hit_rates) / len(cache_hit_rates)
-                    if cache_hit_rates
-                    else 0.0
+                    sum(cache_hit_rates) / len(cache_hit_rates) if cache_hit_rates else 0.0
                 )
 
             # 最適化メトリクス計算
@@ -537,9 +513,7 @@ class UnifiedBatchDataFlow:
 
         return result
 
-    def _resolve_stage_dependencies(
-        self, stages: List[DataFlowStage]
-    ) -> List[List[DataFlowStage]]:
+    def _resolve_stage_dependencies(self, stages: List[DataFlowStage]) -> List[List[DataFlowStage]]:
         """段階依存関係解決（トポロジカルソート）"""
         # 簡略化された実装: 依存関係を考慮した実行順序
         stage_map = {stage.stage_id: stage for stage in stages}
@@ -597,9 +571,7 @@ class UnifiedBatchDataFlow:
             elif handler_name == "db_optimizer":
                 data = self._execute_db_optimizer_stage(handler, stage, stage_data)
             elif handler_name == "batch_engine":
-                data = self._execute_batch_engine_stage(
-                    handler, stage, symbols, stage_data
-                )
+                data = self._execute_batch_engine_stage(handler, stage, symbols, stage_data)
             else:
                 raise ValueError(f"Unknown handler: {handler_name}")
 
@@ -646,9 +618,7 @@ class UnifiedBatchDataFlow:
                     result = future.result()
                     results[stage_id] = result
                 except Exception as e:
-                    results[stage_id] = StageResult(
-                        stage_id=stage_id, success=False, error=str(e)
-                    )
+                    results[stage_id] = StageResult(stage_id=stage_id, success=False, error=str(e))
 
         return results
 
@@ -784,11 +754,7 @@ class UnifiedBatchDataFlow:
         # 結果取得
         results = handler.get_results_batch(task_ids, timeout=stage.timeout)
 
-        return {
-            symbol: result.result
-            for symbol, result in results.items()
-            if result.success
-        }
+        return {symbol: result.result for symbol, result in results.items() if result.success}
 
     def _count_records(self, data: Any) -> int:
         """レコード数カウント"""
@@ -826,9 +792,7 @@ class UnifiedBatchDataFlow:
             )
             cache_score = result.overall_cache_hit_rate
 
-            metrics["balance_score"] = (
-                latency_score + throughput_score + cache_score
-            ) / 3.0
+            metrics["balance_score"] = (latency_score + throughput_score + cache_score) / 3.0
 
         return metrics
 
@@ -844,8 +808,7 @@ class UnifiedBatchDataFlow:
 
             # 成功率
             self.performance_metrics.success_rate = (
-                self.performance_metrics.successful_flows
-                / self.performance_metrics.total_flows
+                self.performance_metrics.successful_flows / self.performance_metrics.total_flows
             )
 
             # 平均実行時間
@@ -860,9 +823,7 @@ class UnifiedBatchDataFlow:
 
             # 平均スループット
             if result.total_execution_time > 0:
-                flow_throughput = (
-                    result.total_records_processed / result.total_execution_time
-                )
+                flow_throughput = result.total_records_processed / result.total_execution_time
                 total_throughput = (
                     self.performance_metrics.average_throughput
                     * (self.performance_metrics.total_flows - 1)
@@ -949,9 +910,9 @@ class UnifiedBatchDataFlow:
             "active_flows": len(self.active_flows),
             "completed_flows": len(self.completed_flows),
             "performance_metrics": self.performance_metrics.__dict__,
-            "recent_performance": list(self.performance_history)[-5:]
-            if self.performance_history
-            else [],
+            "recent_performance": (
+                list(self.performance_history)[-5:] if self.performance_history else []
+            ),
         }
 
 

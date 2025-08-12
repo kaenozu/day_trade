@@ -701,9 +701,7 @@ class EnhancedDashboardServer:
                 self.theme_manager.current_theme = theme_name
                 return JSONResponse({"status": "success", "theme": theme_name})
             else:
-                return JSONResponse(
-                    {"status": "error", "message": "無効なテーマ"}, status_code=400
-                )
+                return JSONResponse({"status": "error", "message": "無効なテーマ"}, status_code=400)
 
         @self.app.get("/api/metrics")
         @handle_error_gracefully("get_metrics", "dashboard")
@@ -765,16 +763,12 @@ class EnhancedDashboardServer:
 
             for component_name in components.keys():
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(
-                        component_name, self.config
-                    )
+                    strategy = OptimizationStrategyFactory.get_strategy(component_name, self.config)
                     if hasattr(strategy, "get_performance_metrics"):
                         metrics = strategy.get_performance_metrics()
                         total_analyses += metrics.get("execution_count", 0)
                         avg_processing_time += metrics.get("average_time", 0)
-                        success_rate = min(
-                            success_rate, metrics.get("success_rate", 1.0)
-                        )
+                        success_rate = min(success_rate, metrics.get("success_rate", 1.0))
                 except Exception:
                     continue
 
@@ -812,12 +806,8 @@ class EnhancedDashboardServer:
             memory = psutil.virtual_memory()
 
             return {
-                "speed_score": max(
-                    0, (100 - cpu_percent) / 100
-                ),  # CPU使用率から速度スコア算出
-                "memory_efficiency": (
-                    memory.available / memory.total
-                ),  # 利用可能メモリ比率
+                "speed_score": max(0, (100 - cpu_percent) / 100),  # CPU使用率から速度スコア算出
+                "memory_efficiency": (memory.available / memory.total),  # 利用可能メモリ比率
                 "cache_hit_rate": 0.85,  # 仮の値（実際のキャッシュ統計から取得）
             }
 

@@ -173,14 +173,10 @@ class EventDrivenContext:
                 ) * position.quantity
 
         # ポートフォリオ価値計算
-        positions_value = sum(
-            pos.market_value for pos in self.portfolio.positions.values()
-        )
+        positions_value = sum(pos.market_value for pos in self.portfolio.positions.values())
         self.portfolio.total_value = self.portfolio.cash + positions_value
 
-    def execute_trade(
-        self, symbol: str, quantity: int, price: float, timestamp: datetime
-    ):
+    def execute_trade(self, symbol: str, quantity: int, price: float, timestamp: datetime):
         """取引実行"""
         if quantity == 0:
             return
@@ -196,15 +192,12 @@ class EventDrivenContext:
             if total_amount > self.portfolio.cash:
                 # 買える分だけ購入
                 affordable_quantity = int(
-                    self.portfolio.cash
-                    / (price * (1 + self.commission_rate + self.slippage_rate))
+                    self.portfolio.cash / (price * (1 + self.commission_rate + self.slippage_rate))
                 )
                 if affordable_quantity <= 0:
                     return
                 quantity = affordable_quantity
-                total_amount = (
-                    quantity * price * (1 + self.commission_rate + self.slippage_rate)
-                )
+                total_amount = quantity * price * (1 + self.commission_rate + self.slippage_rate)
 
             self.portfolio.cash -= total_amount
 
@@ -212,12 +205,8 @@ class EventDrivenContext:
             if symbol in self.portfolio.positions:
                 position = self.portfolio.positions[symbol]
                 total_quantity = position.quantity + quantity
-                total_cost_basis = (
-                    position.quantity * position.avg_price + quantity * price
-                )
-                new_avg_price = (
-                    total_cost_basis / total_quantity if total_quantity > 0 else price
-                )
+                total_cost_basis = position.quantity * position.avg_price + quantity * price
+                new_avg_price = total_cost_basis / total_quantity if total_quantity > 0 else price
 
                 position.quantity = total_quantity
                 position.avg_price = new_avg_price
@@ -310,9 +299,7 @@ class MarketDataHandler(EventHandler):
 
         return new_events
 
-    def _should_rebalance(
-        self, current_time: datetime, context: EventDrivenContext
-    ) -> bool:
+    def _should_rebalance(self, current_time: datetime, context: EventDrivenContext) -> bool:
         """リバランス必要性判定"""
         if context.last_rebalance_time is None:
             return True
@@ -339,9 +326,7 @@ class RebalanceHandler(EventHandler):
             return []
 
         try:
-            signals = context.strategy_function(
-                lookback_data, context.current_market_data.prices
-            )
+            signals = context.strategy_function(lookback_data, context.current_market_data.prices)
 
             if not signals:
                 return []
@@ -392,10 +377,7 @@ class SignalHandler(EventHandler):
         symbol = event.data["symbol"]
         target_weight = event.data["weight"]
 
-        if (
-            not context.current_market_data
-            or symbol not in context.current_market_data.prices
-        ):
+        if not context.current_market_data or symbol not in context.current_market_data.prices:
             return []
 
         current_price = context.current_market_data.prices[symbol]
@@ -506,9 +488,7 @@ class EventDrivenBacktestEngine:
         self, symbols: List[str], start_date: str, end_date: str
     ) -> Dict[str, pd.DataFrame]:
         """過去データ読み込み"""
-        logger.info(
-            f"過去データ読み込み: {len(symbols)}銘柄, {start_date} - {end_date}"
-        )
+        logger.info(f"過去データ読み込み: {len(symbols)}銘柄, {start_date} - {end_date}")
 
         historical_data = {}
 
@@ -577,9 +557,7 @@ class EventDrivenBacktestEngine:
 
         # 実行時間計算
         if self.start_time_ns:
-            self.total_execution_time_ms = (
-                MicrosecondTimer.elapsed_us(self.start_time_ns) / 1000
-            )
+            self.total_execution_time_ms = MicrosecondTimer.elapsed_us(self.start_time_ns) / 1000
 
         # 結果生成
         results = self._generate_results()
@@ -622,9 +600,7 @@ class EventDrivenBacktestEngine:
             if prices:  # データがある場合のみイベント生成
                 event = Event(
                     event_type=EventType.MARKET_DATA,
-                    timestamp=date.to_pydatetime()
-                    if hasattr(date, "to_pydatetime")
-                    else date,
+                    timestamp=date.to_pydatetime() if hasattr(date, "to_pydatetime") else date,
                     data={"prices": prices, "volumes": volumes},
                     priority=0,
                 )
@@ -648,9 +624,7 @@ class EventDrivenBacktestEngine:
     def _generate_results(self) -> Dict[str, Any]:
         """結果生成"""
         final_value = self.context.portfolio.total_value
-        total_return = (
-            final_value - self.context.initial_capital
-        ) / self.context.initial_capital
+        total_return = (final_value - self.context.initial_capital) / self.context.initial_capital
 
         return {
             "execution_summary": {
@@ -678,14 +652,12 @@ class EventDrivenBacktestEngine:
             },
             "performance_metrics": {
                 "events_per_second": (
-                    self.context.events_processed
-                    / (self.total_execution_time_ms / 1000)
+                    self.context.events_processed / (self.total_execution_time_ms / 1000)
                     if self.total_execution_time_ms > 0
                     else 0
                 ),
                 "avg_event_processing_time_us": (
-                    (self.total_execution_time_ms * 1000)
-                    / self.context.events_processed
+                    (self.total_execution_time_ms * 1000) / self.context.events_processed
                     if self.context.events_processed > 0
                     else 0
                 ),

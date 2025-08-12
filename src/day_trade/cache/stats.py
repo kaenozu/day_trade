@@ -68,18 +68,14 @@ class CacheMetrics:
                 except Exception as e:
                     # 操作実行中のエラー
                     if logger.isEnabledFor(logging.ERROR):
-                        logger.error(
-                            f"CacheMetrics operation failed: {e}", exc_info=True
-                        )
+                        logger.error(f"CacheMetrics operation failed: {e}", exc_info=True)
                     return default_value
                 finally:
                     try:
                         self._lock.release()
                     except Exception as release_error:
                         if logger.isEnabledFor(logging.ERROR):
-                            logger.error(
-                                f"Failed to release CacheMetrics lock: {release_error}"
-                            )
+                            logger.error(f"Failed to release CacheMetrics lock: {release_error}")
             else:
                 # ロック取得タイムアウト
                 if logger.isEnabledFor(logging.WARNING):
@@ -90,9 +86,7 @@ class CacheMetrics:
         except Exception as e:
             # ロック取得自体のエラー
             if logger.isEnabledFor(logging.ERROR):
-                logger.error(
-                    f"CacheMetrics lock acquisition failed: {e}", exc_info=True
-                )
+                logger.error(f"CacheMetrics lock acquisition failed: {e}", exc_info=True)
             return default_value
 
     @property
@@ -220,9 +214,7 @@ class CacheMetrics:
         def record():
             self._errors += 1
             if error_details:
-                self._error_details.append(
-                    {"timestamp": time.time(), "details": error_details}
-                )
+                self._error_details.append({"timestamp": time.time(), "details": error_details})
 
         self._safe_lock_operation(record)
 
@@ -294,9 +286,7 @@ class CacheMetrics:
             recent_errors = list(self._error_details)[-10:]  # 最近の10件
             return {"total_errors": self._errors, "recent_errors": recent_errors}
 
-        return self._safe_lock_operation(
-            get_summary, {"total_errors": 0, "recent_errors": []}
-        )
+        return self._safe_lock_operation(get_summary, {"total_errors": 0, "recent_errors": []})
 
     def get_cache_size_trend(self) -> List[Dict[str, Any]]:
         """キャッシュサイズのトレンドを取得"""
@@ -473,9 +463,7 @@ class CacheStatsCollector:
             aggregated["overall_miss_rate"] = 1.0 - aggregated["overall_hit_rate"]
 
             if operation_times:
-                aggregated["avg_operation_time"] = sum(operation_times) / len(
-                    operation_times
-                )
+                aggregated["avg_operation_time"] = sum(operation_times) / len(operation_times)
             else:
                 aggregated["avg_operation_time"] = 0.0
 

@@ -16,7 +16,9 @@ def test_ultra_low_latency_basic():
     print("=== Ultra Low Latency Basic Test ===")
 
     try:
-        from day_trade.performance.ultra_low_latency_core import create_ultra_low_latency_core
+        from day_trade.performance.ultra_low_latency_core import (
+            create_ultra_low_latency_core,
+        )
 
         # コア作成
         core = create_ultra_low_latency_core(target_latency_us=10.0)
@@ -47,7 +49,7 @@ def test_ultra_low_latency_basic():
             max_latency = max(results)
             under_target = sum(1 for r in results if r < 10.0)
 
-            print(f"\nResults Summary:")
+            print("\nResults Summary:")
             print(f"Successful trades: {len(results)}/50")
             print(f"Average latency: {avg_latency:.2f}μs")
             print(f"Min latency: {min_latency:.2f}μs")
@@ -81,7 +83,9 @@ def test_system_optimization():
     print("\n=== System Optimization Test ===")
 
     try:
-        from day_trade.performance.system_optimization import setup_ultra_low_latency_system
+        from day_trade.performance.system_optimization import (
+            setup_ultra_low_latency_system,
+        )
 
         # システム最適化適用
         optimizer = setup_ultra_low_latency_system([2, 3])
@@ -115,7 +119,10 @@ def test_performance_capabilities():
     print("\n=== Performance Capabilities Test ===")
 
     try:
-        from day_trade.performance import get_performance_info, verify_system_capabilities
+        from day_trade.performance import (
+            get_performance_info,
+            verify_system_capabilities,
+        )
 
         # パフォーマンス情報取得
         info = get_performance_info()
@@ -127,7 +134,7 @@ def test_performance_capabilities():
 
         # システム能力検証
         capabilities = verify_system_capabilities()
-        print(f"\nSystem Capabilities:")
+        print("\nSystem Capabilities:")
         for capability, available in capabilities.items():
             status = "Available" if available else "Not Available"
             print(f"  {capability}: {status}")

@@ -44,9 +44,7 @@ class Stock(BaseModel):
     industry = Column(String(50))
 
     # リレーション
-    price_data = relationship(
-        "PriceData", back_populates="stock", cascade="all, delete-orphan"
-    )
+    price_data = relationship("PriceData", back_populates="stock", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="stock")
     watchlist_items = relationship(
         "WatchlistItem", back_populates="stock", cascade="all, delete-orphan"
@@ -66,9 +64,7 @@ class Stock(BaseModel):
         return session.query(cls).filter(cls.sector == sector).all()
 
     @classmethod
-    def search_by_name_or_code(
-        cls, session: Session, query: str, limit: int = 50
-    ) -> List["Stock"]:
+    def search_by_name_or_code(cls, session: Session, query: str, limit: int = 50) -> List["Stock"]:
         """銘柄名またはコードで検索（最適化済み）"""
         return (
             session.query(cls)
@@ -105,9 +101,7 @@ class PriceData(BaseModel):
     )
 
     @classmethod
-    def get_latest_prices(
-        cls, session: Session, stock_codes: List[str]
-    ) -> Dict[str, "PriceData"]:
+    def get_latest_prices(cls, session: Session, stock_codes: List[str]) -> Dict[str, "PriceData"]:
         """複数銘柄の最新価格を効率的に取得"""
         # サブクエリで各銘柄の最新日時を取得
         latest_dates = (
@@ -236,9 +230,7 @@ class Trade(BaseModel):
             return base_amount - commission
 
     @classmethod
-    def get_recent_trades(
-        cls, session: Session, days: int = 30, limit: int = 100
-    ) -> List["Trade"]:
+    def get_recent_trades(cls, session: Session, days: int = 30, limit: int = 100) -> List["Trade"]:
         """最近の取引履歴を効率的に取得"""
         cutoff_date = dt.now() - timedelta(days=days)
         return (

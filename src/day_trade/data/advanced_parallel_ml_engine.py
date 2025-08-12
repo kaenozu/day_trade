@@ -136,9 +136,7 @@ class ResourceMonitor:
         with self.lock:
             if not self._monitoring:
                 self._monitoring = True
-                self._monitor_thread = threading.Thread(
-                    target=self._monitor_loop, daemon=True
-                )
+                self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
                 self._monitor_thread.start()
                 logger.info("リソース監視開始")
 
@@ -342,13 +340,9 @@ def calculate_essential_features_optimized(data: pd.DataFrame) -> Dict[str, Any]
 
         # 価格動向
         features["price_change_pct"] = (
-            (data["Close"].iloc[-1] - data["Close"].iloc[-5])
-            / data["Close"].iloc[-5]
-            * 100
+            (data["Close"].iloc[-1] - data["Close"].iloc[-5]) / data["Close"].iloc[-5] * 100
         )
-        features["volatility"] = (
-            data["Close"].pct_change().rolling(20).std().iloc[-1] * 100
-        )
+        features["volatility"] = data["Close"].pct_change().rolling(20).std().iloc[-1] * 100
 
         # NaN値処理
         features = {k: v for k, v in features.items() if not pd.isna(v)}
@@ -413,11 +407,7 @@ def generate_lightweight_prediction(features: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "prediction": final_score,
             "confidence": confidence,
-            "signal": "BUY"
-            if final_score > 0.3
-            else "SELL"
-            if final_score < -0.3
-            else "HOLD",
+            "signal": "BUY" if final_score > 0.3 else "SELL" if final_score < -0.3 else "HOLD",
         }
 
     except Exception as e:
@@ -552,12 +542,8 @@ class AdvancedParallelMLEngine:
 
             # キャッシュチェック
             if use_cache and self.cache_enabled:
-                cached_results, uncached_symbols = self._check_cache_batch(
-                    stock_data.keys()
-                )
-                logger.info(
-                    f"キャッシュヒット: {len(cached_results)}/{len(stock_data)} 銘柄"
-                )
+                cached_results, uncached_symbols = self._check_cache_batch(stock_data.keys())
+                logger.info(f"キャッシュヒット: {len(cached_results)}/{len(stock_data)} 銘柄")
                 self.processing_stats["cache_hits"] += len(cached_results)
             else:
                 cached_results = {}
@@ -565,12 +551,8 @@ class AdvancedParallelMLEngine:
 
             # 未キャッシュ銘柄の処理
             if uncached_symbols:
-                uncached_data = {
-                    symbol: stock_data[symbol] for symbol in uncached_symbols
-                }
-                new_results = self._parallel_process_batch(
-                    uncached_data, timeout_per_symbol
-                )
+                uncached_data = {symbol: stock_data[symbol] for symbol in uncached_symbols}
+                new_results = self._parallel_process_batch(uncached_data, timeout_per_symbol)
 
                 # キャッシュに保存
                 if use_cache and self.cache_enabled:
@@ -599,9 +581,7 @@ class AdvancedParallelMLEngine:
             # リソースクリーンアップ
             gc.collect()
 
-    def _check_cache_batch(
-        self, symbols: List[str]
-    ) -> Tuple[Dict[str, Any], List[str]]:
+    def _check_cache_batch(self, symbols: List[str]) -> Tuple[Dict[str, Any], List[str]]:
         """バッチキャッシュチェック"""
         cached_results = {}
         uncached_symbols = []
@@ -630,11 +610,7 @@ class AdvancedParallelMLEngine:
             )
 
             # 重要度設定（成功結果は高優先度）
-            priority = (
-                8.0
-                if isinstance(result, dict) and result.get("success", False)
-                else 3.0
-            )
+            priority = 8.0 if isinstance(result, dict) and result.get("success", False) else 3.0
 
             self.cache_manager.put(cache_key, result, priority=priority)
 
@@ -651,9 +627,7 @@ class AdvancedParallelMLEngine:
 
             # 必要に応じてワーカー数調整
             if optimal_cpu_workers != self.cpu_workers:
-                logger.info(
-                    f"ワーカー数動的調整: {self.cpu_workers} → {optimal_cpu_workers}"
-                )
+                logger.info(f"ワーカー数動的調整: {self.cpu_workers} → {optimal_cpu_workers}")
                 self.cpu_workers = optimal_cpu_workers
                 # プール再初期化
                 self._shutdown_pools()
@@ -696,9 +670,7 @@ class AdvancedParallelMLEngine:
 
     def _update_processing_stats(self, results: Dict[str, Any], processing_time: float):
         """統計情報更新"""
-        successful = sum(
-            1 for r in results.values() if isinstance(r, dict) and not r.get("error")
-        )
+        successful = sum(1 for r in results.values() if isinstance(r, dict) and not r.get("error"))
 
         self.processing_stats["total_processed"] += len(results)
         self.processing_stats["successful_processed"] += successful
@@ -707,9 +679,7 @@ class AdvancedParallelMLEngine:
         # メモリ使用量記録
         if self.resource_monitor:
             metrics = self.resource_monitor.get_current_metrics()
-            self.processing_stats["memory_usage_history"].append(
-                metrics.memory_usage_mb
-            )
+            self.processing_stats["memory_usage_history"].append(metrics.memory_usage_mb)
 
     def get_performance_stats(self) -> Dict[str, Any]:
         """性能統計取得"""
@@ -726,9 +696,7 @@ class AdvancedParallelMLEngine:
 
         # 成功率計算
         if stats["total_processed"] > 0:
-            stats["success_rate"] = (
-                stats["successful_processed"] / stats["total_processed"]
-            )
+            stats["success_rate"] = stats["successful_processed"] / stats["total_processed"]
         else:
             stats["success_rate"] = 0.0
 

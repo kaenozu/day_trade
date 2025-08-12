@@ -17,6 +17,7 @@ import pandas as pd
 # プロジェクトルート追加
 sys.path.insert(0, str(Path(__file__).parent))
 
+
 async def test_advanced_ml_initialization():
     """Advanced ML Models初期化テスト"""
     print("\n=== Advanced ML Models初期化テスト ===")
@@ -31,15 +32,19 @@ async def test_advanced_ml_initialization():
             enable_lstm=True,
             lstm_sequence_length=30,
             ensemble_models=3,
-            max_concurrent=5
+            max_concurrent=5,
         )
         print("[OK] AdvancedMLModels initialization success")
 
         # 設定確認
         assert ml_system.enable_cache, "Cache should be enabled"
         assert ml_system.enable_parallel, "Parallel should be enabled"
-        assert ml_system.lstm_sequence_length == 30, f"LSTM sequence length should be 30, got {ml_system.lstm_sequence_length}"
-        assert ml_system.ensemble_models == 3, f"Ensemble models should be 3, got {ml_system.ensemble_models}"
+        assert (
+            ml_system.lstm_sequence_length == 30
+        ), f"LSTM sequence length should be 30, got {ml_system.lstm_sequence_length}"
+        assert (
+            ml_system.ensemble_models == 3
+        ), f"Ensemble models should be 3, got {ml_system.ensemble_models}"
 
         print(f"[OK] Cache enabled: {ml_system.enable_cache}")
         print(f"[OK] Parallel enabled: {ml_system.enable_parallel}")
@@ -54,6 +59,7 @@ async def test_advanced_ml_initialization():
         traceback.print_exc()
         return False
 
+
 async def test_advanced_feature_extraction():
     """高度特徴量エンジニアリングテスト"""
     print("\n=== 高度特徴量エンジニアリングテスト ===")
@@ -62,25 +68,27 @@ async def test_advanced_feature_extraction():
         from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
 
         # テストデータ生成（十分な長さ）
-        dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=100, freq="D")
         np.random.seed(42)
 
         base_price = 2500
         price_trend = np.cumsum(np.random.normal(0.001, 0.02, 100))
         prices = base_price * np.exp(price_trend)
 
-        test_data = pd.DataFrame({
-            'Open': prices * np.random.uniform(0.995, 1.005, 100),
-            'High': prices * np.random.uniform(1.005, 1.03, 100),
-            'Low': prices * np.random.uniform(0.97, 0.995, 100),
-            'Close': prices,
-            'Volume': np.random.randint(500000, 2000000, 100),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": prices * np.random.uniform(0.995, 1.005, 100),
+                "High": prices * np.random.uniform(1.005, 1.03, 100),
+                "Low": prices * np.random.uniform(0.97, 0.995, 100),
+                "Close": prices,
+                "Volume": np.random.randint(500000, 2000000, 100),
+            },
+            index=dates,
+        )
 
         # システム初期化
         ml_system = AdvancedMLModels(
-            enable_cache=False,  # テスト用にキャッシュ無効
-            enable_parallel=False
+            enable_cache=False, enable_parallel=False  # テスト用にキャッシュ無効
         )
         print("[OK] ML system initialization success")
 
@@ -88,9 +96,9 @@ async def test_advanced_feature_extraction():
         feature_set = await ml_system.extract_advanced_features(test_data, "TEST_FEATURES")
 
         # 結果検証
-        assert hasattr(feature_set, 'symbol'), "Feature set missing symbol"
+        assert hasattr(feature_set, "symbol"), "Feature set missing symbol"
         assert feature_set.symbol == "TEST_FEATURES", f"Symbol mismatch: {feature_set.symbol}"
-        assert hasattr(feature_set, 'feature_count'), "Feature set missing feature_count"
+        assert hasattr(feature_set, "feature_count"), "Feature set missing feature_count"
         assert feature_set.feature_count > 0, f"No features extracted: {feature_set.feature_count}"
 
         print(f"[OK] Symbol: {feature_set.symbol}")
@@ -116,6 +124,7 @@ async def test_advanced_feature_extraction():
         traceback.print_exc()
         return False
 
+
 async def test_ensemble_learning():
     """アンサンブル学習テスト"""
     print("\n=== アンサンブル学習テスト ===")
@@ -124,7 +133,7 @@ async def test_ensemble_learning():
         from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
 
         # 長期テストデータ生成
-        dates = pd.date_range(start='2024-01-01', periods=120, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=120, freq="D")
         np.random.seed(100)
 
         # リアルなトレンドデータ
@@ -133,20 +142,19 @@ async def test_ensemble_learning():
         noise = np.random.normal(0, 0.02, 120)
         prices = base_price * np.exp(trend + np.cumsum(noise))
 
-        test_data = pd.DataFrame({
-            'Open': prices * np.random.uniform(0.998, 1.002, 120),
-            'High': prices * np.random.uniform(1.005, 1.025, 120),
-            'Low': prices * np.random.uniform(0.975, 0.995, 120),
-            'Close': prices,
-            'Volume': np.random.randint(400000, 1800000, 120),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": prices * np.random.uniform(0.998, 1.002, 120),
+                "High": prices * np.random.uniform(1.005, 1.025, 120),
+                "Low": prices * np.random.uniform(0.975, 0.995, 120),
+                "Close": prices,
+                "Volume": np.random.randint(400000, 1800000, 120),
+            },
+            index=dates,
+        )
 
         # システム初期化
-        ml_system = AdvancedMLModels(
-            enable_cache=False,
-            enable_parallel=False,
-            ensemble_models=3
-        )
+        ml_system = AdvancedMLModels(enable_cache=False, enable_parallel=False, ensemble_models=3)
         print("[OK] Ensemble ML system initialization success")
 
         # 特徴量抽出
@@ -154,16 +162,24 @@ async def test_ensemble_learning():
         print(f"[OK] Features extracted: {feature_set.feature_count}")
 
         # アンサンブル学習実行
-        ensemble_result = await ml_system.ensemble_prediction(test_data, "TEST_ENSEMBLE", feature_set)
+        ensemble_result = await ml_system.ensemble_prediction(
+            test_data, "TEST_ENSEMBLE", feature_set
+        )
 
         # 結果検証
-        assert hasattr(ensemble_result, 'symbol'), "Ensemble result missing symbol"
-        assert ensemble_result.symbol == "TEST_ENSEMBLE", f"Symbol mismatch: {ensemble_result.symbol}"
-        assert hasattr(ensemble_result, 'ensemble_prediction'), "Ensemble result missing prediction"
-        assert hasattr(ensemble_result, 'weighted_confidence'), "Ensemble result missing confidence"
-        assert 0 <= ensemble_result.weighted_confidence <= 1, f"Invalid confidence: {ensemble_result.weighted_confidence}"
-        assert hasattr(ensemble_result, 'consensus_strength'), "Ensemble result missing consensus"
-        assert 0 <= ensemble_result.consensus_strength <= 1, f"Invalid consensus: {ensemble_result.consensus_strength}"
+        assert hasattr(ensemble_result, "symbol"), "Ensemble result missing symbol"
+        assert (
+            ensemble_result.symbol == "TEST_ENSEMBLE"
+        ), f"Symbol mismatch: {ensemble_result.symbol}"
+        assert hasattr(ensemble_result, "ensemble_prediction"), "Ensemble result missing prediction"
+        assert hasattr(ensemble_result, "weighted_confidence"), "Ensemble result missing confidence"
+        assert (
+            0 <= ensemble_result.weighted_confidence <= 1
+        ), f"Invalid confidence: {ensemble_result.weighted_confidence}"
+        assert hasattr(ensemble_result, "consensus_strength"), "Ensemble result missing consensus"
+        assert (
+            0 <= ensemble_result.consensus_strength <= 1
+        ), f"Invalid consensus: {ensemble_result.consensus_strength}"
 
         print(f"[OK] Ensemble prediction: {ensemble_result.ensemble_prediction:.6f}")
         print(f"[OK] Weighted confidence: {ensemble_result.weighted_confidence:.1%}")
@@ -189,6 +205,7 @@ async def test_ensemble_learning():
         traceback.print_exc()
         return False
 
+
 async def test_lstm_prediction():
     """LSTM時系列予測テスト"""
     print("\n=== LSTM時系列予測テスト ===")
@@ -197,7 +214,7 @@ async def test_lstm_prediction():
         from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
 
         # LSTM用長期データ（100日以上必要）
-        dates = pd.date_range(start='2024-01-01', periods=150, freq='D')
+        dates = pd.date_range(start="2024-01-01", periods=150, freq="D")
         np.random.seed(200)
 
         # 時系列パターンを持つデータ
@@ -209,20 +226,20 @@ async def test_lstm_prediction():
         log_returns = trend + seasonality + noise
         prices = base_price * np.exp(log_returns)
 
-        test_data = pd.DataFrame({
-            'Open': prices * np.random.uniform(0.999, 1.001, 150),
-            'High': prices * np.random.uniform(1.002, 1.015, 150),
-            'Low': prices * np.random.uniform(0.985, 0.998, 150),
-            'Close': prices,
-            'Volume': np.random.randint(600000, 2200000, 150),
-        }, index=dates)
+        test_data = pd.DataFrame(
+            {
+                "Open": prices * np.random.uniform(0.999, 1.001, 150),
+                "High": prices * np.random.uniform(1.002, 1.015, 150),
+                "Low": prices * np.random.uniform(0.985, 0.998, 150),
+                "Close": prices,
+                "Volume": np.random.randint(600000, 2200000, 150),
+            },
+            index=dates,
+        )
 
         # システム初期化（LSTM有効）
         ml_system = AdvancedMLModels(
-            enable_cache=False,
-            enable_parallel=False,
-            enable_lstm=True,
-            lstm_sequence_length=30
+            enable_cache=False, enable_parallel=False, enable_lstm=True, lstm_sequence_length=30
         )
         print("[OK] LSTM ML system initialization success")
 
@@ -246,14 +263,18 @@ async def test_lstm_prediction():
         lstm_result = await ml_system.predict_with_lstm(test_data, "TEST_LSTM", feature_set)
 
         # 結果検証
-        assert hasattr(lstm_result, 'symbol'), "LSTM result missing symbol"
+        assert hasattr(lstm_result, "symbol"), "LSTM result missing symbol"
         assert lstm_result.symbol == "TEST_LSTM", f"Symbol mismatch: {lstm_result.symbol}"
-        assert hasattr(lstm_result, 'predictions'), "LSTM result missing predictions"
-        assert hasattr(lstm_result, 'confidence'), "LSTM result missing confidence"
+        assert hasattr(lstm_result, "predictions"), "LSTM result missing predictions"
+        assert hasattr(lstm_result, "confidence"), "LSTM result missing confidence"
         assert 0 <= lstm_result.confidence <= 1, f"Invalid confidence: {lstm_result.confidence}"
-        assert hasattr(lstm_result, 'trend_direction'), "LSTM result missing trend_direction"
-        assert lstm_result.trend_direction in ['up', 'down', 'sideways'], f"Invalid trend: {lstm_result.trend_direction}"
-        assert hasattr(lstm_result, 'model_score'), "LSTM result missing model_score"
+        assert hasattr(lstm_result, "trend_direction"), "LSTM result missing trend_direction"
+        assert lstm_result.trend_direction in [
+            "up",
+            "down",
+            "sideways",
+        ], f"Invalid trend: {lstm_result.trend_direction}"
+        assert hasattr(lstm_result, "model_score"), "LSTM result missing model_score"
         assert 0 <= lstm_result.model_score <= 1, f"Invalid model score: {lstm_result.model_score}"
 
         print(f"[OK] LSTM predictions: {len(lstm_result.predictions)} points")
@@ -265,11 +286,11 @@ async def test_lstm_prediction():
 
         # 特徴量重要度確認
         if lstm_result.feature_importance:
-            print(f"[OK] Feature importance calculated: {len(lstm_result.feature_importance)} features")
+            print(
+                f"[OK] Feature importance calculated: {len(lstm_result.feature_importance)} features"
+            )
             top_features = sorted(
-                lstm_result.feature_importance.items(),
-                key=lambda x: x[1],
-                reverse=True
+                lstm_result.feature_importance.items(), key=lambda x: x[1], reverse=True
             )[:3]
             for feature, importance in top_features:
                 print(f"  {feature}: {importance:.4f}")
@@ -280,6 +301,7 @@ async def test_lstm_prediction():
         print(f"[ERROR] LSTM prediction test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def test_batch_advanced_ml():
     """バッチAdvanced ML処理テスト"""
@@ -293,7 +315,7 @@ async def test_batch_advanced_ml():
         batch_data = {}
 
         for i, symbol in enumerate(symbols):
-            dates = pd.date_range(start='2024-01-01', periods=80, freq='D')
+            dates = pd.date_range(start="2024-01-01", periods=80, freq="D")
             np.random.seed(300 + i)
 
             base_price = 2000 + i * 300
@@ -302,25 +324,26 @@ async def test_batch_advanced_ml():
             prices = []
             current_price = base_price
             for day in range(80):
-                daily_return = np.random.normal(trend_factor/100, 0.015)
-                current_price *= (1 + daily_return)
+                daily_return = np.random.normal(trend_factor / 100, 0.015)
+                current_price *= 1 + daily_return
                 prices.append(current_price)
 
-            test_data = pd.DataFrame({
-                'Open': [p * np.random.uniform(0.998, 1.002) for p in prices],
-                'High': [p * np.random.uniform(1.005, 1.020) for p in prices],
-                'Low': [p * np.random.uniform(0.980, 0.995) for p in prices],
-                'Close': prices,
-                'Volume': np.random.randint(400000, 1600000, 80),
-            }, index=dates)
+            test_data = pd.DataFrame(
+                {
+                    "Open": [p * np.random.uniform(0.998, 1.002) for p in prices],
+                    "High": [p * np.random.uniform(1.005, 1.020) for p in prices],
+                    "Low": [p * np.random.uniform(0.980, 0.995) for p in prices],
+                    "Close": prices,
+                    "Volume": np.random.randint(400000, 1600000, 80),
+                },
+                index=dates,
+            )
 
             batch_data[symbol] = test_data
 
         # システム初期化
         ml_system = AdvancedMLModels(
-            enable_cache=True,
-            enable_parallel=False,  # テスト用に単体実行
-            ensemble_models=3
+            enable_cache=True, enable_parallel=False, ensemble_models=3  # テスト用に単体実行
         )
         print("[OK] Batch ML system initialization success")
 
@@ -333,10 +356,7 @@ async def test_batch_advanced_ml():
             # アンサンブル予測
             ensemble_result = await ml_system.ensemble_prediction(data, symbol, feature_set)
 
-            batch_results[symbol] = {
-                'features': feature_set,
-                'ensemble': ensemble_result
-            }
+            batch_results[symbol] = {"features": feature_set, "ensemble": ensemble_result}
 
             print(f"[OK] {symbol} processed:")
             print(f"     Features: {feature_set.feature_count}")
@@ -344,16 +364,18 @@ async def test_batch_advanced_ml():
             print(f"     Confidence: {ensemble_result.weighted_confidence:.1%}")
 
         # バッチ結果検証
-        assert len(batch_results) == len(symbols), f"Results count mismatch: {len(batch_results)} vs {len(symbols)}"
+        assert len(batch_results) == len(
+            symbols
+        ), f"Results count mismatch: {len(batch_results)} vs {len(symbols)}"
 
         for symbol in symbols:
             assert symbol in batch_results, f"Missing results for {symbol}"
             result = batch_results[symbol]
 
-            assert 'features' in result, f"Missing features for {symbol}"
-            assert 'ensemble' in result, f"Missing ensemble for {symbol}"
-            assert result['features'].symbol == symbol, f"Symbol mismatch in features: {symbol}"
-            assert result['ensemble'].symbol == symbol, f"Symbol mismatch in ensemble: {symbol}"
+            assert "features" in result, f"Missing features for {symbol}"
+            assert "ensemble" in result, f"Missing ensemble for {symbol}"
+            assert result["features"].symbol == symbol, f"Symbol mismatch in features: {symbol}"
+            assert result["ensemble"].symbol == symbol, f"Symbol mismatch in ensemble: {symbol}"
 
         print(f"[OK] Batch processing completed: {len(batch_results)} symbols")
         return True
@@ -363,6 +385,7 @@ async def test_batch_advanced_ml():
         traceback.print_exc()
         return False
 
+
 async def test_performance_monitoring():
     """パフォーマンス監視テスト"""
     print("\n=== パフォーマンス監視テスト ===")
@@ -371,18 +394,19 @@ async def test_performance_monitoring():
         from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
 
         # システム初期化
-        ml_system = AdvancedMLModels(
-            enable_cache=True,
-            enable_parallel=True
-        )
+        ml_system = AdvancedMLModels(enable_cache=True, enable_parallel=True)
 
         # 初期統計取得
         initial_stats = ml_system.get_performance_stats()
 
         # 統計項目検証
         required_keys = [
-            'total_predictions', 'cache_hit_rate', 'lstm_predictions',
-            'ensemble_predictions', 'avg_processing_time', 'system_status'
+            "total_predictions",
+            "cache_hit_rate",
+            "lstm_predictions",
+            "ensemble_predictions",
+            "avg_processing_time",
+            "system_status",
         ]
 
         for key in required_keys:
@@ -395,7 +419,7 @@ async def test_performance_monitoring():
         print(f"[STATS] Ensemble predictions: {initial_stats['ensemble_predictions']}")
 
         # システム状態確認
-        system_status = initial_stats['system_status']
+        system_status = initial_stats["system_status"]
         print(f"[SYSTEM] Cache enabled: {system_status['cache_enabled']}")
         print(f"[SYSTEM] Parallel enabled: {system_status['parallel_enabled']}")
         print(f"[SYSTEM] LSTM enabled: {system_status['lstm_enabled']}")
@@ -403,7 +427,7 @@ async def test_performance_monitoring():
         print(f"[SYSTEM] Scikit-learn available: {system_status['sklearn_available']}")
 
         # 最適化効果確認
-        benefits = initial_stats['optimization_benefits']
+        benefits = initial_stats["optimization_benefits"]
         print("[OPTIMIZATION] Benefits:")
         for benefit, description in benefits.items():
             print(f"  {benefit}: {description}")
@@ -415,6 +439,7 @@ async def test_performance_monitoring():
         traceback.print_exc()
         return False
 
+
 async def test_cache_integration():
     """キャッシュ統合テスト"""
     print("\n=== キャッシュ統合テスト ===")
@@ -423,20 +448,24 @@ async def test_cache_integration():
         from src.day_trade.ml.advanced_ml_models import AdvancedMLModels
 
         # テストデータ
-        dates = pd.date_range(start='2024-01-01', periods=90, freq='D')
-        test_data = pd.DataFrame({
-            'Open': np.random.uniform(2000, 2500, 90),
-            'High': np.random.uniform(2100, 2600, 90),
-            'Low': np.random.uniform(1900, 2400, 90),
-            'Close': np.random.uniform(2000, 2500, 90),
-            'Volume': np.random.randint(500000, 2000000, 90),
-        }, index=dates)
+        dates = pd.date_range(start="2024-01-01", periods=90, freq="D")
+        test_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(2000, 2500, 90),
+                "High": np.random.uniform(2100, 2600, 90),
+                "Low": np.random.uniform(1900, 2400, 90),
+                "Close": np.random.uniform(2000, 2500, 90),
+                "Volume": np.random.randint(500000, 2000000, 90),
+            },
+            index=dates,
+        )
 
         # キャッシュ有効版
         ml_system_cached = AdvancedMLModels(enable_cache=True)
 
         # 初回実行（キャッシュミス）
         import time
+
         start_time = time.time()
         feature_set_1 = await ml_system_cached.extract_advanced_features(test_data, "CACHE_TEST")
         first_time = time.time() - start_time
@@ -457,15 +486,17 @@ async def test_cache_integration():
 
         # 結果一貫性確認
         assert feature_set_1.symbol == feature_set_2.symbol, "Inconsistent cached symbol"
-        assert feature_set_1.feature_count == feature_set_2.feature_count, "Inconsistent cached feature count"
+        assert (
+            feature_set_1.feature_count == feature_set_2.feature_count
+        ), "Inconsistent cached feature count"
 
         print("[OK] Cache consistency verified")
 
         # キャッシュ効果確認
-        benefits = stats['optimization_benefits']
+        benefits = stats["optimization_benefits"]
         print("[OK] Cache benefits:")
         for benefit, description in benefits.items():
-            if 'cache' in benefit.lower():
+            if "cache" in benefit.lower():
                 print(f"  {benefit}: {description}")
 
         return True
@@ -474,6 +505,7 @@ async def test_cache_integration():
         print(f"[ERROR] Cache integration test failed: {e}")
         traceback.print_exc()
         return False
+
 
 async def main():
     """メインテスト実行"""
@@ -518,6 +550,7 @@ async def main():
     else:
         print("[WARNING] 一部テスト失敗 - 要修正")
         return False
+
 
 if __name__ == "__main__":
     try:

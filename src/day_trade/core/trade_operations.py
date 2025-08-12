@@ -76,9 +76,7 @@ class TradeOperations:
                     # 銘柄情報を外部APIから取得
                     company_info = self.stock_fetcher.get_company_info(stock_code)
                     if not company_info:
-                        raise TradeOperationError(
-                            f"銘柄情報を取得できません: {stock_code}"
-                        )
+                        raise TradeOperationError(f"銘柄情報を取得できません: {stock_code}")
 
                     stock = Stock(
                         code=stock_code,
@@ -102,14 +100,10 @@ class TradeOperations:
                     operation_logger.info("現在価格を取得中")
                     current_data = self.stock_fetcher.get_current_price(stock_code)
                     if not current_data or "price" not in current_data:
-                        raise TradeOperationError(
-                            f"現在価格を取得できません: {stock_code}"
-                        )
+                        raise TradeOperationError(f"現在価格を取得できません: {stock_code}")
                     # StockFetcherから取得した価格をDecimal型に変換
                     price = Decimal(str(current_data["price"]))
-                    operation_logger.info(
-                        "現在価格を取得", extra={"current_price": float(price)}
-                    )
+                    operation_logger.info("現在価格を取得", extra={"current_price": float(price)})
 
                 # 3. 買い取引記録の作成
                 trade = Trade.create_buy_trade(
@@ -261,9 +255,7 @@ class TradeOperations:
                 if price is None:
                     current_data = self.stock_fetcher.get_current_price(stock_code)
                     if not current_data or "price" not in current_data:
-                        raise TradeOperationError(
-                            f"現在価格を取得できません: {stock_code}"
-                        )
+                        raise TradeOperationError(f"現在価格を取得できません: {stock_code}")
                     # StockFetcherから取得した価格をDecimal型に変換
                     price = Decimal(str(current_data["price"]))
 
@@ -355,9 +347,7 @@ class TradeOperations:
         """
         batch_logger = self.logger
 
-        batch_logger.info(
-            "バッチ取引操作開始", extra={"operations_count": len(operations)}
-        )
+        batch_logger.info("バッチ取引操作開始", extra={"operations_count": len(operations)})
 
         try:
             results = []

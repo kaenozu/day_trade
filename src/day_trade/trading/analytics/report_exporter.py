@@ -88,9 +88,7 @@ class ReportExporter:
         """
         try:
             if filename is None:
-                year = tax_data.get("report_info", {}).get(
-                    "target_year", datetime.now().year
-                )
+                year = tax_data.get("report_info", {}).get("target_year", datetime.now().year)
                 filename = f"tax_report_{year}"
 
             if format_type.lower() == "json":
@@ -131,13 +129,9 @@ class ReportExporter:
             if format_type.lower() == "csv":
                 return self._export_transactions_to_csv(transactions, f"{filename}.csv")
             elif format_type.lower() == "json":
-                return self._export_to_json(
-                    {"transactions": transactions}, f"{filename}.json"
-                )
+                return self._export_to_json({"transactions": transactions}, f"{filename}.json")
             elif format_type.lower() == "xlsx":
-                return self._export_transactions_to_excel(
-                    transactions, f"{filename}.xlsx"
-                )
+                return self._export_transactions_to_excel(transactions, f"{filename}.xlsx")
             else:
                 raise ValueError(f"未サポートの出力形式: {format_type}")
 
@@ -157,9 +151,7 @@ class ReportExporter:
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
             with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    data, f, ensure_ascii=False, indent=2, default=decimal_encoder
-                )
+                json.dump(data, f, ensure_ascii=False, indent=2, default=decimal_encoder)
 
             logger.info(f"JSON出力完了: {file_path}")
             return str(file_path)
@@ -168,9 +160,7 @@ class ReportExporter:
             logger.error(f"JSON出力エラー: {e}")
             return ""
 
-    def _export_portfolio_to_csv(
-        self, report_data: Dict[str, Any], filename: str
-    ) -> str:
+    def _export_portfolio_to_csv(self, report_data: Dict[str, Any], filename: str) -> str:
         """ポートフォリオCSV出力"""
         file_path = self.output_dir / filename
 
@@ -304,9 +294,7 @@ class ReportExporter:
             logger.error(f"税務CSV出力エラー: {e}")
             return ""
 
-    def _export_transactions_to_csv(
-        self, transactions: List[Dict], filename: str
-    ) -> str:
+    def _export_transactions_to_csv(self, transactions: List[Dict], filename: str) -> str:
         """取引明細CSV出力"""
         file_path = self.output_dir / filename
 
@@ -341,9 +329,7 @@ class ReportExporter:
             logger.error(f"取引明細CSV出力エラー: {e}")
             return ""
 
-    def _export_portfolio_to_html(
-        self, report_data: Dict[str, Any], filename: str
-    ) -> str:
+    def _export_portfolio_to_html(self, report_data: Dict[str, Any], filename: str) -> str:
         """ポートフォリオHTML出力"""
         file_path = self.output_dir / filename
 
@@ -463,9 +449,7 @@ class ReportExporter:
         # 銘柄別テーブル生成
         stock_table_rows = ""
         for stock in stock_details:
-            pnl_class = (
-                "positive" if float(stock.get("realized_pnl", 0)) >= 0 else "negative"
-            )
+            pnl_class = "positive" if float(stock.get("realized_pnl", 0)) >= 0 else "negative"
             stock_table_rows += f"""
             <tr>
                 <td>{stock['symbol']}</td>
@@ -562,9 +546,7 @@ class ReportExporter:
 
         return html
 
-    def _export_transactions_to_excel(
-        self, transactions: List[Dict], filename: str
-    ) -> str:
+    def _export_transactions_to_excel(self, transactions: List[Dict], filename: str) -> str:
         """Excel形式出力（要openpyxl）"""
         try:
             # openpyxlが利用可能かチェック
@@ -658,15 +640,11 @@ class ReportExporter:
         for format_type in formats:
             try:
                 if data_type == "portfolio":
-                    file_path = self.export_portfolio_report(
-                        data, format_type, base_filename
-                    )
+                    file_path = self.export_portfolio_report(data, format_type, base_filename)
                 elif data_type == "tax":
                     file_path = self.export_tax_report(data, format_type, base_filename)
                 elif data_type == "transactions":
-                    file_path = self.export_trade_transactions(
-                        data, format_type, base_filename
-                    )
+                    file_path = self.export_trade_transactions(data, format_type, base_filename)
                 else:
                     logger.error(f"未知のデータタイプ: {data_type}")
                     continue

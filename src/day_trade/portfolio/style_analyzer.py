@@ -258,9 +258,7 @@ class StyleAnalyzer:
             returns = portfolio_data.pct_change().dropna()
 
             # ファクター露出計算
-            factor_exposures = self._calculate_factor_exposures(
-                portfolio_data, benchmark_data
-            )
+            factor_exposures = self._calculate_factor_exposures(portfolio_data, benchmark_data)
 
             # スタイル分類
             style_scores = self._classify_investment_style(factor_exposures, returns)
@@ -271,17 +269,13 @@ class StyleAnalyzer:
             risk_profile = self._analyze_risk_profile(returns)
 
             # パフォーマンス分析
-            performance_metrics = self._calculate_performance_metrics(
-                returns, benchmark_data
-            )
+            performance_metrics = self._calculate_performance_metrics(returns, benchmark_data)
 
             # 分散化分析
             diversification_metrics = self._analyze_diversification(holdings_data)
 
             # スタイル整合性
-            style_consistency = self._calculate_style_consistency(
-                returns, detected_style
-            )
+            style_consistency = self._calculate_style_consistency(returns, detected_style)
 
             result = StyleAnalysisResult(
                 detected_style=detected_style,
@@ -292,12 +286,8 @@ class StyleAnalyzer:
                 volatility=returns.std() * np.sqrt(252),
                 max_drawdown=self._calculate_max_drawdown(portfolio_data),
                 sharpe_ratio=performance_metrics.get("sharpe_ratio", 0),
-                diversification_score=diversification_metrics.get(
-                    "diversification_score", 0
-                ),
-                sector_concentration=diversification_metrics.get(
-                    "sector_concentration", {}
-                ),
+                diversification_score=diversification_metrics.get("diversification_score", 0),
+                sector_concentration=diversification_metrics.get("sector_concentration", {}),
                 style_consistency=style_consistency,
                 style_drift=self._calculate_style_drift(),
                 alpha=performance_metrics.get("alpha", 0),
@@ -434,9 +424,7 @@ class StyleAnalyzer:
 
         # Blend: 複数スタイルのバランス
         if len([s for s in style_scores.values() if s > 0.3]) >= 2:
-            style_scores[InvestmentStyle.BLEND] = np.mean(
-                list(style_scores.values())[:3]
-            )
+            style_scores[InvestmentStyle.BLEND] = np.mean(list(style_scores.values())[:3])
         else:
             style_scores[InvestmentStyle.BLEND] = 0.0
 
@@ -499,9 +487,7 @@ class StyleAnalyzer:
                 # ベータ
                 covariance = np.cov(returns, benchmark_returns)[0, 1]
                 benchmark_variance = benchmark_returns.var()
-                beta = (
-                    covariance / benchmark_variance if benchmark_variance > 0 else 1.0
-                )
+                beta = covariance / benchmark_variance if benchmark_variance > 0 else 1.0
                 metrics["beta"] = beta
 
                 # アルファ
@@ -526,9 +512,7 @@ class StyleAnalyzer:
 
         return metrics
 
-    def _analyze_diversification(
-        self, holdings_data: pd.DataFrame = None
-    ) -> Dict[str, Any]:
+    def _analyze_diversification(self, holdings_data: pd.DataFrame = None) -> Dict[str, Any]:
         """分散化分析"""
 
         if holdings_data is None:
@@ -691,9 +675,7 @@ class StyleAnalyzer:
             logger.error(f"分類器訓練エラー: {e}")
             return {"status": "error", "error": str(e)}
 
-    def predict_style_ml(
-        self, portfolio_data: pd.DataFrame
-    ) -> Tuple[InvestmentStyle, float]:
+    def predict_style_ml(self, portfolio_data: pd.DataFrame) -> Tuple[InvestmentStyle, float]:
         """機械学習スタイル予測"""
 
         if not self.is_trained or not SKLEARN_AVAILABLE:
@@ -816,19 +798,13 @@ class StyleAnalyzer:
         # スタイル進化
         style_evolution_summary = {}
         if self.style_evolution:
-            recent_styles = [
-                entry["style"].value for entry in self.style_evolution[-10:]
-            ]
+            recent_styles = [entry["style"].value for entry in self.style_evolution[-10:]]
             for style in set(recent_styles):
                 style_evolution_summary[style] = recent_styles.count(style)
 
         # パフォーマンス統計
-        avg_confidence = np.mean(
-            [result.style_confidence for result in self.analysis_history]
-        )
-        avg_consistency = np.mean(
-            [result.style_consistency for result in self.analysis_history]
-        )
+        avg_confidence = np.mean([result.style_confidence for result in self.analysis_history])
+        avg_consistency = np.mean([result.style_consistency for result in self.analysis_history])
 
         return {
             "latest_analysis": {

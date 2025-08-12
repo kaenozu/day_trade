@@ -16,9 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 # ログ設定
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -325,9 +323,7 @@ class ProductionSetup:
 
             for component_name in components.keys():
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(
-                        component_name, config
-                    )
+                    strategy = OptimizationStrategyFactory.get_strategy(component_name, config)
                     logger.info(
                         f"コンポーネント検証成功: {component_name} - {strategy.get_strategy_name()}"
                     )
@@ -548,9 +544,7 @@ main
         logger.info("古いデプロイメント清理中...")
 
         # 古いパッケージファイルの削除
-        package_files = list(
-            self.deployment_root.glob("daytrade_unified_system_*.tar.gz")
-        )
+        package_files = list(self.deployment_root.glob("daytrade_unified_system_*.tar.gz"))
         if len(package_files) > keep_versions:
             # 作成時間でソート
             package_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
@@ -575,9 +569,7 @@ main
 
 def main():
     """メインエントリーポイント"""
-    parser = argparse.ArgumentParser(
-        description="Day Trade プロダクション環境セットアップ"
-    )
+    parser = argparse.ArgumentParser(description="Day Trade プロダクション環境セットアップ")
     parser.add_argument(
         "--action",
         choices=["setup", "package", "cleanup", "validate", "all"],

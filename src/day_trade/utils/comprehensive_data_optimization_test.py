@@ -77,9 +77,7 @@ class OptimizationTestResult:
             "optimized_time_ms": self.optimized_time_ms,
             "speed_improvement_factor": self.speed_improvement_factor,
             "optimizations_applied": self.optimizations_applied,
-            "dtype_changes": {
-                k: {"from": v[0], "to": v[1]} for k, v in self.dtype_changes.items()
-            },
+            "dtype_changes": {k: {"from": v[0], "to": v[1]} for k, v in self.dtype_changes.items()},
         }
 
 
@@ -162,12 +160,8 @@ class ComprehensiveDataOptimizationTester:
                 "low": np.random.normal(95, 8, 100000).astype(np.float64),
                 "close": np.random.normal(100, 10, 100000).astype(np.float64),
                 "volume": np.random.randint(1000, 100000, 100000).astype(np.int64),
-                "symbol": np.random.choice(
-                    ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"], 100000
-                ),
-                "sector": np.random.choice(
-                    ["Tech", "Finance", "Energy", "Healthcare"], 100000
-                ),
+                "symbol": np.random.choice(["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"], 100000),
+                "sector": np.random.choice(["Tech", "Finance", "Energy", "Healthcare"], 100000),
                 "market_cap": np.random.normal(1e10, 1e9, 100000).astype(np.float64),
             }
         )
@@ -195,16 +189,12 @@ class ComprehensiveDataOptimizationTester:
                         f"2024-01-{i//10000 + 1:02d}", periods=current_size, freq="1s"
                     ),
                     "price": np.random.normal(100, 10, current_size).astype(np.float64),
-                    "volume": np.random.randint(100, 50000, current_size).astype(
-                        np.int64
-                    ),
+                    "volume": np.random.randint(100, 50000, current_size).astype(np.int64),
                     "is_buy": np.random.choice([True, False], current_size),
                     "symbol": np.random.choice(
                         ["STOCK_" + str(j) for j in range(100)], current_size
                     ),
-                    "exchange": np.random.choice(
-                        ["NYSE", "NASDAQ", "AMEX"], current_size
-                    ),
+                    "exchange": np.random.choice(["NYSE", "NASDAQ", "AMEX"], current_size),
                 }
             )
             chunks.append(chunk)
@@ -223,9 +213,7 @@ class ComprehensiveDataOptimizationTester:
         np.random.seed(42)
 
         # 時刻データ（業務時間内取引）
-        trading_hours = pd.bdate_range(
-            "2024-01-01 09:30", "2024-02-29 16:00", freq="1s"
-        )[:50000]
+        trading_hours = pd.bdate_range("2024-01-01 09:30", "2024-02-29 16:00", freq="1s")[:50000]
 
         original_df = pd.DataFrame(
             {
@@ -233,27 +221,13 @@ class ComprehensiveDataOptimizationTester:
                 "symbol": np.random.choice(
                     [f"STOCK_{i:03d}" for i in range(500)], len(trading_hours)
                 ),
-                "bid_price": np.random.normal(50, 20, len(trading_hours)).astype(
-                    np.float64
-                ),
-                "ask_price": np.random.normal(50.1, 20, len(trading_hours)).astype(
-                    np.float64
-                ),
-                "bid_size": np.random.exponential(1000, len(trading_hours)).astype(
-                    np.int64
-                ),
-                "ask_size": np.random.exponential(1000, len(trading_hours)).astype(
-                    np.int64
-                ),
-                "last_price": np.random.normal(50.05, 20, len(trading_hours)).astype(
-                    np.float64
-                ),
-                "last_size": np.random.exponential(500, len(trading_hours)).astype(
-                    np.int64
-                ),
-                "exchange_code": np.random.choice(
-                    ["N", "Q", "A", "P"], len(trading_hours)
-                ),
+                "bid_price": np.random.normal(50, 20, len(trading_hours)).astype(np.float64),
+                "ask_price": np.random.normal(50.1, 20, len(trading_hours)).astype(np.float64),
+                "bid_size": np.random.exponential(1000, len(trading_hours)).astype(np.int64),
+                "ask_size": np.random.exponential(1000, len(trading_hours)).astype(np.int64),
+                "last_price": np.random.normal(50.05, 20, len(trading_hours)).astype(np.float64),
+                "last_size": np.random.exponential(500, len(trading_hours)).astype(np.int64),
+                "exchange_code": np.random.choice(["N", "Q", "A", "P"], len(trading_hours)),
                 "trade_condition": np.random.choice(
                     ["Regular", "Opening", "Closing", "Halt"], len(trading_hours)
                 ),
@@ -330,9 +304,7 @@ class ComprehensiveDataOptimizationTester:
                 optimizations_applied.extend(optimization_result.operations_applied)
 
                 # メモリコピー最適化
-                optimized_df = self.memory_optimizer.optimize_memory_operations(
-                    optimized_df
-                )
+                optimized_df = self.memory_optimizer.optimize_memory_operations(optimized_df)
                 optimizations_applied.append("memory_copy_optimization")
 
             except Exception as e:
@@ -341,38 +313,24 @@ class ComprehensiveDataOptimizationTester:
 
         # 最適化後のメトリクス
         optimized_memory = optimized_df.memory_usage(deep=True).sum() / 1024 / 1024
-        optimized_dtypes = {
-            col: str(dtype) for col, dtype in optimized_df.dtypes.items()
-        }
+        optimized_dtypes = {col: str(dtype) for col, dtype in optimized_df.dtypes.items()}
 
         # 最適化後の処理速度
         start_time = time.perf_counter()
 
         _ = optimized_df.groupby(
             "symbol" if "symbol" in optimized_df.columns else optimized_df.columns[0]
-        ).agg(
-            {
-                col: "mean"
-                for col in optimized_df.select_dtypes(include=[np.number]).columns[:3]
-            }
-        )
+        ).agg({col: "mean" for col in optimized_df.select_dtypes(include=[np.number]).columns[:3]})
 
         optimized_time = (time.perf_counter() - start_time) * 1000
 
         # 結果計算
-        memory_reduction = (
-            (original_memory - optimized_memory) / original_memory
-        ) * 100
-        speed_improvement = (
-            original_time / optimized_time if optimized_time > 0 else 1.0
-        )
+        memory_reduction = ((original_memory - optimized_memory) / original_memory) * 100
+        speed_improvement = original_time / optimized_time if optimized_time > 0 else 1.0
 
         dtype_changes = {}
         for col in original_dtypes:
-            if (
-                col in optimized_dtypes
-                and original_dtypes[col] != optimized_dtypes[col]
-            ):
+            if col in optimized_dtypes and original_dtypes[col] != optimized_dtypes[col]:
                 dtype_changes[col] = (original_dtypes[col], optimized_dtypes[col])
 
         result = OptimizationTestResult(
@@ -415,9 +373,7 @@ class ComprehensiveDataOptimizationTester:
             return {
                 "original_memory_mb": original_memory,
                 "final_memory_mb": final_memory,
-                "total_reduction_percent": (
-                    (original_memory - final_memory) / original_memory
-                )
+                "total_reduction_percent": ((original_memory - final_memory) / original_memory)
                 * 100,
                 "optimization_stages": [
                     "dataframe_optimization",
@@ -433,9 +389,7 @@ class ComprehensiveDataOptimizationTester:
         compatibility = {}
 
         try:
-            compatibility["enhanced_dataframe_optimizer"] = hasattr(
-                self, "df_optimizer"
-            )
+            compatibility["enhanced_dataframe_optimizer"] = hasattr(self, "df_optimizer")
             compatibility["vectorization_transformer"] = hasattr(self, "vectorizer")
             compatibility["memory_copy_optimizer"] = hasattr(self, "memory_optimizer")
             compatibility["dataframe_analysis_tool"] = hasattr(self, "analyzer")

@@ -87,10 +87,8 @@ class DatabaseMetrics:
             "total_connections": self._connection_counts.get(),
             "total_transactions": self._transaction_counts.get(),
             "total_rollbacks": self._rollback_counts.get(),
-            "error_rate": self._error_counts.get()
-            / max(self._operation_counts.get(), 1),
-            "rollback_rate": self._rollback_counts.get()
-            / max(self._transaction_counts.get(), 1),
+            "error_rate": self._error_counts.get() / max(self._operation_counts.get(), 1),
+            "rollback_rate": self._rollback_counts.get() / max(self._transaction_counts.get(), 1),
             "avg_query_time": avg_query_time,
             "max_query_time": max_query_time,
             "recent_query_count": len(query_times),
@@ -143,9 +141,7 @@ class DatabaseConnectionPool:
         def receive_connect(dbapi_connection, connection_record):
             """接続作成時のイベント"""
             self.metrics.record_connection()
-            logger.debug(
-                "データベース接続作成", extra={"connection_id": id(dbapi_connection)}
-            )
+            logger.debug("データベース接続作成", extra={"connection_id": id(dbapi_connection)})
 
     def get_engine(self, database_url: Optional[str] = None):
         """データベースエンジンを取得"""
@@ -196,9 +192,7 @@ class DatabaseConnectionPool:
             context._query_start_time = time.time()
 
         @event.listens_for(engine, "after_cursor_execute")
-        def receive_after_cursor_execute(
-            conn, cursor, statement, parameters, context, executemany
-        ):
+        def receive_after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
             total = time.time() - context._query_start_time
             self.metrics.record_operation(total)
 
@@ -297,9 +291,7 @@ class DatabaseConnectionPool:
             成功したかどうか
         """
         try:
-            with self.get_session(
-                database_url, auto_commit=False, operation=operation
-            ) as session:
+            with self.get_session(database_url, auto_commit=False, operation=operation) as session:
                 for op in operations:
                     query = op.get("query")
                     parameters = op.get("parameters", {})
@@ -446,9 +438,7 @@ class UnifiedDatabaseManager:
             )
             raise
 
-    def backup_database(
-        self, backup_path: str, database_url: Optional[str] = None
-    ) -> bool:
+    def backup_database(self, backup_path: str, database_url: Optional[str] = None) -> bool:
         """データベースバックアップ"""
         try:
             # 簡易バックアップ実装（SQLiteの場合）
@@ -481,9 +471,7 @@ class UnifiedDatabaseManager:
             )
             return False
 
-    def restore_database(
-        self, backup_path: str, database_url: Optional[str] = None
-    ) -> bool:
+    def restore_database(self, backup_path: str, database_url: Optional[str] = None) -> bool:
         """データベースリストア"""
         try:
             if not database_url:

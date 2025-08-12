@@ -344,9 +344,7 @@ class StandardLogParser(LogParser):
 
                     # タイムスタンプ解析
                     try:
-                        timestamp = datetime.strptime(
-                            groups["timestamp"], "%Y-%m-%d %H:%M:%S"
-                        )
+                        timestamp = datetime.strptime(groups["timestamp"], "%Y-%m-%d %H:%M:%S")
                     except ValueError:
                         continue
 
@@ -511,27 +509,13 @@ class LogAggregationSystem:
             )
 
             # インデックス作成
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON log_entries(timestamp)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_level ON log_entries(level)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_source ON log_entries(source)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_component ON log_entries(component)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_trace ON log_entries(trace_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_alerts_pattern ON log_alerts(pattern_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_alerts_severity ON log_alerts(severity)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON log_entries(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_level ON log_entries(level)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_source ON log_entries(source)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_component ON log_entries(component)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_trace ON log_entries(trace_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_pattern ON log_alerts(pattern_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_severity ON log_alerts(severity)")
 
     def _setup_default_patterns(self):
         """デフォルトログパターン設定"""
@@ -644,8 +628,7 @@ class LogAggregationSystem:
                 # 定期クリーンアップ
                 current_time = time.time()
                 if (
-                    not hasattr(self, "_last_cleanup")
-                    or current_time - self._last_cleanup > 3600
+                    not hasattr(self, "_last_cleanup") or current_time - self._last_cleanup > 3600
                 ):  # 1時間毎
                     self._cleanup_old_data()
                     self._last_cleanup = current_time
@@ -659,9 +642,7 @@ class LogAggregationSystem:
 
         logger.info("ログ処理ループ終了")
 
-    async def ingest_log(
-        self, raw_log: str, source_hint: Optional[LogSource] = None
-    ) -> bool:
+    async def ingest_log(self, raw_log: str, source_hint: Optional[LogSource] = None) -> bool:
         """ログを取り込み"""
         try:
             # ログパース
@@ -720,9 +701,7 @@ class LogAggregationSystem:
                     # カウンター更新
                     self.pattern_counters[pattern_id][current_minute] += 1
 
-                    logger.debug(
-                        f"ログパターン検出: {pattern.name} - {log_entry.message[:100]}"
-                    )
+                    logger.debug(f"ログパターン検出: {pattern.name} - {log_entry.message[:100]}")
 
         except Exception as e:
             logger.error(f"ログパターン処理エラー: {e}")
@@ -737,9 +716,7 @@ class LogAggregationSystem:
                     continue
 
                 # 時間窓内のカウントを集計
-                time_threshold = current_time - timedelta(
-                    minutes=pattern.time_window_minutes
-                )
+                time_threshold = current_time - timedelta(minutes=pattern.time_window_minutes)
                 total_count = 0
 
                 for timestamp, count in self.pattern_counters[pattern_id].items():
@@ -851,9 +828,7 @@ class LogAggregationSystem:
             }
 
             # 実際の実装では、メール、Slack、Teams等への通知
-            logger.info(
-                f"アラート通知: {json.dumps(notification_message, ensure_ascii=False)}"
-            )
+            logger.info(f"アラート通知: {json.dumps(notification_message, ensure_ascii=False)}")
 
         except Exception as e:
             logger.error(f"アラート通知送信エラー: {e}")
@@ -896,9 +871,7 @@ class LogAggregationSystem:
             if where_conditions:
                 where_clause = "WHERE " + " AND ".join(where_conditions)
 
-            order_clause = (
-                f"ORDER BY {query.order_by} {'DESC' if query.order_desc else 'ASC'}"
-            )
+            order_clause = f"ORDER BY {query.order_by} {'DESC' if query.order_desc else 'ASC'}"
             limit_clause = f"LIMIT {query.limit}"
 
             sql_query = f"""
@@ -1019,16 +992,13 @@ class LogAggregationSystem:
                     (start_time.isoformat(), end_time.isoformat()),
                 )
 
-                top_errors = [
-                    {"message": row[0], "count": row[1]} for row in cursor.fetchall()
-                ]
+                top_errors = [{"message": row[0], "count": row[1]} for row in cursor.fetchall()]
 
                 return {
                     "period": {
                         "start_time": start_time.isoformat(),
                         "end_time": end_time.isoformat(),
-                        "duration_hours": (end_time - start_time).total_seconds()
-                        / 3600,
+                        "duration_hours": (end_time - start_time).total_seconds() / 3600,
                     },
                     "basic_statistics": {
                         "total_logs": basic_stats[0],
@@ -1040,9 +1010,7 @@ class LogAggregationSystem:
                     "hourly_distribution": hourly_stats,
                     "top_errors": top_errors,
                     "active_alerts": len(self.active_alerts),
-                    "patterns_enabled": sum(
-                        1 for p in self.log_patterns.values() if p.enabled
-                    ),
+                    "patterns_enabled": sum(1 for p in self.log_patterns.values() if p.enabled),
                 }
 
         except Exception as e:
@@ -1261,7 +1229,9 @@ if __name__ == "__main__":
             print("   エラーログ取り込み: 7件")
 
             # 標準形式ログ
-            standard_log = "2024-01-15 12:00:00 - api.handler - INFO - Request processed successfully"
+            standard_log = (
+                "2024-01-15 12:00:00 - api.handler - INFO - Request processed successfully"
+            )
             success = await log_system.ingest_log(standard_log)
             print(f"   標準形式ログ取り込み: {'成功' if success else '失敗'}")
 
@@ -1310,9 +1280,7 @@ if __name__ == "__main__":
             if analytics:
                 stats = analytics.get("basic_statistics", {})
                 print(f"   総ログ数: {stats.get('total_logs', 0)}")
-                print(
-                    f"   ユニークコンポーネント数: {stats.get('unique_components', 0)}"
-                )
+                print(f"   ユニークコンポーネント数: {stats.get('unique_components', 0)}")
                 print(f"   ユニークソース数: {stats.get('unique_sources', 0)}")
 
                 level_dist = analytics.get("level_distribution", {})
@@ -1329,25 +1297,19 @@ if __name__ == "__main__":
 
             for alert_id, alert in list(log_system.active_alerts.items())[:3]:
                 print(f"   アラート: {alert.pattern_name} - {alert.message}")
-                print(
-                    f"     重要度: {alert.severity.value}, 発生回数: {alert.occurrence_count}"
-                )
+                print(f"     重要度: {alert.severity.value}, 発生回数: {alert.occurrence_count}")
 
             # ログパターン確認
             print("\n7. ログパターン確認...")
             for pattern_id, pattern in log_system.log_patterns.items():
                 enabled_status = "有効" if pattern.enabled else "無効"
-                print(
-                    f"   {pattern.name}: {enabled_status} (閾値: {pattern.alert_threshold})"
-                )
+                print(f"   {pattern.name}: {enabled_status} (閾値: {pattern.alert_threshold})")
 
             # ログエクスポートテスト
             print("\n8. ログエクスポートテスト...")
             try:
                 export_query = LogSearchQuery(limit=100)
-                export_file = await log_system.export_logs(
-                    export_query, export_format="json"
-                )
+                export_file = await log_system.export_logs(export_query, export_format="json")
                 print(f"   エクスポート成功: {export_file}")
 
                 # エクスポートファイル確認

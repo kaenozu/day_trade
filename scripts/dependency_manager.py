@@ -130,9 +130,7 @@ class DependencyManager:
 """
 
         if outdated_packages:
-            report_content += (
-                f"**{len(outdated_packages)}個の古いパッケージが見つかりました:**\n\n"
-            )
+            report_content += f"**{len(outdated_packages)}個の古いパッケージが見つかりました:**\n\n"
             report_content += "| パッケージ | 現在のバージョン | 最新バージョン |\n"
             report_content += "|------------|------------------|----------------|\n"
             for pkg in outdated_packages:
@@ -148,7 +146,9 @@ class DependencyManager:
             try:
                 security_data = json.loads(security_report)
                 if security_data:
-                    report_content += f"⚠️ **{len(security_data)}件のセキュリティ問題が見つかりました**\n\n"
+                    report_content += (
+                        f"⚠️ **{len(security_data)}件のセキュリティ問題が見つかりました**\n\n"
+                    )
                     for issue in security_data:
                         report_content += f"- **{issue.get('package', 'Unknown')}**: {issue.get('vulnerability', 'Unknown vulnerability')}\n"
                 else:
@@ -220,9 +220,7 @@ pip install --upgrade vulnerable_package
 
         return str(report_path)
 
-    def update_packages(
-        self, packages: Optional[List[str]] = None, dry_run: bool = False
-    ) -> bool:
+    def update_packages(self, packages: Optional[List[str]] = None, dry_run: bool = False) -> bool:
         """パッケージを更新"""
         if packages is None:
             # 古いパッケージを取得
@@ -271,9 +269,7 @@ pip install --upgrade vulnerable_package
 def main():
     """メイン関数"""
     parser = argparse.ArgumentParser(description="依存関係管理ツール")
-    parser.add_argument(
-        "--project-root", type=Path, help="プロジェクトルートディレクトリ"
-    )
+    parser.add_argument("--project-root", type=Path, help="プロジェクトルートディレクトリ")
 
     subparsers = parser.add_subparsers(dest="command", help="利用可能なコマンド")
 

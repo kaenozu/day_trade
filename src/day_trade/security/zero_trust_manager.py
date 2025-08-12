@@ -21,10 +21,11 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     import jwt
+    import pyotp
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-    import pyotp
+
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
@@ -33,14 +34,17 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
 
 class TrustLevel(Enum):
     """トラストレベル"""
+
     UNKNOWN = "unknown"
     DENIED = "denied"
     LIMITED = "limited"
@@ -51,6 +55,7 @@ class TrustLevel(Enum):
 
 class AccessDecision(Enum):
     """アクセス決定"""
+
     ALLOW = "allow"
     DENY = "deny"
     CHALLENGE = "challenge"
@@ -59,6 +64,7 @@ class AccessDecision(Enum):
 
 class RiskLevel(Enum):
     """リスクレベル"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -68,6 +74,7 @@ class RiskLevel(Enum):
 @dataclass
 class ZeroTrustConfig:
     """ゼロトラスト設定"""
+
     # セキュリティレベル
     minimum_trust_level: TrustLevel = TrustLevel.CONDITIONAL
     require_mfa: bool = True
@@ -96,6 +103,7 @@ class ZeroTrustConfig:
 @dataclass
 class UserContext:
     """ユーザーコンテキスト"""
+
     user_id: str
     username: str
     roles: List[str]
@@ -118,6 +126,7 @@ class UserContext:
 @dataclass
 class DeviceContext:
     """デバイスコンテキスト"""
+
     device_id: str
     device_type: str  # desktop, mobile, server, etc.
     os_info: str
@@ -137,6 +146,7 @@ class DeviceContext:
 @dataclass
 class ResourceContext:
     """リソースコンテキスト"""
+
     resource_id: str
     resource_type: str  # api, data, service, etc.
     classification: str  # public, internal, confidential, restricted
@@ -150,6 +160,7 @@ class ResourceContext:
 @dataclass
 class AccessRequest:
     """アクセス要求"""
+
     request_id: str
     user_context: UserContext
     device_context: DeviceContext
@@ -167,6 +178,7 @@ class AccessRequest:
 @dataclass
 class PolicyRule:
     """ポリシールール"""
+
     rule_id: str
     name: str
     description: str
@@ -314,7 +326,7 @@ class PolicyEngine:
             required_trust_level=TrustLevel.TRUSTED,
             additional_controls=[],
             priority=1000,
-            enabled=True
+            enabled=True,
         )
 
         # 信頼済みデバイスポリシー
@@ -330,7 +342,7 @@ class PolicyEngine:
             required_trust_level=TrustLevel.TRUSTED,
             additional_controls=["session_monitoring"],
             priority=10,
-            enabled=True
+            enabled=True,
         )
 
         # 高機密リソースポリシー
@@ -346,7 +358,7 @@ class PolicyEngine:
             required_trust_level=TrustLevel.HIGH_TRUST,
             additional_controls=["additional_mfa", "continuous_monitoring"],
             priority=5,
-            enabled=True
+            enabled=True,
         )
 
         # 異常検知チャレンジポリシー
@@ -362,7 +374,7 @@ class PolicyEngine:
             required_trust_level=TrustLevel.CONDITIONAL,
             additional_controls=["step_up_auth", "manager_approval"],
             priority=20,
-            enabled=True
+            enabled=True,
         )
 
         return policies
@@ -370,17 +382,14 @@ class PolicyEngine:
     def evaluate_policies(
         self,
         access_request: AccessRequest,
-        risk_assessment: Tuple[RiskLevel, float, Dict[str, Any]]
+        risk_assessment: Tuple[RiskLevel, float, Dict[str, Any]],
     ) -> Tuple[AccessDecision, TrustLevel, List[str]]:
         """ポリシー評価実行"""
 
         risk_level, risk_score, risk_factors = risk_assessment
 
         # ポリシーを優先度順でソート
-        sorted_policies = sorted(
-            self.policies.values(),
-            key=lambda p: p.priority
-        )
+        sorted_policies = sorted(self.policies.values(), key=lambda p: p.priority)
 
         for policy in sorted_policies:
             if not policy.enabled:
@@ -389,20 +398,13 @@ class PolicyEngine:
             if self._matches_policy(access_request, policy, risk_level):
                 logger.info(f"ポリシーマッチ: {policy.name} -> {policy.decision.value}")
 
-                return (
-                    policy.decision,
-                    policy.required_trust_level,
-                    policy.additional_controls
-                )
+                return (policy.decision, policy.required_trust_level, policy.additional_controls)
 
         # デフォルトは拒否
         return AccessDecision.DENY, TrustLevel.DENIED, []
 
     def _matches_policy(
-        self,
-        request: AccessRequest,
-        policy: PolicyRule,
-        risk_level: RiskLevel
+        self, request: AccessRequest, policy: PolicyRule, risk_level: RiskLevel
     ) -> bool:
         """ポリシーマッチング"""
 
@@ -415,11 +417,15 @@ class PolicyEngine:
             return False
 
         # リソース条件チェック
-        if not self._matches_resource_conditions(request.resource_context, policy.resource_conditions):
+        if not self._matches_resource_conditions(
+            request.resource_context, policy.resource_conditions
+        ):
             return False
 
         # コンテキスト条件チェック
-        if not self._matches_contextual_conditions(request, policy.contextual_conditions, risk_level):
+        if not self._matches_contextual_conditions(
+            request, policy.contextual_conditions, risk_level
+        ):
             return False
 
         return True
@@ -457,7 +463,9 @@ class PolicyEngine:
 
         return True
 
-    def _matches_resource_conditions(self, resource: ResourceContext, conditions: Dict[str, Any]) -> bool:
+    def _matches_resource_conditions(
+        self, resource: ResourceContext, conditions: Dict[str, Any]
+    ) -> bool:
         """リソース条件マッチング"""
         if not conditions:
             return True
@@ -473,10 +481,7 @@ class PolicyEngine:
         return True
 
     def _matches_contextual_conditions(
-        self,
-        request: AccessRequest,
-        conditions: Dict[str, Any],
-        risk_level: RiskLevel
+        self, request: AccessRequest, conditions: Dict[str, Any], risk_level: RiskLevel
     ) -> bool:
         """コンテキスト条件マッチング"""
         if not conditions:
@@ -521,8 +526,7 @@ class MultiFactorAuthenticator:
 
         # QRコード用URI生成
         totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
-            user_id,
-            issuer_name="DayTrade Security"
+            user_id, issuer_name="DayTrade Security"
         )
 
         return secret, totp_uri
@@ -575,9 +579,7 @@ class SessionManager:
 
         # セッションデータ暗号化
         if self.session_cipher:
-            encrypted_data = self.session_cipher.encrypt(
-                json.dumps(session_data).encode()
-            )
+            encrypted_data = self.session_cipher.encrypt(json.dumps(session_data).encode())
             self.active_sessions[session_token] = encrypted_data
         else:
             self.active_sessions[session_token] = session_data
@@ -611,9 +613,7 @@ class SessionManager:
             session_data["last_activity"] = time.time()
 
             if self.session_cipher:
-                encrypted_data = self.session_cipher.encrypt(
-                    json.dumps(session_data).encode()
-                )
+                encrypted_data = self.session_cipher.encrypt(json.dumps(session_data).encode())
                 self.active_sessions[session_token] = encrypted_data
             else:
                 self.active_sessions[session_token] = session_data
@@ -716,18 +716,17 @@ class ZeroTrustManager:
                 "risk_assessment": {
                     "risk_level": risk_level.value,
                     "risk_score": risk_score,
-                    "risk_factors": risk_factors
+                    "risk_factors": risk_factors,
                 },
                 "additional_controls": additional_controls,
                 "evaluated_at": time.time(),
-                "session_token": None
+                "session_token": None,
             }
 
             # 5. セッション管理
             if decision == AccessDecision.ALLOW:
                 session_token = self.session_manager.create_session(
-                    access_request.user_context,
-                    access_request.device_context
+                    access_request.user_context, access_request.device_context
                 )
                 evaluation_result["session_token"] = session_token
 
@@ -742,12 +741,14 @@ class ZeroTrustManager:
                 "decision": AccessDecision.DENY.value,
                 "trust_level": TrustLevel.DENIED.value,
                 "error": str(e),
-                "evaluated_at": time.time()
+                "evaluated_at": time.time(),
             }
 
     def generate_device_fingerprint(self, device_context: DeviceContext) -> str:
         """デバイスフィンガープリント生成"""
-        fingerprint_data = f"{device_context.device_type}:{device_context.os_info}:{device_context.browser_info}"
+        fingerprint_data = (
+            f"{device_context.device_type}:{device_context.os_info}:{device_context.browser_info}"
+        )
 
         fingerprint = hashlib.sha256(fingerprint_data.encode()).hexdigest()[:16]
         device_context.device_fingerprint = fingerprint
@@ -777,7 +778,7 @@ class ZeroTrustManager:
         device_info: Dict[str, Any],
         resource_info: Dict[str, Any],
         action: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
     ) -> AccessRequest:
         """アクセス要求作成"""
 
@@ -792,7 +793,7 @@ class ZeroTrustManager:
             created_at=time.time(),
             last_activity=time.time(),
             authentication_methods=metadata.get("auth_methods", ["password"]),
-            mfa_verified=metadata.get("mfa_verified", False)
+            mfa_verified=metadata.get("mfa_verified", False),
         )
 
         # デバイスコンテキスト
@@ -803,7 +804,7 @@ class ZeroTrustManager:
             browser_info=device_info.get("browser_info", "unknown"),
             ip_address=device_info.get("ip_address", "unknown"),
             geolocation=device_info.get("geolocation"),
-            trusted_device=device_info.get("trusted_device", False)
+            trusted_device=device_info.get("trusted_device", False),
         )
 
         # デバイスフィンガープリント生成
@@ -815,7 +816,7 @@ class ZeroTrustManager:
             resource_type=resource_info.get("resource_type", "api"),
             classification=resource_info.get("classification", "internal"),
             required_permissions=resource_info.get("required_permissions", []),
-            data_sensitivity=resource_info.get("data_sensitivity", "medium")
+            data_sensitivity=resource_info.get("data_sensitivity", "medium"),
         )
 
         # アクセス要求
@@ -826,7 +827,7 @@ class ZeroTrustManager:
             resource_context=resource_context,
             requested_action=action,
             timestamp=time.time(),
-            request_metadata=metadata or {}
+            request_metadata=metadata or {},
         )
 
         return access_request
@@ -841,7 +842,7 @@ class ZeroTrustManager:
                 "access_stats": self.access_stats,
                 "active_sessions": 0,
                 "trust_distribution": {},
-                "risk_distribution": {}
+                "risk_distribution": {},
             }
 
         return {
@@ -854,8 +855,8 @@ class ZeroTrustManager:
             "config": {
                 "minimum_trust_level": self.config.minimum_trust_level.value,
                 "require_mfa": self.config.require_mfa,
-                "session_timeout": self.config.session_timeout_minutes
-            }
+                "session_timeout": self.config.session_timeout_minutes,
+            },
         }
 
     async def cleanup_resources(self):
@@ -870,9 +871,7 @@ if __name__ == "__main__":
         print("=== ゼロトラストセキュリティマネージャー ===")
 
         config = ZeroTrustConfig(
-            minimum_trust_level=TrustLevel.CONDITIONAL,
-            require_mfa=True,
-            session_timeout_minutes=30
+            minimum_trust_level=TrustLevel.CONDITIONAL, require_mfa=True, session_timeout_minutes=30
         )
 
         zt_manager = ZeroTrustManager(config)
@@ -889,20 +888,17 @@ if __name__ == "__main__":
                 "os_info": "Windows 11",
                 "browser_info": "Chrome 120",
                 "ip_address": "192.168.1.100",
-                "trusted_device": False
+                "trusted_device": False,
             },
             resource_info={
                 "resource_id": "api_trading_data",
                 "resource_type": "api",
                 "classification": "confidential",
                 "data_sensitivity": "high",
-                "required_permissions": ["read_trading_data"]
+                "required_permissions": ["read_trading_data"],
             },
             action="read",
-            metadata={
-                "auth_methods": ["password"],
-                "mfa_verified": False
-            }
+            metadata={"auth_methods": ["password"], "mfa_verified": False},
         )
 
         print(f"アクセス要求作成: {access_request.request_id}")
@@ -910,23 +906,22 @@ if __name__ == "__main__":
         # アクセス評価
         evaluation = await zt_manager.evaluate_access_request(access_request)
 
-        print(f"\n=== アクセス評価結果 ===")
+        print("\n=== アクセス評価結果 ===")
         print(f"決定: {evaluation['decision']}")
         print(f"トラストレベル: {evaluation['trust_level']}")
         print(f"リスクレベル: {evaluation['risk_assessment']['risk_level']}")
         print(f"リスクスコア: {evaluation['risk_assessment']['risk_score']:.2f}")
 
-        if evaluation['risk_assessment']['risk_factors']:
+        if evaluation["risk_assessment"]["risk_factors"]:
             print(f"リスク要因: {list(evaluation['risk_assessment']['risk_factors'].keys())}")
 
-        if evaluation['additional_controls']:
+        if evaluation["additional_controls"]:
             print(f"追加制御: {evaluation['additional_controls']}")
 
         # 信頼済みデバイステスト
-        print(f"\n=== 信頼済みデバイス追加 ===")
+        print("\n=== 信頼済みデバイス追加 ===")
         trusted_result = zt_manager.add_trusted_device(
-            access_request.device_context,
-            access_request.user_context.user_id
+            access_request.device_context, access_request.user_context.user_id
         )
         print(f"信頼済みデバイス登録: {trusted_result}")
 
@@ -935,14 +930,14 @@ if __name__ == "__main__":
         access_request.user_context.mfa_verified = True
 
         re_evaluation = await zt_manager.evaluate_access_request(access_request)
-        print(f"\n=== 再評価結果（信頼済みデバイス）===")
+        print("\n=== 再評価結果（信頼済みデバイス）===")
         print(f"決定: {re_evaluation['decision']}")
         print(f"トラストレベル: {re_evaluation['trust_level']}")
         print(f"リスクレベル: {re_evaluation['risk_assessment']['risk_level']}")
 
         # ダッシュボード
         dashboard = zt_manager.get_security_dashboard()
-        print(f"\n=== セキュリティダッシュボード ===")
+        print("\n=== セキュリティダッシュボード ===")
         print(f"ステータス: {dashboard['status']}")
         print(f"総リクエスト: {dashboard['access_stats']['total_requests']}")
         print(f"許可率: {dashboard.get('success_rate', 0):.1f}%")

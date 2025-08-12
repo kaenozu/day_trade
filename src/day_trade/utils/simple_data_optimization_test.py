@@ -109,12 +109,8 @@ class SimpleDataOptimizationTester:
         original_df = pd.DataFrame(
             {
                 "id": np.arange(10000, dtype=np.int64),  # int32で十分
-                "price": np.random.normal(100, 10, 10000).astype(
-                    np.float64
-                ),  # float32で十分
-                "volume": np.random.randint(0, 1000000, 10000).astype(
-                    np.int64
-                ),  # int32で十分
+                "price": np.random.normal(100, 10, 10000).astype(np.float64),  # float32で十分
+                "volume": np.random.randint(0, 1000000, 10000).astype(np.int64),  # int32で十分
                 "is_buy": np.random.choice([True, False], 10000),  # bool
                 "category": np.random.choice(["A", "B", "C"], 10000),  # category型候補
             }
@@ -157,9 +153,7 @@ class SimpleDataOptimizationTester:
         # メモリ使用量は同等として計算
         memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
 
-        speed_improvement = (
-            original_time / optimized_time if optimized_time > 0 else 1.0
-        )
+        speed_improvement = original_time / optimized_time if optimized_time > 0 else 1.0
 
         result = OptimizationResult(
             test_name="vectorization",
@@ -221,9 +215,7 @@ class SimpleDataOptimizationTester:
         original_memory = original.memory_usage(deep=True).sum() / 1024 / 1024
         optimized_memory = optimized.memory_usage(deep=True).sum() / 1024 / 1024
 
-        memory_reduction = (
-            (original_memory - optimized_memory) / original_memory
-        ) * 100
+        memory_reduction = ((original_memory - optimized_memory) / original_memory) * 100
 
         # 速度測定
         if original_time is None:
@@ -235,9 +227,7 @@ class SimpleDataOptimizationTester:
         _ = optimized.groupby(optimized.columns[0]).size()
         optimized_time = (time.perf_counter() - start_time) * 1000
 
-        speed_improvement = (
-            original_time / optimized_time if optimized_time > 0 else 1.0
-        )
+        speed_improvement = original_time / optimized_time if optimized_time > 0 else 1.0
 
         result = OptimizationResult(
             test_name=test_name,
@@ -251,9 +241,7 @@ class SimpleDataOptimizationTester:
 
         self.results.append(result)
 
-        print(
-            f"    {test_name}: {memory_reduction:.1f}%メモリ削減, {speed_improvement:.1f}x高速化"
-        )
+        print(f"    {test_name}: {memory_reduction:.1f}%メモリ削減, {speed_improvement:.1f}x高速化")
 
         return result
 

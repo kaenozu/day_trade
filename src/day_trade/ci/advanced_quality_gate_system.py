@@ -258,9 +258,7 @@ class ComplexityVisitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node):
         self.current_class = node.name
-        self.classes.append(
-            {"name": node.name, "line_number": node.lineno, "methods": []}
-        )
+        self.classes.append({"name": node.name, "line_number": node.lineno, "methods": []})
         self.generic_visit(node)
         self.current_class = None
 
@@ -328,9 +326,7 @@ class DependencyHealthChecker:
         self.vulnerability_cache = {}
         self.license_cache = {}
 
-    def check_dependencies(
-        self, requirements_file: str = "requirements.txt"
-    ) -> Dict[str, Any]:
+    def check_dependencies(self, requirements_file: str = "requirements.txt") -> Dict[str, Any]:
         """依存関係の健全性をチェック"""
         try:
             # pip-audit で脆弱性チェック
@@ -525,13 +521,9 @@ class DependencyHealthChecker:
         score = 100.0
 
         # 脆弱性による減点
-        critical_vulns = len(
-            [v for v in vulnerabilities if v.get("severity") == "critical"]
-        )
+        critical_vulns = len([v for v in vulnerabilities if v.get("severity") == "critical"])
         high_vulns = len([v for v in vulnerabilities if v.get("severity") == "high"])
-        medium_vulns = len(
-            [v for v in vulnerabilities if v.get("severity") == "medium"]
-        )
+        medium_vulns = len([v for v in vulnerabilities if v.get("severity") == "medium"])
 
         score -= critical_vulns * 25
         score -= high_vulns * 15
@@ -580,12 +572,8 @@ class TestCoverageAnalyzer:
                 {
                     "file": file_path,
                     "coverage": coverage_pct,
-                    "lines_covered": file_data.get("summary", {}).get(
-                        "covered_lines", 0
-                    ),
-                    "lines_total": file_data.get("summary", {}).get(
-                        "num_statements", 0
-                    ),
+                    "lines_covered": file_data.get("summary", {}).get("covered_lines", 0),
+                    "lines_total": file_data.get("summary", {}).get("num_statements", 0),
                 }
             )
 
@@ -602,9 +590,7 @@ class TestCoverageAnalyzer:
             "file_coverage": sorted(file_coverage, key=lambda x: x["coverage"]),
             "low_coverage_files": low_coverage_files,
             "module_coverage": module_coverage,
-            "coverage_distribution": self._calculate_coverage_distribution(
-                file_coverage
-            ),
+            "coverage_distribution": self._calculate_coverage_distribution(file_coverage),
         }
 
     def _run_coverage_analysis(self) -> Dict[str, Any]:
@@ -638,9 +624,7 @@ class TestCoverageAnalyzer:
         except Exception as e:
             return {"error": str(e), "coverage_percentage": 0}
 
-    def _calculate_module_coverage(
-        self, file_coverage: List[Dict[str, Any]]
-    ) -> Dict[str, float]:
+    def _calculate_module_coverage(self, file_coverage: List[Dict[str, Any]]) -> Dict[str, float]:
         """モジュール別カバレッジを計算"""
         module_stats = {}
 
@@ -649,11 +633,7 @@ class TestCoverageAnalyzer:
 
             # モジュール名を抽出 (例: src/day_trade/core/file.py -> core)
             path_parts = file_path.replace("\\", "/").split("/")
-            if (
-                len(path_parts) >= 3
-                and path_parts[0] == "src"
-                and path_parts[1] == "day_trade"
-            ):
+            if len(path_parts) >= 3 and path_parts[0] == "src" and path_parts[1] == "day_trade":
                 module = path_parts[2]
             else:
                 module = "other"
@@ -904,9 +884,7 @@ class AdvancedQualityGateSystem:
                 "excellent_gates": len(
                     [r for r in gate_results if r.level == QualityLevel.EXCELLENT]
                 ),
-                "good_gates": len(
-                    [r for r in gate_results if r.level == QualityLevel.GOOD]
-                ),
+                "good_gates": len([r for r in gate_results if r.level == QualityLevel.GOOD]),
                 "acceptable_gates": len(
                     [r for r in gate_results if r.level == QualityLevel.ACCEPTABLE]
                 ),
@@ -919,9 +897,7 @@ class AdvancedQualityGateSystem:
         # データベースに保存
         await self._save_quality_report(report)
 
-        print(
-            f"[完了] 品質チェック完了 - 総合スコア: {overall_score:.1f} ({overall_level.value})"
-        )
+        print(f"[完了] 品質チェック完了 - 総合スコア: {overall_score:.1f} ({overall_level.value})")
 
         return report
 
@@ -1010,9 +986,7 @@ class AdvancedQualityGateSystem:
                 file_count += 1
 
                 if complexity > 20:  # 高複雑度ファイル
-                    high_complexity_files.append(
-                        {"file": str(file_path), "complexity": complexity}
-                    )
+                    high_complexity_files.append({"file": str(file_path), "complexity": complexity})
 
         average_complexity = total_complexity / file_count if file_count > 0 else 0
 
@@ -1155,19 +1129,11 @@ class AdvancedQualityGateSystem:
                     issues = bandit_output.get("results", [])
 
                     # 重要度別にスコア計算
-                    high_issues = len(
-                        [i for i in issues if i.get("issue_severity") == "HIGH"]
-                    )
-                    medium_issues = len(
-                        [i for i in issues if i.get("issue_severity") == "MEDIUM"]
-                    )
-                    low_issues = len(
-                        [i for i in issues if i.get("issue_severity") == "LOW"]
-                    )
+                    high_issues = len([i for i in issues if i.get("issue_severity") == "HIGH"])
+                    medium_issues = len([i for i in issues if i.get("issue_severity") == "MEDIUM"])
+                    low_issues = len([i for i in issues if i.get("issue_severity") == "LOW"])
 
-                    security_score = 100 - (
-                        high_issues * 20 + medium_issues * 10 + low_issues * 2
-                    )
+                    security_score = 100 - (high_issues * 20 + medium_issues * 10 + low_issues * 2)
                     security_score = max(0, security_score)
 
                 except json.JSONDecodeError:

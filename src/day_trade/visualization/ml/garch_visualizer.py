@@ -43,9 +43,7 @@ class GARCHVisualizer(ChartRenderer):
         super().__init__(output_dir, theme)
         logger.info("GARCH可視化システム初期化完了")
 
-    def render(
-        self, data: pd.DataFrame, garch_results: Dict, **kwargs
-    ) -> Optional[str]:
+    def render(self, data: pd.DataFrame, garch_results: Dict, **kwargs) -> Optional[str]:
         """
         GARCHボラティリティチャート描画
 
@@ -148,9 +146,7 @@ class GARCHVisualizer(ChartRenderer):
             ylabel="ボラティリティ",
         )
 
-    def _plot_conditional_volatility(
-        self, ax, data: pd.DataFrame, garch_results: Dict
-    ) -> None:
+    def _plot_conditional_volatility(self, ax, data: pd.DataFrame, garch_results: Dict) -> None:
         """
         条件付きボラティリティプロット
 
@@ -171,9 +167,7 @@ class GARCHVisualizer(ChartRenderer):
             # ボラティリティクラスター可視化
             if "volatility_clusters" in garch_results:
                 clusters = garch_results["volatility_clusters"]
-                high_vol_periods = np.where(
-                    np.array(cond_vol) > np.percentile(cond_vol, 75)
-                )[0]
+                high_vol_periods = np.where(np.array(cond_vol) > np.percentile(cond_vol, 75))[0]
 
                 ax.scatter(
                     high_vol_periods,
@@ -353,9 +347,7 @@ class GARCHVisualizer(ChartRenderer):
                     alpha=0.7,
                 )
 
-        self.apply_common_styling(
-            ax, title="リスク指標", xlabel="時間", ylabel="リスク値"
-        )
+        self.apply_common_styling(ax, title="リスク指標", xlabel="時間", ylabel="リスク値")
 
     def create_garch_analysis_dashboard(
         self, data: pd.DataFrame, garch_results: Dict, symbol: str = "STOCK"
@@ -400,9 +392,7 @@ class GARCHVisualizer(ChartRenderer):
         ax_goodness = fig.add_subplot(gs[2, 2])
         self._plot_model_goodness(ax_goodness, garch_results)
 
-        plt.suptitle(
-            f"{symbol} GARCH分析ダッシュボード", fontsize=16, fontweight="bold"
-        )
+        plt.suptitle(f"{symbol} GARCH分析ダッシュボード", fontsize=16, fontweight="bold")
         plt.tight_layout()
 
         filename = f"garch_dashboard_{symbol}.png"
@@ -477,9 +467,7 @@ class GARCHVisualizer(ChartRenderer):
                     )
                     y_pos += 1
 
-        self.apply_common_styling(
-            ax, title="GARCHパラメータ", xlabel="時間", ylabel="値"
-        )
+        self.apply_common_styling(ax, title="GARCHパラメータ", xlabel="時間", ylabel="値")
 
     def _plot_model_goodness(self, ax, garch_results: Dict) -> None:
         """
@@ -541,9 +529,7 @@ class GARCHVisualizer(ChartRenderer):
                 exported_files["main_chart"] = main_chart
 
             # ダッシュボード
-            dashboard = self.create_garch_analysis_dashboard(
-                data, garch_results, symbol
-            )
+            dashboard = self.create_garch_analysis_dashboard(data, garch_results, symbol)
             if dashboard:
                 exported_files["dashboard"] = dashboard
 

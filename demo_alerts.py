@@ -101,9 +101,7 @@ class MockStockFetcher:
         self.current_prices[symbol] = new_price
 
         # 前日比計算
-        change_percent = (
-            (new_price - self.base_prices[symbol]) / self.base_prices[symbol]
-        ) * 100
+        change_percent = ((new_price - self.base_prices[symbol]) / self.base_prices[symbol]) * 100
 
         # 出来高シミュレーション
         base_volume = random.randint(800000, 2000000)
@@ -111,9 +109,7 @@ class MockStockFetcher:
 
         # 価格変動が大きいと出来高も増加
         volume_spike = abs(change) * 10  # 変動率に比例
-        volume_multiplier = max(
-            0.5, volume_multiplier + volume_spike - 0.1
-        )  # 徐々に減衰
+        volume_multiplier = max(0.5, volume_multiplier + volume_spike - 0.1)  # 徐々に減衰
         self.volume_multipliers[symbol] = volume_multiplier
 
         volume = int(base_volume * volume_multiplier)
@@ -186,12 +182,8 @@ def demo_basic_alerts():
             above=False,
             priority=AlertPriority.MEDIUM,
         ),
-        create_change_alert(
-            "softbank_up_5", "9984", 5.0, up=True, priority=AlertPriority.MEDIUM
-        ),
-        create_change_alert(
-            "ufj_down_3", "8306", -3.0, up=False, priority=AlertPriority.LOW
-        ),
+        create_change_alert("softbank_up_5", "9984", 5.0, up=True, priority=AlertPriority.MEDIUM),
+        create_change_alert("ufj_down_3", "8306", -3.0, up=False, priority=AlertPriority.LOW),
     ]
 
     for alert in price_alerts:
@@ -238,9 +230,7 @@ def demo_custom_alerts():
     alert_manager = AlertManager(stock_fetcher=mock_fetcher)
 
     # カスタムアラート関数の定義
-    def volume_price_breakout(
-        symbol, price, volume, change_pct, historical_data, params
-    ):
+    def volume_price_breakout(symbol, price, volume, change_pct, historical_data, params):
         """出来高・価格ブレイクアウト検出"""
         min_price = params.get("min_price", 0)
         min_volume_ratio = params.get("min_volume_ratio", 1.5)
@@ -248,11 +238,7 @@ def demo_custom_alerts():
 
         # 履歴データがある場合の出来高比較
         volume_ratio = 1.0
-        if (
-            historical_data is not None
-            and not historical_data.empty
-            and len(historical_data) > 10
-        ):
+        if historical_data is not None and not historical_data.empty and len(historical_data) > 10:
             avg_volume = historical_data["Volume"].rolling(window=10).mean().iloc[-1]
             if avg_volume > 0:
                 volume_ratio = volume / avg_volume
@@ -266,11 +252,7 @@ def demo_custom_alerts():
 
     def rsi_divergence(symbol, price, volume, change_pct, historical_data, params):
         """RSIダイバージェンス検出（簡易版）"""
-        if (
-            historical_data is None
-            or historical_data.empty
-            or len(historical_data) < 14
-        ):
+        if historical_data is None or historical_data.empty or len(historical_data) < 14:
             return False
 
         # 簡易RSI計算
@@ -432,9 +414,7 @@ def demo_real_time_monitoring():
     alert_manager.notification_handler.add_custom_handler(
         NotificationMethod.CALLBACK, demo_notification_handler
     )
-    alert_manager.configure_notifications(
-        [NotificationMethod.CONSOLE, NotificationMethod.CALLBACK]
-    )
+    alert_manager.configure_notifications([NotificationMethod.CONSOLE, NotificationMethod.CALLBACK])
 
     def create_monitoring_display():
         """監視画面レイアウト作成"""
@@ -474,9 +454,7 @@ def demo_real_time_monitoring():
             change_color = (
                 "green"
                 if data["change_percent"] > 0
-                else "red"
-                if data["change_percent"] < 0
-                else "white"
+                else "red" if data["change_percent"] < 0 else "white"
             )
             prices_table.add_row(
                 symbol,
@@ -569,9 +547,7 @@ def demo_alert_analysis():
     base_time = datetime.now() - timedelta(hours=12)
 
     for i in range(20):
-        trigger_time = base_time + timedelta(
-            minutes=random.randint(0, 720)
-        )  # 12時間以内
+        trigger_time = base_time + timedelta(minutes=random.randint(0, 720))  # 12時間以内
 
         sample_history.append(
             AlertTrigger(
@@ -612,17 +588,13 @@ def demo_alert_analysis():
         "総アラート数": total_alerts,
         "対象銘柄数": len(symbol_counts),
         "平均/時間": f"{total_alerts / 12:.1f}",
-        "最多銘柄": (
-            max(symbol_counts, key=symbol_counts.get) if symbol_counts else "N/A"
-        ),
+        "最多銘柄": (max(symbol_counts, key=symbol_counts.get) if symbol_counts else "N/A"),
         "高優先度": priority_counts.get("high", 0),
         "中優先度": priority_counts.get("medium", 0),
     }
 
     metric_cards = create_metric_cards(stats_metrics, columns=3)
-    console.print(
-        Panel(metric_cards, title="📊 アラート統計（過去12時間）", border_style="cyan")
-    )
+    console.print(Panel(metric_cards, title="📊 アラート統計（過去12時間）", border_style="cyan"))
 
     # 銘柄別分析テーブル
     symbol_analysis_data = {}
@@ -641,15 +613,11 @@ def demo_alert_analysis():
             "frequency_per_hour": count / 12,
         }
 
-    symbol_table = create_comparison_table(
-        symbol_analysis_data, "📈 銘柄別アラート分析"
-    )
+    symbol_table = create_comparison_table(symbol_analysis_data, "📈 銘柄別アラート分析")
     console.print(symbol_table)
 
     # タイムライン表示（最新10件）
-    recent_alerts = sorted(sample_history, key=lambda x: x.trigger_time, reverse=True)[
-        :10
-    ]
+    recent_alerts = sorted(sample_history, key=lambda x: x.trigger_time, reverse=True)[:10]
 
     timeline_table = Table(title="⏰ 最近のアラート タイムライン")
     timeline_table.add_column("時刻", style="dim")
@@ -671,9 +639,7 @@ def demo_alert_analysis():
         change_color = (
             "green"
             if trigger.change_percent > 0
-            else "red"
-            if trigger.change_percent < 0
-            else "white"
+            else "red" if trigger.change_percent < 0 else "white"
         )
 
         timeline_table.add_row(
@@ -681,11 +647,7 @@ def demo_alert_analysis():
             trigger.symbol,
             trigger.alert_type.value.replace("_", " ").title(),
             f"[{priority_color}]{trigger.priority.value.upper()}[/{priority_color}]",
-            (
-                format_currency(float(trigger.current_price))
-                if trigger.current_price
-                else "N/A"
-            ),
+            (format_currency(float(trigger.current_price)) if trigger.current_price else "N/A"),
             (
                 f"[{change_color}]{format_percentage(trigger.change_percent)}[/{change_color}]"
                 if trigger.change_percent is not None
@@ -707,9 +669,7 @@ def main():
         )
     )
 
-    console.print(
-        "\n[yellow]各デモを順番に実行します。Enterキーで次に進んでください...[/yellow]"
-    )
+    console.print("\n[yellow]各デモを順番に実行します。Enterキーで次に進んでください...[/yellow]")
 
     demos = [
         ("基本アラート機能", demo_basic_alerts),

@@ -32,9 +32,7 @@ class IndicatorCharts(ChartRenderer):
     RSI、MACD、ボリンジャーバンド等の詳細可視化を提供
     """
 
-    def __init__(
-        self, output_dir: str = "output/technical_charts", theme: str = "default"
-    ):
+    def __init__(self, output_dir: str = "output/technical_charts", theme: str = "default"):
         """
         初期化
 
@@ -83,9 +81,7 @@ class IndicatorCharts(ChartRenderer):
         filename = kwargs.get("filename", f"technical_analysis_{symbol}.png")
         return self.save_figure(fig, filename)
 
-    def _plot_price_indicators(
-        self, ax, data: pd.DataFrame, indicators: Dict, symbol: str
-    ) -> None:
+    def _plot_price_indicators(self, ax, data: pd.DataFrame, indicators: Dict, symbol: str) -> None:
         """
         価格・移動平均・ボリンジャーバンドプロット
 
@@ -274,9 +270,7 @@ class IndicatorCharts(ChartRenderer):
 
                 ax.set_ylim(0, 100)
 
-        self.apply_common_styling(
-            ax, title="RSI (Relative Strength Index)", ylabel="RSI"
-        )
+        self.apply_common_styling(ax, title="RSI (Relative Strength Index)", ylabel="RSI")
 
     def _plot_macd(self, ax, indicators: Dict) -> None:
         """
@@ -313,9 +307,11 @@ class IndicatorCharts(ChartRenderer):
             if "histogram" in macd_data:
                 histogram = macd_data["histogram"]
                 colors = [
-                    self.palette.get_color("bullish")
-                    if h >= 0
-                    else self.palette.get_color("bearish")
+                    (
+                        self.palette.get_color("bullish")
+                        if h >= 0
+                        else self.palette.get_color("bearish")
+                    )
                     for h in histogram
                 ]
 
@@ -508,9 +504,7 @@ class IndicatorCharts(ChartRenderer):
         ax_summary = fig.add_subplot(gs[5, :])
         self._plot_indicator_summary(ax_summary, indicators)
 
-        plt.suptitle(
-            f"{symbol} 総合テクニカル分析ダッシュボード", fontsize=18, fontweight="bold"
-        )
+        plt.suptitle(f"{symbol} 総合テクニカル分析ダッシュボード", fontsize=18, fontweight="bold")
         plt.tight_layout()
 
         filename = f"comprehensive_technical_{symbol}.png"
@@ -661,9 +655,7 @@ class IndicatorCharts(ChartRenderer):
 
         if "RSI" in indicators:
             rsi_latest = (
-                indicators["RSI"].get("rsi", [0])[-1]
-                if indicators["RSI"].get("rsi")
-                else 50
+                indicators["RSI"].get("rsi", [0])[-1] if indicators["RSI"].get("rsi") else 50
             )
             if rsi_latest > 70:
                 signal_summary["RSI"] = "過買い"
@@ -719,15 +711,11 @@ class IndicatorCharts(ChartRenderer):
                 exported_files["main_chart"] = main_chart
 
             # 総合ダッシュボード
-            dashboard = self.create_comprehensive_technical_dashboard(
-                data, indicators, symbol
-            )
+            dashboard = self.create_comprehensive_technical_dashboard(data, indicators, symbol)
             if dashboard:
                 exported_files["dashboard"] = dashboard
 
-            logger.info(
-                f"テクニカル分析レポート出力完了 - {len(exported_files)}ファイル"
-            )
+            logger.info(f"テクニカル分析レポート出力完了 - {len(exported_files)}ファイル")
             return exported_files
 
         except Exception as e:

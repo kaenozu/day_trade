@@ -39,9 +39,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    warnings.warn(
-        "Redis not available. Redis distributed cache will be disabled.", stacklevel=2
-    )
+    warnings.warn("Redis not available. Redis distributed cache will be disabled.", stacklevel=2)
 
 try:
     import memcache
@@ -134,9 +132,7 @@ class RedisBackend(DistributedCacheBackend):
         socket_timeout: float = 5.0,
     ):
         if not REDIS_AVAILABLE:
-            raise RuntimeError(
-                "Redis not available. Install redis-py: pip install redis"
-            )
+            raise RuntimeError("Redis not available. Install redis-py: pip install redis")
 
         self.host = host
         self.port = port
@@ -511,9 +507,7 @@ class DistributedCacheManager:
             f"DistributedCacheManager初期化完了: {backend_type}, フォールバック={enable_fallback}"
         )
 
-    def _create_backend(
-        self, backend_type: str, config: Dict[str, Any]
-    ) -> DistributedCacheBackend:
+    def _create_backend(self, backend_type: str, config: Dict[str, Any]) -> DistributedCacheBackend:
         """バックエンド作成"""
         try:
             if backend_type == "redis":
@@ -531,9 +525,7 @@ class DistributedCacheManager:
                 return InMemoryBackend()
             raise
 
-    def set(
-        self, key: str, value: Any, ttl_seconds: int = 3600, tags: List[str] = None
-    ) -> bool:
+    def set(self, key: str, value: Any, ttl_seconds: int = 3600, tags: List[str] = None) -> bool:
         """データ設定"""
         with self._lock:
             try:
@@ -544,9 +536,7 @@ class DistributedCacheManager:
                 success = False
 
                 if self.primary_backend.is_connected():
-                    success = self.primary_backend.set(
-                        key, serialized_data, ttl_seconds
-                    )
+                    success = self.primary_backend.set(key, serialized_data, ttl_seconds)
                     if success:
                         logger.debug(f"分散キャッシュ設定成功(primary): {key}")
                 else:
@@ -554,9 +544,7 @@ class DistributedCacheManager:
 
                 # フォールバックバックエンドにも設定
                 if self.fallback_backend:
-                    fallback_success = self.fallback_backend.set(
-                        key, serialized_data, ttl_seconds
-                    )
+                    fallback_success = self.fallback_backend.set(key, serialized_data, ttl_seconds)
                     if not success:
                         success = fallback_success
                         if success:
@@ -672,9 +660,7 @@ class DistributedCacheManager:
 
             # 全体統計
             total_hits = self._stats["primary_hits"] + self._stats["fallback_hits"]
-            total_misses = (
-                self._stats["primary_misses"] + self._stats["fallback_misses"]
-            )
+            total_misses = self._stats["primary_misses"] + self._stats["fallback_misses"]
             total_requests = total_hits + total_misses
 
             stats.update(
@@ -684,13 +670,10 @@ class DistributedCacheManager:
                     "total_requests": total_requests,
                     "hit_rate": total_hits / max(total_requests, 1),
                     "primary_hit_rate": self._stats["primary_hits"]
-                    / max(
-                        self._stats["primary_hits"] + self._stats["primary_misses"], 1
+                    / max(self._stats["primary_hits"] + self._stats["primary_misses"], 1),
+                    "fallback_usage_rate": (
+                        self._stats["fallback_hits"] / max(total_hits, 1) if total_hits > 0 else 0
                     ),
-                    "fallback_usage_rate": self._stats["fallback_hits"]
-                    / max(total_hits, 1)
-                    if total_hits > 0
-                    else 0,
                 }
             )
 
@@ -747,9 +730,7 @@ def distributed_cache(
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            cache = get_distributed_cache(
-                backend_type=backend_type, backend_config=backend_config
-            )
+            cache = get_distributed_cache(backend_type=backend_type, backend_config=backend_config)
 
             # キャッシュキー生成
             cache_key = f"{func.__module__}.{func.__name__}:" + generate_safe_cache_key(

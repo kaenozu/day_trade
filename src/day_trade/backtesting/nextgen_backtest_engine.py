@@ -237,9 +237,7 @@ class NextGenBacktestEngine:
             for result in results:
                 if result.success and not result.data.empty:
                     data[result.symbol] = result.data
-                    logger.info(
-                        f"データ取得成功: {result.symbol} ({len(result.data)} レコード)"
-                    )
+                    logger.info(f"データ取得成功: {result.symbol} ({len(result.data)} レコード)")
                 else:
                     logger.warning(f"データ取得失敗: {result.symbol}")
 
@@ -272,9 +270,7 @@ class NextGenBacktestEngine:
                     next_state, reward, done, info = self.rl_env.step(action)
 
                     # エージェント学習
-                    self.rl_agent.store_transition(
-                        state, action, reward, next_state, done
-                    )
+                    self.rl_agent.store_transition(state, action, reward, next_state, done)
 
                     state = next_state
                     total_reward += reward
@@ -283,9 +279,7 @@ class NextGenBacktestEngine:
                         break
 
                 if episode % 5 == 0:
-                    logger.info(
-                        f"訓練エピソード {episode}: 総報酬 = {total_reward:.2f}"
-                    )
+                    logger.info(f"訓練エピソード {episode}: 総報酬 = {total_reward:.2f}")
 
             logger.info("強化学習エージェント事前訓練完了")
 
@@ -310,13 +304,8 @@ class NextGenBacktestEngine:
                 # 現在の市場データ
                 current_prices = {}
                 for symbol in symbols:
-                    if (
-                        symbol in historical_data
-                        and current_date in historical_data[symbol].index
-                    ):
-                        current_prices[symbol] = historical_data[symbol].loc[
-                            current_date, "終値"
-                        ]
+                    if symbol in historical_data and current_date in historical_data[symbol].index:
+                        current_prices[symbol] = historical_data[symbol].loc[current_date, "終値"]
 
                 if not current_prices:
                     continue
@@ -329,9 +318,7 @@ class NextGenBacktestEngine:
                     )
 
                     # 取引実行
-                    await self._execute_ai_trades(
-                        ai_decisions, current_prices, current_date
-                    )
+                    await self._execute_ai_trades(ai_decisions, current_prices, current_date)
 
                 # ポートフォリオ価値更新
                 self._update_portfolio_value(current_prices)
@@ -620,9 +607,7 @@ class NextGenBacktestEngine:
                 self.trades.append(trade)
 
                 # 資本更新（取引コスト考慮）
-                transaction_cost = (
-                    trade.get_trade_value() * self.config.transaction_cost
-                )
+                transaction_cost = trade.get_trade_value() * self.config.transaction_cost
                 self.current_capital -= transaction_cost
 
                 logger.debug(
@@ -662,9 +647,7 @@ class NextGenBacktestEngine:
 
         # 基本パフォーマンス計算
         final_value = self.equity_curve[-1]
-        total_return = (
-            final_value - self.config.initial_capital
-        ) / self.config.initial_capital
+        total_return = (final_value - self.config.initial_capital) / self.config.initial_capital
 
         # リターン系列
         equity_series = pd.Series(self.equity_curve)
@@ -694,14 +677,10 @@ class NextGenBacktestEngine:
 
         # AI パフォーマンス
         ml_accuracy = (
-            self.ml_correct_predictions / self.ml_predictions
-            if self.ml_predictions > 0
-            else 0
+            self.ml_correct_predictions / self.ml_predictions if self.ml_predictions > 0 else 0
         )
         rl_success_rate = (
-            self.rl_successful_decisions / self.rl_decisions
-            if self.rl_decisions > 0
-            else 0
+            self.rl_successful_decisions / self.rl_decisions if self.rl_decisions > 0 else 0
         )
         sentiment_correlation = 0.65  # 模擬値
 

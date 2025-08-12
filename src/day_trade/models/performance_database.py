@@ -111,9 +111,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
             context._query_start_time = time.time()
 
         @event.listens_for(self.engine, "after_cursor_execute")
-        def receive_after_cursor_execute(
-            conn, cursor, statement, parameters, context, executemany
-        ):
+        def receive_after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
             """クエリ実行後の処理（パフォーマンス測定終了）"""
             if hasattr(context, "_query_start_time"):
                 execution_time = time.time() - context._query_start_time
@@ -229,9 +227,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
 
             except Exception as e:
                 await session.rollback()
-                logger.error(
-                    "Bulk update failed", updates_count=len(updates), error=str(e)
-                )
+                logger.error("Bulk update failed", updates_count=len(updates), error=str(e))
                 raise
 
         logger.info("Bulk update completed", total_rows=total_updated)
@@ -239,9 +235,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
         return total_updated
 
     @profile_performance
-    async def execute_optimized_select(
-        self, stmt: Select, use_cache: bool = True
-    ) -> List[Any]:
+    async def execute_optimized_select(self, stmt: Select, use_cache: bool = True) -> List[Any]:
         """
         最適化された非同期SELECTクエリ実行
 
@@ -269,9 +263,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
             return all_results
 
     @profile_performance
-    async def execute_batch_operations(
-        self, operations: List[ClauseElement]
-    ) -> List[Any]:
+    async def execute_batch_operations(self, operations: List[ClauseElement]) -> List[Any]:
         """
         非同期バッチ操作の実行（複数のSQL文を1つのトランザクションで実行）
 
@@ -291,9 +283,7 @@ class PerformanceOptimizedDatabaseManager(DatabaseManager):
 
                 await session.commit()
 
-                logger.info(
-                    "Batch operations completed", operations_count=len(operations)
-                )
+                logger.info("Batch operations completed", operations_count=len(operations))
 
             except Exception as e:
                 await session.rollback()

@@ -27,9 +27,7 @@ try:
     logger.info("yfinance利用可能")
 except ImportError:
     YFINANCE_AVAILABLE = False
-    logger.warning(
-        "yfinance未インストール - pip install yfinanceでインストールしてください"
-    )
+    logger.warning("yfinance未インストール - pip install yfinanceでインストールしてください")
 
 
 class RealMarketDataManager:
@@ -89,9 +87,7 @@ class RealMarketDataManager:
             """
             )
 
-    def get_stock_data(
-        self, symbol: str, period: str = "60d"
-    ) -> Optional[pd.DataFrame]:
+    def get_stock_data(self, symbol: str, period: str = "60d") -> Optional[pd.DataFrame]:
         """
         株価データ取得（キャッシュ優先＋レート制限対応）
 
@@ -167,9 +163,7 @@ class RealMarketDataManager:
     def _update_memory_cache(self, cache_key: str, data: pd.DataFrame):
         """メモリキャッシュ更新"""
         self.memory_cache[cache_key] = data.copy()
-        self.cache_expiry[cache_key] = datetime.now() + timedelta(
-            minutes=30
-        )  # 30分キャッシュ
+        self.cache_expiry[cache_key] = datetime.now() + timedelta(minutes=30)  # 30分キャッシュ
 
     def _is_cache_expired(self, symbol: str, hours: int = None) -> bool:
         """SQLiteキャッシュ有効期限チェック"""
@@ -287,9 +281,7 @@ class RealMarketDataManager:
             logger.error(f"RSI計算エラー: {e}")
             return 50.0
 
-    def calculate_macd(
-        self, data: pd.DataFrame, fast: int = 12, slow: int = 26
-    ) -> float:
+    def calculate_macd(self, data: pd.DataFrame, fast: int = 12, slow: int = 26) -> float:
         """MACD計算"""
         if data is None or len(data) < slow:
             return 0.0
@@ -330,9 +322,7 @@ class RealMarketDataManager:
             logger.error(f"出来高比率計算エラー: {e}")
             return 1.0
 
-    def calculate_price_change_percent(
-        self, data: pd.DataFrame, days: int = 1
-    ) -> float:
+    def calculate_price_change_percent(self, data: pd.DataFrame, days: int = 1) -> float:
         """価格変動率計算"""
         if data is None or len(data) < days + 1:
             return 0.0
@@ -408,9 +398,7 @@ class RealMarketDataManager:
                 score += 10
 
             # 最近のトレンド
-            recent_trend = (
-                (current_price - close_prices.iloc[-5]) / close_prices.iloc[-5] * 100
-            )
+            recent_trend = (current_price - close_prices.iloc[-5]) / close_prices.iloc[-5] * 100
             if recent_trend > 2:
                 score += 10
             elif recent_trend < -2:

@@ -144,9 +144,7 @@ class OptimizationCLI:
         result = strategy.execute(test_data, test_indicators, period=20)
         execution_time = time.time() - start_time
 
-        print(
-            f"テクニカル指標計算完了: {len(test_indicators)}指標, {execution_time:.3f}秒"
-        )
+        print(f"テクニカル指標計算完了: {len(test_indicators)}指標, {execution_time:.3f}秒")
 
         for indicator, indicator_result in result.items():
             print(f"  {indicator}: 計算時間 {indicator_result.calculation_time:.3f}秒")
@@ -175,9 +173,7 @@ class OptimizationCLI:
         result = strategy.execute(test_data)
         execution_time = time.time() - start_time
 
-        print(
-            f"特徴量生成完了: {result.features.shape[1]}特徴量, {execution_time:.3f}秒"
-        )
+        print(f"特徴量生成完了: {result.features.shape[1]}特徴量, {execution_time:.3f}秒")
         print(f"生成特徴量: {len(result.feature_names)}個")
 
     def _test_database(self, strategy) -> None:
@@ -221,9 +217,7 @@ class OptimizationCLI:
                 config = OptimizationConfig(level=level)
 
                 try:
-                    strategy = OptimizationStrategyFactory.get_strategy(
-                        component, config
-                    )
+                    strategy = OptimizationStrategyFactory.get_strategy(component, config)
 
                     # 簡易ベンチマーク実行
                     start_time = time.time()
@@ -314,9 +308,7 @@ def main():
 
     config_subparsers.add_parser("show", help="現在の設定を表示")
 
-    template_parser = config_subparsers.add_parser(
-        "template", help="設定テンプレート作成"
-    )
+    template_parser = config_subparsers.add_parser("template", help="設定テンプレート作成")
     template_parser.add_argument("--output", "-o", help="出力ファイルパス")
 
     # コンポーネント関連コマンド
@@ -327,9 +319,7 @@ def main():
 
     test_parser = comp_subparsers.add_parser("test", help="コンポーネントテスト")
     test_parser.add_argument("name", help="コンポーネント名")
-    test_parser.add_argument(
-        "--level", "-l", help="最適化レベル (standard/optimized/adaptive)"
-    )
+    test_parser.add_argument("--level", "-l", help="最適化レベル (standard/optimized/adaptive)")
 
     # ベンチマーク関連コマンド
     subparsers.add_parser("benchmark", help="全コンポーネントベンチマーク")

@@ -81,9 +81,7 @@ class BaseModel(Base, TimestampMixin):
 
     __abstract__ = True
 
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, index=True, doc="主キー（自動採番）"
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, doc="主キー（自動採番）")
 
     @declared_attr
     def __tablename__(cls) -> str:  # noqa: N805
@@ -233,9 +231,7 @@ class BaseModel(Base, TimestampMixin):
             validate: バリデーションを実行するか
             auto_convert: 自動型変換を行うか
         """
-        exclude_keys = (
-            set(exclude_keys) if exclude_keys is not None else {"id", "created_at"}
-        )
+        exclude_keys = set(exclude_keys) if exclude_keys is not None else {"id", "created_at"}
 
         for key, value in data.items():
             logger.debug(
@@ -254,9 +250,7 @@ class BaseModel(Base, TimestampMixin):
                         # datetime型の変換
                         if isinstance(column.type, DateTime):
                             if isinstance(value, str):
-                                value = datetime.fromisoformat(
-                                    value.replace("Z", "+00:00")
-                                )
+                                value = datetime.fromisoformat(value.replace("Z", "+00:00"))
                                 # タイムゾーン情報がない場合はUTCとして扱う
                                 if value.tzinfo is None:
                                     value = value.replace(tzinfo=timezone.utc)
@@ -267,9 +261,7 @@ class BaseModel(Base, TimestampMixin):
                                     f"DateTimeフィールド{key}に非datetime型が指定されました: {type(value)}"
                                 )
                         # Decimal型の変換
-                        elif hasattr(column.type, "scale") and isinstance(
-                            value, (int, float, str)
-                        ):
+                        elif hasattr(column.type, "scale") and isinstance(value, (int, float, str)):
                             value = Decimal(str(value))
                     except (ValueError, TypeError) as e:
                         if validate:
@@ -342,15 +334,11 @@ class BaseModel(Base, TimestampMixin):
 
             # デフォルト値を設定（idやtimestampはオプショナルにする）
             if column.name in ["id", "created_at", "updated_at"]:
-                field_info = Field(
-                    default=None, description=getattr(column, "doc", None)
-                )
+                field_info = Field(default=None, description=getattr(column, "doc", None))
                 if not column.nullable:
                     # nullable=Falseでもデフォルト値があるフィールドはOptionalにする
                     python_type = Optional[
-                        python_type.__args__[0]
-                        if hasattr(python_type, "__args__")
-                        else python_type
+                        python_type.__args__[0] if hasattr(python_type, "__args__") else python_type
                     ]
             else:
                 field_info = Field(description=getattr(column, "doc", None))
@@ -471,9 +459,7 @@ class BaseModel(Base, TimestampMixin):
     # ユーティリティメソッド
     def clone(self: T, exclude_keys: Optional[Union[set, List[str]]] = None) -> T:
         """モデルインスタンスのクローンを作成"""
-        exclude_keys = (
-            set(exclude_keys) if exclude_keys else {"id", "created_at", "updated_at"}
-        )
+        exclude_keys = set(exclude_keys) if exclude_keys else {"id", "created_at", "updated_at"}
 
         data = self.to_dict(
             include_relations=False, exclude_keys=exclude_keys, convert_datetime=False
@@ -532,9 +518,7 @@ class BaseModel(Base, TimestampMixin):
             return self.id == other.id
 
         # 主キーがない場合は主要カラムで比較（タイムスタンプは除外）
-        self_dict = self.to_dict(
-            convert_datetime=False, exclude_keys={"created_at", "updated_at"}
-        )
+        self_dict = self.to_dict(convert_datetime=False, exclude_keys={"created_at", "updated_at"})
         other_dict = other.to_dict(
             convert_datetime=False, exclude_keys={"created_at", "updated_at"}
         )

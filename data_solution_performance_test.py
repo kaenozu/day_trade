@@ -48,9 +48,7 @@ except ImportError:
     print("scikit-learn未インストール - ML機能制限")
 
 
-def generate_enhanced_test_data(
-    symbols: List[str], days: int = 100
-) -> Dict[str, pd.DataFrame]:
+def generate_enhanced_test_data(symbols: List[str], days: int = 100) -> Dict[str, pd.DataFrame]:
     """拡張テスト用株式データ生成"""
     stock_data = {}
 
@@ -63,9 +61,7 @@ def generate_enhanced_test_data(
 
         # トレンド・ボラティリティクラスター効果追加
         trend = np.sin(np.arange(days) / days * 2 * np.pi) * 0.005
-        volatility_clusters = np.random.choice(
-            [0.01, 0.02, 0.04], days, p=[0.7, 0.2, 0.1]
-        )
+        volatility_clusters = np.random.choice([0.01, 0.02, 0.04], days, p=[0.7, 0.2, 0.1])
 
         returns = returns + trend
         returns = returns * volatility_clusters / 0.02
@@ -230,9 +226,7 @@ async def simulate_enhanced_ml_analysis(
         for symbol, data in stock_data.items():
             try:
                 # 1. 包括的データ収集
-                comprehensive_data = await data_manager.collect_comprehensive_data(
-                    symbol
-                )
+                comprehensive_data = await data_manager.collect_comprehensive_data(symbol)
 
                 if not comprehensive_data:
                     continue
@@ -248,14 +242,12 @@ async def simulate_enhanced_ml_analysis(
                     total_quality += metrics.overall_score
                     quality_count += 1
 
-                avg_quality = (
-                    total_quality / quality_count if quality_count > 0 else 0.0
-                )
+                avg_quality = total_quality / quality_count if quality_count > 0 else 0.0
                 quality_scores.append(avg_quality)
 
                 # 3. 包括的特徴量生成
-                comprehensive_features = (
-                    feature_engineer.generate_comprehensive_features(comprehensive_data)
+                comprehensive_features = feature_engineer.generate_comprehensive_features(
+                    comprehensive_data
                 )
 
                 if not comprehensive_features or len(comprehensive_features) < 10:
@@ -284,9 +276,7 @@ async def simulate_enhanced_ml_analysis(
 
                 # より高度なモデル（特徴量増加に対応）
                 if SKLEARN_AVAILABLE:
-                    model = RandomForestRegressor(
-                        n_estimators=50, max_depth=5, random_state=42
-                    )
+                    model = RandomForestRegressor(n_estimators=50, max_depth=5, random_state=42)
                     model.fit(X_train, y_train)
 
                     predictions = model.predict(X_test)
@@ -375,17 +365,15 @@ def analyze_improvement_effects(
             "feature_traditional": trad_features,
             "feature_enhanced": enh_features,
             "data_quality_score": data_quality,
-            "overall_improvement": "significant"
-            if r2_improvement > 15
-            else "moderate"
-            if r2_improvement > 5
-            else "minimal",
+            "overall_improvement": (
+                "significant"
+                if r2_improvement > 15
+                else "moderate" if r2_improvement > 5 else "minimal"
+            ),
         }
 
         print(f"  予測精度向上: {r2_improvement:+.1f}% ({trad_r2:.3f} → {enh_r2:.3f})")
-        print(
-            f"  特徴量増加: {feature_increase:.1f}倍 ({trad_features:.0f} → {enh_features:.0f})"
-        )
+        print(f"  特徴量増加: {feature_increase:.1f}倍 ({trad_features:.0f} → {enh_features:.0f})")
         print(f"  データ品質: {data_quality:.3f}")
         print(f"  総合改善度: {improvement_analysis['overall_improvement']}")
 
@@ -419,37 +407,30 @@ def project_production_performance(improvement_analysis: Dict) -> Dict[str, Any]
         feature_factor = improvement_analysis.get("feature_increase_factor", 1.0)
 
         # 本番予測計算
-        enhanced_accuracy = baseline_performance["base_accuracy"] * (
-            1 + r2_improvement / 100
-        )
+        enhanced_accuracy = baseline_performance["base_accuracy"] * (1 + r2_improvement / 100)
         enhanced_accuracy = min(enhanced_accuracy, 0.95)  # 上限95%
 
         # データ処理負荷増加（特徴量増加による）
         processing_overhead = 1.0 + (feature_factor - 1.0) * 0.1  # 10%/倍の負荷増加
-        adjusted_throughput = (
-            baseline_performance["symbols_per_minute"] / processing_overhead
-        )
+        adjusted_throughput = baseline_performance["symbols_per_minute"] / processing_overhead
 
         # 信頼性向上（データ品質による）
         reliability_factor = 0.8 + (data_quality * 0.2)  # 80-100%の信頼性
 
         production_projection = {
             "enhanced_accuracy": enhanced_accuracy,
-            "accuracy_improvement": enhanced_accuracy
-            - baseline_performance["base_accuracy"],
+            "accuracy_improvement": enhanced_accuracy - baseline_performance["base_accuracy"],
             "processing_throughput": adjusted_throughput,
             "throughput_overhead": processing_overhead,
             "reliability_factor": reliability_factor,
-            "recommended_deployment": "production_ready"
-            if enhanced_accuracy > 0.85
-            else "testing_phase",
+            "recommended_deployment": (
+                "production_ready" if enhanced_accuracy > 0.85 else "testing_phase"
+            ),
             "estimated_benefits": {
                 "topix100_processing_time": 100 / adjusted_throughput * 60,  # 秒
                 "topix500_processing_time": 500 / adjusted_throughput * 60,  # 秒
                 "daily_analysis_capacity": adjusted_throughput * 60 * 16,  # 16時間運用
-                "error_reduction": (
-                    enhanced_accuracy - baseline_performance["base_accuracy"]
-                )
+                "error_reduction": (enhanced_accuracy - baseline_performance["base_accuracy"])
                 * 100,
             },
         }
@@ -457,9 +438,7 @@ def project_production_performance(improvement_analysis: Dict) -> Dict[str, Any]
         print(
             f"  予測精度: {enhanced_accuracy:.1%} (+{production_projection['accuracy_improvement']:+.1%})"
         )
-        print(
-            f"  処理速度: {adjusted_throughput:.0f}銘柄/分 ({processing_overhead:.1f}倍負荷)"
-        )
+        print(f"  処理速度: {adjusted_throughput:.0f}銘柄/分 ({processing_overhead:.1f}倍負荷)")
         print(f"  信頼性: {reliability_factor:.1%}")
         print(
             f"  TOPIX500処理時間: {production_projection['estimated_benefits']['topix500_processing_time']:.1f}秒"
@@ -556,9 +535,7 @@ async def main():
 
     # 改善効果分析
     print("\n4. 改善効果分析...")
-    improvement_analysis = analyze_improvement_effects(
-        traditional_results, enhanced_results
-    )
+    improvement_analysis = analyze_improvement_effects(traditional_results, enhanced_results)
 
     # 本番性能予測
     print("\n5. 本番環境性能予測...")

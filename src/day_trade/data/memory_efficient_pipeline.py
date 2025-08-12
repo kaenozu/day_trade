@@ -215,9 +215,7 @@ class MemoryEfficientCache:
         # メモリ制限チェック
         chunk_size = chunk.memory_size
 
-        while (
-            self.memory_usage + chunk_size > self.max_memory_bytes and self.access_order
-        ):
+        while self.memory_usage + chunk_size > self.max_memory_bytes and self.access_order:
             # 最も古いアイテムを削除
             oldest_key = self.access_order.popleft()
             if oldest_key in self.cache:
@@ -272,9 +270,7 @@ class StreamingDataPipeline:
         self.process = psutil.Process()
         self.initial_memory = self.process.memory_info().rss
 
-        logger.info(
-            f"ストリーミングパイプライン初期化: {len(self.processors)}プロセッサ"
-        )
+        logger.info(f"ストリーミングパイプライン初期化: {len(self.processors)}プロセッサ")
 
     def add_processor(self, processor: DataProcessor):
         """プロセッサ追加"""
@@ -342,9 +338,7 @@ class StreamingDataPipeline:
                             gc.collect()
 
                     except Exception as e:
-                        logger.error(
-                            f"処理エラー ({symbol}, {processor.__class__.__name__}): {e}"
-                        )
+                        logger.error(f"処理エラー ({symbol}, {processor.__class__.__name__}): {e}")
                         continue
 
                 # キャッシュに保存
@@ -359,9 +353,7 @@ class StreamingDataPipeline:
 
                 yield chunk
 
-    def process_batch(
-        self, symbol_data_pairs: List[Tuple[str, pd.DataFrame]]
-    ) -> List[DataChunk]:
+    def process_batch(self, symbol_data_pairs: List[Tuple[str, pd.DataFrame]]) -> List[DataChunk]:
         """
         バッチ処理
 
@@ -492,16 +484,12 @@ if __name__ == "__main__":
         processed_chunks = []
 
         start_time = pd.Timestamp.now()
-        for i, chunk in enumerate(
-            pipeline.process_data_stream(data_generator.stream_data())
-        ):
+        for i, chunk in enumerate(pipeline.process_data_stream(data_generator.stream_data())):
             processed_chunks.append(chunk)
 
             if i % 3 == 0:
                 stats = pipeline.get_pipeline_stats()
-                print(
-                    f"   処理中: {chunk.symbol} (メモリ: {stats['total_memory_usage_mb']:.1f}MB)"
-                )
+                print(f"   処理中: {chunk.symbol} (メモリ: {stats['total_memory_usage_mb']:.1f}MB)")
 
         end_time = pd.Timestamp.now()
         processing_time = (end_time - start_time).total_seconds()

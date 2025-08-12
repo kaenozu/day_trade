@@ -8,11 +8,12 @@ Issue #434: 本番環境パフォーマンス最終最適化
 
 import asyncio
 import time
-import pytest
-import numpy as np
 
-from src.day_trade.performance import HFTOptimizer, GPUAccelerator, HFTConfig, GPUConfig
+import numpy as np
+import pytest
+
 from src.day_trade.ml.feature_pipeline import FeaturePipeline, PipelineConfig
+from src.day_trade.performance import GPUAccelerator, GPUConfig, HFTConfig, HFTOptimizer
 
 
 class TestHFTPerformance:
@@ -344,7 +345,7 @@ class TestHFTPerformance:
         after_deallocation_stats = optimizer.memory_pool.get_stats()
         assert after_deallocation_stats["total_deallocations"] > 0
 
-        print(f"メモリ統計:")
+        print("メモリ統計:")
         print(f"  割り当て: {after_deallocation_stats['total_allocations']}")
         print(f"  解放: {after_deallocation_stats['total_deallocations']}")
         print(f"  現在使用量: {after_deallocation_stats['current_usage_bytes']} bytes")

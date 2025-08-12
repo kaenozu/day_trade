@@ -115,9 +115,7 @@ class UltraFastMLEngine:
 
         try:
             # 特徴量キャッシュチェック
-            data_hash = (
-                hash(str(data["Close"].iloc[-10:].values)) if len(data) >= 10 else 0
-            )
+            data_hash = hash(str(data["Close"].iloc[-10:].values)) if len(data) >= 10 else 0
             cache_key = f"{symbol}_{data_hash}"
 
             if cache_key in self.feature_cache:
@@ -259,9 +257,7 @@ class UltraFastMLEngine:
         return {
             "trained_models": len(self.trained_models),
             "feature_cache": len(self.feature_cache),
-            "memory_usage_kb": (
-                len(str(self.trained_models)) + len(str(self.feature_cache))
-            )
+            "memory_usage_kb": (len(str(self.trained_models)) + len(str(self.feature_cache)))
             / 1024,
         }
 

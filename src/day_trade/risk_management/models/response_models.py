@@ -196,18 +196,12 @@ class BatchAnalysisResponse(BaseResponse):
 
     def get_failed_results(self) -> List[ErrorResponse]:
         """失敗結果の取得"""
-        return [
-            result
-            for result in self.individual_results
-            if isinstance(result, ErrorResponse)
-        ]
+        return [result for result in self.individual_results if isinstance(result, ErrorResponse)]
 
     def get_successful_results(self) -> List[RiskAnalysisResponse]:
         """成功結果の取得"""
         return [
-            result
-            for result in self.individual_results
-            if isinstance(result, RiskAnalysisResponse)
+            result for result in self.individual_results if isinstance(result, RiskAnalysisResponse)
         ]
 
 
@@ -234,9 +228,7 @@ class MarketDataResponse(SuccessResponse):
     start_date: datetime
     end_date: datetime
     market_data: Dict[str, List[Dict[str, Any]]]
-    data_quality: Dict[str, float] = field(
-        default_factory=dict
-    )  # symbol -> quality score
+    data_quality: Dict[str, float] = field(default_factory=dict)  # symbol -> quality score
 
     def get_symbol_data(self, symbol: str) -> List[Dict[str, Any]]:
         """シンボル別データ取得"""
@@ -402,9 +394,7 @@ def create_success_response(
     request_id: str, data: Any, processing_time_ms: Optional[float] = None
 ) -> SuccessResponse:
     """成功レスポンス作成"""
-    return SuccessResponse(
-        request_id=request_id, data=data, processing_time_ms=processing_time_ms
-    )
+    return SuccessResponse(request_id=request_id, data=data, processing_time_ms=processing_time_ms)
 
 
 def create_error_response(
@@ -434,9 +424,9 @@ def create_portfolio_risk_response(
     return PortfolioRiskResponse(
         request_id=request_id,
         analysis_result=analysis_result,
-        confidence_score=analysis_result.risk_metrics.confidence_score
-        if analysis_result.risk_metrics
-        else 0.0,
+        confidence_score=(
+            analysis_result.risk_metrics.confidence_score if analysis_result.risk_metrics else 0.0
+        ),
         recommendation_summary="Analysis completed successfully",
         portfolio_metrics=portfolio_metrics,
         position_risks=position_risks,
@@ -453,9 +443,9 @@ def create_fraud_detection_response(
     return FraudDetectionResponse(
         request_id=request_id,
         analysis_result=analysis_result,
-        confidence_score=analysis_result.risk_metrics.confidence_score
-        if analysis_result.risk_metrics
-        else 0.0,
+        confidence_score=(
+            analysis_result.risk_metrics.confidence_score if analysis_result.risk_metrics else 0.0
+        ),
         recommendation_summary="Fraud detection analysis completed",
         fraud_probability=fraud_probability,
         fraud_indicators=fraud_indicators,
@@ -497,9 +487,11 @@ class ResponseConverter:
                 result[field_name] = ResponseConverter.to_dict(value)
             elif isinstance(value, list):
                 result[field_name] = [
-                    ResponseConverter.to_dict(item)
-                    if hasattr(item, "__dataclass_fields__")
-                    else item
+                    (
+                        ResponseConverter.to_dict(item)
+                        if hasattr(item, "__dataclass_fields__")
+                        else item
+                    )
                     for item in value
                 ]
             else:

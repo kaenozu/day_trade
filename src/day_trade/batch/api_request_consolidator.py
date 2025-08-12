@@ -333,9 +333,7 @@ class APIRequestConsolidator:
         # 統合率計算
         original_symbol_count = sum(len(req.symbols) for req in batch_requests)
         if original_symbol_count > 0:
-            consolidation_ratio = 1.0 - (
-                len(consolidated_symbols) / original_symbol_count
-            )
+            consolidation_ratio = 1.0 - (len(consolidated_symbols) / original_symbol_count)
             self.stats.consolidation_ratio = (
                 self.stats.consolidation_ratio * (self.stats.total_batches - 1)
                 + consolidation_ratio
@@ -432,9 +430,7 @@ class APIRequestConsolidator:
             for symbol in batch.consolidated_symbols
         }
 
-    def _extract_relevant_data(
-        self, batch_data: Dict[str, Any], request: APIRequest
-    ) -> Any:
+    def _extract_relevant_data(self, batch_data: Dict[str, Any], request: APIRequest) -> Any:
         """リクエストに関連するデータ抽出"""
         if not batch_data:
             return None
@@ -517,9 +513,7 @@ class APIRequestConsolidator:
         if not responses:
             return
 
-        avg_response_time = statistics.mean(
-            [r.response_time for r in responses.values()]
-        )
+        avg_response_time = statistics.mean([r.response_time for r in responses.values()])
         success_rate = sum(1 for r in responses.values() if r.success) / len(responses)
 
         old_size = self.current_batch_size
@@ -527,21 +521,15 @@ class APIRequestConsolidator:
         # 調整ロジック
         if avg_response_time > 3.0 or success_rate < 0.9:
             # パフォーマンス悪化時はサイズ縮小
-            self.current_batch_size = max(
-                self.min_batch_size, self.current_batch_size - 5
-            )
+            self.current_batch_size = max(self.min_batch_size, self.current_batch_size - 5)
         elif avg_response_time < 1.0 and success_rate > 0.95:
             # パフォーマンス良好時はサイズ拡大
-            self.current_batch_size = min(
-                self.max_batch_size, self.current_batch_size + 3
-            )
+            self.current_batch_size = min(self.max_batch_size, self.current_batch_size + 3)
 
         if self.current_batch_size != old_size:
             self.stats.adaptive_adjustments += 1
             self.last_adjustment_time = time.time()
-            logger.info(
-                f"適応的バッチサイズ調整: {old_size} -> {self.current_batch_size}"
-            )
+            logger.info(f"適応的バッチサイズ調整: {old_size} -> {self.current_batch_size}")
 
     def _wait_for_rate_limit(self):
         """レート制限待機"""
@@ -588,9 +576,7 @@ class APIRequestConsolidator:
         if not self.cache or not data:
             return
 
-        cache_key = self._generate_cache_key(
-            request.endpoint, request.symbols, request.parameters
-        )
+        cache_key = self._generate_cache_key(request.endpoint, request.symbols, request.parameters)
         self.cache.put(cache_key, data)
 
     def _generate_cache_key(
@@ -621,25 +607,17 @@ class APIRequestConsolidator:
             # 全体成功率更新
             total_processed = self.stats.total_requests
             if total_processed > 0:
-                current_successes = self.stats.success_rate * (
-                    total_processed - len(responses)
-                )
-                self.stats.success_rate = (
-                    current_successes + success_count
-                ) / total_processed
+                current_successes = self.stats.success_rate * (total_processed - len(responses))
+                self.stats.success_rate = (current_successes + success_count) / total_processed
 
             # 平均レスポンス時間更新
             if self.response_times_history:
-                self.stats.avg_response_time = statistics.mean(
-                    self.response_times_history
-                )
+                self.stats.avg_response_time = statistics.mean(self.response_times_history)
 
     def get_stats(self) -> ConsolidationStats:
         """統計取得"""
         # 現在の状態を反映
-        self.stats.total_requests = (
-            len(self.pending_requests) + self.stats.total_requests
-        )
+        self.stats.total_requests = len(self.pending_requests) + self.stats.total_requests
         return self.stats
 
     def get_status(self) -> Dict[str, Any]:
@@ -652,15 +630,19 @@ class APIRequestConsolidator:
             "queue_size": self.request_queue.qsize(),
             "stats": self.get_stats().__dict__,
             "recent_performance": {
-                "avg_response_time": statistics.mean(self.response_times_history)
-                if self.response_times_history
-                else 0.0,
-                "avg_success_rate": statistics.mean(self.success_rates_history)
-                if self.success_rates_history
-                else 0.0,
-                "avg_batch_size": statistics.mean(self.batch_sizes_history)
-                if self.batch_sizes_history
-                else 0.0,
+                "avg_response_time": (
+                    statistics.mean(self.response_times_history)
+                    if self.response_times_history
+                    else 0.0
+                ),
+                "avg_success_rate": (
+                    statistics.mean(self.success_rates_history)
+                    if self.success_rates_history
+                    else 0.0
+                ),
+                "avg_batch_size": (
+                    statistics.mean(self.batch_sizes_history) if self.batch_sizes_history else 0.0
+                ),
             },
         }
 

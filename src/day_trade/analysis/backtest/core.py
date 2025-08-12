@@ -106,9 +106,7 @@ class BacktestEngine:
         Returns:
             バックテスト結果
         """
-        logger.info(
-            f"バックテスト開始: {symbols}, 期間: {config.start_date} - {config.end_date}"
-        )
+        logger.info(f"バックテスト開始: {symbols}, 期間: {config.start_date} - {config.end_date}")
 
         if show_progress:
             # 進捗表示付きでバックテストを実行
@@ -125,14 +123,10 @@ class BacktestEngine:
                 progress.complete_step()
 
                 # 履歴データの取得
-                historical_data = self._fetch_historical_data(
-                    symbols, config, show_progress=True
-                )
+                historical_data = self._fetch_historical_data(symbols, config, show_progress=True)
                 if not historical_data:
                     progress.fail_step("履歴データの取得に失敗")
-                    raise ValueError(
-                        "バックテストに必要な履歴データの取得に失敗しました。"
-                    )
+                    raise ValueError("バックテストに必要な履歴データの取得に失敗しました。")
                 progress.complete_step()
 
                 # 日次でバックテストを実行
@@ -173,9 +167,7 @@ class BacktestEngine:
             # 進捗表示なしで実行
             self._initialize_backtest(config)
 
-            historical_data = self._fetch_historical_data(
-                symbols, config, show_progress=False
-            )
+            historical_data = self._fetch_historical_data(symbols, config, show_progress=False)
             if not historical_data:
                 raise ValueError("履歴データの取得に失敗しました。")
 
@@ -279,9 +271,7 @@ class BacktestEngine:
             try:
                 # 日付に最も近い価格を取得
                 if date.strftime("%Y-%m-%d") in data.index.strftime("%Y-%m-%d"):
-                    price_data = data[
-                        data.index.strftime("%Y-%m-%d") == date.strftime("%Y-%m-%d")
-                    ]
+                    price_data = data[data.index.strftime("%Y-%m-%d") == date.strftime("%Y-%m-%d")]
                     if not price_data.empty:
                         # 終値を使用
                         daily_prices[symbol] = Decimal(str(price_data["Close"].iloc[0]))
@@ -295,9 +285,7 @@ class BacktestEngine:
         for symbol, position in self.positions.items():
             if symbol in daily_prices:
                 position.current_price = daily_prices[symbol]
-                position.market_value = position.current_price * Decimal(
-                    str(position.quantity)
-                )
+                position.market_value = position.current_price * Decimal(str(position.quantity))
                 position.unrealized_pnl = position.market_value - (
                     position.average_price * Decimal(str(position.quantity))
                 )
@@ -357,12 +345,8 @@ class BacktestEngine:
             daily_returns.append(daily_return)
 
         # 基本指標の計算
-        annualized_return = (
-            total_return * (252 / len(daily_returns)) if daily_returns else 0.0
-        )
-        volatility = (
-            float(pd.Series(daily_returns).std() * (252**0.5)) if daily_returns else 0.0
-        )
+        annualized_return = total_return * (252 / len(daily_returns)) if daily_returns else 0.0
+        volatility = float(pd.Series(daily_returns).std() * (252**0.5)) if daily_returns else 0.0
         sharpe_ratio = annualized_return / volatility if volatility > 0 else 0.0
 
         # その他の指標

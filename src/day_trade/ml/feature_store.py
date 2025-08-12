@@ -139,13 +139,9 @@ class FeatureStore:
                     index_data = json.load(f)
 
                 for feature_id, metadata_dict in index_data.items():
-                    self.metadata_index[feature_id] = FeatureMetadata.from_dict(
-                        metadata_dict
-                    )
+                    self.metadata_index[feature_id] = FeatureMetadata.from_dict(metadata_dict)
 
-                logger.info(
-                    f"メタデータインデックス読み込み完了: {len(self.metadata_index)}件"
-                )
+                logger.info(f"メタデータインデックス読み込み完了: {len(self.metadata_index)}件")
 
             except Exception as e:
                 logger.error(f"メタデータインデックス読み込みエラー: {e}")
@@ -166,9 +162,7 @@ class FeatureStore:
             with open(index_file, "w", encoding="utf-8") as f:
                 json.dump(index_data, f, ensure_ascii=False, indent=2)
 
-            logger.debug(
-                f"メタデータインデックス保存完了: {len(self.metadata_index)}件"
-            )
+            logger.debug(f"メタデータインデックス保存完了: {len(self.metadata_index)}件")
 
         except Exception as e:
             logger.error(f"メタデータインデックス保存エラー: {e}")
@@ -256,9 +250,7 @@ class FeatureStore:
     ) -> bool:
         """特徴量の存在確認"""
         config_hash = self._generate_config_hash(feature_config)
-        feature_id = self._generate_feature_id(
-            symbol, start_date, end_date, config_hash
-        )
+        feature_id = self._generate_feature_id(symbol, start_date, end_date, config_hash)
 
         if feature_id not in self.metadata_index:
             return False
@@ -279,9 +271,7 @@ class FeatureStore:
     ) -> Optional[FeatureResult]:
         """特徴量の読み込み"""
         config_hash = self._generate_config_hash(feature_config)
-        feature_id = self._generate_feature_id(
-            symbol, start_date, end_date, config_hash
-        )
+        feature_id = self._generate_feature_id(symbol, start_date, end_date, config_hash)
 
         if not self.has_feature(symbol, start_date, end_date, feature_config):
             self.stats["cache_misses"] += 1
@@ -353,9 +343,7 @@ class FeatureStore:
     ) -> str:
         """特徴量の保存"""
         config_hash = self._generate_config_hash(feature_config)
-        feature_id = self._generate_feature_id(
-            symbol, start_date, end_date, config_hash
-        )
+        feature_id = self._generate_feature_id(symbol, start_date, end_date, config_hash)
 
         start_time = time.time()
 
@@ -459,9 +447,7 @@ class FeatureStore:
         feature_result = manager.generate_features(data, feature_config)
 
         # 保存
-        feature_id = self.save_feature(
-            symbol, start_date, end_date, feature_config, feature_result
-        )
+        feature_id = self.save_feature(symbol, start_date, end_date, feature_config, feature_result)
 
         # メタデータに特徴量IDを追加
         feature_result.metadata["feature_id"] = feature_id
@@ -499,9 +485,7 @@ class FeatureStore:
             try:
                 # キャッシュ確認
                 if self.has_feature(symbol, start_date, end_date, feature_config):
-                    cached_result = self.load_feature(
-                        symbol, start_date, end_date, feature_config
-                    )
+                    cached_result = self.load_feature(symbol, start_date, end_date, feature_config)
                     if cached_result:
                         results[symbol] = cached_result
                         cache_hits += 1
@@ -530,9 +514,11 @@ class FeatureStore:
                 "processed_symbols": len(results),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
-                "cache_hit_rate": f"{cache_hits/(cache_hits+cache_misses)*100:.1f}%"
-                if (cache_hits + cache_misses) > 0
-                else "0%",
+                "cache_hit_rate": (
+                    f"{cache_hits/(cache_hits+cache_misses)*100:.1f}%"
+                    if (cache_hits + cache_misses) > 0
+                    else "0%"
+                ),
             },
         )
 
@@ -541,9 +527,7 @@ class FeatureStore:
     def get_stats(self) -> Dict[str, Any]:
         """統計情報の取得"""
         cache_total = self.stats["cache_hits"] + self.stats["cache_misses"]
-        cache_hit_rate = (
-            (self.stats["cache_hits"] / cache_total * 100) if cache_total > 0 else 0
-        )
+        cache_hit_rate = (self.stats["cache_hits"] / cache_total * 100) if cache_total > 0 else 0
 
         return {
             **self.stats,
@@ -551,19 +535,12 @@ class FeatureStore:
             "features_in_cache": len(self.metadata_index),
             "cache_size_mb": round(self._get_cache_size_mb(), 2),
             "avg_generation_time_ms": round(
-                (
-                    self.stats["total_generation_time"]
-                    / max(1, self.stats["features_generated"])
-                )
+                (self.stats["total_generation_time"] / max(1, self.stats["features_generated"]))
                 * 1000,
                 2,
             ),
             "avg_loading_time_ms": round(
-                (
-                    self.stats["total_loading_time"]
-                    / max(1, self.stats["features_loaded"])
-                )
-                * 1000,
+                (self.stats["total_loading_time"] / max(1, self.stats["features_loaded"])) * 1000,
                 2,
             ),
         }
@@ -572,9 +549,7 @@ class FeatureStore:
         """キャッシュのクリーンアップ"""
         if force or self._get_cache_size_mb() > self.config.max_cache_size_mb:
             # 最も古い特徴量から削除
-            sorted_metadata = sorted(
-                self.metadata_index.items(), key=lambda x: x[1].created_at
-            )
+            sorted_metadata = sorted(self.metadata_index.items(), key=lambda x: x[1].created_at)
 
             removed_count = 0
             target_size_mb = self.config.max_cache_size_mb * 0.8  # 80%まで削減

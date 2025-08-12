@@ -266,9 +266,7 @@ class LockFreeRingBuffer:
         Args:
             capacity: バッファ容量（2の累乗であること）
         """
-        assert (
-            capacity > 0 and (capacity & (capacity - 1)) == 0
-        ), "Capacity must be power of 2"
+        assert capacity > 0 and (capacity & (capacity - 1)) == 0, "Capacity must be power of 2"
 
         self.capacity = capacity
         self.mask = capacity - 1
@@ -374,8 +372,7 @@ class UltraFastRiskManager:
 
             # 4. Concentration check (1μs)
             total_portfolio_value = sum(
-                abs(pos * self.get_market_price(sym_id))
-                for sym_id, pos in self.positions.items()
+                abs(pos * self.get_market_price(sym_id)) for sym_id, pos in self.positions.items()
             )
 
             if total_portfolio_value > 0:
@@ -620,9 +617,7 @@ class UltraFastExecutor:
             # Note: This would typically be async, but in sync context:
             # We simulate with a fast synchronous call
             exchange_result = self._submit_order_sync(execution_plan)
-            stage_times["exchange_submission"] = (
-                self.timer.now_ns() - submit_start
-            ) / 1000
+            stage_times["exchange_submission"] = (self.timer.now_ns() - submit_start) / 1000
 
             # Stage 4: Post-execution processing (target: 10μs)
             post_start = self.timer.now_ns()
@@ -693,9 +688,7 @@ class UltraFastExecutor:
             execution_time_ns=self.timer.now_ns(),
         )
 
-    def _post_execution_processing(
-        self, order_entry: OrderEntry, result: ExecutionResult
-    ):
+    def _post_execution_processing(self, order_entry: OrderEntry, result: ExecutionResult):
         """執行後処理 (<10μs target)"""
         if result.status == ExecutionStatus.COMPLETED:
             # Update position
@@ -704,9 +697,7 @@ class UltraFastExecutor:
             )
 
             # Log performance metric
-            log_performance_metric(
-                "hft_execution_latency", result.latency_us, "microseconds"
-            )
+            log_performance_metric("hft_execution_latency", result.latency_us, "microseconds")
 
     def _update_execution_stats(self, latency_us: float, success: bool):
         """実行統計更新"""
@@ -889,9 +880,7 @@ if __name__ == "__main__":
 
             print("\n1. 単一注文執行テスト")
             result = await executor.execute_order_async(test_orders[0])
-            print(
-                f"実行結果: status={result.status.name}, latency={result.latency_us:.1f}μs"
-            )
+            print(f"実行結果: status={result.status.name}, latency={result.latency_us:.1f}μs")
 
             if result.processing_stages:
                 print("処理段階:")
@@ -902,9 +891,7 @@ if __name__ == "__main__":
             batch_results = executor.execute_order_batch(test_orders[1:])
             print(f"バッチ実行: {len(batch_results)}結果")
 
-            success_count = sum(
-                1 for r in batch_results if r.status == ExecutionStatus.COMPLETED
-            )
+            success_count = sum(1 for r in batch_results if r.status == ExecutionStatus.COMPLETED)
             print(
                 f"成功率: {success_count}/{len(batch_results)} = {success_count/len(batch_results):.1%}"
             )

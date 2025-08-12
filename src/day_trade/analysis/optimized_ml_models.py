@@ -101,9 +101,7 @@ class PerformanceCache:
         # キャッシュサイズ制限
         if len(self.cache) >= self.max_size:
             # 最も古いアクセスのキーを削除
-            oldest_key = min(
-                self.access_times.keys(), key=lambda k: self.access_times[k]
-            )
+            oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
             del self.cache[oldest_key]
             del self.access_times[oldest_key]
 
@@ -219,9 +217,7 @@ class OptimizedBasePredictionModel:
             )
 
         except Exception as e:
-            logger.error(
-                f"予測エラー: {self.model_name}", section="ml_prediction", error=str(e)
-            )
+            logger.error(f"予測エラー: {self.model_name}", section="ml_prediction", error=str(e))
             raise
 
     def _preprocess_features(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -497,8 +493,7 @@ class OptimizedEnsemblePredictor:
         total_weight = sum(self.model_weights.values())
         if total_weight > 0:
             self.model_weights = {
-                name: weight / total_weight
-                for name, weight in self.model_weights.items()
+                name: weight / total_weight for name, weight in self.model_weights.items()
             }
 
     def get_performance_stats(self) -> Dict[str, Any]:
@@ -592,9 +587,7 @@ def optimize_prediction_accuracy(
             "mape": mape,
             "prediction_count": len(predictions),
             "avg_confidence": float(np.mean([p.confidence for p in predictions])),
-            "cache_hit_rate": sum(1 for p in predictions if p.cache_hit)
-            / len(predictions)
-            * 100,
+            "cache_hit_rate": sum(1 for p in predictions if p.cache_hit) / len(predictions) * 100,
         }
 
     except Exception as e:
@@ -656,9 +649,7 @@ if __name__ == "__main__":
 
         # 精度評価
         if predictions1:
-            accuracy_metrics = optimize_prediction_accuracy(
-                predictions1, y_test.tail(1).values
-            )
+            accuracy_metrics = optimize_prediction_accuracy(predictions1, y_test.tail(1).values)
 
             # パフォーマンス統計
             perf_stats = ensemble.get_performance_stats()

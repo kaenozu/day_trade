@@ -8,21 +8,27 @@ HFT超低レイテンシとGPU加速による極限性能システム
 Rust FFI統合による究極の低レイテンシ(<10μs)実現
 """
 
-from .gpu_accelerator import GPUAccelerator, GPUConfig, get_gpu_accelerator, gpu_accelerated
-from .hft_optimizer import HFTOptimizer, HFTConfig, get_hft_optimizer, hft_optimized
+from .gpu_accelerator import (
+    GPUAccelerator,
+    GPUConfig,
+    get_gpu_accelerator,
+    gpu_accelerated,
+)
+from .hft_optimizer import HFTConfig, HFTOptimizer, get_hft_optimizer, hft_optimized
 
 # Issue #443: 超低レイテンシシステム
 try:
-    from .ultra_low_latency_core import (
-        UltraLowLatencyCore,
-        UltraLowLatencyConfig,
-        create_ultra_low_latency_core
-    )
     from .system_optimization import (
-        SystemOptimizer,
         SystemOptimizationConfig,
-        setup_ultra_low_latency_system
+        SystemOptimizer,
+        setup_ultra_low_latency_system,
     )
+    from .ultra_low_latency_core import (
+        UltraLowLatencyConfig,
+        UltraLowLatencyCore,
+        create_ultra_low_latency_core,
+    )
+
     ULTRA_LOW_LATENCY_AVAILABLE = True
 except ImportError:
     ULTRA_LOW_LATENCY_AVAILABLE = False
@@ -43,16 +49,19 @@ __all__ = [
 
 # 超低レイテンシシステムが利用可能な場合に追加
 if ULTRA_LOW_LATENCY_AVAILABLE:
-    __all__.extend([
-        "UltraLowLatencyCore",
-        "UltraLowLatencyConfig",
-        "create_ultra_low_latency_core",
-        "SystemOptimizer",
-        "SystemOptimizationConfig",
-        "setup_ultra_low_latency_system",
-    ])
+    __all__.extend(
+        [
+            "UltraLowLatencyCore",
+            "UltraLowLatencyConfig",
+            "create_ultra_low_latency_core",
+            "SystemOptimizer",
+            "SystemOptimizationConfig",
+            "setup_ultra_low_latency_system",
+        ]
+    )
 
 __version__ = "2.0.0"  # 超低レイテンシ対応によるメジャーバージョンアップ
+
 
 # パフォーマンス情報取得関数
 def get_performance_info():
@@ -74,16 +83,19 @@ def get_performance_info():
 
     if ULTRA_LOW_LATENCY_AVAILABLE:
         info["systems"]["ultra_low_latency"] = "超低レイテンシ <10μs実現システム"
-        info["features"].extend([
-            "Rust FFI統合",
-            "Lock-freeデータ構造",
-            "システムレベル最適化",
-            "リアルタイムスケジューラ",
-            "CPU親和性制御",
-            "RDTSC高精度タイミング",
-        ])
+        info["features"].extend(
+            [
+                "Rust FFI統合",
+                "Lock-freeデータ構造",
+                "システムレベル最適化",
+                "リアルタイムスケジューラ",
+                "CPU親和性制御",
+                "RDTSC高精度タイミング",
+            ]
+        )
 
     return info
+
 
 # システム能力検証関数
 def verify_system_capabilities():
@@ -107,7 +119,8 @@ def verify_system_capabilities():
         # システム最適化能力チェック
         if ULTRA_LOW_LATENCY_AVAILABLE:
             import platform
-            if platform.system() in ['Linux', 'Windows']:
+
+            if platform.system() in ["Linux", "Windows"]:
                 capabilities["system_optimization"] = True
     except Exception:
         pass

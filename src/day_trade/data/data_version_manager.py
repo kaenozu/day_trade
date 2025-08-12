@@ -297,24 +297,16 @@ class DataVersionManager:
             )
 
             # インデックス作成
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_versions_branch ON versions(branch)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_versions_timestamp ON versions(timestamp)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_versions_status ON versions(status)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_versions_branch ON versions(branch)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_versions_timestamp ON versions(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_versions_status ON versions(status)")
 
             # デフォルトブランチ作成
             self._ensure_default_branch(conn)
 
     def _ensure_default_branch(self, conn: sqlite3.Connection):
         """デフォルトブランチ確保"""
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM branches WHERE branch_name = ?", ("main",)
-        )
+        cursor = conn.execute("SELECT COUNT(*) FROM branches WHERE branch_name = ?", ("main",))
         if cursor.fetchone()[0] == 0:
             main_branch = DataBranch(
                 branch_name="main",
@@ -530,14 +522,10 @@ class DataVersionManager:
             target_version = await self._get_latest_version(target_branch)
 
             if not source_version:
-                raise ValueError(
-                    f"マージ元ブランチにバージョンがありません: {source_branch}"
-                )
+                raise ValueError(f"マージ元ブランチにバージョンがありません: {source_branch}")
 
             # 競合検出
-            conflicts = await self._detect_merge_conflicts(
-                source_version, target_version
-            )
+            conflicts = await self._detect_merge_conflicts(source_version, target_version)
 
             if conflicts and strategy == ConflictResolution.MANUAL:
                 logger.warning(f"マージ競合が検出されました: {len(conflicts)}件")
@@ -545,14 +533,10 @@ class DataVersionManager:
 
             # 自動競合解決
             if conflicts:
-                conflicts = await self._resolve_conflicts_automatically(
-                    conflicts, strategy
-                )
+                conflicts = await self._resolve_conflicts_automatically(conflicts, strategy)
 
             # マージコミット作成
-            merge_data = await self._create_merge_data(
-                source_version, target_version, strategy
-            )
+            merge_data = await self._create_merge_data(source_version, target_version, strategy)
 
             merge_message = f"Merge branch '{source_branch}' into '{target_branch}'"
             merge_version_id = await self.commit_data(
@@ -657,9 +641,7 @@ class DataVersionManager:
 
             # データファイルコピー
             for version in versions:
-                source_path = (
-                    self.repository_path / "data" / f"{version.version_id}.json"
-                )
+                source_path = self.repository_path / "data" / f"{version.version_id}.json"
                 if source_path.exists():
                     target_path = snapshot_path / f"{version.version_id}.json"
                     shutil.copy2(source_path, target_path)
@@ -738,9 +720,7 @@ class DataVersionManager:
                 "version2": version2,
                 "timestamp1": v1.timestamp.isoformat(),
                 "timestamp2": v2.timestamp.isoformat(),
-                "metadata_diff": self._calculate_metadata_diff(
-                    v1.metadata, v2.metadata
-                ),
+                "metadata_diff": self._calculate_metadata_diff(v1.metadata, v2.metadata),
                 "data_diff": self._calculate_data_diff(data1, data2),
                 "size_diff_bytes": v2.size_bytes - v1.size_bytes,
                 "hash_changed": v1.data_hash != v2.data_hash,
@@ -757,14 +737,10 @@ class DataVersionManager:
         try:
             if isinstance(data, pd.DataFrame):
                 # DataFrame構造とデータのハッシュ
-                content = (
-                    f"{list(data.columns)}_{data.shape}_{str(data.dtypes.to_dict())}"
-                )
+                content = f"{list(data.columns)}_{data.shape}_{str(data.dtypes.to_dict())}"
                 if len(data) > 0:
                     # サンプルデータも含める（大規模データ対応）
-                    sample_data = (
-                        data.head(100).to_json() if len(data) > 100 else data.to_json()
-                    )
+                    sample_data = data.head(100).to_json() if len(data) > 100 else data.to_json()
                     content += f"_{sample_data}"
             elif isinstance(data, dict):
                 content = json.dumps(data, sort_keys=True)
@@ -1123,9 +1099,7 @@ class DataVersionManager:
             logger.error(f"バージョンリスト取得エラー: {e}")
             return []
 
-    async def _find_version_by_hash(
-        self, data_hash: str, branch: str
-    ) -> Optional[DataVersion]:
+    async def _find_version_by_hash(self, data_hash: str, branch: str) -> Optional[DataVersion]:
         """データハッシュによるバージョン検索"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -1258,9 +1232,7 @@ class DataVersionManager:
 
             # データファイル移動
             source_path = self.repository_path / "data" / f"{version_id}.json"
-            archive_path = (
-                self.repository_path / "backups" / f"archived_{version_id}.json"
-            )
+            archive_path = self.repository_path / "backups" / f"archived_{version_id}.json"
 
             if source_path.exists():
                 shutil.move(str(source_path), str(archive_path))
@@ -1428,9 +1400,7 @@ class DataVersionManager:
             return source_data
         elif strategy == ConflictResolution.AUTO_MERGE:
             # 簡易マージ（実際のプロジェクトでは詳細な実装が必要）
-            if isinstance(source_data, pd.DataFrame) and isinstance(
-                target_data, pd.DataFrame
-            ):
+            if isinstance(source_data, pd.DataFrame) and isinstance(target_data, pd.DataFrame):
                 # DataFrameの場合、行を結合
                 return pd.concat([target_data, source_data]).drop_duplicates()
             else:
@@ -1468,9 +1438,7 @@ class DataVersionManager:
                             conflict.resolution_strategy.value,
                             1 if conflict.resolved else 0,
                             conflict.resolved_by,
-                            conflict.resolved_at.isoformat()
-                            if conflict.resolved_at
-                            else None,
+                            conflict.resolved_at.isoformat() if conflict.resolved_at else None,
                         ),
                     )
 
@@ -1482,12 +1450,8 @@ class DataVersionManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # 統計情報取得
-                version_count = conn.execute(
-                    "SELECT COUNT(*) FROM versions"
-                ).fetchone()[0]
-                branch_count = conn.execute("SELECT COUNT(*) FROM branches").fetchone()[
-                    0
-                ]
+                version_count = conn.execute("SELECT COUNT(*) FROM versions").fetchone()[0]
+                branch_count = conn.execute("SELECT COUNT(*) FROM branches").fetchone()[0]
                 tag_count = conn.execute("SELECT COUNT(*) FROM tags").fetchone()[0]
 
                 # ブランチ別バージョン数
@@ -1661,9 +1625,7 @@ if __name__ == "__main__":
             main_history = await dvc.get_version_history("main", 10)
             print(f"   mainブランチ履歴: {len(main_history)}件")
             for version in main_history:
-                print(
-                    f"     - {version.version_id}: {version.message} ({version.author})"
-                )
+                print(f"     - {version.version_id}: {version.message} ({version.author})")
 
             # バージョン差分計算
             print("\n9. バージョン差分計算...")

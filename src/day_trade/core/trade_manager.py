@@ -32,9 +32,7 @@ logger = get_context_logger(__name__)
 error_handler = get_default_error_handler()
 
 
-def safe_decimal_conversion(
-    value: Union[str, int, float, Decimal], context: str = "値"
-) -> Decimal:
+def safe_decimal_conversion(value: Union[str, int, float, Decimal], context: str = "値") -> Decimal:
     """
     安全なDecimal変換（浮動小数点誤差回避・強化版）
 
@@ -136,9 +134,7 @@ def quantize_decimal(value: Decimal, decimal_places: int = 2) -> Decimal:
 
     # 量子化パターンを生成
     if decimal_places < 0:
-        raise ValueError(
-            f"小数点以下の桁数は0以上である必要があります: {decimal_places}"
-        )
+        raise ValueError(f"小数点以下の桁数は0以上である必要があります: {decimal_places}")
 
     quantum = Decimal("0.1") ** decimal_places
     return value.quantize(quantum)
@@ -367,9 +363,7 @@ def validate_file_path(filepath: str, operation: str = "ファイル操作") -> 
         if isinstance(e, (ValueError, TypeError)):
             raise
         safe_error_msg = mask_sensitive_info(str(e))
-        raise ValueError(
-            f"{operation}のパス処理でエラーが発生しました: {safe_error_msg}"
-        )
+        raise ValueError(f"{operation}のパス処理でエラーが発生しました: {safe_error_msg}")
 
 
 def mask_sensitive_info(text: str, mask_char: str = "*") -> str:
@@ -423,9 +417,7 @@ def mask_sensitive_info(text: str, mask_char: str = "*") -> str:
     for pattern in commission_patterns:
         backslash = "\\"
         pattern_key = pattern.split("[")[0].split(backslash)[0]
-        text = re.sub(
-            pattern, f"{pattern_key}: {mask_char * 6}", text, flags=re.IGNORECASE
-        )
+        text = re.sub(pattern, f"{pattern_key}: {mask_char * 6}", text, flags=re.IGNORECASE)
 
     # 3. ファイルパスのマスキング
     # Windows/Unix パス情報
@@ -549,9 +541,7 @@ def _mask_transaction_id(id_str: str, mask_char: str = "*") -> str:
             masked_value = mask_char * len(value_part)
         else:
             # 先頭2文字と末尾2文字を残す
-            masked_value = (
-                value_part[:2] + mask_char * (len(value_part) - 4) + value_part[-2:]
-            )
+            masked_value = value_part[:2] + mask_char * (len(value_part) - 4) + value_part[-2:]
         return f"{key_part}: {masked_value}"
     else:
         return _mask_number(id_str, mask_char)
@@ -587,9 +577,7 @@ def _mask_number(number_str: str, mask_char: str = "*") -> str:
     elif len(digits) <= 4:
         masked_digits = digits[0] + mask_char * (len(digits) - 2) + digits[-1]
     else:
-        masked_digits = (
-            "".join(digits[:2]) + mask_char * (len(digits) - 4) + "".join(digits[-2:])
-        )
+        masked_digits = "".join(digits[:2]) + mask_char * (len(digits) - 4) + "".join(digits[-2:])
 
     # 元の形式を保持しながら数字を置換
     result = number_str
@@ -756,9 +744,7 @@ class Position:
             "current_price": str(self.current_price),
             "market_value": str(self.market_value),
             "unrealized_pnl": str(self.unrealized_pnl),
-            "unrealized_pnl_percent": str(
-                self.unrealized_pnl_percent.quantize(Decimal("0.01"))
-            ),
+            "unrealized_pnl_percent": str(self.unrealized_pnl_percent.quantize(Decimal("0.01"))),
         }
 
 
@@ -966,9 +952,7 @@ class TradeManager:
                         trade_type=trade_type.value,
                         quantity=mask_sensitive_info(f"quantity: {quantity}"),
                         price=mask_sensitive_info(f"price: {str(price)}"),
-                        commission=mask_sensitive_info(
-                            f"commission: {str(commission)}"
-                        ),
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
                         persisted=True,
                     )
 
@@ -1048,9 +1032,7 @@ class TradeManager:
 
                 # ポジション全体を更新
                 total_cost = (
-                    position.total_cost
-                    + (trade.price * Decimal(trade.quantity))
-                    + trade.commission
+                    position.total_cost + (trade.price * Decimal(trade.quantity)) + trade.commission
                 )
                 total_quantity = position.quantity + trade.quantity
                 average_price = total_cost / Decimal(total_quantity)
@@ -1134,9 +1116,7 @@ class TradeManager:
             lot_cost_per_share = oldest_lot.total_cost_per_share()
             buy_cost_for_this_sale = lot_cost_per_share * Decimal(quantity_to_sell)
             buy_commission_for_this_sale = (
-                oldest_lot.commission
-                * Decimal(quantity_to_sell)
-                / Decimal(oldest_lot.quantity)
+                oldest_lot.commission * Decimal(quantity_to_sell) / Decimal(oldest_lot.quantity)
             )
 
             total_buy_cost += buy_cost_for_this_sale
@@ -1205,9 +1185,7 @@ class TradeManager:
 
             if position.quantity > 0:
                 # 平均価格の再計算
-                position.average_price = position.total_cost / Decimal(
-                    position.quantity
-                )
+                position.average_price = position.total_cost / Decimal(position.quantity)
             else:
                 # ポジション完全クローズ
                 del self.positions[symbol]
@@ -1227,9 +1205,7 @@ class TradeManager:
         # 買いロットキューが空でない場合、最古のロット（先頭）の日付を返す
         if position.buy_lots:
             earliest_date = position.buy_lots[0].timestamp
-            logger.debug(
-                f"銘柄 {symbol} の最早買い取引日（ロットキューから取得）: {earliest_date}"
-            )
+            logger.debug(f"銘柄 {symbol} の最早買い取引日（ロットキューから取得）: {earliest_date}")
             return earliest_date
 
         # フォールバック: 全取引から検索（互換性維持）
@@ -1245,9 +1221,7 @@ class TradeManager:
 
         # 最早の取引を効率的に検索
         earliest_date = min(trade.timestamp for trade in buy_trades)
-        logger.debug(
-            f"銘柄 {symbol} の最早買い取引日（フォールバック検索）: {earliest_date}"
-        )
+        logger.debug(f"銘柄 {symbol} の最早買い取引日（フォールバック検索）: {earliest_date}")
         return earliest_date
 
     def _load_trades_from_db(self) -> None:
@@ -1259,9 +1233,7 @@ class TradeManager:
             # トランザクション内で一括処理
             with db_manager.transaction_scope() as session:
                 # データベースから全取引を取得
-                db_trades = (
-                    session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
-                )
+                db_trades = session.query(DBTrade).order_by(DBTrade.trade_datetime).all()
 
                 load_logger.info("DB取引データ取得", extra={"count": len(db_trades)})
 
@@ -1374,14 +1346,10 @@ class TradeManager:
             self._trade_counter = counter_backup
 
             log_error_with_context(e, {"operation": "sync_with_db"})
-            sync_logger.error(
-                "データベース同期失敗、メモリ内データを復元", extra={"error": str(e)}
-            )
+            sync_logger.error("データベース同期失敗、メモリ内データを復元", extra={"error": str(e)})
             raise
 
-    def add_trades_batch(
-        self, trades_data: List[Dict], persist_to_db: bool = True
-    ) -> List[str]:
+    def add_trades_batch(self, trades_data: List[Dict], persist_to_db: bool = True) -> List[str]:
         """
         複数の取引を一括追加（トランザクション保護）
 
@@ -1436,11 +1404,7 @@ class TradeManager:
                             trade_id = self._generate_trade_id()
 
                             # 1. 銘柄マスタの存在確認・作成
-                            stock = (
-                                session.query(Stock)
-                                .filter(Stock.code == symbol)
-                                .first()
-                            )
+                            stock = session.query(Stock).filter(Stock.code == symbol).first()
                             if not stock:
                                 stock = Stock(
                                     code=symbol,
@@ -1453,20 +1417,24 @@ class TradeManager:
                                 session.flush()
 
                             # 2. データベース取引記録を作成
-                            DBTrade.create_buy_trade(
-                                session=session,
-                                stock_code=symbol,
-                                quantity=quantity,
-                                price=price,
-                                commission=commission,
-                                memo=notes,
-                            ) if trade_type == TradeType.BUY else DBTrade.create_sell_trade(
-                                session=session,
-                                stock_code=symbol,
-                                quantity=quantity,
-                                price=price,
-                                commission=commission,
-                                memo=notes,
+                            (
+                                DBTrade.create_buy_trade(
+                                    session=session,
+                                    stock_code=symbol,
+                                    quantity=quantity,
+                                    price=price,
+                                    commission=commission,
+                                    memo=notes,
+                                )
+                                if trade_type == TradeType.BUY
+                                else DBTrade.create_sell_trade(
+                                    session=session,
+                                    stock_code=symbol,
+                                    quantity=quantity,
+                                    price=price,
+                                    commission=commission,
+                                    memo=notes,
+                                )
                             )
 
                             # 3. メモリ内データ構造を更新
@@ -1587,9 +1555,7 @@ class TradeManager:
         Warning:
             この操作は取引履歴、ポジション、実現損益をすべて削除します
         """
-        clear_logger = logger.bind(
-            operation="clear_all_data", persist_to_db=persist_to_db
-        )
+        clear_logger = logger.bind(operation="clear_all_data", persist_to_db=persist_to_db)
         clear_logger.warning("全データ削除処理開始")
 
         # メモリ内データのバックアップ
@@ -1629,9 +1595,7 @@ class TradeManager:
                 self.realized_pnl.clear()
                 self._trade_counter = 0
 
-                log_business_event(
-                    "all_data_cleared", deleted_db_records=0, persisted=False
-                )
+                log_business_event("all_data_cleared", deleted_db_records=0, persisted=False)
 
                 clear_logger.warning("全データ削除完了（メモリのみ）")
 
@@ -1645,9 +1609,7 @@ class TradeManager:
             log_error_with_context(
                 e, {"operation": "clear_all_data", "persist_to_db": persist_to_db}
             )
-            clear_logger.error(
-                "全データ削除失敗、メモリ内データを復元", extra={"error": str(e)}
-            )
+            clear_logger.error("全データ削除失敗、メモリ内データを復元", extra={"error": str(e)})
             raise
 
     def get_position(self, symbol: str) -> Optional[Position]:
@@ -1670,9 +1632,7 @@ class TradeManager:
             return [trade for trade in self.trades if trade.symbol == symbol]
         return self.trades.copy()
 
-    def get_realized_pnl_history(
-        self, symbol: Optional[str] = None
-    ) -> List[RealizedPnL]:
+    def get_realized_pnl_history(self, symbol: Optional[str] = None) -> List[RealizedPnL]:
         """実現損益履歴を取得"""
         if symbol:
             return [pnl for pnl in self.realized_pnl if pnl.symbol == symbol]
@@ -1764,9 +1724,7 @@ class TradeManager:
                 writer.writeheader()
                 writer.writerows(data)
 
-            logger.info(
-                f"CSV出力完了: {mask_sensitive_info(str(safe_path))} ({len(data)}件)"
-            )
+            logger.info(f"CSV出力完了: {mask_sensitive_info(str(safe_path))} ({len(data)}件)")
 
         except Exception as e:
             logger.error(
@@ -1782,9 +1740,7 @@ class TradeManager:
 
             data = {
                 "trades": [trade.to_dict() for trade in self.trades],
-                "positions": {
-                    symbol: pos.to_dict() for symbol, pos in self.positions.items()
-                },
+                "positions": {symbol: pos.to_dict() for symbol, pos in self.positions.items()},
                 "realized_pnl": [pnl.to_dict() for pnl in self.realized_pnl],
                 "settings": {
                     "commission_rate": str(self.commission_rate),
@@ -1814,9 +1770,7 @@ class TradeManager:
                 data = json.load(f)
 
             # 取引履歴復元
-            self.trades = [
-                Trade.from_dict(trade_data) for trade_data in data.get("trades", [])
-            ]
+            self.trades = [Trade.from_dict(trade_data) for trade_data in data.get("trades", [])]
 
             # ポジション復元
             self.positions = {}
@@ -1913,9 +1867,7 @@ class TradeManager:
 
         safe_current_market_price = None
         if current_market_price is not None:
-            safe_current_market_price = safe_decimal_conversion(
-                current_market_price, "現在価格"
-            )
+            safe_current_market_price = safe_decimal_conversion(current_market_price, "現在価格")
             validate_positive_decimal(safe_current_market_price, "現在価格")
 
         # メモリ内データのバックアップ
@@ -1990,15 +1942,17 @@ class TradeManager:
                         symbol=symbol,
                         quantity=mask_sensitive_info(f"quantity: {quantity}"),
                         price=mask_sensitive_info(f"price: {str(price)}"),
-                        commission=mask_sensitive_info(
-                            f"commission: {str(commission)}"
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
+                        old_position=(
+                            mask_sensitive_info(str(old_position.to_dict()))
+                            if old_position
+                            else None
                         ),
-                        old_position=mask_sensitive_info(str(old_position.to_dict()))
-                        if old_position
-                        else None,
-                        new_position=mask_sensitive_info(str(new_position.to_dict()))
-                        if new_position
-                        else None,
+                        new_position=(
+                            mask_sensitive_info(str(new_position.to_dict()))
+                            if new_position
+                            else None
+                        ),
                         persisted=True,
                     )
 
@@ -2038,12 +1992,12 @@ class TradeManager:
                     quantity=mask_sensitive_info(f"quantity: {quantity}"),
                     price=mask_sensitive_info(f"price: {str(price)}"),
                     commission=mask_sensitive_info(f"commission: {str(commission)}"),
-                    old_position=mask_sensitive_info(str(old_position.to_dict()))
-                    if old_position
-                    else None,
-                    new_position=mask_sensitive_info(str(new_position.to_dict()))
-                    if new_position
-                    else None,
+                    old_position=(
+                        mask_sensitive_info(str(old_position.to_dict())) if old_position else None
+                    ),
+                    new_position=(
+                        mask_sensitive_info(str(new_position.to_dict())) if new_position else None
+                    ),
                     persisted=False,
                 )
 
@@ -2062,9 +2016,7 @@ class TradeManager:
                 "price": str(price),
                 "commission": str(commission),
                 "timestamp": timestamp.isoformat(),
-                "position": self.positions[symbol].to_dict()
-                if symbol in self.positions
-                else None,
+                "position": self.positions[symbol].to_dict() if symbol in self.positions else None,
                 "total_cost": str(price * quantity + commission),
             }
 
@@ -2086,9 +2038,7 @@ class TradeManager:
                     "persist_to_db": persist_to_db,
                 },
             )
-            buy_logger.error(
-                "株式買い注文失敗、変更をロールバック", extra={"error": str(e)}
-            )
+            buy_logger.error("株式買い注文失敗、変更をロールバック", extra={"error": str(e)})
             raise
 
     def sell_stock(
@@ -2212,18 +2162,18 @@ class TradeManager:
                         symbol=symbol,
                         quantity=mask_sensitive_info(f"quantity: {quantity}"),
                         price=mask_sensitive_info(f"price: {str(price)}"),
-                        commission=mask_sensitive_info(
-                            f"commission: {str(commission)}"
-                        ),
+                        commission=mask_sensitive_info(f"commission: {str(commission)}"),
                         old_position=mask_sensitive_info(str(old_position.to_dict())),
-                        new_position=mask_sensitive_info(str(new_position.to_dict()))
-                        if new_position
-                        else None,
-                        realized_pnl=mask_sensitive_info(
-                            str(new_realized_pnl.to_dict())
-                        )
-                        if new_realized_pnl
-                        else None,
+                        new_position=(
+                            mask_sensitive_info(str(new_position.to_dict()))
+                            if new_position
+                            else None
+                        ),
+                        realized_pnl=(
+                            mask_sensitive_info(str(new_realized_pnl.to_dict()))
+                            if new_realized_pnl
+                            else None
+                        ),
                         persisted=True,
                     )
 
@@ -2232,9 +2182,7 @@ class TradeManager:
                         trade_id=trade_id,
                         db_trade_id=db_trade.id,
                         commission=str(commission),
-                        realized_pnl=str(new_realized_pnl.pnl)
-                        if new_realized_pnl
-                        else None,
+                        realized_pnl=str(new_realized_pnl.pnl) if new_realized_pnl else None,
                     )
             else:
                 # メモリ内のみの処理
@@ -2273,12 +2221,14 @@ class TradeManager:
                     price=mask_sensitive_info(f"price: {str(price)}"),
                     commission=mask_sensitive_info(f"commission: {str(commission)}"),
                     old_position=mask_sensitive_info(str(old_position.to_dict())),
-                    new_position=mask_sensitive_info(str(new_position.to_dict()))
-                    if new_position
-                    else None,
-                    realized_pnl=mask_sensitive_info(str(new_realized_pnl.to_dict()))
-                    if new_realized_pnl
-                    else None,
+                    new_position=(
+                        mask_sensitive_info(str(new_position.to_dict())) if new_position else None
+                    ),
+                    realized_pnl=(
+                        mask_sensitive_info(str(new_realized_pnl.to_dict()))
+                        if new_realized_pnl
+                        else None
+                    ),
                     persisted=False,
                 )
 
@@ -2286,9 +2236,7 @@ class TradeManager:
                     "株式売り注文完了（メモリのみ）",
                     trade_id=trade_id,
                     commission=str(commission),
-                    realized_pnl=str(new_realized_pnl.pnl)
-                    if new_realized_pnl
-                    else None,
+                    realized_pnl=str(new_realized_pnl.pnl) if new_realized_pnl else None,
                 )
 
             # 結果データ作成
@@ -2302,9 +2250,7 @@ class TradeManager:
                 "timestamp": timestamp.isoformat(),
                 "position": new_position.to_dict() if new_position else None,
                 "position_closed": new_position is None,
-                "realized_pnl": new_realized_pnl.to_dict()
-                if new_realized_pnl
-                else None,
+                "realized_pnl": new_realized_pnl.to_dict() if new_realized_pnl else None,
                 "gross_proceeds": str(price * quantity - commission),
             }
 
@@ -2327,9 +2273,7 @@ class TradeManager:
                     "persist_to_db": persist_to_db,
                 },
             )
-            sell_logger.error(
-                "株式売り注文失敗、変更をロールバック", extra={"error": str(e)}
-            )
+            sell_logger.error("株式売り注文失敗、変更をロールバック", extra={"error": str(e)})
             raise
 
     def execute_trade_order(
@@ -2378,9 +2322,7 @@ class TradeManager:
                 f"無効な取引アクション: {action}. 'buy' または 'sell' を指定してください"
             )
 
-    def calculate_tax_implications(
-        self, year: int, accounting_method: str = "FIFO"
-    ) -> Dict:
+    def calculate_tax_implications(self, year: int, accounting_method: str = "FIFO") -> Dict:
         """
         税務計算（会計原則対応版）
 
@@ -2393,11 +2335,7 @@ class TradeManager:
             year_end = datetime(year, 12, 31, 23, 59, 59)
 
             # 年内の実現損益を効率的に取得
-            year_pnl = [
-                pnl
-                for pnl in self.realized_pnl
-                if year_start <= pnl.sell_date <= year_end
-            ]
+            year_pnl = [pnl for pnl in self.realized_pnl if year_start <= pnl.sell_date <= year_end]
 
             if not year_pnl:
                 return {
@@ -2432,19 +2370,11 @@ class TradeManager:
             total_trades = len(year_pnl)
 
             avg_gain = (
-                total_gain / winning_trades_count
-                if winning_trades_count > 0
-                else Decimal("0")
+                total_gain / winning_trades_count if winning_trades_count > 0 else Decimal("0")
             )
-            avg_loss = (
-                total_loss / losing_trades_count
-                if losing_trades_count > 0
-                else Decimal("0")
-            )
+            avg_loss = total_loss / losing_trades_count if losing_trades_count > 0 else Decimal("0")
             win_rate = (
-                (winning_trades_count / total_trades * 100)
-                if total_trades > 0
-                else Decimal("0")
+                (winning_trades_count / total_trades * 100) if total_trades > 0 else Decimal("0")
             )
 
             return {
@@ -2457,12 +2387,8 @@ class TradeManager:
                 "tax_due": str(tax_due.quantize(Decimal("0.01"))),
                 "winning_trades": winning_trades_count,
                 "losing_trades": losing_trades_count,
-                "average_gain_per_winning_trade": str(
-                    avg_gain.quantize(Decimal("0.01"))
-                ),
-                "average_loss_per_losing_trade": str(
-                    avg_loss.quantize(Decimal("0.01"))
-                ),
+                "average_gain_per_winning_trade": str(avg_gain.quantize(Decimal("0.01"))),
+                "average_loss_per_losing_trade": str(avg_loss.quantize(Decimal("0.01"))),
                 "win_rate": f"{win_rate.quantize(Decimal('0.01'))}%",
             }
 
@@ -2486,9 +2412,7 @@ if __name__ == "__main__":
 
     # トヨタ株の取引例
     tm.add_trade("7203", TradeType.BUY, 100, Decimal("2500"), base_date)
-    tm.add_trade(
-        "7203", TradeType.BUY, 200, Decimal("2450"), base_date + timedelta(days=1)
-    )
+    tm.add_trade("7203", TradeType.BUY, 200, Decimal("2450"), base_date + timedelta(days=1))
 
     # 現在価格を更新
     tm.update_current_prices({"7203": Decimal("2600")})
@@ -2510,9 +2434,7 @@ if __name__ == "__main__":
         )
 
     # 一部売却
-    tm.add_trade(
-        "7203", TradeType.SELL, 100, Decimal("2650"), base_date + timedelta(days=5)
-    )
+    tm.add_trade("7203", TradeType.SELL, 100, Decimal("2650"), base_date + timedelta(days=5))
 
     # 実現損益表示
     realized_pnl = tm.get_realized_pnl_history("7203")
@@ -2525,16 +2447,10 @@ if __name__ == "__main__":
                     "section": "realized_pnl_detail",
                     "symbol": pnl.symbol,
                     "quantity": mask_sensitive_info(f"quantity: {pnl.quantity}"),
-                    "buy_price": mask_sensitive_info(
-                        f"buy_price: {str(pnl.buy_price)}"
-                    ),
-                    "sell_price": mask_sensitive_info(
-                        f"sell_price: {str(pnl.sell_price)}"
-                    ),
+                    "buy_price": mask_sensitive_info(f"buy_price: {str(pnl.buy_price)}"),
+                    "sell_price": mask_sensitive_info(f"sell_price: {str(pnl.sell_price)}"),
                     "pnl": mask_sensitive_info(f"pnl: {str(pnl.pnl)}"),
-                    "pnl_percent": mask_sensitive_info(
-                        f"pnl_percent: {str(pnl.pnl_percent)}"
-                    ),
+                    "pnl_percent": mask_sensitive_info(f"pnl_percent: {str(pnl.pnl_percent)}"),
                 },
             )
 

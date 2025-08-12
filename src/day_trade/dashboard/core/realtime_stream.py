@@ -98,9 +98,7 @@ class RealtimeStream:
 
         self.is_streaming = True
         self._streaming_task = asyncio.create_task(self._streaming_loop())
-        logger.info(
-            f"リアルタイムストリーミングを開始しました (間隔: {self.broadcast_interval}秒)"
-        )
+        logger.info(f"リアルタイムストリーミングを開始しました (間隔: {self.broadcast_interval}秒)")
 
     async def stop_streaming(self) -> None:
         """リアルタイムストリーミング停止"""
@@ -153,9 +151,7 @@ class RealtimeStream:
         if self.metrics_collector:
             try:
                 current_metrics = self.metrics_collector.get_current_metrics()
-                aggregated_metrics = self.metrics_collector.get_aggregated_metrics(
-                    1
-                )  # 直近1分
+                aggregated_metrics = self.metrics_collector.get_aggregated_metrics(1)  # 直近1分
 
                 data["data"]["system_metrics"] = {
                     "current": current_metrics,
@@ -209,9 +205,7 @@ class RealtimeStream:
             logger.warning(f"メッセージ送信失敗: {e}")
             raise
 
-    async def send_alert(
-        self, alert_type: str, message: str, data: Optional[Dict] = None
-    ) -> None:
+    async def send_alert(self, alert_type: str, message: str, data: Optional[Dict] = None) -> None:
         """アラートメッセージ送信"""
         alert_message = {
             "type": "alert",
@@ -224,9 +218,7 @@ class RealtimeStream:
         await self.broadcast(alert_message)
         logger.info(f"アラート送信: {alert_type} - {message}")
 
-    async def send_notification(
-        self, title: str, message: str, category: str = "system"
-    ) -> None:
+    async def send_notification(self, title: str, message: str, category: str = "system") -> None:
         """通知メッセージ送信"""
         notification = {
             "type": "notification",

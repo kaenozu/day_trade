@@ -168,18 +168,10 @@ class PerformanceProfiler:
         if not self.metrics_history:
             return {}
 
-        total_execution_time = sum(
-            m.execution_time for m in self.metrics_history.values()
-        )
-        avg_memory_usage = np.mean(
-            [m.memory_usage_mb for m in self.metrics_history.values()]
-        )
-        avg_cpu_usage = np.mean(
-            [m.cpu_usage_percent for m in self.metrics_history.values()]
-        )
-        total_function_calls = sum(
-            m.function_calls for m in self.metrics_history.values()
-        )
+        total_execution_time = sum(m.execution_time for m in self.metrics_history.values())
+        avg_memory_usage = np.mean([m.memory_usage_mb for m in self.metrics_history.values()])
+        avg_cpu_usage = np.mean([m.cpu_usage_percent for m in self.metrics_history.values()])
+        total_function_calls = sum(m.function_calls for m in self.metrics_history.values())
 
         return {
             "total_functions_profiled": len(self.metrics_history),
@@ -198,9 +190,7 @@ class PerformanceProfiler:
             key=lambda x: x[1].execution_time,
             reverse=True,
         )
-        return [
-            (name, metrics.execution_time) for name, metrics in sorted_funcs[:count]
-        ]
+        return [(name, metrics.execution_time) for name, metrics in sorted_funcs[:count]]
 
     def _get_memory_intensive_functions(self, count: int) -> List[Tuple[str, float]]:
         """メモリ使用量の多い関数を取得"""
@@ -209,9 +199,7 @@ class PerformanceProfiler:
             key=lambda x: x[1].memory_usage_mb,
             reverse=True,
         )
-        return [
-            (name, metrics.memory_usage_mb) for name, metrics in sorted_funcs[:count]
-        ]
+        return [(name, metrics.memory_usage_mb) for name, metrics in sorted_funcs[:count]]
 
 
 class SystemPerformanceMonitor:
@@ -229,14 +217,10 @@ class SystemPerformanceMonitor:
             return
 
         self.is_monitoring = True
-        self.monitoring_thread = threading.Thread(
-            target=self._monitor_loop, daemon=True
-        )
+        self.monitoring_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitoring_thread.start()
 
-        logger.info(
-            "システムパフォーマンス監視開始", extra={"section": "system_monitoring"}
-        )
+        logger.info("システムパフォーマンス監視開始", extra={"section": "system_monitoring"})
 
     def stop_monitoring(self):
         """監視停止"""
@@ -244,9 +228,7 @@ class SystemPerformanceMonitor:
         if self.monitoring_thread:
             self.monitoring_thread.join(timeout=5)
 
-        logger.info(
-            "システムパフォーマンス監視停止", extra={"section": "system_monitoring"}
-        )
+        logger.info("システムパフォーマンス監視停止", extra={"section": "system_monitoring"})
 
     def _monitor_loop(self):
         """監視ループ"""
@@ -326,9 +308,7 @@ class SystemPerformanceMonitor:
         process_memory = [m["process_memory_rss_mb"] for m in self.system_metrics]
 
         return {
-            "monitoring_duration_minutes": len(self.system_metrics)
-            * self.monitoring_interval
-            / 60,
+            "monitoring_duration_minutes": len(self.system_metrics) * self.monitoring_interval / 60,
             "avg_cpu_system": np.mean(cpu_system),
             "max_cpu_system": np.max(cpu_system),
             "avg_cpu_process": np.mean(cpu_process),
@@ -397,10 +377,7 @@ class BottleneckAnalyzer:
             estimated_improvement = 0.0
 
             # 実行時間分析
-            if (
-                metrics.execution_time
-                > self.performance_thresholds["execution_time_critical"]
-            ):
+            if metrics.execution_time > self.performance_thresholds["execution_time_critical"]:
                 severity = "critical"
                 estimated_improvement = 60.0
                 suggestions.extend(
@@ -411,10 +388,7 @@ class BottleneckAnalyzer:
                         "キャッシュの導入",
                     ]
                 )
-            elif (
-                metrics.execution_time
-                > self.performance_thresholds["execution_time_high"]
-            ):
+            elif metrics.execution_time > self.performance_thresholds["execution_time_high"]:
                 severity = "high"
                 estimated_improvement = 30.0
                 suggestions.extend(["処理ロジックの最適化", "不要な計算の除去"])
@@ -434,10 +408,7 @@ class BottleneckAnalyzer:
                 )
 
             # 関数呼び出し数分析
-            if (
-                metrics.function_calls
-                > self.performance_thresholds["function_calls_critical"]
-            ):
+            if metrics.function_calls > self.performance_thresholds["function_calls_critical"]:
                 if severity in ["low", "medium"]:
                     severity = "high"
                 suggestions.append("関数呼び出し回数の削減")
@@ -490,10 +461,7 @@ class BottleneckAnalyzer:
             )
 
         # メモリ使用率分析
-        if (
-            summary["max_memory_percent"]
-            > self.performance_thresholds["memory_critical"]
-        ):
+        if summary["max_memory_percent"] > self.performance_thresholds["memory_critical"]:
             bottlenecks.append(
                 BottleneckResult(
                     component="system_memory",
@@ -523,9 +491,7 @@ class PerformanceOptimizer:
     def __init__(self):
         self.optimization_history = []
 
-    def apply_optimizations(
-        self, bottlenecks: List[BottleneckResult]
-    ) -> Dict[str, Any]:
+    def apply_optimizations(self, bottlenecks: List[BottleneckResult]) -> Dict[str, Any]:
         """最適化の適用"""
         optimization_results = {
             "applied_optimizations": [],

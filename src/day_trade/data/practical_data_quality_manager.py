@@ -239,9 +239,7 @@ class PracticalDataQualityManager:
             if ohlc_issues.any():
                 count = ohlc_issues.sum()
                 examples = (
-                    df.loc[ohlc_issues, ["open", "high", "low", "close"]]
-                    .head(3)
-                    .to_dict("records")
+                    df.loc[ohlc_issues, ["open", "high", "low", "close"]].head(3).to_dict("records")
                 )
                 issues.append(
                     DataQualityIssue(
@@ -296,9 +294,7 @@ class PracticalDataQualityManager:
         logger.info(f"データ品質検証完了: {dataset_name}, スコア: {quality_score:.2f}")
         return report
 
-    def _calculate_quality_score(
-        self, issues: List[DataQualityIssue], total_records: int
-    ) -> float:
+    def _calculate_quality_score(self, issues: List[DataQualityIssue], total_records: int) -> float:
         """品質スコア計算（0-100）"""
         if not issues:
             return 100.0
@@ -455,9 +451,7 @@ class PracticalDataQualityManager:
         logger.info("データクリーニング完了")
         return cleaned_df
 
-    def get_quality_history(
-        self, dataset_name: str = None, days: int = 30
-    ) -> List[Dict[str, Any]]:
+    def get_quality_history(self, dataset_name: str = None, days: int = 30) -> List[Dict[str, Any]]:
         """品質履歴取得"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -481,8 +475,7 @@ class PracticalDataQualityManager:
                 )
 
             return [
-                dict(zip([col[0] for col in cursor.description], row))
-                for row in cursor.fetchall()
+                dict(zip([col[0] for col in cursor.description], row)) for row in cursor.fetchall()
             ]
 
     def generate_quality_summary(self, dataset_name: str = None) -> str:
@@ -526,13 +519,9 @@ class PracticalDataQualityManager:
         elif score >= 70:
             summary.append("  - 許容範囲の品質です。重要な問題の優先的修正が必要です。")
         elif score >= 50:
-            summary.append(
-                "  - 品質改善が必要です。データクリーニング処理の実行を推奨します。"
-            )
+            summary.append("  - 品質改善が必要です。データクリーニング処理の実行を推奨します。")
         else:
-            summary.append(
-                "  - 緊急対応が必要です。即座にデータ品質の改善に取り組んでください。"
-            )
+            summary.append("  - 緊急対応が必要です。即座にデータ品質の改善に取り組んでください。")
 
         summary.append("=" * 60)
 
@@ -579,9 +568,7 @@ def demo_practical_data_quality():
 
     print(f"   クリーニング前: {len(test_data)}行")
     print(f"   クリーニング後: {len(cleaned_data)}行")
-    print(
-        f"   欠損値: {test_data.isnull().sum().sum()} → {cleaned_data.isnull().sum().sum()}"
-    )
+    print(f"   欠損値: {test_data.isnull().sum().sum()} → {cleaned_data.isnull().sum().sum()}")
 
     # 再検証
     print("\n3. クリーニング後検証...")

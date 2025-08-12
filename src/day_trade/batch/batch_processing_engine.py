@@ -254,8 +254,7 @@ class DataFetchProcessor(StageProcessor):
                     "symbols_requested": len(symbols),
                     "data_types_fetched": len(data_types),
                     "total_records": sum(
-                        len(v) if isinstance(v, dict) else 0
-                        for v in fetch_results.values()
+                        len(v) if isinstance(v, dict) else 0 for v in fetch_results.values()
                     ),
                 },
             )
@@ -304,9 +303,7 @@ class DataTransformProcessor(StageProcessor):
                             "symbol": symbol,
                             "price": float(price_data.get("price", 0)),
                             "change": float(price_data.get("change", 0)),
-                            "change_percent": float(
-                                price_data.get("change_percent", 0)
-                            ),
+                            "change_percent": float(price_data.get("change_percent", 0)),
                             "volume": int(price_data.get("volume", 0)),
                             "timestamp": price_data.get("timestamp", time.time()),
                         }
@@ -360,8 +357,7 @@ class DataTransformProcessor(StageProcessor):
                     "input_data_types": len(data),
                     "output_format": output_format,
                     "total_records_transformed": sum(
-                        len(v) if isinstance(v, list) else 0
-                        for v in transformed_data.values()
+                        len(v) if isinstance(v, list) else 0 for v in transformed_data.values()
                     ),
                 },
             )
@@ -605,9 +601,7 @@ class DataStoreProcessor(StageProcessor):
                 table_name = table_mapping.get("default", "batch_data")
 
                 db_operation_type = (
-                    DBBatchType.INSERT
-                    if operation_type == "insert"
-                    else DBBatchType.UPSERT
+                    DBBatchType.INSERT if operation_type == "insert" else DBBatchType.UPSERT
                 )
 
                 batch_op = DBBatchOperation(
@@ -642,9 +636,7 @@ class DataStoreProcessor(StageProcessor):
                 statistics={
                     "total_records_stored": total_stored,
                     "store_operations": len(store_results),
-                    "successful_operations": sum(
-                        1 for r in store_results if r["success"]
-                    ),
+                    "successful_operations": sum(1 for r in store_results if r["success"]),
                     "operation_details": store_results,
                 },
             )
@@ -700,9 +692,7 @@ class BatchProcessingEngine:
         }
 
         if self.batch_db:
-            self.processors[WorkflowStage.DATA_STORE] = DataStoreProcessor(
-                self.batch_db
-            )
+            self.processors[WorkflowStage.DATA_STORE] = DataStoreProcessor(self.batch_db)
 
         # ジョブ管理
         self.active_jobs: Dict[str, BatchJob] = {}
@@ -797,9 +787,7 @@ class BatchProcessingEngine:
 
             # ジョブ状態更新
             with self.job_lock:
-                job.status = (
-                    PipelineStatus.COMPLETED if success else PipelineStatus.FAILED
-                )
+                job.status = PipelineStatus.COMPLETED if success else PipelineStatus.FAILED
                 job.completed_at = time.time()
                 self.job_results[job.job_id] = job_result
                 del self.active_jobs[job.job_id]
@@ -867,9 +855,7 @@ class BatchProcessingEngine:
             "data_types": data_types,
             "period": "1mo",
             "interval": "1d",
-            "transform_rules": {
-                "price_scaling": 1.0  # 必要に応じて調整
-            },
+            "transform_rules": {"price_scaling": 1.0},  # 必要に応じて調整
             "output_format": "dict",
             "validation_rules": {
                 "required_fields": ["symbol"],
@@ -931,9 +917,7 @@ class BatchProcessingEngine:
                     "job_name": job.job_name,
                     "status": job.status.value,
                     "started_at": job.started_at,
-                    "elapsed_seconds": time.time() - job.started_at
-                    if job.started_at
-                    else 0,
+                    "elapsed_seconds": time.time() - job.started_at if job.started_at else 0,
                 }
 
             # 完了ジョブ確認

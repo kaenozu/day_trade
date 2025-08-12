@@ -62,10 +62,7 @@ except ImportError as e:
             return value
 
         def _sanitize_error_message(self, error_message, error_type):
-            if any(
-                pattern in error_message
-                for pattern in ["api_key", "password", "192.168"]
-            ):
+            if any(pattern in error_message for pattern in ["api_key", "password", "192.168"]):
                 return "外部API処理でエラーが発生しました（詳細はシステムログを確認してください）"
             return "外部API処理でエラーが発生しました"
 
@@ -323,9 +320,7 @@ class TestErrorMessageSanitization(unittest.TestCase):
         )
         request = APIRequest(endpoint=endpoint, params={"symbol": "TEST"})
 
-        with patch(
-            "src.day_trade.api.enhanced_external_api_client.logger"
-        ) as mock_logger:
+        with patch("src.day_trade.api.enhanced_external_api_client.logger") as mock_logger:
             self.client._log_internal_error(
                 "Sensitive error with API key abc123", "ClientError", request
             )
@@ -445,9 +440,7 @@ class APISecurityIntegrationTest(unittest.TestCase):
 
         try:
             # 1. 正常なリクエスト
-            response = await self.client.fetch_stock_data(
-                "AAPL", APIProvider.MOCK_PROVIDER
-            )
+            response = await self.client.fetch_stock_data("AAPL", APIProvider.MOCK_PROVIDER)
             # モックプロバイダーなので実際のAPIコールは発生しない
 
             # 2. 危険な入力でのセキュリティブロック
@@ -503,13 +496,13 @@ def run_security_test_suite():
         if result.failures:
             print(f"\n❌ 失敗: {len(result.failures)}件")
             for test, traceback in result.failures:
-                failure_msg = traceback.split('AssertionError: ')[-1].split('\n')[0]
+                failure_msg = traceback.split("AssertionError: ")[-1].split("\n")[0]
                 print(f"  - {test}: {failure_msg}")
 
         if result.errors:
             print(f"\n💥 エラー: {len(result.errors)}件")
             for test, traceback in result.errors:
-                error_msg = traceback.split('\n')[-2]
+                error_msg = traceback.split("\n")[-2]
                 print(f"  - {test}: {error_msg}")
 
     # 最終結果

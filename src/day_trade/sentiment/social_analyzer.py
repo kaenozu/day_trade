@@ -229,9 +229,7 @@ class SocialMediaAnalyzer:
         platforms = platforms or ["twitter", "reddit"]
         hours_back = hours_back or self.config.max_age_hours
 
-        logger.info(
-            f"ソーシャルデータ収集開始: {len(keywords)} キーワード, {platforms}"
-        )
+        logger.info(f"ソーシャルデータ収集開始: {len(keywords)} キーワード, {platforms}")
 
         all_posts = []
 
@@ -261,9 +259,7 @@ class SocialMediaAnalyzer:
 
         return filtered_posts
 
-    async def _collect_twitter_data(
-        self, keywords: List[str], hours_back: int
-    ) -> List[SocialPost]:
+    async def _collect_twitter_data(self, keywords: List[str], hours_back: int) -> List[SocialPost]:
         """Twitter データ収集"""
 
         if not self.twitter_api:
@@ -282,9 +278,7 @@ class SocialMediaAnalyzer:
                     # ツイート検索
                     tweets = tweepy.Paginator(
                         self.twitter_api.search_recent_tweets,
-                        query=f"{keyword} -is:retweet"
-                        if self.config.filter_retweets
-                        else keyword,
+                        query=f"{keyword} -is:retweet" if self.config.filter_retweets else keyword,
                         tweet_fields=[
                             "created_at",
                             "author_id",
@@ -315,9 +309,7 @@ class SocialMediaAnalyzer:
         self.fetch_stats["twitter_fetched"] += len(posts)
         return posts
 
-    async def _collect_reddit_data(
-        self, keywords: List[str], hours_back: int
-    ) -> List[SocialPost]:
+    async def _collect_reddit_data(self, keywords: List[str], hours_back: int) -> List[SocialPost]:
         """Reddit データ収集"""
 
         if not self.reddit_api:
@@ -362,9 +354,7 @@ class SocialMediaAnalyzer:
                         # コメントも収集
                         try:
                             submission.comments.replace_more(limit=0)
-                            for comment in submission.comments.list()[
-                                :5
-                            ]:  # 上位5コメント
+                            for comment in submission.comments.list()[:5]:  # 上位5コメント
                                 if (
                                     hasattr(comment, "created_utc")
                                     and comment.created_utc >= cutoff_time
@@ -415,9 +405,7 @@ class SocialMediaAnalyzer:
                 text=text,
                 platform="twitter",
                 post_id=str(tweet.id),
-                author=str(tweet.author_id)
-                if hasattr(tweet, "author_id")
-                else "unknown",
+                author=str(tweet.author_id) if hasattr(tweet, "author_id") else "unknown",
                 created_at=tweet.created_at,
                 likes=metrics.get("like_count", 0),
                 retweets=metrics.get("retweet_count", 0),
@@ -507,9 +495,7 @@ class SocialMediaAnalyzer:
         text_lower = text.lower()
         return any(keyword.lower() in text_lower for keyword in keywords)
 
-    def _filter_and_deduplicate_posts(
-        self, posts: List[SocialPost]
-    ) -> List[SocialPost]:
+    def _filter_and_deduplicate_posts(self, posts: List[SocialPost]) -> List[SocialPost]:
         """投稿フィルタリング・重複除去"""
 
         filtered = []
@@ -548,9 +534,7 @@ class SocialMediaAnalyzer:
 
         if post.platform == "twitter":
             # Twitter エンゲージメント
-            score = (
-                post.likes * 1.0 + post.retweets * 3.0 + post.comments * 2.0
-            ) / 10.0
+            score = (post.likes * 1.0 + post.retweets * 3.0 + post.comments * 2.0) / 10.0
 
         elif post.platform == "reddit":
             # Reddit エンゲージメント
@@ -584,9 +568,7 @@ class SocialMediaAnalyzer:
         # スパム判定
         return spam_count >= 2 or repeat_chars >= 3 or excessive_caps >= 3
 
-    def analyze_social_sentiment(
-        self, posts: List[SocialPost]
-    ) -> SocialSentimentResult:
+    def analyze_social_sentiment(self, posts: List[SocialPost]) -> SocialSentimentResult:
         """ソーシャルセンチメント分析"""
 
         if not posts:
@@ -672,9 +654,7 @@ class SocialMediaAnalyzer:
 
         return min(influence, 1.0)
 
-    def _analyze_by_platform(
-        self, posts: List[SocialPost]
-    ) -> Dict[str, Dict[str, Any]]:
+    def _analyze_by_platform(self, posts: List[SocialPost]) -> Dict[str, Dict[str, Any]]:
         """プラットフォーム別分析"""
 
         platform_data = {}
@@ -691,17 +671,13 @@ class SocialMediaAnalyzer:
 
             platform_data[platform]["count"] += 1
             if post.sentiment_result:
-                platform_data[platform]["sentiments"].append(
-                    post.sentiment_result.sentiment_score
-                )
+                platform_data[platform]["sentiments"].append(post.sentiment_result.sentiment_score)
             platform_data[platform]["engagement_scores"].append(post.engagement_score)
             platform_data[platform]["influence_scores"].append(post.influence_score)
 
         # 統計計算
         for platform, data in platform_data.items():
-            data["avg_sentiment"] = (
-                np.mean(data["sentiments"]) if data["sentiments"] else 0.0
-            )
+            data["avg_sentiment"] = np.mean(data["sentiments"]) if data["sentiments"] else 0.0
             data["avg_engagement"] = np.mean(data["engagement_scores"])
             data["avg_influence"] = np.mean(data["influence_scores"])
             data["sentiment_std"] = (
@@ -764,9 +740,7 @@ class SocialMediaAnalyzer:
             user_data[author]["platforms"].add(post.platform)
 
             if post.sentiment_result:
-                user_data[author]["sentiments"].append(
-                    post.sentiment_result.sentiment_score
-                )
+                user_data[author]["sentiments"].append(post.sentiment_result.sentiment_score)
 
         # 影響力スコア計算
         influential_users = []
@@ -774,13 +748,9 @@ class SocialMediaAnalyzer:
             if data["post_count"] >= 2:  # 最低2投稿
                 avg_engagement = data["total_engagement"] / data["post_count"]
                 avg_influence = data["total_influence"] / data["post_count"]
-                avg_sentiment = (
-                    np.mean(data["sentiments"]) if data["sentiments"] else 0.0
-                )
+                avg_sentiment = np.mean(data["sentiments"]) if data["sentiments"] else 0.0
 
-                influence_score = (
-                    avg_influence * data["post_count"] * (1 + avg_engagement)
-                )
+                influence_score = avg_influence * data["post_count"] * (1 + avg_engagement)
 
                 influential_users.append(
                     {
@@ -835,9 +805,9 @@ class SocialMediaAnalyzer:
         if all_engagement:
             analysis["overall_avg_engagement"] = np.mean(all_engagement)
             analysis["engagement_std"] = np.std(all_engagement)
-            analysis["high_engagement_ratio"] = len(
-                [e for e in all_engagement if e > 0.5]
-            ) / len(all_engagement)
+            analysis["high_engagement_ratio"] = len([e for e in all_engagement if e > 0.5]) / len(
+                all_engagement
+            )
 
         return analysis
 
@@ -864,21 +834,15 @@ class SocialMediaAnalyzer:
         # 平均計算
         for hour in range(24):
             if hour in hourly_sentiments and hourly_sentiments[hour]:
-                analysis[f"hour_{hour:02d}_sentiment"] = np.mean(
-                    hourly_sentiments[hour]
-                )
+                analysis[f"hour_{hour:02d}_sentiment"] = np.mean(hourly_sentiments[hour])
             if hour in hourly_engagement and hourly_engagement[hour]:
-                analysis[f"hour_{hour:02d}_engagement"] = np.mean(
-                    hourly_engagement[hour]
-                )
+                analysis[f"hour_{hour:02d}_engagement"] = np.mean(hourly_engagement[hour])
 
         # ピーク時間帯検出
         if hourly_engagement:
             peak_hour = max(
                 hourly_engagement.keys(),
-                key=lambda h: np.mean(hourly_engagement[h])
-                if hourly_engagement[h]
-                else 0,
+                key=lambda h: np.mean(hourly_engagement[h]) if hourly_engagement[h] else 0,
             )
             analysis["peak_engagement_hour"] = peak_hour
 
@@ -897,9 +861,7 @@ class SocialMediaAnalyzer:
             confidence_score=0.0,
         )
 
-    def export_social_analysis(
-        self, result: SocialSentimentResult, format: str = "json"
-    ) -> str:
+    def export_social_analysis(self, result: SocialSentimentResult, format: str = "json") -> str:
         """ソーシャル分析結果エクスポート"""
 
         if format == "json":
@@ -915,16 +877,14 @@ class SocialMediaAnalyzer:
                 "posts": [
                     {
                         "platform": post.platform,
-                        "text": post.text[:200] + "..."
-                        if len(post.text) > 200
-                        else post.text,
+                        "text": post.text[:200] + "..." if len(post.text) > 200 else post.text,
                         "author": post.author,
-                        "sentiment_label": post.sentiment_result.sentiment_label
-                        if post.sentiment_result
-                        else None,
-                        "sentiment_score": post.sentiment_result.sentiment_score
-                        if post.sentiment_result
-                        else 0,
+                        "sentiment_label": (
+                            post.sentiment_result.sentiment_label if post.sentiment_result else None
+                        ),
+                        "sentiment_score": (
+                            post.sentiment_result.sentiment_score if post.sentiment_result else 0
+                        ),
                         "engagement_score": post.engagement_score,
                         "influence_score": post.influence_score,
                         "hashtags": post.hashtags,

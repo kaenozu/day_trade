@@ -43,11 +43,7 @@ def get_stock_master_config() -> Dict[str, Any]:
     }
 
     # 設定ファイルからの読み込みを試行
-    config_path = (
-        Path(__file__).parent.parent.parent.parent
-        / "config"
-        / "stock_master_config.json"
-    )
+    config_path = Path(__file__).parent.parent.parent.parent / "config" / "stock_master_config.json"
 
     if config_path.exists():
         try:

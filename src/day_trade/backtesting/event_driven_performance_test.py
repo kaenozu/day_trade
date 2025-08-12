@@ -147,9 +147,7 @@ class EventDrivenPerformanceTester:
         print(f"    {len(symbols)}銘柄 x {len(dates)}日分のデータ生成完了")
         return test_data
 
-    def _test_event_driven_engine(
-        self, test_data: Dict[str, pd.DataFrame]
-    ) -> PerformanceResult:
+    def _test_event_driven_engine(self, test_data: Dict[str, pd.DataFrame]) -> PerformanceResult:
         """イベント駆動エンジンテスト"""
         print("  イベント駆動エンジンテスト実行")
 
@@ -163,9 +161,7 @@ class EventDrivenPerformanceTester:
                 signals = {}
                 for symbol, data in lookback_data.items():
                     if len(data) >= 20:
-                        returns_20d = (
-                            data["Close"].iloc[-1] / data["Close"].iloc[-20] - 1
-                        )
+                        returns_20d = data["Close"].iloc[-1] / data["Close"].iloc[-20] - 1
                         if returns_20d > 0.05:
                             signals[symbol] = 0.4
                         elif returns_20d < -0.05:
@@ -215,9 +211,7 @@ class EventDrivenPerformanceTester:
                 events_per_second=0,
             )
 
-    def _test_traditional_engine(
-        self, test_data: Dict[str, pd.DataFrame]
-    ) -> PerformanceResult:
+    def _test_traditional_engine(self, test_data: Dict[str, pd.DataFrame]) -> PerformanceResult:
         """従来型エンジンテスト"""
         print("  従来型エンジンテスト実行")
 
@@ -230,9 +224,7 @@ class EventDrivenPerformanceTester:
                 signals = {}
                 for symbol, data in lookback_data.items():
                     if len(data) >= 20:
-                        returns_20d = (
-                            data["Close"].iloc[-1] / data["Close"].iloc[-20] - 1
-                        )
+                        returns_20d = data["Close"].iloc[-1] / data["Close"].iloc[-20] - 1
                         if returns_20d > 0.05:
                             signals[symbol] = 0.4
                         elif returns_20d < -0.05:
@@ -247,18 +239,14 @@ class EventDrivenPerformanceTester:
 
             start_time = time.perf_counter()
 
-            results = engine.execute_backtest(
-                test_data, momentum_strategy, rebalance_frequency=5
-            )
+            results = engine.execute_backtest(test_data, momentum_strategy, rebalance_frequency=5)
 
             execution_time = (time.perf_counter() - start_time) * 1000
 
             return PerformanceResult(
                 engine_type="traditional",
                 execution_time_ms=execution_time,
-                events_processed=len(
-                    test_data[list(test_data.keys())[0]]
-                ),  # 日数と推定
+                events_processed=len(test_data[list(test_data.keys())[0]]),  # 日数と推定
                 final_value=results.final_value,
                 total_return=results.total_return,
                 trades_executed=results.total_trades,
@@ -310,27 +298,19 @@ class EventDrivenPerformanceTester:
             "accuracy_comparison": {
                 "traditional_return": traditional.total_return,
                 "event_driven_return": event_driven.total_return,
-                "return_difference": abs(
-                    traditional.total_return - event_driven.total_return
-                ),
-                "results_consistent": abs(
-                    traditional.total_return - event_driven.total_return
-                )
+                "return_difference": abs(traditional.total_return - event_driven.total_return),
+                "results_consistent": abs(traditional.total_return - event_driven.total_return)
                 < 0.01,
             },
             "efficiency_metrics": {
                 "events_per_second": event_efficiency,
                 "traditional_trades": traditional.trades_executed,
                 "event_driven_trades": event_driven.trades_executed,
-                "trade_difference": abs(
-                    traditional.trades_executed - event_driven.trades_executed
-                ),
+                "trade_difference": abs(traditional.trades_executed - event_driven.trades_executed),
             },
         }
 
-    def _generate_test_summary(
-        self, results: Dict[str, PerformanceResult]
-    ) -> Dict[str, Any]:
+    def _generate_test_summary(self, results: Dict[str, PerformanceResult]) -> Dict[str, Any]:
         """テストサマリー生成"""
         return {
             "issue_381_status": "イベント駆動型シミュレーション効果実証",

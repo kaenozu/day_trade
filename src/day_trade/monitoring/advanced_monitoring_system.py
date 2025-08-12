@@ -108,9 +108,7 @@ class AdvancedLogger:
         logger.setLevel(getattr(logging, log_level.upper()))
 
         # フォーマッター設定
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         # ファイルハンドラー
         log_dir = Path("logs")
@@ -218,9 +216,7 @@ class MetricsCollector:
         except Exception as e:
             print(f"システムメトリクス収集エラー: {e}")
 
-    def get_metric_values(
-        self, metric_name: str, duration_minutes: int = 5
-    ) -> List[MetricPoint]:
+    def get_metric_values(self, metric_name: str, duration_minutes: int = 5) -> List[MetricPoint]:
         """メトリクス値取得"""
         cutoff_time = datetime.now() - timedelta(minutes=duration_minutes)
 
@@ -228,15 +224,9 @@ class MetricsCollector:
             if metric_name not in self.metrics:
                 return []
 
-            return [
-                point
-                for point in self.metrics[metric_name]
-                if point.timestamp >= cutoff_time
-            ]
+            return [point for point in self.metrics[metric_name] if point.timestamp >= cutoff_time]
 
-    def get_metric_summary(
-        self, metric_name: str, duration_minutes: int = 5
-    ) -> Dict[str, float]:
+    def get_metric_summary(self, metric_name: str, duration_minutes: int = 5) -> Dict[str, float]:
         """メトリクスサマリー"""
         values = self.get_metric_values(metric_name, duration_minutes)
 
@@ -322,9 +312,7 @@ class AlertManager:
             active_alerts = [alert for alert in self.alerts if not alert.resolved]
 
             if level:
-                active_alerts = [
-                    alert for alert in active_alerts if alert.level == level
-                ]
+                active_alerts = [alert for alert in active_alerts if alert.level == level]
 
             return sorted(active_alerts, key=lambda a: a.timestamp, reverse=True)
 
@@ -402,9 +390,7 @@ class SlackNotificationChannel(NotificationChannel):
 
     def __init__(self, webhook_url: str):
         if not requests:
-            raise RuntimeError(
-                "Slack通知機能が利用できません: requestsライブラリが見つかりません"
-            )
+            raise RuntimeError("Slack通知機能が利用できません: requestsライブラリが見つかりません")
 
         self.webhook_url = webhook_url
 
@@ -455,9 +441,7 @@ class SlackNotificationChannel(NotificationChannel):
 class RuleEngine:
     """ルールエンジン"""
 
-    def __init__(
-        self, metrics_collector: MetricsCollector, alert_manager: AlertManager
-    ):
+    def __init__(self, metrics_collector: MetricsCollector, alert_manager: AlertManager):
         self.metrics_collector = metrics_collector
         self.alert_manager = alert_manager
         self.rules: List[MonitoringRule] = []
@@ -544,9 +528,7 @@ class RuleEngine:
                     )
 
                     # クールダウン設定
-                    cooldown_end = current_time + timedelta(
-                        seconds=rule.cooldown_seconds
-                    )
+                    cooldown_end = current_time + timedelta(seconds=rule.cooldown_seconds)
                     self.alert_manager.rule_cooldowns[rule.rule_id] = cooldown_end
 
             except Exception as e:
@@ -555,15 +537,9 @@ class RuleEngine:
     def _update_evaluation_context(self):
         """評価コンテキスト更新"""
         # システムメトリクス
-        cpu_summary = self.metrics_collector.get_metric_summary(
-            "system.cpu_usage_percent"
-        )
-        memory_summary = self.metrics_collector.get_metric_summary(
-            "system.memory_available_mb"
-        )
-        disk_summary = self.metrics_collector.get_metric_summary(
-            "system.disk_usage_percent"
-        )
+        cpu_summary = self.metrics_collector.get_metric_summary("system.cpu_usage_percent")
+        memory_summary = self.metrics_collector.get_metric_summary("system.memory_available_mb")
+        disk_summary = self.metrics_collector.get_metric_summary("system.disk_usage_percent")
 
         self.evaluation_context.update(
             {
@@ -662,9 +638,7 @@ class AdvancedMonitoringSystem:
                 self.logger.error("監視ループエラー", error=str(e))
                 time.sleep(60)  # エラー時は1分待機
 
-    def record_application_metric(
-        self, name: str, value: float, labels: Dict[str, str] = None
-    ):
+    def record_application_metric(self, name: str, value: float, labels: Dict[str, str] = None):
         """アプリケーションメトリクス記録"""
         self.metrics_collector.record_metric(name, value, labels=labels)
 
@@ -684,24 +658,14 @@ class AdvancedMonitoringSystem:
         """システムダッシュボード情報"""
         return {
             "system_metrics": {
-                "cpu": self.metrics_collector.get_metric_summary(
-                    "system.cpu_usage_percent"
-                ),
-                "memory": self.metrics_collector.get_metric_summary(
-                    "system.memory_available_mb"
-                ),
-                "disk": self.metrics_collector.get_metric_summary(
-                    "system.disk_usage_percent"
-                ),
+                "cpu": self.metrics_collector.get_metric_summary("system.cpu_usage_percent"),
+                "memory": self.metrics_collector.get_metric_summary("system.memory_available_mb"),
+                "disk": self.metrics_collector.get_metric_summary("system.disk_usage_percent"),
             },
             "active_alerts": {
-                "critical": len(
-                    self.alert_manager.get_active_alerts(AlertLevel.CRITICAL)
-                ),
+                "critical": len(self.alert_manager.get_active_alerts(AlertLevel.CRITICAL)),
                 "error": len(self.alert_manager.get_active_alerts(AlertLevel.ERROR)),
-                "warning": len(
-                    self.alert_manager.get_active_alerts(AlertLevel.WARNING)
-                ),
+                "warning": len(self.alert_manager.get_active_alerts(AlertLevel.WARNING)),
                 "total": len(self.alert_manager.get_active_alerts()),
             },
             "monitoring_status": {

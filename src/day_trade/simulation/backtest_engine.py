@@ -118,9 +118,7 @@ class BacktestEngine:
             )
 
             # バックテスト期間データ分割
-            date_range = pd.date_range(
-                start=config.start_date, end=config.end_date, freq="D"
-            )
+            date_range = pd.date_range(start=config.start_date, end=config.end_date, freq="D")
             business_days = [d for d in date_range if d.weekday() < 5]  # 平日のみ
 
             # 実行データ記録
@@ -226,14 +224,10 @@ class BacktestEngine:
                     # 進捗表示
                     if (i + 1) % 20 == 0 or i == len(business_days) - 1:
                         current_value = (
-                            portfolio_values[-1]
-                            if portfolio_values
-                            else config.initial_capital
+                            portfolio_values[-1] if portfolio_values else config.initial_capital
                         )
                         total_return_pct = (
-                            (current_value - config.initial_capital)
-                            / config.initial_capital
-                            * 100
+                            (current_value - config.initial_capital) / config.initial_capital * 100
                         )
                         logger.info(
                             f"Day {i+1}/{len(business_days)}: "
@@ -260,9 +254,7 @@ class BacktestEngine:
             self._save_backtest_results(result)
 
             logger.info(f"バックテスト完了 - 総収益: {result.total_return_pct:+.2f}%")
-            logger.info(
-                f"シャープレシオ: {result.sharpe_ratio:.3f} 勝率: {result.win_rate:.1%}"
-            )
+            logger.info(f"シャープレシオ: {result.sharpe_ratio:.3f} 勝率: {result.win_rate:.1%}")
 
             return result
 
@@ -270,9 +262,7 @@ class BacktestEngine:
             logger.error(f"バックテストエラー: {e}")
             raise
 
-    def _prepare_historical_data(
-        self, config: BacktestConfig
-    ) -> Dict[str, pd.DataFrame]:
+    def _prepare_historical_data(self, config: BacktestConfig) -> Dict[str, pd.DataFrame]:
         """履歴データ準備"""
         try:
             logger.info("履歴データ取得中...")
@@ -433,9 +423,7 @@ class BacktestEngine:
             )
 
             # リスク指標
-            valid_returns = [
-                r for r in daily_returns if r is not None and not np.isnan(r)
-            ]
+            valid_returns = [r for r in daily_returns if r is not None and not np.isnan(r)]
             if valid_returns:
                 volatility = np.std(valid_returns) * np.sqrt(252)  # 年率ボラティリティ
                 avg_return = np.mean(valid_returns)
@@ -465,9 +453,7 @@ class BacktestEngine:
 
             # プロフィットファクター
             total_profit = sum(t.get("pnl", 0) for t in profitable_trades)
-            total_loss = abs(
-                sum(t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) < 0)
-            )
+            total_loss = abs(sum(t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) < 0))
             profit_factor = total_profit / total_loss if total_loss > 0 else 0
 
             # 平均取引期間（概算）
@@ -636,9 +622,7 @@ Profit Factor: {result.profit_factor:.2f}
             ax4.axis("off")
 
             plt.tight_layout()
-            plt.savefig(
-                self.output_dir / f"{filename}_chart.png", dpi=300, bbox_inches="tight"
-            )
+            plt.savefig(self.output_dir / f"{filename}_chart.png", dpi=300, bbox_inches="tight")
             plt.close()
 
             logger.info(f"パフォーマンスチャート生成: {filename}_chart.png")

@@ -215,9 +215,7 @@ class SecureAPIKeyManager:
             secure_key.last_used = datetime.now()
 
             # 復号化
-            plain_key = self._decrypt_api_key(
-                secure_key.encrypted_key, secure_key.encryption_salt
-            )
+            plain_key = self._decrypt_api_key(secure_key.encrypted_key, secure_key.encryption_salt)
 
             logger.debug(f"APIキー取得成功: {key_id}")
             return plain_key
@@ -497,9 +495,7 @@ class SecureURLBuilder:
     def _validate_final_url(self, url: str) -> None:
         """最終URL検証"""
         if len(url) > self.policy.max_url_length:
-            raise ValueError(
-                f"URL長が制限を超過: {len(url)} > {self.policy.max_url_length}"
-            )
+            raise ValueError(f"URL長が制限を超過: {len(url)} > {self.policy.max_url_length}")
 
         # 再パース検証
         parsed = urllib.parse.urlparse(url)
@@ -550,9 +546,7 @@ class SecureErrorHandler:
         # パターンマッチングによる除去
         sanitized_msg = original_msg
         for pattern in sensitive_patterns:
-            sanitized_msg = re.sub(
-                pattern, "[REDACTED]", sanitized_msg, flags=re.IGNORECASE
-            )
+            sanitized_msg = re.sub(pattern, "[REDACTED]", sanitized_msg, flags=re.IGNORECASE)
 
         # 基本的なエラータイプ分類
         error_type = type(error).__name__
@@ -643,9 +637,7 @@ def create_secure_api_client_example():
     # エラーハンドリング例
     try:
         # 意図的なエラー発生
-        raise ConnectionError(
-            "Connection failed with api_key=[REDACTED] to host [REDACTED]"
-        )
+        raise ConnectionError("Connection failed with api_key=[REDACTED] to host [REDACTED]")
     except ConnectionError as e:
         safe_error = SecureErrorHandler.sanitize_error_message(e, "API接続")
         logger.info(f"サニタイズ済みエラー: {safe_error}")

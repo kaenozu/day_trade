@@ -61,10 +61,8 @@ class PerformanceIntegrationTest:
         start_time = time.time()
 
         try:
-            result_optimized = (
-                self.stock_manager.bulk_fetch_and_update_prices_optimized(
-                    self.test_codes, batch_size=5, delay=0.1
-                )
+            result_optimized = self.stock_manager.bulk_fetch_and_update_prices_optimized(
+                self.test_codes, batch_size=5, delay=0.1
             )
 
             elapsed_optimized = time.time() - start_time
@@ -95,9 +93,7 @@ class PerformanceIntegrationTest:
         )
 
         if elapsed_existing > 0 and elapsed_optimized > 0:
-            improvement = (
-                (elapsed_existing - elapsed_optimized) / elapsed_existing
-            ) * 100
+            improvement = ((elapsed_existing - elapsed_optimized) / elapsed_existing) * 100
             speedup = elapsed_existing / elapsed_optimized
             print(f"改善率:       {improvement:.1f}%")
             print(f"高速化倍率:   {speedup:.1f}x")
@@ -146,7 +142,9 @@ class PerformanceIntegrationTest:
                     "2914",
                     "9613",
                     "4324",
-                ][:15]  # 15件でテスト
+                ][
+                    :15
+                ]  # 15件でテスト
 
         except Exception as e:
             print(f"テストデータ取得エラー: {e}")
@@ -181,9 +179,7 @@ class PerformanceIntegrationTest:
 
             elapsed = time.time() - start_time
 
-            print(
-                f"   結果: 成功 {result.get('updated', 0)}/{result.get('total', 0)}件"
-            )
+            print(f"   結果: 成功 {result.get('updated', 0)}/{result.get('total', 0)}件")
             print(f"   実行時間: {elapsed:.2f}秒")
             print(f"   平均: {elapsed / len(large_test_codes):.2f}秒/件")
             print(f"   スループット: {len(large_test_codes) / elapsed:.1f}件/秒")

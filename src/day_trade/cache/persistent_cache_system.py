@@ -324,9 +324,7 @@ class SQLiteStorage(PersistentCacheStorage):
         with self._lock:
             try:
                 with sqlite3.connect(self.db_path) as conn:
-                    cursor = conn.execute(
-                        "DELETE FROM cache_data WHERE key = ?", (key,)
-                    )
+                    cursor = conn.execute("DELETE FROM cache_data WHERE key = ?", (key,))
                     conn.commit()
 
                     deleted = cursor.rowcount > 0
@@ -379,9 +377,7 @@ class SQLiteStorage(PersistentCacheStorage):
 
                     deleted_count = cursor.rowcount
                     if deleted_count > 0:
-                        logger.info(
-                            f"期限切れデータクリーンアップ完了: {deleted_count}件"
-                        )
+                        logger.info(f"期限切れデータクリーンアップ完了: {deleted_count}件")
 
                         # VACUUM実行でディスク領域回収
                         conn.execute("VACUUM")
@@ -414,9 +410,7 @@ class SQLiteStorage(PersistentCacheStorage):
                     stats = cursor.fetchone()
 
                     # ファイルサイズ
-                    file_size = (
-                        self.db_path.stat().st_size if self.db_path.exists() else 0
-                    )
+                    file_size = self.db_path.stat().st_size if self.db_path.exists() else 0
 
                     return {
                         "total_entries": stats[0] or 0,
@@ -425,9 +419,7 @@ class SQLiteStorage(PersistentCacheStorage):
                         "file_size_mb": file_size / (1024 * 1024),
                         "avg_access_count": stats[3] or 0,
                         "expired_entries": stats[4] or 0,
-                        "compression_ratio": (stats[2] or 1) / (stats[1] or 1)
-                        if stats[1]
-                        else 1.0,
+                        "compression_ratio": (stats[2] or 1) / (stats[1] or 1) if stats[1] else 1.0,
                         "storage_path": str(self.db_path),
                     }
 
@@ -525,9 +517,7 @@ class FileSystemStorage(PersistentCacheStorage):
         self.data_dir.mkdir(exist_ok=True)
         self.metadata_dir.mkdir(exist_ok=True)
 
-        logger.info(
-            f"FileSystemStorage初期化完了: {base_path}, 最大ファイル数: {max_files}"
-        )
+        logger.info(f"FileSystemStorage初期化完了: {base_path}, 最大ファイル数: {max_files}")
 
     def store(self, key: str, data: bytes, metadata: CacheMetadata) -> bool:
         """データ保存"""
@@ -746,9 +736,7 @@ class PersistentCacheManager:
         if auto_cleanup:
             self._start_cleanup_timer()
 
-        logger.info(
-            f"PersistentCacheManager初期化完了: {storage_type}, 圧縮={compression}"
-        )
+        logger.info(f"PersistentCacheManager初期化完了: {storage_type}, 圧縮={compression}")
 
     def set(
         self,
@@ -786,9 +774,7 @@ class PersistentCacheManager:
                         ) = self.compression_manager.compress(data, compression_type)
 
                         # 圧縮効率チェック
-                        if (
-                            len(compressed_data) < original_size * 0.9
-                        ):  # 10%以上圧縮できた場合
+                        if len(compressed_data) < original_size * 0.9:  # 10%以上圧縮できた場合
                             data = compressed_data
                             compressed_size = len(compressed_data)
                             self._stats["compression_saves_mb"] += (
@@ -941,9 +927,7 @@ class PersistentCacheManager:
 
         timer_thread = threading.Thread(target=cleanup_worker, daemon=True)
         timer_thread.start()
-        logger.info(
-            f"自動クリーンアップタイマー開始: {self.cleanup_interval_seconds}秒間隔"
-        )
+        logger.info(f"自動クリーンアップタイマー開始: {self.cleanup_interval_seconds}秒間隔")
 
 
 # グローバルインスタンス

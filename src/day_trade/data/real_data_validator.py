@@ -146,9 +146,7 @@ class RealDataValidator:
         self.test_symbols = self.topix_core30 + additional_symbols
         self.validation_results = {}
 
-        logger.info(
-            f"実データ検証システム初期化完了 - 対象銘柄: {len(self.test_symbols)}銘柄"
-        )
+        logger.info(f"実データ検証システム初期化完了 - 対象銘柄: {len(self.test_symbols)}銘柄")
 
     def validate_market_data(self, days: int = 30) -> Dict[str, DataQualityMetrics]:
         """市場データ検証実行"""
@@ -176,9 +174,7 @@ class RealDataValidator:
             for i, symbol in enumerate(self.test_symbols):
                 try:
                     with perf_monitor.monitor(f"validate_symbol_{symbol}"):
-                        metrics = self._validate_single_symbol(
-                            symbol, start_date, end_date
-                        )
+                        metrics = self._validate_single_symbol(symbol, start_date, end_date)
                         validation_results[symbol] = metrics
 
                         if metrics.overall_quality in [
@@ -196,9 +192,7 @@ class RealDataValidator:
 
                 except Exception as e:
                     logger.log_error(f"銘柄 {symbol} の検証でエラー", e)
-                    validation_results[symbol] = self._create_error_metrics(
-                        symbol, str(e)
-                    )
+                    validation_results[symbol] = self._create_error_metrics(symbol, str(e))
 
             validation_time = time.time() - start_time
 
@@ -449,16 +443,10 @@ class RealDataValidator:
                 valid_results.append(metrics)
 
         if valid_results:
-            avg_completeness = sum(m.completeness for m in valid_results) / len(
-                valid_results
-            )
+            avg_completeness = sum(m.completeness for m in valid_results) / len(valid_results)
             avg_accuracy = sum(m.accuracy for m in valid_results) / len(valid_results)
-            avg_consistency = sum(m.consistency for m in valid_results) / len(
-                valid_results
-            )
-            avg_timeliness = sum(m.timeliness for m in valid_results) / len(
-                valid_results
-            )
+            avg_consistency = sum(m.consistency for m in valid_results) / len(valid_results)
+            avg_timeliness = sum(m.timeliness for m in valid_results) / len(valid_results)
 
         return {
             "total_symbols": len(results),
@@ -478,9 +466,7 @@ class RealDataValidator:
             },
         }
 
-    def get_high_quality_symbols(
-        self, min_quality: DataQuality = DataQuality.GOOD
-    ) -> List[str]:
+    def get_high_quality_symbols(self, min_quality: DataQuality = DataQuality.GOOD) -> List[str]:
         """高品質データ銘柄取得"""
 
         quality_levels = {
@@ -504,9 +490,7 @@ class RealDataValidator:
         """検証レポート生成"""
 
         if not self.validation_results:
-            return (
-                "検証結果がありません。先に validate_market_data() を実行してください。"
-            )
+            return "検証結果がありません。先に validate_market_data() を実行してください。"
 
         summary = self._generate_validation_summary(self.validation_results)
 
@@ -524,9 +508,7 @@ class RealDataValidator:
             report.append(f"  {quality.upper()}: {count}銘柄 ({percentage:.1f}%)")
 
         report.append("")
-        report.append(
-            f"利用可能銘柄数: {summary['usable_symbols']} / {summary['total_symbols']}"
-        )
+        report.append(f"利用可能銘柄数: {summary['usable_symbols']} / {summary['total_symbols']}")
         report.append(
             f"利用可能率: {summary['usable_symbols'] / summary['total_symbols'] * 100:.1f}%"
         )
@@ -543,9 +525,7 @@ class RealDataValidator:
         problem_symbols = []
         for symbol, metrics in self.validation_results.items():
             if metrics.overall_quality in [DataQuality.POOR, DataQuality.UNUSABLE]:
-                problem_symbols.append(
-                    (symbol, metrics.overall_quality.value, metrics.issues)
-                )
+                problem_symbols.append((symbol, metrics.overall_quality.value, metrics.issues))
 
         if problem_symbols:
             report.append("")

@@ -157,9 +157,7 @@ class SentimentEngine:
                 self.tokenizers["finbert"] = AutoTokenizer.from_pretrained(
                     self.config.finbert_model
                 )
-                self.models[
-                    "finbert"
-                ] = AutoModelForSequenceClassification.from_pretrained(
+                self.models["finbert"] = AutoModelForSequenceClassification.from_pretrained(
                     self.config.finbert_model
                 ).to(self.device)
 
@@ -413,9 +411,7 @@ class SentimentEngine:
             },
         )
 
-    def analyze_batch(
-        self, texts: List[str], model: str = "finbert"
-    ) -> List[SentimentResult]:
+    def analyze_batch(self, texts: List[str], model: str = "finbert") -> List[SentimentResult]:
         """バッチテキスト分析"""
 
         if not texts:
@@ -447,18 +443,14 @@ class SentimentEngine:
         if sentiment_results is None:
             if texts is None:
                 # 履歴からデータ取得
-                recent_results = self._get_recent_analysis(
-                    hours=self.config.aggregation_window
-                )
+                recent_results = self._get_recent_analysis(hours=self.config.aggregation_window)
             else:
                 recent_results = self.analyze_batch(texts)
         else:
             recent_results = sentiment_results
 
         if len(recent_results) < self.config.min_samples:
-            logger.warning(
-                f"サンプル数不足: {len(recent_results)} < {self.config.min_samples}"
-            )
+            logger.warning(f"サンプル数不足: {len(recent_results)} < {self.config.min_samples}")
             return self._create_neutral_indicator(len(recent_results))
 
         # 基本統計計算
@@ -475,9 +467,7 @@ class SentimentEngine:
         sentiment_strength = np.mean([abs(score) for score in sentiment_scores])
 
         # センチメント変動性
-        sentiment_volatility = (
-            np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
-        )
+        sentiment_volatility = np.std(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
 
         # トレンド計算（時系列重み付け）
         sentiment_trend = self._calculate_sentiment_trend(recent_results)
@@ -488,9 +478,7 @@ class SentimentEngine:
         )
 
         # 市場ムード判定
-        market_mood = self._determine_market_mood(
-            weighted_sentiment, sentiment_strength
-        )
+        market_mood = self._determine_market_mood(weighted_sentiment, sentiment_strength)
 
         # 信頼度レベル
         confidence_level = np.mean(confidences) if confidences else 0.0
@@ -571,10 +559,7 @@ class SentimentEngine:
 
         # 重み付き移動平均によるトレンド
         weights = np.array(
-            [
-                self.config.temporal_weight_decay**i
-                for i in range(len(sorted_results) - 1, -1, -1)
-            ]
+            [self.config.temporal_weight_decay**i for i in range(len(sorted_results) - 1, -1, -1)]
         )
         scores = np.array([r.sentiment_score for r in sorted_results])
 
@@ -602,9 +587,7 @@ class SentimentEngine:
 
         # 重み付き平均
         fear_greed = (
-            sentiment_component * 0.5
-            + volatility_component * 0.3
-            + strength_component * 0.2
+            sentiment_component * 0.5 + volatility_component * 0.3 + strength_component * 0.2
         )
 
         return np.clip(fear_greed, 0, 100)

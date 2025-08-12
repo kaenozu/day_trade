@@ -65,20 +65,16 @@ class DataDriftDetector:
 
             new_data_series = new_data[_feature].dropna()
             if new_data_series.empty:
-                logger.warning(
-                    f"新しいデータの特徴量 '{_feature}' が空です。スキップします。"
-                )
+                logger.warning(f"新しいデータの特徴量 '{_feature}' が空です。スキップします。")
                 continue
 
             # 数値データのみを対象
-            if pd.api.types.is_numeric_dtype(
-                new_data_series
-            ) and pd.api.types.is_numeric_dtype(pd.Series(baseline_stat["values"])):
+            if pd.api.types.is_numeric_dtype(new_data_series) and pd.api.types.is_numeric_dtype(
+                pd.Series(baseline_stat["values"])
+            ):
                 # Kolmogorov-Smirnov (KS) 検定で分布の差を検出
                 try:
-                    statistic, p_value = ks_2samp(
-                        baseline_stat["values"], new_data_series.values
-                    )
+                    statistic, p_value = ks_2samp(baseline_stat["values"], new_data_series.values)
                     drift_detected = p_value < self.threshold
                     if drift_detected:
                         overall_drift_detected = True
@@ -104,9 +100,7 @@ class DataDriftDetector:
                     "reason": "非数値データ",
                 }
 
-        logger.info(
-            f"データドリフト検出完了。全体ドリフト検出: {overall_drift_detected}"
-        )
+        logger.info(f"データドリフト検出完了。全体ドリフト検出: {overall_drift_detected}")
         return {"drift_detected": overall_drift_detected, "features": drift_results}
 
     def _calculate_statistics(self, data: pd.DataFrame) -> dict:
@@ -147,9 +141,7 @@ class DataDriftDetector:
             for _feature, stat in self.baseline_stats.items():
                 serializable_stat = stat.copy()
                 if "values" in serializable_stat:
-                    serializable_stat["values"] = [
-                        float(v) for v in serializable_stat["values"]
-                    ]
+                    serializable_stat["values"] = [float(v) for v in serializable_stat["values"]]
                 serializable_stats[_feature] = serializable_stat
 
             with open(file_path, "w", encoding="utf-8") as f:
@@ -179,8 +171,6 @@ class DataDriftDetector:
         except FileNotFoundError:
             logger.warning(f"ベースラインファイル '{file_path}' が見つかりません。")
         except json.JSONDecodeError as e:
-            logger.error(
-                f"ベースラインファイルの読み込み中にJSONデコードエラーが発生しました: {e}"
-            )
+            logger.error(f"ベースラインファイルの読み込み中にJSONデコードエラーが発生しました: {e}")
         except Exception as e:
             logger.error(f"ベースライン統計情報の読み込み中にエラーが発生しました: {e}")

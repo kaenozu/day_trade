@@ -42,9 +42,7 @@ try:
     SECURE_API_AVAILABLE = True
 except ImportError:
     SECURE_API_AVAILABLE = False
-    logger.warning(
-        "セキュアAPIクライアント機能が利用できません（オプショナル依存関係）"
-    )
+    logger.warning("セキュアAPIクライアント機能が利用できません（オプショナル依存関係）")
 
 from ..utils.logging_config import get_context_logger
 
@@ -197,9 +195,7 @@ class APIConfig:
     security_manager: Optional[SecurityManager] = None
     secure_key_manager: Optional["SecureAPIKeyManager"] = None
     secure_url_builder: Optional["SecureURLBuilder"] = None
-    security_level: "SecurityLevel" = (
-        SecurityLevel.MEDIUM if SECURE_API_AVAILABLE else None
-    )
+    security_level: "SecurityLevel" = SecurityLevel.MEDIUM if SECURE_API_AVAILABLE else None
 
     api_key_prefix_mapping: Dict[str, str] = field(
         default_factory=lambda: {
@@ -230,9 +226,7 @@ class APIConfig:
                 logger.warning(f"セキュリティマネージャー初期化失敗: {e}")
                 self.security_manager = None
         elif SecurityManager is None:
-            logger.debug(
-                "SecurityManagerモジュールが利用できません（オプショナル依存関係）"
-            )
+            logger.debug("SecurityManagerモジュールが利用できません（オプショナル依存関係）")
 
         # セキュアAPIクライアント機能の初期化
         if SECURE_API_AVAILABLE:
@@ -364,9 +358,7 @@ class ExternalAPIClient:
 
         # レート制限状態初期化
         if endpoint.provider not in self.rate_limits:
-            self.rate_limits[endpoint.provider] = RateLimitState(
-                provider=endpoint.provider
-            )
+            self.rate_limits[endpoint.provider] = RateLimitState(provider=endpoint.provider)
 
         logger.info(f"APIエンドポイント登録: {endpoint_key}")
 
@@ -520,9 +512,7 @@ class ExternalAPIClient:
                 # セキュリティ強化: エラーメッセージをサニタイズして保存
                 raw_error = str(e)
                 last_error = self._sanitize_error_message(raw_error, type(e).__name__)
-                logger.warning(
-                    f"APIリクエストエラー (試行 {attempt + 1}): {last_error}"
-                )
+                logger.warning(f"APIリクエストエラー (試行 {attempt + 1}): {last_error}")
 
                 if attempt >= request.endpoint.max_retries:
                     break
@@ -564,12 +554,8 @@ class ExternalAPIClient:
             async with self.session.request(
                 method=request.endpoint.method.value,
                 url=url,
-                params=request.params
-                if request.endpoint.method == RequestMethod.GET
-                else None,
-                json=request.data
-                if request.endpoint.method != RequestMethod.GET
-                else None,
+                params=request.params if request.endpoint.method == RequestMethod.GET else None,
+                json=request.data if request.endpoint.method != RequestMethod.GET else None,
                 headers=headers,
                 timeout=ClientTimeout(total=request.endpoint.timeout_seconds),
             ) as response:
@@ -594,16 +580,12 @@ class ExternalAPIClient:
                     response_time_ms=response_time,
                     timestamp=datetime.now(),
                     success=response.status == 200,
-                    error_message=None
-                    if response.status == 200
-                    else f"HTTP {response.status}",
+                    error_message=None if response.status == 200 else f"HTTP {response.status}",
                 )
 
                 # データ正規化
                 if api_response.success:
-                    api_response.normalized_data = await self._normalize_response_data(
-                        api_response
-                    )
+                    api_response.normalized_data = await self._normalize_response_data(api_response)
 
                 return api_response
 
@@ -714,12 +696,8 @@ class ExternalAPIClient:
         # 危険パターン検出
         for pattern in dangerous_patterns:
             if pattern in value.lower():
-                logger.warning(
-                    f"危険なURLパラメータパターンを検出: {param_name}={value[:50]}..."
-                )
-                raise ValueError(
-                    f"URLパラメータに危険な文字が含まれています: {param_name}"
-                )
+                logger.warning(f"危険なURLパラメータパターンを検出: {param_name}={value[:50]}...")
+                raise ValueError(f"URLパラメータに危険な文字が含まれています: {param_name}")
 
         # 2. パラメータ長さ制限
         if len(value) > 200:
@@ -731,16 +709,12 @@ class ExternalAPIClient:
             # 株式コード用: 英数字・ピリオド・ハイフンのみ許可
             if not all(c.isalnum() or c in ".-" for c in value):
                 logger.warning(f"不正な株式コード形式: {param_name}={value}")
-                raise ValueError(
-                    f"株式コードに不正な文字が含まれています: {param_name}"
-                )
+                raise ValueError(f"株式コードに不正な文字が含まれています: {param_name}")
 
         # 4. URLエンコーディング適用
         try:
             encoded_value = urllib.parse.quote(value, safe="")
-            logger.debug(
-                f"URLパラメータエンコード: {param_name}: {value} -> {encoded_value}"
-            )
+            logger.debug(f"URLパラメータエンコード: {param_name}: {value} -> {encoded_value}")
             return encoded_value
         except Exception as e:
             logger.error(f"URLエンコーディングエラー: {param_name}={value}, error={e}")
@@ -767,9 +741,7 @@ class ExternalAPIClient:
         try:
             from ..core.trade_manager import mask_sensitive_info
 
-            logger.error(
-                f"内部APIエラー詳細[{error_type}]: {mask_sensitive_info(error_message)}"
-            )
+            logger.error(f"内部APIエラー詳細[{error_type}]: {mask_sensitive_info(error_message)}")
         except ImportError:
             logger.error(f"内部APIエラー[{error_type}]: [マスキング機能無効]")
 
@@ -802,9 +774,7 @@ class ExternalAPIClient:
 
         for pattern in sensitive_patterns:
             if re.search(pattern, error_message, re.IGNORECASE):
-                logger.warning(
-                    f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}"
-                )
+                logger.warning(f"エラーメッセージに機密情報が含まれる可能性を検出: {error_type}")
                 # より汎用的なメッセージにさらに変更
                 return f"{safe_message}（詳細はシステムログを確認してください）"
 
@@ -826,34 +796,23 @@ class ExternalAPIClient:
 
                 api_key = self.config.secure_key_manager.get_api_key(provider_key, host)
                 if api_key:
-                    logger.debug(
-                        f"セキュアAPIキーマネージャーからキー取得成功: {provider_key}"
-                    )
+                    logger.debug(f"セキュアAPIキーマネージャーからキー取得成功: {provider_key}")
                     return api_key
                 else:
-                    logger.info(
-                        f"セキュアAPIキーマネージャーでキー未登録: {provider_key}"
-                    )
+                    logger.info(f"セキュアAPIキーマネージャーでキー未登録: {provider_key}")
             except Exception as e:
                 logger.error(f"セキュアAPIキーマネージャーエラー: {e}")
 
         # 2. 従来のSecurityManagerを使用した安全なキー取得
-        if (
-            self.config.security_manager
-            and provider_key in self.config.api_key_prefix_mapping
-        ):
+        if self.config.security_manager and provider_key in self.config.api_key_prefix_mapping:
             try:
                 env_key_name = self.config.api_key_prefix_mapping[provider_key]
                 api_key = self.config.security_manager.get_api_key(env_key_name)
                 if api_key:
-                    logger.debug(
-                        f"セキュリティマネージャーからAPIキー取得: {provider_key}"
-                    )
+                    logger.debug(f"セキュリティマネージャーからAPIキー取得: {provider_key}")
                     return api_key
                 else:
-                    logger.warning(
-                        f"セキュリティマネージャーでAPIキー未設定: {env_key_name}"
-                    )
+                    logger.warning(f"セキュリティマネージャーでAPIキー未設定: {env_key_name}")
             except Exception as e:
                 logger.error(f"セキュリティマネージャーAPIキー取得エラー: {e}")
 
@@ -957,9 +916,7 @@ class ExternalAPIClient:
         rate_limit.requests_per_hour += 1
         rate_limit.last_request_time = current_time
 
-    def _reset_time_windows(
-        self, rate_limit: RateLimitState, current_time: datetime
-    ) -> None:
+    def _reset_time_windows(self, rate_limit: RateLimitState, current_time: datetime) -> None:
         """タイムウィンドウリセット"""
         # 秒ウィンドウリセット
         if (current_time - rate_limit.second_window_start).total_seconds() >= 1:
@@ -1076,9 +1033,7 @@ class ExternalAPIClient:
             logger.error(f"CSV処理エラー: {safe_error}")
             return pd.DataFrame()
 
-    async def _normalize_response_data(
-        self, response: APIResponse
-    ) -> Optional[pd.DataFrame]:
+    async def _normalize_response_data(self, response: APIResponse) -> Optional[pd.DataFrame]:
         """レスポンスデータ正規化"""
         try:
             provider = response.request.endpoint.provider
@@ -1140,9 +1095,7 @@ class ExternalAPIClient:
 
         return df
 
-    async def _normalize_yahoo_finance_data(
-        self, response: APIResponse
-    ) -> pd.DataFrame:
+    async def _normalize_yahoo_finance_data(self, response: APIResponse) -> pd.DataFrame:
         """Yahoo Finance データ正規化"""
         try:
             data = response.response_data
@@ -1175,9 +1128,7 @@ class ExternalAPIClient:
 
         return pd.DataFrame()
 
-    async def _normalize_alpha_vantage_data(
-        self, response: APIResponse
-    ) -> pd.DataFrame:
+    async def _normalize_alpha_vantage_data(self, response: APIResponse) -> pd.DataFrame:
         """Alpha Vantage データ正規化"""
         try:
             data = response.response_data
@@ -1226,14 +1177,8 @@ class ExternalAPIClient:
     def get_request_statistics(self) -> Dict[str, Any]:
         """リクエスト統計取得"""
         total = self.request_stats["total_requests"]
-        success_rate = (
-            (self.request_stats["successful_requests"] / total * 100)
-            if total > 0
-            else 0
-        )
-        cache_hit_rate = (
-            (self.request_stats["cached_responses"] / total * 100) if total > 0 else 0
-        )
+        success_rate = (self.request_stats["successful_requests"] / total * 100) if total > 0 else 0
+        cache_hit_rate = (self.request_stats["cached_responses"] / total * 100) if total > 0 else 0
 
         return {
             "total_requests": total,
@@ -1256,12 +1201,14 @@ class ExternalAPIClient:
                 "requests_per_second": rate_limit.requests_per_second,
                 "requests_per_minute": rate_limit.requests_per_minute,
                 "requests_per_hour": rate_limit.requests_per_hour,
-                "last_request": rate_limit.last_request_time.isoformat()
-                if rate_limit.last_request_time
-                else None,
-                "blocked_until": rate_limit.blocked_until.isoformat()
-                if rate_limit.blocked_until
-                else None,
+                "last_request": (
+                    rate_limit.last_request_time.isoformat()
+                    if rate_limit.last_request_time
+                    else None
+                ),
+                "blocked_until": (
+                    rate_limit.blocked_until.isoformat() if rate_limit.blocked_until else None
+                ),
             }
 
         return status
@@ -1289,9 +1236,7 @@ class ExternalAPIClient:
                     # モックプロバイダーのテスト
                     response = await self.fetch_stock_data("TEST", provider)
                     provider_health[provider.value] = {
-                        "status": "healthy"
-                        if response and response.success
-                        else "unhealthy",
+                        "status": "healthy" if response and response.success else "unhealthy",
                         "last_test": datetime.now().isoformat(),
                     }
                 except Exception as e:
@@ -1311,9 +1256,7 @@ class ExternalAPIClient:
 
 async def setup_api_client() -> ExternalAPIClient:
     """APIクライアントセットアップ"""
-    config = APIConfig(
-        max_concurrent_requests=5, cache_ttl_seconds=300, default_max_retries=2
-    )
+    config = APIConfig(max_concurrent_requests=5, cache_ttl_seconds=300, default_max_retries=2)
 
     client = ExternalAPIClient(config)
     await client.initialize()
@@ -1340,9 +1283,7 @@ async def test_stock_data_fetching():
                     print(f"  📊 データ: {len(response.normalized_data)} レコード")
                     print(f"  💰 価格: {response.normalized_data['close'].iloc[0]:.2f}")
             else:
-                print(
-                    f"  ❌ 失敗: {response.error_message if response else 'レスポンスなし'}"
-                )
+                print(f"  ❌ 失敗: {response.error_message if response else 'レスポンスなし'}")
 
         # 統計情報表示
         stats = client.get_request_statistics()

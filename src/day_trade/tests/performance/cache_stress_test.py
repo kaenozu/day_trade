@@ -181,9 +181,7 @@ class StressTestRunner:
         cache_hit_rate = None
         try:
             cache_stats = fetcher.get_cache_stats()
-            cache_hit_rate = cache_stats.get("performance_stats", {}).get(
-                "cache_hit_rate", 0
-            )
+            cache_hit_rate = cache_stats.get("performance_stats", {}).get("cache_hit_rate", 0)
         except Exception:
             pass
 
@@ -199,9 +197,7 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(response_times)
-            if response_times
-            else 0,
+            avg_response_time_ms=statistics.mean(response_times) if response_times else 0,
             max_response_time_ms=max(response_times) if response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -254,10 +250,7 @@ class StressTestRunner:
             interval = 1.0 / operations_per_thread
             thread_start = time.time()
 
-            while (
-                not stop_event.is_set()
-                and (time.time() - thread_start) < duration_seconds
-            ):
+            while not stop_event.is_set() and (time.time() - thread_start) < duration_seconds:
                 operation_start = time.perf_counter()
 
                 try:
@@ -265,9 +258,7 @@ class StressTestRunner:
                     result = fetcher.get_current_price(code)
 
                     operation_end = time.perf_counter()
-                    local_stats["response_times"].append(
-                        (operation_end - operation_start) * 1000
-                    )
+                    local_stats["response_times"].append((operation_end - operation_start) * 1000)
 
                     if result:
                         local_stats["success"] += 1
@@ -338,9 +329,7 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(all_response_times)
-            if all_response_times
-            else 0,
+            avg_response_time_ms=statistics.mean(all_response_times) if all_response_times else 0,
             max_response_time_ms=max(all_response_times) if all_response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -377,9 +366,7 @@ class StressTestRunner:
                 dummy_data = np.random.bytes(chunk_size * 1024 * 1024)
                 memory_hogs.append(dummy_data)
 
-            logger.info(
-                f"メモリプレッシャー生成完了: {len(memory_hogs) * chunk_size}MB"
-            )
+            logger.info(f"メモリプレッシャー生成完了: {len(memory_hogs) * chunk_size}MB")
 
             # Enhanced Stock Fetcher（小さなキャッシュサイズ）
             fetcher = create_enhanced_stock_fetcher(
@@ -436,9 +423,7 @@ class StressTestRunner:
                 successful_operations=successful_ops,
                 failed_operations=failed_ops,
                 operations_per_second=total_ops / total_duration,
-                avg_response_time_ms=statistics.mean(response_times)
-                if response_times
-                else 0,
+                avg_response_time_ms=statistics.mean(response_times) if response_times else 0,
                 max_response_time_ms=max(response_times) if response_times else 0,
                 error_rate=failed_ops / total_ops if total_ops > 0 else 0,
                 memory_usage_mb=memory_usage,
@@ -448,9 +433,7 @@ class StressTestRunner:
             )
 
             self.results.append(result)
-            logger.info(
-                f"メモリプレッシャーテスト完了: {successful_ops}/{total_ops} 成功"
-            )
+            logger.info(f"メモリプレッシャーテスト完了: {successful_ops}/{total_ops} 成功")
 
         finally:
             # メモリ解放
@@ -459,9 +442,7 @@ class StressTestRunner:
 
         return result
 
-    def stress_test_cache_invalidation(
-        self, duration_seconds: int = 60
-    ) -> StressTestResult:
+    def stress_test_cache_invalidation(self, duration_seconds: int = 60) -> StressTestResult:
         """キャッシュ無効化ストレステスト"""
         logger.info(f"キャッシュ無効化ストレステスト開始: {duration_seconds}秒間")
 
@@ -527,9 +508,7 @@ class StressTestRunner:
         cache_hit_rate = None
         try:
             cache_stats = fetcher.get_cache_stats()
-            cache_hit_rate = cache_stats.get("performance_stats", {}).get(
-                "cache_hit_rate", 0
-            )
+            cache_hit_rate = cache_stats.get("performance_stats", {}).get("cache_hit_rate", 0)
         except Exception:
             pass
 
@@ -545,9 +524,7 @@ class StressTestRunner:
             successful_operations=successful_ops,
             failed_operations=failed_ops,
             operations_per_second=total_ops / total_duration,
-            avg_response_time_ms=statistics.mean(response_times)
-            if response_times
-            else 0,
+            avg_response_time_ms=statistics.mean(response_times) if response_times else 0,
             max_response_time_ms=max(response_times) if response_times else 0,
             error_rate=failed_ops / total_ops if total_ops > 0 else 0,
             memory_usage_mb=memory_usage,
@@ -596,11 +573,11 @@ class StressTestRunner:
         report["stability_analysis"] = {
             "stable_tests_count": len(stable_tests),
             "stability_rate": len(stable_tests) / len(df) * 100,
-            "most_stable_test": stable_tests.loc[
-                stable_tests["error_rate"].idxmin(), "test_name"
-            ]
-            if not stable_tests.empty
-            else None,
+            "most_stable_test": (
+                stable_tests.loc[stable_tests["error_rate"].idxmin(), "test_name"]
+                if not stable_tests.empty
+                else None
+            ),
             "least_stable_test": df.loc[df["error_rate"].idxmax(), "test_name"],
         }
 
@@ -610,9 +587,7 @@ class StressTestRunner:
             "avg_memory_usage": df["memory_usage_mb"].mean(),
             "max_cpu_usage": df["cpu_usage_percent"].max(),
             "avg_cpu_usage": df["cpu_usage_percent"].mean(),
-            "high_resource_tests": df[df["memory_usage_mb"] > 100][
-                "test_name"
-            ].tolist(),
+            "high_resource_tests": df[df["memory_usage_mb"] > 100]["test_name"].tolist(),
         }
 
         # エラー分析
@@ -683,9 +658,7 @@ class StressTestRunner:
         try:
             # 各種ストレステスト実行
             logger.info("1. シングルスレッドストレステスト")
-            self.stress_test_single_thread(
-                duration_seconds=30, operations_per_second=20
-            )
+            self.stress_test_single_thread(duration_seconds=30, operations_per_second=20)
 
             logger.info("2. マルチスレッドストレステスト")
             self.stress_test_multi_thread(duration_seconds=30, concurrent_threads=5)

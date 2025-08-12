@@ -106,9 +106,7 @@ class InvalidationStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """削除候補選択"""
         pass
 
@@ -139,14 +137,10 @@ class TTLStrategy(InvalidationStrategy):
 
         return False, None
 
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """期限切れエントリを削除候補として選択"""
         expired_entries = [
-            (key, entry.expires_at)
-            for key, entry in entries.items()
-            if entry.is_expired
+            (key, entry.expires_at) for key, entry in entries.items() if entry.is_expired
         ]
 
         # 有効期限順でソート
@@ -179,9 +173,7 @@ class LRUStrategy(InvalidationStrategy):
 
         return False, None
 
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """LRU順で削除候補選択"""
         with self._lock:
             # アクセス時間順でソート（古い順）
@@ -226,9 +218,7 @@ class LFUStrategy(InvalidationStrategy):
 
         return False, None
 
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """LFU順で削除候補選択"""
         with self._lock:
             # アクセス頻度順でソート（低い順）
@@ -264,9 +254,7 @@ class DependencyBasedStrategy(InvalidationStrategy):
 
     def __init__(self):
         self._dependency_graph = defaultdict(set)  # key -> 依存するキーのセット
-        self._dependents_graph = defaultdict(
-            set
-        )  # key -> このキーに依存するキーのセット
+        self._dependents_graph = defaultdict(set)  # key -> このキーに依存するキーのセット
         self._lock = threading.RLock()
         self._stats = {
             "dependency_evictions": 0,
@@ -306,15 +294,12 @@ class DependencyBasedStrategy(InvalidationStrategy):
         # 依存関係の無効化は通常、カスケード削除で処理される
         return False, None
 
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """依存性に基づく削除候補選択"""
         # 依存関係が多いキーを優先的に削除候補とする
         with self._lock:
             dependency_scores = [
-                (key, len(self._dependency_graph.get(key, set())))
-                for key in entries.keys()
+                (key, len(self._dependency_graph.get(key, set()))) for key in entries.keys()
             ]
 
             dependency_scores.sort(key=lambda x: x[1], reverse=True)
@@ -324,9 +309,7 @@ class DependencyBasedStrategy(InvalidationStrategy):
         """アクセス時処理（依存性戦略では特に処理なし）"""
         pass
 
-    def invalidate_dependents(
-        self, key: str, entries: Dict[str, CacheEntry]
-    ) -> List[str]:
+    def invalidate_dependents(self, key: str, entries: Dict[str, CacheEntry]) -> List[str]:
         """依存先の無効化（カスケード削除）"""
         with self._lock:
             invalidated_keys = []
@@ -426,9 +409,7 @@ class EventDrivenStrategy(InvalidationStrategy):
                     logger.error(f"イベントハンドラーエラー {event_type}: {e}")
 
             if invalidated_keys:
-                logger.info(
-                    f"イベント駆動無効化: {event_type} -> {len(invalidated_keys)}件"
-                )
+                logger.info(f"イベント駆動無効化: {event_type} -> {len(invalidated_keys)}件")
 
             return invalidated_keys
 
@@ -436,14 +417,11 @@ class EventDrivenStrategy(InvalidationStrategy):
         """イベント駆動戦略では直接的な無効化判定は行わない"""
         return False, None
 
-    def get_eviction_candidates(
-        self, entries: Dict[str, CacheEntry], count: int
-    ) -> List[str]:
+    def get_eviction_candidates(self, entries: Dict[str, CacheEntry], count: int) -> List[str]:
         """イベント購読数が多いキーを削除候補とする"""
         with self._lock:
             subscription_scores = [
-                (key, len(self._key_subscriptions.get(key, set())))
-                for key in entries.keys()
+                (key, len(self._key_subscriptions.get(key, set()))) for key in entries.keys()
             ]
 
             subscription_scores.sort(key=lambda x: x[1], reverse=True)
@@ -608,9 +586,7 @@ class SmartInvalidationManager:
                     )
 
                     for key in invalidated_keys:
-                        if self.remove_entry(
-                            key, InvalidationTrigger.DEPENDENCY_CHANGED
-                        ):
+                        if self.remove_entry(key, InvalidationTrigger.DEPENDENCY_CHANGED):
                             removed_count += 1
 
                     break
@@ -688,21 +664,15 @@ class SmartInvalidationManager:
 
             logger.info(f"メモリ圧迫対応完了: {removed_count}件削除")
 
-    def _handle_cascade_invalidation(
-        self, initial_removals: List[Tuple[str, InvalidationTrigger]]
-    ):
+    def _handle_cascade_invalidation(self, initial_removals: List[Tuple[str, InvalidationTrigger]]):
         """カスケード無効化処理"""
         # 依存性ベースのカスケード削除
         for strategy in self.strategies:
             if isinstance(strategy, DependencyBasedStrategy):
                 for key, trigger in initial_removals:
-                    cascade_keys = strategy.invalidate_dependents(
-                        key, self._cache_entries
-                    )
+                    cascade_keys = strategy.invalidate_dependents(key, self._cache_entries)
                     for cascade_key in cascade_keys:
-                        self.remove_entry(
-                            cascade_key, InvalidationTrigger.DEPENDENCY_CHANGED
-                        )
+                        self.remove_entry(cascade_key, InvalidationTrigger.DEPENDENCY_CHANGED)
 
 
 # グローバルインスタンス

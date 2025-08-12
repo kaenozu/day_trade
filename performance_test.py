@@ -69,15 +69,11 @@ def test_optimized_pandas():
 
         # ベクトル化テクニカル指標テスト
         start_time = time.time()
-        technical_data = vectorized_technical_indicators(
-            optimized_data, "Close", "Volume"
-        )
+        technical_data = vectorized_technical_indicators(optimized_data, "Close", "Volume")
         calc_time = time.time() - start_time
 
         print(f"テクニカル指標計算時間: {calc_time:.3f}秒")
-        print(
-            f"追加された指標数: {len(technical_data.columns) - len(test_data.columns)}"
-        )
+        print(f"追加された指標数: {len(technical_data.columns) - len(test_data.columns)}")
         print("[OK] 最適化pandas処理テスト成功")
         return True
 
@@ -181,9 +177,7 @@ def main():
     print("テスト結果サマリー")
     print("=" * 50)
 
-    print(
-        f"成功率: {passed}/{len(test_functions)} ({passed/len(test_functions)*100:.1f}%)"
-    )
+    print(f"成功率: {passed}/{len(test_functions)} ({passed/len(test_functions)*100:.1f}%)")
 
     if passed == len(test_functions):
         print("\n[SUCCESS] すべてのテストが成功しました！")

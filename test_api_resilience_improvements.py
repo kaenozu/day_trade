@@ -126,9 +126,7 @@ class TestRetryLogicImprovements(unittest.TestCase):
         mock_session.request.return_value = mock_response
 
         # ResilientAPIClientを作成
-        client = ResilientAPIClient(
-            self.endpoints, self.retry_config, enable_health_check=False
-        )
+        client = ResilientAPIClient(self.endpoints, self.retry_config, enable_health_check=False)
 
         # リクエスト実行
         response = client.get("/get")
@@ -149,9 +147,7 @@ class TestRetryLogicImprovements(unittest.TestCase):
         mock_response.reason = "Internal Server Error"
         mock_session.request.return_value = mock_response
 
-        client = ResilientAPIClient(
-            self.endpoints, self.retry_config, enable_health_check=False
-        )
+        client = ResilientAPIClient(self.endpoints, self.retry_config, enable_health_check=False)
 
         # 複数回失敗させてサーキットブレーカーを開く
         with self.assertRaises(ServerError):

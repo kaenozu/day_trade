@@ -357,12 +357,10 @@ class PerformanceReport:
             "report_id": self.report_id,
             "generation_time_ns": self.generation_time_ns,
             "latency_metrics": {
-                name: metrics.to_dict()
-                for name, metrics in self.latency_metrics.items()
+                name: metrics.to_dict() for name, metrics in self.latency_metrics.items()
             },
             "throughput_metrics": {
-                name: metrics.to_dict()
-                for name, metrics in self.throughput_metrics.items()
+                name: metrics.to_dict() for name, metrics in self.throughput_metrics.items()
             },
             "system_metrics": self.system_metrics.to_dict(),
             "active_alerts": [alert.to_dict() for alert in self.active_alerts],
@@ -556,15 +554,9 @@ class MicrosecondMonitor:
 
             # 閾値チェック
             violation = False
-            if (
-                condition.comparison == "gt"
-                and current_value > condition.threshold_value
-            ):
+            if condition.comparison == "gt" and current_value > condition.threshold_value:
                 violation = True
-            elif (
-                condition.comparison == "lt"
-                and current_value < condition.threshold_value
-            ):
+            elif condition.comparison == "lt" and current_value < condition.threshold_value:
                 violation = True
             elif (
                 condition.comparison == "eq"
@@ -584,9 +576,7 @@ class MicrosecondMonitor:
                     condition.consecutive_violations = 0
                     self._resolve_alert(alert_id)
 
-    def _trigger_alert(
-        self, alert_id: str, condition: AlertCondition, current_value: float
-    ):
+    def _trigger_alert(self, alert_id: str, condition: AlertCondition, current_value: float):
         """アラート発火"""
         now = time.time()
 
@@ -658,9 +648,7 @@ class MicrosecondMonitor:
 
         # アラート条件チェック
         self._check_metric_alerts("cpu_usage", self.system_metrics.cpu_usage_percent)
-        self._check_metric_alerts(
-            "memory_usage", self.system_metrics.memory_usage_percent
-        )
+        self._check_metric_alerts("memory_usage", self.system_metrics.memory_usage_percent)
 
     def start_monitoring(self):
         """監視開始"""
@@ -701,8 +689,7 @@ class MicrosecondMonitor:
                 # パフォーマンスレポート生成（定期的）
                 if (
                     len(self.report_history) == 0
-                    or time.perf_counter_ns()
-                    - self.report_history[-1].generation_time_ns
+                    or time.perf_counter_ns() - self.report_history[-1].generation_time_ns
                     > 60_000_000_000
                 ):  # 60秒
                     self._generate_performance_report()
@@ -721,12 +708,10 @@ class MicrosecondMonitor:
 
         self.stats_cache = {
             "latency_stats": {
-                name: metrics.to_dict()
-                for name, metrics in self.latency_metrics.items()
+                name: metrics.to_dict() for name, metrics in self.latency_metrics.items()
             },
             "throughput_stats": {
-                name: metrics.to_dict()
-                for name, metrics in self.throughput_metrics.items()
+                name: metrics.to_dict() for name, metrics in self.throughput_metrics.items()
             },
             "system_stats": self.system_metrics.to_dict(),
             "active_alerts_count": len(self.active_alerts),
@@ -800,8 +785,7 @@ class MicrosecondMonitor:
                 "total_operations": total_ops,
                 "average_latency_us": avg_latency,
                 "sub50us_operations": sum(
-                    sum(1 for v in m.recent_values if v < 50)
-                    for m in self.latency_metrics.values()
+                    sum(1 for v in m.recent_values if v < 50) for m in self.latency_metrics.values()
                 ),
             }
 
@@ -810,9 +794,7 @@ class MicrosecondMonitor:
             total_throughput = sum(
                 m.operations_per_second for m in self.throughput_metrics.values()
             )
-            peak_throughput = max(
-                m.peak_ops_per_second for m in self.throughput_metrics.values()
-            )
+            peak_throughput = max(m.peak_ops_per_second for m in self.throughput_metrics.values())
 
             summary["throughput_summary"] = {
                 "current_total_ops_per_sec": total_throughput,
@@ -838,9 +820,7 @@ class MicrosecondMonitor:
         return {
             "active_alerts_count": len(self.active_alerts),
             "severity_breakdown": dict(severity_counts),
-            "recent_alerts": [
-                alert.to_dict() for alert in list(self.alert_history)[-10:]
-            ],
+            "recent_alerts": [alert.to_dict() for alert in list(self.alert_history)[-10:]],
         }
 
     def reset_metrics(self):
@@ -886,9 +866,7 @@ if __name__ == "__main__":
         monitor = None
         try:
             # 監視システム初期化
-            monitor = create_microsecond_monitor(
-                monitoring_interval_ms=50  # 50ms間隔
-            )
+            monitor = create_microsecond_monitor(monitoring_interval_ms=50)  # 50ms間隔
 
             # アラートコールバック設定
             def alert_handler(alert: AlertEvent):
@@ -933,9 +911,7 @@ if __name__ == "__main__":
             print("\n3. スループット統計")
             if stats.get("throughput_stats"):
                 for metric_name, data in stats["throughput_stats"].items():
-                    print(
-                        f"  {metric_name}: {data['operations_per_second']:.1f} ops/sec"
-                    )
+                    print(f"  {metric_name}: {data['operations_per_second']:.1f} ops/sec")
                     print(f"    ピーク: {data['peak_ops_per_second']:.1f} ops/sec")
 
             print("\n4. システムメトリクス")
@@ -963,9 +939,7 @@ if __name__ == "__main__":
                     if "latency_summary" in summary:
                         lat_sum = summary["latency_summary"]
                         print(f"  総処理数: {lat_sum['total_operations']}")
-                        print(
-                            f"  平均レイテンシー: {lat_sum['average_latency_us']:.1f}μs"
-                        )
+                        print(f"  平均レイテンシー: {lat_sum['average_latency_us']:.1f}μs")
                         print(f"  <50μs処理: {lat_sum['sub50us_operations']}")
 
             # 高レイテンシーでアラート発生テスト

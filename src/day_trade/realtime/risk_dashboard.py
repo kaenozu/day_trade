@@ -624,14 +624,12 @@ class RiskDashboardManager:
                 "total_analyses": risk_stats.get("total_analyses", 0),
                 "fraud_detections": fraud_stats.get("fraud_detected", 0),
                 "ai_confidence": risk_stats.get("success_rate", 0.85),
-                "avg_processing_time": risk_stats.get("avg_processing_time", 0.5)
-                * 1000,
+                "avg_processing_time": risk_stats.get("avg_processing_time", 0.5) * 1000,
             },
             "charts": {
                 "risk_timeline": {
                     "timestamps": [
-                        (current_time - timedelta(minutes=i)).isoformat()
-                        for i in range(30, 0, -1)
+                        (current_time - timedelta(minutes=i)).isoformat() for i in range(30, 0, -1)
                     ],
                     "risk_scores": [np.random.beta(2, 5) for _ in range(30)],
                 },
@@ -655,30 +653,28 @@ class RiskDashboardManager:
             "recent_analyses": await self._get_recent_analyses(5),
             "ai_models": {
                 "GPT-4": {
-                    "status": "healthy"
-                    if risk_stats.get("models_available", {}).get("gpt4")
-                    else "error",
+                    "status": (
+                        "healthy" if risk_stats.get("models_available", {}).get("gpt4") else "error"
+                    ),
                     "calls": risk_stats.get("gpt4_calls", 0),
                     "success_rate": 0.95,
                 },
                 "Claude": {
-                    "status": "healthy"
-                    if risk_stats.get("models_available", {}).get("claude")
-                    else "error",
+                    "status": (
+                        "healthy"
+                        if risk_stats.get("models_available", {}).get("claude")
+                        else "error"
+                    ),
                     "calls": risk_stats.get("claude_calls", 0),
                     "success_rate": 0.93,
                 },
                 "LSTM": {
-                    "status": "healthy"
-                    if fraud_stats.get("models_loaded")
-                    else "warning",
+                    "status": "healthy" if fraud_stats.get("models_loaded") else "warning",
                     "calls": fraud_stats.get("total_detections", 0),
                     "success_rate": 0.96,
                 },
                 "Transformer": {
-                    "status": "healthy"
-                    if fraud_stats.get("models_loaded")
-                    else "warning",
+                    "status": "healthy" if fraud_stats.get("models_loaded") else "warning",
                     "calls": fraud_stats.get("total_detections", 0),
                     "success_rate": 0.92,
                 },
@@ -715,9 +711,7 @@ class RiskDashboardManager:
         sample_analyses = []
         for i in range(limit):
             risk_score = np.random.beta(2, 5)
-            risk_level = (
-                "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
-            )
+            risk_level = "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
 
             sample_analyses.append(
                 {
@@ -725,9 +719,7 @@ class RiskDashboardManager:
                     "risk_score": risk_score,
                     "risk_level": risk_level,
                     "explanation": f"リスク分析#{i+1}: {risk_level}レベルのリスクを検出",
-                    "timestamp": (
-                        datetime.now() - timedelta(minutes=i * 2)
-                    ).isoformat(),
+                    "timestamp": (datetime.now() - timedelta(minutes=i * 2)).isoformat(),
                 }
             )
 
@@ -753,9 +745,7 @@ class RiskDashboardManager:
                 pass
 
         # uvicorn サーバー設定
-        config = uvicorn.Config(
-            self.app, host="0.0.0.0", port=self.port, log_level="info"
-        )
+        config = uvicorn.Config(self.app, host="0.0.0.0", port=self.port, log_level="info")
         server = uvicorn.Server(config)
 
         try:

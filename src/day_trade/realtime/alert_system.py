@@ -262,9 +262,7 @@ class EmailNotifier:
             else:
                 formatted_value = str(value)
 
-            rows += (
-                f"<tr><td><strong>{key}</strong></td><td>{formatted_value}</td></tr>"
-            )
+            rows += f"<tr><td><strong>{key}</strong></td><td>{formatted_value}</td></tr>"
 
         return f"""
         <table class="data-table">
@@ -277,9 +275,7 @@ class EmailNotifier:
         </table>
         """
 
-    async def _send_email(
-        self, subject: str, html_content: str, recipients: List[str]
-    ) -> bool:
+    async def _send_email(self, subject: str, html_content: str, recipients: List[str]) -> bool:
         """Email送信実行"""
 
         try:
@@ -360,9 +356,7 @@ class WebhookNotifier:
                         logger.info(f"Webhook alert sent successfully: {alert.id}")
                         return True
                     else:
-                        logger.error(
-                            f"Webhook failed with status {response.status}: {alert.id}"
-                        )
+                        logger.error(f"Webhook failed with status {response.status}: {alert.id}")
                         return False
 
         except Exception as e:
@@ -652,9 +646,7 @@ class TradingAlertGenerator:
         self.alert_manager = alert_manager
         self.config = config
 
-    async def generate_trading_signal_alert(
-        self, prediction: LivePrediction
-    ) -> Optional[Alert]:
+    async def generate_trading_signal_alert(self, prediction: LivePrediction) -> Optional[Alert]:
         """取引シグナルアラート生成"""
 
         if prediction.action_confidence < self.config.trading_signal_threshold:
@@ -686,17 +678,17 @@ class TradingAlertGenerator:
                 "predicted_price": prediction.predicted_price,
                 "predicted_return": prediction.predicted_return,
                 "position_size": prediction.position_size_recommendation,
-                "ml_confidence": prediction.ml_prediction.get("confidence", 0)
-                if prediction.ml_prediction
-                else 0,
-                "rl_confidence": prediction.rl_decision.get("confidence", 0)
-                if prediction.rl_decision
-                else 0,
-                "sentiment_score": prediction.sentiment_analysis.get(
-                    "sentiment_score", 0
-                )
-                if prediction.sentiment_analysis
-                else 0,
+                "ml_confidence": (
+                    prediction.ml_prediction.get("confidence", 0) if prediction.ml_prediction else 0
+                ),
+                "rl_confidence": (
+                    prediction.rl_decision.get("confidence", 0) if prediction.rl_decision else 0
+                ),
+                "sentiment_score": (
+                    prediction.sentiment_analysis.get("sentiment_score", 0)
+                    if prediction.sentiment_analysis
+                    else 0
+                ),
             },
         )
 

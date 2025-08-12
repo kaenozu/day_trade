@@ -56,9 +56,7 @@ class PerformanceMonitor:
 
             self.metrics_history.append(metrics)
             status = "SUCCESS" if success else "FAILED"
-            print(
-                f"Monitoring Complete: {process_name} - {execution_time:.3f}s ({status})"
-            )
+            print(f"Monitoring Complete: {process_name} - {execution_time:.3f}s ({status})")
 
     def start_monitoring(self, monitor_name: str) -> None:
         """監視開始"""

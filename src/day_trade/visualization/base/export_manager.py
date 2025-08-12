@@ -62,9 +62,7 @@ class ExportManager:
         for dir_path in [self.charts_dir, self.reports_dir, self.data_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
 
-        logger.info(
-            f"エクスポートマネージャー初期化完了 - 出力先: {self.base_output_dir}"
-        )
+        logger.info(f"エクスポートマネージャー初期化完了 - 出力先: {self.base_output_dir}")
 
     def save_chart(self, fig, filename: str, format: str = "png", **kwargs) -> str:
         """
@@ -113,9 +111,7 @@ class ExportManager:
         logger.info(f"チャート保存完了: {filepath}")
         return str(filepath)
 
-    def save_data(
-        self, data: pd.DataFrame, filename: str, format: str = "csv", **kwargs
-    ) -> str:
+    def save_data(self, data: pd.DataFrame, filename: str, format: str = "csv", **kwargs) -> str:
         """
         データ保存
 
@@ -153,9 +149,7 @@ class ExportManager:
             logger.error(f"データ保存エラー: {e}")
             return ""
 
-    def save_analysis_report(
-        self, analysis_results: Dict[str, Any], filename: str = None
-    ) -> str:
+    def save_analysis_report(self, analysis_results: Dict[str, Any], filename: str = None) -> str:
         """
         分析レポート保存
 
@@ -247,9 +241,7 @@ class ExportManager:
             保存されたファイルパス
         """
         if not PLOTLY_AVAILABLE:
-            logger.error(
-                "plotly未インストール - インタラクティブダッシュボード保存不可"
-            )
+            logger.error("plotly未インストール - インタラクティブダッシュボード保存不可")
             return ""
 
         if filename is None:
@@ -349,9 +341,7 @@ class ExportManager:
         for directory in [self.charts_dir, self.reports_dir, self.data_dir]:
             for file_path in directory.rglob("*"):
                 if file_path.is_file():
-                    file_modified_time = datetime.fromtimestamp(
-                        file_path.stat().st_mtime
-                    )
+                    file_modified_time = datetime.fromtimestamp(file_path.stat().st_mtime)
                     if file_modified_time < cutoff_date:
                         try:
                             file_path.unlink()

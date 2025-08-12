@@ -86,9 +86,7 @@ except ImportError:
             pass
 
         async def execute_distributed_task(self, task):
-            return type(
-                "MockResult", (), {"success": True, "result": np.array([0.5])}
-            )()
+            return type("MockResult", (), {"success": True, "result": np.array([0.5])})()
 
 
 logger = get_context_logger(__name__)
@@ -252,12 +250,8 @@ class FastFeatureExtractor:
         self.lookback_window = lookback_window
 
         # Price history ring buffers (per symbol)
-        self.price_history: Dict[int, deque] = defaultdict(
-            lambda: deque(maxlen=lookback_window)
-        )
-        self.volume_history: Dict[int, deque] = defaultdict(
-            lambda: deque(maxlen=lookback_window)
-        )
+        self.price_history: Dict[int, deque] = defaultdict(lambda: deque(maxlen=lookback_window))
+        self.volume_history: Dict[int, deque] = defaultdict(lambda: deque(maxlen=lookback_window))
         self.timestamp_history: Dict[int, deque] = defaultdict(
             lambda: deque(maxlen=lookback_window)
         )
@@ -298,9 +292,7 @@ class FastFeatureExtractor:
             # Price change calculation
             if len(self.price_history[symbol_id]) > 1:
                 prev_price = list(self.price_history[symbol_id])[-2]
-                features.price_change_bps = (
-                    (current_price - prev_price) / prev_price
-                ) * 10000
+                features.price_change_bps = ((current_price - prev_price) / prev_price) * 10000
 
             # Order book features (if available)
             if order_book:
@@ -310,9 +302,7 @@ class FastFeatureExtractor:
             features = self._extract_technical_indicators(features, symbol_id)
 
             # Microstructure features
-            features = self._extract_microstructure_features(
-                features, symbol_id, market_update
-            )
+            features = self._extract_microstructure_features(features, symbol_id, market_update)
 
             # Timing features
             features.market_hours_normalized = self._get_market_hours_normalized()
@@ -365,9 +355,7 @@ class FastFeatureExtractor:
 
                 if total_size > 0:
                     features.bid_ask_imbalance = (bid_size - ask_size) / total_size
-                    features.top_of_book_ratio = (
-                        bid_size / ask_size if ask_size > 0 else 1.0
-                    )
+                    features.top_of_book_ratio = bid_size / ask_size if ask_size > 0 else 1.0
 
         except Exception as e:
             logger.debug(f"Order book特徴量抽出エラー: {e}")
@@ -410,12 +398,8 @@ class FastFeatureExtractor:
                 std_price = np.std(recent_prices)
 
                 if std_price > 0:
-                    features.bollinger_position = (prices[-1] - mean_price) / (
-                        2 * std_price
-                    ) + 0.5
-                    features.bollinger_position = np.clip(
-                        features.bollinger_position, 0, 1
-                    )
+                    features.bollinger_position = (prices[-1] - mean_price) / (2 * std_price) + 0.5
+                    features.bollinger_position = np.clip(features.bollinger_position, 0, 1)
 
         except Exception as e:
             logger.debug(f"テクニカル指標計算エラー: {e}")
@@ -511,15 +495,11 @@ class UltraFastAIPredictor:
         """ONNX モデル初期化"""
         try:
             providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            self.onnx_session = ort.InferenceSession(
-                self.model_path, providers=providers
-            )
+            self.onnx_session = ort.InferenceSession(self.model_path, providers=providers)
 
             # Verify input shape
             input_shape = self.onnx_session.get_inputs()[0].shape
-            logger.info(
-                f"ONNX model loaded: {self.model_path}, input_shape: {input_shape}"
-            )
+            logger.info(f"ONNX model loaded: {self.model_path}, input_shape: {input_shape}")
             self.model_available = True
 
         except Exception as e:
@@ -676,9 +656,7 @@ class RealtimeDecisionEngine:
 
         # Core components
         self.feature_extractor = FastFeatureExtractor(feature_lookback)
-        self.ai_predictor = (
-            UltraFastAIPredictor(ai_model_path) if enable_ai_prediction else None
-        )
+        self.ai_predictor = UltraFastAIPredictor(ai_model_path) if enable_ai_prediction else None
         self.rule_predictor = RuleBasedPredictor()
 
         # Decision parameters
@@ -719,9 +697,7 @@ class RealtimeDecisionEngine:
 
         try:
             # Stage 1: Feature extraction (200μs)
-            features = self.feature_extractor.extract_features(
-                market_update, order_book
-            )
+            features = self.feature_extractor.extract_features(market_update, order_book)
 
             # Stage 2: AI prediction (300μs)
             if self.ai_predictor and self.enable_ai_prediction:
@@ -732,9 +708,7 @@ class RealtimeDecisionEngine:
                 self.stats["rule_predictions"] += 1
 
             # Stage 3: Decision synthesis (200μs)
-            trading_action = self._synthesize_decision(
-                ai_prediction, ai_confidence, features
-            )
+            trading_action = self._synthesize_decision(ai_prediction, ai_confidence, features)
 
             # Stage 4: Order generation (200μs)
             suggested_orders = []
@@ -744,9 +718,7 @@ class RealtimeDecisionEngine:
                 )
 
             # Stage 5: Risk assessment (100μs)
-            risk_assessment = self._assess_risk(
-                features, trading_action, current_position
-            )
+            risk_assessment = self._assess_risk(features, trading_action, current_position)
 
             # Construct result
             decision_result = DecisionResult(
@@ -896,9 +868,7 @@ class RealtimeDecisionEngine:
 
         try:
             # Market risk (volatility based)
-            risk_assessment["market_risk"] = min(
-                features.realized_volatility / 0.5, 1.0
-            )
+            risk_assessment["market_risk"] = min(features.realized_volatility / 0.5, 1.0)
 
             # Position risk (concentration)
             position_risk = abs(current_position) / self.max_position_size
@@ -944,8 +914,7 @@ class RealtimeDecisionEngine:
             {
                 "avg_decision_time_us": avg_decision_time_us,
                 "actionable_signal_rate": (
-                    self.stats["actionable_signals"]
-                    / max(self.stats["decisions_made"], 1)
+                    self.stats["actionable_signals"] / max(self.stats["decisions_made"], 1)
                 ),
                 "feature_extractor_stats": self.feature_extractor.get_stats(),
             }
@@ -979,9 +948,7 @@ if __name__ == "__main__":
         engine = None
         try:
             # 決定エンジン初期化
-            engine = create_decision_engine(
-                enable_ai_prediction=True, feature_lookback=50
-            )
+            engine = create_decision_engine(enable_ai_prediction=True, feature_lookback=50)
 
             # テスト市場データ
             test_updates = []
@@ -1020,9 +987,7 @@ if __name__ == "__main__":
 
             batch_time_ms = (time.perf_counter() - start_time) * 1000
             print(f"バッチ処理: {len(decisions)} decisions in {batch_time_ms:.3f}ms")
-            print(
-                f"平均決定時間: {batch_time_ms * 1000 / len(decisions):.1f}μs per decision"
-            )
+            print(f"平均決定時間: {batch_time_ms * 1000 / len(decisions):.1f}μs per decision")
 
             # Action distribution
             actions = [d.decision.name for d in decisions]
@@ -1047,13 +1012,9 @@ if __name__ == "__main__":
 
             print("\n4. レイテンシー目標確認")
             if stats["avg_decision_time_us"] < 1000:
-                print(
-                    f"✅ レイテンシー目標達成: {stats['avg_decision_time_us']:.1f}μs < 1000μs"
-                )
+                print(f"✅ レイテンシー目標達成: {stats['avg_decision_time_us']:.1f}μs < 1000μs")
             else:
-                print(
-                    f"⚠️  レイテンシー目標未達: {stats['avg_decision_time_us']:.1f}μs > 1000μs"
-                )
+                print(f"⚠️  レイテンシー目標未達: {stats['avg_decision_time_us']:.1f}μs > 1000μs")
 
         except Exception as e:
             print(f"テスト実行エラー: {e}")

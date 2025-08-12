@@ -157,9 +157,11 @@ class GPUInferenceResult:
     def to_dict(self) -> Dict[str, Any]:
         """結果を辞書形式に変換"""
         return {
-            "predictions": self.predictions.tolist()
-            if isinstance(self.predictions, np.ndarray)
-            else self.predictions,
+            "predictions": (
+                self.predictions.tolist()
+                if isinstance(self.predictions, np.ndarray)
+                else self.predictions
+            ),
             "execution_time_us": self.execution_time_us,
             "batch_size": self.batch_size,
             "device_id": self.device_id,
@@ -217,9 +219,7 @@ class GPUDeviceManager:
                                 "id": len(devices),
                                 "backend": GPUBackend.OPENCL,
                                 "name": device.get_info(cl.device_info.NAME),
-                                "memory_mb": device.get_info(
-                                    cl.device_info.GLOBAL_MEM_SIZE
-                                )
+                                "memory_mb": device.get_info(cl.device_info.GLOBAL_MEM_SIZE)
                                 // 1024
                                 // 1024,
                                 "platform": platform.get_info(cl.platform_info.NAME),
@@ -269,9 +269,7 @@ class GPUDeviceManager:
                     mempool = cp.get_default_memory_pool()
                     mempool.set_limit(size=pool_size_mb * 1024 * 1024)
                     self.memory_pools[device_id] = mempool
-                    logger.info(
-                        f"CUDA メモリプール作成: デバイス {device_id}, {pool_size_mb}MB"
-                    )
+                    logger.info(f"CUDA メモリプール作成: デバイス {device_id}, {pool_size_mb}MB")
                     return mempool
         except Exception as e:
             logger.warning(f"GPU メモリプール作成失敗: {e}")
@@ -312,9 +310,7 @@ class GPUStreamManager:
             except Exception as e:
                 logger.error(f"ストリーム初期化エラー (デバイス {device_id}): {e}")
 
-    def acquire_stream(
-        self, device_id: int, timeout_ms: int = 1000
-    ) -> Optional[Tuple[int, Any]]:
+    def acquire_stream(self, device_id: int, timeout_ms: int = 1000) -> Optional[Tuple[int, Any]]:
         """ストリーム取得"""
         try:
             timeout_seconds = timeout_ms / 1000.0
@@ -509,18 +505,14 @@ class GPUInferenceSession:
             # セッション オプション
             sess_options = ort.SessionOptions()
             sess_options.intra_op_num_threads = 1  # GPU では通常1
-            sess_options.graph_optimization_level = (
-                ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            )
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
             # GPU 特化設定
             if self.config.enable_half_precision:
                 sess_options.add_session_config_entry("session.use_fp16", "1")
 
             # セッション作成
-            self.session = ort.InferenceSession(
-                self.model_path, sess_options, providers=providers
-            )
+            self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
 
             # 入出力情報取得
             self.input_name = self.session.get_inputs()[0].name
@@ -589,9 +581,7 @@ class GPUInferenceSession:
 
             # GPU 推論実行
             with self._gpu_context():
-                outputs = self.session.run(
-                    self.output_names, {self.input_name: input_tensor}
-                )
+                outputs = self.session.run(self.output_names, {self.input_name: input_tensor})
 
             execution_time = MicrosecondTimer.elapsed_us(start_time)
 
@@ -603,8 +593,7 @@ class GPUInferenceSession:
             self.inference_stats["total_inferences"] += 1
             self.inference_stats["total_gpu_time_us"] += execution_time
             self.inference_stats["avg_gpu_time_us"] = (
-                self.inference_stats["total_gpu_time_us"]
-                / self.inference_stats["total_inferences"]
+                self.inference_stats["total_gpu_time_us"] / self.inference_stats["total_inferences"]
             )
             self.inference_stats["gpu_memory_peak_mb"] = max(
                 self.inference_stats["gpu_memory_peak_mb"], gpu_memory_used
@@ -744,18 +733,14 @@ class GPUAcceleratedInferenceEngine:
                 device_id = optimal_device["id"]
 
             # セッション作成
-            session = GPUInferenceSession(
-                model_path, self.config, device_id, model_name
-            )
+            session = GPUInferenceSession(model_path, self.config, device_id, model_name)
 
             if session.session is not None:
                 self.sessions[model_name] = session
                 self.session_device_mapping[model_name] = device_id
                 self.engine_stats["models_loaded"] += 1
 
-                logger.info(
-                    f"GPU モデル読み込み完了: {model_name} (デバイス {device_id})"
-                )
+                logger.info(f"GPU モデル読み込み完了: {model_name} (デバイス {device_id})")
                 return True
             else:
                 logger.error(f"GPU モデル読み込み失敗: {model_name}")
@@ -814,8 +799,7 @@ class GPUAcceleratedInferenceEngine:
             self.engine_stats["total_gpu_inferences"] += 1
             self.engine_stats["total_gpu_time_us"] += result.execution_time_us
             self.engine_stats["avg_gpu_time_us"] = (
-                self.engine_stats["total_gpu_time_us"]
-                / self.engine_stats["total_gpu_inferences"]
+                self.engine_stats["total_gpu_time_us"] / self.engine_stats["total_gpu_inferences"]
             )
             self.engine_stats["total_gpu_memory_mb"] += result.gpu_memory_used_mb
             self.engine_stats["peak_gpu_utilization"] = max(
@@ -930,8 +914,7 @@ class GPUAcceleratedInferenceEngine:
             "p99_time_us": np.percentile(times_array, 99),
             # スループット
             "throughput_inferences_per_sec": 1_000_000 / np.mean(times_array),
-            "throughput_samples_per_sec": (1_000_000 / np.mean(times_array))
-            * test_data.shape[0],
+            "throughput_samples_per_sec": (1_000_000 / np.mean(times_array)) * test_data.shape[0],
             # GPU使用統計
             "avg_gpu_memory_mb": np.mean(memory_array),
             "peak_gpu_memory_mb": np.max(memory_array),

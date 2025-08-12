@@ -162,9 +162,7 @@ class SystemPerformanceMonitor:
         self.process = psutil.Process()
 
         # メトリクス履歴
-        max_points = int(
-            config.metrics_retention_hours * 3600 / config.monitoring_interval
-        )
+        max_points = int(config.metrics_retention_hours * 3600 / config.monitoring_interval)
         self.metrics_history: deque = deque(maxlen=max_points)
 
         # 前回のネットワーク統計
@@ -197,19 +195,16 @@ class SystemPerformanceMonitor:
                 memory_percent=memory_info.percent,
                 memory_used_gb=memory_info.used / 1024**3,
                 memory_available_gb=memory_info.available / 1024**3,
-                network_bytes_sent=network_stats.bytes_sent
-                - self.prev_network_stats.bytes_sent,
-                network_bytes_recv=network_stats.bytes_recv
-                - self.prev_network_stats.bytes_recv,
+                network_bytes_sent=network_stats.bytes_sent - self.prev_network_stats.bytes_sent,
+                network_bytes_recv=network_stats.bytes_recv - self.prev_network_stats.bytes_recv,
                 disk_usage_percent=disk_usage.percent,
                 disk_free_gb=disk_usage.free / 1024**3,
                 process_cpu_percent=process_info.get("cpu_percent", 0),
-                process_memory_mb=process_info.get("memory_info", {}).get("rss", 0)
-                / 1024**2,
+                process_memory_mb=process_info.get("memory_info", {}).get("rss", 0) / 1024**2,
                 thread_count=process_info.get("num_threads", 0),
-                open_files=process_info.get("num_fds", 0)
-                if hasattr(self.process, "num_fds")
-                else 0,
+                open_files=(
+                    process_info.get("num_fds", 0) if hasattr(self.process, "num_fds") else 0
+                ),
             )
 
             self.prev_network_stats = network_stats
@@ -269,9 +264,7 @@ class AIPerformanceMonitor:
         self.config = config
 
         # メトリクス履歴
-        max_points = int(
-            config.metrics_retention_hours * 3600 / config.monitoring_interval
-        )
+        max_points = int(config.metrics_retention_hours * 3600 / config.monitoring_interval)
         self.metrics_history: deque = deque(maxlen=max_points)
 
         # 性能統計
@@ -314,15 +307,11 @@ class AIPerformanceMonitor:
             successful_predictions = max(0, self.total_predictions - self.error_count)
 
             # レイテンシー統計
-            avg_latency = (
-                np.mean(self.prediction_latencies) if self.prediction_latencies else 0.0
-            )
+            avg_latency = np.mean(self.prediction_latencies) if self.prediction_latencies else 0.0
 
             # 信頼度統計
             avg_confidence = (
-                np.mean(self.prediction_confidences)
-                if self.prediction_confidences
-                else 0.0
+                np.mean(self.prediction_confidences) if self.prediction_confidences else 0.0
             )
 
             # エラー率
@@ -372,8 +361,7 @@ class AIPerformanceMonitor:
 
         return {
             "total_predictions": latest.total_predictions,
-            "success_rate": latest.successful_predictions
-            / max(latest.total_predictions, 1),
+            "success_rate": latest.successful_predictions / max(latest.total_predictions, 1),
             "error_rate": latest.error_rate,
             "average_latency_ms": latest.average_prediction_latency,
             "latency_percentiles": latency_percentiles,
@@ -389,9 +377,7 @@ class TradingPerformanceMonitor:
         self.config = config
 
         # メトリクス履歴
-        max_points = int(
-            config.metrics_retention_hours * 3600 / config.monitoring_interval
-        )
+        max_points = int(config.metrics_retention_hours * 3600 / config.monitoring_interval)
         self.metrics_history: deque = deque(maxlen=max_points)
 
         # 取引統計
@@ -467,9 +453,7 @@ class TradingPerformanceMonitor:
         try:
             # 最近1時間のシグナル統計
             cutoff_time = datetime.now() - timedelta(hours=1)
-            recent_signals = [
-                s for s in self.signal_history if s["timestamp"] > cutoff_time
-            ]
+            recent_signals = [s for s in self.signal_history if s["timestamp"] > cutoff_time]
 
             # シグナル統計
             total_signals = len(recent_signals)
@@ -576,8 +560,7 @@ class TradingPerformanceMonitor:
                 "hold": latest.hold_signals,
             },
             "avg_confidence": latest.avg_signal_confidence,
-            "high_confidence_ratio": latest.high_confidence_signals
-            / max(latest.total_signals, 1),
+            "high_confidence_ratio": latest.high_confidence_signals / max(latest.total_signals, 1),
             "virtual_portfolio_value": latest.virtual_portfolio_value,
             "virtual_return": latest.virtual_return,
             "virtual_drawdown": latest.virtual_drawdown,
@@ -588,9 +571,7 @@ class TradingPerformanceMonitor:
 class RealTimePerformanceMonitor:
     """統合リアルタイムパフォーマンス監視システム"""
 
-    def __init__(
-        self, config: PerformanceConfig, alert_manager: Optional[AlertManager] = None
-    ):
+    def __init__(self, config: PerformanceConfig, alert_manager: Optional[AlertManager] = None):
         self.config = config
         self.alert_manager = alert_manager
 
@@ -659,20 +640,13 @@ class RealTimePerformanceMonitor:
 
                 # アラートチェック
                 current_time = time.time()
-                if (
-                    current_time - self.last_alert_check
-                    >= self.config.alert_check_interval
-                ):
-                    await self._check_alerts(
-                        system_metrics, ai_metrics, trading_metrics
-                    )
+                if current_time - self.last_alert_check >= self.config.alert_check_interval:
+                    await self._check_alerts(system_metrics, ai_metrics, trading_metrics)
                     self.last_alert_check = current_time
 
                 # メトリクスエクスポート
                 if self.config.enable_metrics_export:
-                    await self._export_metrics(
-                        system_metrics, ai_metrics, trading_metrics
-                    )
+                    await self._export_metrics(system_metrics, ai_metrics, trading_metrics)
 
                 # 統計更新
                 self.stats["total_monitoring_cycles"] += 1
@@ -733,10 +707,7 @@ class RealTimePerformanceMonitor:
             )
 
         # AI性能アラート
-        if (
-            ai_metrics.average_prediction_latency
-            > self.config.prediction_latency_critical
-        ):
+        if ai_metrics.average_prediction_latency > self.config.prediction_latency_critical:
             alerts_to_send.append(
                 self._create_ai_alert(
                     "High AI Latency",
@@ -787,9 +758,7 @@ class RealTimePerformanceMonitor:
             data=data,
         )
 
-    def _create_ai_alert(
-        self, title: str, message: str, level: AlertLevel, data: Dict
-    ) -> Alert:
+    def _create_ai_alert(self, title: str, message: str, level: AlertLevel, data: Dict) -> Alert:
         """AIアラート作成"""
         return Alert(
             id=f"ai_{int(time.time())}",
@@ -889,25 +858,23 @@ class RealTimePerformanceMonitor:
             "system": {
                 "cpu_percent": system_summary.get("cpu", {}).get("current", 0),
                 "memory_percent": system_summary.get("memory", {}).get("current", 0),
-                "status": "healthy"
-                if system_summary.get("cpu", {}).get("current", 0) < 70
-                else "warning",
+                "status": (
+                    "healthy" if system_summary.get("cpu", {}).get("current", 0) < 70 else "warning"
+                ),
             },
             "ai": {
                 "total_predictions": ai_summary.get("total_predictions", 0),
                 "success_rate": ai_summary.get("success_rate", 0),
                 "average_latency": ai_summary.get("average_latency_ms", 0),
-                "status": "healthy"
-                if ai_summary.get("error_rate", 0) < 0.1
-                else "warning",
+                "status": "healthy" if ai_summary.get("error_rate", 0) < 0.1 else "warning",
             },
             "trading": {
                 "total_signals": trading_summary.get("total_signals", 0),
                 "virtual_return": trading_summary.get("virtual_return", 0),
                 "virtual_drawdown": trading_summary.get("virtual_drawdown", 0),
-                "status": "healthy"
-                if trading_summary.get("virtual_drawdown", 0) < 0.05
-                else "warning",
+                "status": (
+                    "healthy" if trading_summary.get("virtual_drawdown", 0) < 0.05 else "warning"
+                ),
             },
             "timestamp": datetime.now().isoformat(),
         }

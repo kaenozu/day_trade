@@ -228,9 +228,7 @@ class RealtimePredictionAPI:
                 }
             )
 
-    def _execute_prediction(
-        self, request: PredictionRequest
-    ) -> Optional[PredictionResponse]:
+    def _execute_prediction(self, request: PredictionRequest) -> Optional[PredictionResponse]:
         """予測実行"""
         try:
             # キャッシュチェック
@@ -238,9 +236,7 @@ class RealtimePredictionAPI:
 
             if cache_key in self.prediction_cache:
                 cached_result = self.prediction_cache[cache_key]
-                cache_age = (
-                    datetime.now() - cached_result["timestamp"]
-                ).total_seconds()
+                cache_age = (datetime.now() - cached_result["timestamp"]).total_seconds()
 
                 # 5分以内のキャッシュは有効
                 if cache_age < 300:
@@ -298,9 +294,11 @@ class RealtimePredictionAPI:
 
             # モデル情報
             model_info = {
-                "models_used": list(self.model_manager.models.keys())
-                if request.model_ensemble
-                else [list(self.model_manager.models.keys())[0]],
+                "models_used": (
+                    list(self.model_manager.models.keys())
+                    if request.model_ensemble
+                    else [list(self.model_manager.models.keys())[0]]
+                ),
                 "prediction_method": "ensemble" if request.model_ensemble else "single",
                 "sequence_length": self.dl_config.sequence_length,
                 "model_weights": getattr(prediction_result, "model_weights", {}),
@@ -312,9 +310,11 @@ class RealtimePredictionAPI:
             response = PredictionResponse(
                 symbol=request.symbol,
                 timestamp=datetime.now(),
-                predictions=prediction_result.predictions.tolist()
-                if hasattr(prediction_result.predictions, "tolist")
-                else list(prediction_result.predictions),
+                predictions=(
+                    prediction_result.predictions.tolist()
+                    if hasattr(prediction_result.predictions, "tolist")
+                    else list(prediction_result.predictions)
+                ),
                 confidence_intervals=confidence_intervals,
                 uncertainty_metrics=uncertainty_metrics,
                 model_info=model_info,
@@ -535,16 +535,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 設定
-    opt_level = (
-        OptimizationLevel.GPU_ACCELERATED if args.gpu else OptimizationLevel.OPTIMIZED
-    )
+    opt_level = OptimizationLevel.GPU_ACCELERATED if args.gpu else OptimizationLevel.OPTIMIZED
     opt_config = OptimizationConfig(
         level=opt_level, performance_monitoring=True, cache_enabled=True
     )
 
-    dl_config = DeepLearningConfig(
-        use_pytorch=True, sequence_length=60, prediction_horizon=5
-    )
+    dl_config = DeepLearningConfig(use_pytorch=True, sequence_length=60, prediction_horizon=5)
 
     # API起動
     api = RealtimePredictionAPI(dl_config, opt_config)

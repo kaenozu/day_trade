@@ -551,8 +551,7 @@ class EventBus:
                 "processed_events": self.processed_events,
                 "failed_events": self.failed_events,
                 "success_rate": (
-                    (self.processed_events - self.failed_events)
-                    / max(self.processed_events, 1)
+                    (self.processed_events - self.failed_events) / max(self.processed_events, 1)
                 ),
                 "avg_processing_time_us": self.avg_processing_time_us,
             },
@@ -562,13 +561,15 @@ class EventBus:
                 "registered_patterns": len(self.complex_processor.patterns),
                 "detected_patterns": len(self.complex_processor.detected_patterns),
             },
-            "memory_pool": {
-                "size_mb": 200,
-                "allocated_blocks": len(self.memory_pool.allocated_blocks),
-                "free_blocks": len(self.memory_pool.free_blocks),
-            }
-            if self.memory_pool
-            else None,
+            "memory_pool": (
+                {
+                    "size_mb": 200,
+                    "allocated_blocks": len(self.memory_pool.allocated_blocks),
+                    "free_blocks": len(self.memory_pool.free_blocks),
+                }
+                if self.memory_pool
+                else None
+            ),
         }
 
 
@@ -695,15 +696,12 @@ class EventDrivenSimulationEngine:
             "simulation_summary": {
                 "runtime_seconds": runtime_seconds,
                 "total_events": self.simulation_state["events_processed"],
-                "events_per_second": self.simulation_state["events_processed"]
-                / runtime_seconds,
+                "events_per_second": self.simulation_state["events_processed"] / runtime_seconds,
                 "simulations_completed": self.simulation_state["simulations_completed"],
             },
             "event_bus_stats": bus_stats,
             "performance": {
-                "avg_event_processing_us": bus_stats["event_bus"][
-                    "avg_processing_time_us"
-                ],
+                "avg_event_processing_us": bus_stats["event_bus"]["avg_processing_time_us"],
                 "event_success_rate": bus_stats["event_bus"]["success_rate"],
                 "throughput_events_per_sec": bus_stats["event_bus"]["processed_events"]
                 / runtime_seconds,

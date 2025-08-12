@@ -234,18 +234,14 @@ class StockDataIntegrationRule(DataIntegrationRule):
                     source_updated = source_data.get("last_updated")
 
                     if existing_updated and source_updated:
-                        if pd.to_datetime(existing_updated) > pd.to_datetime(
-                            source_updated
-                        ):
+                        if pd.to_datetime(existing_updated) > pd.to_datetime(source_updated):
                             integrated["last_price"] = existing_data["last_price"]
                             integrated["last_updated"] = existing_data["last_updated"]
 
                 # 企業情報は手動変更を優先
                 manual_fields = ["company_name", "industry", "sector"]
                 for field in manual_fields:
-                    if field in existing_data and existing_data.get(
-                        f"{field}_manual", False
-                    ):
+                    if field in existing_data and existing_data.get(f"{field}_manual", False):
                         integrated[field] = existing_data[field]
                         integrated[f"{field}_manual"] = True
 
@@ -862,9 +858,7 @@ class MasterDataManager:
             # データ統合実行
             if existing_entity.entity_type in self.integration_rules:
                 rule = self.integration_rules[existing_entity.entity_type]
-                integrated_attributes = await rule.integrate(
-                    attributes, existing_entity.attributes
-                )
+                integrated_attributes = await rule.integrate(attributes, existing_entity.attributes)
             else:
                 integrated_attributes = {**existing_entity.attributes, **attributes}
 
@@ -874,9 +868,7 @@ class MasterDataManager:
             existing_entity.updated_at = datetime.utcnow()
 
             # データ品質再評価
-            existing_entity.data_quality_score = await self._assess_entity_quality(
-                existing_entity
-            )
+            existing_entity.data_quality_score = await self._assess_entity_quality(existing_entity)
 
             # データベース更新
             await self._update_entity_in_db(existing_entity)
@@ -963,9 +955,9 @@ class MasterDataManager:
                 "total_count": entity_count,
                 "by_type": entities_by_type,
                 "by_domain": entities_by_domain,
-                "average_quality_score": total_quality_score / entity_count
-                if entity_count > 0
-                else 0,
+                "average_quality_score": (
+                    total_quality_score / entity_count if entity_count > 0 else 0
+                ),
             }
 
             # ドメイン情報
@@ -1052,9 +1044,7 @@ class MasterDataManager:
 
             # 必須属性チェック
             required_attrs = self._get_required_attributes(entity.entity_type)
-            missing_attrs = [
-                attr for attr in required_attrs if attr not in entity.attributes
-            ]
+            missing_attrs = [attr for attr in required_attrs if attr not in entity.attributes]
             if missing_attrs:
                 quality_score -= len(missing_attrs) * 0.1
 
@@ -1067,9 +1057,7 @@ class MasterDataManager:
             quality_score -= len(rule_violations) * 0.05
 
             # 鮮度チェック
-            data_age_hours = (
-                datetime.utcnow() - entity.updated_at
-            ).total_seconds() / 3600
+            data_age_hours = (datetime.utcnow() - entity.updated_at).total_seconds() / 3600
             if data_age_hours > 24:  # 24時間以上古い
                 quality_score -= 0.1
             elif data_age_hours > 168:  # 1週間以上古い
@@ -1102,17 +1090,13 @@ class MasterDataManager:
                     if element.name.lower().replace(" ", "_") == attr_name:
                         expected_type = element.data_type
 
-                        if expected_type == "string" and not isinstance(
-                            attr_value, str
-                        ):
+                        if expected_type == "string" and not isinstance(attr_value, str):
                             violations.append(f"{attr_name}: 文字列型が期待されます")
                         elif expected_type == "decimal" and not isinstance(
                             attr_value, (int, float)
                         ):
                             violations.append(f"{attr_name}: 数値型が期待されます")
-                        elif expected_type == "integer" and not isinstance(
-                            attr_value, int
-                        ):
+                        elif expected_type == "integer" and not isinstance(attr_value, int):
                             violations.append(f"{attr_name}: 整数型が期待されます")
 
                         break
@@ -1131,11 +1115,7 @@ class MasterDataManager:
             # 株式コードのビジネスルール
             if entity.entity_type == "stock" and "symbol" in entity.attributes:
                 symbol = entity.attributes["symbol"]
-                if (
-                    not isinstance(symbol, str)
-                    or not symbol.isdigit()
-                    or len(symbol) != 4
-                ):
+                if not isinstance(symbol, str) or not symbol.isdigit() or len(symbol) != 4:
                     violations.append("株式コードは4桁の数字である必要があります")
 
             # 価格のビジネスルール
@@ -1159,8 +1139,7 @@ class MasterDataManager:
             domain_policies = [
                 policy
                 for policy in self.governance_policies.values()
-                if policy.domain == entity.domain
-                or policy.domain == DataDomain.FINANCIAL
+                if policy.domain == entity.domain or policy.domain == DataDomain.FINANCIAL
             ]
 
             for policy in domain_policies:
@@ -1168,26 +1147,18 @@ class MasterDataManager:
                     # 品質ポリシー適用
                     for policy_rule in policy.rules:
                         if policy_rule["rule"] == "completeness":
-                            required_attrs = self._get_required_attributes(
-                                entity.entity_type
-                            )
+                            required_attrs = self._get_required_attributes(entity.entity_type)
                             completeness = (
-                                len(
-                                    [
-                                        attr
-                                        for attr in required_attrs
-                                        if attr in entity.attributes
-                                    ]
-                                )
+                                len([attr for attr in required_attrs if attr in entity.attributes])
                                 / len(required_attrs)
                                 if required_attrs
                                 else 1.0
                             )
 
                             if completeness < policy_rule["threshold"]:
-                                entity.metadata[
-                                    "quality_violations"
-                                ] = entity.metadata.get("quality_violations", [])
+                                entity.metadata["quality_violations"] = entity.metadata.get(
+                                    "quality_violations", []
+                                )
                                 entity.metadata["quality_violations"].append(
                                     f"完全性違反: {completeness:.2f} < {policy_rule['threshold']}"
                                 )
@@ -1274,9 +1245,7 @@ class MasterDataManager:
         confidence: float = 1.0,
     ):
         """データ系譜記録"""
-        lineage_id = (
-            f"lineage_{int(time.time())}_{hash(f'{source_entity}_{target_entity}')}"
-        )
+        lineage_id = f"lineage_{int(time.time())}_{hash(f'{source_entity}_{target_entity}')}"
 
         lineage = DataLineage(
             lineage_id=lineage_id,
@@ -1323,9 +1292,7 @@ class MasterDataManager:
         if not self.enable_audit:
             return
 
-        audit_id = (
-            f"audit_{int(time.time())}_{hash(f'{entity_type}_{entity_id}_{operation}')}"
-        )
+        audit_id = f"audit_{int(time.time())}_{hash(f'{entity_type}_{entity_id}_{operation}')}"
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -1446,9 +1413,7 @@ class MasterDataManager:
         try:
             # 基本統計
             total_entities = len(self.master_entities)
-            active_stewards = sum(
-                1 for steward in self.data_stewards.values() if steward.active
-            )
+            active_stewards = sum(1 for steward in self.data_stewards.values() if steward.active)
 
             # 品質メトリクス
             quality_metrics = await self._calculate_global_quality_metrics()
@@ -1463,8 +1428,7 @@ class MasterDataManager:
                     [
                         p
                         for p in self.governance_policies.values()
-                        if p.expiration_date is None
-                        or p.expiration_date > datetime.utcnow()
+                        if p.expiration_date is None or p.expiration_date > datetime.utcnow()
                     ]
                 ),
             }
@@ -1559,9 +1523,7 @@ class MasterDataManager:
         if self.enable_audit:
             try:
                 with sqlite3.connect(self.db_path) as conn:
-                    retention_date = datetime.utcnow() - timedelta(
-                        days=self.data_retention_days
-                    )
+                    retention_date = datetime.utcnow() - timedelta(days=self.data_retention_days)
                     conn.execute(
                         """
                         DELETE FROM audit_log
@@ -1665,9 +1627,7 @@ if __name__ == "__main__":
             print("\n3. エンティティ取得テスト...")
             retrieved_stock = await mdm.get_master_entity(stock_entity_id)
             if retrieved_stock:
-                print(
-                    f"   取得成功: {retrieved_stock.entity_type} - {retrieved_stock.primary_key}"
-                )
+                print(f"   取得成功: {retrieved_stock.entity_type} - {retrieved_stock.primary_key}")
                 print(f"   品質スコア: {retrieved_stock.data_quality_score:.3f}")
                 print(f"   バージョン: {retrieved_stock.version}")
 
@@ -1707,9 +1667,7 @@ if __name__ == "__main__":
             print(f"   データ要素数: {len(catalog['data_elements'])}")
             print("   マスターエンティティ:")
             print(f"     総数: {catalog['master_entities']['total_count']}")
-            print(
-                f"     平均品質スコア: {catalog['master_entities']['average_quality_score']:.3f}"
-            )
+            print(f"     平均品質スコア: {catalog['master_entities']['average_quality_score']:.3f}")
             print(f"   ドメイン数: {len(catalog['domains'])}")
             print(f"   スチュワード数: {len(catalog['stewards'])}")
             print(f"   ガバナンスポリシー数: {len(catalog['governance_policies'])}")

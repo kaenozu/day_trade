@@ -56,9 +56,7 @@ class CacheProviderFactory:
     def __init__(self):
         self._provider_registry: Dict[CacheProviderType, Type[ICacheProvider]] = {}
         self._serializer_registry: Dict[SerializerType, Type[ICacheSerializer]] = {}
-        self._eviction_policy_registry: Dict[
-            EvictionPolicyType, Type[ICacheEvictionPolicy]
-        ] = {}
+        self._eviction_policy_registry: Dict[EvictionPolicyType, Type[ICacheEvictionPolicy]] = {}
         self._plugin_registry: Dict[str, Type[ICacheProvider]] = {}
         self._config_schemas: Dict[CacheProviderType, Dict[str, Any]] = {}
         self._instance_cache: Dict[str, ICacheProvider] = {}
@@ -226,12 +224,10 @@ class CacheProviderFactory:
             self._plugin_registry[plugin_name] = provider_class
 
             if config_schema:
-                self._config_schemas[
-                    CacheProviderType.PLUGIN
-                ] = self._config_schemas.get(CacheProviderType.PLUGIN, {})
-                self._config_schemas[CacheProviderType.PLUGIN][
-                    plugin_name
-                ] = config_schema
+                self._config_schemas[CacheProviderType.PLUGIN] = self._config_schemas.get(
+                    CacheProviderType.PLUGIN, {}
+                )
+                self._config_schemas[CacheProviderType.PLUGIN][plugin_name] = config_schema
 
             return True
 
@@ -266,9 +262,7 @@ class CacheProviderFactory:
 
         try:
             # シリアライザー作成
-            serializer = self._create_serializer(
-                validated_config.get("serializer", "pickle")
-            )
+            serializer = self._create_serializer(validated_config.get("serializer", "pickle"))
 
             # 立ち退きポリシー作成
             eviction_policy = self._create_eviction_policy(
@@ -376,9 +370,9 @@ class CacheProviderFactory:
                         "name": metadata.get("name", plugin_name),
                         "version": metadata.get("version", "unknown"),
                         "description": metadata.get("description", ""),
-                        "config_schema": self._config_schemas.get(
-                            CacheProviderType.PLUGIN, {}
-                        ).get(plugin_name, {}),
+                        "config_schema": self._config_schemas.get(CacheProviderType.PLUGIN, {}).get(
+                            plugin_name, {}
+                        ),
                     }
                 else:
                     available[plugin_name] = {"type": "plugin", "name": plugin_name}
@@ -416,9 +410,7 @@ class CacheProviderFactory:
 
         # スキーマ取得
         if provider_type == CacheProviderType.PLUGIN and plugin_name:
-            schema = self._config_schemas.get(CacheProviderType.PLUGIN, {}).get(
-                plugin_name, {}
-            )
+            schema = self._config_schemas.get(CacheProviderType.PLUGIN, {}).get(plugin_name, {})
         else:
             schema = self._config_schemas.get(provider_type, {})
 

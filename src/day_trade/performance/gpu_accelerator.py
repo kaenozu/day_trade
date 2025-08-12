@@ -7,8 +7,8 @@ CUDAによる大規模並列計算とTensorFlowによる機械学習推論の最
 """
 
 import asyncio
-import time
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -18,12 +18,14 @@ import numpy as np
 try:
     import cupy as cp
     import cupy.cuda.runtime as cuda_runtime
+
     CUPY_AVAILABLE = True
 except ImportError:
     CUPY_AVAILABLE = False
 
 try:
     import tensorflow as tf
+
     tf.config.experimental.set_memory_growth = True
     TF_AVAILABLE = True
 except ImportError:
@@ -31,6 +33,7 @@ except ImportError:
 
 try:
     import torch
+
     if torch.cuda.is_available():
         TORCH_AVAILABLE = True
     else:
@@ -42,8 +45,10 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
@@ -51,6 +56,7 @@ logger = get_context_logger(__name__)
 @dataclass
 class GPUConfig:
     """GPU加速設定"""
+
     # GPU選択
     device_id: int = 0
     use_multi_gpu: bool = False
@@ -103,15 +109,15 @@ class GPUMemoryManager:
             if self.config.gpu_memory_limit_mb > 0:
                 mempool.set_limit(size=self.config.gpu_memory_limit_mb * 1024 * 1024)
 
-            self.memory_pools['cupy'] = mempool
-            self.memory_pools['pinned'] = pinned_mempool
+            self.memory_pools["cupy"] = mempool
+            self.memory_pools["pinned"] = pinned_mempool
 
             logger.info(f"CuPy メモリプール初期化: {self.config.gpu_memory_limit_mb}MB制限")
 
         except Exception as e:
             logger.error(f"CuPy メモリプール初期化失敗: {e}")
 
-    def allocate_gpu_array(self, shape: Tuple, dtype=np.float32) -> Optional['cp.ndarray']:
+    def allocate_gpu_array(self, shape: Tuple, dtype=np.float32) -> Optional["cp.ndarray"]:
         """GPU配列割り当て"""
         if not CUPY_AVAILABLE:
             return None
@@ -126,7 +132,7 @@ class GPUMemoryManager:
                 self.allocation_stats["current_usage_mb"] += size_mb
                 self.allocation_stats["peak_usage_mb"] = max(
                     self.allocation_stats["peak_usage_mb"],
-                    self.allocation_stats["current_usage_mb"]
+                    self.allocation_stats["current_usage_mb"],
                 )
 
                 return array
@@ -135,7 +141,7 @@ class GPUMemoryManager:
             logger.error(f"GPU配列割り当て失敗: {e}")
             return None
 
-    def deallocate_gpu_array(self, array: 'cp.ndarray'):
+    def deallocate_gpu_array(self, array: "cp.ndarray"):
         """GPU配列解放"""
         if not CUPY_AVAILABLE or array is None:
             return
@@ -163,14 +169,16 @@ class GPUMemoryManager:
                 free_memory_mb = meminfo[0] / (1024 * 1024)
                 used_memory_mb = total_memory_mb - free_memory_mb
 
-                info.update({
-                    "gpu_available": True,
-                    "total_memory_mb": total_memory_mb,
-                    "free_memory_mb": free_memory_mb,
-                    "used_memory_mb": used_memory_mb,
-                    "utilization_percent": (used_memory_mb / total_memory_mb) * 100,
-                    "allocation_stats": self.allocation_stats.copy(),
-                })
+                info.update(
+                    {
+                        "gpu_available": True,
+                        "total_memory_mb": total_memory_mb,
+                        "free_memory_mb": free_memory_mb,
+                        "used_memory_mb": used_memory_mb,
+                        "utilization_percent": (used_memory_mb / total_memory_mb) * 100,
+                        "allocation_stats": self.allocation_stats.copy(),
+                    }
+                )
 
             except Exception as e:
                 logger.error(f"GPU メモリ情報取得失敗: {e}")
@@ -179,8 +187,8 @@ class GPUMemoryManager:
 
     def cleanup(self):
         """メモリクリーンアップ"""
-        if CUPY_AVAILABLE and 'cupy' in self.memory_pools:
-            self.memory_pools['cupy'].free_all_blocks()
+        if CUPY_AVAILABLE and "cupy" in self.memory_pools:
+            self.memory_pools["cupy"].free_all_blocks()
             logger.info("GPU メモリクリーンアップ完了")
 
 
@@ -215,7 +223,7 @@ class CudaKernelManager:
 
         try:
             # 高速特徴量計算カーネル
-            feature_kernel_code = '''
+            feature_kernel_code = """
             extern "C" __global__
             void compute_technical_features(
                 const float* prices, const float* volumes,
@@ -272,14 +280,14 @@ class CudaKernelManager:
                     }
                 }
             }
-            '''
+            """
 
-            self.compiled_kernels['technical_features'] = cp.RawKernel(
-                feature_kernel_code, 'compute_technical_features'
+            self.compiled_kernels["technical_features"] = cp.RawKernel(
+                feature_kernel_code, "compute_technical_features"
             )
 
             # 高速予測カーネル
-            prediction_kernel_code = '''
+            prediction_kernel_code = """
             extern "C" __global__
             void fast_linear_prediction(
                 const float* features, const float* weights,
@@ -297,10 +305,10 @@ class CudaKernelManager:
 
                 predictions[idx] = prediction;
             }
-            '''
+            """
 
-            self.compiled_kernels['linear_prediction'] = cp.RawKernel(
-                prediction_kernel_code, 'fast_linear_prediction'
+            self.compiled_kernels["linear_prediction"] = cp.RawKernel(
+                prediction_kernel_code, "fast_linear_prediction"
             )
 
             logger.info("CUDA カーネルコンパイル完了")
@@ -310,13 +318,13 @@ class CudaKernelManager:
 
     def execute_feature_kernel(
         self,
-        prices: 'cp.ndarray',
-        volumes: 'cp.ndarray',
-        features: 'cp.ndarray',
-        stream_id: int = 0
+        prices: "cp.ndarray",
+        volumes: "cp.ndarray",
+        features: "cp.ndarray",
+        stream_id: int = 0,
     ) -> bool:
         """特徴量計算カーネル実行"""
-        if 'technical_features' not in self.compiled_kernels:
+        if "technical_features" not in self.compiled_kernels:
             return False
 
         try:
@@ -331,10 +339,11 @@ class CudaKernelManager:
             stream = self.streams[stream_id % len(self.streams)] if self.streams else None
 
             # カーネル実行
-            self.compiled_kernels['technical_features'](
-                (grid_size,), (block_size,),
+            self.compiled_kernels["technical_features"](
+                (grid_size,),
+                (block_size,),
                 (prices, volumes, features, n, feature_dim),
-                stream=stream
+                stream=stream,
             )
 
             return True
@@ -345,13 +354,13 @@ class CudaKernelManager:
 
     def execute_prediction_kernel(
         self,
-        features: 'cp.ndarray',
-        weights: 'cp.ndarray',
-        predictions: 'cp.ndarray',
-        stream_id: int = 0
+        features: "cp.ndarray",
+        weights: "cp.ndarray",
+        predictions: "cp.ndarray",
+        stream_id: int = 0,
     ) -> bool:
         """予測カーネル実行"""
-        if 'linear_prediction' not in self.compiled_kernels:
+        if "linear_prediction" not in self.compiled_kernels:
             return False
 
         try:
@@ -366,10 +375,11 @@ class CudaKernelManager:
             stream = self.streams[stream_id % len(self.streams)] if self.streams else None
 
             # カーネル実行
-            self.compiled_kernels['linear_prediction'](
-                (grid_size,), (block_size,),
+            self.compiled_kernels["linear_prediction"](
+                (grid_size,),
+                (block_size,),
                 (features, weights, predictions, n, feature_dim),
-                stream=stream
+                stream=stream,
             )
 
             return True
@@ -423,7 +433,9 @@ class GPUAccelerator:
                 cp.cuda.Device(self.config.device_id).use()
 
                 device_props = cp.cuda.runtime.getDeviceProperties(self.config.device_id)
-                logger.info(f"CUDA デバイス検出: {device_count}台, 使用デバイス: {self.config.device_id}")
+                logger.info(
+                    f"CUDA デバイス検出: {device_count}台, 使用デバイス: {self.config.device_id}"
+                )
                 logger.info(f"デバイス名: {device_props['name'].decode()}")
 
                 return True
@@ -435,10 +447,7 @@ class GPUAccelerator:
         return any(gpu_info.values())
 
     def compute_features_gpu(
-        self,
-        prices: np.ndarray,
-        volumes: np.ndarray,
-        feature_dim: int = 7
+        self, prices: np.ndarray, volumes: np.ndarray, feature_dim: int = 7
     ) -> Union[np.ndarray, None]:
         """GPU特徴量計算"""
         if not self.gpu_available or not CUPY_AVAILABLE:
@@ -457,10 +466,9 @@ class GPUAccelerator:
             gpu_features = cp.zeros((len(prices), feature_dim), dtype=cp.float32)
 
             # CUDA カーネル実行
-            if (self.kernel_manager and
-                self.kernel_manager.execute_feature_kernel(
-                    gpu_prices, gpu_volumes, gpu_features
-                )):
+            if self.kernel_manager and self.kernel_manager.execute_feature_kernel(
+                gpu_prices, gpu_volumes, gpu_features
+            ):
 
                 # CPU に結果転送
                 result = cp.asnumpy(gpu_features)
@@ -482,10 +490,7 @@ class GPUAccelerator:
             return self._compute_features_cpu(prices, volumes, feature_dim)
 
     def _compute_features_cpu(
-        self,
-        prices: np.ndarray,
-        volumes: np.ndarray,
-        feature_dim: int
+        self, prices: np.ndarray, volumes: np.ndarray, feature_dim: int
     ) -> np.ndarray:
         """CPU フォールバック特徴量計算"""
         start_time = time.perf_counter()
@@ -495,11 +500,11 @@ class GPUAccelerator:
 
         for i in range(20, n):  # 十分な履歴がある範囲
             # 移動平均
-            features[i, 0] = np.mean(prices[i-5:i])  # MA5
-            features[i, 1] = np.mean(prices[i-20:i])  # MA20
+            features[i, 0] = np.mean(prices[i - 5 : i])  # MA5
+            features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
 
             # RSI簡略版
-            changes = np.diff(prices[i-14:i])
+            changes = np.diff(prices[i - 14 : i])
             gains = changes[changes > 0]
             losses = -changes[changes < 0]
             avg_gain = np.mean(gains) if len(gains) > 0 else 0
@@ -508,11 +513,11 @@ class GPUAccelerator:
             features[i, 2] = 100 - (100 / (1 + rs))
 
             # ボリューム比率
-            vol_ma = np.mean(volumes[i-5:i])
+            vol_ma = np.mean(volumes[i - 5 : i])
             features[i, 3] = volumes[i] / max(vol_ma, 1e-8)
 
             # 価格変化率
-            features[i, 4] = (prices[i] - prices[i-1]) / max(prices[i-1], 1e-8)
+            features[i, 4] = (prices[i] - prices[i - 1]) / max(prices[i - 1], 1e-8)
 
             # 現在値
             features[i, 5] = prices[i]
@@ -525,9 +530,7 @@ class GPUAccelerator:
         return features
 
     def batch_predict_gpu(
-        self,
-        features_batch: np.ndarray,
-        model_weights: np.ndarray
+        self, features_batch: np.ndarray, model_weights: np.ndarray
     ) -> Union[np.ndarray, None]:
         """GPU バッチ予測"""
         if not self.gpu_available or not CUPY_AVAILABLE:
@@ -546,10 +549,9 @@ class GPUAccelerator:
             gpu_predictions = cp.zeros(len(features_batch), dtype=cp.float32)
 
             # CUDA カーネル実行
-            if (self.kernel_manager and
-                self.kernel_manager.execute_prediction_kernel(
-                    gpu_features, gpu_weights, gpu_predictions
-                )):
+            if self.kernel_manager and self.kernel_manager.execute_prediction_kernel(
+                gpu_features, gpu_weights, gpu_predictions
+            ):
 
                 # CPU に結果転送
                 result = cp.asnumpy(gpu_predictions)
@@ -570,9 +572,7 @@ class GPUAccelerator:
             return self._batch_predict_cpu(features_batch, model_weights)
 
     def _batch_predict_cpu(
-        self,
-        features_batch: np.ndarray,
-        model_weights: np.ndarray
+        self, features_batch: np.ndarray, model_weights: np.ndarray
     ) -> np.ndarray:
         """CPU フォールバック予測"""
         start_time = time.perf_counter()
@@ -587,9 +587,7 @@ class GPUAccelerator:
         return predictions
 
     async def async_gpu_pipeline(
-        self,
-        symbols_data: Dict[str, Dict[str, np.ndarray]],
-        model_weights: np.ndarray
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]], model_weights: np.ndarray
     ) -> Dict[str, Any]:
         """非同期GPU処理パイプライン"""
         pipeline_start = time.perf_counter()
@@ -603,8 +601,8 @@ class GPUAccelerator:
         current_index = 0
 
         for symbol, data in symbols_data.items():
-            prices = data.get('prices', np.array([]))
-            volumes = data.get('volumes', np.array([]))
+            prices = data.get("prices", np.array([]))
+            volumes = data.get("volumes", np.array([]))
 
             if len(prices) > 0 and len(volumes) > 0:
                 # 特徴量計算
@@ -639,7 +637,7 @@ class GPUAccelerator:
                 "pipeline_time_ms": pipeline_time,
                 "gpu_accelerated": self.gpu_available,
                 "symbols_per_second": len(results) / max(pipeline_time / 1000, 1e-6),
-            }
+            },
         }
 
     def _update_gpu_stats(self, execution_time_ms: float, is_gpu: bool):
@@ -650,15 +648,15 @@ class GPUAccelerator:
                 current_avg = self.performance_stats["avg_gpu_time_ms"]
                 total_ops = self.performance_stats["gpu_operations"]
                 self.performance_stats["avg_gpu_time_ms"] = (
-                    (current_avg * (total_ops - 1) + execution_time_ms) / total_ops
-                )
+                    current_avg * (total_ops - 1) + execution_time_ms
+                ) / total_ops
             else:
                 self.performance_stats["cpu_fallback_operations"] += 1
                 current_avg = self.performance_stats["avg_cpu_time_ms"]
                 total_ops = self.performance_stats["cpu_fallback_operations"]
                 self.performance_stats["avg_cpu_time_ms"] = (
-                    (current_avg * (total_ops - 1) + execution_time_ms) / total_ops
-                )
+                    current_avg * (total_ops - 1) + execution_time_ms
+                ) / total_ops
 
             # 加速比計算
             gpu_time = self.performance_stats["avg_gpu_time_ms"]
@@ -724,6 +722,7 @@ def get_gpu_accelerator(config: GPUConfig = None) -> GPUAccelerator:
 
 def gpu_accelerated(min_data_size: int = 100):
     """GPU加速デコレータ"""
+
     def decorator(func):
         async def async_wrapper(*args, **kwargs):
             accelerator = get_gpu_accelerator()
@@ -776,8 +775,8 @@ if __name__ == "__main__":
     for i in range(20):
         symbol = f"STOCK_{i:03d}"
         test_data[symbol] = {
-            'prices': np.random.normal(100, 5, 1000).astype(np.float32),
-            'volumes': np.random.normal(10000, 1000, 1000).astype(np.float32),
+            "prices": np.random.normal(100, 5, 1000).astype(np.float32),
+            "volumes": np.random.normal(10000, 1000, 1000).astype(np.float32),
         }
 
     model_weights = np.random.normal(0, 0.1, 7).astype(np.float32)
@@ -797,6 +796,7 @@ if __name__ == "__main__":
         print(f"予測結果: {predictions[:5] if predictions is not None else 'None'}")
 
     print("\n3. 非同期パイプライン テスト")
+
     async def run_async_test():
         result = await accelerator.async_gpu_pipeline(test_data, model_weights)
         return result

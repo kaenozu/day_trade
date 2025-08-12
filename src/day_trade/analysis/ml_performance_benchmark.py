@@ -113,15 +113,11 @@ class MLPerformanceBenchmark:
                         )
 
                         try:
-                            result = self._run_single_benchmark(
-                                method, test_data, symbol
-                            )
+                            result = self._run_single_benchmark(method, test_data, symbol)
                             period_results[method] = result
 
                         except Exception as e:
-                            error_msg = (
-                                f"ベンチマークエラー ({symbol}-{period}-{method}): {e}"
-                            )
+                            error_msg = f"ベンチマークエラー ({symbol}-{period}-{method}): {e}"
                             logger.error(error_msg, section="ml_benchmark")
                             benchmark_report["errors"].append(error_msg)
 
@@ -143,9 +139,7 @@ class MLPerformanceBenchmark:
                 "機械学習性能ベンチマーク完了",
                 section="ml_benchmark",
                 total_execution_time=benchmark_report["total_execution_time"],
-                successful_tests=self._count_successful_tests(
-                    benchmark_report["results"]
-                ),
+                successful_tests=self._count_successful_tests(benchmark_report["results"]),
             )
 
             return benchmark_report
@@ -235,9 +229,7 @@ class MLPerformanceBenchmark:
             return result
 
         except Exception as e:
-            logger.error(
-                f"単一ベンチマークエラー ({method}): {e}", section="ml_benchmark"
-            )
+            logger.error(f"単一ベンチマークエラー ({method}): {e}", section="ml_benchmark")
             return BenchmarkResult(
                 method_name=method,
                 execution_time=time.time() - start_time,
@@ -295,9 +287,7 @@ class MLPerformanceBenchmark:
                     )
 
             # パフォーマンス計算
-            performance = self._calculate_strategy_performance(
-                test_data[train_size:], signals
-            )
+            performance = self._calculate_strategy_performance(test_data[train_size:], signals)
 
             return BenchmarkResult(
                 method_name="enhanced_ensemble_ml",
@@ -314,9 +304,7 @@ class MLPerformanceBenchmark:
             )
 
         except Exception as e:
-            logger.error(
-                f"強化アンサンブルMLベンチマークエラー: {e}", section="ml_benchmark"
-            )
+            logger.error(f"強化アンサンブルMLベンチマークエラー: {e}", section="ml_benchmark")
             raise
 
     def _benchmark_traditional_ensemble(
@@ -362,9 +350,7 @@ class MLPerformanceBenchmark:
                     )
 
             # パフォーマンス計算
-            performance = self._calculate_strategy_performance(
-                test_data[train_size:], signals
-            )
+            performance = self._calculate_strategy_performance(test_data[train_size:], signals)
 
             return BenchmarkResult(
                 method_name="traditional_ensemble",
@@ -381,9 +367,7 @@ class MLPerformanceBenchmark:
             )
 
         except Exception as e:
-            logger.error(
-                f"従来アンサンブルベンチマークエラー: {e}", section="ml_benchmark"
-            )
+            logger.error(f"従来アンサンブルベンチマークエラー: {e}", section="ml_benchmark")
             # フォールバック結果を返す
             return BenchmarkResult(
                 method_name="traditional_ensemble",
@@ -399,9 +383,7 @@ class MLPerformanceBenchmark:
                 additional_metrics={"error": "fallback_result"},
             )
 
-    def _benchmark_single_rsi(
-        self, test_data: pd.DataFrame, symbol: str
-    ) -> BenchmarkResult:
+    def _benchmark_single_rsi(self, test_data: pd.DataFrame, symbol: str) -> BenchmarkResult:
         """単純RSI戦略のベンチマーク"""
         try:
             # RSI計算
@@ -425,9 +407,7 @@ class MLPerformanceBenchmark:
                     signals.append({"date": date, "signal": "buy", "confidence": 70})
 
             # パフォーマンス計算
-            performance = self._calculate_strategy_performance(
-                test_data[train_size:], signals
-            )
+            performance = self._calculate_strategy_performance(test_data[train_size:], signals)
 
             return BenchmarkResult(
                 method_name="single_rsi",
@@ -447,9 +427,7 @@ class MLPerformanceBenchmark:
             logger.error(f"単純RSIベンチマークエラー: {e}", section="ml_benchmark")
             raise
 
-    def _benchmark_simple_ma_cross(
-        self, test_data: pd.DataFrame, symbol: str
-    ) -> BenchmarkResult:
+    def _benchmark_simple_ma_cross(self, test_data: pd.DataFrame, symbol: str) -> BenchmarkResult:
         """単純移動平均クロス戦略のベンチマーク"""
         try:
             # 移動平均計算
@@ -465,21 +443,15 @@ class MLPerformanceBenchmark:
                     ma_short.iloc[i] > ma_long.iloc[i]
                     and ma_short.iloc[i - 1] <= ma_long.iloc[i - 1]
                 ):
-                    signals.append(
-                        {"date": test_data.index[i], "signal": "buy", "confidence": 65}
-                    )
+                    signals.append({"date": test_data.index[i], "signal": "buy", "confidence": 65})
                 elif (
                     ma_short.iloc[i] < ma_long.iloc[i]
                     and ma_short.iloc[i - 1] >= ma_long.iloc[i - 1]
                 ):
-                    signals.append(
-                        {"date": test_data.index[i], "signal": "sell", "confidence": 65}
-                    )
+                    signals.append({"date": test_data.index[i], "signal": "sell", "confidence": 65})
 
             # パフォーマンス計算
-            performance = self._calculate_strategy_performance(
-                test_data[train_size:], signals
-            )
+            performance = self._calculate_strategy_performance(test_data[train_size:], signals)
 
             return BenchmarkResult(
                 method_name="simple_ma_cross",
@@ -496,14 +468,10 @@ class MLPerformanceBenchmark:
             )
 
         except Exception as e:
-            logger.error(
-                f"単純移動平均クロスベンチマークエラー: {e}", section="ml_benchmark"
-            )
+            logger.error(f"単純移動平均クロスベンチマークエラー: {e}", section="ml_benchmark")
             raise
 
-    def _benchmark_buy_and_hold(
-        self, test_data: pd.DataFrame, symbol: str
-    ) -> BenchmarkResult:
+    def _benchmark_buy_and_hold(self, test_data: pd.DataFrame, symbol: str) -> BenchmarkResult:
         """買い持ち戦略のベンチマーク"""
         try:
             train_size = int(len(test_data) * 0.7)
@@ -573,9 +541,7 @@ class MLPerformanceBenchmark:
 
         return indicators
 
-    def _calculate_strategy_performance(
-        self, test_data: pd.DataFrame, signals: List[Dict]
-    ) -> Dict:
+    def _calculate_strategy_performance(self, test_data: pd.DataFrame, signals: List[Dict]) -> Dict:
         """戦略パフォーマンス計算"""
         if not signals:
             return {
@@ -644,9 +610,7 @@ class MLPerformanceBenchmark:
         correct_signals = sum(1 for s in strategy_returns if s > 0)
         total_signals_with_return = len([s for s in strategy_returns if s != 0])
         accuracy = (
-            correct_signals / total_signals_with_return
-            if total_signals_with_return > 0
-            else 0
+            correct_signals / total_signals_with_return if total_signals_with_return > 0 else 0
         )
 
         return {
@@ -679,9 +643,7 @@ class MLPerformanceBenchmark:
             method_results = [r for r in all_results if r.method_name == method]
 
             summary[method] = {
-                "avg_execution_time": np.mean(
-                    [r.execution_time for r in method_results]
-                ),
+                "avg_execution_time": np.mean([r.execution_time for r in method_results]),
                 "avg_sharpe_ratio": np.mean([r.sharpe_ratio for r in method_results]),
                 "avg_total_return": np.mean([r.total_return for r in method_results]),
                 "avg_max_drawdown": np.mean([r.max_drawdown for r in method_results]),

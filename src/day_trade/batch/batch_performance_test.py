@@ -153,9 +153,7 @@ class BatchPerformanceTester:
                         f"テスト成功: {test_method.__name__} - {result.metrics.get('total_time_seconds', 0):.2f}秒"
                     )
                 else:
-                    logger.warning(
-                        f"テスト失敗: {test_method.__name__} - {result.errors}"
-                    )
+                    logger.warning(f"テスト失敗: {test_method.__name__} - {result.errors}")
 
             except Exception as e:
                 error_result = PerformanceTestResult(test_method.__name__)
@@ -200,9 +198,9 @@ class BatchPerformanceTester:
                         request_id = consolidator.submit_request(
                             endpoint="stock_data",
                             symbols=symbols,
-                            priority=APIRequestPriority.HIGH
-                            if i % 2 == 0
-                            else APIRequestPriority.NORMAL,
+                            priority=(
+                                APIRequestPriority.HIGH if i % 2 == 0 else APIRequestPriority.NORMAL
+                            ),
                             callback=response_callback,
                         )
                         request_ids.append(request_id)
@@ -230,21 +228,15 @@ class BatchPerformanceTester:
                         f"batch_size_{batch_size}_consolidation_ratio",
                         stats.consolidation_ratio,
                     )
-                    result.add_metric(
-                        f"batch_size_{batch_size}_throughput", stats.throughput_rps
-                    )
+                    result.add_metric(f"batch_size_{batch_size}_throughput", stats.throughput_rps)
                     result.add_metric(f"batch_size_{batch_size}_test_time", test_time)
 
                 finally:
                     consolidator.stop()
 
             # 全体メトリクス計算
-            success_rates = [
-                v for k, v in result.metrics.items() if "success_rate" in k
-            ]
-            result.add_metric(
-                "overall_avg_success_rate", sum(success_rates) / len(success_rates)
-            )
+            success_rates = [v for k, v in result.metrics.items() if "success_rate" in k]
+            result.add_metric("overall_avg_success_rate", sum(success_rates) / len(success_rates))
 
             result.complete(True)
 
@@ -259,9 +251,7 @@ class BatchPerformanceTester:
         result = PerformanceTestResult("integrated_data_fetcher")
 
         try:
-            fetcher = create_integrated_fetcher(
-                batch_size=50, max_workers=4, enable_caching=True
-            )
+            fetcher = create_integrated_fetcher(batch_size=50, max_workers=4, enable_caching=True)
             fetcher.start()
 
             try:
@@ -289,9 +279,7 @@ class BatchPerformanceTester:
 
                     # メトリクス記録
                     priority_name = priority.name.lower()
-                    result.add_metric(
-                        f"{priority_name}_success_count", response.success_count
-                    )
+                    result.add_metric(f"{priority_name}_success_count", response.success_count)
                     result.add_metric(f"{priority_name}_total_symbols", len(symbols))
                     result.add_metric(
                         f"{priority_name}_success_rate",
@@ -301,9 +289,7 @@ class BatchPerformanceTester:
                         f"{priority_name}_processing_time",
                         response.total_processing_time,
                     )
-                    result.add_metric(
-                        f"{priority_name}_cache_hit_rate", response.cache_hit_rate
-                    )
+                    result.add_metric(f"{priority_name}_cache_hit_rate", response.cache_hit_rate)
                     result.add_metric(f"{priority_name}_fetch_time", fetch_time)
 
                 # パフォーマンス統計
@@ -312,9 +298,7 @@ class BatchPerformanceTester:
                 result.add_metric("overall_success_rate", stats["success_rate"])
                 result.add_metric("overall_cache_hit_rate", stats["cache_hit_rate"])
                 result.add_metric("fallback_rate", stats["fallback_rate"])
-                result.add_metric(
-                    "average_response_time", stats["average_response_time"]
-                )
+                result.add_metric("average_response_time", stats["average_response_time"])
 
                 result.complete(True)
 
@@ -396,18 +380,10 @@ class BatchPerformanceTester:
 
                 # メトリクス記録
                 size_key = f"data_size_{data_size}"
-                result.add_metric(
-                    f"{size_key}_insert_throughput", insert_result.throughput_rps
-                )
-                result.add_metric(
-                    f"{size_key}_insert_success_rate", insert_result.success_rate
-                )
-                result.add_metric(
-                    f"{size_key}_upsert_throughput", upsert_result.throughput_rps
-                )
-                result.add_metric(
-                    f"{size_key}_upsert_success_rate", upsert_result.success_rate
-                )
+                result.add_metric(f"{size_key}_insert_throughput", insert_result.throughput_rps)
+                result.add_metric(f"{size_key}_insert_success_rate", insert_result.success_rate)
+                result.add_metric(f"{size_key}_upsert_throughput", upsert_result.throughput_rps)
+                result.add_metric(f"{size_key}_upsert_success_rate", upsert_result.success_rate)
 
             # 全体パフォーマンス統計
             stats = optimizer.get_performance_stats()
@@ -458,9 +434,7 @@ class BatchPerformanceTester:
                             test_task,
                             100 + i * 10,
                             delay=0.005,
-                            priority=TaskPriority.HIGH
-                            if i % 3 == 0
-                            else TaskPriority.NORMAL,
+                            priority=TaskPriority.HIGH if i % 3 == 0 else TaskPriority.NORMAL,
                             task_id=f"success_task_{i}",
                         )
                         task_ids.append(task_id)
@@ -491,14 +465,10 @@ class BatchPerformanceTester:
                     # メトリクス記録
                     worker_key = f"workers_{worker_count}"
                     result.add_metric(f"{worker_key}_completed_tasks", len(results))
-                    result.add_metric(
-                        f"{worker_key}_successful_tasks", len(successful_results)
-                    )
+                    result.add_metric(f"{worker_key}_successful_tasks", len(successful_results))
                     result.add_metric(f"{worker_key}_failed_tasks", len(failed_results))
                     result.add_metric(f"{worker_key}_success_rate", stats.success_rate)
-                    result.add_metric(
-                        f"{worker_key}_throughput_tps", stats.throughput_tps
-                    )
+                    result.add_metric(f"{worker_key}_throughput_tps", stats.throughput_tps)
                     result.add_metric(
                         f"{worker_key}_avg_execution_time", stats.average_execution_time
                     )
@@ -575,9 +545,7 @@ class BatchPerformanceTester:
                         f"{target_key}_cache_hit_rate",
                         flow_result.overall_cache_hit_rate,
                     )
-                    result.add_metric(
-                        f"{target_key}_stage_count", len(flow_result.stage_results)
-                    )
+                    result.add_metric(f"{target_key}_stage_count", len(flow_result.stage_results))
 
                 # システム全体の性能メトリクス
                 metrics = dataflow.get_performance_metrics()
@@ -645,9 +613,7 @@ class BatchPerformanceTester:
                 )
 
                 # データフェッチャー
-                fetcher_response = fetcher.fetch_data(
-                    symbols=symbols, period="5d", timeout=10.0
-                )
+                fetcher_response = fetcher.fetch_data(symbols=symbols, period="5d", timeout=10.0)
 
                 # バッチエンジン
                 def simple_task(symbol: str) -> str:
@@ -668,9 +634,7 @@ class BatchPerformanceTester:
                 # 結果検証
                 consolidator_success = len(consolidator_responses) > 0
                 fetcher_success = fetcher_response.success_count > 0
-                engine_success = (
-                    len([r for r in engine_results.values() if r.success]) > 0
-                )
+                engine_success = len([r for r in engine_results.values() if r.success]) > 0
 
                 # メトリクス記録
                 result.add_metric("integration_time", integration_time)
@@ -753,21 +717,15 @@ class BatchPerformanceTester:
 
                     # メトリクス記録
                     load_key = f"load_{load_level}"
-                    result.add_metric(
-                        f"{load_key}_responses_received", len(responses_received)
-                    )
+                    result.add_metric(f"{load_key}_responses_received", len(responses_received))
                     result.add_metric(f"{load_key}_test_duration", test_duration)
                     result.add_metric(
                         f"{load_key}_requests_per_second",
                         len(responses_received) / test_duration,
                     )
-                    result.add_metric(
-                        f"{load_key}_consolidation_ratio", stats.consolidation_ratio
-                    )
+                    result.add_metric(f"{load_key}_consolidation_ratio", stats.consolidation_ratio)
                     result.add_metric(f"{load_key}_success_rate", stats.success_rate)
-                    result.add_metric(
-                        f"{load_key}_avg_response_time", stats.avg_response_time
-                    )
+                    result.add_metric(f"{load_key}_avg_response_time", stats.avg_response_time)
 
                 finally:
                     consolidator.stop()
@@ -799,9 +757,7 @@ class BatchPerformanceTester:
 
             try:
 
-                def stress_task(
-                    task_id: int, processing_time: float = 0.001
-                ) -> Dict[str, Any]:
+                def stress_task(task_id: int, processing_time: float = 0.001) -> Dict[str, Any]:
                     """ストレステスト用タスク"""
                     start_time = time.time()
                     time.sleep(processing_time)
@@ -849,9 +805,9 @@ class BatchPerformanceTester:
                 failed_tasks = [r for r in results.values() if not r.success]
 
                 if successful_tasks:
-                    avg_execution_time = sum(
-                        r.execution_time for r in successful_tasks
-                    ) / len(successful_tasks)
+                    avg_execution_time = sum(r.execution_time for r in successful_tasks) / len(
+                        successful_tasks
+                    )
                     peak_memory = max(r.memory_peak_mb for r in successful_tasks)
                 else:
                     avg_execution_time = 0.0
@@ -875,9 +831,7 @@ class BatchPerformanceTester:
                 result.add_metric("avg_execution_time", avg_execution_time)
                 result.add_metric("peak_memory_mb", peak_memory)
                 result.add_metric("engine_success_rate", stats.success_rate)
-                result.add_metric(
-                    "engine_avg_execution_time", stats.average_execution_time
-                )
+                result.add_metric("engine_avg_execution_time", stats.average_execution_time)
 
                 # システムリソース
                 cpu_percent = psutil.cpu_percent(interval=1.0)
@@ -907,9 +861,7 @@ class BatchPerformanceTester:
                 "total_tests": total_tests,
                 "successful_tests": successful_tests,
                 "failed_tests": total_tests - successful_tests,
-                "success_rate": successful_tests / total_tests
-                if total_tests > 0
-                else 0.0,
+                "success_rate": successful_tests / total_tests if total_tests > 0 else 0.0,
             },
             "test_config": self.test_config,
             "test_results": [result.to_dict() for result in self.test_results],

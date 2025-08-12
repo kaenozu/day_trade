@@ -88,9 +88,7 @@ class ArchiveMetadata:
 class CompressionEngine:
     """高性能圧縮エンジン"""
 
-    ALGORITHMS = {
-        "gzip": {"compress": gzip.compress, "decompress": gzip.decompress, "level": 6}
-    }
+    ALGORITHMS = {"gzip": {"compress": gzip.compress, "decompress": gzip.decompress, "level": 6}}
 
     @classmethod
     def compress(cls, data: bytes, algorithm: str = "gzip") -> Tuple[bytes, float]:
@@ -104,9 +102,7 @@ class CompressionEngine:
             compress_func = cls.ALGORITHMS[algorithm]["compress"]
 
             if algorithm == "gzip":
-                compressed = compress_func(
-                    data, compresslevel=cls.ALGORITHMS[algorithm]["level"]
-                )
+                compressed = compress_func(data, compresslevel=cls.ALGORITHMS[algorithm]["level"])
             else:
                 compressed = compress_func(
                     data, compression_level=cls.ALGORITHMS[algorithm]["level"]
@@ -120,9 +116,7 @@ class CompressionEngine:
             raise
 
     @classmethod
-    def decompress(
-        cls, compressed_data: bytes, algorithm: str = "gzip"
-    ) -> Tuple[bytes, float]:
+    def decompress(cls, compressed_data: bytes, algorithm: str = "gzip") -> Tuple[bytes, float]:
         """データ展開"""
         start_time = time.time()
 
@@ -250,9 +244,7 @@ class L4ArchiveCache(CacheLayer):
                     if self.memory_index_size >= self.max_index_size:
                         break
 
-                logger.info(
-                    f"メモリインデックス読み込み完了: {len(self.memory_index)}エントリ"
-                )
+                logger.info(f"メモリインデックス読み込み完了: {len(self.memory_index)}エントリ")
 
         except Exception as e:
             logger.error(f"メモリインデックス読み込みエラー: {e}")
@@ -274,17 +266,13 @@ class L4ArchiveCache(CacheLayer):
                 self.memory_index_size -= len(key) + 32
                 self.stats["misses"] += 1
                 # DBからも削除（バックグラウンドで実行可能）
-                threading.Thread(
-                    target=self._delete_from_db, args=(key,), daemon=True
-                ).start()
+                threading.Thread(target=self._delete_from_db, args=(key,), daemon=True).start()
                 return None
 
             try:
                 # データベースから実データ取得
                 with sqlite3.connect(str(self.db_path)) as conn:
-                    cursor = conn.execute(
-                        "SELECT * FROM archive_entries WHERE key = ?", (key,)
-                    )
+                    cursor = conn.execute("SELECT * FROM archive_entries WHERE key = ?", (key,))
                     row = cursor.fetchone()
 
                     if not row:
@@ -301,9 +289,7 @@ class L4ArchiveCache(CacheLayer):
                     (
                         decompressed_data,
                         decompression_time,
-                    ) = CompressionEngine.decompress(
-                        compressed_data, compression_algorithm
-                    )
+                    ) = CompressionEngine.decompress(compressed_data, compression_algorithm)
                     value = pickle.loads(decompressed_data)
 
                     # 統計更新
@@ -363,15 +349,11 @@ class L4ArchiveCache(CacheLayer):
                     algorithm = self.compression_algorithm
 
                 # データ圧縮
-                compressed_data, compression_time = CompressionEngine.compress(
-                    data_blob, algorithm
-                )
+                compressed_data, compression_time = CompressionEngine.compress(data_blob, algorithm)
 
                 original_size = len(data_blob)
                 compressed_size = len(compressed_data)
-                compression_ratio = (
-                    compressed_size / original_size if original_size > 0 else 1.0
-                )
+                compression_ratio = compressed_size / original_size if original_size > 0 else 1.0
 
                 # 容量チェックと退避
                 while self._get_total_size() + compressed_size > self.max_size_bytes:
@@ -417,8 +399,7 @@ class L4ArchiveCache(CacheLayer):
 
                 # インデックスサイズ制限
                 while (
-                    self.memory_index_size > self.max_index_size
-                    and len(self.memory_index) > 1000
+                    self.memory_index_size > self.max_index_size and len(self.memory_index) > 1000
                 ):
                     # 最も古いエントリを削除
                     old_key = next(iter(self.memory_index))
@@ -432,8 +413,7 @@ class L4ArchiveCache(CacheLayer):
                 # 平均圧縮率更新（指数平滑化）
                 alpha = 0.1
                 self.stats["avg_compression_ratio"] = (
-                    self.stats["avg_compression_ratio"] * (1 - alpha)
-                    + compression_ratio * alpha
+                    self.stats["avg_compression_ratio"] * (1 - alpha) + compression_ratio * alpha
                 )
 
                 logger.debug(
@@ -478,9 +458,7 @@ class L4ArchiveCache(CacheLayer):
         """DB削除（内部用）"""
         try:
             with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM archive_entries WHERE key = ?", (key,)
-                )
+                cursor = conn.execute("DELETE FROM archive_entries WHERE key = ?", (key,))
                 conn.commit()
                 return cursor.rowcount > 0
         except Exception as e:
@@ -505,9 +483,7 @@ class L4ArchiveCache(CacheLayer):
         """総サイズ取得"""
         try:
             with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute(
-                    "SELECT SUM(compressed_size) FROM archive_entries"
-                )
+                cursor = conn.execute("SELECT SUM(compressed_size) FROM archive_entries")
                 result = cursor.fetchone()[0]
                 size_bytes = result or 0
                 self.stats["current_size_gb"] = size_bytes / (1024**3)
@@ -566,9 +542,7 @@ class L4ArchiveCache(CacheLayer):
 
                     # ヒット率計算
                     total_requests = self.stats["hits"] + self.stats["misses"]
-                    hit_rate = (
-                        self.stats["hits"] / total_requests if total_requests > 0 else 0
-                    )
+                    hit_rate = self.stats["hits"] / total_requests if total_requests > 0 else 0
 
                     return {
                         "layer": "L4_Archive",
@@ -580,14 +554,12 @@ class L4ArchiveCache(CacheLayer):
                         "memory_index_entries": len(self.memory_index),
                         "memory_index_mb": self.memory_index_size / (1024 * 1024),
                         "compression_time_avg": (
-                            self.stats["total_compression_time"]
-                            / self.stats["compressions"]
+                            self.stats["total_compression_time"] / self.stats["compressions"]
                             if self.stats["compressions"] > 0
                             else 0
                         ),
                         "decompression_time_avg": (
-                            self.stats["total_decompression_time"]
-                            / self.stats["decompressions"]
+                            self.stats["total_decompression_time"] / self.stats["decompressions"]
                             if self.stats["decompressions"] > 0
                             else 0
                         ),
@@ -644,9 +616,7 @@ class L4ArchiveCache(CacheLayer):
             logger.error(f"圧縮最適化分析エラー: {e}")
             return {"error": str(e)}
 
-    def _calculate_potential_savings(
-        self, distribution: Dict, best_algorithm: str
-    ) -> float:
+    def _calculate_potential_savings(self, distribution: Dict, best_algorithm: str) -> float:
         """潜在的節約容量計算"""
         total_savings = 0.0
         best_ratio = distribution[best_algorithm]["avg_compression_ratio"]
@@ -654,9 +624,7 @@ class L4ArchiveCache(CacheLayer):
         for algorithm, stats in distribution.items():
             if algorithm != best_algorithm:
                 current_size = stats["total_size_mb"]
-                potential_size = current_size * (
-                    best_ratio / stats["avg_compression_ratio"]
-                )
+                potential_size = current_size * (best_ratio / stats["avg_compression_ratio"])
                 savings = current_size - potential_size
                 total_savings += max(0, savings)
 

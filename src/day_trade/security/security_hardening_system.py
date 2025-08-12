@@ -172,9 +172,7 @@ class IPBlocklist:
         with self.block_lock:
             current_time = datetime.now()
             expired_ips = [
-                ip
-                for ip, expiry in self.temporary_blocks.items()
-                if current_time >= expiry
+                ip for ip, expiry in self.temporary_blocks.items() if current_time >= expiry
             ]
             for ip in expired_ips:
                 del self.temporary_blocks[ip]
@@ -289,10 +287,7 @@ class IntrusionDetectionSystem:
 
         # 過去1分より古いエントリを削除
         cutoff_time = current_time - timedelta(minutes=1)
-        while (
-            self.request_rates[source_ip]
-            and self.request_rates[source_ip][0] < cutoff_time
-        ):
+        while self.request_rates[source_ip] and self.request_rates[source_ip][0] < cutoff_time:
             self.request_rates[source_ip].popleft()
 
         request_count = len(self.request_rates[source_ip])
@@ -329,9 +324,7 @@ class IntrusionDetectionSystem:
 
             # 過去10分間の失敗数チェック
             cutoff_time = current_time - timedelta(minutes=10)
-            recent_failures = [
-                t for t in self.failed_login_attempts[source_ip] if t > cutoff_time
-            ]
+            recent_failures = [t for t in self.failed_login_attempts[source_ip] if t > cutoff_time]
             self.failed_login_attempts[source_ip] = recent_failures
 
             # 10分間に5回以上の失敗でブルートフォース攻撃疑い
@@ -444,9 +437,7 @@ class SecurityHardeningSystem:
     def get_security_dashboard(self) -> Dict[str, Any]:
         """セキュリティダッシュボード"""
         with self.alert_lock:
-            active_alerts = [
-                alert for alert in self.threat_alerts if not alert.resolved
-            ]
+            active_alerts = [alert for alert in self.threat_alerts if not alert.resolved]
 
             # 脅威レベル別集計
             threat_counts = defaultdict(int)
@@ -474,9 +465,7 @@ class SecurityHardeningSystem:
                 "blocked_ips_count": len(self.ip_blocklist.blocked_ips)
                 + len(self.ip_blocklist.temporary_blocks),
                 "security_metrics": dict(self.security_metrics),
-                "system_status": "PROTECTED"
-                if len(active_alerts) < 10
-                else "UNDER_ATTACK",
+                "system_status": "PROTECTED" if len(active_alerts) < 10 else "UNDER_ATTACK",
             }
 
     def generate_security_report(self, hours: int = 24) -> Dict[str, Any]:
@@ -484,25 +473,19 @@ class SecurityHardeningSystem:
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
         with self.alert_lock:
-            recent_alerts = [
-                alert for alert in self.threat_alerts if alert.timestamp > cutoff_time
-            ]
+            recent_alerts = [alert for alert in self.threat_alerts if alert.timestamp > cutoff_time]
 
             # 統計計算
             total_alerts = len(recent_alerts)
             resolved_alerts = len([a for a in recent_alerts if a.resolved])
-            resolution_rate = (
-                (resolved_alerts / total_alerts) * 100 if total_alerts > 0 else 0
-            )
+            resolution_rate = (resolved_alerts / total_alerts) * 100 if total_alerts > 0 else 0
 
             # 最も多い攻撃タイプ
             attack_counter = defaultdict(int)
             for alert in recent_alerts:
                 attack_counter[alert.attack_type.value] += 1
 
-            top_attacks = sorted(
-                attack_counter.items(), key=lambda x: x[1], reverse=True
-            )[:5]
+            top_attacks = sorted(attack_counter.items(), key=lambda x: x[1], reverse=True)[:5]
 
             # 最も多いソースIP
             ip_counter = defaultdict(int)
@@ -510,9 +493,7 @@ class SecurityHardeningSystem:
                 if alert.source_ip:
                     ip_counter[alert.source_ip] += 1
 
-            top_source_ips = sorted(
-                ip_counter.items(), key=lambda x: x[1], reverse=True
-            )[:10]
+            top_source_ips = sorted(ip_counter.items(), key=lambda x: x[1], reverse=True)[:10]
 
             return {
                 "report_period_hours": hours,
@@ -522,14 +503,10 @@ class SecurityHardeningSystem:
                 "resolution_rate_percent": round(resolution_rate, 2),
                 "top_attack_types": top_attacks,
                 "top_source_ips": top_source_ips,
-                "security_recommendations": self._generate_security_recommendations(
-                    recent_alerts
-                ),
+                "security_recommendations": self._generate_security_recommendations(recent_alerts),
             }
 
-    def _generate_security_recommendations(
-        self, alerts: List[ThreatAlert]
-    ) -> List[str]:
+    def _generate_security_recommendations(self, alerts: List[ThreatAlert]) -> List[str]:
         """セキュリティ推奨事項生成"""
         recommendations = []
 
@@ -537,26 +514,20 @@ class SecurityHardeningSystem:
         attack_types = set(alert.attack_type for alert in alerts)
 
         if AttackType.SQL_INJECTION in attack_types:
-            recommendations.append(
-                "SQLインジェクション対策: パラメータ化クエリの徹底使用"
-            )
+            recommendations.append("SQLインジェクション対策: パラメータ化クエリの徹底使用")
 
         if AttackType.XSS in attack_types:
             recommendations.append("XSS対策: 入力値のサニタイズ強化")
 
         if AttackType.BRUTE_FORCE in attack_types:
-            recommendations.append(
-                "ブルートフォース対策: アカウントロックアウト機能の実装"
-            )
+            recommendations.append("ブルートフォース対策: アカウントロックアウト機能の実装")
 
         if AttackType.DDOS in attack_types:
             recommendations.append("DDoS対策: レート制限とCDN利用の検討")
 
         # 一般的な推奨事項
         if len(alerts) > 50:
-            recommendations.append(
-                "高い攻撃頻度: WAF（Web Application Firewall）の導入検討"
-            )
+            recommendations.append("高い攻撃頻度: WAF（Web Application Firewall）の導入検討")
 
         recommendations.extend(
             [

@@ -165,9 +165,7 @@ class DataProcessor(ABC):
     """抽象データ処理クラス"""
 
     @abstractmethod
-    async def process(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Tuple[Any, PipelineMetrics]:
+    async def process(self, data: Any, context: Dict[str, Any]) -> Tuple[Any, PipelineMetrics]:
         """データ処理実行"""
         pass
 
@@ -183,9 +181,7 @@ class SchemaValidator(DataProcessor):
     def __init__(self, schema_rules: Dict[str, Any]):
         self.schema_rules = schema_rules
 
-    async def process(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Tuple[Any, PipelineMetrics]:
+    async def process(self, data: Any, context: Dict[str, Any]) -> Tuple[Any, PipelineMetrics]:
         """スキーマバリデーション実行"""
         start_time = datetime.utcnow()
         metrics = PipelineMetrics(stage=PipelineStage.VALIDATION, start_time=start_time)
@@ -274,9 +270,7 @@ class OutlierDetector(DataProcessor):
         self.threshold = threshold
         self.scaler = StandardScaler()
 
-    async def process(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Tuple[Any, PipelineMetrics]:
+    async def process(self, data: Any, context: Dict[str, Any]) -> Tuple[Any, PipelineMetrics]:
         """異常値検出実行"""
         start_time = datetime.utcnow()
         metrics = PipelineMetrics(stage=PipelineStage.CLEANING, start_time=start_time)
@@ -294,16 +288,12 @@ class OutlierDetector(DataProcessor):
                     X_scaled = self.scaler.fit_transform(X)
 
                     if self.method == "isolation_forest":
-                        detector = IsolationForest(
-                            contamination=self.threshold, random_state=42
-                        )
+                        detector = IsolationForest(contamination=self.threshold, random_state=42)
                         outlier_labels = detector.fit_predict(X_scaled)
                         outlier_mask = outlier_labels == -1
 
                     else:  # statistical method
-                        outlier_mask = self._detect_statistical_outliers(
-                            data[numeric_cols]
-                        )
+                        outlier_mask = self._detect_statistical_outliers(data[numeric_cols])
 
                     outlier_count = outlier_mask.sum()
 
@@ -314,9 +304,7 @@ class OutlierDetector(DataProcessor):
                     metrics.records_passed = len(data) - outlier_count
                     metrics.records_failed = outlier_count
                     metrics.metadata["outlier_count"] = int(outlier_count)
-                    metrics.metadata["outlier_percentage"] = float(
-                        outlier_count / len(data) * 100
-                    )
+                    metrics.metadata["outlier_percentage"] = float(outlier_count / len(data) * 100)
 
                     metrics.success = True
 
@@ -547,9 +535,7 @@ class DataValidationPipeline:
                 # 段階内の全プロセッサーを実行
                 for processor in self.processors[stage]:
                     try:
-                        processed_data, metrics = await processor.process(
-                            current_data, context
-                        )
+                        processed_data, metrics = await processor.process(current_data, context)
                         stage_results.append(
                             {
                                 "processor": processor.get_processor_info(),
@@ -584,9 +570,7 @@ class DataValidationPipeline:
                         )
 
                 # 段階結果記録
-                stage_duration = (
-                    datetime.utcnow() - stage_start
-                ).total_seconds() * 1000
+                stage_duration = (datetime.utcnow() - stage_start).total_seconds() * 1000
                 results["stages"][stage.value] = {
                     "success": stage_success,
                     "duration_ms": stage_duration,
@@ -641,9 +625,7 @@ class DataValidationPipeline:
 
         return results
 
-    async def _execute_validation_rules(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _execute_validation_rules(self, data: Any, context: Dict[str, Any]) -> Dict[str, Any]:
         """バリデーションルール実行"""
         validation_results = {
             "total_rules": len(self.validation_rules),
@@ -680,9 +662,7 @@ class DataValidationPipeline:
                             fixed_data = rule.auto_fix_func(data, issues)
                             if fixed_data is not None:
                                 data = fixed_data
-                                validation_results["auto_fixes_applied"].append(
-                                    rule.rule_id
-                                )
+                                validation_results["auto_fixes_applied"].append(rule.rule_id)
                                 rule_result["auto_fixed"] = True
                         except Exception as e:
                             logger.error(f"自動修正エラー {rule.rule_id}: {e}")
@@ -704,9 +684,7 @@ class DataValidationPipeline:
 
         return validation_results
 
-    def _validate_price_order(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Tuple[bool, List[str]]:
+    def _validate_price_order(self, data: Any, context: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """価格順序バリデーション"""
         issues = []
 
@@ -782,9 +760,7 @@ class DataValidationPipeline:
             # 数値カラムは前方補間
             numeric_cols = data_fixed.select_dtypes(include=[np.number]).columns
             for col in numeric_cols:
-                data_fixed[col] = (
-                    data_fixed[col].fillna(method="ffill").fillna(method="bfill")
-                )
+                data_fixed[col] = data_fixed[col].fillna(method="ffill").fillna(method="bfill")
 
             # カテゴリカルカラムは最頻値
             categorical_cols = data_fixed.select_dtypes(include=["object"]).columns
@@ -833,9 +809,7 @@ class DataValidationPipeline:
         try:
             if isinstance(data, pd.DataFrame):
                 # データフレームの構造とサンプルデータからハッシュ生成
-                structure = (
-                    f"{list(data.columns)}_{data.shape}_{str(data.dtypes.to_dict())}"
-                )
+                structure = f"{list(data.columns)}_{data.shape}_{str(data.dtypes.to_dict())}"
                 sample = str(data.head().to_dict()) if len(data) > 0 else ""
                 content = f"{structure}_{sample}"
             else:
@@ -904,9 +878,7 @@ class DataValidationPipeline:
             pipeline_id = results["pipeline_id"]
 
             # 詳細結果をJSON保存
-            result_file = (
-                self.storage_path / f"pipeline_result_{pipeline_id}_{timestamp}.json"
-            )
+            result_file = self.storage_path / f"pipeline_result_{pipeline_id}_{timestamp}.json"
 
             # シリアライズ可能な形に変換
             serializable_results = self._make_serializable(results)
@@ -936,11 +908,7 @@ class DataValidationPipeline:
         elif hasattr(obj, "__dict__"):
             return {k: self._make_serializable(v) for k, v in obj.__dict__.items()}
         else:
-            return (
-                str(obj)
-                if not isinstance(obj, (str, int, float, bool, type(None)))
-                else obj
-            )
+            return str(obj) if not isinstance(obj, (str, int, float, bool, type(None))) else obj
 
     async def get_pipeline_status(self) -> Dict[str, Any]:
         """パイプライン状態取得"""
@@ -948,9 +916,7 @@ class DataValidationPipeline:
             "validation_level": self.validation_level.value,
             "cache_enabled": self.enable_cache,
             "lineage_enabled": self.enable_lineage,
-            "processors_count": sum(
-                len(processors) for processors in self.processors.values()
-            ),
+            "processors_count": sum(len(processors) for processors in self.processors.values()),
             "validation_rules_count": len(self.validation_rules),
             "pipeline_history_count": len(self.pipeline_history),
             "lineage_records_count": len(self.lineage_records),
@@ -963,9 +929,7 @@ class DataValidationPipeline:
             return 0.0
 
         recent_results = self.pipeline_history[-20:]  # 最新20件
-        success_count = sum(
-            1 for result in recent_results if result.get("overall_success", False)
-        )
+        success_count = sum(1 for result in recent_results if result.get("overall_success", False))
 
         return success_count / len(recent_results)
 
@@ -1052,16 +1016,12 @@ if __name__ == "__main__":
             print("\nステージ別結果:")
             for stage_name, stage_result in results["stages"].items():
                 status_icon = "✅" if stage_result["success"] else "❌"
-                print(
-                    f"  {stage_name}: {status_icon} ({stage_result['duration_ms']:.1f}ms)"
-                )
+                print(f"  {stage_name}: {status_icon} ({stage_result['duration_ms']:.1f}ms)")
 
             if "validation_results" in results:
                 validation = results["validation_results"]
                 print("\nバリデーション結果:")
-                print(
-                    f"  合格ルール: {validation['passed_rules']}/{validation['total_rules']}"
-                )
+                print(f"  合格ルール: {validation['passed_rules']}/{validation['total_rules']}")
                 print(f"  自動修正適用: {len(validation['auto_fixes_applied'])}件")
 
             print("\n推奨事項:")
@@ -1073,9 +1033,7 @@ if __name__ == "__main__":
             # 2回目処理（キャッシュテスト）
             print("\n4. キャッシュテスト...")
             start_time = time.time()
-            cached_results = await pipeline.process_data(
-                test_price_data, "price", "7203"
-            )
+            cached_results = await pipeline.process_data(test_price_data, "price", "7203")
             cache_time = (time.time() - start_time) * 1000
 
             print(f"キャッシュ処理時間: {cache_time:.1f}ms")
@@ -1086,9 +1044,7 @@ if __name__ == "__main__":
             # クリーンアップ
             await pipeline.cleanup()
 
-            print(
-                "\n✅ Issue #420 データバリデーション・クリーニングパイプラインテスト完了"
-            )
+            print("\n✅ Issue #420 データバリデーション・クリーニングパイプラインテスト完了")
 
         except Exception as e:
             print(f"❌ テストエラー: {e}")

@@ -73,9 +73,7 @@ class DataCache:
         import os
 
         # 環境変数から設定を取得（デフォルト値付き）
-        self.ttl_seconds = ttl_seconds or int(
-            os.getenv("STOCK_CACHE_TTL_SECONDS", "300")
-        )  # 5分
+        self.ttl_seconds = ttl_seconds or int(os.getenv("STOCK_CACHE_TTL_SECONDS", "300"))  # 5分
         self.max_size = max_size or int(os.getenv("STOCK_CACHE_MAX_SIZE", "2000"))
         self.stale_while_revalidate = stale_while_revalidate or int(
             os.getenv("STOCK_CACHE_STALE_SECONDS", "600")
@@ -183,9 +181,7 @@ class DataCache:
             "cache_size": len(self._cache),
             "max_size": self.max_size,
             "eviction_count": self._eviction_count,
-            "cache_utilization": len(self._cache) / self.max_size
-            if self.max_size > 0
-            else 0.0,
+            "cache_utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0.0,
         }
 
     def optimize_cache_settings(self) -> dict:
@@ -195,9 +191,9 @@ class DataCache:
 
         # ヒット率が低い場合の提案
         if stats["hit_rate"] < 0.5:
-            recommendations[
-                "ttl_increase"
-            ] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+            recommendations["ttl_increase"] = (
+                "TTLを延長してキャッシュヒット率を向上させることを検討"
+            )
 
         # 退避回数が多い場合の提案
         if stats["eviction_count"] > stats["hit_count"] * 0.1:
@@ -205,15 +201,11 @@ class DataCache:
 
         # キャッシュ使用率が低い場合の提案
         if stats["cache_utilization"] < 0.3:
-            recommendations[
-                "size_decrease"
-            ] = "キャッシュサイズを減少させてメモリ効率を向上"
+            recommendations["size_decrease"] = "キャッシュサイズを減少させてメモリ効率を向上"
 
         # stale hitが多い場合の提案
         if stats["stale_hit_rate"] > 0.2:
-            recommendations[
-                "stale_period_adjust"
-            ] = "stale-while-revalidate期間の調整を検討"
+            recommendations["stale_period_adjust"] = "stale-while-revalidate期間の調整を検討"
 
         return {"current_stats": stats, "recommendations": recommendations}
 
@@ -282,10 +274,7 @@ class DataCache:
                 adjustments["ttl"] = {"old": original_ttl, "new": new_ttl}
 
         # キャッシュサイズ調整ロジック
-        if (
-            stats["cache_utilization"] > 0.9
-            and stats["eviction_count"] > stats["hit_count"] * 0.2
-        ):
+        if stats["cache_utilization"] > 0.9 and stats["eviction_count"] > stats["hit_count"] * 0.2:
             # 使用率が高く、退避が多い場合はサイズを増加
             new_max_size = min(int(self.max_size * 1.3), 5000)  # 最大5000エントリ
             if new_max_size != self.max_size:
@@ -346,9 +335,7 @@ class DataCache:
                 improvement["memory_efficiency"] = (1.0 - ttl_change) * 0.2
 
         if "max_size" in adjustments:
-            size_change = (
-                adjustments["max_size"]["new"] / adjustments["max_size"]["old"]
-            )
+            size_change = adjustments["max_size"]["new"] / adjustments["max_size"]["old"]
             if size_change > 1.0:
                 # サイズ増加の場合はヒット率向上
                 improvement["hit_rate"] += (size_change - 1.0) * 0.05
@@ -359,9 +346,7 @@ class DataCache:
         return improvement
 
 
-def cache_with_ttl(
-    ttl_seconds: int, max_size: int = 1000, stale_while_revalidate: int = None
-):
+def cache_with_ttl(ttl_seconds: int, max_size: int = 1000, stale_while_revalidate: int = None):
     """TTL付きキャッシュデコレータ（フォールバック機能付き改善版）"""
     if stale_while_revalidate is None:
         stale_while_revalidate = ttl_seconds * 5  # デフォルトでTTLの5倍
@@ -390,12 +375,10 @@ def cache_with_ttl(
                 cached_result = cache.get(cache_key, allow_stale=False)
                 if cached_result is not None:
                     # パフォーマンス最適化: デバッグログの条件付き出力
-                    if hasattr(
-                        cache_logger, "isEnabledFor"
-                    ) and cache_logger.isEnabledFor(logging.DEBUG):
-                        cache_logger.debug(
-                            f"フレッシュキャッシュヒット: {func.__name__}"
-                        )
+                    if hasattr(cache_logger, "isEnabledFor") and cache_logger.isEnabledFor(
+                        logging.DEBUG
+                    ):
+                        cache_logger.debug(f"フレッシュキャッシュヒット: {func.__name__}")
                     stats.record_hit()
                     return cached_result
 
@@ -410,12 +393,10 @@ def cache_with_ttl(
                         cache.set(cache_key, sanitized_result)
                         stats.record_set()
                         # パフォーマンス最適化: デバッグログの条件付き出力
-                        if hasattr(
-                            cache_logger, "isEnabledFor"
-                        ) and cache_logger.isEnabledFor(logging.DEBUG):
-                            cache_logger.debug(
-                                f"新しいデータをキャッシュに保存: {func.__name__}"
-                            )
+                        if hasattr(cache_logger, "isEnabledFor") and cache_logger.isEnabledFor(
+                            logging.DEBUG
+                        ):
+                            cache_logger.debug(f"新しいデータをキャッシュに保存: {func.__name__}")
 
                     return result
 
@@ -502,9 +483,7 @@ class StockFetcher:
         self.performance_logger = get_performance_logger(__name__)
 
         # 条件付きデバッグロギング（本番環境では無効化）
-        self.enable_debug_logging = (
-            os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
-        )
+        self.enable_debug_logging = os.getenv("STOCK_FETCHER_DEBUG", "false").lower() == "true"
 
         # リトライ統計を初期化
         self.retry_stats = {
@@ -528,9 +507,7 @@ class StockFetcher:
             os.getenv("CACHE_ADJUSTMENT_INTERVAL", "3600")
         )  # 1時間
         self.last_cache_adjustment = time.time()
-        self.auto_cache_tuning_enabled = (
-            os.getenv("AUTO_CACHE_TUNING", "true").lower() == "true"
-        )
+        self.auto_cache_tuning_enabled = os.getenv("AUTO_CACHE_TUNING", "true").lower() == "true"
 
         self.logger.info(
             "StockFetcher初期化完了",
@@ -575,14 +552,10 @@ class StockFetcher:
         """リトライ統計を取得"""
         stats = self.retry_stats.copy()
         if stats["total_requests"] > 0:
-            stats["success_rate"] = (
-                stats["successful_requests"] / stats["total_requests"]
-            )
+            stats["success_rate"] = stats["successful_requests"] / stats["total_requests"]
             stats["failure_rate"] = stats["failed_requests"] / stats["total_requests"]
         if stats["total_retries"] > 0:
-            stats["retry_success_rate"] = (
-                stats["retry_success"] / stats["total_retries"]
-            )
+            stats["retry_success_rate"] = stats["retry_success"] / stats["total_retries"]
         return stats
 
     def _create_retry_decorator(self):
@@ -643,15 +616,11 @@ class StockFetcher:
         import requests.exceptions as req_exc
 
         # 既存のカスタム例外はそのまま再発生
-        if isinstance(
-            error, (StockFetcherError, InvalidSymbolError, DataNotFoundError)
-        ):
+        if isinstance(error, (StockFetcherError, InvalidSymbolError, DataNotFoundError)):
             raise error
 
         # ネットワーク関連の例外を統一的に処理
-        if isinstance(
-            error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)
-        ):
+        if isinstance(error, (req_exc.ConnectionError, req_exc.Timeout, req_exc.HTTPError)):
             try:
                 converted_error = handle_network_exception(error)
                 raise converted_error
@@ -719,9 +688,7 @@ class StockFetcher:
                 raise InvalidSymbolError(f"無効な終了日形式: {end_date}") from e
 
         if start_date >= end_date:
-            raise InvalidSymbolError(
-                f"開始日が終了日以降です: {start_date} >= {end_date}"
-            )
+            raise InvalidSymbolError(f"開始日が終了日以降です: {start_date} >= {end_date}")
 
         if end_date > datetime.now():
             self.logger.warning(f"終了日が未来の日付です: {end_date}")
@@ -792,34 +759,24 @@ class StockFetcher:
 
                 # infoが空または無効な場合
                 if not info or len(info) < 5:
-                    price_logger.error(
-                        "企業情報取得失敗", info_size=len(info) if info else 0
-                    )
+                    price_logger.error("企業情報取得失敗", info_size=len(info) if info else 0)
                     raise DataNotFoundError(f"企業情報を取得できません: {symbol}")
 
                 # 基本情報を取得
-                current_price = info.get("currentPrice") or info.get(
-                    "regularMarketPrice"
-                )
+                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
                 previous_close = info.get("previousClose")
 
                 if current_price is None:
-                    price_logger.error(
-                        "現在価格データなし", available_keys=list(info.keys())[:10]
-                    )
+                    price_logger.error("現在価格データなし", available_keys=list(info.keys())[:10])
                     raise DataNotFoundError(f"現在価格を取得できません: {symbol}")
 
                 # 変化額・変化率を計算
                 change = current_price - previous_close if previous_close else 0
-                change_percent = (
-                    (change / previous_close * 100) if previous_close else 0
-                )
+                change_percent = (change / previous_close * 100) if previous_close else 0
 
                 # パフォーマンスメトリクス
                 elapsed_time = (time.time() - start_time) * 1000
-                log_performance_metric(
-                    "price_fetch_time", elapsed_time, "ms", stock_code=code
-                )
+                log_performance_metric("price_fetch_time", elapsed_time, "ms", stock_code=code)
 
                 result = {
                     "symbol": symbol,
@@ -863,9 +820,7 @@ class StockFetcher:
                         "elapsed_ms": elapsed_time,
                     },
                 )
-                price_logger.error(
-                    "現在価格取得失敗", error=str(e), elapsed_ms=elapsed_time
-                )
+                price_logger.error("現在価格取得失敗", error=str(e), elapsed_ms=elapsed_time)
                 raise
 
         return self._retry_on_error(_get_price)
@@ -952,15 +907,11 @@ class StockFetcher:
             raise InvalidSymbolError(f"無効な期間: {period}. 有効な値: {valid_periods}")
 
         if interval not in valid_intervals:
-            raise InvalidSymbolError(
-                f"無効な間隔: {interval}. 有効な値: {valid_intervals}"
-            )
+            raise InvalidSymbolError(f"無効な間隔: {interval}. 有効な値: {valid_intervals}")
 
         # 分足データは短期間のみ対応
         if interval.endswith("m") and period not in ["1d", "5d"]:
-            raise InvalidSymbolError(
-                "分足データは1d または 5d 期間のみサポートされています"
-            )
+            raise InvalidSymbolError("分足データは1d または 5d 期間のみサポートされています")
 
     @cache_with_ttl(300)  # 5分キャッシュ
     def get_historical_data_range(
@@ -1008,9 +959,7 @@ class StockFetcher:
             df = ticker.history(start=start_dt, end=end_dt, interval=interval)
 
             if df.empty:
-                raise DataNotFoundError(
-                    f"指定期間のヒストリカルデータが空です: {symbol}"
-                )
+                raise DataNotFoundError(f"指定期間のヒストリカルデータが空です: {symbol}")
 
             # インデックスをタイムゾーン除去
             if df.index.tz is not None:
@@ -1043,9 +992,7 @@ class StockFetcher:
         max_workers = min(len(codes), 10)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_code = {
-                executor.submit(self.get_current_price, code): code for code in codes
-            }
+            future_to_code = {executor.submit(self.get_current_price, code): code for code in codes}
             for future in as_completed(future_to_code):
                 code = future_to_code[future]
                 try:
@@ -1128,9 +1075,7 @@ class StockFetcher:
                     self.logger.info(
                         "Cache settings automatically adjusted",
                         adjustments=adjustment_result.get("adjustments"),
-                        expected_improvement=adjustment_result.get(
-                            "improvement_expected"
-                        ),
+                        expected_improvement=adjustment_result.get("improvement_expected"),
                         stats=adjustment_result.get("stats"),
                     )
 
@@ -1166,8 +1111,7 @@ class StockFetcher:
                     "optimization_suggestions": optimization_suggestions,
                     "performance_metrics": {
                         "effective_hit_rate": cache_stats.get("hit_rate", 0)
-                        + cache_stats.get("stale_hit_rate", 0)
-                        * 0.7,  # stale hitは70%の価値
+                        + cache_stats.get("stale_hit_rate", 0) * 0.7,  # stale hitは70%の価値
                         "memory_efficiency": cache_stats.get("cache_utilization", 0),
                         "eviction_pressure": cache_stats.get("eviction_count", 0)
                         / max(cache_stats.get("hit_count", 1), 1),
@@ -1216,9 +1160,7 @@ class StockFetcher:
                             if info and info.get("symbol"):
                                 # 企業情報を整理
                                 company_info = {
-                                    "name": info.get(
-                                        "longName", info.get("shortName", "")
-                                    ),
+                                    "name": info.get("longName", info.get("shortName", "")),
                                     "sector": info.get("sector", ""),
                                     "industry": info.get("industry", ""),
                                     "country": info.get("country", ""),
@@ -1233,9 +1175,7 @@ class StockFetcher:
                                 # キャッシュに保存
                                 cache_key = f"company_info_{code}"
                                 if hasattr(self, "_data_cache") and self._data_cache:
-                                    self._data_cache.set(
-                                        cache_key, company_info, ttl=3600
-                                    )
+                                    self._data_cache.set(cache_key, company_info, ttl=3600)
                             else:
                                 # loggerの代わりに標準ロギングを使用
                                 print(f"警告: 企業情報が取得できません: {code}")
@@ -1283,9 +1223,7 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000 if codes else 0,
             },
         )
 
@@ -1337,15 +1275,11 @@ class StockFetcher:
 
                             if not hist.empty:
                                 latest_data = hist.iloc[-1]
-                                previous_data = (
-                                    hist.iloc[-2] if len(hist) > 1 else latest_data
-                                )
+                                previous_data = hist.iloc[-2] if len(hist) > 1 else latest_data
 
                                 current_price = float(latest_data["Close"])
                                 change = current_price - float(previous_data["Close"])
-                                change_percent = (
-                                    change / float(previous_data["Close"])
-                                ) * 100
+                                change_percent = (change / float(previous_data["Close"])) * 100
 
                                 price_info = {
                                     "current_price": current_price,
@@ -1391,9 +1325,7 @@ class StockFetcher:
                     time.sleep(delay)
 
             except Exception as e:
-                print(
-                    f"エラー: 価格バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}"
-                )
+                print(f"エラー: 価格バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}")
                 # バッチ失敗時は個別に処理
                 for code in batch_codes:
                     try:
@@ -1412,15 +1344,12 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000 if codes else 0,
             },
         )
 
         print(
-            f"一括価格取得完了: {successful_count}/{len(codes)}件成功 "
-            f"({total_elapsed:.2f}秒)"
+            f"一括価格取得完了: {successful_count}/{len(codes)}件成功 " f"({total_elapsed:.2f}秒)"
         )
 
         return results
@@ -1473,10 +1402,7 @@ class StockFetcher:
 
                         # データが複数銘柄の場合
                         if len(batch_codes) > 1:
-                            if (
-                                hasattr(data.columns, "levels")
-                                and symbol in data.columns.levels[0]
-                            ):
+                            if hasattr(data.columns, "levels") and symbol in data.columns.levels[0]:
                                 ticker_data = data[symbol]
                             else:
                                 results[code] = None
@@ -1519,17 +1445,15 @@ class StockFetcher:
                                     "change": change,
                                     "change_percent": change_percent,
                                     "volume": int(latest_data.get("Volume", 0)),
-                                    "high": float(
-                                        latest_data.get("High", current_price)
-                                    ),
+                                    "high": float(latest_data.get("High", current_price)),
                                     "low": float(latest_data.get("Low", current_price)),
-                                    "open": float(
-                                        latest_data.get("Open", current_price)
-                                    ),
+                                    "open": float(latest_data.get("Open", current_price)),
                                     "previous_close": previous_price,
-                                    "timestamp": latest_data.name.isoformat()
-                                    if hasattr(latest_data.name, "isoformat")
-                                    else None,
+                                    "timestamp": (
+                                        latest_data.name.isoformat()
+                                        if hasattr(latest_data.name, "isoformat")
+                                        else None
+                                    ),
                                 }
                             else:
                                 results[code] = None
@@ -1556,9 +1480,7 @@ class StockFetcher:
                     time.sleep(delay)
 
             except Exception as e:
-                self.logger.error(
-                    f"最適化バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}"
-                )
+                self.logger.error(f"最適化バッチ処理エラー (codes {i}-{i + batch_size - 1}): {e}")
                 # フォールバック: 既存のバルク取得メソッドを使用
                 for code in batch_codes:
                     try:
@@ -1577,9 +1499,7 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000 if codes else 0,
             },
         )
 
@@ -1650,9 +1570,7 @@ class StockFetcher:
                             ticker_data.index = ticker_data.index.tz_localize(None)
                         results[code] = ticker_data
                     else:
-                        self.logger.warning(
-                            f"ヒストリカルデータが取得できませんでした: {code}"
-                        )
+                        self.logger.warning(f"ヒストリカルデータが取得できませんでした: {code}")
                         results[code] = None
 
             except Exception as e:
@@ -1691,9 +1609,7 @@ class StockFetcher:
                 "failure_count": len(codes) - successful_count,
                 "success_rate": successful_count / len(codes) if codes else 0,
                 "total_elapsed_ms": total_elapsed * 1000,
-                "avg_time_per_code": (total_elapsed / len(codes)) * 1000
-                if codes
-                else 0,
+                "avg_time_per_code": (total_elapsed / len(codes)) * 1000 if codes else 0,
             },
         )
 
@@ -1752,9 +1668,7 @@ class StockFetcher:
                 symbol_results[symbol] = None
 
         # 統計情報をログ出力
-        successful_count = sum(
-            1 for result in symbol_results.values() if result is not None
-        )
+        successful_count = sum(1 for result in symbol_results.values() if result is not None)
         total_time = max(r.execution_time_ms for r in results) if results else 0
 
         self.logger.info(
@@ -1793,8 +1707,7 @@ class StockFetcher:
         parallel_manager = get_global_executor_manager()
         results = parallel_manager.execute_batch(
             tasks,
-            max_concurrent=max_concurrent
-            or min(len(symbols), 15),  # 価格データは軽いので多め
+            max_concurrent=max_concurrent or min(len(symbols), 15),  # 価格データは軽いので多め
         )
 
         # 結果を整理
@@ -1803,15 +1716,11 @@ class StockFetcher:
             if exec_result.success:
                 symbol_results[symbol] = exec_result.result
             else:
-                self.logger.error(
-                    f"現在価格取得失敗: {symbol}, エラー: {exec_result.error}"
-                )
+                self.logger.error(f"現在価格取得失敗: {symbol}, エラー: {exec_result.error}")
                 symbol_results[symbol] = None
 
         # 統計情報をログ出力
-        successful_count = sum(
-            1 for result in symbol_results.values() if result is not None
-        )
+        successful_count = sum(1 for result in symbol_results.values() if result is not None)
         total_time = max(r.execution_time_ms for r in results) if results else 0
 
         self.logger.info(
@@ -1850,8 +1759,7 @@ class StockFetcher:
         parallel_manager = get_global_executor_manager()
         results = parallel_manager.execute_batch(
             tasks,
-            max_concurrent=max_concurrent
-            or min(len(symbols), 8),  # 企業情報は重めなので控えめ
+            max_concurrent=max_concurrent or min(len(symbols), 8),  # 企業情報は重めなので控えめ
         )
 
         # 結果を整理
@@ -1860,15 +1768,11 @@ class StockFetcher:
             if exec_result.success:
                 symbol_results[symbol] = exec_result.result
             else:
-                self.logger.error(
-                    f"企業情報取得失敗: {symbol}, エラー: {exec_result.error}"
-                )
+                self.logger.error(f"企業情報取得失敗: {symbol}, エラー: {exec_result.error}")
                 symbol_results[symbol] = None
 
         # 統計情報をログ出力
-        successful_count = sum(
-            1 for result in symbol_results.values() if result is not None
-        )
+        successful_count = sum(1 for result in symbol_results.values() if result is not None)
         total_time = max(r.execution_time_ms for r in results) if results else 0
 
         self.logger.info(

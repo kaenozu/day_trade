@@ -599,9 +599,7 @@ class HighSpeedTimeSeriesDB:
                     df["timestamp"] = pd.to_datetime(df["timestamp"])
                     df.set_index("timestamp", inplace=True)
 
-                    logger.info(
-                        f"データクエリ完了: {len(rows)}件, {execution_time:.2f}ms"
-                    )
+                    logger.info(f"データクエリ完了: {len(rows)}件, {execution_time:.2f}ms")
                     return df
                 else:
                     return pd.DataFrame()
@@ -734,9 +732,7 @@ async def benchmark_database_performance(
 
     # クエリ性能テスト
     query_start = time.time()
-    df = await db.query_stock_data_optimized(
-        "TEST0001", base_time, base_time + timedelta(hours=1)
-    )
+    df = await db.query_stock_data_optimized("TEST0001", base_time, base_time + timedelta(hours=1))
     query_time = (time.time() - query_start) * 1000
 
     return {

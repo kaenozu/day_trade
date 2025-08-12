@@ -96,9 +96,7 @@ class EnsembleVotingValidator:
     def run_comprehensive_voting_validation(self) -> VotingAnalysisReport:
         """包括的投票検証実行"""
 
-        logger.info(
-            "包括的投票アルゴリズム検証開始", section="comprehensive_voting_validation"
-        )
+        logger.info("包括的投票アルゴリズム検証開始", section="comprehensive_voting_validation")
 
         try:
             # 1. テストシナリオ生成
@@ -133,11 +131,11 @@ class EnsembleVotingValidator:
                 section="comprehensive_voting_validation",
                 total_scenarios=analysis_report.total_scenarios,
                 passed_scenarios=analysis_report.passed_scenarios,
-                success_rate=analysis_report.passed_scenarios
-                / analysis_report.total_scenarios
-                * 100
-                if analysis_report.total_scenarios > 0
-                else 0,
+                success_rate=(
+                    analysis_report.passed_scenarios / analysis_report.total_scenarios * 100
+                    if analysis_report.total_scenarios > 0
+                    else 0
+                ),
             )
 
             return analysis_report
@@ -389,9 +387,7 @@ class EnsembleVotingValidator:
 
         results = []
         soft_voting_scenarios = [
-            s
-            for s in self.test_scenarios
-            if s.voting_type == EnsembleVotingType.SOFT_VOTING
+            s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.SOFT_VOTING
         ]
 
         for scenario in soft_voting_scenarios:
@@ -411,9 +407,7 @@ class EnsembleVotingValidator:
 
         results = []
         hard_voting_scenarios = [
-            s
-            for s in self.test_scenarios
-            if s.voting_type == EnsembleVotingType.HARD_VOTING
+            s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.HARD_VOTING
         ]
 
         for scenario in hard_voting_scenarios:
@@ -433,9 +427,7 @@ class EnsembleVotingValidator:
 
         results = []
         weighted_scenarios = [
-            s
-            for s in self.test_scenarios
-            if s.voting_type == EnsembleVotingType.WEIGHTED_AVERAGE
+            s for s in self.test_scenarios if s.voting_type == EnsembleVotingType.WEIGHTED_AVERAGE
         ]
 
         for scenario in weighted_scenarios:
@@ -450,9 +442,7 @@ class EnsembleVotingValidator:
 
         return results
 
-    def _execute_voting_test(
-        self, scenario: VotingTestScenario
-    ) -> VotingValidationResult:
+    def _execute_voting_test(self, scenario: VotingTestScenario) -> VotingValidationResult:
         """投票テスト実行"""
 
         try:
@@ -464,10 +454,7 @@ class EnsembleVotingValidator:
 
             # シグナルタイプ検証
             expected_signal_type = scenario.expected_result.get("signal_type")
-            if (
-                expected_signal_type
-                and actual_result["signal_type"] != expected_signal_type
-            ):
+            if expected_signal_type and actual_result["signal_type"] != expected_signal_type:
                 success = False
 
             # 信頼度範囲検証
@@ -475,22 +462,16 @@ class EnsembleVotingValidator:
             actual_confidence = actual_result["confidence"]
 
             if expected_confidence_range and not (
-                expected_confidence_range[0]
-                <= actual_confidence
-                <= expected_confidence_range[1]
+                expected_confidence_range[0] <= actual_confidence <= expected_confidence_range[1]
             ):
                 success = False
 
             # 重み一貫性検証
-            weight_consistency = self._validate_weight_consistency(
-                scenario.strategy_weights
-            )
+            weight_consistency = self._validate_weight_consistency(scenario.strategy_weights)
 
             confidence_error = 0.0
             if expected_confidence_range:
-                expected_mid = (
-                    expected_confidence_range[0] + expected_confidence_range[1]
-                ) / 2
+                expected_mid = (expected_confidence_range[0] + expected_confidence_range[1]) / 2
                 confidence_error = abs(actual_confidence - expected_mid)
 
             return VotingValidationResult(
@@ -500,9 +481,9 @@ class EnsembleVotingValidator:
                 actual_signal_type=actual_result["signal_type"],
                 expected_signal_type=expected_signal_type,
                 actual_confidence=actual_confidence,
-                expected_confidence=expected_confidence_range[0]
-                if expected_confidence_range
-                else 0,
+                expected_confidence=(
+                    expected_confidence_range[0] if expected_confidence_range else 0
+                ),
                 confidence_error=confidence_error,
                 weight_consistency=weight_consistency,
                 calculation_details=actual_result.get("details", {}),
@@ -516,9 +497,7 @@ class EnsembleVotingValidator:
                 error_message=str(e),
             )
 
-    def _simulate_voting_calculation(
-        self, scenario: VotingTestScenario
-    ) -> Dict[str, Any]:
+    def _simulate_voting_calculation(self, scenario: VotingTestScenario) -> Dict[str, Any]:
         """投票計算シミュレーション"""
 
         signals = scenario.strategy_signals
@@ -671,16 +650,11 @@ class EnsembleVotingValidator:
         # 重み付け平均計算
         if sum(weight_values) > 0:
             weighted_signal = sum(
-                sv * cv * wv
-                for sv, cv, wv in zip(signal_values, confidence_values, weight_values)
+                sv * cv * wv for sv, cv, wv in zip(signal_values, confidence_values, weight_values)
             )
-            weighted_signal /= sum(
-                cv * wv for cv, wv in zip(confidence_values, weight_values)
-            )
+            weighted_signal /= sum(cv * wv for cv, wv in zip(confidence_values, weight_values))
 
-            weighted_confidence = sum(
-                cv * wv for cv, wv in zip(confidence_values, weight_values)
-            )
+            weighted_confidence = sum(cv * wv for cv, wv in zip(confidence_values, weight_values))
             weighted_confidence /= sum(weight_values)
         else:
             weighted_signal = 0.0
@@ -725,9 +699,7 @@ class EnsembleVotingValidator:
         test_weights = {"s1": 0.2, "s2": 0.3, "s3": 0.6}  # 合計1.1
         normalized = self._normalize_weights(test_weights)
 
-        normalization_success = (
-            abs(sum(normalized.values()) - 1.0) < self.mathematical_precision
-        )
+        normalization_success = abs(sum(normalized.values()) - 1.0) < self.mathematical_precision
 
         results.append(
             VotingValidationResult(
@@ -761,8 +733,7 @@ class EnsembleVotingValidator:
         edge_case_scenarios = [
             s
             for s in self.test_scenarios
-            if "zero_confidence" in s.scenario_name
-            or "extreme_confidence" in s.scenario_name
+            if "zero_confidence" in s.scenario_name or "extreme_confidence" in s.scenario_name
         ]
 
         for scenario in edge_case_scenarios:
@@ -834,13 +805,11 @@ class EnsembleVotingValidator:
         # 投票タイプ別結果
         soft_voting_stats = {
             "passed": sum(1 for r in soft_voting_results if r.success),
-            "failed": len(soft_voting_results)
-            - sum(1 for r in soft_voting_results if r.success),
+            "failed": len(soft_voting_results) - sum(1 for r in soft_voting_results if r.success),
         }
         hard_voting_stats = {
             "passed": sum(1 for r in hard_voting_results if r.success),
-            "failed": len(hard_voting_results)
-            - sum(1 for r in hard_voting_results if r.success),
+            "failed": len(hard_voting_results) - sum(1 for r in hard_voting_results if r.success),
         }
         weighted_average_stats = {
             "passed": sum(1 for r in weighted_average_results if r.success),
@@ -849,17 +818,14 @@ class EnsembleVotingValidator:
         }
 
         # 精度分析
-        confidence_errors = [
-            r.confidence_error for r in all_results if r.confidence_error > 0
-        ]
+        confidence_errors = [r.confidence_error for r in all_results if r.confidence_error > 0]
         avg_confidence_error = np.mean(confidence_errors) if confidence_errors else 0.0
         max_confidence_error = np.max(confidence_errors) if confidence_errors else 0.0
 
         signal_type_matches = sum(
             1
             for r in all_results
-            if r.actual_signal_type == r.expected_signal_type
-            and r.expected_signal_type is not None
+            if r.actual_signal_type == r.expected_signal_type and r.expected_signal_type is not None
         )
         signal_type_accuracy = (
             signal_type_matches
@@ -897,30 +863,22 @@ class EnsembleVotingValidator:
             identified_issues=issues,
         )
 
-    def _generate_voting_recommendations(
-        self, results: List[VotingValidationResult]
-    ) -> List[str]:
+    def _generate_voting_recommendations(self, results: List[VotingValidationResult]) -> List[str]:
         """投票推奨事項生成"""
 
         recommendations = []
 
-        success_rate = (
-            sum(1 for r in results if r.success) / len(results) * 100 if results else 0
-        )
+        success_rate = sum(1 for r in results if r.success) / len(results) * 100 if results else 0
 
         if success_rate > 95:
             recommendations.append("投票アルゴリズムは非常に高い精度で動作している")
         elif success_rate > 85:
-            recommendations.append(
-                "投票アルゴリズムは良好に動作しているが、細部の改善の余地がある"
-            )
+            recommendations.append("投票アルゴリズムは良好に動作しているが、細部の改善の余地がある")
         else:
             recommendations.append("投票アルゴリズムの大幅な改善が必要")
 
         # 信頼度エラー分析
-        confidence_errors = [
-            r.confidence_error for r in results if r.confidence_error > 0
-        ]
+        confidence_errors = [r.confidence_error for r in results if r.confidence_error > 0]
         if confidence_errors:
             avg_error = np.mean(confidence_errors)
             if avg_error > 10:
@@ -928,9 +886,7 @@ class EnsembleVotingValidator:
 
         return recommendations
 
-    def _identify_voting_issues(
-        self, results: List[VotingValidationResult]
-    ) -> List[str]:
+    def _identify_voting_issues(self, results: List[VotingValidationResult]) -> List[str]:
         """投票問題特定"""
 
         issues = []
@@ -957,9 +913,11 @@ class EnsembleVotingValidator:
             f"分析日時: {report.analysis_timestamp}",
             f"総シナリオ数: {report.total_scenarios}",
             f"成功: {report.passed_scenarios}, 失敗: {report.failed_scenarios}",
-            f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%"
-            if report.total_scenarios > 0
-            else "成功率: N/A",
+            (
+                f"成功率: {report.passed_scenarios / report.total_scenarios * 100:.1f}%"
+                if report.total_scenarios > 0
+                else "成功率: N/A"
+            ),
             "",
             "投票アルゴリズム別結果:",
             "-" * 50,
@@ -1009,11 +967,11 @@ if __name__ == "__main__":
             "アンサンブル投票アルゴリズム検証デモ完了",
             section="demo",
             total_scenarios=analysis_report.total_scenarios,
-            success_rate=analysis_report.passed_scenarios
-            / analysis_report.total_scenarios
-            * 100
-            if analysis_report.total_scenarios > 0
-            else 0,
+            success_rate=(
+                analysis_report.passed_scenarios / analysis_report.total_scenarios * 100
+                if analysis_report.total_scenarios > 0
+                else 0
+            ),
         )
 
         print(detailed_report)

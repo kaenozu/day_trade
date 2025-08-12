@@ -31,9 +31,7 @@ class DataCache:
             stale_while_revalidate: 期限切れ後もフォールバックとして利用可能な期間（秒）
         """
         # 環境変数から設定を取得（デフォルト値付き）
-        self.ttl_seconds = ttl_seconds or int(
-            os.getenv("STOCK_CACHE_TTL_SECONDS", "300")
-        )  # 5分
+        self.ttl_seconds = ttl_seconds or int(os.getenv("STOCK_CACHE_TTL_SECONDS", "300"))  # 5分
         self.max_size = max_size or int(os.getenv("STOCK_CACHE_MAX_SIZE", "2000"))
         self.stale_while_revalidate = stale_while_revalidate or int(
             os.getenv("STOCK_CACHE_STALE_SECONDS", "600")
@@ -156,9 +154,7 @@ class DataCache:
             "cache_size": len(self._cache),
             "max_size": self.max_size,
             "eviction_count": self._eviction_count,
-            "cache_utilization": len(self._cache) / self.max_size
-            if self.max_size > 0
-            else 0.0,
+            "cache_utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0.0,
         }
 
     def optimize_cache_settings(self) -> Dict[str, Any]:
@@ -168,9 +164,9 @@ class DataCache:
 
         # ヒット率が低い場合の提案
         if stats["hit_rate"] < 0.5:
-            recommendations[
-                "ttl_increase"
-            ] = "TTLを延長してキャッシュヒット率を向上させることを検討"
+            recommendations["ttl_increase"] = (
+                "TTLを延長してキャッシュヒット率を向上させることを検討"
+            )
 
         # 退避回数が多い場合の提案
         if stats["eviction_count"] > stats["hit_count"] * 0.1:
@@ -178,15 +174,11 @@ class DataCache:
 
         # キャッシュ使用率が低い場合の提案
         if stats["cache_utilization"] < 0.3:
-            recommendations[
-                "size_decrease"
-            ] = "キャッシュサイズを減少させてメモリ効率を向上"
+            recommendations["size_decrease"] = "キャッシュサイズを減少させてメモリ効率を向上"
 
         # stale hitが多い場合の提案
         if stats["stale_hit_rate"] > 0.2:
-            recommendations[
-                "stale_period_adjust"
-            ] = "stale-while-revalidate期間の調整を検討"
+            recommendations["stale_period_adjust"] = "stale-while-revalidate期間の調整を検討"
 
         return {"current_stats": stats, "recommendations": recommendations}
 
@@ -255,10 +247,7 @@ class DataCache:
                 adjustments["ttl"] = {"old": original_ttl, "new": new_ttl}
 
         # キャッシュサイズ調整ロジック
-        if (
-            stats["cache_utilization"] > 0.9
-            and stats["eviction_count"] > stats["hit_count"] * 0.2
-        ):
+        if stats["cache_utilization"] > 0.9 and stats["eviction_count"] > stats["hit_count"] * 0.2:
             # 使用率が高く、退避が多い場合はサイズを増加
             new_max_size = min(int(self.max_size * 1.3), 5000)  # 最大5000エントリ
             if new_max_size != self.max_size:
@@ -311,9 +300,7 @@ class DataCache:
         self._eviction_count += excess_count
         logger.debug(f"余剰エントリ削除: {excess_count}件")
 
-    def _calculate_expected_improvement(
-        self, adjustments: Dict[str, Any]
-    ) -> Dict[str, float]:
+    def _calculate_expected_improvement(self, adjustments: Dict[str, Any]) -> Dict[str, float]:
         """調整による期待される改善効果を推定"""
         improvement = {"hit_rate": 0.0, "memory_efficiency": 0.0}
 
@@ -327,9 +314,7 @@ class DataCache:
                 improvement["memory_efficiency"] = (1.0 - ttl_change) * 0.2
 
         if "max_size" in adjustments:
-            size_change = (
-                adjustments["max_size"]["new"] / adjustments["max_size"]["old"]
-            )
+            size_change = adjustments["max_size"]["new"] / adjustments["max_size"]["old"]
             if size_change > 1.0:
                 # サイズ増加の場合はヒット率向上
                 improvement["hit_rate"] += (size_change - 1.0) * 0.05

@@ -83,10 +83,7 @@ async def test_analysis_engine():
 
     try:
         # 1. エンジン初期化（自動取引無効確認）
-        engine = MarketAnalysisEngine(
-            symbols=symbols,
-            emergency_stop_enabled=False
-        )
+        engine = MarketAnalysisEngine(symbols=symbols, emergency_stop_enabled=False)
         print("[OK] 分析エンジン初期化成功")
 
         # 2. ステータス確認

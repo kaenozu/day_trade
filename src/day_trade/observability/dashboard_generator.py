@@ -11,14 +11,15 @@ APM・オブザーバビリティ統合基盤 - Issue #442 Phase 3
 
 import json
 import os
-from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class DashboardType(Enum):
     """ダッシュボードタイプ"""
+
     HFT_TRADING = "hft_trading"
     SYSTEM_OVERVIEW = "system_overview"
     SLO_MONITORING = "slo_monitoring"
@@ -29,6 +30,7 @@ class DashboardType(Enum):
 
 class PanelType(Enum):
     """パネルタイプ"""
+
     GRAPH = "graph"
     STAT = "stat"
     TABLE = "table"
@@ -45,6 +47,7 @@ class PanelType(Enum):
 @dataclass
 class PanelConfig:
     """パネル設定"""
+
     title: str
     panel_type: PanelType
     targets: List[Dict[str, Any]]
@@ -80,11 +83,7 @@ class DashboardGenerator:
         return panel_id
 
     def _create_base_dashboard(
-        self,
-        title: str,
-        dashboard_type: DashboardType,
-        tags: List[str] = None,
-        refresh: str = "5s"
+        self, title: str, dashboard_type: DashboardType, tags: List[str] = None, refresh: str = "5s"
     ) -> Dict[str, Any]:
         """基本ダッシュボード構造作成"""
         return {
@@ -97,29 +96,33 @@ class DashboardGenerator:
                 "refresh": refresh,
                 "schemaVersion": 39,
                 "version": 1,
-                "time": {
-                    "from": "now-1h",
-                    "to": "now"
-                },
+                "time": {"from": "now-1h", "to": "now"},
                 "timepicker": {
-                    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
-                    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+                    "refresh_intervals": [
+                        "5s",
+                        "10s",
+                        "30s",
+                        "1m",
+                        "5m",
+                        "15m",
+                        "30m",
+                        "1h",
+                        "2h",
+                        "1d",
+                    ],
+                    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"],
                 },
-                "templating": {
-                    "list": self._create_template_variables()
-                },
-                "annotations": {
-                    "list": self._create_annotations()
-                },
+                "templating": {"list": self._create_template_variables()},
+                "annotations": {"list": self._create_annotations()},
                 "panels": [],
                 "editable": True,
                 "fiscalYearStartMonth": 0,
                 "graphTooltip": 1,
                 "links": [],
                 "liveNow": True,  # HFT用リアルタイム表示
-                "weekStart": ""
+                "weekStart": "",
             },
-            "overwrite": True
+            "overwrite": True,
         }
 
     def _create_template_variables(self) -> List[Dict[str, Any]]:
@@ -135,19 +138,19 @@ class DashboardGenerator:
                 "sort": 1,
                 "multi": True,
                 "includeAll": True,
-                "allValue": ".*"
+                "allValue": ".*",
             },
             {
                 "name": "instance",
                 "type": "query",
                 "datasource": "Prometheus",
-                "query": "label_values(up{job=~\"$service\"}, instance)",
+                "query": 'label_values(up{job=~"$service"}, instance)',
                 "refresh": 1,
                 "regex": "",
                 "sort": 1,
                 "multi": True,
                 "includeAll": True,
-                "allValue": ".*"
+                "allValue": ".*",
             },
             {
                 "name": "symbol",
@@ -159,17 +162,14 @@ class DashboardGenerator:
                 "sort": 1,
                 "multi": True,
                 "includeAll": True,
-                "allValue": ".*"
+                "allValue": ".*",
             },
             {
                 "name": "timerange",
                 "type": "interval",
                 "query": "5s,10s,30s,1m,5m,15m,30m,1h",
-                "current": {
-                    "text": "30s",
-                    "value": "30s"
-                }
-            }
+                "current": {"text": "30s", "value": "30s"},
+            },
         ]
 
     def _create_annotations(self) -> List[Dict[str, Any]]:
@@ -183,7 +183,7 @@ class DashboardGenerator:
                 "query": "",
                 "showIn": 0,
                 "tags": [],
-                "type": "dashboard"
+                "type": "dashboard",
             },
             {
                 "name": "Deployments",
@@ -195,8 +195,8 @@ class DashboardGenerator:
                 "step": "1m",
                 "tags": ["deployment"],
                 "titleFormat": "Deployment",
-                "type": "prometheus"
-            }
+                "type": "prometheus",
+            },
         ]
 
     def _create_panel(self, config: PanelConfig) -> Dict[str, Any]:
@@ -206,19 +206,16 @@ class DashboardGenerator:
             "title": config.title,
             "type": config.panel_type.value,
             "datasource": {
-                "type": "prometheus" if config.datasource == "Prometheus" else config.datasource.lower(),
-                "uid": config.datasource.lower()
+                "type": (
+                    "prometheus" if config.datasource == "Prometheus" else config.datasource.lower()
+                ),
+                "uid": config.datasource.lower(),
             },
-            "gridPos": {
-                "h": config.height,
-                "w": config.width,
-                "x": config.x,
-                "y": config.y
-            },
+            "gridPos": {"h": config.height, "w": config.width, "x": config.x, "y": config.y},
             "targets": config.targets,
             "options": config.options,
             "fieldConfig": config.fieldConfig,
-            "transformations": config.transformations
+            "transformations": config.transformations,
         }
 
         return panel
@@ -231,7 +228,7 @@ class DashboardGenerator:
             "🚀 HFT Trading Performance",
             DashboardType.HFT_TRADING,
             ["hft", "trading", "performance"],
-            "1s"  # 1秒更新
+            "1s",  # 1秒更新
         )
 
         panels = []
@@ -243,19 +240,24 @@ class DashboardGenerator:
             PanelConfig(
                 title="Trade Latency P99",
                 panel_type=PanelType.STAT,
-                targets=[{
-                    "expr": "histogram_quantile(0.99, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
-                    "legendFormat": "P99 Latency",
-                    "refId": "A"
-                }],
-                x=0, y=y_pos, width=6, height=4,
+                targets=[
+                    {
+                        "expr": "histogram_quantile(0.99, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
+                        "legendFormat": "P99 Latency",
+                        "refId": "A",
+                    }
+                ],
+                x=0,
+                y=y_pos,
+                width=6,
+                height=4,
                 options={
                     "reduceOptions": {"values": False, "calcs": ["lastNotNull"]},
                     "orientation": "auto",
                     "textMode": "auto",
                     "colorMode": "background",
                     "graphMode": "area",
-                    "justifyMode": "auto"
+                    "justifyMode": "auto",
                 },
                 fieldConfig={
                     "defaults": {
@@ -266,26 +268,30 @@ class DashboardGenerator:
                             "steps": [
                                 {"color": "green", "value": None},
                                 {"color": "yellow", "value": 20},
-                                {"color": "red", "value": 50}
+                                {"color": "red", "value": 50},
                             ]
-                        }
+                        },
                     }
-                }
+                },
             ),
-
             # 取引成功率
             PanelConfig(
                 title="Trade Success Rate",
                 panel_type=PanelType.STAT,
-                targets=[{
-                    "expr": "(rate(day_trade_trades_total{status=\"success\"}[1m]) / rate(day_trade_trades_total[1m])) * 100",
-                    "legendFormat": "Success Rate",
-                    "refId": "A"
-                }],
-                x=6, y=y_pos, width=6, height=4,
+                targets=[
+                    {
+                        "expr": '(rate(day_trade_trades_total{status="success"}[1m]) / rate(day_trade_trades_total[1m])) * 100',
+                        "legendFormat": "Success Rate",
+                        "refId": "A",
+                    }
+                ],
+                x=6,
+                y=y_pos,
+                width=6,
+                height=4,
                 options={
                     "reduceOptions": {"values": False, "calcs": ["lastNotNull"]},
-                    "colorMode": "background"
+                    "colorMode": "background",
                 },
                 fieldConfig={
                     "defaults": {
@@ -296,23 +302,27 @@ class DashboardGenerator:
                             "steps": [
                                 {"color": "red", "value": None},
                                 {"color": "yellow", "value": 99.9},
-                                {"color": "green", "value": 99.95}
+                                {"color": "green", "value": 99.95},
                             ]
-                        }
+                        },
                     }
-                }
+                },
             ),
-
             # スループット
             PanelConfig(
                 title="Trading Throughput",
                 panel_type=PanelType.STAT,
-                targets=[{
-                    "expr": "rate(day_trade_trades_total[30s])",
-                    "legendFormat": "Trades/sec",
-                    "refId": "A"
-                }],
-                x=12, y=y_pos, width=6, height=4,
+                targets=[
+                    {
+                        "expr": "rate(day_trade_trades_total[30s])",
+                        "legendFormat": "Trades/sec",
+                        "refId": "A",
+                    }
+                ],
+                x=12,
+                y=y_pos,
+                width=6,
+                height=4,
                 options={"colorMode": "background"},
                 fieldConfig={
                     "defaults": {
@@ -321,23 +331,27 @@ class DashboardGenerator:
                             "steps": [
                                 {"color": "red", "value": None},
                                 {"color": "yellow", "value": 100},
-                                {"color": "green", "value": 1000}
+                                {"color": "green", "value": 1000},
                             ]
-                        }
+                        },
                     }
-                }
+                },
             ),
-
             # P&L
             PanelConfig(
                 title="Current P&L",
                 panel_type=PanelType.STAT,
-                targets=[{
-                    "expr": "increase(day_trade_pnl_dollars_sum[5m])",
-                    "legendFormat": "P&L (5m)",
-                    "refId": "A"
-                }],
-                x=18, y=y_pos, width=6, height=4,
+                targets=[
+                    {
+                        "expr": "increase(day_trade_pnl_dollars_sum[5m])",
+                        "legendFormat": "P&L (5m)",
+                        "refId": "A",
+                    }
+                ],
+                x=18,
+                y=y_pos,
+                width=6,
+                height=4,
                 options={"colorMode": "background"},
                 fieldConfig={
                     "defaults": {
@@ -346,12 +360,12 @@ class DashboardGenerator:
                             "steps": [
                                 {"color": "red", "value": -1000},
                                 {"color": "yellow", "value": 0},
-                                {"color": "green", "value": 1000}
+                                {"color": "green", "value": 1000},
                             ]
-                        }
+                        },
                     }
-                }
-            )
+                },
+            ),
         ]
 
         panels.extend([self._create_panel(panel) for panel in stats_panels])
@@ -362,20 +376,20 @@ class DashboardGenerator:
             PanelConfig(
                 title="Trade Execution Latency Distribution",
                 panel_type=PanelType.HEATMAP,
-                targets=[{
-                    "expr": "rate(day_trade_trade_latency_microseconds_bucket[1m])",
-                    "format": "heatmap",
-                    "legendFormat": "{{le}}",
-                    "refId": "A"
-                }],
-                x=0, y=y_pos, width=12, height=8,
-                options={
-                    "yAxis": {"unit": "µs"},
-                    "color": {"mode": "spectrum"},
-                    "calculate": True
-                }
+                targets=[
+                    {
+                        "expr": "rate(day_trade_trade_latency_microseconds_bucket[1m])",
+                        "format": "heatmap",
+                        "legendFormat": "{{le}}",
+                        "refId": "A",
+                    }
+                ],
+                x=0,
+                y=y_pos,
+                width=12,
+                height=8,
+                options={"yAxis": {"unit": "µs"}, "color": {"mode": "spectrum"}, "calculate": True},
             ),
-
             PanelConfig(
                 title="Latency Percentiles",
                 panel_type=PanelType.GRAPH,
@@ -383,36 +397,35 @@ class DashboardGenerator:
                     {
                         "expr": "histogram_quantile(0.50, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
                         "legendFormat": "P50",
-                        "refId": "A"
+                        "refId": "A",
                     },
                     {
                         "expr": "histogram_quantile(0.95, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
                         "legendFormat": "P95",
-                        "refId": "B"
+                        "refId": "B",
                     },
                     {
                         "expr": "histogram_quantile(0.99, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
                         "legendFormat": "P99",
-                        "refId": "C"
+                        "refId": "C",
                     },
                     {
                         "expr": "histogram_quantile(0.999, rate(day_trade_trade_latency_microseconds_bucket[30s]))",
                         "legendFormat": "P99.9",
-                        "refId": "D"
-                    }
+                        "refId": "D",
+                    },
                 ],
-                x=12, y=y_pos, width=12, height=8,
+                x=12,
+                y=y_pos,
+                width=12,
+                height=8,
                 fieldConfig={
                     "defaults": {
                         "unit": "µs",
-                        "custom": {
-                            "drawStyle": "line",
-                            "lineWidth": 2,
-                            "fillOpacity": 10
-                        }
+                        "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10},
                     }
-                }
-            )
+                },
+            ),
         ]
 
         panels.extend([self._create_panel(panel) for panel in latency_panels])
@@ -423,45 +436,56 @@ class DashboardGenerator:
             PanelConfig(
                 title="CPU Usage",
                 panel_type=PanelType.GRAPH,
-                targets=[{
-                    "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\", instance=~\"$instance\"}[5m])) * 100)",
-                    "legendFormat": "CPU {{instance}}",
-                    "refId": "A"
-                }],
-                x=0, y=y_pos, width=8, height=6,
-                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}}
+                targets=[
+                    {
+                        "expr": '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle", instance=~"$instance"}[5m])) * 100)',
+                        "legendFormat": "CPU {{instance}}",
+                        "refId": "A",
+                    }
+                ],
+                x=0,
+                y=y_pos,
+                width=8,
+                height=6,
+                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}},
             ),
-
             PanelConfig(
                 title="Memory Usage",
                 panel_type=PanelType.GRAPH,
-                targets=[{
-                    "expr": "((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100",
-                    "legendFormat": "Memory {{instance}}",
-                    "refId": "A"
-                }],
-                x=8, y=y_pos, width=8, height=6,
-                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}}
+                targets=[
+                    {
+                        "expr": "((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100",
+                        "legendFormat": "Memory {{instance}}",
+                        "refId": "A",
+                    }
+                ],
+                x=8,
+                y=y_pos,
+                width=8,
+                height=6,
+                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}},
             ),
-
             PanelConfig(
                 title="Network I/O",
                 panel_type=PanelType.GRAPH,
                 targets=[
                     {
-                        "expr": "rate(node_network_receive_bytes_total{instance=~\"$instance\"}[5m])",
+                        "expr": 'rate(node_network_receive_bytes_total{instance=~"$instance"}[5m])',
                         "legendFormat": "RX {{device}}",
-                        "refId": "A"
+                        "refId": "A",
                     },
                     {
-                        "expr": "-rate(node_network_transmit_bytes_total{instance=~\"$instance\"}[5m])",
+                        "expr": '-rate(node_network_transmit_bytes_total{instance=~"$instance"}[5m])',
                         "legendFormat": "TX {{device}}",
-                        "refId": "B"
-                    }
+                        "refId": "B",
+                    },
                 ],
-                x=16, y=y_pos, width=8, height=6,
-                fieldConfig={"defaults": {"unit": "Bps"}}
-            )
+                x=16,
+                y=y_pos,
+                width=8,
+                height=6,
+                fieldConfig={"defaults": {"unit": "Bps"}},
+            ),
         ]
 
         panels.extend([self._create_panel(panel) for panel in system_panels])
@@ -477,7 +501,7 @@ class DashboardGenerator:
             "📊 SLO/SLI Monitoring",
             DashboardType.SLO_MONITORING,
             ["slo", "sli", "monitoring"],
-            "30s"
+            "30s",
         )
 
         panels = []
@@ -488,15 +512,20 @@ class DashboardGenerator:
             PanelConfig(
                 title="Trade Latency SLO",
                 panel_type=PanelType.GAUGE,
-                targets=[{
-                    "expr": "(rate(day_trade_trades_total{latency_bucket=\"le_50\"}[5m]) / rate(day_trade_trades_total[5m])) * 100",
-                    "refId": "A"
-                }],
-                x=0, y=y_pos, width=6, height=6,
+                targets=[
+                    {
+                        "expr": '(rate(day_trade_trades_total{latency_bucket="le_50"}[5m]) / rate(day_trade_trades_total[5m])) * 100',
+                        "refId": "A",
+                    }
+                ],
+                x=0,
+                y=y_pos,
+                width=6,
+                height=6,
                 options={
                     "reduceOptions": {"calcs": ["lastNotNull"]},
                     "orientation": "auto",
-                    "displayMode": "basic"
+                    "displayMode": "basic",
                 },
                 fieldConfig={
                     "defaults": {
@@ -507,11 +536,11 @@ class DashboardGenerator:
                             "steps": [
                                 {"color": "red", "value": None},
                                 {"color": "yellow", "value": 99.9},
-                                {"color": "green", "value": 99.95}
+                                {"color": "green", "value": 99.95},
                             ]
-                        }
+                        },
                     }
-                }
+                },
             )
         ]
 
@@ -528,7 +557,7 @@ class DashboardGenerator:
             "🛡️ Security Monitoring",
             DashboardType.SECURITY_MONITORING,
             ["security", "monitoring"],
-            "15s"
+            "15s",
         )
 
         panels = []
@@ -539,26 +568,35 @@ class DashboardGenerator:
             PanelConfig(
                 title="Authentication Failures",
                 panel_type=PanelType.GRAPH,
-                targets=[{
-                    "expr": "rate(day_trade_auth_failures_total[5m])",
-                    "legendFormat": "Auth failures/sec",
-                    "refId": "A"
-                }],
-                x=0, y=y_pos, width=12, height=6,
-                fieldConfig={"defaults": {"unit": "ops"}}
+                targets=[
+                    {
+                        "expr": "rate(day_trade_auth_failures_total[5m])",
+                        "legendFormat": "Auth failures/sec",
+                        "refId": "A",
+                    }
+                ],
+                x=0,
+                y=y_pos,
+                width=12,
+                height=6,
+                fieldConfig={"defaults": {"unit": "ops"}},
             ),
-
             PanelConfig(
                 title="Suspicious Activities",
                 panel_type=PanelType.TABLE,
-                targets=[{
-                    "expr": "topk(10, rate(day_trade_requests_total{status=~\"4..\"}[5m]))",
-                    "format": "table",
-                    "instant": True,
-                    "refId": "A"
-                }],
-                x=12, y=y_pos, width=12, height=6
-            )
+                targets=[
+                    {
+                        "expr": 'topk(10, rate(day_trade_requests_total{status=~"4.."}[5m]))',
+                        "format": "table",
+                        "instant": True,
+                        "refId": "A",
+                    }
+                ],
+                x=12,
+                y=y_pos,
+                width=12,
+                height=6,
+            ),
         ]
 
         panels.extend([self._create_panel(panel) for panel in security_panels])
@@ -588,11 +626,11 @@ class DashboardGenerator:
             "updated": datetime.now(timezone.utc).isoformat(),
             "updatedBy": "admin",
             "createdBy": "dashboard-generator",
-            "version": 1
+            "version": 1,
         }
 
         # JSON保存
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(dashboard, f, indent=2, ensure_ascii=False)
 
         return filepath
@@ -623,7 +661,9 @@ class DashboardGenerator:
 def generate_dashboards(output_dir: str = None) -> List[str]:
     """ダッシュボード一括生成"""
     if output_dir is None:
-        output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "config", "grafana", "dashboards")
+        output_dir = os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "config", "grafana", "dashboards"
+        )
 
     generator = DashboardGenerator(output_dir)
     return generator.generate_all_dashboards()

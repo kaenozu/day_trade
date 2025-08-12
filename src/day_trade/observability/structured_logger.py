@@ -11,13 +11,13 @@ APM・オブザーバビリティ統合基盤 - Issue #442 Phase 2
 
 import os
 import sys
+import threading
 import time
 import uuid
-import threading
-from typing import Dict, Any, Optional, Union, List
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
 import structlog
 from opentelemetry import trace
@@ -28,6 +28,7 @@ from .telemetry_config import get_logger as get_base_logger
 
 class LogLevel(Enum):
     """ログレベル定義"""
+
     CRITICAL = "CRITICAL"
     ERROR = "ERROR"
     WARNING = "WARNING"
@@ -38,6 +39,7 @@ class LogLevel(Enum):
 
 class EventCategory(Enum):
     """イベントカテゴリ定義"""
+
     TRADE_EXECUTION = "trade_execution"
     MARKET_DATA = "market_data"
     API_ACCESS = "api_access"
@@ -61,10 +63,7 @@ class StructuredLogger:
     """
 
     def __init__(
-        self,
-        name: str = "day-trade",
-        service_version: str = "1.0.0",
-        environment: str = None
+        self, name: str = "day-trade", service_version: str = "1.0.0", environment: str = None
     ):
         self.name = name
         self.service_version = service_version
@@ -86,19 +85,22 @@ class StructuredLogger:
 
     def _setup_base_logger(self) -> structlog.BoundLogger:
         """基本ログ設定"""
+
         def add_service_context(logger, method_name, event_dict):
             """サービスコンテキスト追加"""
-            event_dict.update({
-                "service": {
-                    "name": self.name,
-                    "version": self.service_version,
-                    "environment": self.environment
-                },
-                "host": {
-                    "name": os.getenv("HOSTNAME", "unknown"),
-                    "ip": os.getenv("HOST_IP", "unknown")
+            event_dict.update(
+                {
+                    "service": {
+                        "name": self.name,
+                        "version": self.service_version,
+                        "environment": self.environment,
+                    },
+                    "host": {
+                        "name": os.getenv("HOSTNAME", "unknown"),
+                        "ip": os.getenv("HOST_IP", "unknown"),
+                    },
                 }
-            })
+            )
             return event_dict
 
         def add_trace_context(logger, method_name, event_dict):
@@ -109,7 +111,7 @@ class StructuredLogger:
                 event_dict["trace"] = {
                     "trace_id": format(ctx.trace_id, "032x"),
                     "span_id": format(ctx.span_id, "016x"),
-                    "trace_flags": format(ctx.trace_flags, "02x")
+                    "trace_flags": format(ctx.trace_flags, "02x"),
                 }
             return event_dict
 
@@ -129,26 +131,37 @@ class StructuredLogger:
         def add_timestamp_context(logger, method_name, event_dict):
             """詳細タイムスタンプ情報追加"""
             now = datetime.now(timezone.utc)
-            event_dict.update({
-                "timestamp": now.isoformat(),
-                "@timestamp": now.isoformat(),
-                "timestamp_unix": now.timestamp(),
-                "timestamp_unix_ns": time.time_ns()  # HFT用ナノ秒精度
-            })
+            event_dict.update(
+                {
+                    "timestamp": now.isoformat(),
+                    "@timestamp": now.isoformat(),
+                    "timestamp_unix": now.timestamp(),
+                    "timestamp_unix_ns": time.time_ns(),  # HFT用ナノ秒精度
+                }
+            )
             return event_dict
 
         def mask_sensitive_data(logger, method_name, event_dict):
             """機密情報マスキング"""
             sensitive_fields = [
-                'password', 'token', 'api_key', 'secret', 'auth_token',
-                'credit_card', 'ssn', 'account_number'
+                "password",
+                "token",
+                "api_key",
+                "secret",
+                "auth_token",
+                "credit_card",
+                "ssn",
+                "account_number",
             ]
 
             def mask_recursive(obj):
                 if isinstance(obj, dict):
                     return {
-                        key: "***MASKED***" if key.lower() in sensitive_fields
-                        else mask_recursive(value)
+                        key: (
+                            "***MASKED***"
+                            if key.lower() in sensitive_fields
+                            else mask_recursive(value)
+                        )
                         for key, value in obj.items()
                     }
                 elif isinstance(obj, list):
@@ -156,12 +169,13 @@ class StructuredLogger:
                 elif isinstance(obj, str):
                     # クレジットカード番号パターン
                     import re
-                    cc_pattern = r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'
-                    obj = re.sub(cc_pattern, '****-****-****-****', obj)
+
+                    cc_pattern = r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b"
+                    obj = re.sub(cc_pattern, "****-****-****-****", obj)
 
                     # メールアドレス部分マスキング
-                    email_pattern = r'\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b'
-                    obj = re.sub(email_pattern, r'***@\2', obj)
+                    email_pattern = r"\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b"
+                    obj = re.sub(email_pattern, r"***@\2", obj)
 
                 return obj
 
@@ -182,7 +196,7 @@ class StructuredLogger:
                 structlog.processors.StackInfoRenderer(),
                 structlog.processors.format_exc_info,
                 structlog.processors.UnicodeDecoder(),
-                structlog.processors.JSONRenderer()
+                structlog.processors.JSONRenderer(),
             ],
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
@@ -195,23 +209,23 @@ class StructuredLogger:
 
     def set_correlation_id(self, correlation_id: str = None) -> str:
         """相関ID設定"""
-        if not hasattr(self._thread_local, 'correlation_id') or correlation_id:
+        if not hasattr(self._thread_local, "correlation_id") or correlation_id:
             self._thread_local.correlation_id = correlation_id or str(uuid.uuid4())
         return self._thread_local.correlation_id
 
     def get_correlation_id(self) -> Optional[str]:
         """相関ID取得"""
-        return getattr(self._thread_local, 'correlation_id', None)
+        return getattr(self._thread_local, "correlation_id", None)
 
     def set_request_id(self, request_id: str = None) -> str:
         """リクエストID設定"""
-        if not hasattr(self._thread_local, 'request_id') or request_id:
+        if not hasattr(self._thread_local, "request_id") or request_id:
             self._thread_local.request_id = request_id or str(uuid.uuid4())
         return self._thread_local.request_id
 
     def get_request_id(self) -> Optional[str]:
         """リクエストID取得"""
-        return getattr(self._thread_local, 'request_id', None)
+        return getattr(self._thread_local, "request_id", None)
 
     # === HFT対応サンプリング ===
 
@@ -239,7 +253,7 @@ class StructuredLogger:
         level: LogLevel,
         message: str,
         category: EventCategory = EventCategory.SYSTEM,
-        **kwargs
+        **kwargs,
     ) -> None:
         """汎用ログ出力"""
         if not self._should_log(level):
@@ -251,9 +265,9 @@ class StructuredLogger:
                 "category": category.value,
                 "action": kwargs.pop("action", None),
                 "outcome": kwargs.pop("outcome", "unknown"),
-                "duration_ms": kwargs.pop("duration_ms", None)
+                "duration_ms": kwargs.pop("duration_ms", None),
             },
-            **kwargs
+            **kwargs,
         }
 
         # ログレベル別出力
@@ -267,13 +281,15 @@ class StructuredLogger:
     def error(self, message: str, error: Exception = None, **kwargs) -> None:
         """エラーログ"""
         if error:
-            kwargs.update({
-                "error": {
-                    "type": type(error).__name__,
-                    "message": str(error),
-                    "stack_trace": str(error.__traceback__) if error.__traceback__ else None
+            kwargs.update(
+                {
+                    "error": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "stack_trace": str(error.__traceback__) if error.__traceback__ else None,
+                    }
                 }
-            })
+            )
 
             # OpenTelemetryスパンにも例外記録
             span = trace.get_current_span()
@@ -310,7 +326,7 @@ class StructuredLogger:
         latency_us: float,
         success: bool,
         pnl: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """取引実行ログ"""
         self.log(
@@ -325,7 +341,7 @@ class StructuredLogger:
             price=price,
             latency_microseconds=latency_us,
             pnl=pnl,
-            **kwargs
+            **kwargs,
         )
 
     def log_api_access(
@@ -336,7 +352,7 @@ class StructuredLogger:
         response_time_ms: float,
         client_ip: str = None,
         user_agent: str = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """APIアクセスログ"""
         self.log(
@@ -345,15 +361,11 @@ class StructuredLogger:
             category=EventCategory.API_ACCESS,
             action="api_request",
             outcome="success" if status_code < 400 else "failure",
-            http={
-                "method": method,
-                "path": path,
-                "status_code": status_code
-            },
+            http={"method": method, "path": path, "status_code": status_code},
             response_time_ms=response_time_ms,
             client_ip=client_ip,
             user_agent=user_agent,
-            **kwargs
+            **kwargs,
         )
 
     def log_security_event(
@@ -363,7 +375,7 @@ class StructuredLogger:
         message: str,
         source_ip: str = None,
         user_id: str = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """セキュリティイベントログ"""
         self.log(
@@ -376,9 +388,9 @@ class StructuredLogger:
                 "event_type": event_type,
                 "severity": severity,
                 "source_ip": source_ip,
-                "user_id": user_id
+                "user_id": user_id,
             },
-            **kwargs
+            **kwargs,
         )
 
     def log_performance_metric(
@@ -387,7 +399,7 @@ class StructuredLogger:
         metric_value: float,
         metric_unit: str = None,
         tags: Dict[str, str] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """パフォーマンスメトリクスログ"""
         self.log(
@@ -399,9 +411,9 @@ class StructuredLogger:
                 "name": metric_name,
                 "value": metric_value,
                 "unit": metric_unit,
-                "tags": tags or {}
+                "tags": tags or {},
             },
-            **kwargs
+            **kwargs,
         )
 
     # === コンテキストマネージャー ===
@@ -418,8 +430,8 @@ class StructuredLogger:
             if old_correlation_id:
                 self.set_correlation_id(old_correlation_id)
             else:
-                if hasattr(self._thread_local, 'correlation_id'):
-                    delattr(self._thread_local, 'correlation_id')
+                if hasattr(self._thread_local, "correlation_id"):
+                    delattr(self._thread_local, "correlation_id")
 
     @contextmanager
     def request_context(self, request_id: str = None):
@@ -433,16 +445,11 @@ class StructuredLogger:
             if old_request_id:
                 self.set_request_id(old_request_id)
             else:
-                if hasattr(self._thread_local, 'request_id'):
-                    delattr(self._thread_local, 'request_id')
+                if hasattr(self._thread_local, "request_id"):
+                    delattr(self._thread_local, "request_id")
 
     @contextmanager
-    def operation_context(
-        self,
-        operation_name: str,
-        correlation_id: str = None,
-        **context_data
-    ):
+    def operation_context(self, operation_name: str, correlation_id: str = None, **context_data):
         """操作コンテキスト（相関ID + 操作情報）"""
         start_time = time.perf_counter()
         start_time_ns = time.time_ns()
@@ -452,7 +459,7 @@ class StructuredLogger:
                 f"Operation started: {operation_name}",
                 action="operation_start",
                 operation=operation_name,
-                **context_data
+                **context_data,
             )
 
             try:
@@ -469,7 +476,7 @@ class StructuredLogger:
                     outcome="success",
                     duration_ms=duration_ms,
                     duration_ns=duration_ns,
-                    **context_data
+                    **context_data,
                 )
 
             except Exception as e:
@@ -483,7 +490,7 @@ class StructuredLogger:
                     operation=operation_name,
                     outcome="failure",
                     duration_ms=duration_ms,
-                    **context_data
+                    **context_data,
                 )
                 raise
 
@@ -493,8 +500,7 @@ _global_logger: Optional[StructuredLogger] = None
 
 
 def get_structured_logger(
-    name: str = "day-trade",
-    service_version: str = "1.0.0"
+    name: str = "day-trade", service_version: str = "1.0.0"
 ) -> StructuredLogger:
     """グローバル構造化ログ取得"""
     global _global_logger
@@ -518,7 +524,15 @@ def get_correlation_id() -> Optional[str]:
 
 
 # 便利関数
-def log_trade(symbol: str, side: str, quantity: float, price: float, latency_us: float, success: bool, **kwargs):
+def log_trade(
+    symbol: str,
+    side: str,
+    quantity: float,
+    price: float,
+    latency_us: float,
+    success: bool,
+    **kwargs,
+):
     """取引ログ便利関数"""
     logger = get_structured_logger()
     logger.log_trade_execution(symbol, side, quantity, price, latency_us, success, **kwargs)

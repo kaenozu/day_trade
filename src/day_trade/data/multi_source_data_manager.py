@@ -278,9 +278,7 @@ class NewsDataCollector(DataCollector):
         # 品質評価指標
         freshness = 1.0  # 新しさ
         relevance = np.mean([article.get("relevance", 0.7) for article in news_data])
-        diversity = min(
-            len(set(article.get("source", "") for article in news_data)) / 3, 1.0
-        )
+        diversity = min(len(set(article.get("source", "") for article in news_data)) / 3, 1.0)
 
         quality_score = freshness * 0.3 + relevance * 0.5 + diversity * 0.2
         return min(quality_score, 1.0)
@@ -335,9 +333,7 @@ class SentimentAnalyzer(DataCollector):
                 "negative_ratio": negative_ratio,
                 "neutral_ratio": 1.0 - positive_ratio - negative_ratio,
                 "article_sentiments": sentiment_scores,
-                "confidence": min(
-                    len(sentiment_scores) / 10, 1.0
-                ),  # 記事数ベース信頼度
+                "confidence": min(len(sentiment_scores) / 10, 1.0),  # 記事数ベース信頼度
             }
 
             quality_score = self._evaluate_sentiment_quality(sentiment_data)
@@ -368,9 +364,7 @@ class SentimentAnalyzer(DataCollector):
         try:
             blob = TextBlob(text)
             polarity = blob.sentiment.polarity  # -1 (negative) to 1 (positive)
-            subjectivity = (
-                blob.sentiment.subjectivity
-            )  # 0 (objective) to 1 (subjective)
+            subjectivity = blob.sentiment.subjectivity  # 0 (objective) to 1 (subjective)
 
             # VADER風のスコア変換
             return {
@@ -474,9 +468,7 @@ class MacroEconomicCollector(DataCollector):
         base_volatility = np.random.uniform(0.15, 0.35)
         return base_volatility
 
-    def _calculate_sector_impact(
-        self, symbol: str, macro_data: Dict
-    ) -> Dict[str, float]:
+    def _calculate_sector_impact(self, symbol: str, macro_data: Dict) -> Dict[str, float]:
         """セクター別マクロ影響度算出"""
         # 業種コード推定（実際にはマスタデータから取得）
         sector_mapping = {
@@ -517,9 +509,7 @@ class MacroEconomicCollector(DataCollector):
     def _evaluate_macro_quality(self, macro_data: Dict) -> float:
         """マクロ経済データ品質評価"""
         required_indicators = ["interest_rate", "inflation_rate", "gdp_growth"]
-        available_count = sum(
-            1 for indicator in required_indicators if indicator in macro_data
-        )
+        available_count = sum(1 for indicator in required_indicators if indicator in macro_data)
         completeness = available_count / len(required_indicators)
 
         # データ新鮮度評価
@@ -619,13 +609,9 @@ class MultiSourceDataManager:
             # セマフォで同時実行数制限
             semaphore = asyncio.Semaphore(self.max_concurrent)
 
-            async def collect_with_semaphore(
-                collector_name: str, collector: DataCollector
-            ):
+            async def collect_with_semaphore(collector_name: str, collector: DataCollector):
                 async with semaphore:
-                    return await self._collect_single_source(
-                        collector_name, collector, symbol
-                    )
+                    return await self._collect_single_source(collector_name, collector, symbol)
 
             # 全データ収集器を並列実行
             tasks = [
@@ -707,9 +693,7 @@ class MultiSourceDataManager:
                 symbol = collected_data["macro"].symbol
 
                 # セクター影響度の詳細計算
-                enhanced_macro = self._enhance_macro_with_sector_analysis(
-                    macro_data, symbol
-                )
+                enhanced_macro = self._enhance_macro_with_sector_analysis(macro_data, symbol)
                 collected_data["macro"].data = enhanced_macro
 
             return collected_data
@@ -754,8 +738,8 @@ class MultiSourceDataManager:
                 )
 
                 # 品質スコア再計算
-                sentiment_data.quality_score = (
-                    sentiment_analyzer._evaluate_sentiment_quality(sentiment_data.data)
+                sentiment_data.quality_score = sentiment_analyzer._evaluate_sentiment_quality(
+                    sentiment_data.data
                 )
 
             return sentiment_data
@@ -764,23 +748,17 @@ class MultiSourceDataManager:
             logger.error(f"センチメント更新エラー: {e}")
             return sentiment_data
 
-    def _enhance_macro_with_sector_analysis(
-        self, macro_data: Dict, symbol: str
-    ) -> Dict:
+    def _enhance_macro_with_sector_analysis(self, macro_data: Dict, symbol: str) -> Dict:
         """マクロ経済データのセクター強化"""
         try:
             # より詳細なセクター分析
             sector_sensitivity = self._calculate_detailed_sector_sensitivity(symbol)
 
             # マクロ指標との相関分析
-            correlation_scores = self._calculate_macro_correlations(
-                macro_data, sector_sensitivity
-            )
+            correlation_scores = self._calculate_macro_correlations(macro_data, sector_sensitivity)
 
             # 予測影響度計算
-            impact_prediction = self._predict_macro_impact(
-                macro_data, correlation_scores
-            )
+            impact_prediction = self._predict_macro_impact(macro_data, correlation_scores)
 
             macro_data.update(
                 {
@@ -806,9 +784,7 @@ class MultiSourceDataManager:
             "9984": {"sector": "retail", "sub_sector": "ecommerce"},
         }
 
-        sector_info = sector_mappings.get(
-            symbol, {"sector": "general", "sub_sector": "general"}
-        )
+        sector_info = sector_mappings.get(symbol, {"sector": "general", "sub_sector": "general"})
 
         # セクター感度定義
         sensitivity_profiles = {
@@ -836,9 +812,7 @@ class MultiSourceDataManager:
             "general": {"interest_rate": 0.0, "exchange_rate": 0.0, "inflation": 0.0},
         }
 
-        return sensitivity_profiles.get(
-            sector_info["sector"], sensitivity_profiles["general"]
-        )
+        return sensitivity_profiles.get(sector_info["sector"], sensitivity_profiles["general"])
 
     def _calculate_macro_correlations(
         self, macro_data: Dict, sector_sensitivity: Dict
@@ -847,9 +821,7 @@ class MultiSourceDataManager:
         correlations = {}
 
         for macro_indicator, value in macro_data.items():
-            if macro_indicator in sector_sensitivity and isinstance(
-                value, (int, float)
-            ):
+            if macro_indicator in sector_sensitivity and isinstance(value, (int, float)):
                 # 相関強度計算
                 sensitivity = sector_sensitivity[macro_indicator]
                 correlation = sensitivity * np.tanh(abs(value) / 10)  # 正規化
@@ -857,9 +829,7 @@ class MultiSourceDataManager:
 
         return correlations
 
-    def _predict_macro_impact(
-        self, macro_data: Dict, correlations: Dict
-    ) -> Dict[str, Any]:
+    def _predict_macro_impact(self, macro_data: Dict, correlations: Dict) -> Dict[str, Any]:
         """マクロ影響予測"""
         impact_scores = []
 
@@ -867,9 +837,7 @@ class MultiSourceDataManager:
             if indicator in macro_data:
                 value = macro_data[indicator]
                 if isinstance(value, (int, float)):
-                    impact = (
-                        correlation * (value - 0) / max(abs(value), 1)
-                    )  # 正規化影響度
+                    impact = correlation * (value - 0) / max(abs(value), 1)  # 正規化影響度
                     impact_scores.append(impact)
 
         if impact_scores:
@@ -882,17 +850,15 @@ class MultiSourceDataManager:
         return {
             "overall_impact": overall_impact,
             "impact_volatility": impact_volatility,
-            "risk_level": "high"
-            if impact_volatility > 0.5
-            else "medium"
-            if impact_volatility > 0.2
-            else "low",
+            "risk_level": (
+                "high"
+                if impact_volatility > 0.5
+                else "medium" if impact_volatility > 0.2 else "low"
+            ),
             "confidence": min(len(impact_scores) / 5, 1.0),
         }
 
-    def _check_comprehensive_cache(
-        self, symbol: str
-    ) -> Optional[Dict[str, CollectedData]]:
+    def _check_comprehensive_cache(self, symbol: str) -> Optional[Dict[str, CollectedData]]:
         """包括キャッシュチェック"""
         if not self.cache_enabled:
             return None
@@ -956,9 +922,7 @@ class MultiSourceDataManager:
                 stats["collector_health"][name] = {"status": "error", "error": str(e)}
 
         # キャッシュ統計
-        if self.cache_enabled and hasattr(
-            self.cache_manager, "get_comprehensive_stats"
-        ):
+        if self.cache_enabled and hasattr(self.cache_manager, "get_comprehensive_stats"):
             try:
                 stats["cache_stats"] = self.cache_manager.get_comprehensive_stats()
             except Exception as e:
@@ -997,9 +961,7 @@ class ComprehensiveFeatureEngineer:
         try:
             # 1. 価格系特徴量
             if "price" in comprehensive_data:
-                price_features = self._generate_price_features(
-                    comprehensive_data["price"].data
-                )
+                price_features = self._generate_price_features(comprehensive_data["price"].data)
                 features.update(price_features)
 
             # 2. センチメント系特徴量
@@ -1011,22 +973,16 @@ class ComprehensiveFeatureEngineer:
 
             # 3. ニュース系特徴量
             if "news" in comprehensive_data:
-                news_features = self._generate_news_features(
-                    comprehensive_data["news"].data
-                )
+                news_features = self._generate_news_features(comprehensive_data["news"].data)
                 features.update(news_features)
 
             # 4. マクロ経済特徴量
             if "macro" in comprehensive_data:
-                macro_features = self._generate_macro_features(
-                    comprehensive_data["macro"].data
-                )
+                macro_features = self._generate_macro_features(comprehensive_data["macro"].data)
                 features.update(macro_features)
 
             # 5. 相互作用特徴量
-            interaction_features = self._generate_interaction_features(
-                comprehensive_data
-            )
+            interaction_features = self._generate_interaction_features(comprehensive_data)
             features.update(interaction_features)
 
             logger.info(f"包括特徴量生成完了: {len(features)}個")
@@ -1057,9 +1013,7 @@ class ComprehensiveFeatureEngineer:
         features["sentiment_confidence"] = sentiment_data.get("confidence", 0.0)
 
         # センチメント変化率
-        features["sentiment_momentum"] = abs(
-            sentiment_data.get("overall_sentiment", 0.0)
-        )
+        features["sentiment_momentum"] = abs(sentiment_data.get("overall_sentiment", 0.0))
 
         return features
 
@@ -1077,9 +1031,7 @@ class ComprehensiveFeatureEngineer:
 
         # 関連度スコア
         relevance_scores = [article.get("relevance", 0.7) for article in news_data]
-        features["news_avg_relevance"] = (
-            np.mean(relevance_scores) if relevance_scores else 0.0
-        )
+        features["news_avg_relevance"] = np.mean(relevance_scores) if relevance_scores else 0.0
 
         return features
 
@@ -1104,9 +1056,7 @@ class ComprehensiveFeatureEngineer:
         if "impact_prediction" in macro_data:
             impact_pred = macro_data["impact_prediction"]
             features["macro_predicted_impact"] = impact_pred.get("overall_impact", 0.0)
-            features["macro_impact_volatility"] = impact_pred.get(
-                "impact_volatility", 0.0
-            )
+            features["macro_impact_volatility"] = impact_pred.get("impact_volatility", 0.0)
 
         return features
 
@@ -1119,33 +1069,21 @@ class ComprehensiveFeatureEngineer:
         try:
             # センチメント × マクロ経済
             if "sentiment" in comprehensive_data and "macro" in comprehensive_data:
-                sentiment = comprehensive_data["sentiment"].data.get(
-                    "overall_sentiment", 0.0
-                )
-                interest_rate = comprehensive_data["macro"].data.get(
-                    "interest_rate", 0.0
-                )
+                sentiment = comprehensive_data["sentiment"].data.get("overall_sentiment", 0.0)
+                interest_rate = comprehensive_data["macro"].data.get("interest_rate", 0.0)
 
                 features["sentiment_macro_interaction"] = sentiment * interest_rate
 
             # ニュース × センチメント一貫性
             if "news" in comprehensive_data and "sentiment" in comprehensive_data:
                 news_count = len(comprehensive_data["news"].data)
-                sentiment_conf = comprehensive_data["sentiment"].data.get(
-                    "confidence", 0.0
-                )
+                sentiment_conf = comprehensive_data["sentiment"].data.get("confidence", 0.0)
 
-                features["news_sentiment_consistency"] = sentiment_conf * min(
-                    news_count / 5, 1.0
-                )
+                features["news_sentiment_consistency"] = sentiment_conf * min(news_count / 5, 1.0)
 
             # データ品質総合スコア
-            quality_scores = [
-                data.quality_score for data in comprehensive_data.values()
-            ]
-            features["overall_data_quality"] = (
-                np.mean(quality_scores) if quality_scores else 0.0
-            )
+            quality_scores = [data.quality_score for data in comprehensive_data.values()]
+            features["overall_data_quality"] = np.mean(quality_scores) if quality_scores else 0.0
 
         except Exception as e:
             logger.error(f"相互作用特徴量エラー: {e}")
@@ -1170,9 +1108,7 @@ if __name__ == "__main__":
 
             for symbol in test_symbols:
                 print(f"\n  {symbol}のデータ収集...")
-                comprehensive_data = await data_manager.collect_comprehensive_data(
-                    symbol
-                )
+                comprehensive_data = await data_manager.collect_comprehensive_data(symbol)
 
                 print(f"    収集データ種類: {len(comprehensive_data)}")
                 for data_type, data in comprehensive_data.items():
@@ -1182,9 +1118,7 @@ if __name__ == "__main__":
             print("\n2. 特徴量生成テスト...")
             if comprehensive_data:
                 feature_engineer = ComprehensiveFeatureEngineer(data_manager)
-                features = feature_engineer.generate_comprehensive_features(
-                    comprehensive_data
-                )
+                features = feature_engineer.generate_comprehensive_features(comprehensive_data)
                 print(f"    生成特徴量数: {len(features)}")
 
                 # 特徴量サンプル表示

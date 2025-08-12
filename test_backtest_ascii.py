@@ -20,18 +20,22 @@ import pandas as pd
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
+
 @dataclass
 class BacktestConfig:
     """Backtest configuration"""
+
     start_date: str = "2023-01-01"
     end_date: str = "2023-06-30"
     initial_capital: float = 1000000.0
     max_position_size: float = 0.2
     transaction_cost: float = 0.001
 
+
 @dataclass
 class Trade:
     """Trade record"""
+
     symbol: str
     action: str
     quantity: float
@@ -39,15 +43,18 @@ class Trade:
     timestamp: datetime
     ai_confidence: float = 0.0
 
+
 @dataclass
 class BacktestResult:
     """Backtest result"""
+
     total_return: float
     sharpe_ratio: float
     max_drawdown: float
     total_trades: int
     win_rate: float
     execution_time: float
+
 
 class AIBacktestEngine:
     """AI Backtest Engine"""
@@ -68,7 +75,7 @@ class AIBacktestEngine:
             # Random walk price generation
             np.random.seed(hash(symbol) % 1000)  # Symbol-specific seed
 
-            dates = pd.date_range(start=self.config.start_date, periods=days, freq='D')
+            dates = pd.date_range(start=self.config.start_date, periods=days, freq="D")
 
             # Initial price
             initial_price = np.random.uniform(800, 1200)
@@ -87,13 +94,10 @@ class AIBacktestEngine:
             lows = np.minimum(opens, closes) * np.random.uniform(0.98, 1.0, days)
             volumes = np.random.randint(1000, 50000, days)
 
-            data[symbol] = pd.DataFrame({
-                'Open': opens,
-                'High': highs,
-                'Low': lows,
-                'Close': closes,
-                'Volume': volumes
-            }, index=dates)
+            data[symbol] = pd.DataFrame(
+                {"Open": opens, "High": highs, "Low": lows, "Close": closes, "Volume": volumes},
+                index=dates,
+            )
 
         return data
 
@@ -101,18 +105,18 @@ class AIBacktestEngine:
         """AI decision making (statistical approach)"""
 
         if current_idx < 20:
-            return {'action': 'HOLD', 'confidence': 0.0}
+            return {"action": "HOLD", "confidence": 0.0}
 
         # Recent 20 days data
-        recent_data = data.iloc[max(0, current_idx-20):current_idx]
-        current_price = data.iloc[current_idx]['Close']
+        recent_data = data.iloc[max(0, current_idx - 20) : current_idx]
+        current_price = data.iloc[current_idx]["Close"]
 
         # Moving averages
-        short_ma = recent_data['Close'].rolling(5).mean().iloc[-1]
-        long_ma = recent_data['Close'].rolling(15).mean().iloc[-1]
+        short_ma = recent_data["Close"].rolling(5).mean().iloc[-1]
+        long_ma = recent_data["Close"].rolling(15).mean().iloc[-1]
 
         # Return analysis
-        returns = recent_data['Close'].pct_change().dropna()
+        returns = recent_data["Close"].pct_change().dropna()
         recent_volatility = returns.std()
         recent_momentum = returns.tail(5).mean()
 
@@ -136,7 +140,9 @@ class AIBacktestEngine:
             signals.append(0)
 
         # 3. Price position (past 20 days)
-        price_percentile = (current_price - recent_data['Close'].min()) / (recent_data['Close'].max() - recent_data['Close'].min())
+        price_percentile = (current_price - recent_data["Close"].min()) / (
+            recent_data["Close"].max() - recent_data["Close"].min()
+        )
         if price_percentile < 0.3:  # Bottom 30%
             signals.append(1)  # Buy signal
         elif price_percentile > 0.7:  # Top 70%
@@ -149,19 +155,19 @@ class AIBacktestEngine:
         confidence = abs(combined_signal) * np.random.uniform(0.6, 0.9)
 
         if combined_signal > 0.3:
-            action = 'BUY'
+            action = "BUY"
         elif combined_signal < -0.3:
-            action = 'SELL'
+            action = "SELL"
         else:
-            action = 'HOLD'
+            action = "HOLD"
 
         return {
-            'action': action,
-            'confidence': confidence,
-            'combined_signal': combined_signal,
-            'ma_signal': signals[0],
-            'momentum_signal': signals[1],
-            'position_signal': signals[2]
+            "action": action,
+            "confidence": confidence,
+            "combined_signal": combined_signal,
+            "ma_signal": signals[0],
+            "momentum_signal": signals[1],
+            "position_signal": signals[2],
         }
 
     def run_backtest(self, symbols: List[str]) -> BacktestResult:
@@ -190,7 +196,7 @@ class AIBacktestEngine:
             current_prices = {}
             for symbol in symbols:
                 if current_date in historical_data[symbol].index:
-                    current_prices[symbol] = historical_data[symbol].loc[current_date, 'Close']
+                    current_prices[symbol] = historical_data[symbol].loc[current_date, "Close"]
 
             # AI decision & trade execution
             for symbol in symbols:
@@ -201,7 +207,7 @@ class AIBacktestEngine:
                 ai_decision = self.ai_decision(symbol, historical_data[symbol], i)
 
                 # Execute trade
-                if ai_decision['action'] in ['BUY', 'SELL'] and ai_decision['confidence'] > 0.5:
+                if ai_decision["action"] in ["BUY", "SELL"] and ai_decision["confidence"] > 0.5:
                     self.execute_trade(symbol, ai_decision, current_prices[symbol], current_date)
 
             # Update portfolio value
@@ -210,8 +216,12 @@ class AIBacktestEngine:
 
             # Progress update
             if i % 30 == 0:
-                current_return = (portfolio_value - self.config.initial_capital) / self.config.initial_capital
-                print(f"  Progress: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) Return: {current_return:+.2%}")
+                current_return = (
+                    portfolio_value - self.config.initial_capital
+                ) / self.config.initial_capital
+                print(
+                    f"  Progress: {i}/{len(trading_dates)} ({i/len(trading_dates)*100:.1f}%) Return: {current_return:+.2%}"
+                )
 
         execution_time = time.time() - start_time
 
@@ -223,8 +233,8 @@ class AIBacktestEngine:
     def execute_trade(self, symbol: str, decision: Dict, price: float, timestamp: datetime):
         """Execute trade"""
 
-        confidence = decision['confidence']
-        action = decision['action']
+        confidence = decision["confidence"]
+        action = decision["action"]
 
         # Position sizing
         position_size = confidence * self.config.max_position_size
@@ -234,7 +244,7 @@ class AIBacktestEngine:
             return  # Below minimum trade amount
 
         quantity = trade_value / price
-        if action == 'SELL':
+        if action == "SELL":
             quantity = -quantity
 
         # Execute trade
@@ -244,7 +254,7 @@ class AIBacktestEngine:
             quantity=quantity,
             price=price,
             timestamp=timestamp,
-            ai_confidence=confidence
+            ai_confidence=confidence,
         )
 
         # Update position
@@ -312,8 +322,9 @@ class AIBacktestEngine:
             max_drawdown=max_drawdown,
             total_trades=total_trades,
             win_rate=win_rate,
-            execution_time=execution_time
+            execution_time=execution_time,
         )
+
 
 def test_ai_backtest_system():
     """Test AI backtest system"""
@@ -331,7 +342,7 @@ def test_ai_backtest_system():
         end_date="2023-06-30",
         initial_capital=1000000.0,
         max_position_size=0.15,
-        transaction_cost=0.001
+        transaction_cost=0.001,
     )
 
     try:
@@ -354,10 +365,12 @@ def test_ai_backtest_system():
         if engine.trades:
             print("\nTrade Samples (First 5):")
             for i, trade in enumerate(engine.trades[:5]):
-                print(f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
-                      f"{trade.action} {trade.symbol} "
-                      f"qty:{trade.quantity:.1f} @${trade.price:.0f} "
-                      f"(confidence:{trade.ai_confidence:.2f})")
+                print(
+                    f"  [{i+1}] {trade.timestamp.strftime('%m/%d')} "
+                    f"{trade.action} {trade.symbol} "
+                    f"qty:{trade.quantity:.1f} @${trade.price:.0f} "
+                    f"(confidence:{trade.ai_confidence:.2f})"
+                )
 
         # Overall evaluation
         print("\nOverall Evaluation:")
@@ -418,8 +431,10 @@ def test_ai_backtest_system():
     except Exception as e:
         print(f"Backtest Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """Main execution function"""
@@ -453,6 +468,7 @@ def main():
         print("Please check logs and improve the system.")
 
     return success
+
 
 if __name__ == "__main__":
     success = main()

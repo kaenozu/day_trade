@@ -216,9 +216,7 @@ class SectorAnalyzer:
                 "n_sectors": sector_count,
                 "sector_hhi": sector_hhi,
                 "effective_sectors": effective_sectors,
-                "max_sector_weight": max(sector_weights.values())
-                if sector_weights
-                else 0,
+                "max_sector_weight": max(sector_weights.values()) if sector_weights else 0,
             },
             "unmapped_symbols": unmapped_symbols,
             "compliance": {
@@ -304,12 +302,8 @@ class SectorAnalyzer:
             "timestamp": pd.Timestamp.now(),
             "summary": {
                 "total_trades": len(trades),
-                "buy_trades": len(
-                    [t for t in trades.values() if t["trade_type"] == "BUY"]
-                ),
-                "sell_trades": len(
-                    [t for t in trades.values() if t["trade_type"] == "SELL"]
-                ),
+                "buy_trades": len([t for t in trades.values() if t["trade_type"] == "BUY"]),
+                "sell_trades": len([t for t in trades.values() if t["trade_type"] == "SELL"]),
                 "total_buy_amount": total_buy_amount,
                 "total_sell_amount": total_sell_amount,
                 "net_flow": total_buy_amount - total_sell_amount,
@@ -323,9 +317,7 @@ class SectorAnalyzer:
 
         logger.info("リバランシング提案完了:")
         logger.info(f"  - 取引数: {len(trades)}")
-        logger.info(
-            f"  - 買い/売り比率: {total_buy_amount:.2%}/{total_sell_amount:.2%}"
-        )
+        logger.info(f"  - 買い/売り比率: {total_buy_amount:.2%}/{total_sell_amount:.2%}")
 
         return rebalancing_proposal
 
@@ -365,18 +357,14 @@ class SectorAnalyzer:
                 recent_returns = sector_avg_returns.tail(lookback_days)
                 cumulative_return = (1 + recent_returns).prod() - 1
                 volatility = recent_returns.std() * np.sqrt(252)
-                sharpe_ratio = (
-                    (recent_returns.mean() * 252) / volatility if volatility > 0 else 0
-                )
+                sharpe_ratio = (recent_returns.mean() * 252) / volatility if volatility > 0 else 0
 
                 sector_momentum[sector] = {
                     "cumulative_return": cumulative_return,
                     "annualized_volatility": volatility,
                     "sharpe_ratio": sharpe_ratio,
                     "n_stocks": len(symbol_returns),
-                    "momentum_score": cumulative_return / volatility
-                    if volatility > 0
-                    else 0,
+                    "momentum_score": cumulative_return / volatility if volatility > 0 else 0,
                 }
 
         # ランキング生成
@@ -497,12 +485,8 @@ class SectorAnalyzer:
 
             if sector_symbols:
                 # 超過分を比例配分で削減
-                sector_total_weight = sum(
-                    current_weights.get(s, 0) for s in sector_symbols
-                )
-                reduction_factor = (
-                    limit / sector_total_weight if sector_total_weight > 0 else 0
-                )
+                sector_total_weight = sum(current_weights.get(s, 0) for s in sector_symbols)
+                reduction_factor = limit / sector_total_weight if sector_total_weight > 0 else 0
 
                 for symbol in sector_symbols:
                     if symbol in optimized_weights:
@@ -511,9 +495,7 @@ class SectorAnalyzer:
         # ウェイト正規化
         total_weight = sum(optimized_weights.values())
         if total_weight > 0:
-            optimized_weights = {
-                k: v / total_weight for k, v in optimized_weights.items()
-            }
+            optimized_weights = {k: v / total_weight for k, v in optimized_weights.items()}
 
         # 最適化後のセクター分析
         optimized_sector_analysis = self.analyze_sector_allocation(optimized_weights)
@@ -524,21 +506,12 @@ class SectorAnalyzer:
             "original_sector_analysis": current_sector_analysis,
             "optimized_sector_analysis": optimized_sector_analysis,
             "optimization_summary": {
-                "violations_resolved": len(
-                    current_sector_analysis["constraint_violations"]
-                ),
-                "compliance_achieved": optimized_sector_analysis["compliance"][
-                    "is_compliant"
-                ],
+                "violations_resolved": len(current_sector_analysis["constraint_violations"]),
+                "compliance_achieved": optimized_sector_analysis["compliance"]["is_compliant"],
                 "weight_changes": {
-                    symbol: optimized_weights.get(symbol, 0)
-                    - current_weights.get(symbol, 0)
-                    for symbol in set(current_weights.keys())
-                    | set(optimized_weights.keys())
-                    if abs(
-                        optimized_weights.get(symbol, 0)
-                        - current_weights.get(symbol, 0)
-                    )
+                    symbol: optimized_weights.get(symbol, 0) - current_weights.get(symbol, 0)
+                    for symbol in set(current_weights.keys()) | set(optimized_weights.keys())
+                    if abs(optimized_weights.get(symbol, 0) - current_weights.get(symbol, 0))
                     > 0.001
                 },
             },
@@ -590,15 +563,11 @@ if __name__ == "__main__":
                 )
 
         # セクター制約最適化
-        optimization = analyzer.optimize_sector_allocation(
-            sample_portfolio, target_return=0.10
-        )
+        optimization = analyzer.optimize_sector_allocation(sample_portfolio, target_return=0.10)
 
         if optimization["optimization_summary"]["weight_changes"]:
             print("\n=== 最適化後の変更 ===")
-            for symbol, change in optimization["optimization_summary"][
-                "weight_changes"
-            ].items():
+            for symbol, change in optimization["optimization_summary"]["weight_changes"].items():
                 if abs(change) > 0.001:
                     print(f"{symbol}: {change:+.1%}")
 

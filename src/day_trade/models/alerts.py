@@ -139,9 +139,9 @@ class AlertTriggerModel(BaseModel):
             priority=trigger.priority,
             current_price=trigger.current_price,
             volume=trigger.volume,
-            change_percent=str(trigger.change_percent)
-            if trigger.change_percent is not None
-            else None,
+            change_percent=(
+                str(trigger.change_percent) if trigger.change_percent is not None else None
+            ),
         )
 
 

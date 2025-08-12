@@ -183,9 +183,7 @@ class CustomReportManager:
             # セクション生成
             sections = []
             for section_config in template_config["sections"]:
-                section_data = self._generate_section(
-                    section_config, data, custom_metrics
-                )
+                section_data = self._generate_section(section_config, data, custom_metrics)
                 if section_data:
                     sections.append(section_data)
 
@@ -214,13 +212,9 @@ class CustomReportManager:
 
         try:
             if section_type == "summary":
-                return self._generate_summary_section(
-                    data, custom_metrics, section_title
-                )
+                return self._generate_summary_section(data, custom_metrics, section_title)
             elif section_type == "performance":
-                return self._generate_performance_section(
-                    data, custom_metrics, section_title
-                )
+                return self._generate_performance_section(data, custom_metrics, section_title)
             elif section_type == "risk":
                 return self._generate_risk_section(data, custom_metrics, section_title)
             elif section_type == "charts":
@@ -346,9 +340,7 @@ class CustomReportManager:
             },
         }
 
-    def _generate_charts_section(
-        self, data: Dict[str, Any], title: str
-    ) -> Dict[str, Any]:
+    def _generate_charts_section(self, data: Dict[str, Any], title: str) -> Dict[str, Any]:
         """チャートセクション生成"""
         charts_info = {
             "cumulative_return": {
@@ -382,9 +374,7 @@ class CustomReportManager:
             },
         }
 
-    def _generate_attribution_section(
-        self, data: Dict[str, Any], title: str
-    ) -> Dict[str, Any]:
+    def _generate_attribution_section(self, data: Dict[str, Any], title: str) -> Dict[str, Any]:
         """パフォーマンス寄与度セクション生成"""
         # 寄与度分析（モック）
         attribution_data = {
@@ -442,9 +432,7 @@ class CustomReportManager:
             with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
                 # サマリーシート
                 summary_data = self._extract_summary_for_excel(report_data)
-                summary_df = pd.DataFrame.from_dict(
-                    summary_data, orient="index", columns=["値"]
-                )
+                summary_df = pd.DataFrame.from_dict(summary_data, orient="index", columns=["値"])
                 summary_df.to_excel(writer, sheet_name="サマリー")
 
                 # パフォーマンスシート
@@ -456,9 +444,7 @@ class CustomReportManager:
                 # リスクシート
                 risk_data = self._extract_risk_for_excel(report_data)
                 if risk_data:
-                    risk_df = pd.DataFrame.from_dict(
-                        risk_data, orient="index", columns=["値"]
-                    )
+                    risk_df = pd.DataFrame.from_dict(risk_data, orient="index", columns=["値"])
                     risk_df.to_excel(writer, sheet_name="リスク分析")
 
             logger.info(f"Excelレポートエクスポート完了: {filepath}")
@@ -517,9 +503,7 @@ class CustomReportManager:
                 return section.get("content", {}).get("metrics", {})
         return {}
 
-    def _extract_performance_for_excel(
-        self, report_data: Dict[str, Any]
-    ) -> Optional[Dict]:
+    def _extract_performance_for_excel(self, report_data: Dict[str, Any]) -> Optional[Dict]:
         """Excel用パフォーマンスデータ抽出"""
         for section in report_data.get("sections", []):
             if section.get("type") == "performance":
@@ -647,9 +631,7 @@ if __name__ == "__main__":
         # JSONエクスポートテスト
         print("\n2. JSONエクスポートテスト")
         if standard_report["success"]:
-            json_path = report_manager.export_to_json(
-                standard_report["report"], "test_report.json"
-            )
+            json_path = report_manager.export_to_json(standard_report["report"], "test_report.json")
             print(f"✅ JSONエクスポート完了: {json_path}")
 
         # Excelエクスポートテスト

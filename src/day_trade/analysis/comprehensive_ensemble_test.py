@@ -44,9 +44,7 @@ class EnsembleTestCase:
     expected_signal_type: Optional[SignalType] = None
     expected_confidence_range: Tuple[float, float] = (0.0, 100.0)
     market_conditions: str = "normal"  # "bull", "bear", "sideways", "volatile"
-    test_category: str = (
-        "functional"  # "functional", "performance", "stress", "edge_case"
-    )
+    test_category: str = "functional"  # "functional", "performance", "stress", "edge_case"
 
 
 @dataclass
@@ -119,9 +117,7 @@ class ComprehensiveEnsembleTester:
             "memory_usage_samples": [],
         }
 
-        logger.info(
-            "包括的アンサンブル戦略テスター初期化完了", section="ensemble_test_init"
-        )
+        logger.info("包括的アンサンブル戦略テスター初期化完了", section="ensemble_test_init")
 
     # @profile_performance
     def run_comprehensive_ensemble_validation(
@@ -173,9 +169,7 @@ class ComprehensiveEnsembleTester:
 
             passed_tests = sum(1 for r in test_results if r.success)
             failed_tests = len(test_results) - passed_tests
-            success_rate = (
-                (passed_tests / len(test_results) * 100) if test_results else 0
-            )
+            success_rate = (passed_tests / len(test_results) * 100) if test_results else 0
 
             # カテゴリ別統計
             category_stats = self._calculate_category_statistics(test_results)
@@ -252,15 +246,9 @@ class ComprehensiveEnsembleTester:
         logger.info(
             f"テストケース生成完了: {len(self.test_cases)}件",
             section="test_case_generation",
-            functional=len(
-                [tc for tc in self.test_cases if tc.test_category == "functional"]
-            ),
-            performance=len(
-                [tc for tc in self.test_cases if tc.test_category == "performance"]
-            ),
-            edge_case=len(
-                [tc for tc in self.test_cases if tc.test_category == "edge_case"]
-            ),
+            functional=len([tc for tc in self.test_cases if tc.test_category == "functional"]),
+            performance=len([tc for tc in self.test_cases if tc.test_category == "performance"]),
+            edge_case=len([tc for tc in self.test_cases if tc.test_category == "edge_case"]),
             stress=len([tc for tc in self.test_cases if tc.test_category == "stress"]),
         )
 
@@ -305,9 +293,7 @@ class ComprehensiveEnsembleTester:
 
         # 横ばい市場シナリオ
         sideways_market_data = self._create_test_market_data("sideways", 100)
-        sideways_indicators = self._create_test_indicators(
-            sideways_market_data, "sideways"
-        )
+        sideways_indicators = self._create_test_indicators(sideways_market_data, "sideways")
 
         test_cases.append(
             EnsembleTestCase(
@@ -445,9 +431,7 @@ class ComprehensiveEnsembleTester:
 
         # 極端な市場条件
         extreme_volatile_data = self._create_test_market_data("extreme_volatile", 500)
-        extreme_indicators = self._create_test_indicators(
-            extreme_volatile_data, "extreme_volatile"
-        )
+        extreme_indicators = self._create_test_indicators(extreme_volatile_data, "extreme_volatile")
 
         test_cases.append(
             EnsembleTestCase(
@@ -495,12 +479,7 @@ class ComprehensiveEnsembleTester:
         elif market_type == "extreme_volatile":
             # 極端なボラティリティ
             noise = np.random.randn(size) * 50
-            chaotic = (
-                100
-                * np.sin(np.linspace(0, 10 * np.pi, size))
-                * np.random.randn(size)
-                * 0.1
-            )
+            chaotic = 100 * np.sin(np.linspace(0, 10 * np.pi, size)) * np.random.randn(size) * 0.1
             prices = base_price + chaotic + noise
 
         elif market_type == "anomaly":
@@ -509,9 +488,7 @@ class ComprehensiveEnsembleTester:
             prices = base_price + noise
             # ランダムに異常値挿入
             anomaly_indices = np.random.choice(size, size // 10, replace=False)
-            prices[anomaly_indices] *= np.random.choice(
-                [0.5, 2.0], len(anomaly_indices)
-            )
+            prices[anomaly_indices] *= np.random.choice([0.5, 2.0], len(anomaly_indices))
 
         elif market_type == "mixed":
             # 混合シグナル
@@ -544,9 +521,7 @@ class ComprehensiveEnsembleTester:
 
         return data
 
-    def _create_test_indicators(
-        self, data: pd.DataFrame, market_type: str
-    ) -> Dict[str, pd.Series]:
+    def _create_test_indicators(self, data: pd.DataFrame, market_type: str) -> Dict[str, pd.Series]:
         """テスト用指標作成"""
 
         if len(data) == 0:
@@ -563,16 +538,12 @@ class ComprehensiveEnsembleTester:
 
             # MACD
             indicators["macd"] = indicators["ema_12"] - indicators["ema_26"]
-            indicators["macd_signal"] = (
-                indicators["macd"].ewm(span=min(9, len(data))).mean()
-            )
+            indicators["macd_signal"] = indicators["macd"].ewm(span=min(9, len(data))).mean()
 
             # RSI
             delta = data["Close"].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=min(14, len(data))).mean()
-            loss = (
-                (-delta.where(delta < 0, 0)).rolling(window=min(14, len(data))).mean()
-            )
+            loss = (-delta.where(delta < 0, 0)).rolling(window=min(14, len(data))).mean()
             rs = gain / loss
             indicators["rsi"] = 100 - (100 / (1 + rs))
 
@@ -636,9 +607,7 @@ class ComprehensiveEnsembleTester:
 
             for config in self.ensemble_configs:
                 for test_case in self.test_cases:
-                    future = executor.submit(
-                        self._execute_single_test, test_case, config
-                    )
+                    future = executor.submit(self._execute_single_test, test_case, config)
                     futures.append(future)
 
             for future in futures:
@@ -646,9 +615,7 @@ class ComprehensiveEnsembleTester:
                     result = future.result(timeout=30)  # 30秒タイムアウト
                     test_results.append(result)
                 except Exception as e:
-                    logger.error(
-                        f"並列テスト実行エラー: {e}", section="parallel_test_execution"
-                    )
+                    logger.error(f"並列テスト実行エラー: {e}", section="parallel_test_execution")
 
         return test_results
 
@@ -689,9 +656,7 @@ class ComprehensiveEnsembleTester:
 
             # シグナル生成
             if len(test_case.test_data) > 0:
-                signal = ensemble.generate_signal(
-                    test_case.test_data, test_case.indicators, {}
-                )
+                signal = ensemble.generate_signal(test_case.test_data, test_case.indicators, {})
             else:
                 signal = None
 
@@ -720,8 +685,7 @@ class ComprehensiveEnsembleTester:
                 # 戦略参加状況チェック
                 if hasattr(signal, "strategy_weights"):
                     strategy_participation = {
-                        strategy: weight > 0
-                        for strategy, weight in signal.strategy_weights.items()
+                        strategy: weight > 0 for strategy, weight in signal.strategy_weights.items()
                     }
 
             # エッジケースでは成功判定を緩和
@@ -764,9 +728,7 @@ class ComprehensiveEnsembleTester:
         validation_results["hard_voting_implementation"] = self._test_hard_voting()
 
         # 重み付け平均検証
-        validation_results[
-            "weighted_average_implementation"
-        ] = self._test_weighted_average()
+        validation_results["weighted_average_implementation"] = self._test_weighted_average()
 
         # 投票一貫性検証
         validation_results["voting_consistency"] = self._test_voting_consistency()
@@ -950,35 +912,23 @@ class ComprehensiveEnsembleTester:
                 "アンサンブル戦略は良好な性能を示しており、監視下での段階的導入を推奨"
             )
         else:
-            recommendations.append(
-                "アンサンブル戦略の改善が必要。失敗テストケースの詳細分析を実施"
-            )
+            recommendations.append("アンサンブル戦略の改善が必要。失敗テストケースの詳細分析を実施")
 
         # 投票アルゴリズムの推奨
         if all(voting_validation.values()):
             recommendations.append("全ての投票アルゴリズムが正常に動作している")
         else:
-            failed_algorithms = [
-                alg for alg, status in voting_validation.items() if not status
-            ]
-            recommendations.append(
-                f"投票アルゴリズムの修正が必要: {', '.join(failed_algorithms)}"
-            )
+            failed_algorithms = [alg for alg, status in voting_validation.items() if not status]
+            recommendations.append(f"投票アルゴリズムの修正が必要: {', '.join(failed_algorithms)}")
 
         # パフォーマンス改善の推奨
-        avg_exec_time = (
-            np.mean([r.execution_time for r in test_results]) if test_results else 0
-        )
+        avg_exec_time = np.mean([r.execution_time for r in test_results]) if test_results else 0
         if avg_exec_time > 1.0:
-            recommendations.append(
-                "実行時間の最適化を推奨。キャッシュや並列処理の導入を検討"
-            )
+            recommendations.append("実行時間の最適化を推奨。キャッシュや並列処理の導入を検討")
 
         return recommendations
 
-    def _identify_critical_issues(
-        self, test_results: List[EnsembleTestResult]
-    ) -> List[str]:
+    def _identify_critical_issues(self, test_results: List[EnsembleTestResult]) -> List[str]:
         """重要問題特定"""
 
         critical_issues = []
@@ -993,9 +943,7 @@ class ComprehensiveEnsembleTester:
         # エラーが多発している問題
         error_messages = [r.error_message for r in failed_results if r.error_message]
         if error_messages:
-            critical_issues.append(
-                f"エラーが{len(error_messages)}件発生。詳細調査が必要"
-            )
+            critical_issues.append(f"エラーが{len(error_messages)}件発生。詳細調査が必要")
 
         # パフォーマンス問題
         slow_tests = [r for r in test_results if r.execution_time > 5.0]
@@ -1014,9 +962,7 @@ class ComprehensiveEnsembleTester:
         except Exception:
             return 0.0
 
-    def generate_detailed_validation_report(
-        self, report: EnsembleValidationReport
-    ) -> str:
+    def generate_detailed_validation_report(self, report: EnsembleValidationReport) -> str:
         """詳細検証レポート生成"""
 
         lines = [
@@ -1107,12 +1053,9 @@ if __name__ == "__main__":
         logger.info(
             "アンサンブル検証レポート生成完了",
             report_length=len(detailed_report),
-            total_tests=validation_report.successful_tests
-            + validation_report.failed_tests,
+            total_tests=validation_report.successful_tests + validation_report.failed_tests,
             success_rate=validation_report.successful_tests
-            / max(
-                validation_report.successful_tests + validation_report.failed_tests, 1
-            ),
+            / max(validation_report.successful_tests + validation_report.failed_tests, 1),
         )
 
         # デモ用コンソール出力

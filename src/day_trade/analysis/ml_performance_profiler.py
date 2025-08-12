@@ -230,9 +230,7 @@ class MLPerformanceProfiler:
 
         self.profiling_results[component_name].append(metrics)
 
-    def benchmark_advanced_ml_engine(
-        self, test_data: pd.DataFrame
-    ) -> ComponentBenchmark:
+    def benchmark_advanced_ml_engine(self, test_data: pd.DataFrame) -> ComponentBenchmark:
         """AdvancedMLEngineのベンチマーク"""
         logger.info("AdvancedMLEngine ベンチマーク開始")
 
@@ -244,9 +242,7 @@ class MLPerformanceProfiler:
             engine = AdvancedMLEngine(fast_mode=False)
 
             # 1. 特徴量準備のプロファイリング
-            with self.profile_method(
-                component_name, "prepare_features", len(test_data)
-            ):
+            with self.profile_method(component_name, "prepare_features", len(test_data)):
                 features = engine.prepare_features(test_data)
 
             # 2. モデル訓練のプロファイリング
@@ -256,12 +252,8 @@ class MLPerformanceProfiler:
 
             # 3. アンサンブル予測のプロファイリング
             if not features.empty:
-                with self.profile_method(
-                    component_name, "ensemble_predict", len(features)
-                ):
-                    predictions = engine.ensemble_predict(
-                        features, test_symbol="PROFILE_TEST"
-                    )
+                with self.profile_method(component_name, "ensemble_predict", len(features)):
+                    predictions = engine.ensemble_predict(features, test_symbol="PROFILE_TEST")
 
         except Exception as e:
             logger.error(f"AdvancedMLEngine ベンチマークエラー: {e}")
@@ -279,12 +271,8 @@ class MLPerformanceProfiler:
         )
 
         # ボトルネック分析
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
         logger.info(f"AdvancedMLEngine ベンチマーク完了: {total_time:.2f}秒")
@@ -307,23 +295,17 @@ class MLPerformanceProfiler:
             )
 
             # 1. LSTM特徴量準備のプロファイリング
-            with self.profile_method(
-                component_name, "prepare_lstm_features", len(test_data)
-            ):
+            with self.profile_method(component_name, "prepare_lstm_features", len(test_data)):
                 features = lstm_model.prepare_lstm_features(test_data)
 
             # 2. 系列データ作成のプロファイリング
             if not features.empty:
-                with self.profile_method(
-                    component_name, "create_sequences", len(features)
-                ):
+                with self.profile_method(component_name, "create_sequences", len(features)):
                     X, y = lstm_model.create_sequences(features)
 
             # 3. モデル構築のプロファイリング（軽量版）
             if len(X) > 0:
-                with self.profile_method(
-                    component_name, "build_lstm_model", X.shape[1]
-                ):
+                with self.profile_method(component_name, "build_lstm_model", X.shape[1]):
                     model = lstm_model.build_lstm_model((X.shape[1], X.shape[2]))
 
         except Exception as e:
@@ -342,21 +324,15 @@ class MLPerformanceProfiler:
         )
 
         # ボトルネック分析
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
         logger.info(f"LSTMTimeSeriesModel ベンチマーク完了: {total_time:.2f}秒")
 
         return benchmark
 
-    def benchmark_technical_indicators(
-        self, test_data: pd.DataFrame
-    ) -> ComponentBenchmark:
+    def benchmark_technical_indicators(self, test_data: pd.DataFrame) -> ComponentBenchmark:
         """高度テクニカル指標のベンチマーク"""
         logger.info("AdvancedTechnicalIndicators ベンチマーク開始")
 
@@ -368,23 +344,15 @@ class MLPerformanceProfiler:
             technical_analyzer = AdvancedTechnicalIndicators()
 
             # 1. 一目均衡表計算のプロファイリング
-            with self.profile_method(
-                component_name, "calculate_ichimoku_cloud", len(test_data)
-            ):
+            with self.profile_method(component_name, "calculate_ichimoku_cloud", len(test_data)):
                 ichimoku_result = technical_analyzer.calculate_ichimoku_cloud(test_data)
 
             # 2. フィボナッチ分析のプロファイリング
-            with self.profile_method(
-                component_name, "analyze_fibonacci_levels", len(test_data)
-            ):
-                fibonacci_result = technical_analyzer.analyze_fibonacci_levels(
-                    test_data
-                )
+            with self.profile_method(component_name, "analyze_fibonacci_levels", len(test_data)):
+                fibonacci_result = technical_analyzer.analyze_fibonacci_levels(test_data)
 
             # 3. エリオット波動分析のプロファイリング
-            with self.profile_method(
-                component_name, "detect_elliott_waves", len(test_data)
-            ):
+            with self.profile_method(component_name, "detect_elliott_waves", len(test_data)):
                 elliott_result = technical_analyzer.detect_elliott_waves(test_data)
 
         except Exception as e:
@@ -403,12 +371,8 @@ class MLPerformanceProfiler:
         )
 
         # ボトルネック分析
-        benchmark.bottleneck_methods = self._identify_bottlenecks(
-            benchmark.method_metrics
-        )
-        benchmark.optimization_suggestions = self._generate_optimization_suggestions(
-            benchmark
-        )
+        benchmark.bottleneck_methods = self._identify_bottlenecks(benchmark.method_metrics)
+        benchmark.optimization_suggestions = self._generate_optimization_suggestions(benchmark)
 
         self.benchmark_results.append(benchmark)
         logger.info(f"AdvancedTechnicalIndicators ベンチマーク完了: {total_time:.2f}秒")
@@ -429,15 +393,11 @@ class MLPerformanceProfiler:
         for metric in sorted_metrics:
             # 全体の10%以上を占める場合はボトルネック
             if metric.execution_time / total_time > 0.1:
-                bottlenecks.append(
-                    f"{metric.method_name} ({metric.execution_time:.2f}秒)"
-                )
+                bottlenecks.append(f"{metric.method_name} ({metric.execution_time:.2f}秒)")
 
         return bottlenecks
 
-    def _generate_optimization_suggestions(
-        self, benchmark: ComponentBenchmark
-    ) -> List[str]:
+    def _generate_optimization_suggestions(self, benchmark: ComponentBenchmark) -> List[str]:
         """最適化提案生成"""
         suggestions = []
 
@@ -447,20 +407,14 @@ class MLPerformanceProfiler:
 
         # メモリ使用量ベースの提案
         if benchmark.total_memory_usage > 500:  # 500MB以上
-            suggestions.append(
-                "メモリ使用量が多い - データのチャンク処理やキャッシュ最適化を検討"
-            )
+            suggestions.append("メモリ使用量が多い - データのチャンク処理やキャッシュ最適化を検討")
 
         # ボトルネック別の提案
         for bottleneck in benchmark.bottleneck_methods:
             if "prepare_features" in bottleneck:
-                suggestions.append(
-                    "特徴量準備の最適化: pandas-taの効率的な使用、不要な計算削除"
-                )
+                suggestions.append("特徴量準備の最適化: pandas-taの効率的な使用、不要な計算削除")
             elif "train_models" in bottleneck:
-                suggestions.append(
-                    "モデル訓練の最適化: ハイパーパラメータ調整、早期停止の導入"
-                )
+                suggestions.append("モデル訓練の最適化: ハイパーパラメータ調整、早期停止の導入")
             elif "lstm" in bottleneck.lower():
                 suggestions.append("LSTM処理の最適化: バッチサイズ調整、GPU使用の検討")
 
@@ -574,14 +528,8 @@ def generate_test_data(symbol: str = "TEST", days: int = 200) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Open": [p * np.random.uniform(0.995, 1.005) for p in prices],
-            "High": [
-                max(o, c) * np.random.uniform(1.000, 1.02)
-                for o, c in zip(prices, prices)
-            ],
-            "Low": [
-                min(o, c) * np.random.uniform(0.98, 1.000)
-                for o, c in zip(prices, prices)
-            ],
+            "High": [max(o, c) * np.random.uniform(1.000, 1.02) for o, c in zip(prices, prices)],
+            "Low": [min(o, c) * np.random.uniform(0.98, 1.000) for o, c in zip(prices, prices)],
             "Close": prices,
             "Volume": np.random.randint(1000000, 10000000, days),
         },

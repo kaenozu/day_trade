@@ -34,9 +34,9 @@ def measure_execution_time(component: str = "general"):
 
                 # メトリクス記録
                 collector = get_metrics_collector()
-                collector.metrics_collection_duration.labels(
-                    collector_type=component
-                ).observe(execution_time)
+                collector.metrics_collection_duration.labels(collector_type=component).observe(
+                    execution_time
+                )
 
                 return result
 
@@ -45,9 +45,7 @@ def measure_execution_time(component: str = "general"):
                 logger.error(f"関数実行エラー {func.__name__}: {e}")
 
                 # エラーメトリクス記録
-                get_health_metrics().record_error(
-                    error_type=type(e).__name__, component=component
-                )
+                get_health_metrics().record_error(error_type=type(e).__name__, component=component)
                 raise
 
         @functools.wraps(func)
@@ -60,9 +58,9 @@ def measure_execution_time(component: str = "general"):
 
                 # メトリクス記録
                 collector = get_metrics_collector()
-                collector.metrics_collection_duration.labels(
-                    collector_type=component
-                ).observe(execution_time)
+                collector.metrics_collection_duration.labels(collector_type=component).observe(
+                    execution_time
+                )
 
                 return result
 
@@ -71,9 +69,7 @@ def measure_execution_time(component: str = "general"):
                 logger.error(f"関数実行エラー {func.__name__}: {e}")
 
                 # エラーメトリクス記録
-                get_health_metrics().record_error(
-                    error_type=type(e).__name__, component=component
-                )
+                get_health_metrics().record_error(error_type=type(e).__name__, component=component)
                 raise
 
         # 非同期関数の場合
@@ -112,9 +108,7 @@ def track_errors(component: str = "general"):
                 return await func(*args, **kwargs)
             except Exception as e:
                 # エラーメトリクス記録
-                get_health_metrics().record_error(
-                    error_type=type(e).__name__, component=component
-                )
+                get_health_metrics().record_error(error_type=type(e).__name__, component=component)
                 logger.error(f"追跡対象エラー in {func.__name__}: {e}")
                 raise
 
@@ -124,9 +118,7 @@ def track_errors(component: str = "general"):
                 return func(*args, **kwargs)
             except Exception as e:
                 # エラーメトリクス記録
-                get_health_metrics().record_error(
-                    error_type=type(e).__name__, component=component
-                )
+                get_health_metrics().record_error(error_type=type(e).__name__, component=component)
                 logger.error(f"追跡対象エラー in {func.__name__}: {e}")
                 raise
 
@@ -279,9 +271,7 @@ def measure_trading_performance():
                 ).inc()
 
                 # エラーメトリクス記録
-                get_health_metrics().record_error(
-                    error_type=type(e).__name__, component="trading"
-                )
+                get_health_metrics().record_error(error_type=type(e).__name__, component="trading")
                 raise
 
         return async_wrapper
@@ -308,9 +298,9 @@ def measure_ai_prediction_performance():
                 ).inc()
 
                 # AI予測時間記録
-                get_ai_metrics().ai_prediction_duration.labels(
-                    model_type=model_type
-                ).observe(duration)
+                get_ai_metrics().ai_prediction_duration.labels(model_type=model_type).observe(
+                    duration
+                )
 
                 return result
 
@@ -339,9 +329,9 @@ def measure_ai_prediction_performance():
                 ).inc()
 
                 # AI予測時間記録
-                get_ai_metrics().ai_prediction_duration.labels(
-                    model_type=model_type
-                ).observe(duration)
+                get_ai_metrics().ai_prediction_duration.labels(model_type=model_type).observe(
+                    duration
+                )
 
                 return result
 

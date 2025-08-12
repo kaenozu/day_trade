@@ -28,14 +28,17 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
 
 class VulnerabilityType(Enum):
     """脆弱性種別"""
+
     SQL_INJECTION = "sql_injection"
     XSS = "cross_site_scripting"
     CSRF = "cross_site_request_forgery"
@@ -58,6 +61,7 @@ class VulnerabilityType(Enum):
 
 class SeverityLevel(Enum):
     """深刻度レベル"""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -68,6 +72,7 @@ class SeverityLevel(Enum):
 @dataclass
 class SecurityVulnerability:
     """セキュリティ脆弱性情報"""
+
     vulnerability_type: VulnerabilityType
     severity: SeverityLevel
     title: str
@@ -103,6 +108,7 @@ class SecurityVulnerability:
 @dataclass
 class PenTestConfig:
     """ペネトレーションテスト設定"""
+
     target_base_url: str
     test_timeout: int = 300  # 5分
     max_concurrent_tests: int = 5
@@ -131,26 +137,23 @@ class WebSecurityTester:
         self.vulnerabilities = []
 
         # HTTPセッション設定
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=0.3,
-            status_forcelist=[500, 502, 503, 504]
-        )
+        retry_strategy = Retry(total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
         # カスタムヘッダー設定
-        self.session.headers.update({
-            'User-Agent': 'PenTester/1.0 (Security Scanner)',
-            **self.config.custom_headers
-        })
+        self.session.headers.update(
+            {"User-Agent": "PenTester/1.0 (Security Scanner)", **self.config.custom_headers}
+        )
 
         # プロキシ設定
         if self.config.proxy_config:
             self.session.proxies.update(self.config.proxy_config)
 
-    async def test_sql_injection(self, target_url: str, parameters: Dict[str, str]) -> List[SecurityVulnerability]:
+    async def test_sql_injection(
+        self, target_url: str, parameters: Dict[str, str]
+    ) -> List[SecurityVulnerability]:
         """SQLインジェクションテスト"""
         vulnerabilities = []
 
@@ -174,11 +177,7 @@ class WebSecurityTester:
                     test_params[param_name] = payload
 
                     start_time = time.time()
-                    response = self.session.get(
-                        target_url,
-                        params=test_params,
-                        timeout=10
-                    )
+                    response = self.session.get(target_url, params=test_params, timeout=10)
                     response_time = time.time() - start_time
 
                     # SQLエラーパターン検出
@@ -200,39 +199,45 @@ class WebSecurityTester:
 
                     for pattern in error_patterns:
                         if re.search(pattern, response.text, re.IGNORECASE):
-                            vulnerabilities.append(SecurityVulnerability(
-                                vulnerability_type=VulnerabilityType.SQL_INJECTION,
-                                severity=SeverityLevel.HIGH,
-                                title="SQL Injection Vulnerability Detected",
-                                description=f"Parameter '{param_name}' appears vulnerable to SQL injection",
-                                affected_url=target_url,
-                                attack_vector=f"GET parameter: {param_name}={payload}",
-                                evidence=f"Database error pattern found: {pattern}",
-                                remediation="Use parameterized queries and input validation",
-                                cvss_score=8.5
-                            ))
+                            vulnerabilities.append(
+                                SecurityVulnerability(
+                                    vulnerability_type=VulnerabilityType.SQL_INJECTION,
+                                    severity=SeverityLevel.HIGH,
+                                    title="SQL Injection Vulnerability Detected",
+                                    description=f"Parameter '{param_name}' appears vulnerable to SQL injection",
+                                    affected_url=target_url,
+                                    attack_vector=f"GET parameter: {param_name}={payload}",
+                                    evidence=f"Database error pattern found: {pattern}",
+                                    remediation="Use parameterized queries and input validation",
+                                    cvss_score=8.5,
+                                )
+                            )
                             break
 
                     # タイムベース SQLインジェクション検出
-                    if response_time > 5 and 'SLEEP' in payload.upper():
-                        vulnerabilities.append(SecurityVulnerability(
-                            vulnerability_type=VulnerabilityType.SQL_INJECTION,
-                            severity=SeverityLevel.HIGH,
-                            title="Time-based SQL Injection",
-                            description=f"Parameter '{param_name}' vulnerable to time-based SQL injection",
-                            affected_url=target_url,
-                            attack_vector=f"Time-based payload: {payload}",
-                            evidence=f"Response delayed by {response_time:.2f}s",
-                            remediation="Use parameterized queries and input validation",
-                            cvss_score=8.0
-                        ))
+                    if response_time > 5 and "SLEEP" in payload.upper():
+                        vulnerabilities.append(
+                            SecurityVulnerability(
+                                vulnerability_type=VulnerabilityType.SQL_INJECTION,
+                                severity=SeverityLevel.HIGH,
+                                title="Time-based SQL Injection",
+                                description=f"Parameter '{param_name}' vulnerable to time-based SQL injection",
+                                affected_url=target_url,
+                                attack_vector=f"Time-based payload: {payload}",
+                                evidence=f"Response delayed by {response_time:.2f}s",
+                                remediation="Use parameterized queries and input validation",
+                                cvss_score=8.0,
+                            )
+                        )
 
                 except Exception as e:
                     logger.debug(f"SQLインジェクションテストエラー: {e}")
 
         return vulnerabilities
 
-    async def test_xss(self, target_url: str, parameters: Dict[str, str]) -> List[SecurityVulnerability]:
+    async def test_xss(
+        self, target_url: str, parameters: Dict[str, str]
+    ) -> List[SecurityVulnerability]:
         """XSS（クロスサイトスクリプティング）テスト"""
         vulnerabilities = []
 
@@ -255,29 +260,29 @@ class WebSecurityTester:
                     test_params = parameters.copy()
                     test_params[param_name] = payload
 
-                    response = self.session.get(
-                        target_url,
-                        params=test_params,
-                        timeout=10
-                    )
+                    response = self.session.get(target_url, params=test_params, timeout=10)
 
                     # ペイロードが反映されているかチェック
-                    if payload in response.text and response.headers.get('content-type', '').startswith('text/html'):
+                    if payload in response.text and response.headers.get(
+                        "content-type", ""
+                    ).startswith("text/html"):
                         # CSPヘッダーチェック
-                        csp_header = response.headers.get('Content-Security-Policy', '')
+                        csp_header = response.headers.get("Content-Security-Policy", "")
                         severity = SeverityLevel.LOW if csp_header else SeverityLevel.HIGH
 
-                        vulnerabilities.append(SecurityVulnerability(
-                            vulnerability_type=VulnerabilityType.XSS,
-                            severity=severity,
-                            title="Cross-Site Scripting (XSS) Vulnerability",
-                            description=f"Parameter '{param_name}' vulnerable to XSS attacks",
-                            affected_url=target_url,
-                            attack_vector=f"GET parameter: {param_name}={payload}",
-                            evidence=f"Payload reflected in response without proper encoding",
-                            remediation="Implement proper input validation and output encoding",
-                            cvss_score=6.1 if severity == SeverityLevel.HIGH else 3.5
-                        ))
+                        vulnerabilities.append(
+                            SecurityVulnerability(
+                                vulnerability_type=VulnerabilityType.XSS,
+                                severity=severity,
+                                title="Cross-Site Scripting (XSS) Vulnerability",
+                                description=f"Parameter '{param_name}' vulnerable to XSS attacks",
+                                affected_url=target_url,
+                                attack_vector=f"GET parameter: {param_name}={payload}",
+                                evidence="Payload reflected in response without proper encoding",
+                                remediation="Implement proper input validation and output encoding",
+                                cvss_score=6.1 if severity == SeverityLevel.HIGH else 3.5,
+                            )
+                        )
 
                 except Exception as e:
                     logger.debug(f"XSSテストエラー: {e}")
@@ -309,7 +314,7 @@ class WebSecurityTester:
                     urllib.parse.urljoin(target_url, "/login"),
                     data=attempt,
                     timeout=10,
-                    allow_redirects=False
+                    allow_redirects=False,
                 )
 
                 # 成功の兆候をチェック
@@ -322,17 +327,19 @@ class WebSecurityTester:
                 ]
 
                 if any(success_indicators):
-                    vulnerabilities.append(SecurityVulnerability(
-                        vulnerability_type=VulnerabilityType.AUTHENTICATION_BYPASS,
-                        severity=SeverityLevel.CRITICAL,
-                        title="Authentication Bypass Vulnerability",
-                        description="Weak authentication mechanism allows bypass",
-                        affected_url=urllib.parse.urljoin(target_url, "/login"),
-                        attack_vector=f"POST data: {attempt}",
-                        evidence=f"Authentication bypassed with status {response.status_code}",
-                        remediation="Implement strong authentication mechanisms",
-                        cvss_score=9.8
-                    ))
+                    vulnerabilities.append(
+                        SecurityVulnerability(
+                            vulnerability_type=VulnerabilityType.AUTHENTICATION_BYPASS,
+                            severity=SeverityLevel.CRITICAL,
+                            title="Authentication Bypass Vulnerability",
+                            description="Weak authentication mechanism allows bypass",
+                            affected_url=urllib.parse.urljoin(target_url, "/login"),
+                            attack_vector=f"POST data: {attempt}",
+                            evidence=f"Authentication bypassed with status {response.status_code}",
+                            remediation="Implement strong authentication mechanisms",
+                            cvss_score=9.8,
+                        )
+                    )
 
             except Exception as e:
                 logger.debug(f"認証バイパステストエラー: {e}")
@@ -383,17 +390,19 @@ class WebSecurityTester:
 
                     for pattern in sensitive_patterns:
                         if re.search(pattern, response.text, re.IGNORECASE):
-                            vulnerabilities.append(SecurityVulnerability(
-                                vulnerability_type=VulnerabilityType.SENSITIVE_DATA_EXPOSURE,
-                                severity=SeverityLevel.HIGH,
-                                title="Sensitive Data Exposure",
-                                description=f"Sensitive information exposed at {path}",
-                                affected_url=test_url,
-                                attack_vector=f"Direct access to {path}",
-                                evidence=f"Sensitive data pattern found: {pattern}",
-                                remediation="Remove sensitive files from web-accessible directories",
-                                cvss_score=7.5
-                            ))
+                            vulnerabilities.append(
+                                SecurityVulnerability(
+                                    vulnerability_type=VulnerabilityType.SENSITIVE_DATA_EXPOSURE,
+                                    severity=SeverityLevel.HIGH,
+                                    title="Sensitive Data Exposure",
+                                    description=f"Sensitive information exposed at {path}",
+                                    affected_url=test_url,
+                                    attack_vector=f"Direct access to {path}",
+                                    evidence=f"Sensitive data pattern found: {pattern}",
+                                    remediation="Remove sensitive files from web-accessible directories",
+                                    cvss_score=7.5,
+                                )
+                            )
                             break
 
             except Exception as e:
@@ -411,60 +420,64 @@ class WebSecurityTester:
 
             # 必要なセキュリティヘッダーチェック
             required_headers = {
-                'X-Frame-Options': {
-                    'severity': SeverityLevel.MEDIUM,
-                    'description': 'Clickjacking protection missing',
-                    'remediation': 'Add X-Frame-Options header'
+                "X-Frame-Options": {
+                    "severity": SeverityLevel.MEDIUM,
+                    "description": "Clickjacking protection missing",
+                    "remediation": "Add X-Frame-Options header",
                 },
-                'X-Content-Type-Options': {
-                    'severity': SeverityLevel.MEDIUM,
-                    'description': 'MIME type sniffing protection missing',
-                    'remediation': 'Add X-Content-Type-Options: nosniff'
+                "X-Content-Type-Options": {
+                    "severity": SeverityLevel.MEDIUM,
+                    "description": "MIME type sniffing protection missing",
+                    "remediation": "Add X-Content-Type-Options: nosniff",
                 },
-                'X-XSS-Protection': {
-                    'severity': SeverityLevel.LOW,
-                    'description': 'XSS protection header missing',
-                    'remediation': 'Add X-XSS-Protection: 1; mode=block'
+                "X-XSS-Protection": {
+                    "severity": SeverityLevel.LOW,
+                    "description": "XSS protection header missing",
+                    "remediation": "Add X-XSS-Protection: 1; mode=block",
                 },
-                'Strict-Transport-Security': {
-                    'severity': SeverityLevel.HIGH,
-                    'description': 'HTTPS enforcement missing',
-                    'remediation': 'Add Strict-Transport-Security header'
+                "Strict-Transport-Security": {
+                    "severity": SeverityLevel.HIGH,
+                    "description": "HTTPS enforcement missing",
+                    "remediation": "Add Strict-Transport-Security header",
                 },
-                'Content-Security-Policy': {
-                    'severity': SeverityLevel.MEDIUM,
-                    'description': 'Content Security Policy missing',
-                    'remediation': 'Implement Content-Security-Policy header'
+                "Content-Security-Policy": {
+                    "severity": SeverityLevel.MEDIUM,
+                    "description": "Content Security Policy missing",
+                    "remediation": "Implement Content-Security-Policy header",
                 },
             }
 
             for header_name, config in required_headers.items():
                 if header_name not in headers:
-                    vulnerabilities.append(SecurityVulnerability(
-                        vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
-                        severity=config['severity'],
-                        title=f"Missing Security Header: {header_name}",
-                        description=config['description'],
-                        affected_url=target_url,
-                        attack_vector="Missing HTTP security header",
-                        evidence=f"Response lacks {header_name} header",
-                        remediation=config['remediation'],
-                        cvss_score=self._get_cvss_for_severity(config['severity'])
-                    ))
+                    vulnerabilities.append(
+                        SecurityVulnerability(
+                            vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
+                            severity=config["severity"],
+                            title=f"Missing Security Header: {header_name}",
+                            description=config["description"],
+                            affected_url=target_url,
+                            attack_vector="Missing HTTP security header",
+                            evidence=f"Response lacks {header_name} header",
+                            remediation=config["remediation"],
+                            cvss_score=self._get_cvss_for_severity(config["severity"]),
+                        )
+                    )
 
             # 危険なヘッダーチェック
-            if 'Server' in headers:
-                vulnerabilities.append(SecurityVulnerability(
-                    vulnerability_type=VulnerabilityType.INFORMATION_DISCLOSURE,
-                    severity=SeverityLevel.LOW,
-                    title="Server Information Disclosure",
-                    description="Server header reveals server information",
-                    affected_url=target_url,
-                    attack_vector="HTTP response headers",
-                    evidence=f"Server: {headers['Server']}",
-                    remediation="Remove or obfuscate Server header",
-                    cvss_score=2.0
-                ))
+            if "Server" in headers:
+                vulnerabilities.append(
+                    SecurityVulnerability(
+                        vulnerability_type=VulnerabilityType.INFORMATION_DISCLOSURE,
+                        severity=SeverityLevel.LOW,
+                        title="Server Information Disclosure",
+                        description="Server header reveals server information",
+                        affected_url=target_url,
+                        attack_vector="HTTP response headers",
+                        evidence=f"Server: {headers['Server']}",
+                        remediation="Remove or obfuscate Server header",
+                        cvss_score=2.0,
+                    )
+                )
 
         except Exception as e:
             logger.debug(f"セキュリティヘッダーテストエラー: {e}")
@@ -489,7 +502,9 @@ class NetworkSecurityTester:
     def __init__(self, config: PenTestConfig):
         self.config = config
 
-    async def test_ssl_tls_configuration(self, hostname: str, port: int = 443) -> List[SecurityVulnerability]:
+    async def test_ssl_tls_configuration(
+        self, hostname: str, port: int = 443
+    ) -> List[SecurityVulnerability]:
         """SSL/TLS設定テスト"""
         vulnerabilities = []
 
@@ -504,57 +519,72 @@ class NetworkSecurityTester:
                     cert = ssock.getpeercert()
 
                     # 弱い暗号スイートチェック
-                    weak_ciphers = ['RC4', 'DES', 'MD5', 'NULL']
+                    weak_ciphers = ["RC4", "DES", "MD5", "NULL"]
                     if cipher and any(weak_cipher in str(cipher) for weak_cipher in weak_ciphers):
-                        vulnerabilities.append(SecurityVulnerability(
-                            vulnerability_type=VulnerabilityType.WEAK_CRYPTOGRAPHY,
-                            severity=SeverityLevel.HIGH,
-                            title="Weak Cipher Suite",
-                            description=f"Weak cipher suite in use: {cipher}",
-                            affected_url=f"{hostname}:{port}",
-                            attack_vector="SSL/TLS cipher negotiation",
-                            evidence=f"Cipher: {cipher}",
-                            remediation="Configure strong cipher suites only",
-                            cvss_score=7.4
-                        ))
+                        vulnerabilities.append(
+                            SecurityVulnerability(
+                                vulnerability_type=VulnerabilityType.WEAK_CRYPTOGRAPHY,
+                                severity=SeverityLevel.HIGH,
+                                title="Weak Cipher Suite",
+                                description=f"Weak cipher suite in use: {cipher}",
+                                affected_url=f"{hostname}:{port}",
+                                attack_vector="SSL/TLS cipher negotiation",
+                                evidence=f"Cipher: {cipher}",
+                                remediation="Configure strong cipher suites only",
+                                cvss_score=7.4,
+                            )
+                        )
 
                     # 古いTLSバージョンチェック
-                    if version in ['TLSv1', 'TLSv1.1', 'SSLv2', 'SSLv3']:
-                        vulnerabilities.append(SecurityVulnerability(
-                            vulnerability_type=VulnerabilityType.WEAK_CRYPTOGRAPHY,
-                            severity=SeverityLevel.HIGH,
-                            title="Outdated TLS Version",
-                            description=f"Outdated TLS/SSL version: {version}",
-                            affected_url=f"{hostname}:{port}",
-                            attack_vector="SSL/TLS version negotiation",
-                            evidence=f"Version: {version}",
-                            remediation="Upgrade to TLS 1.2 or higher",
-                            cvss_score=7.4
-                        ))
+                    if version in ["TLSv1", "TLSv1.1", "SSLv2", "SSLv3"]:
+                        vulnerabilities.append(
+                            SecurityVulnerability(
+                                vulnerability_type=VulnerabilityType.WEAK_CRYPTOGRAPHY,
+                                severity=SeverityLevel.HIGH,
+                                title="Outdated TLS Version",
+                                description=f"Outdated TLS/SSL version: {version}",
+                                affected_url=f"{hostname}:{port}",
+                                attack_vector="SSL/TLS version negotiation",
+                                evidence=f"Version: {version}",
+                                remediation="Upgrade to TLS 1.2 or higher",
+                                cvss_score=7.4,
+                            )
+                        )
 
                     # 証明書有効期限チェック
                     if cert:
-                        not_after = cert.get('notAfter')
+                        not_after = cert.get("notAfter")
                         if not_after:
                             # 証明書の有効期限をチェック（簡略実装）
                             import datetime
+
                             try:
-                                expiry_date = datetime.datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
+                                expiry_date = datetime.datetime.strptime(
+                                    not_after, "%b %d %H:%M:%S %Y %Z"
+                                )
                                 days_until_expiry = (expiry_date - datetime.datetime.now()).days
 
                                 if days_until_expiry < 30:
-                                    severity = SeverityLevel.HIGH if days_until_expiry < 7 else SeverityLevel.MEDIUM
-                                    vulnerabilities.append(SecurityVulnerability(
-                                        vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
-                                        severity=severity,
-                                        title="Certificate Expiring Soon",
-                                        description=f"SSL certificate expires in {days_until_expiry} days",
-                                        affected_url=f"{hostname}:{port}",
-                                        attack_vector="Certificate validation",
-                                        evidence=f"Expiry: {not_after}",
-                                        remediation="Renew SSL certificate",
-                                        cvss_score=5.0 if severity == SeverityLevel.HIGH else 3.0
-                                    ))
+                                    severity = (
+                                        SeverityLevel.HIGH
+                                        if days_until_expiry < 7
+                                        else SeverityLevel.MEDIUM
+                                    )
+                                    vulnerabilities.append(
+                                        SecurityVulnerability(
+                                            vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
+                                            severity=severity,
+                                            title="Certificate Expiring Soon",
+                                            description=f"SSL certificate expires in {days_until_expiry} days",
+                                            affected_url=f"{hostname}:{port}",
+                                            attack_vector="Certificate validation",
+                                            evidence=f"Expiry: {not_after}",
+                                            remediation="Renew SSL certificate",
+                                            cvss_score=(
+                                                5.0 if severity == SeverityLevel.HIGH else 3.0
+                                            ),
+                                        )
+                                    )
                             except Exception:
                                 pass
 
@@ -567,7 +597,27 @@ class NetworkSecurityTester:
         """オープンポートスキャン"""
         vulnerabilities = []
 
-        common_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3306, 3389, 5432, 6379, 27017]
+        common_ports = [
+            21,
+            22,
+            23,
+            25,
+            53,
+            80,
+            110,
+            135,
+            139,
+            143,
+            443,
+            993,
+            995,
+            1433,
+            3306,
+            3389,
+            5432,
+            6379,
+            27017,
+        ]
 
         for port in common_ports:
             try:
@@ -595,17 +645,19 @@ class NetworkSecurityTester:
 
                     if port in dangerous_services:
                         service, severity = dangerous_services[port]
-                        vulnerabilities.append(SecurityVulnerability(
-                            vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
-                            severity=severity,
-                            title=f"Exposed {service} Service",
-                            description=f"{service} service exposed on port {port}",
-                            affected_url=f"{hostname}:{port}",
-                            attack_vector=f"Network connection to port {port}",
-                            evidence=f"Port {port} ({service}) is accessible",
-                            remediation=f"Secure {service} service or restrict access",
-                            cvss_score=self._get_cvss_for_severity(severity)
-                        ))
+                        vulnerabilities.append(
+                            SecurityVulnerability(
+                                vulnerability_type=VulnerabilityType.SECURITY_MISCONFIGURATION,
+                                severity=severity,
+                                title=f"Exposed {service} Service",
+                                description=f"{service} service exposed on port {port}",
+                                affected_url=f"{hostname}:{port}",
+                                attack_vector=f"Network connection to port {port}",
+                                evidence=f"Port {port} ({service}) is accessible",
+                                remediation=f"Secure {service} service or restrict access",
+                                cvss_score=self._get_cvss_for_severity(severity),
+                            )
+                        )
 
             except Exception as e:
                 logger.debug(f"ポートスキャンエラー {port}: {e}")
@@ -615,11 +667,25 @@ class NetworkSecurityTester:
     def _get_service_name(self, port: int) -> str:
         """ポート番号からサービス名を取得"""
         service_map = {
-            21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 53: "DNS",
-            80: "HTTP", 110: "POP3", 135: "RPC", 139: "NetBIOS", 143: "IMAP",
-            443: "HTTPS", 993: "IMAPS", 995: "POP3S", 1433: "MSSQL",
-            3306: "MySQL", 3389: "RDP", 5432: "PostgreSQL", 6379: "Redis",
-            27017: "MongoDB"
+            21: "FTP",
+            22: "SSH",
+            23: "Telnet",
+            25: "SMTP",
+            53: "DNS",
+            80: "HTTP",
+            110: "POP3",
+            135: "RPC",
+            139: "NetBIOS",
+            143: "IMAP",
+            443: "HTTPS",
+            993: "IMAPS",
+            995: "POP3S",
+            1433: "MSSQL",
+            3306: "MySQL",
+            3389: "RDP",
+            5432: "PostgreSQL",
+            6379: "Redis",
+            27017: "MongoDB",
         }
         return service_map.get(port, f"Unknown-{port}")
 
@@ -678,7 +744,7 @@ class PenetrationTester:
         sorted_vulnerabilities = sorted(
             unique_vulnerabilities,
             key=lambda v: (v.severity.value, -v.cvss_score or 0),
-            reverse=True
+            reverse=True,
         )
 
         execution_time = time.time() - start_time
@@ -705,9 +771,7 @@ class PenetrationTester:
             vulnerabilities.extend(sql_vulns)
 
             # XSSテスト
-            xss_vulns = await self.web_tester.test_xss(
-                self.config.target_base_url, test_params
-            )
+            xss_vulns = await self.web_tester.test_xss(self.config.target_base_url, test_params)
             vulnerabilities.extend(xss_vulns)
 
             # 認証バイパステスト
@@ -724,9 +788,7 @@ class PenetrationTester:
             vulnerabilities.extend(sensitive_vulns)
 
             # セキュリティヘッダーテスト
-            header_vulns = await self.web_tester.test_security_headers(
-                self.config.target_base_url
-            )
+            header_vulns = await self.web_tester.test_security_headers(self.config.target_base_url)
             vulnerabilities.extend(header_vulns)
 
         except Exception as e:
@@ -740,7 +802,7 @@ class PenetrationTester:
 
         try:
             # SSL/TLSテスト
-            if self.config.target_base_url.startswith('https'):
+            if self.config.target_base_url.startswith("https"):
                 ssl_vulns = await self.network_tester.test_ssl_tls_configuration(hostname)
                 vulnerabilities.extend(ssl_vulns)
 
@@ -919,27 +981,29 @@ if __name__ == "__main__":
         print("ペネトレーションテスト実行中...")
         report = await tester.run_comprehensive_pentest()
 
-        print(f"\n=== テスト結果 ===")
+        print("\n=== テスト結果 ===")
         print(f"対象: {report['target']}")
         print(f"実行時間: {report['execution_time_seconds']:.2f}秒")
         print(f"発見脆弱性: {report['summary']['total_vulnerabilities']}件")
         print(f"リスクスコア: {report['summary']['risk_score']:.1f}/100")
         print(f"リスクレベル: {report['summary']['risk_level']}")
 
-        print(f"\n=== 深刻度別内訳 ===")
-        for severity, count in report['summary']['severity_breakdown'].items():
+        print("\n=== 深刻度別内訳 ===")
+        for severity, count in report["summary"]["severity_breakdown"].items():
             if count > 0:
                 print(f"{severity.upper()}: {count}件")
 
-        print(f"\n=== 推奨事項 ===")
-        for i, rec in enumerate(report['recommendations'], 1):
+        print("\n=== 推奨事項 ===")
+        for i, rec in enumerate(report["recommendations"], 1):
             print(f"{i}. {rec}")
 
-        print(f"\n=== コンプライアンス評価 ===")
-        compliance = report['compliance_status']
+        print("\n=== コンプライアンス評価 ===")
+        compliance = report["compliance_status"]
         for framework, status in compliance.items():
-            compliant = "✅" if status['compliant'] else "❌"
-            print(f"{framework.upper()}: {compliant} (Critical: {status['critical_issues']}, High: {status['high_issues']})")
+            compliant = "✅" if status["compliant"] else "❌"
+            print(
+                f"{framework.upper()}: {compliant} (Critical: {status['critical_issues']}, High: {status['high_issues']})"
+            )
 
     # 実行
     asyncio.run(main())

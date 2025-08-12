@@ -152,9 +152,9 @@ class ColorPalette:
 
             return [
                 mcolors.to_hex(c)
-                for c in mcolors.LinearSegmentedColormap.from_list(
-                    "", [start_color, end_color]
-                )(range(steps))
+                for c in mcolors.LinearSegmentedColormap.from_list("", [start_color, end_color])(
+                    range(steps)
+                )
             ]
         except ImportError:
             # フォールバック: 単純な繰り返し
@@ -227,9 +227,7 @@ class ColorPalette:
         config = self.get_theme_config()
 
         if title:
-            ax.set_title(
-                title, fontsize=14, fontweight="bold", color=config["text_color"]
-            )
+            ax.set_title(title, fontsize=14, fontweight="bold", color=config["text_color"])
 
         ax.tick_params(colors=config["text_color"])
         ax.xaxis.label.set_color(config["text_color"])

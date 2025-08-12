@@ -93,9 +93,7 @@ class TradeExecutor:
 
             # 売却時の数量検証
             if trade_type == TradeType.SELL:
-                validation = self.position_manager.validate_sell_quantity(
-                    symbol, quantity
-                )
+                validation = self.position_manager.validate_sell_quantity(symbol, quantity)
                 if not validation["overall_valid"]:
                     logger.error(f"売却検証失敗: {symbol} {quantity}株")
                     return None
@@ -203,8 +201,7 @@ class TradeExecutor:
 
         if position.quantity < quantity:
             logger.error(
-                f"売却失敗: {symbol}の保有数量{position.quantity}株 < "
-                f"売却数量{quantity}株"
+                f"売却失敗: {symbol}の保有数量{position.quantity}株 < " f"売却数量{quantity}株"
             )
             return None
 
@@ -382,8 +379,6 @@ class TradeExecutor:
 
         # 銘柄別履歴
         for symbol, trades in self.trade_history.items():
-            export_data["trade_history_by_symbol"][symbol] = [
-                trade.to_dict() for trade in trades
-            ]
+            export_data["trade_history_by_symbol"][symbol] = [trade.to_dict() for trade in trades]
 
         return export_data

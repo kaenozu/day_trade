@@ -21,6 +21,7 @@ import numpy as np
 
 try:
     import mmap
+
     MMAP_AVAILABLE = True
 except ImportError:
     MMAP_AVAILABLE = False
@@ -29,8 +30,10 @@ try:
     from ..utils.logging_config import get_context_logger
 except ImportError:
     import logging
+
     def get_context_logger(name):
         return logging.getLogger(name)
+
 
 logger = get_context_logger(__name__)
 
@@ -38,6 +41,7 @@ logger = get_context_logger(__name__)
 @dataclass
 class UltraLowLatencyConfig:
     """超低レイテンシ設定"""
+
     # レイテンシ目標
     target_latency_ns: int = 10000  # 10μs
     critical_latency_ns: int = 5000  # 5μs（クリティカルパス）
@@ -70,6 +74,7 @@ class UltraLowLatencyConfig:
 # Rust FFI用データ構造
 class TradeRequest(Structure):
     """取引リクエスト構造体"""
+
     _fields_ = [
         ("symbol", c_char_p),
         ("side", c_int),  # 0=buy, 1=sell
@@ -82,6 +87,7 @@ class TradeRequest(Structure):
 
 class TradeResult(Structure):
     """取引結果構造体"""
+
     _fields_ = [
         ("status", c_int),  # 0=success, 1=error
         ("order_id", c_uint64),
@@ -95,6 +101,7 @@ class TradeResult(Structure):
 
 class MarketData(Structure):
     """マーケットデータ構造体"""
+
     _fields_ = [
         ("symbol", c_char_p),
         ("bid_price", c_double),
@@ -107,6 +114,7 @@ class MarketData(Structure):
 
 class LockFreeRingBufferStats(Structure):
     """Lock-freeリングバッファ統計"""
+
     _fields_ = [
         ("size", c_uint64),
         ("head", c_uint64),
@@ -135,7 +143,7 @@ class UltraLowLatencyCore:
             "total_trades": 0,
             "successful_trades": 0,
             "failed_trades": 0,
-            "min_latency_ns": float('inf'),
+            "min_latency_ns": float("inf"),
             "max_latency_ns": 0,
             "avg_latency_ns": 0.0,
             "latency_histogram": np.zeros(100),  # 100ns buckets
@@ -153,19 +161,20 @@ class UltraLowLatencyCore:
         try:
             # CPU親和性設定
             if self.config.enable_cpu_affinity and self.config.dedicated_cpu_cores:
-                if hasattr(os, 'sched_setaffinity'):
+                if hasattr(os, "sched_setaffinity"):
                     os.sched_setaffinity(0, set(self.config.dedicated_cpu_cores))
                     logger.info(f"CPU親和性設定: {self.config.dedicated_cpu_cores}")
 
             # プロセス優先度設定
-            if hasattr(os, 'setpriority'):
+            if hasattr(os, "setpriority"):
                 os.setpriority(os.PRIO_PROCESS, 0, self.config.process_priority)
                 logger.info(f"プロセス優先度設定: {self.config.process_priority}")
 
             # スケジューラ設定（Linux）
-            if platform.system() == 'Linux' and self.config.scheduler_policy == "SCHED_FIFO":
+            if platform.system() == "Linux" and self.config.scheduler_policy == "SCHED_FIFO":
                 try:
                     import sched
+
                     param = sched.sched_param(99)  # 最高優先度
                     os.sched_setscheduler(0, os.SCHED_FIFO, param)
                     logger.info("リアルタイムスケジューラ(SCHED_FIFO)設定完了")
@@ -226,14 +235,14 @@ class UltraLowLatencyCore:
         # 超高速取引実行
         self.rust_lib.execute_trade_ultra_fast.argtypes = [
             ctypes.POINTER(TradeRequest),
-            ctypes.POINTER(TradeResult)
+            ctypes.POINTER(TradeResult),
         ]
         self.rust_lib.execute_trade_ultra_fast.restype = c_int
 
         # マーケットデータ処理
         self.rust_lib.process_market_data_ultra_fast.argtypes = [
             ctypes.POINTER(MarketData),
-            c_void_p
+            c_void_p,
         ]
         self.rust_lib.process_market_data_ultra_fast.restype = c_int
 
@@ -294,7 +303,7 @@ class UltraLowLatencyCore:
             pool_size = self.config.preallocated_memory_mb * 1024 * 1024
 
             # 共有メモリ作成
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 self.shared_memory = mmap.mmap(-1, pool_size)
             else:  # Linux/Unix
                 flags = mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS
@@ -308,8 +317,7 @@ class UltraLowLatencyCore:
 
             # メモリプールポインター設定
             self.memory_pool_ptr = ctypes.cast(
-                ctypes.addressof(ctypes.c_char.from_buffer(self.shared_memory)),
-                c_void_p
+                ctypes.addressof(ctypes.c_char.from_buffer(self.shared_memory)), c_void_p
             )
 
             logger.info(f"共有メモリプール初期化完了: {self.config.preallocated_memory_mb}MB")
@@ -317,22 +325,25 @@ class UltraLowLatencyCore:
         except Exception as e:
             logger.error(f"共有メモリプール初期化エラー: {e}")
 
-    def execute_trade_ultra_fast(self, symbol: str, side: str, quantity: float,
-                               price: float, order_type: str = "market") -> Dict[str, Any]:
+    def execute_trade_ultra_fast(
+        self, symbol: str, side: str, quantity: float, price: float, order_type: str = "market"
+    ) -> Dict[str, Any]:
         """超高速取引実行 - <10μs目標"""
         if not self.rust_core_initialized:
             raise RuntimeError("Rustコアが初期化されていません")
 
         # 開始時間測定（RDTSC使用）
-        start_cycles = self._get_rdtsc_cycles() if hasattr(self, '_get_rdtsc_cycles') else time.time_ns()
+        start_cycles = (
+            self._get_rdtsc_cycles() if hasattr(self, "_get_rdtsc_cycles") else time.time_ns()
+        )
 
         # 取引リクエスト構造体作成
         trade_request = TradeRequest()
-        trade_request.symbol = symbol.encode('utf-8')
-        trade_request.side = 0 if side.lower() == 'buy' else 1
+        trade_request.symbol = symbol.encode("utf-8")
+        trade_request.side = 0 if side.lower() == "buy" else 1
         trade_request.quantity = quantity
         trade_request.price = price
-        trade_request.order_type = 0 if order_type.lower() == 'market' else 1
+        trade_request.order_type = 0 if order_type.lower() == "market" else 1
         trade_request.timestamp_ns = time.time_ns()
 
         # 取引結果構造体
@@ -340,12 +351,13 @@ class UltraLowLatencyCore:
 
         # Rust関数呼び出し（クリティカルパス）
         result_code = self.rust_lib.execute_trade_ultra_fast(
-            ctypes.byref(trade_request),
-            ctypes.byref(trade_result)
+            ctypes.byref(trade_request), ctypes.byref(trade_result)
         )
 
         # 終了時間測定
-        end_cycles = self._get_rdtsc_cycles() if hasattr(self, '_get_rdtsc_cycles') else time.time_ns()
+        end_cycles = (
+            self._get_rdtsc_cycles() if hasattr(self, "_get_rdtsc_cycles") else time.time_ns()
+        )
         total_latency_ns = end_cycles - start_cycles
 
         # 統計更新
@@ -362,7 +374,7 @@ class UltraLowLatencyCore:
             "rust_latency_ns": trade_result.latency_ns,
             "timestamp_ns": trade_result.timestamp_ns,
             "error_code": trade_result.error_code,
-            "under_target": total_latency_ns < self.config.target_latency_ns
+            "under_target": total_latency_ns < self.config.target_latency_ns,
         }
 
         # 統計カウンター更新
@@ -376,7 +388,7 @@ class UltraLowLatencyCore:
 
     def _get_rdtsc_cycles(self) -> int:
         """RDTSC CPU cycle counter取得"""
-        if self.rust_core_initialized and hasattr(self.rust_lib, 'get_rdtsc_cycles'):
+        if self.rust_core_initialized and hasattr(self.rust_lib, "get_rdtsc_cycles"):
             return self.rust_lib.get_rdtsc_cycles()
         else:
             return time.time_ns()
@@ -393,14 +405,16 @@ class UltraLowLatencyCore:
         total_trades = self.stats["total_trades"]
         if total_trades > 0:
             self.stats["avg_latency_ns"] = (
-                (self.stats["avg_latency_ns"] * (total_trades - 1) + latency_ns) / total_trades
-            )
+                self.stats["avg_latency_ns"] * (total_trades - 1) + latency_ns
+            ) / total_trades
 
         # ヒストグラム更新（100ns単位）
         bucket_index = min(latency_ns // 100, len(self.stats["latency_histogram"]) - 1)
         self.stats["latency_histogram"][bucket_index] += 1
 
-    def process_market_data_batch(self, market_data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def process_market_data_batch(
+        self, market_data_list: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """マーケットデータバッチ処理 - 超低レイテンシ"""
         if not self.rust_core_initialized:
             return []
@@ -411,7 +425,7 @@ class UltraLowLatencyCore:
         for data in market_data_list:
             # マーケットデータ構造体作成
             market_data = MarketData()
-            market_data.symbol = data["symbol"].encode('utf-8')
+            market_data.symbol = data["symbol"].encode("utf-8")
             market_data.bid_price = data["bid_price"]
             market_data.ask_price = data["ask_price"]
             market_data.bid_size = data["bid_size"]
@@ -419,17 +433,18 @@ class UltraLowLatencyCore:
             market_data.timestamp_ns = time.time_ns()
 
             # Rust処理関数呼び出し
-            if hasattr(self.rust_lib, 'process_market_data_ultra_fast'):
+            if hasattr(self.rust_lib, "process_market_data_ultra_fast"):
                 result = self.rust_lib.process_market_data_ultra_fast(
-                    ctypes.byref(market_data),
-                    self.memory_pool_ptr
+                    ctypes.byref(market_data), self.memory_pool_ptr
                 )
 
-                results.append({
-                    "symbol": data["symbol"],
-                    "processed": result == 0,
-                    "processing_time_ns": time.time_ns() - start_time
-                })
+                results.append(
+                    {
+                        "symbol": data["symbol"],
+                        "processed": result == 0,
+                        "processing_time_ns": time.time_ns() - start_time,
+                    }
+                )
 
         total_time = time.time_ns() - start_time
         logger.debug(f"マーケットデータバッチ処理完了: {len(market_data_list)}件, {total_time}ns")
@@ -455,8 +470,10 @@ class UltraLowLatencyCore:
         p99_bucket = np.argmax(np.cumsum(histogram) >= total_samples * 0.99) * 100
 
         # 目標達成率
-        under_target_count = np.sum(histogram[:self.config.target_latency_ns // 100])
-        target_achievement_rate = (under_target_count / total_samples) * 100 if total_samples > 0 else 0
+        under_target_count = np.sum(histogram[: self.config.target_latency_ns // 100])
+        target_achievement_rate = (
+            (under_target_count / total_samples) * 100 if total_samples > 0 else 0
+        )
 
         return {
             "total_trades": self.stats["total_trades"],
@@ -480,7 +497,7 @@ class UltraLowLatencyCore:
                 "cpu_affinity": self.config.dedicated_cpu_cores,
                 "scheduler_policy": self.config.scheduler_policy,
                 "memory_pool_mb": self.config.preallocated_memory_mb,
-            }
+            },
         }
 
     def cleanup(self):
@@ -489,7 +506,7 @@ class UltraLowLatencyCore:
             if self.shared_memory:
                 self.shared_memory.close()
 
-            if self.rust_core_initialized and hasattr(self.rust_lib, 'cleanup_ultra_fast_core'):
+            if self.rust_core_initialized and hasattr(self.rust_lib, "cleanup_ultra_fast_core"):
                 self.rust_lib.cleanup_ultra_fast_core()
 
             logger.info("超低レイテンシHFTコア クリーンアップ完了")
@@ -500,15 +517,13 @@ class UltraLowLatencyCore:
 
 # 便利関数とファクトリー
 def create_ultra_low_latency_core(
-    target_latency_us: float = 10.0,
-    cpu_cores: List[int] = None,
-    memory_mb: int = 512
+    target_latency_us: float = 10.0, cpu_cores: List[int] = None, memory_mb: int = 512
 ) -> UltraLowLatencyCore:
     """超低レイテンシコア作成"""
     config = UltraLowLatencyConfig(
         target_latency_ns=int(target_latency_us * 1000),
         dedicated_cpu_cores=cpu_cores or [2, 3],
-        preallocated_memory_mb=memory_mb
+        preallocated_memory_mb=memory_mb,
     )
 
     return UltraLowLatencyCore(config)
@@ -532,8 +547,7 @@ def benchmark_ultra_low_latency(iterations: int = 1000) -> Dict[str, Any]:
     start_time = time.time()
     for i in range(iterations):
         result = core.execute_trade_ultra_fast(
-            "USDJPY", "buy" if i % 2 == 0 else "sell",
-            10000, 150.0 + (i % 10) * 0.001
+            "USDJPY", "buy" if i % 2 == 0 else "sell", 10000, 150.0 + (i % 10) * 0.001
         )
 
         if i % 100 == 0:

@@ -211,9 +211,7 @@ class TaskClassifier:
 
         # 履歴は最新100件のみ保持
         if len(self._performance_history[func_key]) > 100:
-            self._performance_history[func_key] = self._performance_history[func_key][
-                -100:
-            ]
+            self._performance_history[func_key] = self._performance_history[func_key][-100:]
 
 
 class ParallelExecutorManager:
@@ -241,9 +239,7 @@ class ParallelExecutorManager:
 
         # コンポーネント
         self.classifier = TaskClassifier()
-        self.performance_monitor = (
-            PerformanceMonitor() if performance_monitoring else None
-        )
+        self.performance_monitor = PerformanceMonitor() if performance_monitoring else None
 
         # Executor プール
         self._thread_executor: Optional[ThreadPoolExecutor] = None
@@ -278,9 +274,7 @@ class ParallelExecutorManager:
     def process_executor(self) -> ProcessPoolExecutor:
         """プロセスプールExecutor（遅延初期化）"""
         if self._process_executor is None:
-            self._process_executor = ProcessPoolExecutor(
-                max_workers=self.max_process_workers
-            )
+            self._process_executor = ProcessPoolExecutor(max_workers=self.max_process_workers)
         return self._process_executor
 
     def execute_task(
@@ -317,13 +311,9 @@ class ParallelExecutorManager:
 
             # 実行
             if executor_type == ExecutorType.THREAD_POOL:
-                result = self._execute_with_thread_pool(
-                    func, args, kwargs, timeout_seconds
-                )
+                result = self._execute_with_thread_pool(func, args, kwargs, timeout_seconds)
             elif executor_type == ExecutorType.PROCESS_POOL:
-                result = self._execute_with_process_pool(
-                    func, args, kwargs, timeout_seconds
-                )
+                result = self._execute_with_process_pool(func, args, kwargs, timeout_seconds)
             else:
                 raise ValueError(f"Unsupported executor type: {executor_type}")
 
@@ -348,9 +338,7 @@ class ParallelExecutorManager:
             logger.error(f"Task execution failed: {task_id}, error: {e}")
 
             # エラー統計更新
-            executor_type = getattr(
-                self, "_last_executor_type", ExecutorType.THREAD_POOL
-            )
+            executor_type = getattr(self, "_last_executor_type", ExecutorType.THREAD_POOL)
             self._update_stats(executor_type, execution_time, success=False)
 
             return ExecutionResult(
@@ -493,9 +481,7 @@ class ParallelExecutorManager:
         future = self.process_executor.submit(func, *args, **kwargs)
         return future.result(timeout=timeout)
 
-    def _update_stats(
-        self, executor_type: ExecutorType, execution_time: float, success: bool
-    ):
+    def _update_stats(self, executor_type: ExecutorType, execution_time: float, success: bool):
         """統計情報更新"""
         with self._lock:
             stats = self._execution_stats[executor_type]
@@ -611,9 +597,7 @@ def shutdown_global_executor_manager():
 
 
 # 便利関数
-def execute_parallel(
-    func: Callable, *args, task_type: Optional[TaskType] = None, **kwargs
-) -> Any:
+def execute_parallel(func: Callable, *args, task_type: Optional[TaskType] = None, **kwargs) -> Any:
     """関数を並列実行"""
     manager = get_global_executor_manager()
     result = manager.execute_task(func, *args, task_type_hint=task_type, **kwargs)

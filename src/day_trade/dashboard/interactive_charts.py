@@ -164,17 +164,13 @@ class InteractiveChartManager:
                     size=self.default_config["font_size"],
                 ),
                 showlegend=True,
-                legend=dict(
-                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
-                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 dragmode="zoom",
                 hovermode="x unified",
             )
 
             # X軸設定
-            fig.update_xaxes(
-                rangeslider_visible=False, type="date", tickformat="%Y-%m-%d"
-            )
+            fig.update_xaxes(rangeslider_visible=False, type="date", tickformat="%Y-%m-%d")
 
             # Y軸設定
             fig.update_yaxes(title_text="価格 (円)", row=1, col=1)
@@ -267,9 +263,7 @@ class InteractiveChartManager:
                     )
 
             # レイアウト設定
-            title_text = (
-                "累積パフォーマンス比較" if cumulative else "パフォーマンス比較"
-            )
+            title_text = "累積パフォーマンス比較" if cumulative else "パフォーマンス比較"
             fig.update_layout(
                 title={"text": title_text, "x": 0.5, "xanchor": "center"},
                 template=self.default_config["theme"],
@@ -278,9 +272,7 @@ class InteractiveChartManager:
                     size=self.default_config["font_size"],
                 ),
                 showlegend=True,
-                legend=dict(
-                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
-                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 dragmode="zoom",
                 hovermode="x unified",
                 xaxis=dict(title="日付", type="date", tickformat="%Y-%m-%d"),
@@ -390,9 +382,7 @@ class InteractiveChartManager:
             # 価格分布 (ヒストグラム)
             if "price_distribution" in market_data:
                 prices = market_data["price_distribution"]
-                fig.add_trace(
-                    go.Histogram(x=prices, name="価格分布", nbinsx=30), row=2, col=1
-                )
+                fig.add_trace(go.Histogram(x=prices, name="価格分布", nbinsx=30), row=2, col=1)
 
             # 相関マトリックス (ヒートマップ)
             if "correlation_matrix" in market_data:
@@ -504,9 +494,7 @@ class InteractiveChartManager:
         except Exception as e:
             logger.warning(f"テクニカル指標追加エラー ({indicator}): {e}")
 
-    def _create_risk_scatter_chart(
-        self, risk_data: Dict[str, Dict[str, float]]
-    ) -> Dict[str, Any]:
+    def _create_risk_scatter_chart(self, risk_data: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
         """リスク・リターン散布図作成"""
         fig = go.Figure()
 
@@ -553,9 +541,7 @@ class InteractiveChartManager:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _create_risk_radar_chart(
-        self, risk_data: Dict[str, Dict[str, float]]
-    ) -> Dict[str, Any]:
+    def _create_risk_radar_chart(self, risk_data: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
         """レーダーチャート作成"""
         fig = go.Figure()
 
@@ -615,9 +601,7 @@ class InteractiveChartManager:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _create_risk_heatmap(
-        self, risk_data: Dict[str, Dict[str, float]]
-    ) -> Dict[str, Any]:
+    def _create_risk_heatmap(self, risk_data: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
         """リスクヒートマップ作成"""
         strategies = list(risk_data.keys())
         metrics = [
@@ -778,17 +762,11 @@ if __name__ == "__main__":
             },
         }
 
-        risk_scatter = chart_manager.create_risk_analysis_chart(
-            risk_data, chart_type="scatter"
-        )
+        risk_scatter = chart_manager.create_risk_analysis_chart(risk_data, chart_type="scatter")
         print(f"散布図作成: {risk_scatter['type']} - {len(risk_scatter['chart'])} 文字")
 
-        risk_radar = chart_manager.create_risk_analysis_chart(
-            risk_data, chart_type="radar"
-        )
-        print(
-            f"レーダーチャート作成: {risk_radar['type']} - {len(risk_radar['chart'])} 文字"
-        )
+        risk_radar = chart_manager.create_risk_analysis_chart(risk_data, chart_type="radar")
+        print(f"レーダーチャート作成: {risk_radar['type']} - {len(risk_radar['chart'])} 文字")
 
         print("\nインタラクティブチャート管理システム テスト完了！")
         print("✅ 全ての基本機能が正常に動作しています")

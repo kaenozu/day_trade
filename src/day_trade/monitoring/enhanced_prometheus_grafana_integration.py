@@ -161,9 +161,7 @@ class PrometheusMetricsExporter:
                 return False
 
             if definition.name in self.metrics:
-                self.logger.warning(
-                    f"メトリクス '{definition.name}' は既に登録済みです"
-                )
+                self.logger.warning(f"メトリクス '{definition.name}' は既に登録済みです")
                 return True
 
             # メトリクスタイプに応じてPrometheusメトリクスを作成
@@ -197,13 +195,9 @@ class PrometheusMetricsExporter:
                     registry=self.registry,
                 )
             elif definition.metric_type == PrometheusMetricType.INFO:
-                metric = Info(
-                    definition.name, definition.description, registry=self.registry
-                )
+                metric = Info(definition.name, definition.description, registry=self.registry)
             else:
-                self.logger.error(
-                    f"サポートされていないメトリクスタイプ: {definition.metric_type}"
-                )
+                self.logger.error(f"サポートされていないメトリクスタイプ: {definition.metric_type}")
                 return False
 
             self.metrics[definition.name] = metric
@@ -214,9 +208,7 @@ class PrometheusMetricsExporter:
             self.logger.error(f"メトリクス登録エラー: {e}")
             return False
 
-    def update_metric(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
-    ):
+    def update_metric(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """メトリクス更新"""
         try:
             if name not in self.metrics:
@@ -287,9 +279,7 @@ class PrometheusClient:
         self.base_url = f"{config.scheme}://{config.host}:{config.port}"
         self.logger = logging.getLogger(__name__)
 
-    async def query(
-        self, query: str, time: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+    async def query(self, query: str, time: Optional[datetime] = None) -> Dict[str, Any]:
         """Prometheusクエリ実行"""
         try:
             if not REQUESTS_AVAILABLE:
@@ -391,9 +381,7 @@ class GrafanaClient:
         self.base_url = f"{config.scheme}://{config.host}:{config.port}"
         self.logger = logging.getLogger(__name__)
 
-    async def create_datasource(
-        self, name: str, prometheus_config: PrometheusConfig
-    ) -> bool:
+    async def create_datasource(self, name: str, prometheus_config: PrometheusConfig) -> bool:
         """データソース作成"""
         try:
             if not REQUESTS_AVAILABLE:
@@ -428,9 +416,7 @@ class GrafanaClient:
                 self.logger.info(f"Grafanaデータソース作成/確認完了: {name}")
                 return True
             else:
-                self.logger.error(
-                    f"データソース作成失敗: {response.status_code} - {response.text}"
-                )
+                self.logger.error(f"データソース作成失敗: {response.status_code} - {response.text}")
                 return False
 
         except Exception as e:
@@ -492,9 +478,7 @@ class GrafanaClient:
             self.logger.error(f"ダッシュボード作成エラー: {e}")
             return False
 
-    async def create_alert_rule(
-        self, rule: AlertRule, datasource_name: str = "Prometheus"
-    ) -> bool:
+    async def create_alert_rule(self, rule: AlertRule, datasource_name: str = "Prometheus") -> bool:
         """アラートルール作成"""
         try:
             if not REQUESTS_AVAILABLE:
@@ -886,9 +870,7 @@ class EnhancedPrometheusGrafanaIntegration:
             "id": 5,
             "title": "ML Prediction Accuracy",
             "type": "gauge",
-            "targets": [
-                {"expr": "avg(day_trade_ml_prediction_accuracy)", "refId": "A"}
-            ],
+            "targets": [{"expr": "avg(day_trade_ml_prediction_accuracy)", "refId": "A"}],
             "fieldConfig": {
                 "defaults": {
                     "min": 0,
@@ -1041,9 +1023,7 @@ class EnhancedPrometheusGrafanaIntegration:
                         "endpoint": request_data.get("endpoint", "unknown"),
                         "status": str(request_data.get("status", 200)),
                     }
-                    self.metrics_exporter.update_metric(
-                        "day_trade_api_requests_total", 1, labels
-                    )
+                    self.metrics_exporter.update_metric("day_trade_api_requests_total", 1, labels)
 
             # 応答時間メトリクス
             if "response_time" in metrics_data:
@@ -1077,9 +1057,7 @@ class EnhancedPrometheusGrafanaIntegration:
                         "symbol": prediction_data.get("symbol", "unknown"),
                         "prediction_type": prediction_data.get("type", "unknown"),
                     }
-                    self.metrics_exporter.update_metric(
-                        "day_trade_ml_predictions_total", 1, labels
-                    )
+                    self.metrics_exporter.update_metric("day_trade_ml_predictions_total", 1, labels)
 
             if "ml_accuracy" in metrics_data:
                 for accuracy_data in metrics_data["ml_accuracy"]:
@@ -1112,9 +1090,7 @@ class EnhancedPrometheusGrafanaIntegration:
                         "source": log_data.get("source", "unknown"),
                         "component": log_data.get("component", "unknown"),
                     }
-                    self.metrics_exporter.update_metric(
-                        "day_trade_log_entries_total", 1, labels
-                    )
+                    self.metrics_exporter.update_metric("day_trade_log_entries_total", 1, labels)
 
             # キャッシュメトリクス
             if "cache_performance" in metrics_data:
@@ -1230,9 +1206,7 @@ def create_enhanced_prometheus_grafana_integration(
         password=grafana_password,
     )
 
-    return EnhancedPrometheusGrafanaIntegration(
-        prometheus_config, grafana_config, metrics_port
-    )
+    return EnhancedPrometheusGrafanaIntegration(prometheus_config, grafana_config, metrics_port)
 
 
 if __name__ == "__main__":
@@ -1245,9 +1219,7 @@ if __name__ == "__main__":
             monitoring_system = create_enhanced_prometheus_grafana_integration()
 
             print("\n1. 強化Prometheus + Grafana統合システム初期化完了")
-            print(
-                f"   登録メトリクス数: {len(monitoring_system.metrics_exporter.metrics)}"
-            )
+            print(f"   登録メトリクス数: {len(monitoring_system.metrics_exporter.metrics)}")
 
             # 監視スタック初期化テスト
             print("\n2. 監視スタック初期化テスト...")
@@ -1268,18 +1240,14 @@ if __name__ == "__main__":
                 },
                 "active_trades": 5,
                 "portfolio_value": 1250000,
-                "ml_predictions": [
-                    {"model": "lstm", "symbol": "7203", "type": "price_forecast"}
-                ],
+                "ml_predictions": [{"model": "lstm", "symbol": "7203", "type": "price_forecast"}],
                 "ml_accuracy": [{"model": "lstm", "timeframe": "1h", "accuracy": 0.85}],
                 "security_events": [{"severity": "warning", "component": "auth"}],
                 "log_entries": [
                     {"level": "info", "source": "application", "component": "trading"},
                     {"level": "error", "source": "database", "component": "connection"},
                 ],
-                "cache_performance": [
-                    {"type": "redis", "level": "l1", "hit_ratio": 0.92}
-                ],
+                "cache_performance": [{"type": "redis", "level": "l1", "hit_ratio": 0.92}],
             }
 
             monitoring_system.update_system_metrics(test_metrics)
@@ -1305,9 +1273,7 @@ if __name__ == "__main__":
             print(f"   総合ステータス: {health_status.get('overall_status')}")
             print(f"   Prometheus: {health_status.get('prometheus', {}).get('status')}")
             print(f"   Grafana: {health_status.get('grafana', {}).get('status')}")
-            print(
-                f"   メトリクス出力: {health_status.get('metrics_exporter', {}).get('status')}"
-            )
+            print(f"   メトリクス出力: {health_status.get('metrics_exporter', {}).get('status')}")
 
             # Prometheusクエリテスト（モック）
             print("\n6. Prometheusクエリテスト...")

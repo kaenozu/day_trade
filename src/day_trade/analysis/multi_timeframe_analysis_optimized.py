@@ -294,9 +294,7 @@ class MultiTimeframeAnalysisOptimized:
         logger.info("マルチタイムフレーム分析システム（統合最適化版）初期化完了")
         logger.info(f"  - 統合キャッシュ: {'有効' if self.cache_enabled else '無効'}")
         logger.info(f"  - 並列処理: {'有効' if self.parallel_enabled else '無効'}")
-        logger.info(
-            f"  - ML最適化: {'有効' if self.ml_optimization_enabled else '無効'}"
-        )
+        logger.info(f"  - ML最適化: {'有効' if self.ml_optimization_enabled else '無効'}")
         logger.info(f"  - 時間軸数: {len(self.timeframe_configs)}")
         logger.info(f"  - 最大並列数: {max_concurrent}")
 
@@ -322,9 +320,7 @@ class MultiTimeframeAnalysisOptimized:
         self.performance_monitor.start_monitoring(analysis_id)
 
         try:
-            logger.info(
-                f"マルチタイムフレーム分析開始: {symbol} ({len(timeframes)}時間軸)"
-            )
+            logger.info(f"マルチタイムフレーム分析開始: {symbol} ({len(timeframes)}時間軸)")
 
             # Issue #324: 統合キャッシュチェック
             if self.cache_enabled:
@@ -401,8 +397,7 @@ class MultiTimeframeAnalysisOptimized:
             # パフォーマンス統計更新
             self.performance_stats["total_analyses"] += 1
             self.performance_stats["avg_processing_time"] = (
-                self.performance_stats["avg_processing_time"] * 0.9
-                + processing_time * 0.1
+                self.performance_stats["avg_processing_time"] * 0.9 + processing_time * 0.1
             )
 
             self.performance_monitor.stop_monitoring(analysis_id)
@@ -434,9 +429,7 @@ class MultiTimeframeAnalysisOptimized:
                 if len(resampled_data) >= config.min_periods:
                     timeframe_data[tf] = resampled_data
                 else:
-                    logger.warning(
-                        f"時間軸データ不足: {tf} - {len(resampled_data)}期間"
-                    )
+                    logger.warning(f"時間軸データ不足: {tf} - {len(resampled_data)}期間")
 
         # 並列分析タスク作成
         analysis_tasks = []
@@ -479,16 +472,12 @@ class MultiTimeframeAnalysisOptimized:
             config = self.timeframe_configs[timeframe]
 
             # Issue #315 Phase 1: 高度テクニカル指標適用
-            bb_analysis = (
-                await self.technical_analyzer.analyze_bollinger_bands_optimized(
-                    data, f"{symbol}_{timeframe}"
-                )
+            bb_analysis = await self.technical_analyzer.analyze_bollinger_bands_optimized(
+                data, f"{symbol}_{timeframe}"
             )
 
-            ichimoku_analysis = (
-                await self.technical_analyzer.analyze_ichimoku_cloud_optimized(
-                    data, f"{symbol}_{timeframe}"
-                )
+            ichimoku_analysis = await self.technical_analyzer.analyze_ichimoku_cloud_optimized(
+                data, f"{symbol}_{timeframe}"
             )
 
             # 時間軸特有の分析
@@ -514,22 +503,16 @@ class MultiTimeframeAnalysisOptimized:
 
             # 時間軸別調整
             timeframe_multiplier = config.analysis_priority
-            adjusted_signal = (
-                sum(signals) / len(signals) * timeframe_multiplier if signals else 0
-            )
+            adjusted_signal = sum(signals) / len(signals) * timeframe_multiplier if signals else 0
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0.5
 
             # 最終シグナル決定
             if adjusted_signal > 0.4:
                 final_signal = "BUY"
-                final_confidence = min(
-                    0.95, avg_confidence + abs(adjusted_signal) * 0.2
-                )
+                final_confidence = min(0.95, avg_confidence + abs(adjusted_signal) * 0.2)
             elif adjusted_signal < -0.4:
                 final_signal = "SELL"
-                final_confidence = min(
-                    0.95, avg_confidence + abs(adjusted_signal) * 0.2
-                )
+                final_confidence = min(0.95, avg_confidence + abs(adjusted_signal) * 0.2)
             else:
                 final_signal = "HOLD"
                 final_confidence = avg_confidence
@@ -575,9 +558,7 @@ class MultiTimeframeAnalysisOptimized:
 
             # 整合性スコア計算
             max_agreement = max(buy_count, sell_count, hold_count)
-            overall_consistency = (
-                max_agreement / total_signals if total_signals > 0 else 0
-            )
+            overall_consistency = max_agreement / total_signals if total_signals > 0 else 0
 
             # 相反するシグナル検出
             conflicting_signals = []
@@ -676,9 +657,7 @@ class MultiTimeframeAnalysisOptimized:
                 confidence_multiplier = signal.confidence
 
                 # 最終重み
-                final_weight = (
-                    base_weight * consistency_multiplier * confidence_multiplier
-                )
+                final_weight = base_weight * consistency_multiplier * confidence_multiplier
 
                 # シグナル重み付け
                 signal_value = 0
@@ -713,9 +692,7 @@ class MultiTimeframeAnalysisOptimized:
 
             # パフォーマンススコア
             avg_performance = (
-                sum(performance_scores) / len(performance_scores)
-                if performance_scores
-                else 0.5
+                sum(performance_scores) / len(performance_scores) if performance_scores else 0.5
             )
 
             self.performance_stats["weighted_signal_generations"] += 1
@@ -760,9 +737,7 @@ class MultiTimeframeAnalysisOptimized:
             logger.error(f"データリサンプリングエラー: {period} - {e}")
             return data.copy()
 
-    def _calculate_timeframe_trend_strength(
-        self, data: pd.DataFrame, timeframe: str
-    ) -> float:
+    def _calculate_timeframe_trend_strength(self, data: pd.DataFrame, timeframe: str) -> float:
         """時間軸別トレンド強度計算"""
         try:
             close_prices = data["Close"]
@@ -805,9 +780,7 @@ class MultiTimeframeAnalysisOptimized:
             consistency_adjustment = trend_consistency.overall_consistency
 
             # 時間軸分散調整（複数時間軸で同じシグナル = リスク低）
-            signal_diversity = len(
-                set(signal.signal for signal in timeframe_signals.values())
-            )
+            signal_diversity = len(set(signal.signal for signal in timeframe_signals.values()))
             diversity_adjustment = 1.0 - (signal_diversity - 1) * 0.1
 
             # 最終スコア
@@ -923,13 +896,9 @@ class MultiTimeframeAnalysisOptimized:
         return {
             "total_analyses": self.performance_stats["total_analyses"],
             "cache_hit_rate": self.performance_stats["cache_hits"] / total_requests,
-            "parallel_usage_rate": self.performance_stats["parallel_analyses"]
-            / total_requests,
-            "avg_processing_time_ms": self.performance_stats["avg_processing_time"]
-            * 1000,
-            "consistency_checks": self.performance_stats[
-                "timeframe_consistency_checks"
-            ],
+            "parallel_usage_rate": self.performance_stats["parallel_analyses"] / total_requests,
+            "avg_processing_time_ms": self.performance_stats["avg_processing_time"] * 1000,
+            "consistency_checks": self.performance_stats["timeframe_consistency_checks"],
             "weighted_signals": self.performance_stats["weighted_signal_generations"],
             "optimization_benefits": {
                 "cache_speedup": "98%",  # Issue #324
@@ -1007,9 +976,7 @@ if __name__ == "__main__":
         print(f"[OK] バッチ分析完了: {len(batch_results)}銘柄")
 
         for symbol, analysis in batch_results.items():
-            print(
-                f"     {symbol}: {analysis.weighted_signal} ({analysis.weighted_confidence:.1%})"
-            )
+            print(f"     {symbol}: {analysis.weighted_signal} ({analysis.weighted_confidence:.1%})")
 
         # パフォーマンス統計
         print("\n📊 統合最適化基盤パフォーマンス統計:")

@@ -97,9 +97,7 @@ class MarketRegimeChange:
 class DynamicCorrelationModel(nn.Module):
     """動的相関予測ニューラルネットワーク"""
 
-    def __init__(
-        self, input_size: int = 10, hidden_size: int = 64, sequence_length: int = 24
-    ):
+    def __init__(self, input_size: int = 10, hidden_size: int = 64, sequence_length: int = 24):
         super().__init__()
         self.sequence_length = sequence_length
 
@@ -231,9 +229,7 @@ class CrossMarketCorrelationEngine:
                     logger.error(f"Failed to save correlation result: {e}")
             elif isinstance(result, Exception):
                 asset1, asset2 = self.asset_pairs[i]
-                logger.error(
-                    f"Correlation analysis failed for {asset1}-{asset2}: {result}"
-                )
+                logger.error(f"Correlation analysis failed for {asset1}-{asset2}: {result}")
             else:
                 asset1, asset2 = self.asset_pairs[i]
                 logger.warning(f"No correlation result for {asset1}-{asset2}")
@@ -271,9 +267,7 @@ class CrossMarketCorrelationEngine:
             confidence_interval = self._calculate_confidence_interval(pearson_corr, n)
 
             # ローリング相関計算
-            rolling_correlations = self._calculate_rolling_correlations(
-                prices1, prices2
-            )
+            rolling_correlations = self._calculate_rolling_correlations(prices1, prices2)
 
             # グレンジャー因果性テスト
             granger_1to2, granger_2to1 = self._granger_causality_test(prices1, prices2)
@@ -308,9 +302,7 @@ class CrossMarketCorrelationEngine:
             cache_key = f"{asset1}_{asset2}"
             self.correlation_cache[cache_key] = result
 
-            logger.debug(
-                f"Correlation {asset1}-{asset2}: {pearson_corr:.4f} (p={pearson_p:.4f})"
-            )
+            logger.debug(f"Correlation {asset1}-{asset2}: {pearson_corr:.4f} (p={pearson_p:.4f})")
 
             return result
 
@@ -366,9 +358,9 @@ class CrossMarketCorrelationEngine:
 
         tick = await self.crypto_collector.get_market_data(symbol)
         if tick:
-            return pd.DataFrame(
-                {"price": [tick.price], "timestamp": [tick.timestamp]}
-            ).set_index("timestamp")
+            return pd.DataFrame({"price": [tick.price], "timestamp": [tick.timestamp]}).set_index(
+                "timestamp"
+            )
 
         return None
 
@@ -398,13 +390,9 @@ class CrossMarketCorrelationEngine:
             freq="1min",
         )
 
-        return pd.DataFrame({"price": prices, "timestamp": timestamps}).set_index(
-            "timestamp"
-        )
+        return pd.DataFrame({"price": prices, "timestamp": timestamps}).set_index("timestamp")
 
-    def _generate_mock_crypto_data(
-        self, symbol: str, length: int = 1000
-    ) -> pd.DataFrame:
+    def _generate_mock_crypto_data(self, symbol: str, length: int = 1000) -> pd.DataFrame:
         """模擬Cryptoデータ生成"""
         np.random.seed(hash(symbol) % 1000)
 
@@ -430,9 +418,7 @@ class CrossMarketCorrelationEngine:
             freq="1min",
         )
 
-        return pd.DataFrame({"price": prices, "timestamp": timestamps}).set_index(
-            "timestamp"
-        )
+        return pd.DataFrame({"price": prices, "timestamp": timestamps}).set_index("timestamp")
 
     def _align_price_data(
         self, data1: pd.Series, data2: pd.Series
@@ -656,24 +642,20 @@ class CrossMarketCorrelationEngine:
             session = get_session()
 
             # 市場タイプ変換
-            market1_type = (
-                MarketType.FOREX if result.market1 == "forex" else MarketType.CRYPTO
-            )
-            market2_type = (
-                MarketType.FOREX if result.market2 == "forex" else MarketType.CRYPTO
-            )
+            market1_type = MarketType.FOREX if result.market1 == "forex" else MarketType.CRYPTO
+            market2_type = MarketType.FOREX if result.market2 == "forex" else MarketType.CRYPTO
 
             correlation_record = CrossMarketCorrelation(
                 asset1_symbol=result.asset1,
                 asset1_market=market1_type,
                 asset2_symbol=result.asset2,
                 asset2_market=market2_type,
-                correlation_1h=result.rolling_correlation_1h[-1]
-                if result.rolling_correlation_1h
-                else None,
-                correlation_4h=result.rolling_correlation_4h[-1]
-                if result.rolling_correlation_4h
-                else None,
+                correlation_1h=(
+                    result.rolling_correlation_1h[-1] if result.rolling_correlation_1h else None
+                ),
+                correlation_4h=(
+                    result.rolling_correlation_4h[-1] if result.rolling_correlation_4h else None
+                ),
                 correlation_1d=result.pearson_correlation,
                 sample_size=result.sample_size,
                 p_value=result.p_value,
@@ -696,12 +678,8 @@ class CrossMarketCorrelationEngine:
             for result in self.correlation_cache.values():
                 assets.add(result.asset1)
                 assets.add(result.asset2)
-                correlations[
-                    (result.asset1, result.asset2)
-                ] = result.pearson_correlation
-                correlations[
-                    (result.asset2, result.asset1)
-                ] = result.pearson_correlation  # 対称
+                correlations[(result.asset1, result.asset2)] = result.pearson_correlation
+                correlations[(result.asset2, result.asset1)] = result.pearson_correlation  # 対称
 
             assets = sorted(list(assets))
             matrix = pd.DataFrame(index=assets, columns=assets, dtype=float)

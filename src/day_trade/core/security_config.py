@@ -32,9 +32,7 @@ logger = get_context_logger(__name__)
 class SecureConfigManager:
     """セキュリティ強化された設定管理クラス"""
 
-    def __init__(
-        self, config_path: Optional[Path] = None, encryption_key: Optional[str] = None
-    ):
+    def __init__(self, config_path: Optional[Path] = None, encryption_key: Optional[str] = None):
         """
         初期化
 
@@ -52,27 +50,19 @@ class SecureConfigManager:
             self.config_path = Path(config_path)
 
         # 暗号化キーの設定
-        self.encryption_key = encryption_key or os.environ.get(
-            "DAYTRADE_ENCRYPTION_KEY"
-        )
+        self.encryption_key = encryption_key or os.environ.get("DAYTRADE_ENCRYPTION_KEY")
         if not CRYPTO_AVAILABLE:
-            self.logger.warning(
-                "cryptographyライブラリが利用できません。暗号化機能は無効です"
-            )
+            self.logger.warning("cryptographyライブラリが利用できません。暗号化機能は無効です")
             self._cipher = None
         elif not self.encryption_key:
-            self.logger.warning(
-                "暗号化キーが設定されていません。機密情報の暗号化は利用できません"
-            )
+            self.logger.warning("暗号化キーが設定されていません。機密情報の暗号化は利用できません")
             self._cipher = None
         else:
             # 既存のソルトがあるかチェック（復号化時に必要）
             existing_salt = self._load_salt()
             if existing_salt:
                 # 既存のソルトを使用して暗号化オブジェクトを作成
-                self._cipher = self._create_cipher_with_salt(
-                    self.encryption_key, existing_salt
-                )
+                self._cipher = self._create_cipher_with_salt(self.encryption_key, existing_salt)
             else:
                 # 新規作成
                 self._cipher = self._create_cipher(self.encryption_key)
@@ -140,9 +130,7 @@ class SecureConfigManager:
         - 適切なKDF設定
         """
         if not CRYPTO_AVAILABLE:
-            self.logger.error(
-                "cryptographyライブラリが利用できないため、暗号化を初期化できません"
-            )
+            self.logger.error("cryptographyライブラリが利用できないため、暗号化を初期化できません")
             return None
 
         try:
@@ -352,9 +340,7 @@ class SecureConfigManager:
             self.logger.error(f"セキュア設定の読み込みに失敗: {e}")
             return {}
 
-    def get_from_env_or_config(
-        self, key: str, config: Dict[str, Any], default: Any = None
-    ) -> Any:
+    def get_from_env_or_config(self, key: str, config: Dict[str, Any], default: Any = None) -> Any:
         """環境変数または設定ファイルから値を取得（環境変数を優先）"""
         # 環境変数名を生成（大文字＋アンダースコア）
         env_key = f"DAYTRADE_{key.upper().replace('.', '_')}"
@@ -486,16 +472,12 @@ class SecureConfigManager:
                     if "password" in key.lower():
                         password_issues = self._validate_password_strength(value)
                         for issue in password_issues:
-                            warnings.append(
-                                f"パスワード強度の問題 ({current_path}): {issue}"
-                            )
+                            warnings.append(f"パスワード強度の問題 ({current_path}): {issue}")
 
                     # APIキーの形式チェック
                     if "api_key" in key.lower() or "token" in key.lower():
                         if len(value) < 16:
-                            warnings.append(
-                                f"APIキー/トークンが短すぎます: {current_path}"
-                            )
+                            warnings.append(f"APIキー/トークンが短すぎます: {current_path}")
 
                     # データベースURLの機密情報チェック
                     if "database_url" in key.lower() or "db_url" in key.lower():
@@ -549,9 +531,7 @@ class SecureConfigManager:
             )
 
         # バックアップの推奨
-        suggestions.append(
-            "設定ファイルの定期的なバックアップを推奨します（暗号化したまま）"
-        )
+        suggestions.append("設定ファイルの定期的なバックアップを推奨します（暗号化したまま）")
 
         return suggestions
 
@@ -564,15 +544,9 @@ class EnvironmentConfigLoader:
         """データベース設定を環境変数から読み込み"""
         return {
             "database_url": os.environ.get("DAYTRADE_DATABASE_URL"),
-            "database_pool_size": int(
-                os.environ.get("DAYTRADE_DATABASE_POOL_SIZE", "10")
-            ),
-            "database_max_overflow": int(
-                os.environ.get("DAYTRADE_DATABASE_MAX_OVERFLOW", "20")
-            ),
-            "database_pool_timeout": int(
-                os.environ.get("DAYTRADE_DATABASE_POOL_TIMEOUT", "30")
-            ),
+            "database_pool_size": int(os.environ.get("DAYTRADE_DATABASE_POOL_SIZE", "10")),
+            "database_max_overflow": int(os.environ.get("DAYTRADE_DATABASE_MAX_OVERFLOW", "20")),
+            "database_pool_timeout": int(os.environ.get("DAYTRADE_DATABASE_POOL_TIMEOUT", "30")),
         }
 
     @staticmethod
@@ -581,9 +555,7 @@ class EnvironmentConfigLoader:
         return {
             "api_timeout": int(os.environ.get("DAYTRADE_API_TIMEOUT", "30")),
             "api_retry_count": int(os.environ.get("DAYTRADE_API_RETRY_COUNT", "3")),
-            "api_cache_enabled": os.environ.get(
-                "DAYTRADE_API_CACHE_ENABLED", "true"
-            ).lower()
+            "api_cache_enabled": os.environ.get("DAYTRADE_API_CACHE_ENABLED", "true").lower()
             == "true",
             "api_cache_size": int(os.environ.get("DAYTRADE_API_CACHE_SIZE", "128")),
         }
@@ -597,9 +569,11 @@ class EnvironmentConfigLoader:
             "smtp_user": os.environ.get("DAYTRADE_SMTP_USER"),
             "smtp_pass": os.environ.get("DAYTRADE_SMTP_PASS"),
             "smtp_from_email": os.environ.get("DAYTRADE_SMTP_FROM_EMAIL"),
-            "smtp_to_emails": os.environ.get("DAYTRADE_SMTP_TO_EMAILS", "").split(",")
-            if os.environ.get("DAYTRADE_SMTP_TO_EMAILS")
-            else [],
+            "smtp_to_emails": (
+                os.environ.get("DAYTRADE_SMTP_TO_EMAILS", "").split(",")
+                if os.environ.get("DAYTRADE_SMTP_TO_EMAILS")
+                else []
+            ),
         }
 
 

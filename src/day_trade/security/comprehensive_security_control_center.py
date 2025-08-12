@@ -158,9 +158,7 @@ class ThreatIntelligenceEngine:
             },
         }
 
-    async def analyze_threat_indicators(
-        self, data: Dict[str, Any]
-    ) -> List[SecurityThreat]:
+    async def analyze_threat_indicators(self, data: Dict[str, Any]) -> List[SecurityThreat]:
         """脅威インジケーターを分析"""
         threats = []
 
@@ -172,9 +170,7 @@ class ThreatIntelligenceEngine:
 
             # ネットワークトラフィックの分析
             if "network_traffic" in data:
-                network_threats = await self._analyze_network_patterns(
-                    data["network_traffic"]
-                )
+                network_threats = await self._analyze_network_patterns(data["network_traffic"])
                 threats.extend(network_threats)
 
             # ファイルシステム変更の分析
@@ -184,9 +180,7 @@ class ThreatIntelligenceEngine:
 
             # プロセス活動の分析
             if "processes" in data:
-                process_threats = await self._analyze_process_patterns(
-                    data["processes"]
-                )
+                process_threats = await self._analyze_process_patterns(data["processes"])
                 threats.extend(process_threats)
 
         except Exception as e:
@@ -217,9 +211,7 @@ class ThreatIntelligenceEngine:
 
         return threats
 
-    async def _analyze_network_patterns(
-        self, network_data: Dict[str, Any]
-    ) -> List[SecurityThreat]:
+    async def _analyze_network_patterns(self, network_data: Dict[str, Any]) -> List[SecurityThreat]:
         """ネットワークパターンを分析"""
         threats = []
 
@@ -390,9 +382,7 @@ class IncidentResponseOrchestrator:
             self.logger.error(f"インシデント対応エラー: {e}")
             raise
 
-    async def _execute_immediate_response(
-        self, threat: SecurityThreat, incident: SecurityIncident
-    ):
+    async def _execute_immediate_response(self, threat: SecurityThreat, incident: SecurityIncident):
         """即座の対応を実行"""
         try:
             # 高リスク脅威に対する自動対応
@@ -485,9 +475,7 @@ class ComplianceMonitor:
             }
 
             if framework not in self.compliance_frameworks:
-                compliance_results[
-                    "error"
-                ] = f"Unknown compliance framework: {framework}"
+                compliance_results["error"] = f"Unknown compliance framework: {framework}"
                 return compliance_results
 
             framework_info = self.compliance_frameworks[framework]
@@ -513,9 +501,7 @@ class ComplianceMonitor:
                     )
 
             compliance_results["requirements_met"] = requirements_met
-            compliance_results["overall_score"] = (
-                requirements_met / len(requirements)
-            ) * 100
+            compliance_results["overall_score"] = (requirements_met / len(requirements)) * 100
 
             # 推奨事項生成
             if compliance_results["overall_score"] < 100:
@@ -599,9 +585,7 @@ class ComprehensiveSecurityControlCenter:
                 self.access_auditor = get_access_control_auditor()
                 self.security_tester = get_security_test_coordinator()
             except Exception as e:
-                self.logger.warning(
-                    f"一部セキュリティコンポーネントの初期化に失敗: {e}"
-                )
+                self.logger.warning(f"一部セキュリティコンポーネントの初期化に失敗: {e}")
                 self.vulnerability_manager = None
                 self.coding_enforcer = None
                 self.data_protection = None
@@ -711,9 +695,7 @@ class ComprehensiveSecurityControlCenter:
             # 1. 脆弱性スキャン
             if self.vulnerability_manager:
                 try:
-                    vuln_results = (
-                        await self.vulnerability_manager.run_comprehensive_scan(".")
-                    )
+                    vuln_results = await self.vulnerability_manager.run_comprehensive_scan(".")
                     scan_results["components_scanned"].append("vulnerability_scan")
 
                     # 脆弱性を脅威として登録
@@ -723,9 +705,7 @@ class ComprehensiveSecurityControlCenter:
                             title=f"脆弱性検出: {vuln.get('title', 'Unknown')}",
                             description=vuln.get("description", ""),
                             category=ThreatCategory.VULNERABILITY,
-                            severity=SecurityLevel(
-                                vuln.get("severity", "medium").lower()
-                            ),
+                            severity=SecurityLevel(vuln.get("severity", "medium").lower()),
                             source="vulnerability_manager",
                             indicators=vuln,
                         )
@@ -777,9 +757,7 @@ class ComprehensiveSecurityControlCenter:
 
             # 4. コンプライアンスチェック
             try:
-                compliance_results = await self.compliance_monitor.check_compliance(
-                    "PCI_DSS"
-                )
+                compliance_results = await self.compliance_monitor.check_compliance("PCI_DSS")
                 scan_results["compliance_status"] = compliance_results
                 scan_results["components_scanned"].append("compliance_check")
 
@@ -801,9 +779,7 @@ class ComprehensiveSecurityControlCenter:
                 self.logger.error(f"コンプライアンスチェックエラー: {e}")
 
             # 5. 推奨事項生成
-            scan_results[
-                "recommendations"
-            ] = await self._generate_security_recommendations()
+            scan_results["recommendations"] = await self._generate_security_recommendations()
 
             scan_duration = time.time() - scan_start
             scan_results["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -859,10 +835,8 @@ class ComprehensiveSecurityControlCenter:
                 for proc in psutil.process_iter(["pid", "name", "cmdline"]):
                     try:
                         process_info = proc.info
-                        process_threats = (
-                            await self.threat_intelligence._analyze_process_patterns(
-                                [process_info]
-                            )
+                        process_threats = await self.threat_intelligence._analyze_process_patterns(
+                            [process_info]
                         )
                         threats.extend(process_threats)
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -879,27 +853,17 @@ class ComprehensiveSecurityControlCenter:
 
         # アクティブ脅威に基づく推奨事項
         critical_threats = [
-            t
-            for t in self.active_threats.values()
-            if t.severity == SecurityLevel.CRITICAL
+            t for t in self.active_threats.values() if t.severity == SecurityLevel.CRITICAL
         ]
-        high_threats = [
-            t for t in self.active_threats.values() if t.severity == SecurityLevel.HIGH
-        ]
+        high_threats = [t for t in self.active_threats.values() if t.severity == SecurityLevel.HIGH]
 
         if critical_threats:
-            recommendations.append(
-                "重大な脅威が検出されています。即座の対応が必要です。"
-            )
-            recommendations.append(
-                "システム管理者に緊急連絡を取り、対応を開始してください。"
-            )
+            recommendations.append("重大な脅威が検出されています。即座の対応が必要です。")
+            recommendations.append("システム管理者に緊急連絡を取り、対応を開始してください。")
 
         if high_threats:
             recommendations.append("高リスク脅威への対応を優先してください。")
-            recommendations.append(
-                "セキュリティパッチの適用とシステム更新を実施してください。"
-            )
+            recommendations.append("セキュリティパッチの適用とシステム更新を実施してください。")
 
         # 一般的な推奨事項
         recommendations.extend(
@@ -979,9 +943,7 @@ class ComprehensiveSecurityControlCenter:
                         incident.assigned_to,
                         incident.created_at.isoformat(),
                         incident.updated_at.isoformat(),
-                        incident.resolved_at.isoformat()
-                        if incident.resolved_at
-                        else None,
+                        incident.resolved_at.isoformat() if incident.resolved_at else None,
                         json.dumps(incident.response_actions),
                         json.dumps(incident.impact_assessment),
                     ),
@@ -1026,13 +988,9 @@ class ComprehensiveSecurityControlCenter:
         summary = {
             "total": len(threats),
             "by_severity": {
-                "critical": len(
-                    [t for t in threats if t.severity == SecurityLevel.CRITICAL]
-                ),
+                "critical": len([t for t in threats if t.severity == SecurityLevel.CRITICAL]),
                 "high": len([t for t in threats if t.severity == SecurityLevel.HIGH]),
-                "medium": len(
-                    [t for t in threats if t.severity == SecurityLevel.MEDIUM]
-                ),
+                "medium": len([t for t in threats if t.severity == SecurityLevel.MEDIUM]),
                 "low": len([t for t in threats if t.severity == SecurityLevel.LOW]),
                 "info": len([t for t in threats if t.severity == SecurityLevel.INFO]),
             },
@@ -1051,9 +1009,7 @@ class ComprehensiveSecurityControlCenter:
         # カテゴリ別統計
         for threat in threats:
             category = threat.category.value
-            summary["by_category"][category] = (
-                summary["by_category"].get(category, 0) + 1
-            )
+            summary["by_category"][category] = summary["by_category"].get(category, 0) + 1
 
         return summary
 
@@ -1067,9 +1023,7 @@ class ComprehensiveSecurityControlCenter:
             "investigating": len(
                 [i for i in incidents if i.status == IncidentStatus.INVESTIGATING]
             ),
-            "resolved": len(
-                [i for i in incidents if i.status == IncidentStatus.RESOLVED]
-            ),
+            "resolved": len([i for i in incidents if i.status == IncidentStatus.RESOLVED]),
             "recent": [
                 {
                     "id": i.id,
@@ -1088,9 +1042,7 @@ class ComprehensiveSecurityControlCenter:
         incidents = list(self.incidents.values())
 
         # 脅威統計
-        critical_threats = len(
-            [t for t in threats if t.severity == SecurityLevel.CRITICAL]
-        )
+        critical_threats = len([t for t in threats if t.severity == SecurityLevel.CRITICAL])
         high_threats = len([t for t in threats if t.severity == SecurityLevel.HIGH])
         medium_threats = len([t for t in threats if t.severity == SecurityLevel.MEDIUM])
         low_threats = len([t for t in threats if t.severity == SecurityLevel.LOW])
@@ -1103,15 +1055,11 @@ class ComprehensiveSecurityControlCenter:
                 if i.status in [IncidentStatus.OPEN, IncidentStatus.INVESTIGATING]
             ]
         )
-        resolved_incidents = len(
-            [i for i in incidents if i.status == IncidentStatus.RESOLVED]
-        )
+        resolved_incidents = len([i for i in incidents if i.status == IncidentStatus.RESOLVED])
 
         # 解決時間計算
         resolved_incidents_with_time = [
-            i
-            for i in incidents
-            if i.status == IncidentStatus.RESOLVED and i.resolved_at
+            i for i in incidents if i.status == IncidentStatus.RESOLVED and i.resolved_at
         ]
 
         if resolved_incidents_with_time:
@@ -1229,9 +1177,11 @@ class ComprehensiveSecurityControlCenter:
                     "status": "active",
                     "cpu_percent": psutil.cpu_percent(),
                     "memory_percent": psutil.virtual_memory().percent,
-                    "disk_percent": psutil.disk_usage("/").percent
-                    if hasattr(psutil.disk_usage("/"), "percent")
-                    else 0,
+                    "disk_percent": (
+                        psutil.disk_usage("/").percent
+                        if hasattr(psutil.disk_usage("/"), "percent")
+                        else 0
+                    ),
                 }
             except Exception:
                 status["system_resources"] = {"status": "error"}
@@ -1299,9 +1249,7 @@ if __name__ == "__main__":
             print(f"   - スキャンID: {scan_results['scan_id']}")
             print(f"   - 成功: {scan_results['scan_successful']}")
             print(f"   - スキャン時間: {scan_results.get('scan_duration', 0):.2f}秒")
-            print(
-                f"   - スキャンコンポーネント: {len(scan_results['components_scanned'])}"
-            )
+            print(f"   - スキャンコンポーネント: {len(scan_results['components_scanned'])}")
             print(f"   - 検出脅威数: {len(scan_results['threats_detected'])}")
             print(f"   - 作成インシデント数: {len(scan_results['incidents_created'])}")
 
@@ -1331,18 +1279,14 @@ if __name__ == "__main__":
                 metrics = dashboard["security_metrics"]
                 print("   セキュリティメトリクス:")
                 print(f"   - セキュリティスコア: {metrics.security_score:.1f}/100")
-                print(
-                    f"   - コンプライアンススコア: {metrics.compliance_score:.1f}/100"
-                )
+                print(f"   - コンプライアンススコア: {metrics.compliance_score:.1f}/100")
                 print(f"   - 平均解決時間: {metrics.mean_resolution_time:.2f}時間")
             else:
                 print(f"   エラー: {dashboard['error']}")
 
             # コンプライアンスチェック
             print("\n4. コンプライアンスチェック実行...")
-            compliance_results = (
-                await control_center.compliance_monitor.check_compliance("PCI_DSS")
-            )
+            compliance_results = await control_center.compliance_monitor.check_compliance("PCI_DSS")
 
             if "error" not in compliance_results:
                 print(f"   フレームワーク: {compliance_results['framework_name']}")

@@ -162,9 +162,7 @@ class NotificationHandler:
         """カスタム通知ハンドラーの追加"""
         self.handlers[method] = handler
 
-    def send_notification(
-        self, trigger: AlertTrigger, methods: List[NotificationMethod]
-    ):
+    def send_notification(self, trigger: AlertTrigger, methods: List[NotificationMethod]):
         """通知の送信"""
         for method in methods:
             if method in self.handlers:
@@ -246,9 +244,7 @@ class NotificationHandler:
                 self.email_config["smtp_server"], self.email_config["smtp_port"]
             ) as server:
                 server.starttls()
-                server.login(
-                    self.email_config["username"], self.email_config["password"]
-                )
+                server.login(self.email_config["username"], self.email_config["password"])
                 server.send_message(msg)
 
             logger.info(f"アラートメールを送信: {trigger.symbol}")
@@ -331,9 +327,7 @@ class AlertManager:
                 return False
 
             self.alert_conditions[condition.alert_id] = condition
-            logger.info(
-                f"アラート条件を追加: {condition.alert_id} ({condition.symbol})"
-            )
+            logger.info(f"アラート条件を追加: {condition.alert_id} ({condition.symbol})")
             return True
 
         except Exception as e:
@@ -366,9 +360,7 @@ class AlertManager:
 
         self.monitoring_interval = interval_seconds
         self.monitoring_active = True
-        self.monitoring_thread = threading.Thread(
-            target=self._monitoring_loop, daemon=True
-        )
+        self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitoring_thread.start()
         logger.info(f"アラート監視を開始 (間隔: {interval_seconds}秒)")
 
@@ -403,9 +395,7 @@ class AlertManager:
             return
 
         # 銘柄ごとにグループ化
-        symbols_to_check = list(
-            set(condition.symbol for condition in active_conditions)
-        )
+        symbols_to_check = list(set(condition.symbol for condition in active_conditions))
 
         try:
             # 全銘柄のデータを一括取得（パフォーマンス最適化）
@@ -413,18 +403,12 @@ class AlertManager:
 
             for symbol in symbols_to_check:
                 try:
-                    symbol_conditions = [
-                        c for c in active_conditions if c.symbol == symbol
-                    ]
+                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
                     market_data = bulk_data.get(symbol)
                     if market_data:
-                        self._check_symbol_alerts_with_data(
-                            symbol, symbol_conditions, market_data
-                        )
+                        self._check_symbol_alerts_with_data(symbol, symbol_conditions, market_data)
                     else:
-                        logger.warning(
-                            f"銘柄 '{symbol}' の市場データが取得できませんでした"
-                        )
+                        logger.warning(f"銘柄 '{symbol}' の市場データが取得できませんでした")
                 except Exception as e:
                     logger.error(
                         f"銘柄 '{symbol}' のアラートチェック中にエラーが発生しました。この銘柄のチェックはスキップされます。詳細: {e}"
@@ -434,9 +418,7 @@ class AlertManager:
             # フォールバック：個別取得
             for symbol in symbols_to_check:
                 try:
-                    symbol_conditions = [
-                        c for c in active_conditions if c.symbol == symbol
-                    ]
+                    symbol_conditions = [c for c in active_conditions if c.symbol == symbol]
                     self._check_symbol_alerts(symbol, symbol_conditions)
                 except Exception as e:
                     logger.error(
@@ -543,9 +525,7 @@ class AlertManager:
                         self._handle_alert_trigger(trigger)
 
         except Exception as e:
-            logger.error(
-                f"銘柄 '{symbol}' のアラート評価中にエラーが発生しました。詳細: {e}"
-            )
+            logger.error(f"銘柄 '{symbol}' のアラート評価中にエラーが発生しました。詳細: {e}")
 
     def _check_symbol_alerts(self, symbol: str, conditions: List[AlertCondition]):
         """特定銘柄のアラートチェック（後方互換性用）"""
@@ -584,9 +564,7 @@ class AlertManager:
 
             # カスタムパラメーターにシンボルとカスタム関数を追加
             custom_params = (
-                condition.custom_parameters.copy()
-                if condition.custom_parameters
-                else {}
+                condition.custom_parameters.copy() if condition.custom_parameters else {}
             )
             custom_params["symbol"] = condition.symbol
             if condition.custom_function:
@@ -664,9 +642,7 @@ class AlertManager:
         self.last_trigger_times[trigger.alert_id] = trigger.trigger_time
 
         # 通知送信
-        self.notification_handler.send_notification(
-            trigger, self.default_notification_methods
-        )
+        self.notification_handler.send_notification(trigger, self.default_notification_methods)
 
         logger.info(f"アラート発火: {trigger.alert_id} ({trigger.symbol})")
 
@@ -703,8 +679,7 @@ class AlertManager:
             return False
 
         return not (
-            condition.alert_type == AlertType.CUSTOM_CONDITION
-            and not condition.custom_function
+            condition.alert_type == AlertType.CUSTOM_CONDITION and not condition.custom_function
         )
 
     def get_alert_history(
@@ -714,15 +689,11 @@ class AlertManager:
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
         filtered_history = [
-            trigger
-            for trigger in self.alert_history
-            if trigger.trigger_time >= cutoff_time
+            trigger for trigger in self.alert_history if trigger.trigger_time >= cutoff_time
         ]
 
         if symbol:
-            filtered_history = [
-                trigger for trigger in filtered_history if trigger.symbol == symbol
-            ]
+            filtered_history = [trigger for trigger in filtered_history if trigger.symbol == symbol]
 
         return sorted(filtered_history, key=lambda x: x.trigger_time, reverse=True)
 
@@ -744,9 +715,7 @@ class AlertManager:
                     "priority": condition.priority.value,
                     "cooldown_minutes": condition.cooldown_minutes,
                     "expiry_date": (
-                        condition.expiry_date.isoformat()
-                        if condition.expiry_date
-                        else None
+                        condition.expiry_date.isoformat() if condition.expiry_date else None
                     ),
                     "description": condition.description,
                 }
@@ -832,9 +801,7 @@ if __name__ == "__main__":
     alert_manager.add_alert(change_alert)
 
     # カスタムアラートの例
-    def custom_volume_price_condition(
-        symbol, price, volume, change_pct, historical_data, params
-    ):
+    def custom_volume_price_condition(symbol, price, volume, change_pct, historical_data, params):
         """カスタム条件：出来高と価格の組み合わせ"""
         min_price = params.get("min_price", 0)
         min_volume_ratio = params.get("min_volume_ratio", 2.0)

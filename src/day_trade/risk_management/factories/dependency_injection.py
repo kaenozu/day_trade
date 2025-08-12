@@ -266,17 +266,11 @@ class DIContainer:
             if scope and dep_type in self._services:
                 dep_descriptor = self._services[dep_type]
                 if dep_descriptor.lifetime == ServiceLifetime.SCOPED:
-                    dependencies[
-                        self._get_parameter_name(dep_type)
-                    ] = scope.get_service(dep_type)
+                    dependencies[self._get_parameter_name(dep_type)] = scope.get_service(dep_type)
                 else:
-                    dependencies[self._get_parameter_name(dep_type)] = self.get_service(
-                        dep_type
-                    )
+                    dependencies[self._get_parameter_name(dep_type)] = self.get_service(dep_type)
             else:
-                dependencies[self._get_parameter_name(dep_type)] = self.get_service(
-                    dep_type
-                )
+                dependencies[self._get_parameter_name(dep_type)] = self.get_service(dep_type)
 
         return descriptor.factory(**dependencies)
 

@@ -81,9 +81,7 @@ class TransactionMetrics:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "status": self.status.value,
-            "isolation_level": self.isolation_level.value
-            if self.isolation_level
-            else None,
+            "isolation_level": self.isolation_level.value if self.isolation_level else None,
             "retry_count": self.retry_count,
             "operations_count": self.operations_count,
             "affected_tables": list(self.affected_tables),
@@ -106,9 +104,7 @@ class TransactionMonitor:
         """SQLAlchemyイベントリスナーを設定"""
 
         @event.listens_for(db_manager.engine, "before_execute")
-        def receive_before_execute(
-            conn, clauseelement, multiparams, params, execution_options
-        ):
+        def receive_before_execute(conn, clauseelement, multiparams, params, execution_options):
             """SQL実行前のイベント"""
             # トランザクション内のSQL実行をカウント
             transaction_id = getattr(conn.info, "transaction_id", None)
@@ -247,9 +243,7 @@ class TransactionMonitor:
                 "retry_rate": 0.0,
             }
 
-        successful = [
-            t for t in recent_transactions if t.status == TransactionStatus.COMMITTED
-        ]
+        successful = [t for t in recent_transactions if t.status == TransactionStatus.COMMITTED]
         failed = [
             t
             for t in recent_transactions
@@ -257,9 +251,7 @@ class TransactionMonitor:
         ]
         retried = [t for t in recent_transactions if t.retry_count > 0]
 
-        durations = [
-            t.duration_ms for t in recent_transactions if t.duration_ms is not None
-        ]
+        durations = [t.duration_ms for t in recent_transactions if t.duration_ms is not None]
         avg_duration = sum(durations) / len(durations) if durations else 0.0
 
         return {
@@ -272,9 +264,7 @@ class TransactionMonitor:
             "retry_rate": len(retried) / len(recent_transactions) * 100,
             "average_duration_ms": avg_duration,
             "total_operations": sum(t.operations_count for t in recent_transactions),
-            "affected_tables": len(
-                set().union(*[t.affected_tables for t in recent_transactions])
-            ),
+            "affected_tables": len(set().union(*[t.affected_tables for t in recent_transactions])),
         }
 
 
@@ -346,9 +336,7 @@ class EnhancedTransactionManager:
                 # タイムアウト監視
                 session.execute(text("BEGIN"))
 
-                self.monitor.update_transaction(
-                    transaction_id, status=TransactionStatus.ACTIVE
-                )
+                self.monitor.update_transaction(transaction_id, status=TransactionStatus.ACTIVE)
 
                 # タイムアウトチェック用の開始時間
                 operation_start = time.time()
@@ -357,18 +345,13 @@ class EnhancedTransactionManager:
                     yield session
 
                     # タイムアウトチェック
-                    if (
-                        timeout_seconds
-                        and (time.time() - operation_start) > timeout_seconds
-                    ):
+                    if timeout_seconds and (time.time() - operation_start) > timeout_seconds:
                         raise OperationalError("Transaction timeout", None, None)
 
                     session.commit()
 
                     # 成功を記録
-                    self.monitor.complete_transaction(
-                        transaction_id, TransactionStatus.COMMITTED
-                    )
+                    self.monitor.complete_transaction(transaction_id, TransactionStatus.COMMITTED)
 
                     # ビジネスイベントログ
                     log_business_event(
@@ -376,9 +359,7 @@ class EnhancedTransactionManager:
                         transaction_id=transaction_id,
                         duration_ms=(time.time() - start_time) * 1000,
                         attempt=attempt + 1,
-                        isolation_level=isolation_level.value
-                        if isolation_level
-                        else None,
+                        isolation_level=isolation_level.value if isolation_level else None,
                         readonly=readonly,
                     )
 
@@ -415,9 +396,7 @@ class EnhancedTransactionManager:
                         {
                             "transaction_id": transaction_id,
                             "attempts": attempt + 1,
-                            "isolation_level": isolation_level.value
-                            if isolation_level
-                            else None,
+                            "isolation_level": isolation_level.value if isolation_level else None,
                             "readonly": readonly,
                         },
                     )
@@ -425,18 +404,14 @@ class EnhancedTransactionManager:
 
             except Exception as e:
                 # その他のエラー
-                self.monitor.complete_transaction(
-                    transaction_id, TransactionStatus.FAILED, str(e)
-                )
+                self.monitor.complete_transaction(transaction_id, TransactionStatus.FAILED, str(e))
 
                 log_error_with_context(
                     e,
                     {
                         "transaction_id": transaction_id,
                         "error_type": "unexpected",
-                        "isolation_level": isolation_level.value
-                        if isolation_level
-                        else None,
+                        "isolation_level": isolation_level.value if isolation_level else None,
                     },
                 )
                 raise
@@ -458,9 +433,7 @@ class EnhancedTransactionManager:
             複数のトランザクション処理を調整する簡易版
         """
         transaction_id = str(uuid4())
-        logger.info(
-            "分散トランザクション開始", extra={"transaction_id": transaction_id}
-        )
+        logger.info("分散トランザクション開始", extra={"transaction_id": transaction_id})
 
         sessions = []
         prepared_transactions = []
@@ -499,9 +472,7 @@ class EnhancedTransactionManager:
                 status="success",
             )
 
-            logger.info(
-                "分散トランザクション完了", extra={"transaction_id": transaction_id}
-            )
+            logger.info("分散トランザクション完了", extra={"transaction_id": transaction_id})
             yield  # コンテキストマネージャーとして使用するためのyield
 
         except Exception as e:
@@ -523,9 +494,7 @@ class EnhancedTransactionManager:
                 error=str(e),
             )
 
-            logger.error(
-                "分散トランザクション失敗", transaction_id=transaction_id, error=str(e)
-            )
+            logger.error("分散トランザクション失敗", transaction_id=transaction_id, error=str(e))
             raise
 
         finally:
@@ -534,9 +503,7 @@ class EnhancedTransactionManager:
                 with suppress(Exception):
                     session.close()
 
-    def execute_with_savepoint(
-        self, operations: List[Callable], savepoint_name: str = "sp1"
-    ):
+    def execute_with_savepoint(self, operations: List[Callable], savepoint_name: str = "sp1"):
         """
         セーブポイントを使用した部分ロールバック対応処理
 
@@ -606,9 +573,7 @@ def with_transaction_monitoring(func: Callable) -> Callable:
 
         try:
             result = func(*args, **kwargs)
-            transaction_monitor.complete_transaction(
-                transaction_id, TransactionStatus.COMMITTED
-            )
+            transaction_monitor.complete_transaction(transaction_id, TransactionStatus.COMMITTED)
             return result
 
         except Exception as e:
@@ -634,9 +599,7 @@ def get_transaction_health_report() -> Dict[str, Any]:
     # 長時間実行中のトランザクションを検出
     now = datetime.now()
     long_running_threshold = timedelta(minutes=5)
-    long_running = [
-        t for t in active_transactions if (now - t.start_time) > long_running_threshold
-    ]
+    long_running = [t for t in active_transactions if (now - t.start_time) > long_running_threshold]
 
     return {
         "report_time": datetime.now().isoformat(),

@@ -337,9 +337,7 @@ class LowLatencyMarketDataFeed:
 
             # 遅延統計更新
             latency_us = MicrosecondTimer.elapsed_us(start_time)
-            self.stats["avg_latency_us"] = (
-                self.stats["avg_latency_us"] * 0.9 + latency_us * 0.1
-            )
+            self.stats["avg_latency_us"] = self.stats["avg_latency_us"] * 0.9 + latency_us * 0.1
             self.stats["max_latency_us"] = max(self.stats["max_latency_us"], latency_us)
 
             # マイクロ秒レベルスリープ（約100マイクロ秒間隔）
@@ -416,9 +414,7 @@ class HighFrequencyDecisionEngine:
             logger.error(f"決定エンジンエラー: {e}")
             return []
 
-    async def _calculate_lightning_features(
-        self, tick: MarketDataTick
-    ) -> Dict[str, float]:
+    async def _calculate_lightning_features(self, tick: MarketDataTick) -> Dict[str, float]:
         """超軽量特徴量計算"""
         symbol = tick.symbol
 
@@ -436,9 +432,9 @@ class HighFrequencyDecisionEngine:
             "price_change": price_change,
             "spread": spread,
             "volume": tick.volume,
-            "bid_ask_ratio": tick.bid_size / max(tick.ask_size, 1)
-            if tick.bid_size and tick.ask_size
-            else 1.0,
+            "bid_ask_ratio": (
+                tick.bid_size / max(tick.ask_size, 1) if tick.bid_size and tick.ask_size else 1.0
+            ),
         }
 
         # キャッシュ更新
@@ -465,9 +461,7 @@ class HighFrequencyDecisionEngine:
         elif price_change < model["sell_threshold"]:
             return {
                 "action": "sell",
-                "confidence": min(
-                    abs(price_change) / abs(model["sell_threshold"]), 2.0
-                ),
+                "confidence": min(abs(price_change) / abs(model["sell_threshold"]), 2.0),
                 "position_size": model["position_size"],
             }
         else:
@@ -557,9 +551,7 @@ class HighFrequencyTradingEngine:
 
         # 実行スレッド開始
         for i in range(self.num_execution_threads):
-            thread = threading.Thread(
-                target=self._order_execution_loop, name=f"HFT_Executor_{i}"
-            )
+            thread = threading.Thread(target=self._order_execution_loop, name=f"HFT_Executor_{i}")
             thread.daemon = True
             thread.start()
             self.execution_threads.append(thread)
@@ -688,9 +680,7 @@ class HighFrequencyTradingEngine:
             },
         }
 
-    async def run_performance_benchmark(
-        self, duration_seconds: int = 60
-    ) -> Dict[str, Any]:
+    async def run_performance_benchmark(self, duration_seconds: int = 60) -> Dict[str, Any]:
         """パフォーマンスベンチマーク実行"""
         logger.info(f"高頻度取引エンジン ベンチマーク開始: {duration_seconds}秒")
 
@@ -713,9 +703,7 @@ class HighFrequencyTradingEngine:
             "benchmark_duration_seconds": benchmark_duration_s,
             "total_orders_processed": stats["engine"]["orders_processed"],
             "average_latency_microseconds": stats["engine"]["avg_order_latency_us"],
-            "peak_throughput_orders_per_second": stats["engine"][
-                "throughput_orders_per_sec"
-            ],
+            "peak_throughput_orders_per_second": stats["engine"]["throughput_orders_per_sec"],
             "total_errors": stats["engine"]["errors"],
             "error_rate_percent": (
                 stats["engine"]["errors"] / max(stats["engine"]["orders_processed"], 1)

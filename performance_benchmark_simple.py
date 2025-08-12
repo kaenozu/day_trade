@@ -39,9 +39,7 @@ def test_data_fetching():
     # シーケンシャル取得
     print("1. Sequential fetch test (10 stocks)")
     start_time = time.time()
-    sequential_data = fetcher.fetch_multiple_symbols(
-        test_symbols, period="5d", use_parallel=False
-    )
+    sequential_data = fetcher.fetch_multiple_symbols(test_symbols, period="5d", use_parallel=False)
     sequential_time = time.time() - start_time
 
     print(f"  - Time: {sequential_time:.2f}s")
@@ -51,9 +49,7 @@ def test_data_fetching():
     # 並列取得
     print("2. Parallel fetch test (10 stocks)")
     start_time = time.time()
-    parallel_data = fetcher.fetch_multiple_symbols(
-        test_symbols, period="5d", use_parallel=True
-    )
+    parallel_data = fetcher.fetch_multiple_symbols(test_symbols, period="5d", use_parallel=True)
     parallel_time = time.time() - start_time
 
     print(f"  - Time: {parallel_time:.2f}s")
@@ -121,9 +117,7 @@ def test_ml_performance():
                 successful_analyses += 1
 
                 print(f"  - Time: {processing_time:.3f}s")
-                print(
-                    f"  - Advice: {advice['advice']} (Confidence: {advice['confidence']:.1f}%)"
-                )
+                print(f"  - Advice: {advice['advice']} (Confidence: {advice['confidence']:.1f}%)")
 
             except Exception as e:
                 processing_time = time.time() - start_time

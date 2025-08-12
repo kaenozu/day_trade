@@ -417,17 +417,13 @@ class EnterpriseMasterDataManagement:
 
             # ガバナンスポリシー適用
             policy = self._get_applicable_policy(entity_type)
-            governance_level = (
-                policy.governance_level if policy else DataGovernanceLevel.STANDARD
-            )
+            governance_level = policy.governance_level if policy else DataGovernanceLevel.STANDARD
 
             # データ品質チェック
             quality_score = await self._calculate_entity_quality(attributes, policy)
 
             # バリデーション実行
-            validation_result = await self._validate_entity_attributes(
-                attributes, policy
-            )
+            validation_result = await self._validate_entity_attributes(attributes, policy)
             if not validation_result["is_valid"]:
                 raise ValueError(
                     f"データバリデーションエラー: {', '.join(validation_result['errors'])}"
@@ -518,9 +514,9 @@ class EnterpriseMasterDataManagement:
                 business_justification=business_justification,
                 requested_by=requested_by,
                 requested_at=current_time,
-                approval_status=ApprovalStatus.PENDING
-                if requires_approval
-                else ApprovalStatus.APPROVED,
+                approval_status=(
+                    ApprovalStatus.PENDING if requires_approval else ApprovalStatus.APPROVED
+                ),
                 impact_assessment=impact_assessment,
                 metadata=metadata,
             )
@@ -619,9 +615,7 @@ class EnterpriseMasterDataManagement:
         try:
             entity = await self._get_entity(change_request.entity_id)
             if not entity:
-                raise ValueError(
-                    f"エンティティが見つかりません: {change_request.entity_id}"
-                )
+                raise ValueError(f"エンティティが見つかりません: {change_request.entity_id}")
 
             old_version = entity.version
             changed_fields = []
@@ -649,15 +643,11 @@ class EnterpriseMasterDataManagement:
             # バージョン更新
             entity.version += 1
             entity.updated_at = datetime.now(timezone.utc)
-            entity.updated_by = (
-                change_request.approved_by or change_request.requested_by
-            )
+            entity.updated_by = change_request.approved_by or change_request.requested_by
 
             # 品質スコア再計算
             policy = self._get_applicable_policy(entity.entity_type)
-            entity.quality_score = await self._calculate_entity_quality(
-                entity.attributes, policy
-            )
+            entity.quality_score = await self._calculate_entity_quality(entity.attributes, policy)
 
             # ゴールデンレコード状態再評価
             entity.is_golden_record = await self._determine_golden_record_status(entity)
@@ -878,9 +868,7 @@ class EnterpriseMasterDataManagement:
                 temp_attributes = entity.attributes.copy()
                 temp_attributes.update(proposed_changes)
                 policy = self._get_applicable_policy(entity.entity_type)
-                predicted_quality = await self._calculate_entity_quality(
-                    temp_attributes, policy
-                )
+                predicted_quality = await self._calculate_entity_quality(temp_attributes, policy)
 
                 impact["predicted_quality_score"] = predicted_quality
 
@@ -898,9 +886,7 @@ class EnterpriseMasterDataManagement:
                 "recommendations": ["影響評価を手動で実施してください"],
             }
 
-    def _get_applicable_policy(
-        self, entity_type: MasterDataType
-    ) -> Optional[DataGovernancePolicy]:
+    def _get_applicable_policy(self, entity_type: MasterDataType) -> Optional[DataGovernancePolicy]:
         """適用可能なガバナンスポリシー取得"""
         for policy in self.governance_policies.values():
             if entity_type in policy.entity_types:

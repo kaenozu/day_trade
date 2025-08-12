@@ -32,9 +32,7 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
     logger = logging.getLogger(__name__)
-    logger.warning(
-        "cryptography library not available. Some features will be disabled."
-    )
+    logger.warning("cryptography library not available. Some features will be disabled.")
 
 try:
     from ..utils.logging_config import get_context_logger
@@ -126,9 +124,11 @@ class EncryptedData:
             salt=base64.b64decode(data["salt"]) if data.get("salt") else None,
             iv=base64.b64decode(data["iv"]) if data.get("iv") else None,
             tag=base64.b64decode(data["tag"]) if data.get("tag") else None,
-            encrypted_at=datetime.fromisoformat(data["encrypted_at"])
-            if data.get("encrypted_at")
-            else datetime.utcnow(),
+            encrypted_at=(
+                datetime.fromisoformat(data["encrypted_at"])
+                if data.get("encrypted_at")
+                else datetime.utcnow()
+            ),
             key_id=data.get("key_id"),
             compression_used=data.get("compression_used", False),
         )
@@ -219,9 +219,7 @@ class FernetProvider(EncryptionProvider):
         fernet = Fernet(key)
         ciphertext = fernet.encrypt(plaintext)
 
-        return EncryptedData(
-            ciphertext=ciphertext, algorithm=EncryptionAlgorithm.FERNET
-        )
+        return EncryptedData(ciphertext=ciphertext, algorithm=EncryptionAlgorithm.FERNET)
 
     def decrypt(self, encrypted_data: EncryptedData, key: bytes) -> bytes:
         """Fernet復号化"""
@@ -270,9 +268,7 @@ class KeyManager:
             try:
                 return base64.b64decode(env_key)
             except Exception:
-                logger.warning(
-                    "環境変数のマスターキーが無効です。新しいキーを生成します。"
-                )
+                logger.warning("環境変数のマスターキーが無効です。新しいキーを生成します。")
 
         # ファイルから取得を試行
         master_key_file = self.key_storage_path / "master.key"
@@ -461,12 +457,8 @@ class DataProtectionManager:
         # 暗号化プロバイダー
         self.providers: Dict[EncryptionAlgorithm, EncryptionProvider] = {}
         if CRYPTO_AVAILABLE:
-            self.providers[EncryptionAlgorithm.AES_256_GCM] = AESGCMProvider(
-                self.encryption_config
-            )
-            self.providers[EncryptionAlgorithm.FERNET] = FernetProvider(
-                self.encryption_config
-            )
+            self.providers[EncryptionAlgorithm.AES_256_GCM] = AESGCMProvider(self.encryption_config)
+            self.providers[EncryptionAlgorithm.FERNET] = FernetProvider(self.encryption_config)
 
         # データ分類ポリシー
         self.data_classification_policies: Dict[DataClassification, Dict[str, Any]] = {
@@ -516,9 +508,7 @@ class DataProtectionManager:
     ) -> EncryptedData:
         """データ暗号化"""
         if not CRYPTO_AVAILABLE:
-            raise RuntimeError(
-                "Encryption not available. Install cryptography library."
-            )
+            raise RuntimeError("Encryption not available. Install cryptography library.")
 
         # データをバイト列に変換
         if isinstance(data, str):
@@ -567,9 +557,7 @@ class DataProtectionManager:
     ) -> Union[str, bytes, Dict[str, Any]]:
         """データ復号化"""
         if not CRYPTO_AVAILABLE:
-            raise RuntimeError(
-                "Decryption not available. Install cryptography library."
-            )
+            raise RuntimeError("Decryption not available. Install cryptography library.")
 
         if not encrypted_data.key_id:
             raise ValueError("Key ID not specified in encrypted data")
@@ -612,9 +600,7 @@ class DataProtectionManager:
         logger.info(f"データ復号化完了: key_id={encrypted_data.key_id}")
         return result
 
-    def _log_access(
-        self, operation: str, key_id: str, classification: DataClassification
-    ):
+    def _log_access(self, operation: str, key_id: str, classification: DataClassification):
         """アクセスログ記録"""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -669,9 +655,7 @@ class DataProtectionManager:
         logger.info(f"ファイル暗号化完了: {file_path} -> {output_path}")
         return output_path
 
-    def decrypt_file(
-        self, encrypted_file_path: str, output_path: Optional[str] = None
-    ) -> str:
+    def decrypt_file(self, encrypted_file_path: str, output_path: Optional[str] = None) -> str:
         """ファイル復号化"""
         encrypted_file_path = Path(encrypted_file_path)
         if not encrypted_file_path.exists():
@@ -688,9 +672,7 @@ class DataProtectionManager:
 
         # 出力ファイルパス決定
         if output_path is None:
-            original_filename = encrypted_file_data.get(
-                "original_filename", "decrypted_file"
-            )
+            original_filename = encrypted_file_data.get("original_filename", "decrypted_file")
             output_path = encrypted_file_path.parent / original_filename
 
         # 復号化データ保存
@@ -717,8 +699,7 @@ class DataProtectionManager:
         recent_accesses = [
             log
             for log in self.access_logs
-            if datetime.fromisoformat(log["timestamp"])
-            > datetime.utcnow() - timedelta(days=7)
+            if datetime.fromisoformat(log["timestamp"]) > datetime.utcnow() - timedelta(days=7)
         ]
 
         access_stats = {}
@@ -758,20 +739,14 @@ class DataProtectionManager:
         recommendations = []
 
         if rotation_needed:
-            recommendations.append(
-                f"🔄 {len(rotation_needed)}個のキーのローテーションが必要です。"
-            )
+            recommendations.append(f"🔄 {len(rotation_needed)}個のキーのローテーションが必要です。")
 
         if not CRYPTO_AVAILABLE:
-            recommendations.append(
-                "⚠️ cryptographyライブラリをインストールしてください。"
-            )
+            recommendations.append("⚠️ cryptographyライブラリをインストールしてください。")
 
         # 高頻度アクセスチェック
         high_classification_accesses = [
-            a
-            for a in recent_accesses
-            if a["classification"] in ["restricted", "top_secret"]
+            a for a in recent_accesses if a["classification"] in ["restricted", "top_secret"]
         ]
 
         if len(high_classification_accesses) > 100:
@@ -805,9 +780,7 @@ if __name__ == "__main__":
 
             print("\n1. 暗号化システム状態")
             print(f"暗号化ライブラリ利用可能: {CRYPTO_AVAILABLE}")
-            print(
-                f"サポートアルゴリズム: {[algo.value for algo in manager.providers.keys()]}"
-            )
+            print(f"サポートアルゴリズム: {[algo.value for algo in manager.providers.keys()]}")
 
             if CRYPTO_AVAILABLE:
                 print("\n2. データ暗号化テスト")

@@ -84,9 +84,7 @@ class SecureHashUtils:
         return secrets.compare_digest(actual_hash, expected_hash)
 
 
-def secure_cache_key_generator(
-    data: Union[str, bytes], prefix: str = "", length: int = 16
-) -> str:
+def secure_cache_key_generator(data: Union[str, bytes], prefix: str = "", length: int = 16) -> str:
     """
     レガシーコード互換のキャッシュキー生成関数
 

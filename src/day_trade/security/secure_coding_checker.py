@@ -128,14 +128,10 @@ class SecureCodingChecker:
                 issues.extend(self._check_sensitive_data(file_path, line_num, line))
 
                 # 危険な関数チェック
-                issues.extend(
-                    self._check_dangerous_functions(file_path, line_num, line)
-                )
+                issues.extend(self._check_dangerous_functions(file_path, line_num, line))
 
                 # その他のセキュリティチェック
-                issues.extend(
-                    self._check_other_security_issues(file_path, line_num, line)
-                )
+                issues.extend(self._check_other_security_issues(file_path, line_num, line))
 
         except (UnicodeDecodeError, PermissionError) as e:
             logger.warning(f"ファイル読み込みエラー {file_path}: {e}")
