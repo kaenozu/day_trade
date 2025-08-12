@@ -98,7 +98,6 @@ class AlertChannelFactory:
                 },
             )
 
-
             # Webhook通知
             self.register_channel(
                 NotificationChannelType.WEBHOOK,
@@ -120,7 +119,6 @@ class AlertChannelFactory:
                     "verify_ssl": {"type": bool, "default": True},
                 },
             )
-
 
         except Exception as e:
             import logging

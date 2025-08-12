@@ -359,7 +359,6 @@ class NotificationSystem:
                 if response.status >= 400:
                     raise Exception(f"Webhook エラー: {response.status}")
 
-
     def _get_template(
         self, channel: NotificationChannel, severity: AlertSeverity
     ) -> NotificationTemplate:
