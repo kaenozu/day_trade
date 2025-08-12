@@ -1147,7 +1147,7 @@ class NextGenAITradingEngine:
         Args:
             data: 価格データ
             symbol: 銘柄コード
-            
+
         Returns:
             テクニカル指標スコア辞書
         """
@@ -1165,7 +1165,7 @@ class NextGenAITradingEngine:
             
             # ML強化テクニカル指標
             ml_scores = {}
-            
+
             try:
                 # トレンド強度スコア (ML拡張)
                 sma_20 = close_prices.rolling(20).mean()
@@ -1173,6 +1173,7 @@ class NextGenAITradingEngine:
                 trend_strength = self._calculate_ml_trend_strength(close_prices, sma_20, sma_50)
                 ml_scores["trend_strength"] = min(100, max(0, trend_strength))
                 
+
                 # 価格変動予測スコア
                 volatility = close_prices.pct_change().rolling(20).std().iloc[-1] if len(close_prices) > 20 else 0.02
                 volume_data = data.get("出来高", data.get("Volume", pd.Series()))
@@ -1193,7 +1194,7 @@ class NextGenAITradingEngine:
         except Exception as e:
             logger.error(f"高度テクニカル指標計算エラー {symbol}: {e}")
             return self._get_default_ml_scores()
-    
+
     def _calculate_ml_trend_strength(
         self, prices: pd.Series, sma_20: pd.Series, sma_50: pd.Series
     ) -> float:
@@ -1221,6 +1222,24 @@ class NextGenAITradingEngine:
         except Exception:
             return 50.0  # 中立値
     
+
+            # 価格位置スコア
+            price_position = ((current_price - current_sma20) / current_sma20) * 100
+
+            # トレンド方向性
+            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
+
+            # 勢い計算
+            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
+
+            # 統合スコア
+            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
+
+            return trend_score
+
+        except Exception:
+            return 50.0  # 中立値
+
     def _calculate_volatility_score(
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
@@ -1229,6 +1248,7 @@ class NextGenAITradingEngine:
             # ボラティリティ正規化 (0-100スケール)
             volatility_normalized = min(100, volatility * 1000)  # 0.1 = 100
             
+
             # 出来高影響
             volume_factor = 1.0
             if not volume.empty and len(volume) > 20:
@@ -1245,6 +1265,15 @@ class NextGenAITradingEngine:
         except Exception:
             return 50.0
     
+
+            # 予測スコア
+            prediction_score = volatility_normalized * volume_factor
+
+            return min(100, prediction_score)
+
+        except Exception:
+            return 50.0
+
     def _calculate_pattern_recognition_score(self, prices: pd.Series) -> float:
         """パターン認識スコア (簡易版)"""
         try:
@@ -1256,7 +1285,7 @@ class NextGenAITradingEngine:
             
             # 連続上昇/下降の検出
             changes = recent_prices.pct_change().dropna()
-            
+
             # 上昇連続度
             up_streak = 0
             down_streak = 0
@@ -1268,6 +1297,7 @@ class NextGenAITradingEngine:
                     down_streak += 1
                     up_streak = 0
             
+
             # パターン強度
             if up_streak >= 3:
                 pattern_score = 60 + min(20, up_streak * 5)
@@ -1282,7 +1312,7 @@ class NextGenAITradingEngine:
             
         except Exception:
             return 50.0
-    
+
     def _get_default_ml_scores(self) -> Dict[str, float]:
         """デフォルトMLスコア"""
         return {

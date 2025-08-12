@@ -195,7 +195,7 @@ class TestBatchDataFetcherTechnicalIndicatorsIntegration:
                     mock_response = Mock()
                     mock_response.success = True
                     mock_response.data = pd.DataFrame({
-                        'Open': [100], 'High': [105], 'Low': [99], 
+                        'Open': [100], 'High': [105], 'Low': [99],
                         'Close': [103], 'Volume': [1000]
                     })
                     mock_response.symbol = "7203"

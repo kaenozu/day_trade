@@ -97,7 +97,7 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
                 if hasattr(self, method_name):
                     calc_start = time.time()
                     method = getattr(self, method_name)
-                    
+
                     # 各指標に適切なパラメータを渡す
                     filtered_kwargs = self._filter_kwargs_for_method(indicator, **kwargs)
                     result = method(data, **filtered_kwargs)
@@ -136,14 +136,14 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             'ichimoku': ['conversion_period', 'base_period', 'leading_span_b_period', 'lagging_span_period'],
             'fibonacci_retracement': ['period']
         }
-        
+
         valid_params = indicator_params.get(indicator.lower(), [])
         filtered = {}
-        
+
         # 共通パラメータ 'period' の変換
         if 'period' in kwargs and 'period' in valid_params:
             filtered['period'] = kwargs['period']
-        
+
         # MACD用のデフォルトパラメータ
         if indicator.lower() == 'macd':
             filtered.update({
@@ -151,20 +151,20 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
                 'slow_period': kwargs.get('slow_period', 26),
                 'signal_period': kwargs.get('signal_period', 9)
             })
-        
-        # Bollinger Bands用のデフォルトパラメータ  
+
+        # Bollinger Bands用のデフォルトパラメータ
         elif indicator.lower() == 'bollinger_bands':
             filtered.update({
                 'period': kwargs.get('period', 20),
                 'std_dev': kwargs.get('std_dev', 2.0)
             })
-        
+
         # その他の指標用のパラメータ
         else:
             for param in valid_params:
                 if param in kwargs:
                     filtered[param] = kwargs[param]
-        
+
         return filtered
 
     # 基本指標計算メソッド（共通）
