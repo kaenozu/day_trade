@@ -183,8 +183,8 @@ class SLOConfig:
 
 
 @dataclass
-class SLOStatus:
-    """SLO状態"""
+class SLOMetrics:
+    """SLOメトリクス"""
 
     config: SLOConfig
     current_percentage: float
@@ -426,7 +426,7 @@ class SLOManager:
                 {"timestamp": datetime.now(), "value": value, "success": success}
             )
 
-    def get_slo_status(self, slo_name: str) -> Optional[SLOStatus]:
+    def get_slo_status(self, slo_name: str) -> Optional[SLOMetrics]:
         """SLO状態取得"""
         if slo_name not in self.slo_configs:
             return None
@@ -437,7 +437,7 @@ class SLOManager:
             history = list(self.slo_history[slo_name])
 
         if not history:
-            return SLOStatus(
+            return SLOMetrics(
                 config=config,
                 current_percentage=0.0,
                 error_budget_consumed=0.0,
@@ -450,7 +450,7 @@ class SLOManager:
         relevant_history = [h for h in history if h["timestamp"] >= cutoff_time]
 
         if not relevant_history:
-            return SLOStatus(
+            return SLOMetrics(
                 config=config,
                 current_percentage=0.0,
                 error_budget_consumed=0.0,
@@ -477,7 +477,7 @@ class SLOManager:
         else:
             status = "breached"
 
-        return SLOStatus(
+        return SLOMetrics(
             config=config,
             current_percentage=current_percentage,
             error_budget_consumed=error_budget_consumed,
@@ -485,7 +485,7 @@ class SLOManager:
             last_updated=datetime.now(),
         )
 
-    def get_all_slo_status(self) -> Dict[str, SLOStatus]:
+    def get_all_slo_status(self) -> Dict[str, SLOMetrics]:
         """全SLO状態取得"""
         return {name: self.get_slo_status(name) for name in self.slo_configs.keys()}
 

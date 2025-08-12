@@ -57,7 +57,7 @@ class PanelConfig:
     height: int = 8
     datasource: str = "Prometheus"
     options: Dict[str, Any] = field(default_factory=dict)
-    fieldConfig: Dict[str, Any] = field(default_factory=dict)
+    field_config: Dict[str, Any] = field(default_factory=dict)
     transformations: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -235,7 +235,7 @@ class DashboardGenerator:
             },
             "targets": config.targets,
             "options": config.options,
-            "fieldConfig": config.fieldConfig,
+            "fieldConfig": config.field_config,
             "transformations": config.transformations,
         }
 
@@ -280,7 +280,7 @@ class DashboardGenerator:
                     "graphMode": "area",
                     "justifyMode": "auto",
                 },
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "µs",
                         "min": 0,
@@ -314,7 +314,7 @@ class DashboardGenerator:
                     "reduceOptions": {"values": False, "calcs": ["lastNotNull"]},
                     "colorMode": "background",
                 },
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "percent",
                         "min": 95,
@@ -345,7 +345,7 @@ class DashboardGenerator:
                 width=6,
                 height=4,
                 options={"colorMode": "background"},
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "ops",
                         "thresholds": {
@@ -374,7 +374,7 @@ class DashboardGenerator:
                 width=6,
                 height=4,
                 options={"colorMode": "background"},
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "currencyUSD",
                         "thresholds": {
@@ -444,7 +444,7 @@ class DashboardGenerator:
                 y=y_pos,
                 width=12,
                 height=8,
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "µs",
                         "custom": {
@@ -476,7 +476,7 @@ class DashboardGenerator:
                 y=y_pos,
                 width=8,
                 height=6,
-                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}},
+                field_config={"defaults": {"unit": "percent", "min": 0, "max": 100}},
             ),
             PanelConfig(
                 title="Memory Usage",
@@ -492,7 +492,7 @@ class DashboardGenerator:
                 y=y_pos,
                 width=8,
                 height=6,
-                fieldConfig={"defaults": {"unit": "percent", "min": 0, "max": 100}},
+                field_config={"defaults": {"unit": "percent", "min": 0, "max": 100}},
             ),
             PanelConfig(
                 title="Network I/O",
@@ -513,7 +513,7 @@ class DashboardGenerator:
                 y=y_pos,
                 width=8,
                 height=6,
-                fieldConfig={"defaults": {"unit": "Bps"}},
+                field_config={"defaults": {"unit": "Bps"}},
             ),
         ]
 
@@ -556,7 +556,7 @@ class DashboardGenerator:
                     "orientation": "auto",
                     "displayMode": "basic",
                 },
-                fieldConfig={
+                field_config={
                     "defaults": {
                         "unit": "percent",
                         "min": 99,
@@ -608,7 +608,7 @@ class DashboardGenerator:
                 y=y_pos,
                 width=12,
                 height=6,
-                fieldConfig={"defaults": {"unit": "ops"}},
+                field_config={"defaults": {"unit": "ops"}},
             ),
             PanelConfig(
                 title="Suspicious Activities",
