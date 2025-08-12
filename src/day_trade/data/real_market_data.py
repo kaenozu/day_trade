@@ -284,8 +284,11 @@ class RealMarketDataManager:
             return round(float(current_rsi), 2) if not np.isnan(current_rsi) else 50.0
 
         except Exception as e:
-            logger.error(f"RSI計算エラー: {e}")
-            return 50.0
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_technical_error(e, "RSI", data)
+            logger.warning(f"RSI計算エラー: {error_info['message']}")
+            logger.debug(f"RSI計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['value']
 
     def calculate_macd(
         self, data: pd.DataFrame, fast: int = 12, slow: int = 26
@@ -306,8 +309,11 @@ class RealMarketDataManager:
             return round(float(current_macd), 2) if not np.isnan(current_macd) else 0.0
 
         except Exception as e:
-            logger.error(f"MACD計算エラー: {e}")
-            return 0.0
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_technical_error(e, "MACD", data)
+            logger.warning(f"MACD計算エラー: {error_info['message']}")
+            logger.debug(f"MACD計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['value']
 
     def calculate_volume_ratio(self, data: pd.DataFrame, period: int = 20) -> float:
         """出来高比率計算"""
@@ -327,8 +333,11 @@ class RealMarketDataManager:
                 return 1.0
 
         except Exception as e:
-            logger.error(f"出来高比率計算エラー: {e}")
-            return 1.0
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_technical_error(e, "VOLUME_RATIO", data)
+            logger.warning(f"出来高比率計算エラー: {error_info['message']}")
+            logger.debug(f"出来高比率計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['value']
 
     def calculate_price_change_percent(
         self, data: pd.DataFrame, days: int = 1
@@ -349,8 +358,11 @@ class RealMarketDataManager:
                 return 0.0
 
         except Exception as e:
-            logger.error(f"価格変動率計算エラー: {e}")
-            return 0.0
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_technical_error(e, "PRICE_CHANGE", data)
+            logger.warning(f"価格変動率計算エラー: {error_info['message']}")
+            logger.debug(f"価格変動率計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['value']
 
     def get_current_price(self, symbol: str) -> float:
         """現在価格取得"""
@@ -425,8 +437,11 @@ class RealMarketDataManager:
             return round(score, 1), round(confidence, 2)
 
         except Exception as e:
-            logger.error(f"MLトレンドスコア計算エラー: {e}")
-            return 50.0, 0.5
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_ml_error(e, "TREND_SCORE", data)
+            logger.warning(f"MLトレンドスコア計算エラー: {error_info['message']}")
+            logger.debug(f"MLトレンドスコア計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['score'], error_info['confidence']
 
     def generate_ml_volatility_score(self, data: pd.DataFrame) -> Tuple[float, float]:
         """ML風ボラティリティスコア生成（実データベース）"""
@@ -451,8 +466,11 @@ class RealMarketDataManager:
             return round(score, 1), round(confidence, 2)
 
         except Exception as e:
-            logger.error(f"MLボラティリティスコア計算エラー: {e}")
-            return 50.0, 0.5
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_ml_error(e, "VOLATILITY_SCORE", data)
+            logger.warning(f"MLボラティリティスコア計算エラー: {error_info['message']}")
+            logger.debug(f"MLボラティリティスコア計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['score'], error_info['confidence']
 
     def generate_ml_pattern_score(self, data: pd.DataFrame) -> Tuple[float, float]:
         """ML風パターンスコア生成（実データベース）"""
@@ -500,8 +518,169 @@ class RealMarketDataManager:
             return round(score, 1), round(confidence, 2)
 
         except Exception as e:
-            logger.error(f"MLパターンスコア計算エラー: {e}")
-            return 50.0, 0.5
+            # Issue #617対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_ml_error(e, "PATTERN_SCORE", data)
+            logger.warning(f"MLパターンスコア計算エラー: {error_info['message']}")
+            logger.debug(f"MLパターンスコア計算エラー詳細: {str(e)}", exc_info=True)
+            return error_info['score'], error_info['confidence']
+
+    def _analyze_technical_error(self, error: Exception, indicator_name: str, data: pd.DataFrame) -> Dict[str, any]:
+        """
+        テクニカル指標エラー分析 - Issue #617対応
+
+        Args:
+            error: 発生した例外
+            indicator_name: 指標名
+            data: 価格データ
+
+        Returns:
+            エラー情報辞書（value, message）
+        """
+        error_type = type(error).__name__
+        data_size = len(data) if data is not None else 0
+
+        # 指標タイプ別のデフォルト値定義
+        default_values = {
+            "RSI": 50.0,
+            "MACD": 0.0,
+            "VOLUME_RATIO": 1.0,
+            "PRICE_CHANGE": 0.0
+        }
+
+        base_value = default_values.get(indicator_name, 0.0)
+
+        # エラータイプ別の分析
+        if isinstance(error, KeyError):
+            missing_column = str(error).replace("'", "")
+            return {
+                'value': base_value * 0.8,  # データ不整合時は基準値の80%
+                'message': f"{indicator_name}データ列不足エラー ({missing_column})"
+            }
+
+        elif isinstance(error, ValueError):
+            if "empty" in str(error).lower() or data_size < 5:
+                return {
+                    'value': base_value * 0.5,  # データ不足時は基準値の50%
+                    'message': f"{indicator_name}データ不足エラー (データ数: {data_size})"
+                }
+            else:
+                return {
+                    'value': base_value * 0.9,  # 計算エラー時は基準値の90%
+                    'message': f"{indicator_name}数値計算エラー"
+                }
+
+        elif isinstance(error, IndexError):
+            return {
+                'value': base_value * 0.6,  # インデックスエラーは深刻
+                'message': f"{indicator_name}データ配列アクセスエラー"
+            }
+
+        elif isinstance(error, ZeroDivisionError):
+            return {
+                'value': base_value,  # ゼロ除算時は基準値
+                'message': f"{indicator_name}ゼロ除算エラー"
+            }
+
+        elif isinstance(error, (ImportError, ModuleNotFoundError)):
+            return {
+                'value': base_value,  # ライブラリ不足時は基準値
+                'message': f"{indicator_name}依存ライブラリエラー"
+            }
+
+        elif isinstance(error, AttributeError):
+            missing_attr = str(error).split("'")[-2] if "'" in str(error) else "不明"
+            return {
+                'value': base_value * 0.7,  # 属性エラー
+                'message': f"{indicator_name}属性エラー ({missing_attr})"
+            }
+
+        else:
+            # 未知のエラー
+            return {
+                'value': base_value,  # デフォルト値
+                'message': f"{indicator_name}予期しないエラー ({error_type})"
+            }
+
+    def _analyze_ml_error(self, error: Exception, score_name: str, data: pd.DataFrame) -> Dict[str, any]:
+        """
+        MLスコアエラー分析 - Issue #617対応
+
+        Args:
+            error: 発生した例外
+            score_name: スコア名
+            data: 価格データ
+
+        Returns:
+            エラー情報辞書（score, confidence, message）
+        """
+        error_type = type(error).__name__
+        data_size = len(data) if data is not None else 0
+
+        # エラータイプ別の分析
+        if isinstance(error, KeyError):
+            missing_column = str(error).replace("'", "")
+            return {
+                'score': 45.0,  # MLではデータ不整合の影響は軽微
+                'confidence': 0.3,
+                'message': f"{score_name}入力データエラー ({missing_column})"
+            }
+
+        elif isinstance(error, ValueError):
+            if "empty" in str(error).lower() or data_size < 10:
+                return {
+                    'score': 40.0,  # MLには最低10日は必要
+                    'confidence': 0.2,
+                    'message': f"{score_name}データ不足 (データ数: {data_size})"
+                }
+            else:
+                return {
+                    'score': 48.0,  # 計算エラー時
+                    'confidence': 0.4,
+                    'message': f"{score_name}計算エラー"
+                }
+
+        elif isinstance(error, IndexError):
+            return {
+                'score': 42.0,  # インデックスエラーは深刻
+                'confidence': 0.25,
+                'message': f"{score_name}データ配列エラー"
+            }
+
+        elif isinstance(error, ZeroDivisionError):
+            return {
+                'score': 50.0,  # ゼロ除算時は中立
+                'confidence': 0.5,
+                'message': f"{score_name}ゼロ除算エラー"
+            }
+
+        elif isinstance(error, (ImportError, ModuleNotFoundError)):
+            return {
+                'score': 50.0,  # ライブラリ不足時は中立
+                'confidence': 0.5,
+                'message': f"{score_name}依存ライブラリエラー"
+            }
+
+        elif isinstance(error, RuntimeError):
+            if "memory" in str(error).lower():
+                return {
+                    'score': 48.0,  # メモリ不足
+                    'confidence': 0.4,
+                    'message': f"{score_name}メモリ不足エラー"
+                }
+            else:
+                return {
+                    'score': 45.0,  # ランタイムエラーは深刻
+                    'confidence': 0.35,
+                    'message': f"{score_name}ランタイムエラー"
+                }
+
+        else:
+            # 未知のエラー
+            return {
+                'score': 50.0,  # デフォルトスコア
+                'confidence': 0.5,
+                'message': f"{score_name}予期しないエラー ({error_type})"
+            }
 
 
 # モジュールレベル関数（後方互換性）
@@ -517,12 +696,15 @@ def calculate_real_technical_indicators(symbol: str) -> Dict[str, float]:
     data = manager.get_stock_data(symbol)
 
     if data is None:
+        # Issue #617対応: データ取得失敗時のコンテキスト情報付きデフォルト値
+        logger.warning(f"実技術指標計算: {symbol}のデータ取得に失敗")
         return {
-            "rsi": 50.0,
-            "macd": 0.0,
-            "volume_ratio": 1.0,
-            "price_change_1d": 0.0,
-            "current_price": 1000.0,
+            "rsi": None,  # None値でエラーを明示
+            "macd": None,
+            "volume_ratio": None,
+            "price_change_1d": None,
+            "current_price": manager.get_current_price(symbol),  # フォールバック価格は維持
+            "_error": "データ取得失敗"
         }
 
     return {
