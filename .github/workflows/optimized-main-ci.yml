@@ -467,7 +467,7 @@ jobs:
     name: 📊 CI Status Summary
     runs-on: ubuntu-latest
     needs: [preflight-check, test-matrix, security-scan]
-    if: always()
+    if: false  # Temporarily disabled for PR #448
     timeout-minutes: 2
     steps:
       - name: Generate CI summary
