@@ -44,6 +44,7 @@ except ImportError:
     pass
 
 from ..utils.logging_config import get_context_logger
+from ..utils.stock_name_helper import format_stock_display
 from .real_market_data import RealMarketDataManager
 
 logger = get_context_logger(__name__)
@@ -413,10 +414,12 @@ class AdvancedBatchDataFetcher:
                         if not indicators_df.empty:
                             result = pd.concat([result, indicators_df], axis=1)
 
-                    logger.debug(f"統合指標マネージャー使用: {request.symbol}")
+                    stock_display = format_stock_display(request.symbol)
+                    logger.debug(f"統合指標マネージャー使用: {stock_display}")
 
                 except Exception as e:
-                    logger.warning(f"テクニカル指標計算スキップ {request.symbol}: {e}")
+                    stock_display = format_stock_display(request.symbol)
+                    logger.warning(f"テクニカル指標計算スキップ {stock_display}: {e}")
                     # エラーの場合は指標なしで続行
 
             else:
@@ -430,7 +433,8 @@ class AdvancedBatchDataFetcher:
                     result["SMA_20"] = result["終値"].rolling(20).mean()
                     result["EMA_20"] = result["終値"].ewm(span=20).mean()
 
-                logger.debug(f"フォールバック処理: {request.symbol}")
+                stock_display = format_stock_display(request.symbol)
+                logger.debug(f"フォールバック処理: {stock_display}")
 
             # 出来高特徴量（追加）
             if "出来高" in result.columns:
@@ -449,10 +453,12 @@ class AdvancedBatchDataFetcher:
             # 欠損値処理
             result = result.fillna(method="ffill").fillna(method="bfill")
 
-            logger.debug(f"前処理完了: {request.symbol} - {len(result.columns)} 特徴量")
+            stock_display = format_stock_display(request.symbol)
+            logger.debug(f"前処理完了: {stock_display} - {len(result.columns)} 特徴量")
 
         except Exception as e:
-            logger.error(f"前処理エラー {request.symbol}: {e}")
+            stock_display = format_stock_display(request.symbol)
+            logger.error(f"前処理エラー {stock_display}: {e}")
             # エラー時は元データを返す
             result = data
 
