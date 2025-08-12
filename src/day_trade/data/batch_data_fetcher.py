@@ -397,7 +397,7 @@ class AdvancedBatchDataFetcher:
                         indicators=["sma"],
                         period=20  # 単一期間
                     )
-                    
+
                     # 戻り値がdictの場合のみ結合処理
                     if isinstance(indicators_result, dict):
                         # IndicatorResultオブジェクトからDataFrameを構築
@@ -408,13 +408,13 @@ class AdvancedBatchDataFetcher:
                                     col_name = f"{indicator_name}_{key}"
                                     if len(values) == len(result):
                                         indicators_df[col_name] = values
-                        
+
                         # DataFrameが空でない場合のみ結合
                         if not indicators_df.empty:
                             result = pd.concat([result, indicators_df], axis=1)
-                    
+
                     logger.debug(f"統合指標マネージャー使用: {request.symbol}")
-                    
+
                 except Exception as e:
                     logger.warning(f"テクニカル指標計算スキップ {request.symbol}: {e}")
                     # エラーの場合は指標なしで続行
