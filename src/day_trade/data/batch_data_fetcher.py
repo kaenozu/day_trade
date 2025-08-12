@@ -407,8 +407,10 @@ class AdvancedBatchDataFetcher:
                             if hasattr(indicator_result, 'values') and isinstance(indicator_result.values, dict):
                                 for key, values in indicator_result.values.items():
                                     col_name = f"{indicator_name}_{key}"
-                                    if len(values) == len(result):
-                                        indicators_df[col_name] = values
+                                    # valuesがリストまたは配列の場合のみ処理
+                                    if hasattr(values, '__len__') and not isinstance(values, (str, int, float)):
+                                        if len(values) == len(result):
+                                            indicators_df[col_name] = values
 
                         # DataFrameが空でない場合のみ結合
                         if not indicators_df.empty:
