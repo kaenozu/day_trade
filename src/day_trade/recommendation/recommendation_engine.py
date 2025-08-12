@@ -15,6 +15,11 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 
+# 決定論的実行のためのシード設定
+import random
+random.seed(42)
+np.random.seed(42)
+
 from ..analysis.technical_indicators_unified import TechnicalIndicatorsManager
 from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest

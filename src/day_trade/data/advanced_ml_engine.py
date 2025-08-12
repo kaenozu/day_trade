@@ -17,6 +17,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# 決定論的実行のためのシード設定
+import random
+random.seed(42)
+np.random.seed(42)
+
 # 深層学習フレームワーク（遅延インポート - メモリ効率化）
 PYTORCH_AVAILABLE = False
 try:
@@ -27,6 +32,13 @@ try:
         import torch.nn as nn
         import torch.optim as optim
         from torch.utils.data import DataLoader, Dataset
+
+        # PyTorch決定論的実行設定
+        torch.manual_seed(42)
+        torch.cuda.manual_seed(42)
+        torch.cuda.manual_seed_all(42)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         PYTORCH_AVAILABLE = True
 except ImportError:
