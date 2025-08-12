@@ -39,8 +39,6 @@ class NotificationChannel(Enum):
     EMAIL = "email"
     SLACK = "slack"
     WEBHOOK = "webhook"
-    SMS = "sms"
-    DISCORD = "discord"
 
 
 @dataclass

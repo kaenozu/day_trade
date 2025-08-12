@@ -7,8 +7,6 @@ Features:
 - Slack通知
 - Email通知
 - Webhook通知
-- Discord通知
-- SMS通知（将来拡張）
 - テンプレート管理
 - 通知履歴
 """
@@ -229,8 +227,6 @@ class NotificationSystem:
                 await self._send_email_notification(alert)
             elif channel == NotificationChannel.WEBHOOK:
                 await self._send_webhook_notification(alert)
-            elif channel == NotificationChannel.DISCORD:
-                await self._send_discord_notification(alert)
             else:
                 logger.warning(f"未実装の通知チャネル: {channel.value}")
 
@@ -362,48 +358,6 @@ class NotificationSystem:
             async with session.post(url, json=payload, headers=headers) as response:
                 if response.status >= 400:
                     raise Exception(f"Webhook エラー: {response.status}")
-
-    async def _send_discord_notification(self, alert: Alert):
-        """Discord通知送信"""
-
-        config = self.configs[NotificationChannel.DISCORD]
-        webhook_url = config.settings.get("webhook_url")
-
-        if not webhook_url:
-            raise ValueError("Discord webhook URL未設定")
-
-        # テンプレート取得・レンダリング（Slackと同じ形式を使用）
-        template = self._get_template(NotificationChannel.SLACK, alert.severity)
-        title = Template(template.title_template).render(alert=alert)
-        body = Template(template.body_template).render(alert=alert)
-
-        # Discord色コード変換
-        color_map = {
-            "#36a64f": 3580735,  # 緑
-            "#ffa500": 16753920,  # オレンジ
-            "#ff0000": 16711680,  # 赤
-            "#8B0000": 9109504,  # ダークレッド
-        }
-
-        # Discord Webhook ペイロード作成
-        payload = {
-            "username": "Day Trade Monitor",
-            "embeds": [
-                {
-                    "title": title,
-                    "description": body[:2000],  # Discord制限
-                    "color": color_map.get(template.color, 3580735),
-                    "timestamp": alert.start_time.isoformat(),
-                    "footer": {"text": "Day Trade Monitoring System"},
-                }
-            ],
-        }
-
-        # HTTP POST送信
-        async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=payload) as response:
-                if response.status != 200:
-                    raise Exception(f"Discord API エラー: {response.status}")
 
     def _get_template(
         self, channel: NotificationChannel, severity: AlertSeverity

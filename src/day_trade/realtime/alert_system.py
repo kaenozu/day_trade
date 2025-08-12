@@ -54,7 +54,6 @@ class AlertConfig:
     enable_email: bool = True
     enable_console: bool = True
     enable_webhook: bool = False
-    enable_sms: bool = False
 
     # Email設定
     smtp_server: str = "smtp.gmail.com"
