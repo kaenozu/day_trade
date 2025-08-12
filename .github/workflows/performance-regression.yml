@@ -73,9 +73,13 @@ jobs:
               import pandas as pd
               test_data = pd.DataFrame({
                   'timestamp': pd.date_range('2024-01-01', periods=1000, freq='1min'),
-                  'price': [100 + i * 0.1 for i in range(1000)],
+                  'open': [100 + i * 0.1 for i in range(1000)],
+                  'high': [102 + i * 0.1 for i in range(1000)],
+                  'low': [98 + i * 0.1 for i in range(1000)],
+                  'close': [100 + i * 0.1 for i in range(1000)],
                   'volume': [1000 + i * 10 for i in range(1000)]
               })
+              test_data.set_index('timestamp', inplace=True)
               # 適切なメソッド引数でテスト
               symbols_data = {'TEST': test_data}
               feature_config = FeatureConfig(
@@ -194,9 +198,13 @@ jobs:
               import pandas as pd
               test_data = pd.DataFrame({
                   'timestamp': pd.date_range('2024-01-01', periods=1000, freq='1min'),
-                  'price': [100 + i * 0.1 for i in range(1000)],
+                  'open': [100 + i * 0.1 for i in range(1000)],
+                  'high': [102 + i * 0.1 for i in range(1000)],
+                  'low': [98 + i * 0.1 for i in range(1000)],
+                  'close': [100 + i * 0.1 for i in range(1000)],
                   'volume': [1000 + i * 10 for i in range(1000)]
               })
+              test_data.set_index('timestamp', inplace=True)
               # 適切なメソッド引数でテスト
               symbols_data = {'TEST': test_data}
               feature_config = FeatureConfig(

@@ -1104,7 +1104,9 @@ class VolatilityPredictionEngine:
                 "volatility_outlook": (
                     "increasing"
                     if vol_change > 2
-                    else "decreasing" if vol_change < -2 else "stable"
+                    else "decreasing"
+                    if vol_change < -2
+                    else "stable"
                 ),
             }
 

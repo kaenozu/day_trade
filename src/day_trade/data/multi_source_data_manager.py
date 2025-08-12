@@ -885,7 +885,9 @@ class MultiSourceDataManager:
             "risk_level": (
                 "high"
                 if impact_volatility > 0.5
-                else "medium" if impact_volatility > 0.2 else "low"
+                else "medium"
+                if impact_volatility > 0.2
+                else "low"
             ),
             "confidence": min(len(impact_scores) / 5, 1.0),
         }

@@ -214,7 +214,9 @@ class EnhancedReportManager:
                             "classification": (
                                 "高"
                                 if analysis.volatility > 0.3
-                                else "中" if analysis.volatility > 0.2 else "低"
+                                else "中"
+                                if analysis.volatility > 0.2
+                                else "低"
                             ),
                         }
 
@@ -283,7 +285,9 @@ class EnhancedReportManager:
                     trends[symbol] = (
                         1
                         if analysis.price_trend == "上昇"
-                        else -1 if analysis.price_trend == "下降" else 0
+                        else -1
+                        if analysis.price_trend == "下降"
+                        else 0
                     )
                     volatilities[symbol] = analysis.volatility or 0
 

@@ -375,7 +375,8 @@ class IntegratedAnalysisSystem:
 
             # 重要アラート
             summary["important_alerts"] = [
-                alert["message"] for alert in risk_alerts[-3:]  # 最新3件
+                alert["message"]
+                for alert in risk_alerts[-3:]  # 最新3件
             ]
 
             return summary

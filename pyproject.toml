@@ -350,6 +350,8 @@ disallow_untyped_defs = false
 ignore_missing_imports = true
 show_error_codes = true
 cache_dir = ".mypy_cache"
+explicit_package_bases = true
+namespace_packages = true
 exclude = [
     "tests/",
     "build/",

@@ -789,7 +789,9 @@ class NextGenAIOrchestrator:
                         "signal": (
                             "oversold"
                             if rsi < 30
-                            else "overbought" if rsi > 70 else "neutral"
+                            else "overbought"
+                            if rsi > 70
+                            else "neutral"
                         ),
                     }
 
@@ -804,7 +806,9 @@ class NextGenAIOrchestrator:
                         "regime": (
                             "high"
                             if vol_percentile > 0.8
-                            else "low" if vol_percentile < 0.2 else "normal"
+                            else "low"
+                            if vol_percentile < 0.2
+                            else "normal"
                         ),
                     }
 
@@ -917,7 +921,9 @@ class NextGenAIOrchestrator:
                 "risk_level": (
                     "high"
                     if overall_risk > 0.7
-                    else "medium" if overall_risk > 0.4 else "low"
+                    else "medium"
+                    if overall_risk > 0.4
+                    else "low"
                 ),
             }
 

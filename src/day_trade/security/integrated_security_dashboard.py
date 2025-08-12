@@ -517,7 +517,9 @@ class IntegratedSecurityDashboard:
             "compliance_level": (
                 "COMPLIANT"
                 if average_score >= 80
-                else "PARTIALLY_COMPLIANT" if average_score >= 60 else "NON_COMPLIANT"
+                else "PARTIALLY_COMPLIANT"
+                if average_score >= 60
+                else "NON_COMPLIANT"
             ),
         }
 

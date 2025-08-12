@@ -266,9 +266,9 @@ class LockFreeRingBuffer:
         Args:
             capacity: バッファ容量（2の累乗であること）
         """
-        assert (
-            capacity > 0 and (capacity & (capacity - 1)) == 0
-        ), "Capacity must be power of 2"
+        assert capacity > 0 and (capacity & (capacity - 1)) == 0, (
+            "Capacity must be power of 2"
+        )
 
         self.capacity = capacity
         self.mask = capacity - 1

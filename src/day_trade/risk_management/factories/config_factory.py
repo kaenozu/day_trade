@@ -242,9 +242,9 @@ class ConfigProviderFactory:
                 self._config_schemas[ConfigProviderType.PLUGIN] = (
                     self._config_schemas.get(ConfigProviderType.PLUGIN, {})
                 )
-                self._config_schemas[ConfigProviderType.PLUGIN][
-                    plugin_name
-                ] = config_schema
+                self._config_schemas[ConfigProviderType.PLUGIN][plugin_name] = (
+                    config_schema
+                )
 
             return True
 

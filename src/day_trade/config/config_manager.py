@@ -399,21 +399,21 @@ class ConfigManager:
             self.config["watchlist"]["symbols"] = [
                 s.model_dump() for s in self.get_watchlist_symbols()
             ]
-            self.config["watchlist"][
-                "market_hours"
-            ] = self.get_market_hours().model_dump()
-            self.config["analysis"][
-                "technical_indicators"
-            ] = self.get_technical_indicator_settings().model_dump()
-            self.config["analysis"][
-                "pattern_recognition"
-            ] = self.get_pattern_recognition_settings().model_dump()
-            self.config["analysis"][
-                "signal_generation"
-            ] = self.get_signal_generation_settings().model_dump()
-            self.config["analysis"][
-                "ensemble"
-            ] = self.get_ensemble_settings().model_dump()
+            self.config["watchlist"]["market_hours"] = (
+                self.get_market_hours().model_dump()
+            )
+            self.config["analysis"]["technical_indicators"] = (
+                self.get_technical_indicator_settings().model_dump()
+            )
+            self.config["analysis"]["pattern_recognition"] = (
+                self.get_pattern_recognition_settings().model_dump()
+            )
+            self.config["analysis"]["signal_generation"] = (
+                self.get_signal_generation_settings().model_dump()
+            )
+            self.config["analysis"]["ensemble"] = (
+                self.get_ensemble_settings().model_dump()
+            )
             self.config["alerts"] = self.get_alert_settings().model_dump()
             self.config["backtest"] = self.get_backtest_settings().model_dump()
             self.config["reports"] = self.get_report_settings().model_dump()

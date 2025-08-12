@@ -261,9 +261,9 @@ class CodeVectorizer:
             # 統計更新
             self.transformation_stats["total_transformations"] += 1
             self.transformation_stats["successful_transformations"] += 1
-            self.transformation_stats[
-                "total_speed_improvement"
-            ] += pattern.speed_improvement
+            self.transformation_stats["total_speed_improvement"] += (
+                pattern.speed_improvement
+            )
             self.transformation_stats["avg_speed_improvement"] = (
                 self.transformation_stats["total_speed_improvement"]
                 / self.transformation_stats["successful_transformations"]
