@@ -525,7 +525,7 @@ class ParallelBacktestFramework:
                 if (i + 1) % max(1, len(tasks) // 10) == 0:
                     progress = (i + 1) / len(tasks) * 100
                     logger.info(
-                        f"シーケンシャル実行進捗: {progress:.1f}% ({i+1}/{len(tasks)})"
+                        f"シーケンシャル実行進捗: {progress:.1f}% ({i + 1}/{len(tasks)})"
                     )
 
             except Exception as e:

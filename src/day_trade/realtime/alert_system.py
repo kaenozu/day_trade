@@ -226,15 +226,15 @@ class EmailNotifier:
             <div class="alert-body">
                 <p><strong>Message:</strong> {alert.message}</p>
 
-                {f'<p><strong>Symbol:</strong> {alert.symbol}</p>' if alert.symbol else ''}
+                {f"<p><strong>Symbol:</strong> {alert.symbol}</p>" if alert.symbol else ""}
 
                 <div class="alert-meta">
-                    <p><strong>Timestamp:</strong> {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Timestamp:</strong> {alert.timestamp.strftime("%Y-%m-%d %H:%M:%S")}</p>
                     <p><strong>Confidence:</strong> {alert.confidence:.2%}</p>
                     <p><strong>Alert ID:</strong> {alert.id}</p>
                 </div>
 
-                {self._create_data_table(alert.data) if alert.data else ''}
+                {self._create_data_table(alert.data) if alert.data else ""}
             </div>
 
             <p style="margin-top: 20px; font-size: 12px; color: #666;">

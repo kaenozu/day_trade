@@ -214,7 +214,9 @@ class EnhancedReportManager:
                             "classification": (
                                 "高"
                                 if analysis.volatility > 0.3
-                                else "中" if analysis.volatility > 0.2 else "低"
+                                else "中"
+                                if analysis.volatility > 0.2
+                                else "低"
                             ),
                         }
 
@@ -236,17 +238,17 @@ class EnhancedReportManager:
             # キー観察事項
             trend_data["key_observations"] = [
                 (
-                    f"上昇トレンド銘柄: {up_count}銘柄 ({up_count/total*100:.1f}%)"
+                    f"上昇トレンド銘柄: {up_count}銘柄 ({up_count / total * 100:.1f}%)"
                     if total > 0
                     else "データ不足"
                 ),
                 (
-                    f"下降トレンド銘柄: {down_count}銘柄 ({down_count/total*100:.1f}%)"
+                    f"下降トレンド銘柄: {down_count}銘柄 ({down_count / total * 100:.1f}%)"
                     if total > 0
                     else "データ不足"
                 ),
                 (
-                    f"横ばい銘柄: {sideways_count}銘柄 ({sideways_count/total*100:.1f}%)"
+                    f"横ばい銘柄: {sideways_count}銘柄 ({sideways_count / total * 100:.1f}%)"
                     if total > 0
                     else "データ不足"
                 ),
@@ -283,7 +285,9 @@ class EnhancedReportManager:
                     trends[symbol] = (
                         1
                         if analysis.price_trend == "上昇"
-                        else -1 if analysis.price_trend == "下降" else 0
+                        else -1
+                        if analysis.price_trend == "下降"
+                        else 0
                     )
                     volatilities[symbol] = analysis.volatility or 0
 
@@ -432,8 +436,8 @@ class EnhancedReportManager:
             if total > 0:
                 signal_stats["insights"] = [
                     f"総シグナル数: {total}個",
-                    f"買いシグナル: {buy_count}個 ({buy_count/total*100:.1f}%)",
-                    f"売りシグナル: {sell_count}個 ({sell_count/total*100:.1f}%)",
+                    f"買いシグナル: {buy_count}個 ({buy_count / total * 100:.1f}%)",
+                    f"売りシグナル: {sell_count}個 ({sell_count / total * 100:.1f}%)",
                     f"平均信頼度: {signal_stats['average_confidence']:.1f}%",
                     f"強いシグナル: {signal_stats['strong_signals']}個",
                     "※ 高い信頼度のシグナルほど分析の確実性が高いことを示します",
@@ -957,7 +961,7 @@ class EnhancedReportManager:
             <div class="header">
                 <h1>📊 市場分析レポート</h1>
                 <p>レポートID: {report.report_id}</p>
-                <p>生成日時: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p>生成日時: {report.generated_at.strftime("%Y-%m-%d %H:%M:%S")}</p>
             </div>
 
             <div class="safe-mode">
@@ -967,7 +971,7 @@ class EnhancedReportManager:
 
             <div class="section">
                 <h2>📈 トレンド分析</h2>
-                <p><strong>全体的センチメント:</strong> {report.trend_analysis.get('overall_sentiment', 'N/A')}</p>
+                <p><strong>全体的センチメント:</strong> {report.trend_analysis.get("overall_sentiment", "N/A")}</p>
             </div>
 
             <div class="section">
@@ -994,7 +998,7 @@ class EnhancedReportManager:
                 <h2>ℹ️ メタデータ</h2>
                 <p><strong>分析銘柄数:</strong> {len(report.symbols_analyzed)}</p>
                 <p><strong>セーフモード:</strong> 有効</p>
-                <p><strong>免責事項:</strong> {report.metadata.get('disclaimer', 'N/A')}</p>
+                <p><strong>免責事項:</strong> {report.metadata.get("disclaimer", "N/A")}</p>
             </div>
         </body>
         </html>

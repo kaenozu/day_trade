@@ -192,7 +192,7 @@ class ComprehensiveDataOptimizationTester:
                 {
                     "id": np.arange(i, i + current_size, dtype=np.int64),
                     "timestamp": pd.date_range(
-                        f"2024-01-{i//10000 + 1:02d}", periods=current_size, freq="1s"
+                        f"2024-01-{i // 10000 + 1:02d}", periods=current_size, freq="1s"
                     ),
                     "price": np.random.normal(100, 10, current_size).astype(np.float64),
                     "volume": np.random.randint(100, 50000, current_size).astype(

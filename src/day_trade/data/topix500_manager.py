@@ -392,7 +392,7 @@ class TOPIX500Manager:
                 f"  - 処理時間: {total_time:.2f}秒 (目標{self.target_processing_time}秒)"
             )
             logger.info(
-                f"  - 成功率: {len(analysis_results)}/{len(self.topix500_stocks)} ({len(analysis_results)/len(self.topix500_stocks)*100:.1f}%)"
+                f"  - 成功率: {len(analysis_results)}/{len(self.topix500_stocks)} ({len(analysis_results) / len(self.topix500_stocks) * 100:.1f}%)"
             )
             logger.info(
                 f"  - メモリ使用量: {performance_metrics.get('memory_usage', 0):.1f}MB"

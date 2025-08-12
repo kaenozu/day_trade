@@ -593,7 +593,7 @@ if __name__ == "__main__":
         recommendations = optimizations.get("recommendations", [])
         print(f"  推奨事項数: {len(recommendations)}")
         for i, rec in enumerate(recommendations[:3]):  # 最初の3件のみ表示
-            print(f"    {i+1}. {rec}")
+            print(f"    {i + 1}. {rec}")
 
         print("\n✅ 拡張統合キャッシュマネージャーテスト完了")
 

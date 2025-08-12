@@ -509,8 +509,8 @@ class AdvancedStressTestFramework:
             report_lines.append(
                 f"{scenario.value:<20} "
                 f"{result.percentage_loss:<12.1%} "
-                f"{result.stressed_var_95/result.initial_value:<12.1%} "
-                f"{result.stressed_cvar_95/result.initial_value:<12.1%} "
+                f"{result.stressed_var_95 / result.initial_value:<12.1%} "
+                f"{result.stressed_cvar_95 / result.initial_value:<12.1%} "
                 f"{recovery_time}"
             )
 

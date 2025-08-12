@@ -552,7 +552,7 @@ class DatabaseBulkOptimizer:
         update_set = ",".join([f"{col}=excluded.{col}" for col in update_columns])
 
         sql = f"""
-            INSERT INTO {table_name} ({','.join(all_columns)})
+            INSERT INTO {table_name} ({",".join(all_columns)})
             VALUES ({placeholders})
             ON CONFLICT({conflict_columns}) DO UPDATE SET {update_set}
         """

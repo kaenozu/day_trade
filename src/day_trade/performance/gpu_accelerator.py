@@ -481,7 +481,6 @@ class GPUAccelerator:
             if self.kernel_manager and self.kernel_manager.execute_feature_kernel(
                 gpu_prices, gpu_volumes, gpu_features
             ):
-
                 # CPU に結果転送
                 result = cp.asnumpy(gpu_features)
 
@@ -564,7 +563,6 @@ class GPUAccelerator:
             if self.kernel_manager and self.kernel_manager.execute_prediction_kernel(
                 gpu_features, gpu_weights, gpu_predictions
             ):
-
                 # CPU に結果転送
                 result = cp.asnumpy(gpu_predictions)
 

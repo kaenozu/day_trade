@@ -160,7 +160,6 @@ class AIMarketPredictor:
         model_type: PredictionModel = PredictionModel.ULTRA_FAST,
         inference_timeout_us: int = 10,
     ):
-
         self.symbols = symbols
         self.prediction_horizon_ms = prediction_horizon_ms
         self.model_type = model_type
@@ -862,7 +861,7 @@ if __name__ == "__main__":
         # 予測詳細表示
         if predictions:
             for i, pred in enumerate(predictions[-5:]):  # 最後の5件表示
-                print(f"\n予測{i+1}: {pred.symbol}")
+                print(f"\n予測{i + 1}: {pred.symbol}")
                 print(f"  価格予測: ${pred.predicted_price:.2f}")
                 print(f"  信頼度: {pred.confidence:.1%}")
                 print(f"  シグナル: {pred.direction.value}")

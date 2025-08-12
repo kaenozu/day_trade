@@ -690,7 +690,7 @@ if __name__ == "__main__":
         # 30秒間監視
         for i in range(6):
             time.sleep(5)
-            print(f"\n--- {(i+1)*5}秒経過 ---")
+            print(f"\n--- {(i + 1) * 5}秒経過 ---")
             print(dashboard.generate_status_report())
 
         # 監視停止

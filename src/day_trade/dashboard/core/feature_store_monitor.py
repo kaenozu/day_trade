@@ -367,7 +367,7 @@ class FeatureStoreMonitor:
 
         if summary.get("avg_response_time", 1) <= 0.005:
             achievements.append(
-                f"⚡ 超高速応答: {summary['avg_response_time']*1000:.1f}ms平均応答時間"
+                f"⚡ 超高速応答: {summary['avg_response_time'] * 1000:.1f}ms平均応答時間"
             )
 
         if current.get("total_requests", 0) >= 10000:

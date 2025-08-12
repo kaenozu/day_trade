@@ -252,7 +252,7 @@ class RealDataValidator:
 
             # 問題点検出
             if completeness < 0.9:
-                issues.append(f"データ欠損率高: {(1-completeness)*100:.1f}%")
+                issues.append(f"データ欠損率高: {(1 - completeness) * 100:.1f}%")
 
             if accuracy < 0.8:
                 issues.append(f"データ精度低: {accuracy:.2f}")

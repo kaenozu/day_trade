@@ -281,7 +281,7 @@ class FeaturePipeline:
             extra={
                 "total_symbols": total_symbols,
                 "processed_symbols": processed_symbols,
-                "success_rate": f"{processed_symbols/total_symbols*100:.1f}%",
+                "success_rate": f"{processed_symbols / total_symbols * 100:.1f}%",
                 "cache_hit_rate": f"{store_stats.get('cache_hit_rate_percent', 0):.1f}%",
             },
         )
@@ -401,7 +401,7 @@ class FeaturePipeline:
 
             gpu_time = time.perf_counter() - start_time
             logger.info(
-                f"GPU特徴量生成完了: {len(all_features)}銘柄, {gpu_time*1000:.2f}ms"
+                f"GPU特徴量生成完了: {len(all_features)}銘柄, {gpu_time * 1000:.2f}ms"
             )
 
             return all_features
@@ -571,7 +571,7 @@ class FeaturePipeline:
             extra={
                 "success_count": success_count,
                 "total_count": len(symbols),
-                "success_rate": f"{success_count/len(symbols)*100:.1f}%",
+                "success_rate": f"{success_count / len(symbols) * 100:.1f}%",
             },
         )
 

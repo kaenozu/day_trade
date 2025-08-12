@@ -559,7 +559,7 @@ class AdvancedMLEngine:
             # ログ出力
             if (epoch + 1) % 10 == 0:
                 logger.info(
-                    f"Epoch {epoch+1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
+                    f"Epoch {epoch + 1}: Train Loss={avg_train_loss:.6f}, Val Loss={avg_val_loss:.6f}"
                 )
 
             # MLflow記録
@@ -570,7 +570,7 @@ class AdvancedMLEngine:
 
             # 早期終了
             if patience_counter >= self.config.patience:
-                logger.info(f"早期終了: Epoch {epoch+1}")
+                logger.info(f"早期終了: Epoch {epoch + 1}")
                 break
 
         # 最終モデル保存
@@ -996,7 +996,7 @@ class NextGenAITradingEngine:
                 },
             }
 
-            logger.info(f"次世代予測完了: {inference_time*1000:.2f}ms")
+            logger.info(f"次世代予測完了: {inference_time * 1000:.2f}ms")
 
             return final_result
 

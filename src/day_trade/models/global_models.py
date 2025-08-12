@@ -4,7 +4,6 @@ Global Trading Engine Database Models
 グローバル市場統合データモデル
 """
 
-
 import enum
 
 from sqlalchemy import (

@@ -742,7 +742,7 @@ if __name__ == "__main__":
     for i in range(5):
         result = optimizer.predict_ultra_fast(test_prices, test_volumes)
         print(
-            f"予測 {i+1}: {result['prediction']:.4f}, "
+            f"予測 {i + 1}: {result['prediction']:.4f}, "
             f"レイテンシ: {result['latency_us']:.2f}μs, "
             f"目標達成: {result['under_target']}"
         )

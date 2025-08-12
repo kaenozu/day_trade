@@ -250,9 +250,7 @@ class RedisEnhancedCache:
             return
 
         # 原子的GET+UPDATE Script
-        self.lua_scripts[
-            "atomic_get_update"
-        ] = """
+        self.lua_scripts["atomic_get_update"] = """
             local key = KEYS[1]
             local new_access_time = ARGV[1]
             local increment_count = ARGV[2]
@@ -270,9 +268,7 @@ class RedisEnhancedCache:
         """
 
         # バッチ削除Script
-        self.lua_scripts[
-            "batch_delete"
-        ] = """
+        self.lua_scripts["batch_delete"] = """
             local keys = {}
             for i = 1, #KEYS do
                 keys[i] = KEYS[i]
@@ -281,9 +277,7 @@ class RedisEnhancedCache:
         """
 
         # 期限切れクリーンアップScript
-        self.lua_scripts[
-            "cleanup_expired"
-        ] = """
+        self.lua_scripts["cleanup_expired"] = """
             local pattern = KEYS[1]
             local current_time = tonumber(ARGV[1])
             local batch_size = tonumber(ARGV[2])

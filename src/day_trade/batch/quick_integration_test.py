@@ -270,7 +270,7 @@ def run_quick_integration_test() -> Dict[str, Any]:
     print(f"総テスト数: {total_tests}")
     print(f"成功: {successful_tests}")
     print(f"失敗: {total_tests - successful_tests}")
-    print(f"成功率: {successful_tests/total_tests:.1%}")
+    print(f"成功率: {successful_tests / total_tests:.1%}")
     print(f"全体成功: {'✓' if all_success else '✗'}")
 
     summary = {

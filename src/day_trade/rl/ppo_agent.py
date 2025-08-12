@@ -677,7 +677,7 @@ class PPOAgent:
 
         logger.info(
             f"評価完了: 平均報酬={evaluation_result['avg_reward']:.2f}, "
-            f"勝率={evaluation_result['win_rate']*100:.1f}%"
+            f"勝率={evaluation_result['win_rate'] * 100:.1f}%"
         )
 
         return evaluation_result
@@ -807,9 +807,9 @@ if __name__ == "__main__":
 
     print("評価結果:")
     print(f"  平均報酬: {eval_result['avg_reward']:.2f}")
-    print(f"  勝率: {eval_result['win_rate']*100:.1f}%")
+    print(f"  勝率: {eval_result['win_rate'] * 100:.1f}%")
     print(
-        f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return']*100:.2f}%"
+        f"  平均ポートフォリオリターン: {eval_result['avg_portfolio_return'] * 100:.2f}%"
     )
 
     print("\n=== テスト完了 ===")

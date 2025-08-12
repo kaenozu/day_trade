@@ -973,7 +973,7 @@ if __name__ == "__main__":
                 if i % 2 == 0:
                     status = monitor.get_comprehensive_status()
                     print(
-                        f"Monitoring cycle {i+1}: {status['monitoring_stats']['total_monitoring_cycles']} cycles"
+                        f"Monitoring cycle {i + 1}: {status['monitoring_stats']['total_monitoring_cycles']} cycles"
                     )
 
             # ダッシュボードデータ取得

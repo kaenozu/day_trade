@@ -728,7 +728,9 @@ class EducationalMarketAnalyzer:
                 score_level = (
                     "高スコア"
                     if score.score_value >= 70
-                    else "中スコア" if score.score_value >= 40 else "低スコア"
+                    else "中スコア"
+                    if score.score_value >= 40
+                    else "低スコア"
                 )
                 interpretation = score.educational_interpretation.replace(
                     "技術的に", ""

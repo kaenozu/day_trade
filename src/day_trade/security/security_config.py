@@ -558,10 +558,10 @@ class SecurityConfigManager:
 
 ## 1. パスワードポリシー
 - 最小文字数: {self.password_policy.min_length}文字
-- 大文字必須: {'はい' if self.password_policy.require_uppercase else 'いいえ'}
-- 小文字必須: {'はい' if self.password_policy.require_lowercase else 'いいえ'}
-- 数字必須: {'はい' if self.password_policy.require_numbers else 'いいえ'}
-- 記号必須: {'はい' if self.password_policy.require_symbols else 'いいえ'}
+- 大文字必須: {"はい" if self.password_policy.require_uppercase else "いいえ"}
+- 小文字必須: {"はい" if self.password_policy.require_lowercase else "いいえ"}
+- 数字必須: {"はい" if self.password_policy.require_numbers else "いいえ"}
+- 記号必須: {"はい" if self.password_policy.require_symbols else "いいえ"}
 - パスワード有効期限: {self.password_policy.max_age_days}日
 - 履歴保持数: {self.password_policy.history_count}個
 - ロックアウト閾値: {self.password_policy.lockout_threshold}回
@@ -570,32 +570,32 @@ class SecurityConfigManager:
 ## 2. セッション管理ポリシー
 - 非アクティブタイムアウト: {self.session_policy.max_inactive_minutes}分
 - 最大セッション継続時間: {self.session_policy.max_session_duration_hours}時間
-- 機密操作での再認証: {'必須' if self.session_policy.require_reauthentication_for_sensitive_ops else '任意'}
+- 機密操作での再認証: {"必須" if self.session_policy.require_reauthentication_for_sensitive_ops else "任意"}
 - 同時セッション上限: {self.session_policy.concurrent_session_limit}個
-- セッションローテーション: {'有効' if self.session_policy.session_rotation_enabled else '無効'}
-- IPアドレス固定: {'有効' if self.session_policy.ip_binding_enabled else '無効'}
+- セッションローテーション: {"有効" if self.session_policy.session_rotation_enabled else "無効"}
+- IPアドレス固定: {"有効" if self.session_policy.ip_binding_enabled else "無効"}
 
 ## 3. 多要素認証(MFA)ポリシー
-- 管理者MFA必須: {'はい' if self.mfa_policy.required_for_admin else 'いいえ'}
-- 取引MFA必須: {'はい' if self.mfa_policy.required_for_trading else 'いいえ'}
-- 高リスク操作MFA必須: {'はい' if self.mfa_policy.required_for_high_risk_ops else 'いいえ'}
+- 管理者MFA必須: {"はい" if self.mfa_policy.required_for_admin else "いいえ"}
+- 取引MFA必須: {"はい" if self.mfa_policy.required_for_trading else "いいえ"}
+- 高リスク操作MFA必須: {"はい" if self.mfa_policy.required_for_high_risk_ops else "いいえ"}
 - TOTP許容時間: {self.mfa_policy.totp_window_seconds}秒
 - バックアップコード数: {self.mfa_policy.backup_codes_count}個
 
 ## 4. 監査ポリシー
-- 全アクセスログ: {'有効' if self.audit_policy.log_all_access else '無効'}
-- 失敗ログ: {'有効' if self.audit_policy.log_failed_attempts else '無効'}
-- 権限昇格ログ: {'有効' if self.audit_policy.log_privilege_escalation else '無効'}
-- データアクセスログ: {'有効' if self.audit_policy.log_data_access else '無効'}
+- 全アクセスログ: {"有効" if self.audit_policy.log_all_access else "無効"}
+- 失敗ログ: {"有効" if self.audit_policy.log_failed_attempts else "無効"}
+- 権限昇格ログ: {"有効" if self.audit_policy.log_privilege_escalation else "無効"}
+- データアクセスログ: {"有効" if self.audit_policy.log_data_access else "無効"}
 - ログ保持期間: {self.audit_policy.retention_days}日
-- リアルタイムアラート: {'有効' if self.audit_policy.real_time_alerting else '無効'}
+- リアルタイムアラート: {"有効" if self.audit_policy.real_time_alerting else "無効"}
 
 ## 5. データ保護ポリシー
-- 保存時暗号化: {'必須' if self.data_protection_policy.encryption_at_rest else '任意'}
-- 転送時暗号化: {'必須' if self.data_protection_policy.encryption_in_transit else '任意'}
+- 保存時暗号化: {"必須" if self.data_protection_policy.encryption_at_rest else "任意"}
+- 転送時暗号化: {"必須" if self.data_protection_policy.encryption_in_transit else "任意"}
 - キーローテーション: {self.data_protection_policy.key_rotation_days}日
-- バックアップ暗号化: {'有効' if self.data_protection_policy.backup_encryption else '無効'}
-- データ分類: {'必須' if self.data_protection_policy.data_classification_required else '任意'}
+- バックアップ暗号化: {"有効" if self.data_protection_policy.backup_encryption else "無効"}
+- データ分類: {"必須" if self.data_protection_policy.data_classification_required else "任意"}
 
 ### データ保持期間
 """
@@ -605,11 +605,11 @@ class SecurityConfigManager:
 
         doc += f"""
 ## 6. ネットワークセキュリティポリシー
-- ファイアウォール: {'有効' if self.network_security_policy.firewall_enabled else '無効'}
-- 侵入検知: {'有効' if self.network_security_policy.intrusion_detection else '無効'}
-- レート制限: {'有効' if self.network_security_policy.rate_limiting else '無効'}
-- IPホワイトリスト: {'有効' if self.network_security_policy.ip_whitelisting else '無効'}
-- 管理者VPN必須: {'はい' if self.network_security_policy.vpn_required_for_admin else 'いいえ'}
+- ファイアウォール: {"有効" if self.network_security_policy.firewall_enabled else "無効"}
+- 侵入検知: {"有効" if self.network_security_policy.intrusion_detection else "無効"}
+- レート制限: {"有効" if self.network_security_policy.rate_limiting else "無効"}
+- IPホワイトリスト: {"有効" if self.network_security_policy.ip_whitelisting else "無効"}
+- 管理者VPN必須: {"はい" if self.network_security_policy.vpn_required_for_admin else "いいえ"}
 
 ### APIレート制限
 """

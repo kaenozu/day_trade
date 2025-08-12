@@ -44,7 +44,7 @@ class RiskManager:
         self.max_sector_weight = max_sector_weight
 
         logger.info("リスクマネージャー初期化:")
-        logger.info(f"  - VaR信頼水準: {(1-confidence_level)*100:.0f}%")
+        logger.info(f"  - VaR信頼水準: {(1 - confidence_level) * 100:.0f}%")
         logger.info(f"  - 時間軸: {time_horizon}日")
         logger.info(f"  - 最大相関係数: {max_correlation:.1f}")
 

@@ -931,7 +931,9 @@ class DataQualityAlertSystem:
         trend = (
             "improving"
             if correlation > 0.1
-            else "degrading" if correlation < -0.1 else "stable"
+            else "degrading"
+            if correlation < -0.1
+            else "stable"
         )
 
         return {

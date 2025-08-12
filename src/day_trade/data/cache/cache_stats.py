@@ -477,8 +477,7 @@ class CachePerformanceMonitor:
             report_lines.append("【直近のアラート】")
             for alert in recent_alerts[-5:]:  # 最新5件
                 report_lines.append(
-                    f"- {alert['message']} "
-                    f"({alert['timestamp'].strftime('%H:%M:%S')})"
+                    f"- {alert['message']} ({alert['timestamp'].strftime('%H:%M:%S')})"
                 )
 
         report_lines.append("")

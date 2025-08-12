@@ -1081,7 +1081,7 @@ if __name__ == "__main__":
             print(f"   履歴件数: {len(history)}")
 
             for i, version in enumerate(history[:3]):
-                print(f"   {i+1}. {version['version_id']} ({version['timestamp']})")
+                print(f"   {i + 1}. {version['version_id']} ({version['timestamp']})")
                 if version["quality_score"]:
                     print(f"      品質スコア: {version['quality_score']:.2f}")
 

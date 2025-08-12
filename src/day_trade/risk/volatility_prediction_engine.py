@@ -1104,7 +1104,9 @@ class VolatilityPredictionEngine:
                 "volatility_outlook": (
                     "increasing"
                     if vol_change > 2
-                    else "decreasing" if vol_change < -2 else "stable"
+                    else "decreasing"
+                    if vol_change < -2
+                    else "stable"
                 ),
             }
 
@@ -1300,7 +1302,7 @@ if __name__ == "__main__":
         regime_counts = regimes.value_counts()
         print("✅ レジーム分類完了:")
         for regime, count in regime_counts.items():
-            print(f"   {regime}: {count}日 ({count/len(regimes)*100:.1f}%)")
+            print(f"   {regime}: {count}日 ({count / len(regimes) * 100:.1f}%)")
 
         # 4. 機械学習特徴量準備テスト
         print("\n4. ML特徴量準備テスト")

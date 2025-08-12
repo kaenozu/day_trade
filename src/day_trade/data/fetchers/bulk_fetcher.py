@@ -355,7 +355,7 @@ class BulkFetcher:
 
             logger.info(
                 f"最適化価格取得完了: {successful_count}/{len(codes)}銘柄成功, "
-                f"{total_time:.2f}秒 ({len(codes)/total_time:.1f}銘柄/秒)"
+                f"{total_time:.2f}秒 ({len(codes) / total_time:.1f}銘柄/秒)"
             )
 
             return results

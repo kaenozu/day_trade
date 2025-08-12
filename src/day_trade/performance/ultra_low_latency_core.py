@@ -603,7 +603,7 @@ if __name__ == "__main__":
     print(f"平均レイテンシ: {benchmark_report['latency_stats']['avg_us']}μs")
     print(f"最小レイテンシ: {benchmark_report['latency_stats']['min_us']}μs")
     print(f"最大レイテンシ: {benchmark_report['latency_stats']['max_us']}μs")
-    print(f"P99レイテンシ: {benchmark_report['latency_stats']['p99_ns']/1000:.2f}μs")
+    print(f"P99レイテンシ: {benchmark_report['latency_stats']['p99_ns'] / 1000:.2f}μs")
     print(
         f"目標(<10μs)達成率: {benchmark_report['performance']['target_achievement_rate']:.1f}%"
     )

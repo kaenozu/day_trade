@@ -250,7 +250,7 @@ class CachePerformanceTestSuite:
 
             return {
                 "status": "success" if consistency else "failure",
-                "details": f'データ整合性{"確認" if consistency else "問題"}',
+                "details": f"データ整合性{'確認' if consistency else '問題'}",
                 "sample_count": len(results),
             }
 

@@ -826,7 +826,7 @@ class BatchInferenceOptimizer:
 
             logger.debug(
                 f"バッチ処理完了: {batch_id} "
-                f"({len(batch_requests)}件, {total_processing_time/1000:.1f}ms, "
+                f"({len(batch_requests)}件, {total_processing_time / 1000:.1f}ms, "
                 f"{throughput:.1f}req/sec)"
             )
 

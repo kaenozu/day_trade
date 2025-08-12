@@ -725,10 +725,10 @@ class RiskDashboardManager:
 
             sample_analyses.append(
                 {
-                    "id": f"ANALYSIS_{i+1:03d}",
+                    "id": f"ANALYSIS_{i + 1:03d}",
                     "risk_score": risk_score,
                     "risk_level": risk_level,
-                    "explanation": f"リスク分析#{i+1}: {risk_level}レベルのリスクを検出",
+                    "explanation": f"リスク分析#{i + 1}: {risk_level}レベルのリスクを検出",
                     "timestamp": (
                         datetime.now() - timedelta(minutes=i * 2)
                     ).isoformat(),

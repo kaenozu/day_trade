@@ -461,9 +461,9 @@ class SecurityManager:
 
         summary = f"""Issue #419 セキュリティ強化 - 包括的セキュリティ評価結果
 
-実行日時: {assessment['started_at']}
+実行日時: {assessment["started_at"]}
 評価時間: {duration:.1f}秒
-セキュリティレベル: {assessment['security_level'].upper()}
+セキュリティレベル: {assessment["security_level"].upper()}
 総合セキュリティスコア: {overall_score:.1f}/100
 
 == コンポーネント状況 ==

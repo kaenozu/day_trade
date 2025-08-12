@@ -1018,7 +1018,7 @@ if __name__ == "__main__":
 
             duration = time.time() - start_time
             print(f"   1000件処理時間: {duration:.3f}秒")
-            print(f"   スループット: {1000/duration:.1f}件/秒")
+            print(f"   スループット: {1000 / duration:.1f}件/秒")
             print(f"   検知アラート: {len(perf_alerts)}件")
 
             print("\n✅ 高度化異常検知アラートシステムテスト完了")

@@ -389,7 +389,7 @@ class ReportExporter:
         <body>
             <div class="header">
                 <h1>ポートフォリオレポート</h1>
-                <p>生成日時: {datetime.now().strftime('%Y年%m月%d日 %H:%M')}</p>
+                <p>生成日時: {datetime.now().strftime("%Y年%m月%d日 %H:%M")}</p>
             </div>
 
             <div class="section">
@@ -397,21 +397,21 @@ class ReportExporter:
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <h3>リターン</h3>
-                        <p>総リターン: <span class="{'positive' if float(performance.get('total_return', 0)) >= 0 else 'negative'}">{performance.get('total_return', 'N/A')}円</span></p>
-                        <p>リターン率: <span class="{'positive' if float(performance.get('return_percentage', 0)) >= 0 else 'negative'}">{performance.get('return_percentage', 'N/A')}%</span></p>
-                        <p>年率リターン: {performance.get('annualized_return', 'N/A')}%</p>
+                        <p>総リターン: <span class="{"positive" if float(performance.get("total_return", 0)) >= 0 else "negative"}">{performance.get("total_return", "N/A")}円</span></p>
+                        <p>リターン率: <span class="{"positive" if float(performance.get("return_percentage", 0)) >= 0 else "negative"}">{performance.get("return_percentage", "N/A")}%</span></p>
+                        <p>年率リターン: {performance.get("annualized_return", "N/A")}%</p>
                     </div>
                     <div class="metric-card">
                         <h3>リスク指標</h3>
-                        <p>シャープレシオ: {performance.get('sharpe_ratio', 'N/A')}</p>
-                        <p>最大ドローダウン: {performance.get('max_drawdown_percentage', 'N/A')}%</p>
-                        <p>集中リスク: {risk_metrics.get('concentration_risk_percentage', 'N/A')}%</p>
+                        <p>シャープレシオ: {performance.get("sharpe_ratio", "N/A")}</p>
+                        <p>最大ドローダウン: {performance.get("max_drawdown_percentage", "N/A")}%</p>
+                        <p>集中リスク: {risk_metrics.get("concentration_risk_percentage", "N/A")}%</p>
                     </div>
                     <div class="metric-card">
                         <h3>効率指標</h3>
-                        <p>総取引数: {efficiency.get('total_trades', 'N/A')}回</p>
-                        <p>平均手数料: {efficiency.get('average_commission', 'N/A')}円</p>
-                        <p>手数料率: {efficiency.get('commission_percentage', 'N/A')}%</p>
+                        <p>総取引数: {efficiency.get("total_trades", "N/A")}回</p>
+                        <p>平均手数料: {efficiency.get("average_commission", "N/A")}円</p>
+                        <p>手数料率: {efficiency.get("commission_percentage", "N/A")}%</p>
                     </div>
                 </div>
             </div>
@@ -420,11 +420,11 @@ class ReportExporter:
                 <h2>詳細指標</h2>
                 <table>
                     <tr><th>指標</th><th>値</th><th>単位</th></tr>
-                    <tr><td>総投資額</td><td>{performance.get('total_investment', 'N/A')}</td><td>円</td></tr>
-                    <tr><td>実現損益</td><td>{performance.get('realized_pnl', 'N/A')}</td><td>円</td></tr>
-                    <tr><td>未実現損益</td><td>{performance.get('unrealized_pnl', 'N/A')}</td><td>円</td></tr>
-                    <tr><td>VaR(95%)</td><td>{risk_metrics.get('value_at_risk_95', 'N/A')}</td><td>円</td></tr>
-                    <tr><td>ポートフォリオベータ</td><td>{risk_metrics.get('portfolio_beta', 'N/A')}</td><td>-</td></tr>
+                    <tr><td>総投資額</td><td>{performance.get("total_investment", "N/A")}</td><td>円</td></tr>
+                    <tr><td>実現損益</td><td>{performance.get("realized_pnl", "N/A")}</td><td>円</td></tr>
+                    <tr><td>未実現損益</td><td>{performance.get("unrealized_pnl", "N/A")}</td><td>円</td></tr>
+                    <tr><td>VaR(95%)</td><td>{risk_metrics.get("value_at_risk_95", "N/A")}</td><td>円</td></tr>
+                    <tr><td>ポートフォリオベータ</td><td>{risk_metrics.get("portfolio_beta", "N/A")}</td><td>-</td></tr>
                 </table>
             </div>
 
@@ -468,13 +468,13 @@ class ReportExporter:
             )
             stock_table_rows += f"""
             <tr>
-                <td>{stock['symbol']}</td>
-                <td>{stock['buy_transactions']}</td>
-                <td>{stock['sell_transactions']}</td>
-                <td>{stock['total_buy_amount']:,}</td>
-                <td>{stock['total_sell_amount']:,}</td>
-                <td class="{pnl_class}">{stock['realized_pnl']:,}</td>
-                <td>{stock['total_fees']:,}</td>
+                <td>{stock["symbol"]}</td>
+                <td>{stock["buy_transactions"]}</td>
+                <td>{stock["sell_transactions"]}</td>
+                <td>{stock["total_buy_amount"]:,}</td>
+                <td>{stock["total_sell_amount"]:,}</td>
+                <td class="{pnl_class}">{stock["realized_pnl"]:,}</td>
+                <td>{stock["total_fees"]:,}</td>
             </tr>
             """
 
@@ -483,7 +483,7 @@ class ReportExporter:
         <html lang="ja">
         <head>
             <meta charset="UTF-8">
-            <title>確定申告用データ - {report_info.get('target_year', '')}年</title>
+            <title>確定申告用データ - {report_info.get("target_year", "")}年</title>
             <style>
                 body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; }}
                 .header {{ background-color: #34495e; color: white; padding: 20px; border-radius: 5px; }}
@@ -501,8 +501,8 @@ class ReportExporter:
         <body>
             <div class="header">
                 <h1>確定申告用データ</h1>
-                <p>対象年度: {report_info.get('target_year', 'N/A')}年</p>
-                <p>作成日時: {report_info.get('generation_date', 'N/A')}</p>
+                <p>対象年度: {report_info.get("target_year", "N/A")}年</p>
+                <p>作成日時: {report_info.get("generation_date", "N/A")}</p>
             </div>
 
             <div class="section important">
@@ -510,15 +510,15 @@ class ReportExporter:
                 <div class="summary-grid">
                     <div class="summary-item">
                         <h3>課税所得</h3>
-                        <p style="font-size: 1.5em;"><span class="{'positive' if float(tax_summary.get('taxable_income', 0)) >= 0 else 'negative'}">{tax_summary.get('taxable_income', 'N/A'):,}円</span></p>
+                        <p style="font-size: 1.5em;"><span class="{"positive" if float(tax_summary.get("taxable_income", 0)) >= 0 else "negative"}">{tax_summary.get("taxable_income", "N/A"):,}円</span></p>
                     </div>
                     <div class="summary-item">
                         <h3>納税額合計</h3>
-                        <p style="font-size: 1.5em;">{tax_summary.get('total_tax', 'N/A'):,}円</p>
+                        <p style="font-size: 1.5em;">{tax_summary.get("total_tax", "N/A"):,}円</p>
                     </div>
                     <div class="summary-item">
                         <h3>繰越損失</h3>
-                        <p style="font-size: 1.5em;">{tax_summary.get('loss_carryover', 'N/A'):,}円</p>
+                        <p style="font-size: 1.5em;">{tax_summary.get("loss_carryover", "N/A"):,}円</p>
                     </div>
                 </div>
             </div>
@@ -527,13 +527,13 @@ class ReportExporter:
                 <h2>税務サマリー詳細</h2>
                 <table>
                     <tr><th>項目</th><th>金額</th></tr>
-                    <tr><td>総購入額</td><td>{tax_summary.get('total_buy_amount', 'N/A'):,}円</td></tr>
-                    <tr><td>総売却額</td><td>{tax_summary.get('total_sell_amount', 'N/A'):,}円</td></tr>
-                    <tr><td>実現損益</td><td class="{'positive' if float(tax_summary.get('realized_gains', 0)) >= 0 else 'negative'}">{tax_summary.get('realized_gains', 'N/A'):,}円</td></tr>
-                    <tr><td>手数料合計</td><td>{tax_summary.get('total_fees', 'N/A'):,}円</td></tr>
-                    <tr><td>所得税</td><td>{tax_summary.get('income_tax', 'N/A'):,}円</td></tr>
-                    <tr><td>住民税</td><td>{tax_summary.get('local_tax', 'N/A'):,}円</td></tr>
-                    <tr><td>復興特別所得税</td><td>{tax_summary.get('special_reconstruction_tax', 'N/A'):,}円</td></tr>
+                    <tr><td>総購入額</td><td>{tax_summary.get("total_buy_amount", "N/A"):,}円</td></tr>
+                    <tr><td>総売却額</td><td>{tax_summary.get("total_sell_amount", "N/A"):,}円</td></tr>
+                    <tr><td>実現損益</td><td class="{"positive" if float(tax_summary.get("realized_gains", 0)) >= 0 else "negative"}">{tax_summary.get("realized_gains", "N/A"):,}円</td></tr>
+                    <tr><td>手数料合計</td><td>{tax_summary.get("total_fees", "N/A"):,}円</td></tr>
+                    <tr><td>所得税</td><td>{tax_summary.get("income_tax", "N/A"):,}円</td></tr>
+                    <tr><td>住民税</td><td>{tax_summary.get("local_tax", "N/A"):,}円</td></tr>
+                    <tr><td>復興特別所得税</td><td>{tax_summary.get("special_reconstruction_tax", "N/A"):,}円</td></tr>
                 </table>
             </div>
 

@@ -593,7 +593,7 @@ class SLOManager:
             if report.error_budget_consumption_rate > 0.9:
                 failure_reasons.append(
                     f"SLO {slo_name}: Error budget nearly exhausted "
-                    f"({report.error_budget_consumption_rate*100:.1f}%)"
+                    f"({report.error_budget_consumption_rate * 100:.1f}%)"
                 )
 
         is_passing = len(failure_reasons) == 0

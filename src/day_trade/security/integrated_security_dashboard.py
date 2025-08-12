@@ -517,7 +517,9 @@ class IntegratedSecurityDashboard:
             "compliance_level": (
                 "COMPLIANT"
                 if average_score >= 80
-                else "PARTIALLY_COMPLIANT" if average_score >= 60 else "NON_COMPLIANT"
+                else "PARTIALLY_COMPLIANT"
+                if average_score >= 60
+                else "NON_COMPLIANT"
             ),
         }
 
@@ -793,26 +795,26 @@ class IntegratedSecurityDashboard:
         <body>
             <div class="header">
                 <h1>統合セキュリティレポート</h1>
-                <p>生成日時: {report.get('generated_at', '')}</p>
-                <p>レポートID: {report.get('report_id', '')}</p>
+                <p>生成日時: {report.get("generated_at", "")}</p>
+                <p>レポートID: {report.get("report_id", "")}</p>
             </div>
 
             <h2>エグゼクティブサマリー</h2>
             <div class="metric">
                 <h3>総合セキュリティスコア</h3>
-                <p style="font-size: 24px; font-weight: bold;">{executive_summary.get('overall_security_score', 0):.1f}</p>
+                <p style="font-size: 24px; font-weight: bold;">{executive_summary.get("overall_security_score", 0):.1f}</p>
             </div>
             <div class="metric critical">
                 <h3>クリティカル脆弱性</h3>
-                <p style="font-size: 20px;">{executive_summary.get('critical_vulnerabilities', 0)} 件</p>
+                <p style="font-size: 20px;">{executive_summary.get("critical_vulnerabilities", 0)} 件</p>
             </div>
             <div class="metric high">
                 <h3>総脆弱性数</h3>
-                <p style="font-size: 20px;">{executive_summary.get('total_vulnerabilities', 0)} 件</p>
+                <p style="font-size: 20px;">{executive_summary.get("total_vulnerabilities", 0)} 件</p>
             </div>
             <div class="metric medium">
                 <h3>リスクレベル</h3>
-                <p style="font-size: 20px;">{executive_summary.get('risk_level', 'UNKNOWN')}</p>
+                <p style="font-size: 20px;">{executive_summary.get("risk_level", "UNKNOWN")}</p>
             </div>
 
             <h2>推奨事項</h2>
@@ -821,7 +823,7 @@ class IntegratedSecurityDashboard:
 
         for recommendation in report.get("recommendations", [])[:5]:
             html_template += f"""
-                <li><strong>{recommendation.get('title', '')}</strong>: {recommendation.get('description', '')}</li>
+                <li><strong>{recommendation.get("title", "")}</strong>: {recommendation.get("description", "")}</li>
             """
 
         html_template += """

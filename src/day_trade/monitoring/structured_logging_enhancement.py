@@ -874,7 +874,7 @@ if __name__ == "__main__":
 
             duration = time.time() - start_time
             print(f"   100件ログ出力時間: {duration:.3f}秒")
-            print(f"   スループット: {100/duration:.1f}件/秒")
+            print(f"   スループット: {100 / duration:.1f}件/秒")
 
             print("\n✅ 構造化ログ強化システムテスト完了")
 
