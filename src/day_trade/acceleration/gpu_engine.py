@@ -17,12 +17,12 @@ import pandas as pd
 
 # CuPy可用性チェック
 try:
-    import cupy as cp
+    import cupy as cp  # type: ignore[import-untyped]
 
     CUPY_AVAILABLE = True
 except ImportError:
     CUPY_AVAILABLE = False
-    cp = None
+    cp = None  # type: ignore[misc]
     warnings.warn(
         "CuPy未インストール - GPU加速機能利用不可", ImportWarning, stacklevel=2
     )
@@ -209,7 +209,7 @@ class GPUAccelerationEngine:
 
         # OpenCL チェック
         try:
-            import pyopencl as cl
+            import pyopencl as cl  # type: ignore[import-untyped]
 
             platforms = cl.get_platforms()
             if platforms:

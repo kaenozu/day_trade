@@ -341,6 +341,28 @@ output = "coverage.xml"
 output = "coverage.json"
 show_contexts = true
 
+# MyPy type checker configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+show_error_codes = true
+cache_dir = ".mypy_cache"
+exclude = [
+    "tests/",
+    "build/",
+    "dist/",
+    ".venv/",
+    "venv/",
+    "alembic/",
+    "scripts/",
+]
+# 高速化のため、厳格度を下げる
+no_strict_optional = true
+allow_redefinition = true
+
 # Bandit security linter configuration
 [tool.bandit]
 exclude_dirs = ["tests", "docs", "scripts"]

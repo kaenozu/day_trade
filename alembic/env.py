@@ -25,24 +25,24 @@ def _import_src_modules():
         current_dir = Path(__file__).parent
         project_root = current_dir.parent
         src_path = project_root / "src"
-        
+
         if src_path.exists() and str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
-        
+
         # srcディレクトリが見つからない場合の代替パス
         if not src_path.exists():
             # プロジェクトルートからの直接インポートを試す
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
-        
+
         # データベースモデルのインポート
         from day_trade.models.database import Base
         return Base
-        
+
     except ImportError as e:
         print(f"Warning: Could not import Base from src.day_trade.models.database: {e}")
         print("Trying alternative import paths...")
-        
+
         # 代替インポートパスを試す
         try:
             from src.day_trade.models.database import Base
@@ -90,7 +90,7 @@ def get_database_url() -> str:
         env_url = os.environ.get("DATABASE_URL")
         if env_url:
             return env_url
-        
+
         # 設定ファイルから取得を試す
         try:
             from day_trade.config.config_manager import ConfigManager
@@ -100,18 +100,18 @@ def get_database_url() -> str:
                 return db_settings.url
         except Exception as config_error:
             print(f"Warning: Could not load database URL from config: {config_error}")
-        
+
         # alembic.iniから取得を試す
         if config:
             alembic_url = config.get_main_option("sqlalchemy.url")
             if alembic_url:
                 return alembic_url
-        
+
         # フォールバック: デフォルトのSQLiteデータベース
         default_url = "sqlite:///./day_trade.db"
         print(f"Using default database URL: {default_url}")
         return default_url
-        
+
     except Exception as e:
         print(f"Error getting database URL: {e}")
         # 最終フォールバック
@@ -129,7 +129,7 @@ def run_migrations_offline() -> None:
     try:
         url = get_database_url()
         print(f"Running offline migrations with URL: {url}")
-        
+
         # SQLAlchemy 2.0対応の設定
         context.configure(
             url=url,
@@ -142,7 +142,7 @@ def run_migrations_offline() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
-            
+
     except Exception as e:
         print(f"Error during offline migration: {e}")
         raise
@@ -159,19 +159,19 @@ def run_migrations_online() -> None:
         configuration = {}
         if config:
             configuration = config.get_section(config.config_ini_section) or {}
-        
+
         database_url = get_database_url()
         configuration["sqlalchemy.url"] = database_url
-        
+
         print(f"Running online migrations with URL: {database_url}")
-        
+
         # SQLAlchemy 2.0対応のエンジン設定
         engine_options = {
             "poolclass": pool.NullPool,
             # SQLAlchemy 2.0対応: future フラグの設定
             "future": True,
         }
-        
+
         # SQLiteの場合の特別な設定
         if database_url.startswith("sqlite"):
             engine_options.update({
@@ -179,7 +179,7 @@ def run_migrations_online() -> None:
                 # SQLiteでの外部キー制約の有効化
                 "pool_pre_ping": True,
             })
-        
+
         # エンジンの作成
         connectable = engine_from_config(
             configuration,
@@ -200,7 +200,7 @@ def run_migrations_online() -> None:
 
             with context.begin_transaction():
                 context.run_migrations()
-                
+
     except Exception as e:
         print(f"Error during online migration: {e}")
         print(f"Database URL: {get_database_url()}")
