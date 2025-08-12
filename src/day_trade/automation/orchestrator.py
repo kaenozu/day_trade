@@ -22,9 +22,10 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
-from ..utils.fault_tolerance import FaultTolerantExecutor
+from ..models.database import get_default_database_manager
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
+from ..utils.stock_name_helper import get_stock_helper, format_stock_display
 
 CI_MODE = os.getenv("CI", "false").lower() == "true"
 
@@ -59,6 +60,9 @@ try:
     )
 
     PARALLEL_EXECUTOR_AVAILABLE = True
+    CONCURRENT_AVAILABLE = True
+    # concurrent.futuresもインポート（フォールバック用）
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 except ImportError:
     # フォールバック用レガシー並列処理
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -207,14 +211,8 @@ class NextGenAIOrchestrator:
         else:
             self.performance_monitor = None
 
-        # フォールトトレラント実行
-        if self.config.enable_fault_tolerance:
-            self.fault_executor = FaultTolerantExecutor(
-                max_retries=self.config.retry_attempts,
-                timeout_seconds=self.config.timeout_seconds,
-            )
-        else:
-            self.fault_executor = None
+        # フォールトトレラント実行（FaultTolerantExecutorクラスが存在しないため無効化）
+        self.fault_executor = None  # 一時的に無効化
 
         # 並列実行マネージャー (Issue #383)
         if self.config.enable_parallel_optimization and PARALLEL_EXECUTOR_AVAILABLE:
@@ -408,7 +406,12 @@ class NextGenAIOrchestrator:
         successful_symbols = 0
         failed_symbols = 0
         errors = []
+        successful_symbol_names = []
+        failed_symbol_names = []
         actual_portfolio_summary = None
+        portfolio_summary = None
+        performance_stats = None
+        system_health = None
 
         try:
             # ポートフォリオ情報取得
@@ -456,11 +459,13 @@ class NextGenAIOrchestrator:
             for symbol, result in results.items():
                 if result["success"]:
                     successful_symbols += 1
+                    successful_symbol_names.append(format_stock_display(symbol))
                     ai_analysis_results.append(result["analysis"])
                     generated_signals.extend(result["signals"])
                     triggered_alerts.extend(result["alerts"])
                 else:
                     failed_symbols += 1
+                    failed_symbol_names.append(format_stock_display(symbol))
                     errors.extend(result["errors"])
 
             # ポートフォリオ分析統合
@@ -504,9 +509,22 @@ class NextGenAIOrchestrator:
         self.execution_history.append(report)
         self.execution_history = self.execution_history[-50:]  # 最新50件のみ保持
 
-        logger.info(
-            f"Next-Gen AI分析完了 - 成功: {successful_symbols}, 失敗: {failed_symbols}"
-        )
+        # 詳細なサマリー情報を表示
+        success_summary = f"成功: {successful_symbols}銘柄"
+        if successful_symbol_names:
+            success_list = ", ".join(successful_symbol_names[:3])
+            if len(successful_symbol_names) > 3:
+                success_list += f" 他{len(successful_symbol_names)-3}銘柄"
+            success_summary += f" ({success_list})"
+
+        fail_summary = f"失敗: {failed_symbols}銘柄"
+        if failed_symbol_names:
+            fail_list = ", ".join(failed_symbol_names[:3])
+            if len(failed_symbol_names) > 3:
+                fail_list += f" 他{len(failed_symbol_names)-3}銘柄"
+            fail_summary += f" ({fail_list})"
+
+        logger.info(f"Next-Gen AI分析完了 - {success_summary}, {fail_summary}")
         return report
 
     def _execute_batch_data_collection(
@@ -514,7 +532,11 @@ class NextGenAIOrchestrator:
     ) -> Dict[str, DataResponse]:
         """高度バッチデータ収集"""
 
-        logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄")
+        # 銘柄名を含む詳細情報を表示
+        symbol_names = [format_stock_display(symbol, include_code=False) for symbol in symbols[:5]]
+        if len(symbols) > 5:
+            symbol_names.append(f"他{len(symbols)-5}銘柄")
+        logger.info(f"バッチデータ収集開始: {len(symbols)} 銘柄 ({', '.join(symbol_names)})")
 
         try:
             # データリクエスト作成
@@ -629,9 +651,10 @@ class NextGenAIOrchestrator:
         try:
             # データ品質チェック
             if not data_response or not data_response.success:
+                stock_display = format_stock_display(symbol)
                 return {
                     "success": False,
-                    "errors": [f"{symbol}: データ取得失敗"],
+                    "errors": [f"{stock_display}: データ取得失敗"],
                     "analysis": None,
                     "signals": [],
                     "alerts": [],
@@ -641,8 +664,9 @@ class NextGenAIOrchestrator:
             data_quality = data_response.data_quality_score
 
             # データ品質閾値チェック
+            stock_display = format_stock_display(symbol)
             if data_quality < self.config.data_quality_threshold:
-                logger.warning(f"{symbol}: データ品質不足 ({data_quality:.1f})")
+                logger.warning(f"{stock_display}: データ品質不足 ({data_quality:.1f})")
 
             # 基本分析エンジン実行
             if symbol not in self.analysis_engines:

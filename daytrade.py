@@ -315,7 +315,7 @@ def run_watch_mode(
 
             try:
                 # 分析実行
-                report = orchestrator_instance.run_full_automation(symbols=symbols)
+                report = orchestrator_instance.run_advanced_analysis(symbols=symbols)
 
                 # 簡潔な結果表示
                 print(
@@ -658,8 +658,8 @@ def _run_analysis_mode(
     print("-" * 50)
 
     # メイン処理実行
-    report = orchestrator_instance.run_full_automation(
-        symbols=symbols, report_only=args.report_only
+    report = orchestrator_instance.run_advanced_analysis(
+        symbols=symbols, analysis_type="comprehensive"
     )
 
     # 結果表示
