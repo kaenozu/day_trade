@@ -101,9 +101,7 @@ class AdvancedFeatureEngineer:
             volume_col=(
                 "Volume"
                 if "Volume" in optimized_price_data.columns
-                else volume_data.name
-                if volume_data is not None
-                else None
+                else volume_data.name if volume_data is not None else None
             ),
         )
 

@@ -531,8 +531,7 @@ class PortfolioTracker:
                     ),
                 },
                 "recent_performance": [
-                    p.to_dict()
-                    for p in self.daily_performance[-10:]  # 直近10日
+                    p.to_dict() for p in self.daily_performance[-10:]  # 直近10日
                 ],
             }
 
