@@ -22,7 +22,7 @@ from ..automation.analysis_only_engine import AnalysisOnlyEngine
 from ..config.trading_mode_config import get_current_trading_config, is_safe_mode
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
-from ..utils.fault_tolerance import FaultTolerantExecutor
+# from ..utils.fault_tolerance import FaultTolerantExecutor  # クラスが存在しないためコメントアウト
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
 
@@ -207,14 +207,8 @@ class NextGenAIOrchestrator:
         else:
             self.performance_monitor = None
 
-        # フォールトトレラント実行
-        if self.config.enable_fault_tolerance:
-            self.fault_executor = FaultTolerantExecutor(
-                max_retries=self.config.retry_attempts,
-                timeout_seconds=self.config.timeout_seconds,
-            )
-        else:
-            self.fault_executor = None
+        # フォールトトレラント実行（FaultTolerantExecutorクラスが存在しないため無効化）
+        self.fault_executor = None  # 一時的に無効化
 
         # 並列実行マネージャー (Issue #383)
         if self.config.enable_parallel_optimization and PARALLEL_EXECUTOR_AVAILABLE:
