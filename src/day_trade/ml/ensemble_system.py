@@ -19,6 +19,8 @@ warnings.filterwarnings("ignore")
 
 from .base_models import RandomForestModel, GradientBoostingModel, SVRModel, BaseModelInterface
 from .base_models.base_model_interface import ModelPrediction, ModelMetrics
+from .stacking_ensemble import StackingEnsemble, StackingConfig
+from .dynamic_weighting_system import DynamicWeightingSystem, DynamicWeightingConfig
 from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..utils.logging_config import get_context_logger
 
@@ -51,6 +53,13 @@ class EnsembleConfig:
     enable_dynamic_weighting: bool = True
     weight_update_frequency: int = 100  # サンプル数
     performance_window: int = 500  # パフォーマンス評価ウィンドウ
+    
+    # スタッキング設定
+    enable_stacking: bool = True
+    stacking_config: Optional[StackingConfig] = None
+    
+    # 動的重み調整設定
+    dynamic_weighting_config: Optional[DynamicWeightingConfig] = None
     
     # 交差検証設定
     cv_folds: int = 5
@@ -92,6 +101,10 @@ class EnsembleSystem:
         self.performance_history: List[Dict[str, Any]] = []
         self.is_trained = False
         
+        # 高度なアンサンブル機能
+        self.stacking_ensemble = None
+        self.dynamic_weighting = None
+        
         # LSTMトランスフォーマー（既存システム）
         self.lstm_transformer = None
         if self.config.use_lstm_transformer:
@@ -102,6 +115,9 @@ class EnsembleSystem:
         
         # ベースモデル初期化
         self._initialize_base_models()
+        
+        # 高度アンサンブル機能初期化
+        self._initialize_advanced_features()
         
         # パフォーマンスメトリクス
         self.ensemble_metrics = {}
@@ -150,6 +166,28 @@ class EnsembleSystem:
             logger.error(f"ベースモデル初期化エラー: {e}")
             raise
     
+    def _initialize_advanced_features(self):
+        """高度アンサンブル機能初期化"""
+        try:
+            # スタッキングアンサンブル初期化
+            if self.config.enable_stacking and len(self.base_models) >= 2:
+                stacking_config = self.config.stacking_config or StackingConfig()
+                self.stacking_ensemble = StackingEnsemble(self.base_models, stacking_config)
+                logger.info("スタッキングアンサンブル初期化完了")
+            
+            # 動的重み調整システム初期化
+            if self.config.enable_dynamic_weighting:
+                model_names = list(self.base_models.keys())
+                if self.lstm_transformer:
+                    model_names.append("lstm_transformer")
+                
+                dw_config = self.config.dynamic_weighting_config or DynamicWeightingConfig()
+                self.dynamic_weighting = DynamicWeightingSystem(model_names, dw_config)
+                logger.info("動的重み調整システム初期化完了")
+                
+        except Exception as e:
+            logger.warning(f"高度アンサンブル機能初期化エラー: {e}")
+    
     def fit(self, X: np.ndarray, y: np.ndarray,
             validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,
             feature_names: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -197,7 +235,13 @@ class EnsembleSystem:
                     logger.error(f"{model_name}学習エラー: {e}")
                     model_results[model_name] = {"status": "失敗", "error": str(e)}
             
-            # 3. アンサンブル重み最適化
+            # 3. スタッキングアンサンブル学習
+            if self.stacking_ensemble and validation_data:
+                logger.info("スタッキングアンサンブル学習開始")
+                stacking_results = self.stacking_ensemble.fit(X, y, validation_data)
+                model_results["stacking_ensemble"] = stacking_results
+            
+            # 4. アンサンブル重み最適化
             if validation_data and self.config.enable_dynamic_weighting:
                 self._optimize_ensemble_weights(validation_data[0], validation_data[1])
             
@@ -284,6 +328,10 @@ class EnsembleSystem:
             # 信頼度計算
             ensemble_confidence = self._calculate_ensemble_confidence(individual_predictions)
             
+            # 動的重み調整システムへのフィードバック
+            if self.dynamic_weighting:
+                self.dynamic_weighting.current_weights = self.model_weights.copy()
+            
             processing_time = time.time() - start_time
             
             return EnsemblePrediction(
@@ -331,9 +379,17 @@ class EnsembleSystem:
     
     def _stacking_ensemble(self, predictions: Dict[str, np.ndarray], X: np.ndarray) -> np.ndarray:
         """スタッキングアンサンブル（メタ学習）"""
-        # TODO: スタッキング実装
-        logger.warning("スタッキングアンサンブルは未実装、重み付きアンサンブルで代替")
-        return self._weighted_ensemble(predictions)
+        if self.stacking_ensemble and self.stacking_ensemble.is_fitted:
+            try:
+                # スタッキングアンサンブルで予測
+                stacking_result = self.stacking_ensemble.predict(X)
+                return stacking_result.predictions
+            except Exception as e:
+                logger.warning(f"スタッキング予測失敗: {e}, 重み付きアンサンブルで代替")
+                return self._weighted_ensemble(predictions)
+        else:
+            logger.warning("スタッキングアンサンブル未学習、重み付きアンサンブルで代替")
+            return self._weighted_ensemble(predictions)
     
     def _calculate_ensemble_confidence(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
         """アンサンブル信頼度計算"""
@@ -508,9 +564,34 @@ class EnsembleSystem:
             logger.error(f"アンサンブルシステム保存エラー: {e}")
             return False
     
+    def update_dynamic_weights(self, predictions: Dict[str, np.ndarray], 
+                              actuals: np.ndarray, timestamp: int = None):
+        """
+        動的重み調整システムに予測結果をフィードバック
+        
+        Args:
+            predictions: モデル別予測値
+            actuals: 実際の値
+            timestamp: タイムスタンプ
+        """
+        if self.dynamic_weighting:
+            try:
+                self.dynamic_weighting.update_performance(predictions, actuals, timestamp)
+                
+                # 更新された重みを取得
+                updated_weights = self.dynamic_weighting.get_current_weights()
+                
+                # アンサンブル重みを更新
+                for model_name, weight in updated_weights.items():
+                    if model_name in self.model_weights:
+                        self.model_weights[model_name] = weight
+                
+            except Exception as e:
+                logger.warning(f"動的重み更新エラー: {e}")
+    
     def get_ensemble_info(self) -> Dict[str, Any]:
         """アンサンブル情報取得"""
-        return {
+        info = {
             'is_trained': self.is_trained,
             'n_base_models': len(self.base_models),
             'model_names': list(self.base_models.keys()),
@@ -518,6 +599,15 @@ class EnsembleSystem:
             'ensemble_methods': [method.value for method in self.config.ensemble_methods],
             'performance_history_count': len(self.performance_history)
         }
+        
+        # 高度機能の情報追加
+        if self.stacking_ensemble:
+            info['stacking_info'] = self.stacking_ensemble.get_stacking_info()
+        
+        if self.dynamic_weighting:
+            info['dynamic_weighting_info'] = self.dynamic_weighting.get_performance_summary()
+        
+        return info
 
 
 if __name__ == "__main__":
