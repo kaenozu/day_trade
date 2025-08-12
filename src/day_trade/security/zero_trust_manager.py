@@ -435,12 +435,9 @@ class PolicyEngine:
             return False
 
         # コンテキスト条件チェック
-        if not self._matches_contextual_conditions(
+        return self._matches_contextual_conditions(
             request, policy.contextual_conditions, risk_level
-        ):
-            return False
-
-        return True
+        )
 
     def _matches_user_conditions(
         self, user: UserContext, conditions: Dict[str, Any]

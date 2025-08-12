@@ -148,12 +148,7 @@ class DataFrameViewManager:
         try:
             # DataFrameがビューかどうかの判定は複雑
             # 簡易的な判定を実装
-            if hasattr(df, "_is_view") and df._is_view:
-                return True
-
-            # その他のヒューリスティック判定
-            # （完全な判定は困難なため、保守的にアプローチ）
-            return False
+            return hasattr(df, "_is_view") and df._is_view
 
         except Exception:
             return False
@@ -296,10 +291,7 @@ class InPlaceOptimizer:
             # 参照カウントが高い場合は避ける（他で使用中の可能性）
             import sys
 
-            if sys.getrefcount(df) > 10:  # 閾値は調整可能
-                return False
-
-            return True
+            return sys.getrefcount(df) <= 10  # 閾値は調整可能
 
         except Exception:
             return False  # 不明な場合は安全側に倒す

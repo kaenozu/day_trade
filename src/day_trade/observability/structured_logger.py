@@ -248,10 +248,7 @@ class StructuredLogger:
             return (self._sample_counter % int(1.0 / self._sampling_rate)) == 0
 
         # TRACE ログは設定で制御
-        if level == LogLevel.TRACE and not self.enable_trace_logs:
-            return False
-
-        return True
+        return not (level == LogLevel.TRACE and not self.enable_trace_logs)
 
     # === ログ出力メソッド ===
 
