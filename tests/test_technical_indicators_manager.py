@@ -38,6 +38,12 @@ class TestTechnicalIndicatorsManager:
         
         data = pd.DataFrame({
             'Date': dates,
+            '始値': [p * np.random.uniform(0.98, 1.02) for p in prices],
+            '高値': [p * np.random.uniform(1.00, 1.05) for p in prices], 
+            '安値': [p * np.random.uniform(0.95, 1.00) for p in prices],
+            '終値': prices,
+            '出来高': np.random.randint(10000, 100000, 100),
+            # 英語列名も併記（互換性のため）
             'Open': [p * np.random.uniform(0.98, 1.02) for p in prices],
             'High': [p * np.random.uniform(1.00, 1.05) for p in prices],
             'Low': [p * np.random.uniform(0.95, 1.00) for p in prices],
@@ -113,7 +119,7 @@ class TestTechnicalIndicatorsManager:
             result = manager.calculate_indicators(
                 data=sample_data,
                 indicators=['sma'],
-                periods={'sma': [20]}
+                period=20  # SMAのperiodパラメータとして渡す
             )
             # メソッドが正常に呼び出せることを確認（戻り値の型は実装に依存）
             assert result is not None, "calculate_indicators should return some result"
@@ -126,7 +132,7 @@ class TestTechnicalIndicatorsManager:
         result = manager.calculate_indicators(
             data=sample_data,
             indicators=['sma'],
-            periods={'sma': [20]}
+            period=20  # SMAのperiodパラメータとして渡す
         )
         
         # 実装の現状に合わせてテスト - 戻り値の型をチェック
@@ -149,16 +155,11 @@ class TestTechnicalIndicatorsManager:
     def test_calculate_indicators_multiple_indicators(self, manager, sample_data):
         """複数指標同時計算テスト"""
         indicators = ['sma', 'ema', 'rsi']
-        periods = {
-            'sma': [20],
-            'ema': [20],
-            'rsi': 14
-        }
         
         result = manager.calculate_indicators(
             data=sample_data,
             indicators=indicators,
-            periods=periods
+            period=20  # 共通のperiodパラメータを使用
         )
         
         # 実装の現状に合わせて柔軟にテスト
@@ -183,7 +184,7 @@ class TestTechnicalIndicatorsManager:
             result = manager.calculate_indicators(
                 data=empty_data,
                 indicators=['sma'],
-                periods={'sma': [20]}
+                period=20
             )
             # エラーが発生しない場合は、適切な結果が返されることを確認
             assert isinstance(result, dict)
@@ -215,7 +216,7 @@ class TestTechnicalIndicatorsManager:
                 result = manager.calculate_indicators(
                     data=sample_data,
                     indicators=['sma'],
-                    periods={'sma': [20]}
+                    period=20
                 )
                 results.append(result)
             except Exception as e:
@@ -249,6 +250,13 @@ class TestTechnicalIndicatorsManagerIntegration:
         
         # batch_data_fetcher.py L393 で使用される形式での呼び出しテスト
         sample_data = pd.DataFrame({
+            # 日本語列名
+            '始値': [100, 101, 102],
+            '高値': [105, 106, 107], 
+            '安値': [99, 100, 101],
+            '終値': [103, 104, 105],
+            '出来高': [1000, 1100, 1200],
+            # 英語列名も併記（互換性のため）
             'Open': [100, 101, 102],
             'High': [105, 106, 107], 
             'Low': [99, 100, 101],
@@ -261,7 +269,7 @@ class TestTechnicalIndicatorsManagerIntegration:
             result = manager.calculate_indicators(
                 data=sample_data,
                 indicators=["sma", "ema", "rsi", "bollinger_bands", "macd"],
-                periods={"sma": [5, 20, 50], "ema": [5, 20, 50], "rsi": 14},
+                period=20  # 共通のperiodパラメータを使用
             )
             # メソッドが正常に呼び出せることが重要（戻り値の型は実装に依存）
             assert result is not None, "Method should return some result"
