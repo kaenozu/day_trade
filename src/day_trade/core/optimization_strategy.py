@@ -7,9 +7,9 @@
 import json
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, List
 
 from ..utils.logging_config import get_context_logger
 
@@ -27,6 +27,49 @@ class OptimizationLevel(Enum):
 
 
 @dataclass
+class AdaptiveLevelConfig:
+    """適応レベル選択設定 - Issue #638対応"""
+
+    # リソース閾値（パーセント）
+    high_load_cpu_threshold: float = 80.0
+    high_load_memory_threshold: float = 80.0
+    medium_load_cpu_threshold: float = 60.0
+    medium_load_memory_threshold: float = 60.0
+
+    # GPU利用可能性チェック
+    enable_gpu_detection: bool = True
+    gpu_memory_threshold: float = 70.0
+
+    # デバッグモード検出
+    enable_debug_mode_detection: bool = True
+    debug_mode_env_vars: List[str] = field(default_factory=lambda: ["DEBUG", "DAYTRADE_DEBUG", "CI_DEBUG"])
+
+    # レベル選択優先順位（負荷レベル別）
+    high_load_preference: List[OptimizationLevel] = field(default_factory=lambda: [
+        OptimizationLevel.STANDARD,
+        OptimizationLevel.DEBUG,
+    ])
+
+    medium_load_preference: List[OptimizationLevel] = field(default_factory=lambda: [
+        OptimizationLevel.OPTIMIZED,
+        OptimizationLevel.STANDARD,
+    ])
+
+    low_load_preference: List[OptimizationLevel] = field(default_factory=lambda: [
+        OptimizationLevel.GPU_ACCELERATED,
+        OptimizationLevel.OPTIMIZED,
+        OptimizationLevel.STANDARD,
+    ])
+
+    # フォールバック戦略
+    fallback_level: OptimizationLevel = OptimizationLevel.STANDARD
+
+    # パフォーマンス設定
+    cpu_measurement_interval: float = 0.5
+    enable_detailed_logging: bool = True
+
+
+@dataclass
 class OptimizationConfig:
     """最適化設定クラス"""
 
@@ -39,6 +82,7 @@ class OptimizationConfig:
     timeout_seconds: int = 30  # タイムアウト（秒）
     memory_limit_mb: int = 512  # メモリ制限（MB）
     ci_test_mode: bool = False  # CI テストモード（軽量化）
+    adaptive_config: Optional[AdaptiveLevelConfig] = None  # 適応レベル選択設定 - Issue #638対応
 
     @classmethod
     def from_env(cls) -> "OptimizationConfig":
@@ -225,39 +269,227 @@ class OptimizationStrategyFactory:
     def _select_adaptive_level(
         cls, component_name: str, config: OptimizationConfig
     ) -> OptimizationLevel:
-        """適応的レベル選択"""
-        # システムリソース状況を考慮した適応的選択
-        import psutil
+        """適応的レベル選択 - Issue #638対応: 改善とパラメータ化"""
+        # 適応設定の取得
+        adaptive_config = config.adaptive_config or AdaptiveLevelConfig()
 
         try:
-            # メモリ使用率チェック
-            memory_percent = psutil.virtual_memory().percent
-            cpu_percent = psutil.cpu_percent(interval=1)
+            # 利用可能な戦略レベルを取得
+            available_levels = cls._get_available_levels(component_name)
 
-            # 高負荷時は標準実装を選択
-            if memory_percent > 80 or cpu_percent > 80:
-                logger.info(
-                    f"高負荷検出、標準実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
-                return OptimizationLevel.STANDARD
+            # システムリソース状況の取得
+            resource_info = cls._gather_system_resources(adaptive_config)
 
-            # 中負荷時は最適化実装を選択
-            elif memory_percent > 60 or cpu_percent > 60:
-                logger.info(
-                    f"中負荷検出、最適化実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
-                )
-                return OptimizationLevel.OPTIMIZED
+            # 特殊条件チェック（デバッグモード、GPU利用可能性等）
+            special_conditions = cls._check_special_conditions(adaptive_config, available_levels)
 
-            # 低負荷時は最適化実装を選択（デフォルト）
-            else:
-                logger.info(
-                    f"低負荷検出、最適化実装選択: CPU={cpu_percent}%, MEM={memory_percent}%"
+            # 負荷レベルの決定
+            load_level = cls._determine_load_level(resource_info, adaptive_config)
+
+            # 最適なレベルの選択
+            selected_level = cls._select_optimal_level(
+                load_level, special_conditions, available_levels, adaptive_config
+            )
+
+            # 詳細ログ出力
+            if adaptive_config.enable_detailed_logging:
+                cls._log_adaptive_selection_details(
+                    component_name, selected_level, load_level,
+                    resource_info, special_conditions, available_levels
                 )
-                return OptimizationLevel.OPTIMIZED
+
+            return selected_level
 
         except Exception as e:
-            logger.error(f"適応的レベル選択エラー: {e}, 標準レベル使用")
-            return OptimizationLevel.STANDARD
+            logger.error(f"適応的レベル選択エラー ({component_name}): {e}")
+            return adaptive_config.fallback_level
+
+    @classmethod
+    def _get_available_levels(cls, component_name: str) -> List[OptimizationLevel]:
+        """コンポーネントで利用可能な戦略レベルを取得"""
+        component_strategies = cls._strategies.get(component_name, {})
+        return list(component_strategies.keys())
+
+    @classmethod
+    def _gather_system_resources(cls, adaptive_config: AdaptiveLevelConfig) -> Dict[str, float]:
+        """システムリソース情報を収集"""
+        import psutil
+
+        resource_info = {}
+
+        try:
+            # CPU使用率
+            resource_info['cpu_percent'] = psutil.cpu_percent(
+                interval=adaptive_config.cpu_measurement_interval
+            )
+
+            # メモリ使用率
+            memory = psutil.virtual_memory()
+            resource_info['memory_percent'] = memory.percent
+            resource_info['memory_available_gb'] = memory.available / (1024**3)
+
+            # GPU使用率（利用可能な場合）
+            if adaptive_config.enable_gpu_detection:
+                resource_info['gpu_available'] = cls._check_gpu_availability()
+                if resource_info['gpu_available']:
+                    resource_info['gpu_memory_percent'] = cls._get_gpu_memory_usage()
+
+            # システム負荷
+            resource_info['load_average'] = psutil.getloadavg()[0] if hasattr(psutil, 'getloadavg') else 0.0
+
+        except Exception as e:
+            logger.warning(f"システムリソース情報収集エラー: {e}")
+            # デフォルト値を設定
+            resource_info.update({
+                'cpu_percent': 50.0,
+                'memory_percent': 50.0,
+                'gpu_available': False,
+                'load_average': 1.0
+            })
+
+        return resource_info
+
+    @classmethod
+    def _check_special_conditions(
+        cls, adaptive_config: AdaptiveLevelConfig, available_levels: List[OptimizationLevel]
+    ) -> Dict[str, bool]:
+        """特殊条件をチェック（デバッグモード、CI環境等）"""
+        conditions = {}
+
+        # デバッグモード検出
+        if adaptive_config.enable_debug_mode_detection:
+            conditions['debug_mode'] = any(
+                os.getenv(var, '').lower() in ['true', '1', 'yes', 'on']
+                for var in adaptive_config.debug_mode_env_vars
+            )
+        else:
+            conditions['debug_mode'] = False
+
+        # CI環境検出
+        conditions['ci_environment'] = os.getenv('CI', '').lower() in ['true', '1', 'yes']
+
+        # 利用可能なレベル別条件
+        conditions['gpu_level_available'] = OptimizationLevel.GPU_ACCELERATED in available_levels
+        conditions['debug_level_available'] = OptimizationLevel.DEBUG in available_levels
+        conditions['optimized_level_available'] = OptimizationLevel.OPTIMIZED in available_levels
+
+        return conditions
+
+    @classmethod
+    def _determine_load_level(
+        cls, resource_info: Dict[str, float], adaptive_config: AdaptiveLevelConfig
+    ) -> str:
+        """システム負荷レベルを決定"""
+        cpu_percent = resource_info.get('cpu_percent', 50.0)
+        memory_percent = resource_info.get('memory_percent', 50.0)
+
+        # 高負荷判定
+        if (cpu_percent > adaptive_config.high_load_cpu_threshold or
+            memory_percent > adaptive_config.high_load_memory_threshold):
+            return 'high'
+
+        # 中負荷判定
+        elif (cpu_percent > adaptive_config.medium_load_cpu_threshold or
+              memory_percent > adaptive_config.medium_load_memory_threshold):
+            return 'medium'
+
+        # 低負荷
+        else:
+            return 'low'
+
+    @classmethod
+    def _select_optimal_level(
+        cls,
+        load_level: str,
+        special_conditions: Dict[str, bool],
+        available_levels: List[OptimizationLevel],
+        adaptive_config: AdaptiveLevelConfig
+    ) -> OptimizationLevel:
+        """最適なレベルを選択"""
+
+        # 特殊条件の優先処理
+        if special_conditions.get('debug_mode') and special_conditions.get('debug_level_available'):
+            return OptimizationLevel.DEBUG
+
+        if special_conditions.get('ci_environment'):
+            # CI環境では軽量で安定した実装を優先
+            for level in [OptimizationLevel.STANDARD, OptimizationLevel.DEBUG]:
+                if level in available_levels:
+                    return level
+
+        # 負荷レベル別の選択
+        if load_level == 'high':
+            preferences = adaptive_config.high_load_preference
+        elif load_level == 'medium':
+            preferences = adaptive_config.medium_load_preference
+        else:  # low
+            preferences = adaptive_config.low_load_preference
+
+        # 利用可能なレベルから優先順位に基づいて選択
+        for preferred_level in preferences:
+            if preferred_level in available_levels:
+                return preferred_level
+
+        # フォールバック
+        return adaptive_config.fallback_level
+
+    @classmethod
+    def _check_gpu_availability(cls) -> bool:
+        """GPU利用可能性をチェック"""
+        try:
+            import subprocess
+            result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=2)
+            return result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            return False
+
+    @classmethod
+    def _get_gpu_memory_usage(cls) -> float:
+        """GPU メモリ使用率を取得"""
+        try:
+            import subprocess
+            result = subprocess.run([
+                'nvidia-smi', '--query-gpu=memory.used,memory.total',
+                '--format=csv,noheader,nounits'
+            ], capture_output=True, text=True, timeout=2)
+
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                if lines:
+                    used, total = map(int, lines[0].split(', '))
+                    return (used / total) * 100.0
+        except Exception:
+            pass
+        return 0.0
+
+    @classmethod
+    def _log_adaptive_selection_details(
+        cls,
+        component_name: str,
+        selected_level: OptimizationLevel,
+        load_level: str,
+        resource_info: Dict[str, float],
+        special_conditions: Dict[str, bool],
+        available_levels: List[OptimizationLevel]
+    ) -> None:
+        """適応選択の詳細ログを出力"""
+        logger.info(
+            f"適応レベル選択 ({component_name}): {selected_level.value} "
+            f"[負荷: {load_level}, CPU: {resource_info.get('cpu_percent', 0):.1f}%, "
+            f"MEM: {resource_info.get('memory_percent', 0):.1f}%]"
+        )
+
+        if special_conditions.get('debug_mode'):
+            logger.debug(f"デバッグモード検出: {component_name}")
+
+        if special_conditions.get('ci_environment'):
+            logger.debug(f"CI環境検出: {component_name}")
+
+        if resource_info.get('gpu_available'):
+            logger.debug(
+                f"GPU利用可能 ({component_name}): "
+                f"VRAM使用率 {resource_info.get('gpu_memory_percent', 0):.1f}%"
+            )
 
     @classmethod
     def set_global_config(cls, config: OptimizationConfig) -> None:
