@@ -15,6 +15,11 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 
+# 決定論的実行のためのシード設定
+import random
+random.seed(42)
+np.random.seed(42)
+
 from ..analysis.technical_indicators_unified import TechnicalIndicatorsManager
 from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
@@ -26,11 +31,11 @@ logger = get_context_logger(__name__)
 
 class RecommendationAction(Enum):
     """推奨アクション"""
-    STRONG_BUY = "🔥 今すぐ買い"
-    BUY = "📈 買い"
-    HOLD = "⏸️ 様子見"
-    SELL = "📉 売り"
-    STRONG_SELL = "⚠️ 今すぐ売り"
+    STRONG_BUY = "[STRONG_BUY] 今すぐ買い"
+    BUY = "[BUY] 買い"
+    HOLD = "[HOLD] 様子見"
+    SELL = "[SELL] 売り"
+    STRONG_SELL = "[STRONG_SELL] 今すぐ売り"
 
 
 @dataclass

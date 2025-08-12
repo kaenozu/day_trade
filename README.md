@@ -22,17 +22,17 @@ cd day_trade
 pip install -r requirements.txt
 
 # 2. 今すぐ実行 - TOP3推奨銘柄を自動表示
-python daytrade_simple.py
+python daytrade.py
 ```
 
 **これだけで推奨銘柄が表示されます！** 投資判断に必要な情報がすべて自動で分析されます。
 
 ### 💡 使用例
 ```bash
-python daytrade_simple.py                    # 高速モード（TOP3推奨）
-python daytrade_simple.py --full             # フルモード（全銘柄分析）
-python daytrade_simple.py --symbols 7203,8306 # 特定銘柄のみ
-python daytrade_simple.py --safe             # 安全モード（高リスク除外）
+python daytrade.py                    # 高速モード（TOP3推奨）
+python daytrade.py --full             # フルモード（全銘柄分析）
+python daytrade.py --symbols 7203,8306 # 特定銘柄のみ
+python daytrade.py --safe             # 安全モード（高リスク除外）
 ```
 
 詳細な使用方法は [USAGE.md](USAGE.md) をご覧ください。
@@ -401,7 +401,6 @@ python system_health_diagnostic.py
 
 - **投資判断の責任**: 本システムの分析結果に基づく投資判断は自己責任
 - **損失の責任**: 投資による損失について開発者は一切責任を負いません
-- **教育目的**: このシステムは教育・学習目的で開発されています  
 - **専門家相談**: 重要な投資判断前には専門家にご相談ください
 
 ## 🚀 ロードマップ
@@ -465,7 +464,7 @@ Day Tradeシステムは、**企業レベルの商用利用に完全対応**し�
 ---
 
 **Day Trade - 企業レベル株式取引プラットフォーム**  
-*Built with ❤️ for professional trading and educational purposes*
+*Built with ❤️ for professional trading*
 
 **完成日**: 2025年8月9日  
 **開発チーム**: Day Trade開発チーム
