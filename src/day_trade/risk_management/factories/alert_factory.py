@@ -294,9 +294,9 @@ class AlertChannelFactory:
                 self._config_schemas[NotificationChannelType.PLUGIN] = (
                     self._config_schemas.get(NotificationChannelType.PLUGIN, {})
                 )
-                self._config_schemas[NotificationChannelType.PLUGIN][plugin_name] = (
-                    config_schema
-                )
+                self._config_schemas[NotificationChannelType.PLUGIN][
+                    plugin_name
+                ] = config_schema
 
             return True
 

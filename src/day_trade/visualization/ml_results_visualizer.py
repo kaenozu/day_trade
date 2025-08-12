@@ -1525,9 +1525,7 @@ class MLResultsVisualizer:
                         lstm_signal = (
                             "BUY"
                             if avg_return > 1
-                            else "SELL"
-                            if avg_return < -1
-                            else "HOLD"
+                            else "SELL" if avg_return < -1 else "HOLD"
                         )
                         signals.append(lstm_signal)
                         confidences.append(lstm_results.get("confidence_score", 0))

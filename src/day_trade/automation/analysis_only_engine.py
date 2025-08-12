@@ -490,9 +490,7 @@ class AnalysisOnlyEngine:
                 confidence_level = (
                     "高"
                     if signal.confidence >= 80
-                    else "中"
-                    if signal.confidence >= 60
-                    else "低"
+                    else "中" if signal.confidence >= 60 else "低"
                 )
                 action = "買い注目" if signal.signal_type.value == "buy" else "売り注目"
                 recommendations.append(

@@ -927,7 +927,9 @@ class IntegratedMonitoringSystem:
             try:
                 # セキュリティデータ収集・処理
                 if self.security_dashboard:
-                    result = await self.security_dashboard.collect_and_process_security_data()
+                    result = (
+                        await self.security_dashboard.collect_and_process_security_data()
+                    )
 
                     if result["integration_success"]:
                         self.logger.info(
@@ -1023,7 +1025,9 @@ if __name__ == "__main__":
             if integrated_system.security_dashboard:
                 print("\n3. セキュリティデータ収集テスト...")
 
-                collection_result = await integrated_system.security_dashboard.collect_and_process_security_data()
+                collection_result = (
+                    await integrated_system.security_dashboard.collect_and_process_security_data()
+                )
 
                 print(
                     f"   収集イベント数: {collection_result.get('events_collected', 0)}"
@@ -1037,7 +1041,9 @@ if __name__ == "__main__":
 
                 # セキュリティダッシュボードデータ取得
                 print("\n4. セキュリティダッシュボードデータ取得...")
-                security_data = await integrated_system.security_dashboard.get_security_dashboard_data()
+                security_data = (
+                    await integrated_system.security_dashboard.get_security_dashboard_data()
+                )
 
                 summary = security_data.get("summary", {})
                 print(f"   総イベント数: {summary.get('total_events', 0)}")

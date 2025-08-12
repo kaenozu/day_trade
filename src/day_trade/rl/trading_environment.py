@@ -458,9 +458,9 @@ class MultiAssetTradingEnvironment:
                             # 売却可能チェック
                             if abs(trade_shares) <= current_position:
                                 # 取引実行
-                                self.positions[symbol] += (
-                                    trade_shares  # trade_sharesは負値
-                                )
+                                self.positions[
+                                    symbol
+                                ] += trade_shares  # trade_sharesは負値
                                 self.balance += trade_value - cost
                                 total_cost += cost
 

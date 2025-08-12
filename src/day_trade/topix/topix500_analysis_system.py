@@ -416,13 +416,13 @@ class TOPIX500AnalysisSystem:
             }
 
             # 統合スコア計算
-            comprehensive_result[
-                "integrated_score"
-            ] = await self._calculate_integrated_score(
-                multiframe_result,
-                features_result,
-                volatility_result,
-                ml_ensemble_result,
+            comprehensive_result["integrated_score"] = (
+                await self._calculate_integrated_score(
+                    multiframe_result,
+                    features_result,
+                    volatility_result,
+                    ml_ensemble_result,
+                )
             )
 
             # キャッシュ保存

@@ -801,9 +801,9 @@ class ComprehensiveSecurityControlCenter:
                 self.logger.error(f"コンプライアンスチェックエラー: {e}")
 
             # 5. 推奨事項生成
-            scan_results[
-                "recommendations"
-            ] = await self._generate_security_recommendations()
+            scan_results["recommendations"] = (
+                await self._generate_security_recommendations()
+            )
 
             scan_duration = time.time() - scan_start
             scan_results["completed_at"] = datetime.now(timezone.utc).isoformat()
