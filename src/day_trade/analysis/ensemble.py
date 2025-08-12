@@ -55,7 +55,7 @@ class StrategyPerformance:
     average_confidence: float = 0.0
     average_return: float = 0.0
     sharpe_ratio: float = 0.0
-    last_updated: datetime = None
+    last_updated: Optional[datetime] = None
 
     def update_performance(
         self, success: bool, confidence: float, return_rate: float = 0.0
@@ -139,12 +139,12 @@ class EnsembleTradingStrategy:
         self.strategy_weights = self._initialize_weights()
 
         # メタ学習のための特徴量
-        self.meta_features = {}
+        self.meta_features: Dict[str, Any] = {}
 
         # 機械学習コンポーネント
-        self.ml_manager = None
+        self.ml_manager: Optional[MLModelManager] = None
         self.feature_engineer = None
-        self.ml_predictions_history = []
+        self.ml_predictions_history: List[Dict[str, Any]] = []
 
         if self.enable_ml_models:
             try:
@@ -157,7 +157,7 @@ class EnsembleTradingStrategy:
 
         # 市場レジーム検出
         self.current_market_regime = "unknown"
-        self.regime_history = []
+        self.regime_history: List[str] = []
 
     def _initialize_strategies(self) -> Dict[str, TradingSignalGenerator]:
         """個別戦略を初期化"""
