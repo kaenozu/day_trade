@@ -413,10 +413,10 @@ class AdvancedBatchDataFetcher:
                         if not indicators_df.empty:
                             result = pd.concat([result, indicators_df], axis=1)
                     
-                    logger.debug(f"統合指標マネージャー使用: {symbol}")
+                    logger.debug(f"統合指標マネージャー使用: {request.symbol}")
                     
                 except Exception as e:
-                    logger.warning(f"テクニカル指標計算スキップ {symbol}: {e}")
+                    logger.warning(f"テクニカル指標計算スキップ {request.symbol}: {e}")
                     # エラーの場合は指標なしで続行
 
             else:
