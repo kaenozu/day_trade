@@ -516,14 +516,14 @@ class NextGenAIOrchestrator:
             if len(successful_symbol_names) > 3:
                 success_list += f" 他{len(successful_symbol_names)-3}銘柄"
             success_summary += f" ({success_list})"
-        
+
         fail_summary = f"失敗: {failed_symbols}銘柄"
         if failed_symbol_names:
             fail_list = ", ".join(failed_symbol_names[:3])
             if len(failed_symbol_names) > 3:
                 fail_list += f" 他{len(failed_symbol_names)-3}銘柄"
             fail_summary += f" ({fail_list})"
-        
+
         logger.info(f"Next-Gen AI分析完了 - {success_summary}, {fail_summary}")
         return report
 
