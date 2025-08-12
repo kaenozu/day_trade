@@ -66,29 +66,125 @@ class OptimizationConfig:
 
     @classmethod
     def from_file(cls, config_path: str) -> "OptimizationConfig":
-        """設定ファイルから読み込み"""
+        """設定ファイルから読み込み（型変換の堅牢性改善）- Issue #635対応"""
         try:
             with open(config_path, encoding="utf-8") as f:
                 data = json.load(f)
 
-            # OptimizationLevelの変換
-            level_str = data.get("level", "standard").lower()
+            # OptimizationLevelの安全な変換
+            level_str = cls._safe_str_conversion(data.get("level", "standard")).lower()
             level = OptimizationLevel(level_str)
 
             return cls(
                 level=level,
-                auto_fallback=data.get("auto_fallback", True),
-                performance_monitoring=data.get("performance_monitoring", True),
-                cache_enabled=data.get("cache_enabled", True),
-                parallel_processing=data.get("parallel_processing", False),
-                batch_size=data.get("batch_size", 100),
-                timeout_seconds=data.get("timeout_seconds", 30),
-                memory_limit_mb=data.get("memory_limit_mb", 512),
+                auto_fallback=cls._safe_bool_conversion(data.get("auto_fallback"), True),
+                performance_monitoring=cls._safe_bool_conversion(data.get("performance_monitoring"), True),
+                cache_enabled=cls._safe_bool_conversion(data.get("cache_enabled"), True),
+                parallel_processing=cls._safe_bool_conversion(data.get("parallel_processing"), False),
+                batch_size=cls._safe_int_conversion(data.get("batch_size"), 100, min_val=1, max_val=10000),
+                timeout_seconds=cls._safe_int_conversion(data.get("timeout_seconds"), 30, min_val=1, max_val=3600),
+                memory_limit_mb=cls._safe_int_conversion(data.get("memory_limit_mb"), 512, min_val=64, max_val=16384),
             )
 
         except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
             logger.error(f"設定ファイル読み込み失敗: {e}, デフォルト設定を使用")
             return cls()
+
+    @classmethod
+    def _safe_str_conversion(cls, value: Any, default: str = "") -> str:
+        """文字列への安全な変換
+
+        Args:
+            value: 変換対象の値
+            default: デフォルト値
+
+        Returns:
+            str: 変換された文字列
+        """
+        try:
+            if value is None:
+                return default
+            if isinstance(value, str):
+                return value
+            return str(value)
+        except Exception as e:
+            logger.warning(f"文字列変換エラー: {value} -> {e}, デフォルト値使用: {default}")
+            return default
+
+    @classmethod
+    def _safe_bool_conversion(cls, value: Any, default: bool = False) -> bool:
+        """bool型への安全な変換
+
+        Args:
+            value: 変換対象の値
+            default: デフォルト値
+
+        Returns:
+            bool: 変換されたboolean値
+        """
+        try:
+            if value is None:
+                return default
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                # 文字列の場合は大文字小文字を無視して判定
+                return value.lower() in ("true", "yes", "1", "on", "enabled")
+            if isinstance(value, (int, float)):
+                # 数値の場合は0以外をTrueとする
+                return bool(value)
+            return bool(value)
+        except Exception as e:
+            logger.warning(f"bool変換エラー: {value} -> {e}, デフォルト値使用: {default}")
+            return default
+
+    @classmethod
+    def _safe_int_conversion(cls, value: Any, default: int, min_val: Optional[int] = None, max_val: Optional[int] = None) -> int:
+        """int型への安全な変換（範囲制限付き）
+
+        Args:
+            value: 変換対象の値
+            default: デフォルト値
+            min_val: 最小値（None の場合は制限なし）
+            max_val: 最大値（None の場合は制限なし）
+
+        Returns:
+            int: 変換されたint値（範囲内）
+        """
+        try:
+            if value is None:
+                return default
+
+            # 型別変換処理
+            if isinstance(value, int):
+                converted_value = value
+            elif isinstance(value, float):
+                # floatの場合は整数部分のみ取得
+                if value.is_integer():
+                    converted_value = int(value)
+                else:
+                    logger.warning(f"float値の整数変換: {value} -> {int(value)}")
+                    converted_value = int(value)
+            elif isinstance(value, str):
+                # 文字列の場合は数値として解析
+                converted_value = int(float(value))  # "123.0" のような文字列にも対応
+            else:
+                # その他の型の場合は強制変換を試行
+                converted_value = int(value)
+
+            # 範囲チェック
+            if min_val is not None and converted_value < min_val:
+                logger.warning(f"値が最小値未満: {converted_value} < {min_val}, 最小値を使用")
+                return min_val
+            if max_val is not None and converted_value > max_val:
+                logger.warning(f"値が最大値超過: {converted_value} > {max_val}, 最大値を使用")
+                return max_val
+
+            return converted_value
+
+        except (ValueError, TypeError, OverflowError) as e:
+            logger.warning(f"int変換エラー: {value} -> {e}, デフォルト値使用: {default}")
+            return default
 
 
 class OptimizationStrategy(ABC):
