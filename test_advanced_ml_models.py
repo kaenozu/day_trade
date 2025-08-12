@@ -93,13 +93,21 @@ async def test_advanced_feature_extraction():
         print("[OK] ML system initialization success")
 
         # 特徴量抽出実行
-        feature_set = await ml_system.extract_advanced_features(test_data, "TEST_FEATURES")
+        feature_set = await ml_system.extract_advanced_features(
+            test_data, "TEST_FEATURES"
+        )
 
         # 結果検証
         assert hasattr(feature_set, "symbol"), "Feature set missing symbol"
-        assert feature_set.symbol == "TEST_FEATURES", f"Symbol mismatch: {feature_set.symbol}"
-        assert hasattr(feature_set, "feature_count"), "Feature set missing feature_count"
-        assert feature_set.feature_count > 0, f"No features extracted: {feature_set.feature_count}"
+        assert (
+            feature_set.symbol == "TEST_FEATURES"
+        ), f"Symbol mismatch: {feature_set.symbol}"
+        assert hasattr(
+            feature_set, "feature_count"
+        ), "Feature set missing feature_count"
+        assert (
+            feature_set.feature_count > 0
+        ), f"No features extracted: {feature_set.feature_count}"
 
         print(f"[OK] Symbol: {feature_set.symbol}")
         print(f"[OK] Total features: {feature_set.feature_count}")
@@ -154,11 +162,15 @@ async def test_ensemble_learning():
         )
 
         # システム初期化
-        ml_system = AdvancedMLModels(enable_cache=False, enable_parallel=False, ensemble_models=3)
+        ml_system = AdvancedMLModels(
+            enable_cache=False, enable_parallel=False, ensemble_models=3
+        )
         print("[OK] Ensemble ML system initialization success")
 
         # 特徴量抽出
-        feature_set = await ml_system.extract_advanced_features(test_data, "TEST_ENSEMBLE")
+        feature_set = await ml_system.extract_advanced_features(
+            test_data, "TEST_ENSEMBLE"
+        )
         print(f"[OK] Features extracted: {feature_set.feature_count}")
 
         # アンサンブル学習実行
@@ -171,12 +183,18 @@ async def test_ensemble_learning():
         assert (
             ensemble_result.symbol == "TEST_ENSEMBLE"
         ), f"Symbol mismatch: {ensemble_result.symbol}"
-        assert hasattr(ensemble_result, "ensemble_prediction"), "Ensemble result missing prediction"
-        assert hasattr(ensemble_result, "weighted_confidence"), "Ensemble result missing confidence"
+        assert hasattr(
+            ensemble_result, "ensemble_prediction"
+        ), "Ensemble result missing prediction"
+        assert hasattr(
+            ensemble_result, "weighted_confidence"
+        ), "Ensemble result missing confidence"
         assert (
             0 <= ensemble_result.weighted_confidence <= 1
         ), f"Invalid confidence: {ensemble_result.weighted_confidence}"
-        assert hasattr(ensemble_result, "consensus_strength"), "Ensemble result missing consensus"
+        assert hasattr(
+            ensemble_result, "consensus_strength"
+        ), "Ensemble result missing consensus"
         assert (
             0 <= ensemble_result.consensus_strength <= 1
         ), f"Invalid consensus: {ensemble_result.consensus_strength}"
@@ -239,7 +257,10 @@ async def test_lstm_prediction():
 
         # システム初期化（LSTM有効）
         ml_system = AdvancedMLModels(
-            enable_cache=False, enable_parallel=False, enable_lstm=True, lstm_sequence_length=30
+            enable_cache=False,
+            enable_parallel=False,
+            enable_lstm=True,
+            lstm_sequence_length=30,
         )
         print("[OK] LSTM ML system initialization success")
 
@@ -247,11 +268,17 @@ async def test_lstm_prediction():
         if not ml_system.enable_lstm:
             print("[WARNING] LSTM disabled - TensorFlow not available")
             # LSTM無効時のデフォルト結果テスト
-            feature_set = await ml_system.extract_advanced_features(test_data, "TEST_LSTM")
-            lstm_result = await ml_system.predict_with_lstm(test_data, "TEST_LSTM", feature_set)
+            feature_set = await ml_system.extract_advanced_features(
+                test_data, "TEST_LSTM"
+            )
+            lstm_result = await ml_system.predict_with_lstm(
+                test_data, "TEST_LSTM", feature_set
+            )
 
             assert lstm_result.symbol == "TEST_LSTM", "Symbol should match"
-            assert lstm_result.trend_direction == "sideways", "Should return default sideways"
+            assert (
+                lstm_result.trend_direction == "sideways"
+            ), "Should return default sideways"
             print("[OK] LSTM default result validation passed")
             return True
 
@@ -260,22 +287,32 @@ async def test_lstm_prediction():
         print(f"[OK] Features extracted: {feature_set.feature_count}")
 
         # LSTM予測実行
-        lstm_result = await ml_system.predict_with_lstm(test_data, "TEST_LSTM", feature_set)
+        lstm_result = await ml_system.predict_with_lstm(
+            test_data, "TEST_LSTM", feature_set
+        )
 
         # 結果検証
         assert hasattr(lstm_result, "symbol"), "LSTM result missing symbol"
-        assert lstm_result.symbol == "TEST_LSTM", f"Symbol mismatch: {lstm_result.symbol}"
+        assert (
+            lstm_result.symbol == "TEST_LSTM"
+        ), f"Symbol mismatch: {lstm_result.symbol}"
         assert hasattr(lstm_result, "predictions"), "LSTM result missing predictions"
         assert hasattr(lstm_result, "confidence"), "LSTM result missing confidence"
-        assert 0 <= lstm_result.confidence <= 1, f"Invalid confidence: {lstm_result.confidence}"
-        assert hasattr(lstm_result, "trend_direction"), "LSTM result missing trend_direction"
+        assert (
+            0 <= lstm_result.confidence <= 1
+        ), f"Invalid confidence: {lstm_result.confidence}"
+        assert hasattr(
+            lstm_result, "trend_direction"
+        ), "LSTM result missing trend_direction"
         assert lstm_result.trend_direction in [
             "up",
             "down",
             "sideways",
         ], f"Invalid trend: {lstm_result.trend_direction}"
         assert hasattr(lstm_result, "model_score"), "LSTM result missing model_score"
-        assert 0 <= lstm_result.model_score <= 1, f"Invalid model score: {lstm_result.model_score}"
+        assert (
+            0 <= lstm_result.model_score <= 1
+        ), f"Invalid model score: {lstm_result.model_score}"
 
         print(f"[OK] LSTM predictions: {len(lstm_result.predictions)} points")
         print(f"[OK] Confidence: {lstm_result.confidence:.1%}")
@@ -343,7 +380,9 @@ async def test_batch_advanced_ml():
 
         # システム初期化
         ml_system = AdvancedMLModels(
-            enable_cache=True, enable_parallel=False, ensemble_models=3  # テスト用に単体実行
+            enable_cache=True,
+            enable_parallel=False,
+            ensemble_models=3,  # テスト用に単体実行
         )
         print("[OK] Batch ML system initialization success")
 
@@ -354,13 +393,20 @@ async def test_batch_advanced_ml():
             feature_set = await ml_system.extract_advanced_features(data, symbol)
 
             # アンサンブル予測
-            ensemble_result = await ml_system.ensemble_prediction(data, symbol, feature_set)
+            ensemble_result = await ml_system.ensemble_prediction(
+                data, symbol, feature_set
+            )
 
-            batch_results[symbol] = {"features": feature_set, "ensemble": ensemble_result}
+            batch_results[symbol] = {
+                "features": feature_set,
+                "ensemble": ensemble_result,
+            }
 
             print(f"[OK] {symbol} processed:")
             print(f"     Features: {feature_set.feature_count}")
-            print(f"     Ensemble prediction: {ensemble_result.ensemble_prediction:.6f}")
+            print(
+                f"     Ensemble prediction: {ensemble_result.ensemble_prediction:.6f}"
+            )
             print(f"     Confidence: {ensemble_result.weighted_confidence:.1%}")
 
         # バッチ結果検証
@@ -374,8 +420,12 @@ async def test_batch_advanced_ml():
 
             assert "features" in result, f"Missing features for {symbol}"
             assert "ensemble" in result, f"Missing ensemble for {symbol}"
-            assert result["features"].symbol == symbol, f"Symbol mismatch in features: {symbol}"
-            assert result["ensemble"].symbol == symbol, f"Symbol mismatch in ensemble: {symbol}"
+            assert (
+                result["features"].symbol == symbol
+            ), f"Symbol mismatch in features: {symbol}"
+            assert (
+                result["ensemble"].symbol == symbol
+            ), f"Symbol mismatch in ensemble: {symbol}"
 
         print(f"[OK] Batch processing completed: {len(batch_results)} symbols")
         return True
@@ -467,12 +517,16 @@ async def test_cache_integration():
         import time
 
         start_time = time.time()
-        feature_set_1 = await ml_system_cached.extract_advanced_features(test_data, "CACHE_TEST")
+        feature_set_1 = await ml_system_cached.extract_advanced_features(
+            test_data, "CACHE_TEST"
+        )
         first_time = time.time() - start_time
 
         # 2回目実行（キャッシュヒット期待）
         start_time = time.time()
-        feature_set_2 = await ml_system_cached.extract_advanced_features(test_data, "CACHE_TEST")
+        feature_set_2 = await ml_system_cached.extract_advanced_features(
+            test_data, "CACHE_TEST"
+        )
         second_time = time.time() - start_time
 
         # パフォーマンス統計取得
@@ -485,7 +539,9 @@ async def test_cache_integration():
             print(f"[OK] Speedup ratio: {speedup:.1f}x")
 
         # 結果一貫性確認
-        assert feature_set_1.symbol == feature_set_2.symbol, "Inconsistent cached symbol"
+        assert (
+            feature_set_1.symbol == feature_set_2.symbol
+        ), "Inconsistent cached symbol"
         assert (
             feature_set_1.feature_count == feature_set_2.feature_count
         ), "Inconsistent cached feature count"
@@ -516,7 +572,9 @@ async def main():
 
     # 各テスト実行
     test_results.append(("システム初期化", await test_advanced_ml_initialization()))
-    test_results.append(("高度特徴量エンジニアリング", await test_advanced_feature_extraction()))
+    test_results.append(
+        ("高度特徴量エンジニアリング", await test_advanced_feature_extraction())
+    )
     test_results.append(("アンサンブル学習", await test_ensemble_learning()))
     test_results.append(("LSTM時系列予測", await test_lstm_prediction()))
     test_results.append(("バッチML処理", await test_batch_advanced_ml()))
@@ -541,7 +599,9 @@ async def main():
         print("[SUCCESS] 全テスト成功！Advanced ML Models System準備完了")
         print("\nIssue #315 Phase 3実装成果:")
         print("- LSTM時系列予測モデル（TensorFlow/Keras）")
-        print("- アンサンブル学習（Random Forest、Gradient Boosting、Linear Regression）")
+        print(
+            "- アンサンブル学習（Random Forest、Gradient Boosting、Linear Regression）"
+        )
         print("- 高度特徴量エンジニアリング（6カテゴリー自動抽出）")
         print("- 統合最適化基盤フル活用（Issues #322-325）")
         print("- バッチ処理・キャッシュ最適化")

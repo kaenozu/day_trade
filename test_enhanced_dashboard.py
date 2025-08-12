@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # パスを追加してモジュールをインポート
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 try:
     from day_trade.dashboard.core.feature_store_monitor import FeatureStoreMonitor
@@ -38,8 +38,8 @@ async def test_enhanced_dashboard():
         # 現在のメトリクス取得テスト
         current_metrics = metrics_collector.get_current_metrics()
         if current_metrics:
-            cpu_usage = current_metrics.get('cpu', {}).get('usage_percent', 'N/A')
-            memory_usage = current_metrics.get('memory', {}).get('usage_percent', 'N/A')
+            cpu_usage = current_metrics.get("cpu", {}).get("usage_percent", "N/A")
+            memory_usage = current_metrics.get("memory", {}).get("usage_percent", "N/A")
             print(f"   📈 CPU使用率: {cpu_usage}%")
             print(f"   💾 メモリ使用率: {memory_usage}%")
 
@@ -52,7 +52,7 @@ async def test_enhanced_dashboard():
         print(f"   📊 履歴データ: {len(history)} サンプル")
 
         health_report = metrics_collector.generate_health_report()
-        health_score = health_report.get('overall_health', 0)
+        health_score = health_report.get("overall_health", 0)
         print(f"   💊 システム健全性スコア: {health_score}/100")
 
         await metrics_collector.stop_collection()
@@ -77,11 +77,13 @@ async def test_enhanced_dashboard():
         import numpy as np
         import pandas as pd
 
-        test_data = pd.DataFrame({
-            'timestamp': pd.date_range('2024-01-01', periods=20, freq='1min'),
-            'price': np.random.uniform(1000, 2000, 20),
-            'volume': np.random.randint(1000, 5000, 20)
-        })
+        test_data = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2024-01-01", periods=20, freq="1min"),
+                "price": np.random.uniform(1000, 2000, 20),
+                "volume": np.random.randint(1000, 5000, 20),
+            }
+        )
 
         # 监视开始
         await fs_monitor.start_monitoring()
@@ -94,7 +96,7 @@ async def test_enhanced_dashboard():
                 cache_key = f"test_feature_{i % 3}"
                 feature_store.get_or_generate_feature(
                     cache_key,
-                    lambda: f"generated_feature_{i}_{datetime.now().microsecond}"
+                    lambda: f"generated_feature_{i}_{datetime.now().microsecond}",
                 )
                 await asyncio.sleep(0.2)
             except Exception as e:
@@ -105,9 +107,9 @@ async def test_enhanced_dashboard():
         # 監視結果確認
         current_metrics = fs_monitor.get_current_metrics()
         if current_metrics:
-            hit_rate = current_metrics.get('hit_rate', 0)
-            speedup = current_metrics.get('speedup_ratio', 0)
-            total_requests = current_metrics.get('total_requests', 0)
+            hit_rate = current_metrics.get("hit_rate", 0)
+            speedup = current_metrics.get("speedup_ratio", 0)
+            total_requests = current_metrics.get("total_requests", 0)
 
             print(f"   🎯 キャッシュヒット率: {hit_rate}%")
             print(f"   ⚡ 高速化倍率: {speedup}x")
@@ -131,11 +133,11 @@ async def test_enhanced_dashboard():
         print("   ✅ RealtimeStream 初期化成功")
 
         # メトリクス収集器とFeature Store監視器を設定
-        if 'metrics_collector' in locals():
+        if "metrics_collector" in locals():
             realtime_stream.set_metrics_collector(metrics_collector)
             print("   🔗 MetricsCollector 連携設定完了")
 
-        if 'fs_monitor' in locals():
+        if "fs_monitor" in locals():
             realtime_stream.set_feature_store_monitor(fs_monitor)
             print("   🔗 FeatureStoreMonitor 連携設定完了")
 
@@ -159,11 +161,10 @@ async def test_enhanced_dashboard():
 
         # 簡単な負荷テスト
         for i in range(10):
-            if 'feature_store' in locals():
+            if "feature_store" in locals():
                 test_key = f"load_test_{i}"
                 feature_store.get_or_generate_feature(
-                    test_key,
-                    lambda: f"load_test_value_{i}"
+                    test_key, lambda: f"load_test_value_{i}"
                 )
 
         end_time = datetime.now()
@@ -206,6 +207,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         print("\nテスト終了")

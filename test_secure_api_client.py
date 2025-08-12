@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import pytest
 
 # パスを追加してモジュールをインポート
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 try:
     from day_trade.api.secure_api_client import (
@@ -29,10 +29,12 @@ try:
         SecurityLevel,
         URLSecurityPolicy,
     )
+
     SECURE_API_AVAILABLE = True
 except ImportError as e:
     SECURE_API_AVAILABLE = False
     print(f"⚠️ セキュアAPIクライアントが利用できません: {e}")
+
 
 # 基本的なテストケース
 class TestSecureAPIKeyManager:
@@ -53,14 +55,16 @@ class TestSecureAPIKeyManager:
             plain_key="test_api_key_12345",
             key_type=APIKeyType.QUERY_PARAM,
             allowed_hosts=["api.example.com"],
-            expiry_hours=24
+            expiry_hours=24,
         )
 
         assert success, "APIキー追加が失敗しました"
 
         # キー取得テスト
         retrieved_key = key_manager.get_api_key("test_provider", "api.example.com")
-        assert retrieved_key == "test_api_key_12345", "取得したキーが元のキーと一致しません"
+        assert (
+            retrieved_key == "test_api_key_12345"
+        ), "取得したキーが元のキーと一致しません"
 
         # 不正なホストでの取得テスト
         invalid_key = key_manager.get_api_key("test_provider", "malicious.com")
@@ -73,7 +77,7 @@ class TestSecureAPIKeyManager:
             key_id="expired_key",
             plain_key="expired_api_key",
             key_type=APIKeyType.HEADER,
-            expiry_hours=-1  # 過去の時刻で期限切れ
+            expiry_hours=-1,  # 過去の時刻で期限切れ
         )
 
         assert success, "期限切れキーの追加が失敗しました"
@@ -86,17 +90,13 @@ class TestSecureAPIKeyManager:
         """無効なキーフォーマットのテスト"""
         # 空のキー
         success = key_manager.add_api_key(
-            key_id="empty_key",
-            plain_key="",
-            key_type=APIKeyType.BEARER_TOKEN
+            key_id="empty_key", plain_key="", key_type=APIKeyType.BEARER_TOKEN
         )
         assert not success, "空のAPIキーが受け入れられました"
 
         # 短すぎるキー
         success = key_manager.add_api_key(
-            key_id="short_key",
-            plain_key="123",
-            key_type=APIKeyType.BEARER_TOKEN
+            key_id="short_key", plain_key="123", key_type=APIKeyType.BEARER_TOKEN
         )
         assert not success, "短すぎるAPIキーが受け入れられました"
 
@@ -107,7 +107,7 @@ class TestSecureAPIKeyManager:
             key_id="rotation_test",
             plain_key="original_key",
             key_type=APIKeyType.QUERY_PARAM,
-            allowed_hosts=["api.example.com"]
+            allowed_hosts=["api.example.com"],
         )
 
         # キーローテーション
@@ -116,7 +116,9 @@ class TestSecureAPIKeyManager:
 
         # 新しいキーの確認
         rotated_key = key_manager.get_api_key("rotation_test", "api.example.com")
-        assert rotated_key == "new_rotated_key", "ローテーション後のキーが正しくありません"
+        assert (
+            rotated_key == "new_rotated_key"
+        ), "ローテーション後のキーが正しくありません"
 
 
 class TestSecureURLBuilder:
@@ -132,17 +134,14 @@ class TestSecureURLBuilder:
             allowed_schemes=["https"],
             allowed_hosts=[".example.com", ".api.com"],
             max_url_length=2048,
-            max_param_length=512
+            max_param_length=512,
         )
         return SecureURLBuilder(policy)
 
     def test_secure_url_building(self, url_builder):
         """セキュアURL構築テスト"""
         base_url = "https://api.example.com/data"
-        params = {
-            "symbol": "AAPL",
-            "apikey": "test_key"
-        }
+        params = {"symbol": "AAPL", "apikey": "test_key"}
 
         secure_url = url_builder.build_secure_url(base_url, params=params)
 
@@ -155,10 +154,7 @@ class TestSecureURLBuilder:
         base_url = "https://api.example.com/stocks/{symbol}/quote"
         path_params = {"symbol": "AAPL"}
 
-        secure_url = url_builder.build_secure_url(
-            base_url,
-            path_params=path_params
-        )
+        secure_url = url_builder.build_secure_url(base_url, path_params=path_params)
 
         assert "stocks/AAPL/quote" in secure_url
         assert "{symbol}" not in secure_url
@@ -177,7 +173,7 @@ class TestSecureURLBuilder:
         with pytest.raises(ValueError):
             url_builder.build_secure_url(
                 "https://api.example.com/data/{path}",
-                path_params={"path": "../../../etc/passwd"}
+                path_params={"path": "../../../etc/passwd"},
             )
 
     def test_parameter_sanitization(self, url_builder):
@@ -186,15 +182,14 @@ class TestSecureURLBuilder:
         with pytest.raises(ValueError):
             url_builder.build_secure_url(
                 "https://api.example.com/data",
-                params={"param": "<script>alert('xss')</script>"}
+                params={"param": "<script>alert('xss')</script>"},
             )
 
         # 長すぎるパラメータ
         long_param = "x" * 1025  # max_param_length = 512を超過
         with pytest.raises(ValueError):
             url_builder.build_secure_url(
-                "https://api.example.com/data",
-                params={"param": long_param}
+                "https://api.example.com/data", params={"param": long_param}
             )
 
 
@@ -207,9 +202,13 @@ class TestSecureErrorHandler:
             pytest.skip("セキュアAPIクライアントが利用できません")
 
         # 機密情報を含むエラー
-        sensitive_error = Exception("Connection failed: api_key=secret123 to host 192.168.1.100")
+        sensitive_error = Exception(
+            "Connection failed: api_key=secret123 to host 192.168.1.100"
+        )
 
-        sanitized = SecureErrorHandler.sanitize_error_message(sensitive_error, "API接続")
+        sanitized = SecureErrorHandler.sanitize_error_message(
+            sensitive_error, "API接続"
+        )
 
         # 機密情報が除去されていることを確認
         assert "secret123" not in sanitized
@@ -247,7 +246,7 @@ async def test_integrated_security_features():
     providers = [
         ("alpha_vantage", "av_key_12345", ["www.alphavantage.co"]),
         ("yahoo_finance", "yf_key_67890", [".yahoo.com", ".yahooapis.com"]),
-        ("invalid_provider", "malicious_key", ["malicious.com"])
+        ("invalid_provider", "malicious_key", ["malicious.com"]),
     ]
 
     for provider, key, hosts in providers:
@@ -256,7 +255,7 @@ async def test_integrated_security_features():
             plain_key=key,
             key_type=APIKeyType.QUERY_PARAM,
             allowed_hosts=hosts,
-            expiry_hours=24
+            expiry_hours=24,
         )
         print(f"    {'✅' if success else '❌'} {provider}: {success}")
 
@@ -265,24 +264,36 @@ async def test_integrated_security_features():
     url_policy = URLSecurityPolicy(
         allowed_schemes=["https"],
         allowed_hosts=[".alphavantage.co", ".yahoo.com"],
-        max_url_length=2048
+        max_url_length=2048,
     )
     url_builder = SecureURLBuilder(url_policy)
 
     test_urls = [
-        ("https://www.alphavantage.co/query", {"function": "TIME_SERIES_DAILY", "symbol": "IBM"}, True),
-        ("http://www.alphavantage.co/query", {"function": "TIME_SERIES_DAILY"}, False),  # HTTP不可
-        ("https://malicious.com/query", {"param": "value"}, False)  # 不正なホスト
+        (
+            "https://www.alphavantage.co/query",
+            {"function": "TIME_SERIES_DAILY", "symbol": "IBM"},
+            True,
+        ),
+        (
+            "http://www.alphavantage.co/query",
+            {"function": "TIME_SERIES_DAILY"},
+            False,
+        ),  # HTTP不可
+        ("https://malicious.com/query", {"param": "value"}, False),  # 不正なホスト
     ]
 
     for base_url, params, should_succeed in test_urls:
         try:
             secure_url = url_builder.build_secure_url(base_url, params=params)
             result = should_succeed
-            print(f"    {'✅' if result else '❌'} URL構築: {base_url[:30]}... = {result}")
+            print(
+                f"    {'✅' if result else '❌'} URL構築: {base_url[:30]}... = {result}"
+            )
         except ValueError:
             result = not should_succeed
-            print(f"    {'✅' if result else '❌'} URL構築失敗（期待通り）: {base_url[:30]}...")
+            print(
+                f"    {'✅' if result else '❌'} URL構築失敗（期待通り）: {base_url[:30]}..."
+            )
 
     # 3. エラーハンドリングテスト
     print("  🛡️ 3. セキュアエラーハンドリングテスト")
@@ -290,17 +301,21 @@ async def test_integrated_security_features():
     test_errors = [
         ConnectionError("Connection failed to api.example.com with api_key=secret123"),
         ValueError("Invalid token: bearer_token_xyz789"),
-        TimeoutError("Request timeout for https://192.168.1.100/api")
+        TimeoutError("Request timeout for https://192.168.1.100/api"),
     ]
 
     for error in test_errors:
         sanitized = SecureErrorHandler.sanitize_error_message(error)
 
         # 機密情報が含まれていないことを確認
-        sensitive_found = any(keyword in sanitized.lower() for keyword in
-                            ["secret", "token_", "192.168", "api_key="])
+        sensitive_found = any(
+            keyword in sanitized.lower()
+            for keyword in ["secret", "token_", "192.168", "api_key="]
+        )
 
-        print(f"    {'✅' if not sensitive_found else '❌'} {type(error).__name__}: 機密情報除去済み")
+        print(
+            f"    {'✅' if not sensitive_found else '❌'} {type(error).__name__}: 機密情報除去済み"
+        )
 
     print("🎉 セキュリティ機能統合テスト完了")
 
@@ -321,9 +336,7 @@ def run_simple_tests():
     try:
         # APIキーマネージャー
         key_manager = SecureAPIKeyManager()
-        success = key_manager.add_api_key(
-            "test", "test_key_123", APIKeyType.HEADER
-        )
+        success = key_manager.add_api_key("test", "test_key_123", APIKeyType.HEADER)
         print(f"✅ APIキーマネージャー: {success}")
 
         # URLビルダー
@@ -333,8 +346,7 @@ def run_simple_tests():
 
         # エラーハンドラー
         error_msg = SecureErrorHandler.sanitize_error_message(
-            Exception("test error with api_key=secret"),
-            "テスト"
+            Exception("test error with api_key=secret"), "テスト"
         )
         print("✅ エラーハンドラー: 機密情報除去済み")
 

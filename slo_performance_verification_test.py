@@ -95,7 +95,9 @@ class SLOPerformanceTest:
         except Exception as e:
             print(f"データベースセットアップエラー: {e}")
 
-    def log_test_result(self, test_name: str, success: bool, details: Dict[str, Any] = None):
+    def log_test_result(
+        self, test_name: str, success: bool, details: Dict[str, Any] = None
+    ):
         """テスト結果をログ"""
         self.results["test_results"][test_name] = {
             "success": success,
@@ -196,7 +198,9 @@ class SLOPerformanceTest:
                 # 成功率計算
                 total_points = len(test_data)
                 successful_points = sum(1 for _, _, success in test_data if success)
-                sli_current = (successful_points / total_points) * 100 if total_points > 0 else 0
+                sli_current = (
+                    (successful_points / total_points) * 100 if total_points > 0 else 0
+                )
 
                 # エラーバジェット計算
                 target_percentage = 99.9 if slo_name == "hft_latency" else 99.0
@@ -213,7 +217,8 @@ class SLOPerformanceTest:
                     "data_generation_ms": data_generation_time * 1000,
                     "db_insert_ms": db_insert_time * 1000,
                     "calculation_ms": calc_time * 1000,
-                    "total_ms": (data_generation_time + db_insert_time + calc_time) * 1000,
+                    "total_ms": (data_generation_time + db_insert_time + calc_time)
+                    * 1000,
                     "data_points_processed": total_points,
                     "throughput_points_per_second": total_points
                     / (calc_time if calc_time > 0 else 0.001),
@@ -229,7 +234,9 @@ class SLOPerformanceTest:
                 print(f"    Data generation: {perf_data['data_generation_ms']:.1f}ms")
                 print(f"    DB insert: {perf_data['db_insert_ms']:.1f}ms")
                 print(f"    Calculation: {perf_data['calculation_ms']:.1f}ms")
-                print(f"    Throughput: {perf_data['throughput_points_per_second']:.0f} points/sec")
+                print(
+                    f"    Throughput: {perf_data['throughput_points_per_second']:.0f} points/sec"
+                )
                 print(f"    SLI: {sli_current:.3f}% (Target: {target_percentage}%)")
 
             # 全体パフォーマンス評価
@@ -237,7 +244,10 @@ class SLOPerformanceTest:
                 [r["calculation_ms"] for r in performance_results.values()]
             )
             avg_throughput = statistics.mean(
-                [r["throughput_points_per_second"] for r in performance_results.values()]
+                [
+                    r["throughput_points_per_second"]
+                    for r in performance_results.values()
+                ]
             )
 
             overall_performance = {
@@ -251,7 +261,9 @@ class SLOPerformanceTest:
 
             # HFTレイテンシ要件チェック
             hft_performance = performance_results.get("hft_latency", {})
-            hft_meets_requirements = hft_performance.get("calculation_ms", 999) < 5.0  # 5ms以内
+            hft_meets_requirements = (
+                hft_performance.get("calculation_ms", 999) < 5.0
+            )  # 5ms以内
 
             success = avg_calc_time < 100.0 and hft_meets_requirements
 
@@ -260,14 +272,19 @@ class SLOPerformanceTest:
             self.log_test_result(
                 "SLO計算性能",
                 success,
-                {"performance": overall_performance, "hft_ready": hft_meets_requirements},
+                {
+                    "performance": overall_performance,
+                    "hft_ready": hft_meets_requirements,
+                },
             )
 
             return success
 
         except Exception as e:
             self.log_test_result(
-                "SLO計算性能", False, {"error": str(e), "traceback": traceback.format_exc()}
+                "SLO計算性能",
+                False,
+                {"error": str(e), "traceback": traceback.format_exc()},
             )
             return False
 
@@ -311,8 +328,15 @@ class SLOPerformanceTest:
                         "id": i + 1,
                         "title": f"Panel {i+1}",
                         "type": "graph",
-                        "targets": [{"expr": f"test_metric_{i}", "legendFormat": f"Metric {i}"}],
-                        "gridPos": {"h": 8, "w": 12, "x": (i % 2) * 12, "y": (i // 2) * 8},
+                        "targets": [
+                            {"expr": f"test_metric_{i}", "legendFormat": f"Metric {i}"}
+                        ],
+                        "gridPos": {
+                            "h": 8,
+                            "w": 12,
+                            "x": (i % 2) * 12,
+                            "y": (i // 2) * 8,
+                        },
                     }
                     dashboard_config["dashboard"]["panels"].append(panel)
 
@@ -320,7 +344,9 @@ class SLOPerformanceTest:
 
                 # JSONシリアライゼーション性能測定
                 serialization_start = time.perf_counter()
-                dashboard_json = json.dumps(dashboard_config, indent=2, ensure_ascii=False)
+                dashboard_json = json.dumps(
+                    dashboard_config, indent=2, ensure_ascii=False
+                )
                 serialization_time = time.perf_counter() - serialization_start
 
                 # ファイル保存性能測定
@@ -354,7 +380,9 @@ class SLOPerformanceTest:
                 )
 
             # 全体パフォーマンス評価
-            total_generation_times = [r["total_ms"] for r in generation_results.values()]
+            total_generation_times = [
+                r["total_ms"] for r in generation_results.values()
+            ]
             avg_generation_time = statistics.mean(total_generation_times)
             max_generation_time = max(total_generation_times)
 
@@ -370,7 +398,9 @@ class SLOPerformanceTest:
 
             success = max_generation_time < 10000.0  # 10秒以内なら成功
 
-            self.results["performance_metrics"]["dashboard_generation"] = generation_results
+            self.results["performance_metrics"][
+                "dashboard_generation"
+            ] = generation_results
 
             self.log_test_result(
                 "ダッシュボード生成性能", success, {"performance": overall_assessment}
@@ -467,10 +497,14 @@ class SLOPerformanceTest:
                 print(f"    P95: {test_results['p95_time_us']:.3f}μs")
                 print(f"    P99: {test_results['p99_time_us']:.3f}μs")
                 print(f"    Max: {test_results['max_time_us']:.3f}μs")
-                print(f"    HFT Ready: {'YES' if test_results['hft_requirement_met'] else 'NO'}")
+                print(
+                    f"    HFT Ready: {'YES' if test_results['hft_requirement_met'] else 'NO'}"
+                )
 
             # 全体HFT準備状況
-            hft_ready_count = sum(1 for r in hft_results.values() if r["hft_requirement_met"])
+            hft_ready_count = sum(
+                1 for r in hft_results.values() if r["hft_requirement_met"]
+            )
             total_tests = len(hft_results)
 
             hft_overall = {
@@ -489,13 +523,17 @@ class SLOPerformanceTest:
 
             self.results["hft_metrics"] = hft_results
 
-            self.log_test_result("HFTレイテンシ要件", success, {"performance": hft_overall})
+            self.log_test_result(
+                "HFTレイテンシ要件", success, {"performance": hft_overall}
+            )
 
             return success
 
         except Exception as e:
             self.log_test_result(
-                "HFTレイテンシ要件", False, {"error": str(e), "traceback": traceback.format_exc()}
+                "HFTレイテンシ要件",
+                False,
+                {"error": str(e), "traceback": traceback.format_exc()},
             )
             return False
 
@@ -510,15 +548,23 @@ class SLOPerformanceTest:
             # 成功率計算
             total_tests = len(self.results["test_results"])
             successful_tests = sum(
-                1 for result in self.results["test_results"].values() if result["success"]
+                1
+                for result in self.results["test_results"].values()
+                if result["success"]
             )
-            success_rate = (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            success_rate = (
+                (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            )
 
             # パフォーマンス総合評価
             performance_summary = {
                 "test_success_rate": success_rate,
-                "slo_calculation_performance": "excellent" if success_rate >= 90 else "good",
-                "dashboard_generation_performance": "excellent" if success_rate >= 90 else "good",
+                "slo_calculation_performance": (
+                    "excellent" if success_rate >= 90 else "good"
+                ),
+                "dashboard_generation_performance": (
+                    "excellent" if success_rate >= 90 else "good"
+                ),
                 "hft_readiness": "ready" if success_rate >= 80 else "needs_improvement",
                 "production_readiness": "ready" if success_rate >= 90 else "partial",
                 "overall_rating": (
@@ -535,9 +581,15 @@ class SLOPerformanceTest:
             ):
                 hft_assessment = self.results["hft_metrics"]["overall_assessment"]
                 performance_summary["hft_specific"] = {
-                    "ultra_low_latency_ready": hft_assessment.get("ultra_low_latency_ready", False),
-                    "hft_readiness_percentage": hft_assessment.get("hft_readiness_percentage", 0),
-                    "production_hft_ready": hft_assessment.get("production_hft_ready", False),
+                    "ultra_low_latency_ready": hft_assessment.get(
+                        "ultra_low_latency_ready", False
+                    ),
+                    "hft_readiness_percentage": hft_assessment.get(
+                        "hft_readiness_percentage", 0
+                    ),
+                    "production_hft_ready": hft_assessment.get(
+                        "production_hft_ready", False
+                    ),
                 }
 
             # 推奨事項
@@ -548,9 +600,13 @@ class SLOPerformanceTest:
                     "パフォーマンステスト結果は優秀です。本番環境での展開準備が整いました。"
                 )
             elif success_rate >= 70:
-                recommendations.append("基本性能は良好ですが、一部改善の余地があります。")
+                recommendations.append(
+                    "基本性能は良好ですが、一部改善の余地があります。"
+                )
             else:
-                recommendations.append("パフォーマンスの改善が必要です。最適化を検討してください。")
+                recommendations.append(
+                    "パフォーマンスの改善が必要です。最適化を検討してください。"
+                )
 
             if "hft_metrics" in self.results:
                 hft_ready = (
@@ -585,7 +641,10 @@ class SLOPerformanceTest:
             # テスト実行順序
             test_sequence = [
                 ("SLO計算性能テスト", self.test_slo_calculation_performance),
-                ("ダッシュボード生成性能テスト", self.test_dashboard_generation_performance),
+                (
+                    "ダッシュボード生成性能テスト",
+                    self.test_dashboard_generation_performance,
+                ),
                 ("HFTレイテンシ要件テスト", self.test_hft_latency_requirements),
             ]
 
@@ -628,7 +687,9 @@ class SLOPerformanceTest:
                         f"  超低レイテンシ対応: {'OK' if hft['ultra_low_latency_ready'] else 'NG'}"
                     )
                     print(f"  HFT準備率: {hft['hft_readiness_percentage']:.1f}%")
-                    print(f"  本番HFT対応: {'OK' if hft['production_hft_ready'] else 'NG'}")
+                    print(
+                        f"  本番HFT対応: {'OK' if hft['production_hft_ready'] else 'NG'}"
+                    )
 
             return final_report
 
@@ -671,7 +732,9 @@ async def main():
 
         print("\nパフォーマンス最終結果:")
         print(f"   総合評価: {summary['overall_rating'].upper()}")
-        print(f"   本番対応: {'OK' if summary['production_readiness'] == 'ready' else 'PARTIAL'}")
+        print(
+            f"   本番対応: {'OK' if summary['production_readiness'] == 'ready' else 'PARTIAL'}"
+        )
         print(f"   HFT対応: {'OK' if summary['hft_readiness'] == 'ready' else 'NG'}")
 
         if "recommendations" in results:

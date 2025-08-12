@@ -23,8 +23,8 @@ class MinimalStabilityTest:
 
     def __init__(self):
         self.test_duration_minutes = 5  # 5分間テスト
-        self.monitoring_interval = 10   # 10秒監視間隔
-        self.operation_interval = 20    # 20秒操作間隔
+        self.monitoring_interval = 10  # 10秒監視間隔
+        self.operation_interval = 20  # 20秒操作間隔
 
         # 軽量データ構造
         self.start_time = None
@@ -80,7 +80,9 @@ class MinimalStabilityTest:
                 if int(elapsed) != int(elapsed - 0.33):  # 約20秒ごと
                     progress = elapsed / self.test_duration_minutes * 100
                     current_memory = self._get_memory_usage()
-                    print(f"[{elapsed:.1f}分] {progress:.0f}% メモリ:{current_memory:.0f}MB 操作:{self.operation_count}")
+                    print(
+                        f"[{elapsed:.1f}分] {progress:.0f}% メモリ:{current_memory:.0f}MB 操作:{self.operation_count}"
+                    )
 
                 time.sleep(2)  # 2秒待機
 
@@ -122,8 +124,8 @@ class MinimalStabilityTest:
 
             # データ制限
             if len(self.memory_samples) > self.max_samples:
-                self.memory_samples = self.memory_samples[-self.max_samples//2:]
-                self.cpu_samples = self.cpu_samples[-self.max_samples//2:]
+                self.memory_samples = self.memory_samples[-self.max_samples // 2 :]
+                self.cpu_samples = self.cpu_samples[-self.max_samples // 2 :]
 
             # 異常検知
             if memory_mb > 500:  # 500MB超過
@@ -163,7 +165,9 @@ class MinimalStabilityTest:
             self.operation_count += 1
 
             if self.operation_count % 3 == 0:
-                print(f"[操作{self.operation_count}] 平均:{avg:.1f} 標準偏差:{std_dev:.1f} {trend} ({duration_ms:.1f}ms)")
+                print(
+                    f"[操作{self.operation_count}] 平均:{avg:.1f} 標準偏差:{std_dev:.1f} {trend} ({duration_ms:.1f}ms)"
+                )
 
         except Exception as e:
             print(f"[操作エラー] {e}")
@@ -221,7 +225,9 @@ class MinimalStabilityTest:
         # 4. 操作実行（期待値の80%以上）
         expected_ops = (self.test_duration_minutes * 60) // self.operation_interval
         ops_ok = self.operation_count >= expected_ops * 0.8
-        evaluations.append(("操作実行", ops_ok, f"{self.operation_count}/{expected_ops}回"))
+        evaluations.append(
+            ("操作実行", ops_ok, f"{self.operation_count}/{expected_ops}回")
+        )
 
         # 5. エラー率（5%以下）
         error_rate = self.error_count / max(1, self.operation_count) * 100
@@ -252,14 +258,17 @@ class MinimalStabilityTest:
             print("軽量システムでの安定運用が確認できました")
 
             # 結果保存
-            self._save_results(evaluations, {
-                'duration': actual_duration,
-                'avg_memory': avg_memory,
-                'max_memory': max_memory,
-                'avg_cpu': avg_cpu,
-                'operations': self.operation_count,
-                'errors': self.error_count
-            })
+            self._save_results(
+                evaluations,
+                {
+                    "duration": actual_duration,
+                    "avg_memory": avg_memory,
+                    "max_memory": max_memory,
+                    "avg_cpu": avg_cpu,
+                    "operations": self.operation_count,
+                    "errors": self.error_count,
+                },
+            )
         else:
             print("[FAILED] 最小構成安定性テスト不合格")
             print("基本的な最適化が必要です")
@@ -276,21 +285,24 @@ class MinimalStabilityTest:
             result_file = results_dir / f"minimal_stability_{timestamp}.json"
 
             data = {
-                'test_type': 'minimal_stability',
-                'timestamp': datetime.now().isoformat(),
-                'duration_minutes': self.test_duration_minutes,
-                'statistics': stats,
-                'evaluations': [{'name': name, 'passed': passed, 'detail': detail}
-                              for name, passed, detail in evaluations]
+                "test_type": "minimal_stability",
+                "timestamp": datetime.now().isoformat(),
+                "duration_minutes": self.test_duration_minutes,
+                "statistics": stats,
+                "evaluations": [
+                    {"name": name, "passed": passed, "detail": detail}
+                    for name, passed, detail in evaluations
+                ],
             }
 
-            with open(result_file, 'w', encoding='utf-8') as f:
+            with open(result_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             print(f"結果保存: {result_file}")
 
         except Exception as e:
             print(f"結果保存エラー: {e}")
+
 
 def main():
     """メイン実行"""
@@ -316,6 +328,7 @@ def main():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = main()

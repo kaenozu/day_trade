@@ -149,8 +149,12 @@ class PerformanceBenchmarkSuite:
         print("Phase G: 本番運用最適化フェーズ")
         print("=" * 80)
         print(f"テスト開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"システム: {self.system_info['platform']} {self.system_info['architecture']}")
-        print(f"CPU: {self.system_info['cpu_cores']}コア ({self.system_info['cpu_freq']:.0f}MHz)")
+        print(
+            f"システム: {self.system_info['platform']} {self.system_info['architecture']}"
+        )
+        print(
+            f"CPU: {self.system_info['cpu_cores']}コア ({self.system_info['cpu_freq']:.0f}MHz)"
+        )
         print(f"RAM: {self.system_info['memory_total']:.1f}GB")
         print("=" * 80)
 
@@ -171,7 +175,9 @@ class PerformanceBenchmarkSuite:
             "hostname": platform.node(),
         }
 
-    def _measure_latencies(self, execution_times: List[float]) -> Tuple[float, float, float]:
+    def _measure_latencies(
+        self, execution_times: List[float]
+    ) -> Tuple[float, float, float]:
         """レイテンシ統計計算"""
         if not execution_times:
             return 0.0, 0.0, 0.0
@@ -265,7 +271,8 @@ class PerformanceBenchmarkSuite:
                 error_count=error_count,
                 metadata={
                     "symbols_tested": len(test_symbols),
-                    "cache_enabled": hasattr(fetcher, "cache") and fetcher.cache is not None,
+                    "cache_enabled": hasattr(fetcher, "cache")
+                    and fetcher.cache is not None,
                 },
             )
 
@@ -310,7 +317,9 @@ class PerformanceBenchmarkSuite:
                 ).set_index("Date")
 
                 config = OptimizationConfig(level=optimization_level)
-                technical_indicators = get_optimized_implementation("technical_indicators", config)
+                technical_indicators = get_optimized_implementation(
+                    "technical_indicators", config
+                )
 
                 execution_times = []
                 error_count = 0
@@ -328,11 +337,17 @@ class PerformanceBenchmarkSuite:
                         exec_start = time.time()
 
                         if indicator == "sma":
-                            result = technical_indicators.calculate_sma(test_data, period=20)
+                            result = technical_indicators.calculate_sma(
+                                test_data, period=20
+                            )
                         elif indicator == "ema":
-                            result = technical_indicators.calculate_ema(test_data, period=20)
+                            result = technical_indicators.calculate_ema(
+                                test_data, period=20
+                            )
                         elif indicator == "rsi":
-                            result = technical_indicators.calculate_rsi(test_data, period=14)
+                            result = technical_indicators.calculate_rsi(
+                                test_data, period=14
+                            )
                         elif indicator == "bollinger_bands":
                             result = technical_indicators.calculate_bollinger_bands(
                                 test_data, period=20
@@ -378,7 +393,9 @@ class PerformanceBenchmarkSuite:
                     metadata={
                         "data_points": data_size,
                         "indicators_tested": len(indicators),
-                        "memory_per_point": memory_usage / data_size if data_size > 0 else 0,
+                        "memory_per_point": (
+                            memory_usage / data_size if data_size > 0 else 0
+                        ),
                     },
                 )
 
@@ -429,7 +446,9 @@ class PerformanceBenchmarkSuite:
 
             try:
                 exec_start = time.time()
-                result = gpu_engine.accelerate_technical_indicators(test_data, indicators)
+                result = gpu_engine.accelerate_technical_indicators(
+                    test_data, indicators
+                )
                 exec_time = time.time() - exec_start
                 execution_times.append(exec_time)
 
@@ -474,7 +493,9 @@ class PerformanceBenchmarkSuite:
 
             results.append(benchmark_result)
 
-            print(f"    データサイズ {data_size}: {total_time:.3f}秒, {throughput:.0f} points/sec")
+            print(
+                f"    データサイズ {data_size}: {total_time:.3f}秒, {throughput:.0f} points/sec"
+            )
             print(f"    使用バックエンド: {gpu_engine.primary_backend.value}")
 
         return results
@@ -759,10 +780,13 @@ class PerformanceBenchmarkSuite:
             },
             "reliability_bottleneck": {
                 "component": error_prone,
-                "avg_error_rate": statistics.mean(component_stats[error_prone]["error_rates"]),
+                "avg_error_rate": statistics.mean(
+                    component_stats[error_prone]["error_rates"]
+                ),
                 "impact": (
                     "high"
-                    if statistics.mean(component_stats[error_prone]["error_rates"]) > 0.1
+                    if statistics.mean(component_stats[error_prone]["error_rates"])
+                    > 0.1
                     else "low"
                 ),
             },
@@ -789,7 +813,9 @@ class PerformanceBenchmarkSuite:
                     "memory_usage": [],
                 }
 
-            comparison[component][opt_level]["execution_times"].append(result.execution_time)
+            comparison[component][opt_level]["execution_times"].append(
+                result.execution_time
+            )
             comparison[component][opt_level]["throughput"].append(result.throughput)
             comparison[component][opt_level]["memory_usage"].append(result.memory_usage)
 
@@ -799,13 +825,19 @@ class PerformanceBenchmarkSuite:
                 stats = comparison[component][opt_level]
                 comparison[component][opt_level] = {
                     "avg_execution_time": (
-                        statistics.mean(stats["execution_times"]) if stats["execution_times"] else 0
+                        statistics.mean(stats["execution_times"])
+                        if stats["execution_times"]
+                        else 0
                     ),
                     "avg_throughput": (
-                        statistics.mean(stats["throughput"]) if stats["throughput"] else 0
+                        statistics.mean(stats["throughput"])
+                        if stats["throughput"]
+                        else 0
                     ),
                     "avg_memory_usage": (
-                        statistics.mean(stats["memory_usage"]) if stats["memory_usage"] else 0
+                        statistics.mean(stats["memory_usage"])
+                        if stats["memory_usage"]
+                        else 0
                     ),
                     "sample_count": len(stats["execution_times"]),
                 }
@@ -832,7 +864,9 @@ class PerformanceBenchmarkSuite:
                 recommendations.append("CUDA/OpenCLライブラリのインストール")
 
         # メモリボトルネック対策
-        if bottlenecks.get("memory_bottleneck", {}).get("avg_memory_usage", 0) > 500:  # 500MB超
+        if (
+            bottlenecks.get("memory_bottleneck", {}).get("avg_memory_usage", 0) > 500
+        ):  # 500MB超
             recommendations.append("メモリ使用量最適化")
             recommendations.append("データの段階的処理（ストリーミング）")
             recommendations.append("不要なデータのガベージコレクション強化")
@@ -961,7 +995,9 @@ class PerformanceBenchmarkSuite:
 
         if bottlenecks.get("performance_bottleneck"):
             pb = bottlenecks["performance_bottleneck"]
-            print(f"主要ボトルネック: {pb['component']} ({pb['avg_execution_time']:.3f}秒)")
+            print(
+                f"主要ボトルネック: {pb['component']} ({pb['avg_execution_time']:.3f}秒)"
+            )
 
         print("\n主要推奨事項:")
         for i, rec in enumerate(recommendations[:5], 1):

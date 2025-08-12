@@ -67,7 +67,9 @@ class SimpleBacktestEngine:
         self.trades: List[SimpleTrade] = []
         self.equity_curve: List[float] = []
 
-    def generate_mock_data(self, symbols: List[str], days: int = 150) -> Dict[str, pd.DataFrame]:
+    def generate_mock_data(
+        self, symbols: List[str], days: int = 150
+    ) -> Dict[str, pd.DataFrame]:
         """モックデータ生成"""
 
         data = {}
@@ -96,13 +98,21 @@ class SimpleBacktestEngine:
             volumes = np.random.randint(1000, 50000, days)
 
             data[symbol] = pd.DataFrame(
-                {"始値": opens, "高値": highs, "安値": lows, "終値": closes, "出来高": volumes},
+                {
+                    "始値": opens,
+                    "高値": highs,
+                    "安値": lows,
+                    "終値": closes,
+                    "出来高": volumes,
+                },
                 index=dates,
             )
 
         return data
 
-    def simple_ai_decision(self, symbol: str, data: pd.DataFrame, current_idx: int) -> Dict:
+    def simple_ai_decision(
+        self, symbol: str, data: pd.DataFrame, current_idx: int
+    ) -> Dict:
         """簡易AI判断（統計的手法）"""
 
         if current_idx < 20:
@@ -197,7 +207,9 @@ class SimpleBacktestEngine:
             current_prices = {}
             for symbol in symbols:
                 if current_date in historical_data[symbol].index:
-                    current_prices[symbol] = historical_data[symbol].loc[current_date, "終値"]
+                    current_prices[symbol] = historical_data[symbol].loc[
+                        current_date, "終値"
+                    ]
 
             # AI判断・取引実行
             for symbol in symbols:
@@ -205,11 +217,18 @@ class SimpleBacktestEngine:
                     continue
 
                 # AI判断
-                ai_decision = self.simple_ai_decision(symbol, historical_data[symbol], i)
+                ai_decision = self.simple_ai_decision(
+                    symbol, historical_data[symbol], i
+                )
 
                 # 取引実行
-                if ai_decision["action"] in ["BUY", "SELL"] and ai_decision["confidence"] > 0.5:
-                    self.execute_trade(symbol, ai_decision, current_prices[symbol], current_date)
+                if (
+                    ai_decision["action"] in ["BUY", "SELL"]
+                    and ai_decision["confidence"] > 0.5
+                ):
+                    self.execute_trade(
+                        symbol, ai_decision, current_prices[symbol], current_date
+                    )
 
             # ポートフォリオ価値更新
             portfolio_value = self.calculate_portfolio_value(current_prices)
@@ -231,7 +250,9 @@ class SimpleBacktestEngine:
 
         return result
 
-    def execute_trade(self, symbol: str, decision: Dict, price: float, timestamp: datetime):
+    def execute_trade(
+        self, symbol: str, decision: Dict, price: float, timestamp: datetime
+    ):
         """取引実行"""
 
         confidence = decision["confidence"]
@@ -289,7 +310,9 @@ class SimpleBacktestEngine:
 
         # 基本統計
         final_value = self.equity_curve[-1]
-        total_return = (final_value - self.config.initial_capital) / self.config.initial_capital
+        total_return = (
+            final_value - self.config.initial_capital
+        ) / self.config.initial_capital
 
         # リターン系列
         returns = pd.Series(self.equity_curve).pct_change().dropna()

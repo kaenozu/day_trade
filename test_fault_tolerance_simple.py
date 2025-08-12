@@ -10,6 +10,7 @@ print("Fault Tolerance & Auto Recovery System - Simple Test")
 print("Issue #312: Error Handling & Auto Recovery Implementation Test")
 print("=" * 60)
 
+
 def test_system_integration():
     """統合システムテスト"""
     print("\n=== Integrated System Test ===")
@@ -20,7 +21,7 @@ def test_system_integration():
             def __init__(self):
                 self.providers = {
                     "primary": {"failures": 0, "active": True},
-                    "backup": {"failures": 0, "active": True}
+                    "backup": {"failures": 0, "active": True},
                 }
                 self.active_provider = "primary"
                 self.degradation_level = 0
@@ -89,7 +90,9 @@ def test_system_integration():
                     print(f"  Recovered degradation to level {self.degradation_level}")
 
             def get_stats(self):
-                success_rate = self.successful_operations / max(1, self.total_operations)
+                success_rate = self.successful_operations / max(
+                    1, self.total_operations
+                )
                 return {
                     "total_operations": self.total_operations,
                     "successful_operations": self.successful_operations,
@@ -97,7 +100,7 @@ def test_system_integration():
                     "availability_percent": success_rate * 100,
                     "recovery_actions": self.recovery_actions,
                     "active_provider": self.active_provider,
-                    "degradation_level": self.degradation_level
+                    "degradation_level": self.degradation_level,
                 }
 
         # テスト実行
@@ -110,7 +113,7 @@ def test_system_integration():
             ("normal", 30),
             ("stress", 20),
             ("network_issue", 25),
-            ("normal", 25)  # 回復確認
+            ("normal", 25),  # 回復確認
         ]
 
         for scenario, count in scenarios:
@@ -139,9 +142,9 @@ def test_system_integration():
         target_availability = 90.0  # テスト環境での実用的な目標
 
         success_conditions = [
-            stats['availability_percent'] >= target_availability,
-            stats['recovery_actions'] > 0,
-            stats['total_operations'] == 100
+            stats["availability_percent"] >= target_availability,
+            stats["recovery_actions"] > 0,
+            stats["total_operations"] == 100,
         ]
 
         if all(success_conditions):
@@ -152,12 +155,15 @@ def test_system_integration():
             return True
         else:
             print("\nIntegrated system test: FAILED")
-            print(f"  Availability: {stats['availability_percent']:.2f}% (target: {target_availability}%)")
+            print(
+                f"  Availability: {stats['availability_percent']:.2f}% (target: {target_availability}%)"
+            )
             return False
 
     except Exception as e:
         print(f"Integrated system test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -167,13 +173,13 @@ def test_issue_312_requirements():
     print("\n=== Issue #312 Requirements Verification ===")
 
     requirements_status = {
-        "auto_recovery_system": True,      # 自動復旧システム
-        "graceful_degradation": True,      # グレースフルデグラデーション
-        "structured_logging": True,        # 構造化ログシステム
-        "health_checks": True,             # ヘルスチェック機能
-        "fault_tolerance": True,           # フォールトトレランス
-        "circuit_breaker": True,           # サーキットブレーカー
-        "data_source_failover": True,      # データソースフェイルオーバー
+        "auto_recovery_system": True,  # 自動復旧システム
+        "graceful_degradation": True,  # グレースフルデグラデーション
+        "structured_logging": True,  # 構造化ログシステム
+        "health_checks": True,  # ヘルスチェック機能
+        "fault_tolerance": True,  # フォールトトレランス
+        "circuit_breaker": True,  # サーキットブレーカー
+        "data_source_failover": True,  # データソースフェイルオーバー
     }
 
     print("Implementation Status:")

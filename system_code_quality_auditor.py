@@ -187,7 +187,9 @@ class PythonASTAnalyzer:
                         file_path=str(file_path),
                         line_number=walker.function_line_numbers.get(func_name, 1),
                         issue_type=IssueType.MAINTAINABILITY,
-                        severity=QualityLevel.FAIR if func_lines < 100 else QualityLevel.POOR,
+                        severity=(
+                            QualityLevel.FAIR if func_lines < 100 else QualityLevel.POOR
+                        ),
                         title="長すぎる関数",
                         description=f"関数 '{func_name}' が {func_lines} 行と長すぎます",
                         suggestion="関数を複数の小さな関数に分割することを検討してください",
@@ -203,7 +205,9 @@ class PythonASTAnalyzer:
                     line_number=1,
                     issue_type=IssueType.MAINTAINABILITY,
                     severity=(
-                        QualityLevel.POOR if walker.complexity_score < 30 else QualityLevel.CRITICAL
+                        QualityLevel.POOR
+                        if walker.complexity_score < 30
+                        else QualityLevel.CRITICAL
                     ),
                     title="高すぎる循環的複雑度",
                     description=f"ファイルの循環的複雑度が {walker.complexity_score:.1f} と高すぎます",
@@ -268,7 +272,9 @@ class PythonASTAnalyzer:
                 )
 
         # インポートチェック
-        import_lines = [line for line in lines if line.strip().startswith(("import ", "from "))]
+        import_lines = [
+            line for line in lines if line.strip().startswith(("import ", "from "))
+        ]
         if len(import_lines) > 30:
             issues.append(
                 CodeIssue(
@@ -353,7 +359,9 @@ class ASTWalker(ast.NodeVisitor):
         self.current_function = node.name
 
         # 関数の行数計算
-        func_lines = node.end_lineno - node.lineno + 1 if hasattr(node, "end_lineno") else 1
+        func_lines = (
+            node.end_lineno - node.lineno + 1 if hasattr(node, "end_lineno") else 1
+        )
         self.function_lengths[node.name] = func_lines
         self.function_line_numbers[node.name] = node.lineno
 
@@ -557,7 +565,9 @@ class SystemCodeQualityAuditor:
 
         return QualityLevel.EXCELLENT
 
-    def _calculate_quality_metrics(self, analyses: List[FileAnalysis]) -> Dict[str, Any]:
+    def _calculate_quality_metrics(
+        self, analyses: List[FileAnalysis]
+    ) -> Dict[str, Any]:
         """品質メトリクス計算"""
         if not analyses:
             return {}
@@ -573,7 +583,9 @@ class SystemCodeQualityAuditor:
 
         # ドキュメント化統計
         doc_coverages = [a.docstring_coverage for a in analyses]
-        avg_doc_coverage = sum(doc_coverages) / len(doc_coverages) if doc_coverages else 0
+        avg_doc_coverage = (
+            sum(doc_coverages) / len(doc_coverages) if doc_coverages else 0
+        )
 
         # 問題タイプ別統計
         issue_type_counts = Counter()
@@ -601,12 +613,16 @@ class SystemCodeQualityAuditor:
             ),
         }
 
-    def _generate_improvement_recommendations(self, analyses: List[FileAnalysis]) -> List[str]:
+    def _generate_improvement_recommendations(
+        self, analyses: List[FileAnalysis]
+    ) -> List[str]:
         """改善推奨事項生成"""
         recommendations = []
 
         # 品質レベル別推奨事項
-        critical_files = [a for a in analyses if a.quality_level == QualityLevel.CRITICAL]
+        critical_files = [
+            a for a in analyses if a.quality_level == QualityLevel.CRITICAL
+        ]
         if critical_files:
             recommendations.append(
                 f"重要: {len(critical_files)}個のファイルに重大な問題があります。優先的に修正してください"
@@ -667,7 +683,9 @@ class SystemCodeQualityAuditor:
 
         return recommendations[:15]  # 最大15個の推奨事項
 
-    def generate_quality_report(self, report: QualityReport, format_type: str = "summary") -> str:
+    def generate_quality_report(
+        self, report: QualityReport, format_type: str = "summary"
+    ) -> str:
         """品質レポート生成"""
         if format_type == "summary":
             return self._format_summary_report(report)
@@ -724,7 +742,9 @@ class SystemCodeQualityAuditor:
 主な問題:"""
 
             for issue in analysis.issues[:3]:  # 主要問題3個
-                detailed += f"\n  - {issue.title} (行{issue.line_number}): {issue.description}"
+                detailed += (
+                    f"\n  - {issue.title} (行{issue.line_number}): {issue.description}"
+                )
 
         return detailed
 
@@ -773,7 +793,9 @@ def main():
             print(summary_report.encode("ascii", "replace").decode("ascii"))
             print("=" * 80)
         except UnicodeEncodeError:
-            print("\n[SUMMARY] レポート出力完了（エンコーディング問題のため詳細は省略）")
+            print(
+                "\n[SUMMARY] レポート出力完了（エンコーディング問題のため詳細は省略）"
+            )
             print(f"総ファイル数: {report.total_files}")
             print(f"総行数: {report.total_lines:,}")
             print(f"品質レベル: {report.overall_quality.value.upper()}")

@@ -175,7 +175,9 @@ async def benchmark_ml_processing():
     print(f"ML処理テスト対象: {len(symbols)}銘柄")
 
     # データ取得
-    stock_data = fetcher.fetch_multiple_symbols(symbols, period="30d", use_parallel=True)
+    stock_data = fetcher.fetch_multiple_symbols(
+        symbols, period="30d", use_parallel=True
+    )
 
     if not stock_data:
         print("❌ データ取得に失敗しました")
@@ -214,7 +216,9 @@ async def benchmark_ml_processing():
                 successful_analyses += 1
 
                 print(f"  - 処理時間: {processing_time:.3f}秒")
-                print(f"  - 推奨: {advice['advice']} (信頼度: {advice['confidence']:.1f}%)")
+                print(
+                    f"  - 推奨: {advice['advice']} (信頼度: {advice['confidence']:.1f}%)"
+                )
 
             except Exception as e:
                 processing_time = time.time() - start_time
@@ -268,13 +272,19 @@ async def benchmark_memory_usage():
                 ml_engine.predict_advanced_scores(symbol, data, features)
 
     after_ml_memory = process.memory_info().rss / 1024 / 1024
-    print(f"ML処理後: {after_ml_memory:.1f}MB (+{after_ml_memory-after_data_memory:.1f}MB)")
+    print(
+        f"ML処理後: {after_ml_memory:.1f}MB (+{after_ml_memory-after_data_memory:.1f}MB)"
+    )
 
     # 85銘柄予想メモリ使用量
-    data_memory_per_stock = (after_data_memory - initial_memory) / min(20, len(sample_data))
+    data_memory_per_stock = (after_data_memory - initial_memory) / min(
+        20, len(sample_data)
+    )
     ml_memory_per_stock = (after_ml_memory - after_data_memory) / 3
 
-    estimated_total_memory = initial_memory + data_memory_per_stock * 85 + ml_memory_per_stock * 85
+    estimated_total_memory = (
+        initial_memory + data_memory_per_stock * 85 + ml_memory_per_stock * 85
+    )
 
     print(f"85銘柄予想メモリ: {estimated_total_memory:.1f}MB")
     print(f"2GB目標: {'✅ OK' if estimated_total_memory <= 2048 else '❌ 超過'}")

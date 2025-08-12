@@ -228,7 +228,9 @@ class ProductionDeploymentManager:
 
         # キャッシュ設定
         cache_config = CacheConfig(
-            backend="redis" if environment == DeploymentEnvironment.PRODUCTION else "memory",
+            backend=(
+                "redis" if environment == DeploymentEnvironment.PRODUCTION else "memory"
+            ),
             host=(
                 "redis-cluster.internal"
                 if environment == DeploymentEnvironment.PRODUCTION
@@ -240,8 +242,12 @@ class ProductionDeploymentManager:
                 if environment == DeploymentEnvironment.PRODUCTION
                 else None
             ),
-            ttl_seconds=3600 if environment == DeploymentEnvironment.PRODUCTION else 1800,
-            max_memory_mb=2048 if environment == DeploymentEnvironment.PRODUCTION else 512,
+            ttl_seconds=(
+                3600 if environment == DeploymentEnvironment.PRODUCTION else 1800
+            ),
+            max_memory_mb=(
+                2048 if environment == DeploymentEnvironment.PRODUCTION else 512
+            ),
         )
 
         # API設定
@@ -273,8 +279,12 @@ class ProductionDeploymentManager:
         monitoring_config = MonitoringConfig(
             enabled=True,
             metrics_endpoint="/metrics",
-            log_level="INFO" if environment == DeploymentEnvironment.PRODUCTION else "DEBUG",
-            log_format="json" if environment == DeploymentEnvironment.PRODUCTION else "text",
+            log_level=(
+                "INFO" if environment == DeploymentEnvironment.PRODUCTION else "DEBUG"
+            ),
+            log_format=(
+                "json" if environment == DeploymentEnvironment.PRODUCTION else "text"
+            ),
             prometheus_port=9090,
             jaeger_endpoint=(
                 "http://jaeger:14268/api/traces"
@@ -295,7 +305,9 @@ class ProductionDeploymentManager:
             encryption_key_env_var=f"ENCRYPTION_KEY_{environment.value.upper()}",
             allowed_hosts=self._get_allowed_hosts(environment),
             csrf_protection=environment == DeploymentEnvironment.PRODUCTION,
-            session_timeout_minutes=60 if environment == DeploymentEnvironment.PRODUCTION else 120,
+            session_timeout_minutes=(
+                60 if environment == DeploymentEnvironment.PRODUCTION else 120
+            ),
             password_policy=self._get_password_policy(environment),
         )
 
@@ -367,7 +379,9 @@ class ProductionDeploymentManager:
         }
         return hosts_map.get(environment, ["localhost"])
 
-    def _get_password_policy(self, environment: DeploymentEnvironment) -> Dict[str, Any]:
+    def _get_password_policy(
+        self, environment: DeploymentEnvironment
+    ) -> Dict[str, Any]:
         """パスワードポリシー"""
         if environment == DeploymentEnvironment.PRODUCTION:
             return {
@@ -446,7 +460,9 @@ class ProductionDeploymentManager:
 
         return str(uuid.uuid4())[:8]
 
-    def save_config_files(self, config: DeploymentConfig, output_dir: str = "deployment"):
+    def save_config_files(
+        self, config: DeploymentConfig, output_dir: str = "deployment"
+    ):
         """設定ファイル保存"""
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True)

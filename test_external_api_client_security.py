@@ -46,7 +46,7 @@ def test_api_key_security_management():
 
     try:
         # テスト用環境変数設定
-        os.environ['AV_API_KEY'] = 'test_alpha_vantage_key_12345'
+        os.environ["AV_API_KEY"] = "test_alpha_vantage_key_12345"
 
         config = APIConfig()
         client = ExternalAPIClient(config)
@@ -57,19 +57,19 @@ def test_api_key_security_management():
             data_type=DataType.STOCK_PRICE,
             endpoint_url="https://www.alphavantage.co/query",
             requires_auth=True,
-            auth_param_name="apikey"
+            auth_param_name="apikey",
         )
 
         # セキュリティマネージャー経由でAPIキー取得
         api_key = client._get_auth_key(endpoint)
 
-        if api_key and api_key == 'test_alpha_vantage_key_12345':
+        if api_key and api_key == "test_alpha_vantage_key_12345":
             print("  OK セキュリティマネージャーAPIキー取得 - 成功")
         else:
             print(f"  FAIL セキュリティマネージャーAPIキー取得 - 失敗: {api_key}")
 
         # 環境変数クリーンアップ
-        del os.environ['AV_API_KEY']
+        del os.environ["AV_API_KEY"]
 
     except Exception as e:
         print(f"  FAIL セキュリティマネージャーテストエラー: {e}")
@@ -78,12 +78,12 @@ def test_api_key_security_management():
     print("\n2. 従来辞書フォールバック:")
 
     try:
-        config_legacy = APIConfig(api_keys={'alpha_vantage': 'legacy_key_67890'})
+        config_legacy = APIConfig(api_keys={"alpha_vantage": "legacy_key_67890"})
         client_legacy = ExternalAPIClient(config_legacy)
 
         api_key_legacy = client_legacy._get_auth_key(endpoint)
 
-        if api_key_legacy == 'legacy_key_67890':
+        if api_key_legacy == "legacy_key_67890":
             print("  OK 従来辞書フォールバック - 成功")
         else:
             print(f"  FAIL 従来辞書フォールバック - 失敗: {api_key_legacy}")
@@ -118,17 +118,17 @@ def test_url_parameter_security():
     # 2. 危険なパラメータのテスト
     print("\n2. 危険パラメータ:")
     dangerous_params = [
-        ("symbol", "../../../etc/passwd"),          # パストラバーサル攻撃
-        ("symbol", "..\\..\\..\\windows\\system32"), # Windows パストラバーサル
-        ("symbol", "%2e%2e%2fconfig"),              # エンコード済みパストラバーサル
-        ("symbol", "//malicious.com/api"),          # プロトコル相対URL
-        ("symbol", "\\\\malicious\\share"),         # UNCパス
-        ("symbol", "test\x00.txt"),                 # NULLバイト攻撃
-        ("symbol", "<script>alert(1)</script>"),    # HTMLタグ
-        ("symbol", "'; DROP TABLE stocks; --"),    # SQLインジェクション様
-        ("symbol", "javascript:alert(1)"),         # JavaScriptスキーム
-        ("symbol", "data:text/html,<script>"),     # データスキーム
-        ("symbol", "a" * 250),                     # 長すぎるパラメータ
+        ("symbol", "../../../etc/passwd"),  # パストラバーサル攻撃
+        ("symbol", "..\\..\\..\\windows\\system32"),  # Windows パストラバーサル
+        ("symbol", "%2e%2e%2fconfig"),  # エンコード済みパストラバーサル
+        ("symbol", "//malicious.com/api"),  # プロトコル相対URL
+        ("symbol", "\\\\malicious\\share"),  # UNCパス
+        ("symbol", "test\x00.txt"),  # NULLバイト攻撃
+        ("symbol", "<script>alert(1)</script>"),  # HTMLタグ
+        ("symbol", "'; DROP TABLE stocks; --"),  # SQLインジェクション様
+        ("symbol", "javascript:alert(1)"),  # JavaScriptスキーム
+        ("symbol", "data:text/html,<script>"),  # データスキーム
+        ("symbol", "a" * 250),  # 長すぎるパラメータ
     ]
 
     for param_name, value in dangerous_params:
@@ -164,8 +164,16 @@ def test_error_message_sanitization():
             sanitized = client._sanitize_error_message(error_message, error_type)
 
             # 機密情報がサニタイズされているかチェック
-            if any(sensitive in sanitized.lower() for sensitive in
-                   ['192.168', 'c:/users', 'sk_live', 'password', '@company.com']):
+            if any(
+                sensitive in sanitized.lower()
+                for sensitive in [
+                    "192.168",
+                    "c:/users",
+                    "sk_live",
+                    "password",
+                    "@company.com",
+                ]
+            ):
                 print(f"  FAIL {error_type}: 機密情報が残存 - {sanitized}")
             else:
                 print(f"  OK {error_type}: 安全にサニタイズ済み - {sanitized}")
@@ -238,7 +246,9 @@ def test_csv_security_parsing():
     print("\n3. 大容量CSVファイル:")
 
     # 行数制限テスト
-    large_csv_rows = "Symbol,Price\n" + "\n".join([f"TEST{i},{100+i}" for i in range(60000)])
+    large_csv_rows = "Symbol,Price\n" + "\n".join(
+        [f"TEST{i},{100+i}" for i in range(60000)]
+    )
 
     try:
         df = client._parse_csv_response(large_csv_rows)
@@ -266,9 +276,7 @@ async def test_integrated_security():
 
     # セキュリティ強化されたクライアント設定
     config = APIConfig(
-        max_concurrent_requests=2,
-        default_timeout_seconds=5,
-        default_max_retries=1
+        max_concurrent_requests=2, default_timeout_seconds=5, default_max_retries=1
     )
 
     client = ExternalAPIClient(config)
@@ -285,7 +293,9 @@ async def test_integrated_security():
 
         for symbol in dangerous_symbols:
             try:
-                response = await client.fetch_stock_data(symbol, APIProvider.MOCK_PROVIDER)
+                response = await client.fetch_stock_data(
+                    symbol, APIProvider.MOCK_PROVIDER
+                )
                 if response and not response.success:
                     print(f"  OK 危険シンボル阻止: {symbol} - {response.error_message}")
                 else:
@@ -298,7 +308,9 @@ async def test_integrated_security():
         try:
             response = await client.fetch_stock_data("7203", APIProvider.MOCK_PROVIDER)
             if response and response.success:
-                print(f"  OK 正常株価取得 - レスポンス時間: {response.response_time_ms:.1f}ms")
+                print(
+                    f"  OK 正常株価取得 - レスポンス時間: {response.response_time_ms:.1f}ms"
+                )
             else:
                 error_msg = response.error_message if response else "レスポンスなし"
                 print(f"  WARN 正常株価取得失敗 - {error_msg}")
@@ -337,6 +349,7 @@ def main():
     except Exception as e:
         print(f"\nFAIL テスト実行中にエラーが発生: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -27,8 +27,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # 警告抑制
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 try:
     from src.day_trade.data.advanced_ml_engine import (
@@ -55,24 +55,24 @@ class NextGenAITestSuite:
 
     def __init__(self):
         self.test_results = {
-            'initialization': False,
-            'training': False,
-            'inference_speed': False,
-            'accuracy_target': False,
-            'mae_target': False,
-            'rmse_target': False,
-            'uncertainty_estimation': False,
-            'attention_analysis': False,
-            'ensemble_integration': False
+            "initialization": False,
+            "training": False,
+            "inference_speed": False,
+            "accuracy_target": False,
+            "mae_target": False,
+            "rmse_target": False,
+            "uncertainty_estimation": False,
+            "attention_analysis": False,
+            "ensemble_integration": False,
         }
 
         self.performance_metrics = {
-            'training_time': 0.0,
-            'inference_time': 0.0,
-            'accuracy': 0.0,
-            'mae': 0.0,
-            'rmse': 0.0,
-            'total_parameters': 0
+            "training_time": 0.0,
+            "inference_time": 0.0,
+            "accuracy": 0.0,
+            "mae": 0.0,
+            "rmse": 0.0,
+            "total_parameters": 0,
         }
 
         self.engine = None
@@ -90,7 +90,9 @@ class NextGenAITestSuite:
         # トレンド + ノイズ + 周期性
         time_index = np.arange(num_samples)
         trend = 0.001 * time_index + np.cumsum(np.random.normal(0, 0.01, num_samples))
-        seasonal = 5 * np.sin(2 * np.pi * time_index / 252) + 2 * np.sin(2 * np.pi * time_index / 50)
+        seasonal = 5 * np.sin(2 * np.pi * time_index / 252) + 2 * np.sin(
+            2 * np.pi * time_index / 50
+        )
         noise = np.random.normal(0, 2, num_samples)
 
         # 価格データ
@@ -112,24 +114,26 @@ class NextGenAITestSuite:
 
             volume = max(1000, int(np.random.normal(5000, 2000)))
 
-            data.append({
-                'Open': open_price,
-                'High': high,
-                'Low': low,
-                'Close': close,
-                'Volume': volume
-            })
+            data.append(
+                {
+                    "Open": open_price,
+                    "High": high,
+                    "Low": low,
+                    "Close": close,
+                    "Volume": volume,
+                }
+            )
 
         df = pd.DataFrame(data)
 
         # 追加テクニカル指標
-        df['MA20'] = df['Close'].rolling(window=20).mean()
-        df['MA50'] = df['Close'].rolling(window=50).mean()
-        df['RSI'] = self._calculate_rsi(df['Close'])
-        df['Volatility'] = df['Close'].rolling(window=20).std()
+        df["MA20"] = df["Close"].rolling(window=20).mean()
+        df["MA50"] = df["Close"].rolling(window=50).mean()
+        df["RSI"] = self._calculate_rsi(df["Close"])
+        df["Volatility"] = df["Close"].rolling(window=20).std()
 
         # NaN値を前方向補完
-        df = df.fillna(method='bfill').fillna(method='ffill')
+        df = df.fillna(method="bfill").fillna(method="ffill")
 
         logger.info(f"テストデータ生成完了: shape={df.shape}")
         return df
@@ -150,28 +154,30 @@ class NextGenAITestSuite:
         try:
             # カスタム設定でエンジン作成
             config = {
-                'sequence_length': 60,
-                'prediction_horizon': 5,
-                'lstm_hidden_size': 128,  # テスト用に小さく
-                'lstm_num_layers': 2,
-                'transformer_d_model': 64,
-                'transformer_num_heads': 4,
-                'transformer_num_layers': 2,
-                'cross_attention_heads': 2,
-                'fusion_hidden_dims': [256, 128],
-                'epochs': 5,  # テスト用に少なく
-                'batch_size': 16,
-                'learning_rate': 0.001
+                "sequence_length": 60,
+                "prediction_horizon": 5,
+                "lstm_hidden_size": 128,  # テスト用に小さく
+                "lstm_num_layers": 2,
+                "transformer_d_model": 64,
+                "transformer_num_heads": 4,
+                "transformer_num_layers": 2,
+                "cross_attention_heads": 2,
+                "fusion_hidden_dims": [256, 128],
+                "epochs": 5,  # テスト用に少なく
+                "batch_size": 16,
+                "learning_rate": 0.001,
             }
 
             self.engine = create_next_gen_engine(config)
 
             if self.engine:
                 summary = self.engine.get_comprehensive_summary()
-                logger.info(f"エンジン情報: {summary['engine_info']['name']} v{summary['engine_info']['version']}")
+                logger.info(
+                    f"エンジン情報: {summary['engine_info']['name']} v{summary['engine_info']['version']}"
+                )
                 logger.info(f"PyTorch利用可能: {PYTORCH_AVAILABLE}")
 
-                self.test_results['initialization'] = True
+                self.test_results["initialization"] = True
                 logger.info("✅ テスト1: 成功")
                 return True
             else:
@@ -198,20 +204,22 @@ class NextGenAITestSuite:
             start_time = time.time()
             training_result = self.engine.train_next_gen_model(
                 data=self.test_data,
-                target_column='Close',
-                enable_ensemble=False  # テスト用にシンプル化
+                target_column="Close",
+                enable_ensemble=False,  # テスト用にシンプル化
             )
             training_time = time.time() - start_time
 
             # 結果分析
-            if training_result and 'performance_summary' in training_result:
-                perf = training_result['performance_summary']
-                self.performance_metrics.update({
-                    'training_time': training_time,
-                    'accuracy': perf.get('accuracy', 0),
-                    'mae': perf.get('mae', 1.0),
-                    'rmse': perf.get('rmse', 1.0)
-                })
+            if training_result and "performance_summary" in training_result:
+                perf = training_result["performance_summary"]
+                self.performance_metrics.update(
+                    {
+                        "training_time": training_time,
+                        "accuracy": perf.get("accuracy", 0),
+                        "mae": perf.get("mae", 1.0),
+                        "rmse": perf.get("rmse", 1.0),
+                    }
+                )
 
                 logger.info(f"訓練時間: {training_time:.2f}秒")
                 logger.info(f"精度: {perf.get('accuracy', 0):.4f}")
@@ -219,22 +227,22 @@ class NextGenAITestSuite:
                 logger.info(f"RMSE: {perf.get('rmse', 1.0):.6f}")
 
                 # 目標達成チェック
-                target_achievement = training_result.get('target_achievement', {})
+                target_achievement = training_result.get("target_achievement", {})
                 achieved_targets = sum(target_achievement.values())
 
                 logger.info(f"目標達成: {achieved_targets}/4")
 
                 # 精度目標チェック
-                if perf.get('accuracy', 0) >= 0.85:  # テスト用に85%に下げる
-                    self.test_results['accuracy_target'] = True
+                if perf.get("accuracy", 0) >= 0.85:  # テスト用に85%に下げる
+                    self.test_results["accuracy_target"] = True
 
-                if perf.get('mae', 1.0) <= 0.8:  # テスト用に緩和
-                    self.test_results['mae_target'] = True
+                if perf.get("mae", 1.0) <= 0.8:  # テスト用に緩和
+                    self.test_results["mae_target"] = True
 
-                if perf.get('rmse', 1.0) <= 1.0:  # テスト用に緩和
-                    self.test_results['rmse_target'] = True
+                if perf.get("rmse", 1.0) <= 1.0:  # テスト用に緩和
+                    self.test_results["rmse_target"] = True
 
-                self.test_results['training'] = True
+                self.test_results["training"] = True
                 logger.info("✅ テスト2: 成功")
                 return True
             else:
@@ -244,6 +252,7 @@ class NextGenAITestSuite:
         except Exception as e:
             logger.error(f"❌ テスト2: 訓練エラー - {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -266,7 +275,7 @@ class NextGenAITestSuite:
                 result = self.engine.predict_next_gen(
                     data=inference_data.tail(20),
                     use_uncertainty=False,  # 高速化のため
-                    use_ensemble=False
+                    use_ensemble=False,
                 )
                 inference_time = (time.time() - start_time) * 1000  # ms変換
                 inference_times.append(inference_time)
@@ -275,7 +284,7 @@ class NextGenAITestSuite:
             min_inference_time = np.min(inference_times)
             max_inference_time = np.max(inference_times)
 
-            self.performance_metrics['inference_time'] = avg_inference_time
+            self.performance_metrics["inference_time"] = avg_inference_time
 
             logger.info(f"平均推論時間: {avg_inference_time:.2f}ms")
             logger.info(f"最小推論時間: {min_inference_time:.2f}ms")
@@ -283,11 +292,13 @@ class NextGenAITestSuite:
 
             # 目標時間チェック（テスト用に200ms以下）
             if avg_inference_time <= 200.0:
-                self.test_results['inference_speed'] = True
+                self.test_results["inference_speed"] = True
                 logger.info("✅ テスト3: 成功")
                 return True
             else:
-                logger.warning(f"⚠️ テスト3: 推論時間目標未達成 ({avg_inference_time:.2f}ms > 200ms)")
+                logger.warning(
+                    f"⚠️ テスト3: 推論時間目標未達成 ({avg_inference_time:.2f}ms > 200ms)"
+                )
                 return True  # 警告だが成功扱い
 
         except Exception as e:
@@ -307,31 +318,34 @@ class NextGenAITestSuite:
             test_samples = self.test_data.tail(50)
 
             result = self.engine.predict_next_gen(
-                data=test_samples,
-                use_uncertainty=True,
-                use_ensemble=False
+                data=test_samples, use_uncertainty=True, use_ensemble=False
             )
 
             # 結果検証
-            if 'predictions' in result and 'hybrid_lstm_transformer' in result['predictions']:
-                pred_info = result['predictions']['hybrid_lstm_transformer']
+            if (
+                "predictions" in result
+                and "hybrid_lstm_transformer" in result["predictions"]
+            ):
+                pred_info = result["predictions"]["hybrid_lstm_transformer"]
 
-                if 'uncertainty' in pred_info and pred_info['uncertainty']:
-                    uncertainty = pred_info['uncertainty']
+                if "uncertainty" in pred_info and pred_info["uncertainty"]:
+                    uncertainty = pred_info["uncertainty"]
 
                     logger.info("不確実性推定結果:")
                     logger.info(f"  - 平均不確実性: {uncertainty['mean']:.6f}")
                     logger.info(f"  - 標準偏差: {uncertainty['std']:.6f}")
-                    logger.info(f"  - エピステミック不確実性: {uncertainty['epistemic']:.6f}")
+                    logger.info(
+                        f"  - エピステミック不確実性: {uncertainty['epistemic']:.6f}"
+                    )
 
                     # 信頼度確認
-                    confidence = pred_info.get('confidence', [])
-                    if hasattr(confidence, '__len__') and len(confidence) > 0:
+                    confidence = pred_info.get("confidence", [])
+                    if hasattr(confidence, "__len__") and len(confidence) > 0:
                         avg_confidence = np.mean(confidence)
                         logger.info(f"  - 平均信頼度: {avg_confidence:.4f}")
 
                         if avg_confidence > 0.5:  # 50%以上の信頼度
-                            self.test_results['uncertainty_estimation'] = True
+                            self.test_results["uncertainty_estimation"] = True
                             logger.info("✅ テスト4: 成功")
                             return True
 
@@ -355,26 +369,30 @@ class NextGenAITestSuite:
             analysis_data = self.test_data.tail(30)
 
             result = self.engine.predict_next_gen(
-                data=analysis_data,
-                use_uncertainty=False,
-                use_ensemble=False
+                data=analysis_data, use_uncertainty=False, use_ensemble=False
             )
 
             # アテンション分析結果確認
-            if 'attention_analysis' in result:
-                attention = result['attention_analysis']
+            if "attention_analysis" in result:
+                attention = result["attention_analysis"]
 
                 logger.info("アテンション分析結果:")
-                logger.info(f"  - LSTM寄与度: {attention.get('lstm_contribution', 0):.4f}")
-                logger.info(f"  - Transformer寄与度: {attention.get('transformer_contribution', 0):.4f}")
-                logger.info(f"  - バランス: {attention.get('attention_balance', 'N/A')}")
+                logger.info(
+                    f"  - LSTM寄与度: {attention.get('lstm_contribution', 0):.4f}"
+                )
+                logger.info(
+                    f"  - Transformer寄与度: {attention.get('transformer_contribution', 0):.4f}"
+                )
+                logger.info(
+                    f"  - バランス: {attention.get('attention_balance', 'N/A')}"
+                )
 
                 # バランス確認
-                lstm_contrib = attention.get('lstm_contribution', 0)
-                transformer_contrib = attention.get('transformer_contribution', 0)
+                lstm_contrib = attention.get("lstm_contribution", 0)
+                transformer_contrib = attention.get("transformer_contribution", 0)
 
                 if 0.2 <= lstm_contrib <= 0.8 and 0.2 <= transformer_contrib <= 0.8:
-                    self.test_results['attention_analysis'] = True
+                    self.test_results["attention_analysis"] = True
                     logger.info("✅ テスト5: 成功")
                     return True
                 else:
@@ -403,30 +421,27 @@ class NextGenAITestSuite:
             # アンサンブル訓練（時間短縮のため小規模）
             logger.info("アンサンブル訓練実行中...")
             training_result = self.engine.train_next_gen_model(
-                data=small_data,
-                enable_ensemble=True
+                data=small_data, enable_ensemble=True
             )
 
             # アンサンブル予測
             ensemble_result = self.engine.predict_next_gen(
-                data=small_data.tail(20),
-                use_ensemble=True,
-                use_uncertainty=False
+                data=small_data.tail(20), use_ensemble=True, use_uncertainty=False
             )
 
             # 結果検証
-            if 'predictions' in ensemble_result:
-                predictions = ensemble_result['predictions']
+            if "predictions" in ensemble_result:
+                predictions = ensemble_result["predictions"]
 
                 # アンサンブル結果があるかチェック
-                has_ensemble = 'ensemble' in predictions
-                has_hybrid = 'hybrid_lstm_transformer' in predictions
+                has_ensemble = "ensemble" in predictions
+                has_hybrid = "hybrid_lstm_transformer" in predictions
 
                 logger.info(f"アンサンブル結果有無: {has_ensemble}")
                 logger.info(f"ハイブリッド結果有無: {has_hybrid}")
 
                 if has_hybrid:  # 最低限ハイブリッドモデルが動作
-                    self.test_results['ensemble_integration'] = True
+                    self.test_results["ensemble_integration"] = True
                     logger.info("✅ テスト6: 成功")
                     return True
 
@@ -451,7 +466,7 @@ class NextGenAITestSuite:
             self.test_3_inference_speed,
             self.test_4_uncertainty_estimation,
             self.test_5_attention_analysis,
-            self.test_6_ensemble_integration
+            self.test_6_ensemble_integration,
         ]
 
         for i, test_func in enumerate(test_functions, 1):
@@ -471,21 +486,21 @@ class NextGenAITestSuite:
         success_rate = passed_tests / total_tests * 100
 
         summary = {
-            'test_results': self.test_results,
-            'performance_metrics': self.performance_metrics,
-            'summary_statistics': {
-                'passed_tests': passed_tests,
-                'total_tests': total_tests,
-                'success_rate': success_rate,
-                'total_time': total_time,
-                'pytorch_available': PYTORCH_AVAILABLE
+            "test_results": self.test_results,
+            "performance_metrics": self.performance_metrics,
+            "summary_statistics": {
+                "passed_tests": passed_tests,
+                "total_tests": total_tests,
+                "success_rate": success_rate,
+                "total_time": total_time,
+                "pytorch_available": PYTORCH_AVAILABLE,
             },
-            'target_achievements': {
-                'accuracy_85%+': self.test_results['accuracy_target'],
-                'mae_0.8_or_less': self.test_results['mae_target'],
-                'rmse_1.0_or_less': self.test_results['rmse_target'],
-                'inference_200ms_or_less': self.test_results['inference_speed']
-            }
+            "target_achievements": {
+                "accuracy_85%+": self.test_results["accuracy_target"],
+                "mae_0.8_or_less": self.test_results["mae_target"],
+                "rmse_1.0_or_less": self.test_results["rmse_target"],
+                "inference_200ms_or_less": self.test_results["inference_speed"],
+            },
         }
 
         # 結果表示
@@ -494,14 +509,16 @@ class NextGenAITestSuite:
         logger.info(f"成功率: {success_rate:.1f}% ({passed_tests}/{total_tests})")
         logger.info(f"総実行時間: {total_time:.2f}秒")
 
-        if self.performance_metrics['accuracy'] > 0:
+        if self.performance_metrics["accuracy"] > 0:
             logger.info("性能指標:")
             logger.info(f"  - 精度: {self.performance_metrics['accuracy']:.4f}")
             logger.info(f"  - MAE: {self.performance_metrics['mae']:.6f}")
             logger.info(f"  - RMSE: {self.performance_metrics['rmse']:.6f}")
-            logger.info(f"  - 推論時間: {self.performance_metrics['inference_time']:.2f}ms")
+            logger.info(
+                f"  - 推論時間: {self.performance_metrics['inference_time']:.2f}ms"
+            )
 
-        target_achieved = sum(summary['target_achievements'].values())
+        target_achieved = sum(summary["target_achievements"].values())
         logger.info(f"目標達成: {target_achieved}/4")
 
         if success_rate >= 80:
@@ -527,15 +544,16 @@ def main():
 
         # JSON出力（オプション）
         import json
+
         results_json = json.dumps(results, indent=2, default=str)
 
-        with open('next_gen_ai_test_results.json', 'w', encoding='utf-8') as f:
+        with open("next_gen_ai_test_results.json", "w", encoding="utf-8") as f:
             f.write(results_json)
 
         print("\nテスト結果: next_gen_ai_test_results.json に保存")
 
         # 終了コード
-        success_rate = results['summary_statistics']['success_rate']
+        success_rate = results["summary_statistics"]["success_rate"]
         exit_code = 0 if success_rate >= 80 else 1
 
         sys.exit(exit_code)
@@ -546,6 +564,7 @@ def main():
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

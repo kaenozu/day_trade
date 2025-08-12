@@ -32,6 +32,7 @@ print("REAL DATA ML ANALYSIS TEST - 85 Symbols")
 print("Issue #321: Real data final operation verification")
 print("=" * 60)
 
+
 class RealDataMLTester:
     """実データML分析テスター"""
 
@@ -39,18 +40,92 @@ class RealDataMLTester:
         # TOPIX Core30 + 追加銘柄で85銘柄を構成
         self.target_symbols = [
             # TOPIX Core30
-            "7203.T", "8306.T", "9984.T", "6758.T", "9432.T", "8001.T", "6861.T", "8058.T",
-            "4502.T", "7974.T", "8411.T", "8316.T", "8031.T", "8053.T", "7751.T", "6981.T",
-            "9983.T", "4568.T", "6367.T", "6954.T", "9434.T", "4063.T", "6098.T", "8035.T",
-            "4523.T", "7267.T", "9101.T", "8766.T", "8802.T", "5401.T",
+            "7203.T",
+            "8306.T",
+            "9984.T",
+            "6758.T",
+            "9432.T",
+            "8001.T",
+            "6861.T",
+            "8058.T",
+            "4502.T",
+            "7974.T",
+            "8411.T",
+            "8316.T",
+            "8031.T",
+            "8053.T",
+            "7751.T",
+            "6981.T",
+            "9983.T",
+            "4568.T",
+            "6367.T",
+            "6954.T",
+            "9434.T",
+            "4063.T",
+            "6098.T",
+            "8035.T",
+            "4523.T",
+            "7267.T",
+            "9101.T",
+            "8766.T",
+            "8802.T",
+            "5401.T",
             # 追加55銘柄
-            "4689.T", "2914.T", "4755.T", "3659.T", "9613.T", "2432.T", "4385.T", "9437.T",
-            "4704.T", "4751.T", "3382.T", "2801.T", "2502.T", "9201.T", "9202.T", "5020.T",
-            "9501.T", "9502.T", "8604.T", "7182.T", "4005.T", "4061.T", "8795.T", "4777.T",
-            "3776.T", "4478.T", "4485.T", "4490.T", "3900.T", "3774.T", "4382.T", "4386.T",
-            "4475.T", "4421.T", "3655.T", "3844.T", "4833.T", "4563.T", "4592.T", "4564.T",
-            "4588.T", "4596.T", "4591.T", "4565.T", "7707.T", "3692.T", "3656.T", "3760.T",
-            "9449.T", "4726.T", "7779.T", "6178.T", "4847.T", "4598.T", "4880.T"
+            "4689.T",
+            "2914.T",
+            "4755.T",
+            "3659.T",
+            "9613.T",
+            "2432.T",
+            "4385.T",
+            "9437.T",
+            "4704.T",
+            "4751.T",
+            "3382.T",
+            "2801.T",
+            "2502.T",
+            "9201.T",
+            "9202.T",
+            "5020.T",
+            "9501.T",
+            "9502.T",
+            "8604.T",
+            "7182.T",
+            "4005.T",
+            "4061.T",
+            "8795.T",
+            "4777.T",
+            "3776.T",
+            "4478.T",
+            "4485.T",
+            "4490.T",
+            "3900.T",
+            "3774.T",
+            "4382.T",
+            "4386.T",
+            "4475.T",
+            "4421.T",
+            "3655.T",
+            "3844.T",
+            "4833.T",
+            "4563.T",
+            "4592.T",
+            "4564.T",
+            "4588.T",
+            "4596.T",
+            "4591.T",
+            "4565.T",
+            "7707.T",
+            "3692.T",
+            "3656.T",
+            "3760.T",
+            "9449.T",
+            "4726.T",
+            "7779.T",
+            "6178.T",
+            "4847.T",
+            "4598.T",
+            "4880.T",
         ]
 
         self.performance_target = 3.6  # 3.6秒目標
@@ -65,7 +140,9 @@ class RealDataMLTester:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        print(f"Data period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        print(
+            f"Data period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        )
 
         market_data = {}
         successful_fetches = 0
@@ -87,7 +164,9 @@ class RealDataMLTester:
                 if (i + 1) % 20 == 0:
                     progress = (i + 1) / len(self.target_symbols) * 100
                     elapsed = time.time() - start_time
-                    print(f"  Progress: {progress:.1f}% ({i + 1}/{len(self.target_symbols)}) - {elapsed:.1f}s")
+                    print(
+                        f"  Progress: {progress:.1f}% ({i + 1}/{len(self.target_symbols)}) - {elapsed:.1f}s"
+                    )
 
                 time.sleep(0.1)  # API制限対策
 
@@ -99,7 +178,9 @@ class RealDataMLTester:
         print("\nData fetch results:")
         print(f"  Successful: {successful_fetches}/{len(self.target_symbols)} symbols")
         print(f"  Fetch time: {fetch_time:.2f} seconds")
-        print(f"  Average per symbol: {fetch_time/len(self.target_symbols):.3f} seconds")
+        print(
+            f"  Average per symbol: {fetch_time/len(self.target_symbols):.3f} seconds"
+        )
 
         return market_data
 
@@ -130,45 +211,47 @@ class RealDataMLTester:
         df = hist.copy()
 
         # 基本価格指標
-        df['Returns'] = df['Close'].pct_change()
-        df['HL_Ratio'] = (df['High'] - df['Low']) / df['Close']
-        df['OC_Ratio'] = (df['Open'] - df['Close']) / df['Close']
+        df["Returns"] = df["Close"].pct_change()
+        df["HL_Ratio"] = (df["High"] - df["Low"]) / df["Close"]
+        df["OC_Ratio"] = (df["Open"] - df["Close"]) / df["Close"]
 
         # 移動平均
-        df['SMA_5'] = df['Close'].rolling(5).mean()
-        df['SMA_10'] = df['Close'].rolling(10).mean()
-        df['SMA_20'] = df['Close'].rolling(20).mean()
-        df['EMA_12'] = df['Close'].ewm(span=12).mean()
-        df['EMA_26'] = df['Close'].ewm(span=26).mean()
+        df["SMA_5"] = df["Close"].rolling(5).mean()
+        df["SMA_10"] = df["Close"].rolling(10).mean()
+        df["SMA_20"] = df["Close"].rolling(20).mean()
+        df["EMA_12"] = df["Close"].ewm(span=12).mean()
+        df["EMA_26"] = df["Close"].ewm(span=26).mean()
 
         # RSI
-        delta = df['Close'].diff()
+        delta = df["Close"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+        df["RSI"] = 100 - (100 / (1 + rs))
 
         # MACD
-        df['MACD'] = df['EMA_12'] - df['EMA_26']
-        df['MACD_Signal'] = df['MACD'].ewm(span=9).mean()
-        df['MACD_Histogram'] = df['MACD'] - df['MACD_Signal']
+        df["MACD"] = df["EMA_12"] - df["EMA_26"]
+        df["MACD_Signal"] = df["MACD"].ewm(span=9).mean()
+        df["MACD_Histogram"] = df["MACD"] - df["MACD_Signal"]
 
         # ボリンジャーバンド
-        df['BB_Middle'] = df['Close'].rolling(20).mean()
-        bb_std = df['Close'].rolling(20).std()
-        df['BB_Upper'] = df['BB_Middle'] + (bb_std * 2)
-        df['BB_Lower'] = df['BB_Middle'] - (bb_std * 2)
-        df['BB_Position'] = (df['Close'] - df['BB_Lower']) / (df['BB_Upper'] - df['BB_Lower'])
+        df["BB_Middle"] = df["Close"].rolling(20).mean()
+        bb_std = df["Close"].rolling(20).std()
+        df["BB_Upper"] = df["BB_Middle"] + (bb_std * 2)
+        df["BB_Lower"] = df["BB_Middle"] - (bb_std * 2)
+        df["BB_Position"] = (df["Close"] - df["BB_Lower"]) / (
+            df["BB_Upper"] - df["BB_Lower"]
+        )
 
         # 出来高指標
-        df['Volume_SMA'] = df['Volume'].rolling(20).mean()
-        df['Volume_Ratio'] = df['Volume'] / df['Volume_SMA']
+        df["Volume_SMA"] = df["Volume"].rolling(20).mean()
+        df["Volume_Ratio"] = df["Volume"] / df["Volume_SMA"]
 
         # ボラティリティ
-        df['Volatility'] = df['Returns'].rolling(20).std()
+        df["Volatility"] = df["Returns"].rolling(20).std()
 
         # 欠損値を前方埋め
-        df = df.fillna(method='ffill').dropna()
+        df = df.fillna(method="ffill").dropna()
 
         return df
 
@@ -197,11 +280,15 @@ class RealDataMLTester:
                 prediction_score = self._simple_prediction_model(features)
 
                 ml_results[symbol] = {
-                    'prediction_score': prediction_score,
-                    'confidence': min(0.95, 0.6 + np.random.random() * 0.3),
-                    'features_count': len(features.columns),
-                    'data_points': len(features),
-                    'signal': 'BUY' if prediction_score > 0.6 else 'SELL' if prediction_score < 0.4 else 'HOLD'
+                    "prediction_score": prediction_score,
+                    "confidence": min(0.95, 0.6 + np.random.random() * 0.3),
+                    "features_count": len(features.columns),
+                    "data_points": len(features),
+                    "signal": (
+                        "BUY"
+                        if prediction_score > 0.6
+                        else "SELL" if prediction_score < 0.4 else "HOLD"
+                    ),
                 }
 
                 successful_analyses += 1
@@ -222,7 +309,9 @@ class RealDataMLTester:
         print(f"  Actual time: {analysis_time:.2f}s")
         print(f"  Performance ratio: {analysis_time / self.performance_target:.2f}x")
         print(f"  Successful analyses: {successful_analyses}/{len(analysis_symbols)}")
-        print(f"  Success rate: {successful_analyses / len(analysis_symbols) * 100:.1f}%")
+        print(
+            f"  Success rate: {successful_analyses / len(analysis_symbols) * 100:.1f}%"
+        )
         print(f"  Throughput: {successful_analyses / analysis_time:.1f} symbols/second")
 
         # パフォーマンス評価
@@ -232,9 +321,15 @@ class RealDataMLTester:
         overall_success = performance_met and success_rate_met
 
         print("\nPerformance Evaluation:")
-        print(f"  [{'OK' if performance_met else 'NG'}] Time target: {'ACHIEVED' if performance_met else 'MISSED'}")
-        print(f"  [{'OK' if success_rate_met else 'NG'}] Success rate: {'ACCEPTABLE' if success_rate_met else 'LOW'}")
-        print(f"  [{'OK' if overall_success else 'NG'}] Overall: {'PASSED' if overall_success else 'FAILED'}")
+        print(
+            f"  [{'OK' if performance_met else 'NG'}] Time target: {'ACHIEVED' if performance_met else 'MISSED'}"
+        )
+        print(
+            f"  [{'OK' if success_rate_met else 'NG'}] Success rate: {'ACCEPTABLE' if success_rate_met else 'LOW'}"
+        )
+        print(
+            f"  [{'OK' if overall_success else 'NG'}] Overall: {'PASSED' if overall_success else 'FAILED'}"
+        )
 
         self.ml_results = ml_results
         return ml_results, analysis_time, overall_success
@@ -248,33 +343,35 @@ class RealDataMLTester:
             score = 0.5
 
             # RSI評価
-            if 'RSI' in features.columns and not pd.isna(latest['RSI']):
-                rsi = latest['RSI']
+            if "RSI" in features.columns and not pd.isna(latest["RSI"]):
+                rsi = latest["RSI"]
                 if rsi < 30:
                     score += 0.2
                 elif rsi > 70:
                     score -= 0.2
 
             # MACD評価
-            if 'MACD' in features.columns and not pd.isna(latest['MACD']):
-                macd = latest['MACD']
-                macd_signal = latest.get('MACD_Signal', 0)
+            if "MACD" in features.columns and not pd.isna(latest["MACD"]):
+                macd = latest["MACD"]
+                macd_signal = latest.get("MACD_Signal", 0)
                 if macd > macd_signal:
                     score += 0.1
                 else:
                     score -= 0.1
 
             # 移動平均評価
-            if 'SMA_5' in features.columns and 'SMA_20' in features.columns:
-                if not pd.isna(latest['SMA_5']) and not pd.isna(latest['SMA_20']):
-                    if latest['SMA_5'] > latest['SMA_20']:
+            if "SMA_5" in features.columns and "SMA_20" in features.columns:
+                if not pd.isna(latest["SMA_5"]) and not pd.isna(latest["SMA_20"]):
+                    if latest["SMA_5"] > latest["SMA_20"]:
                         score += 0.15
                     else:
                         score -= 0.15
 
             # ボリューム評価
-            if 'Volume_Ratio' in features.columns and not pd.isna(latest['Volume_Ratio']):
-                volume_ratio = latest['Volume_Ratio']
+            if "Volume_Ratio" in features.columns and not pd.isna(
+                latest["Volume_Ratio"]
+            ):
+                volume_ratio = latest["Volume_Ratio"]
                 if volume_ratio > 1.5:
                     score += 0.1
                 elif volume_ratio < 0.5:
@@ -294,9 +391,9 @@ class RealDataMLTester:
             return {}
 
         # 予測品質統計
-        scores = [r['prediction_score'] for r in self.ml_results.values()]
-        confidences = [r['confidence'] for r in self.ml_results.values()]
-        signals = [r['signal'] for r in self.ml_results.values()]
+        scores = [r["prediction_score"] for r in self.ml_results.values()]
+        confidences = [r["confidence"] for r in self.ml_results.values()]
+        signals = [r["signal"] for r in self.ml_results.values()]
 
         # シグナル分布
         signal_counts = {signal: signals.count(signal) for signal in set(signals)}
@@ -308,20 +405,25 @@ class RealDataMLTester:
 
         # 品質評価
         quality_metrics = {
-            'total_predictions': len(self.ml_results),
-            'average_score': avg_score,
-            'average_confidence': avg_confidence,
-            'score_standard_deviation': score_std,
-            'signal_distribution': signal_counts,
-            'high_confidence_count': sum(1 for c in confidences if c > 0.8),
-            'balanced_signals': abs(signal_counts.get('BUY', 0) - signal_counts.get('SELL', 0)) <= len(signals) * 0.3
+            "total_predictions": len(self.ml_results),
+            "average_score": avg_score,
+            "average_confidence": avg_confidence,
+            "score_standard_deviation": score_std,
+            "signal_distribution": signal_counts,
+            "high_confidence_count": sum(1 for c in confidences if c > 0.8),
+            "balanced_signals": abs(
+                signal_counts.get("BUY", 0) - signal_counts.get("SELL", 0)
+            )
+            <= len(signals) * 0.3,
         }
 
         print("Prediction Quality Metrics:")
         print(f"  Total predictions: {quality_metrics['total_predictions']}")
         print(f"  Average score: {quality_metrics['average_score']:.3f}")
         print(f"  Average confidence: {quality_metrics['average_confidence']:.3f}")
-        print(f"  Score std deviation: {quality_metrics['score_standard_deviation']:.3f}")
+        print(
+            f"  Score std deviation: {quality_metrics['score_standard_deviation']:.3f}"
+        )
         print(f"  High confidence (>0.8): {quality_metrics['high_confidence_count']}")
 
         print("\nSignal Distribution:")
@@ -331,21 +433,24 @@ class RealDataMLTester:
 
         # 品質評価
         quality_score = 0
-        if quality_metrics['average_confidence'] > 0.7:
+        if quality_metrics["average_confidence"] > 0.7:
             quality_score += 25
-        if 0.3 <= quality_metrics['average_score'] <= 0.7:
+        if 0.3 <= quality_metrics["average_score"] <= 0.7:
             quality_score += 25
-        if quality_metrics['score_standard_deviation'] > 0.1:
+        if quality_metrics["score_standard_deviation"] > 0.1:
             quality_score += 25
-        if quality_metrics['balanced_signals']:
+        if quality_metrics["balanced_signals"]:
             quality_score += 25
 
         print(f"\nOverall Quality Score: {quality_score}/100")
 
         quality_passed = quality_score >= 75
-        print(f"Quality Assessment: [{'OK' if quality_passed else 'NG'}] {'PASSED' if quality_passed else 'FAILED'}")
+        print(
+            f"Quality Assessment: [{'OK' if quality_passed else 'NG'}] {'PASSED' if quality_passed else 'FAILED'}"
+        )
 
         return quality_metrics
+
 
 def main():
     """メイン実行"""
@@ -371,7 +476,9 @@ def main():
             return False
 
         # 3. ML分析実行
-        ml_results, analysis_time, performance_success = tester.execute_ml_analysis(prepared_data)
+        ml_results, analysis_time, performance_success = tester.execute_ml_analysis(
+            prepared_data
+        )
 
         # 4. 予測品質分析
         quality_metrics = tester.analyze_prediction_quality()
@@ -386,7 +493,14 @@ def main():
             ("Feature Preparation", len(prepared_data) >= 50),
             ("Performance Target", analysis_time <= tester.performance_target),
             ("Analysis Success Rate", len(ml_results) >= len(prepared_data) * 0.9),
-            ("Prediction Quality", quality_metrics.get('average_confidence', 0) > 0.7 if quality_metrics else False)
+            (
+                "Prediction Quality",
+                (
+                    quality_metrics.get("average_confidence", 0) > 0.7
+                    if quality_metrics
+                    else False
+                ),
+            ),
         ]
 
         passed_criteria = 0
@@ -403,8 +517,12 @@ def main():
         if overall_success:
             print("[SUCCESS] Real Data ML Analysis: PASSED")
             print(f"  - System successfully analyzed {len(ml_results)} symbols")
-            print(f"  - Processing time: {analysis_time:.2f}s (target: {tester.performance_target:.1f}s)")
-            print(f"  - Average confidence: {quality_metrics.get('average_confidence', 0):.3f}")
+            print(
+                f"  - Processing time: {analysis_time:.2f}s (target: {tester.performance_target:.1f}s)"
+            )
+            print(
+                f"  - Average confidence: {quality_metrics.get('average_confidence', 0):.3f}"
+            )
             print("  - Ready for production ML trading analysis")
 
             return True
@@ -418,8 +536,10 @@ def main():
     except Exception as e:
         print(f"Real data ML analysis test error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = main()

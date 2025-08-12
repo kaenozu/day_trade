@@ -107,7 +107,9 @@ class FinalLiveDataValidator:
             all_safe = True
             for check_name, is_safe in safety_checks:
                 status = "OK" if is_safe else "NG"
-                self.print_status(f"  {status} {check_name}: {'有効' if is_safe else '無効'}")
+                self.print_status(
+                    f"  {status} {check_name}: {'有効' if is_safe else '無効'}"
+                )
                 if not is_safe:
                     all_safe = False
 
@@ -132,7 +134,7 @@ class FinalLiveDataValidator:
                 symbols=self.test_symbols,
                 signal_generator=self.signal_generator,
                 stock_fetcher=self.stock_fetcher,
-                update_interval=30.0  # 実データテスト用
+                update_interval=30.0,  # 実データテスト用
             )
 
             self.print_status("全コンポーネント初期化完了", "SUCCESS")
@@ -188,7 +190,9 @@ class FinalLiveDataValidator:
 
         # 結果サマリー
         success_rate = (results["success_count"] / len(self.test_symbols)) * 100
-        self.print_status(f"データ取得成功率: {success_rate:.1f}% ({results['success_count']}/{len(self.test_symbols)})")
+        self.print_status(
+            f"データ取得成功率: {success_rate:.1f}% ({results['success_count']}/{len(self.test_symbols)})"
+        )
         self.print_status(f"データ取得時間: {results['acquisition_time']:.2f}秒")
 
         if success_rate < 80:
@@ -213,8 +217,8 @@ class FinalLiveDataValidator:
                     quality_score -= min(days_old / 30, 0.3)
 
             # 価格の整合性チェック
-            if 'High' in data.columns and 'Low' in data.columns:
-                invalid_prices = (data['High'] < data['Low']).sum()
+            if "High" in data.columns and "Low" in data.columns:
+                invalid_prices = (data["High"] < data["Low"]).sum()
                 if invalid_prices > 0:
                     quality_score -= (invalid_prices / len(data)) * 0.2
 
@@ -238,7 +242,9 @@ class FinalLiveDataValidator:
         target_time = 3.6  # 目標：85銘柄3.6秒
         adjusted_target = target_time * (len(self.test_symbols) / 85)  # 銘柄数調整
 
-        self.print_status(f"目標時間: {adjusted_target:.2f}秒 ({len(self.test_symbols)}銘柄対象)")
+        self.print_status(
+            f"目標時間: {adjusted_target:.2f}秒 ({len(self.test_symbols)}銘柄対象)"
+        )
 
         # 複数回実行して性能測定
         test_iterations = 3
@@ -264,11 +270,15 @@ class FinalLiveDataValidator:
                 self.errors.append(f"ML Analysis iteration {iteration + 1}: {e}")
 
         if results["analysis_times"]:
-            results["average_time"] = sum(results["analysis_times"]) / len(results["analysis_times"])
+            results["average_time"] = sum(results["analysis_times"]) / len(
+                results["analysis_times"]
+            )
             results["target_achievement"] = results["average_time"] <= adjusted_target
 
             self.print_status(f"平均分析時間: {results['average_time']:.2f}秒")
-            self.print_status(f"目標達成: {'OK' if results['target_achievement'] else 'NG'}")
+            self.print_status(
+                f"目標達成: {'OK' if results['target_achievement'] else 'NG'}"
+            )
 
         return results
 
@@ -309,14 +319,18 @@ class FinalLiveDataValidator:
                     quality_score = self._evaluate_signal_quality(analysis.signal)
                     results["signal_quality"][symbol] = quality_score
 
-                    self.print_status(f"  {symbol}: {signal_type.upper()} (信頼度: {confidence:.1f}%, 品質: {quality_score:.2f})")
+                    self.print_status(
+                        f"  {symbol}: {signal_type.upper()} (信頼度: {confidence:.1f}%, 品質: {quality_score:.2f})"
+                    )
 
             # 結果サマリー
             signal_rate = (results["signals_generated"] / len(self.test_symbols)) * 100
             self.print_status(f"シグナル生成率: {signal_rate:.1f}%")
 
             if results["signal_quality"]:
-                avg_quality = sum(results["signal_quality"].values()) / len(results["signal_quality"])
+                avg_quality = sum(results["signal_quality"].values()) / len(
+                    results["signal_quality"]
+                )
                 self.print_status(f"平均シグナル品質: {avg_quality:.2f}")
 
         except Exception as e:
@@ -335,13 +349,15 @@ class FinalLiveDataValidator:
             quality_score += confidence_score * 0.5
 
             # 理由の具体性スコア（30%）
-            if hasattr(signal, 'reasons') and signal.reasons:
+            if hasattr(signal, "reasons") and signal.reasons:
                 reason_score = min(len(signal.reasons) / 3, 1.0)
                 quality_score += reason_score * 0.3
 
             # 条件満足度スコア（20%）
-            if hasattr(signal, 'conditions_met') and signal.conditions_met:
-                met_ratio = sum(1 for met in signal.conditions_met.values() if met) / len(signal.conditions_met)
+            if hasattr(signal, "conditions_met") and signal.conditions_met:
+                met_ratio = sum(
+                    1 for met in signal.conditions_met.values() if met
+                ) / len(signal.conditions_met)
                 quality_score += met_ratio * 0.2
 
             return min(quality_score, 1.0)
@@ -381,6 +397,7 @@ class FinalLiveDataValidator:
                     # メモリ使用量チェック
                     try:
                         import psutil
+
                         process = psutil.Process()
                         memory_mb = process.memory_info().rss / 1024 / 1024
                         results["memory_usage"].append(memory_mb)
@@ -389,7 +406,9 @@ class FinalLiveDataValidator:
 
                     if results["cycles_completed"] % 5 == 0:
                         elapsed = time.time() - start_time
-                        self.print_status(f"  サイクル {results['cycles_completed']} 完了 ({elapsed:.0f}秒経過)")
+                        self.print_status(
+                            f"  サイクル {results['cycles_completed']} 完了 ({elapsed:.0f}秒経過)"
+                        )
 
                     # 短時間待機
                     await asyncio.sleep(5)
@@ -491,17 +510,29 @@ RECOMMENDATIONS
         # 推奨事項の生成
         recommendations = []
 
-        if all_results.get('data', {}).get('success_count', 0) / len(self.test_symbols) < 0.9:
+        if (
+            all_results.get("data", {}).get("success_count", 0) / len(self.test_symbols)
+            < 0.9
+        ):
             recommendations.append("- Consider improving data source reliability")
 
-        if not all_results.get('performance', {}).get('target_achievement', False):
-            recommendations.append("- Optimize ML analysis performance for production load")
+        if not all_results.get("performance", {}).get("target_achievement", False):
+            recommendations.append(
+                "- Optimize ML analysis performance for production load"
+            )
 
-        if all_results.get('stability', {}).get('stability_score', 0) < 0.95:
-            recommendations.append("- Address stability issues before production deployment")
+        if all_results.get("stability", {}).get("stability_score", 0) < 0.95:
+            recommendations.append(
+                "- Address stability issues before production deployment"
+            )
 
-        if all_results.get('signals', {}).get('signals_generated', 0) < len(self.test_symbols) * 0.7:
-            recommendations.append("- Review signal generation criteria for better coverage")
+        if (
+            all_results.get("signals", {}).get("signals_generated", 0)
+            < len(self.test_symbols) * 0.7
+        ):
+            recommendations.append(
+                "- Review signal generation criteria for better coverage"
+            )
 
         if not recommendations:
             recommendations.append("- System ready for production deployment")
@@ -520,7 +551,7 @@ All safety protocols were maintained throughout the testing process.
 
         # レポートファイル保存
         try:
-            with open(report_file, 'w', encoding='utf-8') as f:
+            with open(report_file, "w", encoding="utf-8") as f:
                 f.write(report_content)
             self.print_status(f"最終レポート保存: {report_file}", "SUCCESS")
         except Exception as e:
@@ -558,7 +589,9 @@ All safety protocols were maintained throughout the testing process.
             all_results["signals"] = await self.test_signal_generation()
 
             # システム安定性テスト（短時間版）
-            all_results["stability"] = await self.test_system_stability(duration_minutes=5)
+            all_results["stability"] = await self.test_system_stability(
+                duration_minutes=5
+            )
 
         except Exception as e:
             self.print_status(f"テスト実行中エラー: {e}", "ERROR")
@@ -586,7 +619,7 @@ async def main():
     # 実行確認
     try:
         response = input("実データテストを開始しますか？ (y/N): ").strip().lower()
-        if response != 'y':
+        if response != "y":
             print("テストをキャンセルしました")
             return
     except KeyboardInterrupt:

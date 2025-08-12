@@ -213,7 +213,9 @@ class ComprehensiveAPMIntegrationTest:
                             report, "error_budget_consumption_rate", 0.1
                         ),
                         "status": getattr(
-                            getattr(report, "status", Mock(value="healthy")), "value", "healthy"
+                            getattr(report, "status", Mock(value="healthy")),
+                            "value",
+                            "healthy",
                         ),
                     }
                 else:
@@ -272,8 +274,12 @@ class ComprehensiveAPMIntegrationTest:
             hft_dashboard = dashboard_gen.create_hft_dashboard()
             dashboard_results = {
                 "hft_dashboard": {
-                    "title": hft_dashboard.get("dashboard", {}).get("title", "Generated"),
-                    "panels_count": len(hft_dashboard.get("dashboard", {}).get("panels", [])),
+                    "title": hft_dashboard.get("dashboard", {}).get(
+                        "title", "Generated"
+                    ),
+                    "panels_count": len(
+                        hft_dashboard.get("dashboard", {}).get("panels", [])
+                    ),
                     "has_templates": "templating" in hft_dashboard.get("dashboard", {}),
                 }
             }
@@ -282,8 +288,12 @@ class ComprehensiveAPMIntegrationTest:
             if hasattr(dashboard_gen, "create_slo_dashboard"):
                 slo_dashboard = dashboard_gen.create_slo_dashboard()
                 dashboard_results["slo_dashboard"] = {
-                    "title": slo_dashboard.get("dashboard", {}).get("title", "Generated"),
-                    "panels_count": len(slo_dashboard.get("dashboard", {}).get("panels", [])),
+                    "title": slo_dashboard.get("dashboard", {}).get(
+                        "title", "Generated"
+                    ),
+                    "panels_count": len(
+                        slo_dashboard.get("dashboard", {}).get("panels", [])
+                    ),
                 }
 
             # 全ダッシュボード生成
@@ -306,7 +316,9 @@ class ComprehensiveAPMIntegrationTest:
 
                 dashboard_results["valid_files"] = valid_files
 
-            self.results["performance_metrics"]["dashboard_generation"] = dashboard_results
+            self.results["performance_metrics"][
+                "dashboard_generation"
+            ] = dashboard_results
 
             self.log_test_result("ダッシュボード生成機能", True, dashboard_results)
 
@@ -333,7 +345,9 @@ class ComprehensiveAPMIntegrationTest:
             # 構造化ログテスト
             logger = get_structured_logger()
             if hasattr(logger, "info"):
-                logger.info("APM統合テスト実行中", component="test", test_type="integration")
+                logger.info(
+                    "APM統合テスト実行中", component="test", test_type="integration"
+                )
                 observability_results["structured_logging"] = True
             else:
                 observability_results["structured_logging"] = "mock"
@@ -341,21 +355,26 @@ class ComprehensiveAPMIntegrationTest:
             # メトリクス収集テスト
             metrics_collector = get_metrics_collector()
             if hasattr(metrics_collector, "increment_counter"):
-                metrics_collector.increment_counter("apm_test_counter", {"test": "integration"})
+                metrics_collector.increment_counter(
+                    "apm_test_counter", {"test": "integration"}
+                )
                 observability_results["metrics_collection"] = True
             else:
                 observability_results["metrics_collection"] = "mock"
 
             # 分散トレーシングテスト（模擬）
             if hasattr(
-                sys.modules.get("src.day_trade.observability.telemetry_config"), "trace_span"
+                sys.modules.get("src.day_trade.observability.telemetry_config"),
+                "trace_span",
             ):
                 # trace_spanが利用可能な場合
                 observability_results["distributed_tracing"] = True
             else:
                 observability_results["distributed_tracing"] = "mock"
 
-            self.results["performance_metrics"]["observability_integration"] = observability_results
+            self.results["performance_metrics"][
+                "observability_integration"
+            ] = observability_results
 
             self.log_test_result("オブザーバビリティ統合", True, observability_results)
 
@@ -395,7 +414,9 @@ class ComprehensiveAPMIntegrationTest:
                         # 通知チャネル数カウント（概算）
                         slack_count = config_content.count("slack_configs:")
                         email_count = config_content.count("email_configs:")
-                        alert_results["notification_channels"] = slack_count + email_count
+                        alert_results["notification_channels"] = (
+                            slack_count + email_count
+                        )
 
                 except Exception as e:
                     alert_results["config_error"] = str(e)
@@ -447,7 +468,11 @@ class ComprehensiveAPMIntegrationTest:
             slo_manager = get_slo_manager()
 
             # 複数SLO同時計算テスト
-            slo_names = ["api_latency_slo", "trade_latency_slo", "system_availability_slo"]
+            slo_names = [
+                "api_latency_slo",
+                "trade_latency_slo",
+                "system_availability_slo",
+            ]
             calculation_times = []
 
             for slo_name in slo_names:
@@ -495,9 +520,9 @@ class ComprehensiveAPMIntegrationTest:
                     "average_calculation_time_ms"
                 ]
                 < 100,
-                "dashboard_generation_fast": performance_results["dashboard_generation"][
-                    "performance_acceptable"
-                ],
+                "dashboard_generation_fast": performance_results[
+                    "dashboard_generation"
+                ]["performance_acceptable"],
                 "overall_rating": "excellent",
             }
 
@@ -506,9 +531,13 @@ class ComprehensiveAPMIntegrationTest:
 
             performance_results["overall_assessment"] = overall_performance
 
-            self.results["performance_metrics"]["performance_test"] = performance_results
+            self.results["performance_metrics"][
+                "performance_test"
+            ] = performance_results
 
-            self.log_test_result("パフォーマンスメトリクス測定", True, performance_results)
+            self.log_test_result(
+                "パフォーマンスメトリクス測定", True, performance_results
+            )
 
             return True
 
@@ -528,9 +557,13 @@ class ComprehensiveAPMIntegrationTest:
             # 成功率計算
             total_tests = len(self.results["test_results"])
             successful_tests = sum(
-                1 for result in self.results["test_results"].values() if result["success"]
+                1
+                for result in self.results["test_results"].values()
+                if result["success"]
             )
-            success_rate = (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            success_rate = (
+                (successful_tests / total_tests * 100) if total_tests > 0 else 0
+            )
 
             # システム状態評価
             system_status = {
@@ -567,7 +600,9 @@ class ComprehensiveAPMIntegrationTest:
                 )
 
             # Docker Compose設定確認
-            docker_compose_path = Path(project_root) / "docker-compose.observability.yml"
+            docker_compose_path = (
+                Path(project_root) / "docker-compose.observability.yml"
+            )
             if docker_compose_path.exists():
                 recommendations.append(
                     {
@@ -632,10 +667,14 @@ class ComprehensiveAPMIntegrationTest:
 
             print("\n" + "=" * 60)
             print("🏁 APM・オブザーバビリティ統合基盤テスト完了")
-            print(f"📊 成功率: {final_report['system_status']['success_rate_percentage']:.1f}%")
+            print(
+                f"📊 成功率: {final_report['system_status']['success_rate_percentage']:.1f}%"
+            )
             print(f"✅ 成功: {final_report['system_status']['successful_tests']}")
             print(f"❌ 失敗: {final_report['system_status']['failed_tests']}")
-            print(f"🎯 総合評価: {final_report['system_status']['overall_health'].upper()}")
+            print(
+                f"🎯 総合評価: {final_report['system_status']['overall_health'].upper()}"
+            )
 
             return final_report
 
@@ -682,11 +721,15 @@ async def main():
 
         print("\n🎯 最終結果サマリー:")
         print(f"   - 総合成功率: {success_rate:.1f}%")
-        print(f"   - システム状態: {results['system_status']['overall_health'].upper()}")
+        print(
+            f"   - システム状態: {results['system_status']['overall_health'].upper()}"
+        )
 
         if "final_assessment" in results:
             assessment = results["final_assessment"]
-            print(f"   - APM統合準備: {'✅' if assessment['apm_integration_ready'] else '❌'}")
+            print(
+                f"   - APM統合準備: {'✅' if assessment['apm_integration_ready'] else '❌'}"
+            )
             print(
                 f"   - 本番デプロイ準備: {'✅' if assessment['production_deployment_ready'] else '❌'}"
             )

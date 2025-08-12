@@ -97,7 +97,9 @@ class TestDaytradeAnalysisCompatibility:
             from daytrade import CLIValidationError, validate_config_file
 
             # Create temporary valid config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 f.write('{"test": "config"}')
                 temp_config = f.name
 
@@ -135,6 +137,7 @@ class TestAlternativeRecommendations:
         # Analysis-only engine availability test
         try:
             from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine
+
             AnalysisOnlyEngine(["7203"], update_interval=60.0)
             print("[OK] AnalysisOnlyEngine: available")
         except Exception as e:
@@ -151,6 +154,7 @@ class TestAlternativeRecommendations:
             from src.day_trade.analysis.enhanced_report_manager import (
                 EnhancedReportManager,
             )
+
             EnhancedReportManager()
             print("[OK] EnhancedReportManager: available")
         except Exception as e:
@@ -166,7 +170,7 @@ class TestAlternativeRecommendations:
             "run_analysis_dashboard.py - Web dashboard startup",
             "test_coverage_analysis_system.py - System comprehensive test",
             "test_dashboard_basic.py - Dashboard basic test",
-            "test_analysis_system.py - Analysis system test"
+            "test_analysis_system.py - Analysis system test",
         ]
 
         print("[RECOMMENDED] Safe alternative systems:")
@@ -183,7 +187,9 @@ class TestAlternativeRecommendations:
         print("  python test_coverage_analysis_system.py")
         print()
         print("  # Programmatic usage")
-        print("  from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine")
+        print(
+            "  from src.day_trade.automation.analysis_only_engine import AnalysisOnlyEngine"
+        )
 
 
 def run_daytrade_analysis_tests():
@@ -238,6 +244,7 @@ def run_daytrade_analysis_tests():
         print(f"FAILURE: Test failed: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         return False
 

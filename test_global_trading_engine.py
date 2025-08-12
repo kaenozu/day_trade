@@ -29,40 +29,41 @@ from src.day_trade.utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
 
+
 class GlobalTradingSession:
     """グローバル取引セッション管理"""
 
     def __init__(self):
         # 取引セッション定義
         self.sessions = {
-            'tokyo': {
-                'name': 'Tokyo Session',
-                'timezone': 'Asia/Tokyo',
-                'start_hour': 9,
-                'end_hour': 17,
-                'markets': ['forex', 'stock']
+            "tokyo": {
+                "name": "Tokyo Session",
+                "timezone": "Asia/Tokyo",
+                "start_hour": 9,
+                "end_hour": 17,
+                "markets": ["forex", "stock"],
             },
-            'london': {
-                'name': 'London Session',
-                'timezone': 'Europe/London',
-                'start_hour': 8,
-                'end_hour': 16,
-                'markets': ['forex', 'stock']
+            "london": {
+                "name": "London Session",
+                "timezone": "Europe/London",
+                "start_hour": 8,
+                "end_hour": 16,
+                "markets": ["forex", "stock"],
             },
-            'new_york': {
-                'name': 'New York Session',
-                'timezone': 'America/New_York',
-                'start_hour': 9,
-                'end_hour': 17,
-                'markets': ['forex', 'stock']
+            "new_york": {
+                "name": "New York Session",
+                "timezone": "America/New_York",
+                "start_hour": 9,
+                "end_hour": 17,
+                "markets": ["forex", "stock"],
             },
-            'crypto': {
-                'name': '24/7 Crypto Session',
-                'timezone': 'UTC',
-                'start_hour': 0,
-                'end_hour': 24,
-                'markets': ['crypto']
-            }
+            "crypto": {
+                "name": "24/7 Crypto Session",
+                "timezone": "UTC",
+                "start_hour": 0,
+                "end_hour": 24,
+                "markets": ["crypto"],
+            },
         }
 
     def get_active_sessions(self) -> List[str]:
@@ -71,22 +72,22 @@ class GlobalTradingSession:
         active = []
 
         # Cryptoは常時アクティブ
-        active.append('crypto')
+        active.append("crypto")
 
         # 各市場セッション時間をUTCで近似チェック
         utc_hour = current_utc.hour
 
         # Tokyo: UTC 0:00-8:00 (JST 9:00-17:00)
         if 0 <= utc_hour <= 8:
-            active.append('tokyo')
+            active.append("tokyo")
 
         # London: UTC 8:00-16:00 (GMT 8:00-16:00)
         if 8 <= utc_hour <= 16:
-            active.append('london')
+            active.append("london")
 
         # New York: UTC 13:00-21:00 (EST 9:00-17:00)
         if 13 <= utc_hour <= 21:
-            active.append('new_york')
+            active.append("new_york")
 
         return active
 
@@ -95,14 +96,15 @@ class GlobalTradingSession:
         active_sessions = self.get_active_sessions()
 
         # 優先順位: New York > London > Tokyo > Crypto only
-        if 'new_york' in active_sessions:
-            return 'new_york'
-        elif 'london' in active_sessions:
-            return 'london'
-        elif 'tokyo' in active_sessions:
-            return 'tokyo'
+        if "new_york" in active_sessions:
+            return "new_york"
+        elif "london" in active_sessions:
+            return "london"
+        elif "tokyo" in active_sessions:
+            return "tokyo"
         else:
-            return 'crypto'
+            return "crypto"
+
 
 class GlobalTradingEngine:
     """グローバル取引エンジン統合システム"""
@@ -122,7 +124,7 @@ class GlobalTradingEngine:
             crypto_features=32,
             hidden_size=128,
             num_layers=2,
-            prediction_horizons=[1, 5, 15, 60]  # 1分、5分、15分、1時間
+            prediction_horizons=[1, 5, 15, 60],  # 1分、5分、15分、1時間
         )
         self.ai_models = create_global_ai_models(model_config)
 
@@ -132,20 +134,20 @@ class GlobalTradingEngine:
         # システム状態
         self.is_running = False
         self.system_stats = {
-            'start_time': None,
-            'total_predictions': 0,
-            'total_correlations': 0,
-            'active_markets': [],
-            'current_session': None,
-            'uptime_hours': 0.0
+            "start_time": None,
+            "total_predictions": 0,
+            "total_correlations": 0,
+            "active_markets": [],
+            "current_session": None,
+            "uptime_hours": 0.0,
         }
 
         # パフォーマンス統計
         self.performance_metrics = {
-            'prediction_latency': [],
-            'correlation_calc_time': [],
-            'data_collection_rate': 0,
-            'system_health_score': 1.0
+            "prediction_latency": [],
+            "correlation_calc_time": [],
+            "data_collection_rate": 0,
+            "system_health_score": 1.0,
         }
 
         logger.info("Global Trading Engine initialized")
@@ -161,7 +163,7 @@ class GlobalTradingEngine:
         print("=" * 70)
 
         self.is_running = True
-        self.system_stats['start_time'] = datetime.now()
+        self.system_stats["start_time"] = datetime.now()
 
         # データベース初期化
         try:
@@ -177,7 +179,7 @@ class GlobalTradingEngine:
             self._continuous_correlation_analysis(),
             self._continuous_performance_monitoring(),
             self._session_management_loop(),
-            self._system_health_monitoring()
+            self._system_health_monitoring(),
         ]
 
         try:
@@ -189,8 +191,7 @@ class GlobalTradingEngine:
 
             # タスク実行とタイムアウト
             await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=duration_seconds
+                asyncio.gather(*tasks, return_exceptions=True), timeout=duration_seconds
             )
 
         except asyncio.TimeoutError:
@@ -209,7 +210,7 @@ class GlobalTradingEngine:
                 current_session = self.session_manager.get_primary_session()
 
                 # アクティブ市場でのデータ収集
-                if current_session in ['tokyo', 'london', 'new_york']:
+                if current_session in ["tokyo", "london", "new_york"]:
                     # Forex データ収集
                     forex_data = self.forex_collector.get_all_latest_ticks()
                     if forex_data:
@@ -221,7 +222,11 @@ class GlobalTradingEngine:
                     logger.debug(f"Crypto data: {len(crypto_data)} symbols")
 
                 # 統計更新
-                self.performance_metrics['data_collection_rate'] = len(forex_data) + len(crypto_data) if forex_data and crypto_data else 0
+                self.performance_metrics["data_collection_rate"] = (
+                    len(forex_data) + len(crypto_data)
+                    if forex_data and crypto_data
+                    else 0
+                )
 
                 await asyncio.sleep(5)  # 5秒間隔
 
@@ -242,11 +247,16 @@ class GlobalTradingEngine:
                 batch_size = 2
                 sequence_length = 60
 
-                forex_data = np.random.randn(batch_size, sequence_length, 24).astype(np.float32)
-                crypto_data = np.random.randn(batch_size, sequence_length, 32).astype(np.float32)
+                forex_data = np.random.randn(batch_size, sequence_length, 24).astype(
+                    np.float32
+                )
+                crypto_data = np.random.randn(batch_size, sequence_length, 32).astype(
+                    np.float32
+                )
 
                 # Tensor変換
                 import torch
+
                 forex_tensor = torch.tensor(forex_data)
                 crypto_tensor = torch.tensor(crypto_data)
                 forex_ids = torch.randint(0, 10, (batch_size,))
@@ -254,14 +264,18 @@ class GlobalTradingEngine:
 
                 # AI予測実行
                 with torch.no_grad():
-                    predictions = self.ai_models(forex_tensor, crypto_tensor, forex_ids, crypto_ids)
+                    predictions = self.ai_models(
+                        forex_tensor, crypto_tensor, forex_ids, crypto_ids
+                    )
 
                 # レイテンシ記録
                 prediction_time = (time.time() - start_time) * 1000
-                self.performance_metrics['prediction_latency'].append(prediction_time)
+                self.performance_metrics["prediction_latency"].append(prediction_time)
 
                 # 統計更新
-                self.system_stats['total_predictions'] += len(predictions['forex_predictions']) + len(predictions['crypto_predictions'])
+                self.system_stats["total_predictions"] += len(
+                    predictions["forex_predictions"]
+                ) + len(predictions["crypto_predictions"])
 
                 logger.debug(f"AI analysis completed in {prediction_time:.2f}ms")
 
@@ -283,7 +297,7 @@ class GlobalTradingEngine:
                 asset_pairs = [
                     ("EUR/USD", "BTCUSDT"),
                     ("USD/JPY", "ETHUSDT"),
-                    ("BTCUSDT", "ETHUSDT")
+                    ("BTCUSDT", "ETHUSDT"),
                 ]
 
                 correlation_count = 0
@@ -294,12 +308,16 @@ class GlobalTradingEngine:
 
                 # 時間記録
                 correlation_time = (time.time() - start_time) * 1000
-                self.performance_metrics['correlation_calc_time'].append(correlation_time)
+                self.performance_metrics["correlation_calc_time"].append(
+                    correlation_time
+                )
 
                 # 統計更新
-                self.system_stats['total_correlations'] += correlation_count
+                self.system_stats["total_correlations"] += correlation_count
 
-                logger.debug(f"Correlation analysis: {correlation_count} pairs in {correlation_time:.2f}ms")
+                logger.debug(
+                    f"Correlation analysis: {correlation_count} pairs in {correlation_time:.2f}ms"
+                )
 
                 await asyncio.sleep(30)  # 30秒間隔
 
@@ -318,12 +336,14 @@ class GlobalTradingEngine:
                 primary_session = self.session_manager.get_primary_session()
 
                 # システム状態更新
-                self.system_stats['active_markets'] = active_sessions
-                self.system_stats['current_session'] = primary_session
+                self.system_stats["active_markets"] = active_sessions
+                self.system_stats["current_session"] = primary_session
 
                 # セッション変更時のログ
                 current_time = datetime.now()
-                logger.info(f"Active sessions: {active_sessions}, Primary: {primary_session}")
+                logger.info(
+                    f"Active sessions: {active_sessions}, Primary: {primary_session}"
+                )
 
                 await asyncio.sleep(60)  # 1分間隔
 
@@ -338,13 +358,17 @@ class GlobalTradingEngine:
         while self.is_running:
             try:
                 # パフォーマンス指標計算
-                if self.performance_metrics['prediction_latency']:
-                    avg_latency = np.mean(self.performance_metrics['prediction_latency'][-100:])  # 最新100件
+                if self.performance_metrics["prediction_latency"]:
+                    avg_latency = np.mean(
+                        self.performance_metrics["prediction_latency"][-100:]
+                    )  # 最新100件
                 else:
                     avg_latency = 0
 
-                if self.performance_metrics['correlation_calc_time']:
-                    avg_correlation_time = np.mean(self.performance_metrics['correlation_calc_time'][-50:])  # 最新50件
+                if self.performance_metrics["correlation_calc_time"]:
+                    avg_correlation_time = np.mean(
+                        self.performance_metrics["correlation_calc_time"][-50:]
+                    )  # 最新50件
                 else:
                     avg_correlation_time = 0
 
@@ -355,9 +379,11 @@ class GlobalTradingEngine:
                 if avg_correlation_time > 2000:  # 2秒以上
                     health_score -= 0.1
 
-                self.performance_metrics['system_health_score'] = max(0.0, health_score)
+                self.performance_metrics["system_health_score"] = max(0.0, health_score)
 
-                logger.debug(f"Performance: Latency={avg_latency:.1f}ms, Health={health_score:.2f}")
+                logger.debug(
+                    f"Performance: Latency={avg_latency:.1f}ms, Health={health_score:.2f}"
+                )
 
                 await asyncio.sleep(30)  # 30秒間隔
 
@@ -372,12 +398,12 @@ class GlobalTradingEngine:
         while self.is_running:
             try:
                 # 稼働時間計算
-                if self.system_stats['start_time']:
-                    uptime = datetime.now() - self.system_stats['start_time']
-                    self.system_stats['uptime_hours'] = uptime.total_seconds() / 3600
+                if self.system_stats["start_time"]:
+                    uptime = datetime.now() - self.system_stats["start_time"]
+                    self.system_stats["uptime_hours"] = uptime.total_seconds() / 3600
 
                 # ヘルス状況表示（10分ごと）
-                if int(self.system_stats['uptime_hours'] * 6) % 1 == 0:  # 10分ごと
+                if int(self.system_stats["uptime_hours"] * 6) % 1 == 0:  # 10分ごと
                     self._display_system_status()
 
                 await asyncio.sleep(60)  # 1分間隔
@@ -399,8 +425,8 @@ class GlobalTradingEngine:
         print(f"   総相関分析: {stats['total_correlations']}")
         print(f"   システムヘルス: {metrics['system_health_score']:.1%}")
 
-        if metrics['prediction_latency']:
-            avg_latency = np.mean(metrics['prediction_latency'][-10:])
+        if metrics["prediction_latency"]:
+            avg_latency = np.mean(metrics["prediction_latency"][-10:])
             print(f"   平均予測時間: {avg_latency:.1f}ms")
 
     async def _shutdown_system(self):
@@ -411,9 +437,9 @@ class GlobalTradingEngine:
 
         try:
             # データ収集停止
-            if hasattr(self.forex_collector, 'cleanup'):
+            if hasattr(self.forex_collector, "cleanup"):
                 await self.forex_collector.cleanup()
-            if hasattr(self.crypto_collector, 'cleanup'):
+            if hasattr(self.crypto_collector, "cleanup"):
                 await self.crypto_collector.cleanup()
 
             print("✅ データ収集システム停止完了")
@@ -443,26 +469,28 @@ class GlobalTradingEngine:
         print(f"  ✅ データ収集レート: {metrics['data_collection_rate']}/cycle")
 
         print("\n⚡ パフォーマンス指標:")
-        if metrics['prediction_latency']:
-            avg_latency = np.mean(metrics['prediction_latency'])
-            min_latency = np.min(metrics['prediction_latency'])
-            max_latency = np.max(metrics['prediction_latency'])
-            print(f"  AI予測レイテンシ: 平均 {avg_latency:.1f}ms (範囲: {min_latency:.1f}-{max_latency:.1f}ms)")
+        if metrics["prediction_latency"]:
+            avg_latency = np.mean(metrics["prediction_latency"])
+            min_latency = np.min(metrics["prediction_latency"])
+            max_latency = np.max(metrics["prediction_latency"])
+            print(
+                f"  AI予測レイテンシ: 平均 {avg_latency:.1f}ms (範囲: {min_latency:.1f}-{max_latency:.1f}ms)"
+            )
 
-        if metrics['correlation_calc_time']:
-            avg_corr_time = np.mean(metrics['correlation_calc_time'])
+        if metrics["correlation_calc_time"]:
+            avg_corr_time = np.mean(metrics["correlation_calc_time"])
             print(f"  相関分析時間: 平均 {avg_corr_time:.1f}ms")
 
         print(f"  最終ヘルススコア: {metrics['system_health_score']:.1%}")
 
         print("\n🏆 運用判定:")
-        if stats['uptime_hours'] >= 0.95 and metrics['system_health_score'] >= 0.8:
+        if stats["uptime_hours"] >= 0.95 and metrics["system_health_score"] >= 0.8:
             grade = "EXCELLENT - 24時間運用対応"
             emoji = "🌟"
-        elif stats['uptime_hours'] >= 0.8 and metrics['system_health_score'] >= 0.7:
+        elif stats["uptime_hours"] >= 0.8 and metrics["system_health_score"] >= 0.7:
             grade = "GOOD - 実用レベル達成"
             emoji = "✅"
-        elif stats['uptime_hours'] >= 0.5:
+        elif stats["uptime_hours"] >= 0.5:
             grade = "ACCEPTABLE - 基本機能確認"
             emoji = "⚠️"
         else:
@@ -480,6 +508,7 @@ class GlobalTradingEngine:
         print("\n" + "=" * 70)
         print("🚀 Global Trading Engine テスト完了！")
         print("=" * 70)
+
 
 async def main():
     """メイン実行"""
@@ -504,8 +533,10 @@ async def main():
     except Exception as e:
         print(f"\n❌ システムエラーが発生しました: {e}")
         import traceback
+
         traceback.print_exc()
         return 3
+
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())

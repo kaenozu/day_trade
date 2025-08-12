@@ -5,7 +5,9 @@ Issue #445: 不要な通知パラメータ削除の簡単なテスト
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+
 
 def test_notification_channels():
     """通知チャンネルの削除確認"""
@@ -62,6 +64,7 @@ def test_notification_channels():
     print("  - Slack通知（チーム通知）")
     print("  - Webhook通知（外部統合）")
     print("=" * 50)
+
 
 if __name__ == "__main__":
     test_notification_channels()

@@ -39,7 +39,7 @@ def generate_lightweight_data(symbol_count: int = 10) -> dict:
         symbol = f"{3000 + i:04d}"
 
         # 最小限のデータ（30日分）
-        dates = pd.date_range(start='2024-07-01', periods=30)
+        dates = pd.date_range(start="2024-07-01", periods=30)
         base_price = 2000 + i * 100
 
         # 簡単な価格変動
@@ -47,14 +47,17 @@ def generate_lightweight_data(symbol_count: int = 10) -> dict:
         cumulative_changes = np.cumprod(1 + price_changes)
         close_prices = base_price * cumulative_changes
 
-        stock_data[symbol] = pd.DataFrame({
-            'Open': close_prices * 0.99,
-            'High': close_prices * 1.02,
-            'Low': close_prices * 0.98,
-            'Close': close_prices,
-            'Volume': np.random.randint(100000, 1000000, 30),
-            'Adj Close': close_prices
-        }, index=dates)
+        stock_data[symbol] = pd.DataFrame(
+            {
+                "Open": close_prices * 0.99,
+                "High": close_prices * 1.02,
+                "Low": close_prices * 0.98,
+                "Close": close_prices,
+                "Volume": np.random.randint(100000, 1000000, 30),
+                "Adj Close": close_prices,
+            },
+            index=dates,
+        )
 
     return stock_data
 
@@ -71,7 +74,7 @@ async def test_lightweight_system():
         max_concurrent_sectors=2,
         memory_limit_gb=0.5,
         processing_timeout=10,
-        batch_size=5
+        batch_size=5,
     )
 
     try:
@@ -83,14 +86,16 @@ async def test_lightweight_system():
         result = await system.analyze_batch_comprehensive(
             stock_data=test_data,
             enable_sector_analysis=True,
-            enable_ml_prediction=False  # ML無効で高速化
+            enable_ml_prediction=False,  # ML無効で高速化
         )
 
         elapsed = time.time() - start_time
 
         # 結果検証
-        success_count = len([r for r in result['symbol_results'].values() if r.get('success', False)])
-        sector_count = len(result['sector_analysis'])
+        success_count = len(
+            [r for r in result["symbol_results"].values() if r.get("success", False)]
+        )
+        sector_count = len(result["sector_analysis"])
 
         print(f"処理時間: {elapsed:.2f}秒")
         print(f"成功銘柄: {success_count}/{len(test_data)}")
@@ -111,14 +116,16 @@ async def test_lightweight_system():
         result = await system.analyze_batch_comprehensive(
             stock_data=test_data,
             enable_sector_analysis=True,
-            enable_ml_prediction=False
+            enable_ml_prediction=False,
         )
 
         elapsed = time.time() - start_time
 
         # 結果検証
-        success_count = len([r for r in result['symbol_results'].values() if r.get('success', False)])
-        sector_count = len(result['sector_analysis'])
+        success_count = len(
+            [r for r in result["symbol_results"].values() if r.get("success", False)]
+        )
+        sector_count = len(result["sector_analysis"])
 
         print(f"処理時間: {elapsed:.2f}秒")
         print(f"成功銘柄: {success_count}/{len(test_data)}")
@@ -132,13 +139,17 @@ async def test_lightweight_system():
             return False
 
         # パフォーマンスメトリクス確認
-        metrics = result['performance_metrics']
+        metrics = result["performance_metrics"]
         if isinstance(metrics, PerformanceMetrics):
             print("\n性能統計:")
-            print(f"  - スループット: {metrics.throughput_symbols_per_second:.1f}銘柄/秒")
+            print(
+                f"  - スループット: {metrics.throughput_symbols_per_second:.1f}銘柄/秒"
+            )
             print(f"  - 平均処理時間/銘柄: {metrics.avg_time_per_symbol_ms:.1f}ms")
             print(f"  - メモリ使用量: {metrics.peak_memory_mb:.1f}MB")
-            print(f"  - 成功率: {metrics.successful_symbols / metrics.total_symbols * 100:.1f}%")
+            print(
+                f"  - 成功率: {metrics.successful_symbols / metrics.total_symbols * 100:.1f}%"
+            )
 
         return True
 
@@ -147,7 +158,7 @@ async def test_lightweight_system():
         return False
 
     finally:
-        if hasattr(system, 'shutdown'):
+        if hasattr(system, "shutdown"):
             system.shutdown()
 
 
@@ -157,10 +168,7 @@ def test_basic_functionality():
 
     try:
         # システム初期化テスト
-        system = TOPIX500AnalysisSystem(
-            enable_cache=False,
-            enable_parallel=False
-        )
+        system = TOPIX500AnalysisSystem(enable_cache=False, enable_parallel=False)
 
         print("OK システム初期化成功")
 
@@ -176,7 +184,7 @@ def test_basic_functionality():
 
         print("OK データ構造検証成功")
 
-        if hasattr(system, 'shutdown'):
+        if hasattr(system, "shutdown"):
             system.shutdown()
 
         return True
@@ -219,5 +227,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"テスト実行エラー: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

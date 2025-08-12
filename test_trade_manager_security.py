@@ -60,9 +60,9 @@ def test_decimal_conversion_security():
     error_tests = [
         ("invalid", "無効な文字列"),
         (None, "None値"),
-        (float('inf'), "無限大"),
-        (float('-inf'), "負の無限大"),
-        (float('nan'), "NaN"),
+        (float("inf"), "無限大"),
+        (float("-inf"), "負の無限大"),
+        (float("nan"), "NaN"),
         ("", "空文字列"),
         ([], "リスト"),
         ({}, "辞書"),
@@ -75,8 +75,12 @@ def test_decimal_conversion_security():
         except (ValueError, TypeError, InvalidOperation) as e:
             # エラーメッセージに機密情報が含まれていないかチェック
             error_msg = str(e)
-            if any(dangerous in error_msg for dangerous in ['password', 'key', 'secret']):
-                print(f"  WARN {description}: エラーメッセージに機密情報が含まれる可能性: {error_msg}")
+            if any(
+                dangerous in error_msg for dangerous in ["password", "key", "secret"]
+            ):
+                print(
+                    f"  WARN {description}: エラーメッセージに機密情報が含まれる可能性: {error_msg}"
+                )
             else:
                 print(f"  OK {description}: 正常に阻止 - {type(e).__name__}")
 
@@ -241,16 +245,22 @@ def test_fifo_lot_management():
                 quantity=qty,
                 price=price,
                 commission=Decimal("9.95"),
-                timestamp=datetime.fromisoformat(date)
+                timestamp=datetime.fromisoformat(date),
             )
-            print(f"  買い注文追加: {qty}株 @{price} (ID: {mask_sensitive_info(str(trade_id))})")
+            print(
+                f"  買い注文追加: {qty}株 @{price} (ID: {mask_sensitive_info(str(trade_id))})"
+            )
 
         # 2. ポジション確認
         if "TEST" in tm.positions:
             position = tm.positions["TEST"]
             print("\n2. ポジション確認:")
-            print(f"  総保有株数: {mask_sensitive_info(f'quantity: {position.quantity}')}")
-            print(f"  平均取得価格: {mask_sensitive_info(f'price: {position.avg_cost}')}")
+            print(
+                f"  総保有株数: {mask_sensitive_info(f'quantity: {position.quantity}')}"
+            )
+            print(
+                f"  平均取得価格: {mask_sensitive_info(f'price: {position.avg_cost}')}"
+            )
             print(f"  ロット数: {len(position.buy_lots)}")
 
             # 3. FIFO売却テスト
@@ -260,14 +270,18 @@ def test_fifo_lot_management():
                 symbol="TEST",
                 quantity=sell_qty,
                 price=Decimal("1150.00"),
-                commission=Decimal("9.95")
+                commission=Decimal("9.95"),
             )
-            print(f"  売り注文実行: {sell_qty}株 (ID: {mask_sensitive_info(str(trade_id))})")
+            print(
+                f"  売り注文実行: {sell_qty}株 (ID: {mask_sensitive_info(str(trade_id))})"
+            )
 
             # 売却後のポジション確認
             updated_position = tm.positions.get("TEST")
             if updated_position:
-                print(f"  売却後保有株数: {mask_sensitive_info(f'quantity: {updated_position.quantity}')}")
+                print(
+                    f"  売却後保有株数: {mask_sensitive_info(f'quantity: {updated_position.quantity}')}"
+                )
                 print(f"  残りロット数: {len(updated_position.buy_lots)}")
 
                 # 4. 最早買い取引日取得テスト
@@ -290,10 +304,11 @@ def test_logging_security():
 
     # ログキャプチャ用のハンドラー設定
     import io
+
     log_stream = io.StringIO()
     handler = logging.StreamHandler(log_stream)
 
-    logger = logging.getLogger('src.day_trade.core.trade_manager')
+    logger = logging.getLogger("src.day_trade.core.trade_manager")
     try:
         tm = TradeManager()  # デフォルト設定でテスト
         logger.addHandler(handler)
@@ -305,7 +320,7 @@ def test_logging_security():
             symbol="SECURE_TEST",
             quantity=100,
             price=Decimal("1500.00"),
-            commission=Decimal("9.95")
+            commission=Decimal("9.95"),
         )
 
         # ログ出力を確認
@@ -313,14 +328,15 @@ def test_logging_security():
 
         # 機密情報がマスキングされているかチェック
         sensitive_patterns = [
-            r'price:\s*[0-9]+\.[0-9]+',  # 生の価格
-            r'commission:\s*[0-9]+\.[0-9]+',  # 生の手数料
-            r'quantity:\s*[0-9]+',  # 生の数量
+            r"price:\s*[0-9]+\.[0-9]+",  # 生の価格
+            r"commission:\s*[0-9]+\.[0-9]+",  # 生の手数料
+            r"quantity:\s*[0-9]+",  # 生の数量
         ]
 
         has_sensitive = False
         for pattern in sensitive_patterns:
             import re
+
             if re.search(pattern, log_output):
                 has_sensitive = True
                 break
@@ -332,7 +348,7 @@ def test_logging_security():
             print("  OK ログの機密情報マスキング - 正常")
 
         # マスクされた情報が含まれているかチェック
-        if '*' in log_output or 'MASKED' in log_output:
+        if "*" in log_output or "MASKED" in log_output:
             print("  OK マスキング処理が適用されている")
         else:
             print("  WARN マスキング処理が確認できない")
@@ -369,6 +385,7 @@ def main():
     except Exception as e:
         print(f"\nFAIL テスト実行中にエラーが発生: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -16,7 +16,9 @@ print("=" * 50)
 
 try:
     # 既存の performance_monitor.py が存在するか確認
-    monitor_file = current_dir / "src" / "day_trade" / "utils" / "performance_monitor.py"
+    monitor_file = (
+        current_dir / "src" / "day_trade" / "utils" / "performance_monitor.py"
+    )
     if not monitor_file.exists():
         print(f"performance_monitor.py not found: {monitor_file}")
         print("Creating simple monitoring system...")
@@ -24,8 +26,9 @@ try:
         # 最小限の監視システムを作成
         monitor_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(monitor_file, 'w', encoding='utf-8') as f:
-            f.write('''#!/usr/bin/env python3
+        with open(monitor_file, "w", encoding="utf-8") as f:
+            f.write(
+                '''#!/usr/bin/env python3
 """
 Performance Monitoring System (Simple Version)
 """
@@ -85,7 +88,8 @@ global_monitor = PerformanceMonitor()
 
 def get_performance_monitor():
     return global_monitor
-''')
+'''
+            )
         print("Simple monitoring system created successfully")
 
     # インポートテスト
@@ -134,12 +138,15 @@ def get_performance_monitor():
         else:
             print("Performance significantly degraded")
 
-    print("\nIssue #311 Performance Monitoring System Basic Function Verification Complete")
+    print(
+        "\nIssue #311 Performance Monitoring System Basic Function Verification Complete"
+    )
     print("3.6s/85stocks processing performance monitoring system is working normally")
 
 except Exception as e:
     print(f"Test Error: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 

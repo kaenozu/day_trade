@@ -77,7 +77,9 @@ class SystemHealthDiagnostic:
         print("Phase G: 本番運用最適化フェーズ")
         print("=" * 80)
         print(f"診断開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"システム: {self.system_info['platform']} {self.system_info['architecture']}")
+        print(
+            f"システム: {self.system_info['platform']} {self.system_info['architecture']}"
+        )
         print(f"Python: {self.system_info['python_version']}")
         print(f"CPU: {self.system_info['cpu_cores']}コア")
         print(f"RAM: {self.system_info['memory_total']:.1f}GB")
@@ -189,7 +191,9 @@ class SystemHealthDiagnostic:
                 "supported_sources": ["yahoo", "alpha_vantage", "quandl"],
             }
 
-        result, success, error, exec_time, mem_usage = self._measure_performance(test_data_system)
+        result, success, error, exec_time, mem_usage = self._measure_performance(
+            test_data_system
+        )
 
         status = "OK" if success else "ERROR"
         recommendations = []
@@ -286,7 +290,9 @@ class SystemHealthDiagnostic:
             gpu_engine = GPUAccelerationEngine()
 
             # GPU利用可能性チェック
-            gpu_available = len([b for b in gpu_engine.available_backends if b.value != "cpu"]) > 0
+            gpu_available = (
+                len([b for b in gpu_engine.available_backends if b.value != "cpu"]) > 0
+            )
 
             # デバイス情報
             device_info = {
@@ -298,7 +304,9 @@ class SystemHealthDiagnostic:
 
             return device_info
 
-        result, success, error, exec_time, mem_usage = self._measure_performance(test_gpu_system)
+        result, success, error, exec_time, mem_usage = self._measure_performance(
+            test_gpu_system
+        )
 
         status = "OK" if success else "ERROR"
         recommendations = []
@@ -341,7 +349,9 @@ class SystemHealthDiagnostic:
                 "config_valid": True,
             }
 
-        result, success, error, exec_time, mem_usage = self._measure_performance(test_ml_system)
+        result, success, error, exec_time, mem_usage = self._measure_performance(
+            test_ml_system
+        )
 
         status = "OK" if success else "ERROR"
         recommendations = []
@@ -387,7 +397,9 @@ class SystemHealthDiagnostic:
                 "cache_enabled": len(api.prediction_cache) == 0,  # 初期状態
             }
 
-        result, success, error, exec_time, mem_usage = self._measure_performance(test_api_system)
+        result, success, error, exec_time, mem_usage = self._measure_performance(
+            test_api_system
+        )
 
         status = "OK" if success else "ERROR"
         recommendations = []
@@ -428,7 +440,10 @@ class SystemHealthDiagnostic:
                     try:
                         with open(config_file) as f:
                             content = f.read()
-                            if "password" in content.lower() or "secret" in content.lower():
+                            if (
+                                "password" in content.lower()
+                                or "secret" in content.lower()
+                            ):
                                 security_issues.append(
                                     f"機密情報が {config_file} に平文保存されている可能性"
                                 )
@@ -592,8 +607,12 @@ class SystemHealthDiagnostic:
             "average_execution_time": total_exec_time / len(self.results),
             "total_memory_usage": total_memory,
             "average_memory_usage": total_memory / len(self.results),
-            "slowest_module": max(self.results, key=lambda r: r.execution_time).module_name,
-            "memory_heaviest_module": max(self.results, key=lambda r: r.memory_usage).module_name,
+            "slowest_module": max(
+                self.results, key=lambda r: r.execution_time
+            ).module_name,
+            "memory_heaviest_module": max(
+                self.results, key=lambda r: r.memory_usage
+            ).module_name,
         }
 
     def _generate_overall_recommendations(self) -> List[str]:

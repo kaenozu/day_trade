@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 # パス調整
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.day_trade.backtesting.parallel_backtest_framework import (
     MicrosecondTimer,
@@ -34,7 +34,7 @@ def run_parallel_backtest_test():
         framework = create_parallel_backtest_framework(
             max_workers=4,
             parallel_mode=ParallelMode.MULTIPROCESSING,
-            optimization_method=OptimizationMethod.GRID_SEARCH
+            optimization_method=OptimizationMethod.GRID_SEARCH,
         )
         print("   フレームワーク作成完了")
 
@@ -42,26 +42,21 @@ def run_parallel_backtest_test():
         print("\n2. パラメータ空間定義...")
         parameter_spaces = [
             ParameterSpace(
-                name="momentum_window",
-                min_value=10,
-                max_value=30,
-                step_size=5
+                name="momentum_window", min_value=10, max_value=30, step_size=5
             ),
             ParameterSpace(
-                name="buy_threshold",
-                min_value=0.02,
-                max_value=0.08,
-                step_size=0.02
+                name="buy_threshold", min_value=0.02, max_value=0.08, step_size=0.02
             ),
             ParameterSpace(
-                name="position_size",
-                min_value=0.1,
-                max_value=0.3,
-                step_size=0.1
-            )
+                name="position_size", min_value=0.1, max_value=0.3, step_size=0.1
+            ),
         ]
 
-        combinations = len([10, 15, 20, 25, 30]) * len([0.02, 0.04, 0.06, 0.08]) * len([0.1, 0.2, 0.3])
+        combinations = (
+            len([10, 15, 20, 25, 30])
+            * len([0.02, 0.04, 0.06, 0.08])
+            * len([0.1, 0.2, 0.3])
+        )
         print(f"   パラメータ組み合わせ数: {combinations}通り")
 
         # テスト用銘柄・期間
@@ -77,7 +72,9 @@ def run_parallel_backtest_test():
 
         # 最適化実行
         print("\n4. 並列パラメータ最適化実行中...")
-        print(f"   推定実行時間: {combinations}タスク × 2秒 ÷ 4ワーカー = {combinations * 2 // 4}秒")
+        print(
+            f"   推定実行時間: {combinations}タスク × 2秒 ÷ 4ワーカー = {combinations * 2 // 4}秒"
+        )
 
         start_time = MicrosecondTimer.now_ns()
 
@@ -87,7 +84,7 @@ def run_parallel_backtest_test():
             start_date=start_date,
             end_date=end_date,
             strategy_config={"strategy_type": "momentum"},
-            initial_capital=1000000
+            initial_capital=1000000,
         )
 
         execution_time_ms = MicrosecondTimer.elapsed_us(start_time) / 1000
@@ -102,7 +99,9 @@ def run_parallel_backtest_test():
         best_params = results.get("best_parameters", {})
         best_result = results.get("best_result", {})
 
-        print(f"   実行時間: {execution_time_ms:.0f}ms ({execution_time_ms/1000:.1f}秒)")
+        print(
+            f"   実行時間: {execution_time_ms:.0f}ms ({execution_time_ms/1000:.1f}秒)"
+        )
         print(f"   総組み合わせ数: {summary.get('total_combinations', 0)}")
         print(f"   成功率: {summary.get('success_rate', 0):.1%}")
         print(f"   最適値: {summary.get('best_value', 0):.4f}")
@@ -156,6 +155,7 @@ def run_parallel_backtest_test():
     except Exception as e:
         print(f"\nテストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

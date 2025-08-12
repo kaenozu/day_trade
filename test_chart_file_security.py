@@ -139,11 +139,17 @@ def test_toctou_vulnerability_protection():
 
                 # 重要: シンボリックリンクは削除されず、リンク先も保護される
                 if danger_file.exists() and symlink_file.exists():
-                    print("  OK シンボリックリンク攻撃対策 - リンクと対象ファイル両方保護")
+                    print(
+                        "  OK シンボリックリンク攻撃対策 - リンクと対象ファイル両方保護"
+                    )
                 elif danger_file.exists():
-                    print("  OK シンボリックリンク攻撃対策 - 対象ファイル保護（リンクのみ削除）")
+                    print(
+                        "  OK シンボリックリンク攻撃対策 - 対象ファイル保護（リンクのみ削除）"
+                    )
                 else:
-                    print("  FAIL シンボリックリンク攻撃対策 - 対象ファイルが削除された")
+                    print(
+                        "  FAIL シンボリックリンク攻撃対策 - 対象ファイルが削除された"
+                    )
 
             except (PermissionError, subprocess.CalledProcessError):
                 print("  SKIP シンボリックリンク攻撃対策 - 権限不足でテストスキップ")
@@ -331,7 +337,9 @@ def main():
         print("\n" + "=" * 60)
         print("OK チャート生成ファイルパスセキュリティテスト完了")
         print("\n実装されたセキュリティ強化:")
-        print("- [GUARD] 出力ディレクトリ検証（パストラバーサル・システムディレクトリ防止）")
+        print(
+            "- [GUARD] 出力ディレクトリ検証（パストラバーサル・システムディレクトリ防止）"
+        )
         print("- [ATOMIC] TOCTOU脆弱性対策（原子的操作・レースコンディション防止）")
         print("- [SHIELD] シンボリックリンク攻撃防止")
         print("- [FILTER] 危険ファイル名検出・回避")

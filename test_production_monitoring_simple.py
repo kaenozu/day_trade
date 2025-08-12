@@ -80,7 +80,7 @@ def test_tracing():
     print("OK: Distributed trace executed")
 
     dashboard = monitoring.get_dashboard_data()
-    trace_info = dashboard['traces']
+    trace_info = dashboard["traces"]
 
     print(f"Active traces: {trace_info['active_traces']}")
     print(f"Completed traces: {trace_info['completed_traces']}")
@@ -107,9 +107,11 @@ def test_slo_monitoring():
     api_latency_status = slo_manager.get_slo_status("api_latency")
 
     if api_latency_status:
-        print(f"API Latency: {api_latency_status.current_percentage:.2f}% "
-              f"(target: {api_latency_status.config.target_percentage:.2f}%) "
-              f"status: {api_latency_status.status}")
+        print(
+            f"API Latency: {api_latency_status.current_percentage:.2f}% "
+            f"(target: {api_latency_status.config.target_percentage:.2f}%) "
+            f"status: {api_latency_status.status}"
+        )
 
     return api_latency_status
 
@@ -140,7 +142,9 @@ async def main():
 
         print("Statistics:")
         print(f"  Total requests: {dashboard['statistics']['total_requests']}")
-        print(f"  Success rate: {dashboard['statistics']['successful_requests']/max(1,dashboard['statistics']['total_requests']):.1%}")
+        print(
+            f"  Success rate: {dashboard['statistics']['successful_requests']/max(1,dashboard['statistics']['total_requests']):.1%}"
+        )
         print(f"  Alerts triggered: {dashboard['statistics']['alerts_triggered']}")
         print(f"  Anomalies detected: {dashboard['statistics']['anomalies_detected']}")
 
@@ -150,7 +154,9 @@ async def main():
 
         if slo_status:
             print("SLO Status:")
-            print(f"  API Latency: {slo_status.current_percentage:.1f}% ({slo_status.status})")
+            print(
+                f"  API Latency: {slo_status.current_percentage:.1f}% ({slo_status.status})"
+            )
 
         print("\nAll tests completed successfully!")
         return True
@@ -158,6 +164,7 @@ async def main():
     except Exception as e:
         print(f"\nTest failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -12,7 +12,7 @@ def test_analysis_engine_basic():
     """基本的な分析エンジンテスト"""
     print("=== AnalysisOnlyEngine 基本動作テスト ===")
 
-    symbols = ['7203', '6758', '4689']
+    symbols = ["7203", "6758", "4689"]
     engine = AnalysisOnlyEngine(symbols)
 
     # 基本プロパティの確認
@@ -37,7 +37,7 @@ async def test_analysis_engine_async():
     """非同期処理テスト"""
     print("=== AnalysisOnlyEngine 非同期処理テスト ===")
 
-    symbols = ['7203']
+    symbols = ["7203"]
     engine = AnalysisOnlyEngine(symbols)
 
     # 停止テスト
@@ -72,7 +72,7 @@ def test_market_analysis_data_classes():
     analysis = MarketAnalysis(
         symbol="7203",
         current_price=Decimal("2500.0"),
-        analysis_timestamp=datetime.now()
+        analysis_timestamp=datetime.now(),
     )
 
     assert analysis.symbol == "7203"
@@ -89,7 +89,7 @@ def test_market_analysis_data_classes():
         weak_signals=0,
         market_sentiment="中性",
         top_recommendations=[],
-        analysis_time_ms=100.0
+        analysis_time_ms=100.0,
     )
 
     assert report.total_symbols == 3
@@ -121,6 +121,7 @@ def main():
     except Exception as e:
         print(f"テスト失敗: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -19,11 +19,7 @@ class UltraLowLatencyDemo:
 
     def __init__(self, target_latency_us=10.0):
         self.target_latency_us = target_latency_us
-        self.stats = {
-            'total_trades': 0,
-            'successful_trades': 0,
-            'latencies': []
-        }
+        self.stats = {"total_trades": 0, "successful_trades": 0, "latencies": []}
         print(f"Ultra Low Latency Demo initialized (target: {target_latency_us}μs)")
 
     def execute_trade_ultra_fast(self, symbol, side, quantity, price):
@@ -41,27 +37,27 @@ class UltraLowLatencyDemo:
         latency_us = latency_ns / 1000.0
 
         # 統計更新
-        self.stats['total_trades'] += 1
-        self.stats['successful_trades'] += 1
-        self.stats['latencies'].append(latency_us)
+        self.stats["total_trades"] += 1
+        self.stats["successful_trades"] += 1
+        self.stats["latencies"].append(latency_us)
 
         return {
-            'success': True,
-            'order_id': order_id,
-            'executed_price': executed_price,
-            'executed_quantity': executed_quantity,
-            'latency_us': latency_us,
-            'latency_ns': latency_ns,
-            'under_target': latency_us < self.target_latency_us,
-            'timestamp_ns': end_time
+            "success": True,
+            "order_id": order_id,
+            "executed_price": executed_price,
+            "executed_quantity": executed_quantity,
+            "latency_us": latency_us,
+            "latency_ns": latency_ns,
+            "under_target": latency_us < self.target_latency_us,
+            "timestamp_ns": end_time,
         }
 
     def get_performance_report(self):
         """パフォーマンスレポート取得"""
-        if not self.stats['latencies']:
-            return {'status': 'no_data'}
+        if not self.stats["latencies"]:
+            return {"status": "no_data"}
 
-        latencies = self.stats['latencies']
+        latencies = self.stats["latencies"]
         avg_latency = sum(latencies) / len(latencies)
         min_latency = min(latencies)
         max_latency = max(latencies)
@@ -70,20 +66,20 @@ class UltraLowLatencyDemo:
         target_rate = (under_target / len(latencies)) * 100
 
         return {
-            'total_trades': self.stats['total_trades'],
-            'successful_trades': self.stats['successful_trades'],
-            'success_rate': 100.0,
-            'latency_stats': {
-                'avg_us': round(avg_latency, 2),
-                'min_us': round(min_latency, 2),
-                'max_us': round(max_latency, 2)
+            "total_trades": self.stats["total_trades"],
+            "successful_trades": self.stats["successful_trades"],
+            "success_rate": 100.0,
+            "latency_stats": {
+                "avg_us": round(avg_latency, 2),
+                "min_us": round(min_latency, 2),
+                "max_us": round(max_latency, 2),
             },
-            'performance': {
-                'target_latency_us': self.target_latency_us,
-                'target_achievement_rate': round(target_rate, 1),
-                'under_target': under_target,
-                'over_target': len(latencies) - under_target
-            }
+            "performance": {
+                "target_latency_us": self.target_latency_us,
+                "target_achievement_rate": round(target_rate, 1),
+                "under_target": under_target,
+                "over_target": len(latencies) - under_target,
+            },
         }
 
 
@@ -99,14 +95,13 @@ def demo_ultra_low_latency():
 
     for i in range(100):
         result = demo.execute_trade_ultra_fast(
-            "USDJPY",
-            "buy" if i % 2 == 0 else "sell",
-            10000,
-            150.0 + (i * 0.001)
+            "USDJPY", "buy" if i % 2 == 0 else "sell", 10000, 150.0 + (i * 0.001)
         )
 
         if i % 20 == 0:
-            print(f"Trade {i+1}: {result['latency_us']:.3f}μs (target: <{demo.target_latency_us}μs)")
+            print(
+                f"Trade {i+1}: {result['latency_us']:.3f}μs (target: <{demo.target_latency_us}μs)"
+            )
 
     # パフォーマンス結果
     report = demo.get_performance_report()
@@ -117,8 +112,12 @@ def demo_ultra_low_latency():
     print(f"Average latency: {report['latency_stats']['avg_us']}μs")
     print(f"Min latency: {report['latency_stats']['min_us']}μs")
     print(f"Max latency: {report['latency_stats']['max_us']}μs")
-    print(f"Target achievement: {report['performance']['target_achievement_rate']:.1f}%")
-    print(f"Under {demo.target_latency_us}μs: {report['performance']['under_target']}/{report['total_trades']}")
+    print(
+        f"Target achievement: {report['performance']['target_achievement_rate']:.1f}%"
+    )
+    print(
+        f"Under {demo.target_latency_us}μs: {report['performance']['under_target']}/{report['total_trades']}"
+    )
 
     return report
 
@@ -137,7 +136,7 @@ def demo_system_optimization():
         "透明大ページ無効化",
         "Swappiness最小化 (1)",
         "NUMA balancing無効化",
-        "電源管理無効化"
+        "電源管理無効化",
     ]
 
     print("Ultra Low Latency System Optimizations:")
@@ -160,7 +159,7 @@ def demo_architecture():
         "System Optimization": "CPU affinity, RT scheduler, memory optimization",
         "Network Stack": "DPDK integration ready, kernel bypass, zero-copy",
         "Memory Management": "Pre-allocated pools, huge pages, NUMA-aware",
-        "Monitoring": "Real-time latency tracking, performance analytics"
+        "Monitoring": "Real-time latency tracking, performance analytics",
     }
 
     print("Ultra Low Latency Architecture:")
@@ -182,7 +181,7 @@ def demo_comparison():
 
     # 通常システム vs 超低レイテンシシステム
     normal_latency = 50.0  # 既存システム
-    ultra_latency = 10.0   # 目標システム
+    ultra_latency = 10.0  # 目標システム
     improvement = ((normal_latency - ultra_latency) / normal_latency) * 100
 
     print("Latency Comparison:")
@@ -195,12 +194,16 @@ def demo_comparison():
         ("Competitor A", 25.0),
         ("Competitor B", 15.0),
         ("Competitor C", 12.0),
-        ("Our Target", 10.0)
+        ("Our Target", 10.0),
     ]
 
     print("\nMarket Competitive Position:")
     for name, latency in competitors:
-        advantage = ((latency - ultra_latency) / latency * 100) if latency > ultra_latency else 0
+        advantage = (
+            ((latency - ultra_latency) / latency * 100)
+            if latency > ultra_latency
+            else 0
+        )
         status = f"({advantage:.0f}% advantage)" if advantage > 0 else "(competitive)"
         print(f"  {name:15s}: {latency:5.1f}μs {status}")
 
@@ -229,11 +232,15 @@ def main():
         print("DEMONSTRATION SUMMARY")
         print("=" * 60)
 
-        target_achieved = performance_report['latency_stats']['avg_us'] < 15.0
-        achievement_rate = performance_report['performance']['target_achievement_rate']
+        target_achieved = performance_report["latency_stats"]["avg_us"] < 15.0
+        achievement_rate = performance_report["performance"]["target_achievement_rate"]
 
-        print(f"Performance Demo:        {'SUCCESS' if target_achieved else 'NEEDS WORK'}")
-        print(f"  Average latency:       {performance_report['latency_stats']['avg_us']}us")
+        print(
+            f"Performance Demo:        {'SUCCESS' if target_achieved else 'NEEDS WORK'}"
+        )
+        print(
+            f"  Average latency:       {performance_report['latency_stats']['avg_us']}us"
+        )
         print(f"  Target achievement:    {achievement_rate}%")
 
         print("System Optimization:     CONFIGURED")

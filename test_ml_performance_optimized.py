@@ -27,8 +27,15 @@ def test_ml_performance_comparison():
     try:
         ConfigManager()
         test_symbols = [
-            "7203", "8306", "9984", "6758", "4689",  # 主要5銘柄
-            "4563", "4592", "3655", "4382",          # 新興4銘柄
+            "7203",
+            "8306",
+            "9984",
+            "6758",
+            "4689",  # 主要5銘柄
+            "4563",
+            "4592",
+            "3655",
+            "4382",  # 新興4銘柄
         ]
 
         # データ取得
@@ -59,7 +66,9 @@ def test_ml_performance_comparison():
             normal_results[symbol] = advice
 
             elapsed = time.time() - start_time
-            print(f"  {symbol}: {advice['advice']} ({advice['confidence']:.1f}%) - {elapsed:.2f}s累計")
+            print(
+                f"  {symbol}: {advice['advice']} ({advice['confidence']:.1f}%) - {elapsed:.2f}s累計"
+            )
 
         normal_total_time = time.time() - start_time
         normal_avg_time = normal_total_time / len(successful_symbols)
@@ -82,7 +91,9 @@ def test_ml_performance_comparison():
             fast_results[symbol] = advice
 
             elapsed = time.time() - start_time
-            print(f"  {symbol}: {advice['advice']} ({advice['confidence']:.1f}%) - {elapsed:.2f}s累計")
+            print(
+                f"  {symbol}: {advice['advice']} ({advice['confidence']:.1f}%) - {elapsed:.2f}s累計"
+            )
 
         fast_total_time = time.time() - start_time
         fast_avg_time = fast_total_time / len(successful_symbols)
@@ -105,19 +116,21 @@ def test_ml_performance_comparison():
         print("\n=== 精度比較 ===")
         agreement_count = 0
         for symbol in successful_symbols:
-            if normal_results[symbol]['advice'] == fast_results[symbol]['advice']:
+            if normal_results[symbol]["advice"] == fast_results[symbol]["advice"]:
                 agreement_count += 1
 
         accuracy_rate = agreement_count / len(successful_symbols) * 100
-        print(f"助言一致率: {accuracy_rate:.1f}% ({agreement_count}/{len(successful_symbols)})")
+        print(
+            f"助言一致率: {accuracy_rate:.1f}% ({agreement_count}/{len(successful_symbols)})"
+        )
 
         # 詳細結果表示
         print("\n=== 詳細比較 ===")
         print(f"{'Symbol':>6} | {'Normal':>12} | {'Fast':>12} | {'Match':>5}")
         print("-" * 50)
         for symbol in successful_symbols:
-            normal_advice = normal_results[symbol]['advice']
-            fast_advice = fast_results[symbol]['advice']
+            normal_advice = normal_results[symbol]["advice"]
+            fast_advice = fast_results[symbol]["advice"]
             match = "✓" if normal_advice == fast_advice else "✗"
             print(f"{symbol:>6} | {normal_advice:>12} | {fast_advice:>12} | {match:>5}")
 
@@ -127,7 +140,7 @@ def test_ml_performance_comparison():
             "speedup": speedup,
             "estimated_85_time": estimated_85_fast,
             "meets_target": estimated_85_fast <= 10,
-            "accuracy_rate": accuracy_rate
+            "accuracy_rate": accuracy_rate,
         }
 
     except Exception as e:
@@ -220,7 +233,9 @@ def main():
         print(f"高速化倍率: {comparison_result['speedup']:.1f}倍")
         print(f"助言精度維持: {comparison_result['accuracy_rate']:.1f}%")
         print(f"85銘柄推定時間: {comparison_result['estimated_85_time']:.1f}秒")
-        print(f"目標10秒達成: {'SUCCESS' if comparison_result['meets_target'] else 'FAILED'}")
+        print(
+            f"目標10秒達成: {'SUCCESS' if comparison_result['meets_target'] else 'FAILED'}"
+        )
 
     if simulation_time:
         print(f"実際シミュレーション: {simulation_time:.1f}秒")

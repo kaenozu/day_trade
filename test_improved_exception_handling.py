@@ -13,7 +13,7 @@ def test_improved_exception_handling():
     """改善された例外処理のテスト"""
     print("=== 改善された例外処理テスト ===")
 
-    symbols = ['7203', '6758', '4689']
+    symbols = ["7203", "6758", "4689"]
     engine = AnalysisOnlyEngine(symbols)
 
     # 基本プロパティの確認
@@ -25,7 +25,7 @@ def test_improved_exception_handling():
     import pandas as pd
 
     # 正常データ
-    normal_data = pd.DataFrame({'Close': [100, 102, 101, 103, 105]})
+    normal_data = pd.DataFrame({"Close": [100, 102, 101, 103, 105]})
     volatility = engine._calculate_volatility(normal_data)
     assert volatility is not None
     print("正常データボラティリティ計算: OK")
@@ -42,23 +42,22 @@ def test_improved_exception_handling():
     print("Noneデータボラティリティ計算: OK")
 
     # 出来高トレンド分析テスト
-    volume_data = pd.DataFrame({
-        'Volume': [1000, 1100, 1200, 1400, 1500, 1600]
-    })
+    volume_data = pd.DataFrame({"Volume": [1000, 1100, 1200, 1400, 1500, 1600]})
     volume_trend = engine._analyze_volume_trend(volume_data)
     assert volume_trend == "増加"
     print("出来高トレンド分析: OK")
 
     # 価格トレンド分析テスト
-    price_data = pd.DataFrame({
-        'Close': [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120]
-    })
+    price_data = pd.DataFrame(
+        {"Close": [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120]}
+    )
     price_trend = engine._analyze_price_trend(price_data)
     assert price_trend == "上昇"
     print("価格トレンド分析: OK")
 
     # 推奨事項生成テスト
     from decimal import Decimal
+
     recommendations = engine._generate_recommendations("7203", Decimal("2500.0"), None)
     assert len(recommendations) > 0
     assert any("現在価格" in rec for rec in recommendations)
@@ -73,7 +72,7 @@ async def test_async_exception_handling():
     """非同期例外処理のテスト"""
     print("=== 非同期例外処理テスト ===")
 
-    symbols = ['7203']
+    symbols = ["7203"]
     engine = AnalysisOnlyEngine(symbols)
 
     # 停止テスト
@@ -112,6 +111,7 @@ def main():
     except Exception as e:
         print(f"❌ テスト失敗: {e}")
         import traceback
+
         traceback.print_exc()
 
 

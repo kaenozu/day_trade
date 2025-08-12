@@ -40,11 +40,11 @@ class TestConfigTradingModeConfig:
 
         # Test all enum values exist
         expected_modes = [
-            ('ANALYSIS_ONLY', 'analysis_only'),
-            ('INFORMATION', 'information'),
-            ('MANUAL_SUPPORT', 'manual_support'),
-            ('SIMULATION', 'simulation'),
-            ('DISABLED', 'disabled')
+            ("ANALYSIS_ONLY", "analysis_only"),
+            ("INFORMATION", "information"),
+            ("MANUAL_SUPPORT", "manual_support"),
+            ("SIMULATION", "simulation"),
+            ("DISABLED", "disabled"),
         ]
 
         for name, value in expected_modes:
@@ -91,14 +91,12 @@ class TestConfigTradingModeConfig:
 
         # Test custom initialization
         # Note: __post_init__ will override some settings based on mode
-        custom_config = TradingModeConfig(
-            current_mode=TradingMode.INFORMATION
-        )
+        custom_config = TradingModeConfig(current_mode=TradingMode.INFORMATION)
 
         assert custom_config.current_mode == TradingMode.INFORMATION
         # __post_init__ may override these based on mode
         assert custom_config.enable_market_data is True  # Set by _set_information_mode
-        assert custom_config.enable_analysis is True     # Set by _set_information_mode
+        assert custom_config.enable_analysis is True  # Set by _set_information_mode
         # Safety features remain False regardless
         assert custom_config.enable_automatic_trading is False
 
@@ -133,8 +131,8 @@ class TestAutomationAnalysisOnlyEngine:
     """Complete coverage for src/day_trade/automation/analysis_only_engine.py"""
 
     @staticmethod
-    @patch('src.day_trade.analysis.signals.TradingSignalGenerator')
-    @patch('src.day_trade.data.stock_fetcher.StockFetcher')
+    @patch("src.day_trade.analysis.signals.TradingSignalGenerator")
+    @patch("src.day_trade.data.stock_fetcher.StockFetcher")
     def test_analysis_only_engine_complete(mock_stock_fetcher, mock_signal_gen):
         """Complete AnalysisOnlyEngine coverage"""
         print("=== AnalysisOnlyEngine Complete Test ===")
@@ -151,7 +149,7 @@ class TestAutomationAnalysisOnlyEngine:
         )
 
         # Test 1: Basic initialization
-        symbols = ['7203', '8306', '9984']
+        symbols = ["7203", "8306", "9984"]
         engine = AnalysisOnlyEngine(symbols, update_interval=30.0)
 
         assert engine.symbols == symbols
@@ -163,13 +161,13 @@ class TestAutomationAnalysisOnlyEngine:
         custom_generator = MagicMock()
 
         engine2 = AnalysisOnlyEngine(
-            ['6758'],
+            ["6758"],
             signal_generator=custom_generator,
             stock_fetcher=custom_fetcher,
-            update_interval=60.0
+            update_interval=60.0,
         )
 
-        assert engine2.symbols == ['6758']
+        assert engine2.symbols == ["6758"]
         assert engine2.update_interval == 60.0
 
         # Test 3: All methods
@@ -179,7 +177,7 @@ class TestAutomationAnalysisOnlyEngine:
         market_summary = engine.get_market_summary()
         assert isinstance(market_summary, dict)
 
-        engine.get_latest_analysis('7203')
+        engine.get_latest_analysis("7203")
         # Can be None if no analysis yet
 
         all_analyses = engine.get_all_analyses()
@@ -189,7 +187,7 @@ class TestAutomationAnalysisOnlyEngine:
         for status_val in AnalysisStatus:
             engine.status = status_val
             current_status = engine.get_status()
-            assert current_status['status'] == status_val.value
+            assert current_status["status"] == status_val.value
 
         print("[OK] AnalysisOnlyEngine: complete coverage")
 
@@ -201,10 +199,10 @@ class TestAutomationAnalysisOnlyEngine:
         from src.day_trade.automation.analysis_only_engine import AnalysisStatus
 
         expected_statuses = [
-            ('STOPPED', 'stopped'),
-            ('RUNNING', 'running'),
-            ('PAUSED', 'paused'),
-            ('ERROR', 'error')
+            ("STOPPED", "stopped"),
+            ("RUNNING", "running"),
+            ("PAUSED", "paused"),
+            ("ERROR", "error"),
         ]
 
         for name, value in expected_statuses:
@@ -225,13 +223,13 @@ class TestAutomationAnalysisOnlyEngine:
 
         # Test basic initialization
         analysis = MarketAnalysis(
-            symbol='7203',
-            current_price=Decimal('2500'),
-            analysis_timestamp=datetime.now()
+            symbol="7203",
+            current_price=Decimal("2500"),
+            analysis_timestamp=datetime.now(),
         )
 
-        assert analysis.symbol == '7203'
-        assert analysis.current_price == Decimal('2500')
+        assert analysis.symbol == "7203"
+        assert analysis.current_price == Decimal("2500")
         assert isinstance(analysis.analysis_timestamp, datetime)
         assert analysis.signal is None
         assert analysis.volatility is None
@@ -241,19 +239,19 @@ class TestAutomationAnalysisOnlyEngine:
 
         # Test with all fields
         analysis2 = MarketAnalysis(
-            symbol='8306',
-            current_price=Decimal('800'),
+            symbol="8306",
+            current_price=Decimal("800"),
             analysis_timestamp=datetime.now(),
             volatility=0.15,
-            volume_trend='increasing',
-            price_trend='upward',
-            recommendations=['Hold', 'Monitor']
+            volume_trend="increasing",
+            price_trend="upward",
+            recommendations=["Hold", "Monitor"],
         )
 
         assert analysis2.volatility == 0.15
-        assert analysis2.volume_trend == 'increasing'
-        assert analysis2.price_trend == 'upward'
-        assert analysis2.recommendations == ['Hold', 'Monitor']
+        assert analysis2.volume_trend == "increasing"
+        assert analysis2.price_trend == "upward"
+        assert analysis2.recommendations == ["Hold", "Monitor"]
 
         print("[OK] MarketAnalysis dataclass: complete coverage")
 
@@ -262,8 +260,8 @@ class TestAutomationTradingEngine:
     """Complete coverage for src/day_trade/automation/trading_engine.py"""
 
     @staticmethod
-    @patch('src.day_trade.analysis.signals.TradingSignalGenerator')
-    @patch('src.day_trade.data.stock_fetcher.StockFetcher')
+    @patch("src.day_trade.analysis.signals.TradingSignalGenerator")
+    @patch("src.day_trade.data.stock_fetcher.StockFetcher")
     def test_trading_engine_complete(mock_stock_fetcher, mock_signal_gen):
         """Complete TradingEngine coverage"""
         print("=== TradingEngine Complete Test ===")
@@ -275,18 +273,18 @@ class TestAutomationTradingEngine:
         from src.day_trade.automation.trading_engine import TradingEngine
 
         # Test initialization in safe mode
-        engine = TradingEngine(['7203', '8306'])
+        engine = TradingEngine(["7203", "8306"])
 
-        assert hasattr(engine, 'symbols')
-        assert hasattr(engine, 'trading_config')
-        assert engine.symbols == ['7203', '8306']
+        assert hasattr(engine, "symbols")
+        assert hasattr(engine, "trading_config")
+        assert engine.symbols == ["7203", "8306"]
 
         # Test available analysis methods
         analysis_methods = [
-            'get_analysis_summary',
-            'get_educational_insights',
-            'get_status',
-            'get_market_data'
+            "get_analysis_summary",
+            "get_educational_insights",
+            "get_status",
+            "get_market_data",
         ]
 
         for method_name in analysis_methods:
@@ -305,7 +303,7 @@ class TestAnalysisEnhancedReportManager:
     """Complete coverage for src/day_trade/analysis/enhanced_report_manager.py"""
 
     @staticmethod
-    @patch('src.day_trade.automation.analysis_only_engine.AnalysisOnlyEngine')
+    @patch("src.day_trade.automation.analysis_only_engine.AnalysisOnlyEngine")
     def test_enhanced_report_manager_complete(mock_engine):
         """Complete EnhancedReportManager coverage"""
         print("=== EnhancedReportManager Complete Test ===")
@@ -317,48 +315,54 @@ class TestAnalysisEnhancedReportManager:
 
         # Test 1: Basic initialization
         manager = EnhancedReportManager()
-        assert hasattr(manager, 'analysis_engine')
-        assert hasattr(manager, 'report_history')
-        assert hasattr(manager, 'export_directory')
+        assert hasattr(manager, "analysis_engine")
+        assert hasattr(manager, "report_history")
+        assert hasattr(manager, "export_directory")
 
         # Test 2: Initialization with custom engine
         manager2 = EnhancedReportManager(analysis_engine=mock_engine_instance)
         assert manager2.analysis_engine == mock_engine_instance
 
         # Test 3: Report generation methods (mocked)
-        test_symbols = ['7203', '6758']
+        test_symbols = ["7203", "6758"]
 
         report_methods = [
-            'generate_detailed_market_report',
-            'generate_educational_insights',
-            'generate_risk_analysis_report',
-            'generate_performance_report'
+            "generate_detailed_market_report",
+            "generate_educational_insights",
+            "generate_risk_analysis_report",
+            "generate_performance_report",
         ]
 
         for method_name in report_methods:
             if hasattr(manager, method_name):
                 method = getattr(manager, method_name)
                 # Mock the method to avoid heavy processing
-                with patch.object(manager, method_name, return_value={'status': 'success', 'data': 'mocked'}):
+                with patch.object(
+                    manager,
+                    method_name,
+                    return_value={"status": "success", "data": "mocked"},
+                ):
                     result = method(test_symbols)
-                    assert result['status'] == 'success'
+                    assert result["status"] == "success"
                     print(f"[OK] {method_name}: mocked successfully")
 
         # Test 4: Export methods (mocked)
         export_methods = [
-            ('export_to_json', '.json'),
-            ('export_to_html', '.html'),
-            ('export_to_markdown', '.md'),
-            ('export_to_csv', '.csv')
+            ("export_to_json", ".json"),
+            ("export_to_html", ".html"),
+            ("export_to_markdown", ".md"),
+            ("export_to_csv", ".csv"),
         ]
 
-        sample_data = {'test': 'data', 'timestamp': datetime.now().isoformat()}
+        sample_data = {"test": "data", "timestamp": datetime.now().isoformat()}
 
         for method_name, extension in export_methods:
             if hasattr(manager, method_name):
                 method = getattr(manager, method_name)
                 with patch.object(manager, method_name, return_value=True):
-                    with tempfile.NamedTemporaryFile(suffix=extension, delete=False) as tmp:
+                    with tempfile.NamedTemporaryFile(
+                        suffix=extension, delete=False
+                    ) as tmp:
                         result = method(sample_data, tmp.name)
                         assert result is True
                         print(f"[OK] {method_name}: mocked successfully")
@@ -375,10 +379,10 @@ class TestAnalysisEnhancedReportManager:
         from src.day_trade.analysis.enhanced_report_manager import ReportFormat
 
         expected_formats = [
-            ('JSON', 'json'),
-            ('HTML', 'html'),
-            ('CSV', 'csv'),
-            ('MARKDOWN', 'markdown')
+            ("JSON", "json"),
+            ("HTML", "html"),
+            ("CSV", "csv"),
+            ("MARKDOWN", "markdown"),
         ]
 
         for name, value in expected_formats:
@@ -395,8 +399,8 @@ class TestAnalysisMarketAnalysisSystem:
     """Complete coverage for src/day_trade/analysis/market_analysis_system.py"""
 
     @staticmethod
-    @patch('src.day_trade.analysis.signals.TradingSignalGenerator')
-    @patch('src.day_trade.data.stock_fetcher.StockFetcher')
+    @patch("src.day_trade.analysis.signals.TradingSignalGenerator")
+    @patch("src.day_trade.data.stock_fetcher.StockFetcher")
     def test_market_analysis_system_complete(mock_stock_fetcher, mock_signal_gen):
         """Complete MarketAnalysisSystem coverage"""
         print("=== MarketAnalysisSystem Complete Test ===")
@@ -408,19 +412,19 @@ class TestAnalysisMarketAnalysisSystem:
         from src.day_trade.analysis.market_analysis_system import MarketAnalysisSystem
 
         # Test initialization
-        symbols = ['7203', '8306', '6758']
+        symbols = ["7203", "8306", "6758"]
         system = MarketAnalysisSystem(symbols)
 
-        assert hasattr(system, '__init__')
+        assert hasattr(system, "__init__")
 
         # Mock comprehensive market analysis
 
         # Test analysis methods (check availability and mock if needed)
         analysis_methods = [
-            'perform_comprehensive_market_analysis',
-            'analyze_market_trends',
-            'calculate_volatility',
-            'assess_volume_patterns'
+            "perform_comprehensive_market_analysis",
+            "analyze_market_trends",
+            "calculate_volatility",
+            "assess_volume_patterns",
         ]
 
         for method_name in analysis_methods:
@@ -443,8 +447,8 @@ class TestDataStockFetcher:
     """Complete coverage for src/day_trade/data/stock_fetcher.py"""
 
     @staticmethod
-    @patch('yfinance.download')
-    @patch('src.day_trade.data.stock_master.StockMasterManager')
+    @patch("yfinance.download")
+    @patch("src.day_trade.data.stock_master.StockMasterManager")
     def test_stock_fetcher_complete(mock_stock_master, mock_yf_download):
         """Complete StockFetcher coverage"""
         print("=== StockFetcher Complete Test ===")
@@ -457,17 +461,17 @@ class TestDataStockFetcher:
 
         # Test initialization
         fetcher = StockFetcher()
-        assert hasattr(fetcher, '__init__')
+        assert hasattr(fetcher, "__init__")
 
         # Mock data fetching methods
-        test_symbols = ['7203', '8306']
+        test_symbols = ["7203", "8306"]
 
         fetch_methods = [
-            ('fetch_stock_data', test_symbols),
-            ('fetch_real_time_data', test_symbols),
-            ('fetch_historical_data', test_symbols),
-            ('get_stock_info', '7203'),
-            ('validate_symbol', '7203')
+            ("fetch_stock_data", test_symbols),
+            ("fetch_real_time_data", test_symbols),
+            ("fetch_historical_data", test_symbols),
+            ("get_stock_info", "7203"),
+            ("validate_symbol", "7203"),
         ]
 
         for method_name, test_input in fetch_methods:
@@ -476,10 +480,12 @@ class TestDataStockFetcher:
 
                 # Create mock return data
                 mock_data = {
-                    'symbol': '7203' if isinstance(test_input, str) else test_symbols[0],
-                    'price': 2500.0,
-                    'volume': 1000000,
-                    'timestamp': datetime.now().isoformat()
+                    "symbol": (
+                        "7203" if isinstance(test_input, str) else test_symbols[0]
+                    ),
+                    "price": 2500.0,
+                    "volume": 1000000,
+                    "timestamp": datetime.now().isoformat(),
                 }
 
                 if asyncio.iscoroutinefunction(method):
@@ -487,7 +493,9 @@ class TestDataStockFetcher:
                     async def mock_async_fetch(*args, **kwargs):
                         return mock_data
 
-                    with patch.object(fetcher, method_name, side_effect=mock_async_fetch):
+                    with patch.object(
+                        fetcher, method_name, side_effect=mock_async_fetch
+                    ):
                         result = asyncio.run(method(test_input))
                         assert isinstance(result, dict)
                         print(f"[OK] {method_name}: async method mocked successfully")
@@ -505,8 +513,8 @@ class TestDataStockMaster:
     """Complete coverage for src/day_trade/data/stock_master.py"""
 
     @staticmethod
-    @patch('pandas.read_csv')
-    @patch('requests.get')
+    @patch("pandas.read_csv")
+    @patch("requests.get")
     def test_stock_master_complete(mock_requests_get, mock_pd_read_csv):
         """Complete StockMaster coverage"""
         print("=== StockMaster Complete Test ===")
@@ -514,13 +522,13 @@ class TestDataStockMaster:
         # Mock dependencies
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.content = b'mock csv data'
+        mock_response.content = b"mock csv data"
         mock_requests_get.return_value = mock_response
 
         mock_df = MagicMock()
         mock_df.to_dict.return_value = {
-            '7203': {'name': 'Toyota', 'sector': 'Auto'},
-            '8306': {'name': 'MUFG', 'sector': 'Finance'}
+            "7203": {"name": "Toyota", "sector": "Auto"},
+            "8306": {"name": "MUFG", "sector": "Finance"},
         }
         mock_pd_read_csv.return_value = mock_df
 
@@ -528,15 +536,15 @@ class TestDataStockMaster:
 
         # Test initialization
         master = StockMasterManager()
-        assert hasattr(master, '__init__')
+        assert hasattr(master, "__init__")
 
         # Test methods (all mocked)
         master_methods = [
-            ('get_stock_info', '7203'),
-            ('get_all_symbols', None),
-            ('update_master_data', None),
-            ('validate_symbol', '7203'),
-            ('get_sector_info', '7203')
+            ("get_stock_info", "7203"),
+            ("get_all_symbols", None),
+            ("update_master_data", None),
+            ("validate_symbol", "7203"),
+            ("get_sector_info", "7203"),
         ]
 
         for method_name, test_input in master_methods:
@@ -544,17 +552,19 @@ class TestDataStockMaster:
                 method = getattr(master, method_name)
 
                 mock_result = {
-                    'symbol': '7203',
-                    'name': 'Toyota',
-                    'sector': 'Auto',
-                    'valid': True
+                    "symbol": "7203",
+                    "name": "Toyota",
+                    "sector": "Auto",
+                    "valid": True,
                 }
 
                 with patch.object(master, method_name, return_value=mock_result):
                     result = method(test_input) if test_input is not None else method()
 
                     if isinstance(result, dict):
-                        assert 'symbol' in result or 'valid' in result or len(result) > 0
+                        assert (
+                            "symbol" in result or "valid" in result or len(result) > 0
+                        )
                     print(f"[OK] {method_name}: mocked successfully")
 
         print("[OK] StockMaster: complete coverage")
@@ -564,7 +574,7 @@ class TestAnalysisSignals:
     """Complete coverage for src/day_trade/analysis/signals.py"""
 
     @staticmethod
-    @patch('pandas.DataFrame')
+    @patch("pandas.DataFrame")
     def test_trading_signal_generator_complete(mock_dataframe):
         """Complete TradingSignalGenerator coverage"""
         print("=== TradingSignalGenerator Complete Test ===")
@@ -579,23 +589,23 @@ class TestAnalysisSignals:
 
         # Test initialization
         generator = TradingSignalGenerator()
-        assert hasattr(generator, '__init__')
+        assert hasattr(generator, "__init__")
 
         # Mock signal generation methods
         test_data = {
-            'symbol': '7203',
-            'close': [2480, 2490, 2500, 2510, 2520],
-            'volume': [800000, 900000, 1000000, 1100000, 1200000],
-            'high': [2485, 2495, 2505, 2515, 2525],
-            'low': [2475, 2485, 2495, 2505, 2515]
+            "symbol": "7203",
+            "close": [2480, 2490, 2500, 2510, 2520],
+            "volume": [800000, 900000, 1000000, 1100000, 1200000],
+            "high": [2485, 2495, 2505, 2515, 2525],
+            "low": [2475, 2485, 2495, 2505, 2515],
         }
 
         signal_methods = [
-            ('generate_signals', test_data),
-            ('calculate_rsi', test_data),
-            ('calculate_macd', test_data),
-            ('calculate_bollinger_bands', test_data),
-            ('analyze_volume_trend', test_data)
+            ("generate_signals", test_data),
+            ("calculate_rsi", test_data),
+            ("calculate_macd", test_data),
+            ("calculate_bollinger_bands", test_data),
+            ("analyze_volume_trend", test_data),
         ]
 
         for method_name, test_input in signal_methods:
@@ -604,17 +614,17 @@ class TestAnalysisSignals:
 
                 # Mock return appropriate signal data
                 mock_result = {
-                    'symbol': '7203',
-                    'signal_type': 'BUY' if 'generate' in method_name else 'INDICATOR',
-                    'confidence': 0.75,
-                    'timestamp': datetime.now().isoformat(),
-                    'method': method_name
+                    "symbol": "7203",
+                    "signal_type": "BUY" if "generate" in method_name else "INDICATOR",
+                    "confidence": 0.75,
+                    "timestamp": datetime.now().isoformat(),
+                    "method": method_name,
                 }
 
                 with patch.object(generator, method_name, return_value=mock_result):
                     result = method(test_input)
                     assert isinstance(result, dict)
-                    assert 'symbol' in result
+                    assert "symbol" in result
                     print(f"[OK] {method_name}: mocked successfully")
 
         print("[OK] TradingSignalGenerator: complete coverage")
@@ -636,18 +646,18 @@ class TestAnalysisSignals:
                 signal_type=SignalType.BUY,
                 strength=SignalStrength.STRONG,
                 confidence=85.0,
-                reasons=['RSI oversold', 'MACD bullish'],
-                conditions_met={'rsi_check': True, 'volume_check': True},
+                reasons=["RSI oversold", "MACD bullish"],
+                conditions_met={"rsi_check": True, "volume_check": True},
                 timestamp=datetime.now(),
-                price=Decimal('2500'),
-                symbol='7203'
+                price=Decimal("2500"),
+                symbol="7203",
             )
 
-            assert signal.symbol == '7203'
+            assert signal.symbol == "7203"
             assert signal.signal_type == SignalType.BUY
             assert signal.strength == SignalStrength.STRONG
             assert signal.confidence == 85.0
-            assert signal.price == Decimal('2500')
+            assert signal.price == Decimal("2500")
             assert isinstance(signal.timestamp, datetime)
             assert isinstance(signal.reasons, list)
             assert isinstance(signal.conditions_met, dict)
@@ -664,7 +674,7 @@ class TestUtilsLoggingConfig:
     """Complete coverage for src/day_trade/utils/logging_config.py"""
 
     @staticmethod
-    @patch('logging.getLogger')
+    @patch("logging.getLogger")
     def test_logging_config_complete(mock_get_logger):
         """Complete logging_config coverage"""
         print("=== LoggingConfig Complete Test ===")
@@ -676,9 +686,9 @@ class TestUtilsLoggingConfig:
         from src.day_trade.utils.logging_config import get_context_logger, setup_logging
 
         # Test get_context_logger
-        logger = get_context_logger('test_module')
+        logger = get_context_logger("test_module")
         assert logger is not None  # Logger should be returned
-        mock_get_logger.assert_called_with('test_module')
+        mock_get_logger.assert_called_with("test_module")
 
         # Test setup_logging (function exists and can be called)
         try:
@@ -713,7 +723,7 @@ class TestUtilsExceptions:
                 (DataFetchError, "Data fetch error"),
                 (AnalysisError, "Analysis error"),
                 (ConfigurationError, "Configuration error"),
-                (ValidationError, "Validation error")
+                (ValidationError, "Validation error"),
             ]
 
             for exc_class, message in exception_classes:
@@ -735,7 +745,7 @@ class TestModelsStock:
     """Complete coverage for src/day_trade/models/stock.py"""
 
     @staticmethod
-    @patch('sqlalchemy.create_engine')
+    @patch("sqlalchemy.create_engine")
     def test_stock_model_complete(mock_create_engine):
         """Complete Stock model coverage"""
         print("=== Stock Model Complete Test ===")
@@ -750,16 +760,16 @@ class TestModelsStock:
             # Test Stock model creation (proper mock without breaking SQLAlchemy)
             # Mock database connection instead of __init__
             stock = Mock(spec=Stock)
-            stock.code = '7203'
-            stock.name = 'Toyota'
-            stock.market = 'Prime'
-            stock.sector = 'Transportation'
+            stock.code = "7203"
+            stock.name = "Toyota"
+            stock.market = "Prime"
+            stock.sector = "Transportation"
 
             # Test model attributes
-            assert stock.code == '7203'
-            assert stock.name == 'Toyota'
-            assert stock.market == 'Prime'
-            assert stock.sector == 'Transportation'
+            assert stock.code == "7203"
+            assert stock.name == "Toyota"
+            assert stock.market == "Prime"
+            assert stock.sector == "Transportation"
 
             print("[OK] Stock model: mocked successfully")
 
@@ -771,8 +781,8 @@ class TestModelsDatabase:
     """Complete coverage for src/day_trade/models/database.py"""
 
     @staticmethod
-    @patch('sqlalchemy.create_engine')
-    @patch('sqlalchemy.orm.sessionmaker')
+    @patch("sqlalchemy.create_engine")
+    @patch("sqlalchemy.orm.sessionmaker")
     def test_database_complete(mock_sessionmaker, mock_create_engine):
         """Complete database coverage"""
         print("=== Database Complete Test ===")
@@ -787,20 +797,22 @@ class TestModelsDatabase:
             from src.day_trade.models.database import DatabaseManager
 
             # Test database manager (mocked)
-            with patch.object(DatabaseManager, '__init__', return_value=None):
+            with patch.object(DatabaseManager, "__init__", return_value=None):
                 db_manager = DatabaseManager()
 
                 # Mock methods
                 db_methods = [
-                    'create_tables',
-                    'get_session',
-                    'close_connection',
-                    'execute_query'
+                    "create_tables",
+                    "get_session",
+                    "close_connection",
+                    "execute_query",
                 ]
 
                 for method_name in db_methods:
                     if hasattr(DatabaseManager, method_name):
-                        with patch.object(DatabaseManager, method_name, return_value=True):
+                        with patch.object(
+                            DatabaseManager, method_name, return_value=True
+                        ):
                             method = getattr(db_manager, method_name)
                             result = method()
                             assert result is True
@@ -816,8 +828,8 @@ class TestDashboardAnalysisDashboardServer:
     """Complete coverage for src/day_trade/dashboard/analysis_dashboard_server.py"""
 
     @staticmethod
-    @patch('fastapi.FastAPI')
-    @patch('uvicorn.run')
+    @patch("fastapi.FastAPI")
+    @patch("uvicorn.run")
     def test_dashboard_server_complete(mock_uvicorn_run, mock_fastapi):
         """Complete dashboard server coverage"""
         print("=== Dashboard Server Complete Test ===")
@@ -834,10 +846,10 @@ class TestDashboardAnalysisDashboardServer:
 
             # Test route functions (mocked)
             route_functions = [
-                'get_market_status',
-                'get_analysis_data',
-                'get_system_info',
-                'websocket_endpoint'
+                "get_market_status",
+                "get_analysis_data",
+                "get_system_info",
+                "websocket_endpoint",
             ]
 
             for func_name in route_functions:
@@ -845,13 +857,20 @@ class TestDashboardAnalysisDashboardServer:
                     from src.day_trade.dashboard.analysis_dashboard_server import (
                         globals,
                     )
-                    if func_name in dir(globals().get('src.day_trade.dashboard.analysis_dashboard_server', {})):
+
+                    if func_name in dir(
+                        globals().get(
+                            "src.day_trade.dashboard.analysis_dashboard_server", {}
+                        )
+                    ):
                         print(f"[OK] {func_name}: route function exists")
                 except:
                     print(f"[INFO] {func_name}: function not directly accessible")
 
             # Mock server startup
-            with patch('src.day_trade.dashboard.analysis_dashboard_server.run_server') as mock_run:
+            with patch(
+                "src.day_trade.dashboard.analysis_dashboard_server.run_server"
+            ) as mock_run:
                 if callable(mock_run):
                     mock_run()
                     print("[OK] run_server: mocked successfully")
@@ -875,22 +894,30 @@ class TestErrorHandlingAndEdgeCases:
         print("[OK] Safe mode: verified active")
 
         # Test unsafe mode simulation
-        with patch('src.day_trade.config.trading_mode_config.is_safe_mode', return_value=False):
+        with patch(
+            "src.day_trade.config.trading_mode_config.is_safe_mode", return_value=False
+        ):
             # Test that AnalysisOnlyEngine rejects unsafe mode
             try:
                 from src.day_trade.automation.analysis_only_engine import (
                     AnalysisOnlyEngine,
                 )
 
-                with patch('src.day_trade.data.stock_fetcher.StockFetcher'):
+                with patch("src.day_trade.data.stock_fetcher.StockFetcher"):
                     try:
-                        AnalysisOnlyEngine(['7203'])
-                        print("[WARNING] AnalysisOnlyEngine: should have failed in unsafe mode")
+                        AnalysisOnlyEngine(["7203"])
+                        print(
+                            "[WARNING] AnalysisOnlyEngine: should have failed in unsafe mode"
+                        )
                     except ValueError as e:
                         if "セーフモード" in str(e) or "safe" in str(e).lower():
-                            print("[OK] AnalysisOnlyEngine: properly rejected unsafe mode")
+                            print(
+                                "[OK] AnalysisOnlyEngine: properly rejected unsafe mode"
+                            )
                         else:
-                            print(f"[WARNING] AnalysisOnlyEngine: unexpected error: {e}")
+                            print(
+                                f"[WARNING] AnalysisOnlyEngine: unexpected error: {e}"
+                            )
             except ImportError:
                 print("[INFO] AnalysisOnlyEngine: not available for unsafe test")
 
@@ -906,7 +933,7 @@ class TestErrorHandlingAndEdgeCases:
             ([], "empty list"),
             ("", "empty string"),
             (None, "None value"),
-            ({}, "empty dict")
+            ({}, "empty dict"),
         ]
 
         for test_input, description in test_cases:
@@ -918,7 +945,7 @@ class TestErrorHandlingAndEdgeCases:
                         AnalysisOnlyEngine,
                     )
 
-                    with patch('src.day_trade.data.stock_fetcher.StockFetcher'):
+                    with patch("src.day_trade.data.stock_fetcher.StockFetcher"):
                         AnalysisOnlyEngine(test_input)
                         print(f"[INFO] AnalysisOnlyEngine accepts {description}")
 
@@ -933,8 +960,8 @@ class TestErrorHandlingAndEdgeCases:
         print("=== Resource Management Test ===")
 
         # Test file operations
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            test_data = {'test': 'data', 'timestamp': datetime.now().isoformat()}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            test_data = {"test": "data", "timestamp": datetime.now().isoformat()}
             json.dump(test_data, f)
             temp_file = f.name
 
@@ -945,7 +972,7 @@ class TestErrorHandlingAndEdgeCases:
         # Read and verify
         with open(temp_path) as f:
             loaded_data = json.load(f)
-            assert loaded_data['test'] == 'data'
+            assert loaded_data["test"] == "data"
 
         # Cleanup
         temp_path.unlink()
@@ -971,12 +998,12 @@ class TestErrorHandlingAndEdgeCases:
 
         async def mock_async_operation():
             await asyncio.sleep(0.01)  # Minimal delay
-            return {'status': 'completed', 'result': 'async test'}
+            return {"status": "completed", "result": "async test"}
 
         # Test async execution
         result = asyncio.run(mock_async_operation())
-        assert result['status'] == 'completed'
-        assert result['result'] == 'async test'
+        assert result["status"] == "completed"
+        assert result["result"] == "async test"
 
         # Test multiple concurrent operations
         async def run_multiple_ops():
@@ -986,7 +1013,7 @@ class TestErrorHandlingAndEdgeCases:
 
         results = asyncio.run(run_multiple_ops())
         assert len(results) == 3
-        assert all(r['status'] == 'completed' for r in results)
+        assert all(r["status"] == "completed" for r in results)
 
         print("[OK] Async operations: tested")
 
@@ -1048,8 +1075,12 @@ def run_complete_coverage_suite():
         print()
         print("COVERAGE RESULTS:")
         print("+ Config Module (trading_mode_config): FULL COVERAGE")
-        print("+ Automation Module (analysis_only_engine, trading_engine): FULL COVERAGE")
-        print("+ Analysis Module (enhanced_report_manager, market_analysis_system, signals): FULL COVERAGE")
+        print(
+            "+ Automation Module (analysis_only_engine, trading_engine): FULL COVERAGE"
+        )
+        print(
+            "+ Analysis Module (enhanced_report_manager, market_analysis_system, signals): FULL COVERAGE"
+        )
         print("+ Data Module (stock_fetcher, stock_master): FULL COVERAGE")
         print("+ Utils Module (logging_config, exceptions): FULL COVERAGE")
         print("+ Models Module (stock, database): FULL COVERAGE")
@@ -1078,6 +1109,7 @@ def run_complete_coverage_suite():
         print(f"ERROR: Test suite failed: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         return False
 

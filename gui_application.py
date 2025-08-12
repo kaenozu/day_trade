@@ -37,25 +37,33 @@ class SystemStatusWidget:
         # CPU使用率
         ttk.Label(self.frame, text="CPU使用率:").grid(row=0, column=0, sticky="w")
         self.cpu_var = tk.StringVar(value="0.0%")
-        self.cpu_label = ttk.Label(self.frame, textvariable=self.cpu_var, foreground="green")
+        self.cpu_label = ttk.Label(
+            self.frame, textvariable=self.cpu_var, foreground="green"
+        )
         self.cpu_label.grid(row=0, column=1, sticky="w")
 
         # メモリ使用量
         ttk.Label(self.frame, text="メモリ使用量:").grid(row=1, column=0, sticky="w")
         self.memory_var = tk.StringVar(value="0 MB")
-        self.memory_label = ttk.Label(self.frame, textvariable=self.memory_var, foreground="blue")
+        self.memory_label = ttk.Label(
+            self.frame, textvariable=self.memory_var, foreground="blue"
+        )
         self.memory_label.grid(row=1, column=1, sticky="w")
 
         # システム状態
         ttk.Label(self.frame, text="システム状態:").grid(row=2, column=0, sticky="w")
         self.status_var = tk.StringVar(value="停止中")
-        self.status_label = ttk.Label(self.frame, textvariable=self.status_var, foreground="red")
+        self.status_label = ttk.Label(
+            self.frame, textvariable=self.status_var, foreground="red"
+        )
         self.status_label.grid(row=2, column=1, sticky="w")
 
         # 最終更新時刻
         ttk.Label(self.frame, text="最終更新:").grid(row=3, column=0, sticky="w")
         self.update_var = tk.StringVar(value="未更新")
-        self.update_label = ttk.Label(self.frame, textvariable=self.update_var, foreground="gray")
+        self.update_label = ttk.Label(
+            self.frame, textvariable=self.update_var, foreground="gray"
+        )
         self.update_label.grid(row=3, column=1, sticky="w")
 
     def update_status(self, cpu: float, memory: float, status: str):
@@ -98,7 +106,9 @@ class LogViewerWidget:
         ttk.Button(toolbar, text="ログクリア", command=self.clear_logs).pack(
             side="left", padx=(0, 5)
         )
-        ttk.Button(toolbar, text="ログ保存", command=self.save_logs).pack(side="left", padx=(0, 5))
+        ttk.Button(toolbar, text="ログ保存", command=self.save_logs).pack(
+            side="left", padx=(0, 5)
+        )
 
         # ログレベルフィルター
         ttk.Label(toolbar, text="レベル:").pack(side="left", padx=(10, 5))
@@ -114,7 +124,9 @@ class LogViewerWidget:
         level_combo.bind("<<ComboboxSelected>>", self.filter_logs)
 
         # ログ表示エリア
-        self.log_text = ScrolledText(self.frame, height=15, width=80, font=("Consolas", 9))
+        self.log_text = ScrolledText(
+            self.frame, height=15, width=80, font=("Consolas", 9)
+        )
         self.log_text.pack(fill="both", expand=True)
 
         # ログレベル別色分け設定
@@ -174,7 +186,9 @@ class LogViewerWidget:
                         )
                 messagebox.showinfo("保存完了", f"ログを {filename} に保存しました。")
             except Exception as e:
-                messagebox.showerror("保存エラー", f"ログ保存中にエラーが発生しました: {e}")
+                messagebox.showerror(
+                    "保存エラー", f"ログ保存中にエラーが発生しました: {e}"
+                )
 
 
 class ChartWidget:
@@ -306,12 +320,16 @@ class ControlPanelWidget:
         # 監視間隔設定
         ttk.Label(config_frame, text="監視間隔:").grid(row=0, column=0, sticky="w")
         self.interval_var = tk.StringVar(value="5")
-        interval_entry = ttk.Entry(config_frame, textvariable=self.interval_var, width=10)
+        interval_entry = ttk.Entry(
+            config_frame, textvariable=self.interval_var, width=10
+        )
         interval_entry.grid(row=0, column=1, padx=(5, 0))
         ttk.Label(config_frame, text="秒").grid(row=0, column=2, padx=(5, 0))
 
         # ログレベル設定
-        ttk.Label(config_frame, text="ログレベル:").grid(row=1, column=0, sticky="w", pady=(5, 0))
+        ttk.Label(config_frame, text="ログレベル:").grid(
+            row=1, column=0, sticky="w", pady=(5, 0)
+        )
         self.log_level_var = tk.StringVar(value="INFO")
         log_level_combo = ttk.Combobox(
             config_frame,
@@ -320,7 +338,9 @@ class ControlPanelWidget:
             width=10,
             state="readonly",
         )
-        log_level_combo.grid(row=1, column=1, columnspan=2, padx=(5, 0), pady=(5, 0), sticky="w")
+        log_level_combo.grid(
+            row=1, column=1, columnspan=2, padx=(5, 0), pady=(5, 0), sticky="w"
+        )
 
         # 設定適用ボタン
         ttk.Button(config_frame, text="設定適用", command=self.apply_settings).grid(
@@ -421,11 +441,15 @@ class DayTradeGUIApplication:
 
         # システム状態
         self.status_widget = SystemStatusWidget(top_frame)
-        self.status_widget.frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        self.status_widget.frame.pack(
+            side="left", fill="both", expand=True, padx=(0, 5)
+        )
 
         # 制御パネル
         self.control_panel = ControlPanelWidget(top_frame, self)
-        self.control_panel.frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        self.control_panel.frame.pack(
+            side="right", fill="both", expand=True, padx=(5, 0)
+        )
 
         # 中央フレーム（チャート）
         middle_frame = ttk.Frame(main_frame)
@@ -445,7 +469,9 @@ class DayTradeGUIApplication:
         self.create_menu()
 
         # ステータスバー
-        self.status_bar = ttk.Label(self.root, text="準備完了", relief="sunken", anchor="w")
+        self.status_bar = ttk.Label(
+            self.root, text="準備完了", relief="sunken", anchor="w"
+        )
         self.status_bar.pack(side="bottom", fill="x")
 
     def create_menu(self):
@@ -466,7 +492,9 @@ class DayTradeGUIApplication:
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="ツール", menu=tools_menu)
         tools_menu.add_command(label="システム診断", command=self.run_system_diagnostic)
-        tools_menu.add_command(label="パフォーマンステスト", command=self.run_performance_test)
+        tools_menu.add_command(
+            label="パフォーマンステスト", command=self.run_performance_test
+        )
         tools_menu.add_command(label="ログ分析", command=self.analyze_logs)
 
         # ヘルプメニュー
@@ -487,7 +515,9 @@ class DayTradeGUIApplication:
         """監視開始"""
         if not self.monitoring_active:
             self.monitoring_active = True
-            self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+            self.monitoring_thread = threading.Thread(
+                target=self._monitoring_loop, daemon=True
+            )
             self.monitoring_thread.start()
 
             self.status_bar.config(text="監視中...")
@@ -526,8 +556,12 @@ class DayTradeGUIApplication:
                     status = "停止中"
 
                 # UI更新（メインスレッドで実行）
-                self.root.after(0, self.status_widget.update_status, cpu_percent, memory_mb, status)
-                self.root.after(0, self.chart_widget.update_chart, cpu_percent, memory_mb)
+                self.root.after(
+                    0, self.status_widget.update_status, cpu_percent, memory_mb, status
+                )
+                self.root.after(
+                    0, self.chart_widget.update_chart, cpu_percent, memory_mb
+                )
 
                 time.sleep(self.monitoring_interval)
 
@@ -592,7 +626,9 @@ class DayTradeGUIApplication:
                 # 疑似診断実行
                 time.sleep(2)  # 診断時間のシミュレート
 
-                self.root.after(0, self.log_viewer.add_log, "INFO", "システム診断完了: 異常なし")
+                self.root.after(
+                    0, self.log_viewer.add_log, "INFO", "システム診断完了: 異常なし"
+                )
                 self.root.after(
                     0,
                     messagebox.showinfo,
@@ -601,7 +637,9 @@ class DayTradeGUIApplication:
                 )
 
             except Exception as e:
-                self.root.after(0, self.log_viewer.add_log, "ERROR", f"システム診断エラー: {e}")
+                self.root.after(
+                    0, self.log_viewer.add_log, "ERROR", f"システム診断エラー: {e}"
+                )
 
         threading.Thread(target=diagnostic_task, daemon=True).start()
 
@@ -708,7 +746,9 @@ CRITICAL: {log_counts['CRITICAL']}
     def on_closing(self):
         """アプリケーション終了"""
         if self.monitoring_active:
-            result = messagebox.askyesno("終了確認", "監視中です。システムを停止して終了しますか？")
+            result = messagebox.askyesno(
+                "終了確認", "監視中です。システムを停止して終了しますか？"
+            )
             if result:
                 self.stop_monitoring()
             else:
@@ -730,7 +770,9 @@ def main():
         app = DayTradeGUIApplication()
         app.run()
     except Exception as e:
-        messagebox.showerror("起動エラー", f"アプリケーション起動中にエラーが発生しました: {e}")
+        messagebox.showerror(
+            "起動エラー", f"アプリケーション起動中にエラーが発生しました: {e}"
+        )
 
 
 if __name__ == "__main__":

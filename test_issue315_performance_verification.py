@@ -48,7 +48,7 @@ def generate_test_data(symbols: List[str], days: int = 252) -> Dict[str, pd.Data
     stock_data = {}
 
     for symbol in symbols:
-        dates = pd.date_range(start='2024-01-01', periods=days)
+        dates = pd.date_range(start="2024-01-01", periods=days)
 
         # より現実的な価格動向（トレンドとボラティリティ）
         base_price = 2000 + hash(symbol) % 3000
@@ -60,23 +60,30 @@ def generate_test_data(symbols: List[str], days: int = 252) -> Dict[str, pd.Data
         volatility = np.random.normal(0, 0.02, days)
 
         # 累積リターン
-        cumulative_returns = np.cumprod(1 + trend/days + volatility)
+        cumulative_returns = np.cumprod(1 + trend / days + volatility)
         close_prices = base_price * cumulative_returns
 
         # OHLV データ生成
         open_prices = close_prices * np.random.uniform(0.995, 1.005, days)
-        high_prices = np.maximum(open_prices, close_prices) * np.random.uniform(1.0, 1.03, days)
-        low_prices = np.minimum(open_prices, close_prices) * np.random.uniform(0.97, 1.0, days)
+        high_prices = np.maximum(open_prices, close_prices) * np.random.uniform(
+            1.0, 1.03, days
+        )
+        low_prices = np.minimum(open_prices, close_prices) * np.random.uniform(
+            0.97, 1.0, days
+        )
         volumes = np.random.lognormal(14, 0.5, days).astype(int)
 
-        stock_data[symbol] = pd.DataFrame({
-            'Open': open_prices,
-            'High': high_prices,
-            'Low': low_prices,
-            'Close': close_prices,
-            'Volume': volumes,
-            'Adj Close': close_prices
-        }, index=dates)
+        stock_data[symbol] = pd.DataFrame(
+            {
+                "Open": open_prices,
+                "High": high_prices,
+                "Low": low_prices,
+                "Close": close_prices,
+                "Volume": volumes,
+                "Adj Close": close_prices,
+            },
+            index=dates,
+        )
 
     return stock_data
 
@@ -84,15 +91,17 @@ def generate_test_data(symbols: List[str], days: int = 252) -> Dict[str, pd.Data
 def calculate_baseline_metrics(data: Dict[str, pd.DataFrame]) -> Dict[str, float]:
     """ベースライン性能指標計算（統合システム前）"""
     metrics = {
-        'prediction_accuracy': 0.52,  # 52%（ランダムより少し良い）
-        'sharpe_ratio': 0.15,  # 0.15
-        'max_drawdown': 0.25,  # 25%
-        'processing_time': 5.0  # 5秒（10銘柄）
+        "prediction_accuracy": 0.52,  # 52%（ランダムより少し良い）
+        "sharpe_ratio": 0.15,  # 0.15
+        "max_drawdown": 0.25,  # 25%
+        "processing_time": 5.0,  # 5秒（10銘柄）
     }
     return metrics
 
 
-async def test_integrated_system_performance(test_data: Dict[str, pd.DataFrame]) -> Dict[str, float]:
+async def test_integrated_system_performance(
+    test_data: Dict[str, pd.DataFrame]
+) -> Dict[str, float]:
     """統合システム性能測定"""
     start_time = time.time()
 
@@ -102,23 +111,17 @@ async def test_integrated_system_performance(test_data: Dict[str, pd.DataFrame])
             enable_cache=True,
             enable_parallel=True,
             enable_ml_optimization=True,
-            max_concurrent=10
+            max_concurrent=10,
         )
 
         multiframe_analyzer = MultiTimeframeAnalysisOptimized(
-            enable_cache=True,
-            enable_parallel=True,
-            max_concurrent=10
+            enable_cache=True, enable_parallel=True, max_concurrent=10
         )
 
-        ml_models = AdvancedMLModels(
-            enable_cache=True,
-            enable_parallel=True
-        )
+        ml_models = AdvancedMLModels(enable_cache=True, enable_parallel=True)
 
         volatility_system = VolatilityPredictionSystem(
-            enable_cache=True,
-            enable_parallel=True
+            enable_cache=True, enable_parallel=True
         )
 
         # 統合分析実行
@@ -129,39 +132,50 @@ async def test_integrated_system_performance(test_data: Dict[str, pd.DataFrame])
         for symbol, data in test_data.items():
             try:
                 # Phase 1: 高度テクニカル指標
-                tech_result = await technical_indicators.analyze_comprehensive(data, symbol)
+                tech_result = await technical_indicators.analyze_comprehensive(
+                    data, symbol
+                )
 
                 # Phase 2: マルチタイムフレーム分析
-                timeframe_result = await multiframe_analyzer.analyze_multi_timeframe(data, symbol)
+                timeframe_result = await multiframe_analyzer.analyze_multi_timeframe(
+                    data, symbol
+                )
 
                 # Phase 3: ML予測
                 feature_set = await ml_models._generate_advanced_features(data, symbol)
-                ml_result = await ml_models.predict_with_ensemble(data, symbol, feature_set)
+                ml_result = await ml_models.predict_with_ensemble(
+                    data, symbol, feature_set
+                )
 
                 # Phase 4: ボラティリティ予測
-                vol_result = await volatility_system.predict_comprehensive_volatility(data, symbol)
+                vol_result = await volatility_system.predict_comprehensive_volatility(
+                    data, symbol
+                )
 
                 # 統合判定
                 integrated_score = (
-                    tech_result.overall_signal_strength * 0.3 +
-                    timeframe_result.weighted_confidence * 0.3 +
-                    ml_result.ensemble_confidence * 0.2 +
-                    (1.0 - vol_result.normalized_risk_score) * 0.2
+                    tech_result.overall_signal_strength * 0.3
+                    + timeframe_result.weighted_confidence * 0.3
+                    + ml_result.ensemble_confidence * 0.2
+                    + (1.0 - vol_result.normalized_risk_score) * 0.2
                 )
 
                 predictions.append(integrated_score)
                 confidence_scores.append(
-                    (tech_result.overall_signal_strength +
-                     timeframe_result.weighted_confidence +
-                     ml_result.ensemble_confidence) / 3
+                    (
+                        tech_result.overall_signal_strength
+                        + timeframe_result.weighted_confidence
+                        + ml_result.ensemble_confidence
+                    )
+                    / 3
                 )
 
                 results[symbol] = {
-                    'integrated_score': integrated_score,
-                    'technical_signal': tech_result.primary_signal,
-                    'timeframe_signal': timeframe_result.weighted_signal,
-                    'ml_signal': ml_result.ensemble_signal,
-                    'risk_level': vol_result.risk_level
+                    "integrated_score": integrated_score,
+                    "technical_signal": tech_result.primary_signal,
+                    "timeframe_signal": timeframe_result.weighted_signal,
+                    "ml_signal": ml_result.ensemble_signal,
+                    "risk_level": vol_result.risk_level,
                 }
 
             except Exception as e:
@@ -177,29 +191,33 @@ async def test_integrated_system_performance(test_data: Dict[str, pd.DataFrame])
         max_drawdown = calculate_max_drawdown(predictions, test_data)
 
         return {
-            'prediction_accuracy': prediction_accuracy,
-            'sharpe_ratio': sharpe_ratio,
-            'max_drawdown': max_drawdown,
-            'processing_time': processing_time,
-            'total_symbols': len(test_data),
-            'successful_analyses': len(results),
-            'average_confidence': np.mean(confidence_scores) if confidence_scores else 0.0
+            "prediction_accuracy": prediction_accuracy,
+            "sharpe_ratio": sharpe_ratio,
+            "max_drawdown": max_drawdown,
+            "processing_time": processing_time,
+            "total_symbols": len(test_data),
+            "successful_analyses": len(results),
+            "average_confidence": (
+                np.mean(confidence_scores) if confidence_scores else 0.0
+            ),
         }
 
     except Exception as e:
         logger.error(f"統合システムテストエラー: {e}")
         return {
-            'prediction_accuracy': 0.0,
-            'sharpe_ratio': 0.0,
-            'max_drawdown': 1.0,
-            'processing_time': time.time() - start_time,
-            'total_symbols': len(test_data),
-            'successful_analyses': 0,
-            'average_confidence': 0.0
+            "prediction_accuracy": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 1.0,
+            "processing_time": time.time() - start_time,
+            "total_symbols": len(test_data),
+            "successful_analyses": 0,
+            "average_confidence": 0.0,
         }
 
 
-def calculate_prediction_accuracy(predictions: List[float], test_data: Dict[str, pd.DataFrame]) -> float:
+def calculate_prediction_accuracy(
+    predictions: List[float], test_data: Dict[str, pd.DataFrame]
+) -> float:
     """予測精度計算（簡易）"""
     try:
         correct_predictions = 0
@@ -210,7 +228,9 @@ def calculate_prediction_accuracy(predictions: List[float], test_data: Dict[str,
                 break
 
             pred_score = predictions[i]
-            actual_return = (data['Close'].iloc[-1] - data['Close'].iloc[-20]) / data['Close'].iloc[-20]
+            actual_return = (data["Close"].iloc[-1] - data["Close"].iloc[-20]) / data[
+                "Close"
+            ].iloc[-20]
 
             # 予測方向と実際の方向が一致するかチェック
             pred_direction = 1 if pred_score > 0.5 else -1
@@ -227,7 +247,9 @@ def calculate_prediction_accuracy(predictions: List[float], test_data: Dict[str,
         return 0.5
 
 
-def calculate_sharpe_ratio(predictions: List[float], test_data: Dict[str, pd.DataFrame]) -> float:
+def calculate_sharpe_ratio(
+    predictions: List[float], test_data: Dict[str, pd.DataFrame]
+) -> float:
     """シャープレシオ計算（簡易）"""
     try:
         portfolio_returns = []
@@ -237,7 +259,7 @@ def calculate_sharpe_ratio(predictions: List[float], test_data: Dict[str, pd.Dat
                 break
 
             pred_score = predictions[i]
-            daily_returns = data['Close'].pct_change().dropna()
+            daily_returns = data["Close"].pct_change().dropna()
 
             # 予測スコアに基づく重み付けリターン
             weighted_return = daily_returns.mean() * (pred_score - 0.5) * 2
@@ -250,7 +272,9 @@ def calculate_sharpe_ratio(predictions: List[float], test_data: Dict[str, pd.Dat
         std_return = np.std(portfolio_returns)
 
         # 年率化（252営業日）
-        sharpe = (mean_return * 252) / (std_return * np.sqrt(252)) if std_return > 0 else 0.0
+        sharpe = (
+            (mean_return * 252) / (std_return * np.sqrt(252)) if std_return > 0 else 0.0
+        )
         return max(0.0, sharpe)
 
     except Exception as e:
@@ -258,7 +282,9 @@ def calculate_sharpe_ratio(predictions: List[float], test_data: Dict[str, pd.Dat
         return 0.0
 
 
-def calculate_max_drawdown(predictions: List[float], test_data: Dict[str, pd.DataFrame]) -> float:
+def calculate_max_drawdown(
+    predictions: List[float], test_data: Dict[str, pd.DataFrame]
+) -> float:
     """最大ドローダウン計算（簡易）"""
     try:
         cumulative_returns = []
@@ -268,7 +294,7 @@ def calculate_max_drawdown(predictions: List[float], test_data: Dict[str, pd.Dat
                 break
 
             pred_score = predictions[i]
-            daily_returns = data['Close'].pct_change().dropna()
+            daily_returns = data["Close"].pct_change().dropna()
 
             # 予測スコアに基づく戦略リターン
             strategy_returns = daily_returns * (pred_score - 0.5) * 2
@@ -297,7 +323,18 @@ async def main():
     print("=" * 60)
 
     # テストデータ生成（10銘柄、1年分）
-    test_symbols = ['7203', '8306', '9984', '4502', '7182', '8267', '6501', '5020', '8802', '1812']
+    test_symbols = [
+        "7203",
+        "8306",
+        "9984",
+        "4502",
+        "7182",
+        "8267",
+        "6501",
+        "5020",
+        "8802",
+        "1812",
+    ]
     print(f"\nテストデータ生成: {len(test_symbols)}銘柄、252日分")
 
     test_data = generate_test_data(test_symbols)
@@ -320,34 +357,55 @@ async def main():
     print(f"  シャープレシオ: {integrated_metrics['sharpe_ratio']:.2f}")
     print(f"  最大ドローダウン: {integrated_metrics['max_drawdown']:.1%}")
     print(f"  処理時間: {integrated_metrics['processing_time']:.1f}秒")
-    print(f"  成功分析: {integrated_metrics['successful_analyses']}/{integrated_metrics['total_symbols']}")
+    print(
+        f"  成功分析: {integrated_metrics['successful_analyses']}/{integrated_metrics['total_symbols']}"
+    )
     print(f"  平均信頼度: {integrated_metrics['average_confidence']:.1%}")
 
     # 成功条件検証
     print("\nOK 成功条件検証:")
 
     # 1. 予測精度15%向上
-    accuracy_improvement = (integrated_metrics['prediction_accuracy'] - baseline['prediction_accuracy']) / baseline['prediction_accuracy']
+    accuracy_improvement = (
+        integrated_metrics["prediction_accuracy"] - baseline["prediction_accuracy"]
+    ) / baseline["prediction_accuracy"]
     accuracy_target_met = accuracy_improvement >= 0.15
-    print(f"  1. 予測精度15%向上: {accuracy_improvement:.1%} {'OK' if accuracy_target_met else 'NG'}")
+    print(
+        f"  1. 予測精度15%向上: {accuracy_improvement:.1%} {'OK' if accuracy_target_met else 'NG'}"
+    )
 
     # 2. シャープレシオ0.3向上
-    sharpe_improvement = integrated_metrics['sharpe_ratio'] - baseline['sharpe_ratio']
+    sharpe_improvement = integrated_metrics["sharpe_ratio"] - baseline["sharpe_ratio"]
     sharpe_target_met = sharpe_improvement >= 0.3
-    print(f"  2. シャープレシオ0.3向上: +{sharpe_improvement:.2f} {'OK' if sharpe_target_met else 'NG'}")
+    print(
+        f"  2. シャープレシオ0.3向上: +{sharpe_improvement:.2f} {'OK' if sharpe_target_met else 'NG'}"
+    )
 
     # 3. 最大ドローダウン20%削減
-    drawdown_reduction = (baseline['max_drawdown'] - integrated_metrics['max_drawdown']) / baseline['max_drawdown']
+    drawdown_reduction = (
+        baseline["max_drawdown"] - integrated_metrics["max_drawdown"]
+    ) / baseline["max_drawdown"]
     drawdown_target_met = drawdown_reduction >= 0.2
-    print(f"  3. 最大ドローダウン20%削減: {drawdown_reduction:.1%} {'OK' if drawdown_target_met else 'NG'}")
+    print(
+        f"  3. 最大ドローダウン20%削減: {drawdown_reduction:.1%} {'OK' if drawdown_target_met else 'NG'}"
+    )
 
     # 4. 処理時間増加30%以内
-    time_increase = (integrated_metrics['processing_time'] - baseline['processing_time']) / baseline['processing_time']
+    time_increase = (
+        integrated_metrics["processing_time"] - baseline["processing_time"]
+    ) / baseline["processing_time"]
     time_target_met = time_increase <= 0.3
-    print(f"  4. 処理時間増加30%以内: {time_increase:.1%} {'OK' if time_target_met else 'NG'}")
+    print(
+        f"  4. 処理時間増加30%以内: {time_increase:.1%} {'OK' if time_target_met else 'NG'}"
+    )
 
     # 総合判定
-    targets_met = [accuracy_target_met, sharpe_target_met, drawdown_target_met, time_target_met]
+    targets_met = [
+        accuracy_target_met,
+        sharpe_target_met,
+        drawdown_target_met,
+        time_target_met,
+    ]
     success_rate = sum(targets_met) / len(targets_met)
 
     print("\n総合結果:")
@@ -378,5 +436,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"検証テストエラー: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

@@ -97,7 +97,9 @@ def count_test_files(base_path: Path) -> dict:
                 total_lines, _ = count_lines_in_file(test_file)
                 if total_lines > 0:
                     relative_path = test_file.relative_to(base_path)
-                    test_data["files"].append({"file": str(relative_path), "lines": total_lines})
+                    test_data["files"].append(
+                        {"file": str(relative_path), "lines": total_lines}
+                    )
                     test_data["test_files"] += 1
                     test_data["total_test_lines"] += total_lines
 
@@ -183,7 +185,9 @@ def generate_coverage_report():
 
     # Calculate test-to-source ratio
     if source_coverage["executable_lines"] > 0:
-        test_ratio = (test_data["total_test_lines"] / source_coverage["executable_lines"]) * 100
+        test_ratio = (
+            test_data["total_test_lines"] / source_coverage["executable_lines"]
+        ) * 100
         print(f"Test-to-Source Ratio: {test_ratio:.1f}%")
 
     # Analyze new analysis system components
@@ -222,7 +226,9 @@ def generate_coverage_report():
             tested_lines += lines * 2  # Estimate: each test line covers ~2 source lines
 
     if source_coverage["executable_lines"] > 0:
-        estimated_coverage = min(100, (tested_lines / source_coverage["executable_lines"]) * 100)
+        estimated_coverage = min(
+            100, (tested_lines / source_coverage["executable_lines"]) * 100
+        )
         print(f"Estimated Coverage: {estimated_coverage:.1f}%")
 
         if estimated_coverage >= 80:
@@ -239,7 +245,9 @@ def generate_coverage_report():
     # Test file breakdown
     print("\n=== Test File Breakdown ===")
     if test_data["files"]:
-        sorted_tests = sorted(test_data["files"], key=lambda x: x["lines"], reverse=True)
+        sorted_tests = sorted(
+            test_data["files"], key=lambda x: x["lines"], reverse=True
+        )
         for test_info in sorted_tests[:10]:  # Top 10 largest test files
             print(f"  - {test_info['file']}: {test_info['lines']} lines")
 
@@ -272,7 +280,9 @@ def generate_coverage_report():
         print(
             f"Automatic Trading: {'DISABLED' if not config.enable_automatic_trading else 'ENABLED'}"
         )
-        print(f"Order Execution: {'DISABLED' if not config.enable_order_execution else 'ENABLED'}")
+        print(
+            f"Order Execution: {'DISABLED' if not config.enable_order_execution else 'ENABLED'}"
+        )
         print(f"Order API: {'DISABLED' if config.disable_order_api else 'ENABLED'}")
 
     except Exception as e:

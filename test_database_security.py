@@ -49,11 +49,15 @@ def test_sqlite_pragma_sql_injection_protection():
 
     for pragma_name, input_value, expected_value in safe_config_values:
         try:
-            validated_value = db_manager._validate_pragma_value(pragma_name, input_value)
+            validated_value = db_manager._validate_pragma_value(
+                pragma_name, input_value
+            )
             if validated_value == expected_value:
                 print(f"  OK {pragma_name}={input_value} → {validated_value}")
             else:
-                print(f"  FAIL {pragma_name}={input_value} - 期待値: {expected_value}, 実際: {validated_value}")
+                print(
+                    f"  FAIL {pragma_name}={input_value} - 期待値: {expected_value}, 実際: {validated_value}"
+                )
         except Exception as e:
             print(f"  FAIL {pragma_name}={input_value} - 予期しないエラー: {e}")
 
@@ -66,7 +70,11 @@ def test_sqlite_pragma_sql_injection_protection():
         ("synchronous", "NORMAL; PRAGMA user_version=999", "追加PRAGMA実行攻撃"),
         ("cache_size", "10000; DELETE FROM sqlite_master", "テーブル削除攻撃"),
         ("cache_size", "abc", "無効な数値形式"),
-        ("temp_store", "MEMORY; ATTACH DATABASE '/tmp/malicious.db' AS evil", "データベース接続攻撃"),
+        (
+            "temp_store",
+            "MEMORY; ATTACH DATABASE '/tmp/malicious.db' AS evil",
+            "データベース接続攻撃",
+        ),
         ("mmap_size", "-1", "無効な範囲"),
         ("mmap_size", "9999999999", "メモリ枯渇攻撃"),
         ("unknown_pragma", "any_value", "未サポートPRAGMA"),
@@ -74,11 +82,17 @@ def test_sqlite_pragma_sql_injection_protection():
 
     for pragma_name, malicious_value, attack_type in malicious_config_values:
         try:
-            validated_value = db_manager._validate_pragma_value(pragma_name, malicious_value)
+            validated_value = db_manager._validate_pragma_value(
+                pragma_name, malicious_value
+            )
             if validated_value is None or validated_value != malicious_value:
-                print(f"  OK {attack_type} - {pragma_name}={malicious_value} - 正常に阻止")
+                print(
+                    f"  OK {attack_type} - {pragma_name}={malicious_value} - 正常に阻止"
+                )
             else:
-                print(f"  FAIL {attack_type} - {pragma_name}={malicious_value} - 攻撃が通過: {validated_value}")
+                print(
+                    f"  FAIL {attack_type} - {pragma_name}={malicious_value} - 攻撃が通過: {validated_value}"
+                )
         except Exception as e:
             print(f"  OK {attack_type} - {pragma_name}={malicious_value} - 例外で阻止")
 
@@ -86,19 +100,25 @@ def test_sqlite_pragma_sql_injection_protection():
     print("\n3. PRAGMA値範囲制限:")
 
     range_test_values = [
-        ("cache_size", -2000000, "範囲外（下限）"),    # -1000000より小さい
-        ("cache_size", 2000000, "範囲外（上限）"),      # 1000000より大きい
-        ("mmap_size", -1, "範囲外（負の値）"),          # 負の値は無効
-        ("mmap_size", 2147483648, "範囲外（2GB）"),     # 1GBより大きい
+        ("cache_size", -2000000, "範囲外（下限）"),  # -1000000より小さい
+        ("cache_size", 2000000, "範囲外（上限）"),  # 1000000より大きい
+        ("mmap_size", -1, "範囲外（負の値）"),  # 負の値は無効
+        ("mmap_size", 2147483648, "範囲外（2GB）"),  # 1GBより大きい
     ]
 
     for pragma_name, out_of_range_value, test_type in range_test_values:
         try:
-            validated_value = db_manager._validate_pragma_value(pragma_name, out_of_range_value)
+            validated_value = db_manager._validate_pragma_value(
+                pragma_name, out_of_range_value
+            )
             if validated_value != str(out_of_range_value):
-                print(f"  OK {test_type} - {pragma_name}={out_of_range_value} - デフォルト値に修正: {validated_value}")
+                print(
+                    f"  OK {test_type} - {pragma_name}={out_of_range_value} - デフォルト値に修正: {validated_value}"
+                )
             else:
-                print(f"  FAIL {test_type} - {pragma_name}={out_of_range_value} - 範囲外値が通過")
+                print(
+                    f"  FAIL {test_type} - {pragma_name}={out_of_range_value} - 範囲外値が通過"
+                )
         except Exception as e:
             print(f"  OK {test_type} - {pragma_name}={out_of_range_value} - 例外で阻止")
 
@@ -117,15 +137,17 @@ def test_alembic_config_toctou_protection():
 
         # テスト用の正常なalembic.ini作成
         normal_config_path = temp_path / "alembic.ini"
-        with open(normal_config_path, 'w', encoding='utf-8') as f:
-            f.write("""[alembic]
+        with open(normal_config_path, "w", encoding="utf-8") as f:
+            f.write(
+                """[alembic]
 script_location = alembic
 sqlalchemy.url = sqlite:///test.db
 [loggers]
 keys = root,sqlalchemy,alembic
 [handlers]
 keys = console
-""")
+"""
+            )
 
         try:
             if db_manager._is_safe_readable_file(normal_config_path):
@@ -139,19 +161,23 @@ keys = console
         print("\n2. 危険ファイルパス:")
 
         dangerous_paths = [
-            "../../../etc/passwd",              # パストラバーサル攻撃
-            "/etc/shadow",                      # システムファイル
-            "c:\\windows\\system32\\config",    # Windowsシステムファイル
-            "\\\\malicious\\share\\config",     # UNCパス攻撃
-            "/tmp/../../../root/.bashrc",       # 複合パストラバーサル
+            "../../../etc/passwd",  # パストラバーサル攻撃
+            "/etc/shadow",  # システムファイル
+            "c:\\windows\\system32\\config",  # Windowsシステムファイル
+            "\\\\malicious\\share\\config",  # UNCパス攻撃
+            "/tmp/../../../root/.bashrc",  # 複合パストラバーサル
         ]
 
         for dangerous_path in dangerous_paths:
             try:
-                validated_path = db_manager._validate_alembic_config_path(dangerous_path)
+                validated_path = db_manager._validate_alembic_config_path(
+                    dangerous_path
+                )
                 print(f"  FAIL 危険パス通過: {dangerous_path} → {validated_path}")
             except DatabaseError as e:
-                if "ALEMBIC_DANGEROUS_PATH" in str(e) or "ALEMBIC_PATH_NOT_ALLOWED" in str(e):
+                if "ALEMBIC_DANGEROUS_PATH" in str(
+                    e
+                ) or "ALEMBIC_PATH_NOT_ALLOWED" in str(e):
                     print(f"  OK 危険パス阻止: {dangerous_path}")
                 else:
                     print(f"  WARN 危険パス - 別エラー: {dangerous_path} - {e}")
@@ -164,19 +190,21 @@ keys = console
         try:
             # 危険なファイルを作成
             dangerous_file = temp_path / "sensitive_data.txt"
-            with open(dangerous_file, 'w') as f:
+            with open(dangerous_file, "w") as f:
                 f.write("機密情報")
 
             # シンボリックリンクを作成（権限が必要な場合はスキップ）
             symlink_path = temp_path / "fake_alembic.ini"
 
             try:
-                if os.name == 'nt':
+                if os.name == "nt":
                     # Windows環境での処理
                     import subprocess
+
                     result = subprocess.run(
-                        ['mklink', str(symlink_path), str(dangerous_file)],
-                        shell=True, capture_output=True
+                        ["mklink", str(symlink_path), str(dangerous_file)],
+                        shell=True,
+                        capture_output=True,
                     )
                     if result.returncode != 0:
                         raise PermissionError("シンボリックリンク作成失敗")
@@ -202,9 +230,11 @@ keys = console
         # 異常に大きな設定ファイルを作成
         large_config_path = temp_path / "large_alembic.ini"
         try:
-            with open(large_config_path, 'w') as f:
+            with open(large_config_path, "w") as f:
                 # 15MB（制限10MBを超過）の設定ファイル
-                f.write("# Large config file\n" + "dummy_line\n" * (15 * 1024 * 1024 // 10))
+                f.write(
+                    "# Large config file\n" + "dummy_line\n" * (15 * 1024 * 1024 // 10)
+                )
 
             if db_manager._is_safe_readable_file(large_config_path):
                 print(f"  FAIL 大容量ファイル - 通過: {large_config_path}")
@@ -328,7 +358,9 @@ def test_integration_security():
             if health_status.get("status") == "healthy":
                 print("  OK データベースヘルスチェック - 健全")
             else:
-                print(f"  WARN データベースヘルスチェック - 状態: {health_status.get('status')}")
+                print(
+                    f"  WARN データベースヘルスチェック - 状態: {health_status.get('status')}"
+                )
         except Exception as e:
             print(f"  FAIL ヘルスチェックエラー: {e}")
 
@@ -363,6 +395,7 @@ def main():
     except Exception as e:
         print(f"\nFAIL テスト実行中にエラーが発生: {e}")
         import traceback
+
         traceback.print_exc()
 
 

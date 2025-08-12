@@ -52,11 +52,15 @@ class TestResult:
 
     def add_error(self, category: str, error: str):
         """エラー追加"""
-        self.errors.append({"category": category, "error": error, "timestamp": time.time()})
+        self.errors.append(
+            {"category": category, "error": error, "timestamp": time.time()}
+        )
 
     def add_warning(self, category: str, warning: str):
         """警告追加"""
-        self.warnings.append({"category": category, "warning": warning, "timestamp": time.time()})
+        self.warnings.append(
+            {"category": category, "warning": warning, "timestamp": time.time()}
+        )
 
 
 class ComprehensiveSystemIntegrationTest:
@@ -191,7 +195,9 @@ class ComprehensiveSystemIntegrationTest:
                     try:
                         conn = sqlite3.connect(db_file, timeout=5.0)
                         cursor = conn.cursor()
-                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        cursor.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table';"
+                        )
                         tables = cursor.fetchall()
                         conn.close()
 
@@ -203,11 +209,16 @@ class ComprehensiveSystemIntegrationTest:
                         )
                     except Exception as e:
                         self.result.add_result(
-                            "infrastructure", f"database_{db_file}", "FAIL", {"error": str(e)}
+                            "infrastructure",
+                            f"database_{db_file}",
+                            "FAIL",
+                            {"error": str(e)},
                         )
 
         except Exception as e:
-            self.result.add_error("infrastructure", f"Database connectivity test failed: {e}")
+            self.result.add_error(
+                "infrastructure", f"Database connectivity test failed: {e}"
+            )
 
     def _test_filesystem_permissions(self):
         """ファイルシステム・権限テスト"""
@@ -222,7 +233,9 @@ class ComprehensiveSystemIntegrationTest:
                     writable = os.access(dir_path, os.W_OK)
 
                     if readable and writable:
-                        self.result.add_result("infrastructure", f"permissions_{dir_path}", "PASS")
+                        self.result.add_result(
+                            "infrastructure", f"permissions_{dir_path}", "PASS"
+                        )
                     else:
                         self.result.add_result(
                             "infrastructure",
@@ -232,7 +245,9 @@ class ComprehensiveSystemIntegrationTest:
                         )
 
         except Exception as e:
-            self.result.add_error("infrastructure", f"Filesystem permissions test failed: {e}")
+            self.result.add_error(
+                "infrastructure", f"Filesystem permissions test failed: {e}"
+            )
 
     def _test_environment_configuration(self):
         """環境設定確認"""
@@ -252,14 +267,21 @@ class ComprehensiveSystemIntegrationTest:
                             with open(config_file, encoding="utf-8") as f:
                                 json.load(f)  # JSON構文確認
 
-                        self.result.add_result("infrastructure", f"config_{config_file}", "PASS")
+                        self.result.add_result(
+                            "infrastructure", f"config_{config_file}", "PASS"
+                        )
                     except Exception as e:
                         self.result.add_result(
-                            "infrastructure", f"config_{config_file}", "FAIL", {"error": str(e)}
+                            "infrastructure",
+                            f"config_{config_file}",
+                            "FAIL",
+                            {"error": str(e)},
                         )
 
         except Exception as e:
-            self.result.add_error("infrastructure", f"Environment configuration test failed: {e}")
+            self.result.add_error(
+                "infrastructure", f"Environment configuration test failed: {e}"
+            )
 
     # === HFT エンジンテスト ===
     def test_hft_engine(self):
@@ -331,7 +353,9 @@ class ComprehensiveSystemIntegrationTest:
             )
 
         except Exception as e:
-            self.result.add_error("hft_engine", f"Trading engine integration test failed: {e}")
+            self.result.add_error(
+                "hft_engine", f"Trading engine integration test failed: {e}"
+            )
 
     def _test_realtime_data_processing(self):
         """リアルタイムデータ処理テスト"""
@@ -371,7 +395,9 @@ class ComprehensiveSystemIntegrationTest:
                 )
 
         except Exception as e:
-            self.result.add_error("hft_engine", f"Realtime data processing test failed: {e}")
+            self.result.add_error(
+                "hft_engine", f"Realtime data processing test failed: {e}"
+            )
 
     # === オブザーバビリティ統合テスト ===
     def test_observability_integration(self):
@@ -431,7 +457,9 @@ class ComprehensiveSystemIntegrationTest:
                 )
 
         except Exception as e:
-            self.result.add_error("observability", f"OpenTelemetry configuration test failed: {e}")
+            self.result.add_error(
+                "observability", f"OpenTelemetry configuration test failed: {e}"
+            )
 
     def _test_metrics_collection(self):
         """メトリクス収集テスト"""
@@ -447,7 +475,9 @@ class ComprehensiveSystemIntegrationTest:
 
                 # 重要なクラス・関数の存在確認
                 required_components = ["MetricsCollector", "get_metrics_collector"]
-                found_components = [comp for comp in required_components if comp in content]
+                found_components = [
+                    comp for comp in required_components if comp in content
+                ]
 
                 if len(found_components) == len(required_components):
                     self.result.add_result(
@@ -473,7 +503,9 @@ class ComprehensiveSystemIntegrationTest:
                 )
 
         except Exception as e:
-            self.result.add_error("observability", f"Metrics collection test failed: {e}")
+            self.result.add_error(
+                "observability", f"Metrics collection test failed: {e}"
+            )
 
     def _test_log_aggregation(self):
         """ログ集約テスト"""
@@ -491,7 +523,9 @@ class ComprehensiveSystemIntegrationTest:
                     "get_structured_logger",
                     "correlation_context",
                 ]
-                found_features = [feature for feature in required_features if feature in content]
+                found_features = [
+                    feature for feature in required_features if feature in content
+                ]
 
                 if len(found_features) == len(required_features):
                     self.result.add_result(
@@ -564,7 +598,9 @@ class ComprehensiveSystemIntegrationTest:
                     )
 
         except Exception as e:
-            self.result.add_error("observability", f"Alert configuration test failed: {e}")
+            self.result.add_error(
+                "observability", f"Alert configuration test failed: {e}"
+            )
 
     # === マイクロサービス統合テスト ===
     def test_microservices_integration(self):
@@ -586,7 +622,9 @@ class ComprehensiveSystemIntegrationTest:
             # K8s設定ファイル確認
             k8s_dir = "k8s"
             if os.path.exists(k8s_dir):
-                k8s_files = [f for f in os.listdir(k8s_dir) if f.endswith((".yml", ".yaml"))]
+                k8s_files = [
+                    f for f in os.listdir(k8s_dir) if f.endswith((".yml", ".yaml"))
+                ]
 
                 for k8s_file in k8s_files:
                     file_path = os.path.join(k8s_dir, k8s_file)
@@ -604,7 +642,10 @@ class ComprehensiveSystemIntegrationTest:
                         )
                     except Exception as e:
                         self.result.add_result(
-                            "microservices", f"k8s_config_{k8s_file}", "FAIL", {"error": str(e)}
+                            "microservices",
+                            f"k8s_config_{k8s_file}",
+                            "FAIL",
+                            {"error": str(e)},
                         )
             else:
                 self.result.add_result(
@@ -615,7 +656,9 @@ class ComprehensiveSystemIntegrationTest:
                 )
 
         except Exception as e:
-            self.result.add_error("microservices", f"Kubernetes configuration test failed: {e}")
+            self.result.add_error(
+                "microservices", f"Kubernetes configuration test failed: {e}"
+            )
 
     def _test_service_communication(self):
         """サービス間通信テスト"""
@@ -641,7 +684,10 @@ class ComprehensiveSystemIntegrationTest:
                     )
                 else:
                     self.result.add_result(
-                        "microservices", "service_communication", "FAIL", {"error": result.stderr}
+                        "microservices",
+                        "service_communication",
+                        "FAIL",
+                        {"error": result.stderr},
                     )
             else:
                 self.result.add_result(
@@ -652,7 +698,9 @@ class ComprehensiveSystemIntegrationTest:
                 )
 
         except Exception as e:
-            self.result.add_error("microservices", f"Service communication test failed: {e}")
+            self.result.add_error(
+                "microservices", f"Service communication test failed: {e}"
+            )
 
     def _test_load_balancing_health_checks(self):
         """負荷分散・ヘルスチェックテスト"""
@@ -667,7 +715,9 @@ class ComprehensiveSystemIntegrationTest:
             )
 
         except Exception as e:
-            self.result.add_error("microservices", f"Load balancing health checks test failed: {e}")
+            self.result.add_error(
+                "microservices", f"Load balancing health checks test failed: {e}"
+            )
 
     # === セキュリティ・レジリエンステスト ===
     def test_security_resilience(self):
@@ -703,7 +753,12 @@ class ComprehensiveSystemIntegrationTest:
                         # 基本的なセキュリティ要素確認
                         if any(
                             keyword in content.lower()
-                            for keyword in ["encryption", "authentication", "security", "hash"]
+                            for keyword in [
+                                "encryption",
+                                "authentication",
+                                "security",
+                                "hash",
+                            ]
                         ):
                             self.result.add_result(
                                 "security",
@@ -741,7 +796,9 @@ class ComprehensiveSystemIntegrationTest:
                     )
 
         except Exception as e:
-            self.result.add_error("security", f"Security configuration test failed: {e}")
+            self.result.add_error(
+                "security", f"Security configuration test failed: {e}"
+            )
 
     def _test_authentication_authorization(self):
         """認証・認可テスト"""
@@ -756,7 +813,9 @@ class ComprehensiveSystemIntegrationTest:
             )
 
         except Exception as e:
-            self.result.add_error("security", f"Authentication authorization test failed: {e}")
+            self.result.add_error(
+                "security", f"Authentication authorization test failed: {e}"
+            )
 
     def _test_error_handling_fallback(self):
         """エラーハンドリング・フォールバックテスト"""
@@ -774,10 +833,13 @@ class ComprehensiveSystemIntegrationTest:
 
                     # エラーハンドリング機能確認
                     if any(
-                        keyword in content for keyword in ["Exception", "Error", "try:", "except:"]
+                        keyword in content
+                        for keyword in ["Exception", "Error", "try:", "except:"]
                     ):
                         self.result.add_result(
-                            "security", f"error_handling_{os.path.basename(handler_file)}", "PASS"
+                            "security",
+                            f"error_handling_{os.path.basename(handler_file)}",
+                            "PASS",
                         )
                     else:
                         self.result.add_result(
@@ -794,7 +856,9 @@ class ComprehensiveSystemIntegrationTest:
                     )
 
         except Exception as e:
-            self.result.add_error("security", f"Error handling fallback test failed: {e}")
+            self.result.add_error(
+                "security", f"Error handling fallback test failed: {e}"
+            )
 
     # === パフォーマンス・負荷テスト ===
     def test_performance_load(self):
@@ -826,7 +890,9 @@ class ComprehensiveSystemIntegrationTest:
             disk_threshold = 90.0  # 90%
 
             cpu_status = "PASS" if cpu_percent < cpu_threshold else "WARNING"
-            memory_status = "PASS" if memory_info.percent < memory_threshold else "WARNING"
+            memory_status = (
+                "PASS" if memory_info.percent < memory_threshold else "WARNING"
+            )
             disk_status = "PASS" if disk_info.percent < disk_threshold else "WARNING"
 
             self.result.add_result(
@@ -868,7 +934,9 @@ class ComprehensiveSystemIntegrationTest:
 
             # 並列実行
             start_time = time.perf_counter()
-            with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            with ProcessPoolExecutor(
+                max_workers=multiprocessing.cpu_count()
+            ) as executor:
                 parallel_results = list(executor.map(cpu_intensive_task, [1000] * 100))
             parallel_time = time.perf_counter() - start_time
 
@@ -919,7 +987,8 @@ class ComprehensiveSystemIntegrationTest:
             start_time = time.perf_counter()
             for i in range(1000):
                 cursor.execute(
-                    "INSERT INTO performance_test (data) VALUES (?)", (f"test_data_{i}",)
+                    "INSERT INTO performance_test (data) VALUES (?)",
+                    (f"test_data_{i}",),
                 )
             conn.commit()
             write_time = time.perf_counter() - start_time
@@ -957,7 +1026,9 @@ class ComprehensiveSystemIntegrationTest:
             )
 
         except Exception as e:
-            self.result.add_error("performance", f"Database performance test failed: {e}")
+            self.result.add_error(
+                "performance", f"Database performance test failed: {e}"
+            )
 
     # === データ品質・整合性テスト ===
     def test_data_quality_integrity(self):
@@ -977,7 +1048,11 @@ class ComprehensiveSystemIntegrationTest:
         """設定ファイル整合性テスト"""
         try:
             # 重要設定ファイルの整合性確認
-            config_files = ["config/settings.json", "config/production.json", "pyproject.toml"]
+            config_files = [
+                "config/settings.json",
+                "config/production.json",
+                "pyproject.toml",
+            ]
 
             for config_file in config_files:
                 if os.path.exists(config_file):
@@ -1036,7 +1111,9 @@ class ComprehensiveSystemIntegrationTest:
                     )
 
         except Exception as e:
-            self.result.add_error("data_quality", f"Configuration integrity test failed: {e}")
+            self.result.add_error(
+                "data_quality", f"Configuration integrity test failed: {e}"
+            )
 
     def _test_data_format_validation(self):
         """データフォーマット検証テスト"""
@@ -1083,7 +1160,9 @@ class ComprehensiveSystemIntegrationTest:
                     )
 
         except Exception as e:
-            self.result.add_error("data_quality", f"Data format validation test failed: {e}")
+            self.result.add_error(
+                "data_quality", f"Data format validation test failed: {e}"
+            )
 
     def _test_backup_recovery(self):
         """バックアップ・復旧テスト"""
@@ -1401,7 +1480,9 @@ class ComprehensiveSystemIntegrationTest:
 
         # カテゴリ別の推奨事項
         for category, tests in self.result.results.items():
-            failed_tests = [name for name, result in tests.items() if result["status"] == "FAIL"]
+            failed_tests = [
+                name for name, result in tests.items() if result["status"] == "FAIL"
+            ]
             warning_tests = [
                 name for name, result in tests.items() if result["status"] == "WARNING"
             ]
@@ -1418,7 +1499,9 @@ class ComprehensiveSystemIntegrationTest:
 
         # エラーがある場合
         if self.result.errors:
-            recommendations.append(f"🚨 システムエラー {len(self.result.errors)}件の対応が必要です")
+            recommendations.append(
+                f"🚨 システムエラー {len(self.result.errors)}件の対応が必要です"
+            )
 
         # 警告がある場合
         if self.result.warnings:
@@ -1444,7 +1527,9 @@ class ComprehensiveSystemIntegrationTest:
         print(f"   失敗: {stats['failed_tests']} ({stats['failure_rate_percent']}%)")
 
         print(f"\n🏆 総合評価: {assessment['status']}")
-        print(f"🚀 本番運用準備: {'✅ 完了' if assessment['production_ready'] else '❌ 要改善'}")
+        print(
+            f"🚀 本番運用準備: {'✅ 完了' if assessment['production_ready'] else '❌ 要改善'}"
+        )
         print(f"\n💡 推奨事項: {assessment['recommendation']}")
 
         if report["detailed_recommendations"]:

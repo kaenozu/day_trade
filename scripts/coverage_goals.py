@@ -122,24 +122,32 @@ class CoverageGoals:
 
             summary = file_data.get("summary", {})
             package_stats[package]["files"].append(file_path)
-            package_stats[package]["total_statements"] += summary.get("num_statements", 0)
+            package_stats[package]["total_statements"] += summary.get(
+                "num_statements", 0
+            )
             package_stats[package]["covered_lines"] += summary.get("covered_lines", 0)
             package_stats[package]["missing_lines"] += summary.get("missing_lines", 0)
 
         # パッケージ別カバレッジ率を計算
         for package, stats in package_stats.items():
             if stats["total_statements"] > 0:
-                coverage_pct = (stats["covered_lines"] / stats["total_statements"]) * 100
+                coverage_pct = (
+                    stats["covered_lines"] / stats["total_statements"]
+                ) * 100
                 stats["coverage_percent"] = coverage_pct
 
                 # 目標との比較
                 target = self.package_priorities.get(package, {}).get("target", 50.0)
-                priority = self.package_priorities.get(package, {}).get("priority", "medium")
+                priority = self.package_priorities.get(package, {}).get(
+                    "priority", "medium"
+                )
 
                 stats["target"] = target
                 stats["priority"] = priority
                 stats["gap"] = target - coverage_pct
-                stats["status"] = "above_target" if coverage_pct >= target else "below_target"
+                stats["status"] = (
+                    "above_target" if coverage_pct >= target else "below_target"
+                )
             else:
                 stats["coverage_percent"] = 0
 
@@ -240,7 +248,9 @@ class CoverageGoals:
             status_icon = "OK" if stats.get("status") == "above_target" else "NG"
             gap = max(0, stats.get("gap", 0))
 
-            priority_prefix = {"high": "H", "medium": "M", "low": "L"}.get(priority, "U")
+            priority_prefix = {"high": "H", "medium": "M", "low": "L"}.get(
+                priority, "U"
+            )
 
             report += f"| {pkg} | {coverage:.1f}% | {target:.1f}% | {priority_prefix} {priority} | {status_icon} | {gap:.1f}% |\n"
 
@@ -302,7 +312,9 @@ def main():
     if status.get("next_goal"):
         next_goal = status["next_goal"]
         gap = status.get("gap_to_next", 0)
-        print(f"次の目標: {next_goal['name']} ({next_goal['value']:.1f}%) - あと{gap:.1f}%")
+        print(
+            f"次の目標: {next_goal['name']} ({next_goal['value']:.1f}%) - あと{gap:.1f}%"
+        )
 
     # パッケージ別分析
     print("\n2. パッケージ別カバレッジを分析中...")
