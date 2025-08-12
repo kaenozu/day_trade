@@ -65,6 +65,7 @@ jobs:
           start_memory = process.memory_info().rss / 1024 / 1024
 
           try:
+              from typing import List
               from day_trade.ml.feature_pipeline import FeaturePipeline
               from day_trade.analysis.feature_engineering_unified import FeatureConfig
               pipeline = FeaturePipeline()
@@ -78,8 +79,9 @@ jobs:
               # 適切なメソッド引数でテスト
               symbols_data = {'TEST': test_data}
               feature_config = FeatureConfig(
-                  technical_indicators={'rsi': True, 'macd': True},
-                  window_sizes=[5, 10, 20]
+                  lookback_periods=[5, 10, 20],
+                  volatility_windows=[5, 10],
+                  momentum_periods=[5, 10, 20]
               )
               features = pipeline.batch_generate_features(symbols_data, feature_config)
               feature_gen_time = time.time() - start_time
@@ -185,6 +187,7 @@ jobs:
           start_memory = process.memory_info().rss / 1024 / 1024
 
           try:
+              from typing import List
               from day_trade.ml.feature_pipeline import FeaturePipeline
               from day_trade.analysis.feature_engineering_unified import FeatureConfig
               pipeline = FeaturePipeline()
@@ -197,8 +200,9 @@ jobs:
               # 適切なメソッド引数でテスト
               symbols_data = {'TEST': test_data}
               feature_config = FeatureConfig(
-                  technical_indicators={'rsi': True, 'macd': True},
-                  window_sizes=[5, 10, 20]
+                  lookback_periods=[5, 10, 20],
+                  volatility_windows=[5, 10],
+                  momentum_periods=[5, 10, 20]
               )
               features = pipeline.batch_generate_features(symbols_data, feature_config)
               feature_gen_time = time.time() - start_time
