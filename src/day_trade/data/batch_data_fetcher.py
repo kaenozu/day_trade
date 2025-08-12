@@ -423,10 +423,12 @@ class AdvancedBatchDataFetcher:
                     / result["出来高"].rolling(20).mean()
                 )
 
-            # カスタム特徴量（リクエストに基づく）
+            # カスタム特徴量（リクエストに基づく）- Issue #575対応
             if request.features:
                 for feature in request.features:
-                    result = self._add_custom_feature(result, feature)
+                    # 特徴量固有パラメータをメタデータから取得
+                    feature_params = request.metadata.get(f"{feature}_params", {}) if request.metadata else {}
+                    result = self._add_custom_feature(result, feature, **feature_params)
 
             # 欠損値処理
             result = result.fillna(method="ffill").fillna(method="bfill")
@@ -441,46 +443,90 @@ class AdvancedBatchDataFetcher:
         return result
 
     def _add_custom_feature(
+        self, data: pd.DataFrame, feature_name: str, **kwargs
+    ) -> pd.DataFrame:
+        """拡張可能なカスタム特徴量追加システム
+
+        Issue #575対応: プラグイン式アーキテクチャによる拡張性とエラーハンドリング改善
+        """
+
+        try:
+            # 拡張可能な特徴量エンジンシステムを使用
+            from .feature_engines import calculate_custom_feature, FeatureEngineError
+
+            original_columns = set(data.columns)
+            result = calculate_custom_feature(data, feature_name, **kwargs)
+
+            # 新しく追加された特徴量をログ出力
+            new_columns = set(result.columns) - original_columns
+            if new_columns:
+                logger.debug(f"カスタム特徴量追加成功: {feature_name} -> {list(new_columns)[:3]}{'...' if len(new_columns) > 3 else ''}")
+            else:
+                logger.warning(f"カスタム特徴量 {feature_name}: 新しい特徴量が追加されませんでした")
+
+            return result
+
+        except FeatureEngineError as e:
+            logger.error(f"特徴量エンジンエラー {feature_name}: {e}")
+            return data  # 元データを返す
+
+        except ImportError:
+            logger.warning("feature_engines モジュールが利用できません。フォールバック処理を実行")
+            return self._add_custom_feature_fallback(data, feature_name)
+
+        except Exception as e:
+            logger.error(f"カスタム特徴量追加で予期しないエラー {feature_name}: {e}", exc_info=True)
+            return data  # エラー時は元データを返す
+
+    def _add_custom_feature_fallback(
         self, data: pd.DataFrame, feature_name: str
     ) -> pd.DataFrame:
-        """カスタム特徴量追加"""
+        """フォールバック特徴量追加（従来方式）"""
 
         try:
             if feature_name == "trend_strength" and "終値" in data.columns:
                 # トレンド強度
                 short_ma = data["終値"].rolling(10).mean()
                 long_ma = data["終値"].rolling(30).mean()
-                data["trend_strength"] = (short_ma - long_ma) / long_ma * 100
+
+                # ゼロ除算対策
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    data["trend_strength"] = ((short_ma - long_ma) / long_ma * 100).replace([np.inf, -np.inf], np.nan)
 
             elif feature_name == "momentum" and "終値" in data.columns:
-                # モメンタム指標
-                data["momentum_10"] = data["終値"].pct_change(10)
-                data["momentum_20"] = data["終値"].pct_change(20)
+                # モメンタム指標（異常値対策追加）
+                data["momentum_10"] = data["終値"].pct_change(10).clip(-0.5, 0.5)
+                data["momentum_20"] = data["終値"].pct_change(20).clip(-0.5, 0.5)
 
             elif feature_name == "price_channel" and all(
-                col in data.columns for col in ["高値", "安値"]
+                col in data.columns for col in ["高値", "安値", "終値"]
             ):
-                # 価格チャネル
+                # 価格チャネル（ゼロ除算対策追加）
                 highest_high = data["高値"].rolling(20).max()
                 lowest_low = data["安値"].rolling(20).min()
-                data["price_channel_position"] = (data["終値"] - lowest_low) / (
-                    highest_high - lowest_low
-                )
+                channel_width = highest_high - lowest_low
+
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    data["price_channel_position"] = (
+                        (data["終値"] - lowest_low) / channel_width
+                    ).replace([np.inf, -np.inf], np.nan)
 
             elif feature_name == "gap_analysis" and all(
                 col in data.columns for col in ["始値", "終値"]
             ):
                 # ギャップ分析
                 prev_close = data["終値"].shift(1)
-                data["gap_up"] = (
-                    (data["始値"] - prev_close) / prev_close > 0.02
-                ).astype(int)
-                data["gap_down"] = (
-                    (prev_close - data["始値"]) / prev_close > 0.02
-                ).astype(int)
+                gap_ratio = (data["始値"] - prev_close) / prev_close
+
+                data["gap_up"] = (gap_ratio > 0.02).astype(int)
+                data["gap_down"] = (gap_ratio < -0.02).astype(int)
+                data["gap_size"] = gap_ratio
+
+            else:
+                logger.warning(f"未知のカスタム特徴量: {feature_name}")
 
         except Exception as e:
-            logger.warning(f"カスタム特徴量 {feature_name} 追加失敗: {e}")
+            logger.error(f"フォールバック特徴量処理エラー {feature_name}: {e}")
 
         return data
 
