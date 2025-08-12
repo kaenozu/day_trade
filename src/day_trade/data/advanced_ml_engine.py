@@ -1173,6 +1173,7 @@ class NextGenAITradingEngine:
                 trend_strength = self._calculate_ml_trend_strength(close_prices, sma_20, sma_50)
                 ml_scores["trend_strength"] = min(100, max(0, trend_strength))
 
+
                 # 価格変動予測スコア
                 volatility = close_prices.pct_change().rolling(20).std().iloc[-1] if len(close_prices) > 20 else 0.02
                 volume_data = data.get("出来高", data.get("Volume", pd.Series()))
@@ -1221,6 +1222,24 @@ class NextGenAITradingEngine:
         except Exception:
             return 50.0  # 中立値
 
+
+            # 価格位置スコア
+            price_position = ((current_price - current_sma20) / current_sma20) * 100
+
+            # トレンド方向性
+            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
+
+            # 勢い計算
+            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
+
+            # 統合スコア
+            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
+
+            return trend_score
+
+        except Exception:
+            return 50.0  # 中立値
+
     def _calculate_volatility_score(
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
@@ -1229,6 +1248,7 @@ class NextGenAITradingEngine:
             # ボラティリティ正規化 (0-100スケール)
             volatility_normalized = min(100, volatility * 1000)  # 0.1 = 100
 
+
             # 出来高影響
             volume_factor = 1.0
             if not volume.empty and len(volume) > 20:
@@ -1236,6 +1256,15 @@ class NextGenAITradingEngine:
                 current_volume = volume.iloc[-1]
                 if avg_volume > 0:
                     volume_factor = min(2.0, current_volume / avg_volume)
+
+            # 予測スコア
+            prediction_score = volatility_normalized * volume_factor
+
+            return min(100, prediction_score)
+
+        except Exception:
+            return 50.0
+
 
             # 予測スコア
             prediction_score = volatility_normalized * volume_factor
@@ -1267,6 +1296,7 @@ class NextGenAITradingEngine:
                 elif change < 0:
                     down_streak += 1
                     up_streak = 0
+
 
             # パターン強度
             if up_streak >= 3:
