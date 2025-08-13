@@ -42,7 +42,7 @@ class OptimizationConfig:
 
     @classmethod
     def from_env(cls) -> "OptimizationConfig":
-        """環境変数から設定を読み込み"""
+        """環境変数から設定を読み込み - Issue #642対応"""
         level_str = os.getenv("DAYTRADE_OPTIMIZATION_LEVEL", "standard").lower()
         try:
             level = OptimizationLevel(level_str)
@@ -52,17 +52,102 @@ class OptimizationConfig:
 
         return cls(
             level=level,
-            auto_fallback=os.getenv("DAYTRADE_AUTO_FALLBACK", "true").lower() == "true",
-            performance_monitoring=os.getenv("DAYTRADE_PERF_MONITORING", "true").lower()
-            == "true",
-            cache_enabled=os.getenv("DAYTRADE_CACHE_ENABLED", "true").lower() == "true",
-            parallel_processing=os.getenv("DAYTRADE_PARALLEL", "false").lower()
-            == "true",
-            batch_size=int(os.getenv("DAYTRADE_BATCH_SIZE", "100")),
-            timeout_seconds=int(os.getenv("DAYTRADE_TIMEOUT", "30")),
-            memory_limit_mb=int(os.getenv("DAYTRADE_MEMORY_LIMIT", "512")),
-            ci_test_mode=os.getenv("CI", "false").lower() == "true",  # CI環境自動検出
+            auto_fallback=cls._parse_env_bool("DAYTRADE_AUTO_FALLBACK", True),
+            performance_monitoring=cls._parse_env_bool("DAYTRADE_PERF_MONITORING", True),
+            cache_enabled=cls._parse_env_bool("DAYTRADE_CACHE_ENABLED", True),
+            parallel_processing=cls._parse_env_bool("DAYTRADE_PARALLEL", False),
+            batch_size=cls._parse_env_int("DAYTRADE_BATCH_SIZE", 100),
+            timeout_seconds=cls._parse_env_int("DAYTRADE_TIMEOUT", 30),
+            memory_limit_mb=cls._parse_env_int("DAYTRADE_MEMORY_LIMIT", 512),
+            ci_test_mode=cls._parse_env_bool("CI", False),  # CI環境自動検出
         )
+
+    @staticmethod
+    def _parse_env_bool(env_var: str, default: bool) -> bool:
+        """
+        環境変数から堅牢なブール値パース - Issue #642対応
+
+        Args:
+            env_var: 環境変数名
+            default: デフォルト値
+
+        Returns:
+            bool: パース結果
+
+        Note:
+            以下の値をTrueとして扱う（大文字小文字無視）:
+            - "true", "yes", "1", "on", "enable", "enabled"
+            以下の値をFalseとして扱う:
+            - "false", "no", "0", "off", "disable", "disabled"
+        """
+        env_value = os.getenv(env_var)
+
+        if env_value is None:
+            return default
+
+        # 文字列を正規化
+        normalized = env_value.strip().lower()
+
+        # 空文字列の場合はデフォルト値
+        if not normalized:
+            logger.debug(f"環境変数 {env_var} が空文字列のため、デフォルト値 {default} を使用")
+            return default
+
+        # Trueとして扱う値
+        true_values = {"true", "yes", "1", "on", "enable", "enabled", "y", "t"}
+
+        # Falseとして扱う値
+        false_values = {"false", "no", "0", "off", "disable", "disabled", "n", "f"}
+
+        if normalized in true_values:
+            logger.debug(f"環境変数 {env_var}='{env_value}' -> True")
+            return True
+        elif normalized in false_values:
+            logger.debug(f"環境変数 {env_var}='{env_value}' -> False")
+            return False
+        else:
+            # 不明な値の場合は警告してデフォルト値を使用
+            logger.warning(
+                f"環境変数 {env_var} の値 '{env_value}' を解釈できません。"
+                f"デフォルト値 {default} を使用します。"
+                f"有効な値: {', '.join(true_values | false_values)}"
+            )
+            return default
+
+    @staticmethod
+    def _parse_env_int(env_var: str, default: int) -> int:
+        """
+        環境変数から堅牢な整数パース - Issue #642対応
+
+        Args:
+            env_var: 環境変数名
+            default: デフォルト値
+
+        Returns:
+            int: パース結果
+        """
+        env_value = os.getenv(env_var)
+
+        if env_value is None:
+            return default
+
+        try:
+            # 空白削除後に整数変換
+            normalized = env_value.strip()
+            if not normalized:
+                logger.debug(f"環境変数 {env_var} が空文字列のため、デフォルト値 {default} を使用")
+                return default
+
+            result = int(normalized)
+            logger.debug(f"環境変数 {env_var}='{env_value}' -> {result}")
+            return result
+
+        except ValueError as e:
+            logger.warning(
+                f"環境変数 {env_var} の値 '{env_value}' を整数として解釈できません。"
+                f"デフォルト値 {default} を使用します。エラー: {e}"
+            )
+            return default
 
     @classmethod
     def from_file(cls, config_path: str) -> "OptimizationConfig":
