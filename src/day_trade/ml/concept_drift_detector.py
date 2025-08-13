@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -22,7 +23,8 @@ class ConceptDriftDetector:
             metric_threshold (float): 性能指標の低下を検出するための閾値 (例: 0.1 = 10%の低下)
             window_size (int): 性能指標の履歴を保持する期間 (データポイント数)
         """
-        self.performance_history: List[Dict[str, Any]] = []
+        # Issue #711対応: dequeによる効率的な履歴管理
+        self.performance_history: deque = deque(maxlen=window_size)
         self.metric_threshold = metric_threshold
         self.window_size = window_size
         self.baseline_metric: Optional[float] = None
@@ -63,8 +65,7 @@ class ConceptDriftDetector:
             }
         )
 
-        # 履歴を最新のwindow_sizeに保つ
-        self.performance_history = self.performance_history[-self.window_size :]
+        # Issue #711対応: dequeのmaxlenにより自動的にwindow_sizeに保たれるため削除
         logger.info(
             f"性能データ追加: MAE={mae:.4f}, RMSE={rmse:.4f}, サンプル数={len(predictions)}"
         )
@@ -86,8 +87,10 @@ class ConceptDriftDetector:
         if self.baseline_metric is None:
             # 最初の数データポイントの平均をベースラインとする
             if len(self.performance_history) >= 5:
+                # Issue #711対応: dequeからリスト変換
+                history_list = list(self.performance_history)
                 self.baseline_metric = np.mean(
-                    [d["mae"] for d in self.performance_history[:5]]
+                    [d["mae"] for d in history_list[:5]]
                 )
                 logger.info(
                     f"コンセプトドリフト検出器: ベースラインMAEを設定しました: {self.baseline_metric:.4f}"

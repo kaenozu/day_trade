@@ -197,6 +197,8 @@ class GradientBoostingModel(BaseModelInterface):
     def get_feature_importance(self) -> Dict[str, float]:
         """
         特徴量重要度取得
+        
+        Issue #495対応: BaseModelInterfaceヘルパーメソッド使用
 
         Returns:
             特徴量名と重要度のマッピング
@@ -204,13 +206,21 @@ class GradientBoostingModel(BaseModelInterface):
         if not self.is_trained:
             return {}
 
-        importances = self.model.feature_importances_
-
-        if len(self.feature_names) == len(importances):
-            return dict(zip(self.feature_names, importances))
-        else:
-            # 特徴量名がない場合は番号で返す
-            return {f"feature_{i}": imp for i, imp in enumerate(importances)}
+        try:
+            importances = self.model.feature_importances_
+            return self._create_feature_importance_dict(importances)
+        except Exception as e:
+            logger.warning(f"{self.model_name}: 特徴量重要度取得エラー: {e}")
+            return {}
+    
+    def has_feature_importance(self) -> bool:
+        """
+        Issue #495対応: GradientBoostingは特徴量重要度を提供可能
+        
+        Returns:
+            常にTrue（学習済みの場合）
+        """
+        return self.is_trained
 
     def _hyperparameter_optimization(self, X: np.ndarray, y: np.ndarray) -> GradientBoostingRegressor:
         """

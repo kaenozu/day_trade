@@ -1695,11 +1695,12 @@ class NextGenAITradingEngine:
             trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
 
             return trend_score
-        except Exception as e:
-            logger.warning(f"ML trend strength calculation error: {e}")
-            return 50.0  # neutral score
 
-    def _calculate_volatility_score(
+        except Exception as e:
+            logger.warning(f"ML拡張トレンド強度計算エラー: {e}")
+            return 50.0  # デフォルト値
+
+    def calculate_volatility_score(
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
         """ボラティリティ予測スコア"""

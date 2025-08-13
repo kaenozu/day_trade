@@ -177,6 +177,8 @@ class RandomForestModel(BaseModelInterface):
     def get_feature_importance(self) -> Dict[str, float]:
         """
         特徴量重要度取得
+        
+        Issue #495対応: BaseModelInterfaceヘルパーメソッド使用
 
         Returns:
             特徴量名と重要度のマッピング
@@ -184,13 +186,21 @@ class RandomForestModel(BaseModelInterface):
         if not self.is_trained:
             return {}
 
-        importances = self.model.feature_importances_
-
-        if len(self.feature_names) == len(importances):
-            return dict(zip(self.feature_names, importances))
-        else:
-            # 特徴量名がない場合は番号で返す
-            return {f"feature_{i}": imp for i, imp in enumerate(importances)}
+        try:
+            importances = self.model.feature_importances_
+            return self._create_feature_importance_dict(importances)
+        except Exception as e:
+            logger.warning(f"{self.model_name}: 特徴量重要度取得エラー: {e}")
+            return {}
+    
+    def has_feature_importance(self) -> bool:
+        """
+        Issue #495対応: RandomForestは特徴量重要度を提供可能
+        
+        Returns:
+            常にTrue（学習済みの場合）
+        """
+        return self.is_trained
 
     def _hyperparameter_optimization(self, X: np.ndarray, y: np.ndarray) -> RandomForestRegressor:
         """
@@ -222,15 +232,22 @@ class RandomForestModel(BaseModelInterface):
             bootstrap=self.config['bootstrap']
         )
 
-        # Grid Search
+        # Issue #701対応: GridSearchCV並列化の動的調整
+        # GridSearchCVのn_jobs設定を最適化
+        gridsearch_n_jobs = self._optimize_gridsearch_parallel_jobs()
+        
+        # Grid Search with optimized parallel processing
         grid_search = GridSearchCV(
             rf_base,
             param_grid,
             cv=tscv,
             scoring='neg_mean_squared_error',
-            n_jobs=1,  # 既にRFが並列化されているため
+            n_jobs=gridsearch_n_jobs,
             verbose=self.config['verbose']
         )
+        
+        if self.config['verbose']:
+            logger.info(f"GridSearchCV並列設定: n_jobs={gridsearch_n_jobs}")
 
         grid_search.fit(X, y)
 
@@ -239,6 +256,78 @@ class RandomForestModel(BaseModelInterface):
         logger.info(f"最適CV Score: {-grid_search.best_score_:.4f}")
 
         return grid_search.best_estimator_
+
+    def _optimize_gridsearch_parallel_jobs(self) -> int:
+        """
+        Issue #701対応: GridSearchCV並列処理の最適化
+        
+        RandomForestと重複しない効率的なn_jobs設定を計算
+        
+        Returns:
+            最適なGridSearchCV n_jobs値
+            
+        Note:
+            - RandomForest自体が並列化される場合の競合回避
+            - システムリソースを考慮した動的調整
+            - パフォーマンス最大化
+        """
+        import os
+        import multiprocessing as mp
+        
+        try:
+            # システムリソース情報取得
+            cpu_count = mp.cpu_count()
+            rf_n_jobs = self.config.get('n_jobs', -1)
+            
+            # 環境変数からの設定チェック
+            env_n_jobs = os.environ.get('GRIDSEARCH_N_JOBS')
+            if env_n_jobs:
+                try:
+                    return int(env_n_jobs)
+                except ValueError:
+                    logger.warning(f"無効なGRIDSEARCH_N_JOBS環境変数: {env_n_jobs}")
+            
+            # RandomForestの並列化設定に基づく動的調整
+            if rf_n_jobs == 1:
+                # RandomForestが直列の場合、GridSearchCVを完全並列化
+                optimal_jobs = -1
+                logger.debug("RandomForest直列実行のため、GridSearchCV完全並列化")
+                
+            elif rf_n_jobs == -1:
+                # RandomForestが完全並列化の場合、バランス調整
+                if cpu_count >= 8:
+                    # 高性能マシン: GridSearchCVも並列化（CPU数の50%）
+                    optimal_jobs = max(2, cpu_count // 2)
+                    logger.debug(f"高性能マシン検出: GridSearchCV {optimal_jobs}並列")
+                elif cpu_count >= 4:
+                    # 標準マシン: 控えめな並列化
+                    optimal_jobs = 2
+                    logger.debug("標準マシン: GridSearchCV 2並列")
+                else:
+                    # 低性能マシン: GridSearchCV直列実行
+                    optimal_jobs = 1
+                    logger.debug("低性能マシン: GridSearchCV直列実行")
+                    
+            else:
+                # RandomForestが限定並列の場合
+                remaining_cores = max(1, cpu_count - rf_n_jobs)
+                optimal_jobs = min(remaining_cores, cpu_count // 2)
+                logger.debug(f"RandomForest {rf_n_jobs}並列のため、GridSearchCV {optimal_jobs}並列")
+            
+            # 最終調整とバリデーション
+            if optimal_jobs == -1:
+                logger.info("GridSearchCV: 全CPU使用")
+            elif optimal_jobs > 1:
+                logger.info(f"GridSearchCV: {optimal_jobs}並列実行")
+            else:
+                logger.info("GridSearchCV: 直列実行")
+            
+            return optimal_jobs
+            
+        except Exception as e:
+            logger.warning(f"GridSearchCV並列化設定エラー: {e}, デフォルトを使用")
+            # エラー時は安全なデフォルト（1）
+            return 1
 
     def _get_rf_params(self) -> Dict[str, Any]:
         """Random Forestパラメータ取得"""

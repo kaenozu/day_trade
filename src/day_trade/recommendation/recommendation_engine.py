@@ -25,6 +25,8 @@ from ..data.advanced_ml_engine import AdvancedMLEngine
 from ..data.batch_data_fetcher import AdvancedBatchDataFetcher, DataRequest
 from ..utils.stock_name_helper import get_stock_helper, format_stock_display
 from ..utils.logging_config import get_context_logger
+# Issue #487対応: スマート銘柄選択統合
+from ..automation.smart_symbol_selector import get_smart_selected_symbols
 
 logger = get_context_logger(__name__)
 
@@ -548,7 +550,11 @@ class RecommendationEngine:
             return None, None
 
     def _get_all_symbols(self) -> List[str]:
-        """全銘柄リスト取得"""
+        """
+        全銘柄リスト取得
+        
+        Issue #487対応: スマート銘柄自動選択の統合
+        """
         try:
             # StockNameHelperのインスタンスから全銘柄情報を取得
             all_stock_info = self.stock_helper.get_all_symbols()
@@ -565,6 +571,35 @@ class RecommendationEngine:
         default_symbols = ["7203", "8306", "9984", "6758", "4689"]
         logger.info(f"デフォルト銘柄を使用: {len(default_symbols)} 銘柄")
         return default_symbols
+    
+    async def _get_smart_selected_symbols(self, target_count: int = 10) -> List[str]:
+        """
+        Issue #487対応: スマート銘柄自動選択
+        
+        市場流動性・出来高・ボラティリティに基づく最適銘柄選択
+        
+        Args:
+            target_count: 目標銘柄数
+            
+        Returns:
+            自動選択された最適銘柄リスト
+        """
+        try:
+            logger.info("🤖 スマート銘柄自動選択を開始")
+            smart_symbols = await get_smart_selected_symbols(target_count)
+            
+            if smart_symbols:
+                logger.info(f"✅ スマート選択完了: {len(smart_symbols)}銘柄")
+                return smart_symbols
+            else:
+                logger.warning("スマート選択が失敗、フォールバックシンボルを使用")
+                
+        except Exception as e:
+            logger.error(f"スマート銘柄選択エラー: {e}")
+            logger.info("フォールバックシンボルを使用")
+        
+        # フォールバック
+        return self._get_all_symbols()[:target_count]
 
     def get_top_recommendations(self, recommendations: List[StockRecommendation], limit: int = 10) -> List[StockRecommendation]:
         """TOP推奨銘柄取得"""
@@ -764,6 +799,38 @@ async def get_daily_recommendations(limit: int = 10) -> List[StockRecommendation
     try:
         all_recommendations = await engine.analyze_all_stocks()
         return engine.get_top_recommendations(all_recommendations, limit)
+    finally:
+        engine.close()
+
+
+async def get_smart_daily_recommendations(limit: int = 10) -> List[StockRecommendation]:
+    """
+    Issue #487対応: スマート銘柄選択による日次推奨取得
+    
+    市場流動性・出来高・ボラティリティに基づく最適銘柄から推奨を生成
+    
+    Args:
+        limit: 推奨銘柄数上限
+        
+    Returns:
+        スマート選択されたベスト推奨銘柄リスト
+    """
+    engine = RecommendationEngine()
+    try:
+        logger.info("🚀 スマート銘柄選択による推奨分析を開始")
+        
+        # Step 1: スマート銘柄自動選択
+        smart_symbols = await engine._get_smart_selected_symbols(target_count=limit * 2)
+        
+        # Step 2: 選択された銘柄の詳細分析
+        smart_recommendations = await engine.analyze_all_stocks(smart_symbols)
+        
+        # Step 3: 最終推奨選定
+        final_recommendations = engine.get_top_recommendations(smart_recommendations, limit)
+        
+        logger.info(f"✅ スマート推奨完了: {len(final_recommendations)}銘柄")
+        return final_recommendations
+        
     finally:
         engine.close()
 

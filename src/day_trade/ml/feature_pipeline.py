@@ -8,10 +8,20 @@ Issue #380: 機械学習モデルの最適化 - 特徴量生成の効率化
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import pandas as pd
+
+# 並列処理ライブラリ
+try:
+    from joblib import Parallel, delayed
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    JOBLIB_AVAILABLE = False
+    
+import multiprocessing as mp
 
 from ..analysis.feature_engineering_unified import FeatureConfig, FeatureResult
 from ..core.optimization_strategy import OptimizationConfig, OptimizationLevel
@@ -29,6 +39,9 @@ try:
 
     PERFORMANCE_OPTIMIZATION_AVAILABLE = True
 except ImportError:
+    PERFORMANCE_OPTIMIZATION_AVAILABLE = False
+except Exception:
+    # Issue #715テスト時: パフォーマンス最適化を一時的に無効化
     PERFORMANCE_OPTIMIZATION_AVAILABLE = False
 
 logger = get_context_logger(__name__)
@@ -49,7 +62,10 @@ class PipelineConfig:
 
     # 並列処理設定
     enable_parallel_generation: bool = True
-    max_parallel_symbols: int = 4
+    max_parallel_symbols: int = min(4, max(1, mp.cpu_count() - 1))  # CPU数に応じて調整
+    parallel_backend: str = 'threading'  # 'threading', 'multiprocessing', 'joblib'
+    enable_batch_parallel: bool = True  # バッチ内並列処理
+    enable_symbol_parallel: bool = True  # シンボル間並列処理
 
     # バッチサイズ設定
     batch_size: int = 100
@@ -111,6 +127,12 @@ class FeaturePipeline:
             # GPU統計
             "gpu_accelerated_operations": 0,
             "gpu_speedup_ratio": 1.0,
+            # Issue #715対応: 並列処理統計
+            "parallel_batches_processed": 0,
+            "parallel_symbols_processed": 0,
+            "parallel_time_saved_seconds": 0.0,
+            "parallel_efficiency_ratio": 1.0,
+            "parallel_backend_used": self.config.parallel_backend,
         }
 
         logger.info(
@@ -240,33 +262,47 @@ class FeaturePipeline:
 
             logger.info(
                 f"バッチ {batch_idx + 1}/{len(symbol_batches)} 処理開始",
-                extra={"batch_symbols": len(symbol_batch), "symbols": symbol_batch},
+                extra={
+                    "batch_symbols": len(symbol_batch), 
+                    "symbols": symbol_batch,
+                    "parallel_enabled": self.config.enable_parallel_generation and self.config.enable_batch_parallel
+                },
             )
 
             # バッチ内処理
             batch_data = {symbol: symbols_data[symbol] for symbol in symbol_batch}
 
-            if not force_regenerate:
-                # バッチキャッシュ確認・生成
-                batch_results = self._batch_process_with_cache(
-                    batch_data, feature_config
-                )
+            # Issue #715対応: 並列処理の適用
+            if self.config.enable_parallel_generation and self.config.enable_batch_parallel and len(symbol_batch) > 1:
+                # 並列バッチ処理
+                batch_results = self._parallel_process_symbols(batch_data, feature_config, force_regenerate)
             else:
-                # 強制再生成
-                batch_results = self._batch_process_force_regenerate(
-                    batch_data, feature_config
-                )
+                # 従来の順次処理
+                if not force_regenerate:
+                    # バッチキャッシュ確認・生成
+                    batch_results = self._batch_process_with_cache(
+                        batch_data, feature_config
+                    )
+                else:
+                    # 強制再生成
+                    batch_results = self._batch_process_force_regenerate(
+                        batch_data, feature_config
+                    )
 
             results.update(batch_results)
             processed_symbols += len(batch_results)
 
             batch_time = time.time() - batch_start_time
+            symbols_per_second = len(batch_results) / max(batch_time, 0.001)  # ゼロ除算回避
+            
             logger.info(
                 f"バッチ {batch_idx + 1} 完了",
                 extra={
                     "processed_symbols": len(batch_results),
                     "batch_time_seconds": round(batch_time, 2),
-                    "symbols_per_second": round(len(batch_results) / batch_time, 2),
+                    "symbols_per_second": round(symbols_per_second, 2),
+                    "parallel_processing": self.config.enable_parallel_generation and self.config.enable_batch_parallel,
+                    "backend": self.config.parallel_backend if self.config.enable_parallel_generation else "sequential"
                 },
             )
 
@@ -414,29 +450,381 @@ class FeaturePipeline:
         self, symbols_data: Dict[str, Dict[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
         """CPU フォールバック特徴量生成"""
-        results = {}
+        # Issue #715対応: CPU処理も並列化可能にする
+        if self.config.enable_parallel_generation and len(symbols_data) > 1:
+            return self._cpu_batch_features_parallel(symbols_data)
+        else:
+            return self._cpu_batch_features_sequential(symbols_data)
 
-        for symbol, data in symbols_data.items():
+    def _cpu_batch_features_sequential(
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        """CPU順次特徴量生成（Issue #716対応: 最適化バッチ処理使用）"""
+        # Issue #716対応: 最適化されたバッチ処理メソッドを使用
+        return self._compute_features_optimized_batch(symbols_data)
+
+    def _cpu_batch_features_parallel(
+        self, symbols_data: Dict[str, Dict[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        """CPU並列特徴量生成（Issue #716対応: 最適化バッチ処理使用）"""
+        # Issue #716対応: まず最適化バッチ処理を試行
+        try:
+            # 最適化されたバッチ処理（同じ長さのデータをグループ化してベクトル化）
+            batch_results = self._compute_features_optimized_batch(symbols_data)
+            if len(batch_results) > 0:
+                return batch_results
+        except Exception as e:
+            logger.warning(f"最適化バッチ処理失敗、個別並列処理にフォールバック: {e}")
+        
+        # フォールバック: 従来の個別シンボル並列処理
+        results = {}
+        
+        if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
+            try:
+                results_list = Parallel(n_jobs=self.config.max_parallel_symbols)(
+                    delayed(self._compute_single_symbol_features)(symbol, data)
+                    for symbol, data in symbols_data.items()
+                )
+                
+                # 結果を辞書に変換（Noneでないもの）
+                for i, (symbol, data) in enumerate(symbols_data.items()):
+                    if i < len(results_list) and results_list[i] is not None:
+                        results[symbol] = results_list[i]
+                        
+            except Exception as e:
+                logger.error(f"CPU並列特徴量生成エラー: {e}")
+                return self._cpu_batch_features_sequential(symbols_data)
+        else:
+            # Threading並列処理
+            with ThreadPoolExecutor(max_workers=self.config.max_parallel_symbols) as executor:
+                future_to_symbol = {
+                    executor.submit(self._compute_single_symbol_features, symbol, data): symbol
+                    for symbol, data in symbols_data.items()
+                }
+                
+                for future in as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        result = future.result()
+                        if result is not None:
+                            results[symbol] = result
+                    except Exception as e:
+                        logger.error(f"CPU Threading特徴量生成エラー ({symbol}): {e}")
+
+        return results
+
+    def _compute_single_symbol_features(
+        self, symbol: str, data: Dict[str, np.ndarray]
+    ) -> Optional[np.ndarray]:
+        """
+        単一シンボル特徴量計算（Issue #716対応: ベクトル化最適化）
+        """
+        try:
             prices = data.get("prices", np.array([]))
             volumes = data.get("volumes", np.array([]))
 
             if len(prices) >= 20 and len(volumes) >= 20:
-                # 基本的な特徴量のみ
-                n = len(prices)
-                features = np.zeros((n, 5))
+                return self._compute_features_vectorized(prices, volumes)
+                
+            return None
+            
+        except Exception as e:
+            logger.error(f"単一シンボル特徴量計算エラー ({symbol}): {e}")
+            return None
 
-                for i in range(20, n):
-                    features[i, 0] = np.mean(prices[i - 5 : i])  # MA5
-                    features[i, 1] = np.mean(prices[i - 20 : i])  # MA20
-                    features[i, 2] = prices[i]  # 現在価格
-                    features[i, 3] = volumes[i]  # 現在ボリューム
-                    features[i, 4] = (prices[i] - prices[i - 1]) / prices[
-                        i - 1
-                    ]  # 変化率
+    def _compute_features_vectorized(self, prices: np.ndarray, volumes: np.ndarray) -> np.ndarray:
+        """
+        Issue #716対応: ベクトル化された特徴量計算
+        
+        Args:
+            prices: 価格配列
+            volumes: 出来高配列
+            
+        Returns:
+            特徴量配列 (n_samples, n_features)
+        """
+        n = len(prices)
+        features = np.zeros((n, 5))
+        
+        # Issue #716対応: Pythonループを排除し、NumPyベクトル化操作で置換
+        
+        # MA5 (5日移動平均) - ベクトル化計算
+        # pandas.rolling風の実装をnumpyで実現
+        ma5 = np.zeros(n)
+        ma5[4:] = np.convolve(prices, np.ones(5)/5, mode='valid')
+        features[:, 0] = ma5
+        
+        # MA20 (20日移動平均) - ベクトル化計算
+        ma20 = np.zeros(n)
+        ma20[19:] = np.convolve(prices, np.ones(20)/20, mode='valid')
+        features[:, 1] = ma20
+        
+        # 現在価格 - そのまま代入
+        features[:, 2] = prices
+        
+        # 現在ボリューム - そのまま代入
+        features[:, 3] = volumes
+        
+        # 変化率 - ベクトル化計算
+        price_changes = np.zeros(n)
+        price_changes[1:] = (prices[1:] - prices[:-1]) / prices[:-1]
+        features[:, 4] = price_changes
+        
+        return features
 
-                results[symbol] = features
-
+    def _compute_features_optimized_batch(self, symbols_data: Dict[str, Dict[str, np.ndarray]]) -> Dict[str, np.ndarray]:
+        """
+        Issue #716対応: バッチ最適化された特徴量計算
+        
+        複数シンボルのデータを一度に処理し、メモリアクセスパターンを最適化
+        
+        Args:
+            symbols_data: シンボル別データ辞書
+            
+        Returns:
+            シンボル別特徴量辞書
+        """
+        results = {}
+        
+        # データの前処理とバリデーション
+        valid_symbols = []
+        valid_prices = []
+        valid_volumes = []
+        
+        for symbol, data in symbols_data.items():
+            prices = data.get("prices", np.array([]))
+            volumes = data.get("volumes", np.array([]))
+            
+            if len(prices) >= 20 and len(volumes) >= 20:
+                valid_symbols.append(symbol)
+                valid_prices.append(prices)
+                valid_volumes.append(volumes)
+        
+        if not valid_symbols:
+            return results
+        
+        # バッチ処理: 同じ長さのデータをグループ化
+        length_groups = {}
+        for i, (symbol, prices, volumes) in enumerate(zip(valid_symbols, valid_prices, valid_volumes)):
+            length = len(prices)
+            if length not in length_groups:
+                length_groups[length] = []
+            length_groups[length].append((i, symbol, prices, volumes))
+        
+        # 長さごとにバッチ処理
+        for length, group_data in length_groups.items():
+            if len(group_data) == 1:
+                # 単一シンボル: 通常の処理
+                _, symbol, prices, volumes = group_data[0]
+                results[symbol] = self._compute_features_vectorized(prices, volumes)
+            else:
+                # 複数シンボル: バッチベクトル化処理
+                batch_results = self._compute_features_batch_vectorized(group_data)
+                results.update(batch_results)
+        
         return results
+
+    def _compute_features_batch_vectorized(self, group_data: List[Tuple[int, str, np.ndarray, np.ndarray]]) -> Dict[str, np.ndarray]:
+        """
+        Issue #716対応: 同じ長さのデータに対するバッチベクトル化処理
+        
+        Args:
+            group_data: (index, symbol, prices, volumes) のリスト
+            
+        Returns:
+            シンボル別特徴量辞書
+        """
+        if not group_data:
+            return {}
+        
+        # データを3次元配列に変換 (n_symbols, n_timepoints, n_features)
+        n_symbols = len(group_data)
+        n_timepoints = len(group_data[0][2])  # すべて同じ長さ
+        
+        # 価格と出来高データを2次元配列に変換
+        prices_batch = np.array([data[2] for data in group_data])  # (n_symbols, n_timepoints)
+        volumes_batch = np.array([data[3] for data in group_data])  # (n_symbols, n_timepoints)
+        
+        # バッチ特徴量配列を初期化
+        features_batch = np.zeros((n_symbols, n_timepoints, 5))
+        
+        # Issue #716対応: MA5とMA20をより効率的に計算（ループを最小化）
+        # MA5: より効率的な実装（先頭ゼロ埋め + 有効部分のみconvolve）
+        for i in range(n_symbols):
+            if n_timepoints >= 5:
+                # 最初の4つは0、5番目からconvolveの結果
+                ma5_valid = np.convolve(prices_batch[i], np.ones(5)/5, mode='valid')
+                features_batch[i, 4:, 0] = ma5_valid
+            # features_batch[i, :4, 0] は初期化時に既に0
+        
+        # MA20: より効率的な実装
+        for i in range(n_symbols):
+            if n_timepoints >= 20:
+                # 最初の19個は0、20番目からconvolveの結果
+                ma20_valid = np.convolve(prices_batch[i], np.ones(20)/20, mode='valid')
+                features_batch[i, 19:, 1] = ma20_valid
+            # features_batch[i, :19, 1] は初期化時に既に0
+        
+        # 現在価格とボリューム: 直接代入
+        features_batch[:, :, 2] = prices_batch
+        features_batch[:, :, 3] = volumes_batch
+        
+        # 変化率: バッチ計算
+        price_changes_batch = np.zeros_like(prices_batch)
+        price_changes_batch[:, 1:] = (prices_batch[:, 1:] - prices_batch[:, :-1]) / prices_batch[:, :-1]
+        features_batch[:, :, 4] = price_changes_batch
+        
+        # 結果を辞書に変換
+        results = {}
+        for i, (_, symbol, _, _) in enumerate(group_data):
+            results[symbol] = features_batch[i]
+        
+        return results
+
+    def _process_single_symbol_in_batch(
+        self, symbol: str, data: pd.DataFrame, feature_config: FeatureConfig, 
+        force_regenerate: bool
+    ) -> Tuple[str, Optional[FeatureResult]]:
+        """
+        Issue #715対応: バッチ内単一シンボル処理（並列化用）
+        
+        Args:
+            symbol: シンボル名
+            data: データ
+            feature_config: 特徴量設定
+            force_regenerate: 強制再生成フラグ
+            
+        Returns:
+            (シンボル, 特徴量結果) のタプル
+        """
+        try:
+            if not force_regenerate:
+                # キャッシュから取得を試行
+                start_date = data.index.min().strftime("%Y-%m-%d") if hasattr(data.index, "min") else "1900-01-01"
+                end_date = data.index.max().strftime("%Y-%m-%d") if hasattr(data.index, "max") else "2100-01-01"
+                
+                cached_result = self.feature_store.load_feature(
+                    symbol, start_date, end_date, feature_config
+                )
+                if cached_result:
+                    return symbol, cached_result
+
+            # 特徴量生成
+            result = self.feature_store.get_or_generate_feature(
+                symbol=symbol,
+                data=data,
+                start_date=data.index.min().strftime("%Y-%m-%d") if hasattr(data.index, "min") else "1900-01-01",
+                end_date=data.index.max().strftime("%Y-%m-%d") if hasattr(data.index, "max") else "2100-01-01",
+                feature_config=feature_config,
+                optimization_config=self.config.optimization_config,
+            )
+            return symbol, result
+            
+        except Exception as e:
+            logger.error(f"バッチ内シンボル処理エラー: {symbol} - {e}")
+            return symbol, None
+
+    def _parallel_process_symbols(
+        self, symbols_data: Dict[str, pd.DataFrame], feature_config: FeatureConfig,
+        force_regenerate: bool = False
+    ) -> Dict[str, FeatureResult]:
+        """
+        Issue #715対応: シンボル並列処理
+        
+        Args:
+            symbols_data: シンボル別データ辞書
+            feature_config: 特徴量設定
+            force_regenerate: 強制再生成フラグ
+            
+        Returns:
+            シンボル別特徴量結果辞書
+        """
+        results = {}
+        symbols = list(symbols_data.keys())
+        
+        if not self.config.enable_parallel_generation or len(symbols) <= 1:
+            # 並列処理無効または単一シンボルの場合は順次処理
+            for symbol in symbols:
+                symbol_result, feature_result = self._process_single_symbol_in_batch(
+                    symbol, symbols_data[symbol], feature_config, force_regenerate
+                )
+                if feature_result:
+                    results[symbol_result] = feature_result
+            return results
+        
+        # 並列処理実行
+        if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
+            return self._parallel_process_joblib(symbols_data, feature_config, force_regenerate)
+        elif self.config.parallel_backend == 'multiprocessing':
+            return self._parallel_process_multiprocessing(symbols_data, feature_config, force_regenerate)
+        else:  # threading (default)
+            return self._parallel_process_threading(symbols_data, feature_config, force_regenerate)
+
+    def _parallel_process_joblib(
+        self, symbols_data: Dict[str, pd.DataFrame], feature_config: FeatureConfig,
+        force_regenerate: bool
+    ) -> Dict[str, FeatureResult]:
+        """Joblib並列処理"""
+        try:
+            results_list = Parallel(n_jobs=self.config.max_parallel_symbols)(
+                delayed(self._process_single_symbol_in_batch)(
+                    symbol, data, feature_config, force_regenerate
+                )
+                for symbol, data in symbols_data.items()
+            )
+            
+            results = {}
+            for symbol, result in results_list:
+                if result:
+                    results[symbol] = result
+                    
+            logger.info(f"Joblib並列処理完了: {len(results)}/{len(symbols_data)} シンボル成功")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Joblib並列処理エラー: {e}")
+            # フォールバック: 順次処理
+            return self._parallel_process_threading(symbols_data, feature_config, force_regenerate)
+
+    def _parallel_process_threading(
+        self, symbols_data: Dict[str, pd.DataFrame], feature_config: FeatureConfig,
+        force_regenerate: bool
+    ) -> Dict[str, FeatureResult]:
+        """Threading並列処理"""
+        results = {}
+        
+        with ThreadPoolExecutor(max_workers=self.config.max_parallel_symbols) as executor:
+            # 全タスクをサブミット
+            future_to_symbol = {
+                executor.submit(
+                    self._process_single_symbol_in_batch,
+                    symbol, data, feature_config, force_regenerate
+                ): symbol
+                for symbol, data in symbols_data.items()
+            }
+            
+            # 結果収集
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    result_symbol, result = future.result()
+                    if result:
+                        results[result_symbol] = result
+                except Exception as e:
+                    logger.error(f"Threading並列処理エラー ({symbol}): {e}")
+        
+        logger.info(f"Threading並列処理完了: {len(results)}/{len(symbols_data)} シンボル成功")
+        return results
+
+    def _parallel_process_multiprocessing(
+        self, symbols_data: Dict[str, pd.DataFrame], feature_config: FeatureConfig,
+        force_regenerate: bool
+    ) -> Dict[str, FeatureResult]:
+        """Multiprocessing並列処理（注意：プロセス間でのオブジェクト共有制限あり）"""
+        # 注意: multiprocessingは複雑なオブジェクト（self.feature_store等）の共有が困難
+        # そのため、threading方式にフォールバック
+        logger.warning("Multiprocessing並列処理はthreadingにフォールバック")
+        return self._parallel_process_threading(symbols_data, feature_config, force_regenerate)
 
     def _create_batches(self, items: List[str], batch_size: int) -> List[List[str]]:
         """バッチ作成"""
@@ -544,8 +932,25 @@ class FeaturePipeline:
         if feature_config is None:
             feature_config = FeatureConfig.default()
 
-        logger.info("特徴量事前計算開始", extra={"symbols_count": len(symbols)})
+        logger.info(
+            "特徴量事前計算開始", 
+            extra={
+                "symbols_count": len(symbols),
+                "parallel_enabled": self.config.enable_parallel_generation and self.config.enable_symbol_parallel,
+                "max_workers": self.config.max_parallel_symbols
+            }
+        )
 
+        # Issue #715対応: シンボル間並列処理
+        if self.config.enable_parallel_generation and self.config.enable_symbol_parallel and len(symbols) > 1:
+            return self._precompute_parallel(symbols, data_provider_func, feature_config)
+        else:
+            return self._precompute_sequential(symbols, data_provider_func, feature_config)
+
+    def _precompute_sequential(
+        self, symbols: List[str], data_provider_func: callable, feature_config: FeatureConfig
+    ) -> Dict[str, str]:
+        """順次事前計算"""
         feature_ids = {}
         success_count = 0
 
@@ -567,7 +972,7 @@ class FeaturePipeline:
                 continue
 
         logger.info(
-            "特徴量事前計算完了",
+            "順次事前計算完了",
             extra={
                 "success_count": success_count,
                 "total_count": len(symbols),
@@ -575,6 +980,109 @@ class FeaturePipeline:
             },
         )
 
+        return feature_ids
+
+    def _precompute_parallel(
+        self, symbols: List[str], data_provider_func: callable, feature_config: FeatureConfig
+    ) -> Dict[str, str]:
+        """並列事前計算"""
+        feature_ids = {}
+        
+        # 並列処理バックエンドの選択
+        if self.config.parallel_backend == 'joblib' and JOBLIB_AVAILABLE:
+            return self._precompute_parallel_joblib(symbols, data_provider_func, feature_config)
+        else:  # threading
+            return self._precompute_parallel_threading(symbols, data_provider_func, feature_config)
+
+    def _precompute_single_symbol(
+        self, symbol: str, data_provider_func: callable, feature_config: FeatureConfig
+    ) -> Tuple[str, Optional[str]]:
+        """単一シンボル事前計算（並列化用）"""
+        try:
+            # データ取得
+            data = data_provider_func(symbol)
+            if data is None or data.empty:
+                logger.warning(f"データが取得できませんでした: {symbol}")
+                return symbol, None
+
+            # 特徴量生成
+            result = self.generate_features_for_symbol(symbol, data, feature_config)
+            feature_id = result.metadata.get("feature_id", "")
+            return symbol, feature_id
+
+        except Exception as e:
+            logger.error(f"特徴量事前計算エラー: {symbol} - {e}")
+            return symbol, None
+
+    def _precompute_parallel_joblib(
+        self, symbols: List[str], data_provider_func: callable, feature_config: FeatureConfig
+    ) -> Dict[str, str]:
+        """Joblib並列事前計算"""
+        try:
+            results_list = Parallel(n_jobs=self.config.max_parallel_symbols)(
+                delayed(self._precompute_single_symbol)(symbol, data_provider_func, feature_config)
+                for symbol in symbols
+            )
+            
+            feature_ids = {}
+            success_count = 0
+            for symbol, feature_id in results_list:
+                if feature_id:
+                    feature_ids[symbol] = feature_id
+                    success_count += 1
+            
+            logger.info(
+                "Joblib並列事前計算完了",
+                extra={
+                    "success_count": success_count,
+                    "total_count": len(symbols),
+                    "success_rate": f"{success_count / len(symbols) * 100:.1f}%",
+                    "backend": "joblib"
+                },
+            )
+            
+            return feature_ids
+            
+        except Exception as e:
+            logger.error(f"Joblib並列事前計算エラー: {e}")
+            # フォールバック: threading
+            return self._precompute_parallel_threading(symbols, data_provider_func, feature_config)
+
+    def _precompute_parallel_threading(
+        self, symbols: List[str], data_provider_func: callable, feature_config: FeatureConfig
+    ) -> Dict[str, str]:
+        """Threading並列事前計算"""
+        feature_ids = {}
+        success_count = 0
+        
+        with ThreadPoolExecutor(max_workers=self.config.max_parallel_symbols) as executor:
+            # 全タスクをサブミット
+            future_to_symbol = {
+                executor.submit(self._precompute_single_symbol, symbol, data_provider_func, feature_config): symbol
+                for symbol in symbols
+            }
+            
+            # 結果収集
+            for future in as_completed(future_to_symbol):
+                original_symbol = future_to_symbol[future]
+                try:
+                    symbol, feature_id = future.result()
+                    if feature_id:
+                        feature_ids[symbol] = feature_id
+                        success_count += 1
+                except Exception as e:
+                    logger.error(f"Threading並列事前計算エラー ({original_symbol}): {e}")
+        
+        logger.info(
+            "Threading並列事前計算完了",
+            extra={
+                "success_count": success_count,
+                "total_count": len(symbols),
+                "success_rate": f"{success_count / len(symbols) * 100:.1f}%",
+                "backend": "threading"
+            },
+        )
+        
         return feature_ids
 
     def get_pipeline_stats(self) -> Dict[str, Any]:
