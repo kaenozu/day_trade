@@ -228,6 +228,15 @@ class SignalRule:
         self.name = name
         self.weight = weight
 
+    def _get_config_with_fallback(self, config: Optional["SignalRulesConfig"] = None) -> "SignalRulesConfig":
+        """
+        Issue #649対応: configハンドリングの最適化
+        configが提供されない場合は共有configを使用
+        """
+        if config is None:
+            return _get_shared_config()
+        return config
+
     def evaluate(
         self,
         df: pd.DataFrame,
@@ -264,8 +273,8 @@ class RSIOversoldRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        if config is None:
-            config = _get_shared_config()
+        # Issue #649対応: 最適化されたconfig処理
+        config = self._get_config_with_fallback(config)
 
         threshold = config.get_rsi_thresholds().get("oversold", self.threshold)
         confidence_multiplier = config.get_confidence_multiplier(
@@ -307,8 +316,8 @@ class RSIOverboughtRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        if config is None:
-            config = _get_shared_config()
+        # Issue #649対応: 最適化されたconfig処理
+        config = self._get_config_with_fallback(config)
 
         threshold = config.get_rsi_thresholds().get("overbought", self.threshold)
         confidence_multiplier = config.get_confidence_multiplier(
@@ -347,13 +356,18 @@ class MACDCrossoverRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        if config is None:
-            config = _get_shared_config()
+        # Issue #649対応: 最適化されたconfig処理
+        config = self._get_config_with_fallback(config)
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
         angle_multiplier = config.get_confidence_multiplier(
             "macd_angle", self.angle_multiplier
         )
+
+        # Issue #650対応: lookback期間妥当性チェック強化
+        if lookback < 1:
+            logger.warning(f"MACDCrossoverRule: Invalid lookback period {lookback}, using default")
+            lookback = self.lookback
 
         if (
             "MACD" not in indicators.columns
@@ -361,6 +375,11 @@ class MACDCrossoverRule(SignalRule):
             or indicators["MACD"].empty
             or indicators["MACD_Signal"].empty
         ):
+            return False, 0.0
+
+        current_length = len(indicators)
+        if current_length < lookback:
+            logger.debug(f"MACDCrossoverRule: Insufficient data length {current_length} for lookback {lookback}")
             return False, 0.0
 
         macd = indicators["MACD"].iloc[-lookback:]
@@ -402,13 +421,18 @@ class MACDDeathCrossRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        if config is None:
-            config = _get_shared_config()
+        # Issue #649対応: 最適化されたconfig処理
+        config = self._get_config_with_fallback(config)
 
         lookback = config.get_macd_settings().get("lookback_period", self.lookback)
         angle_multiplier = config.get_confidence_multiplier(
             "macd_angle", self.angle_multiplier
         )
+
+        # Issue #650対応: lookback期間妥当性チェック強化
+        if lookback < 1:
+            logger.warning(f"MACDDeathCrossRule: Invalid lookback period {lookback}, using default")
+            lookback = self.lookback
 
         if (
             "MACD" not in indicators.columns
@@ -416,6 +440,11 @@ class MACDDeathCrossRule(SignalRule):
             or indicators["MACD"].empty
             or indicators["MACD_Signal"].empty
         ):
+            return False, 0.0
+
+        current_length = len(indicators)
+        if current_length < lookback:
+            logger.debug(f"MACDDeathCrossRule: Insufficient data length {current_length} for lookback {lookback}")
             return False, 0.0
 
         macd = indicators["MACD"].iloc[-lookback:]
@@ -465,22 +494,35 @@ class BollingerBandRule(SignalRule):
         patterns: Dict,
         config: Optional["SignalRulesConfig"] = None,
     ) -> Tuple[bool, float]:
-        if config is None:
-            config = _get_shared_config()
+        # Issue #649対応: 最適化されたconfig処理
+        config = self._get_config_with_fallback(config)
 
         deviation_multiplier = config.get_confidence_multiplier(
             "bollinger_deviation", self.deviation_multiplier
         )
 
+        # Issue #651対応: 入力データの堅牢性チェック強化
         if (
             "BB_Upper" not in indicators.columns
             or "BB_Lower" not in indicators.columns
+            or "BB_Middle" not in indicators.columns
             or indicators["BB_Upper"].empty
             or indicators["BB_Lower"].empty
+            or indicators["BB_Middle"].empty
         ):
+            logger.debug("BollingerBandRule: Required Bollinger Band columns missing or empty")
+            return False, 0.0
+
+        if df.empty or "Close" not in df.columns:
+            logger.debug("BollingerBandRule: Close price data missing")
             return False, 0.0
 
         close_price = df["Close"].iloc[-1]
+        
+        # NaN値チェック
+        if pd.isna(close_price):
+            logger.debug("BollingerBandRule: Close price is NaN")
+            return False, 0.0
 
         if self.position == "lower":
             bb_lower = indicators["BB_Lower"].iloc[-1]
@@ -680,11 +722,11 @@ class TradingSignalGenerator:
             if rule:
                 self.sell_rules.append(rule)
 
-        # 設定が空の場合はデフォルトルールを使用
+        # Issue #656対応: デフォルトルール読み込みの統合
         if not self.buy_rules:
-            self._load_default_buy_rules()
+            self._load_default_rules("buy")
         if not self.sell_rules:
-            self._load_default_sell_rules()
+            self._load_default_rules("sell")
 
     def _create_rule_from_config(
         self, rule_config: Dict[str, Any]
@@ -724,16 +766,22 @@ class TradingSignalGenerator:
             "VolumeSpikeBuyRule": VolumeSpikeBuyRule,
         }
 
-    def _load_default_buy_rules(self):
-        """デフォルト買いルールを読み込み"""
+    def _load_default_rules(self, rule_type: str):
+        """
+        Issue #656対応: デフォルトルール読み込みの統合
+        
+        Args:
+            rule_type: "buy" または "sell"
+        """
         # 設定ファイルからデフォルト値を取得
         rsi_thresholds = self.config.get_rsi_thresholds()
         macd_settings = self.config.get_macd_settings()
         pattern_settings = self.config.get_pattern_breakout_settings()
         cross_settings = self.config.get_cross_settings()
 
-        multiplier = self.config.get_confidence_multiplier("rsi_oversold", 2.0)
-        self.buy_rules = [
+        if rule_type == "buy":
+            multiplier = self.config.get_confidence_multiplier("rsi_oversold", 2.0)
+            self.buy_rules = [
             RSIOversoldRule(
                 threshold=rsi_thresholds["oversold"],
                 weight=1.0,
@@ -758,17 +806,10 @@ class TradingSignalGenerator:
             ),
             GoldenCrossRule(weight=cross_settings["default_weight"]),
         ]
-
-    def _load_default_sell_rules(self):
-        """デフォルト売りルールを読み込み"""
-        # 設定ファイルからデフォルト値を取得
-        rsi_thresholds = self.config.get_rsi_thresholds()
-        macd_settings = self.config.get_macd_settings()
-        pattern_settings = self.config.get_pattern_breakout_settings()
-        cross_settings = self.config.get_cross_settings()
-
-        multiplier = self.config.get_confidence_multiplier("rsi_overbought", 2.0)
-        self.sell_rules = [
+        
+        elif rule_type == "sell":
+            multiplier = self.config.get_confidence_multiplier("rsi_overbought", 2.0)
+            self.sell_rules = [
             RSIOverboughtRule(
                 threshold=rsi_thresholds["overbought"],
                 weight=1.0,
@@ -793,6 +834,8 @@ class TradingSignalGenerator:
             ),
             DeadCrossRule(weight=cross_settings["default_weight"]),
         ]
+        else:
+            logger.warning(f"Unknown rule type: {rule_type}. Expected 'buy' or 'sell'")
 
     def add_buy_rule(self, rule: SignalRule):
         """買いルールを追加"""
@@ -978,17 +1021,31 @@ class TradingSignalGenerator:
         try:
             signals = []
 
+            # Issue #658対応: lookback_window処理の改善
+            # データ長とlookback_windowの妥当性チェック
+            if lookback_window < 1:
+                logger.warning(f"Invalid lookback_window: {lookback_window}. Using default value 50.")
+                lookback_window = 50
+                
             # 最低限必要なデータ数を設定から取得
             config_min_period = self.config.get_signal_settings().get(
                 "min_data_period", 60
             )
             min_required = max(lookback_window, config_min_period)
-
+            
+            # データ長に対するlookback_windowの調整
             if len(df) < min_required:
-                logger.warning(
-                    f"データが不足しています。最低 {min_required} 日分のデータが必要です。"
-                )
-                return pd.DataFrame()
+                if len(df) < config_min_period:
+                    logger.warning(
+                        f"データが不足しています。最低 {config_min_period} 日分のデータが必要です。現在: {len(df)}日"
+                    )
+                    return pd.DataFrame()
+                else:
+                    # データ長に合わせてlookback_windowを調整
+                    adjusted_window = min(lookback_window, len(df) - config_min_period // 2)
+                    logger.debug(f"lookback_window調整: {lookback_window} -> {adjusted_window}")
+                    lookback_window = max(adjusted_window, 20)  # 最小20に設定
+                    min_required = max(lookback_window, config_min_period)
 
             # 全期間の指標とパターンを事前に計算
             # これにより、ループ内での再計算を避ける
@@ -1048,14 +1105,16 @@ class TradingSignalGenerator:
         signal: TradingSignal,
         historical_performance: Optional[pd.DataFrame] = None,
         market_context: Optional[Dict[str, Any]] = None,
+        validation_params: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
-        シグナルの有効性を検証
+        Issue #659対応: パラメータ化されたシグナル検証ロジック
 
         Args:
             signal: 検証するシグナル
             historical_performance: 過去のパフォーマンスデータ
             market_context: 市場環境情報(ボラティリティ,トレンド等)
+            validation_params: 検証パラメータのオーバーライド
 
         Returns:
             有効性スコア(0-100)
@@ -1063,21 +1122,25 @@ class TradingSignalGenerator:
         try:
             base_score = signal.confidence
 
-            # 強度による調整係数を設定から取得
-            strength_config = self.config.get_signal_settings().get(
-                "strength_multipliers", {}
-            )
-            strength_multipliers = {
-                SignalStrength.STRONG: strength_config.get("strong", 1.2),
-                SignalStrength.MEDIUM: strength_config.get("medium", 1.0),
-                SignalStrength.WEAK: strength_config.get("weak", 0.8),
-            }
-            base_score *= strength_multipliers.get(signal.strength, 1.0)
+            # Issue #659対応: パラメータ化された検証ロジック
+            # デフォルト設定を取得し、validation_paramsでオーバーライド可能
+            default_config = self.config.get_signal_settings()
+            validation_config = default_config.get("validation_adjustments", {})
+            
+            if validation_params:
+                # validation_paramsが提供された場合は設定をオーバーライド
+                validation_config.update(validation_params)
+
+            # 強度による調整係数
+            strength_multipliers = validation_config.get("strength_multipliers", {
+                "strong": 1.2,
+                "medium": 1.0,
+                "weak": 0.8
+            })
+            strength_key = signal.strength.value if hasattr(signal.strength, 'value') else str(signal.strength)
+            base_score *= strength_multipliers.get(strength_key, 1.0)
 
             # 複数条件の組み合わせによるボーナス
-            validation_config = self.config.get_signal_settings().get(
-                "validation_adjustments", {}
-            )
             multi_condition_bonus = validation_config.get("multi_condition_bonus", 1.15)
 
             active_conditions = sum(1 for v in signal.conditions_met.values() if v)
@@ -1214,26 +1277,19 @@ class TradingSignalGenerator:
     def _merge_conditions_safely(
         self, buy_conditions: Dict[str, bool], sell_conditions: Dict[str, bool]
     ) -> Dict[str, bool]:
-        """コンディションを安全に結合し、同名キーの衝突を警告"""
-        merged = buy_conditions.copy()
-
-        # 衝突チェック
-        overlapping_keys = set(buy_conditions.keys()) & set(sell_conditions.keys())
-        if overlapping_keys:
-            logger.warning(
-                f"買い・売りコンディションで同名キーが検出されました: {overlapping_keys}"
-            )
-            # 売り条件を優先(より安全)
-            for key in overlapping_keys:
-                merged[f"buy_{key}"] = buy_conditions[key]
-                merged[f"sell_{key}"] = sell_conditions[key]
-                del merged[key]
-
-        # 残りの売り条件を追加
+        """
+        Issue #660対応: コンディション結合の衝突解決を簡素化
+        プレフィックス付きで明確に分離することで衝突を回避
+        """
+        merged = {}
+        
+        # プレフィックス付きで明確に分離
+        for key, value in buy_conditions.items():
+            merged[f"buy_{key}"] = value
+            
         for key, value in sell_conditions.items():
-            if key not in overlapping_keys:
-                merged[key] = value
-
+            merged[f"sell_{key}"] = value
+            
         return merged
 
     def _slice_patterns(
