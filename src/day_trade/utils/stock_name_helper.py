@@ -131,15 +131,15 @@ class StockNameHelper:
             フォーマットされた表示文字列
         """
         symbol_str = str(symbol).strip()
-        stock_info = self.get_stock_info(symbol_str)
+        stock_name = self.get_stock_name(symbol_str)
 
         if include_code:
-            if stock_info['name'] != symbol_str:
-                return f"{symbol_str}({stock_info['name']})"
+            if stock_name != symbol_str:
+                return f"{symbol_str}({stock_name})"
             else:
                 return symbol_str
         else:
-            return stock_info['name']
+            return stock_name
 
     def get_all_symbols(self) -> Dict[str, Dict[str, str]]:
         """

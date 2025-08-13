@@ -200,15 +200,15 @@ class ChartPatternRecognizer:
                 # 改善されたクラスタサイズに基づくフィルタリング
                 min_cluster_size = max(1, len(sorted_levels) // (num_clusters * 3))
                 final_centers = []
-                
+
                 for center in centers:
                     # より効率的な距離計算
                     distances_to_center = np.abs(sorted_levels - center)
-                    min_distance_to_other_centers = np.min([np.abs(center - other_center) 
+                    min_distance_to_other_centers = np.min([np.abs(center - other_center)
                                                           for other_center in centers if other_center != center] + [float('inf')])
-                    
+
                     cluster_size = np.sum(distances_to_center <= min_distance_to_other_centers / 2)
-                    
+
                     if cluster_size >= min_cluster_size:
                         final_centers.append(center)
 
@@ -219,7 +219,7 @@ class ChartPatternRecognizer:
 
             # Issue #670対応: 統一された返り値構造
             return {
-                "resistance_levels": resistance_levels, 
+                "resistance_levels": resistance_levels,
                 "support_levels": sorted(support_levels)
             }
 
@@ -912,11 +912,11 @@ class ChartPatternRecognizer:
     def _convert_ransac_min_samples(self, ransac_min_samples: Union[int, float], data_size: int) -> int:
         """
         RANSAC min_samplesを適切な整数値に変換
-        
+
         Args:
             ransac_min_samples: 設定値（整数または比率）
             data_size: データサイズ
-            
+
         Returns:
             適切な最小サンプル数
         """
