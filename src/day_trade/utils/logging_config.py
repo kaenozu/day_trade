@@ -56,7 +56,7 @@ class ContextLogger:
 
             # Issue #625対応: 安全なキーワード引数フィルタリング
             safe_kwargs = {
-                k: v for k, v in kwargs.items() 
+                k: v for k, v in kwargs.items()
                 if k in ["extra", "exc_info", "stack_info", "stacklevel"]
             }
             safe_kwargs["extra"] = extra
@@ -92,7 +92,7 @@ class LoggingConfig:
         self.log_level = self._get_log_level()
         self.log_format = self._get_log_format()
         self.config_file = self._get_config_file_path()
-        
+
     def _get_log_level(self) -> str:
         """環境変数からログレベルを取得 - Issue #631対応"""
         level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -106,7 +106,7 @@ class LoggingConfig:
         # 有効なフォーマットかどうかチェック
         valid_formats = ['simple', 'json', 'detailed']
         return format_type if format_type in valid_formats else 'simple'
-        
+
     def _get_config_file_path(self) -> str:
         """設定ファイルパスを取得 - Issue #631対応"""
         return os.getenv("LOGGING_CONFIG_FILE", "")
@@ -176,7 +176,7 @@ class LoggingConfig:
                 except Exception:
                     # 終了時のエラーは無視（デバッグ時以外）
                     pass
-            
+
             atexit.register(safe_queue_listener_stop)
 
             logging.basicConfig(
@@ -207,7 +207,7 @@ class LoggingConfig:
                 except Exception:
                     # 終了時のエラーは無視（デバッグ時以外）
                     pass
-            
+
             atexit.register(safe_queue_listener_stop)
 
             logging.basicConfig(
@@ -251,7 +251,7 @@ def get_context_logger(name: str, component: str = None, **kwargs) -> ContextLog
         logger_name = f"{name}.{component}"
     else:
         logger_name = name
-    
+
     logger = get_logger(logger_name)
     return ContextLogger(logger, kwargs)
 

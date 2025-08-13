@@ -667,39 +667,39 @@ class RealMarketDataManager:
     def _format_japanese_symbol(self, symbol: str) -> str:
         """
         日本株シンボルの適切なフォーマット - Issue #622対応
-        
+
         Args:
             symbol: 銘柄コード
-            
+
         Returns:
             yfinance用のシンボル
         """
         # 既に .T で終わっている場合はそのまま
         if symbol.endswith('.T'):
             return symbol
-            
+
         # 4桁の数字の場合は日本株と判定
         if symbol.isdigit() and len(symbol) == 4:
             return f"{symbol}.T"
-            
+
         # その他の市場コード付きシンボル（例: AAPL, GOOGL等）はそのまま
         if '.' in symbol:
             return symbol
-            
+
         # 英字が含まれる場合は米国株等と判定してそのまま
         if any(c.isalpha() for c in symbol):
             return symbol
-            
+
         # デフォルト: 数字のみの場合は日本株として扱う
         return f"{symbol}.T"
-        
+
     def _get_fallback_price(self, symbol: str) -> float:
         """
         フォールバック価格取得 - Issue #621対応
-        
+
         Args:
             symbol: 銘柄コード
-            
+
         Returns:
             フォールバック価格
         """
@@ -708,24 +708,24 @@ class RealMarketDataManager:
         if cached_price is not None:
             logger.info(f"キャッシュから直近価格を取得: {symbol} = {cached_price}円")
             return cached_price
-            
+
         # 2. 業界平均価格による推定
         estimated_price = self._estimate_price_by_sector(symbol)
         if estimated_price is not None:
             logger.info(f"業界平均による価格推定: {symbol} = {estimated_price}円")
             return estimated_price
-            
+
         # 3. 最終フォールバック: 固定価格
         logger.warning(f"全てのフォールバック手法が失敗: {symbol} - デフォルト価格を使用")
         return 1000.0
-        
+
     def _get_last_cached_price(self, symbol: str) -> Optional[float]:
         """
         キャッシュから最後の価格を取得
-        
+
         Args:
             symbol: 銘柄コード
-            
+
         Returns:
             キャッシュされた価格（見つからない場合はNone）
         """
@@ -740,30 +740,30 @@ class RealMarketDataManager:
                 """,
                     [symbol],
                 )
-                
+
                 result = cursor.fetchone()
                 if result is not None:
                     return round(float(result[0]), 1)
-                    
+
         except Exception as e:
             logger.debug(f"キャッシュ価格取得エラー {symbol}: {e}")
-            
+
         return None
-        
+
     def _estimate_price_by_sector(self, symbol: str) -> Optional[float]:
         """
         業界セクターによる価格推定
-        
+
         Args:
             symbol: 銘柄コード
-            
+
         Returns:
             推定価格（推定不可の場合はNone）
         """
         # 日本株の場合、業界コード（先頭1-2桁）による推定
         if symbol.isdigit() and len(symbol) == 4:
             sector_code = symbol[:2]
-            
+
             # 業界別の典型的な価格帯（統計的な推定値）
             sector_price_estimates = {
                 "10": 1500.0,  # 水産・農林業
@@ -798,14 +798,14 @@ class RealMarketDataManager:
                 "97": 1000.0,  # サービス業
                 "99": 1500.0,  # その他
             }
-            
+
             estimated_price = sector_price_estimates.get(sector_code)
             if estimated_price is not None:
                 # ±20%のランダム変動を追加してより現実的にする
                 import random
                 variation = random.uniform(0.8, 1.2)
                 return round(estimated_price * variation, 1)
-                
+
         return None
 
 
