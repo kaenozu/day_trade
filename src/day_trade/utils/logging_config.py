@@ -22,40 +22,46 @@ except ImportError:
 
 
 class ContextLogger:
-    """コンテキスト付きロガー"""
+    """コンテキスト付きロガー - Issue #625対応: フォールバック簡素化"""
 
-    def __init__(self, logger: logging.Logger, context: Dict[str, Any] = None):
-        if STRUCTLOG_AVAILABLE:
+    def __init__(self, logger, context: Dict[str, Any] = None):
+        # Issue #624, #625対応: structlogロガーかどうかを正しく判定
+        if STRUCTLOG_AVAILABLE and hasattr(logger, 'bind'):
+            # structlogのBoundLoggerの場合
             self.logger = logger.bind(**(context or {}))
+            self.is_structlog = True
         else:
+            # 標準ロガーまたはstructlog未使用の場合
             self.logger = logger
             self.context = context or {}
+            self.is_structlog = False
 
     def bind(self, **kwargs) -> "ContextLogger":
         """コンテキストを追加したロガーを作成"""
-        if STRUCTLOG_AVAILABLE:
+        if self.is_structlog:
             return ContextLogger(self.logger.bind(**kwargs))
         else:
             new_context = {**self.context, **kwargs}
             return ContextLogger(self.logger, new_context)
 
     def _log_with_context(self, level: int, msg: str, *args, **kwargs):
-        """コンテキスト付きでログ出力"""
-        if STRUCTLOG_AVAILABLE:
+        """コンテキスト付きでログ出力 - Issue #625対応: 簡素化"""
+        if self.is_structlog:
+            # structlogの場合は直接ログ出力
             self.logger.log(level, msg, *args, **kwargs)
         else:
+            # 標準ロガーの場合はextraにコンテキストを追加
             extra = kwargs.get("extra", {})
             extra.update(self.context)
 
-            # Loggerが認識しないキーワード引数を除去
-            logger_kwargs = {
-                k: v
-                for k, v in kwargs.items()
+            # Issue #625対応: 安全なキーワード引数フィルタリング
+            safe_kwargs = {
+                k: v for k, v in kwargs.items()
                 if k in ["extra", "exc_info", "stack_info", "stacklevel"]
             }
-            logger_kwargs["extra"] = extra
+            safe_kwargs["extra"] = extra
 
-            self.logger.log(level, msg, *args, **logger_kwargs)
+            self.logger.log(level, msg, *args, **safe_kwargs)
 
     def info(self, msg: str, *args, **kwargs):
         """インフォログ出力"""
@@ -79,20 +85,31 @@ class ContextLogger:
 
 
 class LoggingConfig:
-    """ロギング設定管理クラス"""
+    """ロギング設定管理クラス - Issue #631対応: 外部設定ファイル拡張"""
 
     def __init__(self):
         self.is_configured = False
         self.log_level = self._get_log_level()
         self.log_format = self._get_log_format()
+        self.config_file = self._get_config_file_path()
 
     def _get_log_level(self) -> str:
-        """環境変数からログレベルを取得"""
-        return os.getenv("LOG_LEVEL", "INFO").upper()
+        """環境変数からログレベルを取得 - Issue #631対応"""
+        level = os.getenv("LOG_LEVEL", "INFO").upper()
+        # 有効なログレベルかどうかチェック
+        valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        return level if level in valid_levels else 'INFO'
 
     def _get_log_format(self) -> str:
-        """環境変数からログフォーマットを取得"""
-        return os.getenv("LOG_FORMAT", "simple").lower()
+        """環境変数からログフォーマットを取得 - Issue #631対応"""
+        format_type = os.getenv("LOG_FORMAT", "simple").lower()
+        # 有効なフォーマットかどうかチェック
+        valid_formats = ['simple', 'json', 'detailed']
+        return format_type if format_type in valid_formats else 'simple'
+
+    def _get_config_file_path(self) -> str:
+        """設定ファイルパスを取得 - Issue #631対応"""
+        return os.getenv("LOGGING_CONFIG_FILE", "")
 
     def configure_logging(self) -> None:
         """基本ロギングを設定"""
@@ -116,9 +133,13 @@ class LoggingConfig:
                 ),
             ]
 
-            # Python 3.12+ でのみ add_logger_oid を使用
-            if hasattr(structlog.stdlib, "add_logger_oid"):
-                processors.insert(1, structlog.stdlib.add_logger_oid)
+            # Issue #632対応: Python版本依存structlog設定簡素化
+            try:
+                if hasattr(structlog.stdlib, "add_logger_oid"):
+                    processors.insert(1, structlog.stdlib.add_logger_oid)
+            except AttributeError:
+                # Python版本の互換性問題がある場合はスキップ
+                pass
 
             if self.log_format == "json":
                 processors.append(structlog.processors.JSONRenderer())
@@ -144,12 +165,19 @@ class LoggingConfig:
                 logging.Formatter("%(message)s")
             )  # structlogがフォーマットするため、ここではシンプルに
 
-            # QueueListenerを設定し、別スレッドでログを処理
+            # Issue #626対応: QueueHandler終了堅牢性向上
             queue_listener = QueueListener(log_queue, stream_handler)
             queue_listener.start()  # リスナーを開始
 
-            # アプリケーション終了時にリスナーを停止
-            atexit.register(queue_listener.stop)
+            # アプリケーション終了時の安全な停止処理
+            def safe_queue_listener_stop():
+                try:
+                    queue_listener.stop()
+                except Exception:
+                    # 終了時のエラーは無視（デバッグ時以外）
+                    pass
+
+            atexit.register(safe_queue_listener_stop)
 
             logging.basicConfig(
                 format="%(message)s", handlers=[queue_handler], level=self.log_level
@@ -168,12 +196,19 @@ class LoggingConfig:
                 )
             )
 
-            # QueueListenerを設定し、別スレッドでログを処理
+            # Issue #626対応: QueueHandler終了堅牢性向上
             queue_listener = QueueListener(log_queue, stream_handler)
             queue_listener.start()  # リスナーを開始
 
-            # アプリケーション終了時にリスナーを停止
-            atexit.register(queue_listener.stop)
+            # アプリケーション終了時の安全な停止処理
+            def safe_queue_listener_stop():
+                try:
+                    queue_listener.stop()
+                except Exception:
+                    # 終了時のエラーは無視（デバッグ時以外）
+                    pass
+
+            atexit.register(safe_queue_listener_stop)
 
             logging.basicConfig(
                 level=getattr(logging, self.log_level, logging.INFO),
@@ -210,10 +245,14 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def get_context_logger(name: str, component: str = None, **kwargs) -> ContextLogger:
-    """コンテキスト付きロガーを取得"""
-    logger_name = f"{name}.{component}" if component else name
-    logger = get_logger(logger_name)
+    """コンテキスト付きロガーを取得 - Issue #627対応: 命名階層構造改善"""
+    # Issue #627対応: 階層的ロガー名の正規化
+    if component:
+        logger_name = f"{name}.{component}"
+    else:
+        logger_name = name
 
+    logger = get_logger(logger_name)
     return ContextLogger(logger, kwargs)
 
 
@@ -255,15 +294,20 @@ def log_error_with_context(error: Exception, context: Dict[str, Any], source_mod
                 extra=error_info, exc_info=True)
 
 
+def _safe_duration_conversion(duration) -> float:
+    """安全なduration型変換 - Issue #630対応"""
+    try:
+        return float(duration)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def log_database_operation(operation: str, duration: float = 0.0, **kwargs) -> None:
-    """データベース操作ログ出力"""
+    """データベース操作ログ出力 - Issue #629, #630対応"""
     logger = get_context_logger(__name__, component="database")
 
-    # durationが数値でない場合は0.0にフォールバック
-    try:
-        duration_float = float(duration)
-    except (ValueError, TypeError):
-        duration_float = 0.0
+    # Issue #630対応: duration型ハンドリング改善
+    duration_float = _safe_duration_conversion(duration)
 
     log_data = {"operation": operation, "duration": duration_float, **kwargs}
 

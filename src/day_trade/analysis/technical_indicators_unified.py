@@ -50,8 +50,7 @@ except ImportError:
     OPTIMIZATION_AVAILABLE = False
     logger.info("最適化システム未利用 - 標準実装のみ")
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 
 @dataclass
@@ -125,45 +124,40 @@ class TechnicalIndicatorsBase(OptimizationStrategy):
             raise
 
     def _filter_kwargs_for_method(self, indicator: str, **kwargs) -> dict:
-        """各指標メソッドに適切なパラメータのみを抽出"""
-        # 指標ごとの有効なパラメータ定義
-        indicator_params = {
-            'sma': ['period'],
-            'ema': ['period'],
-            'rsi': ['period'],
-            'bollinger_bands': ['period', 'std_dev'],
-            'macd': ['fast_period', 'slow_period', 'signal_period'],
-            'ichimoku': ['conversion_period', 'base_period', 'leading_span_b_period', 'lagging_span_period'],
-            'fibonacci_retracement': ['period']
+        """Issue #594対応: 各指標メソッドに適切なパラメータのみを抽出（簡略化実装）"""
+
+        # 指標ごとのデフォルトパラメータ定義（拡張容易な辞書形式）
+        indicator_defaults = {
+            'sma': {'period': 20},
+            'ema': {'period': 20},
+            'rsi': {'period': 14},
+            'bollinger_bands': {'period': 20, 'std_dev': 2.0},
+            'macd': {'fast_period': 12, 'slow_period': 26, 'signal_period': 9},
+            'ichimoku': {
+                'conversion_period': 9, 'base_period': 26,
+                'leading_span_b_period': 52, 'lagging_span_period': 26
+            },
+            'fibonacci_retracement': {'period': 100}
         }
 
-        valid_params = indicator_params.get(indicator.lower(), [])
+        # 指標名正規化
+        indicator_key = indicator.lower()
+        defaults = indicator_defaults.get(indicator_key, {})
+
+        # Issue #594対応: 簡略化されたマージロジック
         filtered = {}
 
-        # 共通パラメータ 'period' の変換
-        if 'period' in kwargs and 'period' in valid_params:
-            filtered['period'] = kwargs['period']
+        # デフォルト値を設定
+        for key, default_value in defaults.items():
+            filtered[key] = default_value
 
-        # MACD用のデフォルトパラメータ
-        if indicator.lower() == 'macd':
-            filtered.update({
-                'fast_period': kwargs.get('fast_period', 12),
-                'slow_period': kwargs.get('slow_period', 26),
-                'signal_period': kwargs.get('signal_period', 9)
-            })
-
-        # Bollinger Bands用のデフォルトパラメータ
-        elif indicator.lower() == 'bollinger_bands':
-            filtered.update({
-                'period': kwargs.get('period', 20),
-                'std_dev': kwargs.get('std_dev', 2.0)
-            })
-
-        # その他の指標用のパラメータ
-        else:
-            for param in valid_params:
-                if param in kwargs:
-                    filtered[param] = kwargs[param]
+        # kwargs の値で上書き（既知のパラメータのみ）
+        if defaults:  # 既知の指標の場合
+            for key, value in kwargs.items():
+                if key in defaults:
+                    filtered[key] = value
+        else:  # 未知の指標の場合は全パラメータを通す
+            filtered.update(kwargs)
 
         return filtered
 
@@ -669,16 +663,7 @@ class TechnicalIndicatorsManager:
             self._strategy.reset_metrics()
 
 
-# 便利関数
-def calculate_technical_indicators(
-    data: pd.DataFrame,
-    indicators: List[str],
-    config: Optional[OptimizationConfig] = None,
-    **kwargs,
-) -> Dict[str, IndicatorResult]:
-    """テクニカル指標計算のヘルパー関数"""
-    manager = TechnicalIndicatorsManager(config)
-    return manager.calculate_indicators(data, indicators, **kwargs)
+
 
 
 # 戦略の自動登録（ダミー戦略でテスト用）

@@ -242,9 +242,9 @@ if PYTORCH_AVAILABLE:
 
             self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """位置エンコーディング追加"""
-        return x + self.pe[: x.size(0), :].transpose(0, 1)
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """位置エンコーディング追加"""
+            return x + self.pe[: x.size(0), :].transpose(0, 1)
 
 
 class AdvancedMLEngine:
@@ -295,7 +295,7 @@ class AdvancedMLEngine:
         # データ前処理パイプライン
         self.scaler = None
         self.feature_selector = None
-        
+
         # マクロ経済特徴量エンジン
         self.macro_features = MacroEconomicFeatures()
 
@@ -323,7 +323,7 @@ class AdvancedMLEngine:
 
         # 基本特徴量エンジニアリング
         processed_data = self._engineer_features(market_data, feature_columns)
-        
+
         # マクロ経済特徴量の追加
         try:
             symbol = getattr(market_data, 'symbol', 'UNKNOWN')
@@ -449,7 +449,7 @@ class AdvancedMLEngine:
             if volume_col and volume_col in result.columns:
                 result["VWAP"] = (result["終値"] * result[volume_col]).cumsum() / result[volume_col].cumsum()
                 result["VWAP_ratio"] = result["終値"] / result["VWAP"]
-                
+
                 # Price-Volume Trend
                 price_change = (result["終値"] - result["終値"].shift(1)) / result["終値"].shift(1)
                 result["PVT"] = (price_change * result[volume_col]).cumsum()
@@ -465,7 +465,7 @@ class AdvancedMLEngine:
             # RSI × ボラティリティ
             if "RSI_14" in result.columns and "終値_volatility_20" in result.columns:
                 result["RSI_Vol_interaction"] = result["RSI_14"] * result["終値_volatility_20"]
-            
+
             # MACD × 出来高比率
             if "MACD" in result.columns:
                 volume_col = "出来高" if "出来高" in result.columns else None
@@ -1462,28 +1462,7 @@ class NextGenAITradingEngine:
 
             return trend_score
 
-        except Exception:
-            return 50.0  # 中立値
 
-
-            # 価格位置スコア
-            price_position = ((current_price - current_sma20) / current_sma20) * 100
-
-            # トレンド方向性
-            ma_trend = ((current_sma20 - current_sma50) / current_sma50) * 100 if current_sma50 != 0 else 0
-
-            # 勢い計算
-            momentum = prices.pct_change(5).iloc[-1] * 100 if len(prices) > 5 else 0
-
-            # 統合スコア
-            trend_score = (price_position * 0.4) + (ma_trend * 0.3) + (momentum * 0.3) + 50
-
-            return trend_score
-
-        except Exception:
-            return 50.0  # 中立値
-
-    def _calculate_volatility_score(
         self, prices: pd.Series, volatility: float, volume: pd.Series
     ) -> float:
         """ボラティリティ予測スコア"""

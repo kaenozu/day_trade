@@ -130,7 +130,7 @@ class DataDriftDetector:
                         "min": series.min(),
                         "max": series.max(),
                         "median": series.median(),
-                        "values": series.tolist(),  # 分布比較のために値を保存
+                        "values": series.values,  # 分布比較のために値を保存
                     }
         return stats
 

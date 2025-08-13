@@ -7,6 +7,7 @@ Alert Channel Factory
 """
 
 import importlib
+import time
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type
 
@@ -16,6 +17,178 @@ from ..interfaces.alert_interfaces import (
     IAlertRule,
     INotificationChannel,
 )
+
+
+class MultiChannelNotifier:
+    """マルチチャネル通知システム"""
+
+    def __init__(self, channels: Dict[str, INotificationChannel],
+                 routing_rules: Optional[Dict[str, List[str]]] = None,
+                 fallback_channels: Optional[List[str]] = None):
+        self.channels = channels
+        self.routing_rules = routing_rules or {}
+        self.fallback_channels = fallback_channels or []
+        self.notification_history = []
+
+    def send_notification(self, severity: AlertSeverity, message: str, context: Dict[str, Any] = None):
+        """通知送信"""
+        context = context or {}
+
+        # ルーティングルールに基づいてチャネル選択
+        target_channels = self._select_channels(severity, context)
+
+        success_channels = []
+        failed_channels = []
+
+        # 各チャネルに通知送信
+        for channel_name in target_channels:
+            if channel_name in self.channels:
+                try:
+                    channel = self.channels[channel_name]
+                    result = channel.send(severity.value, message, context)
+                    if result:
+                        success_channels.append(channel_name)
+                    else:
+                        failed_channels.append(channel_name)
+                except Exception as e:
+                    failed_channels.append(channel_name)
+
+        # フォールバック処理
+        if failed_channels and not success_channels:
+            for fallback_channel in self.fallback_channels:
+                if fallback_channel in self.channels:
+                    try:
+                        channel = self.channels[fallback_channel]
+                        result = channel.send(severity.value, f"[FALLBACK] {message}", context)
+                        if result:
+                            success_channels.append(fallback_channel)
+                            break
+                    except Exception:
+                        continue
+
+        # 履歴記録
+        self.notification_history.append({
+            'timestamp': time.time(),
+            'severity': severity.value,
+            'message': message,
+            'success_channels': success_channels,
+            'failed_channels': failed_channels
+        })
+
+        return len(success_channels) > 0
+
+    def _select_channels(self, severity: AlertSeverity, context: Dict[str, Any]) -> List[str]:
+        """チャネル選択ロジック"""
+        # 重要度に基づくデフォルトルーティング
+        if severity in self.routing_rules:
+            return self.routing_rules[severity.value]
+
+        # デフォルトルーティング
+        if severity == AlertSeverity.CRITICAL:
+            return list(self.channels.keys())  # 全チャネル
+        elif severity == AlertSeverity.ERROR:
+            return [name for name in self.channels.keys() if 'email' in name or 'slack' in name]
+        else:
+            return [name for name in self.channels.keys() if 'slack' in name]
+
+
+class EscalationManager:
+    """エスカレーション管理システム"""
+
+    def __init__(self, escalation_rules: Dict[EscalationLevel, Dict[str, Any]]):
+        self.escalation_rules = escalation_rules
+        self.active_escalations = {}
+        self.escalation_history = []
+
+    def trigger_escalation(self, alert_id: str, severity: AlertSeverity,
+                          initial_level: EscalationLevel = EscalationLevel.LEVEL_1) -> bool:
+        """エスカレーション開始"""
+        try:
+            escalation_data = {
+                'alert_id': alert_id,
+                'severity': severity,
+                'current_level': initial_level,
+                'start_time': time.time(),
+                'last_escalation_time': time.time(),
+                'escalation_count': 0
+            }
+
+            self.active_escalations[alert_id] = escalation_data
+
+            # 初期レベルの処理実行
+            self._execute_escalation_action(alert_id, initial_level)
+
+            return True
+
+        except Exception as e:
+            return False
+
+    def check_escalation_timeout(self, alert_id: str) -> bool:
+        """エスカレーションタイムアウトチェック"""
+        if alert_id not in self.active_escalations:
+            return False
+
+        escalation = self.active_escalations[alert_id]
+        current_time = time.time()
+        current_level = escalation['current_level']
+
+        # レベル別タイムアウト設定
+        timeout_settings = {
+            EscalationLevel.LEVEL_1: 300,    # 5分
+            EscalationLevel.LEVEL_2: 900,    # 15分
+            EscalationLevel.LEVEL_3: 1800,   # 30分
+            EscalationLevel.EXECUTIVE: 3600  # 1時間
+        }
+
+        timeout_duration = timeout_settings.get(current_level, 300)
+
+        if current_time - escalation['last_escalation_time'] > timeout_duration:
+            # 次のレベルにエスカレーション
+            next_level = self._get_next_escalation_level(current_level)
+            if next_level:
+                escalation['current_level'] = next_level
+                escalation['last_escalation_time'] = current_time
+                escalation['escalation_count'] += 1
+
+                self._execute_escalation_action(alert_id, next_level)
+                return True
+
+        return False
+
+    def resolve_escalation(self, alert_id: str) -> bool:
+        """エスカレーション解決"""
+        if alert_id in self.active_escalations:
+            escalation_data = self.active_escalations.pop(alert_id)
+            escalation_data['resolution_time'] = time.time()
+            self.escalation_history.append(escalation_data)
+            return True
+        return False
+
+    def _execute_escalation_action(self, alert_id: str, level: EscalationLevel):
+        """エスカレーションアクション実行"""
+        if level in self.escalation_rules:
+            rule = self.escalation_rules[level]
+            # 実際のアクション実行（通知送信等）
+            # プレースホルダー実装
+            pass
+
+    def _get_next_escalation_level(self, current_level: EscalationLevel) -> Optional[EscalationLevel]:
+        """次のエスカレーションレベル取得"""
+        level_order = [
+            EscalationLevel.LEVEL_1,
+            EscalationLevel.LEVEL_2,
+            EscalationLevel.LEVEL_3,
+            EscalationLevel.EXECUTIVE
+        ]
+
+        try:
+            current_index = level_order.index(current_level)
+            if current_index + 1 < len(level_order):
+                return level_order[current_index + 1]
+        except ValueError:
+            pass
+
+        return None
 
 
 class NotificationChannelType(Enum):
@@ -302,9 +475,7 @@ class AlertChannelFactory:
         channel_configs: List[Dict[str, Any]],
         routing_rules: Optional[Dict[str, List[str]]] = None,
         fallback_channels: Optional[List[str]] = None,
-    ) -> (
-        "MultiChannelNotifier"
-    ):  # TODO: MultiChannelNotifier クラスを実装 # type: ignore
+    ) -> "MultiChannelNotifier":
         """マルチチャネル通知システム作成"""
 
         channels = {}
@@ -331,9 +502,9 @@ class AlertChannelFactory:
 
     def create_escalation_manager(
         self,
-        escalation_policies: List[Dict[str, Any]],
+        escalation_policies: Dict[str, Any],
         notification_channels: Dict[str, Any],
-    ) -> "EscalationManager":  # TODO: EscalationManager クラスを実装 # type: ignore
+    ) -> "EscalationManager":
         """エスカレーション管理システム作成"""
 
         # エスカレーションルール作成
