@@ -33,8 +33,44 @@ class StockNameHelper:
             project_root = Path(__file__).parent.parent.parent.parent
             config_path = project_root / "config" / "settings.json"
 
-        self.config_path = Path(config_path)
+        # Issue #606対応: 設定パスの堅牢性改善
+        self.config_path = self._resolve_config_path(config_path)
         self._load_stock_info()
+    
+    def _resolve_config_path(self, config_path: Optional[str]) -> Path:
+        """
+        設定ファイルパスの解決 - Issue #606対応
+        
+        Args:
+            config_path: 指定された設定パス
+            
+        Returns:
+            解決された設定ファイルパス
+        """
+        if config_path is not None:
+            # 明示的に指定されたパスを使用
+            return Path(config_path)
+        
+        # デフォルトパスの探索と選択
+        possible_paths = [
+            # 1. プロジェクトルートからの相対パス
+            Path(__file__).parent.parent.parent.parent / "config" / "settings.json",
+            # 2. 現在のワーキングディレクトリからの相対パス
+            Path.cwd() / "config" / "settings.json",
+            # 3. 環境変数からのパス
+            Path(os.getenv("STOCK_CONFIG_PATH", "")) if os.getenv("STOCK_CONFIG_PATH") else None
+        ]
+        
+        # Noneを除外して最初に存在するファイルを使用
+        for path in possible_paths:
+            if path is not None and path.exists():
+                logger.debug(f"設定ファイルを検出: {path}")
+                return path
+        
+        # どれも存在しない場合はデフォルトを返す
+        default_path = Path(__file__).parent.parent.parent.parent / "config" / "settings.json"
+        logger.debug(f"デフォルト設定パスを使用: {default_path}")
+        return default_path
 
     def _load_stock_info(self):
         """設定ファイルから銘柄情報を読み込み"""
