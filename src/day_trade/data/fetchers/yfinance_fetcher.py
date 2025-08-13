@@ -9,9 +9,12 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
 
+from ...utils.yfinance_import import get_yfinance, is_yfinance_available
 from ...utils.exceptions import DataNotFoundError, InvalidSymbolError, ValidationError
+
+# yfinance統一インポート - Issue #614対応
+yf, YFINANCE_AVAILABLE = get_yfinance()
 from ...utils.logging_config import (
     get_context_logger,
     log_api_call,
