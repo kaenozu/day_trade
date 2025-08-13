@@ -246,8 +246,11 @@ class RecommendationEngine:
             return score, reasons
 
         except Exception as e:
-            logger.warning(f"テクニカル指標計算エラー {format_stock_display(symbol)}: {e}")
-            return 50.0, ["テクニカル分析データ不足"]
+            # Issue #580対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_technical_error(e, symbol, data)
+            logger.warning(f"テクニカル指標計算エラー {format_stock_display(symbol)}: {error_info['message']}")
+            logger.debug(f"テクニカル指標エラー詳細 {symbol}: {str(e)}", exc_info=True)
+            return error_info['score'], error_info['reasons']
 
     async def _calculate_ml_score(self, symbol: str, data: pd.DataFrame) -> Tuple[float, List[str]]:
         """ML予測スコア計算"""
@@ -295,8 +298,11 @@ class RecommendationEngine:
             return final_score, reasons
 
         except Exception as e:
-            logger.warning(f"ML予測計算エラー {format_stock_display(symbol)}: {e}")
-            return 50.0, ["ML予測データ不足"]
+            # Issue #580対応: エラータイプ別の詳細ハンドリング
+            error_info = self._analyze_ml_error(e, symbol, data)
+            logger.warning(f"ML予測計算エラー {format_stock_display(symbol)}: {error_info['message']}")
+            logger.debug(f"ML予測エラー詳細 {symbol}: {str(e)}", exc_info=True)
+            return error_info['score'], error_info['reasons']
 
     def _analyze_sma_signal(self, data: pd.DataFrame, sma_result) -> Tuple[float, Optional[str]]:
         """SMA信号分析"""
@@ -524,6 +530,176 @@ class RecommendationEngine:
         ]
 
         return buy_recommendations[:limit]
+
+    def _analyze_technical_error(self, error: Exception, symbol: str, data: pd.DataFrame) -> Dict[str, any]:
+        """
+        テクニカル指標エラー分析 - Issue #580対応
+
+        Args:
+            error: 発生した例外
+            symbol: 銘柄コード
+            data: 価格データ
+
+        Returns:
+            エラー情報辞書（score, reasons, message）
+        """
+        error_type = type(error).__name__
+        data_size = len(data) if data is not None else 0
+
+        # エラータイプ別の分析
+        if isinstance(error, KeyError):
+            missing_column = str(error).replace("'", "")
+            return {
+                'score': 30.0,  # データ不整合時は低めのスコア
+                'reasons': [f"データ構造エラー: {missing_column}列不足"],
+                'message': f"データ列不足エラー ({missing_column})"
+            }
+
+        elif isinstance(error, ValueError):
+            if "empty" in str(error).lower() or data_size < 10:
+                return {
+                    'score': 20.0,  # データ不足時は非常に低いスコア
+                    'reasons': [f"データ不足: {data_size}日間のみ"],
+                    'message': f"データ不足エラー (データ数: {data_size})"
+                }
+            else:
+                return {
+                    'score': 40.0,  # 計算エラー時は中低スコア
+                    'reasons': ["計算値エラー: 数値変換失敗"],
+                    'message': "数値計算エラー"
+                }
+
+        elif isinstance(error, IndexError):
+            return {
+                'score': 25.0,  # インデックスエラーは深刻
+                'reasons': [f"データ配列エラー: インデックス範囲外"],
+                'message': "データ配列アクセスエラー"
+            }
+
+        elif isinstance(error, AttributeError):
+            missing_attr = str(error).split("'")[-2] if "'" in str(error) else "不明"
+            return {
+                'score': 35.0,  # 属性エラー
+                'reasons': [f"システムエラー: {missing_attr}メソッド未実装"],
+                'message': f"システム構造エラー ({missing_attr})"
+            }
+
+        elif isinstance(error, (ImportError, ModuleNotFoundError)):
+            return {
+                'score': 45.0,  # ライブラリ不足は中立的スコア
+                'reasons': ["システム制限: 必要ライブラリ未インストール"],
+                'message': "ライブラリ依存エラー"
+            }
+
+        elif isinstance(error, TimeoutError):
+            return {
+                'score': 50.0,  # タイムアウトは中立
+                'reasons': ["処理タイムアウト: 計算時間超過"],
+                'message': "処理時間超過エラー"
+            }
+
+        else:
+            # 未知のエラー
+            return {
+                'score': 50.0,  # デフォルトスコア
+                'reasons': [f"テクニカル分析エラー: {error_type}"],
+                'message': f"予期しないエラー ({error_type})"
+            }
+
+    def _analyze_ml_error(self, error: Exception, symbol: str, data: pd.DataFrame) -> Dict[str, any]:
+        """
+        ML予測エラー分析 - Issue #580対応
+
+        Args:
+            error: 発生した例外
+            symbol: 銘柄コード
+            data: 価格データ
+
+        Returns:
+            エラー情報辞書（score, reasons, message）
+        """
+        error_type = type(error).__name__
+        data_size = len(data) if data is not None else 0
+
+        # エラータイプ別の分析
+        if isinstance(error, KeyError):
+            missing_column = str(error).replace("'", "")
+            return {
+                'score': 35.0,  # MLではデータ不整合の影響は若干軽微
+                'reasons': [f"ML入力エラー: {missing_column}特徴量不足"],
+                'message': f"ML特徴量エラー ({missing_column})"
+            }
+
+        elif isinstance(error, ValueError):
+            if "shape" in str(error).lower():
+                return {
+                    'score': 30.0,  # 形状エラーは深刻
+                    'reasons': [f"MLモデルエラー: データ形状不一致"],
+                    'message': "MLデータ形状エラー"
+                }
+            elif "empty" in str(error).lower() or data_size < 20:
+                return {
+                    'score': 25.0,  # MLには最低20日は必要
+                    'reasons': [f"MLデータ不足: {data_size}日間では予測困難"],
+                    'message': f"ML学習データ不足 (データ数: {data_size})"
+                }
+            else:
+                return {
+                    'score': 40.0,  # 計算エラー時は中低スコア
+                    'reasons': ["ML計算エラー: 予測値生成失敗"],
+                    'message': "ML予測計算エラー"
+                }
+
+        elif isinstance(error, RuntimeError):
+            if "cuda" in str(error).lower() or "gpu" in str(error).lower():
+                return {
+                    'score': 55.0,  # GPU不足は機能制限のみ
+                    'reasons': ["ML制限: GPU未使用でCPU予測実行"],
+                    'message': "GPU利用不可（CPU予測に切替）"
+                }
+            else:
+                return {
+                    'score': 35.0,  # ランタイムエラーは深刻
+                    'reasons': ["MLランタイムエラー: 予測処理失敗"],
+                    'message': "ML予測処理エラー"
+                }
+
+        elif isinstance(error, (ImportError, ModuleNotFoundError)):
+            return {
+                'score': 50.0,  # MLライブラリ不足時はニュートラル
+                'reasons': ["ML制限: 高度予測ライブラリ未インストール"],
+                'message': "ML依存ライブラリエラー"
+            }
+
+        elif isinstance(error, MemoryError):
+            return {
+                'score': 45.0,  # メモリ不足
+                'reasons': ["MLメモリ不足: 簡易予測モードに切替"],
+                'message': "MLメモリ不足エラー"
+            }
+
+        elif isinstance(error, TimeoutError):
+            return {
+                'score': 50.0,  # MLタイムアウトは中立
+                'reasons': ["ML処理タイムアウト: 予測時間超過"],
+                'message': "ML予測時間超過エラー"
+            }
+
+        elif isinstance(error, AttributeError):
+            missing_attr = str(error).split("'")[-2] if "'" in str(error) else "不明"
+            return {
+                'score': 40.0,  # ML属性エラー
+                'reasons': [f"MLシステムエラー: {missing_attr}機能未実装"],
+                'message': f"ML機能エラー ({missing_attr})"
+            }
+
+        else:
+            # 未知のエラー
+            return {
+                'score': 50.0,  # デフォルトスコア
+                'reasons': [f"ML予測エラー: {error_type}"],
+                'message': f"ML予期しないエラー ({error_type})"
+            }
 
     def close(self):
         """リソース解放"""
