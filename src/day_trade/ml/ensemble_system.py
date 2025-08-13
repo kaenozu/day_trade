@@ -135,7 +135,7 @@ class EnsembleSystem:
                     AdvancedModelType.LSTM_TRANSFORMER
                 )
                 logger.info(f"Advanced ML Engine初期化完了: {self.advanced_ml_engine.get_model_type().value}")
-                
+
                 # 能力情報をログ出力
                 capabilities = self.advanced_ml_engine.get_capabilities()
                 logger.info(f"Engine能力: シーケンス予測={capabilities.supports_sequence_prediction}, "
@@ -240,11 +240,11 @@ class EnsembleSystem:
             if self.advanced_ml_engine:
                 try:
                     logger.info(f"Advanced ML Engine学習開始: {self.advanced_ml_engine.get_model_type().value}")
-                    
+
                     # データ形状の検証
                     if not self.advanced_ml_engine.validate_input_shape(X):
                         logger.warning("Advanced ML Engine: 入力データ形状が不適切です")
-                    
+
                     # 学習実行
                     training_metrics = self.advanced_ml_engine.train(X, y, validation_data)
                     model_results["lstm_transformer"] = {
@@ -253,7 +253,7 @@ class EnsembleSystem:
                         "model_type": self.advanced_ml_engine.get_model_type().value
                     }
                     logger.info(f"Advanced ML Engine学習完了: 精度={training_metrics.accuracy:.4f}")
-                    
+
                 except Exception as e:
                     logger.warning(f"Advanced ML Engine学習失敗: {e}")
                     model_results["lstm_transformer"] = {"status": "学習失敗", "error": str(e)}
@@ -340,18 +340,18 @@ class EnsembleSystem:
                     else:
                         transformed_X = self.advanced_ml_engine.prepare_data(X)
                         prediction_result = self.advanced_ml_engine.predict(
-                            transformed_X, 
+                            transformed_X,
                             return_confidence=True,
                             return_attention=False
                         )
-                        
+
                         if hasattr(prediction_result, 'predictions') and prediction_result.predictions is not None:
                             lstm_pred = prediction_result.predictions.flatten()
                             logger.debug(f"Advanced ML Engine予測: 形状{prediction_result.predictions.shape}, "
                                       f"信頼度平均={getattr(prediction_result, 'confidence', 'N/A')}")
                         else:
                             lstm_pred = np.zeros(len(X))
-                            
+
                     individual_predictions["lstm_transformer"] = lstm_pred
                 except Exception as e:
                     logger.warning(f"LSTM-Transformer予測失敗: {e}")
@@ -735,7 +735,7 @@ class EnsembleSystem:
                               actuals: np.ndarray, timestamp: int = None):
         """
         Issue #472対応: 簡素化された動的重み更新
-        
+
         DynamicWeightingSystemが内部で完結した重み更新・同期を実行
 
         Args:
@@ -749,7 +749,7 @@ class EnsembleSystem:
                 updated_weights = self.dynamic_weighting.sync_and_update_performance(
                     predictions, actuals, self.model_weights, timestamp
                 )
-                
+
                 logger.debug(f"動的重み更新完了: {len(updated_weights)}モデル")
 
             except Exception as e:
@@ -758,33 +758,33 @@ class EnsembleSystem:
     def create_simplified_weight_updater(self):
         """
         Issue #472対応: 簡潔な重み更新関数の生成
-        
+
         Returns:
             簡潔な重み更新関数
         """
         if not self.dynamic_weighting:
             return lambda *args, **kwargs: False
-            
+
         return self.dynamic_weighting.create_weight_updater()
 
     def get_dynamic_weight_update_strategy(self) -> str:
         """
         Issue #472対応: 動的重み更新戦略の取得
-        
+
         Returns:
             現在の重み更新戦略の説明
         """
         if not self.dynamic_weighting:
             return "動的重み調整は無効です"
-            
+
         strategy_info = [
             "統合重み更新戦略:",
             "1. パフォーマンス蓄積",
-            "2. 重み再計算（閾値達成時）", 
+            "2. 重み再計算（閾値達成時）",
             "3. EnsembleSystem重み直接同期",
             "4. 手動マージ処理の排除"
         ]
-        
+
         return " → ".join(strategy_info)
 
     def get_ensemble_info(self) -> Dict[str, Any]:
@@ -808,49 +808,67 @@ class EnsembleSystem:
         return info
 
 
+def run_ensemble_demo():
+    """
+    Issue #471対応: EnsembleSystem簡易デモ実行
+
+    包括的テストは tests/ml/test_ensemble_system_comprehensive.py で実行
+    """
+    print("=== Ensemble System 簡易デモ ===")
+    print("詳細なテストは tests/ml/test_ensemble_system_comprehensive.py を実行してください")
+
+    try:
+        # 最小限のテストデータ生成
+        np.random.seed(42)
+        n_samples, n_features = 100, 10  # サイズを縮小
+        X = np.random.randn(n_samples, n_features)
+        y = np.sum(X[:, :3], axis=1) + 0.1 * np.random.randn(n_samples)
+
+        # 簡単なアンサンブル設定
+        config = EnsembleConfig(
+            use_random_forest=True,
+            use_gradient_boosting=False,  # デモでは無効化
+            use_svr=False,
+            use_lstm_transformer=False,
+            enable_stacking=False,
+            enable_dynamic_weighting=False,
+        )
+
+        ensemble = EnsembleSystem(config)
+
+        print(f"✅ EnsembleSystem初期化成功")
+        print(f"   - 使用モデル数: {len(ensemble.base_models)}")
+        print(f"   - 設定: {config}")
+
+        # 最小限の学習テスト
+        feature_names = [f"feature_{i}" for i in range(n_features)]
+
+        print("📊 簡易学習テスト実行中...")
+        results = ensemble.fit(X[:50], y[:50], feature_names=feature_names)
+
+        print(f"✅ 学習完了")
+        print(f"   - 学習時間: {results.get('total_training_time', 'N/A')}")
+        print(f"   - 学習済みモデル: {len([k for k, v in results.items() if isinstance(v, dict) and v.get('status') != '失敗'])}")
+
+        # 最小限の予測テスト
+        prediction = ensemble.predict(X[50:60])
+
+        print(f"✅ 予測完了")
+        print(f"   - 予測サンプル数: {len(prediction.final_predictions)}")
+        print(f"   - 使用手法: {prediction.method_used}")
+
+        print("\n🎯 デモ完了: EnsembleSystemが正常に動作しています")
+        print("   詳細なテストとカバレッジは以下で実行:")
+        print("   python -m pytest tests/ml/test_ensemble_system_comprehensive.py -v")
+
+        return True
+
+    except Exception as e:
+        print(f"❌ デモ実行エラー: {e}")
+        print("   詳細なエラー解析は包括的テストで確認してください")
+        return False
+
+
 if __name__ == "__main__":
-    # テスト実行
-    print("=== Ensemble System テスト ===")
-
-    # テストデータ生成
-    np.random.seed(42)
-    n_samples, n_features = 1000, 30
-    X = np.random.randn(n_samples, n_features)
-    y = np.sum(X[:, :5], axis=1) + np.sum(X[:, 5:10]**2, axis=1) + 0.2 * np.random.randn(n_samples)
-
-    # 訓練・検証データ分割
-    split_idx = int(0.8 * n_samples)
-    X_train, X_val = X[:split_idx], X[split_idx:]
-    y_train, y_val = y[:split_idx], y[split_idx:]
-
-    # アンサンブルシステム初期化
-    config = EnsembleConfig(
-        use_lstm_transformer=False,  # テスト用に無効化
-        enable_dynamic_weighting=True
-    )
-    ensemble = EnsembleSystem(config)
-
-    # 特徴量名
-    feature_names = [f"feature_{i}" for i in range(n_features)]
-
-    # 学習
-    print("アンサンブル学習開始...")
-    results = ensemble.fit(X_train, y_train,
-                          validation_data=(X_val, y_val),
-                          feature_names=feature_names)
-
-    print(f"学習完了: {results['total_training_time']:.2f}秒")
-    print(f"最終重み: {results['final_weights']}")
-
-    # 予測
-    ensemble_pred = ensemble.predict(X_val, method=EnsembleMethod.WEIGHTED)
-    print(f"アンサンブル予測完了: {len(ensemble_pred.final_predictions)} サンプル")
-
-    # 性能比較
-    performance_df = ensemble.get_model_performance_comparison(X_val, y_val)
-    print("\n=== モデル性能比較 ===")
-    print(performance_df)
-
-    # システム情報
-    info = ensemble.get_ensemble_info()
-    print(f"\nアンサンブル情報: {info}")
+    success = run_ensemble_demo()
+    exit(0 if success else 1)
