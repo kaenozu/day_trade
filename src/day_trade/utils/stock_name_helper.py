@@ -7,6 +7,7 @@ Issue #450: 銘柄コードから日本語会社名を取得・表示する機�
 
 import json
 import os
+import threading
 from typing import Dict, Optional, Union
 from pathlib import Path
 
@@ -73,67 +74,128 @@ class StockNameHelper:
         return default_path
 
     def _load_stock_info(self):
-        """設定ファイルから銘柄情報を読み込み"""
+        """
+        Issue #607対応: 株式情報読み込みロジック改善
+        エラーハンドリング強化とデータ検証
+        """
         try:
             if not self.config_path.exists():
                 logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
+                # Issue #607対応: 空のキャッシュで継続
+                self._stock_info_cache = {}
+                self._config_loaded = True  # 空でも読み込み完了とみなす
                 return
 
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
 
-            # watchlist.symbols から銘柄情報を抽出
-            watchlist = config.get('watchlist', {})
-            symbols = watchlist.get('symbols', [])
+            # Issue #607対応: 複数の設定形式に対応
+            symbols = []
+            if 'watchlist' in config and 'symbols' in config['watchlist']:
+                symbols = config['watchlist']['symbols']
+            elif 'symbols' in config:
+                symbols = config['symbols']
+            elif 'stock_info' in config:
+                symbols = config['stock_info']
 
+            if not symbols:
+                logger.warning("設定ファイルに銘柄情報がありません")
+                self._stock_info_cache = {}
+                self._config_loaded = True
+                return
+
+            # データ検証付きキャッシュ構築
+            loaded_count = 0
             for symbol_info in symbols:
                 if isinstance(symbol_info, dict):
                     code = symbol_info.get('code', '')
-                    if code:
+                    name = symbol_info.get('name', '')
+                    
+                    # Issue #607対応: 必須フィールド検証
+                    if code and name:
                         self._stock_info_cache[code] = {
-                            'name': symbol_info.get('name', ''),
-                            'group': symbol_info.get('group', ''),
-                            'sector': symbol_info.get('sector', ''),
+                            'name': name,
+                            'group': symbol_info.get('group', 'その他'),
+                            'sector': symbol_info.get('sector', '未分類'),
                             'priority': symbol_info.get('priority', 'medium')
                         }
+                        loaded_count += 1
+                    else:
+                        logger.debug(f"不完全な銘柄データをスキップ: {symbol_info}")
+                elif isinstance(symbol_info, str):
+                    # Issue #607対応: 文字列のみの場合の対応
+                    self._stock_info_cache[symbol_info] = {
+                        'name': symbol_info,
+                        'group': 'その他',
+                        'sector': '未分類',
+                        'priority': 'medium'
+                    }
+                    loaded_count += 1
 
             self._config_loaded = True
-            logger.info(f"銘柄情報読み込み完了: {len(self._stock_info_cache)} 銘柄")
+            logger.info(f"銘柄情報読み込み完了: {loaded_count} 銘柄")
 
+        except json.JSONDecodeError as e:
+            logger.error(f"JSONパースエラー: {e}")
+            self._stock_info_cache = {}
+            self._config_loaded = True  # エラーでも継続
         except Exception as e:
             logger.error(f"銘柄情報読み込みエラー: {e}")
-            self._config_loaded = False
+            self._stock_info_cache = {}
+            self._config_loaded = True
 
-    def get_stock_name(self, symbol: Union[str, int]) -> str:
+    def get_stock_name(
+        self, 
+        symbol: Union[str, int], 
+        fallback_format: str = "{symbol}"
+    ) -> str:
         """
-        銘柄コードから日本語会社名を取得
+        Issue #608対応: 銘柄コードから日本語会社名を取得（フォールバック強化）
 
         Args:
             symbol: 銘柄コード（文字列または数値）
+            fallback_format: 未知銘柄時のフォーマット文字列
 
         Returns:
-            日本語会社名（見つからない場合は銘柄コードをそのまま返す）
+            日本語会社名または適切なフォールバック文字列
         """
         symbol_str = str(symbol).strip()
 
         if not self._config_loaded:
-            return symbol_str
+            logger.debug(f"設定未読み込み状態で銘柄名要求: {symbol_str}")
+            return fallback_format.format(symbol=symbol_str)
 
         stock_info = self._stock_info_cache.get(symbol_str)
         if stock_info and stock_info.get('name'):
             return stock_info['name']
-
-        return symbol_str
+        
+        # Issue #608対応: 未知銘柄への拡張対応
+        # 1. 4桁の数値コードの場合の推測
+        if symbol_str.isdigit() and len(symbol_str) == 4:
+            sector_map = {
+                "1": "水産・農林業", "2": "鉱業", "3": "建設業", "4": "食料品",
+                "5": "繊維製品", "6": "パルプ・紙", "7": "化学", "8": "医薬品", "9": "石油・石炭製品"
+            }
+            first_digit = symbol_str[0]
+            sector_hint = sector_map.get(first_digit, "その他業種")
+            return fallback_format.format(symbol=f"{symbol_str}({sector_hint})")
+        
+        # 2. アルファベット含みの場合（外国株等）
+        if any(c.isalpha() for c in symbol_str):
+            return fallback_format.format(symbol=f"{symbol_str}(外国株等)")
+        
+        # 3. デフォルトフォールバック
+        return fallback_format.format(symbol=symbol_str)
 
     def get_stock_info(self, symbol: Union[str, int]) -> Dict[str, str]:
         """
         銘柄コードから詳細情報を取得
 
         Args:
-            symbol: 銘柄コード（文字列または数値）
+            symbol: 銘柄コード
 
         Returns:
-            銘柄詳細情報（辞書形式）
+            銘柄情報の辞書
         """
         symbol_str = str(symbol).strip()
 
@@ -186,67 +248,98 @@ class StockNameHelper:
             return {}
 
         return self._stock_info_cache.copy()
-
-    def search_by_name(self, name_part: str) -> Dict[str, Dict[str, str]]:
+    
+    # Issue #611対応: シングルトンパターン再検討と改善
+    _instance = None
+    _lock = threading.Lock()
+    
+    @classmethod
+    def get_instance(cls, config_path: Optional[str] = None) -> 'StockNameHelper':
         """
-        会社名の一部で検索
-
+        Issue #611対応: スレッドセーフなシングルトンインスタンス取得
+        
         Args:
-            name_part: 検索する会社名の一部
-
+            config_path: 設定ファイルパス（初回のみ有効）
+            
         Returns:
-            マッチした銘柄の辞書
+            StockNameHelperのシングルトンインスタンス
         """
-        if not self._config_loaded:
-            return {}
-
-        results = {}
-        name_part_lower = name_part.lower()
-
-        for code, info in self._stock_info_cache.items():
-            name = info.get('name', '').lower()
-            if name_part_lower in name:
-                results[code] = info.copy()
-                results[code]['code'] = code
-
-        return results
-
-    def reload_config(self):
-        """設定ファイルを再読み込み"""
-        self._stock_info_cache.clear()
-        self._config_loaded = False
-        self._load_stock_info()
+        if cls._instance is None:
+            with cls._lock:
+                # ダブルチェックロッキングパターン
+                if cls._instance is None:
+                    cls._instance = cls(config_path)
+                    logger.debug("StockNameHelper シングルトンインスタンスを作成しました")
+        return cls._instance
+    
+    @classmethod
+    def reset_instance(cls):
+        """
+        Issue #611対応: シングルトンインスタンスのリセット（テスト用）
+        """
+        with cls._lock:
+            cls._instance = None
+            logger.debug("StockNameHelper シングルトンインスタンスをリセットしました")
 
 
-
-
-
-if __name__ == "__main__":
-    # テスト実行
-    print("=== 銘柄名ヘルパーテスト ===")
-
-    helper = StockNameHelper()
-
-    # テスト銘柄
-    test_symbols = ["7203", "8306", "9984", "1234"]  # 1234は存在しない銘柄
-
-    for symbol in test_symbols:
+# Issue #612対応: ユーティリティ関数の再配置と最適化
+def format_symbol_display(symbol: Union[str, int], include_sector: bool = False) -> str:
+    """
+    Issue #612対応: 銘柄表示用のグローバルユーティリティ関数
+    
+    Args:
+        symbol: 銘柄コード
+        include_sector: セクター情報を含めるか
+        
+    Returns:
+        フォーマットされた銘柄表示文字列
+    """
+    helper = StockNameHelper.get_instance()
+    
+    if include_sector:
+        stock_info = helper.get_stock_info(symbol)
+        sector = stock_info.get('sector', '')
         name = helper.get_stock_name(symbol)
-        display = helper.format_stock_display(symbol)
-        info = helper.get_stock_info(symbol)
+        if sector and sector != '未分類':
+            return f"{symbol}({name})[{sector}]"
+        else:
+            return f"{symbol}({name})"
+    else:
+        return helper.format_stock_display(symbol)
 
-        print(f"銘柄コード: {symbol}")
-        print(f"  会社名: {name}")
-        print(f"  表示形式: {display}")
-        print(f"  詳細情報: {info}")
-        print()
 
-    # 検索テスト
-    print("=== 検索テスト ===")
-    search_results = helper.search_by_name("トヨタ")
-    print(f"'トヨタ'で検索: {search_results}")
+def get_stock_name_quick(symbol: Union[str, int]) -> str:
+    """
+    Issue #612対応: 銘柄名取得のクイックアクセス関数
+    
+    Args:
+        symbol: 銘柄コード
+        
+    Returns:
+        銘柄名
+    """
+    helper = StockNameHelper.get_instance()
+    return helper.get_stock_name(symbol)
 
-    search_results = helper.search_by_name("銀行")
-    print(f"'銀行'で検索: {search_results}")
 
-    print(f"\n総銘柄数: {len(helper.get_all_symbols())}")
+def validate_symbol_format(symbol: Union[str, int]) -> bool:
+    """
+    Issue #612対応: 銘柄コード形式検証ユーティリティ
+    
+    Args:
+        symbol: 銘柄コード
+        
+    Returns:
+        有効な形式かどうか
+    """
+    symbol_str = str(symbol).strip()
+    
+    # 4桁の数値（日本株）
+    if symbol_str.isdigit() and len(symbol_str) == 4:
+        return True
+    
+    # アルファベット含み（外国株等）
+    if any(c.isalpha() for c in symbol_str) and len(symbol_str) <= 10:
+        return True
+    
+    return False
