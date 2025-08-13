@@ -74,6 +74,23 @@ class EnsembleConfig:
     n_jobs: int = -1
     verbose: bool = True
 
+    # ベースモデルのハイパーパラメータ
+    random_forest_params: Dict[str, Any] = field(default_factory=lambda: {
+        'n_estimators': 200,
+        'max_depth': 15,
+        'enable_hyperopt': True
+    })
+    gradient_boosting_params: Dict[str, Any] = field(default_factory=lambda: {
+        'n_estimators': 200,
+        'learning_rate': 0.1,
+        'enable_hyperopt': True,
+        'early_stopping': True
+    })
+    svr_params: Dict[str, Any] = field(default_factory=lambda: {
+        'kernel': 'rbf',
+        'enable_hyperopt': True
+    })
+
 
 @dataclass
 class EnsemblePrediction:
@@ -143,27 +160,15 @@ class EnsembleSystem:
         try:
             # Random Forest
             if self.config.use_random_forest:
-                self.base_models["random_forest"] = RandomForestModel({
-                    'n_estimators': 200,
-                    'max_depth': 15,
-                    'enable_hyperopt': True
-                })
+                self.base_models["random_forest"] = RandomForestModel(self.config.random_forest_params)
 
             # Gradient Boosting
             if self.config.use_gradient_boosting:
-                self.base_models["gradient_boosting"] = GradientBoostingModel({
-                    'n_estimators': 200,
-                    'learning_rate': 0.1,
-                    'enable_hyperopt': True,
-                    'early_stopping': True
-                })
+                self.base_models["gradient_boosting"] = GradientBoostingModel(self.config.gradient_boosting_params)
 
             # SVR
             if self.config.use_svr:
-                self.base_models["svr"] = SVRModel({
-                    'kernel': 'rbf',
-                    'enable_hyperopt': True
-                })
+                self.base_models["svr"] = SVRModel(self.config.svr_params)
 
             # 均等重みで初期化
             n_models = len(self.base_models)

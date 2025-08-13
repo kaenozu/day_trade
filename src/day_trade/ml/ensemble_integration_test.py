@@ -97,9 +97,21 @@ class EnsembleIntegrationTest:
             config = EnsembleConfig(
                 use_lstm_transformer=False,  # テスト用に無効化
                 enable_stacking=False,
-                enable_dynamic_weighting=False
+                enable_dynamic_weighting=False,
+                random_forest_params={'n_estimators': 10, 'max_depth': 5},
+                gradient_boosting_params={'n_estimators': 10, 'learning_rate': 0.01},
+                svr_params={'kernel': 'linear'}
             )
             ensemble = EnsembleSystem(config)
+
+            # ハイパーパラメータが正しく適用されているか（間接的に）確認
+            assert "random_forest" in ensemble.base_models
+            assert "gradient_boosting" in ensemble.base_models
+            assert "svr" in ensemble.base_models
+
+            # ここで各モデルのConfigにアクセスしてハイパーパラメータを確認できればベストですが、
+            # BaseModelInterfaceにはconfigへの直接アクセスが現状ないため、今回は初期化が成功したことと、
+            # デフォルト値ではないパラメータが渡された設定でモデルが構築されたと仮定します。
 
             # 学習
             start_time = time.time()
