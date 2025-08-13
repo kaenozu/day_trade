@@ -313,7 +313,7 @@ class ONNXQuantizationEngine:
     def __init__(self, config: CompressionConfig):
         self.config = config
         self.calibration_cache = {}
-        
+
         # Issue #724対応: FP16量子化統計
         self.fp16_quantization_stats = {
             'total_quantizations': 0,
@@ -394,28 +394,28 @@ class ONNXQuantizationEngine:
         """混合精度量子化適用 - Issue #724対応: 強化FP16量子化版"""
         import time
         start_time = time.time()
-        
+
         try:
             # Issue #724対応: 統計更新
             self.fp16_quantization_stats['total_quantizations'] += 1
-            
+
             # 入力モデルサイズ測定
             original_size = self._get_model_size(model_path)
-            
+
             # Issue #724対応: 真のFP16量子化実装
             success = self._apply_fp16_quantization(model_path, output_path)
             processing_time = time.time() - start_time
-            
+
             if success:
                 # 圧縮率計算
                 compressed_size = self._get_model_size(output_path)
                 compression_ratio = compressed_size / original_size if original_size > 0 else 1.0
-                
+
                 # 統計更新
                 self.fp16_quantization_stats['successful_fp16_quantizations'] += 1
                 self.fp16_quantization_stats['total_processing_time'] += processing_time
                 self._update_compression_ratio(compression_ratio)
-                
+
                 logger.info(
                     f"強化FP16量子化完了: {output_path} "
                     f"({compression_ratio:.2f}圧縮率, {processing_time:.3f}秒)"
@@ -425,11 +425,11 @@ class ONNXQuantizationEngine:
                 # フォールバック: 従来のグラフ最適化
                 logger.warning("FP16量子化失敗 - グラフ最適化フォールバック実行")
                 fallback_success = self._fallback_graph_optimization(model_path, output_path)
-                
+
                 if fallback_success:
                     self.fp16_quantization_stats['fallback_optimizations'] += 1
                     self.fp16_quantization_stats['total_processing_time'] += processing_time
-                    
+
                 return fallback_success
 
         except Exception as e:
@@ -470,26 +470,26 @@ class ONNXQuantizationEngine:
                         "MatMulConstBOnly": True,
                     }
                 )
-                
+
                 # 量子化結果検証
                 if self._verify_fp16_quantization(output_path):
                     logger.info(f"動的FP16量子化成功: {output_path}")
                     return True
-                    
+
             except Exception as e:
                 logger.debug(f"動的FP16量子化失敗: {e}")
 
             # 方法2: 重みのみFP16変換
             try:
                 return self._convert_weights_to_fp16(model_path, output_path)
-                
+
             except Exception as e:
                 logger.debug(f"重みFP16変換失敗: {e}")
 
             # 方法3: ONNX Runtime最適化 + FP16設定
             try:
                 return self._onnx_runtime_fp16_optimization(model_path, output_path)
-                
+
             except Exception as e:
                 logger.debug(f"ONNX Runtime FP16最適化失敗: {e}")
 
@@ -504,10 +504,10 @@ class ONNXQuantizationEngine:
         try:
             import onnx
             from onnx import numpy_helper
-            
+
             # ONNXモデル読み込み
             model = onnx.load(model_path)
-            
+
             # 重みをFP16に変換
             fp16_count = 0
             for initializer in model.graph.initializer:
@@ -515,26 +515,26 @@ class ONNXQuantizationEngine:
                     # FP32 -> FP16変換
                     weights_fp32 = numpy_helper.to_array(initializer)
                     weights_fp16 = weights_fp32.astype(np.float16)
-                    
+
                     # FP16データでinitializer更新
                     new_initializer = numpy_helper.from_array(
                         weights_fp16, initializer.name
                     )
                     new_initializer.data_type = onnx.TensorProto.FLOAT16
-                    
+
                     # 元のinitializerを置き換え
                     initializer.CopyFrom(new_initializer)
                     fp16_count += 1
-            
+
             # グラフ内のValueInfoもFP16に更新
             self._update_graph_value_info_to_fp16(model.graph)
-            
+
             # 変換済みモデル保存
             onnx.save(model, output_path)
-            
+
             logger.info(f"重みFP16変換完了: {fp16_count}テンソル変換")
             return True
-            
+
         except Exception as e:
             logger.debug(f"重みFP16変換エラー: {e}")
             return False
@@ -543,13 +543,13 @@ class ONNXQuantizationEngine:
         """グラフのValueInfoをFP16に更新"""
         try:
             import onnx
-            
+
             # 入力・出力・中間値のデータ型更新
             for value_info in graph.input + graph.output + graph.value_info:
-                if (hasattr(value_info.type.tensor_type, 'elem_type') and 
+                if (hasattr(value_info.type.tensor_type, 'elem_type') and
                     value_info.type.tensor_type.elem_type == onnx.TensorProto.FLOAT):
                     value_info.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
-                    
+
         except Exception as e:
             logger.debug(f"ValueInfo FP16更新エラー: {e}")
 
@@ -559,14 +559,14 @@ class ONNXQuantizationEngine:
             if not ONNX_RUNTIME_AVAILABLE:
                 logger.debug("ONNX Runtime利用不可 - FP16最適化スキップ")
                 return False
-                
+
             import onnxruntime as ort
-            
+
             # GraphOptimizationLevel.ORT_ENABLE_ALL + FP16プロバイダー
             sess_options = ort.SessionOptions()
             sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
             sess_options.optimized_model_filepath = output_path
-            
+
             # FP16対応プロバイダー使用
             providers = ["CPUExecutionProvider"]
             if hasattr(ort, 'get_available_providers'):
@@ -575,18 +575,18 @@ class ONNXQuantizationEngine:
                     providers.insert(0, ("CUDAExecutionProvider", {
                         "enable_fp16": True,
                     }))
-            
+
             # セッション作成で最適化実行
             session = ort.InferenceSession(model_path, sess_options, providers=providers)
-            
+
             # セッション設定確認
             if hasattr(session, 'get_providers'):
                 active_providers = session.get_providers()
                 logger.debug(f"FP16最適化プロバイダー: {active_providers}")
-            
+
             logger.info(f"ONNX Runtime FP16最適化完了")
             return True
-            
+
         except Exception as e:
             logger.debug(f"ONNX Runtime FP16最適化エラー: {e}")
             return False
@@ -595,24 +595,24 @@ class ONNXQuantizationEngine:
         """FP16量子化結果検証"""
         try:
             import onnx
-            
+
             model = onnx.load(model_path)
-            
+
             # FP16テンソル数確認
             fp16_tensors = 0
             total_tensors = 0
-            
+
             for initializer in model.graph.initializer:
                 total_tensors += 1
                 if initializer.data_type == onnx.TensorProto.FLOAT16:
                     fp16_tensors += 1
-            
+
             fp16_ratio = fp16_tensors / total_tensors if total_tensors > 0 else 0
             logger.debug(f"FP16量子化率: {fp16_ratio:.1%} ({fp16_tensors}/{total_tensors})")
-            
+
             # 50%以上がFP16なら成功とみなす
             return fp16_ratio >= 0.5
-            
+
         except Exception as e:
             logger.debug(f"FP16量子化検証エラー: {e}")
             return False
@@ -623,9 +623,9 @@ class ONNXQuantizationEngine:
             if not ONNX_RUNTIME_AVAILABLE:
                 logger.warning("ONNX Runtime利用不可 - フォールバック失敗")
                 return False
-                
+
             import onnxruntime as ort
-            
+
             # 従来の実装
             sess_options = ort.SessionOptions()
             sess_options.graph_optimization_level = (
@@ -640,7 +640,7 @@ class ONNXQuantizationEngine:
 
             logger.info(f"フォールバックグラフ最適化完了: {output_path}")
             return True
-            
+
         except Exception as e:
             logger.error(f"フォールバックグラフ最適化エラー: {e}")
             return False
@@ -659,7 +659,7 @@ class ONNXQuantizationEngine:
             stats = self.fp16_quantization_stats
             current_avg = stats['average_compression_ratio']
             successful_count = stats['successful_fp16_quantizations']
-            
+
             # 累積平均更新
             if successful_count == 1:
                 stats['average_compression_ratio'] = ratio
@@ -673,17 +673,17 @@ class ONNXQuantizationEngine:
     def get_fp16_quantization_stats(self) -> dict:
         """Issue #724対応: FP16量子化統計取得"""
         stats = self.fp16_quantization_stats.copy()
-        
+
         # 成功率計算
         total = stats['total_quantizations']
         successful = stats['successful_fp16_quantizations']
         stats['success_rate_percent'] = (successful / total * 100) if total > 0 else 0
-        
+
         # 平均処理時間
         stats['average_processing_time'] = (
             stats['total_processing_time'] / total if total > 0 else 0
         )
-        
+
         return stats
 
 
@@ -718,26 +718,26 @@ class ModelPruningEngine:
         try:
             # ベクトル化された絶対値計算と閾値決定
             abs_weights = np.abs(weights)
-            
+
             # パーセンタイルを使用した高速閾値計算
             threshold = np.percentile(abs_weights, pruning_ratio * 100)
-            
+
             # ブールマスクの直接生成（メモリ効率良い）
             mask = abs_weights >= threshold
-            
+
             # インプレース演算でメモリ効率化
             pruned_weight = weights * mask
-            
+
             # 統計計算（ベクトル化）
             sparsity = np.mean(~mask)  # False の割合
-            
+
             logger.debug(
                 f"ベクトル化マグニチュードプルーニング: スパース率 {sparsity:.2%}, "
                 f"閾値 {threshold:.6f}"
             )
-            
+
             return pruned_weight
-            
+
         except Exception as e:
             logger.warning(f"ベクトル化マグニチュードプルーニング失敗: {e} - フォールバック")
             return self._fallback_magnitude_pruning(weights, pruning_ratio)
@@ -759,7 +759,7 @@ class ModelPruningEngine:
         # 統計記録
         sparsity = np.sum(mask == 0) / mask.size
         logger.debug(f"フォールバックマグニチュードプルーニング: スパース率 {sparsity:.2%}")
-        
+
         return pruned_weight
 
     def apply_structured_channel_pruning(
@@ -826,15 +826,15 @@ class ModelPruningEngine:
         h, w = weights.shape[:2]
         blocks_h = h // block_size
         blocks_w = w // block_size
-        
+
         # 実際に使用可能なサイズに調整
         effective_h = blocks_h * block_size
         effective_w = blocks_w * block_size
         effective_weights = weights[:effective_h, :effective_w]
-        
+
         # NumPyのstride_tricksを使用してブロックビューを作成
         from numpy.lib.stride_tricks import sliding_window_view
-        
+
         try:
             # 4Dブロックビューを作成: (blocks_h, blocks_w, block_size, block_size)
             if len(effective_weights.shape) == 2:
@@ -842,73 +842,73 @@ class ModelPruningEngine:
                 block_view = effective_weights.reshape(
                     blocks_h, block_size, blocks_w, block_size
                 ).transpose(0, 2, 1, 3)
-                
+
                 # ベクトル化されたL2ノルム計算
                 block_norms = np.linalg.norm(
                     block_view.reshape(blocks_h * blocks_w, block_size * block_size),
                     axis=1
                 )
-                
+
             elif len(effective_weights.shape) >= 3:
                 # 3D以上（例: Conv層）の場合
                 rest_dims = effective_weights.shape[2:]
                 total_rest = np.prod(rest_dims)
-                
+
                 # reshapeして2D + 残り次元で処理
                 temp_weights = effective_weights.reshape(effective_h, effective_w, total_rest)
-                
+
                 block_norms_list = []
                 for k in range(total_rest):
                     layer_slice = temp_weights[:, :, k]
                     block_view = layer_slice.reshape(
                         blocks_h, block_size, blocks_w, block_size
                     ).transpose(0, 2, 1, 3)
-                    
+
                     layer_block_norms = np.linalg.norm(
                         block_view.reshape(blocks_h * blocks_w, block_size * block_size),
                         axis=1
                     )
                     block_norms_list.append(layer_block_norms)
-                
+
                 # 全チャネルの平均ノルムを計算
                 block_norms = np.mean(block_norms_list, axis=0)
-                
+
         except Exception:
             # フォールバック: 従来のループ実装
             logger.warning(f"ベクトル化プルーニング失敗 - フォールバック実行")
             return self._fallback_block_pruning(weights, block_size, pruning_ratio)
-        
+
         # ブロックインデックス生成（ベクトル化）
         block_indices = np.unravel_index(
             np.arange(blocks_h * blocks_w), (blocks_h, blocks_w)
         )
         block_coords = list(zip(block_indices[0], block_indices[1]))
-        
+
         # 重要度でソートしてプルーニング対象を選択
         importance_with_coords = list(zip(block_norms, block_coords))
         importance_with_coords.sort(key=lambda x: x[0])
-        
+
         num_blocks_to_prune = int(len(importance_with_coords) * pruning_ratio)
         blocks_to_prune = importance_with_coords[:num_blocks_to_prune]
-        
+
         # ベクトル化されたマスク作成
         pruning_mask = np.ones_like(weights, dtype=bool)
-        
+
         # ブロック座標をまとめて処理
         for _, (i, j) in blocks_to_prune:
             pruning_mask[
                 i * block_size:(i + 1) * block_size,
                 j * block_size:(j + 1) * block_size
             ] = False
-        
+
         # マスクを適用してプルーニング実行
         pruned_weight = weights * pruning_mask
-        
+
         logger.debug(
             f"ベクトル化プルーニング: {len(blocks_to_prune)}ブロック削除, "
             f"計算効率: {blocks_h * blocks_w}ブロック一括処理"
         )
-        
+
         return pruned_weight
 
     def _fallback_block_pruning(
@@ -1285,8 +1285,8 @@ class ModelCompressionEngine:
         return results
 
     async def _parallel_benchmark_execution(
-        self, 
-        model_path: str, 
+        self,
+        model_path: str,
         benchmark_configs: Dict[str, CompressionConfig],
         validation_data: List[np.ndarray] = None
     ) -> Dict[str, CompressionResult]:
@@ -1294,17 +1294,17 @@ class ModelCompressionEngine:
         import asyncio
         from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
         import os
-        
+
         # 並列実行方法の選択
         use_process_pool = len(benchmark_configs) > 2 and os.cpu_count() > 2
         max_workers = min(len(benchmark_configs), os.cpu_count() or 4)
-        
+
         logger.info(
             f"並列ベンチマーク設定: "
             f"{'プロセスプール' if use_process_pool else 'スレッドプール'}, "
             f"最大{max_workers}ワーカー"
         )
-        
+
         try:
             if use_process_pool:
                 # プロセス並列（CPU集約的タスク）
@@ -1316,7 +1316,7 @@ class ModelCompressionEngine:
                 return await self._thread_pool_benchmark(
                     model_path, benchmark_configs, validation_data, max_workers
                 )
-                
+
         except Exception as e:
             logger.warning(f"並列ベンチマーク実行失敗: {e} - シーケンシャル実行にフォールバック")
             return await self._sequential_benchmark_fallback(
@@ -1325,7 +1325,7 @@ class ModelCompressionEngine:
 
     async def _thread_pool_benchmark(
         self,
-        model_path: str, 
+        model_path: str,
         benchmark_configs: Dict[str, CompressionConfig],
         validation_data: List[np.ndarray],
         max_workers: int
@@ -1333,38 +1333,38 @@ class ModelCompressionEngine:
         """スレッドプール並列ベンチマーク"""
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
-        
+
         async def run_single_benchmark(method_name: str, config: CompressionConfig):
             """単一ベンチマーク実行"""
             try:
                 logger.debug(f"並列ベンチマーク開始: {method_name}")
-                
+
                 # スレッドセーフなコピー作成
                 thread_safe_engine = ModelCompressionEngine(config)
-                
+
                 result = await thread_safe_engine.compress_model(
                     model_path,
                     f"benchmark_output/{method_name}",
                     validation_data,
                     f"model_{method_name}",
                 )
-                
+
                 logger.debug(f"並列ベンチマーク完了: {method_name}")
                 return method_name, result
-                
+
             except Exception as e:
                 logger.error(f"並列ベンチマーク エラー ({method_name}): {e}")
                 return method_name, None
-        
+
         # 並列実行
         tasks = []
         for method_name, config in benchmark_configs.items():
             task = run_single_benchmark(method_name, config)
             tasks.append(task)
-        
+
         # 全タスク完了を待機
         benchmark_results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # 結果集約
         results = {}
         for result in benchmark_results:
@@ -1374,12 +1374,12 @@ class ModelCompressionEngine:
                     results[method_name] = compression_result
             elif isinstance(result, Exception):
                 logger.warning(f"並列ベンチマークタスクエラー: {result}")
-        
+
         return results
 
     async def _process_pool_benchmark(
         self,
-        model_path: str, 
+        model_path: str,
         benchmark_configs: Dict[str, CompressionConfig],
         validation_data: List[np.ndarray],
         max_workers: int
@@ -1387,7 +1387,7 @@ class ModelCompressionEngine:
         """プロセスプール並列ベンチマーク"""
         import asyncio
         from concurrent.futures import ProcessPoolExecutor
-        
+
         # プロセス間で共有可能な引数に変換
         benchmark_tasks = []
         for method_name, config in benchmark_configs.items():
@@ -1399,10 +1399,10 @@ class ModelCompressionEngine:
                 'model_name': f"model_{method_name}",
             }
             benchmark_tasks.append(task_data)
-        
+
         # プロセスプールでの並列実行
         loop = asyncio.get_event_loop()
-        
+
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for task_data in benchmark_tasks:
@@ -1410,10 +1410,10 @@ class ModelCompressionEngine:
                     executor, self._run_benchmark_process, task_data
                 )
                 futures.append(future)
-            
+
             # 結果待機
             process_results = await asyncio.gather(*futures, return_exceptions=True)
-        
+
         # 結果集約
         results = {}
         for result in process_results:
@@ -1425,7 +1425,7 @@ class ModelCompressionEngine:
                     logger.error(f"プロセス並列ベンチマーク失敗: {method_name}")
             elif isinstance(result, Exception):
                 logger.warning(f"プロセスプールエラー: {result}")
-        
+
         return results
 
     def _run_benchmark_process(self, task_data: dict) -> dict:
@@ -1436,23 +1436,23 @@ class ModelCompressionEngine:
             config_dict = task_data['config_dict']
             output_path = task_data['output_path']
             model_name = task_data['model_name']
-            
+
             # 設定復元
             config = CompressionConfig()
             config.quantization_type = QuantizationType(config_dict.get('quantization_type', 'none'))
             config.pruning_type = PruningType(config_dict.get('pruning_type', 'none'))
-            
+
             # 新しいエンジンインスタンス作成
             engine = ModelCompressionEngine(config)
-            
+
             # 同期実行（プロセス内）
             import asyncio
-            
+
             async def run_compression():
                 return await engine.compress_model(
                     model_path, output_path, None, model_name
                 )
-            
+
             # 新しいイベントループでの実行
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -1465,7 +1465,7 @@ class ModelCompressionEngine:
                 }
             finally:
                 loop.close()
-                
+
         except Exception as e:
             return {
                 'method_name': task_data.get('method_name', 'unknown'),
@@ -1475,13 +1475,13 @@ class ModelCompressionEngine:
 
     async def _sequential_benchmark_fallback(
         self,
-        model_path: str, 
+        model_path: str,
         benchmark_configs: Dict[str, CompressionConfig],
         validation_data: List[np.ndarray]
     ) -> Dict[str, CompressionResult]:
         """シーケンシャルベンチマーク（フォールバック）"""
         logger.info("シーケンシャルベンチマーク実行")
-        
+
         results = {}
 
         for method_name, config in benchmark_configs.items():
@@ -1513,7 +1513,7 @@ class ModelCompressionEngine:
         """Issue #725対応: ベンチマーク結果分析"""
         if not benchmark_results:
             return {"error": "ベンチマーク結果が空です"}
-        
+
         analysis = {
             "summary": {
                 "total_methods": len(benchmark_results),
@@ -1523,20 +1523,20 @@ class ModelCompressionEngine:
             "best_methods": {},
             "detailed_comparison": {}
         }
-        
+
         # 成功した結果のみを対象とする (accuracy_dropが小さい = 成功)
         successful_results = {
-            name: result for name, result in benchmark_results.items() 
+            name: result for name, result in benchmark_results.items()
             if result.accuracy_drop < 0.50  # 50%以下の精度低下なら成功
         }
-        
+
         if not successful_results:
             analysis["error"] = "成功したベンチマークがありません"
             return analysis
-        
+
         # 各メトリクス別ランキング（CompressionResultの実際の属性に合わせる）
         metrics = ["compression_ratio", "compressed_model_size_mb", "compressed_inference_time_us"]
-        
+
         for metric in metrics:
             # メトリクス値の取得
             metric_values = {}
@@ -1544,23 +1544,23 @@ class ModelCompressionEngine:
                 value = getattr(result, metric, 0)
                 if value > 0:  # 有効な値のみ
                     metric_values[name] = value
-            
+
             if not metric_values:
                 continue
-            
+
             # ランキング作成（圧縮率は高い方が良い、他は低い方が良い）
             reverse_sort = (metric == "compression_ratio")
             sorted_methods = sorted(
-                metric_values.items(), 
-                key=lambda x: x[1], 
+                metric_values.items(),
+                key=lambda x: x[1],
                 reverse=reverse_sort
             )
-            
+
             analysis["performance_ranking"][metric] = [
-                {"method": name, "value": value} 
+                {"method": name, "value": value}
                 for name, value in sorted_methods
             ]
-            
+
             # 最良手法記録
             if sorted_methods:
                 best_method, best_value = sorted_methods[0]
@@ -1568,7 +1568,7 @@ class ModelCompressionEngine:
                     "method": best_method,
                     "value": best_value
                 }
-        
+
         # 総合スコア計算（重み付き）
         method_scores = {}
         weights = {
@@ -1576,11 +1576,11 @@ class ModelCompressionEngine:
             "compressed_inference_time_us": 0.3,  # 推論速度
             "compressed_model_size_mb": 0.3  # モデルサイズ
         }
-        
+
         for name in successful_results.keys():
             score = 0.0
             total_weight = 0.0
-            
+
             for metric, weight in weights.items():
                 ranking = analysis["performance_ranking"].get(metric, [])
                 for i, entry in enumerate(ranking):
@@ -1590,27 +1590,27 @@ class ModelCompressionEngine:
                         score += position_score * weight
                         total_weight += weight
                         break
-            
+
             if total_weight > 0:
                 method_scores[name] = score / total_weight
-        
+
         # 総合ランキング
         overall_ranking = sorted(
             method_scores.items(), key=lambda x: x[1], reverse=True
         )
-        
+
         analysis["overall_ranking"] = [
-            {"method": name, "score": score} 
+            {"method": name, "score": score}
             for name, score in overall_ranking
         ]
-        
+
         if overall_ranking:
             analysis["recommended_method"] = {
                 "method": overall_ranking[0][0],
                 "score": overall_ranking[0][1],
                 "reason": "総合スコア最優秀"
             }
-        
+
         # 詳細比較テーブル作成
         comparison_table = []
         for name, result in successful_results.items():
@@ -1622,9 +1622,9 @@ class ModelCompressionEngine:
                 "overall_score": method_scores.get(name, 0)
             }
             comparison_table.append(row)
-        
+
         analysis["detailed_comparison"] = comparison_table
-        
+
         return analysis
 
     def get_compression_stats(self) -> Dict[str, Any]:

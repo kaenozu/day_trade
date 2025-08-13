@@ -197,7 +197,7 @@ class GradientBoostingModel(BaseModelInterface):
     def get_feature_importance(self) -> Dict[str, float]:
         """
         特徴量重要度取得
-        
+
         Issue #495対応: BaseModelInterfaceヘルパーメソッド使用
 
         Returns:
@@ -212,11 +212,11 @@ class GradientBoostingModel(BaseModelInterface):
         except Exception as e:
             logger.warning(f"{self.model_name}: 特徴量重要度取得エラー: {e}")
             return {}
-    
+
     def has_feature_importance(self) -> bool:
         """
         Issue #495対応: GradientBoostingは特徴量重要度を提供可能
-        
+
         Returns:
             常にTrue（学習済みの場合）
         """

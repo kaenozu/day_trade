@@ -66,7 +66,7 @@ try:
 
     TENSORRT_AVAILABLE = True
     PYCUDA_AVAILABLE = True
-    
+
     # TensorRTバージョン確認
     trt_version = f"{trt.__version__}"
     logger.info(f"TensorRT利用可能 - バージョン: {trt_version}")
@@ -262,12 +262,12 @@ class TensorRTEngine:
         self.context = None
         self.bindings = None
         self.stream = None
-        
+
         # メモリ管理
         self.inputs = []
         self.outputs = []
         self.allocations = []
-        
+
         # TensorRT設定
         self.logger = trt.Logger(trt.Logger.INFO)
         self.builder = None
@@ -278,16 +278,16 @@ class TensorRTEngine:
         if not TENSORRT_AVAILABLE:
             logger.warning("TensorRT利用不可 - エンジン構築スキップ")
             return False
-            
+
         try:
             # TensorRTビルダー作成
             self.builder = trt.Builder(self.logger)
             network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
             self.network = self.builder.create_network(network_flags)
-            
+
             # ONNX パーサー
             parser = trt.OnnxParser(self.network, self.logger)
-            
+
             # ONNXファイル読み込み
             with open(onnx_model_path, 'rb') as model:
                 if not parser.parse(model.read()):
@@ -295,13 +295,13 @@ class TensorRTEngine:
                     for error in range(parser.num_errors):
                         logger.error(f"  エラー {error}: {parser.get_error(error)}")
                     return False
-            
+
             # ビルダー設定
             builder_config = self.builder.create_builder_config()
-            
+
             # ワークスペースサイズ設定
             builder_config.max_workspace_size = self.config.tensorrt_max_workspace_size * (1024 ** 2)
-            
+
             # 精度設定
             if self.config.tensorrt_precision == "fp16":
                 builder_config.set_flag(trt.BuilderFlag.FP16)
@@ -309,65 +309,65 @@ class TensorRTEngine:
             elif self.config.tensorrt_precision == "int8":
                 builder_config.set_flag(trt.BuilderFlag.INT8)
                 logger.info("TensorRT INT8精度有効化")
-            
+
             # DLA設定（Jetson等でのみ有効）
             if self.config.tensorrt_enable_dla and self.config.tensorrt_dla_core >= 0:
                 builder_config.default_device_type = trt.DeviceType.DLA
                 builder_config.DLA_core = self.config.tensorrt_dla_core
                 builder_config.set_flag(trt.BuilderFlag.GPU_FALLBACK)
                 logger.info(f"TensorRT DLA有効化: コア {self.config.tensorrt_dla_core}")
-            
+
             # タイミングキャッシュ
             if self.config.tensorrt_enable_timing_cache:
                 cache = builder_config.create_timing_cache(b"")
                 builder_config.set_timing_cache(cache, ignore_mismatch=False)
                 logger.info("TensorRT タイミングキャッシュ有効化")
-            
+
             # 最適化プロファイル設定（動的バッチサイズ対応）
             profile = self.builder.create_optimization_profile()
-            
+
             # 入力テンソルのプロファイル設定
             for i in range(self.network.num_inputs):
                 input_tensor = self.network.get_input(i)
                 input_shape = input_tensor.shape
-                
+
                 # 動的バッチサイズの設定
                 min_shape = list(input_shape)
                 opt_shape = list(input_shape)
                 max_shape = list(input_shape)
-                
+
                 if min_shape[0] == -1:  # バッチ次元が動的
                     min_shape[0] = 1
                     opt_shape[0] = self.config.tensorrt_max_batch_size // 2
                     max_shape[0] = self.config.tensorrt_max_batch_size
-                
+
                 profile.set_shape(input_tensor.name, min_shape, opt_shape, max_shape)
                 logger.debug(f"入力プロファイル {input_tensor.name}: min={min_shape}, opt={opt_shape}, max={max_shape}")
-            
+
             builder_config.add_optimization_profile(profile)
-            
+
             # エンジン構築
             logger.info("TensorRTエンジン構築開始...")
             start_time = time.time()
-            
+
             self.engine = self.builder.build_engine(self.network, builder_config)
-            
+
             build_time = time.time() - start_time
-            
+
             if self.engine is None:
                 logger.error("TensorRTエンジン構築失敗")
                 return False
-            
+
             logger.info(f"TensorRTエンジン構築完了: {build_time:.2f}秒")
-            
+
             # 実行コンテキスト作成
             self.context = self.engine.create_execution_context()
-            
+
             # メモリ割り当て準備
             self._prepare_memory_allocations()
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"TensorRTエンジン構築エラー: {e}")
             return False
@@ -376,27 +376,27 @@ class TensorRTEngine:
         """メモリ割り当て準備"""
         if not PYCUDA_AVAILABLE or self.engine is None:
             return
-            
+
         try:
             # CUDAストリーム作成
             self.stream = cuda.Stream()
-            
+
             # 入力・出力テンソル情報取得
             self.inputs = []
             self.outputs = []
             self.bindings = []
             self.allocations = []
-            
+
             for binding in self.engine:
                 binding_idx = self.engine.get_binding_index(binding)
                 size = trt.volume(self.context.get_binding_shape(binding_idx))
                 dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-                
+
                 # GPUメモリ割り当て
                 device_mem = cuda.mem_alloc(size * dtype().itemsize)
                 self.allocations.append(device_mem)
                 self.bindings.append(int(device_mem))
-                
+
                 if self.engine.binding_is_input(binding):
                     self.inputs.append({
                         'name': binding,
@@ -413,9 +413,9 @@ class TensorRTEngine:
                         'dtype': dtype,
                         'device_mem': device_mem
                     })
-            
+
             logger.info(f"TensorRTメモリ割り当て完了: 入力={len(self.inputs)}, 出力={len(self.outputs)}")
-            
+
         except Exception as e:
             logger.error(f"TensorRTメモリ割り当てエラー: {e}")
 
@@ -423,56 +423,56 @@ class TensorRTEngine:
         """TensorRT推論実行"""
         if not PYCUDA_AVAILABLE or self.engine is None or self.context is None:
             raise RuntimeError("TensorRT エンジン未初期化")
-            
+
         try:
             # 入力データの前処理
             batch_size = input_data.shape[0]
-            
+
             # バッチサイズに応じて動的形状設定
             if len(self.inputs) > 0:
                 input_binding = self.inputs[0]
                 input_shape = list(input_data.shape)
-                
+
                 if not self.context.set_binding_shape(input_binding['index'], input_shape):
                     raise RuntimeError(f"入力形状設定失敗: {input_shape}")
-            
+
             # 入力データをGPUメモリにコピー
             for i, input_info in enumerate(self.inputs):
                 host_mem = np.ascontiguousarray(input_data.astype(input_info['dtype']))
                 cuda.memcpy_htod_async(input_info['device_mem'], host_mem, self.stream)
-            
+
             # 推論実行
             success = self.context.execute_async_v2(
                 bindings=self.bindings,
                 stream_handle=self.stream.handle
             )
-            
+
             if not success:
                 raise RuntimeError("TensorRT推論実行失敗")
-            
+
             # 出力データをCPUメモリにコピー
             outputs = []
             for output_info in self.outputs:
                 # 出力形状取得
                 output_shape = self.context.get_binding_shape(output_info['index'])
                 output_size = trt.volume(output_shape)
-                
+
                 # CPUメモリ準備
                 host_mem = np.empty(output_size, dtype=output_info['dtype'])
-                
+
                 # GPUからCPUへコピー
                 cuda.memcpy_dtoh_async(host_mem, output_info['device_mem'], self.stream)
-                
+
                 # 結果をリシェイプ
                 host_mem = host_mem.reshape(output_shape)
                 outputs.append(host_mem)
-            
+
             # ストリーム同期
             self.stream.synchronize()
-            
+
             # 結果返却（複数出力の場合は最初の出力）
             return outputs[0] if len(outputs) > 0 else np.array([])
-            
+
         except Exception as e:
             logger.error(f"TensorRT推論エラー: {e}")
             raise
@@ -481,14 +481,14 @@ class TensorRTEngine:
         """TensorRTエンジンをファイルに保存"""
         if self.engine is None:
             return False
-            
+
         try:
             with open(engine_path, 'wb') as f:
                 f.write(self.engine.serialize())
-            
+
             logger.info(f"TensorRTエンジン保存完了: {engine_path}")
             return True
-            
+
         except Exception as e:
             logger.error(f"TensorRTエンジン保存エラー: {e}")
             return False
@@ -497,25 +497,25 @@ class TensorRTEngine:
         """保存されたTensorRTエンジンを読み込み"""
         if not TENSORRT_AVAILABLE:
             return False
-            
+
         try:
             runtime = trt.Runtime(self.logger)
-            
+
             with open(engine_path, 'rb') as f:
                 engine_data = f.read()
-            
+
             self.engine = runtime.deserialize_cuda_engine(engine_data)
-            
+
             if self.engine is None:
                 logger.error("TensorRTエンジン読み込み失敗")
                 return False
-            
+
             self.context = self.engine.create_execution_context()
             self._prepare_memory_allocations()
-            
+
             logger.info(f"TensorRTエンジン読み込み完了: {engine_path}")
             return True
-            
+
         except Exception as e:
             logger.error(f"TensorRTエンジン読み込みエラー: {e}")
             return False
@@ -528,24 +528,24 @@ class TensorRTEngine:
                 if allocation:
                     allocation.free()
             self.allocations.clear()
-            
+
             # ストリーム削除
             if self.stream:
                 del self.stream
                 self.stream = None
-            
+
             # コンテキスト削除
             if self.context:
                 del self.context
                 self.context = None
-            
+
             # エンジン削除
             if self.engine:
                 del self.engine
                 self.engine = None
-            
+
             logger.debug("TensorRTエンジンクリーンアップ完了")
-            
+
         except Exception as e:
             logger.error(f"TensorRTエンジンクリーンアップエラー: {e}")
 
@@ -557,24 +557,24 @@ class GPUMonitoringData:
 
     device_id: int
     timestamp: float
-    
+
     # GPU使用率統計
     gpu_utilization_percent: float = 0.0
     memory_utilization_percent: float = 0.0
-    
+
     # メモリ使用量（MB）
     memory_used_mb: float = 0.0
     memory_total_mb: float = 0.0
     memory_free_mb: float = 0.0
-    
+
     # 温度・電力
     temperature_celsius: float = 0.0
     power_consumption_watts: float = 0.0
-    
+
     # プロセス情報
     running_processes: int = 0
     compute_mode: str = "Default"
-    
+
     # エラー状態
     has_errors: bool = False
     error_message: str = ""
@@ -955,7 +955,7 @@ class GPUInferenceSession:
 
             # セッション オプション
             sess_options = ort.SessionOptions()
-            
+
             # Issue #722対応: CPUフォールバック最適化設定
             if self.config.backend == GPUBackend.CPU_FALLBACK or not ONNX_GPU_AVAILABLE:
                 # CPU最適化設定適用
@@ -963,19 +963,19 @@ class GPUInferenceSession:
                     cpu_threads = self._get_optimal_cpu_threads()
                     sess_options.intra_op_num_threads = cpu_threads
                     sess_options.inter_op_num_threads = 1
-                    
+
                     # CPU実行モード設定
                     if self.config.cpu_execution_mode == "sequential":
                         sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
                     else:
                         sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-                        
+
                     logger.info(f"CPU最適化設定適用: {cpu_threads}スレッド, {self.config.cpu_execution_mode}実行")
                 else:
                     sess_options.intra_op_num_threads = 1
             else:
                 sess_options.intra_op_num_threads = 1  # GPU では通常1
-                
+
             sess_options.graph_optimization_level = (
                 ort.GraphOptimizationLevel.ORT_ENABLE_ALL
             )
@@ -988,7 +988,7 @@ class GPUInferenceSession:
             self.session = ort.InferenceSession(
                 self.model_path, sess_options, providers=providers
             )
-            
+
             # Issue #722対応: CPU最適化設定追加適用
             if self.config.backend == GPUBackend.CPU_FALLBACK or not ONNX_GPU_AVAILABLE:
                 self._enable_cpu_optimized_inference(self.session)
@@ -1058,15 +1058,15 @@ class GPUInferenceSession:
     def _get_optimal_cpu_threads(self) -> int:
         """最適CPU スレッド数取得"""
         import os
-        
+
         # システムCPU数取得
         cpu_count = os.cpu_count() or 1
-        
+
         # メモリベースの調整
         try:
             import psutil
             available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)
-            
+
             # メモリ量に基づく制限
             if available_memory_gb < 4:
                 max_threads = min(2, cpu_count)
@@ -1074,15 +1074,15 @@ class GPUInferenceSession:
                 max_threads = min(4, cpu_count)
             else:
                 max_threads = min(cpu_count, 8)  # 最大8スレッド
-                
+
         except ImportError:
             # psutil利用不可時は控えめに設定
             max_threads = min(4, cpu_count)
-        
+
         # 設定値があれば考慮
         if hasattr(self.config, 'cpu_threads') and self.config.cpu_threads > 0:
             max_threads = min(self.config.cpu_threads, max_threads)
-        
+
         logger.debug(f"最適CPU スレッド数: {max_threads} (システム: {cpu_count})")
         return max_threads
 
@@ -1092,19 +1092,19 @@ class GPUInferenceSession:
             # スレッド数設定
             "intra_op_num_threads": self._get_optimal_cpu_threads(),
             "inter_op_num_threads": 1,  # モデル間並列は1に制限
-            
+
             # メモリアロケーション最適化
             "arena_extend_strategy": "kSameAsRequested",
-            
+
             # CPU最適化設定
             "enable_cpu_mem_arena": True,
             "enable_mem_pattern": True,
             "enable_mem_reuse": True,
-            
+
             # SIMD/ベクトル化最適化
             "use_arena": True,
         }
-        
+
         # CPU固有の高速化設定
         try:
             import platform
@@ -1116,7 +1116,7 @@ class GPUInferenceSession:
                 })
         except Exception:
             pass
-            
+
         logger.debug(f"CPU実行プロバイダーオプション: {options}")
         return options
 
@@ -1126,11 +1126,11 @@ class GPUInferenceSession:
             # セッション統計情報有効化（パフォーマンス監視用）
             if hasattr(session, 'enable_profiling'):
                 session.enable_profiling('cpu_profile.json')
-            
+
             # CPU最適化ログ出力
             providers = session.get_providers()
             logger.info(f"CPU推論セッション初期化完了: プロバイダー {providers}")
-            
+
             # CPU推論パフォーマンス情報収集準備
             self.cpu_inference_stats = {
                 'total_inferences': 0,
@@ -1138,7 +1138,7 @@ class GPUInferenceSession:
                 'avg_time_ms': 0.0,
                 'thread_count': self._get_optimal_cpu_threads(),
             }
-                
+
         except Exception as e:
             logger.debug(f"CPU推論最適化設定適用エラー: {e}")
 
@@ -1149,7 +1149,7 @@ class GPUInferenceSession:
             stats['total_inferences'] += 1
             stats['total_time_ms'] += inference_time_ms
             stats['avg_time_ms'] = stats['total_time_ms'] / stats['total_inferences']
-            
+
             # 100回毎にパフォーマンス状況をログ出力
             if stats['total_inferences'] % 100 == 0:
                 logger.info(
@@ -1162,8 +1162,8 @@ class GPUInferenceSession:
 
     def _try_initialize_tensorrt(self):
         """TensorRT初期化を試行"""
-        if (not self.config.enable_tensorrt or 
-            not TENSORRT_AVAILABLE or 
+        if (not self.config.enable_tensorrt or
+            not TENSORRT_AVAILABLE or
             not self.model_path.endswith('.onnx')):
             logger.debug("TensorRT初期化スキップ - 条件不適合")
             return
@@ -1171,17 +1171,17 @@ class GPUInferenceSession:
         try:
             # TensorRTエンジン作成
             self.tensorrt_engine = TensorRTEngine(self.config, self.device_id)
-            
+
             # エンジンファイル確認（キャッシュ）
             engine_path = self._get_tensorrt_engine_path()
-            
+
             if engine_path.exists():
                 logger.info(f"既存TensorRTエンジン読み込み: {engine_path}")
                 if self.tensorrt_engine.load_engine(str(engine_path)):
                     self.use_tensorrt = True
                     logger.info("TensorRT推論有効化")
                     return
-            
+
             # ONNXからエンジン構築
             logger.info("ONNXからTensorRTエンジン構築開始...")
             if self.tensorrt_engine.build_engine_from_onnx(self.model_path):
@@ -1191,7 +1191,7 @@ class GPUInferenceSession:
                 logger.info("TensorRT推論有効化")
             else:
                 logger.warning("TensorRTエンジン構築失敗 - ONNX Runtime使用")
-                
+
         except Exception as e:
             logger.warning(f"TensorRT初期化エラー: {e} - ONNX Runtime使用")
             self.tensorrt_engine = None
@@ -1200,20 +1200,20 @@ class GPUInferenceSession:
         """TensorRTエンジンファイルパス生成"""
         from pathlib import Path
         model_path = Path(self.model_path)
-        
+
         # エンジンファイル名生成（モデル名+設定ハッシュ）
         config_str = (f"{self.config.tensorrt_precision}_"
                      f"{self.config.tensorrt_max_batch_size}_"
                      f"{self.config.tensorrt_max_workspace_size}_"
                      f"{self.config.tensorrt_optimization_level}")
-        
+
         config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
         engine_name = f"{model_path.stem}_{config_hash}.trt"
-        
+
         # キャッシュディレクトリ
         cache_dir = model_path.parent / "tensorrt_cache"
         cache_dir.mkdir(exist_ok=True)
-        
+
         return cache_dir / engine_name
 
     async def predict_gpu(self, input_data: np.ndarray) -> GPUInferenceResult:
@@ -1223,7 +1223,7 @@ class GPUInferenceSession:
         try:
             # GPU メモリ使用量監視
             gpu_memory_before = self._get_gpu_memory_usage()
-            
+
             # Issue #721対応: TensorRT推論優先実行
             if self.use_tensorrt and self.tensorrt_engine:
                 # データ型変換
@@ -1231,7 +1231,7 @@ class GPUInferenceSession:
                     input_tensor = input_data.astype(np.float16)
                 else:
                     input_tensor = input_data.astype(np.float32)
-                
+
                 # TensorRT推論実行
                 outputs = [self.tensorrt_engine.predict(input_tensor)]
                 backend_used = GPUBackend.CUDA  # TensorRTはCUDAベース
@@ -1253,13 +1253,13 @@ class GPUInferenceSession:
                         self.output_names, {self.input_name: input_tensor}
                     )
                     inference_time_ms = (time.time() - inference_start) * 1000
-                    
+
                 # Issue #722対応: CPUフォールバック時の統計更新
-                if (self.config.backend == GPUBackend.CPU_FALLBACK or 
-                    not ONNX_GPU_AVAILABLE or 
+                if (self.config.backend == GPUBackend.CPU_FALLBACK or
+                    not ONNX_GPU_AVAILABLE or
                     'CPUExecutionProvider' in self.session.get_providers()):
                     self._update_cpu_performance_stats(inference_time_ms)
-                    
+
                 backend_used = self.config.backend
                 logger.debug("ONNX Runtime推論実行")
 
@@ -1363,12 +1363,12 @@ class GPUInferenceSession:
         """nvidia-smiコマンド経由でのGPU使用率取得"""
         try:
             result = subprocess.run([
-                'nvidia-smi', 
-                '--query-gpu=utilization.gpu', 
+                'nvidia-smi',
+                '--query-gpu=utilization.gpu',
                 '--format=csv,noheader,nounits',
                 f'--id={self.device_id}'
             ], capture_output=True, text=True, timeout=5)
-            
+
             if result.returncode == 0:
                 utilization_str = result.stdout.strip()
                 return float(utilization_str)
@@ -1404,39 +1404,39 @@ class GPUInferenceSession:
         """NVMLを使用して監視データを取得"""
         try:
             handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
-            
+
             # GPU使用率
             utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             monitoring_data.gpu_utilization_percent = float(utilization.gpu)
             monitoring_data.memory_utilization_percent = float(utilization.memory)
-            
+
             # メモリ情報
             memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
             monitoring_data.memory_total_mb = memory_info.total / (1024 ** 2)
             monitoring_data.memory_used_mb = memory_info.used / (1024 ** 2)
             monitoring_data.memory_free_mb = memory_info.free / (1024 ** 2)
-            
+
             # 温度情報
             try:
                 temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
                 monitoring_data.temperature_celsius = float(temperature)
             except:
                 pass
-            
+
             # 電力消費
             try:
                 power = pynvml.nvmlDeviceGetPowerUsage(handle)
                 monitoring_data.power_consumption_watts = power / 1000.0  # mWから変換
             except:
                 pass
-            
+
             # 実行中プロセス数
             try:
                 processes = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
                 monitoring_data.running_processes = len(processes)
             except:
                 pass
-                
+
             # コンピュートモード
             try:
                 compute_mode = pynvml.nvmlDeviceGetComputeMode(handle)
@@ -1459,7 +1459,7 @@ class GPUInferenceSession:
             # 複数の情報を一度に取得
             query_items = [
                 'utilization.gpu',
-                'utilization.memory', 
+                'utilization.memory',
                 'memory.total',
                 'memory.used',
                 'memory.free',
@@ -1467,17 +1467,17 @@ class GPUInferenceSession:
                 'power.draw'
             ]
             query_string = ','.join(query_items)
-            
+
             result = subprocess.run([
                 'nvidia-smi',
                 f'--query-gpu={query_string}',
                 '--format=csv,noheader,nounits',
                 f'--id={self.device_id}'
             ], capture_output=True, text=True, timeout=10)
-            
+
             if result.returncode == 0:
                 values = result.stdout.strip().split(', ')
-                
+
                 if len(values) >= 7:
                     monitoring_data.gpu_utilization_percent = self._safe_float_conversion(values[0])
                     monitoring_data.memory_utilization_percent = self._safe_float_conversion(values[1])
@@ -1488,7 +1488,7 @@ class GPUInferenceSession:
                     monitoring_data.power_consumption_watts = self._safe_float_conversion(values[6])
             else:
                 raise Exception(f"nvidia-smi実行失敗: {result.stderr}")
-                
+
         except Exception as e:
             raise Exception(f"nvidia-smi監視データ取得エラー: {e}")
 
@@ -1510,41 +1510,41 @@ class GPUInferenceSession:
             "warnings": [],
             "critical_alerts": []
         }
-        
+
         # 警告レベルのチェック
         if monitoring_data.gpu_utilization_percent > self.config.gpu_utilization_threshold:
             health_status["warnings"].append(
                 f"GPU使用率が高い: {monitoring_data.gpu_utilization_percent:.1f}%"
             )
-            
+
         if monitoring_data.memory_utilization_percent > self.config.gpu_memory_threshold:
             health_status["warnings"].append(
                 f"GPUメモリ使用率が高い: {monitoring_data.memory_utilization_percent:.1f}%"
             )
-            
+
         if monitoring_data.temperature_celsius > self.config.temperature_threshold:
             health_status["warnings"].append(
                 f"GPU温度が高い: {monitoring_data.temperature_celsius:.1f}°C"
             )
-            
+
         if monitoring_data.power_consumption_watts > self.config.power_threshold:
             health_status["warnings"].append(
                 f"GPU電力消費が高い: {monitoring_data.power_consumption_watts:.1f}W"
             )
-        
+
         # クリティカルレベルのチェック
         if monitoring_data.gpu_utilization_percent > 98.0:
             health_status["critical_alerts"].append("GPU使用率が限界に達しています")
-            
+
         if monitoring_data.memory_utilization_percent > 98.0:
             health_status["critical_alerts"].append("GPUメモリ使用率が限界に達しています")
-            
+
         if monitoring_data.temperature_celsius > 90.0:
             health_status["critical_alerts"].append("GPU温度が危険水準です")
-        
+
         if monitoring_data.has_errors:
             health_status["critical_alerts"].append(f"GPU監視エラー: {monitoring_data.error_message}")
-        
+
         return health_status
 
     def _estimate_tensor_ops(self, input_shape: Tuple[int, ...]) -> int:
@@ -1575,14 +1575,14 @@ class GPUInferenceSession:
             if self.tensorrt_engine:
                 self.tensorrt_engine.cleanup()
                 self.tensorrt_engine = None
-                
+
             # ONNX Runtimeセッションクリーンアップ
             if self.session:
                 del self.session
                 self.session = None
-                
+
             logger.debug(f"GPUセッションクリーンアップ完了: {self.model_name}")
-            
+
         except Exception as e:
             logger.error(f"GPUセッションクリーンアップエラー: {e}")
 
@@ -1607,7 +1607,7 @@ class GPUAcceleratedInferenceEngine:
         self.monitoring_data_history: Dict[int, List[GPUMonitoringData]] = {}
         self.monitoring_thread: Optional[threading.Thread] = None
         self.monitoring_stop_event = threading.Event()
-        
+
         # 監視データのバッファサイズ（最新N件を保持）
         self.monitoring_history_size = 100
 
@@ -1884,11 +1884,11 @@ class GPUAcceleratedInferenceEngine:
         if not self.monitoring_enabled:
             logger.info("GPU監視が無効化されています")
             return
-            
+
         if self.monitoring_thread and self.monitoring_thread.is_alive():
             logger.warning("GPU監視は既に実行中です")
             return
-            
+
         logger.info("リアルタイムGPU監視を開始")
         self.monitoring_stop_event.clear()
         self.monitoring_thread = threading.Thread(
@@ -1902,48 +1902,48 @@ class GPUAcceleratedInferenceEngine:
         """リアルタイムGPU監視停止"""
         if not self.monitoring_thread or not self.monitoring_thread.is_alive():
             return
-            
+
         logger.info("リアルタイムGPU監視を停止")
         self.monitoring_stop_event.set()
         self.monitoring_thread.join(timeout=5.0)
-        
+
         if self.monitoring_thread.is_alive():
             logger.warning("GPU監視スレッド停止タイムアウト")
 
     def _monitoring_worker(self):
         """GPU監視ワーカースレッド"""
         logger.debug("GPU監視ワーカースレッド開始")
-        
+
         # 各デバイスの監視データ履歴初期化
         for device_id in self.config.device_ids:
             self.monitoring_data_history[device_id] = []
-        
+
         interval_seconds = self.config.monitoring_interval_ms / 1000.0
-        
+
         while not self.monitoring_stop_event.wait(interval_seconds):
             try:
                 # 各GPUデバイスの監視データ収集
                 for device_id in self.config.device_ids:
                     # セッションからGPU監視データ取得
                     monitoring_data = self._collect_device_monitoring_data(device_id)
-                    
+
                     if monitoring_data:
                         # 履歴に追加
                         self.monitoring_data_history[device_id].append(monitoring_data)
-                        
+
                         # 履歴サイズ制限
                         if len(self.monitoring_data_history[device_id]) > self.monitoring_history_size:
                             self.monitoring_data_history[device_id].pop(0)
-                        
+
                         # 健全性チェック
                         health_status = self._check_device_health(device_id, monitoring_data)
-                        
+
                         # 警告・アラートのログ出力
                         self._handle_monitoring_alerts(device_id, health_status)
-                        
+
             except Exception as e:
                 logger.error(f"GPU監視ワーカーエラー: {e}")
-        
+
         logger.debug("GPU監視ワーカースレッド終了")
 
     def _collect_device_monitoring_data(self, device_id: int) -> Optional[GPUMonitoringData]:
@@ -1955,13 +1955,13 @@ class GPUAcceleratedInferenceEngine:
                 if self.session_device_mapping.get(model_name) == device_id:
                     session = sess
                     break
-            
+
             if session:
                 return session.get_comprehensive_gpu_monitoring()
             else:
                 # セッションがない場合は基本的な監視データのみ
                 return self._get_basic_device_monitoring(device_id)
-                
+
         except Exception as e:
             logger.debug(f"デバイス{device_id}の監視データ収集エラー: {e}")
             return None
@@ -1972,11 +1972,11 @@ class GPUAcceleratedInferenceEngine:
             device_id=device_id,
             timestamp=time.time()
         )
-        
+
         try:
             if PYNVML_AVAILABLE:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-                
+
                 # GPU使用率
                 try:
                     utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
@@ -1984,7 +1984,7 @@ class GPUAcceleratedInferenceEngine:
                     monitoring_data.memory_utilization_percent = float(utilization.memory)
                 except:
                     pass
-                
+
                 # メモリ情報
                 try:
                     memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
@@ -1993,25 +1993,25 @@ class GPUAcceleratedInferenceEngine:
                     monitoring_data.memory_free_mb = memory_info.free / (1024 ** 2)
                 except:
                     pass
-                
+
                 # 温度
                 try:
                     temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
                     monitoring_data.temperature_celsius = float(temperature)
                 except:
                     pass
-                    
+
                 # 電力
                 try:
                     power = pynvml.nvmlDeviceGetPowerUsage(handle)
                     monitoring_data.power_consumption_watts = power / 1000.0
                 except:
                     pass
-                    
+
         except Exception as e:
             monitoring_data.has_errors = True
             monitoring_data.error_message = str(e)
-        
+
         return monitoring_data
 
     def _check_device_health(self, device_id: int, monitoring_data: GPUMonitoringData) -> Dict[str, Any]:
@@ -2023,41 +2023,41 @@ class GPUAcceleratedInferenceEngine:
             "warnings": [],
             "critical_alerts": []
         }
-        
+
         # 警告レベルチェック
         if monitoring_data.gpu_utilization_percent > self.config.gpu_utilization_threshold:
             health_status["warnings"].append(
                 f"GPU使用率が閾値を超過: {monitoring_data.gpu_utilization_percent:.1f}% > {self.config.gpu_utilization_threshold}%"
             )
-            
+
         if monitoring_data.memory_utilization_percent > self.config.gpu_memory_threshold:
             health_status["warnings"].append(
                 f"GPUメモリ使用率が閾値を超過: {monitoring_data.memory_utilization_percent:.1f}% > {self.config.gpu_memory_threshold}%"
             )
-            
+
         if monitoring_data.temperature_celsius > self.config.temperature_threshold:
             health_status["warnings"].append(
                 f"GPU温度が閾値を超過: {monitoring_data.temperature_celsius:.1f}°C > {self.config.temperature_threshold}°C"
             )
-            
+
         if monitoring_data.power_consumption_watts > self.config.power_threshold:
             health_status["warnings"].append(
                 f"GPU電力消費が閾値を超過: {monitoring_data.power_consumption_watts:.1f}W > {self.config.power_threshold}W"
             )
-        
+
         # クリティカルアラート
         if monitoring_data.gpu_utilization_percent > 98.0:
             health_status["critical_alerts"].append("GPU使用率が限界レベル (>98%)")
-            
+
         if monitoring_data.memory_utilization_percent > 98.0:
             health_status["critical_alerts"].append("GPUメモリ使用率が限界レベル (>98%)")
-            
+
         if monitoring_data.temperature_celsius > 90.0:
             health_status["critical_alerts"].append("GPU温度が危険レベル (>90°C)")
-            
+
         if monitoring_data.has_errors:
             health_status["critical_alerts"].append(f"GPU監視エラー: {monitoring_data.error_message}")
-        
+
         return health_status
 
     def _handle_monitoring_alerts(self, device_id: int, health_status: Dict[str, Any]):
@@ -2065,7 +2065,7 @@ class GPUAcceleratedInferenceEngine:
         # 警告ログ出力
         for warning in health_status["warnings"]:
             logger.warning(f"GPU {device_id} 警告: {warning}")
-        
+
         # クリティカルアラートログ出力
         for alert in health_status["critical_alerts"]:
             logger.error(f"GPU {device_id} クリティカル: {alert}")
@@ -2092,38 +2092,38 @@ class GPUAcceleratedInferenceEngine:
                 "total_power_consumption": 0.0
             }
         }
-        
+
         gpu_utils = []
         memory_utils = []
         temperatures = []
         power_consumptions = []
-        
+
         for device_id in self.config.device_ids:
             history = self.monitoring_data_history.get(device_id, [])
             if history:
                 latest_data = history[-1]
                 snapshot["devices"][device_id] = latest_data.to_dict()
-                
+
                 # サマリ統計用
                 gpu_utils.append(latest_data.gpu_utilization_percent)
                 memory_utils.append(latest_data.memory_utilization_percent)
                 temperatures.append(latest_data.temperature_celsius)
                 power_consumptions.append(latest_data.power_consumption_watts)
-                
+
                 if latest_data.is_healthy:
                     snapshot["summary"]["healthy_devices"] += 1
                 if latest_data.is_overloaded:
                     snapshot["summary"]["overloaded_devices"] += 1
                 if latest_data.has_errors:
                     snapshot["summary"]["devices_with_errors"] += 1
-        
+
         # サマリ統計計算
         if gpu_utils:
             snapshot["summary"]["avg_gpu_utilization"] = np.mean(gpu_utils)
             snapshot["summary"]["avg_memory_utilization"] = np.mean(memory_utils)
             snapshot["summary"]["avg_temperature"] = np.mean(temperatures)
             snapshot["summary"]["total_power_consumption"] = np.sum(power_consumptions)
-        
+
         return snapshot
 
     def cleanup(self):
