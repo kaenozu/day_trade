@@ -217,16 +217,42 @@ def get_context_logger(name: str, component: str = None, **kwargs) -> ContextLog
     return ContextLogger(logger, kwargs)
 
 
-def log_error_with_context(error: Exception, context: Dict[str, Any]):
+def log_error_with_context(error: Exception, context: Dict[str, Any], source_module: str = None):
     """
-    コンテキスト付きでエラーをログ出力
+    コンテキスト付きでエラーをログ出力 - Issue #628対応
 
     Args:
         error: エラーオブジェクト
         context: コンテキスト情報
+        source_module: エラー発生源のモジュール名（Noneの場合は呼び出し元を自動検出）
     """
-    logger = logging.getLogger(__name__)
-    logger.error(f"Error occurred: {error}. Context: {context}", exc_info=True)
+    # Issue #628対応: エラーの実際の発生源を特定
+    if source_module is None:
+        # 呼び出し元のフレーム情報を取得
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            # 呼び出し元のフレームを取得（2つ上のフレーム）
+            caller_frame = frame.f_back.f_back if frame.f_back else frame.f_back
+            if caller_frame:
+                source_module = caller_frame.f_globals.get('__name__', __name__)
+            else:
+                source_module = __name__
+        finally:
+            del frame  # メモリリーク防止
+
+    logger = logging.getLogger(source_module)
+
+    # エラー情報を詳細化
+    error_info = {
+        'error_type': type(error).__name__,
+        'error_message': str(error),
+        'source_module': source_module,
+        'context': context
+    }
+
+    logger.error(f"Error in {source_module}: {type(error).__name__}: {error}. Context: {context}",
+                extra=error_info, exc_info=True)
 
 
 def log_database_operation(operation: str, duration: float = 0.0, **kwargs) -> None:
@@ -297,3 +323,89 @@ def log_performance_metric(
     log_data = {"metric_name": metric_name, "value": value, "unit": unit, **kwargs}
 
     logger.info(f"Performance metric: {metric_name}={value}{unit}", extra=log_data)
+
+
+def get_caller_info(skip_frames: int = 2) -> Dict[str, Any]:
+    """
+    呼び出し元の詳細情報を取得 - Issue #628対応
+
+    Args:
+        skip_frames: スキップするフレーム数（デフォルト2：この関数と直接の呼び出し元をスキップ）
+
+    Returns:
+        呼び出し元情報の辞書
+    """
+    import inspect
+
+    try:
+        # フレームスタックを取得
+        stack = inspect.stack()
+
+        if len(stack) > skip_frames:
+            caller_frame = stack[skip_frames]
+            return {
+                'module_name': caller_frame.frame.f_globals.get('__name__', 'unknown'),
+                'function_name': caller_frame.function,
+                'filename': caller_frame.filename,
+                'line_number': caller_frame.lineno,
+                'code_context': caller_frame.code_context[0].strip() if caller_frame.code_context else None
+            }
+        else:
+            return {
+                'module_name': 'unknown',
+                'function_name': 'unknown',
+                'filename': 'unknown',
+                'line_number': 0,
+                'code_context': None
+            }
+    except Exception as e:
+        # フレーム取得に失敗した場合のフォールバック
+        return {
+            'module_name': 'error_getting_caller_info',
+            'function_name': 'unknown',
+            'filename': 'unknown',
+            'line_number': 0,
+            'code_context': None,
+            'caller_info_error': str(e)
+        }
+
+
+def log_error_with_enhanced_context(error: Exception, context: Dict[str, Any] = None, include_caller_info: bool = True):
+    """
+    拡張コンテキスト付きエラーログ出力 - Issue #628対応
+
+    Args:
+        error: エラーオブジェクト
+        context: 追加のコンテキスト情報
+        include_caller_info: 呼び出し元情報を含めるかどうか
+    """
+    context = context or {}
+
+    # 呼び出し元情報を取得
+    if include_caller_info:
+        caller_info = get_caller_info(skip_frames=2)
+        source_module = caller_info['module_name']
+    else:
+        caller_info = {}
+        source_module = __name__
+
+    logger = logging.getLogger(source_module)
+
+    # 拡張エラー情報を構築（LogRecordと重複するキーを避ける）
+    enhanced_info = {
+        'error_type': type(error).__name__,
+        'error_message': str(error),
+        'source_module': source_module,
+        'context': context,
+        'caller_module': caller_info.get('module_name'),
+        'caller_function': caller_info.get('function_name'),
+        'caller_file': caller_info.get('filename'),  # filenameではなくcaller_fileを使用
+        'caller_line': caller_info.get('line_number'),
+        'caller_context': caller_info.get('code_context')
+    }
+
+    # ログメッセージを構築
+    location_info = f"{caller_info.get('filename', 'unknown')}:{caller_info.get('line_number', 0)}" if include_caller_info else source_module
+    message = f"Error in {location_info} [{caller_info.get('function_name', 'unknown')}]: {type(error).__name__}: {error}"
+
+    logger.error(message, extra=enhanced_info, exc_info=True)
