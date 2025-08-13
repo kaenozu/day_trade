@@ -475,51 +475,73 @@ class RealMarketDataManager:
             logger.warning(f"現在価格取得失敗: {symbol} - フォールバック価格を使用: {fallback_price}円")
             return fallback_price
 
-    def generate_statistical_trend_score(self, data: pd.DataFrame) -> Tuple[float, float]:
+    def calculate_trend_strength_score(
+        self, 
+        data: pd.DataFrame, 
+        params: Optional[Dict[str, any]] = None
+    ) -> Tuple[float, float]:
         """
-        統計的トレンドスコア生成 - Issue #618対応: 名前変更とパラメータ化
+        Issue #618対応: トレンド強度スコア計算（旧generate_statistical_trend_score）
+        Issue #620対応: パラメータ化とユーティリティ関数最適化
         
         Args:
             data: 価格データ
+            params: 計算パラメータ辞書
+                - short_window: 短期移動平均期間 (default: 5)
+                - long_window: 長期移動平均期間 (default: 20)
+                - trend_threshold: トレンド判定閾値% (default: 2.0)
+                - score_weights: スコア重み辞書
             
         Returns:
             Tuple[float, float]: (スコア, 信頼度)
         """
+        # Issue #620対応: 統一されたデフォルトパラメータ管理
+        default_params = {
+            "short_window": 5,
+            "long_window": 20, 
+            "trend_threshold": 2.0,
+            "score_weights": {"price_vs_short": 15, "price_vs_long": 15, "ma_cross": 10, "recent_trend": 10}
+        }
+        calc_params = {**default_params, **(params or {})}
         if data is None or len(data) < 20:
             return 50.0, 0.5
 
         try:
-            # 実データに基づく計算
+            # Issue #620対応: パラメータ化された計算ロジック
             close_prices = data["Close"]
+            short_win = calc_params["short_window"]
+            long_win = calc_params["long_window"]
+            threshold = calc_params["trend_threshold"]
+            weights = calc_params["score_weights"]
 
-            # 短期・長期移動平均
-            sma_5 = close_prices.rolling(window=5).mean()
-            sma_20 = close_prices.rolling(window=20).mean()
+            # 動的移動平均計算
+            sma_short = close_prices.rolling(window=short_win).mean()
+            sma_long = close_prices.rolling(window=long_win).mean()
 
-            # 現在の価格位置
+            # 現在値
             current_price = close_prices.iloc[-1]
-            sma5_current = sma_5.iloc[-1]
-            sma20_current = sma_20.iloc[-1]
+            sma_short_current = sma_short.iloc[-1]
+            sma_long_current = sma_long.iloc[-1]
 
-            # スコア計算
-            score = 50.0  # ベースライン
+            # 基準スコア
+            score = 50.0
 
-            # 移動平均との関係
-            if current_price > sma5_current:
-                score += 15
-            if current_price > sma20_current:
-                score += 15
-            if sma5_current > sma20_current:
-                score += 10
+            # パラメータ化されたスコア計算
+            if current_price > sma_short_current:
+                score += weights["price_vs_short"]
+            if current_price > sma_long_current:
+                score += weights["price_vs_long"]
+            if sma_short_current > sma_long_current:
+                score += weights["ma_cross"]
 
-            # 最近のトレンド
+            # 動的トレンド判定
             recent_trend = (
-                (current_price - close_prices.iloc[-5]) / close_prices.iloc[-5] * 100
+                (current_price - close_prices.iloc[-short_win]) / close_prices.iloc[-short_win] * 100
             )
-            if recent_trend > 2:
-                score += 10
-            elif recent_trend < -2:
-                score -= 10
+            if recent_trend > threshold:
+                score += weights["recent_trend"]
+            elif recent_trend < -threshold:
+                score -= weights["recent_trend"]
 
             # スコアを0-100に正規化
             score = max(0, min(100, score))
@@ -536,25 +558,40 @@ class RealMarketDataManager:
             logger.debug(f"統計的トレンドスコア計算エラー詳細: {str(e)}", exc_info=True)
             return error_info['score'], error_info['confidence']
 
-    def generate_statistical_volatility_score(self, data: pd.DataFrame) -> Tuple[float, float]:
-        """統計的ボラティリティスコア生成 - Issue #618対応: 名前変更"""
+    def calculate_volatility_risk_score(
+        self, 
+        data: pd.DataFrame,
+        params: Optional[Dict[str, any]] = None
+    ) -> Tuple[float, float]:
+        """
+        Issue #618対応: ボラティリティリスクスコア計算（旧generate_statistical_volatility_score）
+        Issue #620対応: パラメータ化とリスク指標の明確化
+        """
+        # デフォルトパラメータ
+        default_params = {"vol_window": 30, "annualize_factor": 252, "vol_threshold": 0.6}
+        calc_params = {**default_params, **(params or {})}
         if data is None or len(data) < 20:
             return 50.0, 0.5
 
         try:
             close_prices = data["Close"]
+            vol_window = calc_params["vol_window"]
+            annualize_factor = calc_params["annualize_factor"]
+            vol_threshold = calc_params["vol_threshold"]
 
-            # ボラティリティ計算
+            # パラメータ化されたボラティリティ計算
             returns = close_prices.pct_change().dropna()
-            volatility = returns.std() * np.sqrt(252)  # 年率ボラティリティ
+            if len(returns) < vol_window:
+                volatility = returns.std() * np.sqrt(annualize_factor)  # 全期間
+            else:
+                volatility = returns.tail(vol_window).std() * np.sqrt(annualize_factor)  # 指定期間
 
-            # ボラティリティを0-100スコアに変換
-            # 一般的な株式ボラティリティ: 0.1-0.8 程度
-            normalized_vol = min(1.0, volatility / 0.6)
+            # 動的正規化
+            normalized_vol = min(1.0, volatility / vol_threshold)
             score = normalized_vol * 100
 
-            # 信頼度
-            confidence = min(0.9, len(returns) / 30.0 * 0.7 + 0.3)
+            # 信頼度（データ量とパラメータ品質に基づく）
+            confidence = min(0.9, len(returns) / vol_window * 0.7 + 0.3)
 
             return round(score, 1), round(confidence, 2)
 
@@ -565,8 +602,23 @@ class RealMarketDataManager:
             logger.debug(f"統計的ボラティリティスコア計算エラー詳細: {str(e)}", exc_info=True)
             return error_info['score'], error_info['confidence']
 
-    def generate_statistical_pattern_score(self, data: pd.DataFrame) -> Tuple[float, float]:
-        """統計的パターンスコア生成 - Issue #618対応: 名前変更"""
+    def calculate_pattern_recognition_score(
+        self, 
+        data: pd.DataFrame,
+        params: Optional[Dict[str, any]] = None
+    ) -> Tuple[float, float]:
+        """
+        Issue #618対応: パターン認識スコア計算（旧generate_statistical_pattern_score）
+        Issue #620対応: パラメータ化による柔軟なパターン検出
+        """
+        # デフォルトパラメータ
+        default_params = {
+            "pattern_window": 20,
+            "support_resistance_threshold": 0.02,
+            "breakout_threshold": 0.03,
+            "pattern_weights": {"support": 20, "resistance": 20, "breakout": 15, "trend": 10}
+        }
+        calc_params = {**default_params, **(params or {})}
         if data is None or len(data) < 20:
             return 50.0, 0.5
 
