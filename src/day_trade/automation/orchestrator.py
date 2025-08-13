@@ -23,6 +23,7 @@ from ..config.trading_mode_config import get_current_trading_config, is_safe_mod
 from ..core.portfolio import PortfolioManager
 from ..data.stock_fetcher import StockFetcher
 from ..models.database import get_default_database_manager
+# FaultTolerantExecutor は利用できないため、基本的なエラーハンドリングを使用
 from ..utils.logging_config import get_context_logger
 from ..utils.performance_monitor import PerformanceMonitor
 from ..utils.stock_name_helper import get_stock_helper, format_stock_display
@@ -211,8 +212,14 @@ class NextGenAIOrchestrator:
         else:
             self.performance_monitor = None
 
-        # フォールトトレラント実行（FaultTolerantExecutorクラスが存在しないため無効化）
-        self.fault_executor = None  # 一時的に無効化
+        # フォールトトレラント実行（基本的なエラーハンドリング）
+        if self.config.enable_fault_tolerance:
+            self.fault_executor = {
+                "max_retries": self.config.retry_attempts,
+                "timeout_seconds": self.config.timeout_seconds,
+            }
+        else:
+            self.fault_executor = None
 
         # 並列実行マネージャー (Issue #383)
         if self.config.enable_parallel_optimization and PARALLEL_EXECUTOR_AVAILABLE:
@@ -246,8 +253,11 @@ class NextGenAIOrchestrator:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.parallel_manager:
-            self.parallel_manager.shutdown()
+        """コンテキストマネージャー終了時の包括的リソースクリーンアップ - Issue #589対応"""
+        try:
+            self.cleanup()
+        except Exception as e:
+            logger.error(f"__exit__ クリーンアップエラー: {e}")
 
     def _execute_parallel_analysis(
         self,
@@ -1331,9 +1341,18 @@ class NextGenAIOrchestrator:
         }
 
     def cleanup(self):
-        """リソースクリーンアップ"""
+        """リソースクリーンアップ - Issue #589対応改善版"""
 
         logger.info("Next-Gen AI Orchestrator クリーンアップ開始")
+
+        cleanup_summary = {
+            "analysis_engines": 0,
+            "batch_fetcher": False,
+            "ml_engine": False,
+            "parallel_manager": False,
+            "performance_monitor": False,
+            "errors": []
+        }
 
         try:
             # 分析エンジンクリーンアップ
@@ -1341,24 +1360,116 @@ class NextGenAIOrchestrator:
                 try:
                     if hasattr(engine, "stop"):
                         engine.stop()
+                    if hasattr(engine, "close"):
+                        engine.close()
+                    if hasattr(engine, "cleanup"):
+                        engine.cleanup()
+                    cleanup_summary["analysis_engines"] += 1
                     logger.debug(f"エンジン {symbol} クリーンアップ完了")
                 except Exception as e:
-                    logger.warning(f"エンジン {symbol} クリーンアップエラー: {e}")
+                    error_msg = f"エンジン {symbol} クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
 
             self.analysis_engines.clear()
 
+            # MLエンジンクリーンアップ
+            if hasattr(self, 'ml_engine') and self.ml_engine:
+                try:
+                    # PyTorchモデルのクリーンアップ
+                    if hasattr(self.ml_engine, "model") and self.ml_engine.model:
+                        if hasattr(self.ml_engine.model, "cpu"):
+                            self.ml_engine.model.cpu()
+                        del self.ml_engine.model
+
+                    # その他のリソースクリーンアップ
+                    if hasattr(self.ml_engine, "close"):
+                        self.ml_engine.close()
+                    if hasattr(self.ml_engine, "cleanup"):
+                        self.ml_engine.cleanup()
+
+                    # パフォーマンス履歴クリア
+                    if hasattr(self.ml_engine, "performance_history"):
+                        self.ml_engine.performance_history.clear()
+
+                    self.ml_engine = None
+                    cleanup_summary["ml_engine"] = True
+                    logger.debug("MLエンジン クリーンアップ完了")
+                except Exception as e:
+                    error_msg = f"MLエンジン クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
+
             # バッチフェッチャークリーンアップ
-            if self.batch_fetcher:
+            if hasattr(self, 'batch_fetcher') and self.batch_fetcher:
                 try:
                     self.batch_fetcher.close()
+                    self.batch_fetcher = None
+                    cleanup_summary["batch_fetcher"] = True
                     logger.debug("バッチフェッチャー クリーンアップ完了")
                 except Exception as e:
-                    logger.warning(f"バッチフェッチャー クリーンアップエラー: {e}")
+                    error_msg = f"バッチフェッチャー クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
 
-            logger.info("Next-Gen AI Orchestrator クリーンアップ完了")
+            # 並列マネージャークリーンアップ
+            if hasattr(self, 'parallel_manager') and self.parallel_manager:
+                try:
+                    self.parallel_manager.shutdown()
+                    self.parallel_manager = None
+                    cleanup_summary["parallel_manager"] = True
+                    logger.debug("並列マネージャー クリーンアップ完了")
+                except Exception as e:
+                    error_msg = f"並列マネージャー クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
+
+            # パフォーマンスモニタークリーンアップ
+            if hasattr(self, 'performance_monitor') and self.performance_monitor:
+                try:
+                    if hasattr(self.performance_monitor, "stop"):
+                        self.performance_monitor.stop()
+                    if hasattr(self.performance_monitor, "close"):
+                        self.performance_monitor.close()
+                    self.performance_monitor = None
+                    cleanup_summary["performance_monitor"] = True
+                    logger.debug("パフォーマンスモニター クリーンアップ完了")
+                except Exception as e:
+                    error_msg = f"パフォーマンスモニター クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
+
+            # ストックフェッチャークリーンアップ
+            if hasattr(self, 'stock_fetcher') and self.stock_fetcher:
+                try:
+                    if hasattr(self.stock_fetcher, "close"):
+                        self.stock_fetcher.close()
+                    self.stock_fetcher = None
+                    logger.debug("ストックフェッチャー クリーンアップ完了")
+                except Exception as e:
+                    error_msg = f"ストックフェッチャー クリーンアップエラー: {e}"
+                    logger.warning(error_msg)
+                    cleanup_summary["errors"].append(error_msg)
+
+            # 実行履歴クリア
+            if hasattr(self, 'execution_history'):
+                self.execution_history.clear()
+
+            # ガベージコレクション強制実行（メモリリーク防止）
+            import gc
+            gc.collect()
+
+            # クリーンアップサマリーログ
+            if cleanup_summary["errors"]:
+                logger.warning(f"クリーンアップ完了（エラー{len(cleanup_summary['errors'])}件あり）: {cleanup_summary}")
+            else:
+                logger.info(f"Next-Gen AI Orchestrator クリーンアップ完了: {cleanup_summary}")
 
         except Exception as e:
-            logger.error(f"クリーンアップエラー: {e}")
+            logger.error(f"クリーンアップ致命的エラー: {e}")
+            cleanup_summary["errors"].append(f"致命的エラー: {e}")
+
+        return cleanup_summary
 
 
 # 後方互換性のためのエイリアス
