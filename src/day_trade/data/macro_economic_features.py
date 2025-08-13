@@ -33,6 +33,11 @@ class MacroEconomicFeatures:
         }
         self.macro_cache = {}
 
+        # センチメントスコアの乗数 (Issue #555対応)
+        self.vix_sentiment_multiplier = 5
+        self.equity_sentiment_multiplier = 2
+        self.fx_sentiment_multiplier = 1
+
     def get_macro_data(self, symbol: str, period: str = "1y") -> Optional[pd.DataFrame]:
         """マクロ経済指標データ取得"""
         try:
@@ -199,19 +204,22 @@ class MacroEconomicFeatures:
             if vix_data is not None:
                 current_vix = vix_data["Close"].iloc[-1]
                 vix_avg = vix_data["Close"].mean()
-                sentiment_scores["vix_sentiment"] = max(0, min(100, 100 - (current_vix - vix_avg) * 5))
+                # Issue #555対応: 乗数を外部化
+                sentiment_scores["vix_sentiment"] = max(0, min(100, 100 - (current_vix - vix_avg) * self.vix_sentiment_multiplier))
 
             # 株式市場センチメント（S&P500）
             sp500_data = self.get_macro_data(self.macro_symbols['sp500'], period="3mo")
             if sp500_data is not None:
                 sp500_returns = sp500_data["Close"].pct_change(20).iloc[-1] * 100
-                sentiment_scores["equity_sentiment"] = max(0, min(100, 50 + sp500_returns * 2))
+                # Issue #555対応: 乗数を外部化
+                sentiment_scores["equity_sentiment"] = max(0, min(100, 50 + sp500_returns * self.equity_sentiment_multiplier))
 
             # 為替センチメント（ドル強弱）
             usdjpy_data = self.get_macro_data(self.macro_symbols['usdjpy'], period="3mo")
             if usdjpy_data is not None:
                 usdjpy_change = usdjpy_data["Close"].pct_change(20).iloc[-1] * 100
-                sentiment_scores["fx_sentiment"] = max(0, min(100, 50 + usdjpy_change))
+                # Issue #555対応: 乗数を外部化
+                sentiment_scores["fx_sentiment"] = max(0, min(100, 50 + usdjpy_change * self.fx_sentiment_multiplier))
 
             # 総合センチメント
             if sentiment_scores:
