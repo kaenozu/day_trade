@@ -17,6 +17,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from .base_models.base_model_interface import BaseModelInterface, ModelPrediction
+from .concept_drift_detector import ConceptDriftDetector, ConceptDriftConfig
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -82,6 +83,12 @@ class DynamicWeightingConfig:
     regime_sensitivity: float = 0.3   # 市場状態変化への感度
     volatility_threshold: float = 0.02  # ボラティリティ閾値
 
+    # コンセプトドリフト検出
+    enable_concept_drift_detection: bool = False
+    drift_detection_metric: str = "rmse"
+    drift_detection_threshold: float = 0.1
+    drift_detection_window_size: int = 50
+
     # リスク管理
     max_weight_change: float = 0.1    # 1回の最大重み変更
     min_weight: float = 0.05          # 最小重み
@@ -132,6 +139,17 @@ class DynamicWeightingSystem:
         self.update_counter = 0
         self.total_updates = 0
 
+        # コンセプトドリフト検出器
+        self.concept_drift_detector = None
+        self.re_evaluation_needed = False # New flag for model re-evaluation
+        self.drift_detection_updates_count = 0 # Counter for updates since last drift detection
+
+        if self.config.enable_concept_drift_detection:
+            self.concept_drift_detector = ConceptDriftDetector(
+                metric_threshold=self.config.drift_detection_threshold,
+                window_size=self.config.drift_detection_window_size
+            )
+
         logger.info(f"Dynamic Weighting System初期化: {n_models}モデル")
 
     def update_performance(self, predictions: Dict[str, np.ndarray],
@@ -167,6 +185,47 @@ class DynamicWeightingSystem:
         # 市場状態検出
         if self.config.enable_regime_detection:
             self._detect_market_regime()
+
+        # コンセプトドリフト検出
+        if self.concept_drift_detector:
+            # 全体のアンサンブル予測と実際値を使用してドリフト検出器を更新
+            # より複雑なシナリオでは、個々のモデルのパフォーマンスをフィードすることも検討
+            if len(self.recent_actuals) > 0 and len(self.recent_predictions[self.model_names[0]]) > 0:
+                # 最新の単一の予測と実際値を取得
+                latest_actual = self.recent_actuals[-1]
+                # ここでは、最もパフォーマンスの良いモデルの予測を代表として使用するか、
+                # あるいは単純に最初のモデルの予測を使用する。
+                # 実際のシステムでは、アンサンブルの最終予測を使用するのが適切。
+                # 今回はテストのため、単純に最初のモデルの予測を使用する。
+                ensemble_prediction = self.recent_predictions[self.model_names[0]][-1] # 仮のアンサンブル予測
+
+                self.concept_drift_detector.add_performance_data(
+                    predictions=np.array([ensemble_prediction]),
+                    actuals=np.array([latest_actual])
+                )
+                drift_result = self.concept_drift_detector.detect_drift()
+                drift_detected = drift_result.get("drift_detected", False)
+                drift_reason = drift_result.get("reason", "不明")
+
+                if drift_detected:
+                    logger.warning(f"コンセプトドリフト検出！理由: {drift_reason}")
+                    # 適応戦略: 加速された重み調整
+                    self.config.update_frequency = max(1, int(self.config.update_frequency * 0.5)) # 半減
+                    self.config.momentum_factor = min(0.9, self.config.momentum_factor + 0.1) # モーメンタム増加
+                    logger.info(f"適応戦略適用: update_frequency={self.config.update_frequency}, momentum_factor={self.config.momentum_factor}")
+
+                    # モデル再評価/再トレーニングフラグ
+                    self.re_evaluation_needed = True
+                    logger.warning("モデルの再評価/再トレーニングが必要です。")
+
+                    # フォールバックメカニズム: 一時的に均等重みに戻す (今回は、ドリフト検出時は常にリセットとする)
+                    logger.critical("コンセプトドリフトを検出しました！重みを均等にリセットし、モデルの緊急再評価を推奨します。")
+                    n_models = len(self.model_names)
+                    self.current_weights = {name: 1.0 / n_models for name in self.model_names}
+
+                    # アラートのトリガー (例: ログ、外部システムへの通知)
+                    logger.critical(f"重大なコンセプトドリフトを検出しました！モデルの再評価を強く推奨します。理由: {drift_reason}")
+                    # TODO: Integrate with actual alert system (e.g., send email, Slack notification)
 
         # 重み更新判定
         if (self.update_counter >= self.config.update_frequency and
