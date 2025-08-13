@@ -9,20 +9,13 @@ API キー管理・URL 構築・エラー詳細の改善
 - 機密情報漏洩防止エラーハンドリング
 """
 
-import asyncio
-import hashlib
-import hmac
 import re
 import secrets
-import time
 import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
-
-import aiohttp
-from aiohttp import ClientError, ClientTimeout
+from typing import Any, Dict, List, Optional
 
 from ..utils.logging_config import get_context_logger
 from ..utils.security_helpers import SecurityHelpers
@@ -454,7 +447,7 @@ class SecureURLBuilder:
                 raise ValueError(f"ブロックされたパスパターンを検出: {blocked_path}")
 
         # 危険文字チェック
-        dangerous_chars = ["<", ">", '"', "'", "&", "\0", "\n", "\r"]
+        dangerous_chars = ["<", ">", "\"", "'", "&", "\0", "\n", "\r"]
         for char in dangerous_chars:
             if char in value:
                 raise ValueError(f"危険な文字を検出: {char}")
@@ -567,7 +560,7 @@ class SecureErrorHandler:
         if len(sanitized_msg) < len(original_msg):
             # 機密情報が除去された場合は汎用メッセージ
             logger.warning(f"エラーメッセージから機密情報を除去: {error_type}")
-            return f"{safe_msg}（詳細はシステムログを確認してください）"
+            return f"{safe_msg} (詳細はシステムログを確認してください)"
         else:
             # 安全と判断される場合は詳細を含める
             return f"{safe_msg}: {sanitized_msg}"

@@ -146,7 +146,7 @@ class DataDriftDetector:
         try:
             # Issue #713対応: データサイズに応じた保存形式の自動選択
             total_data_size = self._estimate_data_size()
-            
+
             if format == 'auto':
                 # 100MB以上の場合はバイナリ形式を使用
                 if total_data_size > 100 * 1024 * 1024:  # 100MB
@@ -154,7 +154,7 @@ class DataDriftDetector:
                     logger.info(f"大規模データ検出 ({total_data_size / 1024 / 1024:.1f}MB), joblib形式で保存します")
                 else:
                     format = 'json'
-            
+
             if format == 'json':
                 self._save_as_json(file_path)
             elif format == 'pickle':
@@ -169,9 +169,9 @@ class DataDriftDetector:
                 self._save_as_joblib(file_path)
             else:
                 raise ValueError(f"サポートされていない保存形式: {format}")
-                
+
             logger.info(f"ベースライン統計情報を '{file_path}' ({format}形式) に保存しました。")
-            
+
         except Exception as e:
             logger.error(f"ベースライン統計情報の保存中にエラーが発生しました: {e}")
 
@@ -227,7 +227,7 @@ class DataDriftDetector:
             # Issue #713対応: ファイル形式の自動判定
             if format == 'auto':
                 format = self._detect_file_format(file_path)
-            
+
             if format == 'json':
                 loaded_stats = self._load_from_json(file_path)
             elif format == 'pickle':
@@ -242,10 +242,10 @@ class DataDriftDetector:
                 loaded_stats = self._load_from_joblib(file_path)
             else:
                 raise ValueError(f"サポートされていない読み込み形式: {format}")
-            
+
             self.baseline_stats = loaded_stats
             logger.info(f"ベースライン統計情報を '{file_path}' ({format}形式) から読み込みました。")
-            
+
         except FileNotFoundError:
             logger.warning(f"ベースラインファイル '{file_path}' が見つかりません。")
         except Exception as e:
@@ -255,7 +255,7 @@ class DataDriftDetector:
         """ファイル拡張子から形式を自動判定"""
         import os
         _, ext = os.path.splitext(file_path.lower())
-        
+
         if ext == '.json':
             return 'json'
         elif ext in ['.pkl', '.pickle']:
@@ -275,7 +275,7 @@ class DataDriftDetector:
         for _feature, stat in loaded_stats.items():
             if "values" in stat:
                 stat["values"] = np.array(stat["values"])
-                
+
         return loaded_stats
 
     def _load_from_pickle(self, file_path: str) -> dict:
@@ -296,22 +296,22 @@ class DataDriftDetector:
     def get_baseline_info(self) -> dict:
         """
         Issue #713対応: ベースライン統計情報のサマリーを取得
-        
+
         Returns:
             dict: ベースライン情報のサマリー
         """
         if not self.baseline_stats:
             return {"status": "no_baseline_data"}
-        
+
         total_size = self._estimate_data_size()
         feature_count = len(self.baseline_stats)
-        
+
         # 各特徴量のデータサイズ
         feature_sizes = {}
         for feature, stats in self.baseline_stats.items():
             if "values" in stats and hasattr(stats["values"], 'nbytes'):
                 feature_sizes[feature] = stats["values"].nbytes
-        
+
         return {
             "feature_count": feature_count,
             "total_data_size_mb": total_size / (1024 * 1024),
@@ -322,19 +322,19 @@ class DataDriftDetector:
     def save_baseline_optimized(self, base_path: str) -> dict:
         """
         Issue #713対応: 最適化された保存（大規模データ対応）
-        
+
         Args:
             base_path (str): ベースパス（拡張子は自動設定）
-            
+
         Returns:
             dict: 保存結果の情報
         """
         if not self.baseline_stats:
             raise ValueError("保存するベースラインデータがありません")
-            
+
         info = self.get_baseline_info()
         recommended_format = info["recommended_format"]
-        
+
         # 拡張子を自動設定
         if recommended_format == "json":
             file_path = f"{base_path}.json"
@@ -342,18 +342,18 @@ class DataDriftDetector:
             file_path = f"{base_path}.joblib"
         else:
             file_path = f"{base_path}.pkl"
-        
+
         import time
         start_time = time.time()
-        
+
         self.save_baseline(file_path, format=recommended_format)
-        
+
         save_time = time.time() - start_time
-        
+
         # ファイルサイズを取得
         import os
         file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-        
+
         return {
             "file_path": file_path,
             "format_used": recommended_format,

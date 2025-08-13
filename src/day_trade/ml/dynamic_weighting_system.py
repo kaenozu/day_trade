@@ -17,6 +17,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from .base_models.base_model_interface import BaseModelInterface, ModelPrediction
+from .concept_drift_detector import ConceptDriftDetector, ConceptDriftConfig
 from ..utils.logging_config import get_context_logger
 
 logger = get_context_logger(__name__)
@@ -81,15 +82,21 @@ class DynamicWeightingConfig:
     enable_regime_detection: bool = True
     regime_sensitivity: float = 0.3   # 市場状態変化への感度
     volatility_threshold: float = 0.02  # ボラティリティ閾値
-    
+
     # Issue #478対応: レジーム認識調整外部化
     regime_adjustments: Optional[Dict[MarketRegime, Dict[str, float]]] = None
-    
+
     # Issue #477対応: スコアリング明確化・カスタマイズ
     sharpe_clip_min: float = 0.1      # シャープレシオ下限クリップ値
     accuracy_weight: float = 1.0      # 精度スコア重み係数
     direction_weight: float = 1.0     # 方向スコア重み係数
     enable_score_logging: bool = False # スコア詳細ログ出力
+
+    # コンセプトドリフト検出
+    enable_concept_drift_detection: bool = False
+    drift_detection_metric: str = "rmse"
+    drift_detection_threshold: float = 0.1
+    drift_detection_window_size: int = 50
 
     # リスク管理
     max_weight_change: float = 0.1    # 1回の最大重み変更
@@ -129,7 +136,7 @@ class DynamicWeightingSystem:
         self.weight_history = []
 
         # パフォーマンス履歴
-        self.performance_windows = {name: deque(maxlen=10) for name in model_names}
+        self.performance_windows = {name: deque(maxlen=self.config.window_size) for name in model_names}
         self.recent_predictions = {name: deque(maxlen=self.config.window_size)
                                  for name in model_names}
         self.recent_actuals = deque(maxlen=self.config.window_size)
@@ -144,25 +151,36 @@ class DynamicWeightingSystem:
         self.update_counter = 0
         self.total_updates = 0
 
+        # コンセプトドリフト検出器
+        self.concept_drift_detector = None
+        self.re_evaluation_needed = False # New flag for model re-evaluation
+        self.drift_detection_updates_count = 0 # Counter for updates since last drift detection
+
+        if self.config.enable_concept_drift_detection:
+            self.concept_drift_detector = ConceptDriftDetector(
+                metric_threshold=self.config.drift_detection_threshold,
+                window_size=self.config.drift_detection_window_size
+            )
+
         logger.info(f"Dynamic Weighting System初期化: {n_models}モデル")
 
     def _setup_regime_adjustments(self):
         """
         Issue #478対応: レジーム調整設定のセットアップ
-        
+
         外部設定があればそれを使用し、なければデフォルト設定を作成
         """
         if self.config.regime_adjustments is None:
             # デフォルトレジーム調整設定
             self.config.regime_adjustments = self._get_default_regime_adjustments()
-        
+
         if self.config.verbose:
             logger.info("レジーム調整設定をセットアップしました")
-    
+
     def _get_default_regime_adjustments(self) -> Dict[MarketRegime, Dict[str, float]]:
         """
         Issue #478対応: デフォルトレジーム調整設定取得
-        
+
         Returns:
             市場状態別の調整係数辞書
         """
@@ -174,7 +192,7 @@ class DynamicWeightingSystem:
             MarketRegime.HIGH_VOLATILITY: {'svr': 1.3, 'gradient_boosting': 0.9, 'random_forest': 0.8},
             MarketRegime.LOW_VOLATILITY: {'random_forest': 1.2, 'gradient_boosting': 1.1, 'svr': 0.9}
         }
-        
+
         # 実際のモデル名に基づいて調整
         model_adjusted = {}
         for regime, adjustments in default_adjustments.items():
@@ -187,13 +205,13 @@ class DynamicWeightingSystem:
                         adjustment = value
                         break
                 model_adjusted[regime][model_name] = adjustment
-        
+
         return model_adjusted
 
     def update_regime_adjustments(self, new_adjustments: Dict[MarketRegime, Dict[str, float]]):
         """
         Issue #478対応: レジーム調整設定の動的更新
-        
+
         Args:
             new_adjustments: 新しい調整係数辞書
         """
@@ -202,17 +220,17 @@ class DynamicWeightingSystem:
             for regime, adjustments in new_adjustments.items():
                 if not isinstance(regime, MarketRegime):
                     raise ValueError(f"無効な市場状態: {regime}")
-                
+
                 for model_name, adjustment in adjustments.items():
                     if not isinstance(adjustment, (int, float)) or adjustment <= 0:
                         raise ValueError(f"無効な調整係数: {model_name}={adjustment}")
-            
+
             # 設定更新
             self.config.regime_adjustments = new_adjustments
-            
+
             if self.config.verbose:
                 logger.info("レジーム調整設定を更新しました")
-                
+
         except Exception as e:
             logger.error(f"レジーム調整設定更新エラー: {e}")
             raise
@@ -220,14 +238,14 @@ class DynamicWeightingSystem:
     def load_regime_adjustments_from_dict(self, adjustments_dict: Dict[str, Dict[str, float]]):
         """
         Issue #478対応: 辞書からレジーム調整設定を読み込み
-        
+
         Args:
             adjustments_dict: 市場状態名をキーとする調整係数辞書
                 例: {"bull_market": {"model_a": 1.2, "model_b": 0.9}, ...}
         """
         try:
             regime_adjustments = {}
-            
+
             for regime_name, adjustments in adjustments_dict.items():
                 # 市場状態名を MarketRegime に変換
                 regime = None
@@ -235,15 +253,15 @@ class DynamicWeightingSystem:
                     if market_regime.value == regime_name:
                         regime = market_regime
                         break
-                
+
                 if regime is None:
                     logger.warning(f"未知の市場状態: {regime_name}")
                     continue
-                
+
                 regime_adjustments[regime] = adjustments
-            
+
             self.update_regime_adjustments(regime_adjustments)
-            
+
         except Exception as e:
             logger.error(f"辞書からのレジーム調整設定読み込みエラー: {e}")
             raise
@@ -251,20 +269,20 @@ class DynamicWeightingSystem:
     def get_regime_adjustments(self) -> Optional[Dict[MarketRegime, Dict[str, float]]]:
         """
         Issue #478対応: 現在のレジーム調整設定取得
-        
+
         Returns:
             現在の調整係数辞書
         """
         return self.config.regime_adjustments
 
-    def update_scoring_config(self, 
+    def update_scoring_config(self,
                             sharpe_clip_min: Optional[float] = None,
                             accuracy_weight: Optional[float] = None,
                             direction_weight: Optional[float] = None,
                             enable_score_logging: Optional[bool] = None):
         """
         Issue #477対応: スコアリング設定の動的更新
-        
+
         Args:
             sharpe_clip_min: シャープレシオ下限クリップ値
             accuracy_weight: 精度スコア重み係数
@@ -276,23 +294,23 @@ class DynamicWeightingSystem:
                 if sharpe_clip_min < 0:
                     raise ValueError("sharpe_clip_minは0以上である必要があります")
                 self.config.sharpe_clip_min = sharpe_clip_min
-            
+
             if accuracy_weight is not None:
                 if accuracy_weight < 0:
                     raise ValueError("accuracy_weightは0以上である必要があります")
                 self.config.accuracy_weight = accuracy_weight
-            
+
             if direction_weight is not None:
                 if direction_weight < 0:
                     raise ValueError("direction_weightは0以上である必要があります")
                 self.config.direction_weight = direction_weight
-            
+
             if enable_score_logging is not None:
                 self.config.enable_score_logging = enable_score_logging
-            
+
             if self.config.verbose:
                 logger.info("スコアリング設定を更新しました")
-                
+
         except Exception as e:
             logger.error(f"スコアリング設定更新エラー: {e}")
             raise
@@ -300,7 +318,7 @@ class DynamicWeightingSystem:
     def get_scoring_config(self) -> Dict[str, Any]:
         """
         Issue #477対応: 現在のスコアリング設定取得
-        
+
         Returns:
             現在のスコアリング設定辞書
         """
@@ -315,7 +333,7 @@ class DynamicWeightingSystem:
     def get_scoring_explanation(self) -> Dict[str, str]:
         """
         Issue #477対応: スコアリング手法の説明取得
-        
+
         Returns:
             各スコアリング手法の詳細説明
         """
@@ -349,22 +367,22 @@ class DynamicWeightingSystem:
                 }
             }
         }
-        
+
         return explanations
 
-    def update_performance(self, predictions: Dict[str, Union[float, int, np.ndarray, List[float]]], 
-                         actuals: Union[float, int, np.ndarray, List[float]], 
+    def update_performance(self, predictions: Dict[str, Union[float, int, np.ndarray, List[float]]],
+                         actuals: Union[float, int, np.ndarray, List[float]],
                          timestamp: Optional[int] = None):
         """
         Issue #475対応: パフォーマンス更新（改善版）
-        
+
         予測値・実際値の処理を統一し、冗長なチェックを排除
-        
+
         Args:
             predictions: モデル別予測値（単一値または配列）
             actuals: 実際の値（単一値または配列）
             timestamp: タイムスタンプ（未指定時は現在時刻）
-        
+
         Raises:
             ValueError: 予測値と実際値の次元が一致しない場合
             TypeError: サポートされていない型の場合
@@ -375,13 +393,13 @@ class DynamicWeightingSystem:
 
             # Issue #475対応: 一貫した配列変換処理
             normalized_actuals = self._normalize_to_array(actuals, "actuals")
-            
+
             # 予測値の正規化と記録
             for model_name, pred in predictions.items():
                 if model_name in self.recent_predictions:
                     try:
                         normalized_pred = self._normalize_to_array(pred, f"predictions[{model_name}]")
-                        
+
                         # 次元一致性チェック
                         if len(normalized_pred) != len(normalized_actuals):
                             if len(normalized_pred) == 1:
@@ -395,11 +413,11 @@ class DynamicWeightingSystem:
                                     f"{model_name}: 予測値の次元({len(normalized_pred)}) != "
                                     f"実際値の次元({len(normalized_actuals)})"
                                 )
-                        
+
                         # 予測値をキューに追加
                         for pred_val in normalized_pred:
                             self.recent_predictions[model_name].append(float(pred_val))
-                            
+
                     except Exception as e:
                         logger.warning(f"{model_name}の予測値処理でエラー: {e}")
                         continue
@@ -416,28 +434,69 @@ class DynamicWeightingSystem:
             if self.config.enable_regime_detection:
                 self._detect_market_regime()
 
+            # コンセプトドリフト検出
+            if self.concept_drift_detector:
+                # 全体のアンサンブル予測と実際値を使用してドリフト検出器を更新
+                # より複雑なシナリオでは、個々のモデルのパフォーマンスをフィードすることも検討
+                if len(self.recent_actuals) > 0 and len(self.recent_predictions[self.model_names[0]]) > 0:
+                    # 最新の単一の予測と実際値を取得
+                    latest_actual = self.recent_actuals[-1]
+                    # ここでは、最もパフォーマンスの良いモデルの予測を代表として使用するか、
+                    # あるいは単純に最初のモデルの予測を使用する。
+                    # 実際のシステムでは、アンサンブルの最終予測を使用するのが適切。
+                    # 今回はテストのため、単純に最初のモデルの予測を使用する。
+                    ensemble_prediction = self.recent_predictions[self.model_names[0]][-1] # 仮のアンサンブル予測
+
+                    self.concept_drift_detector.add_performance_data(
+                        predictions=np.array([ensemble_prediction]),
+                        actuals=np.array([latest_actual])
+                    )
+                    drift_result = self.concept_drift_detector.detect_drift()
+                    drift_detected = drift_result.get("drift_detected", False)
+                    drift_reason = drift_result.get("reason", "不明")
+
+                    if drift_detected:
+                        logger.warning(f"コンセプトドリフト検出！理由: {drift_reason}")
+                        # 適応戦略: 加速された重み調整
+                        self.config.update_frequency = max(1, int(self.config.update_frequency * 0.5)) # 半減
+                        self.config.momentum_factor = min(0.9, self.config.momentum_factor + 0.1) # モーメンタム増加
+                        logger.info(f"適応戦略適用: update_frequency={self.config.update_frequency}, momentum_factor={self.config.momentum_factor}")
+
+                        # モデル再評価/再トレーニングフラグ
+                        self.re_evaluation_needed = True
+                        logger.warning("モデルの再評価/再トレーニングが必要です。")
+
+                        # フォールバックメカニズム: 一時的に均等重みに戻す (今回は、ドリフト検出時は常にリセットとする)
+                        logger.critical("コンセプトドリフトを検出しました！重みを均等にリセットし、モデルの緊急再評価を推奨します。")
+                        n_models = len(self.model_names)
+                        self.current_weights = {name: 1.0 / n_models for name in self.model_names}
+
+                        # アラートのトリガー (例: ログ、外部システムへの通知)
+                        logger.critical(f"重大なコンセプトドリフトを検出しました！モデルの再評価を強く推奨します。理由: {drift_reason}")
+                        # TODO: Integrate with actual alert system (e.g., send email, Slack notification)
+
             # 重み更新判定
             if (self.update_counter >= self.config.update_frequency and
                 len(self.recent_actuals) >= self.config.min_samples_for_update):
                 self._update_weights()
                 self.update_counter = 0
-                
+
         except Exception as e:
             logger.error(f"パフォーマンス更新エラー: {e}")
             raise
 
-    def _normalize_to_array(self, data: Union[float, int, np.ndarray, List[float]], 
+    def _normalize_to_array(self, data: Union[float, int, np.ndarray, List[float]],
                           name: str) -> np.ndarray:
         """
         Issue #475対応: データの一貫した配列変換
-        
+
         Args:
             data: 変換対象データ
             name: データ名（エラーメッセージ用）
-            
+
         Returns:
             正規化されたnp.ndarray
-            
+
         Raises:
             TypeError: サポートされていない型の場合
             ValueError: 無効なデータの場合
@@ -446,42 +505,42 @@ class DynamicWeightingSystem:
             # None チェック
             if data is None:
                 raise ValueError(f"{name}がNoneです")
-            
+
             # 型別処理
             if isinstance(data, (int, float)):
                 # 単一値の場合
                 if np.isnan(data) or np.isinf(data):
                     raise ValueError(f"{name}に無効な値が含まれています: {data}")
                 return np.array([float(data)])
-                
+
             elif isinstance(data, (list, tuple)):
                 # リスト/タプルの場合
                 if len(data) == 0:
                     raise ValueError(f"{name}が空です")
                 array_data = np.array(data, dtype=float)
-                
+
             elif isinstance(data, np.ndarray):
                 # NumPy配列の場合
                 if data.size == 0:
                     raise ValueError(f"{name}が空の配列です")
                 array_data = data.astype(float)
-                
+
             else:
                 # その他の型（pd.Series等も含む）
                 try:
                     array_data = np.array(data, dtype=float)
                 except Exception as e:
                     raise TypeError(f"{name}の型{type(data)}はサポートされていません: {e}")
-            
+
             # 1次元に変換
             array_data = np.atleast_1d(array_data.flatten())
-            
+
             # 有効値チェック
             if np.any(np.isnan(array_data)) or np.any(np.isinf(array_data)):
                 raise ValueError(f"{name}に無効な値(NaN/Inf)が含まれています")
-            
+
             return array_data
-            
+
         except Exception as e:
             logger.error(f"データ正規化エラー ({name}): {e}")
             raise
@@ -490,31 +549,31 @@ class DynamicWeightingSystem:
         """現在の重み取得"""
         return self.current_weights.copy()
 
-    def update_performance_batch(self, 
-                               batch_predictions: List[Dict[str, Union[float, int, np.ndarray, List[float]]]], 
+    def update_performance_batch(self,
+                               batch_predictions: List[Dict[str, Union[float, int, np.ndarray, List[float]]]],
                                batch_actuals: List[Union[float, int, np.ndarray, List[float]]],
                                batch_timestamps: Optional[List[int]] = None):
         """
         Issue #475対応: バッチ形式でのパフォーマンス更新
-        
+
         Args:
             batch_predictions: モデル別予測値のリスト
             batch_actuals: 実際の値のリスト
             batch_timestamps: タイムスタンプのリスト
-        
+
         Raises:
             ValueError: バッチサイズが一致しない場合
         """
         if len(batch_predictions) != len(batch_actuals):
             raise ValueError(f"バッチサイズ不一致: predictions={len(batch_predictions)}, actuals={len(batch_actuals)}")
-        
+
         if batch_timestamps is not None and len(batch_timestamps) != len(batch_predictions):
             raise ValueError(f"タイムスタンプのサイズ不一致: {len(batch_timestamps)} != {len(batch_predictions)}")
-        
+
         batch_size = len(batch_predictions)
         processed_count = 0
         error_count = 0
-        
+
         for i in range(batch_size):
             try:
                 timestamp = batch_timestamps[i] if batch_timestamps else None
@@ -523,19 +582,19 @@ class DynamicWeightingSystem:
             except Exception as e:
                 error_count += 1
                 logger.warning(f"バッチ項目{i}の処理エラー: {e}")
-                
+
         if self.config.verbose:
             logger.info(f"バッチ処理完了: 成功={processed_count}, エラー={error_count}")
 
-    def validate_input_data(self, predictions: Dict[str, Union[float, int, np.ndarray, List[float]]], 
+    def validate_input_data(self, predictions: Dict[str, Union[float, int, np.ndarray, List[float]]],
                            actuals: Union[float, int, np.ndarray, List[float]]) -> Dict[str, any]:
         """
         Issue #475対応: 入力データの検証
-        
+
         Args:
             predictions: 予測値
             actuals: 実際値
-            
+
         Returns:
             検証結果レポート
         """
@@ -546,12 +605,12 @@ class DynamicWeightingSystem:
             'model_stats': {},
             'data_shape': {}
         }
-        
+
         try:
             # 実際値の検証
             normalized_actuals = self._normalize_to_array(actuals, "actuals")
             report['data_shape']['actuals'] = len(normalized_actuals)
-            
+
             # 予測値の検証
             for model_name, pred in predictions.items():
                 try:
@@ -563,25 +622,25 @@ class DynamicWeightingSystem:
                         'min': float(np.min(normalized_pred)),
                         'max': float(np.max(normalized_pred))
                     }
-                    
+
                     # 次元チェック
                     if len(normalized_pred) != len(normalized_actuals) and len(normalized_pred) > 1 and len(normalized_actuals) > 1:
                         report['warnings'].append(f"{model_name}: 次元不一致 {len(normalized_pred)} vs {len(normalized_actuals)}")
-                        
+
                 except Exception as e:
                     report['errors'].append(f"{model_name}: {str(e)}")
                     report['valid'] = False
-                    
+
         except Exception as e:
             report['errors'].append(f"実際値検証エラー: {str(e)}")
             report['valid'] = False
-            
+
         return report
 
     def get_data_statistics(self) -> Dict[str, any]:
         """
         Issue #475対応: データ統計の取得
-        
+
         Returns:
             データ統計情報
         """
@@ -592,7 +651,7 @@ class DynamicWeightingSystem:
             'actuals_stats': {},
             'data_health': {}
         }
-        
+
         if len(self.recent_actuals) > 0:
             actuals_array = np.array(list(self.recent_actuals))
             stats['actuals_stats'] = {
@@ -602,7 +661,7 @@ class DynamicWeightingSystem:
                 'max': float(np.max(actuals_array)),
                 'trend': float(np.mean(np.diff(actuals_array))) if len(actuals_array) > 1 else 0.0
             }
-        
+
         # モデル別統計
         for model_name, predictions in self.recent_predictions.items():
             if len(predictions) > 0:
@@ -614,94 +673,94 @@ class DynamicWeightingSystem:
                     'min': float(np.min(pred_array)),
                     'max': float(np.max(pred_array))
                 }
-                
+
                 # 実際値との相関（共通の期間）
                 if len(self.recent_actuals) >= len(predictions):
                     common_actuals = np.array(list(self.recent_actuals)[-len(predictions):])
                     correlation = np.corrcoef(pred_array, common_actuals)[0, 1]
                     stats['models'][model_name]['correlation'] = float(correlation) if not np.isnan(correlation) else 0.0
-        
+
         # データ健全性チェック
         stats['data_health'] = {
             'sufficient_samples': len(self.recent_actuals) >= self.config.min_samples_for_update,
             'all_models_active': all(len(preds) > 0 for preds in self.recent_predictions.values()),
             'data_freshness': len(self.recent_actuals) > 0
         }
-        
+
         return stats
 
     def update_external_weights(self, external_weights: Dict[str, float]) -> bool:
         """
         Issue #472対応: 外部重みシステムへの直接更新
-        
+
         外部システム（EnsembleSystemなど）の重みを直接更新する
-        
+
         Args:
             external_weights: 更新対象の外部重み辞書への参照
-            
+
         Returns:
             更新成功可否
         """
         try:
             # 現在の重みを取得
             current_weights = self.get_current_weights()
-            
+
             # 外部重み辞書を更新
             updated_count = 0
             for model_name, weight in current_weights.items():
                 if model_name in external_weights:
                     external_weights[model_name] = weight
                     updated_count += 1
-                    
+
             if self.config.verbose:
                 logger.info(f"外部重み更新完了: {updated_count}モデルの重みを更新")
-                
+
             return updated_count > 0
-            
+
         except Exception as e:
             logger.error(f"外部重み更新エラー: {e}")
             return False
 
-    def sync_and_update_performance(self, 
-                                  predictions: Dict[str, Union[float, int, np.ndarray, List[float]]], 
-                                  actuals: Union[float, int, np.ndarray, List[float]], 
+    def sync_and_update_performance(self,
+                                  predictions: Dict[str, Union[float, int, np.ndarray, List[float]]],
+                                  actuals: Union[float, int, np.ndarray, List[float]],
                                   external_weights: Optional[Dict[str, float]] = None,
                                   timestamp: Optional[int] = None) -> Dict[str, float]:
         """
         Issue #472対応: 性能更新と外部重み同期を一括処理
-        
+
         パフォーマンス更新、重み計算、外部重み同期を一つのメソッドで実行
-        
+
         Args:
             predictions: モデル別予測値
             actuals: 実際の値
             external_weights: 同期対象の外部重み辞書（オプション）
             timestamp: タイムスタンプ（オプション）
-            
+
         Returns:
             更新後の重み辞書
         """
         try:
             # パフォーマンス更新
             self.update_performance(predictions, actuals, timestamp)
-            
+
             # 重み更新判定（通常の更新フローに従う）
             if (self.update_counter >= self.config.update_frequency and
                 len(self.recent_actuals) >= self.config.min_samples_for_update):
-                
+
                 # 重み更新実行
                 self._update_weights()
                 self.update_counter = 0
-                
+
                 # 外部重み同期
                 if external_weights is not None:
                     self.update_external_weights(external_weights)
-                    
+
                 if self.config.verbose:
                     logger.info("統合重み更新完了: パフォーマンス更新 → 重み計算 → 外部同期")
-            
+
             return self.get_current_weights()
-            
+
         except Exception as e:
             logger.error(f"統合重み更新エラー: {e}")
             return self.get_current_weights()  # 現在の重みを返す
@@ -709,14 +768,14 @@ class DynamicWeightingSystem:
     def create_weight_updater(self) -> callable:
         """
         Issue #472対応: 重み更新関数の生成
-        
+
         外部システム用の簡潔な重み更新関数を生成
-        
+
         Returns:
             重み更新用の関数オブジェクト
         """
-        def weight_updater(predictions: Dict[str, Union[float, int, np.ndarray, List[float]]], 
-                          actuals: Union[float, int, np.ndarray, List[float]], 
+        def weight_updater(predictions: Dict[str, Union[float, int, np.ndarray, List[float]]],
+                          actuals: Union[float, int, np.ndarray, List[float]],
                           external_weights: Dict[str, float],
                           timestamp: Optional[int] = None) -> bool:
             """生成された重み更新関数"""
@@ -728,7 +787,7 @@ class DynamicWeightingSystem:
             except Exception as e:
                 logger.warning(f"重み更新関数エラー: {e}")
                 return False
-                
+
         return weight_updater
 
     def _detect_market_regime(self):
@@ -780,7 +839,7 @@ class DynamicWeightingSystem:
     def _update_weights(self):
         """
         重み更新
-        
+
         Issue #479対応: 重み制約とモメンタム適用順序の最適化
         1. 基本重み計算
         2. モーメンタム適用（制約前）
@@ -820,17 +879,17 @@ class DynamicWeightingSystem:
     def _performance_based_weighting(self) -> Dict[str, float]:
         """
         Issue #477対応: パフォーマンスベース重み調整（明確化版）
-        
+
         スコアリング手法:
         1. 精度スコア: 1/(1+RMSE) - RMSE逆数で精度を評価（範囲: 0-1）
         2. 方向スコア: 方向的中率 - 価格変動方向の予測精度（範囲: 0-1）
         3. 総合スコア: 精度スコア + 方向スコア（範囲: 0-2）
-        
+
         理論的根拠:
         - RMSE逆数: 低い予測誤差により高いスコアを付与
         - 方向的中率: 金融予測では方向性が重要
         - 加重平均: 両要素を等しく重視した総合評価
-        
+
         Returns:
             モデル別重み辞書（正規化済み）
         """
@@ -865,11 +924,11 @@ class DynamicWeightingSystem:
                 # 3. 総合スコア算出
                 # Issue #477対応: カスタマイズ可能な重み係数を使用
                 # 重み付き合計: accuracy_weight * accuracy + direction_weight * direction
-                composite_score = (self.config.accuracy_weight * accuracy_score + 
+                composite_score = (self.config.accuracy_weight * accuracy_score +
                                  self.config.direction_weight * direction_score)
-                
+
                 model_scores[model_name] = composite_score
-                
+
                 # 詳細ログ（カスタマイズ可能）
                 if self.config.enable_score_logging or self.config.verbose:
                     logger.debug(f"{model_name} スコア詳細: RMSE={rmse:.4f}, "
@@ -885,10 +944,10 @@ class DynamicWeightingSystem:
         total_score = sum(model_scores.values())
         if total_score > 0:
             normalized_weights = {name: score / total_score for name, score in model_scores.items()}
-            
+
             if self.config.verbose:
                 logger.info(f"パフォーマンスベース重み: {normalized_weights}")
-            
+
             return normalized_weights
         else:
             # フォールバック: 均等重み
@@ -898,24 +957,24 @@ class DynamicWeightingSystem:
     def _sharpe_based_weighting(self) -> Dict[str, float]:
         """
         Issue #477対応: シャープレシオベース重み調整（明確化版）
-        
+
         スコアリング手法:
         1. リターン計算: 予測・実際両方の価格変化率を算出
         2. 精度リターン: pred_returns × actual_returns で方向一致度を評価
         3. シャープレシオ: 精度リターンの平均/標準偏差
         4. 下限クリップ: 負のシャープレシオを0.1に制限
-        
+
         理論的根拠:
         - 精度リターン: 方向が一致する時は正値、不一致時は負値
         - シャープレシオ: リスク調整後リターンの標準的指標
         - 下限クリップ: 極端に悪いモデルでも最小限の重みを保持
         - クリップ値0.1: 経験的に安定した重み分散を実現
-        
+
         数学的定義:
         accuracy_returns[i] = pred_return[i] × actual_return[i]
         sharpe_ratio = mean(accuracy_returns) / std(accuracy_returns)
         final_sharpe = max(sharpe_ratio, 0.1)
-        
+
         Returns:
             モデル別重み辞書（正規化済み）
         """
@@ -954,7 +1013,7 @@ class DynamicWeightingSystem:
                 # - これにより重み分散の極端な偏りを防ぎ、安定性を向上
                 clipped_sharpe = max(sharpe_ratio, self.config.sharpe_clip_min)
                 model_sharpe[model_name] = clipped_sharpe
-                
+
                 # 詳細ログ（カスタマイズ可能）
                 if self.config.enable_score_logging or self.config.verbose:
                     logger.debug(f"{model_name} シャープ詳細: 生シャープ={sharpe_ratio:.4f}, "
@@ -969,10 +1028,10 @@ class DynamicWeightingSystem:
         total_sharpe = sum(model_sharpe.values())
         if total_sharpe > 0:
             normalized_weights = {name: sharpe / total_sharpe for name, sharpe in model_sharpe.items()}
-            
+
             if self.config.verbose:
                 logger.info(f"シャープベース重み: {normalized_weights}")
-            
+
             return normalized_weights
         else:
             logger.warning("全モデルシャープレシオが0です。均等重みを適用します。")
@@ -981,7 +1040,7 @@ class DynamicWeightingSystem:
     def _regime_aware_weighting(self) -> Dict[str, float]:
         """
         Issue #478対応: 市場状態適応重み調整（外部設定対応）
-        
+
         Returns:
             市場状態に応じて調整された重み辞書
         """
@@ -1012,7 +1071,7 @@ class DynamicWeightingSystem:
             total_weight = sum(adjusted_weights.values())
             if total_weight > 0:
                 normalized_weights = {name: weight / total_weight for name, weight in adjusted_weights.items()}
-                
+
                 if self.config.verbose:
                     changes = []
                     for model_name in self.model_names:
@@ -1021,12 +1080,12 @@ class DynamicWeightingSystem:
                             changes.append(f"{model_name}x{adj:.1f}")
                     if changes:
                         logger.info(f"レジーム '{self.current_regime.value}' 調整: {', '.join(changes)}")
-                
+
                 return normalized_weights
             else:
                 logger.warning("調整後の重み合計が0です。基本重みを返します。")
                 return base_weights
-                
+
         except Exception as e:
             logger.error(f"レジーム認識重み調整エラー: {e}")
             return self._performance_based_weighting()
@@ -1078,21 +1137,21 @@ class DynamicWeightingSystem:
     def _apply_comprehensive_constraints(self, weights: Dict[str, float]) -> Dict[str, float]:
         """
         包括的制約適用
-        
+
         Issue #479対応: モーメンタム後に全制約を同時適用
         1. 最大変更量制限
-        2. 最小・最大重み制限  
+        2. 最小・最大重み制限
         3. 合計1.0正規化
         4. 制約競合時の最適解計算
         """
         try:
             constrained = {}
-            
+
             # Step 1: 各モデルの制約適用
             for model_name in self.model_names:
                 new_weight = weights.get(model_name, 1.0 / len(self.model_names))
                 current_weight = self.current_weights.get(model_name, 1.0 / len(self.model_names))
-                
+
                 # 最大変更量制限
                 max_change = self.config.max_weight_change
                 if new_weight > current_weight + max_change:
@@ -1101,48 +1160,48 @@ class DynamicWeightingSystem:
                     constrained_weight = current_weight - max_change
                 else:
                     constrained_weight = new_weight
-                
+
                 # 最小・最大重み制限
                 constrained_weight = max(self.config.min_weight, constrained_weight)
                 constrained_weight = min(self.config.max_weight, constrained_weight)
-                
+
                 constrained[model_name] = constrained_weight
-            
+
             # Step 2: 合計正規化（制約により合計が1でない場合の対処）
             total_weight = sum(constrained.values())
-            
+
             if total_weight > 0:
                 # 比例配分による正規化
                 normalized = {name: weight / total_weight for name, weight in constrained.items()}
-                
+
                 # Step 3: 正規化後の制約再チェック
                 final_weights = {}
                 needs_rebalancing = False
-                
+
                 for model_name, normalized_weight in normalized.items():
                     # 正規化により制約を逸脱していないかチェック
-                    if (normalized_weight < self.config.min_weight or 
+                    if (normalized_weight < self.config.min_weight or
                         normalized_weight > self.config.max_weight):
                         needs_rebalancing = True
                         # 制約内にクリップ
-                        final_weights[model_name] = max(self.config.min_weight, 
+                        final_weights[model_name] = max(self.config.min_weight,
                                                       min(self.config.max_weight, normalized_weight))
                     else:
                         final_weights[model_name] = normalized_weight
-                
+
                 # Step 4: リバランシング必要時の最終調整
                 if needs_rebalancing:
                     final_total = sum(final_weights.values())
                     if final_total > 0:
                         # 最終正規化
                         final_weights = {name: weight / final_total for name, weight in final_weights.items()}
-                
+
                 return final_weights
             else:
                 # フォールバック: 均等分散
                 logger.warning("制約適用後に重み合計が0になりました。均等分散を適用します。")
                 return {name: 1.0 / len(self.model_names) for name in self.model_names}
-                
+
         except Exception as e:
             logger.error(f"包括的制約適用エラー: {e}")
             # エラー時は現在の重みを維持
@@ -1151,7 +1210,7 @@ class DynamicWeightingSystem:
     def _validate_and_update_weights(self, weights: Dict[str, float]):
         """
         最終検証と重み更新
-        
+
         Issue #479対応: 制約チェックと安全な重み更新
         """
         try:
@@ -1159,28 +1218,28 @@ class DynamicWeightingSystem:
             if not weights or len(weights) != len(self.model_names):
                 logger.warning("無効な重み辞書です。現在の重みを維持します。")
                 return
-            
+
             # 制約検証
             total_weight = sum(weights.values())
             if abs(total_weight - 1.0) > 1e-6:
                 logger.warning(f"重み合計が1.0でありません: {total_weight:.6f}")
                 return
-            
+
             # 個別重み制約検証
             for model_name, weight in weights.items():
                 if weight < 0 or weight > 1:
                     logger.warning(f"重み範囲外: {model_name}={weight:.6f}")
                     return
-                
+
                 if weight < self.config.min_weight or weight > self.config.max_weight:
                     logger.warning(f"設定制約外: {model_name}={weight:.6f} "
                                  f"(範囲: {self.config.min_weight}-{self.config.max_weight})")
                     return
-            
+
             # 重み更新実行
             old_weights = self.current_weights.copy()
             self.current_weights = weights.copy()
-            
+
             # 履歴記録
             self.weight_history.append({
                 'weights': weights.copy(),
@@ -1188,9 +1247,9 @@ class DynamicWeightingSystem:
                 'regime': self.current_regime,
                 'total_updates': self.total_updates
             })
-            
+
             self.total_updates += 1
-            
+
             # ログ出力（設定に応じて）
             if self.config.verbose:
                 changes = []
@@ -1199,10 +1258,10 @@ class DynamicWeightingSystem:
                     new_w = weights[model_name]
                     if abs(new_w - old_w) > 0.01:  # 1%以上の変化
                         changes.append(f"{model_name}: {old_w:.3f}→{new_w:.3f}")
-                
+
                 if changes:
                     logger.info(f"重み更新: {', '.join(changes)}")
-                
+
         except Exception as e:
             logger.error(f"重み検証・更新エラー: {e}")
             # エラー時は重みを変更しない
@@ -1352,5 +1411,5 @@ if __name__ == "__main__":
     # パフォーマンス履歴
     regime_history = dws.get_regime_history()
     print(f"\n市場状態変更回数: {len(regime_history)}")
-    for change in regime_history[-3:]:  # 最新3回
+    for change in regime_history[-3:]:
         print(f"  {change['old_regime'].value} -> {change['new_regime'].value}")

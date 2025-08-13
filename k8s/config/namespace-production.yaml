@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-production
+  labels:
+    name: trading-production
+    environment: production
+    app: day-trade-system
+---
+...
