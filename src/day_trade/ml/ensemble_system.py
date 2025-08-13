@@ -992,49 +992,67 @@ class EnsembleSystem:
         return predictions
 
 
+def run_ensemble_demo():
+    """
+    Issue #471対応: EnsembleSystem簡易デモ実行
+
+    包括的テストは tests/ml/test_ensemble_system_comprehensive.py で実行
+    """
+    print("=== Ensemble System 簡易デモ ===")
+    print("詳細なテストは tests/ml/test_ensemble_system_comprehensive.py を実行してください")
+
+    try:
+        # 最小限のテストデータ生成
+        np.random.seed(42)
+        n_samples, n_features = 100, 10  # サイズを縮小
+        X = np.random.randn(n_samples, n_features)
+        y = np.sum(X[:, :3], axis=1) + 0.1 * np.random.randn(n_samples)
+
+        # 簡単なアンサンブル設定
+        config = EnsembleConfig(
+            use_random_forest=True,
+            use_gradient_boosting=False,  # デモでは無効化
+            use_svr=False,
+            use_lstm_transformer=False,
+            enable_stacking=False,
+            enable_dynamic_weighting=False,
+        )
+
+        ensemble = EnsembleSystem(config)
+
+        print(f"✅ EnsembleSystem初期化成功")
+        print(f"   - 使用モデル数: {len(ensemble.base_models)}")
+        print(f"   - 設定: {config}")
+
+        # 最小限の学習テスト
+        feature_names = [f"feature_{i}" for i in range(n_features)]
+
+        print("📊 簡易学習テスト実行中...")
+        results = ensemble.fit(X[:50], y[:50], feature_names=feature_names)
+
+        print(f"✅ 学習完了")
+        print(f"   - 学習時間: {results.get('total_training_time', 'N/A')}")
+        print(f"   - 学習済みモデル: {len([k for k, v in results.items() if isinstance(v, dict) and v.get('status') != '失敗'])}")
+
+        # 最小限の予測テスト
+        prediction = ensemble.predict(X[50:60])
+
+        print(f"✅ 予測完了")
+        print(f"   - 予測サンプル数: {len(prediction.final_predictions)}")
+        print(f"   - 使用手法: {prediction.method_used}")
+
+        print("\n🎯 デモ完了: EnsembleSystemが正常に動作しています")
+        print("   詳細なテストとカバレッジは以下で実行:")
+        print("   python -m pytest tests/ml/test_ensemble_system_comprehensive.py -v")
+
+        return True
+
+    except Exception as e:
+        print(f"❌ デモ実行エラー: {e}")
+        print("   詳細なエラー解析は包括的テストで確認してください")
+        return False
+
+
 if __name__ == "__main__":
-    # テスト実行
-    print("=== Ensemble System テスト ===")
-
-    # テストデータ生成
-    np.random.seed(42)
-    n_samples, n_features = 1000, 30
-    X = np.random.randn(n_samples, n_features)
-    y = np.sum(X[:, :5], axis=1) + np.sum(X[:, 5:10]**2, axis=1) + 0.2 * np.random.randn(n_samples)
-
-    # 訓練・検証データ分割
-    split_idx = int(0.8 * n_samples)
-    X_train, X_val = X[:split_idx], X[split_idx:]
-    y_train, y_val = y[:split_idx], y[split_idx:]
-
-    # アンサンブルシステム初期化
-    config = EnsembleConfig(
-        use_lstm_transformer=False,  # テスト用に無効化
-        enable_dynamic_weighting=True
-    )
-    ensemble = EnsembleSystem(config)
-
-    # 特徴量名
-    feature_names = [f"feature_{i}" for i in range(n_features)]
-
-    # 学習
-    print("アンサンブル学習開始...")
-    results = ensemble.fit(X_train, y_train,
-                          validation_data=(X_val, y_val),
-                          feature_names=feature_names)
-
-    print(f"学習完了: {results['total_training_time']:.2f}秒")
-    print(f"最終重み: {results['final_weights']}")
-
-    # 予測
-    ensemble_pred = ensemble.predict(X_val, method=EnsembleMethod.WEIGHTED)
-    print(f"アンサンブル予測完了: {len(ensemble_pred.final_predictions)} サンプル")
-
-    # 性能比較
-    performance_df = ensemble.get_model_performance_comparison(X_val, y_val)
-    print("\n=== モデル性能比較 ===")
-    print(performance_df)
-
-    # システム情報
-    info = ensemble.get_ensemble_info()
-    print(f"\nアンサンブル情報: {info}")
+    success = run_ensemble_demo()
+    exit(0 if success else 1)
