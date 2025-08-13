@@ -413,23 +413,11 @@ class OptimizationStrategyFactory:
         # 対象レベルの戦略を取得
         strategy_class = component_strategies.get(target_level)
 
-        # フォールバック処理
+        # フォールバック処理 - Issue #640対応
         if strategy_class is None and config.auto_fallback:
-            # 利用可能な戦略から選択（優先順位: OPTIMIZED -> STANDARD -> その他）
-            fallback_order = [OptimizationLevel.OPTIMIZED, OptimizationLevel.STANDARD]
-            for fallback_level in fallback_order:
-                if fallback_level in component_strategies:
-                    strategy_class = component_strategies[fallback_level]
-                    logger.warning(
-                        f"戦略フォールバック: {component_name} "
-                        f"{target_level.value} -> {fallback_level.value}"
-                    )
-                    break
-
-            # フォールバックでも見つからない場合、利用可能な最初の戦略を使用
-            if strategy_class is None and component_strategies:
-                strategy_class = list(component_strategies.values())[0]
-                logger.warning(f"最終フォールバック戦略使用: {component_name}")
+            strategy_class, fallback_level = cls._find_fallback_strategy(
+                component_strategies, target_level, component_name
+            )
 
         if strategy_class is None:
             raise ValueError(
@@ -437,6 +425,70 @@ class OptimizationStrategyFactory:
             )
 
         return strategy_class(config)
+
+    @classmethod
+    def _find_fallback_strategy(
+        cls,
+        component_strategies: Dict[OptimizationLevel, Type[OptimizationStrategy]],
+        target_level: OptimizationLevel,
+        component_name: str,
+    ) -> tuple:
+        """
+        フォールバック戦略の検索 - Issue #640対応
+
+        Args:
+            component_strategies: 利用可能な戦略マップ
+            target_level: 目標最適化レベル
+            component_name: コンポーネント名
+
+        Returns:
+            (戦略クラス, 使用されたレベル) のタプル
+            見つからない場合は (None, None)
+        """
+        # 明確で予測可能なフォールバック順序を定義
+        fallback_hierarchy = [
+            OptimizationLevel.OPTIMIZED,  # 最優先: パフォーマンス重視
+            OptimizationLevel.STANDARD,   # 次善: 安定性重視
+            OptimizationLevel.DEBUG,      # 開発・デバッグ用
+            OptimizationLevel.ADAPTIVE,   # 適応的（通常は最初で解決）
+            OptimizationLevel.GPU_ACCELERATED,  # 特殊用途
+        ]
+
+        # 目標レベルを階層から除外（既に試行済みのため）
+        available_fallbacks = [level for level in fallback_hierarchy if level != target_level]
+
+        # 階層順にフォールバック戦略を検索
+        for fallback_level in available_fallbacks:
+            if fallback_level in component_strategies:
+                strategy_class = component_strategies[fallback_level]
+                logger.warning(
+                    f"戦略フォールバック: {component_name} "
+                    f"{target_level.value} -> {fallback_level.value} "
+                    f"(優先順位に基づく選択)"
+                )
+                return strategy_class, fallback_level
+
+        # 階層に存在しない戦略レベルがある場合の処理
+        # (将来的な拡張や非標準レベル対応)
+        remaining_strategies = [
+            (level, strategy) for level, strategy in component_strategies.items()
+            if level not in fallback_hierarchy and level != target_level
+        ]
+
+        if remaining_strategies:
+            # レベル名でソートして予測可能な選択を実現
+            remaining_strategies.sort(key=lambda x: x[0].value)
+            fallback_level, strategy_class = remaining_strategies[0]
+            logger.warning(
+                f"非標準戦略フォールバック: {component_name} "
+                f"{target_level.value} -> {fallback_level.value} "
+                f"(レベル名ソート順による選択)"
+            )
+            return strategy_class, fallback_level
+
+        # フォールバック戦略が見つからない
+        logger.error(f"フォールバック戦略が見つかりません: {component_name}")
+        return None, None
 
     @classmethod
     def _select_adaptive_level(
